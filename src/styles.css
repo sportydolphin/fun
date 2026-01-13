@@ -47,4 +47,17 @@ h1 { margin: 0 0 8px 0; }
 .weight-game .msg { margin-top:12px; color:#334155; font-weight:600 }
 .weight-game .hint { color:#64748b }
 
+.choice { transition: transform 180ms, box-shadow 220ms }
+.choice.wrong { animation: shake 420ms; transform: translateY(-2px) }
+.explain { margin-top:10px; color:#475569; font-style:italic }
+
+@keyframes shake {
+  0% { transform: translateX(0) }
+  25% { transform: translateX(-6px) }
+  50% { transform: translateX(6px) }
+  75% { transform: translateX(-4px) }
+  100% { transform: translateX(0) }
+}
+
+
 
