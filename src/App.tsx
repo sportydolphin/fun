@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import CupsGame from '../projects/cups-game/src/CupsGame'
 import Stopwatch from './Stopwatch'
 import Newsletter from './Newsletter'
+import WeightGame from './WeightGame'
 
 type Route = '/' | '/cups' | '/stopwatch'
 
@@ -11,7 +12,7 @@ function navigate(to: string) {
 }
 
 export default function App() {
-  const [path, setPath] = useState<Route>(window.location.pathname as Route)
+  const [path, setPath] = useState<Route | string>(window.location.pathname as Route)
 
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname as Route)
@@ -26,6 +27,7 @@ export default function App() {
       <div className="projects" role="list">
         <button className="project-btn" onClick={() => navigate('/cups')}>Cups Compare</button>
         <button className="project-btn" onClick={() => navigate('/stopwatch')}>Stopwatch (stop at 5s)</button>
+        <button className="project-btn" onClick={() => navigate('/weights')}>Weights (trick)</button>
       </div>
     </div>
   ), [])
@@ -46,6 +48,12 @@ export default function App() {
         <div>
           <button onClick={() => navigate('/')} style={{ marginBottom: 12 }}>← Back</button>
           <Stopwatch />
+        </div>
+      )}
+      {path === '/weights' && (
+        <div>
+          <button onClick={() => navigate('/')} style={{ marginBottom: 12 }}>← Back</button>
+          <WeightGame />
         </div>
       )}
     </div>

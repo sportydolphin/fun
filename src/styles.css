@@ -37,3 +37,14 @@ h1 { margin: 0 0 8px 0; }
   .newsletter-graphic { align-self:center }
 }
 
+/* WeightGame styles */
+.weight-game { padding:18px; background:linear-gradient(180deg,#fff,#fbfdff); border-radius:10px; box-shadow:0 8px 24px rgba(2,6,23,0.06) }
+.weight-game .pair-row { display:flex; gap:18px; margin-top:14px; justify-content:center }
+.choice { flex:1; padding:18px; border-radius:12px; border:2px solid #e2e8f0; background:linear-gradient(180deg,#fff,#f7fbff); cursor:pointer; font-weight:700; display:flex; align-items:center; justify-content:space-between }
+.choice .choice-inner { text-align:left }
+.choice .kbd { background:#f1f5f9; padding:6px 8px; border-radius:8px; font-weight:700; color:#0f172a }
+.choice.wrong { box-shadow:0 0 0 6px rgba(239,68,68,0.06) }
+.weight-game .msg { margin-top:12px; color:#334155; font-weight:600 }
+.weight-game .hint { color:#64748b }
+
+
