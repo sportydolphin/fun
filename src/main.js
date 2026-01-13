@@ -3,10 +3,8 @@ import './styles.css'
 const app = document.getElementById('app')
 
 const projects = [
-  { name: 'Game 1', path: '/projects/game1/' },
-  { name: 'Game 2', path: '/projects/game2/' },
-  { name: 'Canvas Demo', path: '/projects/canvas-demo/' },
-  { name: 'Cups Compare', path: '/projects/cups-game/' }
+  { name: 'Cups Compare', path: '/projects/cups-game/' },
+  { name: 'Stopwatch (stop at 5s)', path: '/projects/stopwatch/' }
 ]
 
 function createButton(p) {
