@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
+import '../styles.css'
 
 type Cup = { width: number; height: number; fill: number; water: number }
 
