@@ -8,3 +8,16 @@ body {
 a { color: #0066cc; }
 
 h1 { margin: 0 0 8px 0; }
+
+.projects { margin-top: 12px; display: flex; gap: 12px; flex-wrap: wrap; }
+.project-btn {
+  background: linear-gradient(180deg,#fff,#f1f5f9);
+  border: 1px solid #cbd5e1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.project-btn:focus { outline: 3px solid rgba(3,102,214,0.2); }
+.project-btn:hover { transform: translateY(-2px); }
+

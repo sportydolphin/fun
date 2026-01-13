@@ -1,0 +1,25 @@
+body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; margin:20px; background: linear-gradient(180deg,#f6fbff,#f8fafc); color:#0f172a }
+h1 { margin: 0 0 6px 0 }
+#status { margin: 8px 0 }
+.game { display:flex; gap:32px; align-items:end; margin-top:18px }
+.cup-slot { width: 260px; display:flex; align-items:center; justify-content:center }
+.cup-card { border:1px solid rgba(2,6,23,0.08); border-radius:10px; padding:10px; cursor:pointer; background:linear-gradient(180deg,#ffffff,#fbfdff); box-shadow: 0 6px 20px rgba(2,6,23,0.06); transition:transform 160ms }
+.cup-card:hover { transform: translateY(-6px) }
+
+/* Cup visual: open top (no top border) with a rim */
+.cup { position:relative; border-left:3px solid #222; border-right:3px solid #222; border-bottom:3px solid #222; border-top: none; border-radius:0 0 10px 10px; overflow:visible; background:transparent; display:block }
+.cup::before { /* rim */
+	content:''; position:absolute; left:-6px; right:-6px; top:-8px; height:12px; border-radius:8px 8px 0 0; background:linear-gradient(180deg,#f7f9fb,#eef6ff); border:3px solid #222; border-bottom: none; box-shadow: 0 2px 4px rgba(2,6,23,0.06); transform:translateY(-2px);
+}
+.cup .water { position:absolute; left:0; bottom:0; width:100%; background:linear-gradient(180deg,#5ec0ff,#0b61ff); transition:height 300ms; border-radius:0 0 8px 8px }
+.cup .water::after { content:''; position:absolute; left:6%; right:6%; top:-8px; height:12px; border-radius:50%; background:rgba(255,255,255,0.25); filter: blur(1px) }
+
+.label { margin-top:10px; text-align:center; font-size:13px; color:#374151 }
+.correct { box-shadow: 0 0 0 6px rgba(16,185,129,0.08) }
+.wrong { box-shadow: 0 0 0 6px rgba(239,68,68,0.08) }
+#message { margin-top:12px; min-height:1.2em; color:#334155 }
+
+.disabled { opacity:0.6 }
+
+button { padding:8px 12px; border-radius:8px; border:1px solid rgba(2,6,23,0.08); background:linear-gradient(180deg,#fff,#f3f7ff); cursor:pointer }
+
