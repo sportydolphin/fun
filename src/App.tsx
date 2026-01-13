@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import CupsGame from '../projects/cups-game/src/CupsGame'
 import Stopwatch from './Stopwatch'
+import Newsletter from './Newsletter'
 
 type Route = '/' | '/cups' | '/stopwatch'
 
@@ -32,6 +33,9 @@ export default function App() {
   return (
     <div style={{ padding: 20 }}>
       {path === '/' && <Home />}
+      <div style={{ marginTop: 28 }}>
+        <Newsletter />
+      </div>
       {path === '/cups' && (
         <div>
           <button onClick={() => navigate('/')} style={{ marginBottom: 12 }}>← Back</button>
