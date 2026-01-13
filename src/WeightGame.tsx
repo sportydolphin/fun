@@ -39,7 +39,12 @@ export default function WeightGame() {
   const [pair, setPair] = useState<string[]>(makePair(0))
   const [msg, setMsg] = useState('Choose which is heavier')
   const [isAnimating, setIsAnimating] = useState(false)
-  const [total, setTotal] = useState(0)
+  const [total, setTotal] = useState(() => {
+    try {
+      const v = localStorage.getItem('weights_total')
+      return v ? parseInt(v, 10) : 0
+    } catch (e) { return 0 }
+  })
   const [correct, setCorrect] = useState(0) // will stay 0 in this trick game
   const [explain, setExplain] = useState<string | null>(null)
 
@@ -67,7 +72,11 @@ export default function WeightGame() {
   const handleChoice = (side: 0 | 1) => {
     if (isAnimating) return
     setIsAnimating(true)
-    setTotal(t => t + 1)
+    setTotal(t => {
+      const next = t + 1
+      try { localStorage.setItem('weights_total', String(next)) } catch (e) {}
+      return next
+    })
     // always incorrect for fun
     setMsg("Incorrect — they weigh the same!")
     // brief animation then progress

@@ -2,6 +2,16 @@ const display = document.getElementById('display')
 const startStop = document.getElementById('startStop')
 const reset = document.getElementById('reset')
 const result = document.getElementById('result')
+const bestEl = document.getElementById('best')
+
+// load best
+try {
+  const raw = localStorage.getItem('stopwatch_best')
+  if (raw) {
+    const b = JSON.parse(raw)
+    if (bestEl) bestEl.innerHTML = `Best: ${format(b.time)} (diff ${(b.diff/1000).toFixed(3)}s)`
+  }
+} catch (e) {}
 
 let startTime = 0
 let running = false
@@ -53,6 +63,15 @@ function checkResult(ms) {
   } else {
     result.innerHTML = `<span class="fail">Close: ${format(ms)} (diff ${ (diff/1000).toFixed(3)}s )</span>`
   }
+  try {
+    const raw = localStorage.getItem('stopwatch_best')
+    const cur = raw ? JSON.parse(raw) : null
+    if (!cur || Math.abs(ms - target) < cur.diff) {
+      const nb = { time: ms, diff: Math.abs(ms - target) }
+      localStorage.setItem('stopwatch_best', JSON.stringify(nb))
+      if (bestEl) bestEl.innerHTML = `Best: ${format(nb.time)} (diff ${(nb.diff/1000).toFixed(3)}s)`
+    }
+  } catch (e) {}
 }
 
 startStop.addEventListener('click', () => {

@@ -6,6 +6,12 @@ export default function Stopwatch() {
   const [running, setRunning] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [message, setMessage] = useState('')
+  const [best, setBest] = useState<{time:number,diff:number} | null>(() => {
+    try {
+      const raw = localStorage.getItem('stopwatch_best')
+      return raw ? JSON.parse(raw) : null
+    } catch (e) { return null }
+  })
   const startRef = useRef<number | null>(null)
   const rafRef = useRef<number | null>(null)
 
@@ -61,6 +67,16 @@ export default function Stopwatch() {
     const abs = Math.abs(diff)
     if (abs <= 100) setMessage(`Nice! ${format(ms)} (diff ${(diff/1000).toFixed(3)}s)`)
     else setMessage(`Close: ${format(ms)} (diff ${(diff/1000).toFixed(3)}s)`)
+    // update best if this is closer
+    try {
+      const currentBestRaw = localStorage.getItem('stopwatch_best')
+      const currentBest = currentBestRaw ? JSON.parse(currentBestRaw) : null
+      if (!currentBest || Math.abs(ms - target) < currentBest.diff) {
+        const newBest = { time: ms, diff: Math.abs(ms - target) }
+        localStorage.setItem('stopwatch_best', JSON.stringify(newBest))
+        setBest(newBest)
+      }
+    } catch (e) {}
   }
 
   return (
@@ -72,6 +88,9 @@ export default function Stopwatch() {
         <button onClick={resetAll}>Reset</button>
       </div>
       <div className="result">{message}</div>
+      <div style={{marginTop:8}}>
+        Best: {best ? `${format(best.time)} (diff ${(best.diff/1000).toFixed(3)}s)` : '—'}
+      </div>
       <p className="hint">Press <strong>Space</strong> to start/stop.</p>
     </div>
   )
