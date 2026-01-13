@@ -34,10 +34,14 @@ export default function App() {
 
   return (
     <div style={{ padding: 20 }}>
-      {path === '/' && <Home />}
-      <div style={{ marginTop: 28 }}>
-        <Newsletter />
-      </div>
+      {path === '/' && (
+        <>
+          <Home />
+          <div style={{ marginTop: 28 }}>
+            <Newsletter />
+          </div>
+        </>
+      )}
       {path === '/cups' && (
         <div>
           <button onClick={() => navigate('/')} style={{ marginBottom: 12 }}>← Back</button>

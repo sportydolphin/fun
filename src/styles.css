@@ -38,14 +38,15 @@ h1 { margin: 0 0 8px 0; }
 }
 
 /* WeightGame styles */
-.weight-game { padding:18px; background:linear-gradient(180deg,#fff,#fbfdff); border-radius:10px; box-shadow:0 8px 24px rgba(2,6,23,0.06) }
-.weight-game .pair-row { display:flex; gap:18px; margin-top:14px; justify-content:center }
-.choice { flex:1; padding:18px; border-radius:12px; border:2px solid #e2e8f0; background:linear-gradient(180deg,#fff,#f7fbff); cursor:pointer; font-weight:700; display:flex; align-items:center; justify-content:space-between }
-.choice .choice-inner { text-align:left }
-.choice .kbd { background:#f1f5f9; padding:6px 8px; border-radius:8px; font-weight:700; color:#0f172a }
-.choice.wrong { box-shadow:0 0 0 6px rgba(239,68,68,0.06) }
-.weight-game .msg { margin-top:12px; color:#334155; font-weight:600 }
+.weight-game { max-width:760px; margin: 0 auto; padding:20px; background:linear-gradient(180deg,#fff,#f8fbff); border-radius:14px; box-shadow:0 18px 40px rgba(2,6,23,0.08); border:1px solid rgba(2,6,23,0.04) }
+.weight-game .pair-row { display:flex; gap:18px; margin-top:18px; justify-content:center }
+.choice { flex:1; padding:22px; border-radius:14px; border:1px solid rgba(2,6,23,0.08); background:linear-gradient(180deg,#ffffff,#f2f9ff); cursor:pointer; font-weight:700; display:flex; align-items:center; justify-content:space-between; min-width:180px }
+.choice .choice-inner { text-align:left; font-size:16px; color:#0f172a }
+.choice .kbd { background:#eef2ff; padding:6px 10px; border-radius:8px; font-weight:800; color:#0f172a; margin-left:12px }
+.choice.wrong { box-shadow:0 0 0 8px rgba(239,68,68,0.06); transform: translateY(-4px) }
+.weight-game .msg { margin-top:14px; color:#334155; font-weight:700 }
 .weight-game .hint { color:#64748b }
+.weight-game .explain { margin-top:12px; color:#475569; font-style:italic; background:linear-gradient(180deg,#fbfdff,#ffffff); padding:10px; border-radius:8px; border:1px solid rgba(2,6,23,0.03) }
 
 .choice { transition: transform 180ms, box-shadow 220ms }
 .choice.wrong { animation: shake 420ms; transform: translateY(-2px) }
