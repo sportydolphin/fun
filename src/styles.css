@@ -48,6 +48,10 @@ h1 { margin: 0 0 8px 0; }
 .weight-game .hint { color:#64748b }
 .weight-game .explain { margin-top:12px; color:#475569; font-style:italic; background:linear-gradient(180deg,#fbfdff,#ffffff); padding:10px; border-radius:8px; border:1px solid rgba(2,6,23,0.03) }
 
+/* Poop game styles */
+.poop-game { background: linear-gradient(180deg,#fff,#fffefa); border-radius:12px; padding:18px; box-shadow:0 12px 30px rgba(2,6,23,0.06); border:1px solid rgba(2,6,23,0.04) }
+.poop-game .hint { color:#64748b }
+
 .choice { transition: transform 180ms, box-shadow 220ms }
 .choice.wrong { animation: shake 420ms; transform: translateY(-2px) }
 .explain { margin-top:10px; color:#475569; font-style:italic }

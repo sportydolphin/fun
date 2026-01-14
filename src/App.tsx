@@ -3,6 +3,7 @@ import CupsGame from '../projects/cups-game/src/CupsGame'
 import Stopwatch from './Stopwatch'
 import Newsletter from './Newsletter'
 import WeightGame from './WeightGame'
+import PoopGame from './PoopGame'
 
 type Route = '/' | '/cups' | '/stopwatch'
 
@@ -28,6 +29,7 @@ export default function App() {
         <button className="project-btn" onClick={() => navigate('/cups')}>Cups Compare</button>
         <button className="project-btn" onClick={() => navigate('/stopwatch')}>Stopwatch (stop at 5s)</button>
         <button className="project-btn" onClick={() => navigate('/weights')}>Weights (trick)</button>
+        <button className="project-btn" onClick={() => navigate('/poop')}>Poop Pile</button>
       </div>
     </div>
   ), [])
@@ -58,6 +60,12 @@ export default function App() {
         <div>
           <button onClick={() => navigate('/')} style={{ marginBottom: 12 }}>← Back</button>
           <WeightGame />
+        </div>
+      )}
+      {path === '/poop' && (
+        <div>
+          <button onClick={() => navigate('/')} style={{ marginBottom: 12 }}>← Back</button>
+          <PoopGame />
         </div>
       )}
     </div>

@@ -3,12 +3,8 @@ import React, { useState } from 'react'
 export default function Newsletter() {
   const [email, setEmail] = useState('')
   const [pressed, setPressed] = useState(false)
-  const [status, setStatus] = useState('')
 
   function handleSign() {
-    setStatus('Thanks! (demo)')
-    setEmail('')
-    setTimeout(() => setStatus(''), 3000)
   }
 
   return (
@@ -37,7 +33,6 @@ export default function Newsletter() {
             Sign up
           </button>
         </div>
-        <div className="signup-status">{status}</div>
       </div>
 
       <div className="newsletter-graphic" aria-hidden>
