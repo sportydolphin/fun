@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
+import { Box, Typography, Button, Card, CardContent } from '@mui/material'
 import '../styles.css'
 
 type Cup = { width: number; height: number; fill: number; water: number }
@@ -32,12 +33,16 @@ function makePairForStreak(streak: number): [Cup, Cup] {
 
 function renderCupElement(cup: Cup) {
   return (
-    <div className="cup-card">
-      <div className="cup" style={{ width: cup.width, height: cup.height }}>
-        <div className="water" style={{ height: `${cup.fill * 100}%` }} />
-      </div>
-      <div className="label">{Math.round(cup.fill * 100)}% filled</div>
-    </div>
+    <Card sx={{ minWidth: 120, height: 400 }}>
+      <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', textAlign: 'center' }}>
+        <Box sx={{ position: 'relative', mx: 'auto', width: cup.width, height: cup.height, border: 1, borderTop: 0, borderColor: 'grey.300', borderRadius: 1, overflow: 'hidden' }}>
+          <Box sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: `${cup.fill * 100}%`, bgcolor: 'primary.main' }} />
+        </Box>
+        <Typography variant="body2" sx={{ mt: 1 }}>
+          {Math.round(cup.fill * 100)}% filled
+        </Typography>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -46,12 +51,16 @@ export default function CupsGame() {
   const [streak, setStreak] = useState(0)
   const [message, setMessage] = useState('')
   const [disabled, setDisabled] = useState(false)
+  const [feedback, setFeedback] = useState<{ correct: 0 | 1 | null, incorrect: 0 | 1 | null }>({ correct: null, incorrect: null })
+  const [result, setResult] = useState<{ correct: 0 | 1 | null, chosen: 0 | 1 | null }>({ correct: null, chosen: null })
 
   function pickPairFor(streakValue: number) {
     const newPair = makePairForStreak(streakValue)
     setPair(newPair)
     setMessage('')
     setDisabled(false)
+    setFeedback({ correct: null, incorrect: null })
+    setResult({ correct: null, chosen: null })
   }
 
   useEffect(() => {
@@ -62,21 +71,27 @@ export default function CupsGame() {
 
   const handleChoice = (side: 0 | 1) => {
     if (!pair || disabled) return
-    const chosen = pair[side]
-    const other = pair[side === 0 ? 1 : 0]
-    const correct = chosen.water > other.water
+    const [cup0, cup1] = pair
+    const correct = cup0.water > cup1.water ? 0 : 1
+    setResult({ correct, chosen: side })
     setDisabled(true)
-    if (correct) {
+    if (side === correct) {
       setMessage('Correct — next pair!')
       // increment streak and schedule next pair using the new streak value
       setStreak(prev => {
         const next = prev + 1
-        setTimeout(() => pickPairFor(next), 700)
+        setTimeout(() => {
+          setResult({ correct: null, chosen: null })
+          pickPairFor(next)
+        }, 1000)
         return next
       })
     } else {
       setMessage(`Wrong — final streak ${streak}. Click Restart to try again.`)
-      setPair(null)
+      setTimeout(() => {
+        setResult({ correct: null, chosen: null })
+        setPair(null)
+      }, 1000)
     }
   }
 
@@ -91,34 +106,74 @@ export default function CupsGame() {
   }, [pair, disabled])
 
   return (
-    <div>
-      <h1>Cups Compare</h1>
-      <p>Pick the cup which has more water. Keep going until you make a mistake.</p>
-      <div id="status">Streak: <strong>{streak}</strong></div>
-      <div className="game">
-        <div
-          className={`cup-slot ${pair ? '' : 'disabled'}`}
+    <Box sx={{ p: 2 }}>
+      <Typography variant="body1" sx={{ mb: 2, textAlign: 'center' }}>
+        Streak: <strong>{streak}</strong>
+      </Typography>
+      <Box sx={{ textAlign: 'center', mb: 2 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          Cups Compare
+        </Typography>
+        <Typography variant="body1" gutterBottom>
+          Pick the cup which has more water. Keep going until you make a mistake.
+        </Typography>
+      </Box>
+      <Box sx={{ display: 'flex', gap: 1, mb: 2, maxWidth: 500, mx: 'auto' }}>
+        <Box
+          sx={{
+            flex: 1,
+            p: 2,
+            border: 1,
+            borderColor: pair ? 'primary.main' : 'grey.300',
+            borderRadius: 1,
+            cursor: pair ? 'pointer' : 'default',
+            bgcolor:
+              result.correct === 0 && result.chosen !== null
+                ? 'success.main'
+                : result.chosen === 0 && result.correct !== 0 && result.chosen !== null
+                ? 'error.main'
+                : undefined,
+            '&:hover': pair ? { bgcolor: 'action.hover' } : {},
+          }}
           role="button"
           tabIndex={0}
           aria-label="Left cup"
           onClick={() => handleChoice(0)}
         >
-          {pair ? renderCupElement(pair[0]) : null}
-        </div>
-        <div
-          className={`cup-slot ${pair ? '' : 'disabled'}`}
+          {pair ? renderCupElement(pair[0]) : <Typography>No cup</Typography>}
+        </Box>
+        <Box
+          sx={{
+            flex: 1,
+            p: 2,
+            border: 1,
+            borderColor: pair ? 'primary.main' : 'grey.300',
+            borderRadius: 1,
+            cursor: pair ? 'pointer' : 'default',
+            bgcolor:
+              result.correct === 1 && result.chosen !== null
+                ? 'success.main'
+                : result.chosen === 1 && result.correct !== 1 && result.chosen !== null
+                ? 'error.main'
+                : undefined,
+            '&:hover': pair ? { bgcolor: 'action.hover' } : {},
+          }}
           role="button"
           tabIndex={0}
           aria-label="Right cup"
           onClick={() => handleChoice(1)}
         >
-          {pair ? renderCupElement(pair[1]) : null}
-        </div>
-      </div>
-      <div id="message" aria-live="polite">{message}</div>
-      <div style={{ marginTop: 12 }}>
-        <button onClick={() => { setStreak(0); pickPair() }}>Restart</button>
-      </div>
-    </div>
+          {pair ? renderCupElement(pair[1]) : <Typography>No cup</Typography>}
+        </Box>
+      </Box>
+      <Typography variant="body1" aria-live="polite" sx={{ mb: 2, textAlign: 'center' }}>
+        {message}
+      </Typography>
+      <Box sx={{ textAlign: 'center' }}>
+        <Button variant="outlined" onClick={() => { setStreak(0); pickPairFor(0) }}>
+          Restart
+        </Button>
+      </Box>
+    </Box>
   )
 }

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { Box, Typography, Button, Paper } from '@mui/material'
 
 const measures = [
   'a pound of',
@@ -95,27 +96,51 @@ export default function WeightGame() {
   }, [isAnimating])
 
   return (
-    <div className="weight-game">
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-        <h1>Which is heavier?</h1>
-        <div style={{textAlign:'right'}}>
-          <div>Total rounds: <strong>{total}</strong></div>
-          <div>Correct: <strong>{correct}</strong></div>
-        </div>
-      </div>
-      <p className="hint">(First: a pound of feathers vs a pound of rocks)</p>
-      <div className="pair-row">
-        <button aria-label="choice-1" className={`choice ${isAnimating ? 'wrong' : ''}`} onClick={() => handleChoice(0)}>
-          <div className="choice-inner">{pair[0]}</div>
-          <div className="kbd">1</div>
-        </button>
-        <button aria-label="choice-2" className={`choice ${isAnimating ? 'wrong' : ''}`} onClick={() => handleChoice(1)}>
-          <div className="choice-inner">{pair[1]}</div>
-          <div className="kbd">2</div>
-        </button>
-      </div>
-      <div className="msg">{msg}</div>
-      {explain && <div className="explain">{explain}</div>}
-    </div>
+    <Box sx={{ p: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h4" component="h1">
+          Which is heavier?
+        </Typography>
+        <Box sx={{ textAlign: 'right' }}>
+          <Typography variant="body2">
+            Total rounds: <strong>{total}</strong>
+          </Typography>
+          <Typography variant="body2">
+            Correct: <strong>{correct}</strong>
+          </Typography>
+        </Box>
+      </Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        (First: a pound of feathers vs a pound of rocks)
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+        <Button
+          variant="outlined"
+          onClick={() => handleChoice(0)}
+          disabled={isAnimating}
+          sx={{ flex: 1, p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+        >
+          <Typography variant="body1">{pair[0]}</Typography>
+          <Typography variant="caption" sx={{ mt: 1 }}>1</Typography>
+        </Button>
+        <Button
+          variant="outlined"
+          onClick={() => handleChoice(1)}
+          disabled={isAnimating}
+          sx={{ flex: 1, p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+        >
+          <Typography variant="body1">{pair[1]}</Typography>
+          <Typography variant="caption" sx={{ mt: 1 }}>2</Typography>
+        </Button>
+      </Box>
+      <Typography variant="body1" sx={{ mb: 1 }}>
+        {msg}
+      </Typography>
+      {explain && (
+        <Typography variant="body2" color="text.secondary">
+          {explain}
+        </Typography>
+      )}
+    </Box>
   )
 }

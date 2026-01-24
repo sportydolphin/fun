@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Box, Typography, TextField, Button } from '@mui/material'
 
 export default function Newsletter() {
   const [email, setEmail] = useState('')
@@ -8,21 +9,26 @@ export default function Newsletter() {
   }
 
   return (
-    <div className="newsletter">
-      <div className="newsletter-left">
-        <h2>Join the fun</h2>
-        <p>Get occasional updates and new games — no spam.</p>
-        <div className="signup-row">
-          <input
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <Box>
+        <Typography variant="h5" component="h2" gutterBottom>
+          Join the fun
+        </Typography>
+        <Typography variant="body1" gutterBottom>
+          Get occasional updates and new games — no spam.
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <TextField
             type="email"
             placeholder="you@example.com"
             value={email}
             onChange={e => setEmail(e.target.value)}
-            className="email-input"
-            aria-label="Email address"
+            label="Email address"
+            variant="outlined"
+            size="small"
           />
-          <button
-            className="signup-btn"
+          <Button
+            variant="outlined"
             onMouseDown={() => setPressed(true)}
             onMouseUp={() => setPressed(false)}
             onMouseLeave={() => setPressed(false)}
@@ -31,18 +37,18 @@ export default function Newsletter() {
             onClick={handleSign}
           >
             Sign up
-          </button>
-        </div>
-      </div>
+          </Button>
+        </Box>
+      </Box>
 
-      <div className="newsletter-graphic" aria-hidden>
+      <Box aria-hidden>
         <svg width="120" height="120" viewBox="0 0 100 100">
           <rect x="6" y="6" width="88" height="88" rx="12" fill="#ef4444" stroke="#8b0000" strokeWidth="3" />
           <text x="50" y="58" textAnchor="middle" fontSize="28" fontWeight="700" fill="#fff">
             {pressed ? 'UP' : 'STOP'}
           </text>
         </svg>
-      </div>
-    </div>
+      </Box>
+    </Box>
   )
 }

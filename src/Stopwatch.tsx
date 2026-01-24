@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { Box, Typography, Button } from '@mui/material'
 
 function format(ms: number) { return (ms / 1000).toFixed(3) }
 
@@ -80,18 +81,30 @@ export default function Stopwatch() {
   }
 
   return (
-    <div className="container">
-      <h1>Stop at 5 seconds</h1>
-      <div className="display">{format(elapsed)}</div>
-      <div className="controls">
-        <button onClick={() => (running ? stop() : start())}>{running ? 'Stop' : 'Start'}</button>
-        <button onClick={resetAll}>Reset</button>
-      </div>
-      <div className="result">{message}</div>
-      <div style={{marginTop:8}}>
+    <Box sx={{ textAlign: 'center', p: 2 }}>
+      <Typography variant="h4" component="h1" gutterBottom>
+        Stop at 5 seconds
+      </Typography>
+      <Typography variant="h3" sx={{ my: 2 }}>
+        {format(elapsed)}
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', mb: 2 }}>
+        <Button variant="contained" onClick={() => (running ? stop() : start())}>
+          {running ? 'Stop' : 'Start'}
+        </Button>
+        <Button variant="outlined" onClick={resetAll}>
+          Reset
+        </Button>
+      </Box>
+      <Typography variant="body1" sx={{ mb: 1 }}>
+        {message}
+      </Typography>
+      <Typography variant="body2" sx={{ mb: 1 }}>
         Best: {best ? `${format(best.time)} (diff ${(best.diff/1000).toFixed(3)}s)` : '—'}
-      </div>
-      <p className="hint">Press <strong>Space</strong> to start/stop.</p>
-    </div>
+      </Typography>
+      <Typography variant="caption" color="text.secondary">
+        Press <strong>Space</strong> to start/stop.
+      </Typography>
+    </Box>
   )
 }
