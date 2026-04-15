@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Box, Slider, Button, ButtonGroup, TextField, Accordion, AccordionSummary,
   AccordionDetails, Typography, Chip, CircularProgress, Tooltip,
+  ToggleButton, ToggleButtonGroup,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import PauseIcon from '@mui/icons-material/Pause';
@@ -81,19 +82,25 @@ const yToPercent = (y: number) => {
 
 // ─── Draw functions ───────────────────────────────────────────────────────────
 
-function drawBowlBackground(ctx: CanvasRenderingContext2D) {
+const WATER_Y = BOWL_CY - BOWL_R + BOWL_R * 0.14; // water surface y (86% full)
+
+function drawBowlBackground(ctx: CanvasRenderingContext2D, time: number) {
   ctx.save();
   ctx.beginPath();
   ctx.arc(BOWL_CX, BOWL_CY, BOWL_R, 0, Math.PI * 2);
   ctx.clip();
 
-  // Water
-  const wg = ctx.createLinearGradient(BOWL_CX, BOWL_CY - BOWL_R, BOWL_CX, BOWL_CY + BOWL_R);
-  wg.addColorStop(0,   'rgba(210, 240, 255, 0.55)');
-  wg.addColorStop(0.5, 'rgba(180, 220, 250, 0.42)');
-  wg.addColorStop(1,   'rgba(130, 185, 225, 0.68)');
+  // Air pocket above water (light)
+  ctx.fillStyle = 'rgba(235, 248, 255, 0.6)';
+  ctx.fillRect(BOWL_CX - BOWL_R, BOWL_CY - BOWL_R, BOWL_R * 2, WATER_Y - (BOWL_CY - BOWL_R));
+
+  // Water body
+  const wg = ctx.createLinearGradient(BOWL_CX, WATER_Y, BOWL_CX, BOWL_CY + BOWL_R);
+  wg.addColorStop(0,   'rgba(195, 232, 255, 0.60)');
+  wg.addColorStop(0.4, 'rgba(165, 215, 248, 0.50)');
+  wg.addColorStop(1,   'rgba(110, 175, 220, 0.72)');
   ctx.fillStyle = wg;
-  ctx.fillRect(BOWL_CX - BOWL_R, BOWL_CY - BOWL_R, BOWL_R * 2, BOWL_R * 2);
+  ctx.fillRect(BOWL_CX - BOWL_R, WATER_Y, BOWL_R * 2, BOWL_CY + BOWL_R - WATER_Y);
 
   // Gravel bed
   const gg = ctx.createLinearGradient(BOWL_CX, GRAVEL_Y, BOWL_CX, BOWL_CY + BOWL_R);
@@ -114,6 +121,28 @@ function drawBowlBackground(ctx: CanvasRenderingContext2D) {
     ctx.lineWidth = 0.5;
     ctx.stroke();
   }
+
+  // Animated water surface line
+  const wsDy = WATER_Y - BOWL_CY;
+  const wsHalf = Math.sqrt(Math.max(0, BOWL_R * BOWL_R - wsDy * wsDy)) - 4;
+  ctx.beginPath();
+  for (let i = 0; i <= 60; i++) {
+    const x = (BOWL_CX - wsHalf) + (i / 60) * wsHalf * 2;
+    const y = WATER_Y
+      + Math.sin((x - BOWL_CX) * 0.07 + time * 2.2) * 2.8
+      + Math.cos((x - BOWL_CX) * 0.13 + time * 1.4) * 1.4;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = 'rgba(200, 235, 255, 0.9)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // Subtle fill above the wave
+  ctx.lineTo(BOWL_CX + wsHalf, WATER_Y - 6);
+  ctx.lineTo(BOWL_CX - wsHalf, WATER_Y - 6);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(220, 245, 255, 0.18)';
+  ctx.fill();
+
   ctx.restore();
 }
 
@@ -123,30 +152,43 @@ function drawZones(ctx: CanvasRenderingContext2D, splitX: number) {
   ctx.arc(BOWL_CX, BOWL_CY, BOWL_R, 0, Math.PI * 2);
   ctx.clip();
 
-  ctx.fillStyle = 'rgba(25, 118, 210, 0.055)';
+  // SELL zone — radial gradient anchored to left arc edge
+  const sellCx = (BOWL_CX - BOWL_R + splitX) / 2;
+  const sg = ctx.createRadialGradient(sellCx, BOWL_CY, 0, sellCx, BOWL_CY, splitX - (BOWL_CX - BOWL_R));
+  sg.addColorStop(0,   'rgba(25, 118, 210, 0.13)');
+  sg.addColorStop(0.6, 'rgba(25, 118, 210, 0.06)');
+  sg.addColorStop(1,   'rgba(25, 118, 210, 0.01)');
+  ctx.fillStyle = sg;
   ctx.fillRect(BOWL_CX - BOWL_R, BOWL_CY - BOWL_R, splitX - (BOWL_CX - BOWL_R), BOWL_R * 2);
 
-  ctx.fillStyle = 'rgba(67, 160, 71, 0.055)';
+  // BUY zone — radial gradient anchored to right arc edge
+  const buyCx = (splitX + BOWL_CX + BOWL_R) / 2;
+  const bg = ctx.createRadialGradient(buyCx, BOWL_CY, 0, buyCx, BOWL_CY, (BOWL_CX + BOWL_R) - splitX);
+  bg.addColorStop(0,   'rgba(67, 160, 71, 0.13)');
+  bg.addColorStop(0.6, 'rgba(67, 160, 71, 0.06)');
+  bg.addColorStop(1,   'rgba(67, 160, 71, 0.01)');
+  ctx.fillStyle = bg;
   ctx.fillRect(splitX, BOWL_CY - BOWL_R, (BOWL_CX + BOWL_R) - splitX, BOWL_R * 2);
 
+  // Split divider — draw only within the water (below WATER_Y, above gravel)
   ctx.beginPath();
-  ctx.moveTo(splitX, BOWL_CY - BOWL_R);
-  ctx.lineTo(splitX, BOWL_CY + BOWL_R);
-  ctx.strokeStyle = 'rgba(130, 130, 130, 0.35)';
+  ctx.moveTo(splitX, WATER_Y + 4);
+  ctx.lineTo(splitX, GRAVEL_Y - 8);
+  ctx.strokeStyle = 'rgba(150, 150, 150, 0.38)';
   ctx.lineWidth = 1.5;
-  ctx.setLineDash([6, 6]);
+  ctx.setLineDash([5, 5]);
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Zone labels inside bowl, just above gravel
+  // Zone labels
   const sellMidX = BOWL_CX - BOWL_R + (splitX - (BOWL_CX - BOWL_R)) / 2;
   const buyMidX  = splitX + ((BOWL_CX + BOWL_R) - splitX) / 2;
-  ctx.font = 'bold 15px sans-serif';
+  ctx.font = 'bold 14px sans-serif';
   ctx.textBaseline = 'bottom';
   ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(25, 118, 210, 0.42)';
+  ctx.fillStyle = 'rgba(25, 118, 210, 0.5)';
   ctx.fillText('SELL', sellMidX, GRAVEL_Y - 6);
-  ctx.fillStyle = 'rgba(67, 160, 71, 0.42)';
+  ctx.fillStyle = 'rgba(67, 160, 71, 0.5)';
   ctx.fillText('BUY', buyMidX, GRAVEL_Y - 6);
 
   ctx.restore();
@@ -316,20 +358,83 @@ function drawGoldfish(ctx: CanvasRenderingContext2D, fish: Fish) {
 }
 
 function drawBowlRim(ctx: CanvasRenderingContext2D) {
+  // ── Ground shadow (ellipse below bowl) ────────────────────────────────
+  const shad = ctx.createRadialGradient(BOWL_CX, BOWL_CY + BOWL_R + 8, 4, BOWL_CX, BOWL_CY + BOWL_R + 8, BOWL_R * 0.82);
+  shad.addColorStop(0,   'rgba(0, 60, 140, 0.22)');
+  shad.addColorStop(0.5, 'rgba(0, 60, 140, 0.10)');
+  shad.addColorStop(1,   'rgba(0, 60, 140, 0)');
+  ctx.fillStyle = shad;
+  ctx.beginPath();
+  ctx.ellipse(BOWL_CX, BOWL_CY + BOWL_R + 6, BOWL_R * 0.82, 18, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ── Side glass shading (3-D depth on left & right) ───────────────────
+  ctx.save();
   ctx.beginPath();
   ctx.arc(BOWL_CX, BOWL_CY, BOWL_R, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(148, 198, 222, 0.88)';
+  ctx.clip();
+
+  const lg = ctx.createRadialGradient(BOWL_CX - BOWL_R * 0.9, BOWL_CY, 0, BOWL_CX - BOWL_R * 0.6, BOWL_CY, BOWL_R * 0.58);
+  lg.addColorStop(0, 'rgba(0, 40, 110, 0.20)');
+  lg.addColorStop(1, 'rgba(0, 40, 110, 0)');
+  ctx.fillStyle = lg;
+  ctx.fillRect(BOWL_CX - BOWL_R, BOWL_CY - BOWL_R, BOWL_R * 0.62, BOWL_R * 2);
+
+  const rg = ctx.createRadialGradient(BOWL_CX + BOWL_R * 0.9, BOWL_CY, 0, BOWL_CX + BOWL_R * 0.6, BOWL_CY, BOWL_R * 0.58);
+  rg.addColorStop(0, 'rgba(0, 40, 110, 0.20)');
+  rg.addColorStop(1, 'rgba(0, 40, 110, 0)');
+  ctx.fillStyle = rg;
+  ctx.fillRect(BOWL_CX, BOWL_CY - BOWL_R, BOWL_R * 0.62, BOWL_R * 2);
+
+  ctx.restore();
+
+  // ── Main bowl rim circle ──────────────────────────────────────────────
+  ctx.beginPath();
+  ctx.arc(BOWL_CX, BOWL_CY, BOWL_R, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(148, 200, 228, 0.92)';
   ctx.lineWidth = 6;
   ctx.stroke();
 
+  // ── Neck / opening ellipse at top ─────────────────────────────────────
+  const neckY  = BOWL_CY - BOWL_R + BOWL_R * 0.11;  // y centre of opening
+  const neckRX = BOWL_R * 0.60;                       // x radius of opening
+  const neckRY = BOWL_R * 0.13;                       // y radius (perspective oval)
+
+  // Fill the opening (slightly lighter than water, suggests air inside)
   ctx.beginPath();
-  ctx.arc(BOWL_CX - BOWL_R * 0.38, BOWL_CY - BOWL_R * 0.38, BOWL_R * 0.18, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  ctx.ellipse(BOWL_CX, neckY, neckRX, neckRY, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(228, 246, 255, 0.55)';
+  ctx.fill();
+
+  // Rim stroke
+  ctx.beginPath();
+  ctx.ellipse(BOWL_CX, neckY, neckRX, neckRY, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(148, 200, 228, 0.80)';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  // Inner rim shadow (gives glass thickness)
+  ctx.beginPath();
+  ctx.ellipse(BOWL_CX, neckY + 3, neckRX * 0.88, neckRY * 0.75, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(80, 160, 210, 0.22)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // ── Glass highlights ──────────────────────────────────────────────────
+  ctx.beginPath();
+  ctx.arc(BOWL_CX - BOWL_R * 0.36, BOWL_CY - BOWL_R * 0.36, BOWL_R * 0.20, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
   ctx.fill();
 
   ctx.beginPath();
-  ctx.arc(BOWL_CX - BOWL_R * 0.52, BOWL_CY - BOWL_R * 0.53, BOWL_R * 0.08, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(255,255,255,0.32)';
+  ctx.arc(BOWL_CX - BOWL_R * 0.54, BOWL_CY - BOWL_R * 0.53, BOWL_R * 0.09, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.38)';
+  ctx.fill();
+
+  // Bottom-right caustic reflection
+  ctx.beginPath();
+  ctx.arc(BOWL_CX + BOWL_R * 0.32, BOWL_CY + BOWL_R * 0.52, BOWL_R * 0.07, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.16)';
   ctx.fill();
 }
 
@@ -389,7 +494,7 @@ function updateFish(fish: Fish, speedMult: number) {
   }
 
   // Tail wag
-  fish.tailPhase += 0.14 * Math.max(0.6, speedMult);
+  fish.tailPhase += 0.09 * Math.max(0.5, speedMult);
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -403,7 +508,7 @@ export default function TestGame() {
   // ── Fish & bubbles ────────────────────────────────────────────────────────
   const fishRef = useRef<Fish>({
     x: BOWL_CX, y: BOWL_CY - 30,
-    angle: 0, speed: 1.5,
+    angle: 0, speed: 0.75,
     wanderAngle: 0, tailPhase: 0,
   });
   const bubblesRef = useRef<Bubble[]>([]);
@@ -536,7 +641,7 @@ export default function TestGame() {
 
     const splitX = getSplitX();
 
-    drawBowlBackground(ctx);
+    drawBowlBackground(ctx, t);
     drawZones(ctx, splitX);
     drawSeaweed(ctx, t);
     drawCastle(ctx);
@@ -787,29 +892,22 @@ export default function TestGame() {
 
       {/* ── Mode Toggle ──────────────────────────────────────────────────── */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
-        <ButtonGroup variant="outlined" size="small">
-          <Button
-            variant={gameMode === 'random' ? 'contained' : 'outlined'}
-            startIcon={<CasinoIcon />}
-            onClick={() => setGameMode('random')}
-            sx={{ color: gameMode === 'random' ? '#fff' : 'inherit' }}
+        <ToggleButtonGroup
+          value={gameMode} exclusive size="small"
+          onChange={(_, v) => v && setGameMode(v)}
+        >
+          <ToggleButton value="random"
+            sx={{ gap: 0.5, '&.Mui-selected': { backgroundColor: '#1976d2', color: '#fff', '&:hover': { backgroundColor: '#115293' } } }}
           >
-            Random
-          </Button>
-          <Button
-            variant={gameMode === 'live' ? 'contained' : 'outlined'}
-            startIcon={<TrendingUpIcon />}
-            onClick={() => setGameMode('live')}
-            sx={{
-              color: gameMode === 'live' ? '#fff' : 'inherit',
-              backgroundColor: gameMode === 'live' ? '#43a047' : undefined,
-              borderColor: '#43a047',
-              '&:hover': { backgroundColor: gameMode === 'live' ? '#2e7d32' : undefined },
-            }}
+            <CasinoIcon fontSize="small" /> Random
+          </ToggleButton>
+          <ToggleButton value="live"
+            sx={{ gap: 0.5, color: '#43a047', borderColor: '#43a047 !important',
+              '&.Mui-selected': { backgroundColor: '#43a047', color: '#fff', '&:hover': { backgroundColor: '#2e7d32' } } }}
           >
-            Live Stock
-          </Button>
-        </ButtonGroup>
+            <TrendingUpIcon fontSize="small" /> Live Stock
+          </ToggleButton>
+        </ToggleButtonGroup>
 
         {/* ── Live stock info bar ─────────────────────────────────────── */}
         {gameMode === 'live' && (
@@ -860,7 +958,7 @@ export default function TestGame() {
       {/* ── Canvases ──────────────────────────────────────────────────────── */}
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: 4, flexWrap: 'wrap' }}>
         <canvas ref={canvasRef} width={500} height={400}
-          style={{ background: '#e8f4f8', borderRadius: '50%', border: '3px solid rgba(148,198,222,0.5)', boxShadow: '0 8px 32px rgba(0,100,180,0.15)' }}
+          style={{ borderRadius: '50%', boxShadow: '0 16px 48px rgba(0,80,180,0.20), 0 4px 12px rgba(0,80,180,0.12)' }}
         />
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
           <canvas ref={timerCanvasRef} width={200} height={200}
@@ -868,14 +966,15 @@ export default function TestGame() {
           />
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography variant="body2">Window:</Typography>
-            <ButtonGroup size="small">
+            <ToggleButtonGroup value={graphWindow} exclusive size="small"
+              onChange={(_, v) => v && setGraphWindow(v)}
+            >
               {[{ v: 60, l: '1m' }, { v: 300, l: '5m' }, { v: 1200, l: '20m' }].map(({ v, l }) => (
-                <Button key={v} variant={graphWindow === v ? 'contained' : 'outlined'}
-                  onClick={() => setGraphWindow(v)}
-                  sx={{ color: graphWindow === v ? '#fff' : 'inherit' }}
-                >{l}</Button>
+                <ToggleButton key={v} value={v}
+                  sx={{ '&.Mui-selected': { backgroundColor: '#1976d2', color: '#fff', '&:hover': { backgroundColor: '#115293' } } }}
+                >{l}</ToggleButton>
               ))}
-            </ButtonGroup>
+            </ToggleButtonGroup>
           </Box>
           <canvas ref={balanceCanvasRef} width={300} height={180}
             style={{ background: '#fff', border: '1px solid #ccc', borderRadius: 8 }}
