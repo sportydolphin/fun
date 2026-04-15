@@ -84,8 +84,8 @@ export default function TestGame() {
   );
   const [ticker, setTicker] = useState(() => localStorage.getItem('testgame_ticker') || 'AAPL');
   const [tickerInput, setTickerInput] = useState(() => localStorage.getItem('testgame_ticker') || 'AAPL');
-  const [finnhubKey, setFinnhubKey] = useState(() => localStorage.getItem('finnhub_key') || '');
-  const [finnhubKeyInput, setFinnhubKeyInput] = useState(() => localStorage.getItem('finnhub_key') || '');
+  const [finnhubKey, setFinnhubKey] = useState(() => localStorage.getItem('finnhub_key') || 'd7g14fpr01qqb8rhv3t0d7g14fpr01qqb8rhv3tg');
+  const [finnhubKeyInput, setFinnhubKeyInput] = useState(() => localStorage.getItem('finnhub_key') || 'd7g14fpr01qqb8rhv3t0d7g14fpr01qqb8rhv3tg');
   const [livePrice, setLivePrice] = useState<number | null>(null);
   const [prevClose, setPrevClose] = useState<number | null>(null);
   const [stockError, setStockError] = useState<string | null>(null);
@@ -523,11 +523,6 @@ export default function TestGame() {
               Go
             </Button>
 
-            {!finnhubKey && (
-              <Typography variant="caption" color="warning.main" sx={{ maxWidth: 220 }}>
-                ⚠ Add your free Finnhub API key in Options to enable live prices.
-              </Typography>
-            )}
 
             {finnhubKey && isFetching && <CircularProgress size={18} />}
 
