@@ -189,7 +189,7 @@ function StatItem({ label, value, playerId, category, leaders, palette, large }:
         height: '1rem',
         letterSpacing: 0.5,
       }}>
-        {inTop20 ? `#${rank + 1}` : ''}
+        {inTop20 ? `${rank < 5 ? '🔥 ' : ''}#${rank + 1}` : ''}
       </Typography>
     </Box>
   )

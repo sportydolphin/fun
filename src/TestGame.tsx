@@ -499,7 +499,43 @@ function updateFish(fish: Fish, speedMult: number) {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+const PASSWORD = 'poop123'
+
 export default function TestGame() {
+  const [unlocked, setUnlocked] = useState(false)
+  const [pwInput, setPwInput]   = useState('')
+  const [pwError, setPwError]   = useState(false)
+
+  const attempt = () => {
+    if (pwInput === PASSWORD) setUnlocked(true)
+    else setPwError(true)
+  }
+
+  if (!unlocked) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 8 }}>
+        <Typography variant="h6">🔒 Password required</Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <TextField
+            type="password"
+            size="small"
+            value={pwInput}
+            placeholder="Password"
+            error={pwError}
+            helperText={pwError ? 'Incorrect password' : ''}
+            onChange={e => { setPwInput(e.target.value); setPwError(false) }}
+            onKeyDown={e => { if (e.key === 'Enter') attempt() }}
+          />
+          <Button variant="contained" onClick={attempt}>Enter</Button>
+        </Box>
+      </Box>
+    )
+  }
+
+  return <TestGameInner />
+}
+
+function TestGameInner() {
   // ── Canvas refs ────────────────────────────────────────────────────────────
   const canvasRef      = useRef<HTMLCanvasElement | null>(null);
   const timerCanvasRef = useRef<HTMLCanvasElement | null>(null);
