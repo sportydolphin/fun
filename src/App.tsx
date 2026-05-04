@@ -1,11 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { Button, Typography, Box, IconButton, AppBar, Toolbar } from '@mui/material'
-import { CompareArrows, Timer, FitnessCenter, EmojiNature, Brightness4, Brightness7, ShowChart, SportsBaseball } from '@mui/icons-material'
+import { Typography, Box, IconButton, AppBar, Toolbar, Button } from '@mui/material'
+import { Brightness4, Brightness7 } from '@mui/icons-material'
 import { useTheme } from './ThemeContext'
 import CupsGame from '../projects/cups-game/src/CupsGame'
 import TestGame from './TestGame'
 import Stopwatch from './Stopwatch'
-import Newsletter from './Newsletter'
 import WeightGame from './WeightGame'
 import PoopGame from './PoopGame'
 import MlbStats from './MlbStats'
@@ -16,6 +15,15 @@ function navigate(to: string) {
   window.history.pushState({}, '', to)
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
+
+const PROJECTS = [
+  { label: 'MLB Stats',     emoji: '⚾',  desc: 'Player stat card maker', path: '/mlb',      color: 'hsl(0,   68%, 42%)' },
+  { label: 'Test Game',     emoji: '🐟',  desc: 'Watch the fish trade',   path: '/testgame', color: 'hsl(260, 58%, 50%)' },
+  { label: 'Cups Compare',  emoji: '🥤',  desc: 'Compare liquid amounts', path: '/cups',     color: 'hsl(195, 78%, 38%)' },
+  { label: 'Stopwatch',     emoji: '⏱️',  desc: 'Time your stuff',        path: '/stopwatch',color: 'hsl(28,  82%, 48%)' },
+  { label: 'Weights',       emoji: '🏋️', desc: 'Track your lifts',       path: '/weights',  color: 'hsl(142, 50%, 36%)' },
+  { label: 'Poop Pile',     emoji: '💩',  desc: 'Stack the poops',        path: '/poop',     color: 'hsl(24,  58%, 38%)' },
+]
 
 export default function App() {
   const { mode, toggleTheme } = useTheme()
@@ -28,65 +36,72 @@ export default function App() {
   }, [])
 
   const Home = useCallback(() => (
-    <Box sx={{ textAlign: 'center', py: 4 }}>
-      <Typography variant="h6" gutterBottom sx={{ mb: 4 }}>
-        Select a project:
+    <Box sx={{ textAlign: 'center', py: 4, px: 1 }}>
+      <Typography
+        variant="h5"
+        sx={{ fontWeight: 800, mb: 1, letterSpacing: '-0.3px' }}
+      >
+        what do you want to do? 🐬
       </Typography>
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 2, maxWidth: 800, mx: 'auto' }}>
-        <Button
-          variant="outlined"
-          size="large"
-          startIcon={<CompareArrows />}
-          onClick={() => navigate('/cups')}
-          sx={{ py: 2 }}
-        >
-          Cups Compare
-        </Button>
-        <Button
-          variant="outlined"
-          size="large"
-          startIcon={<ShowChart />}
-          onClick={() => navigate('/testgame')}
-          sx={{ py: 2 }}
-        >
-          Test Game
-        </Button>
-        <Button
-          variant="outlined"
-          size="large"
-          startIcon={<Timer />}
-          onClick={() => navigate('/stopwatch')}
-          sx={{ py: 2 }}
-        >
-          Stopwatch
-        </Button>
-        <Button
-          variant="outlined"
-          size="large"
-          startIcon={<FitnessCenter />}
-          onClick={() => navigate('/weights')}
-          sx={{ py: 2 }}
-        >
-          Weights
-        </Button>
-        <Button
-          variant="outlined"
-          size="large"
-          startIcon={<EmojiNature />}
-          onClick={() => navigate('/poop')}
-          sx={{ py: 2 }}
-        >
-          Poop Pile
-        </Button>
-        <Button
-          variant="outlined"
-          size="large"
-          startIcon={<SportsBaseball />}
-          onClick={() => navigate('/mlb')}
-          sx={{ py: 2 }}
-        >
-          MLB Stats
-        </Button>
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{ mb: 4 }}
+      >
+        pick something fun
+      </Typography>
+
+      <Box sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' },
+        gap: { xs: 1.5, sm: 2 },
+        maxWidth: 680,
+        mx: 'auto',
+      }}>
+        {PROJECTS.map(p => (
+          <Box
+            key={p.path}
+            onClick={() => navigate(p.path)}
+            sx={{
+              bgcolor: p.color,
+              borderRadius: 3,
+              p: { xs: 2, sm: 2.5 },
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 0.75,
+              transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+              userSelect: 'none',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: '0 10px 28px rgba(0,0,0,0.22)',
+              },
+              '&:active': {
+                transform: 'translateY(-1px)',
+              },
+            }}
+          >
+            <Typography sx={{ fontSize: { xs: '2rem', sm: '2.4rem' }, lineHeight: 1 }}>
+              {p.emoji}
+            </Typography>
+            <Typography sx={{
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: { xs: '0.85rem', sm: '0.95rem' },
+              lineHeight: 1.2,
+            }}>
+              {p.label}
+            </Typography>
+            <Typography sx={{
+              color: 'rgba(255,255,255,0.7)',
+              fontSize: { xs: '0.7rem', sm: '0.75rem' },
+              lineHeight: 1.2,
+            }}>
+              {p.desc}
+            </Typography>
+          </Box>
+        ))}
       </Box>
     </Box>
   ), [])
@@ -95,7 +110,7 @@ export default function App() {
     <>
       <AppBar position="static" color="default" elevation={1}>
         <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
             sportydolphin.fun
           </Typography>
           <IconButton onClick={toggleTheme} color="inherit">
@@ -141,12 +156,7 @@ export default function App() {
             <MlbStats />
           </Box>
         )}
-        {path === '/' && (
-          <Box sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, p: 2, backgroundColor: 'background.paper' }}>
-            <Newsletter />
-          </Box>
-        )}
       </Box>
     </>
-  );
+  )
 }
