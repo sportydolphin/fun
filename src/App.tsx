@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { Button, Typography, Box, IconButton, AppBar, Toolbar } from '@mui/material'
-import { CompareArrows, Timer, FitnessCenter, EmojiNature, Brightness4, Brightness7, ShowChart } from '@mui/icons-material'
+import { CompareArrows, Timer, FitnessCenter, EmojiNature, Brightness4, Brightness7, ShowChart, SportsBaseball } from '@mui/icons-material'
 import { useTheme } from './ThemeContext'
 import CupsGame from '../projects/cups-game/src/CupsGame'
 import TestGame from './TestGame'
@@ -8,8 +8,9 @@ import Stopwatch from './Stopwatch'
 import Newsletter from './Newsletter'
 import WeightGame from './WeightGame'
 import PoopGame from './PoopGame'
+import MlbStats from './MlbStats'
 
-type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame'
+type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame' | '/mlb'
 
 function navigate(to: string) {
   window.history.pushState({}, '', to)
@@ -77,6 +78,15 @@ export default function App() {
         >
           Poop Pile
         </Button>
+        <Button
+          variant="outlined"
+          size="large"
+          startIcon={<SportsBaseball />}
+          onClick={() => navigate('/mlb')}
+          sx={{ py: 2 }}
+        >
+          MLB Stats
+        </Button>
       </Box>
     </Box>
   ), [])
@@ -123,6 +133,12 @@ export default function App() {
           <Box>
             <Button variant="outlined" onClick={() => navigate('/')} sx={{ mb: 2 }}>← Back</Button>
             <TestGame />
+          </Box>
+        )}
+        {path === '/mlb' && (
+          <Box>
+            <Button variant="outlined" onClick={() => navigate('/')} sx={{ mb: 2 }}>← Back</Button>
+            <MlbStats />
           </Box>
         )}
         {path === '/' && (
