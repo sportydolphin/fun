@@ -3,8 +3,9 @@ import {
   Box, TextField, Typography, CircularProgress, Paper,
   InputAdornment, List, ListItemButton, ListItemText,
   Divider, ClickAwayListener, Button, Menu, MenuItem, Select, FormControl,
+  Popover, FormGroup, FormControlLabel, Checkbox,
 } from '@mui/material'
-import { Search, SportsBaseball, Shuffle, FileDownload } from '@mui/icons-material'
+import { Search, Shuffle, FileDownload } from '@mui/icons-material'
 import html2canvas from 'html2canvas'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -14,7 +15,7 @@ interface Player {
   fullName: string
   active: boolean
   primaryPosition: { code: string; name: string; type: string }
-  currentTeam?: { name: string }
+  currentTeam?: { id: number; name: string }
 }
 
 interface Palette {
@@ -24,6 +25,79 @@ interface Palette {
   rank: string
   divider: string
 }
+
+interface StatDef {
+  key: string
+  label: string
+  getValue: (stat: any) => any
+  format: (v: any) => string
+  leaderCategory: string
+  defaultSelected: boolean
+  poop?: boolean
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function fmt(v: any): string {
+  return v == null || v === '' ? '—' : String(v)
+}
+
+function fmtDecimal(v: any, places = 2): string {
+  if (v == null || v === '') return '—'
+  const n = Number(v)
+  return isNaN(n) ? '—' : n.toFixed(places)
+}
+
+// Given N stats, return column count that avoids a single orphan on the last row
+function statCols(n: number): number {
+  if (n <= 5) return n || 1
+  for (let cols = 5; cols >= 2; cols--) {
+    if (n % cols !== 1) return cols
+  }
+  return 2
+}
+
+// ─── Stat definitions ─────────────────────────────────────────────────────────
+
+const HITTING_STAT_DEFS: StatDef[] = [
+  { key: 'ab',   label: 'AB',   getValue: s => s.atBats,        format: fmt,  leaderCategory: '',                    defaultSelected: false },
+  { key: 'h',    label: 'H',    getValue: s => s.hits,          format: fmt,  leaderCategory: 'hits',                defaultSelected: false },
+  { key: 'avg',  label: 'AVG',  getValue: s => s.avg,           format: fmt,  leaderCategory: 'battingAverage',      defaultSelected: true  },
+  { key: '1b',   label: '1B',   getValue: s => s.hits != null ? s.hits - (s.doubles ?? 0) - (s.triples ?? 0) - (s.homeRuns ?? 0) : null, format: fmt, leaderCategory: '', defaultSelected: false },
+  { key: '2b',   label: '2B',   getValue: s => s.doubles,       format: fmt,  leaderCategory: 'doubles',             defaultSelected: false },
+  { key: '3b',   label: '3B',   getValue: s => s.triples,       format: fmt,  leaderCategory: 'triples',             defaultSelected: false },
+  { key: 'hr',   label: 'HR',   getValue: s => s.homeRuns,      format: fmt,  leaderCategory: 'homeRuns',            defaultSelected: true  },
+  { key: 'rbi',  label: 'RBI',  getValue: s => s.rbi,           format: fmt,  leaderCategory: 'runsBattedIn',        defaultSelected: true  },
+  { key: 'obp',  label: 'OBP',  getValue: s => s.obp,           format: fmt,  leaderCategory: 'onBasePercentage',    defaultSelected: false },
+  { key: 'slg',  label: 'SLG',  getValue: s => s.slg,           format: fmt,  leaderCategory: 'sluggingPercentage',  defaultSelected: false },
+  { key: 'ops',  label: 'OPS',  getValue: s => s.ops,           format: fmt,  leaderCategory: 'onBasePlusSlugging',  defaultSelected: true  },
+  { key: 'k',    label: 'K',    getValue: s => s.strikeOuts,    format: fmt,  leaderCategory: 'strikeouts',          defaultSelected: false, poop: true },
+  { key: 'bb',   label: 'BB',   getValue: s => s.baseOnBalls,   format: fmt,  leaderCategory: 'walks',               defaultSelected: false },
+  { key: 'sb',   label: 'SB',   getValue: s => s.stolenBases,   format: fmt,  leaderCategory: 'stolenBases',         defaultSelected: false },
+  { key: 'cs',   label: 'CS',   getValue: s => s.caughtStealing, format: fmt, leaderCategory: 'caughtStealing',      defaultSelected: false, poop: true },
+]
+
+const PITCHING_STAT_DEFS: StatDef[] = [
+  { key: 'wl',   label: 'W-L',  getValue: s => s.wins != null ? `${s.wins}-${s.losses ?? 0}` : null, format: v => v ?? '—', leaderCategory: 'wins',                         defaultSelected: true  },
+  { key: 'era',  label: 'ERA',  getValue: s => s.era,              format: fmt,                   leaderCategory: 'earnedRunAverage',             defaultSelected: true  },
+  { key: 'g',    label: 'G',    getValue: s => s.gamesPlayed,      format: fmt,                   leaderCategory: '',                             defaultSelected: false },
+  { key: 'gs',   label: 'GS',   getValue: s => s.gamesStarted,     format: fmt,                   leaderCategory: '',                             defaultSelected: false },
+  { key: 'ip',   label: 'IP',   getValue: s => s.inningsPitched,   format: fmt,                   leaderCategory: 'inningsPitched',               defaultSelected: true  },
+  { key: 'whip', label: 'WHIP', getValue: s => s.whip,             format: fmt,                   leaderCategory: 'walksAndHitsPerInningPitched',  defaultSelected: true  },
+  { key: 'sv',   label: 'SV',   getValue: s => s.saves,            format: fmt,                   leaderCategory: 'saves',                        defaultSelected: false },
+  { key: 'h',    label: 'H',    getValue: s => s.hits,             format: fmt,                   leaderCategory: '',                             defaultSelected: false },
+  { key: 'r',    label: 'R',    getValue: s => s.runs,             format: fmt,                   leaderCategory: '',                             defaultSelected: false },
+  { key: 'er',   label: 'ER',   getValue: s => s.earnedRuns,       format: fmt,                   leaderCategory: '',                             defaultSelected: false },
+  { key: 'hr',   label: 'HR',   getValue: s => s.homeRuns,         format: fmt,                   leaderCategory: '',                             defaultSelected: false },
+  { key: 'bb',   label: 'BB',   getValue: s => s.baseOnBalls,      format: fmt,                   leaderCategory: '',                             defaultSelected: false },
+  { key: 'k',    label: 'K',    getValue: s => s.strikeOuts,       format: fmt,                   leaderCategory: 'strikeouts',                   defaultSelected: true  },
+  { key: 'so9',  label: 'SO/9', getValue: s => s.strikeoutsPer9Inn, format: v => fmtDecimal(v, 2), leaderCategory: 'strikeoutsPer9Inn',            defaultSelected: false },
+]
+
+const HIT_LEADER_CATS = [...new Set(HITTING_STAT_DEFS.map(d => d.leaderCategory).filter(Boolean))]
+const PIT_LEADER_CATS = [...new Set(PITCHING_STAT_DEFS.map(d => d.leaderCategory).filter(Boolean))]
+const DEFAULT_HIT_STATS = HITTING_STAT_DEFS.filter(d => d.defaultSelected).map(d => d.key)
+const DEFAULT_PIT_STATS = PITCHING_STAT_DEFS.filter(d => d.defaultSelected).map(d => d.key)
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -41,10 +115,51 @@ const TEAM_ABBR: Record<number, string> = {
   144: 'ATL', 145: 'CWS', 146: 'MIA', 147: 'NYY', 158: 'MIL',
 }
 
-const HIT_CATEGORIES = ['battingAverage', 'homeRuns', 'runsBattedIn', 'stolenBases', 'onBasePlusSlugging']
-const PIT_CATEGORIES = ['earnedRunAverage', 'strikeouts', 'walksAndHitsPerInningPitched', 'inningsPitched']
-
 // ─── Palette ─────────────────────────────────────────────────────────────────
+
+const TEAM_BG: Record<number, string> = {
+  108: '#BA0021',  // LAA Angels
+  109: '#A71930',  // ARI Diamondbacks
+  110: '#DF4601',  // BAL Orioles
+  111: '#BD3039',  // BOS Red Sox
+  112: '#0E3386',  // CHC Cubs
+  113: '#C6011F',  // CIN Reds
+  114: '#00385D',  // CLE Guardians
+  115: '#33006F',  // COL Rockies
+  116: '#0C2340',  // DET Tigers
+  117: '#002D62',  // HOU Astros
+  118: '#004687',  // KC Royals
+  119: '#005A9C',  // LAD Dodgers
+  120: '#AB0003',  // WSH Nationals
+  121: '#002D72',  // NYM Mets
+  133: '#003831',  // OAK Athletics
+  134: '#27251F',  // PIT Pirates
+  135: '#2F241D',  // SD Padres
+  136: '#005C5C',  // SEA Mariners
+  137: '#27251F',  // SF Giants
+  138: '#C41E3A',  // STL Cardinals
+  139: '#092C5C',  // TB Rays
+  140: '#003278',  // TEX Rangers
+  141: '#134A8E',  // TOR Blue Jays
+  142: '#002B5C',  // MIN Twins
+  143: '#E81828',  // PHI Phillies
+  144: '#CE1141',  // ATL Braves
+  145: '#27251F',  // CWS White Sox
+  146: '#272525',  // MIA Marlins
+  147: '#132448',  // NYY Yankees
+  158: '#12284B',  // MIL Brewers
+}
+
+function teamPalette(teamId?: number): Palette {
+  const bg = (teamId != null && TEAM_BG[teamId]) || DEFAULT_PALETTE.bg
+  return {
+    bg,
+    text: '#ffffff',
+    sub: 'rgba(255,255,255,0.62)',
+    rank: 'rgba(255,255,255,0.42)',
+    divider: 'rgba(255,255,255,0.16)',
+  }
+}
 
 function randomPalette(): Palette {
   const hue = Math.floor(Math.random() * 360)
@@ -132,32 +247,30 @@ async function fetchLeaderIds(categories: string[], statGroup: string, season: n
   }
 }
 
-function fmt(v: any): string {
-  return v == null || v === '' ? '—' : String(v)
-}
-
-function fmtDecimal(v: any, places = 2): string {
-  if (v == null || v === '') return '—'
-  const n = Number(v)
-  return isNaN(n) ? '—' : n.toFixed(places)
-}
-
 // ─── Stat item ───────────────────────────────────────────────────────────────
 
 interface StatItemProps {
   label: string
   value: string
   playerId: number
-  category: string
+  leaderCategory: string
   leaders: Map<string, number[]>
   palette: Palette
   large?: boolean
+  poop?: boolean
 }
 
-function StatItem({ label, value, playerId, category, leaders, palette, large }: StatItemProps) {
-  const ids = leaders.get(category) ?? []
+function StatItem({ label, value, playerId, leaderCategory, leaders, palette, large, poop }: StatItemProps) {
+  const ids = leaderCategory ? (leaders.get(leaderCategory) ?? []) : []
   const rank = ids.indexOf(playerId)
+  const inTop5 = rank !== -1 && rank < 5
   const inTop20 = rank !== -1
+
+  let badge = ''
+  if (inTop20) {
+    if (inTop5) badge = `${poop ? '💩' : '🔥'} #${rank + 1}`
+    else badge = `#${rank + 1}`
+  }
 
   return (
     <Box sx={{ textAlign: 'center' }}>
@@ -189,9 +302,56 @@ function StatItem({ label, value, playerId, category, leaders, palette, large }:
         height: '1rem',
         letterSpacing: 0.5,
       }}>
-        {inTop20 ? `${rank < 5 ? '🔥 ' : ''}#${rank + 1}` : ''}
+        {badge}
       </Typography>
     </Box>
+  )
+}
+
+// ─── Stat picker popover ─────────────────────────────────────────────────────
+
+interface StatPickerProps {
+  defs: StatDef[]
+  selected: string[]
+  onToggle: (key: string) => void
+  label: string
+}
+
+function StatPicker({ defs, selected, onToggle, label }: StatPickerProps) {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+  return (
+    <>
+      <Button variant="outlined" size="small" onClick={e => setAnchor(e.currentTarget)}>
+        {label} ▾
+      </Button>
+      <Popover
+        open={Boolean(anchor)}
+        anchorEl={anchor}
+        onClose={() => setAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+      >
+        <Box sx={{ p: 1, maxHeight: 340, overflowY: 'auto', minWidth: 140 }}>
+          <FormGroup>
+            {defs.map(def => (
+              <FormControlLabel
+                key={def.key}
+                control={
+                  <Checkbox
+                    size="small"
+                    checked={selected.includes(def.key)}
+                    onChange={() => onToggle(def.key)}
+                    sx={{ py: 0.3 }}
+                  />
+                }
+                label={<Typography sx={{ fontSize: '0.82rem' }}>{def.label}</Typography>}
+                sx={{ mx: 0 }}
+              />
+            ))}
+          </FormGroup>
+        </Box>
+      </Popover>
+    </>
   )
 }
 
@@ -201,15 +361,26 @@ interface CardInnerProps {
   player: Player
   hittingStats: any
   pitchingStats: any
-  leaders: Map<string, number[]>
+  hitLeaders: Map<string, number[]>
+  pitLeaders: Map<string, number[]>
   palette: Palette
   season: number
   teamDisplay: string
   large?: boolean
+  selectedHitStats: string[]
+  selectedPitStats: string[]
+  onToggleHitStat?: (key: string) => void
+  onTogglePitStat?: (key: string) => void
 }
 
-function CardInner({ player, hittingStats, pitchingStats, leaders, palette, season, teamDisplay, large }: CardInnerProps) {
+function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pitLeaders, palette, season, teamDisplay, large, selectedHitStats, selectedPitStats, onToggleHitStat, onTogglePitStat }: CardInnerProps) {
   const photoSize = large ? 200 : 155
+
+  const visibleHitDefs = HITTING_STAT_DEFS.filter(d => selectedHitStats.includes(d.key))
+  const visiblePitDefs = PITCHING_STAT_DEFS.filter(d => selectedPitStats.includes(d.key))
+  const hitCols = statCols(visibleHitDefs.length)
+  const pitCols = statCols(visiblePitDefs.length)
+
   return (
     <>
       {/* Photo */}
@@ -222,15 +393,10 @@ function CardInner({ player, hittingStats, pitchingStats, leaders, palette, seas
           border: `3px solid ${palette.text}`,
           flexShrink: 0,
           bgcolor: palette.divider,
-        }}>
-          <img
-            src={HEADSHOT(player.id)}
-            alt={player.fullName}
-            crossOrigin="anonymous"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 12%', display: 'block' }}
-            onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden' }}
-          />
-        </Box>
+          backgroundImage: `url(${HEADSHOT(player.id)})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center 12%',
+        }} />
       </Box>
 
       {/* Name */}
@@ -252,7 +418,7 @@ function CardInner({ player, hittingStats, pitchingStats, leaders, palette, seas
       </Typography>
 
       {/* Hitting */}
-      {hittingStats && (
+      {hittingStats && visibleHitDefs.length > 0 && (
         <Box sx={{ borderTop: `1px solid ${palette.divider}`, pt: 2.5 }}>
           <Typography sx={{
             textAlign: 'center', color: palette.rank, fontSize: '0.6rem', fontWeight: 700,
@@ -260,31 +426,69 @@ function CardInner({ player, hittingStats, pitchingStats, leaders, palette, seas
           }}>
             {season} Hitting
           </Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: { xs: 0.5, sm: 1 } }}>
-            <StatItem label="AVG" value={fmt(hittingStats.avg)} playerId={player.id} category="battingAverage" leaders={leaders} palette={palette} large={large} />
-            <StatItem label="OPS" value={fmt(hittingStats.ops)} playerId={player.id} category="onBasePlusSlugging" leaders={leaders} palette={palette} large={large} />
-            <StatItem label="HR" value={fmt(hittingStats.homeRuns)} playerId={player.id} category="homeRuns" leaders={leaders} palette={palette} large={large} />
-            <StatItem label="RBI" value={fmt(hittingStats.rbi)} playerId={player.id} category="runsBattedIn" leaders={leaders} palette={palette} large={large} />
-            <StatItem label="SB" value={fmt(hittingStats.stolenBases)} playerId={player.id} category="stolenBases" leaders={leaders} palette={palette} large={large} />
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
+            {visibleHitDefs.map(def => (
+              <Box
+                key={def.key}
+                onClick={() => onToggleHitStat?.(def.key)}
+                sx={{
+                  width: `${100 / hitCols}%`,
+                  pb: 2,
+                  cursor: onToggleHitStat ? 'pointer' : 'default',
+                  transition: 'opacity 0.15s',
+                  '&:hover': onToggleHitStat ? { opacity: 0.6 } : {},
+                }}
+              >
+                <StatItem
+                  label={def.label}
+                  value={def.format(def.getValue(hittingStats))}
+                  playerId={player.id}
+                  leaderCategory={def.leaderCategory}
+                  leaders={hitLeaders}
+                  palette={palette}
+                  large={large}
+                  poop={def.poop}
+                />
+              </Box>
+            ))}
           </Box>
         </Box>
       )}
 
       {/* Pitching */}
-      {pitchingStats && (
-        <Box sx={{ borderTop: `1px solid ${palette.divider}`, pt: 2.5, mt: hittingStats ? 2.5 : 0 }}>
+      {pitchingStats && visiblePitDefs.length > 0 && (
+        <Box sx={{ borderTop: `1px solid ${palette.divider}`, pt: 2.5, mt: hittingStats && visibleHitDefs.length > 0 ? 1 : 0 }}>
           <Typography sx={{
             textAlign: 'center', color: palette.rank, fontSize: '0.6rem', fontWeight: 700,
             textTransform: 'uppercase', letterSpacing: 2.5, mb: 2,
           }}>
             {season} Pitching
           </Typography>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: { xs: 0.5, sm: 1 } }}>
-            <StatItem label="IP" value={fmt(pitchingStats.inningsPitched)} playerId={player.id} category="inningsPitched" leaders={leaders} palette={palette} large={large} />
-            <StatItem label="ERA" value={fmtDecimal(pitchingStats.era)} playerId={player.id} category="earnedRunAverage" leaders={leaders} palette={palette} large={large} />
-            <StatItem label="SO" value={fmt(pitchingStats.strikeOuts)} playerId={player.id} category="strikeouts" leaders={leaders} palette={palette} large={large} />
-            <StatItem label="BB" value={fmt(pitchingStats.baseOnBalls)} playerId={player.id} category="" leaders={leaders} palette={palette} large={large} />
-            <StatItem label="WHIP" value={fmtDecimal(pitchingStats.whip)} playerId={player.id} category="walksAndHitsPerInningPitched" leaders={leaders} palette={palette} large={large} />
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
+            {visiblePitDefs.map(def => (
+              <Box
+                key={def.key}
+                onClick={() => onTogglePitStat?.(def.key)}
+                sx={{
+                  width: `${100 / pitCols}%`,
+                  pb: 2,
+                  cursor: onTogglePitStat ? 'pointer' : 'default',
+                  transition: 'opacity 0.15s',
+                  '&:hover': onTogglePitStat ? { opacity: 0.6 } : {},
+                }}
+              >
+                <StatItem
+                  label={def.label}
+                  value={def.format(def.getValue(pitchingStats))}
+                  playerId={player.id}
+                  leaderCategory={def.leaderCategory}
+                  leaders={pitLeaders}
+                  palette={palette}
+                  large={large}
+                  poop={def.poop}
+                />
+              </Box>
+            ))}
           </Box>
         </Box>
       )}
@@ -303,7 +507,8 @@ export default function MlbStats() {
   const [player, setPlayer] = useState<Player | null>(null)
   const [hittingStats, setHittingStats] = useState<any>(null)
   const [pitchingStats, setPitchingStats] = useState<any>(null)
-  const [leaders, setLeaders] = useState<Map<string, number[]>>(new Map())
+  const [hitLeaders, setHitLeaders] = useState<Map<string, number[]>>(new Map())
+  const [pitLeaders, setPitLeaders] = useState<Map<string, number[]>>(new Map())
   const [loadingStats, setLoadingStats] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [palette, setPalette] = useState<Palette>(DEFAULT_PALETTE)
@@ -313,8 +518,18 @@ export default function MlbStats() {
   const [fullscreen, setFullscreen] = useState(false)
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null)
   const [downloading, setDownloading] = useState(false)
+  const [selectedHitStats, setSelectedHitStats] = useState<string[]>(DEFAULT_HIT_STATS)
+  const [selectedPitStats, setSelectedPitStats] = useState<string[]>(DEFAULT_PIT_STATS)
 
   const cardRef = useRef<HTMLDivElement>(null)
+
+  const toggleHitStat = useCallback((key: string) => {
+    setSelectedHitStats(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
+  }, [])
+
+  const togglePitStat = useCallback((key: string) => {
+    setSelectedPitStats(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key])
+  }, [])
 
   // Debounced search
   useEffect(() => {
@@ -337,7 +552,8 @@ export default function MlbStats() {
       setLoadingStats(true)
       setHittingStats(null)
       setPitchingStats(null)
-      setLeaders(new Map())
+      setHitLeaders(new Map())
+      setPitLeaders(new Map())
     } else {
       setRefreshing(true)
     }
@@ -355,10 +571,11 @@ export default function MlbStats() {
       setPitchingStats(pitching)
 
       const [hLeaders, pLeaders] = await Promise.all([
-        hitting ? fetchLeaderIds(HIT_CATEGORIES, 'hitting', s) : Promise.resolve(new Map<string, number[]>()),
-        pitching ? fetchLeaderIds(PIT_CATEGORIES, 'pitching', s) : Promise.resolve(new Map<string, number[]>()),
+        hitting ? fetchLeaderIds(HIT_LEADER_CATS, 'hitting', s) : Promise.resolve(new Map<string, number[]>()),
+        pitching ? fetchLeaderIds(PIT_LEADER_CATS, 'pitching', s) : Promise.resolve(new Map<string, number[]>()),
       ])
-      setLeaders(new Map([...hLeaders, ...pLeaders]))
+      setHitLeaders(hLeaders)
+      setPitLeaders(pLeaders)
     } finally {
       setLoadingStats(false)
       setRefreshing(false)
@@ -368,7 +585,6 @@ export default function MlbStats() {
   const selectPlayer = useCallback(async (p: Player) => {
     setDropdownOpen(false)
     setQuery(p.fullName)
-    setPalette(randomPalette())
     setLoadingStats(true)
     const isPitcher = p.primaryPosition?.code === '1'
     const isTwoWay = p.primaryPosition?.type === 'Two-Way Player'
@@ -381,6 +597,7 @@ export default function MlbStats() {
       fetchCareerData(p.id, groups),
     ])
     const resolved = details ?? p
+    setPalette(teamPalette(resolved.currentTeam?.id))
     const { seasons, teamsBySeason } = careerData
     const latestSeason = seasons[0] ?? CURRENT_SEASON
     setPlayer(resolved)
@@ -395,7 +612,7 @@ export default function MlbStats() {
     if (player) loadStats(player, s, false)
   }, [player, loadStats])
 
-  const handleDownload = useCallback(async () => {
+  const handleDownload = useCallback(async (mode: 'centered' | 'tiktok') => {
     if (!cardRef.current) return
     setExportAnchor(null)
     setDownloading(true)
@@ -407,7 +624,6 @@ export default function MlbStats() {
         backgroundColor: null,
       })
 
-      // Build 9:16 canvas with full bg color
       const out = document.createElement('canvas')
       out.width = 1080
       out.height = 1920
@@ -415,13 +631,27 @@ export default function MlbStats() {
       ctx.fillStyle = palette.bg
       ctx.fillRect(0, 0, 1080, 1920)
 
-      const scale = Math.min((1080 * 0.92) / captured.width, (1920 * 0.85) / captured.height)
-      const dw = captured.width * scale
-      const dh = captured.height * scale
-      ctx.drawImage(captured, (1080 - dw) / 2, (1920 - dh) / 2, dw, dh)
+      let dx: number, dy: number, dw: number, dh: number
+      if (mode === 'tiktok') {
+        // Scale to full width, snap to top so the person can stand below and point up
+        const scale = (1080 * 0.92) / captured.width
+        dw = captured.width * scale
+        dh = captured.height * scale
+        dx = (1080 - dw) / 2
+        dy = 60
+      } else {
+        // Centered
+        const scale = Math.min((1080 * 0.92) / captured.width, (1920 * 0.85) / captured.height)
+        dw = captured.width * scale
+        dh = captured.height * scale
+        dx = (1080 - dw) / 2
+        dy = (1920 - dh) / 2
+      }
+      ctx.drawImage(captured, dx, dy, dw, dh)
 
+      const suffix = mode === 'tiktok' ? '-tiktok' : ''
       const link = document.createElement('a')
-      link.download = `${player?.fullName ?? 'player'}-${season}-stats.png`
+      link.download = `${player?.fullName ?? 'player'}-${season}-stats${suffix}.png`
       link.href = out.toDataURL('image/png')
       link.click()
     } catch (e) {
@@ -433,6 +663,21 @@ export default function MlbStats() {
 
   const hasStats = !loadingStats && player && (hittingStats || pitchingStats)
   const teamDisplay = seasonTeams.get(season)?.join('/') ?? player?.currentTeam?.name ?? ''
+
+  const cardInnerProps = {
+    player: player!,
+    hittingStats,
+    pitchingStats,
+    hitLeaders,
+    pitLeaders,
+    palette,
+    season,
+    teamDisplay,
+    selectedHitStats,
+    selectedPitStats,
+    onToggleHitStat: toggleHitStat,
+    onTogglePitStat: togglePitStat,
+  }
 
   return (
     <Box sx={{ maxWidth: 600, mx: 'auto' }}>
@@ -449,10 +694,7 @@ export default function MlbStats() {
           }}
         >
           <Box sx={{ width: '100%', maxWidth: 520, px: 4 }}>
-            <CardInner
-              player={player} hittingStats={hittingStats} pitchingStats={pitchingStats}
-              leaders={leaders} palette={palette} season={season} teamDisplay={teamDisplay} large
-            />
+            <CardInner {...cardInnerProps} large onToggleHitStat={undefined} onTogglePitStat={undefined} />
           </Box>
         </Box>
       )}
@@ -511,17 +753,54 @@ export default function MlbStats() {
               p: { xs: 3, sm: 4 },
             }}
           >
-            <CardInner
-              player={player!} hittingStats={hittingStats} pitchingStats={pitchingStats}
-              leaders={leaders} palette={palette} season={season} teamDisplay={teamDisplay}
-            />
+            <CardInner {...cardInnerProps} />
           </Paper>
+
+          {/* External links */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 2 }}>
+            <Typography
+              component="a"
+              href={`https://www.baseball-reference.com/search/search.fcgi?search=${encodeURIComponent(player!.fullName)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{ fontSize: '0.8rem', color: 'text.secondary', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+            >
+              Baseball Reference ↗
+            </Typography>
+            <Typography
+              component="a"
+              href={`https://baseballsavant.mlb.com/savant-player/${player!.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${player!.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{ fontSize: '0.8rem', color: 'text.secondary', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+            >
+              Baseball Savant ↗
+            </Typography>
+          </Box>
 
           {/* Controls */}
           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 2, flexWrap: 'wrap' }}>
             <Button variant="outlined" startIcon={<Shuffle />} size="small" onClick={() => setPalette(randomPalette())}>
-              Randomize
+              Colors
             </Button>
+
+            {hittingStats && (
+              <StatPicker
+                defs={HITTING_STAT_DEFS}
+                selected={selectedHitStats}
+                onToggle={toggleHitStat}
+                label="Batting"
+              />
+            )}
+
+            {pitchingStats && (
+              <StatPicker
+                defs={PITCHING_STAT_DEFS}
+                selected={selectedPitStats}
+                onToggle={togglePitStat}
+                label="Pitching"
+              />
+            )}
 
             {/* Year selector */}
             <FormControl size="small">
@@ -550,8 +829,11 @@ export default function MlbStats() {
               <MenuItem onClick={() => { setFullscreen(true); setExportAnchor(null) }}>
                 View fullscreen
               </MenuItem>
-              <MenuItem onClick={handleDownload}>
-                Download PNG
+              <MenuItem onClick={() => handleDownload('centered')}>
+                Download centered
+              </MenuItem>
+              <MenuItem onClick={() => handleDownload('tiktok')}>
+                Download for TikTok
               </MenuItem>
             </Menu>
           </Box>
