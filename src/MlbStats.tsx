@@ -17,7 +17,7 @@ interface Player {
   id: number
   fullName: string
   active: boolean
-  primaryPosition: { code: string; name: string; type: string }
+  primaryPosition: { code: string; name: string; type: string; abbreviation?: string }
   currentTeam?: { id: number; name: string }
   currentAge?: number
   primaryNumber?: string
@@ -193,7 +193,7 @@ const DEFAULT_PALETTE: Palette = {
 // ─── API helpers ─────────────────────────────────────────────────────────────
 
 async function searchPlayers(name: string): Promise<Player[]> {
-  const r = await fetch(`https://statsapi.mlb.com/api/v1/people/search?names=${encodeURIComponent(name)}&sportId=1`)
+  const r = await fetch(`https://statsapi.mlb.com/api/v1/people/search?names=${encodeURIComponent(name)}&sportId=1&hydrate=currentTeam`)
   const d = await r.json()
   return (d.people ?? []).filter((p: Player) => p.active !== false)
 }
@@ -763,14 +763,35 @@ export default function MlbStats() {
           {dropdownOpen && results.length > 0 && (
             <Paper elevation={6} sx={{ position: 'absolute', width: '100%', zIndex: 20, mt: 0.5, borderRadius: 2, overflow: 'hidden' }}>
               <List dense disablePadding>
-                {results.map((p, i) => (
-                  <React.Fragment key={p.id}>
-                    {i > 0 && <Divider />}
-                    <ListItemButton onClick={() => selectPlayer(p)}>
-                      <ListItemText primary={p.fullName} secondary={p.primaryPosition?.name} />
-                    </ListItemButton>
-                  </React.Fragment>
-                ))}
+                {results.map((p, i) => {
+                  const pos = p.primaryPosition?.abbreviation ?? p.primaryPosition?.name ?? ''
+                  const teamAbbr = p.currentTeam?.id != null ? TEAM_ABBR[p.currentTeam.id] : undefined
+                  const sub = [pos, teamAbbr].filter(Boolean).join(' | ')
+                  return (
+                    <React.Fragment key={p.id}>
+                      {i > 0 && <Divider />}
+                      <ListItemButton onClick={() => selectPlayer(p)} sx={{ gap: 1.5, py: 1 }}>
+                        <Box sx={{
+                          width: 48, height: 48, borderRadius: 1.5, flexShrink: 0,
+                          backgroundImage: `url(${HEADSHOT(p.id)})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center 10%',
+                          bgcolor: 'grey.200',
+                        }} />
+                        <Box>
+                          <Typography sx={{ fontWeight: 600, fontSize: '0.9rem', lineHeight: 1.2 }}>
+                            {p.fullName}
+                          </Typography>
+                          {sub && (
+                            <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mt: 0.25 }}>
+                              {sub}
+                            </Typography>
+                          )}
+                        </Box>
+                      </ListItemButton>
+                    </React.Fragment>
+                  )
+                })}
               </List>
             </Paper>
           )}
