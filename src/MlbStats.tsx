@@ -4,11 +4,14 @@ import {
   InputAdornment, List, ListItemButton, ListItemText,
   Divider, ClickAwayListener, Button, Menu, MenuItem, Select, FormControl,
   Popover, FormGroup, FormControlLabel, Checkbox,
+  ToggleButtonGroup, ToggleButton,
 } from '@mui/material'
 import { Search, Shuffle, FileDownload } from '@mui/icons-material'
 import html2canvas from 'html2canvas'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
+
+type RankMode = 'all' | 'top20' | 'none'
 
 interface Player {
   id: number
@@ -16,6 +19,8 @@ interface Player {
   active: boolean
   primaryPosition: { code: string; name: string; type: string }
   currentTeam?: { id: number; name: string }
+  currentAge?: number
+  primaryNumber?: string
 }
 
 interface Palette {
@@ -48,13 +53,13 @@ function fmtDecimal(v: any, places = 2): string {
   return isNaN(n) ? '—' : n.toFixed(places)
 }
 
-// Given N stats, return column count that avoids a single orphan on the last row
+// Given N stats, return column count (max 3) avoiding a single orphan on the last row
 function statCols(n: number): number {
-  if (n <= 5) return n || 1
-  for (let cols = 5; cols >= 2; cols--) {
+  if (n <= 3) return n || 1
+  for (let cols = 3; cols >= 2; cols--) {
     if (n % cols !== 1) return cols
   }
-  return 2
+  return 3
 }
 
 // ─── Stat definitions ─────────────────────────────────────────────────────────
@@ -256,19 +261,20 @@ interface StatItemProps {
   leaderCategory: string
   leaders: Map<string, number[]>
   palette: Palette
+  rankMode: RankMode
   large?: boolean
   poop?: boolean
 }
 
-function StatItem({ label, value, playerId, leaderCategory, leaders, palette, large, poop }: StatItemProps) {
+function StatItem({ label, value, playerId, leaderCategory, leaders, palette, rankMode, large, poop }: StatItemProps) {
   const ids = leaderCategory ? (leaders.get(leaderCategory) ?? []) : []
   const rank = ids.indexOf(playerId)
   const inTop5 = rank !== -1 && rank < 5
   const inTop20 = rank !== -1
 
   let badge = ''
-  if (inTop20) {
-    if (inTop5) badge = `${poop ? '💩' : '🔥'} #${rank + 1}`
+  if (rankMode !== 'none' && inTop20) {
+    if (rankMode === 'all' && inTop5) badge = `${poop ? '💩' : '🔥'} #${rank + 1}`
     else badge = `#${rank + 1}`
   }
 
@@ -366,6 +372,11 @@ interface CardInnerProps {
   palette: Palette
   season: number
   teamDisplay: string
+  rankMode: RankMode
+  showPosition: boolean
+  showTeam: boolean
+  showAge: boolean
+  showNumber: boolean
   large?: boolean
   selectedHitStats: string[]
   selectedPitStats: string[]
@@ -373,13 +384,19 @@ interface CardInnerProps {
   onTogglePitStat?: (key: string) => void
 }
 
-function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pitLeaders, palette, season, teamDisplay, large, selectedHitStats, selectedPitStats, onToggleHitStat, onTogglePitStat }: CardInnerProps) {
+function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pitLeaders, palette, season, teamDisplay, rankMode, showPosition, showTeam, showAge, showNumber, large, selectedHitStats, selectedPitStats, onToggleHitStat, onTogglePitStat }: CardInnerProps) {
   const photoSize = large ? 200 : 155
 
   const visibleHitDefs = HITTING_STAT_DEFS.filter(d => selectedHitStats.includes(d.key))
   const visiblePitDefs = PITCHING_STAT_DEFS.filter(d => selectedPitStats.includes(d.key))
   const hitCols = statCols(visibleHitDefs.length)
   const pitCols = statCols(visiblePitDefs.length)
+
+  const subtitleParts: string[] = []
+  if (showPosition && player.primaryPosition?.name) subtitleParts.push(player.primaryPosition.name)
+  if (showTeam && teamDisplay) subtitleParts.push(teamDisplay)
+  if (showAge && player.currentAge != null) subtitleParts.push(`Age ${player.currentAge}`)
+  if (showNumber && player.primaryNumber) subtitleParts.push(`#${player.primaryNumber}`)
 
   return (
     <>
@@ -408,14 +425,17 @@ function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pitLeaders
         {player.fullName}
       </Typography>
 
-      {/* Team / position */}
-      <Typography sx={{
-        textAlign: 'center', color: palette.sub,
-        fontSize: large ? '1rem' : { xs: '0.82rem', sm: '0.9rem' },
-        fontWeight: 500, mb: 3.5,
-      }}>
-        {[player.primaryPosition?.name, teamDisplay].filter(Boolean).join(' · ')}
-      </Typography>
+      {/* Subtitle */}
+      {subtitleParts.length > 0 && (
+        <Typography sx={{
+          textAlign: 'center', color: palette.sub,
+          fontSize: large ? '1rem' : { xs: '0.82rem', sm: '0.9rem' },
+          fontWeight: 500, mb: 3.5,
+        }}>
+          {subtitleParts.join(' · ')}
+        </Typography>
+      )}
+      {subtitleParts.length === 0 && <Box sx={{ mb: 3.5 }} />}
 
       {/* Hitting */}
       {hittingStats && visibleHitDefs.length > 0 && (
@@ -446,6 +466,7 @@ function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pitLeaders
                   leaderCategory={def.leaderCategory}
                   leaders={hitLeaders}
                   palette={palette}
+                  rankMode={rankMode}
                   large={large}
                   poop={def.poop}
                 />
@@ -484,6 +505,7 @@ function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pitLeaders
                   leaderCategory={def.leaderCategory}
                   leaders={pitLeaders}
                   palette={palette}
+                  rankMode={rankMode}
                   large={large}
                   poop={def.poop}
                 />
@@ -493,6 +515,19 @@ function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pitLeaders
         </Box>
       )}
     </>
+  )
+}
+
+// ─── Section label ────────────────────────────────────────────────────────────
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <Typography sx={{
+      fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase',
+      letterSpacing: 1.5, color: 'text.disabled', mb: 1,
+    }}>
+      {children}
+    </Typography>
   )
 }
 
@@ -520,6 +555,13 @@ export default function MlbStats() {
   const [downloading, setDownloading] = useState(false)
   const [selectedHitStats, setSelectedHitStats] = useState<string[]>(DEFAULT_HIT_STATS)
   const [selectedPitStats, setSelectedPitStats] = useState<string[]>(DEFAULT_PIT_STATS)
+
+  // Options state
+  const [rankMode, setRankMode] = useState<RankMode>('all')
+  const [showPosition, setShowPosition] = useState(true)
+  const [showTeam, setShowTeam] = useState(true)
+  const [showAge, setShowAge] = useState(false)
+  const [showNumber, setShowNumber] = useState(false)
 
   const cardRef = useRef<HTMLDivElement>(null)
 
@@ -633,14 +675,12 @@ export default function MlbStats() {
 
       let dx: number, dy: number, dw: number, dh: number
       if (mode === 'tiktok') {
-        // Scale to full width, snap to top so the person can stand below and point up
         const scale = (1080 * 0.92) / captured.width
         dw = captured.width * scale
         dh = captured.height * scale
         dx = (1080 - dw) / 2
         dy = 60
       } else {
-        // Centered
         const scale = Math.min((1080 * 0.92) / captured.width, (1920 * 0.85) / captured.height)
         dw = captured.width * scale
         dh = captured.height * scale
@@ -673,6 +713,11 @@ export default function MlbStats() {
     palette,
     season,
     teamDisplay,
+    rankMode,
+    showPosition,
+    showTeam,
+    showAge,
+    showNumber,
     selectedHitStats,
     selectedPitStats,
     onToggleHitStat: toggleHitStat,
@@ -756,53 +801,12 @@ export default function MlbStats() {
             <CardInner {...cardInnerProps} />
           </Paper>
 
-          {/* External links */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 2 }}>
-            <Typography
-              component="a"
-              href={`https://www.baseball-reference.com/search/search.fcgi?search=${encodeURIComponent(player!.fullName)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{ fontSize: '0.8rem', color: 'text.secondary', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
-            >
-              Baseball Reference ↗
-            </Typography>
-            <Typography
-              component="a"
-              href={`https://baseballsavant.mlb.com/savant-player/${player!.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${player!.id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{ fontSize: '0.8rem', color: 'text.secondary', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
-            >
-              Baseball Savant ↗
-            </Typography>
-          </Box>
-
-          {/* Controls */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+          {/* Action controls */}
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 2.5, flexWrap: 'wrap' }}>
             <Button variant="outlined" startIcon={<Shuffle />} size="small" onClick={() => setPalette(randomPalette())}>
               Colors
             </Button>
 
-            {hittingStats && (
-              <StatPicker
-                defs={HITTING_STAT_DEFS}
-                selected={selectedHitStats}
-                onToggle={toggleHitStat}
-                label="Batting"
-              />
-            )}
-
-            {pitchingStats && (
-              <StatPicker
-                defs={PITCHING_STAT_DEFS}
-                selected={selectedPitStats}
-                onToggle={togglePitStat}
-                label="Pitching"
-              />
-            )}
-
-            {/* Year selector */}
             <FormControl size="small">
               <Select
                 value={season}
@@ -815,7 +819,6 @@ export default function MlbStats() {
               </Select>
             </FormControl>
 
-            {/* Export */}
             <Button
               variant="outlined"
               startIcon={<FileDownload />}
@@ -836,6 +839,102 @@ export default function MlbStats() {
                 Download for TikTok
               </MenuItem>
             </Menu>
+          </Box>
+
+          {/* Options section */}
+          <Box sx={{ mt: 3 }}>
+            <SectionLabel>Options</SectionLabel>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+
+              {/* Stat pickers */}
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+                {hittingStats && (
+                  <StatPicker
+                    defs={HITTING_STAT_DEFS}
+                    selected={selectedHitStats}
+                    onToggle={toggleHitStat}
+                    label="Batting"
+                  />
+                )}
+                {pitchingStats && (
+                  <StatPicker
+                    defs={PITCHING_STAT_DEFS}
+                    selected={selectedPitStats}
+                    onToggle={togglePitStat}
+                    label="Pitching"
+                  />
+                )}
+              </Box>
+
+              {/* Rank mode */}
+              <Box sx={{ mb: 2 }}>
+                <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mb: 0.75, fontWeight: 500 }}>
+                  League rank
+                </Typography>
+                <ToggleButtonGroup
+                  value={rankMode}
+                  exclusive
+                  onChange={(_, v) => { if (v) setRankMode(v) }}
+                  size="small"
+                >
+                  <ToggleButton value="all" sx={{ fontSize: '0.72rem', px: 1.5, py: 0.4 }}>All</ToggleButton>
+                  <ToggleButton value="top20" sx={{ fontSize: '0.72rem', px: 1.5, py: 0.4 }}>Top 20</ToggleButton>
+                  <ToggleButton value="none" sx={{ fontSize: '0.72rem', px: 1.5, py: 0.4 }}>None</ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+
+              {/* Player info toggles */}
+              <Box>
+                <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mb: 0.75, fontWeight: 500 }}>
+                  Show under portrait
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                  {[
+                    { label: 'Position', val: showPosition, set: setShowPosition },
+                    { label: 'Team', val: showTeam, set: setShowTeam },
+                    { label: 'Age', val: showAge, set: setShowAge },
+                    { label: 'Number', val: showNumber, set: setShowNumber },
+                  ].map(({ label, val, set }) => (
+                    <ToggleButton
+                      key={label}
+                      value={label}
+                      selected={val}
+                      onChange={() => set(v => !v)}
+                      size="small"
+                      sx={{ fontSize: '0.72rem', px: 1.5, py: 0.4 }}
+                    >
+                      {label}
+                    </ToggleButton>
+                  ))}
+                </Box>
+              </Box>
+
+            </Paper>
+          </Box>
+
+          {/* Links section */}
+          <Box sx={{ mt: 2.5 }}>
+            <SectionLabel>Links</SectionLabel>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Typography
+                component="a"
+                href={`https://www.baseball-reference.com/search/search.fcgi?search=${encodeURIComponent(player!.fullName)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{ fontSize: '0.82rem', color: 'text.secondary', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+              >
+                Baseball Reference ↗
+              </Typography>
+              <Typography
+                component="a"
+                href={`https://baseballsavant.mlb.com/savant-player/${player!.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${player!.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{ fontSize: '0.82rem', color: 'text.secondary', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+              >
+                Baseball Savant ↗
+              </Typography>
+            </Box>
           </Box>
         </>
       )}
