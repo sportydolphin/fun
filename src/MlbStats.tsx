@@ -11,7 +11,7 @@ import html2canvas from 'html2canvas'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type SearchMode = 'player' | 'team'
+
 type RankMode = 'all' | 'top20' | 'none'
 
 interface Player {
@@ -277,8 +277,7 @@ async function fetchLeaderIds(categories: string[], statGroup: string, season: n
     const d = await r.json()
     const map = new Map<string, number[]>()
     for (const cat of d.leagueLeaders ?? []) {
-      if (cat.statGroup !== statGroup) continue
-      map.set(cat.leaderCategory, (cat.leaders ?? []).map((l: any) => l.person?.id).filter(Boolean))
+      map.set(cat.leaderCategory, (cat.leaders ?? []).map((l: any) => Number(l.person?.id)).filter(Boolean))
     }
     return map
   } catch {
@@ -603,7 +602,7 @@ function TeamCardInner({ team, hittingStats, pitchingStats, palette, season, lar
 
       {/* Record */}
       {wins != null && losses != null && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, mb: 2.5, borderBottom: `1px solid ${palette.divider}`, pb: 2.5 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, mb: 2.5 }}>
           {[['W', wins], ['L', losses], ...(pct ? [['PCT', pct]] : [])].map(([lbl, val]) => (
             <Box key={lbl as string} sx={{ textAlign: 'center' }}>
               <Typography sx={{ color: palette.rank, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2, mb: 0.5 }}>
@@ -646,7 +645,6 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 export default function MlbStats() {
   // Search
-  const [searchMode, setSearchMode] = useState<SearchMode>('player')
   const [query, setQuery] = useState('')
   const [playerResults, setPlayerResults] = useState<Player[]>([])
   const [teamResults, setTeamResults] = useState<Team[]>([])
@@ -695,41 +693,47 @@ export default function MlbStats() {
   const toggleTeamHitStat = useCallback((key: string) => setSelectedTeamHitStats(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]), [])
   const toggleTeamPitStat = useCallback((key: string) => setSelectedTeamPitStats(prev => prev.filter(k => k !== key).concat(prev.includes(key) ? [] : [key])), [])
 
-  // Load all teams once when switching to team mode
+  // Load all teams on mount
   useEffect(() => {
-    if (searchMode === 'team' && allTeams.length === 0) {
-      fetchAllTeams().then(setAllTeams).catch(() => {})
-    }
-  }, [searchMode, allTeams.length])
+    fetchAllTeams().then(setAllTeams).catch(() => {})
+  }, [])
 
-  // Player search (debounced)
+  // Combined search: instant team filter + debounced player search
   useEffect(() => {
-    if (searchMode !== 'player') return
-    if (query.length < 2) { setPlayerResults([]); setDropdownOpen(false); return }
-    const t = setTimeout(async () => {
+    if (query.length < 1) {
+      setPlayerResults([])
+      setTeamResults([])
+      setDropdownOpen(false)
+      return
+    }
+
+    // Team filter (instant, client-side)
+    const q = query.toLowerCase()
+    const teamMatches = allTeams.filter(t =>
+      t.name.toLowerCase().includes(q) || t.abbreviation.toLowerCase().includes(q)
+    ).slice(0, 5)
+    setTeamResults(teamMatches)
+    if (teamMatches.length > 0) setDropdownOpen(true)
+
+    if (query.length < 2) {
+      setPlayerResults([])
+      return
+    }
+
+    // Player search (debounced)
+    const timer = setTimeout(async () => {
       setSearching(true)
       try {
         const players = await searchPlayers(query)
-        setPlayerResults(players.slice(0, 8))
-        setDropdownOpen(players.length > 0)
+        const playerSlice = players.slice(0, 6)
+        setPlayerResults(playerSlice)
+        if (playerSlice.length > 0 || teamMatches.length > 0) setDropdownOpen(true)
       } finally {
         setSearching(false)
       }
     }, 350)
-    return () => clearTimeout(t)
-  }, [query, searchMode])
-
-  // Team search (client-side, instant)
-  useEffect(() => {
-    if (searchMode !== 'team') return
-    if (query.length < 1) { setTeamResults([]); setDropdownOpen(false); return }
-    const q = query.toLowerCase()
-    const matches = allTeams.filter(t =>
-      t.name.toLowerCase().includes(q) || t.abbreviation.toLowerCase().includes(q)
-    ).slice(0, 8)
-    setTeamResults(matches)
-    setDropdownOpen(matches.length > 0)
-  }, [query, allTeams, searchMode])
+    return () => clearTimeout(timer)
+  }, [query, allTeams])
 
   const loadStats = useCallback(async (p: Player, s: number, initial = true) => {
     if (initial) { setLoadingStats(true); setHittingStats(null); setPitchingStats(null); setHitLeaders(new Map()); setPitLeaders(new Map()) }
@@ -808,14 +812,6 @@ export default function MlbStats() {
     else if (team) loadTeamStats(team, s, false)
   }, [player, team, loadStats, loadTeamStats])
 
-  const handleSwitchMode = useCallback((mode: SearchMode) => {
-    setSearchMode(mode)
-    setQuery('')
-    setPlayerResults([])
-    setTeamResults([])
-    setDropdownOpen(false)
-  }, [])
-
   const handleDownload = useCallback(async (mode: 'centered' | 'tiktok') => {
     if (!cardRef.current) return
     setExportAnchor(null)
@@ -886,20 +882,12 @@ export default function MlbStats() {
         </Box>
       )}
 
-      {/* Mode toggle */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-        <ToggleButtonGroup value={searchMode} exclusive onChange={(_, v) => { if (v) handleSwitchMode(v) }} size="small">
-          <ToggleButton value="player" sx={{ px: 3, fontSize: '0.8rem' }}>Player</ToggleButton>
-          <ToggleButton value="team" sx={{ px: 3, fontSize: '0.8rem' }}>Team</ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
-
       {/* Search */}
       <ClickAwayListener onClickAway={() => setDropdownOpen(false)}>
         <Box sx={{ position: 'relative', mb: 3 }}>
           <TextField
             fullWidth
-            placeholder={searchMode === 'player' ? 'Search player name…' : 'Search team…'}
+            placeholder="Search player or team…"
             value={query}
             onChange={e => setQuery(e.target.value)}
             InputProps={{
@@ -913,12 +901,12 @@ export default function MlbStats() {
           {dropdownOpen && (
             <Paper elevation={6} sx={{ position: 'absolute', width: '100%', zIndex: 20, mt: 0.5, borderRadius: 2, overflow: 'hidden' }}>
               <List dense disablePadding>
-                {searchMode === 'player' && playerResults.map((p, i) => {
+                {playerResults.map((p, i) => {
                   const pos = p.primaryPosition?.abbreviation ?? p.primaryPosition?.name ?? ''
                   const teamAbbr = p.currentTeam?.id != null ? TEAM_ABBR[p.currentTeam.id] : undefined
                   const sub = [pos, teamAbbr].filter(Boolean).join(' | ')
                   return (
-                    <React.Fragment key={p.id}>
+                    <React.Fragment key={`p-${p.id}`}>
                       {i > 0 && <Divider />}
                       <ListItemButton onClick={() => selectPlayer(p)} sx={{ gap: 1.5, py: 1 }}>
                         <Box sx={{
@@ -936,13 +924,14 @@ export default function MlbStats() {
                     </React.Fragment>
                   )
                 })}
-                {searchMode === 'team' && teamResults.map((t, i) => {
+                {playerResults.length > 0 && teamResults.length > 0 && <Divider sx={{ borderStyle: 'dashed' }} />}
+                {teamResults.map((t, i) => {
                   const abbr = t.abbreviation
                   const divShort = t.division?.name?.replace(/American League |National League /, '') ?? ''
                   const leagueShort = t.league?.name?.includes('American') ? 'AL' : t.league?.name?.includes('National') ? 'NL' : ''
                   const sub = [leagueShort, divShort].filter(Boolean).join(' · ')
                   return (
-                    <React.Fragment key={t.id}>
+                    <React.Fragment key={`t-${t.id}`}>
                       {i > 0 && <Divider />}
                       <ListItemButton onClick={() => selectTeam(t)} sx={{ gap: 1.5, py: 1 }}>
                         <Box sx={{
