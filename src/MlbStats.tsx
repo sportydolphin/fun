@@ -272,7 +272,7 @@ async function fetchCareerData(id: number, groups: Array<'hitting' | 'pitching'>
 
 async function fetchLeaderIds(categories: string[], statGroup: string, season: number): Promise<Map<string, number[]>> {
   try {
-    const q = new URLSearchParams({ leaderCategories: categories.join(','), sportId: '1', season: String(season), limit: '20', statGroup })
+    const q = new URLSearchParams({ leaderCategories: categories.join(','), sportId: '1', season: String(season), limit: '300', statGroup })
     const r = await fetch(`https://statsapi.mlb.com/api/v1/stats/leaders?${q}`)
     const d = await r.json()
     const map = new Map<string, number[]>()
@@ -318,9 +318,9 @@ function StatItem({ label, value, playerId, leaderCategory, leaders, palette, ra
   const inTop20 = rank !== -1
 
   let badge = ''
-  if (rankMode !== 'none' && inTop20) {
-    if (rankMode === 'all' && inTop5) badge = `${poop ? '💩' : '🔥'} #${rank + 1}`
-    else badge = `#${rank + 1}`
+  if (rankMode !== 'none' && rank !== -1) {
+    const showBadge = rankMode === 'all' || (rankMode === 'top20' && rank < 20)
+    if (showBadge) badge = inTop5 ? `${poop ? '💩' : '🔥'} #${rank + 1}` : `#${rank + 1}`
   }
 
   return (
