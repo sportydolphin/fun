@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { Typography, Box, IconButton, AppBar, Toolbar, Button } from '@mui/material'
+import { Typography, Box, IconButton, AppBar, Toolbar } from '@mui/material'
 import { Brightness4, Brightness7 } from '@mui/icons-material'
 import { useTheme } from './ThemeContext'
 import CupsGame from '../projects/cups-game/src/CupsGame'
@@ -122,37 +122,37 @@ export default function App() {
         {path === '/' && <Home />}
         {path === '/cups' && (
           <Box>
-            <Button variant="outlined" onClick={() => navigate('/')} sx={{ mb: 2 }}>← Back</Button>
+            <Box onClick={() => navigate('/')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
             <CupsGame />
           </Box>
         )}
         {path === '/stopwatch' && (
           <Box>
-            <Button variant="outlined" onClick={() => navigate('/')} sx={{ mb: 2 }}>← Back</Button>
+            <Box onClick={() => navigate('/')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
             <Stopwatch />
           </Box>
         )}
         {path === '/weights' && (
           <Box>
-            <Button variant="outlined" onClick={() => navigate('/')} sx={{ mb: 2 }}>← Back</Button>
+            <Box onClick={() => navigate('/')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
             <WeightGame />
           </Box>
         )}
         {path === '/poop' && (
           <Box>
-            <Button variant="outlined" onClick={() => navigate('/')} sx={{ mb: 2 }}>← Back</Button>
+            <Box onClick={() => navigate('/')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
             <PoopGame />
           </Box>
         )}
         {path === '/testgame' && (
           <Box>
-            <Button variant="outlined" onClick={() => navigate('/')} sx={{ mb: 2 }}>← Back</Button>
+            <Box onClick={() => navigate('/')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
             <TestGame />
           </Box>
         )}
         {path === '/mlb' && (
           <Box>
-            <Button variant="outlined" onClick={() => navigate('/')} sx={{ mb: 2 }}>← Back</Button>
+            <Box onClick={() => navigate('/')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
             <MlbStats />
           </Box>
         )}
