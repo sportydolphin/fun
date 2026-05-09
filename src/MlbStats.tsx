@@ -12,7 +12,7 @@ import html2canvas from 'html2canvas'
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 
-type RankMode = 'all' | 'top20' | 'none'
+type RankMode = 'all' | 'top5' | 'none'
 
 interface Player {
   id: number
@@ -300,15 +300,22 @@ async function fetchTeamStats(id: number, group: 'hitting' | 'pitching', season:
 
 async function fetchTeamRankings(group: 'hitting' | 'pitching', season: number, defs: StatDef[]): Promise<Map<string, number[]>> {
   try {
-    const r = await fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=${group}&season=${season}&sportId=1`)
-    const d = await r.json()
-    const splits: any[] = d.stats?.[0]?.splits ?? []
+    const teamIds = Object.keys(TEAM_ABBR).map(Number)
+    const results = await Promise.all(
+      teamIds.map(id =>
+        fetch(`https://statsapi.mlb.com/api/v1/teams/${id}/stats?stats=season&group=${group}&season=${season}`)
+          .then(r => r.json())
+          .then(d => ({ id, stat: d.stats?.[0]?.splits?.[0]?.stat ?? null }))
+          .catch(() => ({ id, stat: null }))
+      )
+    )
+    const valid = results.filter(r => r.stat != null)
     const map = new Map<string, number[]>()
     for (const def of defs) {
       if (!def.leaderCategory) continue
-      const entries = splits
-        .map(s => ({ id: s.team?.id as number, val: def.getValue(s.stat) }))
-        .filter(x => x.id != null && x.val != null && x.val !== '' && !isNaN(Number(x.val)))
+      const entries = valid
+        .map(r => ({ id: r.id, val: def.getValue(r.stat) }))
+        .filter(x => x.val != null && x.val !== '' && !isNaN(Number(x.val)))
       const asc = def.lowerIsBetter || def.poop
       entries.sort((a, b) => asc ? Number(a.val) - Number(b.val) : Number(b.val) - Number(a.val))
       map.set(def.leaderCategory, entries.map(x => x.id))
@@ -341,7 +348,7 @@ function StatItem({ label, value, playerId, leaderCategory, leaders, palette, ra
 
   let badge = ''
   if (rankMode !== 'none' && rank !== -1) {
-    const showBadge = rankMode === 'all' || (rankMode === 'top20' && rank < 20)
+    const showBadge = rankMode === 'all' || (rankMode === 'top5' && inTop5)
     if (showBadge) badge = inTop5 ? `${poop ? '💩' : '🔥'} #${rank + 1}` : `#${rank + 1}`
   }
 
@@ -1045,9 +1052,9 @@ export default function MlbStats() {
               <Box sx={{ mb: player ? 2 : 0 }}>
                 <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mb: 0.75, fontWeight: 500 }}>League rank</Typography>
                 <ToggleButtonGroup value={rankMode} exclusive onChange={(_, v) => { if (v) setRankMode(v) }} size="small">
-                  <ToggleButton value="all" sx={{ fontSize: '0.72rem', px: 1.5, py: 0.4 }}>All</ToggleButton>
-                  <ToggleButton value="top20" sx={{ fontSize: '0.72rem', px: 1.5, py: 0.4 }}>Top 20</ToggleButton>
                   <ToggleButton value="none" sx={{ fontSize: '0.72rem', px: 1.5, py: 0.4 }}>None</ToggleButton>
+                  <ToggleButton value="top5" sx={{ fontSize: '0.72rem', px: 1.5, py: 0.4 }}>Top 5</ToggleButton>
+                  <ToggleButton value="all" sx={{ fontSize: '0.72rem', px: 1.5, py: 0.4 }}>All</ToggleButton>
                 </ToggleButtonGroup>
               </Box>
 
