@@ -590,7 +590,7 @@ function TeamCardInner({ team, hittingStats, pitchingStats, palette, season, ran
           borderRadius: '50%',
           border: `3px solid ${palette.text}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          bgcolor: 'rgba(255,255,255,0.1)',
+          bgcolor: '#fff',
           overflow: 'hidden',
           flexShrink: 0,
         }}>
