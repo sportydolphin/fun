@@ -48,6 +48,7 @@ interface StatDef {
   leaderCategory: string
   defaultSelected: boolean
   poop?: boolean
+  lowerIsBetter?: boolean
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -110,27 +111,27 @@ const PITCHING_STAT_DEFS: StatDef[] = [
 // ─── Team stat definitions ────────────────────────────────────────────────────
 
 const TEAM_HITTING_DEFS: StatDef[] = [
-  { key: 'avg', label: 'AVG', getValue: s => s.avg,          format: fmt, leaderCategory: '', defaultSelected: true  },
-  { key: 'obp', label: 'OBP', getValue: s => s.obp,          format: fmt, leaderCategory: '', defaultSelected: true  },
-  { key: 'slg', label: 'SLG', getValue: s => s.slg,          format: fmt, leaderCategory: '', defaultSelected: false },
-  { key: 'ops', label: 'OPS', getValue: s => s.ops,          format: fmt, leaderCategory: '', defaultSelected: true  },
-  { key: 'r',   label: 'R',   getValue: s => s.runs,         format: fmt, leaderCategory: '', defaultSelected: true  },
-  { key: 'hr',  label: 'HR',  getValue: s => s.homeRuns,     format: fmt, leaderCategory: '', defaultSelected: true  },
-  { key: 'h',   label: 'H',   getValue: s => s.hits,         format: fmt, leaderCategory: '', defaultSelected: false },
-  { key: 'sb',  label: 'SB',  getValue: s => s.stolenBases,  format: fmt, leaderCategory: '', defaultSelected: false },
-  { key: 'bb',  label: 'BB',  getValue: s => s.baseOnBalls,  format: fmt, leaderCategory: '', defaultSelected: false },
-  { key: 'k',   label: 'K',   getValue: s => s.strikeOuts,   format: fmt, leaderCategory: '', defaultSelected: false, poop: true },
+  { key: 'avg', label: 'AVG', getValue: s => s.avg,          format: fmt, leaderCategory: 'avg', defaultSelected: true  },
+  { key: 'obp', label: 'OBP', getValue: s => s.obp,          format: fmt, leaderCategory: 'obp', defaultSelected: true  },
+  { key: 'slg', label: 'SLG', getValue: s => s.slg,          format: fmt, leaderCategory: 'slg', defaultSelected: false },
+  { key: 'ops', label: 'OPS', getValue: s => s.ops,          format: fmt, leaderCategory: 'ops', defaultSelected: true  },
+  { key: 'r',   label: 'R',   getValue: s => s.runs,         format: fmt, leaderCategory: 'r',   defaultSelected: true  },
+  { key: 'hr',  label: 'HR',  getValue: s => s.homeRuns,     format: fmt, leaderCategory: 'hr',  defaultSelected: true  },
+  { key: 'h',   label: 'H',   getValue: s => s.hits,         format: fmt, leaderCategory: 'h',   defaultSelected: false },
+  { key: 'sb',  label: 'SB',  getValue: s => s.stolenBases,  format: fmt, leaderCategory: 'sb',  defaultSelected: false },
+  { key: 'bb',  label: 'BB',  getValue: s => s.baseOnBalls,  format: fmt, leaderCategory: 'bb',  defaultSelected: false },
+  { key: 'k',   label: 'K',   getValue: s => s.strikeOuts,   format: fmt, leaderCategory: 'k',   defaultSelected: false, poop: true },
 ]
 
 const TEAM_PITCHING_DEFS: StatDef[] = [
-  { key: 'era',  label: 'ERA',  getValue: s => s.era,             format: fmt,                    leaderCategory: '', defaultSelected: true  },
-  { key: 'whip', label: 'WHIP', getValue: s => s.whip,            format: fmt,                    leaderCategory: '', defaultSelected: true  },
-  { key: 'k',    label: 'K',    getValue: s => s.strikeOuts,      format: fmt,                    leaderCategory: '', defaultSelected: true  },
-  { key: 'bb',   label: 'BB',   getValue: s => s.baseOnBalls,     format: fmt,                    leaderCategory: '', defaultSelected: false },
-  { key: 'hr',   label: 'HR',   getValue: s => s.homeRuns,        format: fmt,                    leaderCategory: '', defaultSelected: false },
-  { key: 'sv',   label: 'SV',   getValue: s => s.saves,           format: fmt,                    leaderCategory: '', defaultSelected: false },
-  { key: 'h',    label: 'H',    getValue: s => s.hits,            format: fmt,                    leaderCategory: '', defaultSelected: false },
-  { key: 'k9',   label: 'K/9',  getValue: s => s.strikeoutsPer9Inn, format: v => fmtDecimal(v, 2), leaderCategory: '', defaultSelected: false },
+  { key: 'era',  label: 'ERA',  getValue: s => s.era,               format: fmt,                    leaderCategory: 'era',  defaultSelected: true,  lowerIsBetter: true  },
+  { key: 'whip', label: 'WHIP', getValue: s => s.whip,              format: fmt,                    leaderCategory: 'whip', defaultSelected: true,  lowerIsBetter: true  },
+  { key: 'k',    label: 'K',    getValue: s => s.strikeOuts,        format: fmt,                    leaderCategory: 'pk',   defaultSelected: true   },
+  { key: 'bb',   label: 'BB',   getValue: s => s.baseOnBalls,       format: fmt,                    leaderCategory: 'pbb',  defaultSelected: false, lowerIsBetter: true  },
+  { key: 'hr',   label: 'HR',   getValue: s => s.homeRuns,          format: fmt,                    leaderCategory: 'phr',  defaultSelected: false, lowerIsBetter: true  },
+  { key: 'sv',   label: 'SV',   getValue: s => s.saves,             format: fmt,                    leaderCategory: 'sv',   defaultSelected: false  },
+  { key: 'h',    label: 'H',    getValue: s => s.hits,              format: fmt,                    leaderCategory: 'ph',   defaultSelected: false, lowerIsBetter: true  },
+  { key: 'k9',   label: 'K/9',  getValue: s => s.strikeoutsPer9Inn, format: v => fmtDecimal(v, 2),  leaderCategory: 'k9',   defaultSelected: false  },
 ]
 
 const HIT_LEADER_CATS = [...new Set(HITTING_STAT_DEFS.map(d => d.leaderCategory).filter(Boolean))]
@@ -295,6 +296,27 @@ async function fetchTeamStats(id: number, group: 'hitting' | 'pitching', season:
   const r = await fetch(`https://statsapi.mlb.com/api/v1/teams/${id}/stats?stats=season&group=${group}&season=${season}`)
   const d = await r.json()
   return d.stats?.[0]?.splits?.[0]?.stat ?? null
+}
+
+async function fetchTeamRankings(group: 'hitting' | 'pitching', season: number, defs: StatDef[]): Promise<Map<string, number[]>> {
+  try {
+    const r = await fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=${group}&season=${season}&sportId=1`)
+    const d = await r.json()
+    const splits: any[] = d.stats?.[0]?.splits ?? []
+    const map = new Map<string, number[]>()
+    for (const def of defs) {
+      if (!def.leaderCategory) continue
+      const entries = splits
+        .map(s => ({ id: s.team?.id as number, val: def.getValue(s.stat) }))
+        .filter(x => x.id != null && x.val != null && x.val !== '' && !isNaN(Number(x.val)))
+      const asc = def.lowerIsBetter || def.poop
+      entries.sort((a, b) => asc ? Number(a.val) - Number(b.val) : Number(b.val) - Number(a.val))
+      map.set(def.leaderCategory, entries.map(x => x.id))
+    }
+    return map
+  } catch {
+    return new Map()
+  }
 }
 
 // ─── Stat item ───────────────────────────────────────────────────────────────
@@ -533,6 +555,9 @@ interface TeamCardInnerProps {
   pitchingStats: any
   palette: Palette
   season: number
+  rankMode: RankMode
+  hitLeaders: Map<string, number[]>
+  pitLeaders: Map<string, number[]>
   large?: boolean
   selectedHitStats: string[]
   selectedPitStats: string[]
@@ -540,8 +565,7 @@ interface TeamCardInnerProps {
   onTogglePitStat?: (key: string) => void
 }
 
-function TeamCardInner({ team, hittingStats, pitchingStats, palette, season, large, selectedHitStats, selectedPitStats, onToggleHitStat, onTogglePitStat }: TeamCardInnerProps) {
-  const abbr = team.abbreviation
+function TeamCardInner({ team, hittingStats, pitchingStats, palette, season, rankMode, hitLeaders, pitLeaders, large, selectedHitStats, selectedPitStats, onToggleHitStat, onTogglePitStat }: TeamCardInnerProps) {
   const logoSize = large ? 160 : 120
 
   const wins = pitchingStats?.wins ?? hittingStats?.wins
@@ -559,26 +583,24 @@ function TeamCardInner({ team, hittingStats, pitchingStats, palette, season, lar
 
   return (
     <>
-      {/* Logo circle */}
+      {/* Team logo */}
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2.5 }}>
         <Box sx={{
-          width: logoSize,
-          height: logoSize,
+          width: logoSize, height: logoSize,
           borderRadius: '50%',
           border: `3px solid ${palette.text}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
           bgcolor: 'rgba(255,255,255,0.1)',
+          overflow: 'hidden',
           flexShrink: 0,
         }}>
-          <Typography sx={{
-            color: palette.text, fontWeight: 900,
-            fontSize: Math.round(logoSize * 0.34),
-            letterSpacing: '-1px', lineHeight: 1,
-          }}>
-            {abbr}
-          </Typography>
+          <Box
+            component="img"
+            src={`https://www.mlbstatic.com/team-logos/${team.id}.svg`}
+            alt={team.abbreviation}
+            crossOrigin="anonymous"
+            sx={{ width: '82%', height: '82%', objectFit: 'contain' }}
+          />
         </Box>
       </Box>
 
@@ -618,12 +640,12 @@ function TeamCardInner({ team, hittingStats, pitchingStats, palette, season, lar
 
       <StatGrid
         defs={TEAM_HITTING_DEFS} stats={hittingStats} selected={selectedHitStats}
-        palette={palette} rankMode="none" playerId={0} leaders={new Map()}
+        palette={palette} rankMode={rankMode} playerId={team.id} leaders={hitLeaders}
         season={season} label="Hitting" large={large} onToggle={onToggleHitStat}
       />
       <StatGrid
         defs={TEAM_PITCHING_DEFS} stats={pitchingStats} selected={selectedPitStats}
-        palette={palette} rankMode="none" playerId={0} leaders={new Map()}
+        palette={palette} rankMode={rankMode} playerId={team.id} leaders={pitLeaders}
         season={season} label="Pitching" large={large} onToggle={onTogglePitStat}
         mt={hasHitting ? 1 : 0}
       />
@@ -667,6 +689,8 @@ export default function MlbStats() {
   const [team, setTeam] = useState<Team | null>(null)
   const [teamHitting, setTeamHitting] = useState<any>(null)
   const [teamPitching, setTeamPitching] = useState<any>(null)
+  const [teamHitLeaders, setTeamHitLeaders] = useState<Map<string, number[]>>(new Map())
+  const [teamPitLeaders, setTeamPitLeaders] = useState<Map<string, number[]>>(new Map())
   const [selectedTeamHitStats, setSelectedTeamHitStats] = useState<string[]>(DEFAULT_TEAM_HIT_STATS)
   const [selectedTeamPitStats, setSelectedTeamPitStats] = useState<string[]>(DEFAULT_TEAM_PIT_STATS)
 
@@ -760,15 +784,19 @@ export default function MlbStats() {
   }, [])
 
   const loadTeamStats = useCallback(async (t: Team, s: number, initial = true) => {
-    if (initial) { setLoadingStats(true); setTeamHitting(null); setTeamPitching(null) }
+    if (initial) { setLoadingStats(true); setTeamHitting(null); setTeamPitching(null); setTeamHitLeaders(new Map()); setTeamPitLeaders(new Map()) }
     else setRefreshing(true)
     try {
-      const [hitting, pitching] = await Promise.all([
+      const [hitting, pitching, hLeaders, pLeaders] = await Promise.all([
         fetchTeamStats(t.id, 'hitting', s),
         fetchTeamStats(t.id, 'pitching', s),
+        fetchTeamRankings('hitting', s, TEAM_HITTING_DEFS),
+        fetchTeamRankings('pitching', s, TEAM_PITCHING_DEFS),
       ])
       setTeamHitting(hitting)
       setTeamPitching(pitching)
+      setTeamHitLeaders(hLeaders)
+      setTeamPitLeaders(pLeaders)
     } finally {
       setLoadingStats(false)
       setRefreshing(false)
@@ -862,6 +890,7 @@ export default function MlbStats() {
 
   const teamCardProps = team ? {
     team, hittingStats: teamHitting, pitchingStats: teamPitching, palette, season,
+    rankMode, hitLeaders: teamHitLeaders, pitLeaders: teamPitLeaders,
     selectedHitStats: selectedTeamHitStats, selectedPitStats: selectedTeamPitStats,
     onToggleHitStat: toggleTeamHitStat, onTogglePitStat: toggleTeamPitStat,
   } : null
@@ -1013,32 +1042,31 @@ export default function MlbStats() {
                 )}
               </Box>
 
+              <Box sx={{ mb: player ? 2 : 0 }}>
+                <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mb: 0.75, fontWeight: 500 }}>League rank</Typography>
+                <ToggleButtonGroup value={rankMode} exclusive onChange={(_, v) => { if (v) setRankMode(v) }} size="small">
+                  <ToggleButton value="all" sx={{ fontSize: '0.72rem', px: 1.5, py: 0.4 }}>All</ToggleButton>
+                  <ToggleButton value="top20" sx={{ fontSize: '0.72rem', px: 1.5, py: 0.4 }}>Top 20</ToggleButton>
+                  <ToggleButton value="none" sx={{ fontSize: '0.72rem', px: 1.5, py: 0.4 }}>None</ToggleButton>
+                </ToggleButtonGroup>
+              </Box>
+
               {player && (
-                <>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mb: 0.75, fontWeight: 500 }}>League rank</Typography>
-                    <ToggleButtonGroup value={rankMode} exclusive onChange={(_, v) => { if (v) setRankMode(v) }} size="small">
-                      <ToggleButton value="all" sx={{ fontSize: '0.72rem', px: 1.5, py: 0.4 }}>All</ToggleButton>
-                      <ToggleButton value="top20" sx={{ fontSize: '0.72rem', px: 1.5, py: 0.4 }}>Top 20</ToggleButton>
-                      <ToggleButton value="none" sx={{ fontSize: '0.72rem', px: 1.5, py: 0.4 }}>None</ToggleButton>
-                    </ToggleButtonGroup>
+                <Box>
+                  <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mb: 0.75, fontWeight: 500 }}>Show under portrait</Typography>
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                    {[
+                      { label: 'Position', val: showPosition, set: setShowPosition },
+                      { label: 'Team', val: showTeam, set: setShowTeam },
+                      { label: 'Age', val: showAge, set: setShowAge },
+                      { label: 'Number', val: showNumber, set: setShowNumber },
+                    ].map(({ label, val, set }) => (
+                      <ToggleButton key={label} value={label} selected={val} onChange={() => set(v => !v)} size="small" sx={{ fontSize: '0.72rem', px: 1.5, py: 0.4 }}>
+                        {label}
+                      </ToggleButton>
+                    ))}
                   </Box>
-                  <Box>
-                    <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mb: 0.75, fontWeight: 500 }}>Show under portrait</Typography>
-                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                      {[
-                        { label: 'Position', val: showPosition, set: setShowPosition },
-                        { label: 'Team', val: showTeam, set: setShowTeam },
-                        { label: 'Age', val: showAge, set: setShowAge },
-                        { label: 'Number', val: showNumber, set: setShowNumber },
-                      ].map(({ label, val, set }) => (
-                        <ToggleButton key={label} value={label} selected={val} onChange={() => set(v => !v)} size="small" sx={{ fontSize: '0.72rem', px: 1.5, py: 0.4 }}>
-                          {label}
-                        </ToggleButton>
-                      ))}
-                    </Box>
-                  </Box>
-                </>
+                </Box>
               )}
             </Paper>
           </Box>
