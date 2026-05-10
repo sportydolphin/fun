@@ -1258,6 +1258,7 @@ export default function MlbStats() {
     setSeasonTeams(teamsBySeason)
     setSeason(latestSeason)
     await loadStats(resolved, latestSeason)
+    window.history.replaceState({}, '', `/mlb?pid=${p.id}`)
   }, [loadStats])
 
   const selectTeam = useCallback(async (t: Team) => {
@@ -1269,7 +1270,24 @@ export default function MlbStats() {
     setSeason(CURRENT_SEASON)
     setAvailableSeasons(TEAM_SEASONS)
     await loadTeamStats(t, CURRENT_SEASON)
+    window.history.replaceState({}, '', `/mlb?tid=${t.id}`)
   }, [loadTeamStats])
+
+  const autoLoadedRef = useRef(false)
+  useEffect(() => {
+    if (autoLoadedRef.current) return
+    const params = new URLSearchParams(window.location.search)
+    const pid = params.get('pid')
+    const tid = params.get('tid')
+    if (pid) {
+      autoLoadedRef.current = true
+      fetchPlayerDetails(Number(pid)).then(p => { if (p) selectPlayer(p) }).catch(() => {})
+    } else if (tid && allTeams.length > 0) {
+      autoLoadedRef.current = true
+      const t = allTeams.find(t => t.id === Number(tid))
+      if (t) selectTeam(t)
+    }
+  }, [allTeams, selectPlayer, selectTeam])
 
   const handleSeasonChange = useCallback((s: number) => {
     setSeason(s)

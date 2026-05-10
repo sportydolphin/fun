@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { Typography, Box, IconButton, AppBar, Toolbar } from '@mui/material'
-import { Brightness4, Brightness7 } from '@mui/icons-material'
+import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField } from '@mui/material'
+import { Brightness4, Brightness7, Lock } from '@mui/icons-material'
 import { useTheme } from './ThemeContext'
 import CupsGame from '../projects/cups-game/src/CupsGame'
 import TestGame from './TestGame'
@@ -11,6 +11,10 @@ import MlbStats from './MlbStats'
 
 type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame' | '/mlb'
 
+const LOCK_PASSWORD = 'sportydolphin'
+const LOCKED_PATHS = new Set(['/cups', '/weights'])
+const SESSION_KEY = 'sdUnlocked'
+
 function navigate(to: string) {
   window.history.pushState({}, '', to)
   window.dispatchEvent(new PopStateEvent('popstate'))
@@ -20,7 +24,7 @@ const PROJECTS = [
   { label: 'MLB Stats',     emoji: '⚾',  desc: 'Player stat card maker', path: '/mlb',      color: 'hsl(0,   68%, 42%)' },
   { label: 'Test Game',     emoji: '🐟',  desc: 'Watch the fish trade',   path: '/testgame', color: 'hsl(260, 58%, 50%)' },
   { label: 'Cups Compare',  emoji: '🥤',  desc: 'Compare liquid amounts', path: '/cups',     color: 'hsl(195, 78%, 38%)' },
-  { label: 'Stopwatch',     emoji: '⏱️',  desc: 'Time your stuff',        path: '/stopwatch',color: 'hsl(28,  82%, 48%)' },
+  { label: 'Stopwatch',     emoji: '⏱️',  desc: 'Test your timing',       path: '/stopwatch',color: 'hsl(28,  82%, 48%)' },
   { label: 'Weights',       emoji: '🏋️', desc: 'Track your lifts',       path: '/weights',  color: 'hsl(142, 50%, 36%)' },
   { label: 'Poop Pile',     emoji: '💩',  desc: 'Stack the poops',        path: '/poop',     color: 'hsl(24,  58%, 38%)' },
 ]
@@ -28,12 +32,43 @@ const PROJECTS = [
 export default function App() {
   const { mode, toggleTheme } = useTheme()
   const [path, setPath] = useState<Route | string>(window.location.pathname as Route)
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_KEY) === '1')
+  const [lockDialogOpen, setLockDialogOpen] = useState(false)
+  const [pendingPath, setPendingPath] = useState<string | null>(null)
+  const [pwInput, setPwInput] = useState('')
+  const [pwError, setPwError] = useState(false)
 
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname as Route)
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
+
+  const handleTileClick = useCallback((p: { path: string }) => {
+    if (LOCKED_PATHS.has(p.path) && !unlocked) {
+      setPendingPath(p.path)
+      setPwInput('')
+      setPwError(false)
+      setLockDialogOpen(true)
+    } else {
+      navigate(p.path)
+    }
+  }, [unlocked])
+
+  const handlePwSubmit = useCallback(() => {
+    if (pwInput === LOCK_PASSWORD) {
+      sessionStorage.setItem(SESSION_KEY, '1')
+      setUnlocked(true)
+      setLockDialogOpen(false)
+      if (pendingPath) navigate(pendingPath)
+    } else {
+      setPwError(true)
+    }
+  }, [pwInput, pendingPath])
+
+  const backBtn = (
+    <Box onClick={() => navigate('/')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
+  )
 
   const Home = useCallback(() => (
     <Box sx={{ textAlign: 'center', py: 4, px: 1 }}>
@@ -58,53 +93,84 @@ export default function App() {
         maxWidth: 680,
         mx: 'auto',
       }}>
-        {PROJECTS.map(p => (
-          <Box
-            key={p.path}
-            onClick={() => navigate(p.path)}
-            sx={{
-              bgcolor: p.color,
-              borderRadius: 3,
-              p: { xs: 2, sm: 2.5 },
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 0.75,
-              transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-              userSelect: 'none',
-              '&:hover': {
-                transform: 'translateY(-4px)',
-                boxShadow: '0 10px 28px rgba(0,0,0,0.22)',
-              },
-              '&:active': {
-                transform: 'translateY(-1px)',
-              },
-            }}
-          >
-            <Typography sx={{ fontSize: { xs: '2rem', sm: '2.4rem' }, lineHeight: 1 }}>
-              {p.emoji}
-            </Typography>
-            <Typography sx={{
-              color: '#fff',
-              fontWeight: 700,
-              fontSize: { xs: '0.85rem', sm: '0.95rem' },
-              lineHeight: 1.2,
-            }}>
-              {p.label}
-            </Typography>
-            <Typography sx={{
-              color: 'rgba(255,255,255,0.7)',
-              fontSize: { xs: '0.7rem', sm: '0.75rem' },
-              lineHeight: 1.2,
-            }}>
-              {p.desc}
-            </Typography>
-          </Box>
-        ))}
+        {PROJECTS.map(p => {
+          const locked = LOCKED_PATHS.has(p.path) && !unlocked
+          return (
+            <Box
+              key={p.path}
+              onClick={() => handleTileClick(p)}
+              sx={{
+                bgcolor: p.color,
+                borderRadius: 3,
+                p: { xs: 2, sm: 2.5 },
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 0.75,
+                position: 'relative',
+                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                userSelect: 'none',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: '0 10px 28px rgba(0,0,0,0.22)',
+                },
+                '&:active': {
+                  transform: 'translateY(-1px)',
+                },
+              }}
+            >
+              {locked && (
+                <Box sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'rgba(0,0,0,0.25)', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Lock sx={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.9)' }} />
+                </Box>
+              )}
+              <Typography sx={{ fontSize: { xs: '2rem', sm: '2.4rem' }, lineHeight: 1 }}>
+                {p.emoji}
+              </Typography>
+              <Typography sx={{
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: { xs: '0.85rem', sm: '0.95rem' },
+                lineHeight: 1.2,
+              }}>
+                {p.label}
+              </Typography>
+              <Typography sx={{
+                color: 'rgba(255,255,255,0.7)',
+                fontSize: { xs: '0.7rem', sm: '0.75rem' },
+                lineHeight: 1.2,
+              }}>
+                {p.desc}
+              </Typography>
+            </Box>
+          )
+        })}
       </Box>
+
+      <Dialog open={lockDialogOpen} onClose={() => setLockDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>🔒 Password required</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            type="password"
+            label="Password"
+            value={pwInput}
+            error={pwError}
+            helperText={pwError ? 'Incorrect password' : ''}
+            onChange={e => { setPwInput(e.target.value); setPwError(false) }}
+            onKeyDown={e => { if (e.key === 'Enter') handlePwSubmit() }}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLockDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handlePwSubmit} variant="contained">Unlock</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
-  ), [])
+  ), [unlocked, lockDialogOpen, pwInput, pwError, handleTileClick, handlePwSubmit])
 
   return (
     <>
@@ -122,37 +188,37 @@ export default function App() {
         {path === '/' && <Home />}
         {path === '/cups' && (
           <Box>
-            <Box onClick={() => navigate('/')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
+            {backBtn}
             <CupsGame />
           </Box>
         )}
         {path === '/stopwatch' && (
           <Box>
-            <Box onClick={() => navigate('/')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
+            {backBtn}
             <Stopwatch />
           </Box>
         )}
         {path === '/weights' && (
           <Box>
-            <Box onClick={() => navigate('/')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
+            {backBtn}
             <WeightGame />
           </Box>
         )}
         {path === '/poop' && (
           <Box>
-            <Box onClick={() => navigate('/')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
+            {backBtn}
             <PoopGame />
           </Box>
         )}
         {path === '/testgame' && (
           <Box>
-            <Box onClick={() => navigate('/')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
+            {backBtn}
             <TestGame />
           </Box>
         )}
         {path === '/mlb' && (
           <Box>
-            <Box onClick={() => navigate('/')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
+            {backBtn}
             <MlbStats />
           </Box>
         )}
