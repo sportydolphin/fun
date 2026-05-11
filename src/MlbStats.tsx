@@ -70,6 +70,15 @@ function fmtDecimal(v: any, places = 2): string {
 // Format a numeric rate (strips leading zero for values < 1, e.g. 0.285 → .285)
 const fmtR = (v: number, d: number) => { const s = v.toFixed(d); return s.startsWith('0.') ? s.slice(1) : s }
 
+// Parse MLB innings-pitched string: "6.1" = 6⅓ innings, "6.2" = 6⅔ (the .N is outs, not a decimal fraction)
+function parseIP(ip: any): number {
+  const n = Number(ip)
+  if (isNaN(n) || n < 0) return 0
+  const whole = Math.floor(n)
+  const outs = Math.round((n - whole) * 10)   // 0, 1, or 2 outs
+  return whole + outs / 3
+}
+
 function statCols(n: number): number {
   if (n <= 3) return n || 1
   for (let cols = 3; cols >= 2; cols--) {
@@ -1175,13 +1184,40 @@ interface TrendStatDef {
   fmt: (v: number) => string
   lowerBetter?: boolean
   counting?: boolean   // true = project to 162-game pace for current season
+  careerAvg?: (statObjs: any[]) => number | null  // weighted avg for rate stats
 }
 
 const TREND_HIT_DEFS: TrendStatDef[] = [
-  { key: 'ops',  label: 'OPS',  get: s => s?.ops != null ? Number(s.ops) : null,                   fmt: v => fmtR(v, 3) },
-  { key: 'avg',  label: 'AVG',  get: s => s?.avg != null ? Number(s.avg) : null,                   fmt: v => fmtR(v, 3) },
-  { key: 'obp',  label: 'OBP',  get: s => s?.obp != null ? Number(s.obp) : null,                   fmt: v => fmtR(v, 3) },
-  { key: 'slg',  label: 'SLG',  get: s => s?.slg != null ? Number(s.slg) : null,                   fmt: v => fmtR(v, 3) },
+  { key: 'ops',  label: 'OPS',  get: s => s?.ops != null ? Number(s.ops) : null,                   fmt: v => fmtR(v, 3),
+    careerAvg: objs => {
+      let h = 0, bb = 0, hbp = 0, ab = 0, sf = 0, tb = 0
+      for (const o of objs) { h += Number(o?.hits ?? 0); bb += Number(o?.baseOnBalls ?? 0); hbp += Number(o?.hitByPitch ?? 0); ab += Number(o?.atBats ?? 0); sf += Number(o?.sacFlies ?? 0); tb += Number(o?.totalBases ?? 0) }
+      if (ab === 0) return null
+      return (h + bb + hbp) / (ab + bb + hbp + sf) + tb / ab
+    },
+  },
+  { key: 'avg',  label: 'AVG',  get: s => s?.avg != null ? Number(s.avg) : null,                   fmt: v => fmtR(v, 3),
+    careerAvg: objs => {
+      let h = 0, ab = 0
+      for (const o of objs) { h += Number(o?.hits ?? 0); ab += Number(o?.atBats ?? 0) }
+      return ab === 0 ? null : h / ab
+    },
+  },
+  { key: 'obp',  label: 'OBP',  get: s => s?.obp != null ? Number(s.obp) : null,                   fmt: v => fmtR(v, 3),
+    careerAvg: objs => {
+      let h = 0, bb = 0, hbp = 0, ab = 0, sf = 0
+      for (const o of objs) { h += Number(o?.hits ?? 0); bb += Number(o?.baseOnBalls ?? 0); hbp += Number(o?.hitByPitch ?? 0); ab += Number(o?.atBats ?? 0); sf += Number(o?.sacFlies ?? 0) }
+      const denom = ab + bb + hbp + sf
+      return denom === 0 ? null : (h + bb + hbp) / denom
+    },
+  },
+  { key: 'slg',  label: 'SLG',  get: s => s?.slg != null ? Number(s.slg) : null,                   fmt: v => fmtR(v, 3),
+    careerAvg: objs => {
+      let tb = 0, ab = 0
+      for (const o of objs) { tb += Number(o?.totalBases ?? 0); ab += Number(o?.atBats ?? 0) }
+      return ab === 0 ? null : tb / ab
+    },
+  },
   { key: 'hr',   label: 'HR',   get: s => s?.homeRuns != null ? Number(s.homeRuns) : null,         fmt: v => String(Math.round(v)), counting: true },
   { key: 'rbi',  label: 'RBI',  get: s => s?.rbi != null ? Number(s.rbi) : null,                   fmt: v => String(Math.round(v)), counting: true },
   { key: 'h',    label: 'H',    get: s => s?.hits != null ? Number(s.hits) : null,                  fmt: v => String(Math.round(v)), counting: true },
@@ -1191,14 +1227,32 @@ const TREND_HIT_DEFS: TrendStatDef[] = [
 ]
 
 const TREND_PIT_DEFS: TrendStatDef[] = [
-  { key: 'era',  label: 'ERA',  get: s => s?.era != null ? Number(s.era) : null,                          fmt: v => v.toFixed(2), lowerBetter: true },
-  { key: 'whip', label: 'WHIP', get: s => s?.whip != null ? Number(s.whip) : null,                        fmt: v => fmtR(v, 3), lowerBetter: true },
+  { key: 'era',  label: 'ERA',  get: s => s?.era != null ? Number(s.era) : null,                          fmt: v => v.toFixed(2), lowerBetter: true,
+    careerAvg: objs => {
+      let er = 0, ip = 0
+      for (const o of objs) { er += Number(o?.earnedRuns ?? 0); ip += parseIP(o?.inningsPitched) }
+      return ip === 0 ? null : (er * 9) / ip
+    },
+  },
+  { key: 'whip', label: 'WHIP', get: s => s?.whip != null ? Number(s.whip) : null,                        fmt: v => fmtR(v, 3), lowerBetter: true,
+    careerAvg: objs => {
+      let h = 0, bb = 0, ip = 0
+      for (const o of objs) { h += Number(o?.hits ?? 0); bb += Number(o?.baseOnBalls ?? 0); ip += parseIP(o?.inningsPitched) }
+      return ip === 0 ? null : (h + bb) / ip
+    },
+  },
   { key: 'k',    label: 'K',    get: s => s?.strikeOuts != null ? Number(s.strikeOuts) : null,            fmt: v => String(Math.round(v)), counting: true },
   { key: 'ip',   label: 'IP',   get: s => s?.inningsPitched != null ? Number(s.inningsPitched) : null,    fmt: v => v.toFixed(1), counting: true },
   { key: 'w',    label: 'W',    get: s => s?.wins != null ? Number(s.wins) : null,                        fmt: v => String(Math.round(v)), counting: true },
   { key: 'sv',   label: 'SV',   get: s => s?.saves != null ? Number(s.saves) : null,                      fmt: v => String(Math.round(v)), counting: true },
   { key: 'bb',   label: 'BB',   get: s => s?.baseOnBalls != null ? Number(s.baseOnBalls) : null,          fmt: v => String(Math.round(v)), lowerBetter: true, counting: true },
-  { key: 'so9',  label: 'K/9',  get: s => s?.strikeoutsPer9Inn != null ? Number(s.strikeoutsPer9Inn) : null, fmt: v => v.toFixed(2) },
+  { key: 'so9',  label: 'K/9',  get: s => s?.strikeoutsPer9Inn != null ? Number(s.strikeoutsPer9Inn) : null, fmt: v => v.toFixed(2),
+    careerAvg: objs => {
+      let k = 0, ip = 0
+      for (const o of objs) { k += Number(o?.strikeOuts ?? 0); ip += parseIP(o?.inningsPitched) }
+      return ip === 0 ? null : (k * 9) / ip
+    },
+  },
 ]
 
 // ─── Player trends chart ──────────────────────────────────────────────────────
@@ -1254,7 +1308,7 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
           isPace = true
         }
       }
-      return { season: s.season, value, actual, isPace, teamId: s.teamId, teamAbbr: s.teamAbbr }
+      return { season: s.season, value, actual, isPace, teamId: s.teamId, teamAbbr: s.teamAbbr, statObj: stat }
     })
     .filter((p): p is NonNullable<typeof p> => p != null)
 
@@ -1293,8 +1347,15 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   const lineD = fpts.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(i).toFixed(1)},${sy(p.value).toFixed(1)}`).join(' ')
   const fillD = `${lineD} L${sx(n - 1).toFixed(1)},${(m.t + iH).toFixed(1)} L${m.l.toFixed(1)},${(m.t + iH).toFixed(1)} Z`
 
-  const avg = vals.reduce((s, v) => s + v, 0) / vals.length
-  const avgY = sy(avg)
+  // Weighted career avg for rate stats; simple mean for counting stats; null = don't show
+  const statObjs = fpts.map(p => p.statObj)
+  const avg: number | null = currentDef.careerAvg
+    ? currentDef.careerAvg(statObjs)
+    : currentDef.counting
+      ? vals.reduce((s, v) => s + v, 0) / vals.length
+      : null
+  const showAvg = avg != null
+  const avgY = showAvg ? sy(avg!) : 0
 
   const yTicks = Array.from({ length: 5 }, (_, i) => yMin + (i / 4) * (yMax - yMin))
   const xLabelStep = Math.max(1, Math.ceil(n / 10))
@@ -1370,10 +1431,14 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
 
       {/* Summary row */}
       <Box sx={{ display: 'flex', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
-        <Box>
-          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>{isRangeModified ? 'Range avg' : 'Career avg'}</Typography>
-          <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT, lineHeight: 1.2 }}>{currentDef.fmt(avg)}</Typography>
-        </Box>
+        {showAvg && (
+          <Box>
+            <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>
+              {currentDef.counting ? 'Avg / yr' : isRangeModified ? 'Range avg' : 'Career avg'}
+            </Typography>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT, lineHeight: 1.2 }}>{currentDef.fmt(avg!)}</Typography>
+          </Box>
+        )}
         <Box>
           <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>Best season</Typography>
           <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>
@@ -1412,8 +1477,12 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
           <path d={fillD} fill={`url(#${gradId})`} />
 
           {/* Career avg line */}
-          <line x1={m.l} y1={avgY} x2={m.l + iW} y2={avgY} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.55} />
-          <text x={m.l + 4} y={avgY - 5} fill="#f59e0b" fillOpacity={0.7} fontSize={8} fontWeight={700}>avg {currentDef.fmt(avg)}</text>
+          {showAvg && (
+            <>
+              <line x1={m.l} y1={avgY} x2={m.l + iW} y2={avgY} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.55} />
+              <text x={m.l + 4} y={avgY - 5} fill="#f59e0b" fillOpacity={0.7} fontSize={8} fontWeight={700}>avg {currentDef.fmt(avg!)}</text>
+            </>
+          )}
 
           {/* Line */}
           <path d={lineD} fill="none" stroke={ACCENT} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
@@ -1466,7 +1535,7 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
           ))}
 
           {/* X ticks */}
-          {pts.map((p, i) => {
+          {fpts.map((p, i) => {
             const showLabel = i % xLabelStep === 0 || i === n - 1
             return (
               <g key={p.season}>
@@ -1526,11 +1595,6 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
                   {currentDef.fmt(hov.value)}
                 </Typography>
               )}
-              <Typography sx={{ fontSize: '0.67rem', color: 'text.disabled', mt: 0.25 }}>
-                {hov.value > avg
-                  ? (currentDef.lowerBetter ? '▼ below avg' : '▲ above avg')
-                  : (currentDef.lowerBetter ? '▲ above avg' : '▼ below avg')}
-              </Typography>
             </Box>
           )
         })()}
