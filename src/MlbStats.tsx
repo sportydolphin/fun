@@ -100,11 +100,11 @@ const HITTING_STAT_DEFS: StatDef[] = [
 
 const PITCHING_STAT_DEFS: StatDef[] = [
   { key: 'wl',   label: 'W-L',  getValue: s => s.wins != null ? `${s.wins}-${s.losses ?? 0}` : null, format: v => v ?? '—', leaderCategory: 'wins',                         defaultSelected: true  },
-  { key: 'era',  label: 'ERA',  getValue: s => s.era,              format: fmt,                   leaderCategory: 'earnedRunAverage',             defaultSelected: true  },
+  { key: 'era',  label: 'ERA',  getValue: s => s.era,              format: fmt,                   leaderCategory: 'earnedRunAverage',             defaultSelected: true,  lowerIsBetter: true },
   { key: 'g',    label: 'G',    getValue: s => s.gamesPlayed,      format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'gs',   label: 'GS',   getValue: s => s.gamesStarted,     format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'ip',   label: 'IP',   getValue: s => s.inningsPitched,   format: fmt,                   leaderCategory: 'inningsPitched',               defaultSelected: true  },
-  { key: 'whip', label: 'WHIP', getValue: s => s.whip,             format: fmt,                   leaderCategory: 'walksAndHitsPerInningPitched',  defaultSelected: true  },
+  { key: 'whip', label: 'WHIP', getValue: s => s.whip,             format: fmt,                   leaderCategory: 'walksAndHitsPerInningPitched',  defaultSelected: true,  lowerIsBetter: true },
   { key: 'sv',   label: 'SV',   getValue: s => s.saves,            format: fmt,                   leaderCategory: 'saves',                        defaultSelected: false },
   { key: 'h',    label: 'H',    getValue: s => s.hits,             format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'r',    label: 'R',    getValue: s => s.runs,             format: fmt,                   leaderCategory: '',                             defaultSelected: false },
@@ -141,8 +141,6 @@ const TEAM_PITCHING_DEFS: StatDef[] = [
   { key: 'k9',   label: 'K/9',  getValue: s => s.strikeoutsPer9Inn, format: v => fmtDecimal(v, 2),  leaderCategory: 'k9',   defaultSelected: false  },
 ]
 
-const HIT_LEADER_CATS = [...new Set(HITTING_STAT_DEFS.map(d => d.leaderCategory).filter(Boolean))]
-const PIT_LEADER_CATS = [...new Set(PITCHING_STAT_DEFS.map(d => d.leaderCategory).filter(Boolean))]
 const DEFAULT_HIT_STATS = HITTING_STAT_DEFS.filter(d => d.defaultSelected).map(d => d.key)
 const DEFAULT_PIT_STATS = PITCHING_STAT_DEFS.filter(d => d.defaultSelected).map(d => d.key)
 const DEFAULT_TEAM_HIT_STATS = TEAM_HITTING_DEFS.filter(d => d.defaultSelected).map(d => d.key)
@@ -278,14 +276,30 @@ async function fetchCareerData(id: number, groups: Array<'hitting' | 'pitching'>
   return { seasons: [...seasons].sort((a, b) => b - a), teamsBySeason }
 }
 
-async function fetchLeaderIds(categories: string[], statGroup: string, season: number): Promise<Map<string, number[]>> {
+// Fetch all players' season stats for a group, then rank locally per stat def.
+// Replaces the old stats/leaders endpoint which silently drops most categories
+// when more than ~3 are batched in one request.
+async function fetchAndRankPlayers(
+  group: 'hitting' | 'pitching',
+  season: number,
+  defs: StatDef[]
+): Promise<Map<string, number[]>> {
   try {
-    const q = new URLSearchParams({ leaderCategories: categories.join(','), sportId: '1', season: String(season), limit: '300', statGroup })
-    const r = await fetch(`https://statsapi.mlb.com/api/v1/stats/leaders?${q}`)
+    const r = await fetch(
+      `https://statsapi.mlb.com/api/v1/stats?stats=season&group=${group}&season=${season}&sportId=1&limit=2000`
+    )
     const d = await r.json()
+    const splits: any[] = d.stats?.[0]?.splits ?? []
     const map = new Map<string, number[]>()
-    for (const cat of d.leagueLeaders ?? []) {
-      map.set(cat.leaderCategory, (cat.leaders ?? []).map((l: any) => Number(l.person?.id)).filter(Boolean))
+    for (const def of defs) {
+      if (!def.leaderCategory) continue
+      const entries = splits
+        .map(s => ({ id: Number(s.player?.id), val: def.getValue(s.stat) }))
+        .filter(x => x.id > 0 && x.val != null && x.val !== '' && !isNaN(Number(x.val)))
+      // Sort ascending only for stats where lower is better (ERA, WHIP); all others descending
+      const asc = def.lowerIsBetter ?? false
+      entries.sort((a, b) => asc ? Number(a.val) - Number(b.val) : Number(b.val) - Number(a.val))
+      map.set(def.leaderCategory, entries.map(x => x.id))
     }
     return map
   } catch {
@@ -1666,8 +1680,8 @@ export default function MlbStats() {
       setHittingStats(hitting)
       setPitchingStats(pitching)
       const [hLeaders, pLeaders] = await Promise.all([
-        hitting ? fetchLeaderIds(HIT_LEADER_CATS, 'hitting', s) : Promise.resolve(new Map<string, number[]>()),
-        pitching ? fetchLeaderIds(PIT_LEADER_CATS, 'pitching', s) : Promise.resolve(new Map<string, number[]>()),
+        hitting ? fetchAndRankPlayers('hitting', s, HITTING_STAT_DEFS) : Promise.resolve(new Map<string, number[]>()),
+        pitching ? fetchAndRankPlayers('pitching', s, PITCHING_STAT_DEFS) : Promise.resolve(new Map<string, number[]>()),
       ])
       setHitLeaders(hLeaders)
       setPitLeaders(pLeaders)
