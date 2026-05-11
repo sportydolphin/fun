@@ -1185,6 +1185,7 @@ interface TrendStatDef {
   lowerBetter?: boolean
   counting?: boolean   // true = project to 162-game pace for current season
   careerAvg?: (statObjs: any[]) => number | null  // weighted avg for rate stats
+  noAvg?: boolean      // suppress avg line / summary even if counting=true
 }
 
 const TREND_HIT_DEFS: TrendStatDef[] = [
@@ -1218,12 +1219,33 @@ const TREND_HIT_DEFS: TrendStatDef[] = [
       return ab === 0 ? null : tb / ab
     },
   },
-  { key: 'hr',   label: 'HR',   get: s => s?.homeRuns != null ? Number(s.homeRuns) : null,         fmt: v => String(Math.round(v)), counting: true },
-  { key: 'rbi',  label: 'RBI',  get: s => s?.rbi != null ? Number(s.rbi) : null,                   fmt: v => String(Math.round(v)), counting: true },
-  { key: 'h',    label: 'H',    get: s => s?.hits != null ? Number(s.hits) : null,                  fmt: v => String(Math.round(v)), counting: true },
-  { key: 'bb',   label: 'BB',   get: s => s?.baseOnBalls != null ? Number(s.baseOnBalls) : null,   fmt: v => String(Math.round(v)), counting: true },
-  { key: 'k',    label: 'K',    get: s => s?.strikeOuts != null ? Number(s.strikeOuts) : null,     fmt: v => String(Math.round(v)), lowerBetter: true, counting: true },
-  { key: 'sb',   label: 'SB',   get: s => s?.stolenBases != null ? Number(s.stolenBases) : null,   fmt: v => String(Math.round(v)), counting: true },
+  { key: 'hr',    label: 'HR',   get: s => s?.homeRuns != null ? Number(s.homeRuns) : null,         fmt: v => String(Math.round(v)), counting: true },
+  { key: 'rbi',   label: 'RBI',  get: s => s?.rbi != null ? Number(s.rbi) : null,                   fmt: v => String(Math.round(v)), counting: true, noAvg: true },
+  { key: 'kpct',  label: 'K%',   lowerBetter: true,
+    get: s => {
+      const k = Number(s?.strikeOuts ?? null); const pa = Number(s?.plateAppearances ?? null)
+      return (s?.strikeOuts != null && s?.plateAppearances != null && pa > 0) ? k / pa : null
+    },
+    fmt: v => (v * 100).toFixed(1) + '%',
+    careerAvg: objs => {
+      let k = 0, pa = 0
+      for (const o of objs) { k += Number(o?.strikeOuts ?? 0); pa += Number(o?.plateAppearances ?? 0) }
+      return pa === 0 ? null : k / pa
+    },
+  },
+  { key: 'bbpct', label: 'BB%',
+    get: s => {
+      const bb = Number(s?.baseOnBalls ?? null); const pa = Number(s?.plateAppearances ?? null)
+      return (s?.baseOnBalls != null && s?.plateAppearances != null && pa > 0) ? bb / pa : null
+    },
+    fmt: v => (v * 100).toFixed(1) + '%',
+    careerAvg: objs => {
+      let bb = 0, pa = 0
+      for (const o of objs) { bb += Number(o?.baseOnBalls ?? 0); pa += Number(o?.plateAppearances ?? 0) }
+      return pa === 0 ? null : bb / pa
+    },
+  },
+  { key: 'sb',    label: 'SB',   get: s => s?.stolenBases != null ? Number(s.stolenBases) : null,   fmt: v => String(Math.round(v)), counting: true },
 ]
 
 const TREND_PIT_DEFS: TrendStatDef[] = [
@@ -1308,7 +1330,11 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
           isPace = true
         }
       }
-      return { season: s.season, value, actual, isPace, teamId: s.teamId, teamAbbr: s.teamAbbr, statObj: stat }
+      // Volume: PA for hitters, IP for pitchers (shown in tooltip)
+      const vol = group === 'hitting'
+        ? (stat?.plateAppearances != null ? Number(stat.plateAppearances) : null)
+        : (stat?.inningsPitched != null ? parseIP(stat.inningsPitched) : null)
+      return { season: s.season, value, actual, isPace, teamId: s.teamId, teamAbbr: s.teamAbbr, statObj: stat, vol }
     })
     .filter((p): p is NonNullable<typeof p> => p != null)
 
@@ -1349,12 +1375,15 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
 
   // Weighted career avg for rate stats; simple mean for counting stats; null = don't show
   const statObjs = fpts.map(p => p.statObj)
-  const avg: number | null = currentDef.careerAvg
-    ? currentDef.careerAvg(statObjs)
-    : currentDef.counting
-      ? vals.reduce((s, v) => s + v, 0) / vals.length
-      : null
+  const avg: number | null = currentDef.noAvg
+    ? null
+    : currentDef.careerAvg
+      ? currentDef.careerAvg(statObjs)
+      : currentDef.counting
+        ? vals.reduce((s, v) => s + v, 0) / vals.length
+        : null
   const showAvg = avg != null
+  const volLabel = group === 'hitting' ? 'PA' : 'IP'
   const avgY = showAvg ? sy(avg!) : 0
 
   const yTicks = Array.from({ length: 5 }, (_, i) => yMin + (i / 4) * (yMax - yMin))
@@ -1593,6 +1622,11 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
               ) : (
                 <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT, mt: 0.25, lineHeight: 1 }}>
                   {currentDef.fmt(hov.value)}
+                </Typography>
+              )}
+              {hov.vol != null && (
+                <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.3 }}>
+                  {volLabel} {group === 'hitting' ? Math.round(hov.vol) : hov.vol.toFixed(1)}
                 </Typography>
               )}
             </Box>
