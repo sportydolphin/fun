@@ -1160,6 +1160,7 @@ interface TrendStatDef {
   get: (s: any) => number | null
   fmt: (v: number) => string
   lowerBetter?: boolean
+  counting?: boolean   // true = project to 162-game pace for current season
 }
 
 const TREND_HIT_DEFS: TrendStatDef[] = [
@@ -1167,22 +1168,22 @@ const TREND_HIT_DEFS: TrendStatDef[] = [
   { key: 'avg',  label: 'AVG',  get: s => s?.avg != null ? Number(s.avg) : null,                   fmt: v => fmtR(v, 3) },
   { key: 'obp',  label: 'OBP',  get: s => s?.obp != null ? Number(s.obp) : null,                   fmt: v => fmtR(v, 3) },
   { key: 'slg',  label: 'SLG',  get: s => s?.slg != null ? Number(s.slg) : null,                   fmt: v => fmtR(v, 3) },
-  { key: 'hr',   label: 'HR',   get: s => s?.homeRuns != null ? Number(s.homeRuns) : null,         fmt: v => String(Math.round(v)) },
-  { key: 'rbi',  label: 'RBI',  get: s => s?.rbi != null ? Number(s.rbi) : null,                   fmt: v => String(Math.round(v)) },
-  { key: 'h',    label: 'H',    get: s => s?.hits != null ? Number(s.hits) : null,                  fmt: v => String(Math.round(v)) },
-  { key: 'bb',   label: 'BB',   get: s => s?.baseOnBalls != null ? Number(s.baseOnBalls) : null,   fmt: v => String(Math.round(v)) },
-  { key: 'k',    label: 'K',    get: s => s?.strikeOuts != null ? Number(s.strikeOuts) : null,     fmt: v => String(Math.round(v)), lowerBetter: true },
-  { key: 'sb',   label: 'SB',   get: s => s?.stolenBases != null ? Number(s.stolenBases) : null,   fmt: v => String(Math.round(v)) },
+  { key: 'hr',   label: 'HR',   get: s => s?.homeRuns != null ? Number(s.homeRuns) : null,         fmt: v => String(Math.round(v)), counting: true },
+  { key: 'rbi',  label: 'RBI',  get: s => s?.rbi != null ? Number(s.rbi) : null,                   fmt: v => String(Math.round(v)), counting: true },
+  { key: 'h',    label: 'H',    get: s => s?.hits != null ? Number(s.hits) : null,                  fmt: v => String(Math.round(v)), counting: true },
+  { key: 'bb',   label: 'BB',   get: s => s?.baseOnBalls != null ? Number(s.baseOnBalls) : null,   fmt: v => String(Math.round(v)), counting: true },
+  { key: 'k',    label: 'K',    get: s => s?.strikeOuts != null ? Number(s.strikeOuts) : null,     fmt: v => String(Math.round(v)), lowerBetter: true, counting: true },
+  { key: 'sb',   label: 'SB',   get: s => s?.stolenBases != null ? Number(s.stolenBases) : null,   fmt: v => String(Math.round(v)), counting: true },
 ]
 
 const TREND_PIT_DEFS: TrendStatDef[] = [
   { key: 'era',  label: 'ERA',  get: s => s?.era != null ? Number(s.era) : null,                          fmt: v => v.toFixed(2), lowerBetter: true },
   { key: 'whip', label: 'WHIP', get: s => s?.whip != null ? Number(s.whip) : null,                        fmt: v => fmtR(v, 3), lowerBetter: true },
-  { key: 'k',    label: 'K',    get: s => s?.strikeOuts != null ? Number(s.strikeOuts) : null,            fmt: v => String(Math.round(v)) },
-  { key: 'ip',   label: 'IP',   get: s => s?.inningsPitched != null ? Number(s.inningsPitched) : null,    fmt: v => v.toFixed(1) },
-  { key: 'w',    label: 'W',    get: s => s?.wins != null ? Number(s.wins) : null,                        fmt: v => String(Math.round(v)) },
-  { key: 'sv',   label: 'SV',   get: s => s?.saves != null ? Number(s.saves) : null,                      fmt: v => String(Math.round(v)) },
-  { key: 'bb',   label: 'BB',   get: s => s?.baseOnBalls != null ? Number(s.baseOnBalls) : null,          fmt: v => String(Math.round(v)), lowerBetter: true },
+  { key: 'k',    label: 'K',    get: s => s?.strikeOuts != null ? Number(s.strikeOuts) : null,            fmt: v => String(Math.round(v)), counting: true },
+  { key: 'ip',   label: 'IP',   get: s => s?.inningsPitched != null ? Number(s.inningsPitched) : null,    fmt: v => v.toFixed(1), counting: true },
+  { key: 'w',    label: 'W',    get: s => s?.wins != null ? Number(s.wins) : null,                        fmt: v => String(Math.round(v)), counting: true },
+  { key: 'sv',   label: 'SV',   get: s => s?.saves != null ? Number(s.saves) : null,                      fmt: v => String(Math.round(v)), counting: true },
+  { key: 'bb',   label: 'BB',   get: s => s?.baseOnBalls != null ? Number(s.baseOnBalls) : null,          fmt: v => String(Math.round(v)), lowerBetter: true, counting: true },
   { key: 'so9',  label: 'K/9',  get: s => s?.strikeoutsPer9Inn != null ? Number(s.strikeoutsPer9Inn) : null, fmt: v => v.toFixed(2) },
 ]
 
@@ -1222,12 +1223,24 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   const currentDef = availableDefs.find(d => d.key === statKey) ?? availableDefs[0]
   if (!currentDef) return null
 
-  // Build data points
+  // Build data points — project current-season counting stats to 162-game pace
   const pts = splits
     .map(s => {
       const stat = group === 'hitting' ? s.hitting : s.pitching
       const val = stat != null ? currentDef.get(stat) : null
-      return val != null ? { season: s.season, value: val, teamId: s.teamId, teamAbbr: s.teamAbbr } : null
+      if (val == null) return null
+      let value = val
+      let actual: number | undefined
+      let isPace = false
+      if (currentDef.counting && s.season === CURRENT_SEASON) {
+        const gp = Number(stat?.gamesPlayed ?? 0)
+        if (gp > 0) {
+          actual = val
+          value = val * 162 / gp   // project to full-season pace
+          isPace = true
+        }
+      }
+      return { season: s.season, value, actual, isPace, teamId: s.teamId, teamAbbr: s.teamAbbr }
     })
     .filter((p): p is NonNullable<typeof p> => p != null)
 
@@ -1413,6 +1426,19 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
               fill="currentColor" fillOpacity={0.45} fontSize={8} textAnchor="middle">★ {fpts[bestIdx].season}</text>
           )}
 
+          {/* Current-year pace label on the dot */}
+          {(() => {
+            const paceIdx = fpts.findIndex(p => p.isPace)
+            if (paceIdx === -1 || hovIdx === paceIdx) return null
+            const pp = fpts[paceIdx]
+            return (
+              <text x={sx(paceIdx)} y={sy(pp.value) - 11}
+                fill={ACCENT} fillOpacity={0.75} fontSize={7.5} fontWeight={700} textAnchor="middle">
+                {currentDef.fmt(pp.actual!)}→{currentDef.fmt(pp.value)}
+              </text>
+            )
+          })()}
+
           {/* Axes */}
           <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.18} strokeWidth={1.5} />
           <line x1={m.l} y1={m.t + iH} x2={m.l + iW} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.18} strokeWidth={1.5} />
@@ -1472,9 +1498,20 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
                   <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>{hov.teamAbbr}</Typography>
                 </Box>
               )}
-              <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT, mt: 0.25, lineHeight: 1 }}>
-                {currentDef.fmt(hov.value)}
-              </Typography>
+              {hov.isPace ? (
+                <>
+                  <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT, mt: 0.25, lineHeight: 1 }}>
+                    {currentDef.fmt(hov.value)} <Typography component="span" sx={{ fontSize: '0.65rem', color: 'text.disabled', fontWeight: 600 }}>pace</Typography>
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 0.2 }}>
+                    {currentDef.fmt(hov.actual!)} actual ({Math.round((hov.actual! / hov.value) * 162)}g played)
+                  </Typography>
+                </>
+              ) : (
+                <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT, mt: 0.25, lineHeight: 1 }}>
+                  {currentDef.fmt(hov.value)}
+                </Typography>
+              )}
               <Typography sx={{ fontSize: '0.67rem', color: 'text.disabled', mt: 0.25 }}>
                 {hov.value > avg
                   ? (currentDef.lowerBetter ? '▼ below avg' : '▲ above avg')
@@ -1552,6 +1589,7 @@ export default function MlbStats() {
   const nameMap = useMemo(() => new Map(allTeams.map(t => [t.id, t.name])), [allTeams])
 
   const cardRef = useRef<HTMLDivElement>(null)
+  const blockDropdownRef = useRef(false)  // prevents dropdown re-opening after programmatic query set
 
   const toggleHitStat = useCallback((key: string) => setSelectedHitStats(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]), [])
   const togglePitStat = useCallback((key: string) => setSelectedPitStats(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]), [])
@@ -1576,6 +1614,10 @@ export default function MlbStats() {
 
   // Combined search: instant team filter + debounced player search
   useEffect(() => {
+    // Consume the block flag — set by selectPlayer/selectTeam to prevent dropdown re-opening
+    const blocked = blockDropdownRef.current
+    if (blocked) blockDropdownRef.current = false
+
     if (query.length < 1) {
       setPlayerResults([])
       setTeamResults([])
@@ -1589,7 +1631,7 @@ export default function MlbStats() {
       t.name.toLowerCase().includes(q) || t.abbreviation.toLowerCase().includes(q)
     ).slice(0, 5)
     setTeamResults(teamMatches)
-    if (teamMatches.length > 0) setDropdownOpen(true)
+    if (teamMatches.length > 0 && !blocked) setDropdownOpen(true)
 
     if (query.length < 2) {
       setPlayerResults([])
@@ -1603,7 +1645,7 @@ export default function MlbStats() {
         const players = await searchPlayers(query)
         const playerSlice = players.slice(0, 6)
         setPlayerResults(playerSlice)
-        if (playerSlice.length > 0 || teamMatches.length > 0) setDropdownOpen(true)
+        if (!blocked && (playerSlice.length > 0 || teamMatches.length > 0)) setDropdownOpen(true)
       } finally {
         setSearching(false)
       }
@@ -1656,6 +1698,7 @@ export default function MlbStats() {
   }, [])
 
   const selectPlayer = useCallback(async (p: Player) => {
+    blockDropdownRef.current = true
     setDropdownOpen(false)
     setQuery(p.fullName)
     setLoadingStats(true)
@@ -1677,6 +1720,7 @@ export default function MlbStats() {
   }, [loadStats])
 
   const selectTeam = useCallback(async (t: Team) => {
+    blockDropdownRef.current = true
     setDropdownOpen(false)
     setQuery(t.name)
     setPalette(teamPalette(t.id))
