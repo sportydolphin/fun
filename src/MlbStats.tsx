@@ -365,6 +365,63 @@ async function fetchTeamSummaryData(season: number): Promise<TeamSummary[]> {
     .filter(p => p.abbr)
 }
 
+// ─── Career trends data ───────────────────────────────────────────────────────
+
+interface CareerStatSplit {
+  season: number
+  teamId: number | null
+  teamAbbr: string | null
+  hitting: any | null
+  pitching: any | null
+}
+
+async function fetchPlayerCareerStats(id: number, groups: Array<'hitting' | 'pitching'>): Promise<CareerStatSplit[]> {
+  const results = await Promise.all(groups.map(group =>
+    fetch(`https://statsapi.mlb.com/api/v1/people/${id}/stats?stats=yearByYear&group=${group}&sportId=1`)
+      .then(r => r.json())
+      .then(d => ({ group, splits: (d.stats?.[0]?.splits ?? []) as any[] }))
+      .catch(() => ({ group, splits: [] as any[] }))
+  ))
+
+  const bySeasonHit = new Map<number, any>()
+  const bySeasonPit = new Map<number, any>()
+  const bySeasonTeam = new Map<number, { id: number | null; abbr: string | null }>()
+
+  for (const { group, splits } of results) {
+    const seasonMap = new Map<number, any[]>()
+    for (const split of splits) {
+      const s = Number(split.season)
+      if (!s) continue
+      if (!seasonMap.has(s)) seasonMap.set(s, [])
+      seasonMap.get(s)!.push(split)
+    }
+    for (const [season, seasonSplits] of seasonMap) {
+      // Pick the split with the most games (handles traded players — biggest sample = combined/primary)
+      const best = seasonSplits.reduce((a, b) =>
+        (Number(b.stat?.gamesPlayed ?? b.stat?.gamesStarted ?? 0) >
+         Number(a.stat?.gamesPlayed ?? a.stat?.gamesStarted ?? 0)) ? b : a
+      )
+      if (!bySeasonTeam.has(season)) {
+        bySeasonTeam.set(season, {
+          id: best.team?.id ?? null,
+          abbr: (best.team?.id ? TEAM_ABBR[best.team.id] : null) ?? best.team?.abbreviation ?? null,
+        })
+      }
+      if (group === 'hitting') bySeasonHit.set(season, best.stat)
+      else bySeasonPit.set(season, best.stat)
+    }
+  }
+
+  const allSeasons = [...new Set([...bySeasonHit.keys(), ...bySeasonPit.keys()])].sort((a, b) => a - b)
+  return allSeasons.map(season => ({
+    season,
+    teamId: bySeasonTeam.get(season)?.id ?? null,
+    teamAbbr: bySeasonTeam.get(season)?.abbr ?? null,
+    hitting: bySeasonHit.get(season) ?? null,
+    pitching: bySeasonPit.get(season) ?? null,
+  }))
+}
+
 // ─── UI primitives ────────────────────────────────────────────────────────────
 
 function SegControl({ options, value, onChange }: {
@@ -1090,6 +1147,302 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
+// ─── Career trend stat definitions ───────────────────────────────────────────
+
+interface TrendStatDef {
+  key: string
+  label: string
+  get: (s: any) => number | null
+  fmt: (v: number) => string
+  lowerBetter?: boolean
+}
+
+const TREND_HIT_DEFS: TrendStatDef[] = [
+  { key: 'ops',  label: 'OPS',  get: s => s?.ops != null ? Number(s.ops) : null,                   fmt: v => v.toFixed(3) },
+  { key: 'avg',  label: 'AVG',  get: s => s?.avg != null ? Number(s.avg) : null,                   fmt: v => v.toFixed(3) },
+  { key: 'obp',  label: 'OBP',  get: s => s?.obp != null ? Number(s.obp) : null,                   fmt: v => v.toFixed(3) },
+  { key: 'slg',  label: 'SLG',  get: s => s?.slg != null ? Number(s.slg) : null,                   fmt: v => v.toFixed(3) },
+  { key: 'hr',   label: 'HR',   get: s => s?.homeRuns != null ? Number(s.homeRuns) : null,         fmt: v => String(Math.round(v)) },
+  { key: 'rbi',  label: 'RBI',  get: s => s?.rbi != null ? Number(s.rbi) : null,                   fmt: v => String(Math.round(v)) },
+  { key: 'h',    label: 'H',    get: s => s?.hits != null ? Number(s.hits) : null,                  fmt: v => String(Math.round(v)) },
+  { key: 'bb',   label: 'BB',   get: s => s?.baseOnBalls != null ? Number(s.baseOnBalls) : null,   fmt: v => String(Math.round(v)) },
+  { key: 'k',    label: 'K',    get: s => s?.strikeOuts != null ? Number(s.strikeOuts) : null,     fmt: v => String(Math.round(v)), lowerBetter: true },
+  { key: 'sb',   label: 'SB',   get: s => s?.stolenBases != null ? Number(s.stolenBases) : null,   fmt: v => String(Math.round(v)) },
+]
+
+const TREND_PIT_DEFS: TrendStatDef[] = [
+  { key: 'era',  label: 'ERA',  get: s => s?.era != null ? Number(s.era) : null,                          fmt: v => v.toFixed(2), lowerBetter: true },
+  { key: 'whip', label: 'WHIP', get: s => s?.whip != null ? Number(s.whip) : null,                        fmt: v => v.toFixed(3), lowerBetter: true },
+  { key: 'k',    label: 'K',    get: s => s?.strikeOuts != null ? Number(s.strikeOuts) : null,            fmt: v => String(Math.round(v)) },
+  { key: 'ip',   label: 'IP',   get: s => s?.inningsPitched != null ? Number(s.inningsPitched) : null,    fmt: v => v.toFixed(1) },
+  { key: 'w',    label: 'W',    get: s => s?.wins != null ? Number(s.wins) : null,                        fmt: v => String(Math.round(v)) },
+  { key: 'sv',   label: 'SV',   get: s => s?.saves != null ? Number(s.saves) : null,                      fmt: v => String(Math.round(v)) },
+  { key: 'bb',   label: 'BB',   get: s => s?.baseOnBalls != null ? Number(s.baseOnBalls) : null,          fmt: v => String(Math.round(v)), lowerBetter: true },
+  { key: 'so9',  label: 'K/9',  get: s => s?.strikeoutsPer9Inn != null ? Number(s.strikeoutsPer9Inn) : null, fmt: v => v.toFixed(2) },
+]
+
+// ─── Player trends chart ──────────────────────────────────────────────────────
+
+function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
+  splits: CareerStatSplit[]
+  isPitcher: boolean
+  isTwoWay: boolean
+}) {
+  const initGroup: 'hitting' | 'pitching' = (isPitcher && !isTwoWay) ? 'pitching' : 'hitting'
+  const [group, setGroup] = useState<'hitting' | 'pitching'>(initGroup)
+  const [statKey, setStatKey] = useState(initGroup === 'pitching' ? 'era' : 'ops')
+  const boxRef = useRef<HTMLDivElement>(null)
+  const [hovIdx, setHovIdx] = useState<number | null>(null)
+  const [tipPos, setTipPos] = useState({ x: 0, y: 0 })
+
+  // Reset to sensible default when group changes
+  useEffect(() => { setStatKey(group === 'pitching' ? 'era' : 'ops') }, [group])
+  // Reset when player changes (splits identity changes)
+  useEffect(() => {
+    const g: 'hitting' | 'pitching' = (isPitcher && !isTwoWay) ? 'pitching' : 'hitting'
+    setGroup(g)
+    setStatKey(g === 'pitching' ? 'era' : 'ops')
+  }, [splits]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const allDefs = group === 'hitting' ? TREND_HIT_DEFS : TREND_PIT_DEFS
+
+  // Only expose stats that have real data for at least 1 season
+  const availableDefs = allDefs.filter(def =>
+    splits.some(s => { const stat = group === 'hitting' ? s.hitting : s.pitching; return stat != null && def.get(stat) != null })
+  )
+  const currentDef = availableDefs.find(d => d.key === statKey) ?? availableDefs[0]
+  if (!currentDef) return null
+
+  // Build data points
+  const pts = splits
+    .map(s => {
+      const stat = group === 'hitting' ? s.hitting : s.pitching
+      const val = stat != null ? currentDef.get(stat) : null
+      return val != null ? { season: s.season, value: val, teamId: s.teamId, teamAbbr: s.teamAbbr } : null
+    })
+    .filter((p): p is NonNullable<typeof p> => p != null)
+
+  if (pts.length < 2) {
+    return (
+      <Box sx={{ py: 3, textAlign: 'center' }}>
+        <Typography color="text.secondary" sx={{ fontSize: '0.85rem' }}>Not enough seasons to show a trend</Typography>
+      </Box>
+    )
+  }
+
+  // SVG layout
+  const W = 560, H = 280
+  const m = { t: 28, r: 22, b: 46, l: 52 }
+  const iW = W - m.l - m.r, iH = H - m.t - m.b
+  const n = pts.length
+
+  const vals = pts.map(p => p.value)
+  const minVal = Math.min(...vals), maxVal = Math.max(...vals)
+  const range = maxVal - minVal || (maxVal * 0.1) || 1
+  const yPad = range * 0.28
+  const yMin = Math.max(0, minVal - yPad), yMax = maxVal + yPad
+
+  const sx = (i: number) => m.l + (n === 1 ? iW / 2 : (i / (n - 1)) * iW)
+  const sy = (v: number) => m.t + ((yMax - v) / (yMax - yMin)) * iH
+
+  const lineD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(i).toFixed(1)},${sy(p.value).toFixed(1)}`).join(' ')
+  const fillD = `${lineD} L${sx(n - 1).toFixed(1)},${(m.t + iH).toFixed(1)} L${m.l.toFixed(1)},${(m.t + iH).toFixed(1)} Z`
+
+  const avg = vals.reduce((s, v) => s + v, 0) / vals.length
+  const avgY = sy(avg)
+
+  const yTicks = Array.from({ length: 5 }, (_, i) => yMin + (i / 4) * (yMax - yMin))
+  const xLabelStep = Math.max(1, Math.ceil(n / 10))
+  const gradId = `trendgrad-${group}-${statKey}`
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!boxRef.current) return
+    const rect = boxRef.current.getBoundingClientRect()
+    const relX = ((e.clientX - rect.left) / rect.width) * W - m.l
+    const frac = Math.max(0, Math.min(1, relX / iW))
+    setHovIdx(Math.round(frac * (n - 1)))
+    setTipPos({ x: (e.clientX - rect.left) / rect.width * 100, y: (e.clientY - rect.top) / rect.height * 100 })
+  }
+
+  const hov = hovIdx != null ? pts[hovIdx] : null
+  // Best season
+  const bestIdx = currentDef.lowerBetter
+    ? vals.indexOf(Math.min(...vals))
+    : vals.indexOf(Math.max(...vals))
+
+  return (
+    <Box>
+      {/* Group toggle for two-way players */}
+      {isTwoWay && (
+        <Box sx={{ mb: 1.5 }}>
+          <SegControl
+            options={[{ value: 'hitting', label: 'Batting' }, { value: 'pitching', label: 'Pitching' }]}
+            value={group}
+            onChange={v => setGroup(v as 'hitting' | 'pitching')}
+          />
+        </Box>
+      )}
+
+      {/* Stat selector chips */}
+      <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap', mb: 1.75 }}>
+        {availableDefs.map(def => (
+          <PillChip key={def.key} label={def.label} selected={currentDef.key === def.key} onChange={() => setStatKey(def.key)} />
+        ))}
+      </Box>
+
+      {/* Summary row */}
+      <Box sx={{ display: 'flex', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
+        <Box>
+          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>Career avg</Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT, lineHeight: 1.2 }}>{currentDef.fmt(avg)}</Typography>
+        </Box>
+        <Box>
+          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>Best season</Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>
+            {currentDef.fmt(pts[bestIdx].value)}
+            <Typography component="span" sx={{ fontSize: '0.72rem', color: 'text.secondary', fontWeight: 600, ml: 0.75 }}>({pts[bestIdx].season})</Typography>
+          </Typography>
+        </Box>
+        <Box>
+          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>Seasons</Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>{n}</Typography>
+        </Box>
+      </Box>
+
+      {/* Chart */}
+      <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}
+          onMouseMove={handleMouseMove} onMouseLeave={() => setHovIdx(null)}>
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={ACCENT} stopOpacity={0.22} />
+              <stop offset="100%" stopColor={ACCENT} stopOpacity={0.01} />
+            </linearGradient>
+          </defs>
+
+          {/* Grid */}
+          {yTicks.map((v, i) => (
+            <line key={i} x1={m.l} y1={sy(v)} x2={m.l + iW} y2={sy(v)} stroke="currentColor" strokeOpacity={0.07} strokeWidth={1} />
+          ))}
+
+          {/* Hover vertical guide */}
+          {hovIdx != null && (
+            <line x1={sx(hovIdx)} y1={m.t} x2={sx(hovIdx)} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.14} strokeWidth={1.5} />
+          )}
+
+          {/* Fill */}
+          <path d={fillD} fill={`url(#${gradId})`} />
+
+          {/* Career avg line */}
+          <line x1={m.l} y1={avgY} x2={m.l + iW} y2={avgY} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.55} />
+          <text x={m.l + 4} y={avgY - 5} fill="#f59e0b" fillOpacity={0.7} fontSize={8} fontWeight={700}>avg {currentDef.fmt(avg)}</text>
+
+          {/* Line */}
+          <path d={lineD} fill="none" stroke={ACCENT} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+
+          {/* Dots */}
+          {pts.map((p, i) => {
+            const isHov = hovIdx === i
+            const isBest = i === bestIdx
+            const color = p.teamId ? (TEAM_BG[p.teamId] ?? ACCENT) : ACCENT
+            return (
+              <g key={p.season}>
+                {isBest && !isHov && (
+                  <circle cx={sx(i)} cy={sy(p.value)} r={8} fill={color} fillOpacity={0.18} />
+                )}
+                <circle cx={sx(i)} cy={sy(p.value)} r={isHov ? 6.5 : (isBest ? 5 : 3.5)}
+                  fill={color} stroke="#fff" strokeWidth={isHov ? 2 : 1.5} />
+              </g>
+            )
+          })}
+
+          {/* Best season star annotation */}
+          {!hov && (
+            <text x={sx(bestIdx)} y={sy(pts[bestIdx].value) - 11}
+              fill="currentColor" fillOpacity={0.45} fontSize={8} textAnchor="middle">★ {pts[bestIdx].season}</text>
+          )}
+
+          {/* Axes */}
+          <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.18} strokeWidth={1.5} />
+          <line x1={m.l} y1={m.t + iH} x2={m.l + iW} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.18} strokeWidth={1.5} />
+
+          {/* Y ticks */}
+          {yTicks.map((v, i) => (
+            <g key={i}>
+              <line x1={m.l - 4} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.25} strokeWidth={1} />
+              <text x={m.l - 7} y={sy(v) + 3.5} textAnchor="end" fill="currentColor" fillOpacity={0.45} fontSize={9}>{currentDef.fmt(v)}</text>
+            </g>
+          ))}
+
+          {/* X ticks */}
+          {pts.map((p, i) => {
+            const showLabel = i % xLabelStep === 0 || i === n - 1
+            return (
+              <g key={p.season}>
+                <line x1={sx(i)} y1={m.t + iH} x2={sx(i)} y2={m.t + iH + 4} stroke="currentColor" strokeOpacity={0.2} strokeWidth={1} />
+                {showLabel && (
+                  <text x={sx(i)} y={m.t + iH + 15} textAnchor="middle" fill="currentColor" fillOpacity={0.45} fontSize={9}>{p.season}</text>
+                )}
+              </g>
+            )
+          })}
+
+          {/* Y axis label */}
+          <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle"
+            fill="currentColor" fillOpacity={0.4} fontSize={10} fontWeight={700} letterSpacing="1">
+            {currentDef.label}
+          </text>
+        </svg>
+
+        {/* Tooltip */}
+        {hov && (() => {
+          const tipLeft = Math.min(Math.max(tipPos.x, 12), 82)
+          const tipAbove = tipPos.y > 40
+          return (
+            <Box sx={{
+              position: 'absolute',
+              left: `${tipLeft}%`,
+              top: tipAbove ? `${tipPos.y - 4}%` : `${tipPos.y + 4}%`,
+              transform: tipAbove ? 'translate(-50%, -100%)' : 'translate(-50%, 8px)',
+              pointerEvents: 'none',
+              bgcolor: 'background.paper',
+              border: '1.5px solid',
+              borderColor: 'divider',
+              borderRadius: 2,
+              px: 1.5, py: 1,
+              boxShadow: '0 4px 18px rgba(0,0,0,0.13)',
+              minWidth: 90,
+              zIndex: 10,
+            }}>
+              <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1 }}>{hov.season}</Typography>
+              {hov.teamAbbr && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.3 }}>
+                  {hov.teamId && <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: TEAM_BG[hov.teamId] ?? 'grey.500', flexShrink: 0 }} />}
+                  <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>{hov.teamAbbr}</Typography>
+                </Box>
+              )}
+              <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT, mt: 0.25, lineHeight: 1 }}>
+                {currentDef.fmt(hov.value)}
+              </Typography>
+              <Typography sx={{ fontSize: '0.67rem', color: 'text.disabled', mt: 0.25 }}>
+                {hov.value > avg
+                  ? (currentDef.lowerBetter ? '▼ below avg' : '▲ above avg')
+                  : (currentDef.lowerBetter ? '▲ above avg' : '▼ below avg')}
+              </Typography>
+            </Box>
+          )
+        })()}
+      </Box>
+
+      {currentDef.lowerBetter && (
+        <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.75, textAlign: 'right' }}>
+          ↓ lower is better for {currentDef.label}
+        </Typography>
+      )}
+    </Box>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function MlbStats() {
@@ -1141,6 +1494,10 @@ export default function MlbStats() {
   const [vizSeason, setVizSeason] = useState(CURRENT_SEASON)
   const [teamSummaries, setTeamSummaries] = useState<TeamSummary[]>([])
   const [loadingViz, setLoadingViz] = useState(false)
+
+  // Career trends
+  const [careerSplits, setCareerSplits] = useState<CareerStatSplit[] | null>(null)
+  const [loadingCareer, setLoadingCareer] = useState(false)
   const nameMap = useMemo(() => new Map(allTeams.map(t => [t.id, t.name])), [allTeams])
 
   const cardRef = useRef<HTMLDivElement>(null)
@@ -1279,6 +1636,20 @@ export default function MlbStats() {
     await loadTeamStats(t, CURRENT_SEASON)
     window.history.replaceState({}, '', `/mlb?tid=${t.id}`)
   }, [loadTeamStats])
+
+  // Fetch career splits whenever the selected player changes
+  useEffect(() => {
+    if (!player) { setCareerSplits(null); return }
+    setLoadingCareer(true)
+    setCareerSplits(null)
+    const isPitcher = player.primaryPosition?.code === '1'
+    const isTwoWay = player.primaryPosition?.type === 'Two-Way Player'
+    const groups: Array<'hitting' | 'pitching'> = isTwoWay ? ['hitting', 'pitching'] : isPitcher ? ['pitching'] : ['hitting']
+    fetchPlayerCareerStats(player.id, groups)
+      .then(setCareerSplits)
+      .catch(() => setCareerSplits([]))
+      .finally(() => setLoadingCareer(false))
+  }, [player])
 
   const autoLoadedRef = useRef(false)
   useEffect(() => {
@@ -1765,6 +2136,30 @@ export default function MlbStats() {
               })()}
             </Box>
           </Box>
+
+          {/* Career Trends */}
+          {player && (loadingCareer || (careerSplits && careerSplits.length > 0)) && (
+            <Box sx={{ mt: 4 }}>
+              <Divider sx={{ mb: 3 }} />
+              <Box sx={{ mb: 2 }}>
+                <SectionLabel>Career Trends</SectionLabel>
+                <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem', mt: 0.25 }}>
+                  Year-by-year stats · dots colored by team · hover any season to inspect
+                </Typography>
+              </Box>
+              {loadingCareer ? (
+                <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress size={22} /></Box>
+              ) : (
+                <Paper elevation={2} sx={{ borderRadius: 3, p: { xs: 1.5, sm: 2 } }}>
+                  <PlayerTrendsChart
+                    splits={careerSplits!}
+                    isPitcher={player.primaryPosition?.code === '1'}
+                    isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
+                  />
+                </Paper>
+              )}
+            </Box>
+          )}
         </>
       )}
 
