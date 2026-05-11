@@ -1938,7 +1938,7 @@ export default function MlbStats() {
   }
 
   return (
-    <Box sx={{ maxWidth: 640, mx: 'auto' }}>
+    <Box sx={{ maxWidth: { xs: 640, md: 1280 }, mx: 'auto' }}>
 
       {/* Tab switcher */}
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
@@ -1971,7 +1971,7 @@ export default function MlbStats() {
           {loadingViz && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
 
           {!loadingViz && teamSummaries.length > 0 && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
               {/* Chart 1: ERA vs OPS */}
               <Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
@@ -2144,154 +2144,81 @@ export default function MlbStats() {
       {loadingStats && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress /></Box>}
 
       {hasStats && (
-        <>
-          {/* Card */}
-          <Paper ref={cardRef} elevation={4} sx={{
-            borderRadius: 4, overflow: 'hidden', background: palette.bg,
-            transition: 'background 0.45s ease', p: { xs: 3, sm: 4 },
-          }}>
-            {playerCardProps && <CardInner {...playerCardProps} />}
-            {teamCardProps && <TeamCardInner {...teamCardProps} />}
-          </Paper>
+        <Box sx={{
+          display: { xs: 'block', md: 'grid' },
+          gridTemplateColumns: { md: 'minmax(0, 480px) 1fr' },
+          gap: { md: 4 },
+          alignItems: 'start',
+        }}>
 
-          {/* Action row */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 2.5, flexWrap: 'wrap', alignItems: 'center' }}>
-            {/* Colors */}
-            <Box onClick={() => setPalette(randomPalette())} sx={pillActionSx}>
-              <Shuffle sx={{ fontSize: '0.9rem' }} /> Colors
-            </Box>
-
-            {/* Season */}
-            <Box sx={{
-              ...pillActionSx,
-              p: 0,
-              '&:hover': { borderColor: ACCENT },
-              '&:focus-within': { borderColor: ACCENT, color: ACCENT },
+          {/* ── Left column: card + actions + links ── */}
+          <Box>
+            {/* Card */}
+            <Paper ref={cardRef} elevation={4} sx={{
+              borderRadius: 4, overflow: 'hidden', background: palette.bg,
+              transition: 'background 0.45s ease', p: { xs: 3, sm: 4 },
             }}>
-              <select
-                value={season}
-                onChange={e => handleSeasonChange(Number(e.target.value))}
-                style={{
-                  border: 'none', outline: 'none', background: 'transparent',
-                  fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
-                  color: 'inherit', padding: '6px 16px', borderRadius: 999,
-                  fontFamily: 'inherit',
-                }}
-              >
-                {currentAvailableSeasons.map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </Box>
+              {playerCardProps && <CardInner {...playerCardProps} />}
+              {teamCardProps && <TeamCardInner {...teamCardProps} />}
+            </Paper>
 
-            {/* Export */}
-            <Box
-              onClick={!downloading ? (e => setExportAnchor(e.currentTarget as HTMLElement)) : undefined}
-              sx={{ ...pillActionSx, opacity: downloading ? 0.55 : 1, cursor: downloading ? 'default' : 'pointer' }}
-            >
-              <FileDownload sx={{ fontSize: '0.9rem' }} />
-              {downloading ? 'Saving…' : 'Export'}
-              <KeyboardArrowDown sx={{ fontSize: '0.85rem' }} />
-            </Box>
-            <Menu
-              anchorEl={exportAnchor}
-              open={Boolean(exportAnchor)}
-              onClose={() => setExportAnchor(null)}
-              PaperProps={{ sx: { borderRadius: 2, mt: 0.5, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: 180 } }}
-            >
-              <MenuItem onClick={() => { setFullscreen(true); setExportAnchor(null) }} sx={{ fontSize: '0.85rem' }}>View fullscreen</MenuItem>
-              <MenuItem onClick={() => handleDownload('centered')} sx={{ fontSize: '0.85rem' }}>Download centered</MenuItem>
-              <MenuItem onClick={() => handleDownload('tiktok')} sx={{ fontSize: '0.85rem' }}>Download for TikTok</MenuItem>
-            </Menu>
-          </Box>
-
-          {/* Options */}
-          <Box sx={{ mt: 3 }}>
-            <SectionLabel>Options</SectionLabel>
-
-            {/* Stat pickers */}
-            <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 2 }}>
-              {(hittingStats || teamHitting) && (
-                <StatPicker
-                  defs={player ? HITTING_STAT_DEFS : TEAM_HITTING_DEFS}
-                  selected={player ? selectedHitStats : selectedTeamHitStats}
-                  onToggle={player ? toggleHitStat : toggleTeamHitStat}
-                  label="Batting"
-                />
-              )}
-              {(pitchingStats || teamPitching) && (
-                <StatPicker
-                  defs={player ? PITCHING_STAT_DEFS : TEAM_PITCHING_DEFS}
-                  selected={player ? selectedPitStats : selectedTeamPitStats}
-                  onToggle={player ? togglePitStat : toggleTeamPitStat}
-                  label="Pitching"
-                />
-              )}
-            </Box>
-
-            {/* League rank */}
-            <Box sx={{ mb: player ? 2 : 0 }}>
-              <Typography sx={{ fontSize: '0.63rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.8, color: 'text.disabled', mb: 0.75 }}>
-                League rank
-              </Typography>
-              <SegControl
-                options={[
-                  { value: 'none', label: 'None' },
-                  { value: 'top5', label: 'Top 5' },
-                  { value: 'all', label: 'All' },
-                ]}
-                value={rankMode}
-                onChange={v => setRankMode(v as RankMode)}
-              />
-            </Box>
-
-            {/* Portrait toggles (player only) */}
-            {player && (
-              <Box>
-                <Typography sx={{ fontSize: '0.63rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.8, color: 'text.disabled', mb: 0.75 }}>
-                  Show under portrait
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-                  {[
-                    { label: 'Position', val: showPosition, set: setShowPosition },
-                    { label: 'Team', val: showTeam, set: setShowTeam },
-                    { label: 'Age', val: showAge, set: setShowAge },
-                    { label: 'Number', val: showNumber, set: setShowNumber },
-                  ].map(({ label, val, set }) => (
-                    <PillChip key={label} label={label} selected={val} onChange={() => set((v: boolean) => !v)} />
-                  ))}
-                </Box>
+            {/* Action row */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 2.5, flexWrap: 'wrap', alignItems: 'center' }}>
+              {/* Colors */}
+              <Box onClick={() => setPalette(randomPalette())} sx={pillActionSx}>
+                <Shuffle sx={{ fontSize: '0.9rem' }} /> Colors
               </Box>
-            )}
-          </Box>
 
-          {/* Links */}
-          <Box sx={{ mt: 2.5, mb: 1 }}>
-            <SectionLabel>Links</SectionLabel>
-            <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-              {player && (<>
-                <Box
-                  component="a"
-                  href={`https://www.baseball-reference.com/search/search.fcgi?search=${encodeURIComponent(player.fullName)}`}
-                  target="_blank" rel="noopener noreferrer"
-                  sx={linkPillSx}
+              {/* Season */}
+              <Box sx={{
+                ...pillActionSx,
+                p: 0,
+                '&:hover': { borderColor: ACCENT },
+                '&:focus-within': { borderColor: ACCENT, color: ACCENT },
+              }}>
+                <select
+                  value={season}
+                  onChange={e => handleSeasonChange(Number(e.target.value))}
+                  style={{
+                    border: 'none', outline: 'none', background: 'transparent',
+                    fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+                    color: 'inherit', padding: '6px 16px', borderRadius: 999,
+                    fontFamily: 'inherit',
+                  }}
                 >
-                  Baseball Ref ↗
-                </Box>
-                <Box
-                  component="a"
-                  href={`https://baseballsavant.mlb.com/savant-player/${player.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${player.id}`}
-                  target="_blank" rel="noopener noreferrer"
-                  sx={linkPillSx}
-                >
-                  Baseball Savant ↗
-                </Box>
-              </>)}
-              {team && (() => {
-                const abbr = team.abbreviation
-                const bbrefAbbr = BBREF_ABBR[abbr] ?? abbr
-                return (<>
+                  {currentAvailableSeasons.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </Box>
+
+              {/* Export */}
+              <Box
+                onClick={!downloading ? (e => setExportAnchor(e.currentTarget as HTMLElement)) : undefined}
+                sx={{ ...pillActionSx, opacity: downloading ? 0.55 : 1, cursor: downloading ? 'default' : 'pointer' }}
+              >
+                <FileDownload sx={{ fontSize: '0.9rem' }} />
+                {downloading ? 'Saving…' : 'Export'}
+                <KeyboardArrowDown sx={{ fontSize: '0.85rem' }} />
+              </Box>
+              <Menu
+                anchorEl={exportAnchor}
+                open={Boolean(exportAnchor)}
+                onClose={() => setExportAnchor(null)}
+                PaperProps={{ sx: { borderRadius: 2, mt: 0.5, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: 180 } }}
+              >
+                <MenuItem onClick={() => { setFullscreen(true); setExportAnchor(null) }} sx={{ fontSize: '0.85rem' }}>View fullscreen</MenuItem>
+                <MenuItem onClick={() => handleDownload('centered')} sx={{ fontSize: '0.85rem' }}>Download centered</MenuItem>
+                <MenuItem onClick={() => handleDownload('tiktok')} sx={{ fontSize: '0.85rem' }}>Download for TikTok</MenuItem>
+              </Menu>
+            </Box>
+
+            {/* Links */}
+            <Box sx={{ mt: 2.5, mb: { xs: 1, md: 0 } }}>
+              <SectionLabel>Links</SectionLabel>
+              <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                {player && (<>
                   <Box
                     component="a"
-                    href={`https://www.baseball-reference.com/teams/${bbrefAbbr}/${season}.shtml`}
+                    href={`https://www.baseball-reference.com/search/search.fcgi?search=${encodeURIComponent(player.fullName)}`}
                     target="_blank" rel="noopener noreferrer"
                     sx={linkPillSx}
                   >
@@ -2299,41 +2226,127 @@ export default function MlbStats() {
                   </Box>
                   <Box
                     component="a"
-                    href={`https://baseballsavant.mlb.com/team/${team.id}`}
+                    href={`https://baseballsavant.mlb.com/savant-player/${player.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${player.id}`}
                     target="_blank" rel="noopener noreferrer"
                     sx={linkPillSx}
                   >
                     Baseball Savant ↗
                   </Box>
-                </>)
-              })()}
+                </>)}
+                {team && (() => {
+                  const abbr = team.abbreviation
+                  const bbrefAbbr = BBREF_ABBR[abbr] ?? abbr
+                  return (<>
+                    <Box
+                      component="a"
+                      href={`https://www.baseball-reference.com/teams/${bbrefAbbr}/${season}.shtml`}
+                      target="_blank" rel="noopener noreferrer"
+                      sx={linkPillSx}
+                    >
+                      Baseball Ref ↗
+                    </Box>
+                    <Box
+                      component="a"
+                      href={`https://baseballsavant.mlb.com/team/${team.id}`}
+                      target="_blank" rel="noopener noreferrer"
+                      sx={linkPillSx}
+                    >
+                      Baseball Savant ↗
+                    </Box>
+                  </>)
+                })()}
+              </Box>
             </Box>
           </Box>
 
-          {/* Career Trends */}
-          {player && (loadingCareer || (careerSplits && careerSplits.length > 0)) && (
-            <Box sx={{ mt: 4 }}>
-              <Divider sx={{ mb: 3 }} />
-              <Box sx={{ mb: 2 }}>
-                <SectionLabel>Career Trends</SectionLabel>
-                <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem', mt: 0.25 }}>
-                  Year-by-year stats · dots colored by team · hover any season to inspect
-                </Typography>
-              </Box>
-              {loadingCareer ? (
-                <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress size={22} /></Box>
-              ) : (
-                <Paper elevation={2} sx={{ borderRadius: 3, p: { xs: 1.5, sm: 2 } }}>
-                  <PlayerTrendsChart
-                    splits={careerSplits!}
-                    isPitcher={player.primaryPosition?.code === '1'}
-                    isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
+          {/* ── Right column: options + career trends ── */}
+          <Box sx={{ mt: { xs: 3, md: 0 } }}>
+            {/* Options */}
+            <Box>
+              <SectionLabel>Options</SectionLabel>
+
+              {/* Stat pickers */}
+              <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 2 }}>
+                {(hittingStats || teamHitting) && (
+                  <StatPicker
+                    defs={player ? HITTING_STAT_DEFS : TEAM_HITTING_DEFS}
+                    selected={player ? selectedHitStats : selectedTeamHitStats}
+                    onToggle={player ? toggleHitStat : toggleTeamHitStat}
+                    label="Batting"
                   />
-                </Paper>
+                )}
+                {(pitchingStats || teamPitching) && (
+                  <StatPicker
+                    defs={player ? PITCHING_STAT_DEFS : TEAM_PITCHING_DEFS}
+                    selected={player ? selectedPitStats : selectedTeamPitStats}
+                    onToggle={player ? togglePitStat : toggleTeamPitStat}
+                    label="Pitching"
+                  />
+                )}
+              </Box>
+
+              {/* League rank */}
+              <Box sx={{ mb: player ? 2 : 0 }}>
+                <Typography sx={{ fontSize: '0.63rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.8, color: 'text.disabled', mb: 0.75 }}>
+                  League rank
+                </Typography>
+                <SegControl
+                  options={[
+                    { value: 'none', label: 'None' },
+                    { value: 'top5', label: 'Top 5' },
+                    { value: 'all', label: 'All' },
+                  ]}
+                  value={rankMode}
+                  onChange={v => setRankMode(v as RankMode)}
+                />
+              </Box>
+
+              {/* Portrait toggles (player only) */}
+              {player && (
+                <Box>
+                  <Typography sx={{ fontSize: '0.63rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.8, color: 'text.disabled', mb: 0.75 }}>
+                    Show under portrait
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                    {[
+                      { label: 'Position', val: showPosition, set: setShowPosition },
+                      { label: 'Team', val: showTeam, set: setShowTeam },
+                      { label: 'Age', val: showAge, set: setShowAge },
+                      { label: 'Number', val: showNumber, set: setShowNumber },
+                    ].map(({ label, val, set }) => (
+                      <PillChip key={label} label={label} selected={val} onChange={() => set((v: boolean) => !v)} />
+                    ))}
+                  </Box>
+                </Box>
               )}
             </Box>
-          )}
-        </>
+
+            {/* Career Trends */}
+            {player && (loadingCareer || (careerSplits && careerSplits.length > 0)) && (
+              <Box sx={{ mt: { xs: 4, md: 3 } }}>
+                <Divider sx={{ mb: 3, display: { md: 'none' } }} />
+                <Box sx={{ mb: 2 }}>
+                  <SectionLabel>Career Trends</SectionLabel>
+                  <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem', mt: 0.25 }}>
+                    Year-by-year stats · dots colored by team · hover any season to inspect
+                  </Typography>
+                </Box>
+                {loadingCareer ? (
+                  <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress size={22} /></Box>
+                ) : (
+                  <Paper elevation={2} sx={{ borderRadius: 3, p: { xs: 1.5, sm: 2 } }}>
+                    <PlayerTrendsChart
+                      splits={careerSplits!}
+                      isPitcher={player.primaryPosition?.code === '1'}
+                      isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
+                    />
+                  </Paper>
+                )}
+              </Box>
+            )}
+          </Box>
+
+        </Box>
       )}
 
       {!loadingStats && (player && !hittingStats && !pitchingStats || team && !teamHitting && !teamPitching) && (
