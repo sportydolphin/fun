@@ -62,8 +62,13 @@ function fmt(v: any): string {
 function fmtDecimal(v: any, places = 2): string {
   if (v == null || v === '') return '—'
   const n = Number(v)
-  return isNaN(n) ? '—' : n.toFixed(places)
+  if (isNaN(n)) return '—'
+  const s = n.toFixed(places)
+  return s.startsWith('0.') ? s.slice(1) : s
 }
+
+// Format a numeric rate (strips leading zero for values < 1, e.g. 0.285 → .285)
+const fmtR = (v: number, d: number) => { const s = v.toFixed(d); return s.startsWith('0.') ? s.slice(1) : s }
 
 function statCols(n: number): number {
   if (n <= 3) return n || 1
@@ -1158,10 +1163,10 @@ interface TrendStatDef {
 }
 
 const TREND_HIT_DEFS: TrendStatDef[] = [
-  { key: 'ops',  label: 'OPS',  get: s => s?.ops != null ? Number(s.ops) : null,                   fmt: v => v.toFixed(3) },
-  { key: 'avg',  label: 'AVG',  get: s => s?.avg != null ? Number(s.avg) : null,                   fmt: v => v.toFixed(3) },
-  { key: 'obp',  label: 'OBP',  get: s => s?.obp != null ? Number(s.obp) : null,                   fmt: v => v.toFixed(3) },
-  { key: 'slg',  label: 'SLG',  get: s => s?.slg != null ? Number(s.slg) : null,                   fmt: v => v.toFixed(3) },
+  { key: 'ops',  label: 'OPS',  get: s => s?.ops != null ? Number(s.ops) : null,                   fmt: v => fmtR(v, 3) },
+  { key: 'avg',  label: 'AVG',  get: s => s?.avg != null ? Number(s.avg) : null,                   fmt: v => fmtR(v, 3) },
+  { key: 'obp',  label: 'OBP',  get: s => s?.obp != null ? Number(s.obp) : null,                   fmt: v => fmtR(v, 3) },
+  { key: 'slg',  label: 'SLG',  get: s => s?.slg != null ? Number(s.slg) : null,                   fmt: v => fmtR(v, 3) },
   { key: 'hr',   label: 'HR',   get: s => s?.homeRuns != null ? Number(s.homeRuns) : null,         fmt: v => String(Math.round(v)) },
   { key: 'rbi',  label: 'RBI',  get: s => s?.rbi != null ? Number(s.rbi) : null,                   fmt: v => String(Math.round(v)) },
   { key: 'h',    label: 'H',    get: s => s?.hits != null ? Number(s.hits) : null,                  fmt: v => String(Math.round(v)) },
@@ -1172,7 +1177,7 @@ const TREND_HIT_DEFS: TrendStatDef[] = [
 
 const TREND_PIT_DEFS: TrendStatDef[] = [
   { key: 'era',  label: 'ERA',  get: s => s?.era != null ? Number(s.era) : null,                          fmt: v => v.toFixed(2), lowerBetter: true },
-  { key: 'whip', label: 'WHIP', get: s => s?.whip != null ? Number(s.whip) : null,                        fmt: v => v.toFixed(3), lowerBetter: true },
+  { key: 'whip', label: 'WHIP', get: s => s?.whip != null ? Number(s.whip) : null,                        fmt: v => fmtR(v, 3), lowerBetter: true },
   { key: 'k',    label: 'K',    get: s => s?.strikeOuts != null ? Number(s.strikeOuts) : null,            fmt: v => String(Math.round(v)) },
   { key: 'ip',   label: 'IP',   get: s => s?.inningsPitched != null ? Number(s.inningsPitched) : null,    fmt: v => v.toFixed(1) },
   { key: 'w',    label: 'W',    get: s => s?.wins != null ? Number(s.wins) : null,                        fmt: v => String(Math.round(v)) },
@@ -1194,14 +1199,18 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   const boxRef = useRef<HTMLDivElement>(null)
   const [hovIdx, setHovIdx] = useState<number | null>(null)
   const [tipPos, setTipPos] = useState({ x: 0, y: 0 })
+  const [rangeStart, setRangeStart] = useState<number | null>(null)
+  const [rangeEnd, setRangeEnd] = useState<number | null>(null)
 
   // Reset to sensible default when group changes
   useEffect(() => { setStatKey(group === 'pitching' ? 'era' : 'ops') }, [group])
-  // Reset when player changes (splits identity changes)
+  // Reset all when player changes (splits identity changes)
   useEffect(() => {
     const g: 'hitting' | 'pitching' = (isPitcher && !isTwoWay) ? 'pitching' : 'hitting'
     setGroup(g)
     setStatKey(g === 'pitching' ? 'era' : 'ops')
+    setRangeStart(null)
+    setRangeEnd(null)
   }, [splits]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const allDefs = group === 'hitting' ? TREND_HIT_DEFS : TREND_PIT_DEFS
@@ -1230,13 +1239,22 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
     )
   }
 
+  // Season range — null means "use full extent"
+  const allSeasonsList = pts.map(p => p.season)
+  const minSeason = allSeasonsList[0], maxSeason = allSeasonsList[allSeasonsList.length - 1]
+  const effStart = rangeStart ?? minSeason
+  const effEnd = rangeEnd ?? maxSeason
+  const isRangeModified = effStart !== minSeason || effEnd !== maxSeason
+  const fptsRaw = pts.filter(p => p.season >= effStart && p.season <= effEnd)
+  const fpts = fptsRaw.length >= 2 ? fptsRaw : pts // fall back to all if range too narrow
+
   // SVG layout
   const W = 560, H = 280
   const m = { t: 28, r: 22, b: 46, l: 52 }
   const iW = W - m.l - m.r, iH = H - m.t - m.b
-  const n = pts.length
+  const n = fpts.length
 
-  const vals = pts.map(p => p.value)
+  const vals = fpts.map(p => p.value)
   const minVal = Math.min(...vals), maxVal = Math.max(...vals)
   const range = maxVal - minVal || (maxVal * 0.1) || 1
   const yPad = range * 0.28
@@ -1245,7 +1263,7 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   const sx = (i: number) => m.l + (n === 1 ? iW / 2 : (i / (n - 1)) * iW)
   const sy = (v: number) => m.t + ((yMax - v) / (yMax - yMin)) * iH
 
-  const lineD = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(i).toFixed(1)},${sy(p.value).toFixed(1)}`).join(' ')
+  const lineD = fpts.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(i).toFixed(1)},${sy(p.value).toFixed(1)}`).join(' ')
   const fillD = `${lineD} L${sx(n - 1).toFixed(1)},${(m.t + iH).toFixed(1)} L${m.l.toFixed(1)},${(m.t + iH).toFixed(1)} Z`
 
   const avg = vals.reduce((s, v) => s + v, 0) / vals.length
@@ -1264,11 +1282,18 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
     setTipPos({ x: (e.clientX - rect.left) / rect.width * 100, y: (e.clientY - rect.top) / rect.height * 100 })
   }
 
-  const hov = hovIdx != null ? pts[hovIdx] : null
-  // Best season
+  const hov = hovIdx != null ? fpts[hovIdx] : null
+  // Best season within current range
   const bestIdx = currentDef.lowerBetter
     ? vals.indexOf(Math.min(...vals))
     : vals.indexOf(Math.max(...vals))
+
+  // Shared select style
+  const selSx: React.CSSProperties = {
+    border: 'none', outline: 'none', background: 'transparent',
+    fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
+    color: 'inherit', padding: '4px 10px', borderRadius: 999, fontFamily: 'inherit',
+  }
 
   return (
     <Box>
@@ -1284,23 +1309,49 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
       )}
 
       {/* Stat selector chips */}
-      <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap', mb: 1.75 }}>
+      <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap', mb: 1.5 }}>
         {availableDefs.map(def => (
           <PillChip key={def.key} label={def.label} selected={currentDef.key === def.key} onChange={() => setStatKey(def.key)} />
         ))}
       </Box>
 
+      {/* Season range selector */}
+      {pts.length >= 3 && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.75, flexWrap: 'wrap' }}>
+          <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontWeight: 600 }}>Season range</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Box sx={{ border: '1.5px solid', borderColor: 'divider', borderRadius: 999, '&:hover': { borderColor: ACCENT } }}>
+              <select value={effStart} onChange={e => { setRangeStart(Number(e.target.value)); setHovIdx(null) }} style={selSx}>
+                {allSeasonsList.filter(y => y <= effEnd).map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </Box>
+            <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>–</Typography>
+            <Box sx={{ border: '1.5px solid', borderColor: 'divider', borderRadius: 999, '&:hover': { borderColor: ACCENT } }}>
+              <select value={effEnd} onChange={e => { setRangeEnd(Number(e.target.value)); setHovIdx(null) }} style={selSx}>
+                {allSeasonsList.filter(y => y >= effStart).map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </Box>
+          </Box>
+          {isRangeModified && (
+            <Box onClick={() => { setRangeStart(null); setRangeEnd(null); setHovIdx(null) }}
+              sx={{ fontSize: '0.72rem', color: ACCENT, fontWeight: 600, cursor: 'pointer', '&:hover': { opacity: 0.7 } }}>
+              Reset
+            </Box>
+          )}
+        </Box>
+      )}
+
       {/* Summary row */}
       <Box sx={{ display: 'flex', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
         <Box>
-          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>Career avg</Typography>
+          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>{isRangeModified ? 'Range avg' : 'Career avg'}</Typography>
           <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT, lineHeight: 1.2 }}>{currentDef.fmt(avg)}</Typography>
         </Box>
         <Box>
           <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>Best season</Typography>
           <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>
-            {currentDef.fmt(pts[bestIdx].value)}
-            <Typography component="span" sx={{ fontSize: '0.72rem', color: 'text.secondary', fontWeight: 600, ml: 0.75 }}>({pts[bestIdx].season})</Typography>
+            {currentDef.fmt(fpts[bestIdx].value)}
+            <Typography component="span" sx={{ fontSize: '0.72rem', color: 'text.secondary', fontWeight: 600, ml: 0.75 }}>({fpts[bestIdx].season})</Typography>
           </Typography>
         </Box>
         <Box>
@@ -1341,7 +1392,7 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
           <path d={lineD} fill="none" stroke={ACCENT} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
 
           {/* Dots */}
-          {pts.map((p, i) => {
+          {fpts.map((p, i) => {
             const isHov = hovIdx === i
             const isBest = i === bestIdx
             const color = p.teamId ? (TEAM_BG[p.teamId] ?? ACCENT) : ACCENT
@@ -1358,8 +1409,8 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
 
           {/* Best season star annotation */}
           {!hov && (
-            <text x={sx(bestIdx)} y={sy(pts[bestIdx].value) - 11}
-              fill="currentColor" fillOpacity={0.45} fontSize={8} textAnchor="middle">★ {pts[bestIdx].season}</text>
+            <text x={sx(bestIdx)} y={sy(fpts[bestIdx].value) - 11}
+              fill="currentColor" fillOpacity={0.45} fontSize={8} textAnchor="middle">★ {fpts[bestIdx].season}</text>
           )}
 
           {/* Axes */}
