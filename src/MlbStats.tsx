@@ -1941,6 +1941,7 @@ export default function MlbStats() {
     (player && (hittingStats || pitchingStats)) ||
     (team && (teamHitting || teamPitching))
   )
+  const showTrends = !!player && (loadingCareer || !!(careerSplits && careerSplits.length > 0))
   const teamDisplay = seasonTeams.get(season)?.join('/') ?? player?.currentTeam?.name ?? ''
   const currentAvailableSeasons = player ? availableSeasons : TEAM_SEASONS
 
@@ -2178,15 +2179,15 @@ export default function MlbStats() {
       {loadingStats && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress /></Box>}
 
       {hasStats && (
-        <Box sx={{
-          display: { xs: 'block', md: 'grid' },
-          gridTemplateColumns: { md: 'minmax(0, 480px) 1fr' },
-          gap: { md: 4 },
-          alignItems: 'start',
-        }}>
-
-          {/* ── Left column: card + actions + links ── */}
-          <Box>
+        <>
+          {/* ── Top row: card (left) + career trends (right at md+) ── */}
+          <Box sx={{
+            display: { xs: 'block', md: showTrends ? 'grid' : 'block' },
+            gridTemplateColumns: { md: 'minmax(0, 460px) 1fr' },
+            gap: { md: 4 },
+            alignItems: 'start',
+            mb: 3,
+          }}>
             {/* Card */}
             <Paper ref={cardRef} elevation={4} sx={{
               borderRadius: 4, overflow: 'hidden', background: palette.bg,
@@ -2196,17 +2197,42 @@ export default function MlbStats() {
               {teamCardProps && <TeamCardInner {...teamCardProps} />}
             </Paper>
 
-            {/* Action row */}
-            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 2.5, flexWrap: 'wrap', alignItems: 'center' }}>
-              {/* Colors */}
+            {/* Career Trends */}
+            {showTrends && (
+              <Box sx={{ mt: { xs: 3, md: 0 } }}>
+                <Box sx={{ mb: 2 }}>
+                  <SectionLabel>Career Trends</SectionLabel>
+                  <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem', mt: 0.25 }}>
+                    Year-by-year stats · dots colored by team · hover any season to inspect
+                  </Typography>
+                </Box>
+                {loadingCareer ? (
+                  <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress size={22} /></Box>
+                ) : (
+                  <Paper elevation={2} sx={{ borderRadius: 3, p: { xs: 1.5, sm: 2 } }}>
+                    <PlayerTrendsChart
+                      splits={careerSplits!}
+                      isPitcher={player!.primaryPosition?.code === '1'}
+                      isTwoWay={player!.primaryPosition?.type === 'Two-Way Player'}
+                    />
+                  </Paper>
+                )}
+              </Box>
+            )}
+          </Box>
+
+          {/* ── Combined options (full width below card + trends) ── */}
+          <Divider sx={{ mb: 2.5 }} />
+          <Box>
+            <SectionLabel>Options</SectionLabel>
+
+            {/* Actions: Colors, Season, Export */}
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
               <Box onClick={() => setPalette(randomPalette())} sx={pillActionSx}>
                 <Shuffle sx={{ fontSize: '0.9rem' }} /> Colors
               </Box>
-
-              {/* Season */}
               <Box sx={{
-                ...pillActionSx,
-                p: 0,
+                ...pillActionSx, p: 0,
                 '&:hover': { borderColor: ACCENT },
                 '&:focus-within': { borderColor: ACCENT, color: ACCENT },
               }}>
@@ -2223,8 +2249,6 @@ export default function MlbStats() {
                   {currentAvailableSeasons.map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
               </Box>
-
-              {/* Export */}
               <Box
                 onClick={!downloading ? (e => setExportAnchor(e.currentTarget as HTMLElement)) : undefined}
                 sx={{ ...pillActionSx, opacity: downloading ? 0.55 : 1, cursor: downloading ? 'default' : 'pointer' }}
@@ -2245,82 +2269,29 @@ export default function MlbStats() {
               </Menu>
             </Box>
 
-            {/* Links */}
-            <Box sx={{ mt: 2.5, mb: { xs: 1, md: 0 } }}>
-              <SectionLabel>Links</SectionLabel>
-              <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-                {player && (<>
-                  <Box
-                    component="a"
-                    href={`https://www.baseball-reference.com/search/search.fcgi?search=${encodeURIComponent(player.fullName)}`}
-                    target="_blank" rel="noopener noreferrer"
-                    sx={linkPillSx}
-                  >
-                    Baseball Ref ↗
-                  </Box>
-                  <Box
-                    component="a"
-                    href={`https://baseballsavant.mlb.com/savant-player/${player.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${player.id}`}
-                    target="_blank" rel="noopener noreferrer"
-                    sx={linkPillSx}
-                  >
-                    Baseball Savant ↗
-                  </Box>
-                </>)}
-                {team && (() => {
-                  const abbr = team.abbreviation
-                  const bbrefAbbr = BBREF_ABBR[abbr] ?? abbr
-                  return (<>
-                    <Box
-                      component="a"
-                      href={`https://www.baseball-reference.com/teams/${bbrefAbbr}/${season}.shtml`}
-                      target="_blank" rel="noopener noreferrer"
-                      sx={linkPillSx}
-                    >
-                      Baseball Ref ↗
-                    </Box>
-                    <Box
-                      component="a"
-                      href={`https://baseballsavant.mlb.com/team/${team.id}`}
-                      target="_blank" rel="noopener noreferrer"
-                      sx={linkPillSx}
-                    >
-                      Baseball Savant ↗
-                    </Box>
-                  </>)
-                })()}
-              </Box>
+            {/* Stat pickers */}
+            <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 2 }}>
+              {(hittingStats || teamHitting) && (
+                <StatPicker
+                  defs={player ? HITTING_STAT_DEFS : TEAM_HITTING_DEFS}
+                  selected={player ? selectedHitStats : selectedTeamHitStats}
+                  onToggle={player ? toggleHitStat : toggleTeamHitStat}
+                  label="Batting"
+                />
+              )}
+              {(pitchingStats || teamPitching) && (
+                <StatPicker
+                  defs={player ? PITCHING_STAT_DEFS : TEAM_PITCHING_DEFS}
+                  selected={player ? selectedPitStats : selectedTeamPitStats}
+                  onToggle={player ? togglePitStat : toggleTeamPitStat}
+                  label="Pitching"
+                />
+              )}
             </Box>
-          </Box>
 
-          {/* ── Right column: options + career trends ── */}
-          <Box sx={{ mt: { xs: 3, md: 0 } }}>
-            {/* Options */}
-            <Box>
-              <SectionLabel>Options</SectionLabel>
-
-              {/* Stat pickers */}
-              <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 2 }}>
-                {(hittingStats || teamHitting) && (
-                  <StatPicker
-                    defs={player ? HITTING_STAT_DEFS : TEAM_HITTING_DEFS}
-                    selected={player ? selectedHitStats : selectedTeamHitStats}
-                    onToggle={player ? toggleHitStat : toggleTeamHitStat}
-                    label="Batting"
-                  />
-                )}
-                {(pitchingStats || teamPitching) && (
-                  <StatPicker
-                    defs={player ? PITCHING_STAT_DEFS : TEAM_PITCHING_DEFS}
-                    selected={player ? selectedPitStats : selectedTeamPitStats}
-                    onToggle={player ? togglePitStat : toggleTeamPitStat}
-                    label="Pitching"
-                  />
-                )}
-              </Box>
-
-              {/* League rank */}
-              <Box sx={{ mb: player ? 2 : 0 }}>
+            {/* League rank + portrait toggles — side by side at md+ */}
+            <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap', mb: 1 }}>
+              <Box>
                 <Typography sx={{ fontSize: '0.63rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.8, color: 'text.disabled', mb: 0.75 }}>
                   League rank
                 </Typography>
@@ -2335,7 +2306,6 @@ export default function MlbStats() {
                 />
               </Box>
 
-              {/* Portrait toggles (player only) */}
               {player && (
                 <Box>
                   <Typography sx={{ fontSize: '0.63rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.8, color: 'text.disabled', mb: 0.75 }}>
@@ -2355,32 +2325,37 @@ export default function MlbStats() {
               )}
             </Box>
 
-            {/* Career Trends */}
-            {player && (loadingCareer || (careerSplits && careerSplits.length > 0)) && (
-              <Box sx={{ mt: { xs: 4, md: 3 } }}>
-                <Divider sx={{ mb: 3, display: { md: 'none' } }} />
-                <Box sx={{ mb: 2 }}>
-                  <SectionLabel>Career Trends</SectionLabel>
-                  <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem', mt: 0.25 }}>
-                    Year-by-year stats · dots colored by team · hover any season to inspect
-                  </Typography>
-                </Box>
-                {loadingCareer ? (
-                  <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress size={22} /></Box>
-                ) : (
-                  <Paper elevation={2} sx={{ borderRadius: 3, p: { xs: 1.5, sm: 2 } }}>
-                    <PlayerTrendsChart
-                      splits={careerSplits!}
-                      isPitcher={player.primaryPosition?.code === '1'}
-                      isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
-                    />
-                  </Paper>
-                )}
+            {/* Links */}
+            <Box sx={{ mt: 2, mb: 1 }}>
+              <SectionLabel>Links</SectionLabel>
+              <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                {player && (<>
+                  <Box component="a"
+                    href={`https://www.baseball-reference.com/search/search.fcgi?search=${encodeURIComponent(player.fullName)}`}
+                    target="_blank" rel="noopener noreferrer" sx={linkPillSx}
+                  >Baseball Ref ↗</Box>
+                  <Box component="a"
+                    href={`https://baseballsavant.mlb.com/savant-player/${player.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${player.id}`}
+                    target="_blank" rel="noopener noreferrer" sx={linkPillSx}
+                  >Baseball Savant ↗</Box>
+                </>)}
+                {team && (() => {
+                  const bbrefAbbr = BBREF_ABBR[team.abbreviation] ?? team.abbreviation
+                  return (<>
+                    <Box component="a"
+                      href={`https://www.baseball-reference.com/teams/${bbrefAbbr}/${season}.shtml`}
+                      target="_blank" rel="noopener noreferrer" sx={linkPillSx}
+                    >Baseball Ref ↗</Box>
+                    <Box component="a"
+                      href={`https://baseballsavant.mlb.com/team/${team.id}`}
+                      target="_blank" rel="noopener noreferrer" sx={linkPillSx}
+                    >Baseball Savant ↗</Box>
+                  </>)
+                })()}
               </Box>
-            )}
+            </Box>
           </Box>
-
-        </Box>
+        </>
       )}
 
       {!loadingStats && (player && !hittingStats && !pitchingStats || team && !teamHitting && !teamPitching) && (
