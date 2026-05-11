@@ -920,19 +920,25 @@ function ChartTooltip({ tipPos, children }: { tipPos: { x: number; y: number; fl
   )
 }
 
-function TeamDot({ team, x, y, hovered, onEnter, onLeave }: {
+function TeamDot({ team, x, y, hovered, dimmed, highlighted, onEnter, onLeave }: {
   team: TeamSummary; x: number; y: number; hovered: boolean
+  dimmed?: boolean; highlighted?: boolean
   onEnter: (t: TeamSummary, e: React.MouseEvent) => void
   onLeave: () => void
 }) {
   const color = TEAM_BG[team.id] ?? '#555'
+  const r = hovered ? 20 : highlighted ? 17 : 14
   return (
-    <g transform={`translate(${x},${y})`} style={{ cursor: 'default' }}
+    <g transform={`translate(${x},${y})`}
+      style={{ cursor: 'default', opacity: dimmed ? 0.14 : 1, transition: 'opacity 0.25s' }}
       onMouseEnter={e => onEnter(team, e)} onMouseLeave={onLeave}>
-      <circle r={hovered ? 18 : 14} fill={color}
-        stroke={hovered ? '#fff' : 'rgba(255,255,255,0.7)'}
-        strokeWidth={hovered ? 2.5 : 1.5}
-        style={{ transition: 'r 0.1s' }} />
+      {highlighted && !hovered && (
+        <circle r={r + 5} fill={color} fillOpacity={0.18} />
+      )}
+      <circle r={r} fill={color}
+        stroke={hovered || highlighted ? '#fff' : 'rgba(255,255,255,0.7)'}
+        strokeWidth={hovered ? 2.5 : highlighted ? 2 : 1.5}
+        style={{ transition: 'r 0.12s' }} />
       <text textAnchor="middle" dy="3.5" fill="#fff"
         fontSize={team.abbr.length > 2 ? 6.5 : 7.5} fontWeight={800}
         style={{ pointerEvents: 'none' }}>{team.abbr}</text>
@@ -942,7 +948,7 @@ function TeamDot({ team, x, y, hovered, onEnter, onLeave }: {
 
 // ─── ERA vs OPS Scatter Plot ─────────────────────────────────────────────────
 
-function TeamEraOpsPlot({ data, nameMap }: { data: TeamSummary[]; nameMap: Map<number, string> }) {
+function TeamEraOpsPlot({ data, nameMap, highlightTeamId }: { data: TeamSummary[]; nameMap: Map<number, string>; highlightTeamId: number | null }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const { hovered, setHovered, tipPos, onEnter } = useChartTooltip<TeamSummary & { name: string }>(boxRef as React.RefObject<HTMLDivElement>)
 
@@ -1011,9 +1017,11 @@ function TeamEraOpsPlot({ data, nameMap }: { data: TeamSummary[]; nameMap: Map<n
         <text x={m.l + iW / 2} y={H - 5} textAnchor="middle" fill="currentColor" fillOpacity={0.5} fontSize={10} fontWeight={700} letterSpacing="1.2">OPS (offense) →</text>
         <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill="currentColor" fillOpacity={0.5} fontSize={10} fontWeight={700} letterSpacing="1.2">ERA (lower = better ↑)</text>
 
-        {pts.map(team => (
+        {[...pts].sort((a, b) => (a.id === highlightTeamId ? 1 : 0) - (b.id === highlightTeamId ? 1 : 0)).map(team => (
           <TeamDot key={team.id} team={team} x={sx(team.ops)} y={sy(team.era)}
             hovered={hovered?.id === team.id}
+            dimmed={highlightTeamId != null && team.id !== highlightTeamId}
+            highlighted={highlightTeamId === team.id}
             onEnter={(t, e) => onEnter({ ...t, name: nameMap.get(t.id) ?? t.abbr }, e)}
             onLeave={() => setHovered(null)} />
         ))}
@@ -1035,7 +1043,7 @@ function TeamEraOpsPlot({ data, nameMap }: { data: TeamSummary[]; nameMap: Map<n
 
 // ─── Win% vs Run Differential (Pythagorean) ───────────────────────────────────
 
-function TeamWinRDPlot({ data, nameMap }: { data: TeamSummary[]; nameMap: Map<number, string> }) {
+function TeamWinRDPlot({ data, nameMap, highlightTeamId }: { data: TeamSummary[]; nameMap: Map<number, string>; highlightTeamId: number | null }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const { hovered, setHovered, tipPos, onEnter } = useChartTooltip<TeamSummary & { name: string; winPct: number; rd: number; pythPct: number; pythWins: number; pythLosses: number }>(boxRef as React.RefObject<HTMLDivElement>)
 
@@ -1135,9 +1143,11 @@ function TeamWinRDPlot({ data, nameMap }: { data: TeamSummary[]; nameMap: Map<nu
         <text x={m.l + iW / 2} y={H - 5} textAnchor="middle" fill="currentColor" fillOpacity={0.5} fontSize={10} fontWeight={700} letterSpacing="1.2">Run Differential (RS − RA) →</text>
         <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill="currentColor" fillOpacity={0.5} fontSize={10} fontWeight={700} letterSpacing="1.2">Win %</text>
 
-        {withPyth.map(team => (
+        {[...withPyth].sort((a, b) => (a.id === highlightTeamId ? 1 : 0) - (b.id === highlightTeamId ? 1 : 0)).map(team => (
           <TeamDot key={team.id} team={team} x={sx(team.rd)} y={sy(team.winPct)}
             hovered={hovered?.id === team.id}
+            dimmed={highlightTeamId != null && team.id !== highlightTeamId}
+            highlighted={highlightTeamId === team.id}
             onEnter={(t, e) => onEnter(withPyth.find(w => w.id === t.id)!, e)}
             onLeave={() => setHovered(null)} />
         ))}
@@ -1694,6 +1704,9 @@ export default function MlbStats() {
   const [vizSeason, setVizSeason] = useState(CURRENT_SEASON)
   const [teamSummaries, setTeamSummaries] = useState<TeamSummary[]>([])
   const [loadingViz, setLoadingViz] = useState(false)
+  const [vizHighlightId, setVizHighlightId] = useState<number | null>(null)
+  const [vizSearch, setVizSearch] = useState('')
+  const [vizSearchOpen, setVizSearchOpen] = useState(false)
 
   // Career trends
   const [careerSplits, setCareerSplits] = useState<CareerStatSplit[] | null>(null)
@@ -1718,6 +1731,8 @@ export default function MlbStats() {
     if (view !== 'viz') return
     setLoadingViz(true)
     setTeamSummaries([])
+    setVizHighlightId(null)
+    setVizSearch('')
     fetchTeamSummaryData(vizSeason)
       .then(setTeamSummaries)
       .catch(() => {})
@@ -1990,11 +2005,80 @@ export default function MlbStats() {
       {/* Visualizations tab */}
       {view === 'viz' && (
         <Box>
-          {/* Season picker */}
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
-            <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: 'text.secondary' }}>
-              All 30 teams · hover any bubble to inspect
-            </Typography>
+          {/* Season picker + team highlight search */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', flex: 1 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                All 30 teams · hover any bubble to inspect
+              </Typography>
+
+              {/* Team highlight */}
+              {vizHighlightId != null ? (
+                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1.5, py: 0.55, borderRadius: 999, bgcolor: TEAM_BG[vizHighlightId] ?? 'grey.700' }}>
+                  <Typography sx={{ color: '#fff', fontSize: '0.78rem', fontWeight: 700, lineHeight: 1 }}>
+                    {nameMap.get(vizHighlightId) ?? teamSummaries.find(t => t.id === vizHighlightId)?.abbr}
+                  </Typography>
+                  <Box
+                    onClick={() => { setVizHighlightId(null); setVizSearch('') }}
+                    sx={{ color: 'rgba(255,255,255,0.75)', fontSize: '1rem', lineHeight: 1, cursor: 'pointer', ml: 0.25, '&:hover': { color: '#fff' } }}
+                  >×</Box>
+                </Box>
+              ) : (
+                <ClickAwayListener onClickAway={() => setVizSearchOpen(false)}>
+                  <Box sx={{ position: 'relative', minWidth: 180 }}>
+                    <Box sx={{
+                      display: 'flex', alignItems: 'center', gap: 0.75,
+                      px: 1.25, py: 0.6, borderRadius: 999,
+                      border: '1.5px solid', borderColor: 'divider', bgcolor: 'background.paper',
+                      transition: 'border-color 0.15s',
+                      '&:focus-within': { borderColor: ACCENT },
+                    }}>
+                      <Search sx={{ fontSize: '0.85rem', color: 'text.disabled', flexShrink: 0 }} />
+                      <Box
+                        component="input"
+                        value={vizSearch}
+                        onChange={(e: any) => { setVizSearch(e.target.value); setVizSearchOpen(true) }}
+                        placeholder="Highlight a team…"
+                        sx={{
+                          flex: 1, border: 'none', outline: 'none', bgcolor: 'transparent',
+                          fontSize: '0.8rem', color: 'text.primary', p: 0, fontFamily: 'inherit',
+                          '&::placeholder': { color: 'text.disabled' },
+                        }}
+                      />
+                    </Box>
+                    {vizSearchOpen && vizSearch.length > 0 && (() => {
+                      const q = vizSearch.toLowerCase()
+                      const matches = teamSummaries.filter(t => {
+                        const name = nameMap.get(t.id) ?? ''
+                        return name.toLowerCase().includes(q) || t.abbr.toLowerCase().includes(q)
+                      }).slice(0, 6)
+                      if (matches.length === 0) return null
+                      return (
+                        <Paper elevation={8} sx={{ position: 'absolute', width: '100%', zIndex: 20, mt: 0.5, borderRadius: 2, overflow: 'hidden' }}>
+                          <List dense disablePadding>
+                            {matches.map((t, i) => (
+                              <React.Fragment key={t.id}>
+                                {i > 0 && <Divider />}
+                                <ListItemButton
+                                  onClick={() => { setVizHighlightId(t.id); setVizSearch(''); setVizSearchOpen(false) }}
+                                  sx={{ gap: 1.25, py: 0.6 }}
+                                >
+                                  <Box sx={{ width: 26, height: 26, borderRadius: '50%', bgcolor: TEAM_BG[t.id] ?? 'grey.700', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: t.abbr.length > 2 ? '0.52rem' : '0.62rem', lineHeight: 1 }}>{t.abbr}</Typography>
+                                  </Box>
+                                  <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>{nameMap.get(t.id) ?? t.abbr}</Typography>
+                                </ListItemButton>
+                              </React.Fragment>
+                            ))}
+                          </List>
+                        </Paper>
+                      )
+                    })()}
+                  </Box>
+                </ClickAwayListener>
+              )}
+            </Box>
+
             <Box sx={{ ...pillActionSx, p: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT } }}>
               <select value={vizSeason} onChange={e => setVizSeason(Number(e.target.value))}
                 style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: '6px 16px', borderRadius: 999, fontFamily: 'inherit' }}>
@@ -2029,7 +2113,7 @@ export default function MlbStats() {
                   Pitching quality vs offensive output · top-right = elite
                 </Typography>
                 <Paper elevation={2} sx={{ borderRadius: 3, overflow: 'hidden', p: { xs: 1.5, sm: 2 } }}>
-                  <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} />
+                  <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} />
                 </Paper>
               </Box>
 
@@ -2056,7 +2140,7 @@ export default function MlbStats() {
                   Actual record vs Pythagorean expected W-L · above the curve = outperforming run differential
                 </Typography>
                 <Paper elevation={2} sx={{ borderRadius: 3, overflow: 'hidden', p: { xs: 1.5, sm: 2 } }}>
-                  <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} />
+                  <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} />
                 </Paper>
               </Box>
             </Box>
