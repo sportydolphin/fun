@@ -2,9 +2,9 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import {
   Box, Typography, CircularProgress, Paper,
   List, ListItemButton, Divider, ClickAwayListener,
-  Popover, Menu, MenuItem,
+  Popover, Menu, MenuItem, Tooltip,
 } from '@mui/material'
-import { Search, Shuffle, FileDownload, KeyboardArrowDown } from '@mui/icons-material'
+import { Search, Shuffle, FileDownload, KeyboardArrowDown, InfoOutlined } from '@mui/icons-material'
 import html2canvas from 'html2canvas'
 
 // ─── Design token ─────────────────────────────────────────────────────────────
@@ -952,7 +952,7 @@ function TeamEraOpsPlot({ data, nameMap }: { data: TeamSummary[]; nameMap: Map<n
 
 function TeamWinRDPlot({ data, nameMap }: { data: TeamSummary[]; nameMap: Map<number, string> }) {
   const boxRef = useRef<HTMLDivElement>(null)
-  const { hovered, setHovered, tipPos, onEnter } = useChartTooltip<TeamSummary & { name: string; winPct: number; rd: number; pythPct: number }>(boxRef as React.RefObject<HTMLDivElement>)
+  const { hovered, setHovered, tipPos, onEnter } = useChartTooltip<TeamSummary & { name: string; winPct: number; rd: number; pythPct: number; pythWins: number; pythLosses: number }>(boxRef as React.RefObject<HTMLDivElement>)
 
   const pts = data.filter(d => !isNaN(d.rs) && !isNaN(d.ra) && !isNaN(d.wins) && !isNaN(d.losses) && d.wins + d.losses > 0)
     .map(d => ({ ...d, rd: d.rs - d.ra, winPct: d.wins / (d.wins + d.losses) }))
@@ -994,7 +994,10 @@ function TeamWinRDPlot({ data, nameMap }: { data: TeamSummary[]; nameMap: Map<nu
     const ra = d.rs - d.rd
     const e = 1.83
     const pythPct = ra > 0 ? Math.pow(d.rs, e) / (Math.pow(d.rs, e) + Math.pow(ra, e)) : 0.99
-    return { ...d, pythPct, name: nameMap.get(d.id) ?? d.abbr }
+    const games = d.wins + d.losses
+    const pythWins = Math.round(pythPct * games)
+    const pythLosses = games - pythWins
+    return { ...d, pythPct, pythWins, pythLosses, name: nameMap.get(d.id) ?? d.abbr }
   })
 
   const xTicks = Array.from({ length: 7 }, (_, i) => xMin + (i / 6) * (xMax - xMin))
@@ -1061,12 +1064,16 @@ function TeamWinRDPlot({ data, nameMap }: { data: TeamSummary[]; nameMap: Map<nu
             <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: TEAM_BG[hovered.id] ?? 'grey.500', flexShrink: 0 }} />
             <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2 }}>{hovered.name}</Typography>
           </Box>
-          <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>Record <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.wins}–{hovered.losses}</Box></Typography>
-          <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>Win% <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.winPct.toFixed(3)}</Box></Typography>
-          <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>Expected <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.pythPct.toFixed(3)}</Box></Typography>
-          <Typography sx={{ fontSize: '0.73rem', color: hovered.winPct >= hovered.pythPct ? 'success.main' : 'error.main', fontWeight: 700 }}>
-            {hovered.winPct >= hovered.pythPct ? '+' : ''}{(hovered.winPct - hovered.pythPct).toFixed(3)} vs expected
-          </Typography>
+          <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>Actual <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.wins}–{hovered.losses}</Box></Typography>
+          <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>Exp. W-L <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.pythWins}–{hovered.pythLosses}</Box></Typography>
+          {(() => {
+            const diff = hovered.wins - hovered.pythWins
+            return (
+              <Typography sx={{ fontSize: '0.73rem', color: diff >= 0 ? 'success.main' : 'error.main', fontWeight: 700 }}>
+                {diff >= 0 ? '+' : ''}{diff} wins vs expected
+              </Typography>
+            )
+          })()}
         </ChartTooltip>
       )}
     </Box>
@@ -1423,7 +1430,22 @@ export default function MlbStats() {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               {/* Chart 1: ERA vs OPS */}
               <Box>
-                <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px', mb: 0.25 }}>ERA vs OPS</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
+                  <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>ERA vs OPS</Typography>
+                  <Tooltip arrow placement="top" title={
+                    <Box sx={{ maxWidth: 260, p: 0.5 }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
+                      <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
+                        Each bubble is a team plotted by their pitching (ERA, vertical) vs their offense (OPS, horizontal).
+                        Low ERA = better pitching, so the top of the chart is elite pitching.
+                        High OPS = better hitting, so the right side is elite offense.
+                        The quadrants label each team archetype — top-right is the most complete, well-rounded teams.
+                      </Typography>
+                    </Box>
+                  }>
+                    <InfoOutlined sx={{ fontSize: '0.95rem', color: 'text.disabled', cursor: 'help', mt: '1px' }} />
+                  </Tooltip>
+                </Box>
                 <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
                   Pitching quality vs offensive output · top-right = elite
                 </Typography>
@@ -1434,9 +1456,25 @@ export default function MlbStats() {
 
               {/* Chart 2: Win% vs Run Differential */}
               <Box>
-                <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px', mb: 0.25 }}>Win% vs Run Differential</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
+                  <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Win% vs Run Differential</Typography>
+                  <Tooltip arrow placement="top" title={
+                    <Box sx={{ maxWidth: 280, p: 0.5 }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
+                      <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
+                        Each bubble is a team's actual win% plotted against their run differential (runs scored minus runs allowed).
+                        The blue dashed curve is the Pythagorean expectation — the win% a team "should" have based on their run differential alone.
+                        Teams above the curve are winning more games than their runs predict (often luck or clutch performance).
+                        Teams below the curve are underperforming — they're outscoring opponents overall but losing too many close games.
+                        Hover a team to see their actual record vs expected W-L.
+                      </Typography>
+                    </Box>
+                  }>
+                    <InfoOutlined sx={{ fontSize: '0.95rem', color: 'text.disabled', cursor: 'help', mt: '1px' }} />
+                  </Tooltip>
+                </Box>
                 <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
-                  Are teams over or underperforming their Pythagorean expected record? Above the curve = winning more than their run differential predicts.
+                  Actual record vs Pythagorean expected W-L · above the curve = outperforming run differential
                 </Typography>
                 <Paper elevation={2} sx={{ borderRadius: 3, overflow: 'hidden', p: { xs: 1.5, sm: 2 } }}>
                   <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} />
