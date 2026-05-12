@@ -1269,66 +1269,85 @@ function TeamLuckChart({ data, nameMap, highlightTeamId, onSelectTeam }: {
       const delta = d.wins - pythWins
       return { ...d, pythWins, delta, name: nameMap.get(d.id) ?? d.abbr }
     })
-    .sort((a, b) => b.delta - a.delta)
 
   if (!withDelta.length) return null
 
+  const over = [...withDelta].filter(t => t.delta > 0).sort((a, b) => b.delta - a.delta)
+  const under = [...withDelta].filter(t => t.delta < 0).sort((a, b) => a.delta - b.delta)
+  const even = [...withDelta].filter(t => t.delta === 0)
   const maxAbs = Math.max(...withDelta.map(t => Math.abs(t.delta)), 1)
-  const rowH = 20, rowGap = 4
-  const labelW = 46, barHalfW = 170, numW = 30
-  const W = labelW + barHalfW * 2 + numW + 8
-  const H = withDelta.length * (rowH + rowGap) + 20
-  const centerX = labelW + barHalfW
+
+  const rowH = 15, rowGap = 3
+  const dotR = 8
+  const dotX = dotR + 2
+  const barStartX = dotR * 2 + 7
+  const barMaxW = 100
+  const numW = 22
+  const colW = barStartX + barMaxW + numW + 4
+  const gutter = 20
+  const headH = 26
+  const nRows = Math.max(over.length, under.length)
+  const W = colW * 2 + gutter
+  const H = headH + nRows * (rowH + rowGap) + (even.length ? 20 : 4)
+
+  const renderTeam = (team: typeof over[0], i: number, isOver: boolean, offsetX: number) => {
+    const y = headH + i * (rowH + rowGap)
+    const cy = y + rowH / 2
+    const teamColor = TEAM_BG[team.id] ?? '#555'
+    const barW = (Math.abs(team.delta) / maxAbs) * barMaxW
+    const accent = isOver ? '#22c55e' : '#ef4444'
+    const isHighlighted = highlightTeamId === team.id
+    const isDimmed = highlightTeamId != null && !isHighlighted
+    return (
+      <g key={team.id} onClick={() => onSelectTeam(team.id)}
+        style={{ cursor: 'pointer', opacity: isDimmed ? 0.18 : 1, transition: 'opacity 0.22s' }}>
+        {isHighlighted && <circle cx={offsetX + dotX} cy={cy} r={dotR + 4} fill={teamColor} fillOpacity={0.18} />}
+        <circle cx={offsetX + dotX} cy={cy} r={isHighlighted ? dotR + 1 : dotR} fill={teamColor} />
+        <text x={offsetX + dotX} y={cy + 3.5} textAnchor="middle" fill="#fff"
+          fontSize={team.abbr.length > 2 ? 4.5 : 5.5} fontWeight={800}
+          style={{ pointerEvents: 'none' }}>{team.abbr}</text>
+        <rect
+          x={offsetX + barStartX} y={cy - 4}
+          width={Math.max(barW, 1.5)} height={8}
+          fill={accent} fillOpacity={isHighlighted ? 0.9 : 0.5} rx={2.5} />
+        <text
+          x={offsetX + barStartX + barW + 3} y={cy + 3.5}
+          fill={accent} fillOpacity={0.95}
+          fontSize={8.5} fontWeight={700}
+          style={{ pointerEvents: 'none' }}>
+          {team.delta > 0 ? `+${team.delta}` : `${team.delta}`}
+        </text>
+      </g>
+    )
+  }
 
   return (
-    <Box sx={{ position: 'relative', userSelect: 'none' }}>
+    <Box sx={{ userSelect: 'none' }}>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
-        {/* Center axis */}
-        <line x1={centerX} y1={4} x2={centerX} y2={H - 4}
-          stroke="currentColor" strokeOpacity={0.22} strokeWidth={1.5} strokeDasharray="4 3" />
+        {/* Column headers */}
+        <text x={colW / 2} y={17} textAnchor="middle"
+          fill="#22c55e" fillOpacity={0.75} fontSize={7.5} fontWeight={800} letterSpacing={0.8}>
+          OVERPERFORMING ▲
+        </text>
+        <text x={colW + gutter + colW / 2} y={17} textAnchor="middle"
+          fill="#ef4444" fillOpacity={0.75} fontSize={7.5} fontWeight={800} letterSpacing={0.8}>
+          UNDERPERFORMING ▼
+        </text>
+        {/* Divider */}
+        <line
+          x1={colW + gutter / 2} y1={22} x2={colW + gutter / 2} y2={H - 4}
+          stroke="currentColor" strokeOpacity={0.1} strokeWidth={1} />
 
-        {withDelta.map((team, i) => {
-          const y = 10 + i * (rowH + rowGap)
-          const cy = y + rowH / 2
-          const color = TEAM_BG[team.id] ?? '#555'
-          const barW = maxAbs > 0 ? (Math.abs(team.delta) / maxAbs) * (barHalfW - 6) : 0
-          const isOver = team.delta >= 0
-          const barX = isOver ? centerX : centerX - barW
-          const isHighlighted = highlightTeamId === team.id
-          const isDimmed = highlightTeamId != null && !isHighlighted
+        {over.map((t, i) => renderTeam(t, i, true, 0))}
+        {under.map((t, i) => renderTeam(t, i, false, colW + gutter))}
 
-          return (
-            <g key={team.id} onClick={() => onSelectTeam(team.id)}
-              style={{ cursor: 'pointer', opacity: isDimmed ? 0.2 : 1, transition: 'opacity 0.25s' }}>
-              {/* Team dot + abbr */}
-              <circle cx={14} cy={cy} r={isHighlighted ? 10 : 8} fill={color} />
-              {isHighlighted && <circle cx={14} cy={cy} r={12} fill={color} fillOpacity={0.2} />}
-              <text x={14} y={cy + 3.5} textAnchor="middle" fill="#fff"
-                fontSize={team.abbr.length > 2 ? 5 : 6} fontWeight={800}
-                style={{ pointerEvents: 'none' }}>{team.abbr}</text>
-              {/* Bar */}
-              <rect x={barX} y={y + 3} width={Math.max(barW, 1)} height={rowH - 6}
-                fill={isOver ? '#22c55e' : '#ef4444'}
-                fillOpacity={isHighlighted ? 0.8 : 0.45}
-                rx={2} />
-              {/* Delta label */}
-              <text
-                x={isOver ? centerX + barW + 4 : centerX - barW - 4}
-                y={cy + 3.5}
-                textAnchor={isOver ? 'start' : 'end'}
-                fill={isOver ? '#22c55e' : '#ef4444'}
-                fillOpacity={0.9}
-                fontSize={9.5} fontWeight={700}
-                style={{ pointerEvents: 'none' }}>
-                {team.delta > 0 ? `+${team.delta}` : team.delta}
-              </text>
-            </g>
-          )
-        })}
-
-        {/* "Lucky" / "Unlucky" labels */}
-        <text x={centerX + 8} y={9} fill="#22c55e" fillOpacity={0.6} fontSize={8} fontWeight={700}>OVERPERFORMING →</text>
-        <text x={centerX - 8} y={9} textAnchor="end" fill="#ef4444" fillOpacity={0.6} fontSize={8} fontWeight={700}>← UNDERPERFORMING</text>
+        {/* Even teams row */}
+        {even.length > 0 && (
+          <text x={W / 2} y={H - 4} textAnchor="middle"
+            fill="currentColor" fillOpacity={0.3} fontSize={7} fontWeight={600}>
+            On pace: {even.map(t => t.abbr).join(', ')}
+          </text>
+        )}
       </svg>
     </Box>
   )
@@ -2223,7 +2242,6 @@ export default function MlbStats() {
     setSeasonTeams(teamsBySeason)
     setSeason(latestSeason)
     await loadStats(resolved, latestSeason)
-    window.history.replaceState({}, '', `/mlb?pid=${p.id}`)
   }, [loadStats])
 
   const selectTeam = useCallback(async (t: Team) => {
@@ -2236,7 +2254,6 @@ export default function MlbStats() {
     setSeason(CURRENT_SEASON)
     setAvailableSeasons(TEAM_SEASONS)
     await loadTeamStats(t, CURRENT_SEASON)
-    window.history.replaceState({}, '', `/mlb?tid=${t.id}`)
   }, [loadTeamStats])
 
   const handleLbPlayerClick = useCallback((playerId: number) => {
@@ -2285,10 +2302,37 @@ export default function MlbStats() {
       .finally(() => setLoadingCareer(false))
   }, [player])
 
+  // Sync URL whenever view/player/team/lb state changes
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (player) params.set('pid', String(player.id))
+    else if (team) params.set('tid', String(team.id))
+    if (view !== 'search') params.set('view', view)
+    if (view === 'leaderboard' || view === 'viz') {
+      if (lbGroup !== 'hitting') params.set('lb', lbGroup)
+      if (vizSeason !== CURRENT_SEASON) params.set('season', String(vizSeason))
+    }
+    const qs = params.toString()
+    window.history.replaceState({}, '', `/mlb${qs ? '?' + qs : ''}`)
+  }, [view, player, team, lbGroup, vizSeason])
+
   const autoLoadedRef = useRef(false)
+  const urlViewReadRef = useRef(false)
   useEffect(() => {
     if (autoLoadedRef.current) return
     const params = new URLSearchParams(window.location.search)
+
+    // Restore view/lb/season once from URL (before player loads)
+    if (!urlViewReadRef.current) {
+      urlViewReadRef.current = true
+      const viewParam = params.get('view')
+      if (viewParam === 'viz' || viewParam === 'leaderboard') setView(viewParam as 'viz' | 'leaderboard')
+      const lbParam = params.get('lb')
+      if (lbParam === 'pitching') setLbGroup('pitching')
+      const seasonParam = params.get('season')
+      if (seasonParam) setVizSeason(Number(seasonParam))
+    }
+
     const pid = params.get('pid')
     const tid = params.get('tid')
     if (pid) {
@@ -2549,7 +2593,7 @@ export default function MlbStats() {
                 </Paper>
               </Box>
 
-            {/* Chart 3: Pythagorean luck bar chart — full width */}
+            {/* Chart 3: Over/Underperforming */}
             <Box sx={{ gridColumn: { md: '1 / -1' } }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
                 <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Over / Underperforming</Typography>
