@@ -4,7 +4,7 @@ import {
   List, ListItemButton, Divider, ClickAwayListener,
   Popover, Menu, MenuItem, Tooltip,
 } from '@mui/material'
-import { Search, Shuffle, FileDownload, KeyboardArrowDown, InfoOutlined } from '@mui/icons-material'
+import { Search, Shuffle, FileDownload, KeyboardArrowDown, InfoOutlined, OpenInFull, Close } from '@mui/icons-material'
 import html2canvas from 'html2canvas'
 
 // ─── Design token ─────────────────────────────────────────────────────────────
@@ -2063,6 +2063,16 @@ export default function MlbStats() {
   const [lbData, setLbData] = useState<Array<{ playerId: number; playerName: string; teamAbbr: string; stat: any }> | null>(null)
   const [loadingLb, setLoadingLb] = useState(false)
   const [lbHoverId, setLbHoverId] = useState<number | null>(null)
+  const [lbExportMenu, setLbExportMenu] = useState<{
+    anchor: HTMLElement
+    def: StatDef
+    entries: Array<{ playerId: number; playerName: string; teamAbbr: string; val: any }>
+  } | null>(null)
+  const [lbFullscreen, setLbFullscreen] = useState<{
+    def: StatDef
+    entries: Array<{ playerId: number; playerName: string; teamAbbr: string; val: any }>
+  } | null>(null)
+  const [lbDownloading, setLbDownloading] = useState(false)
 
   // Career trends
   const [careerSplits, setCareerSplits] = useState<CareerStatSplit[] | null>(null)
@@ -2070,6 +2080,7 @@ export default function MlbStats() {
   const nameMap = useMemo(() => new Map(allTeams.map(t => [t.id, t.name])), [allTeams])
 
   const cardRef = useRef<HTMLDivElement>(null)
+  const lbCardRef = useRef<HTMLDivElement>(null)
   const blockDropdownRef = useRef(false)  // prevents dropdown re-opening after programmatic query set
   const loadGenRef = useRef(0)            // incremented each load; stale async callbacks bail out early
 
@@ -2227,6 +2238,38 @@ export default function MlbStats() {
     await loadTeamStats(t, CURRENT_SEASON)
     window.history.replaceState({}, '', `/mlb?tid=${t.id}`)
   }, [loadTeamStats])
+
+  const handleLbPlayerClick = useCallback((playerId: number) => {
+    fetchPlayerDetails(playerId).then(p => {
+      if (p) { selectPlayer(p); setView('search') }
+    }).catch(() => {})
+  }, [selectPlayer])
+
+  const handleLbTikTok = useCallback(async () => {
+    if (!lbCardRef.current || !lbFullscreen) return
+    setLbDownloading(true)
+    try {
+      const captured = await html2canvas(lbCardRef.current, { useCORS: true, scale: 3, logging: false, backgroundColor: null })
+      const out = document.createElement('canvas')
+      out.width = 1080; out.height = 1920
+      const ctx = out.getContext('2d')!
+      ctx.fillStyle = '#0f172a'
+      ctx.fillRect(0, 0, 1080, 1920)
+      const scale = (1080 * 0.88) / captured.width
+      const dw = captured.width * scale; const dh = captured.height * scale
+      const dx = (1080 - dw) / 2; const dy = 80
+      ctx.drawImage(captured, dx, dy, dw, dh)
+      const subject = (lbFullscreen.def.leaderLabel ?? lbFullscreen.def.label ?? 'leaderboard').replace(/\s+/g, '-').toLowerCase()
+      const link = document.createElement('a')
+      link.download = `${subject}-${vizSeason}-tiktok.png`
+      link.href = out.toDataURL('image/png')
+      link.click()
+    } catch (e) {
+      console.error('Download failed:', e)
+    } finally {
+      setLbDownloading(false)
+    }
+  }, [lbFullscreen, vizSeason])
 
   // Fetch career splits whenever the selected player changes
   useEffect(() => {
@@ -2588,15 +2631,34 @@ export default function MlbStats() {
                         background: `linear-gradient(135deg, ${ACCENT}22 0%, transparent 100%)`,
                         borderBottom: '1px solid',
                         borderColor: 'divider',
+                        display: 'flex', alignItems: 'center',
                       }}>
-                        <Typography sx={{ fontWeight: 800, fontSize: '0.92rem', letterSpacing: '-0.2px', lineHeight: 1.2 }}>
-                          {def.leaderLabel ?? def.label}
-                        </Typography>
-                        {def.lowerIsBetter && (
-                          <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', fontWeight: 600, mt: 0.15 }}>
-                            lower = better
+                        <Box sx={{ flex: 1 }}>
+                          <Typography sx={{ fontWeight: 800, fontSize: '0.92rem', letterSpacing: '-0.2px', lineHeight: 1.2 }}>
+                            {def.leaderLabel ?? def.label}
                           </Typography>
-                        )}
+                          {def.lowerIsBetter && (
+                            <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', fontWeight: 600, mt: 0.15 }}>
+                              lower = better
+                            </Typography>
+                          )}
+                        </Box>
+                        <Tooltip title="Export">
+                          <Box
+                            onClick={(ev: React.MouseEvent) => {
+                              ev.stopPropagation()
+                              setLbExportMenu({ anchor: ev.currentTarget as HTMLElement, def, entries })
+                            }}
+                            sx={{
+                              cursor: 'pointer', color: 'text.disabled', ml: 1, p: 0.5, borderRadius: 1,
+                              display: 'flex', alignItems: 'center',
+                              '&:hover': { color: ACCENT, bgcolor: `${ACCENT}18` },
+                              transition: 'color 0.15s, background 0.15s',
+                            }}
+                          >
+                            <OpenInFull sx={{ fontSize: '0.8rem' }} />
+                          </Box>
+                        </Tooltip>
                       </Box>
 
                       {/* Player rows */}
@@ -2608,6 +2670,7 @@ export default function MlbStats() {
                             <Box
                               key={e.playerId}
                               onMouseEnter={() => setLbHoverId(e.playerId)}
+                              onClick={() => handleLbPlayerClick(e.playerId)}
                               sx={{
                                 display: 'flex', alignItems: 'center', gap: 1.25,
                                 py: 0.7,
@@ -2615,7 +2678,7 @@ export default function MlbStats() {
                                 borderColor: 'divider',
                                 borderRadius: 1.5,
                                 px: 0.5,
-                                cursor: 'default',
+                                cursor: 'pointer',
                                 transition: 'opacity 0.18s, background 0.18s',
                                 opacity: dimmed ? 0.28 : 1,
                                 bgcolor: isHovered ? `${ACCENT}14` : 'transparent',
@@ -2637,7 +2700,7 @@ export default function MlbStats() {
                               {/* Portrait */}
                               <Box
                                 component="img"
-                                src={`https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_67,q_auto:best/v1/people/${e.playerId}/headshot/67/current`}
+                                src={`https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${e.playerId}/headshot/67/current`}
                                 alt={e.playerName}
                                 sx={{
                                   width: 34, height: 34,
@@ -2683,6 +2746,162 @@ export default function MlbStats() {
               </Box>
             )
           })()}
+
+          {/* Export menu per leaderboard card */}
+          <Menu
+            anchorEl={lbExportMenu?.anchor}
+            open={Boolean(lbExportMenu)}
+            onClose={() => setLbExportMenu(null)}
+            PaperProps={{ sx: { borderRadius: 2, mt: 0.5, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: 190 } }}
+          >
+            <MenuItem
+              onClick={() => {
+                if (lbExportMenu) setLbFullscreen({ def: lbExportMenu.def, entries: lbExportMenu.entries })
+                setLbExportMenu(null)
+              }}
+              sx={{ fontSize: '0.85rem', gap: 1 }}
+            >
+              <OpenInFull sx={{ fontSize: '0.95rem', color: 'text.secondary' }} /> View fullscreen
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                if (lbExportMenu) setLbFullscreen({ def: lbExportMenu.def, entries: lbExportMenu.entries })
+                setLbExportMenu(null)
+              }}
+              sx={{ fontSize: '0.85rem', gap: 1 }}
+            >
+              <FileDownload sx={{ fontSize: '0.95rem', color: 'text.secondary' }} /> Download for TikTok
+            </MenuItem>
+          </Menu>
+
+          {/* Leaderboard fullscreen modal */}
+          {lbFullscreen && (
+            <Box
+              onClick={(ev) => { if ((ev.target as HTMLElement) === ev.currentTarget) setLbFullscreen(null) }}
+              sx={{
+                position: 'fixed', inset: 0, zIndex: 9999,
+                bgcolor: 'rgba(0,0,0,0.85)',
+                backdropFilter: 'blur(10px)',
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                p: 2,
+              }}
+            >
+              <Paper
+                ref={lbCardRef}
+                elevation={24}
+                sx={{
+                  borderRadius: 4, overflow: 'hidden',
+                  width: '100%', maxWidth: 440,
+                  bgcolor: '#0f172a',
+                }}
+              >
+                {/* Fullscreen card header */}
+                <Box sx={{
+                  px: 3, py: 2.5,
+                  background: `linear-gradient(135deg, ${ACCENT}40 0%, transparent 100%)`,
+                  borderBottom: `1px solid ${ACCENT}33`,
+                }}>
+                  <Typography sx={{ fontWeight: 900, fontSize: '1.35rem', color: '#fff', letterSpacing: '-0.5px', lineHeight: 1.15 }}>
+                    {lbFullscreen.def.leaderLabel ?? lbFullscreen.def.label}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.38)', fontWeight: 600, mt: 0.3, textTransform: 'uppercase', letterSpacing: 1.2 }}>
+                    {vizSeason} MLB Season{lbFullscreen.def.lowerIsBetter ? ' · lower = better' : ''}
+                  </Typography>
+                </Box>
+
+                {/* Player rows */}
+                <Box sx={{ px: 2, py: 1.5 }}>
+                  {lbFullscreen.entries.map((e, rank) => {
+                    const MEDALS_FS = ['🥇', '🥈', '🥉']
+                    return (
+                      <Box
+                        key={e.playerId}
+                        onClick={() => { handleLbPlayerClick(e.playerId); setLbFullscreen(null) }}
+                        sx={{
+                          display: 'flex', alignItems: 'center', gap: 2,
+                          py: 1.4,
+                          borderBottom: rank < lbFullscreen.entries.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none',
+                          cursor: 'pointer',
+                          borderRadius: 2, px: 1,
+                          transition: 'background 0.15s',
+                          '&:hover': { bgcolor: `${ACCENT}22` },
+                        }}
+                      >
+                        <Typography sx={{
+                          fontSize: rank < 3 ? '1.35rem' : '0.8rem',
+                          fontWeight: 800, width: 30, textAlign: 'center',
+                          color: 'rgba(255,255,255,0.45)', lineHeight: 1, flexShrink: 0,
+                        }}>
+                          {rank < 3 ? MEDALS_FS[rank] : `${rank + 1}`}
+                        </Typography>
+                        <Box
+                          component="img"
+                          src={`https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_426,q_auto:best/v1/people/${e.playerId}/headshot/67/current`}
+                          alt={e.playerName}
+                          sx={{
+                            width: 54, height: 54, borderRadius: '50%',
+                            objectFit: 'cover', flexShrink: 0,
+                            bgcolor: 'rgba(255,255,255,0.08)',
+                            border: `2.5px solid ${rank === 0 ? ACCENT : 'rgba(255,255,255,0.15)'}`,
+                          }}
+                        />
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography sx={{
+                            fontWeight: 800, fontSize: '1rem', color: '#fff', lineHeight: 1.2,
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {e.playerName}
+                          </Typography>
+                          <Typography sx={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.38)', fontWeight: 600 }}>
+                            {e.teamAbbr}
+                          </Typography>
+                        </Box>
+                        <Typography sx={{
+                          fontSize: '1.3rem', fontWeight: 900, flexShrink: 0,
+                          color: rank === 0 ? ACCENT : 'rgba(255,255,255,0.85)',
+                        }}>
+                          {lbFullscreen.def.format(e.val)}
+                        </Typography>
+                      </Box>
+                    )
+                  })}
+                </Box>
+              </Paper>
+
+              {/* Action buttons */}
+              <Box sx={{ display: 'flex', gap: 1.5, mt: 2.5 }}>
+                <Box
+                  onClick={!lbDownloading ? handleLbTikTok : undefined}
+                  sx={{
+                    px: 3, py: 1.25, borderRadius: 999,
+                    bgcolor: ACCENT, color: '#000',
+                    fontWeight: 700, fontSize: '0.85rem',
+                    cursor: lbDownloading ? 'default' : 'pointer',
+                    opacity: lbDownloading ? 0.6 : 1,
+                    display: 'flex', alignItems: 'center', gap: 0.75,
+                    transition: 'opacity 0.15s',
+                  }}
+                >
+                  <FileDownload sx={{ fontSize: '1rem' }} />
+                  {lbDownloading ? 'Saving…' : 'Download for TikTok'}
+                </Box>
+                <Box
+                  onClick={() => setLbFullscreen(null)}
+                  sx={{
+                    px: 3, py: 1.25, borderRadius: 999,
+                    bgcolor: 'rgba(255,255,255,0.1)', color: '#fff',
+                    fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 0.75,
+                    '&:hover': { bgcolor: 'rgba(255,255,255,0.18)' },
+                    transition: 'background 0.15s',
+                  }}
+                >
+                  <Close sx={{ fontSize: '1rem' }} /> Close
+                </Box>
+              </Box>
+            </Box>
+          )}
         </Box>
       )}
 
