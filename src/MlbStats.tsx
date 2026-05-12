@@ -1353,6 +1353,7 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   const [group, setGroup] = useState<'hitting' | 'pitching'>(initGroup)
   const [statKey, setStatKey] = useState(initGroup === 'pitching' ? 'era' : 'ops')
   const boxRef = useRef<HTMLDivElement>(null)
+  const svgRef = useRef<SVGSVGElement>(null)
   const rafRef = useRef<number | null>(null)
   const [hovIdx, setHovIdx] = useState<number | null>(null)
   const [tipPos, setTipPos] = useState({ x: 0, y: 0 })
@@ -1398,6 +1399,36 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
     return () => { cancelled = true }
   }, [group, statKey, rangeStart, rangeEnd, splits]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Touch drag support — non-passive so we can preventDefault scroll while dragging along the chart
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!svg || !boxRef.current) return
+    const W_SVG = 560, M_L = 56, IW = W_SVG - M_L - 22
+    const handleTouch = (e: TouchEvent) => {
+      e.preventDefault()
+      const touch = e.touches[0] ?? e.changedTouches[0]
+      if (!touch || !boxRef.current) return
+      const rect = boxRef.current.getBoundingClientRect()
+      const relX = ((touch.clientX - rect.left) / rect.width) * W_SVG - M_L
+      const frac = Math.max(0, Math.min(1, relX / IW))
+      // n captured at effect time via closure; effect re-runs whenever n changes
+      setHovIdx(Math.round(frac * (currentN.current - 1)))
+      setTipPos({ x: (touch.clientX - rect.left) / rect.width * 100, y: (touch.clientY - rect.top) / rect.height * 100 })
+    }
+    const handleTouchEnd = () => setHovIdx(null)
+    svg.addEventListener('touchstart', handleTouch, { passive: false })
+    svg.addEventListener('touchmove',  handleTouch, { passive: false })
+    svg.addEventListener('touchend',   handleTouchEnd)
+    return () => {
+      svg.removeEventListener('touchstart', handleTouch)
+      svg.removeEventListener('touchmove',  handleTouch)
+      svg.removeEventListener('touchend',   handleTouchEnd)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Stable ref so the touch handler always sees the current point count without re-registering
+  const currentN = useRef(0)
+
   const allDefs = group === 'hitting' ? TREND_HIT_DEFS : TREND_PIT_DEFS
 
   // Only expose stats that have real data for at least 1 season
@@ -1418,7 +1449,7 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
       let isPace = false
       if (currentDef.counting && s.season === CURRENT_SEASON) {
         const gp = Number(stat?.gamesPlayed ?? 0)
-        if (gp > 0) {
+        if (gp > 0 && val > 0) {   // skip projection when player has 0 of the stat (0→0 is noise)
           actual = val
           value = val * 162 / gp   // project to full-season pace
           isPace = true
@@ -1450,10 +1481,11 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   const fpts = fptsRaw.length >= 2 ? fptsRaw : pts // fall back to all if range too narrow
 
   // SVG layout
-  const W = 560, H = 280
-  const m = { t: 28, r: 22, b: 46, l: 52 }
+  const W = 560, H = 295
+  const m = { t: 30, r: 24, b: 52, l: 56 }
   const iW = W - m.l - m.r, iH = H - m.t - m.b
   const n = fpts.length
+  currentN.current = n   // keep touch handler in sync without re-registering
 
   const vals = fpts.map(p => p.value)
   const leagueValsInRange = fpts.map(p => leagueAvgPts.get(p.season)).filter((v): v is number => v != null)
@@ -1582,7 +1614,7 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
 
       {/* Chart */}
       <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
-        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}
+        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}
           onMouseMove={handleMouseMove}
           onMouseLeave={() => {
             if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
@@ -1597,12 +1629,12 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
 
           {/* Grid */}
           {yTicks.map((v, i) => (
-            <line key={i} x1={m.l} y1={sy(v)} x2={m.l + iW} y2={sy(v)} stroke="currentColor" strokeOpacity={0.07} strokeWidth={1} />
+            <line key={i} x1={m.l} y1={sy(v)} x2={m.l + iW} y2={sy(v)} stroke="currentColor" strokeOpacity={0.10} strokeWidth={1} />
           ))}
 
           {/* Hover vertical guide */}
           {hovIdx != null && (
-            <line x1={sx(hovIdx)} y1={m.t} x2={sx(hovIdx)} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.14} strokeWidth={1.5} />
+            <line x1={sx(hovIdx)} y1={m.t} x2={sx(hovIdx)} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.22} strokeWidth={1.5} />
           )}
 
           {/* Fill */}
@@ -1611,8 +1643,8 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
           {/* Horizontal avg line — counting stats only */}
           {showHorizAvg && (
             <>
-              <line x1={m.l} y1={avgY} x2={m.l + iW} y2={avgY} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.55} />
-              <text x={m.l + 4} y={avgY - 5} fill="#f59e0b" fillOpacity={0.7} fontSize={8} fontWeight={700}>avg {currentDef.fmt(avg!)}</text>
+              <line x1={m.l} y1={avgY} x2={m.l + iW} y2={avgY} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} />
+              <text x={m.l + 4} y={avgY - 6} fill="#f59e0b" fillOpacity={0.78} fontSize={10} fontWeight={700}>avg {currentDef.fmt(avg!)}</text>
             </>
           )}
 
@@ -1628,8 +1660,8 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
               <>
                 <path d={lgPts} fill="none" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} strokeLinejoin="round" />
                 {lastPt && lastIdx >= 0 && (
-                  <text x={sx(lastIdx) + 4} y={sy(leagueAvgPts.get(lastPt.season)!) - 4}
-                    fill="#f59e0b" fillOpacity={0.75} fontSize={7.5} fontWeight={700}>lg avg</text>
+                  <text x={sx(lastIdx) + 4} y={sy(leagueAvgPts.get(lastPt.season)!) - 5}
+                    fill="#f59e0b" fillOpacity={0.78} fontSize={9.5} fontWeight={700}>lg avg</text>
                 )}
               </>
             )
@@ -1646,18 +1678,18 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
             return (
               <g key={p.season}>
                 {isBest && !isHov && (
-                  <circle cx={sx(i)} cy={sy(p.value)} r={8} fill={color} fillOpacity={0.18} />
+                  <circle cx={sx(i)} cy={sy(p.value)} r={10} fill={color} fillOpacity={0.18} />
                 )}
-                <circle cx={sx(i)} cy={sy(p.value)} r={isHov ? 6.5 : (isBest ? 5 : 3.5)}
-                  fill={color} stroke="#fff" strokeWidth={isHov ? 2 : 1.5} />
+                <circle cx={sx(i)} cy={sy(p.value)} r={isHov ? 8 : (isBest ? 6.5 : 5)}
+                  fill={color} stroke="#fff" strokeWidth={isHov ? 2.5 : 2} />
               </g>
             )
           })}
 
           {/* Best season star annotation */}
           {!hov && (
-            <text x={sx(bestIdx)} y={sy(fpts[bestIdx].value) - 11}
-              fill="currentColor" fillOpacity={0.45} fontSize={8} textAnchor="middle">★ {fpts[bestIdx].season}</text>
+            <text x={sx(bestIdx)} y={sy(fpts[bestIdx].value) - 13}
+              fill="currentColor" fillOpacity={0.55} fontSize={10} textAnchor="middle">★ {fpts[bestIdx].season}</text>
           )}
 
           {/* Current-year pace label on the dot */}
@@ -1666,22 +1698,22 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
             if (paceIdx === -1 || hovIdx === paceIdx) return null
             const pp = fpts[paceIdx]
             return (
-              <text x={sx(paceIdx)} y={sy(pp.value) - 11}
-                fill={ACCENT} fillOpacity={0.75} fontSize={7.5} fontWeight={700} textAnchor="middle">
-                {currentDef.fmt(pp.actual!)}→{currentDef.fmt(pp.value)}
+              <text x={sx(paceIdx)} y={sy(pp.value) - 13}
+                fill={ACCENT} fillOpacity={0.8} fontSize={9.5} fontWeight={700} textAnchor="middle">
+                ~{currentDef.fmt(pp.value)} pace
               </text>
             )
           })()}
 
           {/* Axes */}
-          <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.18} strokeWidth={1.5} />
-          <line x1={m.l} y1={m.t + iH} x2={m.l + iW} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.18} strokeWidth={1.5} />
+          <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.28} strokeWidth={1.5} />
+          <line x1={m.l} y1={m.t + iH} x2={m.l + iW} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.28} strokeWidth={1.5} />
 
           {/* Y ticks */}
           {yTicks.map((v, i) => (
             <g key={i}>
-              <line x1={m.l - 4} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.25} strokeWidth={1} />
-              <text x={m.l - 7} y={sy(v) + 3.5} textAnchor="end" fill="currentColor" fillOpacity={0.45} fontSize={9}>{currentDef.fmt(v)}</text>
+              <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1} />
+              <text x={m.l - 8} y={sy(v) + 4} textAnchor="end" fill="currentColor" fillOpacity={0.68} fontSize={11}>{currentDef.fmt(v)}</text>
             </g>
           ))}
 
@@ -1690,17 +1722,17 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
             const showLabel = i % xLabelStep === 0 || i === n - 1
             return (
               <g key={p.season}>
-                <line x1={sx(i)} y1={m.t + iH} x2={sx(i)} y2={m.t + iH + 4} stroke="currentColor" strokeOpacity={0.2} strokeWidth={1} />
+                <line x1={sx(i)} y1={m.t + iH} x2={sx(i)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.25} strokeWidth={1} />
                 {showLabel && (
-                  <text x={sx(i)} y={m.t + iH + 15} textAnchor="middle" fill="currentColor" fillOpacity={0.45} fontSize={9}>{p.season}</text>
+                  <text x={sx(i)} y={m.t + iH + 18} textAnchor="middle" fill="currentColor" fillOpacity={0.68} fontSize={11}>{p.season}</text>
                 )}
               </g>
             )
           })}
 
           {/* Y axis label */}
-          <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle"
-            fill="currentColor" fillOpacity={0.4} fontSize={10} fontWeight={700} letterSpacing="1">
+          <text transform={`translate(14,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle"
+            fill="currentColor" fillOpacity={0.55} fontSize={11} fontWeight={700} letterSpacing="1">
             {currentDef.label}
           </text>
         </svg>
