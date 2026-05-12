@@ -1299,9 +1299,8 @@ const TREND_PIT_DEFS: TrendStatDef[] = [
       return ip === 0 ? null : (h + bb) / ip
     },
   },
-  { key: 'k',    label: 'K',    get: s => s?.strikeOuts != null ? Number(s.strikeOuts) : null,            fmt: v => String(Math.round(v)), counting: true },
+  { key: 'k',    label: 'SO',   get: s => s?.strikeOuts != null ? Number(s.strikeOuts) : null,            fmt: v => String(Math.round(v)), counting: true },
   { key: 'ip',   label: 'IP',   get: s => s?.inningsPitched != null ? Number(s.inningsPitched) : null,    fmt: v => v.toFixed(1), counting: true },
-  { key: 'w',    label: 'W',    get: s => s?.wins != null ? Number(s.wins) : null,                        fmt: v => String(Math.round(v)), counting: true },
   { key: 'sv',   label: 'SV',   get: s => s?.saves != null ? Number(s.saves) : null,                      fmt: v => String(Math.round(v)), counting: true },
   { key: 'bb',   label: 'BB',   get: s => s?.baseOnBalls != null ? Number(s.baseOnBalls) : null,          fmt: v => String(Math.round(v)), lowerBetter: true, counting: true },
   { key: 'so9',  label: 'K/9',  get: s => s?.strikeoutsPer9Inn != null ? Number(s.strikeoutsPer9Inn) : null, fmt: v => v.toFixed(2),
@@ -1481,9 +1480,9 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
           }
         }
       }
-      // Volume: PA for hitters, IP for pitchers (shown in tooltip)
+      // Volume: AB for hitters, IP for pitchers (shown in tooltip)
       const vol = group === 'hitting'
-        ? (stat?.plateAppearances != null ? Number(stat.plateAppearances) : null)
+        ? (stat?.atBats != null ? Number(stat.atBats) : null)
         : (stat?.inningsPitched != null ? parseIP(stat.inningsPitched) : null)
       return { season: s.season, value, actual, isPace, teamId: s.teamId, teamAbbr: s.teamAbbr, statObj: stat, vol }
     })
@@ -1539,7 +1538,7 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   // Horizontal avg line only shown for counting stats; rate stats get league avg line instead
   const showHorizAvg = avg != null && !!currentDef.counting
   const showLeagueAvgLine = !!currentDef.careerAvg && leagueValsInRange.length >= 2
-  const volLabel = group === 'hitting' ? 'PA' : 'IP'
+  const volLabel = group === 'hitting' ? 'AB' : 'IP'
   const avgY = showHorizAvg ? sy(avg!) : 0
 
   const yTicks = Array.from({ length: 5 }, (_, i) => yMin + (i / 4) * (yMax - yMin))
@@ -1562,10 +1561,15 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   }
 
   const hov = hovIdx != null ? fpts[hovIdx] : null
-  // Best season within current range
-  const bestIdx = currentDef.lowerBetter
-    ? vals.indexOf(Math.min(...vals))
-    : vals.indexOf(Math.max(...vals))
+  // Best season — never a pace projection, only completed seasons count
+  const bestIdx = (() => {
+    const cands = fpts.map((p, i) => ({ i, v: p.value })).filter((_, i) => !fpts[i].isPace)
+    if (!cands.length) return 0
+    return (currentDef.lowerBetter
+      ? cands.reduce((a, b) => b.v < a.v ? b : a)
+      : cands.reduce((a, b) => b.v > a.v ? b : a)
+    ).i
+  })()
 
 
 
@@ -1628,7 +1632,7 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
         <Box>
           <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>Best season</Typography>
           <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>
-            {currentDef.fmt(fpts[bestIdx].value)}
+            {currentDef.fmt(fpts[bestIdx].isPace ? fpts[bestIdx].actual! : fpts[bestIdx].value)}
             <Typography component="span" sx={{ fontSize: '0.72rem', color: 'text.secondary', fontWeight: 600, ml: 0.75 }}>({fpts[bestIdx].season})</Typography>
           </Typography>
         </Box>
@@ -1811,7 +1815,7 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
               )}
               {hov.vol != null && (
                 <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.15 }}>
-                  {volLabel} {group === 'hitting' ? Math.round(hov.vol) : hov.vol.toFixed(1)}
+                  {group === 'hitting' ? Math.round(hov.vol) : hov.vol.toFixed(1)} {volLabel}
                 </Typography>
               )}
             </Box>
