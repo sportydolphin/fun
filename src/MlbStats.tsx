@@ -259,16 +259,27 @@ async function fetchStats(id: number, group: 'hitting' | 'pitching', season: num
   return d.stats?.[0]?.splits?.[0]?.stat ?? null
 }
 
+// Cache raw yearByYear splits so fetchCareerData and fetchPlayerCareerStats share one request per player/group
+const yearByYearCache = new Map<string, Promise<any[]>>()
+
+function fetchYearByYearSplits(id: number, group: 'hitting' | 'pitching'): Promise<any[]> {
+  const key = `${id}-${group}`
+  if (!yearByYearCache.has(key)) {
+    yearByYearCache.set(key,
+      fetch(`https://statsapi.mlb.com/api/v1/people/${id}/stats?stats=yearByYear&group=${group}&sportId=1`)
+        .then(r => r.json())
+        .then((d: any) => d.stats?.[0]?.splits ?? [])
+        .catch(() => [])
+    )
+  }
+  return yearByYearCache.get(key)!
+}
+
 async function fetchCareerData(id: number, groups: Array<'hitting' | 'pitching'>): Promise<{
   seasons: number[]
   teamsBySeason: Map<number, string[]>
 }> {
-  const results = await Promise.all(groups.map(group =>
-    fetch(`https://statsapi.mlb.com/api/v1/people/${id}/stats?stats=yearByYear&group=${group}&sportId=1`)
-      .then(r => r.json())
-      .then(d => d.stats?.[0]?.splits ?? [])
-      .catch(() => [])
-  ))
+  const results = await Promise.all(groups.map(group => fetchYearByYearSplits(id, group)))
   const allSplits = results.flat()
   const teamsBySeason = new Map<number, string[]>()
   const seasons = new Set<number>()
@@ -322,22 +333,26 @@ async function fetchAllTeams(): Promise<Team[]> {
   return (d.teams ?? []).sort((a: Team, b: Team) => a.name.localeCompare(b.name))
 }
 
-async function fetchTeamStats(id: number, group: 'hitting' | 'pitching', season: number) {
-  const r = await fetch(`https://statsapi.mlb.com/api/v1/teams/${id}/stats?stats=season&group=${group}&season=${season}`)
-  const d = await r.json()
-  return d.stats?.[0]?.splits?.[0]?.stat ?? null
+const teamStatsCache = new Map<string, Promise<any>>()
+
+async function fetchTeamStats(id: number, group: 'hitting' | 'pitching', season: number): Promise<any> {
+  const key = `${id}-${group}-${season}`
+  if (!teamStatsCache.has(key)) {
+    teamStatsCache.set(key,
+      fetch(`https://statsapi.mlb.com/api/v1/teams/${id}/stats?stats=season&group=${group}&season=${season}`)
+        .then(r => r.json())
+        .then((d: any) => d.stats?.[0]?.splits?.[0]?.stat ?? null)
+        .catch(() => null)
+    )
+  }
+  return teamStatsCache.get(key)!
 }
 
 async function fetchTeamRankings(group: 'hitting' | 'pitching', season: number, defs: StatDef[]): Promise<Map<string, number[]>> {
   try {
     const teamIds = Object.keys(TEAM_ABBR).map(Number)
     const results = await Promise.all(
-      teamIds.map(id =>
-        fetch(`https://statsapi.mlb.com/api/v1/teams/${id}/stats?stats=season&group=${group}&season=${season}`)
-          .then(r => r.json())
-          .then(d => ({ id, stat: d.stats?.[0]?.splits?.[0]?.stat ?? null }))
-          .catch(() => ({ id, stat: null }))
-      )
+      teamIds.map(id => fetchTeamStats(id, group, season).then(stat => ({ id, stat })))
     )
     const valid = results.filter(r => r.stat != null)
     const map = new Map<string, number[]>()
@@ -404,12 +419,9 @@ interface CareerStatSplit {
 }
 
 async function fetchPlayerCareerStats(id: number, groups: Array<'hitting' | 'pitching'>): Promise<CareerStatSplit[]> {
-  const results = await Promise.all(groups.map(group =>
-    fetch(`https://statsapi.mlb.com/api/v1/people/${id}/stats?stats=yearByYear&group=${group}&sportId=1`)
-      .then(r => r.json())
-      .then(d => ({ group, splits: (d.stats?.[0]?.splits ?? []) as any[] }))
-      .catch(() => ({ group, splits: [] as any[] }))
-  ))
+  const results = await Promise.all(
+    groups.map(async group => ({ group, splits: await fetchYearByYearSplits(id, group) }))
+  )
 
   const bySeasonHit = new Map<number, any>()
   const bySeasonPit = new Map<number, any>()
@@ -529,6 +541,21 @@ const pillActionSx = {
   color: 'text.secondary',
   transition: 'all 0.15s',
   userSelect: 'none' as const,
+  '&:hover': { borderColor: ACCENT, color: ACCENT },
+}
+
+// Shared style for external link pills in the options bar
+const linkPillSx = {
+  display: 'inline-flex', alignItems: 'center',
+  px: 1.75, py: 0.45,
+  borderRadius: 999,
+  border: '1.5px solid',
+  borderColor: 'divider',
+  color: 'text.secondary',
+  fontSize: '0.75rem',
+  fontWeight: 600,
+  textDecoration: 'none',
+  transition: 'all 0.15s',
   '&:hover': { borderColor: ACCENT, color: ACCENT },
 }
 
@@ -1289,10 +1316,15 @@ const TREND_PIT_DEFS: TrendStatDef[] = [
 // ─── League avg cache (module-level, keyed "hitting-2023") ────────────────────
 
 const leagueStatsCache = new Map<string, Promise<any[]>>()
+const LEAGUE_CACHE_MAX = 30
 
 function fetchLeagueStatsBySeason(season: number, group: 'hitting' | 'pitching'): Promise<any[]> {
   const key = `${group}-${season}`
   if (!leagueStatsCache.has(key)) {
+    if (leagueStatsCache.size >= LEAGUE_CACHE_MAX) {
+      // Evict oldest entry (Map iteration order = insertion order)
+      leagueStatsCache.delete(leagueStatsCache.keys().next().value!)
+    }
     leagueStatsCache.set(key,
       fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=${group}&season=${season}&sportId=1&limit=2000`)
         .then(r => r.json())
@@ -1305,6 +1337,13 @@ function fetchLeagueStatsBySeason(season: number, group: 'hitting' | 'pitching')
 
 // ─── Player trends chart ──────────────────────────────────────────────────────
 
+// Shared native-select style used in PlayerTrendsChart range pickers (module-scope, stable reference)
+const trendSelSx: React.CSSProperties = {
+  border: 'none', outline: 'none', background: 'transparent',
+  fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
+  color: 'inherit', padding: '4px 10px', borderRadius: 999, fontFamily: 'inherit',
+}
+
 function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   splits: CareerStatSplit[]
   isPitcher: boolean
@@ -1314,6 +1353,7 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   const [group, setGroup] = useState<'hitting' | 'pitching'>(initGroup)
   const [statKey, setStatKey] = useState(initGroup === 'pitching' ? 'era' : 'ops')
   const boxRef = useRef<HTMLDivElement>(null)
+  const rafRef = useRef<number | null>(null)
   const [hovIdx, setHovIdx] = useState<number | null>(null)
   const [tipPos, setTipPos] = useState({ x: 0, y: 0 })
   const [rangeStart, setRangeStart] = useState<number | null>(null)
@@ -1450,11 +1490,17 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!boxRef.current) return
-    const rect = boxRef.current.getBoundingClientRect()
-    const relX = ((e.clientX - rect.left) / rect.width) * W - m.l
-    const frac = Math.max(0, Math.min(1, relX / iW))
-    setHovIdx(Math.round(frac * (n - 1)))
-    setTipPos({ x: (e.clientX - rect.left) / rect.width * 100, y: (e.clientY - rect.top) / rect.height * 100 })
+    const clientX = e.clientX, clientY = e.clientY
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null
+      if (!boxRef.current) return
+      const rect = boxRef.current.getBoundingClientRect()
+      const relX = ((clientX - rect.left) / rect.width) * W - m.l
+      const frac = Math.max(0, Math.min(1, relX / iW))
+      setHovIdx(Math.round(frac * (n - 1)))
+      setTipPos({ x: (clientX - rect.left) / rect.width * 100, y: (clientY - rect.top) / rect.height * 100 })
+    })
   }
 
   const hov = hovIdx != null ? fpts[hovIdx] : null
@@ -1463,12 +1509,7 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
     ? vals.indexOf(Math.min(...vals))
     : vals.indexOf(Math.max(...vals))
 
-  // Shared select style
-  const selSx: React.CSSProperties = {
-    border: 'none', outline: 'none', background: 'transparent',
-    fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
-    color: 'inherit', padding: '4px 10px', borderRadius: 999, fontFamily: 'inherit',
-  }
+
 
   return (
     <Box>
@@ -1496,13 +1537,13 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
           <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontWeight: 600 }}>Season range</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Box sx={{ border: '1.5px solid', borderColor: 'divider', borderRadius: 999, '&:hover': { borderColor: ACCENT } }}>
-              <select value={effStart} onChange={e => { setRangeStart(Number(e.target.value)); setHovIdx(null) }} style={selSx}>
+              <select value={effStart} onChange={e => { setRangeStart(Number(e.target.value)); setHovIdx(null) }} style={trendSelSx}>
                 {allSeasonsList.filter(y => y <= effEnd).map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </Box>
             <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>–</Typography>
             <Box sx={{ border: '1.5px solid', borderColor: 'divider', borderRadius: 999, '&:hover': { borderColor: ACCENT } }}>
-              <select value={effEnd} onChange={e => { setRangeEnd(Number(e.target.value)); setHovIdx(null) }} style={selSx}>
+              <select value={effEnd} onChange={e => { setRangeEnd(Number(e.target.value)); setHovIdx(null) }} style={trendSelSx}>
                 {allSeasonsList.filter(y => y >= effStart).map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </Box>
@@ -1542,7 +1583,11 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
       {/* Chart */}
       <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}
-          onMouseMove={handleMouseMove} onMouseLeave={() => setHovIdx(null)}>
+          onMouseMove={handleMouseMove}
+          onMouseLeave={() => {
+            if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
+            setHovIdx(null)
+          }}>
           <defs>
             <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={ACCENT} stopOpacity={0.22} />
@@ -1787,11 +1832,12 @@ export default function MlbStats() {
 
   const cardRef = useRef<HTMLDivElement>(null)
   const blockDropdownRef = useRef(false)  // prevents dropdown re-opening after programmatic query set
+  const loadGenRef = useRef(0)            // incremented each load; stale async callbacks bail out early
 
   const toggleHitStat = useCallback((key: string) => setSelectedHitStats(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]), [])
   const togglePitStat = useCallback((key: string) => setSelectedPitStats(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]), [])
   const toggleTeamHitStat = useCallback((key: string) => setSelectedTeamHitStats(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]), [])
-  const toggleTeamPitStat = useCallback((key: string) => setSelectedTeamPitStats(prev => prev.filter(k => k !== key).concat(prev.includes(key) ? [] : [key])), [])
+  const toggleTeamPitStat = useCallback((key: string) => setSelectedTeamPitStats(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]), [])
 
   // Load all teams on mount
   useEffect(() => {
@@ -1853,6 +1899,7 @@ export default function MlbStats() {
   }, [query, allTeams])
 
   const loadStats = useCallback(async (p: Player, s: number, initial = true) => {
+    const gen = ++loadGenRef.current
     if (initial) { setLoadingStats(true); setHittingStats(null); setPitchingStats(null); setHitLeaders(new Map()); setPitLeaders(new Map()) }
     else setRefreshing(true)
     try {
@@ -1862,21 +1909,23 @@ export default function MlbStats() {
         (!isPitcher || isTwoWay) ? fetchStats(p.id, 'hitting', s) : null,
         (isPitcher || isTwoWay) ? fetchStats(p.id, 'pitching', s) : null,
       ])
+      if (gen !== loadGenRef.current) return
       setHittingStats(hitting)
       setPitchingStats(pitching)
       const [hLeaders, pLeaders] = await Promise.all([
         hitting ? fetchAndRankPlayers('hitting', s, HITTING_STAT_DEFS) : Promise.resolve(new Map<string, number[]>()),
         pitching ? fetchAndRankPlayers('pitching', s, PITCHING_STAT_DEFS) : Promise.resolve(new Map<string, number[]>()),
       ])
+      if (gen !== loadGenRef.current) return
       setHitLeaders(hLeaders)
       setPitLeaders(pLeaders)
     } finally {
-      setLoadingStats(false)
-      setRefreshing(false)
+      if (gen === loadGenRef.current) { setLoadingStats(false); setRefreshing(false) }
     }
   }, [])
 
   const loadTeamStats = useCallback(async (t: Team, s: number, initial = true) => {
+    const gen = ++loadGenRef.current
     if (initial) { setLoadingStats(true); setTeamHitting(null); setTeamPitching(null); setTeamHitLeaders(new Map()); setTeamPitLeaders(new Map()) }
     else setRefreshing(true)
     try {
@@ -1886,13 +1935,13 @@ export default function MlbStats() {
         fetchTeamRankings('hitting', s, TEAM_HITTING_DEFS),
         fetchTeamRankings('pitching', s, TEAM_PITCHING_DEFS),
       ])
+      if (gen !== loadGenRef.current) return
       setTeamHitting(hitting)
       setTeamPitching(pitching)
       setTeamHitLeaders(hLeaders)
       setTeamPitLeaders(pLeaders)
     } finally {
-      setLoadingStats(false)
-      setRefreshing(false)
+      if (gen === loadGenRef.current) { setLoadingStats(false); setRefreshing(false) }
     }
   }, [])
 
@@ -2045,20 +2094,6 @@ export default function MlbStats() {
     onToggleHitStat: toggleTeamHitStat, onTogglePitStat: toggleTeamPitStat,
   } : null
 
-  const linkPillSx = {
-    display: 'inline-flex', alignItems: 'center',
-    px: 1.75, py: 0.45,
-    borderRadius: 999,
-    border: '1.5px solid',
-    borderColor: 'divider',
-    color: 'text.secondary',
-    fontSize: '0.75rem',
-    fontWeight: 600,
-    textDecoration: 'none',
-    transition: 'all 0.15s',
-    '&:hover': { borderColor: ACCENT, color: ACCENT },
-  }
-
   return (
     <Box sx={{ maxWidth: { xs: 640, md: 1280 }, mx: 'auto' }}>
 
@@ -2109,7 +2144,7 @@ export default function MlbStats() {
                       <Box
                         component="input"
                         value={vizSearch}
-                        onChange={(e: any) => { setVizSearch(e.target.value); setVizSearchOpen(true) }}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setVizSearch(e.target.value); setVizSearchOpen(true) }}
                         placeholder="Highlight a team…"
                         sx={{
                           flex: 1, border: 'none', outline: 'none', bgcolor: 'transparent',
