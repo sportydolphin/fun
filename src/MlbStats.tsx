@@ -1438,7 +1438,20 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   const currentDef = availableDefs.find(d => d.key === statKey) ?? availableDefs[0]
   if (!currentDef) return null
 
-  // Build data points — project current-season counting stats to 162-game pace
+  // For pitchers: compute career-median games-played so the pace projection uses the player's own
+  // typical workload (starters ≈ 30 games/season, relievers ≈ 65) rather than the meaningless 162.
+  // Requires history to project; with no prior seasons we skip pace entirely to avoid absurd numbers.
+  const pitcherMedianGP = group === 'pitching' ? (() => {
+    const gps = splits
+      .filter(s => s.season !== CURRENT_SEASON && s.pitching?.gamesPlayed != null)
+      .map(s => Number(s.pitching!.gamesPlayed))
+      .filter(g => g > 0)
+    if (!gps.length) return null
+    const sorted = [...gps].sort((a, b) => a - b)
+    return sorted[Math.floor(sorted.length / 2)]
+  })() : null
+
+  // Build data points — project current-season counting stats to full-season pace
   const pts = splits
     .map(s => {
       const stat = group === 'hitting' ? s.hitting : s.pitching
@@ -1449,10 +1462,23 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
       let isPace = false
       if (currentDef.counting && s.season === CURRENT_SEASON) {
         const gp = Number(stat?.gamesPlayed ?? 0)
-        if (gp > 0 && val > 0) {   // skip projection when player has 0 of the stat (0→0 is noise)
-          actual = val
-          value = val * 162 / gp   // project to full-season pace
-          isPace = true
+        if (gp > 0 && val > 0) {
+          if (group === 'pitching') {
+            // Pitchers: use career-median games as the "full season" denominator.
+            // Require ≥15% of that typical season played to avoid wild early-season projections.
+            if (pitcherMedianGP != null && gp >= Math.max(3, Math.round(pitcherMedianGP * 0.15))) {
+              actual = val
+              value = val * pitcherMedianGP / gp
+              isPace = true
+            }
+          } else {
+            // Hitters: project to 162 games; require ≥24 games played (~15% of season).
+            if (gp >= 24) {
+              actual = val
+              value = val * 162 / gp
+              isPace = true
+            }
+          }
         }
       }
       // Volume: PA for hitters, IP for pitchers (shown in tooltip)
