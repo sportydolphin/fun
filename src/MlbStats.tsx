@@ -985,37 +985,37 @@ function TeamEraOpsPlot({ data, nameMap, highlightTeamId }: { data: TeamSummary[
         <rect x={m.l} y={ay} width={ax - m.l} height={m.t + iH - ay} fill="#ef4444" fillOpacity={0.05} />
         <rect x={ax} y={ay} width={m.l + iW - ax} height={m.t + iH - ay} fill="#f59e0b" fillOpacity={0.05} />
 
-        {xTicks.map((v, i) => <line key={i} x1={sx(v)} y1={m.t} x2={sx(v)} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.07} strokeWidth={1} />)}
-        {yTicks.map((v, i) => <line key={i} x1={m.l} y1={sy(v)} x2={m.l + iW} y2={sy(v)} stroke="currentColor" strokeOpacity={0.07} strokeWidth={1} />)}
+        {xTicks.map((v, i) => <line key={i} x1={sx(v)} y1={m.t} x2={sx(v)} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.1} strokeWidth={1} />)}
+        {yTicks.map((v, i) => <line key={i} x1={m.l} y1={sy(v)} x2={m.l + iW} y2={sy(v)} stroke="currentColor" strokeOpacity={0.1} strokeWidth={1} />)}
 
-        <line x1={ax} y1={m.t} x2={ax} y2={m.t + iH} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="6 4" strokeOpacity={0.55} />
-        <line x1={m.l} y1={ay} x2={m.l + iW} y2={ay} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="6 4" strokeOpacity={0.55} />
-        <text x={ax + 4} y={m.t + 11} fill="#60a5fa" fillOpacity={0.65} fontSize={8} fontWeight={700}>avg OPS</text>
-        <text x={m.l + iW - 4} y={ay - 5} fill="#60a5fa" fillOpacity={0.65} fontSize={8} fontWeight={700} textAnchor="end">avg ERA</text>
+        <line x1={ax} y1={m.t} x2={ax} y2={m.t + iH} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="6 4" strokeOpacity={0.7} />
+        <line x1={m.l} y1={ay} x2={m.l + iW} y2={ay} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="6 4" strokeOpacity={0.7} />
+        <text x={ax + 4} y={m.t + 11} fill="#60a5fa" fillOpacity={0.82} fontSize={8.5} fontWeight={700}>avg OPS</text>
+        <text x={m.l + iW - 4} y={ay - 5} fill="#60a5fa" fillOpacity={0.82} fontSize={8.5} fontWeight={700} textAnchor="end">avg ERA</text>
 
-        <text x={m.l + 7} y={m.t + 17} fill="#3b82f6" fillOpacity={0.4} fontSize={9} fontWeight={800}>PITCHING-LED</text>
-        <text x={m.l + iW - 7} y={m.t + 17} fill="#22c55e" fillOpacity={0.5} fontSize={9} fontWeight={800} textAnchor="end">ELITE</text>
-        <text x={m.l + 7} y={m.t + iH - 9} fill="#ef4444" fillOpacity={0.4} fontSize={9} fontWeight={800}>REBUILDING</text>
-        <text x={m.l + iW - 7} y={m.t + iH - 9} fill="#f59e0b" fillOpacity={0.45} fontSize={9} fontWeight={800} textAnchor="end">OFFENSE-LED</text>
+        <text x={m.l + 7} y={m.t + 17} fill="#3b82f6" fillOpacity={0.55} fontSize={9.5} fontWeight={800}>PITCHING-LED</text>
+        <text x={m.l + iW - 7} y={m.t + 17} fill="#22c55e" fillOpacity={0.65} fontSize={9.5} fontWeight={800} textAnchor="end">ELITE</text>
+        <text x={m.l + 7} y={m.t + iH - 9} fill="#ef4444" fillOpacity={0.55} fontSize={9.5} fontWeight={800}>REBUILDING</text>
+        <text x={m.l + iW - 7} y={m.t + iH - 9} fill="#f59e0b" fillOpacity={0.6} fontSize={9.5} fontWeight={800} textAnchor="end">OFFENSE-LED</text>
 
-        <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.18} strokeWidth={1.5} />
-        <line x1={m.l} y1={m.t + iH} x2={m.l + iW} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.18} strokeWidth={1.5} />
+        <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.5} />
+        <line x1={m.l} y1={m.t + iH} x2={m.l + iW} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.5} />
 
         {xTicks.map((v, i) => (
           <g key={i}>
-            <line x1={sx(v)} y1={m.t + iH} x2={sx(v)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.25} strokeWidth={1} />
-            <text x={sx(v)} y={m.t + iH + 16} textAnchor="middle" fill="currentColor" fillOpacity={0.45} fontSize={9}>{v.toFixed(3)}</text>
+            <line x1={sx(v)} y1={m.t + iH} x2={sx(v)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
+            <text x={sx(v)} y={m.t + iH + 16} textAnchor="middle" fill="currentColor" fillOpacity={0.72} fontSize={10}>{v.toFixed(3)}</text>
           </g>
         ))}
         {yTicks.map((v, i) => (
           <g key={i}>
-            <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.25} strokeWidth={1} />
-            <text x={m.l - 8} y={sy(v) + 3.5} textAnchor="end" fill="currentColor" fillOpacity={0.45} fontSize={9}>{v.toFixed(2)}</text>
+            <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
+            <text x={m.l - 8} y={sy(v) + 3.5} textAnchor="end" fill="currentColor" fillOpacity={0.72} fontSize={10}>{v.toFixed(2)}</text>
           </g>
         ))}
 
-        <text x={m.l + iW / 2} y={H - 5} textAnchor="middle" fill="currentColor" fillOpacity={0.5} fontSize={10} fontWeight={700} letterSpacing="1.2">OPS (offense) →</text>
-        <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill="currentColor" fillOpacity={0.5} fontSize={10} fontWeight={700} letterSpacing="1.2">ERA (lower = better ↑)</text>
+        <text x={m.l + iW / 2} y={H - 4} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">OPS (offense) →</text>
+        <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">ERA (lower = better ↑)</text>
 
         {[...pts].sort((a, b) => (a.id === highlightTeamId ? 1 : 0) - (b.id === highlightTeamId ? 1 : 0)).map(team => (
           <TeamDot key={team.id} team={team} x={sx(team.ops)} y={sy(team.era)}
@@ -1104,44 +1104,43 @@ function TeamWinRDPlot({ data, nameMap, highlightTeamId }: { data: TeamSummary[]
         <rect x={x0} y={m.t} width={m.l + iW - x0} height={m.t + iH - m.t} fill="#22c55e" fillOpacity={0.04} />
         <rect x={m.l} y={m.t} width={x0 - m.l} height={m.t + iH - m.t} fill="#ef4444" fillOpacity={0.04} />
 
-        {xTicks.map((v, i) => <line key={i} x1={sx(v)} y1={m.t} x2={sx(v)} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.07} strokeWidth={1} />)}
-        {yTicks.map((v, i) => <line key={i} x1={m.l} y1={sy(v)} x2={m.l + iW} y2={sy(v)} stroke="currentColor" strokeOpacity={0.07} strokeWidth={1} />)}
+        {xTicks.map((v, i) => <line key={i} x1={sx(v)} y1={m.t} x2={sx(v)} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.1} strokeWidth={1} />)}
+        {yTicks.map((v, i) => <line key={i} x1={m.l} y1={sy(v)} x2={m.l + iW} y2={sy(v)} stroke="currentColor" strokeOpacity={0.1} strokeWidth={1} />)}
 
         {/* RD=0 and W%=.500 references */}
-        <line x1={x0} y1={m.t} x2={x0} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.2} strokeWidth={1.5} strokeDasharray="5 3" />
-        <line x1={m.l} y1={y500} x2={m.l + iW} y2={y500} stroke="currentColor" strokeOpacity={0.2} strokeWidth={1.5} strokeDasharray="5 3" />
-        <text x={x0 + 4} y={m.t + 11} fill="currentColor" fillOpacity={0.35} fontSize={8} fontWeight={700}>RD = 0</text>
-        <text x={m.l + iW - 4} y={y500 - 5} fill="currentColor" fillOpacity={0.35} fontSize={8} fontWeight={700} textAnchor="end">.500</text>
+        <line x1={x0} y1={m.t} x2={x0} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="5 3" />
+        <line x1={m.l} y1={y500} x2={m.l + iW} y2={y500} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="5 3" />
+        <text x={x0 + 4} y={m.t + 11} fill="currentColor" fillOpacity={0.6} fontSize={8.5} fontWeight={700}>RD = 0</text>
+        <text x={m.l + iW - 4} y={y500 - 5} fill="currentColor" fillOpacity={0.6} fontSize={8.5} fontWeight={700} textAnchor="end">.500</text>
 
         {/* Pythagorean expectation curve */}
-        <polyline points={curvePts} fill="none" stroke="#60a5fa" strokeWidth={2} strokeDasharray="6 3" strokeOpacity={0.7} strokeLinejoin="round" />
-        {/* Curve label near right edge */}
+        <polyline points={curvePts} fill="none" stroke="#60a5fa" strokeWidth={2} strokeDasharray="6 3" strokeOpacity={0.85} strokeLinejoin="round" />
         {(() => {
           const labelRD = xMax * 0.72
           const labelWP = pyth(labelRD)
           if (labelWP < yMin || labelWP > yMax) return null
-          return <text x={sx(labelRD)} y={sy(labelWP) - 7} fill="#60a5fa" fillOpacity={0.8} fontSize={8} fontWeight={700} textAnchor="middle">Pythagorean expected</text>
+          return <text x={sx(labelRD)} y={sy(labelWP) - 7} fill="#60a5fa" fillOpacity={0.9} fontSize={8.5} fontWeight={700} textAnchor="middle">Pythagorean expected</text>
         })()}
 
         {/* Axes */}
-        <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.18} strokeWidth={1.5} />
-        <line x1={m.l} y1={m.t + iH} x2={m.l + iW} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.18} strokeWidth={1.5} />
+        <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.5} />
+        <line x1={m.l} y1={m.t + iH} x2={m.l + iW} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.5} />
 
         {xTicks.map((v, i) => (
           <g key={i}>
-            <line x1={sx(v)} y1={m.t + iH} x2={sx(v)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.25} strokeWidth={1} />
-            <text x={sx(v)} y={m.t + iH + 16} textAnchor="middle" fill="currentColor" fillOpacity={0.45} fontSize={9}>{v > 0 ? `+${Math.round(v)}` : Math.round(v)}</text>
+            <line x1={sx(v)} y1={m.t + iH} x2={sx(v)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
+            <text x={sx(v)} y={m.t + iH + 16} textAnchor="middle" fill="currentColor" fillOpacity={0.72} fontSize={10}>{v > 0 ? `+${Math.round(v)}` : Math.round(v)}</text>
           </g>
         ))}
         {yTicks.map((v, i) => (
           <g key={i}>
-            <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.25} strokeWidth={1} />
-            <text x={m.l - 8} y={sy(v) + 3.5} textAnchor="end" fill="currentColor" fillOpacity={0.45} fontSize={9}>{v.toFixed(3)}</text>
+            <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
+            <text x={m.l - 8} y={sy(v) + 3.5} textAnchor="end" fill="currentColor" fillOpacity={0.72} fontSize={10}>{v.toFixed(3)}</text>
           </g>
         ))}
 
-        <text x={m.l + iW / 2} y={H - 5} textAnchor="middle" fill="currentColor" fillOpacity={0.5} fontSize={10} fontWeight={700} letterSpacing="1.2">Run Differential (RS − RA) →</text>
-        <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill="currentColor" fillOpacity={0.5} fontSize={10} fontWeight={700} letterSpacing="1.2">Win %</text>
+        <text x={m.l + iW / 2} y={H - 4} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">Run Differential (RS − RA) →</text>
+        <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">Win %</text>
 
         {[...withPyth].sort((a, b) => (a.id === highlightTeamId ? 1 : 0) - (b.id === highlightTeamId ? 1 : 0)).map(team => (
           <TeamDot key={team.id} team={team} x={sx(team.rd)} y={sy(team.winPct)}
@@ -1287,6 +1286,23 @@ const TREND_PIT_DEFS: TrendStatDef[] = [
   },
 ]
 
+// ─── League avg cache (module-level, keyed "hitting-2023") ────────────────────
+
+const leagueStatsCache = new Map<string, Promise<any[]>>()
+
+function fetchLeagueStatsBySeason(season: number, group: 'hitting' | 'pitching'): Promise<any[]> {
+  const key = `${group}-${season}`
+  if (!leagueStatsCache.has(key)) {
+    leagueStatsCache.set(key,
+      fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=${group}&season=${season}&sportId=1&limit=2000`)
+        .then(r => r.json())
+        .then((d: any) => (d.stats?.[0]?.splits ?? []).map((s: any) => s.stat))
+        .catch(() => [])
+    )
+  }
+  return leagueStatsCache.get(key)!
+}
+
 // ─── Player trends chart ──────────────────────────────────────────────────────
 
 function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
@@ -1303,6 +1319,8 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   const [rangeStart, setRangeStart] = useState<number | null>(null)
   const [rangeEnd, setRangeEnd] = useState<number | null>(null)
 
+  const [leagueAvgPts, setLeagueAvgPts] = useState<Map<number, number>>(new Map())
+
   // Reset to sensible default when group changes
   useEffect(() => { setStatKey(group === 'pitching' ? 'era' : 'ops') }, [group])
   // Reset all when player changes (splits identity changes)
@@ -1312,7 +1330,33 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
     setStatKey(g === 'pitching' ? 'era' : 'ops')
     setRangeStart(null)
     setRangeEnd(null)
+    setLeagueAvgPts(new Map())
   }, [splits]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch per-year league averages (must be before any early return — React hook rule)
+  useEffect(() => {
+    const defs = group === 'hitting' ? TREND_HIT_DEFS : TREND_PIT_DEFS
+    const def = defs.find(d => d.key === statKey) ?? defs[0]
+    if (!def?.careerAvg) { setLeagueAvgPts(new Map()); return }
+    const seasonsSorted = splits
+      .map(s => { const stat = group === 'hitting' ? s.hitting : s.pitching; return stat != null && def.get(stat) != null ? s.season : null })
+      .filter((s): s is number => s != null)
+    if (seasonsSorted.length < 2) return
+    const start = rangeStart ?? seasonsSorted[0]
+    const end = rangeEnd ?? seasonsSorted[seasonsSorted.length - 1]
+    const seasons = seasonsSorted.filter(s => s >= start && s <= end)
+    let cancelled = false
+    Promise.all(seasons.map(async season => {
+      const objs = await fetchLeagueStatsBySeason(season, group)
+      return [season, def.careerAvg!(objs)] as [number, number | null]
+    })).then(results => {
+      if (cancelled) return
+      const m = new Map<number, number>()
+      for (const [s, v] of results) { if (v != null) m.set(s, v) }
+      setLeagueAvgPts(m)
+    })
+    return () => { cancelled = true }
+  }, [group, statKey, rangeStart, rangeEnd, splits]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const allDefs = group === 'hitting' ? TREND_HIT_DEFS : TREND_PIT_DEFS
 
@@ -1372,7 +1416,9 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   const n = fpts.length
 
   const vals = fpts.map(p => p.value)
-  const minVal = Math.min(...vals), maxVal = Math.max(...vals)
+  const leagueValsInRange = fpts.map(p => leagueAvgPts.get(p.season)).filter((v): v is number => v != null)
+  const allVals = leagueValsInRange.length > 0 ? [...vals, ...leagueValsInRange] : vals
+  const minVal = Math.min(...allVals), maxVal = Math.max(...allVals)
   const range = maxVal - minVal || (maxVal * 0.1) || 1
   const yPad = range * 0.28
   const yMin = Math.max(0, minVal - yPad), yMax = maxVal + yPad
@@ -1383,7 +1429,7 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   const lineD = fpts.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(i).toFixed(1)},${sy(p.value).toFixed(1)}`).join(' ')
   const fillD = `${lineD} L${sx(n - 1).toFixed(1)},${(m.t + iH).toFixed(1)} L${m.l.toFixed(1)},${(m.t + iH).toFixed(1)} Z`
 
-  // Weighted career avg for rate stats; simple mean for counting stats; null = don't show
+  // Career avg for summary row (player's own weighted avg for rate stats, mean for counting)
   const statObjs = fpts.map(p => p.statObj)
   const avg: number | null = currentDef.noAvg
     ? null
@@ -1392,9 +1438,11 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
       : currentDef.counting
         ? vals.reduce((s, v) => s + v, 0) / vals.length
         : null
-  const showAvg = avg != null
+  // Horizontal avg line only shown for counting stats; rate stats get league avg line instead
+  const showHorizAvg = avg != null && !!currentDef.counting
+  const showLeagueAvgLine = !!currentDef.careerAvg && leagueValsInRange.length >= 2
   const volLabel = group === 'hitting' ? 'PA' : 'IP'
-  const avgY = showAvg ? sy(avg!) : 0
+  const avgY = showHorizAvg ? sy(avg!) : 0
 
   const yTicks = Array.from({ length: 5 }, (_, i) => yMin + (i / 4) * (yMax - yMin))
   const xLabelStep = Math.max(1, Math.ceil(n / 10))
@@ -1470,12 +1518,12 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
 
       {/* Summary row */}
       <Box sx={{ display: 'flex', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
-        {showAvg && (
+        {avg != null && (
           <Box>
             <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>
               {currentDef.counting ? 'Avg / yr' : isRangeModified ? 'Range avg' : 'Career avg'}
             </Typography>
-            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT, lineHeight: 1.2 }}>{currentDef.fmt(avg!)}</Typography>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT, lineHeight: 1.2 }}>{currentDef.fmt(avg)}</Typography>
           </Box>
         )}
         <Box>
@@ -1515,13 +1563,32 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
           {/* Fill */}
           <path d={fillD} fill={`url(#${gradId})`} />
 
-          {/* Career avg line */}
-          {showAvg && (
+          {/* Horizontal avg line — counting stats only */}
+          {showHorizAvg && (
             <>
               <line x1={m.l} y1={avgY} x2={m.l + iW} y2={avgY} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.55} />
               <text x={m.l + 4} y={avgY - 5} fill="#f59e0b" fillOpacity={0.7} fontSize={8} fontWeight={700}>avg {currentDef.fmt(avg!)}</text>
             </>
           )}
+
+          {/* League avg line — rate stats, one point per season */}
+          {showLeagueAvgLine && (() => {
+            const lgPts = fpts.map((p, i) => {
+              const v = leagueAvgPts.get(p.season)
+              return v != null ? `${i === 0 || !fpts[i - 1] || leagueAvgPts.get(fpts[i - 1].season) == null ? 'M' : 'L'}${sx(i).toFixed(1)},${sy(v).toFixed(1)}` : null
+            }).filter(Boolean).join(' ')
+            const lastPt = [...fpts].reverse().find(p => leagueAvgPts.has(p.season))
+            const lastIdx = lastPt ? fpts.indexOf(lastPt) : -1
+            return (
+              <>
+                <path d={lgPts} fill="none" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} strokeLinejoin="round" />
+                {lastPt && lastIdx >= 0 && (
+                  <text x={sx(lastIdx) + 4} y={sy(leagueAvgPts.get(lastPt.season)!) - 4}
+                    fill="#f59e0b" fillOpacity={0.75} fontSize={7.5} fontWeight={700}>lg avg</text>
+                )}
+              </>
+            )
+          })()}
 
           {/* Line */}
           <path d={lineD} fill="none" stroke={ACCENT} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
@@ -1634,8 +1701,13 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
                   {currentDef.fmt(hov.value)}
                 </Typography>
               )}
-              {hov.vol != null && (
+              {showLeagueAvgLine && leagueAvgPts.has(hov.season) && (
                 <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.3 }}>
+                  lg avg {currentDef.fmt(leagueAvgPts.get(hov.season)!)}
+                </Typography>
+              )}
+              {hov.vol != null && (
+                <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.15 }}>
                   {volLabel} {group === 'hitting' ? Math.round(hov.vol) : hov.vol.toFixed(1)}
                 </Typography>
               )}
