@@ -1523,8 +1523,34 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   const sx = (i: number) => m.l + (n === 1 ? iW / 2 : (i / (n - 1)) * iW)
   const sy = (v: number) => m.t + ((yMax - v) / (yMax - yMin)) * iH
 
-  const lineD = fpts.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(i).toFixed(1)},${sy(p.value).toFixed(1)}`).join(' ')
-  const fillD = `${lineD} L${sx(n - 1).toFixed(1)},${(m.t + iH).toFixed(1)} L${m.l.toFixed(1)},${(m.t + iH).toFixed(1)} Z`
+  // Short-season detection: career-median volume × 0.4, with an absolute floor.
+  // Pitchers with very few IP (injury/TJ) and hitters with few AB should look visually distinct.
+  const careerVolMedian = (() => {
+    const vols = fpts
+      .filter(p => !p.isPace && p.vol != null && p.season !== CURRENT_SEASON)
+      .map(p => p.vol!)
+    if (!vols.length) return null
+    const sorted = [...vols].sort((a, b) => a - b)
+    return sorted[Math.floor(sorted.length / 2)]
+  })()
+  const shortFloor = group === 'pitching' ? 30 : 100
+  const shortThreshold = careerVolMedian != null
+    ? Math.max(shortFloor, careerVolMedian * 0.4)
+    : shortFloor
+  // A point is "short" if it has volume data that falls below the threshold (and isn't a pace projection)
+  const isShort = (p: typeof fpts[0]) => !p.isPace && p.vol != null && p.vol < shortThreshold
+
+  // Line segments — switch to dashed + faded when either endpoint is a short season
+  const lineSegs = fpts.slice(1).map((_, rawI) => {
+    const i = rawI + 1
+    return {
+      d: `M${sx(i-1).toFixed(1)},${sy(fpts[i-1].value).toFixed(1)} L${sx(i).toFixed(1)},${sy(fpts[i].value).toFixed(1)}`,
+      short: isShort(fpts[i-1]) || isShort(fpts[i]),
+    }
+  })
+
+  // Fill area — uses full polyline regardless of short seasons (background only)
+  const fillD = `${fpts.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(i).toFixed(1)},${sy(p.value).toFixed(1)}`).join(' ')} L${sx(n - 1).toFixed(1)},${(m.t + iH).toFixed(1)} L${m.l.toFixed(1)},${(m.t + iH).toFixed(1)} Z`
 
   // Career avg for summary row (player's own weighted avg for rate stats, mean for counting)
   const statObjs = fpts.map(p => p.statObj)
@@ -1561,13 +1587,13 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   }
 
   const hov = hovIdx != null ? fpts[hovIdx] : null
-  // Best season — never a pace projection, only completed seasons count
+  // Best season — never a pace projection or a short/injury season
   const bestIdx = (() => {
-    const cands = fpts.map((p, i) => ({ i, v: p.value })).filter((_, i) => !fpts[i].isPace)
-    if (!cands.length) return 0
+    const cands = fpts.map((p, i) => ({ i, v: p.value, p })).filter(c => !c.p.isPace && !isShort(c.p))
+    const pool = cands.length ? cands : fpts.map((p, i) => ({ i, v: p.value, p })) // fallback: all points
     return (currentDef.lowerBetter
-      ? cands.reduce((a, b) => b.v < a.v ? b : a)
-      : cands.reduce((a, b) => b.v > a.v ? b : a)
+      ? pool.reduce((a, b) => b.v < a.v ? b : a)
+      : pool.reduce((a, b) => b.v > a.v ? b : a)
     ).i
   })()
 
@@ -1697,21 +1723,29 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
             )
           })()}
 
-          {/* Line */}
-          <path d={lineD} fill="none" stroke={ACCENT} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+          {/* Line — solid for normal seasons, dashed+faded when either endpoint is a short season */}
+          {lineSegs.map((seg, i) => (
+            <path key={i} d={seg.d} fill="none"
+              stroke={ACCENT} strokeWidth={2.5} strokeLinecap="round"
+              strokeDasharray={seg.short ? '5 5' : undefined}
+              strokeOpacity={seg.short ? 0.3 : 1}
+            />
+          ))}
 
           {/* Dots */}
           {fpts.map((p, i) => {
             const isHov = hovIdx === i
             const isBest = i === bestIdx
+            const short = isShort(p)
             const color = p.teamId ? (TEAM_BG[p.teamId] ?? ACCENT) : ACCENT
             return (
-              <g key={p.season}>
+              <g key={p.season} opacity={short && !isHov ? 0.45 : 1}>
                 {isBest && !isHov && (
                   <circle cx={sx(i)} cy={sy(p.value)} r={10} fill={color} fillOpacity={0.18} />
                 )}
                 <circle cx={sx(i)} cy={sy(p.value)} r={isHov ? 8 : (isBest ? 6.5 : 5)}
-                  fill={color} stroke="#fff" strokeWidth={isHov ? 2.5 : 2} />
+                  fill={short ? 'transparent' : color}
+                  stroke={color} strokeWidth={isHov ? 2.5 : short ? 2 : 2} />
               </g>
             )
           })}
@@ -1816,6 +1850,11 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
               {hov.vol != null && (
                 <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.15 }}>
                   {group === 'hitting' ? Math.round(hov.vol) : hov.vol.toFixed(1)} {volLabel}
+                </Typography>
+              )}
+              {isShort(hov) && (
+                <Typography sx={{ fontSize: '0.65rem', color: 'warning.main', mt: 0.25, fontWeight: 600 }}>
+                  limited sample
                 </Typography>
               )}
             </Box>
