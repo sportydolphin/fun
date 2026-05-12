@@ -348,6 +348,27 @@ async function fetchTeamStats(id: number, group: 'hitting' | 'pitching', season:
   return teamStatsCache.get(key)!
 }
 
+// Fetch all player stats for a season and return structured entries for leaderboard display
+async function fetchLeaderboardData(
+  group: 'hitting' | 'pitching',
+  season: number
+): Promise<Array<{ playerId: number; playerName: string; teamAbbr: string; stat: any }>> {
+  try {
+    const r = await fetch(
+      `https://statsapi.mlb.com/api/v1/stats?stats=season&group=${group}&season=${season}&sportId=1&limit=2000`
+    )
+    const d = await r.json()
+    return (d.stats?.[0]?.splits ?? []).map((s: any) => ({
+      playerId: Number(s.player?.id),
+      playerName: s.player?.fullName ?? '—',
+      teamAbbr: s.team?.abbreviation ?? TEAM_ABBR[s.team?.id] ?? '—',
+      stat: s.stat,
+    })).filter((e: any) => e.playerId > 0)
+  } catch {
+    return []
+  }
+}
+
 async function fetchTeamRankings(group: 'hitting' | 'pitching', season: number, defs: StatDef[]): Promise<Map<string, number[]>> {
   try {
     const teamIds = Object.keys(TEAM_ABBR).map(Number)
@@ -947,18 +968,20 @@ function ChartTooltip({ tipPos, children }: { tipPos: { x: number; y: number; fl
   )
 }
 
-function TeamDot({ team, x, y, hovered, dimmed, highlighted, onEnter, onLeave }: {
+function TeamDot({ team, x, y, hovered, dimmed, highlighted, onEnter, onLeave, onSelect }: {
   team: TeamSummary; x: number; y: number; hovered: boolean
   dimmed?: boolean; highlighted?: boolean
   onEnter: (t: TeamSummary, e: React.MouseEvent) => void
   onLeave: () => void
+  onSelect?: (id: number) => void
 }) {
   const color = TEAM_BG[team.id] ?? '#555'
   const r = hovered ? 20 : highlighted ? 17 : 14
   return (
     <g transform={`translate(${x},${y})`}
-      style={{ cursor: 'default', opacity: dimmed ? 0.14 : 1, transition: 'opacity 0.25s' }}
-      onMouseEnter={e => onEnter(team, e)} onMouseLeave={onLeave}>
+      style={{ cursor: 'pointer', opacity: dimmed ? 0.14 : 1, transition: 'opacity 0.25s' }}
+      onMouseEnter={e => onEnter(team, e)} onMouseLeave={onLeave}
+      onClick={() => onSelect?.(team.id)}>
       {highlighted && !hovered && (
         <circle r={r + 5} fill={color} fillOpacity={0.18} />
       )}
@@ -975,7 +998,7 @@ function TeamDot({ team, x, y, hovered, dimmed, highlighted, onEnter, onLeave }:
 
 // ─── ERA vs OPS Scatter Plot ─────────────────────────────────────────────────
 
-function TeamEraOpsPlot({ data, nameMap, highlightTeamId }: { data: TeamSummary[]; nameMap: Map<number, string>; highlightTeamId: number | null }) {
+function TeamEraOpsPlot({ data, nameMap, highlightTeamId, onSelectTeam }: { data: TeamSummary[]; nameMap: Map<number, string>; highlightTeamId: number | null; onSelectTeam: (id: number) => void }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const { hovered, setHovered, tipPos, onEnter } = useChartTooltip<TeamSummary & { name: string }>(boxRef as React.RefObject<HTMLDivElement>)
 
@@ -1050,7 +1073,8 @@ function TeamEraOpsPlot({ data, nameMap, highlightTeamId }: { data: TeamSummary[
             dimmed={highlightTeamId != null && team.id !== highlightTeamId}
             highlighted={highlightTeamId === team.id}
             onEnter={(t, e) => onEnter({ ...t, name: nameMap.get(t.id) ?? t.abbr }, e)}
-            onLeave={() => setHovered(null)} />
+            onLeave={() => setHovered(null)}
+            onSelect={onSelectTeam} />
         ))}
       </svg>
 
@@ -1070,7 +1094,7 @@ function TeamEraOpsPlot({ data, nameMap, highlightTeamId }: { data: TeamSummary[
 
 // ─── Win% vs Run Differential (Pythagorean) ───────────────────────────────────
 
-function TeamWinRDPlot({ data, nameMap, highlightTeamId }: { data: TeamSummary[]; nameMap: Map<number, string>; highlightTeamId: number | null }) {
+function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam }: { data: TeamSummary[]; nameMap: Map<number, string>; highlightTeamId: number | null; onSelectTeam: (id: number) => void }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const { hovered, setHovered, tipPos, onEnter } = useChartTooltip<TeamSummary & { name: string; winPct: number; rd: number; pythPct: number; pythWins: number; pythLosses: number }>(boxRef as React.RefObject<HTMLDivElement>)
 
@@ -1175,7 +1199,8 @@ function TeamWinRDPlot({ data, nameMap, highlightTeamId }: { data: TeamSummary[]
             dimmed={highlightTeamId != null && team.id !== highlightTeamId}
             highlighted={highlightTeamId === team.id}
             onEnter={(t, e) => onEnter(withPyth.find(w => w.id === t.id)!, e)}
-            onLeave={() => setHovered(null)} />
+            onLeave={() => setHovered(null)}
+            onSelect={onSelectTeam} />
         ))}
       </svg>
 
@@ -1197,6 +1222,89 @@ function TeamWinRDPlot({ data, nameMap, highlightTeamId }: { data: TeamSummary[]
           })()}
         </ChartTooltip>
       )}
+    </Box>
+  )
+}
+
+// ─── Luck / Pythagorean delta bar chart ──────────────────────────────────────
+
+function TeamLuckChart({ data, nameMap, highlightTeamId, onSelectTeam }: {
+  data: TeamSummary[]
+  nameMap: Map<number, string>
+  highlightTeamId: number | null
+  onSelectTeam: (id: number) => void
+}) {
+  const withDelta = data
+    .filter(d => !isNaN(d.rs) && !isNaN(d.ra) && d.wins + d.losses > 0)
+    .map(d => {
+      const e = 1.83
+      const pythPct = d.ra > 0 ? Math.pow(d.rs, e) / (Math.pow(d.rs, e) + Math.pow(d.ra, e)) : 0.99
+      const games = d.wins + d.losses
+      const pythWins = Math.round(pythPct * games)
+      const delta = d.wins - pythWins
+      return { ...d, pythWins, delta, name: nameMap.get(d.id) ?? d.abbr }
+    })
+    .sort((a, b) => b.delta - a.delta)
+
+  if (!withDelta.length) return null
+
+  const maxAbs = Math.max(...withDelta.map(t => Math.abs(t.delta)), 1)
+  const rowH = 20, rowGap = 4
+  const labelW = 46, barHalfW = 170, numW = 30
+  const W = labelW + barHalfW * 2 + numW + 8
+  const H = withDelta.length * (rowH + rowGap) + 20
+  const centerX = labelW + barHalfW
+
+  return (
+    <Box sx={{ position: 'relative', userSelect: 'none' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+        {/* Center axis */}
+        <line x1={centerX} y1={4} x2={centerX} y2={H - 4}
+          stroke="currentColor" strokeOpacity={0.22} strokeWidth={1.5} strokeDasharray="4 3" />
+
+        {withDelta.map((team, i) => {
+          const y = 10 + i * (rowH + rowGap)
+          const cy = y + rowH / 2
+          const color = TEAM_BG[team.id] ?? '#555'
+          const barW = maxAbs > 0 ? (Math.abs(team.delta) / maxAbs) * (barHalfW - 6) : 0
+          const isOver = team.delta >= 0
+          const barX = isOver ? centerX : centerX - barW
+          const isHighlighted = highlightTeamId === team.id
+          const isDimmed = highlightTeamId != null && !isHighlighted
+
+          return (
+            <g key={team.id} onClick={() => onSelectTeam(team.id)}
+              style={{ cursor: 'pointer', opacity: isDimmed ? 0.2 : 1, transition: 'opacity 0.25s' }}>
+              {/* Team dot + abbr */}
+              <circle cx={14} cy={cy} r={isHighlighted ? 10 : 8} fill={color} />
+              {isHighlighted && <circle cx={14} cy={cy} r={12} fill={color} fillOpacity={0.2} />}
+              <text x={14} y={cy + 3.5} textAnchor="middle" fill="#fff"
+                fontSize={team.abbr.length > 2 ? 5 : 6} fontWeight={800}
+                style={{ pointerEvents: 'none' }}>{team.abbr}</text>
+              {/* Bar */}
+              <rect x={barX} y={y + 3} width={Math.max(barW, 1)} height={rowH - 6}
+                fill={isOver ? '#22c55e' : '#ef4444'}
+                fillOpacity={isHighlighted ? 0.8 : 0.45}
+                rx={2} />
+              {/* Delta label */}
+              <text
+                x={isOver ? centerX + barW + 4 : centerX - barW - 4}
+                y={cy + 3.5}
+                textAnchor={isOver ? 'start' : 'end'}
+                fill={isOver ? '#22c55e' : '#ef4444'}
+                fillOpacity={0.9}
+                fontSize={9.5} fontWeight={700}
+                style={{ pointerEvents: 'none' }}>
+                {team.delta > 0 ? `+${team.delta}` : team.delta}
+              </text>
+            </g>
+          )
+        })}
+
+        {/* "Lucky" / "Unlucky" labels */}
+        <text x={centerX + 8} y={9} fill="#22c55e" fillOpacity={0.6} fontSize={8} fontWeight={700}>OVERPERFORMING →</text>
+        <text x={centerX - 8} y={9} textAnchor="end" fill="#ef4444" fillOpacity={0.6} fontSize={8} fontWeight={700}>← UNDERPERFORMING</text>
+      </svg>
     </Box>
   )
 }
@@ -1918,13 +2026,17 @@ export default function MlbStats() {
   const [showAge, setShowAge] = useState(false)
   const [showNumber, setShowNumber] = useState(false)
 
-  const [view, setView] = useState<'search' | 'viz'>('search')
+  const [view, setView] = useState<'search' | 'viz' | 'leaderboard'>('search')
   const [vizSeason, setVizSeason] = useState(CURRENT_SEASON)
   const [teamSummaries, setTeamSummaries] = useState<TeamSummary[]>([])
   const [loadingViz, setLoadingViz] = useState(false)
   const [vizHighlightId, setVizHighlightId] = useState<number | null>(null)
   const [vizSearch, setVizSearch] = useState('')
   const [vizSearchOpen, setVizSearchOpen] = useState(false)
+
+  const [lbGroup, setLbGroup] = useState<'hitting' | 'pitching'>('hitting')
+  const [lbData, setLbData] = useState<Array<{ playerId: number; playerName: string; teamAbbr: string; stat: any }> | null>(null)
+  const [loadingLb, setLoadingLb] = useState(false)
 
   // Career trends
   const [careerSplits, setCareerSplits] = useState<CareerStatSplit[] | null>(null)
@@ -1957,6 +2069,15 @@ export default function MlbStats() {
       .catch(() => {})
       .finally(() => setLoadingViz(false))
   }, [view, vizSeason])
+
+  useEffect(() => {
+    if (view !== 'leaderboard') return
+    setLoadingLb(true)
+    setLbData(null)
+    fetchLeaderboardData(lbGroup, vizSeason)
+      .then(setLbData)
+      .finally(() => setLoadingLb(false))
+  }, [view, lbGroup, vizSeason])
 
   // Combined search: instant team filter + debounced player search
   useEffect(() => {
@@ -2195,6 +2316,8 @@ export default function MlbStats() {
     onToggleHitStat: toggleTeamHitStat, onTogglePitStat: toggleTeamPitStat,
   } : null
 
+  const handleVizSelect = (id: number) => setVizHighlightId(prev => prev === id ? null : id)
+
   return (
     <Box sx={{ maxWidth: { xs: 640, md: 1280 }, mx: 'auto' }}>
 
@@ -2204,9 +2327,10 @@ export default function MlbStats() {
           options={[
             { value: 'search', label: 'Search' },
             { value: 'viz', label: 'Visualize' },
+            { value: 'leaderboard', label: 'Leaderboard' },
           ]}
           value={view}
-          onChange={v => setView(v as 'search' | 'viz')}
+          onChange={v => setView(v as 'search' | 'viz' | 'leaderboard')}
         />
       </Box>
 
@@ -2217,7 +2341,7 @@ export default function MlbStats() {
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', flex: 1 }}>
               <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                All 30 teams · hover any bubble to inspect
+                All 30 teams · click to focus · hover to inspect
               </Typography>
 
               {/* Team highlight */}
@@ -2321,7 +2445,7 @@ export default function MlbStats() {
                   Pitching quality vs offensive output · top-right = elite
                 </Typography>
                 <Paper elevation={2} sx={{ borderRadius: 3, overflow: 'hidden', p: { xs: 1.5, sm: 2 } }}>
-                  <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} />
+                  <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
                 </Paper>
               </Box>
 
@@ -2348,15 +2472,118 @@ export default function MlbStats() {
                   Actual record vs Pythagorean expected W-L · above the curve = outperforming run differential
                 </Typography>
                 <Paper elevation={2} sx={{ borderRadius: 3, overflow: 'hidden', p: { xs: 1.5, sm: 2 } }}>
-                  <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} />
+                  <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
                 </Paper>
               </Box>
+
+            {/* Chart 3: Pythagorean luck bar chart — full width */}
+            <Box sx={{ gridColumn: { md: '1 / -1' } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
+                <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Over / Underperforming</Typography>
+                <Tooltip arrow placement="top" title={
+                  <Box sx={{ maxWidth: 260, p: 0.5 }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
+                    <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
+                      Bars show how many wins each team has above (+) or below (−) their Pythagorean expectation.
+                      Positive teams are winning more than their run differential predicts — often the result of a strong bullpen or clutch performance.
+                      Negative teams are being "unlucky" — they're scoring and allowing runs efficiently but losing close games.
+                    </Typography>
+                  </Box>
+                }>
+                  <InfoOutlined sx={{ fontSize: '0.95rem', color: 'text.disabled', cursor: 'help', mt: '1px' }} />
+                </Tooltip>
+              </Box>
+              <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
+                Wins above/below Pythagorean expectation · click to highlight across all charts
+              </Typography>
+              <Paper elevation={2} sx={{ borderRadius: 3, overflow: 'hidden', p: { xs: 1.5, sm: 2 } }}>
+                <TeamLuckChart data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
+              </Paper>
             </Box>
+          </Box>
           )}
 
           {!loadingViz && teamSummaries.length === 0 && (
             <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>No team stats available for {vizSeason}.</Typography>
           )}
+        </Box>
+      )}
+
+      {/* Leaderboard tab */}
+      {view === 'leaderboard' && (
+        <Box>
+          {/* Controls row */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, flexWrap: 'wrap', gap: 1.5 }}>
+            <SegControl
+              options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
+              value={lbGroup}
+              onChange={v => setLbGroup(v as 'hitting' | 'pitching')}
+            />
+            <Box sx={{ ...pillActionSx, p: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT } }}>
+              <select value={vizSeason} onChange={e => setVizSeason(Number(e.target.value))}
+                style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: '6px 16px', borderRadius: 999, fontFamily: 'inherit' }}>
+                {TEAM_SEASONS.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </Box>
+          </Box>
+
+          {loadingLb && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
+
+          {!loadingLb && lbData && (() => {
+            const defs = (lbGroup === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS)
+              .filter(d => d.leaderCategory)
+            return (
+              <Box sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+                gap: 2,
+              }}>
+                {defs.map(def => {
+                  const asc = def.lowerIsBetter ?? false
+                  const entries = lbData
+                    .map(e => ({ ...e, val: def.getValue(e.stat) }))
+                    .filter(e => e.val != null && e.val !== '' && !isNaN(Number(e.val)))
+                    .sort((a, b) => asc ? Number(a.val) - Number(b.val) : Number(b.val) - Number(a.val))
+                    .slice(0, 5)
+                  if (!entries.length) return null
+                  return (
+                    <Paper key={def.key} elevation={2} sx={{ borderRadius: 3, p: 2 }}>
+                      <Typography sx={{ fontWeight: 800, fontSize: '0.9rem', mb: 1.25, letterSpacing: '-0.2px' }}>
+                        {def.label}
+                        {def.lowerIsBetter && <Typography component="span" sx={{ fontSize: '0.65rem', color: 'text.disabled', ml: 0.75, fontWeight: 600 }}>lower = better</Typography>}
+                      </Typography>
+                      {entries.map((e, rank) => (
+                        <Box key={e.playerId} sx={{
+                          display: 'flex', alignItems: 'center', gap: 1,
+                          py: 0.55,
+                          borderBottom: rank < 4 ? '1px solid' : 'none',
+                          borderColor: 'divider',
+                        }}>
+                          <Typography sx={{
+                            fontSize: '0.68rem', fontWeight: 800, color: rank === 0 ? ACCENT : 'text.disabled',
+                            width: 18, flexShrink: 0, textAlign: 'center',
+                          }}>#{rank + 1}</Typography>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {e.playerName}
+                            </Typography>
+                            <Typography sx={{ fontSize: '0.65rem', color: 'text.disabled', fontWeight: 600 }}>{e.teamAbbr}</Typography>
+                          </Box>
+                          <Typography sx={{
+                            fontSize: '0.88rem', fontWeight: 800,
+                            color: rank === 0 ? ACCENT : 'text.primary',
+                            flexShrink: 0,
+                          }}>
+                            {def.format(e.val)}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Paper>
+                  )
+                })}
+              </Box>
+            )
+          })()}
         </Box>
       )}
 
