@@ -45,6 +45,7 @@ interface Palette {
 interface StatDef {
   key: string
   label: string
+  leaderLabel?: string   // Full name shown as leaderboard card header
   getValue: (stat: any) => any
   format: (v: any) => string
   leaderCategory: string
@@ -91,37 +92,37 @@ function statCols(n: number): number {
 
 const HITTING_STAT_DEFS: StatDef[] = [
   { key: 'ab',   label: 'AB',   getValue: s => s.atBats,        format: fmt,  leaderCategory: '',                    defaultSelected: false },
-  { key: 'h',    label: 'H',    getValue: s => s.hits,          format: fmt,  leaderCategory: 'hits',                defaultSelected: false },
-  { key: 'avg',  label: 'AVG',  getValue: s => s.avg,           format: fmt,  leaderCategory: 'battingAverage',      defaultSelected: true  },
+  { key: 'h',    label: 'H',    leaderLabel: 'Hits',            getValue: s => s.hits,          format: fmt,  leaderCategory: 'hits',                defaultSelected: false },
+  { key: 'avg',  label: 'AVG',  leaderLabel: 'Batting Average', getValue: s => s.avg,           format: fmt,  leaderCategory: 'battingAverage',      defaultSelected: true  },
   { key: '1b',   label: '1B',   getValue: s => s.hits != null ? s.hits - (s.doubles ?? 0) - (s.triples ?? 0) - (s.homeRuns ?? 0) : null, format: fmt, leaderCategory: '', defaultSelected: false },
-  { key: '2b',   label: '2B',   getValue: s => s.doubles,       format: fmt,  leaderCategory: 'doubles',             defaultSelected: false },
-  { key: '3b',   label: '3B',   getValue: s => s.triples,       format: fmt,  leaderCategory: 'triples',             defaultSelected: false },
-  { key: 'hr',   label: 'HR',   getValue: s => s.homeRuns,      format: fmt,  leaderCategory: 'homeRuns',            defaultSelected: true  },
-  { key: 'rbi',  label: 'RBI',  getValue: s => s.rbi,           format: fmt,  leaderCategory: 'runsBattedIn',        defaultSelected: true  },
-  { key: 'obp',  label: 'OBP',  getValue: s => s.obp,           format: fmt,  leaderCategory: 'onBasePercentage',    defaultSelected: false },
-  { key: 'slg',  label: 'SLG',  getValue: s => s.slg,           format: fmt,  leaderCategory: 'sluggingPercentage',  defaultSelected: false },
+  { key: '2b',   label: '2B',   leaderLabel: 'Doubles',         getValue: s => s.doubles,       format: fmt,  leaderCategory: 'doubles',             defaultSelected: false },
+  { key: '3b',   label: '3B',   leaderLabel: 'Triples',         getValue: s => s.triples,       format: fmt,  leaderCategory: 'triples',             defaultSelected: false },
+  { key: 'hr',   label: 'HR',   leaderLabel: 'Home Runs',       getValue: s => s.homeRuns,      format: fmt,  leaderCategory: 'homeRuns',            defaultSelected: true  },
+  { key: 'rbi',  label: 'RBI',  leaderLabel: 'RBIs',            getValue: s => s.rbi,           format: fmt,  leaderCategory: 'runsBattedIn',        defaultSelected: true  },
+  { key: 'obp',  label: 'OBP',  leaderLabel: 'On-Base %',       getValue: s => s.obp,           format: fmt,  leaderCategory: 'onBasePercentage',    defaultSelected: false },
+  { key: 'slg',  label: 'SLG',  leaderLabel: 'Slugging %',      getValue: s => s.slg,           format: fmt,  leaderCategory: 'sluggingPercentage',  defaultSelected: false },
   { key: 'ops',  label: 'OPS',  getValue: s => s.ops,           format: fmt,  leaderCategory: 'onBasePlusSlugging',  defaultSelected: true  },
-  { key: 'k',    label: 'K',    getValue: s => s.strikeOuts,    format: fmt,  leaderCategory: 'strikeouts',          defaultSelected: false, poop: true },
-  { key: 'bb',   label: 'BB',   getValue: s => s.baseOnBalls,   format: fmt,  leaderCategory: 'walks',               defaultSelected: false },
-  { key: 'sb',   label: 'SB',   getValue: s => s.stolenBases,   format: fmt,  leaderCategory: 'stolenBases',         defaultSelected: false },
-  { key: 'cs',   label: 'CS',   getValue: s => s.caughtStealing, format: fmt, leaderCategory: 'caughtStealing',      defaultSelected: false, poop: true },
+  { key: 'k',    label: 'K',    leaderLabel: 'Strikeouts',      getValue: s => s.strikeOuts,    format: fmt,  leaderCategory: 'strikeouts',          defaultSelected: false, poop: true },
+  { key: 'bb',   label: 'BB',   leaderLabel: 'Walks',           getValue: s => s.baseOnBalls,   format: fmt,  leaderCategory: 'walks',               defaultSelected: false },
+  { key: 'sb',   label: 'SB',   leaderLabel: 'Stolen Bases',    getValue: s => s.stolenBases,   format: fmt,  leaderCategory: 'stolenBases',         defaultSelected: false },
+  { key: 'cs',   label: 'CS',   getValue: s => s.caughtStealing, format: fmt, leaderCategory: '',                    defaultSelected: false, poop: true },
 ]
 
 const PITCHING_STAT_DEFS: StatDef[] = [
-  { key: 'wl',   label: 'W-L',  getValue: s => s.wins != null ? `${s.wins}-${s.losses ?? 0}` : null, format: v => v ?? '—', leaderCategory: 'wins',                         defaultSelected: true  },
-  { key: 'era',  label: 'ERA',  getValue: s => s.era,              format: fmt,                   leaderCategory: 'earnedRunAverage',             defaultSelected: true,  lowerIsBetter: true },
+  { key: 'wl',   label: 'W-L',  leaderLabel: 'Wins',              getValue: s => s.wins != null ? `${s.wins}-${s.losses ?? 0}` : null, format: v => v ?? '—', leaderCategory: 'wins',                         defaultSelected: true  },
+  { key: 'era',  label: 'ERA',  leaderLabel: 'ERA',               getValue: s => s.era,              format: fmt,                   leaderCategory: 'earnedRunAverage',             defaultSelected: true,  lowerIsBetter: true },
   { key: 'g',    label: 'G',    getValue: s => s.gamesPlayed,      format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'gs',   label: 'GS',   getValue: s => s.gamesStarted,     format: fmt,                   leaderCategory: '',                             defaultSelected: false },
-  { key: 'ip',   label: 'IP',   getValue: s => s.inningsPitched,   format: fmt,                   leaderCategory: 'inningsPitched',               defaultSelected: true  },
-  { key: 'whip', label: 'WHIP', getValue: s => s.whip,             format: fmt,                   leaderCategory: 'walksAndHitsPerInningPitched',  defaultSelected: true,  lowerIsBetter: true },
-  { key: 'sv',   label: 'SV',   getValue: s => s.saves,            format: fmt,                   leaderCategory: 'saves',                        defaultSelected: false },
+  { key: 'ip',   label: 'IP',   leaderLabel: 'Innings Pitched',   getValue: s => s.inningsPitched,   format: fmt,                   leaderCategory: 'inningsPitched',               defaultSelected: true  },
+  { key: 'whip', label: 'WHIP', leaderLabel: 'WHIP',              getValue: s => s.whip,             format: fmt,                   leaderCategory: 'walksAndHitsPerInningPitched',  defaultSelected: true,  lowerIsBetter: true },
+  { key: 'sv',   label: 'SV',   leaderLabel: 'Saves',             getValue: s => s.saves,            format: fmt,                   leaderCategory: 'saves',                        defaultSelected: false },
   { key: 'h',    label: 'H',    getValue: s => s.hits,             format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'r',    label: 'R',    getValue: s => s.runs,             format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'er',   label: 'ER',   getValue: s => s.earnedRuns,       format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'hr',   label: 'HR',   getValue: s => s.homeRuns,         format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'bb',   label: 'BB',   getValue: s => s.baseOnBalls,      format: fmt,                   leaderCategory: '',                             defaultSelected: false },
-  { key: 'k',    label: 'K',    getValue: s => s.strikeOuts,       format: fmt,                   leaderCategory: 'strikeouts',                   defaultSelected: true  },
-  { key: 'so9',  label: 'SO/9', getValue: s => s.strikeoutsPer9Inn, format: v => fmtDecimal(v, 2), leaderCategory: 'strikeoutsPer9Inn',            defaultSelected: false },
+  { key: 'k',    label: 'K',    leaderLabel: 'Strikeouts',        getValue: s => s.strikeOuts,       format: fmt,                   leaderCategory: 'strikeouts',                   defaultSelected: true  },
+  { key: 'so9',  label: 'SO/9', leaderLabel: 'K per 9',          getValue: s => s.strikeoutsPer9Inn, format: v => fmtDecimal(v, 2), leaderCategory: 'strikeoutsPer9Inn',            defaultSelected: false },
 ]
 
 // ─── Team stat definitions ────────────────────────────────────────────────────
@@ -159,6 +160,30 @@ const DEFAULT_TEAM_PIT_STATS = TEAM_PITCHING_DEFS.filter(d => d.defaultSelected)
 
 const CURRENT_SEASON = new Date().getFullYear()
 const TEAM_SEASONS = Array.from({ length: CURRENT_SEASON - 2000 + 1 }, (_, i) => CURRENT_SEASON - i)
+
+// Curated list of notable active players for random auto-load on Search tab
+const FEATURED_PLAYER_IDS = [
+  660271,  // Shohei Ohtani
+  518692,  // Freddie Freeman
+  605141,  // Mookie Betts
+  665742,  // Juan Soto
+  665487,  // Fernando Tatis Jr.
+  670541,  // Yordan Alvarez
+  624413,  // Pete Alonso
+  665489,  // Vladimir Guerrero Jr.
+  660670,  // Ronald Acuña Jr.
+  677594,  // Julio Rodríguez
+  675911,  // Spencer Strider
+  694497,  // Paul Skenes
+  668939,  // Gunnar Henderson
+  682998,  // Bobby Witt Jr.
+  673357,  // Corbin Carroll
+  676801,  // Elly De La Cruz
+  592518,  // Corey Seager
+  663728,  // Kyle Tucker
+  666971,  // Dylan Cease
+  641154,  // Gerrit Cole
+]
 
 const HEADSHOT = (id: number) =>
   `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_426,q_auto:best/v1/people/${id}/headshot/67/current`
@@ -2037,6 +2062,7 @@ export default function MlbStats() {
   const [lbGroup, setLbGroup] = useState<'hitting' | 'pitching'>('hitting')
   const [lbData, setLbData] = useState<Array<{ playerId: number; playerName: string; teamAbbr: string; stat: any }> | null>(null)
   const [loadingLb, setLoadingLb] = useState(false)
+  const [lbHoverId, setLbHoverId] = useState<number | null>(null)
 
   // Career trends
   const [careerSplits, setCareerSplits] = useState<CareerStatSplit[] | null>(null)
@@ -2229,6 +2255,10 @@ export default function MlbStats() {
       autoLoadedRef.current = true
       const t = allTeams.find(t => t.id === Number(tid))
       if (t) selectTeam(t)
+    } else if (!pid && !tid && allTeams.length > 0) {
+      autoLoadedRef.current = true
+      const randomId = FEATURED_PLAYER_IDS[Math.floor(Math.random() * FEATURED_PLAYER_IDS.length)]
+      fetchPlayerDetails(randomId).then(p => { if (p) selectPlayer(p) }).catch(() => {})
     }
   }, [allTeams, selectPlayer, selectTeam])
 
@@ -2532,12 +2562,16 @@ export default function MlbStats() {
           {!loadingLb && lbData && (() => {
             const defs = (lbGroup === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS)
               .filter(d => d.leaderCategory)
+            const MEDALS = ['🥇', '🥈', '🥉']
             return (
-              <Box sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
-                gap: 2,
-              }}>
+              <Box
+                onMouseLeave={() => setLbHoverId(null)}
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' },
+                  gap: 2,
+                }}
+              >
                 {defs.map(def => {
                   const asc = def.lowerIsBetter ?? false
                   const entries = lbData
@@ -2547,37 +2581,102 @@ export default function MlbStats() {
                     .slice(0, 5)
                   if (!entries.length) return null
                   return (
-                    <Paper key={def.key} elevation={2} sx={{ borderRadius: 3, p: 2 }}>
-                      <Typography sx={{ fontWeight: 800, fontSize: '0.9rem', mb: 1.25, letterSpacing: '-0.2px' }}>
-                        {def.label}
-                        {def.lowerIsBetter && <Typography component="span" sx={{ fontSize: '0.65rem', color: 'text.disabled', ml: 0.75, fontWeight: 600 }}>lower = better</Typography>}
-                      </Typography>
-                      {entries.map((e, rank) => (
-                        <Box key={e.playerId} sx={{
-                          display: 'flex', alignItems: 'center', gap: 1,
-                          py: 0.55,
-                          borderBottom: rank < 4 ? '1px solid' : 'none',
-                          borderColor: 'divider',
-                        }}>
-                          <Typography sx={{
-                            fontSize: '0.68rem', fontWeight: 800, color: rank === 0 ? ACCENT : 'text.disabled',
-                            width: 18, flexShrink: 0, textAlign: 'center',
-                          }}>#{rank + 1}</Typography>
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {e.playerName}
-                            </Typography>
-                            <Typography sx={{ fontSize: '0.65rem', color: 'text.disabled', fontWeight: 600 }}>{e.teamAbbr}</Typography>
-                          </Box>
-                          <Typography sx={{
-                            fontSize: '0.88rem', fontWeight: 800,
-                            color: rank === 0 ? ACCENT : 'text.primary',
-                            flexShrink: 0,
-                          }}>
-                            {def.format(e.val)}
+                    <Paper key={def.key} elevation={2} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+                      {/* Card header with gradient */}
+                      <Box sx={{
+                        px: 2, py: 1.25,
+                        background: `linear-gradient(135deg, ${ACCENT}22 0%, transparent 100%)`,
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                      }}>
+                        <Typography sx={{ fontWeight: 800, fontSize: '0.92rem', letterSpacing: '-0.2px', lineHeight: 1.2 }}>
+                          {def.leaderLabel ?? def.label}
+                        </Typography>
+                        {def.lowerIsBetter && (
+                          <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', fontWeight: 600, mt: 0.15 }}>
+                            lower = better
                           </Typography>
-                        </Box>
-                      ))}
+                        )}
+                      </Box>
+
+                      {/* Player rows */}
+                      <Box sx={{ px: 1.5, py: 0.75 }}>
+                        {entries.map((e, rank) => {
+                          const isHovered = lbHoverId === e.playerId
+                          const dimmed = lbHoverId !== null && !isHovered
+                          return (
+                            <Box
+                              key={e.playerId}
+                              onMouseEnter={() => setLbHoverId(e.playerId)}
+                              sx={{
+                                display: 'flex', alignItems: 'center', gap: 1.25,
+                                py: 0.7,
+                                borderBottom: rank < 4 ? '1px solid' : 'none',
+                                borderColor: 'divider',
+                                borderRadius: 1.5,
+                                px: 0.5,
+                                cursor: 'default',
+                                transition: 'opacity 0.18s, background 0.18s',
+                                opacity: dimmed ? 0.28 : 1,
+                                bgcolor: isHovered ? `${ACCENT}14` : 'transparent',
+                              }}
+                            >
+                              {/* Medal / rank indicator */}
+                              <Typography sx={{
+                                fontSize: rank < 3 ? '1rem' : '0.65rem',
+                                fontWeight: 800,
+                                color: 'text.disabled',
+                                width: 22,
+                                flexShrink: 0,
+                                textAlign: 'center',
+                                lineHeight: 1,
+                              }}>
+                                {rank < 3 ? MEDALS[rank] : `${rank + 1}`}
+                              </Typography>
+
+                              {/* Portrait */}
+                              <Box
+                                component="img"
+                                src={`https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_67,q_auto:best/v1/people/${e.playerId}/headshot/67/current`}
+                                alt={e.playerName}
+                                sx={{
+                                  width: 34, height: 34,
+                                  borderRadius: '50%',
+                                  objectFit: 'cover',
+                                  flexShrink: 0,
+                                  border: isHovered ? `2px solid ${ACCENT}` : '2px solid transparent',
+                                  transition: 'border-color 0.18s',
+                                  bgcolor: 'action.hover',
+                                }}
+                              />
+
+                              {/* Name + team */}
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography sx={{
+                                  fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.2,
+                                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                  color: isHovered ? ACCENT : 'text.primary',
+                                  transition: 'color 0.18s',
+                                }}>
+                                  {e.playerName}
+                                </Typography>
+                                <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', fontWeight: 600 }}>
+                                  {e.teamAbbr}
+                                </Typography>
+                              </Box>
+
+                              {/* Stat value */}
+                              <Typography sx={{
+                                fontSize: '0.9rem', fontWeight: 800, flexShrink: 0,
+                                color: rank === 0 ? ACCENT : isHovered ? ACCENT : 'text.primary',
+                                transition: 'color 0.18s',
+                              }}>
+                                {def.format(e.val)}
+                              </Typography>
+                            </Box>
+                          )
+                        })}
+                      </Box>
                     </Paper>
                   )
                 })}
