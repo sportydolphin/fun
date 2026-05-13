@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import {
   Box, Typography, CircularProgress, Paper,
   List, ListItemButton, Divider, ClickAwayListener,
-  Popover, Menu, MenuItem, Tooltip,
+  Popover, Menu, MenuItem, Tooltip, useMediaQuery,
 } from '@mui/material'
 import { Search, Shuffle, FileDownload, KeyboardArrowDown, InfoOutlined, OpenInFull, Close, Tune } from '@mui/icons-material'
 import html2canvas from 'html2canvas'
@@ -413,7 +413,7 @@ async function fetchTeamStats(id: number, group: 'hitting' | 'pitching', season:
 async function fetchLeaderboardData(
   group: 'hitting' | 'pitching',
   season: number
-): Promise<Array<{ playerId: number; playerName: string; teamAbbr: string; stat: any }>> {
+): Promise<Array<{ playerId: number; playerName: string; teamAbbr: string; teamId: number; stat: any }>> {
   try {
     const r = await fetch(
       `https://statsapi.mlb.com/api/v1/stats?stats=season&group=${group}&season=${season}&sportId=1&limit=2000`
@@ -423,6 +423,7 @@ async function fetchLeaderboardData(
       playerId: Number(s.player?.id),
       playerName: s.player?.fullName ?? '—',
       teamAbbr: s.team?.abbreviation ?? TEAM_ABBR[s.team?.id] ?? '—',
+      teamId: Number(s.team?.id) || 0,
       stat: s.stat,
     })).filter((e: any) => e.playerId > 0)
   } catch {
@@ -2106,6 +2107,8 @@ export default function MlbStats() {
   const [showAge, setShowAge] = useState(false)
   const [showNumber, setShowNumber] = useState(false)
 
+  const isDesktop = useMediaQuery('(min-width: 600px)')
+
   const [view, setView] = useState<'search' | 'viz' | 'leaderboard'>('search')
   const [vizSeason, setVizSeason] = useState(CURRENT_SEASON)
   const [teamSummaries, setTeamSummaries] = useState<TeamSummary[]>([])
@@ -2115,7 +2118,7 @@ export default function MlbStats() {
   const [vizSearchOpen, setVizSearchOpen] = useState(false)
 
   const [lbGroup, setLbGroup] = useState<'hitting' | 'pitching'>('hitting')
-  const [lbData, setLbData] = useState<Array<{ playerId: number; playerName: string; teamAbbr: string; stat: any }> | null>(null)
+  const [lbData, setLbData] = useState<Array<{ playerId: number; playerName: string; teamAbbr: string; teamId: number; stat: any }> | null>(null)
   const [loadingLb, setLoadingLb] = useState(false)
   const [lbHoverId, setLbHoverId] = useState<number | null>(null)
   const [lbSelectedKeys, setLbSelectedKeys] = useState<string[]>(LB_FEATURED.hitting)
@@ -2777,6 +2780,8 @@ export default function MlbStats() {
           {!loadingLb && lbData && (() => {
             const defs = lbSortedDefs.filter(d => lbSelectedKeys.includes(d.key))
             const MEDALS = ['🥇', '🥈', '🥉']
+            // 10 entries on desktop when showing featured (default) cards; 5 otherwise
+            const maxEntries = lbIsDefault && isDesktop ? 10 : 5
             return (
               <Box
                 onMouseLeave={() => setLbHoverId(null)}
@@ -2795,7 +2800,7 @@ export default function MlbStats() {
                     })
                     .filter(e => e.sortVal != null && !isNaN(Number(e.sortVal)))
                     .sort((a, b) => asc ? Number(a.sortVal) - Number(b.sortVal) : Number(b.sortVal) - Number(a.sortVal))
-                    .slice(0, 5)
+                    .slice(0, maxEntries)
                   if (!entries.length) return null
                   return (
                     <Paper key={def.key} elevation={2} sx={{ borderRadius: 3, overflow: 'hidden' }}>
@@ -2847,8 +2852,8 @@ export default function MlbStats() {
                               onClick={() => handleLbPlayerClick(e.playerId)}
                               sx={{
                                 display: 'flex', alignItems: 'center', gap: 1.25,
-                                py: 0.7,
-                                borderBottom: rank < 4 ? '1px solid' : 'none',
+                                py: 0.65,
+                                borderBottom: rank < entries.length - 1 ? '1px solid' : 'none',
                                 borderColor: 'divider',
                                 borderRadius: 1.5,
                                 px: 0.5,
@@ -2887,7 +2892,7 @@ export default function MlbStats() {
                                 }}
                               />
 
-                              {/* Name + team */}
+                              {/* Name + team logo */}
                               <Box sx={{ flex: 1, minWidth: 0 }}>
                                 <Typography sx={{
                                   fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.2,
@@ -2897,9 +2902,29 @@ export default function MlbStats() {
                                 }}>
                                   {e.playerName}
                                 </Typography>
-                                <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', fontWeight: 600 }}>
-                                  {e.teamAbbr}
-                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.1 }}>
+                                  {e.teamId > 0 && (
+                                    <Box sx={{
+                                      width: 16, height: 16, borderRadius: '50%',
+                                      bgcolor: TEAM_BG[e.teamId] ?? '#374151',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      flexShrink: 0, overflow: 'hidden',
+                                    }}>
+                                      <Box
+                                        component="img"
+                                        src={`https://www.mlbstatic.com/team-logos/${e.teamId}.svg`}
+                                        alt={e.teamAbbr}
+                                        sx={{ width: 12, height: 12, objectFit: 'contain' }}
+                                        onError={(ev: React.SyntheticEvent<HTMLImageElement>) => {
+                                          ev.currentTarget.parentElement!.style.display = 'none'
+                                        }}
+                                      />
+                                    </Box>
+                                  )}
+                                  <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', fontWeight: 600, lineHeight: 1 }}>
+                                    {e.teamAbbr}
+                                  </Typography>
+                                </Box>
                               </Box>
 
                               {/* Stat value */}
