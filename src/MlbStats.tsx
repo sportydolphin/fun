@@ -88,6 +88,35 @@ function statCols(n: number): number {
   return 3
 }
 
+/**
+ * Generate ≈target human-friendly tick values that span [dataMin, dataMax].
+ * Steps are always "nice" numbers: 1, 2, 2.5, 5, or 10 × a power of 10.
+ */
+function niceTicks(dataMin: number, dataMax: number, target = 5): number[] {
+  if (!isFinite(dataMin) || !isFinite(dataMax) || dataMin >= dataMax) {
+    return isFinite(dataMin) ? [dataMin] : []
+  }
+  const range = dataMax - dataMin
+  const roughStep = range / Math.max(2, target - 1)
+  const mag = Math.pow(10, Math.floor(Math.log10(roughStep)))
+  const norm = roughStep / mag
+  let step: number
+  if      (norm <= 1)   step = mag
+  else if (norm <= 2)   step = 2 * mag
+  else if (norm <= 2.5) step = 2.5 * mag
+  else if (norm <= 5)   step = 5 * mag
+  else                  step = 10 * mag
+
+  const lo = Math.ceil(dataMin  / step - 1e-9) * step
+  const hi = Math.floor(dataMax / step + 1e-9) * step
+  const count = Math.round((hi - lo) / step)
+  const ticks: number[] = []
+  for (let i = 0; i <= count; i++) {
+    ticks.push(parseFloat((lo + i * step).toPrecision(12)))
+  }
+  return ticks.length ? ticks : [dataMin, dataMax]
+}
+
 // ─── Player stat definitions ──────────────────────────────────────────────────
 
 const HITTING_STAT_DEFS: StatDef[] = [
@@ -1047,8 +1076,8 @@ function TeamEraOpsPlot({ data, nameMap, highlightTeamId, onSelectTeam }: { data
   const sy = (v: number) => m.t + ((v - yMin) / (yMax - yMin)) * iH
   const ax = sx(avgOps), ay = sy(avgEra)
 
-  const xTicks = Array.from({ length: 6 }, (_, i) => xMin + (i / 5) * (xMax - xMin))
-  const yTicks = Array.from({ length: 6 }, (_, i) => yMin + (i / 5) * (yMax - yMin))
+  const xTicks = niceTicks(xMin, xMax, 6)
+  const yTicks = niceTicks(yMin, yMax, 6)
 
   return (
     <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
@@ -1079,7 +1108,7 @@ function TeamEraOpsPlot({ data, nameMap, highlightTeamId, onSelectTeam }: { data
         {xTicks.map((v, i) => (
           <g key={i}>
             <line x1={sx(v)} y1={m.t + iH} x2={sx(v)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-            <text x={sx(v)} y={m.t + iH + 16} textAnchor="middle" fill="currentColor" fillOpacity={0.72} fontSize={10}>{v.toFixed(3)}</text>
+            <text x={sx(v)} y={m.t + iH + 16} textAnchor="middle" fill="currentColor" fillOpacity={0.72} fontSize={10}>{fmtR(v, 3)}</text>
           </g>
         ))}
         {yTicks.map((v, i) => (
@@ -1169,8 +1198,8 @@ function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam }: { data:
     return { ...d, pythPct, pythWins, pythLosses, name: nameMap.get(d.id) ?? d.abbr }
   })
 
-  const xTicks = Array.from({ length: 7 }, (_, i) => xMin + (i / 6) * (xMax - xMin))
-  const yTicks = Array.from({ length: 6 }, (_, i) => yMin + (i / 5) * (yMax - yMin))
+  const xTicks = niceTicks(xMin, xMax, 7)
+  const yTicks = niceTicks(yMin, yMax, 6)
 
   return (
     <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
@@ -1211,7 +1240,7 @@ function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam }: { data:
         {yTicks.map((v, i) => (
           <g key={i}>
             <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-            <text x={m.l - 8} y={sy(v) + 3.5} textAnchor="end" fill="currentColor" fillOpacity={0.72} fontSize={10}>{v.toFixed(3)}</text>
+            <text x={m.l - 8} y={sy(v) + 3.5} textAnchor="end" fill="currentColor" fillOpacity={0.72} fontSize={10}>{fmtR(v, 3)}</text>
           </g>
         ))}
 
@@ -1719,7 +1748,7 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   const volLabel = group === 'hitting' ? 'AB' : 'IP'
   const avgY = showHorizAvg ? sy(avg!) : 0
 
-  const yTicks = Array.from({ length: 5 }, (_, i) => yMin + (i / 4) * (yMax - yMin))
+  const yTicks = niceTicks(yMin, yMax, 5)
   const xLabelStep = Math.max(1, Math.ceil(n / 10))
   const gradId = `trendgrad-${group}-${statKey}`
 
