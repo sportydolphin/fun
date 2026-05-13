@@ -176,7 +176,11 @@ export default function App() {
     <>
       <AppBar position="static" color="default" elevation={1}>
         <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
+          <Typography
+            variant="h6" component="div"
+            onClick={() => navigate('/')}
+            sx={{ flexGrow: 1, fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+          >
             sportydolphin.fun
           </Typography>
           <IconButton onClick={toggleTheme} color="inherit">
@@ -216,12 +220,7 @@ export default function App() {
             <TestGame />
           </Box>
         )}
-        {path === '/mlb' && (
-          <Box>
-            {backBtn}
-            <MlbStats />
-          </Box>
-        )}
+        {path === '/mlb' && <MlbStats />}
       </Box>
     </>
   )

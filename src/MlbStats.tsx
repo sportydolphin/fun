@@ -1801,24 +1801,25 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
         </Box>
       )}
 
-      {/* Stat selector chips */}
-      <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap', mb: 1.5 }}>
-        {availableDefs.map(def => (
-          <PillChip key={def.key} label={def.label} selected={currentDef.key === def.key} onChange={() => setStatKey(def.key)} />
-        ))}
-      </Box>
+      {/* Controls row: stat picker + season range on one line */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.75, flexWrap: 'wrap' }}>
+        {/* Stat dropdown */}
+        <Box sx={{ border: '1.5px solid', borderColor: 'divider', borderRadius: 999, flexShrink: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT } }}>
+          <select value={statKey} onChange={e => setStatKey(e.target.value)} style={trendSelSx}>
+            {availableDefs.map(def => <option key={def.key} value={def.key}>{def.label}</option>)}
+          </select>
+        </Box>
 
-      {/* Season range selector */}
-      {pts.length >= 3 && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.75, flexWrap: 'wrap' }}>
-          <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontWeight: 600 }}>Season range</Typography>
+        {/* Season range */}
+        {pts.length >= 3 && (<>
+          <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', fontWeight: 600 }}>·</Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Box sx={{ border: '1.5px solid', borderColor: 'divider', borderRadius: 999, '&:hover': { borderColor: ACCENT } }}>
               <select value={effStart} onChange={e => { setRangeStart(Number(e.target.value)); setHovIdx(null) }} style={trendSelSx}>
                 {allSeasonsList.filter(y => y <= effEnd).map(y => <option key={y} value={y}>{y}</option>)}
               </select>
             </Box>
-            <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>–</Typography>
+            <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>–</Typography>
             <Box sx={{ border: '1.5px solid', borderColor: 'divider', borderRadius: 999, '&:hover': { borderColor: ACCENT } }}>
               <select value={effEnd} onChange={e => { setRangeEnd(Number(e.target.value)); setHovIdx(null) }} style={trendSelSx}>
                 {allSeasonsList.filter(y => y >= effStart).map(y => <option key={y} value={y}>{y}</option>)}
@@ -1831,8 +1832,8 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
               Reset
             </Box>
           )}
-        </Box>
-      )}
+        </>)}
+      </Box>
 
       {/* Summary row */}
       <Box sx={{ display: 'flex', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
@@ -3214,13 +3215,19 @@ export default function MlbStats() {
         </Box>
       </ClickAwayListener>
 
-      {/* Year picker — inline next to search */}
+      {/* Year picker — inline next to search, same height as search bar */}
       {(hasStats || loadingStats) && (
-        <Box sx={{ ...pillActionSx, p: 0, flexShrink: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT, color: ACCENT } }}>
+        <Box sx={{
+          p: 0, flexShrink: 0, borderRadius: 999,
+          border: '2px solid', borderColor: 'divider', bgcolor: 'background.paper',
+          transition: 'border-color 0.2s',
+          '&:hover': { borderColor: ACCENT },
+          '&:focus-within': { borderColor: ACCENT },
+        }}>
           <select
             value={season}
             onChange={e => handleSeasonChange(Number(e.target.value))}
-            style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: '6px 14px', borderRadius: 999, fontFamily: 'inherit' }}
+            style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.92rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: '8.8px 14px', borderRadius: 999, fontFamily: 'inherit' }}
           >
             {currentAvailableSeasons.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
