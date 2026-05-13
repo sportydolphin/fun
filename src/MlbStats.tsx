@@ -2599,9 +2599,7 @@ export default function MlbStats() {
                 <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
                   How good a team's pitching and hitting are · top-right = best of both
                 </Typography>
-                <Paper elevation={2} sx={{ borderRadius: 3, overflow: 'hidden', p: { xs: 1.5, sm: 2 } }}>
-                  <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
-                </Paper>
+                <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
               </Box>
 
               {/* Chart 2: Win% vs Run Differential */}
@@ -2626,9 +2624,7 @@ export default function MlbStats() {
                 <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
                   Actual record vs expected W-L based on scoring · above the curve = outperforming
                 </Typography>
-                <Paper elevation={2} sx={{ borderRadius: 3, overflow: 'hidden', p: { xs: 1.5, sm: 2 } }}>
-                  <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
-                </Paper>
+                <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
               </Box>
 
             {/* Chart 3: Over/Underperforming */}
@@ -2651,9 +2647,7 @@ export default function MlbStats() {
               <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
                 Wins above/below what their scoring margin predicts · click to highlight across all charts
               </Typography>
-              <Paper elevation={2} sx={{ borderRadius: 3, overflow: 'hidden', p: { xs: 1.5, sm: 2 } }}>
-                <TeamLuckChart data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
-              </Paper>
+              <TeamLuckChart data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
             </Box>
           </Box>
           )}
