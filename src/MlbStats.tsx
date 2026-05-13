@@ -4,7 +4,7 @@ import {
   List, ListItemButton, Divider, ClickAwayListener,
   Popover, Menu, MenuItem, Tooltip,
 } from '@mui/material'
-import { Search, Shuffle, FileDownload, KeyboardArrowDown, InfoOutlined, OpenInFull, Close } from '@mui/icons-material'
+import { Search, Shuffle, FileDownload, KeyboardArrowDown, InfoOutlined, OpenInFull, Close, Tune } from '@mui/icons-material'
 import html2canvas from 'html2canvas'
 
 // ─── Design token ─────────────────────────────────────────────────────────────
@@ -2119,6 +2119,8 @@ export default function MlbStats() {
   const [loadingLb, setLoadingLb] = useState(false)
   const [lbHoverId, setLbHoverId] = useState<number | null>(null)
   const [lbSelectedKeys, setLbSelectedKeys] = useState<string[]>(LB_FEATURED.hitting)
+  const [lbPickerAnchor, setLbPickerAnchor] = useState<HTMLElement | null>(null)
+  const [cardOptionsAnchor, setCardOptionsAnchor] = useState<HTMLElement | null>(null)
   const [lbExportMenu, setLbExportMenu] = useState<{
     anchor: HTMLElement
     def: StatDef
@@ -2669,7 +2671,19 @@ export default function MlbStats() {
       )}
 
       {/* Leaderboard tab */}
-      {view === 'leaderboard' && (
+      {view === 'leaderboard' && (() => {
+        // Compute sorted defs outside IIFE so the Stats button can use them
+        const lbAllDefs = (lbGroup === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS).filter(d => d.leaderCategory)
+        const lbFeatured = LB_FEATURED[lbGroup]
+        const lbSortedDefs = [...lbAllDefs].sort((a, b) => {
+          const ai = lbFeatured.indexOf(a.key), bi = lbFeatured.indexOf(b.key)
+          if (ai !== -1 && bi !== -1) return ai - bi
+          if (ai !== -1) return -1
+          if (bi !== -1) return 1
+          return (a.leaderLabel ?? a.label).localeCompare(b.leaderLabel ?? b.label)
+        })
+        const lbIsDefault = lbFeatured.length === lbSelectedKeys.length && lbFeatured.every(k => lbSelectedKeys.includes(k))
+        return (
         <Box>
           {/* Controls row */}
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, flexWrap: 'wrap', gap: 1.5 }}>
@@ -2678,83 +2692,78 @@ export default function MlbStats() {
               value={lbGroup}
               onChange={v => setLbGroup(v as 'hitting' | 'pitching')}
             />
-            <Box sx={{ ...pillActionSx, p: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT } }}>
-              <select value={vizSeason} onChange={e => setVizSeason(Number(e.target.value))}
-                style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: '6px 16px', borderRadius: 999, fontFamily: 'inherit' }}>
-                {TEAM_SEASONS.map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Box sx={{ ...pillActionSx, p: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT } }}>
+                <select value={vizSeason} onChange={e => setVizSeason(Number(e.target.value))}
+                  style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: '6px 16px', borderRadius: 999, fontFamily: 'inherit' }}>
+                  {TEAM_SEASONS.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </Box>
+              {/* Stats picker button */}
+              <Box
+                onClick={e => setLbPickerAnchor(e.currentTarget as HTMLElement)}
+                sx={{
+                  ...pillActionSx,
+                  borderColor: lbPickerAnchor ? ACCENT : lbIsDefault ? 'divider' : ACCENT,
+                  color: lbPickerAnchor ? ACCENT : lbIsDefault ? 'text.secondary' : ACCENT,
+                  bgcolor: lbPickerAnchor || !lbIsDefault ? `${ACCENT}10` : 'transparent',
+                }}
+              >
+                <Tune sx={{ fontSize: '0.85rem' }} />
+                Stats{!lbIsDefault ? ` (${lbSelectedKeys.length})` : ''}
+                <KeyboardArrowDown sx={{ fontSize: '0.85rem' }} />
+              </Box>
+              <Popover
+                open={Boolean(lbPickerAnchor)}
+                anchorEl={lbPickerAnchor}
+                onClose={() => setLbPickerAnchor(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                PaperProps={{ sx: { borderRadius: 2.5, p: 1.75, mt: 0.75, width: 280, boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
+              >
+                <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 1 }}>
+                  Leaderboard stats
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.65 }}>
+                  {lbSortedDefs.map((def, i) => {
+                    const isFeatured = lbFeatured.includes(def.key)
+                    const prevFeatured = i > 0 && lbFeatured.includes(lbSortedDefs[i - 1].key)
+                    return (
+                      <React.Fragment key={def.key}>
+                        {!isFeatured && prevFeatured && (
+                          <Box sx={{ width: '100%', borderTop: '1px solid', borderColor: 'divider', my: 0.5 }} />
+                        )}
+                        <PillChip
+                          label={def.leaderLabel ?? def.label}
+                          selected={lbSelectedKeys.includes(def.key)}
+                          onChange={() => setLbSelectedKeys(prev =>
+                            prev.includes(def.key)
+                              ? prev.filter(k => k !== def.key)
+                              : [...prev, def.key]
+                          )}
+                        />
+                      </React.Fragment>
+                    )
+                  })}
+                </Box>
+                {!lbIsDefault && (
+                  <Box
+                    onClick={() => setLbSelectedKeys([...lbFeatured])}
+                    sx={{ mt: 1.25, pt: 1, borderTop: '1px solid', borderColor: 'divider', fontSize: '0.7rem', color: 'text.disabled', cursor: 'pointer', fontWeight: 600, '&:hover': { color: ACCENT } }}
+                  >
+                    ↩ Reset to featured
+                  </Box>
+                )}
+              </Popover>
             </Box>
           </Box>
 
           {loadingLb && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
 
           {!loadingLb && lbData && (() => {
-            const allDefs = (lbGroup === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS)
-              .filter(d => d.leaderCategory)
-            const featured = LB_FEATURED[lbGroup]
-            // Sort: featured keys first (in order), then remaining alphabetically
-            const sortedDefs = [...allDefs].sort((a, b) => {
-              const ai = featured.indexOf(a.key), bi = featured.indexOf(b.key)
-              if (ai !== -1 && bi !== -1) return ai - bi
-              if (ai !== -1) return -1
-              if (bi !== -1) return 1
-              return (a.leaderLabel ?? a.label).localeCompare(b.leaderLabel ?? b.label)
-            })
-            const defs = sortedDefs.filter(d => lbSelectedKeys.includes(d.key))
+            const defs = lbSortedDefs.filter(d => lbSelectedKeys.includes(d.key))
             const MEDALS = ['🥇', '🥈', '🥉']
-            const isDefault = featured.length === lbSelectedKeys.length &&
-              featured.every(k => lbSelectedKeys.includes(k))
             return (
-              <>
-              {/* Stat picker */}
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2.5, alignItems: 'center' }}>
-                {sortedDefs.map((def, i) => {
-                  const isFeatured = featured.includes(def.key)
-                  const prevFeatured = i > 0 && featured.includes(sortedDefs[i - 1].key)
-                  const showDivider = !isFeatured && prevFeatured
-                  return (
-                    <React.Fragment key={def.key}>
-                      {showDivider && (
-                        <Box sx={{ width: '1px', height: 20, bgcolor: 'divider', mx: 0.25, alignSelf: 'center', flexShrink: 0 }} />
-                      )}
-                      <Box
-                        onClick={() => setLbSelectedKeys(prev =>
-                          prev.includes(def.key)
-                            ? prev.filter(k => k !== def.key)
-                            : [...prev, def.key]
-                        )}
-                        sx={{
-                          px: 1.5, py: 0.4,
-                          borderRadius: 999,
-                          border: '1.5px solid',
-                          borderColor: lbSelectedKeys.includes(def.key) ? ACCENT : 'divider',
-                          bgcolor: lbSelectedKeys.includes(def.key)
-                            ? isFeatured ? `${ACCENT}22` : `${ACCENT}12`
-                            : 'transparent',
-                          color: lbSelectedKeys.includes(def.key) ? ACCENT : 'text.secondary',
-                          fontSize: '0.75rem',
-                          fontWeight: isFeatured ? 700 : 600,
-                          cursor: 'pointer',
-                          transition: 'all 0.15s',
-                          userSelect: 'none',
-                          '&:hover': { borderColor: ACCENT, color: ACCENT },
-                        }}
-                      >
-                        {def.leaderLabel ?? def.label}
-                      </Box>
-                    </React.Fragment>
-                  )
-                })}
-                {!isDefault && (
-                  <Box
-                    onClick={() => setLbSelectedKeys([...featured])}
-                    sx={{ fontSize: '0.7rem', color: 'text.disabled', cursor: 'pointer', fontWeight: 600, ml: 0.5, '&:hover': { color: ACCENT } }}
-                  >
-                    Reset
-                  </Box>
-                )}
-              </Box>
-
               <Box
                 onMouseLeave={() => setLbHoverId(null)}
                 sx={{
@@ -2895,7 +2904,6 @@ export default function MlbStats() {
                   )
                 })}
               </Box>
-              </>
             )
           })()}
 
@@ -3055,7 +3063,8 @@ export default function MlbStats() {
             </Box>
           )}
         </Box>
-      )}
+        )
+      })()}
 
       {view === 'search' && <>
 
@@ -3210,78 +3219,111 @@ export default function MlbStats() {
             )}
           </Box>
 
-          {/* ── Combined options (full width below card + trends) ── */}
-          <Divider sx={{ mb: 2.5 }} />
-          <Box>
-            <SectionLabel>Options</SectionLabel>
-
-            {/* Actions: Colors, Season, Export */}
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
-              <Box onClick={() => setPalette(randomPalette())} sx={pillActionSx}>
-                <Shuffle sx={{ fontSize: '0.9rem' }} /> Colors
-              </Box>
-              <Box sx={{
-                ...pillActionSx, p: 0,
-                '&:hover': { borderColor: ACCENT },
-                '&:focus-within': { borderColor: ACCENT, color: ACCENT },
-              }}>
-                <select
-                  value={season}
-                  onChange={e => handleSeasonChange(Number(e.target.value))}
-                  style={{
-                    border: 'none', outline: 'none', background: 'transparent',
-                    fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
-                    color: 'inherit', padding: '6px 16px', borderRadius: 999,
-                    fontFamily: 'inherit',
-                  }}
-                >
-                  {currentAvailableSeasons.map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
-              </Box>
-              <Box
-                onClick={!downloading ? (e => setExportAnchor(e.currentTarget as HTMLElement)) : undefined}
-                sx={{ ...pillActionSx, opacity: downloading ? 0.55 : 1, cursor: downloading ? 'default' : 'pointer' }}
-              >
-                <FileDownload sx={{ fontSize: '0.9rem' }} />
-                {downloading ? 'Saving…' : 'Export'}
-                <KeyboardArrowDown sx={{ fontSize: '0.85rem' }} />
-              </Box>
-              <Menu
-                anchorEl={exportAnchor}
-                open={Boolean(exportAnchor)}
-                onClose={() => setExportAnchor(null)}
-                PaperProps={{ sx: { borderRadius: 2, mt: 0.5, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: 180 } }}
-              >
-                <MenuItem onClick={() => { setFullscreen(true); setExportAnchor(null) }} sx={{ fontSize: '0.85rem' }}>View fullscreen</MenuItem>
-                <MenuItem onClick={() => handleDownload('centered')} sx={{ fontSize: '0.85rem' }}>Download centered</MenuItem>
-                <MenuItem onClick={() => handleDownload('tiktok')} sx={{ fontSize: '0.85rem' }}>Download for TikTok</MenuItem>
-              </Menu>
+          {/* ── Actions row ── */}
+          <Divider sx={{ mb: 2 }} />
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Box onClick={() => setPalette(randomPalette())} sx={pillActionSx}>
+              <Shuffle sx={{ fontSize: '0.9rem' }} /> Colors
             </Box>
+            <Box sx={{
+              ...pillActionSx, p: 0,
+              '&:hover': { borderColor: ACCENT },
+              '&:focus-within': { borderColor: ACCENT, color: ACCENT },
+            }}>
+              <select
+                value={season}
+                onChange={e => handleSeasonChange(Number(e.target.value))}
+                style={{
+                  border: 'none', outline: 'none', background: 'transparent',
+                  fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer',
+                  color: 'inherit', padding: '6px 16px', borderRadius: 999,
+                  fontFamily: 'inherit',
+                }}
+              >
+                {currentAvailableSeasons.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </Box>
+            <Box
+              onClick={!downloading ? (e => setExportAnchor(e.currentTarget as HTMLElement)) : undefined}
+              sx={{ ...pillActionSx, opacity: downloading ? 0.55 : 1, cursor: downloading ? 'default' : 'pointer' }}
+            >
+              <FileDownload sx={{ fontSize: '0.9rem' }} />
+              {downloading ? 'Saving…' : 'Export'}
+              <KeyboardArrowDown sx={{ fontSize: '0.85rem' }} />
+            </Box>
+            <Menu
+              anchorEl={exportAnchor}
+              open={Boolean(exportAnchor)}
+              onClose={() => setExportAnchor(null)}
+              PaperProps={{ sx: { borderRadius: 2, mt: 0.5, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: 180 } }}
+            >
+              <MenuItem onClick={() => { setFullscreen(true); setExportAnchor(null) }} sx={{ fontSize: '0.85rem' }}>View fullscreen</MenuItem>
+              <MenuItem onClick={() => handleDownload('centered')} sx={{ fontSize: '0.85rem' }}>Download centered</MenuItem>
+              <MenuItem onClick={() => handleDownload('tiktok')} sx={{ fontSize: '0.85rem' }}>Download for TikTok</MenuItem>
+            </Menu>
 
-            {/* Stat pickers */}
-            <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mb: 2 }}>
+            {/* Customize button — all secondary options in one Popover */}
+            <Box
+              onClick={e => setCardOptionsAnchor(e.currentTarget as HTMLElement)}
+              sx={{
+                ...pillActionSx,
+                borderColor: cardOptionsAnchor ? ACCENT : 'divider',
+                color: cardOptionsAnchor ? ACCENT : 'text.secondary',
+                bgcolor: cardOptionsAnchor ? `${ACCENT}10` : 'transparent',
+              }}
+            >
+              <Tune sx={{ fontSize: '0.85rem' }} /> Customize
+              <KeyboardArrowDown sx={{ fontSize: '0.85rem' }} />
+            </Box>
+            <Popover
+              open={Boolean(cardOptionsAnchor)}
+              anchorEl={cardOptionsAnchor}
+              onClose={() => setCardOptionsAnchor(null)}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+              PaperProps={{ sx: { borderRadius: 2.5, p: 2, mt: 0.75, width: 290, boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
+            >
+              {/* Batting stats */}
               {(hittingStats || teamHitting) && (
-                <StatPicker
-                  defs={player ? HITTING_STAT_DEFS : TEAM_HITTING_DEFS}
-                  selected={player ? selectedHitStats : selectedTeamHitStats}
-                  onToggle={player ? toggleHitStat : toggleTeamHitStat}
-                  label="Batting"
-                />
+                <Box sx={{ mb: 1.75 }}>
+                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
+                    Batting stats
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
+                    {(player ? HITTING_STAT_DEFS : TEAM_HITTING_DEFS).map(def => (
+                      <PillChip
+                        key={def.key}
+                        label={def.label}
+                        selected={(player ? selectedHitStats : selectedTeamHitStats).includes(def.key)}
+                        onChange={() => (player ? toggleHitStat : toggleTeamHitStat)(def.key)}
+                      />
+                    ))}
+                  </Box>
+                </Box>
               )}
-              {(pitchingStats || teamPitching) && (
-                <StatPicker
-                  defs={player ? PITCHING_STAT_DEFS : TEAM_PITCHING_DEFS}
-                  selected={player ? selectedPitStats : selectedTeamPitStats}
-                  onToggle={player ? togglePitStat : toggleTeamPitStat}
-                  label="Pitching"
-                />
-              )}
-            </Box>
 
-            {/* League rank + portrait toggles — side by side at md+ */}
-            <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap', mb: 1 }}>
-              <Box>
-                <Typography sx={{ fontSize: '0.63rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.8, color: 'text.disabled', mb: 0.75 }}>
+              {/* Pitching stats */}
+              {(pitchingStats || teamPitching) && (
+                <Box sx={{ mb: 1.75 }}>
+                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
+                    Pitching stats
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
+                    {(player ? PITCHING_STAT_DEFS : TEAM_PITCHING_DEFS).map(def => (
+                      <PillChip
+                        key={def.key}
+                        label={def.label}
+                        selected={(player ? selectedPitStats : selectedTeamPitStats).includes(def.key)}
+                        onChange={() => (player ? togglePitStat : toggleTeamPitStat)(def.key)}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* League rank */}
+              <Box sx={{ mb: player ? 1.75 : 1.25 }}>
+                <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
                   League rank
                 </Typography>
                 <SegControl
@@ -3295,12 +3337,13 @@ export default function MlbStats() {
                 />
               </Box>
 
+              {/* Portrait toggles (player only) */}
               {player && (
-                <Box>
-                  <Typography sx={{ fontSize: '0.63rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.8, color: 'text.disabled', mb: 0.75 }}>
+                <Box sx={{ mb: 1.75 }}>
+                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
                     Show under portrait
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                  <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
                     {[
                       { label: 'Position', val: showPosition, set: setShowPosition },
                       { label: 'Team', val: showTeam, set: setShowTeam },
@@ -3312,37 +3355,39 @@ export default function MlbStats() {
                   </Box>
                 </Box>
               )}
-            </Box>
 
-            {/* Links */}
-            <Box sx={{ mt: 2, mb: 1 }}>
-              <SectionLabel>Links</SectionLabel>
-              <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-                {player && (<>
-                  <Box component="a"
-                    href={`https://www.baseball-reference.com/search/search.fcgi?search=${encodeURIComponent(player.fullName)}`}
-                    target="_blank" rel="noopener noreferrer" sx={linkPillSx}
-                  >Baseball Ref ↗</Box>
-                  <Box component="a"
-                    href={`https://baseballsavant.mlb.com/savant-player/${player.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${player.id}`}
-                    target="_blank" rel="noopener noreferrer" sx={linkPillSx}
-                  >Baseball Savant ↗</Box>
-                </>)}
-                {team && (() => {
-                  const bbrefAbbr = BBREF_ABBR[team.abbreviation] ?? team.abbreviation
-                  return (<>
+              {/* Links */}
+              <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 1.25 }}>
+                <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
+                  Links
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
+                  {player && (<>
                     <Box component="a"
-                      href={`https://www.baseball-reference.com/teams/${bbrefAbbr}/${season}.shtml`}
+                      href={`https://www.baseball-reference.com/search/search.fcgi?search=${encodeURIComponent(player.fullName)}`}
                       target="_blank" rel="noopener noreferrer" sx={linkPillSx}
                     >Baseball Ref ↗</Box>
                     <Box component="a"
-                      href={`https://baseballsavant.mlb.com/team/${team.id}`}
+                      href={`https://baseballsavant.mlb.com/savant-player/${player.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${player.id}`}
                       target="_blank" rel="noopener noreferrer" sx={linkPillSx}
                     >Baseball Savant ↗</Box>
-                  </>)
-                })()}
+                  </>)}
+                  {team && (() => {
+                    const bbrefAbbr = BBREF_ABBR[team.abbreviation] ?? team.abbreviation
+                    return (<>
+                      <Box component="a"
+                        href={`https://www.baseball-reference.com/teams/${bbrefAbbr}/${season}.shtml`}
+                        target="_blank" rel="noopener noreferrer" sx={linkPillSx}
+                      >Baseball Ref ↗</Box>
+                      <Box component="a"
+                        href={`https://baseballsavant.mlb.com/team/${team.id}`}
+                        target="_blank" rel="noopener noreferrer" sx={linkPillSx}
+                      >Baseball Savant ↗</Box>
+                    </>)
+                  })()}
+                </Box>
               </Box>
-            </Box>
+            </Popover>
           </Box>
         </>
       )}
