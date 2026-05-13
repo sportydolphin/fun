@@ -832,7 +832,7 @@ interface CardInnerProps {
 }
 
 function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pitLeaders, palette, season, teamDisplay, rankMode, showPosition, showTeam, showAge, showNumber, large, selectedHitStats, selectedPitStats, onToggleHitStat, onTogglePitStat }: CardInnerProps) {
-  const photoSize = large ? 200 : 155
+  const photoSize = large ? 200 : 120
   const hasHitting = hittingStats && HITTING_STAT_DEFS.some(d => selectedHitStats.includes(d.key))
 
   const subtitleParts: string[] = []
@@ -843,7 +843,7 @@ function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pitLeaders
 
   return (
     <>
-      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', mb: large ? 2.5 : 1.5 }}>
         <Box sx={{
           width: photoSize,
           height: Math.round(photoSize * 1.2),
@@ -860,7 +860,7 @@ function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pitLeaders
 
       <Typography sx={{
         textAlign: 'center', color: palette.text, fontWeight: 800,
-        fontSize: large ? { xs: '2rem', sm: '2.4rem' } : { xs: '1.6rem', sm: '2rem' },
+        fontSize: large ? { xs: '2rem', sm: '2.4rem' } : { xs: '1.3rem', sm: '1.6rem' },
         lineHeight: 1.1, letterSpacing: '-0.3px', mb: 0.5,
       }}>
         {player.fullName}
@@ -869,12 +869,12 @@ function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pitLeaders
       {subtitleParts.length > 0 ? (
         <Typography sx={{
           textAlign: 'center', color: palette.sub,
-          fontSize: large ? '1rem' : { xs: '0.82rem', sm: '0.9rem' },
-          fontWeight: 500, mb: 3.5,
+          fontSize: large ? '1rem' : { xs: '0.75rem', sm: '0.82rem' },
+          fontWeight: 500, mb: large ? 3.5 : 2,
         }}>
           {subtitleParts.join(' · ')}
         </Typography>
-      ) : <Box sx={{ mb: 3.5 }} />}
+      ) : <Box sx={{ mb: large ? 3.5 : 2 }} />}
 
       <StatGrid
         defs={HITTING_STAT_DEFS} stats={hittingStats} selected={selectedHitStats}
@@ -3225,7 +3225,71 @@ export default function MlbStats() {
       )}
       </Box>{/* end search + year row */}
 
-      {/* Actions: download icon + options — shown when stats loaded, sits right under search */}
+      {loadingStats && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress /></Box>}
+
+      {hasStats && (
+        <Box sx={{
+          display: { xs: 'block', md: showTrends ? 'grid' : 'block' },
+          gridTemplateColumns: { md: 'minmax(0, 460px) 1fr' },
+          gap: { md: 4 },
+          alignItems: 'start',
+          mb: 2,
+        }}>
+          {/* Card — wrapped in relative Box so fullscreen icon can float over it */}
+          <Box sx={{ position: 'relative' }}>
+            <Paper ref={cardRef} elevation={4} sx={{
+              borderRadius: 4, overflow: 'hidden', background: palette.bg,
+              transition: 'background 0.45s ease', p: { xs: 2, sm: 2.5 },
+            }}>
+              {playerCardProps && <CardInner {...playerCardProps} />}
+              {teamCardProps && <TeamCardInner {...teamCardProps} />}
+            </Paper>
+            <Tooltip title="Fullscreen">
+              <Box
+                onClick={() => setFullscreen(true)}
+                sx={{
+                  position: 'absolute', top: 10, right: 10,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  p: 0.6, borderRadius: 1.5,
+                  bgcolor: 'rgba(0,0,0,0.22)',
+                  color: 'rgba(255,255,255,0.7)',
+                  cursor: 'pointer',
+                  '&:hover': { bgcolor: 'rgba(0,0,0,0.42)', color: '#fff' },
+                  transition: 'background 0.15s, color 0.15s',
+                }}
+              >
+                <OpenInFull sx={{ fontSize: '0.9rem' }} />
+              </Box>
+            </Tooltip>
+          </Box>
+
+          {/* Career */}
+          {showTrends && (
+            <Box sx={{ mt: { xs: 2, md: 0 } }}>
+              <Box sx={{ mb: 1.25 }}>
+                <SectionLabel>Career</SectionLabel>
+              </Box>
+              {loadingCareer ? (
+                <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress size={22} /></Box>
+              ) : (
+                <Box sx={{
+                  borderRadius: { xs: 2, sm: 3 },
+                  border: '1px solid', borderColor: 'divider',
+                  p: { xs: 1, sm: 1.5 },
+                }}>
+                  <PlayerTrendsChart
+                    splits={careerSplits!}
+                    isPitcher={player!.primaryPosition?.code === '1'}
+                    isTwoWay={player!.primaryPosition?.type === 'Two-Way Player'}
+                  />
+                </Box>
+              )}
+            </Box>
+          )}
+        </Box>
+      )}
+
+      {/* Actions: download + options — below the card */}
       {hasStats && (
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 2 }}>
           <Tooltip title={downloading ? 'Saving…' : 'Download'}>
@@ -3350,7 +3414,7 @@ export default function MlbStats() {
             })()}
 
             {/* League rank */}
-            <Box sx={{ mb: player ? 1.75 : 1.25 }}>
+            <Box sx={{ mb: player ? 1.75 : 0 }}>
               <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
                 League rank
               </Typography>
@@ -3363,7 +3427,7 @@ export default function MlbStats() {
 
             {/* Portrait toggles */}
             {player && (
-              <Box sx={{ mb: 1.75 }}>
+              <Box>
                 <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
                   Show under portrait
                 </Typography>
@@ -3379,91 +3443,24 @@ export default function MlbStats() {
                 </Box>
               </Box>
             )}
-
-            {/* Links */}
-            <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 1.25 }}>
-              <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
-                Links
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
-                {player && (<>
-                  <Box component="a" href={`https://www.baseball-reference.com/search/search.fcgi?search=${encodeURIComponent(player.fullName)}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Ref ↗</Box>
-                  <Box component="a" href={`https://baseballsavant.mlb.com/savant-player/${player.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${player.id}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Savant ↗</Box>
-                </>)}
-                {team && (() => {
-                  const bbrefAbbr = BBREF_ABBR[team.abbreviation] ?? team.abbreviation
-                  return (<>
-                    <Box component="a" href={`https://www.baseball-reference.com/teams/${bbrefAbbr}/${season}.shtml`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Ref ↗</Box>
-                    <Box component="a" href={`https://baseballsavant.mlb.com/team/${team.id}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Savant ↗</Box>
-                  </>)
-                })()}
-              </Box>
-            </Box>
           </Popover>
         </Box>
       )}
 
-      {loadingStats && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress /></Box>}
-
-      {hasStats && (
-        <Box sx={{
-          display: { xs: 'block', md: showTrends ? 'grid' : 'block' },
-          gridTemplateColumns: { md: 'minmax(0, 460px) 1fr' },
-          gap: { md: 4 },
-          alignItems: 'start',
-          mb: 3,
-        }}>
-          {/* Card — wrapped in relative Box so fullscreen icon can float over it */}
-          <Box sx={{ position: 'relative' }}>
-            <Paper ref={cardRef} elevation={4} sx={{
-              borderRadius: 4, overflow: 'hidden', background: palette.bg,
-              transition: 'background 0.45s ease', p: { xs: 3, sm: 4 },
-            }}>
-              {playerCardProps && <CardInner {...playerCardProps} />}
-              {teamCardProps && <TeamCardInner {...teamCardProps} />}
-            </Paper>
-            <Tooltip title="Fullscreen">
-              <Box
-                onClick={() => setFullscreen(true)}
-                sx={{
-                  position: 'absolute', top: 10, right: 10,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  p: 0.6, borderRadius: 1.5,
-                  bgcolor: 'rgba(0,0,0,0.22)',
-                  color: 'rgba(255,255,255,0.7)',
-                  cursor: 'pointer',
-                  '&:hover': { bgcolor: 'rgba(0,0,0,0.42)', color: '#fff' },
-                  transition: 'background 0.15s, color 0.15s',
-                }}
-              >
-                <OpenInFull sx={{ fontSize: '0.9rem' }} />
-              </Box>
-            </Tooltip>
-          </Box>
-
-          {/* Career */}
-          {showTrends && (
-            <Box sx={{ mt: { xs: 2, md: 0 } }}>
-              <Box sx={{ mb: 1.25 }}>
-                <SectionLabel>Career</SectionLabel>
-              </Box>
-              {loadingCareer ? (
-                <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress size={22} /></Box>
-              ) : (
-                <Box sx={{
-                  borderRadius: { xs: 2, sm: 3 },
-                  border: '1px solid', borderColor: 'divider',
-                  p: { xs: 1, sm: 1.5 },
-                }}>
-                  <PlayerTrendsChart
-                    splits={careerSplits!}
-                    isPitcher={player!.primaryPosition?.code === '1'}
-                    isTwoWay={player!.primaryPosition?.type === 'Two-Way Player'}
-                  />
-                </Box>
-              )}
-            </Box>
-          )}
+      {/* Links — bottom of page */}
+      {hasStats && (player || team) && (
+        <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap', mb: 3 }}>
+          {player && (<>
+            <Box component="a" href={`https://www.baseball-reference.com/search/search.fcgi?search=${encodeURIComponent(player.fullName)}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Ref ↗</Box>
+            <Box component="a" href={`https://baseballsavant.mlb.com/savant-player/${player.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${player.id}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Savant ↗</Box>
+          </>)}
+          {team && (() => {
+            const bbrefAbbr = BBREF_ABBR[team.abbreviation] ?? team.abbreviation
+            return (<>
+              <Box component="a" href={`https://www.baseball-reference.com/teams/${bbrefAbbr}/${season}.shtml`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Ref ↗</Box>
+              <Box component="a" href={`https://baseballsavant.mlb.com/team/${team.id}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Savant ↗</Box>
+            </>)
+          })()}
         </Box>
       )}
 
