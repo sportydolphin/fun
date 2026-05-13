@@ -318,7 +318,6 @@ export function TeamLuckChart({ data, nameMap, highlightTeamId, onSelectTeam }: 
 
   const over = [...withDelta].filter(t => t.delta > 0).sort((a, b) => b.delta - a.delta).slice(0, 5)
   const under = [...withDelta].filter(t => t.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, 5)
-  const even = [...withDelta].filter(t => t.delta === 0)
   const maxAbs = Math.max(...withDelta.map(t => Math.abs(t.delta)), 1)
 
   const rowH = 15, rowGap = 3
@@ -332,7 +331,7 @@ export function TeamLuckChart({ data, nameMap, highlightTeamId, onSelectTeam }: 
   const headH = 26
   const nRows = Math.max(over.length, under.length)
   const W = colW * 2 + gutter
-  const H = headH + nRows * (rowH + rowGap) + (even.length ? 20 : 4)
+  const H = headH + nRows * (rowH + rowGap) + 4
 
   const renderTeam = (team: typeof over[0], i: number, isOver: boolean, offsetX: number) => {
     const y = headH + i * (rowH + rowGap)
@@ -384,14 +383,6 @@ export function TeamLuckChart({ data, nameMap, highlightTeamId, onSelectTeam }: 
 
         {over.map((t, i) => renderTeam(t, i, true, 0))}
         {under.map((t, i) => renderTeam(t, i, false, colW + gutter))}
-
-        {/* Even teams row */}
-        {even.length > 0 && (
-          <text x={W / 2} y={H - 4} textAnchor="middle"
-            fill="currentColor" fillOpacity={0.3} fontSize={7} fontWeight={600}>
-            On pace: {even.map(t => t.abbr).join(', ')}
-          </text>
-        )}
       </svg>
     </Box>
   )

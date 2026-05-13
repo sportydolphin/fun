@@ -557,9 +557,9 @@ export default function MlbStats() {
           {loadingViz && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
 
           {!loadingViz && teamSummaries.length > 0 && (
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: { md: 5 }, rowGap: 0 }}>
               {/* Chart 1: ERA vs OPS */}
-              <Box>
+              <Box sx={{ pb: 3.5, borderBottom: '1px solid', borderColor: 'divider' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
                   <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Pitching vs Hitting</Typography>
                   <Tooltip arrow placement="top" title={
@@ -583,7 +583,7 @@ export default function MlbStats() {
               </Box>
 
               {/* Chart 2: Win% vs Run Differential */}
-              <Box>
+              <Box sx={{ pt: { xs: 3, md: 0 }, pb: 3.5, borderBottom: '1px solid', borderColor: 'divider' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
                   <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Wins vs Run Margin</Typography>
                   <Tooltip arrow placement="top" title={
@@ -607,8 +607,11 @@ export default function MlbStats() {
                 <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
               </Box>
 
+            {/* Desktop-only row divider */}
+            <Divider sx={{ display: { xs: 'none', md: 'block' }, gridColumn: '1 / -1' }} />
+
             {/* Chart 3: Over/Underperforming */}
-            <Box>
+            <Box sx={{ pt: { xs: 3, md: 3.5 } }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
                 <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Over / Underperforming</Typography>
                 <Tooltip arrow placement="top" title={
@@ -871,7 +874,7 @@ export default function MlbStats() {
                                   {e.teamId > 0 && (
                                     <Box sx={{
                                       width: 16, height: 16, borderRadius: '50%',
-                                      bgcolor: TEAM_BG[e.teamId] ?? '#374151',
+                                      bgcolor: '#fff',
                                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                                       flexShrink: 0, overflow: 'hidden',
                                     }}>
