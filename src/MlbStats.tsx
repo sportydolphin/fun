@@ -45,8 +45,9 @@ interface Palette {
 interface StatDef {
   key: string
   label: string
-  leaderLabel?: string   // Full name shown as leaderboard card header
+  leaderLabel?: string        // Full name shown as leaderboard card header
   getValue: (stat: any) => any
+  leaderValue?: (stat: any) => any  // Numeric value for leaderboard sort/filter when getValue returns a display string
   format: (v: any) => string
   leaderCategory: string
   defaultSelected: boolean
@@ -138,7 +139,7 @@ const HITTING_STAT_DEFS: StatDef[] = [
 ]
 
 const PITCHING_STAT_DEFS: StatDef[] = [
-  { key: 'wl',   label: 'W-L',  leaderLabel: 'Wins',              getValue: s => s.wins != null ? `${s.wins}-${s.losses ?? 0}` : null, format: v => v ?? '—', leaderCategory: 'wins',                         defaultSelected: true  },
+  { key: 'wl',   label: 'W-L',  leaderLabel: 'Wins',              getValue: s => s.wins != null ? `${s.wins}-${s.losses ?? 0}` : null, leaderValue: s => s.wins != null ? Number(s.wins) : null, format: v => v ?? '—', leaderCategory: 'wins', defaultSelected: true  },
   { key: 'era',  label: 'ERA',  leaderLabel: 'ERA',               getValue: s => s.era,              format: fmt,                   leaderCategory: 'earnedRunAverage',             defaultSelected: true,  lowerIsBetter: true },
   { key: 'g',    label: 'G',    getValue: s => s.gamesPlayed,      format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'gs',   label: 'GS',   getValue: s => s.gamesStarted,     format: fmt,                   leaderCategory: '',                             defaultSelected: false },
@@ -189,6 +190,12 @@ const DEFAULT_TEAM_PIT_STATS = TEAM_PITCHING_DEFS.filter(d => d.defaultSelected)
 
 const CURRENT_SEASON = new Date().getFullYear()
 const TEAM_SEASONS = Array.from({ length: CURRENT_SEASON - 2000 + 1 }, (_, i) => CURRENT_SEASON - i)
+
+// Featured leaderboard stat keys shown by default (fewer = less overwhelming)
+const LB_FEATURED: Record<'hitting' | 'pitching', string[]> = {
+  hitting:  ['ops', 'hr', 'sb'],
+  pitching: ['era', 'whip', 'so9'],
+}
 
 // Curated list of notable active players for random auto-load on Search tab
 const FEATURED_PLAYER_IDS = [
@@ -2111,6 +2118,7 @@ export default function MlbStats() {
   const [lbData, setLbData] = useState<Array<{ playerId: number; playerName: string; teamAbbr: string; stat: any }> | null>(null)
   const [loadingLb, setLoadingLb] = useState(false)
   const [lbHoverId, setLbHoverId] = useState<number | null>(null)
+  const [lbSelectedKeys, setLbSelectedKeys] = useState<string[]>(LB_FEATURED.hitting)
   const [lbExportMenu, setLbExportMenu] = useState<{
     anchor: HTMLElement
     def: StatDef
@@ -2163,6 +2171,11 @@ export default function MlbStats() {
       .then(setLbData)
       .finally(() => setLoadingLb(false))
   }, [view, lbGroup, vizSeason])
+
+  // Reset to featured defaults whenever the leaderboard group switches
+  useEffect(() => {
+    setLbSelectedKeys(LB_FEATURED[lbGroup])
+  }, [lbGroup])
 
   // Combined search: instant team filter + debounced player search
   useEffect(() => {
@@ -2676,10 +2689,72 @@ export default function MlbStats() {
           {loadingLb && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
 
           {!loadingLb && lbData && (() => {
-            const defs = (lbGroup === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS)
+            const allDefs = (lbGroup === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS)
               .filter(d => d.leaderCategory)
+            const featured = LB_FEATURED[lbGroup]
+            // Sort: featured keys first (in order), then remaining alphabetically
+            const sortedDefs = [...allDefs].sort((a, b) => {
+              const ai = featured.indexOf(a.key), bi = featured.indexOf(b.key)
+              if (ai !== -1 && bi !== -1) return ai - bi
+              if (ai !== -1) return -1
+              if (bi !== -1) return 1
+              return (a.leaderLabel ?? a.label).localeCompare(b.leaderLabel ?? b.label)
+            })
+            const defs = sortedDefs.filter(d => lbSelectedKeys.includes(d.key))
             const MEDALS = ['🥇', '🥈', '🥉']
+            const isDefault = featured.length === lbSelectedKeys.length &&
+              featured.every(k => lbSelectedKeys.includes(k))
             return (
+              <>
+              {/* Stat picker */}
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2.5, alignItems: 'center' }}>
+                {sortedDefs.map((def, i) => {
+                  const isFeatured = featured.includes(def.key)
+                  const prevFeatured = i > 0 && featured.includes(sortedDefs[i - 1].key)
+                  const showDivider = !isFeatured && prevFeatured
+                  return (
+                    <React.Fragment key={def.key}>
+                      {showDivider && (
+                        <Box sx={{ width: '1px', height: 20, bgcolor: 'divider', mx: 0.25, alignSelf: 'center', flexShrink: 0 }} />
+                      )}
+                      <Box
+                        onClick={() => setLbSelectedKeys(prev =>
+                          prev.includes(def.key)
+                            ? prev.filter(k => k !== def.key)
+                            : [...prev, def.key]
+                        )}
+                        sx={{
+                          px: 1.5, py: 0.4,
+                          borderRadius: 999,
+                          border: '1.5px solid',
+                          borderColor: lbSelectedKeys.includes(def.key) ? ACCENT : 'divider',
+                          bgcolor: lbSelectedKeys.includes(def.key)
+                            ? isFeatured ? `${ACCENT}22` : `${ACCENT}12`
+                            : 'transparent',
+                          color: lbSelectedKeys.includes(def.key) ? ACCENT : 'text.secondary',
+                          fontSize: '0.75rem',
+                          fontWeight: isFeatured ? 700 : 600,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s',
+                          userSelect: 'none',
+                          '&:hover': { borderColor: ACCENT, color: ACCENT },
+                        }}
+                      >
+                        {def.leaderLabel ?? def.label}
+                      </Box>
+                    </React.Fragment>
+                  )
+                })}
+                {!isDefault && (
+                  <Box
+                    onClick={() => setLbSelectedKeys([...featured])}
+                    sx={{ fontSize: '0.7rem', color: 'text.disabled', cursor: 'pointer', fontWeight: 600, ml: 0.5, '&:hover': { color: ACCENT } }}
+                  >
+                    Reset
+                  </Box>
+                )}
+              </Box>
+
               <Box
                 onMouseLeave={() => setLbHoverId(null)}
                 sx={{
@@ -2691,9 +2766,12 @@ export default function MlbStats() {
                 {defs.map(def => {
                   const asc = def.lowerIsBetter ?? false
                   const entries = lbData
-                    .map(e => ({ ...e, val: def.getValue(e.stat) }))
-                    .filter(e => e.val != null && e.val !== '' && !isNaN(Number(e.val)))
-                    .sort((a, b) => asc ? Number(a.val) - Number(b.val) : Number(b.val) - Number(a.val))
+                    .map(e => {
+                      const sortVal = def.leaderValue ? def.leaderValue(e.stat) : def.getValue(e.stat)
+                      return { ...e, val: def.getValue(e.stat), sortVal }
+                    })
+                    .filter(e => e.sortVal != null && !isNaN(Number(e.sortVal)))
+                    .sort((a, b) => asc ? Number(a.sortVal) - Number(b.sortVal) : Number(b.sortVal) - Number(a.sortVal))
                     .slice(0, 5)
                   if (!entries.length) return null
                   return (
@@ -2817,6 +2895,7 @@ export default function MlbStats() {
                   )
                 })}
               </Box>
+              </>
             )
           })()}
 
