@@ -2721,9 +2721,23 @@ export default function MlbStats() {
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                 PaperProps={{ sx: { borderRadius: 2.5, p: 1.75, mt: 0.75, width: 280, boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
               >
-                <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 1 }}>
-                  Leaderboard stats
-                </Typography>
+                {(() => {
+                  const allLbKeys = lbSortedDefs.map(d => d.key)
+                  const allLbSelected = allLbKeys.every(k => lbSelectedKeys.includes(k))
+                  return (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled' }}>
+                        Leaderboard stats
+                      </Typography>
+                      <Box
+                        onClick={() => setLbSelectedKeys(allLbSelected ? [...lbFeatured] : allLbKeys)}
+                        sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT, cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        {allLbSelected ? 'Reset' : 'All'}
+                      </Box>
+                    </Box>
+                  )
+                })()}
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.65 }}>
                   {lbSortedDefs.map((def, i) => {
                     const isFeatured = lbFeatured.includes(def.key)
@@ -3284,42 +3298,72 @@ export default function MlbStats() {
               PaperProps={{ sx: { borderRadius: 2.5, p: 2, mt: 0.75, width: 290, boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
             >
               {/* Batting stats */}
-              {(hittingStats || teamHitting) && (
-                <Box sx={{ mb: 1.75 }}>
-                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
-                    Batting stats
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
-                    {(player ? HITTING_STAT_DEFS : TEAM_HITTING_DEFS).map(def => (
-                      <PillChip
-                        key={def.key}
-                        label={def.label}
-                        selected={(player ? selectedHitStats : selectedTeamHitStats).includes(def.key)}
-                        onChange={() => (player ? toggleHitStat : toggleTeamHitStat)(def.key)}
-                      />
-                    ))}
+              {(hittingStats || teamHitting) && (() => {
+                const hitDefs = player ? HITTING_STAT_DEFS : TEAM_HITTING_DEFS
+                const hitSel = player ? selectedHitStats : selectedTeamHitStats
+                const setHitSel = player ? setSelectedHitStats : setSelectedTeamHitStats
+                const hitDefaults = player ? DEFAULT_HIT_STATS : DEFAULT_TEAM_HIT_STATS
+                const allHit = hitDefs.every(d => hitSel.includes(d.key))
+                return (
+                  <Box sx={{ mb: 1.75 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
+                      <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled' }}>
+                        Batting stats
+                      </Typography>
+                      <Box
+                        onClick={() => setHitSel(allHit ? hitDefaults : hitDefs.map(d => d.key))}
+                        sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT, cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        {allHit ? 'Reset' : 'All'}
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
+                      {hitDefs.map(def => (
+                        <PillChip
+                          key={def.key}
+                          label={def.label}
+                          selected={hitSel.includes(def.key)}
+                          onChange={() => (player ? toggleHitStat : toggleTeamHitStat)(def.key)}
+                        />
+                      ))}
+                    </Box>
                   </Box>
-                </Box>
-              )}
+                )
+              })()}
 
               {/* Pitching stats */}
-              {(pitchingStats || teamPitching) && (
-                <Box sx={{ mb: 1.75 }}>
-                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
-                    Pitching stats
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
-                    {(player ? PITCHING_STAT_DEFS : TEAM_PITCHING_DEFS).map(def => (
-                      <PillChip
-                        key={def.key}
-                        label={def.label}
-                        selected={(player ? selectedPitStats : selectedTeamPitStats).includes(def.key)}
-                        onChange={() => (player ? togglePitStat : toggleTeamPitStat)(def.key)}
-                      />
-                    ))}
+              {(pitchingStats || teamPitching) && (() => {
+                const pitDefs = player ? PITCHING_STAT_DEFS : TEAM_PITCHING_DEFS
+                const pitSel = player ? selectedPitStats : selectedTeamPitStats
+                const setPitSel = player ? setSelectedPitStats : setSelectedTeamPitStats
+                const pitDefaults = player ? DEFAULT_PIT_STATS : DEFAULT_TEAM_PIT_STATS
+                const allPit = pitDefs.every(d => pitSel.includes(d.key))
+                return (
+                  <Box sx={{ mb: 1.75 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
+                      <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled' }}>
+                        Pitching stats
+                      </Typography>
+                      <Box
+                        onClick={() => setPitSel(allPit ? pitDefaults : pitDefs.map(d => d.key))}
+                        sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT, cursor: 'pointer', userSelect: 'none' }}
+                      >
+                        {allPit ? 'Reset' : 'All'}
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
+                      {pitDefs.map(def => (
+                        <PillChip
+                          key={def.key}
+                          label={def.label}
+                          selected={pitSel.includes(def.key)}
+                          onChange={() => (player ? togglePitStat : toggleTeamPitStat)(def.key)}
+                        />
+                      ))}
+                    </Box>
                   </Box>
-                </Box>
-              )}
+                )
+              })()}
 
               {/* League rank */}
               <Box sx={{ mb: player ? 1.75 : 1.25 }}>
