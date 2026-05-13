@@ -1694,9 +1694,9 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   const fptsRaw = pts.filter(p => p.season >= effStart && p.season <= effEnd)
   const fpts = fptsRaw.length >= 2 ? fptsRaw : pts // fall back to all if range too narrow
 
-  // SVG layout
-  const W = 560, H = 295
-  const m = { t: 30, r: 24, b: 52, l: 56 }
+  // SVG layout — compact margins for mobile readability
+  const W = 560, H = 250
+  const m = { t: 24, r: 18, b: 30, l: 44 }
   const iW = W - m.l - m.r, iH = H - m.t - m.b
   const n = fpts.length
   currentN.current = n   // keep touch handler in sync without re-registering
@@ -1757,7 +1757,6 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   const avgY = showHorizAvg ? sy(avg!) : 0
 
   const yTicks = niceTicks(yMin, yMax, 5)
-  const xLabelStep = Math.max(1, Math.ceil(n / 10))
   const gradId = `trendgrad-${group}-${statKey}`
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
@@ -1966,29 +1965,20 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
           {/* Y ticks */}
           {yTicks.map((v, i) => (
             <g key={i}>
-              <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1} />
-              <text x={m.l - 8} y={sy(v) + 4} textAnchor="end" fill="currentColor" fillOpacity={0.68} fontSize={11}>{currentDef.fmt(v)}</text>
+              <line x1={m.l - 4} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.25} strokeWidth={1} />
+              <text x={m.l - 6} y={sy(v) + 4} textAnchor="end" fill="currentColor" fillOpacity={0.65} fontSize={10}>{currentDef.fmt(v)}</text>
             </g>
           ))}
 
-          {/* X ticks */}
-          {fpts.map((p, i) => {
-            const showLabel = i % xLabelStep === 0 || i === n - 1
-            return (
-              <g key={p.season}>
-                <line x1={sx(i)} y1={m.t + iH} x2={sx(i)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.25} strokeWidth={1} />
-                {showLabel && (
-                  <text x={sx(i)} y={m.t + iH + 18} textAnchor="middle" fill="currentColor" fillOpacity={0.68} fontSize={11}>{p.season}</text>
-                )}
-              </g>
-            )
-          })}
-
-          {/* Y axis label */}
-          <text transform={`translate(14,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle"
-            fill="currentColor" fillOpacity={0.55} fontSize={11} fontWeight={700} letterSpacing="1">
-            {currentDef.label}
-          </text>
+          {/* X ticks — always show every year as 2-digit label ('24) */}
+          {fpts.map((p, i) => (
+            <g key={p.season}>
+              <line x1={sx(i)} y1={m.t + iH} x2={sx(i)} y2={m.t + iH + 4} stroke="currentColor" strokeOpacity={0.2} strokeWidth={1} />
+              <text x={sx(i)} y={m.t + iH + 14} textAnchor="middle" fill="currentColor" fillOpacity={0.6} fontSize={9}>
+                '{String(p.season).slice(2)}
+              </text>
+            </g>
+          ))}
         </svg>
 
         {/* Tooltip */}
@@ -3451,25 +3441,26 @@ export default function MlbStats() {
             </Tooltip>
           </Box>
 
-          {/* Career Trends */}
+          {/* Career */}
           {showTrends && (
-            <Box sx={{ mt: { xs: 3, md: 0 } }}>
-              <Box sx={{ mb: 2 }}>
-                <SectionLabel>Career Trends</SectionLabel>
-                <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem', mt: 0.25 }}>
-                  Year-by-year stats · dots colored by team · hover any season to inspect
-                </Typography>
+            <Box sx={{ mt: { xs: 2, md: 0 } }}>
+              <Box sx={{ mb: 1.25 }}>
+                <SectionLabel>Career</SectionLabel>
               </Box>
               {loadingCareer ? (
                 <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress size={22} /></Box>
               ) : (
-                <Paper elevation={2} sx={{ borderRadius: 3, p: { xs: 1.5, sm: 2 } }}>
+                <Box sx={{
+                  borderRadius: { xs: 2, sm: 3 },
+                  border: '1px solid', borderColor: 'divider',
+                  p: { xs: 1, sm: 1.5 },
+                }}>
                   <PlayerTrendsChart
                     splits={careerSplits!}
                     isPitcher={player!.primaryPosition?.code === '1'}
                     isTwoWay={player!.primaryPosition?.type === 'Two-Way Player'}
                   />
-                </Paper>
+                </Box>
               )}
             </Box>
           )}
