@@ -1444,7 +1444,7 @@ const TREND_HIT_DEFS: TrendStatDef[] = [
       return ab === 0 ? null : tb / ab
     },
   },
-  { key: 'hr',    label: 'HR',   get: s => s?.homeRuns != null ? Number(s.homeRuns) : null,         fmt: v => String(Math.round(v)), counting: true },
+  { key: 'hr',    label: 'HR',   get: s => s?.homeRuns != null ? Number(s.homeRuns) : null,         fmt: v => String(Math.round(v)), counting: true, noAvg: true },
   { key: 'rbi',   label: 'RBI',  get: s => s?.rbi != null ? Number(s.rbi) : null,                   fmt: v => String(Math.round(v)), counting: true, noAvg: true },
   { key: 'kpct',  label: 'K%',   lowerBetter: true,
     get: s => {
@@ -1696,7 +1696,7 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
 
   // SVG layout — compact margins for mobile readability
   const W = 560, H = 250
-  const m = { t: 24, r: 18, b: 30, l: 44 }
+  const m = { t: 24, r: 18, b: 34, l: 46 }
   const iW = W - m.l - m.r, iH = H - m.t - m.b
   const n = fpts.length
   currentN.current = n   // keep touch handler in sync without re-registering
@@ -1839,7 +1839,7 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
         {avg != null && (
           <Box>
             <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>
-              {currentDef.counting ? 'Avg / yr' : isRangeModified ? 'Range avg' : 'Career avg'}
+              {currentDef.counting ? `Avg / yr` : `Career ${currentDef.label}`}
             </Typography>
             <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT, lineHeight: 1.2 }}>{currentDef.fmt(avg)}</Typography>
           </Box>
@@ -1959,22 +1959,22 @@ function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
           })()}
 
           {/* Axes */}
-          <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.28} strokeWidth={1.5} />
-          <line x1={m.l} y1={m.t + iH} x2={m.l + iW} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.28} strokeWidth={1.5} />
+          <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1.5} />
+          <line x1={m.l} y1={m.t + iH} x2={m.l + iW} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1.5} />
 
           {/* Y ticks */}
           {yTicks.map((v, i) => (
             <g key={i}>
-              <line x1={m.l - 4} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.25} strokeWidth={1} />
-              <text x={m.l - 6} y={sy(v) + 4} textAnchor="end" fill="currentColor" fillOpacity={0.65} fontSize={10}>{currentDef.fmt(v)}</text>
+              <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
+              <text x={m.l - 7} y={sy(v) + 4} textAnchor="end" fill="currentColor" fillOpacity={0.88} fontSize={10} fontWeight={600}>{currentDef.fmt(v)}</text>
             </g>
           ))}
 
           {/* X ticks — always show every year as 2-digit label ('24) */}
           {fpts.map((p, i) => (
             <g key={p.season}>
-              <line x1={sx(i)} y1={m.t + iH} x2={sx(i)} y2={m.t + iH + 4} stroke="currentColor" strokeOpacity={0.2} strokeWidth={1} />
-              <text x={sx(i)} y={m.t + iH + 14} textAnchor="middle" fill="currentColor" fillOpacity={0.6} fontSize={9}>
+              <line x1={sx(i)} y1={m.t + iH} x2={sx(i)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1} />
+              <text x={sx(i)} y={m.t + iH + 16} textAnchor="middle" fill="currentColor" fillOpacity={0.88} fontSize={10.5} fontWeight={600}>
                 '{String(p.season).slice(2)}
               </text>
             </g>
