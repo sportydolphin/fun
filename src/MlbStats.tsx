@@ -1126,8 +1126,8 @@ function TeamEraOpsPlot({ data, nameMap, highlightTeamId, onSelectTeam }: { data
           </g>
         ))}
 
-        <text x={m.l + iW / 2} y={H - 4} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">OPS (offense) →</text>
-        <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">ERA (lower = better ↑)</text>
+        <text x={m.l + iW / 2} y={H - 4} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">Hitting (OPS) →</text>
+        <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">Pitching (ERA ↑ = better)</text>
 
         {[...pts].sort((a, b) => (a.id === highlightTeamId ? 1 : 0) - (b.id === highlightTeamId ? 1 : 0)).map(team => (
           <TeamDot key={team.id} team={team} x={sx(team.ops)} y={sy(team.era)}
@@ -1223,7 +1223,7 @@ function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam }: { data:
         {/* RD=0 and W%=.500 references */}
         <line x1={x0} y1={m.t} x2={x0} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="5 3" />
         <line x1={m.l} y1={y500} x2={m.l + iW} y2={y500} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1.5} strokeDasharray="5 3" />
-        <text x={x0 + 4} y={m.t + 11} fill="currentColor" fillOpacity={0.6} fontSize={8.5} fontWeight={700}>RD = 0</text>
+        <text x={x0 + 4} y={m.t + 11} fill="currentColor" fillOpacity={0.6} fontSize={8.5} fontWeight={700}>Break-even</text>
         <text x={m.l + iW - 4} y={y500 - 5} fill="currentColor" fillOpacity={0.6} fontSize={8.5} fontWeight={700} textAnchor="end">.500</text>
 
         {/* Pythagorean expectation curve */}
@@ -1232,7 +1232,7 @@ function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam }: { data:
           const labelRD = xMax * 0.72
           const labelWP = pyth(labelRD)
           if (labelWP < yMin || labelWP > yMax) return null
-          return <text x={sx(labelRD)} y={sy(labelWP) - 7} fill="#60a5fa" fillOpacity={0.9} fontSize={8.5} fontWeight={700} textAnchor="middle">Pythagorean expected</text>
+          return <text x={sx(labelRD)} y={sy(labelWP) - 7} fill="#60a5fa" fillOpacity={0.9} fontSize={8.5} fontWeight={700} textAnchor="middle">Expected win rate</text>
         })()}
 
         {/* Axes */}
@@ -1252,7 +1252,7 @@ function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam }: { data:
           </g>
         ))}
 
-        <text x={m.l + iW / 2} y={H - 4} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">Run Differential (RS − RA) →</text>
+        <text x={m.l + iW / 2} y={H - 4} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">Run Margin (scored − allowed) →</text>
         <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">Win %</text>
 
         {[...withPyth].sort((a, b) => (a.id === highlightTeamId ? 1 : 0) - (b.id === highlightTeamId ? 1 : 0)).map(team => (
@@ -1309,8 +1309,8 @@ function TeamLuckChart({ data, nameMap, highlightTeamId, onSelectTeam }: {
 
   if (!withDelta.length) return null
 
-  const over = [...withDelta].filter(t => t.delta > 0).sort((a, b) => b.delta - a.delta)
-  const under = [...withDelta].filter(t => t.delta < 0).sort((a, b) => a.delta - b.delta)
+  const over = [...withDelta].filter(t => t.delta > 0).sort((a, b) => b.delta - a.delta).slice(0, 5)
+  const under = [...withDelta].filter(t => t.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, 5)
   const even = [...withDelta].filter(t => t.delta === 0)
   const maxAbs = Math.max(...withDelta.map(t => Math.abs(t.delta)), 1)
 
@@ -2581,15 +2581,15 @@ export default function MlbStats() {
               {/* Chart 1: ERA vs OPS */}
               <Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-                  <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>ERA vs OPS</Typography>
+                  <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Pitching vs Hitting</Typography>
                   <Tooltip arrow placement="top" title={
                     <Box sx={{ maxWidth: 260, p: 0.5 }}>
                       <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
                       <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
-                        Each bubble is a team plotted by their pitching (ERA, vertical) vs their offense (OPS, horizontal).
-                        Low ERA = better pitching, so the top of the chart is elite pitching.
-                        High OPS = better hitting, so the right side is elite offense.
-                        The quadrants label each team archetype — top-right is the most complete, well-rounded teams.
+                        Each bubble is a team plotted by their pitching quality (ERA, vertical) vs their hitting power (OPS, horizontal).
+                        Lower ERA = better pitching, so the top of the chart is elite pitching.
+                        Higher OPS = better hitting, so the right side is elite offense.
+                        The quadrants label each team style — top-right teams have both elite pitching and elite hitting.
                       </Typography>
                     </Box>
                   }>
@@ -2597,7 +2597,7 @@ export default function MlbStats() {
                   </Tooltip>
                 </Box>
                 <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
-                  Pitching quality vs offensive output · top-right = elite
+                  How good a team's pitching and hitting are · top-right = best of both
                 </Typography>
                 <Paper elevation={2} sx={{ borderRadius: 3, overflow: 'hidden', p: { xs: 1.5, sm: 2 } }}>
                   <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
@@ -2607,15 +2607,15 @@ export default function MlbStats() {
               {/* Chart 2: Win% vs Run Differential */}
               <Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-                  <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Win% vs Run Differential</Typography>
+                  <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Wins vs Run Margin</Typography>
                   <Tooltip arrow placement="top" title={
                     <Box sx={{ maxWidth: 280, p: 0.5 }}>
                       <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
                       <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
-                        Each bubble is a team's actual win% plotted against their run differential (runs scored minus runs allowed).
-                        The blue dashed curve is the Pythagorean expectation — the win% a team "should" have based on their run differential alone.
-                        Teams above the curve are winning more games than their runs predict (often luck or clutch performance).
-                        Teams below the curve are underperforming — they're outscoring opponents overall but losing too many close games.
+                        Each bubble is a team's actual win% plotted against their run margin (runs scored minus runs allowed).
+                        The blue dashed curve is the expected win rate — how often a team should win based on their scoring margin alone.
+                        Teams above the curve are winning more games than their scoring predicts (often luck or clutch play in close games).
+                        Teams below the curve are underperforming — they're outscoring opponents overall but losing too many tight games.
                         Hover a team to see their actual record vs expected W-L.
                       </Typography>
                     </Box>
@@ -2624,7 +2624,7 @@ export default function MlbStats() {
                   </Tooltip>
                 </Box>
                 <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
-                  Actual record vs Pythagorean expected W-L · above the curve = outperforming run differential
+                  Actual record vs expected W-L based on scoring · above the curve = outperforming
                 </Typography>
                 <Paper elevation={2} sx={{ borderRadius: 3, overflow: 'hidden', p: { xs: 1.5, sm: 2 } }}>
                   <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
@@ -2632,16 +2632,16 @@ export default function MlbStats() {
               </Box>
 
             {/* Chart 3: Over/Underperforming */}
-            <Box sx={{ gridColumn: { md: '1 / -1' } }}>
+            <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
                 <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Over / Underperforming</Typography>
                 <Tooltip arrow placement="top" title={
                   <Box sx={{ maxWidth: 260, p: 0.5 }}>
                     <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
                     <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
-                      Bars show how many wins each team has above (+) or below (−) their Pythagorean expectation.
-                      Positive teams are winning more than their run differential predicts — often the result of a strong bullpen or clutch performance.
-                      Negative teams are being "unlucky" — they're scoring and allowing runs efficiently but losing close games.
+                      Bars show how many wins each team has above (+) or below (−) what their scoring margin predicts.
+                      Teams on the left are winning more than expected — often thanks to a strong bullpen or clutch play in close games.
+                      Teams on the right are winning fewer games than their scoring suggests — they're outscoring opponents overall but losing tight ones.
                     </Typography>
                   </Box>
                 }>
@@ -2649,7 +2649,7 @@ export default function MlbStats() {
                 </Tooltip>
               </Box>
               <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
-                Wins above/below Pythagorean expectation · click to highlight across all charts
+                Wins above/below what their scoring margin predicts · click to highlight across all charts
               </Typography>
               <Paper elevation={2} sx={{ borderRadius: 3, overflow: 'hidden', p: { xs: 1.5, sm: 2 } }}>
                 <TeamLuckChart data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
