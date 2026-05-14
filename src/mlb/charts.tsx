@@ -299,15 +299,16 @@ export function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam }: 
 //
 // Fraud score  = delta × winPct         — overperforming matters MORE when you're winning
 // Cursed score = |delta| × (1−winPct)   — underperforming matters MORE when you're already losing
-// This means a first-place team winning 5 more than expected ranks above a last-place team
-// winning 6 more than expected, and the Dodgers don't rank as cursed just for a small delta.
 
-export function TeamFraudWatch({ data, nameMap, highlightTeamId, onSelectTeam }: {
+export function TeamFraudPanel({ data, nameMap, highlightTeamId, onSelectTeam, type }: {
   data: TeamSummary[]
   nameMap: Map<number, string>
   highlightTeamId: number | null
   onSelectTeam: (id: number) => void
+  type: 'fraud' | 'cursed'
 }) {
+  const [logoErrors, setLogoErrors] = useState<Set<number>>(new Set())
+
   const withScores = data
     .filter(d => !isNaN(d.rs) && !isNaN(d.ra) && d.wins + d.losses > 0)
     .map(d => {
@@ -322,105 +323,109 @@ export function TeamFraudWatch({ data, nameMap, highlightTeamId, onSelectTeam }:
       return { ...d, delta, pythWins, winPct, fraudScore, cursedScore, name: nameMap.get(d.id) ?? d.abbr }
     })
 
-  if (!withScores.length) return null
+  const isFraud = type === 'fraud'
+  const teams = [...withScores]
+    .filter(t => isFraud ? t.delta > 0 : t.delta < 0)
+    .sort((a, b) => isFraud ? b.fraudScore - a.fraudScore : b.cursedScore - a.cursedScore)
+    .slice(0, 5)
 
-  const topFrauds = [...withScores].filter(t => t.delta > 0).sort((a, b) => b.fraudScore - a.fraudScore).slice(0, 5)
-  const topCursed = [...withScores].filter(t => t.delta < 0).sort((a, b) => b.cursedScore - a.cursedScore).slice(0, 5)
-  const maxFraud = Math.max(...topFrauds.map(t => t.fraudScore), 1)
-  const maxCursed = Math.max(...topCursed.map(t => t.cursedScore), 1)
+  if (!teams.length) return null
 
-  const fraudLabel = (score: number) => {
-    if (score >= 4.0) return 'CONFIRMED FRAUD'
-    if (score >= 2.5) return 'FRAUD ALERT'
-    if (score >= 1.5) return 'SUS'
-    return 'A LIL SUS'
-  }
+  const maxScore = Math.max(...teams.map(t => isFraud ? t.fraudScore : t.cursedScore), 1)
+  const accent = isFraud ? '#f97316' : '#818cf8'
 
-  const cursedLabel = (score: number) => {
-    if (score >= 4.0) return 'TRULY CURSED'
-    if (score >= 2.5) return 'BIG MAD'
-    if (score >= 1.5) return 'ROBBED'
-    return 'UNLUCKY'
-  }
-
-  const rowH = 16, rowGap = 3
-  const dotR = 8, dotX = 10
-  const recordX = 23
-  const barStartX = 67
-  const barMaxW = 78
-  const deltaX = barStartX + barMaxW + 4
-  const labelX = deltaX + 22
-  const colW = 271
-  const gutter = 18
-  const headH = 26
-  const nRows = Math.max(topFrauds.length, topCursed.length)
-  const W = colW * 2 + gutter
-  const H = headH + nRows * (rowH + rowGap) + 6
-
-  const renderRow = (team: typeof topFrauds[0], i: number, isFraud: boolean, offsetX: number) => {
-    const score = isFraud ? team.fraudScore : team.cursedScore
-    const maxScore = isFraud ? maxFraud : maxCursed
-    const y = headH + i * (rowH + rowGap)
-    const cy = y + rowH / 2
-    const teamColor = TEAM_BG[team.id] ?? '#555'
-    const barW = (score / maxScore) * barMaxW
-    const accent = isFraud ? '#f97316' : '#818cf8'
-    const isHighlighted = highlightTeamId === team.id
-    const isDimmed = highlightTeamId != null && !isHighlighted
-    const label = isFraud ? fraudLabel(score) : cursedLabel(score)
-
-    return (
-      <g key={team.id} onClick={() => onSelectTeam(team.id)}
-        style={{ cursor: 'pointer', opacity: isDimmed ? 0.18 : 1, transition: 'opacity 0.22s' }}>
-        {isHighlighted && <circle cx={offsetX + dotX} cy={cy} r={dotR + 4} fill={teamColor} fillOpacity={0.18} />}
-        <circle cx={offsetX + dotX} cy={cy} r={isHighlighted ? dotR + 1 : dotR} fill={teamColor} />
-        <text x={offsetX + dotX} y={cy + 3.5} textAnchor="middle" fill="#fff"
-          fontSize={team.abbr.length > 2 ? 4.5 : 5.5} fontWeight={800}
-          style={{ pointerEvents: 'none' }}>{team.abbr}</text>
-        <text x={offsetX + recordX} y={cy + 3.5}
-          fill="currentColor" fillOpacity={0.52} fontSize={7.5} fontWeight={600}
-          style={{ pointerEvents: 'none' }}>
-          {team.wins}-{team.losses}
-        </text>
-        <rect
-          x={offsetX + barStartX} y={cy - 4}
-          width={Math.max(barW, 1.5)} height={8}
-          fill={accent} fillOpacity={isHighlighted ? 0.9 : 0.52} rx={2.5} />
-        <text
-          x={offsetX + deltaX} y={cy + 3.5}
-          fill={accent} fillOpacity={0.9}
-          fontSize={8.5} fontWeight={700}
-          style={{ pointerEvents: 'none' }}>
-          {team.delta > 0 ? `+${team.delta}` : team.delta}
-        </text>
-        <text
-          x={offsetX + labelX} y={cy + 3.5}
-          fill={accent} fillOpacity={score >= 2 ? 0.9 : 0.6}
-          fontSize={6.5} fontWeight={800} letterSpacing="0.3"
-          style={{ pointerEvents: 'none' }}>
-          {label}
-        </text>
-      </g>
-    )
-  }
+  const getLabel = (score: number) => isFraud
+    ? score >= 4.0 ? 'CONFIRMED FRAUD' : score >= 2.5 ? 'FRAUD ALERT' : score >= 1.5 ? 'SUS' : 'A LIL SUS'
+    : score >= 4.0 ? 'TRULY CURSED' : score >= 2.5 ? 'BIG MAD' : score >= 1.5 ? 'ROBBED' : 'UNLUCKY'
 
   return (
     <Box sx={{ userSelect: 'none' }}>
-      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
-        <text x={colW / 2} y={17} textAnchor="middle"
-          fill="#f97316" fillOpacity={0.8} fontSize={7.5} fontWeight={800} letterSpacing="0.8">
-          TOP FRAUDS ▲
-        </text>
-        <text x={colW + gutter + colW / 2} y={17} textAnchor="middle"
-          fill="#818cf8" fillOpacity={0.8} fontSize={7.5} fontWeight={800} letterSpacing="0.8">
-          MOST CURSED ▼
-        </text>
-        <line
-          x1={colW + gutter / 2} y1={22} x2={colW + gutter / 2} y2={H - 4}
-          stroke="currentColor" strokeOpacity={0.1} strokeWidth={1} />
-        {topFrauds.map((t, i) => renderRow(t, i, true, 0))}
-        {topCursed.map((t, i) => renderRow(t, i, false, colW + gutter))}
-      </svg>
+      {teams.map((team, i) => {
+        const score = isFraud ? team.fraudScore : team.cursedScore
+        const barFraction = score / maxScore
+        const isDimmed = highlightTeamId != null && highlightTeamId !== team.id
+        const isHighlighted = highlightTeamId === team.id
+        const label = getLabel(score)
+        const logoFailed = logoErrors.has(team.id)
+
+        return (
+          <Box
+            key={team.id}
+            onClick={() => onSelectTeam(team.id)}
+            sx={{
+              display: 'flex', alignItems: 'center', gap: 1.25,
+              py: 0.9, px: 0.75,
+              borderRadius: 2, cursor: 'pointer',
+              opacity: isDimmed ? 0.18 : 1,
+              bgcolor: isHighlighted ? 'action.selected' : 'transparent',
+              '&:hover': { bgcolor: 'action.hover' },
+              transition: 'opacity 0.22s, background-color 0.15s',
+              borderBottom: i < teams.length - 1 ? '1px solid' : 'none',
+              borderColor: 'divider',
+            }}
+          >
+            {/* Rank */}
+            <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', fontWeight: 700, width: 14, textAlign: 'right', flexShrink: 0 }}>
+              {i + 1}
+            </Typography>
+
+            {/* Team logo */}
+            <Box sx={{
+              width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+              bgcolor: logoFailed ? (TEAM_BG[team.id] ?? 'grey.600') : '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden',
+              boxShadow: isHighlighted ? `0 0 0 2.5px ${accent}` : '0 1px 4px rgba(0,0,0,0.15)',
+            }}>
+              {logoFailed ? (
+                <Typography sx={{ color: '#fff', fontWeight: 900, fontSize: team.abbr.length > 2 ? '0.48rem' : '0.6rem', lineHeight: 1 }}>
+                  {team.abbr}
+                </Typography>
+              ) : (
+                <Box
+                  component="img"
+                  src={`https://www.mlbstatic.com/team-logos/${team.id}.svg`}
+                  alt={team.abbr}
+                  crossOrigin="anonymous"
+                  onError={() => setLogoErrors(prev => new Set(prev).add(team.id))}
+                  sx={{ width: '80%', height: '80%', objectFit: 'contain', display: 'block' }}
+                />
+              )}
+            </Box>
+
+            {/* Name + record */}
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {team.name}
+              </Typography>
+              <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', fontWeight: 500, mt: 0.1 }}>
+                {team.wins}–{team.losses}
+              </Typography>
+            </Box>
+
+            {/* Bar + delta */}
+            <Box sx={{ width: 80, flexShrink: 0 }}>
+              <Box sx={{ height: 5, bgcolor: 'action.hover', borderRadius: 1, overflow: 'hidden', mb: 0.5 }}>
+                <Box sx={{ height: '100%', width: `${barFraction * 100}%`, bgcolor: accent, borderRadius: 1, opacity: 0.85, transition: 'width 0.3s' }} />
+              </Box>
+              <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: accent, textAlign: 'right', lineHeight: 1 }}>
+                {team.delta > 0 ? `+${team.delta}` : team.delta} wins
+              </Typography>
+            </Box>
+
+            {/* Verdict label */}
+            <Typography sx={{
+              fontSize: '0.54rem', fontWeight: 800, color: accent,
+              opacity: score >= 2 ? 1 : 0.65,
+              width: 76, flexShrink: 0, textAlign: 'right',
+              letterSpacing: '0.3px', lineHeight: 1.25,
+              textTransform: 'uppercase',
+            }}>
+              {label}
+            </Typography>
+          </Box>
+        )
+      })}
     </Box>
   )
 }

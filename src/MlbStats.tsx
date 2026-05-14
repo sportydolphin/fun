@@ -28,7 +28,7 @@ import {
   CardInner, CardInnerProps, TeamCardInner, TeamCardInnerProps,
   SectionLabel,
 } from './mlb/components'
-import { useChartTooltip, ChartTooltip, TeamDot, TeamEraOpsPlot, TeamWinRDPlot, TeamLuckChart, TeamFraudWatch } from './mlb/charts'
+import { useChartTooltip, ChartTooltip, TeamDot, TeamEraOpsPlot, TeamWinRDPlot, TeamFraudPanel } from './mlb/charts'
 import { PlayerTrendsChart, TREND_HIT_DEFS, TREND_PIT_DEFS } from './mlb/PlayerTrendsChart'
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -613,41 +613,17 @@ export default function MlbStats() {
             {/* Desktop-only row divider */}
             <Divider sx={{ display: { xs: 'none', md: 'block' }, gridColumn: '1 / -1' }} />
 
-            {/* Chart 3: Over/Underperforming */}
+            {/* Chart 3: Fraud Watch — Top Frauds */}
             <Box sx={{ pt: { xs: 3, md: 3.5 } }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-                <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Over / Underperforming</Typography>
-                <Tooltip arrow placement="top" title={
-                  <Box sx={{ maxWidth: 260, p: 0.5 }}>
-                    <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
-                    <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
-                      Bars show how many wins each team has above (+) or below (−) what their scoring margin predicts.
-                      Teams on the left are winning more than expected — often thanks to a strong bullpen or clutch play in close games.
-                      Teams on the right are winning fewer games than their scoring suggests — they're outscoring opponents overall but losing tight ones.
-                    </Typography>
-                  </Box>
-                }>
-                  <InfoOutlined sx={{ fontSize: '0.95rem', color: 'text.disabled', cursor: 'help', mt: '1px' }} />
-                </Tooltip>
-              </Box>
-              <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
-                Wins above/below what their scoring margin predicts · click to highlight across all charts
-              </Typography>
-              <TeamLuckChart data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
-            </Box>
-
-            {/* Chart 4: Fraud Watch */}
-            <Box sx={{ pt: { xs: 3, md: 3.5 } }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-                <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>🚨 Fraud Watch</Typography>
+                <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>🚨 Top Frauds</Typography>
                 <Tooltip arrow placement="top" title={
                   <Box sx={{ maxWidth: 270, p: 0.5 }}>
                     <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
                     <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
-                      Top frauds and most cursed teams, weighted by standings context.
-                      Overperforming matters more when a team is actually winning — a first-place team winning 5 more games than expected ranks higher than a last-place team doing the same.
-                      Underperforming matters more when the team is already losing — a great team with a small delta isn't cursed, they're just fine.
-                      The number shown is raw wins above/below expectation; bar length reflects the weighted score.
+                      Teams winning the most games above what their run differential predicts, weighted by how well they're actually doing.
+                      A first-place team winning 5 more than expected ranks higher than a last-place team winning 6 more — because the first-place team is actually fooling people.
+                      Bar length = weighted fraud score. Number = raw wins above expectation.
                     </Typography>
                   </Box>
                 }>
@@ -655,9 +631,32 @@ export default function MlbStats() {
                 </Tooltip>
               </Box>
               <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
-                All 30 teams ranked by wins above Pythagorean expectation · are they for real?
+                Winning more than their scoring predicts · weighted by standings position
               </Typography>
-              <TeamFraudWatch data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
+              <TeamFraudPanel data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} type="fraud" />
+            </Box>
+
+            {/* Chart 4: Fraud Watch — Most Cursed */}
+            <Box sx={{ pt: { xs: 3, md: 3.5 } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
+                <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>💀 Most Cursed</Typography>
+                <Tooltip arrow placement="top" title={
+                  <Box sx={{ maxWidth: 270, p: 0.5 }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
+                    <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
+                      Teams losing the most games beyond what their run differential predicts, weighted by how poorly they're already doing.
+                      A last-place team underperforming by 4 wins ranks higher than a first-place team underperforming by 5 — because the first-place team is still fine.
+                      Bar length = weighted cursed score. Number = raw wins below expectation.
+                    </Typography>
+                  </Box>
+                }>
+                  <InfoOutlined sx={{ fontSize: '0.95rem', color: 'text.disabled', cursor: 'help', mt: '1px' }} />
+                </Tooltip>
+              </Box>
+              <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
+                Losing more than their scoring predicts · weighted by standings position
+              </Typography>
+              <TeamFraudPanel data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} type="cursed" />
             </Box>
           </Box>
           )}
