@@ -295,6 +295,102 @@ export function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam }: 
   )
 }
 
+// ─── Fraud Watch ─────────────────────────────────────────────────────────────
+
+export function TeamFraudWatch({ data, nameMap, highlightTeamId, onSelectTeam }: {
+  data: TeamSummary[]
+  nameMap: Map<number, string>
+  highlightTeamId: number | null
+  onSelectTeam: (id: number) => void
+}) {
+  const withDelta = data
+    .filter(d => !isNaN(d.rs) && !isNaN(d.ra) && d.wins + d.losses > 0)
+    .map(d => {
+      const e = 1.83
+      const pythPct = d.ra > 0 ? Math.pow(d.rs, e) / (Math.pow(d.rs, e) + Math.pow(d.ra, e)) : 0.99
+      const games = d.wins + d.losses
+      const pythWins = Math.round(pythPct * games)
+      const delta = d.wins - pythWins
+      return { ...d, delta, pythWins, name: nameMap.get(d.id) ?? d.abbr }
+    })
+    .sort((a, b) => b.delta - a.delta)
+
+  if (!withDelta.length) return null
+
+  const maxAbs = Math.max(...withDelta.map(t => Math.abs(t.delta)), 1)
+
+  const fraudInfo = (delta: number): { label: string; color: string } => {
+    if (delta >= 7) return { label: 'CONFIRMED FRAUD', color: '#ef4444' }
+    if (delta >= 5) return { label: 'FRAUD ALERT', color: '#f97316' }
+    if (delta >= 3) return { label: 'SUS', color: '#f59e0b' }
+    if (delta >= 1) return { label: 'A LIL SUS', color: '#eab308' }
+    if (delta === 0) return { label: 'LEGIT', color: '#22c55e' }
+    if (delta >= -2) return { label: 'UNLUCKY', color: '#60a5fa' }
+    if (delta >= -4) return { label: 'ROBBED', color: '#818cf8' }
+    return { label: 'CURSED', color: '#a78bfa' }
+  }
+
+  return (
+    <Box>
+      {withDelta.map((team, i) => {
+        const { label, color: labelColor } = fraudInfo(team.delta)
+        const isDimmed = highlightTeamId != null && highlightTeamId !== team.id
+        const isHighlighted = highlightTeamId === team.id
+        const barFraction = Math.abs(team.delta) / maxAbs
+        const isFraud = team.delta > 0
+
+        return (
+          <Box
+            key={team.id}
+            onClick={() => onSelectTeam(team.id)}
+            sx={{
+              display: 'flex', alignItems: 'center', gap: 0.75, py: '3px', px: 0.5,
+              borderRadius: 1, cursor: 'pointer',
+              opacity: isDimmed ? 0.18 : 1,
+              bgcolor: isHighlighted ? 'action.selected' : 'transparent',
+              '&:hover': { bgcolor: 'action.hover' },
+              transition: 'opacity 0.22s, background-color 0.15s',
+            }}
+          >
+            <Typography sx={{ fontSize: '0.55rem', color: 'text.disabled', fontWeight: 700, width: 14, textAlign: 'right', flexShrink: 0 }}>
+              {i + 1}
+            </Typography>
+            <Box sx={{
+              width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+              bgcolor: TEAM_BG[team.id] ?? 'grey.600',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              outline: isHighlighted ? '2px solid white' : 'none', outlineOffset: '1px',
+            }}>
+              <Typography sx={{ color: '#fff', fontWeight: 900, fontSize: team.abbr.length > 2 ? '0.42rem' : '0.52rem', lineHeight: 1, userSelect: 'none' }}>
+                {team.abbr}
+              </Typography>
+            </Box>
+            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', position: 'relative', height: 7, minWidth: 0 }}>
+              <Box sx={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', bgcolor: 'divider' }} />
+              {team.delta !== 0 && (
+                <Box sx={{
+                  position: 'absolute',
+                  left: isFraud ? '50%' : `calc(50% - ${barFraction * 50}%)`,
+                  width: `${barFraction * 50}%`,
+                  height: 6, borderRadius: '2px',
+                  bgcolor: isFraud ? '#f97316' : '#60a5fa',
+                  opacity: 0.72,
+                }} />
+              )}
+            </Box>
+            <Typography sx={{ fontSize: '0.68rem', fontWeight: 800, color: isFraud ? '#f97316' : (team.delta < 0 ? '#60a5fa' : 'text.secondary'), width: 22, textAlign: 'right', flexShrink: 0 }}>
+              {team.delta > 0 ? `+${team.delta}` : team.delta === 0 ? '0' : team.delta}
+            </Typography>
+            <Typography sx={{ fontSize: '0.55rem', fontWeight: 800, color: labelColor, width: 84, flexShrink: 0, letterSpacing: 0.3 }}>
+              {label}
+            </Typography>
+          </Box>
+        )
+      })}
+    </Box>
+  )
+}
+
 // ─── Luck / Pythagorean delta bar chart ──────────────────────────────────────
 
 export function TeamLuckChart({ data, nameMap, highlightTeamId, onSelectTeam }: {

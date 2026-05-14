@@ -28,7 +28,7 @@ import {
   CardInner, CardInnerProps, TeamCardInner, TeamCardInnerProps,
   SectionLabel,
 } from './mlb/components'
-import { useChartTooltip, ChartTooltip, TeamDot, TeamEraOpsPlot, TeamWinRDPlot, TeamLuckChart } from './mlb/charts'
+import { useChartTooltip, ChartTooltip, TeamDot, TeamEraOpsPlot, TeamWinRDPlot, TeamLuckChart, TeamFraudWatch } from './mlb/charts'
 import { PlayerTrendsChart, TREND_HIT_DEFS, TREND_PIT_DEFS } from './mlb/PlayerTrendsChart'
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -634,6 +634,29 @@ export default function MlbStats() {
                 Wins above/below what their scoring margin predicts · click to highlight across all charts
               </Typography>
               <TeamLuckChart data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
+            </Box>
+
+            {/* Chart 4: Fraud Watch */}
+            <Box sx={{ pt: { xs: 3, md: 3.5 } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
+                <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>🚨 Fraud Watch</Typography>
+                <Tooltip arrow placement="top" title={
+                  <Box sx={{ maxWidth: 270, p: 0.5 }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
+                    <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
+                      All 30 teams ranked by how many wins they have above or below Pythagorean expectation.
+                      A positive delta means a team is winning more than their run differential predicts — suspicious.
+                      A negative delta means they're being robbed. Orange bar = overperforming (potential frauds), blue bar = underperforming.
+                    </Typography>
+                  </Box>
+                }>
+                  <InfoOutlined sx={{ fontSize: '0.95rem', color: 'text.disabled', cursor: 'help', mt: '1px' }} />
+                </Tooltip>
+              </Box>
+              <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
+                All 30 teams ranked by wins above Pythagorean expectation · are they for real?
+              </Typography>
+              <TeamFraudWatch data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
             </Box>
           </Box>
           )}

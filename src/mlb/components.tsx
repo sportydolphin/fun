@@ -296,6 +296,15 @@ export function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pit
   const photoSize = large ? 200 : 120
   const hasHitting = hittingStats && HITTING_STAT_DEFS.some(d => selectedHitStats.includes(d.key))
 
+  // Auto-show saves for closers/relievers who have them
+  const saves = pitchingStats ? Number(pitchingStats.saves ?? 0) : 0
+  const gamesStarted = pitchingStats ? Number(pitchingStats.gamesStarted ?? 0) : 0
+  const effectivePitStats = saves > 0 && !selectedPitStats.includes('sv')
+    ? gamesStarted < 3
+      ? ['sv', ...selectedPitStats.filter(k => k !== 'wl')]  // pure reliever: swap W-L for SV
+      : [...selectedPitStats, 'sv']
+    : selectedPitStats
+
   const subtitleParts: string[] = []
   if (showPosition && player.primaryPosition?.name) subtitleParts.push(player.primaryPosition.name)
   if (showTeam && teamDisplay) subtitleParts.push(teamDisplay)
@@ -343,7 +352,7 @@ export function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pit
         season={season} label="Hitting" large={large} onToggle={onToggleHitStat}
       />
       <StatGrid
-        defs={PITCHING_STAT_DEFS} stats={pitchingStats} selected={selectedPitStats}
+        defs={PITCHING_STAT_DEFS} stats={pitchingStats} selected={effectivePitStats}
         palette={palette} rankMode={rankMode} playerId={player.id} leaders={pitLeaders}
         season={season} label="Pitching" large={large} onToggle={onTogglePitStat}
         mt={hasHitting ? 1 : 0}
