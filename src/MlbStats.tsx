@@ -644,9 +644,10 @@ export default function MlbStats() {
                   <Box sx={{ maxWidth: 270, p: 0.5 }}>
                     <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
                     <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
-                      All 30 teams ranked by how many wins they have above or below Pythagorean expectation.
-                      A positive delta means a team is winning more than their run differential predicts — suspicious.
-                      A negative delta means they're being robbed. Orange bar = overperforming (potential frauds), blue bar = underperforming.
+                      Top frauds and most cursed teams, weighted by standings context.
+                      Overperforming matters more when a team is actually winning — a first-place team winning 5 more games than expected ranks higher than a last-place team doing the same.
+                      Underperforming matters more when the team is already losing — a great team with a small delta isn't cursed, they're just fine.
+                      The number shown is raw wins above/below expectation; bar length reflects the weighted score.
                     </Typography>
                   </Box>
                 }>
