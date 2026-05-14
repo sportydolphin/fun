@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import {
   Box, Typography, CircularProgress, Paper,
   List, ListItemButton, Divider, ClickAwayListener,
-  Popover, Menu, MenuItem, Tooltip, useMediaQuery,
+  Popover, Menu, MenuItem, Tooltip, useMediaQuery, Switch,
 } from '@mui/material'
 import { Search, Shuffle, FileDownload, KeyboardArrowDown, InfoOutlined, OpenInFull, Close, Tune } from '@mui/icons-material'
 import html2canvas from 'html2canvas'
@@ -505,6 +505,7 @@ export default function MlbStats() {
                         component="input"
                         value={vizSearch}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setVizSearch(e.target.value); setVizSearchOpen(true) }}
+                        onFocus={() => setVizSearchOpen(true)}
                         placeholder="Highlight a team…"
                         sx={{
                           flex: 1, border: 'none', outline: 'none', bgcolor: 'transparent',
@@ -513,12 +514,14 @@ export default function MlbStats() {
                         }}
                       />
                     </Box>
-                    {vizSearchOpen && vizSearch.length > 0 && (() => {
+                    {vizSearchOpen && (() => {
                       const q = vizSearch.toLowerCase()
-                      const matches = teamSummaries.filter(t => {
-                        const name = nameMap.get(t.id) ?? ''
-                        return name.toLowerCase().includes(q) || t.abbr.toLowerCase().includes(q)
-                      }).slice(0, 6)
+                      const matches = vizSearch.length > 0
+                        ? teamSummaries.filter(t => {
+                            const name = nameMap.get(t.id) ?? ''
+                            return name.toLowerCase().includes(q) || t.abbr.toLowerCase().includes(q)
+                          })
+                        : [...teamSummaries].sort((a, b) => (nameMap.get(a.id) ?? a.abbr).localeCompare(nameMap.get(b.id) ?? b.abbr))
                       if (matches.length === 0) return null
                       return (
                         <Paper elevation={8} sx={{ position: 'absolute', width: '100%', zIndex: 20, mt: 0.5, borderRadius: 2, overflow: 'hidden' }}>
@@ -654,6 +657,8 @@ export default function MlbStats() {
           return (a.leaderLabel ?? a.label).localeCompare(b.leaderLabel ?? b.label)
         })
         const lbIsDefault = lbFeatured.length === lbSelectedKeys.length && lbFeatured.every(k => lbSelectedKeys.includes(k))
+        const allLbKeys = lbAllDefs.map(d => d.key)
+        const lbShowAll = allLbKeys.length > 0 && allLbKeys.every(k => lbSelectedKeys.includes(k))
         return (
         <Box>
           {/* Controls row */}
@@ -669,6 +674,21 @@ export default function MlbStats() {
                   style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: '6px 16px', borderRadius: 999, fontFamily: 'inherit' }}>
                   {TEAM_SEASONS.map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
+              </Box>
+              {/* Show all toggle */}
+              <Box
+                onClick={() => setLbSelectedKeys(lbShowAll ? [...lbFeatured] : allLbKeys)}
+                sx={{ display: 'flex', alignItems: 'center', gap: 0.25, cursor: 'pointer', userSelect: 'none' }}
+              >
+                <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: lbShowAll ? ACCENT : 'text.secondary' }}>
+                  Show all
+                </Typography>
+                <Switch
+                  size="small"
+                  checked={lbShowAll}
+                  onChange={() => setLbSelectedKeys(lbShowAll ? [...lbFeatured] : allLbKeys)}
+                  sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: ACCENT }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: ACCENT } }}
+                />
               </Box>
               {/* Stats picker button */}
               <Box
@@ -693,7 +713,6 @@ export default function MlbStats() {
                 PaperProps={{ sx: { borderRadius: 2.5, p: 1.75, mt: 0.75, width: 280, boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
               >
                 {(() => {
-                  const allLbKeys = lbSortedDefs.map(d => d.key)
                   const allLbSelected = allLbKeys.every(k => lbSelectedKeys.includes(k))
                   return (
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
