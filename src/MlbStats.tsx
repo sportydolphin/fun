@@ -79,6 +79,7 @@ export default function MlbStats() {
   const [showNumber, setShowNumber] = useState(false)
 
   const isDesktop = useMediaQuery('(min-width: 600px)')
+  const canHover = useMediaQuery('(hover: hover)')
 
   const [view, setView] = useState<'search' | 'viz' | 'leaderboard'>('search')
   const [vizSeason, setVizSeason] = useState(CURRENT_SEASON)
@@ -275,10 +276,16 @@ export default function MlbStats() {
   }, [loadTeamStats])
 
   const handleLbPlayerClick = useCallback((playerId: number) => {
+    // Push the current leaderboard URL so the browser back button returns here
+    const params = new URLSearchParams()
+    params.set('view', 'leaderboard')
+    if (lbGroup !== 'hitting') params.set('lb', lbGroup)
+    if (vizSeason !== CURRENT_SEASON) params.set('season', String(vizSeason))
+    window.history.pushState({}, '', `/mlb?${params.toString()}`)
     fetchPlayerDetails(playerId).then(p => {
       if (p) { selectPlayer(p); setView('search') }
     }).catch(() => {})
-  }, [selectPlayer])
+  }, [selectPlayer, lbGroup, vizSeason])
 
   const handleLbTikTok = useCallback(async () => {
     if (!lbCardRef.current || !lbFullscreen) return
@@ -333,6 +340,26 @@ export default function MlbStats() {
     const qs = params.toString()
     window.history.replaceState({}, '', `/mlb${qs ? '?' + qs : ''}`)
   }, [view, player, team, lbGroup, vizSeason])
+
+  // Restore state when the browser back button is pressed (e.g. leaderboard → player → back)
+  useEffect(() => {
+    const handlePop = () => {
+      const params = new URLSearchParams(window.location.search)
+      const viewParam = params.get('view')
+      if (viewParam === 'leaderboard') {
+        setView('leaderboard')
+        setPlayer(null)
+        setTeam(null)
+        setLbGroup(params.get('lb') === 'pitching' ? 'pitching' : 'hitting')
+      } else if (viewParam === 'viz') {
+        setView('viz')
+        setPlayer(null)
+        setTeam(null)
+      }
+    }
+    window.addEventListener('popstate', handlePop)
+    return () => window.removeEventListener('popstate', handlePop)
+  }, [])
 
   const autoLoadedRef = useRef(false)
   const urlViewReadRef = useRef(false)
@@ -858,7 +885,7 @@ export default function MlbStats() {
                           return (
                             <Box
                               key={e.playerId}
-                              onMouseEnter={() => setLbHoverId(e.playerId)}
+                              onMouseEnter={() => { if (canHover) setLbHoverId(e.playerId) }}
                               onClick={() => handleLbPlayerClick(e.playerId)}
                               sx={{
                                 display: 'flex', alignItems: 'center', gap: 1.25,
