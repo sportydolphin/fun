@@ -86,6 +86,7 @@ export default function MlbStats() {
   const [teamSummaries, setTeamSummaries] = useState<TeamSummary[]>([])
   const [loadingViz, setLoadingViz] = useState(false)
   const [vizHighlightId, setVizHighlightId] = useState<number | null>(null)
+  const [vizHoverId, setVizHoverId] = useState<number | null>(null)
   const [vizSearch, setVizSearch] = useState('')
   const [vizSearchOpen, setVizSearchOpen] = useState(false)
 
@@ -116,6 +117,8 @@ export default function MlbStats() {
   const lbCardRef = useRef<HTMLDivElement>(null)
   const blockDropdownRef = useRef(false)  // prevents dropdown re-opening after programmatic query set
   const loadGenRef = useRef(0)            // incremented each load; stale async callbacks bail out early
+  const autoLoadedRef = useRef(false)
+  const urlViewReadRef = useRef(false)
 
   const toggleHitStat = useCallback((key: string) => setSelectedHitStats(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]), [])
   const togglePitStat = useCallback((key: string) => setSelectedPitStats(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]), [])
@@ -133,6 +136,7 @@ export default function MlbStats() {
     setLoadingViz(true)
     setTeamSummaries([])
     setVizHighlightId(null)
+    setVizHoverId(null)
     setVizSearch('')
     fetchTeamSummaryData(vizSeason)
       .then(setTeamSummaries)
@@ -328,7 +332,9 @@ export default function MlbStats() {
   }, [player])
 
   // Sync URL whenever view/player/team/lb state changes
+  // Gate on autoLoadedRef so the initial mount doesn't wipe ?pid= before the auto-load effect reads it
   useEffect(() => {
+    if (!autoLoadedRef.current) return
     const params = new URLSearchParams()
     if (player) params.set('pid', String(player.id))
     else if (team) params.set('tid', String(team.id))
@@ -361,8 +367,6 @@ export default function MlbStats() {
     return () => window.removeEventListener('popstate', handlePop)
   }, [])
 
-  const autoLoadedRef = useRef(false)
-  const urlViewReadRef = useRef(false)
   useEffect(() => {
     if (autoLoadedRef.current) return
     const params = new URLSearchParams(window.location.search)
@@ -478,7 +482,15 @@ export default function MlbStats() {
     onToggleHitStat: toggleTeamHitStat, onTogglePitStat: toggleTeamPitStat,
   } : null
 
-  const handleVizSelect = (id: number) => setVizHighlightId(prev => prev === id ? null : id)
+  const handleVizNavigate = useCallback((id: number) => {
+    const t = allTeams.find(t => t.id === id)
+    if (!t) return
+    const params = new URLSearchParams()
+    params.set('view', 'viz')
+    if (vizSeason !== CURRENT_SEASON) params.set('season', String(vizSeason))
+    window.history.pushState({}, '', `/mlb?${params.toString()}`)
+    selectTeam(t).then(() => setView('search'))
+  }, [allTeams, vizSeason, selectTeam])
 
   return (
     <Box sx={{ maxWidth: { xs: 640, md: 1280 }, mx: 'auto' }}>
@@ -587,7 +599,7 @@ export default function MlbStats() {
           {loadingViz && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
 
           {!loadingViz && teamSummaries.length > 0 && (
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: { md: 5 }, rowGap: 0 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: { md: 5 }, rowGap: 0 }} onMouseLeave={() => setVizHoverId(null)}>
               {/* Chart 1: ERA vs OPS */}
               <Box sx={{ pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
@@ -609,7 +621,7 @@ export default function MlbStats() {
                 <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
                   How good a team's pitching and hitting are · top-right = best of both
                 </Typography>
-                <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
+                <TeamEraOpsPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} />
               </Box>
 
               {/* Chart 2: Win% vs Run Differential */}
@@ -634,7 +646,7 @@ export default function MlbStats() {
                 <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
                   Actual record vs expected W-L based on scoring · above the curve = outperforming
                 </Typography>
-                <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} />
+                <TeamWinRDPlot data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} />
               </Box>
 
             {/* Desktop-only row divider */}
@@ -660,7 +672,7 @@ export default function MlbStats() {
               <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
                 Winning more than their scoring predicts · weighted by standings position
               </Typography>
-              <TeamFraudPanel data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} type="fraud" />
+              <TeamFraudPanel data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={handleVizNavigate} onHoverTeam={canHover ? setVizHoverId : undefined} type="fraud" />
             </Box>
 
             {/* Chart 4: Fraud Watch — Most Cursed */}
@@ -683,7 +695,7 @@ export default function MlbStats() {
               <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
                 Losing more than their scoring predicts · weighted by standings position
               </Typography>
-              <TeamFraudPanel data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHighlightId} onSelectTeam={handleVizSelect} type="cursed" />
+              <TeamFraudPanel data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={handleVizNavigate} onHoverTeam={canHover ? setVizHoverId : undefined} type="cursed" />
             </Box>
           </Box>
           )}

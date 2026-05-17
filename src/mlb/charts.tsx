@@ -67,7 +67,7 @@ export function TeamDot({ team, x, y, hovered, dimmed, highlighted, onEnter, onL
 
 // ─── ERA vs OPS Scatter Plot ─────────────────────────────────────────────────
 
-export function TeamEraOpsPlot({ data, nameMap, highlightTeamId, onSelectTeam }: { data: TeamSummary[]; nameMap: Map<number, string>; highlightTeamId: number | null; onSelectTeam: (id: number) => void }) {
+export function TeamEraOpsPlot({ data, nameMap, highlightTeamId, onSelectTeam, onHoverTeam }: { data: TeamSummary[]; nameMap: Map<number, string>; highlightTeamId: number | null; onSelectTeam?: (id: number) => void; onHoverTeam?: (id: number | null) => void }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const { hovered, setHovered, tipPos, onEnter } = useChartTooltip<TeamSummary & { name: string }>(boxRef as React.RefObject<HTMLDivElement>)
 
@@ -97,7 +97,7 @@ export function TeamEraOpsPlot({ data, nameMap, highlightTeamId, onSelectTeam }:
   return (
     <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}
-        onMouseLeave={() => setHovered(null)}>
+        onMouseLeave={() => { setHovered(null); onHoverTeam?.(null) }}>
         {/* Quadrant fills — top = low ERA = good pitching */}
         <rect x={m.l} y={m.t} width={ax - m.l} height={ay - m.t} fill="#3b82f6" fillOpacity={0.05} />
         <rect x={ax} y={m.t} width={m.l + iW - ax} height={ay - m.t} fill="#22c55e" fillOpacity={0.07} />
@@ -141,7 +141,7 @@ export function TeamEraOpsPlot({ data, nameMap, highlightTeamId, onSelectTeam }:
             hovered={hovered?.id === team.id}
             dimmed={highlightTeamId != null && team.id !== highlightTeamId}
             highlighted={highlightTeamId === team.id}
-            onEnter={(t, e) => onEnter({ ...t, name: nameMap.get(t.id) ?? t.abbr }, e)}
+            onEnter={(t, e) => { onEnter({ ...t, name: nameMap.get(t.id) ?? t.abbr }, e); onHoverTeam?.(t.id) }}
             onLeave={() => setHovered(null)}
             onSelect={onSelectTeam} />
         ))}
@@ -163,7 +163,7 @@ export function TeamEraOpsPlot({ data, nameMap, highlightTeamId, onSelectTeam }:
 
 // ─── Win% vs Run Differential (Pythagorean) ───────────────────────────────────
 
-export function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam }: { data: TeamSummary[]; nameMap: Map<number, string>; highlightTeamId: number | null; onSelectTeam: (id: number) => void }) {
+export function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam, onHoverTeam }: { data: TeamSummary[]; nameMap: Map<number, string>; highlightTeamId: number | null; onSelectTeam?: (id: number) => void; onHoverTeam?: (id: number | null) => void }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const { hovered, setHovered, tipPos, onEnter } = useChartTooltip<TeamSummary & { name: string; winPct: number; rd: number; pythPct: number; pythWins: number; pythLosses: number }>(boxRef as React.RefObject<HTMLDivElement>)
 
@@ -219,7 +219,7 @@ export function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam }: 
   return (
     <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
       <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}
-        onMouseLeave={() => setHovered(null)}>
+        onMouseLeave={() => { setHovered(null); onHoverTeam?.(null) }}>
         {/* Half shading: above .500 vs below */}
         <rect x={x0} y={m.t} width={m.l + iW - x0} height={m.t + iH - m.t} fill="#22c55e" fillOpacity={0.04} />
         <rect x={m.l} y={m.t} width={x0 - m.l} height={m.t + iH - m.t} fill="#ef4444" fillOpacity={0.04} />
@@ -267,7 +267,7 @@ export function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam }: 
             hovered={hovered?.id === team.id}
             dimmed={highlightTeamId != null && team.id !== highlightTeamId}
             highlighted={highlightTeamId === team.id}
-            onEnter={(t, e) => onEnter(withPyth.find(w => w.id === t.id)!, e)}
+            onEnter={(t, e) => { onEnter(withPyth.find(w => w.id === t.id)!, e); onHoverTeam?.(t.id) }}
             onLeave={() => setHovered(null)}
             onSelect={onSelectTeam} />
         ))}
@@ -300,11 +300,12 @@ export function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam }: 
 // Fraud score  = delta × winPct         — overperforming matters MORE when you're winning
 // Cursed score = |delta| × (1−winPct)   — underperforming matters MORE when you're already losing
 
-export function TeamFraudPanel({ data, nameMap, highlightTeamId, onSelectTeam, type }: {
+export function TeamFraudPanel({ data, nameMap, highlightTeamId, onSelectTeam, onHoverTeam, type }: {
   data: TeamSummary[]
   nameMap: Map<number, string>
   highlightTeamId: number | null
-  onSelectTeam: (id: number) => void
+  onSelectTeam?: (id: number) => void
+  onHoverTeam?: (id: number | null) => void
   type: 'fraud' | 'cursed'
 }) {
   const [logoErrors, setLogoErrors] = useState<Set<number>>(new Set())
@@ -339,7 +340,7 @@ export function TeamFraudPanel({ data, nameMap, highlightTeamId, onSelectTeam, t
     : score >= 4.0 ? 'TRULY CURSED' : score >= 2.5 ? 'BIG MAD' : score >= 1.5 ? 'ROBBED' : 'UNLUCKY'
 
   return (
-    <Box sx={{ userSelect: 'none' }}>
+    <Box sx={{ userSelect: 'none' }} onMouseLeave={() => onHoverTeam?.(null)}>
       {teams.map((team, i) => {
         const score = isFraud ? team.fraudScore : team.cursedScore
         const barFraction = score / maxScore
@@ -351,7 +352,8 @@ export function TeamFraudPanel({ data, nameMap, highlightTeamId, onSelectTeam, t
         return (
           <Box
             key={team.id}
-            onClick={() => onSelectTeam(team.id)}
+            onClick={() => onSelectTeam?.(team.id)}
+            onMouseEnter={() => onHoverTeam?.(team.id)}
             sx={{
               display: 'flex', alignItems: 'center', gap: 1.25,
               py: 0.9, px: 0.75,
