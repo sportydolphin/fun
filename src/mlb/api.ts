@@ -1,4 +1,4 @@
-import { Player, Team, StatDef, TeamSummary, CareerStatSplit } from './types'
+import { Player, Team, StatDef, TeamSummary, CareerStatSplit, RecentGameEntry } from './types'
 import { TEAM_ABBR } from './constants'
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
@@ -177,6 +177,46 @@ export async function fetchTeamSummaryData(season: number): Promise<TeamSummary[
       losses: r.pitching?.losses != null ? Number(r.pitching.losses) : NaN,
     }))
     .filter(p => p.abbr)
+}
+
+// ─── Recent game log ─────────────────────────────────────────────────────────
+
+export async function fetchRecentGames(
+  id: number,
+  groups: Array<'hitting' | 'pitching'>,
+  season: number
+): Promise<RecentGameEntry[]> {
+  const results = await Promise.all(
+    groups.map(group =>
+      fetch(`https://statsapi.mlb.com/api/v1/people/${id}/stats?stats=gameLog&group=${group}&season=${season}`)
+        .then(r => r.json())
+        .then((d: any) => ({ group, splits: (d.stats?.[0]?.splits ?? []) as any[] }))
+        .catch(() => ({ group, splits: [] as any[] }))
+    )
+  )
+
+  const byGame = new Map<number, RecentGameEntry>()
+
+  for (const { group, splits } of results) {
+    for (const split of splits) {
+      const gamePk = Number(split.game?.gamePk)
+      if (!gamePk) continue
+      if (!byGame.has(gamePk)) {
+        byGame.set(gamePk, {
+          date: split.date ?? '',
+          isHome: split.isHome ?? true,
+          opponentAbbr: split.opponent?.abbreviation ?? TEAM_ABBR[split.opponent?.id] ?? '???',
+          hitting: null,
+          pitching: null,
+        })
+      }
+      const entry = byGame.get(gamePk)!
+      if (group === 'hitting') entry.hitting = split.stat
+      else entry.pitching = split.stat
+    }
+  }
+
+  return [...byGame.values()].sort((a, b) => b.date.localeCompare(a.date))
 }
 
 // ─── Career trends data ───────────────────────────────────────────────────────

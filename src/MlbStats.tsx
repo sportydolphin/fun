@@ -20,7 +20,7 @@ import {
   searchPlayers, fetchPlayerDetails, fetchStats,
   fetchYearByYearSplits, fetchCareerData, fetchAndRankPlayers, fetchAllTeams,
   fetchTeamStats, fetchLeaderboardData, fetchTeamRankings,
-  fetchTeamSummaryData, fetchPlayerCareerStats,
+  fetchTeamSummaryData, fetchPlayerCareerStats, fetchRecentGames,
 } from './mlb/api'
 import {
   SegControl, PillChip, pillActionSx, linkPillSx,
@@ -30,6 +30,8 @@ import {
 } from './mlb/components'
 import { useChartTooltip, ChartTooltip, TeamDot, TeamEraOpsPlot, TeamWinRDPlot, TeamFraudPanel } from './mlb/charts'
 import { PlayerTrendsChart, TREND_HIT_DEFS, TREND_PIT_DEFS } from './mlb/PlayerTrendsChart'
+import { RecentGamesTable } from './mlb/RecentGamesTable'
+import { RecentGameEntry } from './mlb/types'
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -111,6 +113,10 @@ export default function MlbStats() {
   // Career trends
   const [careerSplits, setCareerSplits] = useState<CareerStatSplit[] | null>(null)
   const [loadingCareer, setLoadingCareer] = useState(false)
+
+  // Recent games
+  const [recentGames, setRecentGames] = useState<RecentGameEntry[]>([])
+  const [loadingRecent, setLoadingRecent] = useState(false)
   const nameMap = useMemo(() => new Map(allTeams.map(t => [t.id, t.name])), [allTeams])
 
   const cardRef = useRef<HTMLDivElement>(null)
@@ -330,6 +336,20 @@ export default function MlbStats() {
       .catch(() => setCareerSplits([]))
       .finally(() => setLoadingCareer(false))
   }, [player])
+
+  // Fetch game log whenever player or season changes
+  useEffect(() => {
+    if (!player) { setRecentGames([]); return }
+    setLoadingRecent(true)
+    setRecentGames([])
+    const isPitcher = player.primaryPosition?.code === '1'
+    const isTwoWay = player.primaryPosition?.type === 'Two-Way Player'
+    const groups: Array<'hitting' | 'pitching'> = isTwoWay ? ['hitting', 'pitching'] : isPitcher ? ['pitching'] : ['hitting']
+    fetchRecentGames(player.id, groups, season)
+      .then(setRecentGames)
+      .catch(() => setRecentGames([]))
+      .finally(() => setLoadingRecent(false))
+  }, [player, season])
 
   // Sync URL whenever view/player/team/lb state changes
   // Gate on autoLoadedRef so the initial mount doesn't wipe ?pid= before the auto-load effect reads it
@@ -1343,6 +1363,24 @@ export default function MlbStats() {
                 </Box>
               )}
             </Box>
+          )}
+        </Box>
+      )}
+
+      {/* Recent games — player only */}
+      {hasStats && player && (loadingRecent || recentGames.length > 0) && (
+        <Box sx={{ mb: 2 }}>
+          <Box sx={{ mb: 1.25 }}>
+            <SectionLabel>Recent Games</SectionLabel>
+          </Box>
+          {loadingRecent ? (
+            <Box sx={{ textAlign: 'center', py: 2 }}><CircularProgress size={20} /></Box>
+          ) : (
+            <RecentGamesTable
+              games={recentGames}
+              isPitcher={player.primaryPosition?.code === '1'}
+              isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
+            />
           )}
         </Box>
       )}

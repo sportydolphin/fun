@@ -65,6 +65,14 @@ export interface CareerStatSplit {
   pitching: any | null
 }
 
+export interface RecentGameEntry {
+  date: string
+  isHome: boolean
+  opponentAbbr: string
+  hitting: any | null
+  pitching: any | null
+}
+
 export interface TrendStatDef {
   key: string
   label: string
