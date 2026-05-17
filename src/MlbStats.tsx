@@ -474,8 +474,8 @@ export default function MlbStats() {
         <Box>
           {/* Season picker + team highlight search */}
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 1.5 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', flex: 1 }}>
-              <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
+              <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>
                 All 30 teams · click to focus · hover to inspect
               </Typography>
 
@@ -492,7 +492,7 @@ export default function MlbStats() {
                 </Box>
               ) : (
                 <ClickAwayListener onClickAway={() => setVizSearchOpen(false)}>
-                  <Box sx={{ position: 'relative', minWidth: 180 }}>
+                  <Box sx={{ position: 'relative', minWidth: { xs: 0, sm: 180 }, flex: { xs: 1, sm: 'none' } }}>
                     <Box sx={{
                       display: 'flex', alignItems: 'center', gap: 0.75,
                       px: 1.25, py: 0.6, borderRadius: 999,
@@ -508,7 +508,7 @@ export default function MlbStats() {
                         onFocus={() => setVizSearchOpen(true)}
                         placeholder="Highlight a team…"
                         sx={{
-                          flex: 1, border: 'none', outline: 'none', bgcolor: 'transparent',
+                          flex: 1, minWidth: 0, border: 'none', outline: 'none', bgcolor: 'transparent',
                           fontSize: '0.8rem', color: 'text.primary', p: 0, fontFamily: 'inherit',
                           '&::placeholder': { color: 'text.disabled' },
                         }}
@@ -562,7 +562,7 @@ export default function MlbStats() {
           {!loadingViz && teamSummaries.length > 0 && (
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: { md: 5 }, rowGap: 0 }}>
               {/* Chart 1: ERA vs OPS */}
-              <Box sx={{ pb: 3.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
                   <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Pitching vs Hitting</Typography>
                   <Tooltip arrow placement="top" title={
@@ -586,7 +586,7 @@ export default function MlbStats() {
               </Box>
 
               {/* Chart 2: Win% vs Run Differential */}
-              <Box sx={{ pt: { xs: 3, md: 0 }, pb: 3.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ pt: { xs: 3, md: 0 }, pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
                   <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Wins vs Run Margin</Typography>
                   <Tooltip arrow placement="top" title={
@@ -614,7 +614,7 @@ export default function MlbStats() {
             <Divider sx={{ display: { xs: 'none', md: 'block' }, gridColumn: '1 / -1' }} />
 
             {/* Chart 3: Fraud Watch — Top Frauds */}
-            <Box sx={{ pt: { xs: 3, md: 3.5 } }}>
+            <Box sx={{ pt: { xs: 3, md: 3.5 }, minWidth: 0 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
                 <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>🚨 Top Frauds</Typography>
                 <Tooltip arrow placement="top" title={
@@ -637,7 +637,7 @@ export default function MlbStats() {
             </Box>
 
             {/* Chart 4: Fraud Watch — Most Cursed */}
-            <Box sx={{ pt: { xs: 3, md: 3.5 } }}>
+            <Box sx={{ pt: { xs: 3, md: 3.5 }, minWidth: 0 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
                 <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>💀 Most Cursed</Typography>
                 <Tooltip arrow placement="top" title={
