@@ -141,21 +141,25 @@ function RollingWindowChart({ games, isPitcher, onGameSelect }: {
   // Sort chronologically (API returns newest-first)
   const chrono = [...games].reverse().filter(g => isPitcher ? g.pitching != null : g.hitting != null)
 
-  // Hitters: skip first 9 games, window grows 10→20. Pitchers: start after 4, grows to 5.
-  const MIN_SHOWN  = isPitcher ? 5  : 10
-  const MAX_WINDOW = isPitcher ? 5  : 20
+  // Detect SP vs RP: if ≥50% of appearances are 3+ IP → starter
+  const isStarter = isPitcher && (() => {
+    if (!chrono.length) return true
+    const long = chrono.filter(g => parseIP(g.pitching?.inningsPitched ?? '0') >= 3).length
+    return long / chrono.length >= 0.5
+  })()
+
+  // Fixed window sizes — no growing logic
+  const HIT_WINDOW   = 10        // hitters: last 10 games
+  const SP_WINDOW    = 5         // starters: last 5 starts
+  const RP_IP_TARGET = 15        // relievers: last ~15 innings
+  const RP_MIN_IP    = 3         // minimum IP before we start plotting for RP
 
   const pts = chrono
     .map((g, i) => {
-      if (i < MIN_SHOWN - 1) return null          // skip early games
-      const windowSize = Math.min(i + 1, MAX_WINDOW)
-      const win = chrono.slice(i - windowSize + 1, i + 1)
-      if (isPitcher) {
-        const er = win.reduce((s, x) => s + Number(x.pitching?.earnedRuns ?? 0), 0)
-        const ip = win.reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
-        const value = ip > 0 ? (er * 9) / ip : null
-        return { date: g.date, opp: g.opponentAbbr, isHome: g.isHome, value, size: windowSize }
-      } else {
+      if (!isPitcher) {
+        // Hitters: fixed 10-game window
+        if (i < HIT_WINDOW - 1) return null
+        const win = chrono.slice(i - HIT_WINDOW + 1, i + 1)
         const h   = win.reduce((s, x) => s + Number(x.hitting?.hits ?? 0), 0)
         const ab  = win.reduce((s, x) => s + Number(x.hitting?.atBats ?? 0), 0)
         const bb  = win.reduce((s, x) => s + Number(x.hitting?.baseOnBalls ?? 0), 0)
@@ -169,7 +173,30 @@ function RollingWindowChart({ games, isPitcher, onGameSelect }: {
         const obp = denom > 0 ? (h + bb + hbp) / denom : 0
         const slg = ab > 0 ? tb / ab : 0
         const value = ab > 0 ? obp + slg : null
-        return { date: g.date, opp: g.opponentAbbr, isHome: g.isHome, value, size: windowSize }
+        return { date: g.date, opp: g.opponentAbbr, isHome: g.isHome, value, size: HIT_WINDOW, ip: null as number | null }
+      } else if (isStarter) {
+        // SP: fixed 5-start window
+        if (i < SP_WINDOW - 1) return null
+        const win = chrono.slice(i - SP_WINDOW + 1, i + 1)
+        const er  = win.reduce((s, x) => s + Number(x.pitching?.earnedRuns ?? 0), 0)
+        const ip  = win.reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
+        const value = ip > 0 ? (er * 9) / ip : null
+        return { date: g.date, opp: g.opponentAbbr, isHome: g.isHome, value, size: SP_WINDOW, ip }
+      } else {
+        // RP: rolling ~15-inning window — go back until we've accumulated RP_IP_TARGET IP
+        const cumIP = chrono.slice(0, i + 1).reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
+        if (cumIP < RP_MIN_IP) return null
+        let winIP = 0, winStart = i
+        for (let j = i; j >= 0; j--) {
+          winIP += parseIP(chrono[j].pitching?.inningsPitched ?? '0')
+          winStart = j
+          if (winIP >= RP_IP_TARGET) break
+        }
+        const win = chrono.slice(winStart, i + 1)
+        const er  = win.reduce((s, x) => s + Number(x.pitching?.earnedRuns ?? 0), 0)
+        const ip  = win.reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
+        const value = ip > 0 ? (er * 9) / ip : null
+        return { date: g.date, opp: g.opponentAbbr, isHome: g.isHome, value, size: win.length, ip }
       }
     })
     .filter((p): p is NonNullable<typeof p> & { value: number } => p != null && p.value != null)
@@ -325,7 +352,7 @@ function RollingWindowChart({ games, isPitcher, onGameSelect }: {
       <Box sx={{ display: 'flex', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
         <Box>
           <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>
-            Last {Math.min(currentPt.size, pts.length)} {isPitcher ? 'starts' : 'games'}
+            {isPitcher && !isStarter ? `Last ${currentPt.ip != null ? currentPt.ip.toFixed(1) : '—'} IP` : `Last ${currentPt.size} ${isPitcher ? 'starts' : 'games'}`}
           </Typography>
           <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT, lineHeight: 1.2 }}>
             {fmt(currentPt.value)}
@@ -454,7 +481,9 @@ function RollingWindowChart({ games, isPitcher, onGameSelect }: {
                 {fmt(hov.value)}
               </Typography>
               <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', mt: 0.2 }}>
-                last {hov.size} {isPitcher ? 'starts' : 'games'}
+                {isPitcher && !isStarter
+                  ? `last ${hov.size} apps · ${hov.ip != null ? hov.ip.toFixed(1) : '?'} IP`
+                  : `last ${hov.size} ${isPitcher ? 'starts' : 'games'}`}
               </Typography>
             </Box>
           )
@@ -462,7 +491,9 @@ function RollingWindowChart({ games, isPitcher, onGameSelect }: {
       </Box>
 
       <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.75 }}>
-        Rolling {label} · each point = avg of last N {isPitcher ? 'starts' : 'games'} (N grows from {MIN_SHOWN} → {MAX_WINDOW} as season progresses){lowerBetter ? ' · lower is better' : ''}
+        {isPitcher && !isStarter
+          ? `Rolling ERA · each point = last ~${RP_IP_TARGET} innings (${currentPt.size} apps) · lower is better`
+          : `Rolling ${label} · each point = last ${isPitcher ? `${SP_WINDOW} starts` : `${HIT_WINDOW} games`}${lowerBetter ? ' · lower is better' : ''}`}
       </Typography>
     </Box>
   )
