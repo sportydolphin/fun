@@ -133,8 +133,8 @@ function GameSection({ title, entries, cols, dataKey, highlightDate }: {
       <Box sx={{ width: 'fit-content', maxWidth: '100%', overflowX: 'auto', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
         <Box component="table" sx={{ borderCollapse: 'collapse', width: 'max-content' }}>
 
-          <Box component="thead">
-            <Box component="tr" sx={{ bgcolor: 'action.hover' }}>
+          <Box component="thead" sx={{ position: 'sticky', top: 0, zIndex: 2 }}>
+            <Box component="tr" sx={{ bgcolor: 'background.paper' }}>
               <Box component="th" sx={{ ...thSx, textAlign: 'left', pl: { xs: '12px', sm: '16px' } }}>
                 Date
               </Box>

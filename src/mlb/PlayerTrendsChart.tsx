@@ -311,6 +311,16 @@ function RollingWindowChart({ games, isPitcher, onGameSelect }: {
 
   return (
     <Box>
+      {/* Chart title */}
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 1.25 }}>
+        <Typography sx={{ fontWeight: 800, fontSize: '1.1rem', letterSpacing: '-0.01em' }}>
+          {label}
+        </Typography>
+        <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontWeight: 600 }}>
+          this season
+        </Typography>
+      </Box>
+
       {/* Summary row */}
       <Box sx={{ display: 'flex', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
         <Box>
@@ -443,18 +453,16 @@ function RollingWindowChart({ games, isPitcher, onGameSelect }: {
               <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT, mt: 0.3, lineHeight: 1 }}>
                 {fmt(hov.value)}
               </Typography>
-              {hov.size < MAX_WINDOW && (
-                <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', mt: 0.2 }}>
-                  {hov.size}-{isPitcher ? 'start' : 'game'} window
-                </Typography>
-              )}
+              <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', mt: 0.2 }}>
+                last {hov.size} {isPitcher ? 'starts' : 'games'}
+              </Typography>
             </Box>
           )
         })()}
       </Box>
 
       <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.75 }}>
-        {currentPt.size}-{isPitcher ? 'start' : 'game'} rolling {label}{lowerBetter ? ' · lower is better' : ''}
+        Rolling {label} · each point = avg of last N {isPitcher ? 'starts' : 'games'} (N grows from {MIN_SHOWN} → {MAX_WINDOW} as season progresses){lowerBetter ? ' · lower is better' : ''}
       </Typography>
     </Box>
   )

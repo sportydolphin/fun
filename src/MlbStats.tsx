@@ -119,6 +119,7 @@ export default function MlbStats() {
   const [recentGames, setRecentGames] = useState<RecentGameEntry[]>([])
   const [highlightedGameDate, setHighlightedGameDate] = useState<string | null>(null)
   const [loadingRecent, setLoadingRecent] = useState(false)
+  const [recentGamesOpen, setRecentGamesOpen] = useState(true)
   const nameMap = useMemo(() => new Map(allTeams.map(t => [t.id, t.name])), [allTeams])
 
   const cardRef = useRef<HTMLDivElement>(null)
@@ -1477,7 +1478,7 @@ export default function MlbStats() {
             </Tooltip>
           </Box>
 
-          {/* Career */}
+          {/* Trends + Recent Games (right column) */}
           {showTrends && (
             <Box sx={{ mt: { xs: 2, md: 0 } }}>
               <Box sx={{ mb: 1.25 }}>
@@ -1500,26 +1501,76 @@ export default function MlbStats() {
                   />
                 </Box>
               )}
+
+              {/* Recent Games — directly below chart, collapsible */}
+              {player && (loadingRecent || recentGames.length > 0) && (
+                <Box sx={{ mt: 2 }}>
+                  {/* Collapsible header */}
+                  <Box
+                    onClick={() => setRecentGamesOpen(o => !o)}
+                    sx={{
+                      mb: recentGamesOpen ? 1.25 : 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      cursor: 'pointer', userSelect: 'none',
+                      '&:hover .rg-chevron': { color: 'text.primary' },
+                    }}
+                  >
+                    <SectionLabel>Recent Games</SectionLabel>
+                    <Box className="rg-chevron" sx={{
+                      fontSize: '0.75rem', color: 'text.disabled',
+                      transition: 'transform 0.18s, color 0.15s',
+                      transform: recentGamesOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+                    }}>▾</Box>
+                  </Box>
+
+                  {recentGamesOpen && (
+                    loadingRecent ? (
+                      <Box sx={{ textAlign: 'center', py: 2 }}><CircularProgress size={20} /></Box>
+                    ) : (
+                      <RecentGamesTable
+                        games={recentGames}
+                        isPitcher={player.primaryPosition?.code === '1'}
+                        isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
+                        highlightDate={highlightedGameDate ?? undefined}
+                      />
+                    )
+                  )}
+                </Box>
+              )}
             </Box>
           )}
         </Box>
       )}
 
-      {/* Recent games — player only */}
-      {hasStats && player && (loadingRecent || recentGames.length > 0) && (
+      {/* Recent games fallback — player only, when Trends column not shown */}
+      {hasStats && player && !showTrends && (loadingRecent || recentGames.length > 0) && (
         <Box sx={{ mb: 2 }}>
-          <Box sx={{ mb: 1.25 }}>
+          <Box
+            onClick={() => setRecentGamesOpen(o => !o)}
+            sx={{
+              mb: recentGamesOpen ? 1.25 : 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'pointer', userSelect: 'none',
+            }}
+          >
             <SectionLabel>Recent Games</SectionLabel>
+            <Box sx={{
+              fontSize: '0.75rem', color: 'text.disabled',
+              transition: 'transform 0.18s',
+              transform: recentGamesOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+            }}>▾</Box>
           </Box>
-          {loadingRecent ? (
-            <Box sx={{ textAlign: 'center', py: 2 }}><CircularProgress size={20} /></Box>
-          ) : (
-            <RecentGamesTable
-              games={recentGames}
-              isPitcher={player.primaryPosition?.code === '1'}
-              isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
-              highlightDate={highlightedGameDate ?? undefined}
-            />
+          {recentGamesOpen && (
+            loadingRecent ? (
+              <Box sx={{ textAlign: 'center', py: 2 }}><CircularProgress size={20} /></Box>
+            ) : (
+              <RecentGamesTable
+                games={recentGames}
+                isPitcher={player.primaryPosition?.code === '1'}
+                isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
+                highlightDate={highlightedGameDate ?? undefined}
+              />
+            )
           )}
         </Box>
       )}
