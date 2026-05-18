@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
-import { CareerStatSplit, TrendStatDef } from './types'
+import { CareerStatSplit, TrendStatDef, RecentGameEntry } from './types'
 import { ACCENT, CURRENT_SEASON, TEAM_BG, DEFAULT_PALETTE } from './constants'
 import { fmtR, parseIP, fmtDecimal } from './utils'
 import { SegControl } from './components'
@@ -117,6 +117,325 @@ function fetchLeagueStatsBySeason(season: number, group: 'hitting' | 'pitching')
   return leagueStatsCache.get(key)!
 }
 
+// ─── Rolling window chart (current season) ───────────────────────────────────
+
+function RollingWindowChart({ games, isPitcher }: {
+  games: RecentGameEntry[]
+  isPitcher: boolean
+}) {
+  const [hovIdx, setHovIdx] = useState<number | null>(null)
+  const [tipPos, setTipPos] = useState({ x: 0, y: 0 })
+  const boxRef = useRef<HTMLDivElement>(null)
+  const svgRef = useRef<SVGSVGElement>(null)
+  const rafRef = useRef<number | null>(null)
+
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const fmtDate = (d: string) => {
+    if (!d) return ''
+    const [, m, day] = d.split('-').map(Number)
+    return `${MONTHS[m - 1]} ${day}`
+  }
+
+  const WINDOW = isPitcher ? 5 : 15
+
+  // Sort chronologically (API returns newest-first)
+  const chrono = [...games].reverse().filter(g => isPitcher ? g.pitching != null : g.hitting != null)
+
+  // Compute rolling points
+  const pts = chrono.map((g, i) => {
+    const win = chrono.slice(Math.max(0, i - WINDOW + 1), i + 1)
+    if (isPitcher) {
+      const er = win.reduce((s, x) => s + Number(x.pitching?.earnedRuns ?? 0), 0)
+      const ip = win.reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
+      const value = ip > 0 ? (er * 9) / ip : null
+      return { date: g.date, opp: g.opponentAbbr, isHome: g.isHome, value, size: win.length }
+    } else {
+      const h   = win.reduce((s, x) => s + Number(x.hitting?.hits ?? 0), 0)
+      const ab  = win.reduce((s, x) => s + Number(x.hitting?.atBats ?? 0), 0)
+      const bb  = win.reduce((s, x) => s + Number(x.hitting?.baseOnBalls ?? 0), 0)
+      const hbp = win.reduce((s, x) => s + Number(x.hitting?.hitByPitch ?? 0), 0)
+      const sf  = win.reduce((s, x) => s + Number(x.hitting?.sacFlies ?? 0), 0)
+      const tb  = win.reduce((s, x) => {
+        const hx = x.hitting; if (!hx) return s
+        return s + Number(hx.hits ?? 0) + Number(hx.doubles ?? 0) + 2*Number(hx.triples ?? 0) + 3*Number(hx.homeRuns ?? 0)
+      }, 0)
+      const denom = ab + bb + hbp + sf
+      const obp = denom > 0 ? (h + bb + hbp) / denom : 0
+      const slg = ab > 0 ? tb / ab : 0
+      const value = ab > 0 ? obp + slg : null
+      return { date: g.date, opp: g.opponentAbbr, isHome: g.isHome, value, size: win.length }
+    }
+  }).filter((p): p is NonNullable<typeof p> & { value: number } => p.value != null)
+
+  // Touch support
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!svg || !boxRef.current) return
+    const W_SVG = 560, M_L = 46, IW = W_SVG - M_L - 18
+    const handleTouch = (e: TouchEvent) => {
+      e.preventDefault()
+      const touch = e.touches[0] ?? e.changedTouches[0]
+      if (!touch || !boxRef.current) return
+      const rect = boxRef.current.getBoundingClientRect()
+      const relX = ((touch.clientX - rect.left) / rect.width) * W_SVG - M_L
+      const frac = Math.max(0, Math.min(1, relX / IW))
+      setHovIdx(Math.round(frac * (pts.length - 1)))
+      setTipPos({ x: (touch.clientX - rect.left) / rect.width * 100, y: (touch.clientY - rect.top) / rect.height * 100 })
+    }
+    const handleTouchEnd = () => setHovIdx(null)
+    svg.addEventListener('touchstart', handleTouch, { passive: false })
+    svg.addEventListener('touchmove',  handleTouch, { passive: false })
+    svg.addEventListener('touchend',   handleTouchEnd)
+    return () => {
+      svg.removeEventListener('touchstart', handleTouch)
+      svg.removeEventListener('touchmove',  handleTouch)
+      svg.removeEventListener('touchend',   handleTouchEnd)
+    }
+  }, [pts.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (pts.length < 3) {
+    return (
+      <Box sx={{ py: 3, textAlign: 'center' }}>
+        <Typography color="text.secondary" sx={{ fontSize: '0.85rem' }}>
+          Not enough games yet to show a trend
+        </Typography>
+      </Box>
+    )
+  }
+
+  // Season average (full season, all games)
+  const seasonAvg = (() => {
+    if (isPitcher) {
+      const er = chrono.reduce((s, x) => s + Number(x.pitching?.earnedRuns ?? 0), 0)
+      const ip = chrono.reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
+      return ip > 0 ? (er * 9) / ip : null
+    }
+    const h   = chrono.reduce((s, x) => s + Number(x.hitting?.hits ?? 0), 0)
+    const ab  = chrono.reduce((s, x) => s + Number(x.hitting?.atBats ?? 0), 0)
+    const bb  = chrono.reduce((s, x) => s + Number(x.hitting?.baseOnBalls ?? 0), 0)
+    const hbp = chrono.reduce((s, x) => s + Number(x.hitting?.hitByPitch ?? 0), 0)
+    const sf  = chrono.reduce((s, x) => s + Number(x.hitting?.sacFlies ?? 0), 0)
+    const tb  = chrono.reduce((s, x) => {
+      const hx = x.hitting; if (!hx) return s
+      return s + Number(hx.hits ?? 0) + Number(hx.doubles ?? 0) + 2*Number(hx.triples ?? 0) + 3*Number(hx.homeRuns ?? 0)
+    }, 0)
+    const denom = ab + bb + hbp + sf
+    if (denom === 0) return null
+    return (h + bb + hbp) / denom + (ab > 0 ? tb / ab : 0)
+  })()
+
+  const label     = isPitcher ? 'ERA' : 'OPS'
+  const lowerBetter = isPitcher
+  const fmt       = isPitcher ? (v: number) => v.toFixed(2) : (v: number) => fmtR(v, 3)
+  const currentPt = pts[pts.length - 1]
+
+  // SVG layout
+  const W = 560, H = 200
+  const m = { t: 16, r: 18, b: 30, l: 46 }
+  const iW = W - m.l - m.r, iH = H - m.t - m.b
+  const n = pts.length
+
+  const vals = pts.map(p => p.value)
+  const allVals = seasonAvg != null ? [...vals, seasonAvg] : vals
+  const lo = Math.min(...allVals), hi = Math.max(...allVals)
+  const rng = hi - lo || 0.1
+  const yPad = rng * 0.35
+  const yMin = Math.max(0, lo - yPad), yMax = hi + yPad
+
+  const sx = (i: number) => m.l + (n <= 1 ? iW / 2 : (i / (n - 1)) * iW)
+  const sy = (v: number) => m.t + ((yMax - v) / (yMax - yMin)) * iH
+
+  const gradId = `rolling-${isPitcher ? 'p' : 'h'}`
+  const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(i).toFixed(1)},${sy(p.value).toFixed(1)}`).join(' ')
+  const fillPath = `${linePath} L${sx(n-1).toFixed(1)},${(m.t + iH).toFixed(1)} L${m.l.toFixed(1)},${(m.t + iH).toFixed(1)} Z`
+
+  // Sparse X-axis date labels (~6)
+  const xLabelCount = Math.min(6, n)
+  const xLabelIdxs  = Array.from({ length: xLabelCount }, (_, k) => Math.round(k * (n - 1) / Math.max(1, xLabelCount - 1)))
+
+  // Y ticks
+  const yTicks = (() => {
+    if (yMin >= yMax) return [yMin]
+    const r2 = yMax - yMin
+    const roughStep = r2 / 3
+    const mag = Math.pow(10, Math.floor(Math.log10(roughStep)))
+    const norm = roughStep / mag
+    const step = norm <= 1 ? mag : norm <= 2 ? 2*mag : norm <= 5 ? 5*mag : 10*mag
+    const tlo = Math.ceil(yMin  / step - 1e-9) * step
+    const thi = Math.floor(yMax / step + 1e-9) * step
+    const cnt = Math.round((thi - tlo) / step)
+    const ticks: number[] = []
+    for (let i = 0; i <= cnt; i++) ticks.push(parseFloat((tlo + i * step).toPrecision(12)))
+    return ticks.length ? ticks : [yMin, yMax]
+  })()
+
+  const hov = hovIdx != null ? pts[hovIdx] : null
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!boxRef.current) return
+    const clientX = e.clientX, clientY = e.clientY
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current)
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null
+      if (!boxRef.current) return
+      const rect = boxRef.current.getBoundingClientRect()
+      const relX = ((clientX - rect.left) / rect.width) * W - m.l
+      const frac = Math.max(0, Math.min(1, relX / iW))
+      setHovIdx(Math.round(frac * (n - 1)))
+      setTipPos({ x: (clientX - rect.left) / rect.width * 100, y: (clientY - rect.top) / rect.height * 100 })
+    })
+  }
+
+  return (
+    <Box>
+      {/* Summary row */}
+      <Box sx={{ display: 'flex', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
+        <Box>
+          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>
+            Last {Math.min(WINDOW, pts.length)} {isPitcher ? 'starts' : 'games'}
+          </Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT, lineHeight: 1.2 }}>
+            {fmt(currentPt.value)}
+          </Typography>
+        </Box>
+        {seasonAvg != null && (
+          <Box>
+            <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>
+              Season {label}
+            </Typography>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>
+              {fmt(seasonAvg)}
+            </Typography>
+          </Box>
+        )}
+        <Box>
+          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>
+            {isPitcher ? 'Starts' : 'Games'}
+          </Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>{chrono.length}</Typography>
+        </Box>
+      </Box>
+
+      {/* Chart */}
+      <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
+        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`}
+          style={{ width: '100%', height: 'auto', display: 'block' }}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={() => {
+            if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
+            setHovIdx(null)
+          }}>
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stopColor={ACCENT} stopOpacity={0.20} />
+              <stop offset="100%" stopColor={ACCENT} stopOpacity={0.01} />
+            </linearGradient>
+          </defs>
+
+          {/* Grid */}
+          {yTicks.map((v, i) => (
+            <line key={i} x1={m.l} y1={sy(v)} x2={m.l + iW} y2={sy(v)} stroke="currentColor" strokeOpacity={0.10} strokeWidth={1} />
+          ))}
+
+          {/* Hover guide */}
+          {hovIdx != null && (
+            <line x1={sx(hovIdx)} y1={m.t} x2={sx(hovIdx)} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.22} strokeWidth={1.5} />
+          )}
+
+          {/* Fill */}
+          <path d={fillPath} fill={`url(#${gradId})`} />
+
+          {/* Season avg dashed line */}
+          {seasonAvg != null && (() => {
+            const y = sy(seasonAvg)
+            return (
+              <>
+                <line x1={m.l} y1={y} x2={m.l + iW} y2={y} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} />
+                <text x={m.l + 5} y={y - 5} fill="#f59e0b" fillOpacity={0.75} fontSize={9.5} fontWeight={700}>
+                  season avg {fmt(seasonAvg)}
+                </text>
+              </>
+            )
+          })()}
+
+          {/* Line */}
+          <path d={linePath} fill="none" stroke={ACCENT} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+
+          {/* Dots — only show on hover, plus first and last */}
+          {pts.map((p, i) => {
+            const isHov  = hovIdx === i
+            const isEdge = i === 0 || i === n - 1
+            if (!isHov && !isEdge) return null
+            return (
+              <circle key={i} cx={sx(i)} cy={sy(p.value)} r={isHov ? 7 : 4}
+                fill={ACCENT} stroke="currentColor" strokeWidth={isHov ? 0 : 1.5} opacity={isHov ? 1 : 0.6} />
+            )
+          })}
+
+          {/* Axes */}
+          <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1.5} />
+          <line x1={m.l} y1={m.t + iH} x2={m.l + iW} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1.5} />
+
+          {/* Y ticks */}
+          {yTicks.map((v, i) => (
+            <g key={i}>
+              <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
+              <text x={m.l - 7} y={sy(v) + 4} textAnchor="end" fill="currentColor" fillOpacity={0.88} fontSize={10} fontWeight={600}>
+                {fmt(v)}
+              </text>
+            </g>
+          ))}
+
+          {/* X ticks (dates) */}
+          {xLabelIdxs.map(idx => (
+            <g key={idx}>
+              <line x1={sx(idx)} y1={m.t + iH} x2={sx(idx)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1} />
+              <text x={sx(idx)} y={m.t + iH + 16} textAnchor="middle" fill="currentColor" fillOpacity={0.7} fontSize={9.5}>
+                {fmtDate(pts[idx].date)}
+              </text>
+            </g>
+          ))}
+        </svg>
+
+        {/* Tooltip */}
+        {hov && (() => {
+          const tipLeft = Math.min(Math.max(tipPos.x, 12), 82)
+          const tipAbove = tipPos.y > 40
+          return (
+            <Box sx={{
+              position: 'absolute',
+              left: `${tipLeft}%`,
+              top: tipAbove ? `${tipPos.y - 16}%` : `${tipPos.y + 4}%`,
+              transform: tipAbove ? 'translate(-50%, -100%)' : 'translate(-50%, 8px)',
+              pointerEvents: 'none',
+              bgcolor: 'background.paper', border: '1.5px solid', borderColor: 'divider',
+              borderRadius: 2, px: 1.5, py: 1, boxShadow: '0 4px 18px rgba(0,0,0,0.13)',
+              minWidth: 90, zIndex: 10,
+            }}>
+              <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1 }}>{fmtDate(hov.date)}</Typography>
+              <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', mt: 0.2 }}>
+                {hov.isHome ? 'vs' : '@'} {hov.opp}
+              </Typography>
+              <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT, mt: 0.3, lineHeight: 1 }}>
+                {fmt(hov.value)}
+              </Typography>
+              {hov.size < WINDOW && (
+                <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', mt: 0.2 }}>
+                  {hov.size}-{isPitcher ? 'start' : 'game'} window
+                </Typography>
+              )}
+            </Box>
+          )
+        })()}
+      </Box>
+
+      <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.75 }}>
+        {WINDOW}-{isPitcher ? 'start' : 'game'} rolling {label}{lowerBetter ? ' · lower is better' : ''}
+      </Typography>
+    </Box>
+  )
+}
+
 // ─── Player trends chart ──────────────────────────────────────────────────────
 
 // Shared native-select style used in PlayerTrendsChart range pickers (module-scope, stable reference)
@@ -126,10 +445,11 @@ const trendSelSx: React.CSSProperties = {
   color: 'inherit', padding: '4px 10px', borderRadius: 999, fontFamily: 'inherit',
 }
 
-export function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
+export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog }: {
   splits: CareerStatSplit[]
   isPitcher: boolean
   isTwoWay: boolean
+  gameLog?: RecentGameEntry[]
 }) {
   const initGroup: 'hitting' | 'pitching' = (isPitcher && !isTwoWay) ? 'pitching' : 'hitting'
   const [group, setGroup] = useState<'hitting' | 'pitching'>(initGroup)
@@ -144,6 +464,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   const [leagueAvgPts, setLeagueAvgPts] = useState<Map<number, number>>(new Map())
+  const [chartMode, setChartMode] = useState<'career' | 'rolling'>('career')
 
   // Reset to sensible default when group changes
   useEffect(() => { setStatKey(group === 'pitching' ? 'era' : 'ops') }, [group])
@@ -155,12 +476,14 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
     setRangeStart(null)
     setRangeEnd(null)
     setLeagueAvgPts(new Map())
+    setChartMode('career')
   }, [splits]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch per-year league averages (must be before any early return — React hook rule)
   useEffect(() => {
     const defs = group === 'hitting' ? TREND_HIT_DEFS : TREND_PIT_DEFS
     const def = defs.find(d => d.key === statKey) ?? defs[0]
+    if (chartMode === 'rolling') { setLeagueAvgPts(new Map()); return }
     if (!def?.careerAvg) { setLeagueAvgPts(new Map()); return }
     const seasonsSorted = splits
       .map(s => { const stat = group === 'hitting' ? s.hitting : s.pitching; return stat != null && def.get(stat) != null ? s.season : null })
@@ -180,7 +503,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
       setLeagueAvgPts(m)
     })
     return () => { cancelled = true }
-  }, [group, statKey, rangeStart, rangeEnd, splits]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [group, statKey, rangeStart, rangeEnd, splits, chartMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Touch drag support — non-passive so we can preventDefault scroll while dragging along the chart
   useEffect(() => {
@@ -420,6 +743,22 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
           />
         </Box>
       )}
+
+      {/* Career / Rolling toggle — shown when season game log is available */}
+      {!!gameLog && gameLog.filter(g => group === 'pitching' ? g.pitching != null : g.hitting != null).length >= 3 && (
+        <Box sx={{ mb: 1.5 }}>
+          <SegControl
+            options={[{ value: 'career', label: 'Career' }, { value: 'rolling', label: 'This Season' }]}
+            value={chartMode}
+            onChange={v => setChartMode(v as 'career' | 'rolling')}
+          />
+        </Box>
+      )}
+
+      {chartMode === 'rolling' ? (
+        <RollingWindowChart games={gameLog!} isPitcher={group === 'pitching'} />
+      ) : (
+      <>
 
       {/* Controls row: stat picker + season range on one line */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.75, flexWrap: 'wrap' }}>
@@ -682,6 +1021,9 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay }: {
         <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.75, textAlign: 'right' }}>
           ↓ lower is better for {currentDef.label}
         </Typography>
+      )}
+
+      </>
       )}
     </Box>
   )

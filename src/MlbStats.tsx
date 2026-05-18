@@ -20,7 +20,7 @@ import {
   searchPlayers, fetchPlayerDetails, fetchStats,
   fetchYearByYearSplits, fetchCareerData, fetchAndRankPlayers, fetchAllTeams,
   fetchTeamStats, fetchLeaderboardData, fetchTeamRankings,
-  fetchTeamSummaryData, fetchPlayerCareerStats, fetchRecentGames,
+  fetchTeamSummaryData, fetchPlayerCareerStats, fetchRecentGames, fetchCareerStats,
 } from './mlb/api'
 import {
   SegControl, PillChip, pillActionSx, linkPillSx,
@@ -111,6 +111,9 @@ export default function MlbStats() {
   // Career trends
   const [careerSplits, setCareerSplits] = useState<CareerStatSplit[] | null>(null)
   const [loadingCareer, setLoadingCareer] = useState(false)
+  const [careerHittingTotals, setCareerHittingTotals] = useState<any>(null)
+  const [careerPitchingTotals, setCareerPitchingTotals] = useState<any>(null)
+  const [statsView, setStatsView] = useState<'season' | 'career'>('season')
 
   // Recent games
   const [recentGames, setRecentGames] = useState<RecentGameEntry[]>([])
@@ -264,6 +267,7 @@ export default function MlbStats() {
     const { seasons, teamsBySeason } = careerData
     const latestSeason = seasons[0] ?? CURRENT_SEASON
     setPlayer(resolved)
+    setStatsView('season')
     setTeam(null)
     setAvailableSeasons(seasons.length ? seasons : [CURRENT_SEASON])
     setSeasonTeams(teamsBySeason)
@@ -348,6 +352,23 @@ export default function MlbStats() {
       .catch(() => setRecentGames([]))
       .finally(() => setLoadingRecent(false))
   }, [player, season])
+
+  // Fetch career stat totals when player changes
+  useEffect(() => {
+    if (!player) { setCareerHittingTotals(null); setCareerPitchingTotals(null); setStatsView('season'); return }
+    const isPit = player.primaryPosition?.code === '1'
+    const isTW  = player.primaryPosition?.type === 'Two-Way Player'
+    let cancelled = false
+    Promise.all([
+      (!isPit || isTW) ? fetchCareerStats(player.id, 'hitting')  : Promise.resolve(null),
+      ( isPit || isTW) ? fetchCareerStats(player.id, 'pitching') : Promise.resolve(null),
+    ]).then(([h, p]) => {
+      if (cancelled) return
+      setCareerHittingTotals(h)
+      setCareerPitchingTotals(p)
+    })
+    return () => { cancelled = true }
+  }, [player])
 
   // Sync URL whenever view/player/team/lb state changes
   // Gate on autoLoadedRef so the initial mount doesn't wipe ?pid= before the auto-load effect reads it
@@ -488,8 +509,14 @@ export default function MlbStats() {
   const currentAvailableSeasons = player ? availableSeasons : TEAM_SEASONS
 
   const playerCardProps = player ? {
-    player, hittingStats, pitchingStats, hitLeaders, pitLeaders, palette, season, teamDisplay,
-    rankMode, showPosition, showTeam, showAge, showNumber, selectedHitStats, selectedPitStats,
+    player,
+    hittingStats:  statsView === 'career' ? careerHittingTotals  : hittingStats,
+    pitchingStats: statsView === 'career' ? careerPitchingTotals : pitchingStats,
+    hitLeaders: statsView === 'career' ? new Map<string, number[]>() : hitLeaders,
+    pitLeaders: statsView === 'career' ? new Map<string, number[]>() : pitLeaders,
+    palette, season: statsView === 'career' ? 'Career' : season,
+    teamDisplay, rankMode, showPosition, showTeam, showAge, showNumber,
+    selectedHitStats, selectedPitStats,
     onToggleHitStat: toggleHitStat, onTogglePitStat: togglePitStat,
   } : null
 
@@ -1387,6 +1414,27 @@ export default function MlbStats() {
           alignItems: 'start',
           mb: 2,
         }}>
+          {/* Season / Career toggle */}
+          {player && (careerHittingTotals != null || careerPitchingTotals != null) && (
+            <Box sx={{ display: 'flex', gap: 0.5, mb: 1.25 }}>
+              {(['season', 'career'] as const).map(v => (
+                <Box key={v}
+                  onClick={() => setStatsView(v)}
+                  sx={{
+                    px: 1.5, py: 0.4, borderRadius: 999, cursor: 'pointer',
+                    fontSize: '0.72rem', fontWeight: 700, userSelect: 'none',
+                    bgcolor: statsView === v ? ACCENT : 'transparent',
+                    color: statsView === v ? '#000' : 'text.secondary',
+                    border: '1.5px solid', borderColor: statsView === v ? ACCENT : 'divider',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {v === 'season' ? String(season) : 'Career'}
+                </Box>
+              ))}
+            </Box>
+          )}
+
           {/* Card — wrapped in relative Box so fullscreen icon can float over it */}
           <Box sx={{ position: 'relative' }}>
             <Paper ref={cardRef} elevation={4} sx={{
@@ -1419,7 +1467,7 @@ export default function MlbStats() {
           {showTrends && (
             <Box sx={{ mt: { xs: 2, md: 0 } }}>
               <Box sx={{ mb: 1.25 }}>
-                <SectionLabel>Career</SectionLabel>
+                <SectionLabel>Trends</SectionLabel>
               </Box>
               {loadingCareer ? (
                 <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress size={22} /></Box>
@@ -1433,6 +1481,7 @@ export default function MlbStats() {
                     splits={careerSplits!}
                     isPitcher={player!.primaryPosition?.code === '1'}
                     isTwoWay={player!.primaryPosition?.type === 'Two-Way Player'}
+                    gameLog={recentGames}
                   />
                 </Box>
               )}

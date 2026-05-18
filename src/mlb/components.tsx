@@ -223,7 +223,7 @@ export interface StatGridProps {
   rankMode: RankMode
   playerId: number
   leaders: Map<string, number[]>
-  season: number
+  season: number | string
   label: string
   large?: boolean
   onToggle?: (key: string) => void
@@ -278,7 +278,7 @@ export interface CardInnerProps {
   hitLeaders: Map<string, number[]>
   pitLeaders: Map<string, number[]>
   palette: Palette
-  season: number
+  season: number | string
   teamDisplay: string
   rankMode: RankMode
   showPosition: boolean

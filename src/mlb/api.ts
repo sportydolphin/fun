@@ -219,6 +219,16 @@ export async function fetchRecentGames(
   return [...byGame.values()].sort((a, b) => b.date.localeCompare(a.date))
 }
 
+export async function fetchCareerStats(id: number, group: 'hitting' | 'pitching'): Promise<any> {
+  try {
+    const r = await fetch(`https://statsapi.mlb.com/api/v1/people/${id}/stats?stats=career&group=${group}&sportId=1`)
+    const d = await r.json()
+    return d.stats?.[0]?.splits?.[0]?.stat ?? null
+  } catch {
+    return null
+  }
+}
+
 // ─── Career trends data ───────────────────────────────────────────────────────
 
 export async function fetchPlayerCareerStats(id: number, groups: Array<'hitting' | 'pitching'>): Promise<CareerStatSplit[]> {

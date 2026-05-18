@@ -115,7 +115,7 @@ function GameSection({ title, entries, cols, dataKey }: {
       )}
 
       {/* Scroll wrapper — table stays content-wide, scrolls on small screens */}
-      <Box sx={{ overflowX: 'auto', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+      <Box sx={{ width: 'fit-content', maxWidth: '100%', overflowX: 'auto', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
         <Box component="table" sx={{ borderCollapse: 'collapse', width: 'max-content' }}>
 
           <Box component="thead">
