@@ -117,6 +117,7 @@ export default function MlbStats() {
 
   // Recent games
   const [recentGames, setRecentGames] = useState<RecentGameEntry[]>([])
+  const [highlightedGameDate, setHighlightedGameDate] = useState<string | null>(null)
   const [loadingRecent, setLoadingRecent] = useState(false)
   const nameMap = useMemo(() => new Map(allTeams.map(t => [t.id, t.name])), [allTeams])
 
@@ -268,6 +269,7 @@ export default function MlbStats() {
     const latestSeason = seasons[0] ?? CURRENT_SEASON
     setPlayer(resolved)
     setStatsView('season')
+    setHighlightedGameDate(null)
     setTeam(null)
     setAvailableSeasons(seasons.length ? seasons : [CURRENT_SEASON])
     setSeasonTeams(teamsBySeason)
@@ -438,6 +440,7 @@ export default function MlbStats() {
   }, [allTeams, selectPlayer, selectTeam])
 
   const handleSeasonChange = useCallback((s: number) => {
+    setHighlightedGameDate(null)
     setSeason(s)
     if (player) loadStats(player, s, false)
     else if (team) loadTeamStats(team, s, false)
@@ -1384,27 +1387,59 @@ export default function MlbStats() {
         </Box>
       </ClickAwayListener>
 
-      {/* Year picker — inline next to search, same height as search bar */}
-      {(hasStats || loadingStats) && (
-        <Box sx={{
-          p: 0, flexShrink: 0, borderRadius: 999,
-          border: '2px solid', borderColor: 'divider', bgcolor: 'background.paper',
-          transition: 'border-color 0.2s',
-          '&:hover': { borderColor: ACCENT },
-          '&:focus-within': { borderColor: ACCENT },
-        }}>
-          <select
-            value={season}
-            onChange={e => handleSeasonChange(Number(e.target.value))}
-            style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.92rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: '8.8px 14px', borderRadius: 999, fontFamily: 'inherit' }}
-          >
-            {currentAvailableSeasons.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </Box>
-      )}
       </Box>{/* end search + year row */}
 
       {loadingStats && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress /></Box>}
+
+      {/* Unified season / career selector */}
+      {(hasStats || loadingStats) && (
+        <Box sx={{
+          display: 'flex', gap: 0.75, mb: 1.5, overflowX: 'auto', pb: 0.5,
+          msOverflowStyle: 'none', scrollbarWidth: 'none',
+          '&::-webkit-scrollbar': { display: 'none' },
+        }}>
+          {/* Career pill — players only, appears when career data is ready */}
+          {player && (careerHittingTotals != null || careerPitchingTotals != null) && (() => {
+            const active = statsView === 'career'
+            return (
+              <Box
+                onClick={() => setStatsView('career')}
+                sx={{
+                  flexShrink: 0, px: 1.5, py: 0.55, borderRadius: 999,
+                  cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700,
+                  userSelect: 'none', whiteSpace: 'nowrap',
+                  bgcolor: active ? ACCENT : 'transparent',
+                  color: active ? '#000' : 'text.secondary',
+                  border: '1.5px solid', borderColor: active ? ACCENT : 'divider',
+                  transition: 'all 0.15s',
+                }}
+              >
+                Career
+              </Box>
+            )
+          })()}
+          {/* Year pills */}
+          {currentAvailableSeasons.map(y => {
+            const active = statsView === 'season' && season === y
+            return (
+              <Box key={y}
+                onClick={() => { setStatsView('season'); handleSeasonChange(y) }}
+                sx={{
+                  flexShrink: 0, px: 1.5, py: 0.55, borderRadius: 999,
+                  cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700,
+                  userSelect: 'none', whiteSpace: 'nowrap',
+                  bgcolor: active ? ACCENT : 'transparent',
+                  color: active ? '#000' : 'text.secondary',
+                  border: '1.5px solid', borderColor: active ? ACCENT : 'divider',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {y}
+              </Box>
+            )
+          })}
+        </Box>
+      )}
 
       {hasStats && (
         <Box sx={{
@@ -1414,27 +1449,6 @@ export default function MlbStats() {
           alignItems: 'start',
           mb: 2,
         }}>
-          {/* Season / Career toggle */}
-          {player && (careerHittingTotals != null || careerPitchingTotals != null) && (
-            <Box sx={{ display: 'flex', gap: 0.5, mb: 1.25 }}>
-              {(['season', 'career'] as const).map(v => (
-                <Box key={v}
-                  onClick={() => setStatsView(v)}
-                  sx={{
-                    px: 1.5, py: 0.4, borderRadius: 999, cursor: 'pointer',
-                    fontSize: '0.72rem', fontWeight: 700, userSelect: 'none',
-                    bgcolor: statsView === v ? ACCENT : 'transparent',
-                    color: statsView === v ? '#000' : 'text.secondary',
-                    border: '1.5px solid', borderColor: statsView === v ? ACCENT : 'divider',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {v === 'season' ? String(season) : 'Career'}
-                </Box>
-              ))}
-            </Box>
-          )}
-
           {/* Card — wrapped in relative Box so fullscreen icon can float over it */}
           <Box sx={{ position: 'relative' }}>
             <Paper ref={cardRef} elevation={4} sx={{
@@ -1482,6 +1496,7 @@ export default function MlbStats() {
                     isPitcher={player!.primaryPosition?.code === '1'}
                     isTwoWay={player!.primaryPosition?.type === 'Two-Way Player'}
                     gameLog={recentGames}
+                    onGameSelect={date => setHighlightedGameDate(d => d === date ? null : date)}
                   />
                 </Box>
               )}
@@ -1503,6 +1518,7 @@ export default function MlbStats() {
               games={recentGames}
               isPitcher={player.primaryPosition?.code === '1'}
               isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
+              highlightDate={highlightedGameDate ?? undefined}
             />
           )}
         </Box>

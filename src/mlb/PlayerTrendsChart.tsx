@@ -119,15 +119,17 @@ function fetchLeagueStatsBySeason(season: number, group: 'hitting' | 'pitching')
 
 // ─── Rolling window chart (current season) ───────────────────────────────────
 
-function RollingWindowChart({ games, isPitcher }: {
+function RollingWindowChart({ games, isPitcher, onGameSelect }: {
   games: RecentGameEntry[]
   isPitcher: boolean
+  onGameSelect?: (date: string) => void
 }) {
   const [hovIdx, setHovIdx] = useState<number | null>(null)
   const [tipPos, setTipPos] = useState({ x: 0, y: 0 })
   const boxRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const rafRef = useRef<number | null>(null)
+  const hovIdxRef = useRef<number | null>(null)
 
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
   const fmtDate = (d: string) => {
@@ -136,36 +138,41 @@ function RollingWindowChart({ games, isPitcher }: {
     return `${MONTHS[m - 1]} ${day}`
   }
 
-  const WINDOW = isPitcher ? 5 : 15
-
   // Sort chronologically (API returns newest-first)
   const chrono = [...games].reverse().filter(g => isPitcher ? g.pitching != null : g.hitting != null)
 
-  // Compute rolling points
-  const pts = chrono.map((g, i) => {
-    const win = chrono.slice(Math.max(0, i - WINDOW + 1), i + 1)
-    if (isPitcher) {
-      const er = win.reduce((s, x) => s + Number(x.pitching?.earnedRuns ?? 0), 0)
-      const ip = win.reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
-      const value = ip > 0 ? (er * 9) / ip : null
-      return { date: g.date, opp: g.opponentAbbr, isHome: g.isHome, value, size: win.length }
-    } else {
-      const h   = win.reduce((s, x) => s + Number(x.hitting?.hits ?? 0), 0)
-      const ab  = win.reduce((s, x) => s + Number(x.hitting?.atBats ?? 0), 0)
-      const bb  = win.reduce((s, x) => s + Number(x.hitting?.baseOnBalls ?? 0), 0)
-      const hbp = win.reduce((s, x) => s + Number(x.hitting?.hitByPitch ?? 0), 0)
-      const sf  = win.reduce((s, x) => s + Number(x.hitting?.sacFlies ?? 0), 0)
-      const tb  = win.reduce((s, x) => {
-        const hx = x.hitting; if (!hx) return s
-        return s + Number(hx.hits ?? 0) + Number(hx.doubles ?? 0) + 2*Number(hx.triples ?? 0) + 3*Number(hx.homeRuns ?? 0)
-      }, 0)
-      const denom = ab + bb + hbp + sf
-      const obp = denom > 0 ? (h + bb + hbp) / denom : 0
-      const slg = ab > 0 ? tb / ab : 0
-      const value = ab > 0 ? obp + slg : null
-      return { date: g.date, opp: g.opponentAbbr, isHome: g.isHome, value, size: win.length }
-    }
-  }).filter((p): p is NonNullable<typeof p> & { value: number } => p.value != null)
+  // Hitters: skip first 9 games, window grows 10→20. Pitchers: start after 4, grows to 5.
+  const MIN_SHOWN  = isPitcher ? 5  : 10
+  const MAX_WINDOW = isPitcher ? 5  : 20
+
+  const pts = chrono
+    .map((g, i) => {
+      if (i < MIN_SHOWN - 1) return null          // skip early games
+      const windowSize = Math.min(i + 1, MAX_WINDOW)
+      const win = chrono.slice(i - windowSize + 1, i + 1)
+      if (isPitcher) {
+        const er = win.reduce((s, x) => s + Number(x.pitching?.earnedRuns ?? 0), 0)
+        const ip = win.reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
+        const value = ip > 0 ? (er * 9) / ip : null
+        return { date: g.date, opp: g.opponentAbbr, isHome: g.isHome, value, size: windowSize }
+      } else {
+        const h   = win.reduce((s, x) => s + Number(x.hitting?.hits ?? 0), 0)
+        const ab  = win.reduce((s, x) => s + Number(x.hitting?.atBats ?? 0), 0)
+        const bb  = win.reduce((s, x) => s + Number(x.hitting?.baseOnBalls ?? 0), 0)
+        const hbp = win.reduce((s, x) => s + Number(x.hitting?.hitByPitch ?? 0), 0)
+        const sf  = win.reduce((s, x) => s + Number(x.hitting?.sacFlies ?? 0), 0)
+        const tb  = win.reduce((s, x) => {
+          const hx = x.hitting; if (!hx) return s
+          return s + Number(hx.hits ?? 0) + Number(hx.doubles ?? 0) + 2*Number(hx.triples ?? 0) + 3*Number(hx.homeRuns ?? 0)
+        }, 0)
+        const denom = ab + bb + hbp + sf
+        const obp = denom > 0 ? (h + bb + hbp) / denom : 0
+        const slg = ab > 0 ? tb / ab : 0
+        const value = ab > 0 ? obp + slg : null
+        return { date: g.date, opp: g.opponentAbbr, isHome: g.isHome, value, size: windowSize }
+      }
+    })
+    .filter((p): p is NonNullable<typeof p> & { value: number } => p != null && p.value != null)
 
   // Touch support
   useEffect(() => {
@@ -180,9 +187,16 @@ function RollingWindowChart({ games, isPitcher }: {
       const relX = ((touch.clientX - rect.left) / rect.width) * W_SVG - M_L
       const frac = Math.max(0, Math.min(1, relX / IW))
       setHovIdx(Math.round(frac * (pts.length - 1)))
+      hovIdxRef.current = Math.round(frac * (pts.length - 1))
       setTipPos({ x: (touch.clientX - rect.left) / rect.width * 100, y: (touch.clientY - rect.top) / rect.height * 100 })
     }
-    const handleTouchEnd = () => setHovIdx(null)
+    const handleTouchEnd = () => {
+      if (hovIdxRef.current != null && pts[hovIdxRef.current]) {
+        onGameSelect?.(pts[hovIdxRef.current].date)
+      }
+      hovIdxRef.current = null
+      setHovIdx(null)
+    }
     svg.addEventListener('touchstart', handleTouch, { passive: false })
     svg.addEventListener('touchmove',  handleTouch, { passive: false })
     svg.addEventListener('touchend',   handleTouchEnd)
@@ -286,13 +300,22 @@ function RollingWindowChart({ games, isPitcher }: {
     })
   }
 
+  const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!boxRef.current) return
+    const rect = boxRef.current.getBoundingClientRect()
+    const relX = ((e.clientX - rect.left) / rect.width) * W - m.l
+    const frac = Math.max(0, Math.min(1, relX / iW))
+    const idx  = Math.round(frac * (n - 1))
+    if (pts[idx]) onGameSelect?.(pts[idx].date)
+  }
+
   return (
     <Box>
       {/* Summary row */}
       <Box sx={{ display: 'flex', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
         <Box>
           <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>
-            Last {Math.min(WINDOW, pts.length)} {isPitcher ? 'starts' : 'games'}
+            Last {Math.min(currentPt.size, pts.length)} {isPitcher ? 'starts' : 'games'}
           </Typography>
           <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT, lineHeight: 1.2 }}>
             {fmt(currentPt.value)}
@@ -321,6 +344,7 @@ function RollingWindowChart({ games, isPitcher }: {
         <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`}
           style={{ width: '100%', height: 'auto', display: 'block' }}
           onMouseMove={handleMouseMove}
+          onClick={handleSvgClick}
           onMouseLeave={() => {
             if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
             setHovIdx(null)
@@ -419,7 +443,7 @@ function RollingWindowChart({ games, isPitcher }: {
               <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT, mt: 0.3, lineHeight: 1 }}>
                 {fmt(hov.value)}
               </Typography>
-              {hov.size < WINDOW && (
+              {hov.size < MAX_WINDOW && (
                 <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', mt: 0.2 }}>
                   {hov.size}-{isPitcher ? 'start' : 'game'} window
                 </Typography>
@@ -430,7 +454,7 @@ function RollingWindowChart({ games, isPitcher }: {
       </Box>
 
       <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.75 }}>
-        {WINDOW}-{isPitcher ? 'start' : 'game'} rolling {label}{lowerBetter ? ' · lower is better' : ''}
+        {currentPt.size}-{isPitcher ? 'start' : 'game'} rolling {label}{lowerBetter ? ' · lower is better' : ''}
       </Typography>
     </Box>
   )
@@ -445,11 +469,12 @@ const trendSelSx: React.CSSProperties = {
   color: 'inherit', padding: '4px 10px', borderRadius: 999, fontFamily: 'inherit',
 }
 
-export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog }: {
+export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, onGameSelect }: {
   splits: CareerStatSplit[]
   isPitcher: boolean
   isTwoWay: boolean
   gameLog?: RecentGameEntry[]
+  onGameSelect?: (date: string) => void
 }) {
   const initGroup: 'hitting' | 'pitching' = (isPitcher && !isTwoWay) ? 'pitching' : 'hitting'
   const [group, setGroup] = useState<'hitting' | 'pitching'>(initGroup)
@@ -756,7 +781,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog }: {
       )}
 
       {chartMode === 'rolling' ? (
-        <RollingWindowChart games={gameLog!} isPitcher={group === 'pitching'} />
+        <RollingWindowChart games={gameLog!} isPitcher={group === 'pitching'} onGameSelect={onGameSelect} />
       ) : (
       <>
 

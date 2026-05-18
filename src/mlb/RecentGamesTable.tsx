@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
 import { ACCENT } from './constants'
 import { RecentGameEntry } from './types'
@@ -95,13 +95,28 @@ const tdSx = {
   whiteSpace: 'nowrap' as const,
 }
 
-function GameSection({ title, entries, cols, dataKey }: {
+function GameSection({ title, entries, cols, dataKey, highlightDate }: {
   title?: string
   entries: RecentGameEntry[]
   cols: ColDef[]
   dataKey: 'hitting' | 'pitching'
+  highlightDate?: string
 }) {
   const [expanded, setExpanded] = useState(false)
+
+  // Auto-expand when the highlighted game is beyond the fold
+  useEffect(() => {
+    if (!highlightDate) return
+    const idx = entries.findIndex(g => g.date === highlightDate)
+    if (idx >= INIT) setExpanded(true)
+  }, [highlightDate]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Scroll highlighted row into view after it renders
+  useEffect(() => {
+    if (!highlightDate) return
+    const el = document.querySelector(`[data-game-date="${highlightDate}"]`)
+    if (el) (el as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [highlightDate, expanded])
   if (!entries.length) return null
   const shown = expanded ? entries : entries.slice(0, INIT)
   const hidden = entries.length - INIT
@@ -141,10 +156,16 @@ function GameSection({ title, entries, cols, dataKey }: {
               const borderProps = { borderBottom: notLast ? '1px solid' : 'none', borderColor: 'divider' }
               return (
                 <Box component="tr" key={i}
-                  sx={{ '&:hover > td': { bgcolor: 'action.hover' }, transition: 'background 0.12s' }}>
+                  data-game-date={g.date}
+                  sx={{
+                    '& > td': g.date === highlightDate ? { bgcolor: `${ACCENT}14` } : {},
+                    '&:hover > td': { bgcolor: 'action.hover' },
+                    transition: 'background 0.12s',
+                  }}>
 
                   {/* Date */}
-                  <Box component="td" sx={{ ...tdSx, ...borderProps, textAlign: 'left', pl: { xs: '12px', sm: '16px' }, color: 'text.secondary' }}>
+                  <Box component="td" sx={{ ...tdSx, ...borderProps, textAlign: 'left', pl: { xs: '12px', sm: '16px' }, color: 'text.secondary',
+                    ...(g.date === highlightDate ? { borderLeft: `3px solid ${ACCENT}`, pl: { xs: '9px', sm: '13px' } } : {}) }}>
                     {fmtDate(g.date)}
                   </Box>
 
@@ -190,10 +211,11 @@ function GameSection({ title, entries, cols, dataKey }: {
   )
 }
 
-export function RecentGamesTable({ games, isPitcher, isTwoWay }: {
+export function RecentGamesTable({ games, isPitcher, isTwoWay, highlightDate }: {
   games: RecentGameEntry[]
   isPitcher: boolean
   isTwoWay: boolean
+  highlightDate?: string
 }) {
   const hitGames = games.filter(g => g.hitting  != null)
   const pitGames = games.filter(g => g.pitching != null)
@@ -211,6 +233,7 @@ export function RecentGamesTable({ games, isPitcher, isTwoWay }: {
           entries={hitGames}
           cols={HIT_COLS}
           dataKey="hitting"
+          highlightDate={highlightDate}
         />
       )}
       {showPitching && (
@@ -219,6 +242,7 @@ export function RecentGamesTable({ games, isPitcher, isTwoWay }: {
           entries={pitGames}
           cols={PIT_COLS}
           dataKey="pitching"
+          highlightDate={highlightDate}
         />
       )}
     </Box>
