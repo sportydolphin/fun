@@ -1,4 +1,4 @@
-import { Player, Team, StatDef, TeamSummary, CareerStatSplit, RecentGameEntry } from './types'
+import { Player, Team, StatDef, TeamSummary, CareerStatSplit, RecentGameEntry, StandingsDivision } from './types'
 import { TEAM_ABBR } from './constants'
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
@@ -273,4 +273,43 @@ export async function fetchPlayerCareerStats(id: number, groups: Array<'hitting'
     hitting: bySeasonHit.get(season) ?? null,
     pitching: bySeasonPit.get(season) ?? null,
   }))
+}
+
+// ─── Standings ────────────────────────────────────────────────────────────────
+
+export async function fetchStandings(season: number): Promise<StandingsDivision[]> {
+  const r = await fetch(
+    `https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=${season}&standingsTypes=regularSeason`
+  )
+  const d = await r.json()
+  return (d.records ?? []).map((rec: any) => {
+    const teams = (rec.teamRecords ?? []).map((t: any) => {
+      const splitRecords: any[] = t.records?.splitRecords ?? []
+      const lastTenRec = splitRecords.find((s: any) => s.type === 'lastTen')
+      const lastTen = lastTenRec ? `${lastTenRec.wins}-${lastTenRec.losses}` : '—'
+      return {
+        teamId: Number(t.team?.id),
+        teamName: t.team?.name ?? '—',
+        abbr: TEAM_ABBR[Number(t.team?.id)] ?? (t.team?.abbreviation ?? '—'),
+        wins: Number(t.wins ?? 0),
+        losses: Number(t.losses ?? 0),
+        pct: t.winningPercentage ?? '.000',
+        gamesBack: t.gamesBack ?? '-',
+        wcGamesBack: t.wildCardGamesBack ?? '-',
+        divisionRank: Number(t.divisionRank ?? 0),
+        streakCode: t.streak?.streakCode ?? '',
+        lastTen,
+        runsScored: Number(t.runsScored ?? 0),
+        runsAllowed: Number(t.runsAllowed ?? 0),
+        runDiff: Number(t.runDifferential ?? 0),
+        divisionLeader: Boolean(t.divisionLeader),
+      }
+    })
+    return {
+      divisionId: Number(rec.division?.id),
+      divisionName: rec.division?.name ?? '—',
+      leagueId: Number(rec.league?.id),
+      teams,
+    }
+  })
 }

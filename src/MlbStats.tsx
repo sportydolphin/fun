@@ -32,6 +32,7 @@ import { useChartTooltip, ChartTooltip, TeamDot, TeamEraOpsPlot, TeamWinRDPlot, 
 import { PlayerTrendsChart, TREND_HIT_DEFS, TREND_PIT_DEFS } from './mlb/PlayerTrendsChart'
 import { RecentGamesTable } from './mlb/RecentGamesTable'
 import { RecentGameEntry } from './mlb/types'
+import { Standings } from './mlb/Standings'
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ export default function MlbStats() {
   const isDesktop = useMediaQuery('(min-width: 600px)')
   const canHover = useMediaQuery('(hover: hover)')
 
-  const [view, setView] = useState<'search' | 'viz' | 'leaderboard'>('search')
+  const [view, setView] = useState<'search' | 'viz' | 'leaderboard' | 'standings'>('standings')
   const [vizSeason, setVizSeason] = useState(CURRENT_SEASON)
   const [teamSummaries, setTeamSummaries] = useState<TeamSummary[]>([])
   const [loadingViz, setLoadingViz] = useState(false)
@@ -403,6 +404,10 @@ export default function MlbStats() {
         setView('viz')
         setPlayer(null)
         setTeam(null)
+      } else if (viewParam === 'standings') {
+        setView('standings')
+        setPlayer(null)
+        setTeam(null)
       }
     }
     window.addEventListener('popstate', handlePop)
@@ -417,7 +422,7 @@ export default function MlbStats() {
     if (!urlViewReadRef.current) {
       urlViewReadRef.current = true
       const viewParam = params.get('view')
-      if (viewParam === 'viz' || viewParam === 'leaderboard') setView(viewParam as 'viz' | 'leaderboard')
+      if (viewParam === 'viz' || viewParam === 'leaderboard' || viewParam === 'standings') setView(viewParam as 'viz' | 'leaderboard' | 'standings')
       const lbParam = params.get('lb')
       if (lbParam === 'pitching') setLbGroup('pitching')
       const seasonParam = params.get('season')
@@ -548,14 +553,20 @@ export default function MlbStats() {
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
         <SegControl
           options={[
+            { value: 'standings', label: 'Standings' },
             { value: 'search', label: 'Search' },
             { value: 'viz', label: 'Visualize' },
             { value: 'leaderboard', label: 'Leaderboard' },
           ]}
           value={view}
-          onChange={v => setView(v as 'search' | 'viz' | 'leaderboard')}
+          onChange={v => setView(v as 'search' | 'viz' | 'leaderboard' | 'standings')}
         />
       </Box>
+
+      {/* Standings tab */}
+      {view === 'standings' && (
+        <Standings season={season} />
+      )}
 
       {/* Visualizations tab */}
       {view === 'viz' && (

@@ -83,3 +83,30 @@ export interface TrendStatDef {
   careerAvg?: (statObjs: any[]) => number | null  // weighted avg for rate stats
   noAvg?: boolean      // suppress avg line / summary even if counting=true
 }
+
+// ─── Standings data ───────────────────────────────────────────────────────────
+
+export interface StandingsTeamRecord {
+  teamId: number
+  teamName: string
+  abbr: string
+  wins: number
+  losses: number
+  pct: string        // e.g. ".571"
+  gamesBack: string  // "-" for leader
+  wcGamesBack: string
+  divisionRank: number
+  streakCode: string // "W3" or "L2"
+  lastTen: string    // "8-2"
+  runsScored: number
+  runsAllowed: number
+  runDiff: number
+  divisionLeader: boolean
+}
+
+export interface StandingsDivision {
+  divisionId: number
+  divisionName: string
+  leagueId: number   // 103=AL, 104=NL
+  teams: StandingsTeamRecord[]
+}
