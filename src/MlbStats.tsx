@@ -1016,17 +1016,22 @@ export default function MlbStats() {
             const statDefs = lbFullscreen.group === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS
             const statMap = new Map(lbData?.map(e => [e.playerId, e.stat]) ?? [])
             const MEDALS_FS = ['🥇', '🥈', '🥉']
+            const colPx = isDesktop ? '10px' : '5px'
             const thSx = {
-              py: 1, px: '10px',
+              py: 1, px: colPx,
               fontSize: '0.62rem', fontWeight: 700,
               textTransform: 'uppercase' as const, letterSpacing: '0.5px',
               whiteSpace: 'nowrap' as const,
             }
             const tdSx = {
-              py: '7px', px: '10px',
+              py: '7px', px: colPx,
               borderBottom: '1px solid',
               borderColor: 'divider',
               whiteSpace: 'nowrap' as const,
+            }
+            const abbrevName = (name: string) => {
+              const i = name.indexOf(' ')
+              return i < 0 ? name : `${name[0]}. ${name.slice(i + 1)}`
             }
             return (
               <Box
@@ -1105,7 +1110,8 @@ export default function MlbStats() {
                             ...thSx, textAlign: 'left',
                             position: 'sticky', left: 0, zIndex: 4, bgcolor: 'background.paper',
                             borderBottom: '2px solid', borderColor: 'divider',
-                            minWidth: 180, color: 'text.disabled', pl: '16px',
+                            minWidth: isDesktop ? 180 : 120, color: 'text.disabled',
+                            pl: isDesktop ? '16px' : '8px',
                           }}>
                             Player
                           </Box>
@@ -1139,21 +1145,23 @@ export default function MlbStats() {
                                 ...tdSx, textAlign: 'left',
                                 position: 'sticky', left: 0, zIndex: 2,
                                 bgcolor: 'background.paper',
-                                pl: '16px', fontWeight: 'normal',
+                                pl: isDesktop ? '16px' : '8px', fontWeight: 'normal',
                               }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <Typography sx={{ fontSize: rank < 3 ? '0.9rem' : '0.62rem', fontWeight: 800, color: 'text.disabled', width: 22, textAlign: 'center', flexShrink: 0, lineHeight: 1 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: isDesktop ? 1 : 0.6 }}>
+                                  <Typography sx={{ fontSize: rank < 3 ? '0.9rem' : '0.62rem', fontWeight: 800, color: 'text.disabled', width: isDesktop ? 22 : 18, textAlign: 'center', flexShrink: 0, lineHeight: 1 }}>
                                     {rank < 3 ? MEDALS_FS[rank] : `${rank + 1}`}
                                   </Typography>
-                                  <Box
-                                    component="img"
-                                    src={`https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${e.playerId}/headshot/67/current`}
-                                    alt={e.playerName}
-                                    sx={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, bgcolor: 'action.hover' }}
-                                  />
+                                  {isDesktop && (
+                                    <Box
+                                      component="img"
+                                      src={`https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${e.playerId}/headshot/67/current`}
+                                      alt={e.playerName}
+                                      sx={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, bgcolor: 'action.hover' }}
+                                    />
+                                  )}
                                   <Box sx={{ minWidth: 0 }}>
-                                    <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                      {e.playerName}
+                                    <Typography sx={{ fontWeight: 700, fontSize: isDesktop ? '0.82rem' : '0.75rem', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      {isDesktop ? e.playerName : abbrevName(e.playerName)}
                                     </Typography>
                                     <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', fontWeight: 600 }}>
                                       {e.teamAbbr}
