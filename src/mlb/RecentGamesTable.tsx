@@ -1,50 +1,99 @@
 import React, { useState } from 'react'
-import { Box, Typography, useMediaQuery } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import { ACCENT } from './constants'
 import { RecentGameEntry } from './types'
 
 const INIT = 5
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-function fmtDate(d: string, compact: boolean) {
+function fmtDate(d: string) {
   if (!d) return '—'
-  const parts = d.split('-').map(Number)
-  return compact ? `${parts[1]}/${parts[2]}` : `${MONTHS[parts[1] - 1]} ${parts[2]}`
+  const [, m, day] = d.split('-').map(Number)
+  return `${MONTHS[m - 1]} ${day}`
 }
 
 function decision(s: any): string {
   if (!s) return ''
-  if (Number(s.wins) > 0) return 'W'
+  if (Number(s.wins)   > 0) return 'W'
   if (Number(s.losses) > 0) return 'L'
-  if (Number(s.saves) > 0) return 'S'
-  if (Number(s.holds) > 0) return 'H'
+  if (Number(s.saves)  > 0) return 'S'
+  if (Number(s.holds)  > 0) return 'H'
   return ''
+}
+
+const DEC_COLORS: Record<string, string> = {
+  W: '#22c55e', L: '#ef4444', S: ACCENT, H: '#f59e0b',
+}
+
+function DecBadge({ s }: { s: any }) {
+  const d = decision(s)
+  if (!d) return <Box component="span" sx={{ color: 'text.disabled' }}>—</Box>
+  const c = DEC_COLORS[d]
+  return (
+    <Box component="span" sx={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      width: 22, height: 22, borderRadius: '50%',
+      bgcolor: `${c}1e`, color: c, fontSize: '0.65rem', fontWeight: 800,
+    }}>
+      {d}
+    </Box>
+  )
+}
+
+function Dim() {
+  return <Box component="span" sx={{ color: 'text.disabled' }}>—</Box>
+}
+
+function Num({ v, accent, warn }: { v: any; accent?: boolean; warn?: boolean }) {
+  if (v == null) return <Dim />
+  return (
+    <Box component="span" sx={{
+      color: accent ? ACCENT : warn ? '#ef4444' : 'inherit',
+      fontWeight: (accent || warn) ? 700 : 400,
+    }}>
+      {String(v)}
+    </Box>
+  )
 }
 
 interface ColDef {
   h: string
-  get: (s: any) => any
-  color?: (s: any) => string | undefined
+  cell: (s: any) => React.ReactNode
 }
 
 const HIT_COLS: ColDef[] = [
-  { h: 'H-AB', get: s => s ? `${s.hits ?? 0}-${s.atBats ?? 0}` : '—' },
-  { h: 'R',    get: s => s?.runs ?? '—' },
-  { h: 'HR',   get: s => s?.homeRuns ?? '—',    color: s => Number(s?.homeRuns) > 0 ? ACCENT : undefined },
-  { h: 'RBI',  get: s => s?.rbi ?? '—' },
-  { h: 'BB',   get: s => s?.baseOnBalls ?? '—' },
-  { h: 'K',    get: s => s?.strikeOuts ?? '—' },
-  { h: 'SB',   get: s => s?.stolenBases ?? '—', color: s => Number(s?.stolenBases) > 0 ? ACCENT : undefined },
+  { h: 'H‑AB', cell: s => s ? `${s.hits ?? 0}‑${s.atBats ?? 0}` : <Dim /> },
+  { h: 'R',    cell: s => <Num v={s?.runs   ?? null} /> },
+  { h: 'HR',   cell: s => <Num v={s?.homeRuns ?? null}  accent={Number(s?.homeRuns) > 0} /> },
+  { h: 'RBI',  cell: s => <Num v={s?.rbi ?? null} /> },
+  { h: 'BB',   cell: s => <Num v={s?.baseOnBalls ?? null} /> },
+  { h: 'K',    cell: s => <Num v={s?.strikeOuts ?? null} /> },
+  { h: 'SB',   cell: s => <Num v={s?.stolenBases ?? null} accent={Number(s?.stolenBases) > 0} /> },
 ]
 
 const PIT_COLS: ColDef[] = [
-  { h: 'Dec', get: decision, color: s => { const d = decision(s); return d === 'W' ? '#22c55e' : d === 'L' ? '#ef4444' : undefined } },
-  { h: 'IP',  get: s => s?.inningsPitched ?? '—' },
-  { h: 'H',   get: s => s?.hits ?? '—' },
-  { h: 'ER',  get: s => s?.earnedRuns ?? '—' },
-  { h: 'BB',  get: s => s?.baseOnBalls ?? '—' },
-  { h: 'K',   get: s => s?.strikeOuts ?? '—', color: s => Number(s?.strikeOuts) >= 10 ? ACCENT : undefined },
+  { h: 'Dec', cell: s => <DecBadge s={s} /> },
+  { h: 'IP',  cell: s => <Num v={s?.inningsPitched ?? null} /> },
+  { h: 'H',   cell: s => <Num v={s?.hits ?? null} /> },
+  { h: 'ER',  cell: s => <Num v={s?.earnedRuns ?? null}  warn={Number(s?.earnedRuns) >= 4} /> },
+  { h: 'BB',  cell: s => <Num v={s?.baseOnBalls ?? null} /> },
+  { h: 'K',   cell: s => <Num v={s?.strikeOuts ?? null}  accent={Number(s?.strikeOuts) >= 10} /> },
 ]
+
+const thSx = {
+  py: '7px', px: { xs: '10px', sm: '14px' },
+  fontSize: '0.6rem', fontWeight: 700,
+  letterSpacing: '0.6px', textTransform: 'uppercase' as const,
+  whiteSpace: 'nowrap' as const, userSelect: 'none' as const,
+  color: 'text.disabled',
+  borderBottom: '1px solid', borderColor: 'divider',
+}
+
+const tdSx = {
+  py: '7px', px: { xs: '10px', sm: '14px' },
+  fontSize: { xs: '0.8rem', sm: '0.82rem' },
+  whiteSpace: 'nowrap' as const,
+}
 
 function GameSection({ title, entries, cols, dataKey }: {
   title?: string
@@ -53,40 +102,9 @@ function GameSection({ title, entries, cols, dataKey }: {
   dataKey: 'hitting' | 'pitching'
 }) {
   const [expanded, setExpanded] = useState(false)
-  const compact = !useMediaQuery('(min-width: 480px)')
   if (!entries.length) return null
   const shown = expanded ? entries : entries.slice(0, INIT)
-
-  const TH: React.CSSProperties = compact ? {
-    padding: '3px 4px 5px',
-    fontWeight: 700,
-    fontSize: '0.6rem',
-    letterSpacing: '0.4px',
-    whiteSpace: 'nowrap',
-    userSelect: 'none',
-  } : {
-    padding: '4px 6px 6px',
-    fontWeight: 700,
-    fontSize: '0.67rem',
-    letterSpacing: '0.5px',
-    whiteSpace: 'nowrap',
-    userSelect: 'none',
-  }
-
-  const TD: React.CSSProperties = compact ? {
-    padding: '3px 4px',
-    fontSize: '0.72rem',
-    whiteSpace: 'nowrap',
-  } : {
-    padding: '5px 6px',
-    fontSize: '0.78rem',
-    whiteSpace: 'nowrap',
-  }
-
-  // Date col: compact = 36px, desktop = 62px (fits "May 15" at 0.78rem + 8px left pad)
-  // Opp col:  compact = 42px, desktop = 52px (fits "@NYY" + padding)
-  const dateColW = compact ? '36px' : '62px'
-  const oppColW  = compact ? '42px' : '52px'
+  const hidden = entries.length - INIT
 
   return (
     <Box>
@@ -95,67 +113,77 @@ function GameSection({ title, entries, cols, dataKey }: {
           {title}
         </Typography>
       )}
-      <Box sx={{ borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
-        <Box component="table" sx={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: '100%' }}>
-          <Box component="colgroup">
-            <Box component="col" sx={{ width: dateColW }} />
-            <Box component="col" sx={{ width: oppColW }} />
-            {cols.map(c => <Box component="col" key={c.h} />)}
-          </Box>
+
+      {/* Scroll wrapper — table stays content-wide, scrolls on small screens */}
+      <Box sx={{ overflowX: 'auto', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+        <Box component="table" sx={{ borderCollapse: 'collapse', width: 'max-content' }}>
+
           <Box component="thead">
-            <Box component="tr">
-              <Box component="th" sx={{ ...TH, textAlign: 'left', pl: '8px', color: 'text.disabled', borderBottom: '1px solid', borderColor: 'divider' }}>
-                {compact ? 'Dt' : 'Date'}
+            <Box component="tr" sx={{ bgcolor: 'action.hover' }}>
+              <Box component="th" sx={{ ...thSx, textAlign: 'left', pl: { xs: '12px', sm: '16px' } }}>
+                Date
               </Box>
-              <Box component="th" sx={{ ...TH, textAlign: 'left', color: 'text.disabled', borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Box component="th" sx={{ ...thSx, textAlign: 'left' }}>
                 Opp
               </Box>
               {cols.map(c => (
-                <Box component="th" key={c.h} sx={{ ...TH, textAlign: 'right', color: 'text.disabled', borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Box component="th" key={c.h} sx={{ ...thSx, textAlign: 'right' }}>
                   {c.h}
                 </Box>
               ))}
             </Box>
           </Box>
+
           <Box component="tbody">
             {shown.map((g, i) => {
               const stat = g[dataKey]
               const notLast = i < shown.length - 1
+              const borderProps = { borderBottom: notLast ? '1px solid' : 'none', borderColor: 'divider' }
               return (
                 <Box component="tr" key={i}
-                  sx={{ '&:hover > td': { bgcolor: 'action.hover' }, transition: 'background 0.1s' }}>
-                  <Box component="td" sx={{ ...TD, pl: '8px', textAlign: 'left', color: 'text.secondary', borderBottom: notLast ? '1px solid' : 'none', borderColor: 'divider' }}>
-                    {fmtDate(g.date, compact)}
+                  sx={{ '&:hover > td': { bgcolor: 'action.hover' }, transition: 'background 0.12s' }}>
+
+                  {/* Date */}
+                  <Box component="td" sx={{ ...tdSx, ...borderProps, textAlign: 'left', pl: { xs: '12px', sm: '16px' }, color: 'text.secondary' }}>
+                    {fmtDate(g.date)}
                   </Box>
-                  <Box component="td" sx={{ ...TD, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', borderBottom: notLast ? '1px solid' : 'none', borderColor: 'divider' }}>
+
+                  {/* Opponent */}
+                  <Box component="td" sx={{ ...tdSx, ...borderProps, textAlign: 'left', fontWeight: 600 }}>
                     {g.isHome
                       ? g.opponentAbbr
-                      : <><Box component="span" sx={{ color: 'text.disabled', mr: '1px' }}>@</Box>{g.opponentAbbr}</>
+                      : <><Box component="span" sx={{ color: 'text.disabled', fontWeight: 400, mr: '1px' }}>@</Box>{g.opponentAbbr}</>
                     }
                   </Box>
-                  {cols.map(c => {
-                    const val = c.get(stat)
-                    const clr = c.color?.(stat)
-                    return (
-                      <Box component="td" key={c.h}
-                        sx={{ ...TD, textAlign: 'right', fontWeight: clr ? 700 : 500, color: clr ?? 'text.primary', borderBottom: notLast ? '1px solid' : 'none', borderColor: 'divider' }}>
-                        {val == null ? '—' : String(val)}
-                      </Box>
-                    )
-                  })}
+
+                  {/* Stat cells */}
+                  {cols.map(c => (
+                    <Box component="td" key={c.h} sx={{ ...tdSx, ...borderProps, textAlign: 'right' }}>
+                      {c.cell(stat)}
+                    </Box>
+                  ))}
+
                 </Box>
               )
             })}
           </Box>
+
         </Box>
       </Box>
 
       {entries.length > INIT && (
         <Box
           onClick={() => setExpanded(e => !e)}
-          sx={{ mt: 1, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600, color: 'text.disabled', display: 'inline-flex', alignItems: 'center', gap: 0.4, userSelect: 'none', '&:hover': { color: ACCENT }, transition: 'color 0.15s' }}
+          sx={{
+            mt: 1.25, cursor: 'pointer', userSelect: 'none',
+            fontSize: '0.72rem', fontWeight: 600,
+            color: 'text.disabled', display: 'inline-flex', alignItems: 'center', gap: 0.5,
+            '&:hover': { color: ACCENT }, transition: 'color 0.15s',
+          }}
         >
-          {expanded ? '↑ Show less' : `↓ Show all ${entries.length} games`}
+          {expanded
+            ? '↑ Show less'
+            : `↓ ${hidden} more game${hidden !== 1 ? 's' : ''}`}
         </Box>
       )}
     </Box>
@@ -167,11 +195,11 @@ export function RecentGamesTable({ games, isPitcher, isTwoWay }: {
   isPitcher: boolean
   isTwoWay: boolean
 }) {
-  const hitGames = games.filter(g => g.hitting != null)
+  const hitGames = games.filter(g => g.hitting  != null)
   const pitGames = games.filter(g => g.pitching != null)
 
-  const showHitting = !isPitcher || isTwoWay
-  const showPitching = isPitcher || isTwoWay
+  const showHitting  = !isPitcher || isTwoWay
+  const showPitching =  isPitcher || isTwoWay
 
   if (!hitGames.length && !pitGames.length) return null
 
