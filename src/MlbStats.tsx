@@ -102,6 +102,8 @@ export default function MlbStats() {
   const [lbFullscreen, setLbFullscreen] = useState<{
     def: StatDef
     group: 'hitting' | 'pitching'
+    sortKey: string
+    sortAsc: boolean
     entries: Array<{ playerId: number; playerName: string; teamAbbr: string; val: any }>
   } | null>(null)
   const [lbDownloading, setLbDownloading] = useState(false)
@@ -891,7 +893,7 @@ export default function MlbStats() {
                           <Box
                             onClick={(ev: React.MouseEvent) => {
                               ev.stopPropagation()
-                              setLbFullscreen({ def, group: lbGroup, entries: allEntries.slice(0, 50) })
+                              setLbFullscreen({ def, group: lbGroup, sortKey: def.key, sortAsc: def.lowerIsBetter ?? false, entries: allEntries.slice(0, 50) })
                             }}
                             sx={{
                               cursor: 'pointer', color: 'text.disabled', ml: 1, p: 0.5, borderRadius: 1,
@@ -1015,6 +1017,17 @@ export default function MlbStats() {
           {lbFullscreen && (() => {
             const statDefs = lbFullscreen.group === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS
             const statMap = new Map(lbData?.map(e => [e.playerId, e.stat]) ?? [])
+            const activeDef = statDefs.find(d => d.key === lbFullscreen.sortKey) ?? lbFullscreen.def
+            const sortedEntries = [...lbFullscreen.entries].sort((a, b) => {
+              const sa = statMap.get(a.playerId)
+              const sb = statMap.get(b.playerId)
+              const va = Number(activeDef.leaderValue ? activeDef.leaderValue(sa) : activeDef.getValue(sa))
+              const vb = Number(activeDef.leaderValue ? activeDef.leaderValue(sb) : activeDef.getValue(sb))
+              if (isNaN(va) && isNaN(vb)) return 0
+              if (isNaN(va)) return 1
+              if (isNaN(vb)) return -1
+              return lbFullscreen.sortAsc ? va - vb : vb - va
+            })
             const MEDALS_FS = ['🥇', '🥈', '🥉']
             const colPx = isDesktop ? '10px' : '5px'
             const thSx = {
@@ -1116,16 +1129,34 @@ export default function MlbStats() {
                             Player
                           </Box>
                           {statDefs.map(def => {
+                            const isActive = def.key === lbFullscreen.sortKey
                             const isFeatured = def.key === lbFullscreen.def.key
                             return (
-                              <Box component="th" key={def.key} sx={{
-                                ...thSx, textAlign: 'right',
-                                bgcolor: isFeatured ? `${ACCENT}10` : 'background.paper',
-                                borderBottom: isFeatured ? `2px solid ${ACCENT}` : '2px solid',
-                                borderColor: isFeatured ? ACCENT : 'divider',
-                                color: isFeatured ? ACCENT : 'text.disabled',
-                              }}>
-                                {def.label}
+                              <Box component="th" key={def.key}
+                                onClick={() => setLbFullscreen(prev => prev ? {
+                                  ...prev,
+                                  sortKey: def.key,
+                                  sortAsc: prev.sortKey === def.key ? !prev.sortAsc : (def.lowerIsBetter ?? false),
+                                } : null)}
+                                sx={{
+                                  ...thSx, textAlign: 'right',
+                                  cursor: 'pointer',
+                                  bgcolor: isActive ? `${ACCENT}10` : isFeatured ? `${ACCENT}06` : 'background.paper',
+                                  borderBottom: isActive ? `2px solid ${ACCENT}` : isFeatured ? `2px solid ${ACCENT}55` : '2px solid',
+                                  borderColor: isActive ? ACCENT : isFeatured ? `${ACCENT}55` : 'divider',
+                                  color: isActive ? ACCENT : isFeatured ? `${ACCENT}99` : 'text.disabled',
+                                  '&:hover': { bgcolor: `${ACCENT}18`, color: ACCENT },
+                                  transition: 'background 0.15s, color 0.15s',
+                                  userSelect: 'none',
+                                }}>
+                                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3 }}>
+                                  {def.label}
+                                  {isActive && (
+                                    <Box component="span" sx={{ fontSize: '0.65rem', opacity: 0.8 }}>
+                                      {lbFullscreen.sortAsc ? '↑' : '↓'}
+                                    </Box>
+                                  )}
+                                </Box>
                               </Box>
                             )
                           })}
@@ -1133,7 +1164,7 @@ export default function MlbStats() {
                       </Box>
 
                       <Box component="tbody">
-                        {lbFullscreen.entries.map((e, rank) => {
+                        {sortedEntries.map((e, rank) => {
                           const stat = statMap.get(e.playerId)
                           return (
                             <Box component="tr" key={e.playerId}
@@ -1172,15 +1203,16 @@ export default function MlbStats() {
 
                               {/* Stat columns */}
                               {statDefs.map(def => {
+                                const isActive = def.key === lbFullscreen.sortKey
                                 const isFeatured = def.key === lbFullscreen.def.key
                                 const val = def.format(def.getValue(stat))
                                 return (
                                   <Box component="td" key={def.key} sx={{
                                     ...tdSx, textAlign: 'right',
-                                    bgcolor: isFeatured ? `${ACCENT}08` : undefined,
-                                    fontSize: isFeatured ? '0.88rem' : '0.78rem',
-                                    fontWeight: isFeatured ? 800 : 400,
-                                    color: isFeatured ? ACCENT : 'text.primary',
+                                    bgcolor: isActive ? `${ACCENT}08` : isFeatured ? `${ACCENT}04` : undefined,
+                                    fontSize: isActive ? '0.88rem' : '0.78rem',
+                                    fontWeight: isActive ? 800 : isFeatured ? 600 : 400,
+                                    color: isActive ? ACCENT : isFeatured ? `${ACCENT}cc` : 'text.primary',
                                   }}>
                                     {val}
                                   </Box>
