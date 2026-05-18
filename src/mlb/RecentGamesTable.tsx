@@ -65,7 +65,7 @@ function GameSection({ title, entries, cols, dataKey }: {
     whiteSpace: 'nowrap',
     userSelect: 'none',
   } : {
-    padding: '4px 10px 6px',
+    padding: '4px 6px 6px',
     fontWeight: 700,
     fontSize: '0.67rem',
     letterSpacing: '0.5px',
@@ -78,10 +78,15 @@ function GameSection({ title, entries, cols, dataKey }: {
     fontSize: '0.72rem',
     whiteSpace: 'nowrap',
   } : {
-    padding: '5px 10px',
+    padding: '5px 6px',
     fontSize: '0.78rem',
     whiteSpace: 'nowrap',
   }
+
+  // Date col: compact = 36px, desktop = 62px (fits "May 15" at 0.78rem + 8px left pad)
+  // Opp col:  compact = 42px, desktop = 52px (fits "@NYY" + padding)
+  const dateColW = compact ? '36px' : '62px'
+  const oppColW  = compact ? '42px' : '52px'
 
   return (
     <Box>
@@ -90,26 +95,16 @@ function GameSection({ title, entries, cols, dataKey }: {
           {title}
         </Typography>
       )}
-      <Box sx={{
-        borderRadius: 1.5, border: '1px solid', borderColor: 'divider',
-        ...(compact ? {} : { overflowX: 'auto' }),
-      }}>
-        <Box component="table" sx={{
-          borderCollapse: 'collapse',
-          ...(compact
-            ? { tableLayout: 'fixed', width: '100%' }
-            : { minWidth: 'max-content', width: '100%' }),
-        }}>
-          {compact && (
-            <Box component="colgroup">
-              <Box component="col" sx={{ width: '36px' }} />
-              <Box component="col" sx={{ width: '42px' }} />
-              {cols.map(c => <Box component="col" key={c.h} />)}
-            </Box>
-          )}
+      <Box sx={{ borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
+        <Box component="table" sx={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: '100%' }}>
+          <Box component="colgroup">
+            <Box component="col" sx={{ width: dateColW }} />
+            <Box component="col" sx={{ width: oppColW }} />
+            {cols.map(c => <Box component="col" key={c.h} />)}
+          </Box>
           <Box component="thead">
             <Box component="tr">
-              <Box component="th" sx={{ ...TH, textAlign: 'left', pl: compact ? '8px' : '12px', color: 'text.disabled', borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Box component="th" sx={{ ...TH, textAlign: 'left', pl: '8px', color: 'text.disabled', borderBottom: '1px solid', borderColor: 'divider' }}>
                 {compact ? 'Dt' : 'Date'}
               </Box>
               <Box component="th" sx={{ ...TH, textAlign: 'left', color: 'text.disabled', borderBottom: '1px solid', borderColor: 'divider' }}>
@@ -129,20 +124,13 @@ function GameSection({ title, entries, cols, dataKey }: {
               return (
                 <Box component="tr" key={i}
                   sx={{ '&:hover > td': { bgcolor: 'action.hover' }, transition: 'background 0.1s' }}>
-                  <Box component="td" sx={{ ...TD, pl: compact ? '8px' : '12px', textAlign: 'left', color: 'text.secondary', borderBottom: notLast ? '1px solid' : 'none', borderColor: 'divider' }}>
+                  <Box component="td" sx={{ ...TD, pl: '8px', textAlign: 'left', color: 'text.secondary', borderBottom: notLast ? '1px solid' : 'none', borderColor: 'divider' }}>
                     {fmtDate(g.date, compact)}
                   </Box>
-                  <Box component="td" sx={{ ...TD, textAlign: 'left', borderBottom: notLast ? '1px solid' : 'none', borderColor: 'divider' }}>
-                    {compact
-                      ? (g.isHome ? g.opponentAbbr : `@${g.opponentAbbr}`)
-                      : (
-                        <>
-                          <Box component="span" sx={{ color: 'text.disabled', fontSize: '0.68rem', mr: '3px' }}>
-                            {g.isHome ? 'vs' : '@'}
-                          </Box>
-                          {g.opponentAbbr}
-                        </>
-                      )
+                  <Box component="td" sx={{ ...TD, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', borderBottom: notLast ? '1px solid' : 'none', borderColor: 'divider' }}>
+                    {g.isHome
+                      ? g.opponentAbbr
+                      : <><Box component="span" sx={{ color: 'text.disabled', mr: '1px' }}>@</Box>{g.opponentAbbr}</>
                     }
                   </Box>
                   {cols.map(c => {
