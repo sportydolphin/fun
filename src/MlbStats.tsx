@@ -33,6 +33,7 @@ import { PlayerTrendsChart, TREND_HIT_DEFS, TREND_PIT_DEFS } from './mlb/PlayerT
 import { RecentGamesTable } from './mlb/RecentGamesTable'
 import { RecentGameEntry } from './mlb/types'
 import { Standings } from './mlb/Standings'
+import { Playoffs } from './mlb/Playoffs'
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -84,7 +85,7 @@ export default function MlbStats() {
   const isDesktop = useMediaQuery('(min-width: 600px)')
   const canHover = useMediaQuery('(hover: hover)')
 
-  const [view, setView] = useState<'search' | 'viz' | 'leaderboard' | 'standings'>('standings')
+  const [view, setView] = useState<'search' | 'viz' | 'leaderboard' | 'standings' | 'playoffs'>('search')
   const [vizSeason, setVizSeason] = useState(CURRENT_SEASON)
   const [teamSummaries, setTeamSummaries] = useState<TeamSummary[]>([])
   const [loadingViz, setLoadingViz] = useState(false)
@@ -408,6 +409,10 @@ export default function MlbStats() {
         setView('standings')
         setPlayer(null)
         setTeam(null)
+      } else if (viewParam === 'playoffs') {
+        setView('playoffs')
+        setPlayer(null)
+        setTeam(null)
       }
     }
     window.addEventListener('popstate', handlePop)
@@ -422,7 +427,7 @@ export default function MlbStats() {
     if (!urlViewReadRef.current) {
       urlViewReadRef.current = true
       const viewParam = params.get('view')
-      if (viewParam === 'viz' || viewParam === 'leaderboard' || viewParam === 'standings') setView(viewParam as 'viz' | 'leaderboard' | 'standings')
+      if (viewParam === 'viz' || viewParam === 'leaderboard' || viewParam === 'standings' || viewParam === 'playoffs') setView(viewParam as 'viz' | 'leaderboard' | 'standings' | 'playoffs')
       const lbParam = params.get('lb')
       if (lbParam === 'pitching') setLbGroup('pitching')
       const seasonParam = params.get('season')
@@ -553,19 +558,25 @@ export default function MlbStats() {
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
         <SegControl
           options={[
-            { value: 'standings', label: 'Standings' },
             { value: 'search', label: 'Search' },
+            { value: 'standings', label: 'Standings' },
+            { value: 'playoffs', label: 'Playoffs' },
             { value: 'viz', label: 'Visualize' },
             { value: 'leaderboard', label: 'Leaderboard' },
           ]}
           value={view}
-          onChange={v => setView(v as 'search' | 'viz' | 'leaderboard' | 'standings')}
+          onChange={v => setView(v as 'search' | 'viz' | 'leaderboard' | 'standings' | 'playoffs')}
         />
       </Box>
 
       {/* Standings tab */}
       {view === 'standings' && (
         <Standings season={season} />
+      )}
+
+      {/* Playoffs tab */}
+      {view === 'playoffs' && (
+        <Playoffs season={season} />
       )}
 
       {/* Visualizations tab */}
