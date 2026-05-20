@@ -42,6 +42,9 @@ describe('PoopGame', () => {
       nextTierCostFor: vi.fn((tier) => 1000 * Math.pow(10, tier)),
       holdSpeedCostFor: vi.fn(),
       holdCost: 100,
+      startHold: vi.fn(),
+      stopHold: vi.fn(),
+      setCount: vi.fn(),
       BOWEL_TIERS: [
         { name: 'Paper Bowels', color: '#e6e6e6', emoji: '🧻' },
         { name: 'Wood Bowels', color: '#c18f5d', emoji: '🪵' },
@@ -207,6 +210,9 @@ describe('PoopGame', () => {
       nextTierCostFor: vi.fn((tier) => 1000 * Math.pow(10, tier)),
       holdSpeedCostFor: vi.fn(),
       holdCost: 100,
+      startHold: vi.fn(),
+      stopHold: vi.fn(),
+      setCount: vi.fn(),
       BOWEL_TIERS: [
         { name: 'Paper Bowels', color: '#e6e6e6', emoji: '🧻' },
         { name: 'Wood Bowels', color: '#c18f5d', emoji: '🪵' },
@@ -243,6 +249,9 @@ describe('PoopGame', () => {
       nextTierCostFor: vi.fn((tier) => 1000 * Math.pow(10, tier)),
       holdSpeedCostFor: vi.fn(),
       holdCost: 100,
+      startHold: vi.fn(),
+      stopHold: vi.fn(),
+      setCount: vi.fn(),
       BOWEL_TIERS: [
         { name: 'Paper Bowels', color: '#e6e6e6', emoji: '🧻' },
         { name: 'Wood Bowels', color: '#c18f5d', emoji: '🪵' },
@@ -280,6 +289,9 @@ describe('PoopGame', () => {
       nextTierCostFor: vi.fn((tier) => 1000 * Math.pow(10, tier)),
       holdSpeedCostFor: vi.fn(),
       holdCost: 100,
+      startHold: vi.fn(),
+      stopHold: vi.fn(),
+      setCount: vi.fn(),
       BOWEL_TIERS: [
         { name: 'Paper Bowels', color: '#e6e6e6', emoji: '🧻' },
         { name: 'Wood Bowels', color: '#c18f5d', emoji: '🪵' },
@@ -315,6 +327,9 @@ describe('PoopGame', () => {
       nextTierCostFor: vi.fn((tier) => 1000 * Math.pow(10, tier)),
       holdSpeedCostFor: vi.fn(),
       holdCost: 100,
+      startHold: vi.fn(),
+      stopHold: vi.fn(),
+      setCount: vi.fn(),
       BOWEL_TIERS: [
         { name: 'Paper Bowels', color: '#e6e6e6', emoji: '🧻' },
         { name: 'Wood Bowels', color: '#c18f5d', emoji: '🪵' },
@@ -350,6 +365,9 @@ describe('PoopGame', () => {
       nextTierCostFor: vi.fn((tier) => 1000 * Math.pow(10, tier)),
       holdSpeedCostFor: vi.fn(),
       holdCost: 100,
+      startHold: vi.fn(),
+      stopHold: vi.fn(),
+      setCount: vi.fn(),
       BOWEL_TIERS: [
         { name: 'Paper Bowels', color: '#e6e6e6', emoji: '🧻' },
         { name: 'Wood Bowels', color: '#c18f5d', emoji: '🪵' },
@@ -388,6 +406,9 @@ describe('PoopGame', () => {
       nextTierCostFor: vi.fn((tier) => 1000 * Math.pow(10, tier)),
       holdSpeedCostFor: vi.fn(),
       holdCost: 100,
+      startHold: vi.fn(),
+      stopHold: vi.fn(),
+      setCount: vi.fn(),
       BOWEL_TIERS: [
         { name: 'Paper Bowels', color: '#e6e6e6', emoji: '🧻' },
         { name: 'Wood Bowels', color: '#c18f5d', emoji: '🪵' },
