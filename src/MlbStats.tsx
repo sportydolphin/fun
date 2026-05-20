@@ -565,7 +565,7 @@ export default function MlbStats() {
 
       {/* Standings tab */}
       {view === 'standings' && (
-        <Standings season={season} />
+        <Standings season={season} onTeamClick={handleVizNavigate} />
       )}
 
       {/* Visualizations tab */}

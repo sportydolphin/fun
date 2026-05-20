@@ -52,23 +52,33 @@ function DiffCell({ diff }: { diff: number }) {
   )
 }
 
-// ─── Team logo ────────────────────────────────────────────────────────────────
+// ─── Team logo — always shown on a team-colored circle so it's visible in both light + dark mode
 
 function TeamLogo({ teamId, abbr }: { teamId: number; abbr: string }) {
   const [failed, setFailed] = useState(false)
-  if (failed) {
-    return (
-      <Box sx={{ width: 24, height: 24, borderRadius: '50%', bgcolor: TEAM_BG[teamId] ?? '#666', flexShrink: 0 }} />
-    )
-  }
+  const bg = TEAM_BG[teamId] ?? '#444'
   return (
-    <Box
-      component="img"
-      src={TEAM_LOGO(teamId)}
-      alt={abbr}
-      onError={() => setFailed(true)}
-      sx={{ width: 24, height: 24, objectFit: 'contain', flexShrink: 0, display: 'block' }}
-    />
+    <Box sx={{
+      width: 28, height: 28, borderRadius: '50%',
+      bgcolor: bg,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      flexShrink: 0, overflow: 'hidden',
+    }}>
+      {failed ? (
+        // Fallback: team abbreviation initials on the color circle
+        <Typography sx={{ fontSize: '0.5rem', fontWeight: 800, color: '#fff', lineHeight: 1, userSelect: 'none' }}>
+          {abbr.slice(0, 3)}
+        </Typography>
+      ) : (
+        <Box
+          component="img"
+          src={TEAM_LOGO(teamId)}
+          alt={abbr}
+          onError={() => setFailed(true)}
+          sx={{ width: 20, height: 20, objectFit: 'contain', display: 'block' }}
+        />
+      )}
+    </Box>
   )
 }
 
@@ -90,12 +100,16 @@ const tdSx = {
   textAlign: 'right' as const,
 }
 
-// Columns that are hidden on small screens
+// Columns hidden on small screens
 const hiddenXs = { display: { xs: 'none', sm: 'table-cell' } }
 
 // ─── Division card ────────────────────────────────────────────────────────────
 
-function DivisionCard({ division, wcIds }: { division: StandingsDivision; wcIds: Set<number> }) {
+function DivisionCard({ division, wcIds, onTeamClick }: {
+  division: StandingsDivision
+  wcIds: Set<number>
+  onTeamClick?: (teamId: number) => void
+}) {
   const teams = [...division.teams].sort((a, b) => a.divisionRank - b.divisionRank)
 
   let lastPlayoffIdx = -1
@@ -106,9 +120,9 @@ function DivisionCard({ division, wcIds }: { division: StandingsDivision; wcIds:
 
   return (
     <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
-      {/* Division header */}
+      {/* Division header — prominent label */}
       <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.8, color: 'text.disabled' }}>
+        <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: 'text.primary' }}>
           {division.divisionName}
         </Typography>
       </Box>
@@ -134,11 +148,19 @@ function DivisionCard({ division, wcIds }: { division: StandingsDivision; wcIds:
             const notLast = i < teams.length - 1
             const isSepRow = showSeparator && i === lastPlayoffIdx
             const borderSx = { borderBottom: notLast ? '1px solid' : 'none', borderColor: 'divider' }
+            const clickable = !!onTeamClick
 
             return (
               <React.Fragment key={t.teamId}>
-                <Box component="tr" sx={{ '&:hover > td': { bgcolor: 'action.hover' }, transition: 'background 0.12s' }}>
-
+                <Box
+                  component="tr"
+                  onClick={() => onTeamClick?.(t.teamId)}
+                  sx={{
+                    cursor: clickable ? 'pointer' : 'default',
+                    '&:hover > td': { bgcolor: clickable ? 'action.hover' : undefined },
+                    transition: 'background 0.12s',
+                  }}
+                >
                   {/* Team cell */}
                   <Box component="td" sx={{
                     ...tdSx, ...borderSx, textAlign: 'left', pl: '9px',
@@ -180,11 +202,12 @@ function DivisionCard({ division, wcIds }: { division: StandingsDivision; wcIds:
 
 // ─── League section ───────────────────────────────────────────────────────────
 
-function LeagueSection({ label, order, leagueId, divisions }: {
+function LeagueSection({ label, order, leagueId, divisions, onTeamClick }: {
   label: string
   order: number[]
   leagueId: number
   divisions: StandingsDivision[]
+  onTeamClick?: (teamId: number) => void
 }) {
   const wcIds = computeWildCardIds(divisions, leagueId)
   const sorted = order
@@ -199,7 +222,9 @@ function LeagueSection({ label, order, leagueId, divisions }: {
         {label}
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 2 }}>
-        {sorted.map(div => <DivisionCard key={div.divisionId} division={div} wcIds={wcIds} />)}
+        {sorted.map(div => (
+          <DivisionCard key={div.divisionId} division={div} wcIds={wcIds} onTeamClick={onTeamClick} />
+        ))}
       </Box>
     </Box>
   )
@@ -229,20 +254,29 @@ function buildLeagueList(divisions: StandingsDivision[], leagueId: number): Play
   ]
 }
 
-function PlayoffTeamRow({ pt, isLast, showSep }: { pt: PlayoffTeam; isLast: boolean; showSep: boolean }) {
+function PlayoffTeamRow({ pt, isLast, showSep, onTeamClick }: {
+  pt: PlayoffTeam; isLast: boolean; showSep: boolean
+  onTeamClick?: (teamId: number) => void
+}) {
   const teamColor = TEAM_BG[pt.team.teamId] ?? '#666'
   const isIn = pt.slot !== 'out'
+  const clickable = !!onTeamClick
 
   return (
     <>
-      <Box sx={{
-        display: 'flex', alignItems: 'center', gap: 1.25,
-        px: 1.5, py: '10px',
-        borderBottom: isLast ? 'none' : '1px solid', borderColor: 'divider',
-        borderLeft: `3px solid ${teamColor}`,
-        opacity: isIn ? 1 : 0.65,
-        '&:hover': { bgcolor: 'action.hover' }, transition: 'background 0.12s',
-      }}>
+      <Box
+        onClick={() => onTeamClick?.(pt.team.teamId)}
+        sx={{
+          display: 'flex', alignItems: 'center', gap: 1.25,
+          px: 1.5, py: '10px',
+          borderBottom: isLast ? 'none' : '1px solid', borderColor: 'divider',
+          borderLeft: `3px solid ${teamColor}`,
+          opacity: isIn ? 1 : 0.65,
+          cursor: clickable ? 'pointer' : 'default',
+          '&:hover': { bgcolor: clickable ? 'action.hover' : undefined },
+          transition: 'background 0.12s',
+        }}
+      >
         <TeamLogo teamId={pt.team.teamId} abbr={pt.team.abbr} />
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -252,17 +286,13 @@ function PlayoffTeamRow({ pt, isLast, showSep }: { pt: PlayoffTeam; isLast: bool
           </Typography>
         </Box>
 
-        {/* W-L */}
         <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary', minWidth: 44, textAlign: 'right' }}>
           {pt.team.wins}–{pt.team.losses}
         </Typography>
-
-        {/* PCT */}
         <Typography sx={{ fontSize: '0.75rem', color: 'text.disabled', minWidth: 34, textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
           {pt.team.pct}
         </Typography>
 
-        {/* Badge / GB */}
         <Box sx={{ minWidth: 38, textAlign: 'right' }}>
           {pt.slot === 'div' && (
             <Box sx={{ display: 'inline-flex', px: 0.75, height: 18, borderRadius: 1, alignItems: 'center', bgcolor: 'rgba(34,197,94,0.12)', color: '#22c55e', fontSize: '0.58rem', fontWeight: 800 }}>DIV</Box>
@@ -275,7 +305,6 @@ function PlayoffTeamRow({ pt, isLast, showSep }: { pt: PlayoffTeam; isLast: bool
           )}
         </Box>
 
-        {/* Streak */}
         <Typography sx={{
           fontSize: '0.75rem', fontWeight: 700, minWidth: 26, textAlign: 'right',
           color: pt.team.streakCode.startsWith('W') ? '#22c55e' : pt.team.streakCode.startsWith('L') ? '#ef4444' : 'text.disabled',
@@ -289,16 +318,17 @@ function PlayoffTeamRow({ pt, isLast, showSep }: { pt: PlayoffTeam; isLast: bool
   )
 }
 
-function PlayoffColumn({ label, teams }: { label: string; teams: PlayoffTeam[] }) {
+function PlayoffColumn({ label, teams, onTeamClick }: {
+  label: string; teams: PlayoffTeam[]
+  onTeamClick?: (teamId: number) => void
+}) {
   const inIdxs = teams.map((t, i) => t.slot !== 'out' ? i : -1).filter(i => i >= 0)
   const lastInIdx = inIdxs.length > 0 ? inIdxs[inIdxs.length - 1] : -1
 
   return (
     <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
       <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.8, color: 'text.disabled' }}>
-          {label}
-        </Typography>
+        <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: 'text.primary' }}>{label}</Typography>
         <Box sx={{ display: 'flex', gap: 1.5 }}>
           {['W–L', 'PCT', '', 'Strk'].map((h, i) => (
             <Typography key={i} sx={{
@@ -315,13 +345,17 @@ function PlayoffColumn({ label, teams }: { label: string; teams: PlayoffTeam[] }
           pt={pt}
           isLast={i === teams.length - 1}
           showSep={i === lastInIdx && lastInIdx < teams.length - 1}
+          onTeamClick={onTeamClick}
         />
       ))}
     </Box>
   )
 }
 
-function PlayoffPicture({ divisions }: { divisions: StandingsDivision[] }) {
+function PlayoffPicture({ divisions, onTeamClick }: {
+  divisions: StandingsDivision[]
+  onTeamClick?: (teamId: number) => void
+}) {
   const al = buildLeagueList(divisions, 103)
   const nl = buildLeagueList(divisions, 104)
   return (
@@ -330,8 +364,8 @@ function PlayoffPicture({ divisions }: { divisions: StandingsDivision[] }) {
         3 division leaders + 3 wild cards per league · dashed line = playoff cutoff
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
-        <PlayoffColumn label="American League" teams={al} />
-        <PlayoffColumn label="National League" teams={nl} />
+        <PlayoffColumn label="American League" teams={al} onTeamClick={onTeamClick} />
+        <PlayoffColumn label="National League" teams={nl} onTeamClick={onTeamClick} />
       </Box>
     </Box>
   )
@@ -339,7 +373,10 @@ function PlayoffPicture({ divisions }: { divisions: StandingsDivision[] }) {
 
 // ─── Standings component ──────────────────────────────────────────────────────
 
-export function Standings({ season }: { season: number }) {
+export function Standings({ season, onTeamClick }: {
+  season: number
+  onTeamClick?: (teamId: number) => void
+}) {
   const [mode, setMode] = useState<'divisions' | 'playoffs'>('divisions')
   const [divisions, setDivisions] = useState<StandingsDivision[]>([])
   const [loading, setLoading] = useState(false)
@@ -357,7 +394,6 @@ export function Standings({ season }: { season: number }) {
 
   return (
     <Box>
-      {/* Mode toggle */}
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
         <SegControl
           options={[{ value: 'divisions', label: 'Divisions' }, { value: 'playoffs', label: 'Playoff Picture' }]}
@@ -372,11 +408,11 @@ export function Standings({ season }: { season: number }) {
       {!loading && !error && divisions.length > 0 && (
         mode === 'divisions' ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <LeagueSection label="American League" order={AL_ORDER} leagueId={103} divisions={divisions} />
-            <LeagueSection label="National League" order={NL_ORDER} leagueId={104} divisions={divisions} />
+            <LeagueSection label="American League" order={AL_ORDER} leagueId={103} divisions={divisions} onTeamClick={onTeamClick} />
+            <LeagueSection label="National League" order={NL_ORDER} leagueId={104} divisions={divisions} onTeamClick={onTeamClick} />
           </Box>
         ) : (
-          <PlayoffPicture divisions={divisions} />
+          <PlayoffPicture divisions={divisions} onTeamClick={onTeamClick} />
         )
       )}
     </Box>
