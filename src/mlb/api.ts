@@ -277,6 +277,13 @@ export async function fetchPlayerCareerStats(id: number, groups: Array<'hitting'
 
 // ─── Standings ────────────────────────────────────────────────────────────────
 
+// The standings endpoint returns division objects with only {id, link} — no name field.
+// Hard-code names by the stable MLB division IDs.
+const DIVISION_NAMES: Record<number, string> = {
+  200: 'AL West', 201: 'AL East', 202: 'AL Central',
+  203: 'NL West', 204: 'NL East', 205: 'NL Central',
+}
+
 export async function fetchStandings(season: number): Promise<StandingsDivision[]> {
   const r = await fetch(
     `https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=${season}&standingsTypes=regularSeason`
@@ -307,7 +314,7 @@ export async function fetchStandings(season: number): Promise<StandingsDivision[
     })
     return {
       divisionId: Number(rec.division?.id),
-      divisionName: rec.division?.name ?? '—',
+      divisionName: DIVISION_NAMES[Number(rec.division?.id)] ?? `Division ${rec.division?.id}`,
       leagueId: Number(rec.league?.id),
       teams,
     }
