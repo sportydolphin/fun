@@ -1470,46 +1470,37 @@ export default function MlbStats() {
                 {playerCardProps && <CardInner {...playerCardProps} />}
                 {teamCardProps && <TeamCardInner {...teamCardProps} />}
               </Paper>
-              <Tooltip title="Fullscreen">
-                <Box
-                  onClick={() => setFullscreen(true)}
-                  sx={{
-                    position: 'absolute', top: 10, right: 10,
+              {/* Icon bar: download · options · fullscreen — overlaid on card, no extra row */}
+              <Box sx={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 0.5 }}>
+                {(() => {
+                  const iconBtnSx = {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    p: 0.6, borderRadius: 1.5,
-                    bgcolor: 'rgba(0,0,0,0.22)',
-                    color: 'rgba(255,255,255,0.7)',
+                    p: 0.5, borderRadius: 1.5,
+                    bgcolor: 'rgba(0,0,0,0.22)', color: 'rgba(255,255,255,0.7)',
                     cursor: 'pointer',
                     '&:hover': { bgcolor: 'rgba(0,0,0,0.42)', color: '#fff' },
                     transition: 'background 0.15s, color 0.15s',
-                  }}
-                >
-                  <OpenInFull sx={{ fontSize: '0.9rem' }} />
-                </Box>
-              </Tooltip>
-            </Box>
-
-            {/* Actions: download + options */}
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 1.5 }}>
-              <Tooltip title={downloading ? 'Saving…' : 'Download'}>
-                <Box
-                  onClick={!downloading ? (e => setExportAnchor(e.currentTarget as HTMLElement)) : undefined}
-                  sx={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    p: 0.75, borderRadius: 1.5,
-                    border: '1.5px solid', borderColor: 'divider',
-                    cursor: downloading ? 'default' : 'pointer',
-                    opacity: downloading ? 0.55 : 1,
-                    color: 'text.secondary',
-                    '&:hover': { borderColor: ACCENT, color: ACCENT },
-                    transition: 'border-color 0.15s, color 0.15s',
-                  }}
-                >
-                  {downloading
-                    ? <CircularProgress size={16} sx={{ color: 'text.disabled' }} />
-                    : <FileDownload sx={{ fontSize: '1.1rem' }} />}
-                </Box>
-              </Tooltip>
+                  }
+                  return (<>
+                    <Tooltip title={downloading ? 'Saving…' : 'Download'}>
+                      <Box onClick={!downloading ? (e => setExportAnchor(e.currentTarget as HTMLElement)) : undefined} sx={{ ...iconBtnSx, opacity: downloading ? 0.55 : 1 }}>
+                        {downloading ? <CircularProgress size={13} sx={{ color: 'rgba(255,255,255,0.6)' }} /> : <FileDownload sx={{ fontSize: '0.88rem' }} />}
+                      </Box>
+                    </Tooltip>
+                    <Tooltip title="Options">
+                      <Box onClick={e => setCardOptionsAnchor(e.currentTarget as HTMLElement)} sx={{ ...iconBtnSx, bgcolor: cardOptionsAnchor ? 'rgba(0,0,0,0.42)' : 'rgba(0,0,0,0.22)' }}>
+                        <Tune sx={{ fontSize: '0.88rem' }} />
+                      </Box>
+                    </Tooltip>
+                    <Tooltip title="Fullscreen">
+                      <Box onClick={() => setFullscreen(true)} sx={iconBtnSx}>
+                        <OpenInFull sx={{ fontSize: '0.88rem' }} />
+                      </Box>
+                    </Tooltip>
+                  </>)
+                })()}
+              </Box>
+              {/* Export menu */}
               <Menu
                 anchorEl={exportAnchor}
                 open={Boolean(exportAnchor)}
@@ -1519,24 +1510,13 @@ export default function MlbStats() {
                 <MenuItem onClick={() => handleDownload('centered')} sx={{ fontSize: '0.85rem' }}>Download centered</MenuItem>
                 <MenuItem onClick={() => handleDownload('tiktok')} sx={{ fontSize: '0.85rem' }}>Download for TikTok</MenuItem>
               </Menu>
-              <Box
-                onClick={e => setCardOptionsAnchor(e.currentTarget as HTMLElement)}
-                sx={{
-                  ...pillActionSx,
-                  borderColor: cardOptionsAnchor ? ACCENT : 'divider',
-                  color: cardOptionsAnchor ? ACCENT : 'text.secondary',
-                  bgcolor: cardOptionsAnchor ? `${ACCENT}10` : 'transparent',
-                }}
-              >
-                <Tune sx={{ fontSize: '0.85rem' }} /> Options
-                <KeyboardArrowDown sx={{ fontSize: '0.85rem' }} />
-              </Box>
+              {/* Options popover */}
               <Popover
                 open={Boolean(cardOptionsAnchor)}
                 anchorEl={cardOptionsAnchor}
                 onClose={() => setCardOptionsAnchor(null)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                 PaperProps={{ sx: { borderRadius: 2.5, p: 2, mt: 0.75, width: 290, boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
               >
                 {/* Colors */}
@@ -1643,6 +1623,23 @@ export default function MlbStats() {
                 )}
               </Popover>
             </Box>
+
+            {/* Links — desktop only, left column below card */}
+            {(player || team) && (
+              <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.6, flexWrap: 'wrap', mt: 1.5 }}>
+                {player && (<>
+                  <Box component="a" href={`https://www.baseball-reference.com/search/search.fcgi?search=${encodeURIComponent(player.fullName)}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Ref ↗</Box>
+                  <Box component="a" href={`https://baseballsavant.mlb.com/savant-player/${player.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${player.id}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Savant ↗</Box>
+                </>)}
+                {team && (() => {
+                  const bbrefAbbr = BBREF_ABBR[team.abbreviation] ?? team.abbreviation
+                  return (<>
+                    <Box component="a" href={`https://www.baseball-reference.com/teams/${bbrefAbbr}/${season}.shtml`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Ref ↗</Box>
+                    <Box component="a" href={`https://baseballsavant.mlb.com/team/${team.id}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Savant ↗</Box>
+                  </>)
+                })()}
+              </Box>
+            )}
           </Box>
 
           {/* Trends + Recent Games (right column) */}
@@ -1744,7 +1741,7 @@ export default function MlbStats() {
 
       {/* Links — bottom of page */}
       {hasStats && (player || team) && (
-        <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap', mb: 3 }}>
+        <Box sx={{ display: { xs: 'flex', md: 'none' }, gap: 0.6, flexWrap: 'wrap', mb: 3 }}>
           {player && (<>
             <Box component="a" href={`https://www.baseball-reference.com/search/search.fcgi?search=${encodeURIComponent(player.fullName)}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Ref ↗</Box>
             <Box component="a" href={`https://baseballsavant.mlb.com/savant-player/${player.fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${player.id}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Savant ↗</Box>
