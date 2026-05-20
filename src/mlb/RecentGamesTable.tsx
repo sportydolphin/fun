@@ -129,9 +129,9 @@ function GameSection({ title, entries, cols, dataKey, highlightDate }: {
         </Typography>
       )}
 
-      {/* Scroll wrapper — table stays content-wide, scrolls on small screens */}
-      <Box sx={{ width: 'fit-content', maxWidth: '100%', overflowX: 'auto', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
-        <Box component="table" sx={{ borderCollapse: 'collapse', width: 'max-content' }}>
+      {/* Scroll wrapper — full-width, scrolls horizontally if needed */}
+      <Box sx={{ width: '100%', overflowX: 'auto', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+        <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: 'max-content' }}>
 
           <Box component="thead" sx={{ position: 'sticky', top: 0, zIndex: 2 }}>
             <Box component="tr" sx={{ bgcolor: 'background.paper' }}>

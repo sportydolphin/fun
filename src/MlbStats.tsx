@@ -268,15 +268,14 @@ export default function MlbStats() {
     const resolved = details ?? p
     setPalette(teamPalette(resolved.currentTeam?.id))
     const { seasons, teamsBySeason } = careerData
-    const latestSeason = seasons[0] ?? CURRENT_SEASON
     setPlayer(resolved)
     setStatsView('season')
     setHighlightedGameDate(null)
     setTeam(null)
     setAvailableSeasons(seasons.length ? seasons : [CURRENT_SEASON])
     setSeasonTeams(teamsBySeason)
-    setSeason(latestSeason)
-    await loadStats(resolved, latestSeason)
+    setSeason(CURRENT_SEASON)
+    await loadStats(resolved, CURRENT_SEASON)
   }, [loadStats])
 
   const selectTeam = useCallback(async (t: Team) => {
@@ -1461,32 +1460,189 @@ export default function MlbStats() {
           alignItems: 'start',
           mb: 2,
         }}>
-          {/* Card — wrapped in relative Box so fullscreen icon can float over it */}
-          <Box sx={{ position: 'relative' }}>
-            <Paper ref={cardRef} elevation={4} sx={{
-              borderRadius: 4, overflow: 'hidden', background: palette.bg,
-              transition: 'background 0.45s ease', p: { xs: 2, sm: 2.5 },
-            }}>
-              {playerCardProps && <CardInner {...playerCardProps} />}
-              {teamCardProps && <TeamCardInner {...teamCardProps} />}
-            </Paper>
-            <Tooltip title="Fullscreen">
+          {/* Left column: card + actions */}
+          <Box>
+            <Box sx={{ position: 'relative' }}>
+              <Paper ref={cardRef} elevation={4} sx={{
+                borderRadius: 4, overflow: 'hidden', background: palette.bg,
+                transition: 'background 0.45s ease', p: { xs: 2, sm: 2.5 },
+              }}>
+                {playerCardProps && <CardInner {...playerCardProps} />}
+                {teamCardProps && <TeamCardInner {...teamCardProps} />}
+              </Paper>
+              <Tooltip title="Fullscreen">
+                <Box
+                  onClick={() => setFullscreen(true)}
+                  sx={{
+                    position: 'absolute', top: 10, right: 10,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    p: 0.6, borderRadius: 1.5,
+                    bgcolor: 'rgba(0,0,0,0.22)',
+                    color: 'rgba(255,255,255,0.7)',
+                    cursor: 'pointer',
+                    '&:hover': { bgcolor: 'rgba(0,0,0,0.42)', color: '#fff' },
+                    transition: 'background 0.15s, color 0.15s',
+                  }}
+                >
+                  <OpenInFull sx={{ fontSize: '0.9rem' }} />
+                </Box>
+              </Tooltip>
+            </Box>
+
+            {/* Actions: download + options */}
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 1.5 }}>
+              <Tooltip title={downloading ? 'Saving…' : 'Download'}>
+                <Box
+                  onClick={!downloading ? (e => setExportAnchor(e.currentTarget as HTMLElement)) : undefined}
+                  sx={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    p: 0.75, borderRadius: 1.5,
+                    border: '1.5px solid', borderColor: 'divider',
+                    cursor: downloading ? 'default' : 'pointer',
+                    opacity: downloading ? 0.55 : 1,
+                    color: 'text.secondary',
+                    '&:hover': { borderColor: ACCENT, color: ACCENT },
+                    transition: 'border-color 0.15s, color 0.15s',
+                  }}
+                >
+                  {downloading
+                    ? <CircularProgress size={16} sx={{ color: 'text.disabled' }} />
+                    : <FileDownload sx={{ fontSize: '1.1rem' }} />}
+                </Box>
+              </Tooltip>
+              <Menu
+                anchorEl={exportAnchor}
+                open={Boolean(exportAnchor)}
+                onClose={() => setExportAnchor(null)}
+                PaperProps={{ sx: { borderRadius: 2, mt: 0.5, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: 180 } }}
+              >
+                <MenuItem onClick={() => handleDownload('centered')} sx={{ fontSize: '0.85rem' }}>Download centered</MenuItem>
+                <MenuItem onClick={() => handleDownload('tiktok')} sx={{ fontSize: '0.85rem' }}>Download for TikTok</MenuItem>
+              </Menu>
               <Box
-                onClick={() => setFullscreen(true)}
+                onClick={e => setCardOptionsAnchor(e.currentTarget as HTMLElement)}
                 sx={{
-                  position: 'absolute', top: 10, right: 10,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  p: 0.6, borderRadius: 1.5,
-                  bgcolor: 'rgba(0,0,0,0.22)',
-                  color: 'rgba(255,255,255,0.7)',
-                  cursor: 'pointer',
-                  '&:hover': { bgcolor: 'rgba(0,0,0,0.42)', color: '#fff' },
-                  transition: 'background 0.15s, color 0.15s',
+                  ...pillActionSx,
+                  borderColor: cardOptionsAnchor ? ACCENT : 'divider',
+                  color: cardOptionsAnchor ? ACCENT : 'text.secondary',
+                  bgcolor: cardOptionsAnchor ? `${ACCENT}10` : 'transparent',
                 }}
               >
-                <OpenInFull sx={{ fontSize: '0.9rem' }} />
+                <Tune sx={{ fontSize: '0.85rem' }} /> Options
+                <KeyboardArrowDown sx={{ fontSize: '0.85rem' }} />
               </Box>
-            </Tooltip>
+              <Popover
+                open={Boolean(cardOptionsAnchor)}
+                anchorEl={cardOptionsAnchor}
+                onClose={() => setCardOptionsAnchor(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                PaperProps={{ sx: { borderRadius: 2.5, p: 2, mt: 0.75, width: 290, boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
+              >
+                {/* Colors */}
+                <Box sx={{ mb: 1.75 }}>
+                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
+                    Colors
+                  </Typography>
+                  <Box
+                    onClick={() => setPalette(randomPalette())}
+                    sx={{
+                      display: 'inline-flex', alignItems: 'center', gap: 0.5,
+                      cursor: 'pointer', px: 1.5, py: 0.5, borderRadius: 999,
+                      border: '1.5px solid', borderColor: 'divider',
+                      fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary',
+                      '&:hover': { borderColor: ACCENT, color: ACCENT },
+                      transition: 'border-color 0.15s, color 0.15s',
+                    }}
+                  >
+                    <Shuffle sx={{ fontSize: '0.88rem' }} /> Shuffle
+                  </Box>
+                </Box>
+
+                {/* Batting stats */}
+                {(hittingStats || teamHitting) && (() => {
+                  const hitDefs = player ? HITTING_STAT_DEFS : TEAM_HITTING_DEFS
+                  const hitSel = player ? selectedHitStats : selectedTeamHitStats
+                  const setHitSel = player ? setSelectedHitStats : setSelectedTeamHitStats
+                  const hitDefaults = player ? DEFAULT_HIT_STATS : DEFAULT_TEAM_HIT_STATS
+                  const allHit = hitDefs.every(d => hitSel.includes(d.key))
+                  return (
+                    <Box sx={{ mb: 1.75 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
+                        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled' }}>
+                          Batting stats
+                        </Typography>
+                        <Box onClick={() => setHitSel(allHit ? hitDefaults : hitDefs.map(d => d.key))} sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT, cursor: 'pointer', userSelect: 'none' }}>
+                          {allHit ? 'Reset' : 'All'}
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
+                        {hitDefs.map(def => (
+                          <PillChip key={def.key} label={def.label} selected={hitSel.includes(def.key)} onChange={() => (player ? toggleHitStat : toggleTeamHitStat)(def.key)} />
+                        ))}
+                      </Box>
+                    </Box>
+                  )
+                })()}
+
+                {/* Pitching stats */}
+                {(pitchingStats || teamPitching) && (() => {
+                  const pitDefs = player ? PITCHING_STAT_DEFS : TEAM_PITCHING_DEFS
+                  const pitSel = player ? selectedPitStats : selectedTeamPitStats
+                  const setPitSel = player ? setSelectedPitStats : setSelectedTeamPitStats
+                  const pitDefaults = player ? DEFAULT_PIT_STATS : DEFAULT_TEAM_PIT_STATS
+                  const allPit = pitDefs.every(d => pitSel.includes(d.key))
+                  return (
+                    <Box sx={{ mb: 1.75 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
+                        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled' }}>
+                          Pitching stats
+                        </Typography>
+                        <Box onClick={() => setPitSel(allPit ? pitDefaults : pitDefs.map(d => d.key))} sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT, cursor: 'pointer', userSelect: 'none' }}>
+                          {allPit ? 'Reset' : 'All'}
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
+                        {pitDefs.map(def => (
+                          <PillChip key={def.key} label={def.label} selected={pitSel.includes(def.key)} onChange={() => (player ? togglePitStat : toggleTeamPitStat)(def.key)} />
+                        ))}
+                      </Box>
+                    </Box>
+                  )
+                })()}
+
+                {/* League rank */}
+                <Box sx={{ mb: player ? 1.75 : 0 }}>
+                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
+                    League rank
+                  </Typography>
+                  <SegControl
+                    options={[{ value: 'none', label: 'None' }, { value: 'top5', label: 'Top 5' }, { value: 'all', label: 'All' }]}
+                    value={rankMode}
+                    onChange={v => setRankMode(v as RankMode)}
+                  />
+                </Box>
+
+                {/* Portrait toggles */}
+                {player && (
+                  <Box>
+                    <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
+                      Show under portrait
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
+                      {[
+                        { label: 'Position', val: showPosition, set: setShowPosition },
+                        { label: 'Team', val: showTeam, set: setShowTeam },
+                        { label: 'Age', val: showAge, set: setShowAge },
+                        { label: 'Number', val: showNumber, set: setShowNumber },
+                      ].map(({ label, val, set }) => (
+                        <PillChip key={label} label={label} selected={val} onChange={() => set((v: boolean) => !v)} />
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+              </Popover>
+            </Box>
           </Box>
 
           {/* Trends + Recent Games (right column) */}
@@ -1583,164 +1739,6 @@ export default function MlbStats() {
               />
             )
           )}
-        </Box>
-      )}
-
-      {/* Actions: download + options — below the card */}
-      {hasStats && (
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 2 }}>
-          <Tooltip title={downloading ? 'Saving…' : 'Download'}>
-            <Box
-              onClick={!downloading ? (e => setExportAnchor(e.currentTarget as HTMLElement)) : undefined}
-              sx={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                p: 0.75, borderRadius: 1.5,
-                border: '1.5px solid', borderColor: 'divider',
-                cursor: downloading ? 'default' : 'pointer',
-                opacity: downloading ? 0.55 : 1,
-                color: 'text.secondary',
-                '&:hover': { borderColor: ACCENT, color: ACCENT },
-                transition: 'border-color 0.15s, color 0.15s',
-              }}
-            >
-              {downloading
-                ? <CircularProgress size={16} sx={{ color: 'text.disabled' }} />
-                : <FileDownload sx={{ fontSize: '1.1rem' }} />}
-            </Box>
-          </Tooltip>
-          <Menu
-            anchorEl={exportAnchor}
-            open={Boolean(exportAnchor)}
-            onClose={() => setExportAnchor(null)}
-            PaperProps={{ sx: { borderRadius: 2, mt: 0.5, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: 180 } }}
-          >
-            <MenuItem onClick={() => handleDownload('centered')} sx={{ fontSize: '0.85rem' }}>Download centered</MenuItem>
-            <MenuItem onClick={() => handleDownload('tiktok')} sx={{ fontSize: '0.85rem' }}>Download for TikTok</MenuItem>
-          </Menu>
-
-          <Box
-            onClick={e => setCardOptionsAnchor(e.currentTarget as HTMLElement)}
-            sx={{
-              ...pillActionSx,
-              borderColor: cardOptionsAnchor ? ACCENT : 'divider',
-              color: cardOptionsAnchor ? ACCENT : 'text.secondary',
-              bgcolor: cardOptionsAnchor ? `${ACCENT}10` : 'transparent',
-            }}
-          >
-            <Tune sx={{ fontSize: '0.85rem' }} /> Options
-            <KeyboardArrowDown sx={{ fontSize: '0.85rem' }} />
-          </Box>
-          <Popover
-            open={Boolean(cardOptionsAnchor)}
-            anchorEl={cardOptionsAnchor}
-            onClose={() => setCardOptionsAnchor(null)}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-            PaperProps={{ sx: { borderRadius: 2.5, p: 2, mt: 0.75, width: 290, boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
-          >
-            {/* Colors */}
-            <Box sx={{ mb: 1.75 }}>
-              <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
-                Colors
-              </Typography>
-              <Box
-                onClick={() => setPalette(randomPalette())}
-                sx={{
-                  display: 'inline-flex', alignItems: 'center', gap: 0.5,
-                  cursor: 'pointer', px: 1.5, py: 0.5, borderRadius: 999,
-                  border: '1.5px solid', borderColor: 'divider',
-                  fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary',
-                  '&:hover': { borderColor: ACCENT, color: ACCENT },
-                  transition: 'border-color 0.15s, color 0.15s',
-                }}
-              >
-                <Shuffle sx={{ fontSize: '0.88rem' }} /> Shuffle
-              </Box>
-            </Box>
-
-            {/* Batting stats */}
-            {(hittingStats || teamHitting) && (() => {
-              const hitDefs = player ? HITTING_STAT_DEFS : TEAM_HITTING_DEFS
-              const hitSel = player ? selectedHitStats : selectedTeamHitStats
-              const setHitSel = player ? setSelectedHitStats : setSelectedTeamHitStats
-              const hitDefaults = player ? DEFAULT_HIT_STATS : DEFAULT_TEAM_HIT_STATS
-              const allHit = hitDefs.every(d => hitSel.includes(d.key))
-              return (
-                <Box sx={{ mb: 1.75 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
-                    <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled' }}>
-                      Batting stats
-                    </Typography>
-                    <Box onClick={() => setHitSel(allHit ? hitDefaults : hitDefs.map(d => d.key))} sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT, cursor: 'pointer', userSelect: 'none' }}>
-                      {allHit ? 'Reset' : 'All'}
-                    </Box>
-                  </Box>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
-                    {hitDefs.map(def => (
-                      <PillChip key={def.key} label={def.label} selected={hitSel.includes(def.key)} onChange={() => (player ? toggleHitStat : toggleTeamHitStat)(def.key)} />
-                    ))}
-                  </Box>
-                </Box>
-              )
-            })()}
-
-            {/* Pitching stats */}
-            {(pitchingStats || teamPitching) && (() => {
-              const pitDefs = player ? PITCHING_STAT_DEFS : TEAM_PITCHING_DEFS
-              const pitSel = player ? selectedPitStats : selectedTeamPitStats
-              const setPitSel = player ? setSelectedPitStats : setSelectedTeamPitStats
-              const pitDefaults = player ? DEFAULT_PIT_STATS : DEFAULT_TEAM_PIT_STATS
-              const allPit = pitDefs.every(d => pitSel.includes(d.key))
-              return (
-                <Box sx={{ mb: 1.75 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
-                    <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled' }}>
-                      Pitching stats
-                    </Typography>
-                    <Box onClick={() => setPitSel(allPit ? pitDefaults : pitDefs.map(d => d.key))} sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT, cursor: 'pointer', userSelect: 'none' }}>
-                      {allPit ? 'Reset' : 'All'}
-                    </Box>
-                  </Box>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
-                    {pitDefs.map(def => (
-                      <PillChip key={def.key} label={def.label} selected={pitSel.includes(def.key)} onChange={() => (player ? togglePitStat : toggleTeamPitStat)(def.key)} />
-                    ))}
-                  </Box>
-                </Box>
-              )
-            })()}
-
-            {/* League rank */}
-            <Box sx={{ mb: player ? 1.75 : 0 }}>
-              <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
-                League rank
-              </Typography>
-              <SegControl
-                options={[{ value: 'none', label: 'None' }, { value: 'top5', label: 'Top 5' }, { value: 'all', label: 'All' }]}
-                value={rankMode}
-                onChange={v => setRankMode(v as RankMode)}
-              />
-            </Box>
-
-            {/* Portrait toggles */}
-            {player && (
-              <Box>
-                <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.75 }}>
-                  Show under portrait
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
-                  {[
-                    { label: 'Position', val: showPosition, set: setShowPosition },
-                    { label: 'Team', val: showTeam, set: setShowTeam },
-                    { label: 'Age', val: showAge, set: setShowAge },
-                    { label: 'Number', val: showNumber, set: setShowNumber },
-                  ].map(({ label, val, set }) => (
-                    <PillChip key={label} label={label} selected={val} onChange={() => set((v: boolean) => !v)} />
-                  ))}
-                </Box>
-              </Box>
-            )}
-          </Popover>
         </Box>
       )}
 
