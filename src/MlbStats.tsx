@@ -84,7 +84,7 @@ export default function MlbStats() {
   const isDesktop = useMediaQuery('(min-width: 600px)')
   const canHover = useMediaQuery('(hover: hover)')
 
-  const [view, setView] = useState<'search' | 'viz' | 'leaderboard' | 'standings'>('search')
+  const [view, setView] = useState<'search' | 'viz' | 'leaderboard' | 'standings' | 'stats'>('search')
   const [vizSeason, setVizSeason] = useState(CURRENT_SEASON)
   const [teamSummaries, setTeamSummaries] = useState<TeamSummary[]>([])
   const [loadingViz, setLoadingViz] = useState(false)
@@ -108,6 +108,7 @@ export default function MlbStats() {
     entries: Array<{ playerId: number; playerName: string; teamAbbr: string; val: any }>
   } | null>(null)
   const [lbDownloading, setLbDownloading] = useState(false)
+  const [lbStatsLimit, setLbStatsLimit] = useState(50)
 
   // Career trends
   const [careerSplits, setCareerSplits] = useState<CareerStatSplit[] | null>(null)
@@ -155,7 +156,7 @@ export default function MlbStats() {
   }, [view, vizSeason])
 
   useEffect(() => {
-    if (view !== 'leaderboard') return
+    if (view !== 'leaderboard' && view !== 'stats') return
     setLoadingLb(true)
     setLbData(null)
     fetchLeaderboardData(lbGroup, vizSeason)
@@ -291,16 +292,16 @@ export default function MlbStats() {
   }, [loadTeamStats])
 
   const handleLbPlayerClick = useCallback((playerId: number) => {
-    // Push the current leaderboard URL so the browser back button returns here
+    // Push the current leaderboard/stats URL so the browser back button returns here
     const params = new URLSearchParams()
-    params.set('view', 'leaderboard')
+    params.set('view', view === 'stats' ? 'stats' : 'leaderboard')
     if (lbGroup !== 'hitting') params.set('lb', lbGroup)
     if (vizSeason !== CURRENT_SEASON) params.set('season', String(vizSeason))
     window.history.pushState({}, '', `/mlb?${params.toString()}`)
     fetchPlayerDetails(playerId).then(p => {
       if (p) { selectPlayer(p); setView('search') }
     }).catch(() => {})
-  }, [selectPlayer, lbGroup, vizSeason])
+  }, [selectPlayer, lbGroup, vizSeason, view])
 
   const handleLbTikTok = useCallback(async () => {
     if (!lbCardRef.current || !lbFullscreen) return
@@ -381,7 +382,7 @@ export default function MlbStats() {
     if (player) params.set('pid', String(player.id))
     else if (team) params.set('tid', String(team.id))
     if (view !== 'search') params.set('view', view)
-    if (view === 'leaderboard' || view === 'viz') {
+    if (view === 'leaderboard' || view === 'viz' || view === 'stats') {
       if (lbGroup !== 'hitting') params.set('lb', lbGroup)
       if (vizSeason !== CURRENT_SEASON) params.set('season', String(vizSeason))
     }
@@ -396,6 +397,11 @@ export default function MlbStats() {
       const viewParam = params.get('view')
       if (viewParam === 'leaderboard') {
         setView('leaderboard')
+        setPlayer(null)
+        setTeam(null)
+        setLbGroup(params.get('lb') === 'pitching' ? 'pitching' : 'hitting')
+      } else if (viewParam === 'stats') {
+        setView('stats')
         setPlayer(null)
         setTeam(null)
         setLbGroup(params.get('lb') === 'pitching' ? 'pitching' : 'hitting')
@@ -421,7 +427,7 @@ export default function MlbStats() {
     if (!urlViewReadRef.current) {
       urlViewReadRef.current = true
       const viewParam = params.get('view')
-      if (viewParam === 'viz' || viewParam === 'leaderboard' || viewParam === 'standings') setView(viewParam as 'viz' | 'leaderboard' | 'standings')
+      if (viewParam === 'viz' || viewParam === 'leaderboard' || viewParam === 'standings' || viewParam === 'stats') setView(viewParam as any)
       const lbParam = params.get('lb')
       if (lbParam === 'pitching') setLbGroup('pitching')
       const seasonParam = params.get('season')
@@ -556,9 +562,10 @@ export default function MlbStats() {
             { value: 'standings', label: 'Standings' },
             { value: 'viz', label: 'Visualize' },
             { value: 'leaderboard', label: 'Leaderboard' },
+            { value: 'stats', label: 'Stats' },
           ]}
           value={view}
-          onChange={v => setView(v as 'search' | 'viz' | 'leaderboard' | 'standings')}
+          onChange={v => setView(v as any)}
         />
       </Box>
 
@@ -935,6 +942,8 @@ export default function MlbStats() {
                             onClick={(ev: React.MouseEvent) => {
                               ev.stopPropagation()
                               setLbFullscreen({ def, group: lbGroup, sortKey: def.key, sortAsc: def.lowerIsBetter ?? false, entries: allEntries.slice(0, 50) })
+                              setLbStatsLimit(50)
+                              setView('stats')
                             }}
                             sx={{
                               cursor: 'pointer', color: 'text.disabled', ml: 1, p: 0.5, borderRadius: 1,
@@ -1054,237 +1063,247 @@ export default function MlbStats() {
             )
           })()}
 
-          {/* Leaderboard fullscreen modal */}
-          {lbFullscreen && (() => {
-            const statDefs = lbFullscreen.group === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS
-            const activeDef = statDefs.find(d => d.key === lbFullscreen.sortKey) ?? lbFullscreen.def
-            // Always re-rank from the full dataset so clicking a column header gives the
-            // true top/bottom 50 for that stat, not just a re-sort of the original 50.
-            const sortedEntries = (lbData ?? [])
-              .map(e => {
-                const v = Number(activeDef.leaderValue ? activeDef.leaderValue(e.stat) : activeDef.getValue(e.stat))
-                return { ...e, _v: v }
-              })
-              .filter(e => !isNaN(e._v))
-              .sort((a, b) => lbFullscreen.sortAsc ? a._v - b._v : b._v - a._v)
-              .slice(0, 50)
-            const MEDALS_FS = ['🥇', '🥈', '🥉']
-            const colPx = isDesktop ? '10px' : '5px'
-            const thSx = {
-              py: 1, px: colPx,
-              fontSize: '0.62rem', fontWeight: 700,
-              textTransform: 'uppercase' as const, letterSpacing: '0.5px',
-              whiteSpace: 'nowrap' as const,
-            }
-            const tdSx = {
-              py: '7px', px: colPx,
-              borderBottom: '1px solid',
-              borderColor: 'divider',
-              whiteSpace: 'nowrap' as const,
-            }
-            const abbrevName = (name: string) => {
-              const i = name.indexOf(' ')
-              return i < 0 ? name : `${name[0]}. ${name.slice(i + 1)}`
-            }
-            return (
-              <Box
-                onClick={(ev) => { if ((ev.target as HTMLElement) === ev.currentTarget) setLbFullscreen(null) }}
-                sx={{
-                  position: 'fixed', inset: 0, zIndex: 9999,
-                  bgcolor: 'rgba(0,0,0,0.65)',
-                  backdropFilter: 'blur(8px)',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  overflowY: 'auto',
-                  p: { xs: 0, sm: 2 },
-                }}
-              >
-                <Paper
-                  ref={lbCardRef}
-                  elevation={24}
+        </Box>
+        )
+      })()}
+
+      {/* Stats tab — full sortable player table */}
+      {view === 'stats' && (() => {
+        const statDefs = lbGroup === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS
+        // Derive active sort from lbFullscreen if set, else default to first featured stat
+        const sortKey   = lbFullscreen?.sortKey   ?? LB_FEATURED[lbGroup][0]
+        const sortAsc   = lbFullscreen?.sortAsc   ?? (statDefs.find(d => d.key === sortKey)?.lowerIsBetter ?? false)
+        const activeDef = statDefs.find(d => d.key === sortKey) ?? statDefs[0]
+
+        const sortedEntries = (lbData ?? [])
+          .map(e => {
+            const v = Number(activeDef.leaderValue ? activeDef.leaderValue(e.stat) : activeDef.getValue(e.stat))
+            return { ...e, _v: v }
+          })
+          .filter(e => !isNaN(e._v))
+          .sort((a, b) => sortAsc ? a._v - b._v : b._v - a._v)
+          .slice(0, lbStatsLimit)
+
+        const MEDALS_FS = ['🥇', '🥈', '🥉']
+        const colPx = isDesktop ? '10px' : '5px'
+        const stThSx = {
+          py: 1, px: colPx,
+          fontSize: '0.62rem', fontWeight: 700,
+          textTransform: 'uppercase' as const, letterSpacing: '0.5px',
+          whiteSpace: 'nowrap' as const,
+          // sticky top is applied per-cell below
+        }
+        const stTdSx = {
+          py: '7px', px: colPx,
+          borderBottom: '1px solid', borderColor: 'divider',
+          whiteSpace: 'nowrap' as const,
+        }
+        const abbrevName = (name: string) => {
+          const i = name.indexOf(' ')
+          return i < 0 ? name : `${name[0]}. ${name.slice(i + 1)}`
+        }
+        const handleColClick = (def: any) => {
+          const newAsc = sortKey === def.key ? !sortAsc : (def.lowerIsBetter ?? false)
+          setLbFullscreen(prev => prev
+            ? { ...prev, sortKey: def.key, sortAsc: newAsc }
+            : { def: activeDef, group: lbGroup, sortKey: def.key, sortAsc: newAsc, entries: [] }
+          )
+        }
+        const totalInDataset = (lbData ?? [])
+          .map(e => {
+            const v = Number(activeDef.leaderValue ? activeDef.leaderValue(e.stat) : activeDef.getValue(e.stat))
+            return v
+          })
+          .filter(v => !isNaN(v)).length
+
+        return (
+          <Box>
+            {/* Controls row */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, flexWrap: 'wrap', gap: 1.5 }}>
+              <SegControl
+                options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
+                value={lbGroup}
+                onChange={v => { setLbGroup(v as 'hitting' | 'pitching'); setLbFullscreen(null); setLbStatsLimit(50) }}
+              />
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <Box sx={{ ...pillActionSx, p: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT } }}>
+                  <select value={vizSeason} onChange={e => setVizSeason(Number(e.target.value))}
+                    style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: '6px 16px', borderRadius: 999, fontFamily: 'inherit' }}>
+                    {TEAM_SEASONS.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </Box>
+                <Box
+                  onClick={!lbDownloading ? handleLbTikTok : undefined}
                   sx={{
-                    borderRadius: { xs: 0, sm: 3 },
-                    width: '100%', maxWidth: { sm: 960 },
-                    bgcolor: 'background.paper',
-                    mt: { xs: 0, sm: 5 }, mb: { xs: 0, sm: 4 },
-                    display: 'flex', flexDirection: 'column',
-                    minHeight: { xs: '100dvh', sm: 'unset' },
-                    overflow: 'hidden',
+                    ...pillActionSx,
+                    bgcolor: ACCENT, color: '#000', borderColor: ACCENT,
+                    fontWeight: 700, fontSize: '0.72rem',
+                    cursor: lbDownloading ? 'default' : 'pointer',
+                    opacity: lbDownloading ? 0.6 : 1,
+                    display: 'flex', alignItems: 'center', gap: 0.4,
+                    transition: 'opacity 0.15s',
                   }}
                 >
-                  {/* Header */}
-                  <Box sx={{
-                    px: { xs: 2, sm: 3 }, py: 2,
-                    background: `linear-gradient(135deg, ${ACCENT}18 0%, transparent 100%)`,
-                    borderBottom: '1px solid', borderColor: 'divider',
-                    display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0,
-                  }}>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography sx={{ fontWeight: 900, fontSize: { xs: '1.1rem', sm: '1.25rem' }, letterSpacing: '-0.4px', lineHeight: 1.2 }}>
-                        {activeDef.leaderLabel ?? activeDef.label}
-                      </Typography>
-                      <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, mt: 0.3, textTransform: 'uppercase', letterSpacing: 1.1 }}>
-                        {vizSeason} MLB · {lbFullscreen.group}{activeDef.lowerIsBetter ? ' · lower = better' : ''}
-                      </Typography>
-                    </Box>
-                    <Box
-                      onClick={!lbDownloading ? handleLbTikTok : undefined}
-                      sx={{
-                        flexShrink: 0, px: 1.25, py: 0.6, borderRadius: 999,
-                        bgcolor: ACCENT, color: '#000',
-                        fontWeight: 700, fontSize: '0.72rem',
-                        cursor: lbDownloading ? 'default' : 'pointer',
-                        opacity: lbDownloading ? 0.6 : 1,
-                        display: 'flex', alignItems: 'center', gap: 0.4,
-                        transition: 'opacity 0.15s',
-                      }}
-                    >
-                      <FileDownload sx={{ fontSize: '0.85rem' }} />
-                      {lbDownloading ? 'Saving…' : 'TikTok'}
-                    </Box>
-                    <Box
-                      onClick={() => setLbFullscreen(null)}
-                      sx={{
-                        flexShrink: 0, width: 36, height: 36, borderRadius: '50%',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' }, transition: 'background 0.15s',
-                      }}
-                    >
-                      <Close sx={{ fontSize: '1.1rem' }} />
-                    </Box>
-                  </Box>
+                  <FileDownload sx={{ fontSize: '0.85rem' }} />
+                  {lbDownloading ? 'Saving…' : 'TikTok'}
+                </Box>
+              </Box>
+            </Box>
 
-                  {/* Stats table */}
-                  <Box sx={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
-                    <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: '100%' }}>
-                      {/* Sticky column headers */}
-                      <Box component="thead" sx={{ position: 'sticky', top: 0, zIndex: 3 }}>
-                        <Box component="tr">
-                          <Box component="th" sx={{
-                            ...thSx, textAlign: 'left',
-                            position: 'sticky', left: 0, zIndex: 4, bgcolor: 'background.paper',
-                            borderBottom: '2px solid', borderColor: 'divider',
-                            minWidth: isDesktop ? 180 : 120, color: 'text.disabled',
-                            pl: isDesktop ? '16px' : '8px',
-                          }}>
-                            Player
-                          </Box>
-                          {statDefs.map(def => {
-                            const isActive = def.key === lbFullscreen.sortKey
-                            const isFeatured = def.key === lbFullscreen.def.key
-                            return (
-                              <Box component="th" key={def.key}
-                                onClick={() => setLbFullscreen(prev => prev ? {
-                                  ...prev,
-                                  sortKey: def.key,
-                                  sortAsc: prev.sortKey === def.key ? !prev.sortAsc : (def.lowerIsBetter ?? false),
-                                } : null)}
-                                sx={{
-                                  ...thSx, textAlign: 'right',
-                                  cursor: 'pointer',
-                                  bgcolor: isActive ? `${ACCENT}10` : isFeatured ? `${ACCENT}06` : 'background.paper',
-                                  borderBottom: isActive ? `2px solid ${ACCENT}` : isFeatured ? `2px solid ${ACCENT}55` : '2px solid',
-                                  borderColor: isActive ? ACCENT : isFeatured ? `${ACCENT}55` : 'divider',
-                                  color: isActive ? ACCENT : isFeatured ? `${ACCENT}99` : 'text.disabled',
-                                  '&:hover': { bgcolor: `${ACCENT}18`, color: ACCENT },
-                                  transition: 'background 0.15s, color 0.15s',
-                                  userSelect: 'none',
-                                }}>
-                                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3 }}>
-                                  {def.label}
-                                  {isActive && (
-                                    <Box component="span" sx={{ fontSize: '0.65rem', opacity: 0.8 }}>
-                                      {lbFullscreen.sortAsc ? '↑' : '↓'}
-                                    </Box>
-                                  )}
-                                </Box>
-                              </Box>
-                            )
-                          })}
+            {loadingLb && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
+
+            {!loadingLb && lbData && (
+              <Paper ref={lbCardRef} elevation={2} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+                {/* Table header strip */}
+                <Box sx={{
+                  px: { xs: 2, sm: 3 }, py: 1.5,
+                  background: `linear-gradient(135deg, ${ACCENT}18 0%, transparent 100%)`,
+                  borderBottom: '1px solid', borderColor: 'divider',
+                  display: 'flex', alignItems: 'baseline', gap: 1.5,
+                }}>
+                  <Typography sx={{ fontWeight: 900, fontSize: { xs: '1rem', sm: '1.15rem' }, letterSpacing: '-0.3px' }}>
+                    {activeDef.leaderLabel ?? activeDef.label}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
+                    {vizSeason} MLB · {lbGroup}{activeDef.lowerIsBetter ? ' · lower = better' : ''}
+                  </Typography>
+                </Box>
+
+                {/* Scrollable table */}
+                <Box sx={{ overflowX: 'auto' }}>
+                  <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: '100%' }}>
+                    <Box component="thead">
+                      <Box component="tr">
+                        {/* Sticky player-name column header */}
+                        <Box component="th" sx={{
+                          ...stThSx,
+                          position: 'sticky', top: 0, left: 0, zIndex: 4,
+                          bgcolor: 'background.paper',
+                          textAlign: 'left',
+                          borderBottom: '2px solid', borderColor: 'divider',
+                          minWidth: isDesktop ? 180 : 120, color: 'text.disabled',
+                          pl: isDesktop ? '16px' : '8px',
+                        }}>
+                          Player
                         </Box>
-                      </Box>
-
-                      <Box component="tbody">
-                        {sortedEntries.map((e, rank) => {
-                          const stat = e.stat
+                        {/* Stat column headers */}
+                        {statDefs.map(def => {
+                          const isActive = def.key === sortKey
                           return (
-                            <Box component="tr" key={e.playerId}
-                              onClick={() => { handleLbPlayerClick(e.playerId); setLbFullscreen(null) }}
-                              sx={{ cursor: 'pointer', '&:hover > td, &:hover > th': { bgcolor: `${ACCENT}0e` } }}
-                            >
-                              {/* Sticky player cell */}
-                              <Box component="th" sx={{
-                                ...tdSx, textAlign: 'left',
-                                position: 'sticky', left: 0, zIndex: 2,
-                                bgcolor: 'background.paper',
-                                pl: isDesktop ? '16px' : '8px', fontWeight: 'normal',
+                            <Box component="th" key={def.key}
+                              onClick={() => handleColClick(def)}
+                              sx={{
+                                ...stThSx,
+                                position: 'sticky', top: 0, zIndex: 3,
+                                textAlign: 'right', cursor: 'pointer',
+                                bgcolor: isActive ? `${ACCENT}14` : 'background.paper',
+                                borderBottom: isActive ? `2px solid ${ACCENT}` : '2px solid',
+                                borderColor: isActive ? ACCENT : 'divider',
+                                color: isActive ? ACCENT : 'text.disabled',
+                                '&:hover': { bgcolor: `${ACCENT}18`, color: ACCENT },
+                                transition: 'background 0.15s, color 0.15s',
+                                userSelect: 'none',
                               }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: isDesktop ? 1 : 0.6 }}>
-                                  <Typography sx={{ fontSize: rank < 3 ? '0.9rem' : '0.62rem', fontWeight: 800, color: 'text.disabled', width: isDesktop ? 22 : 18, textAlign: 'center', flexShrink: 0, lineHeight: 1 }}>
-                                    {rank < 3 ? MEDALS_FS[rank] : `${rank + 1}`}
-                                  </Typography>
-                                  {isDesktop && (
-                                    <Box
-                                      component="img"
-                                      src={`https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${e.playerId}/headshot/67/current`}
-                                      alt={e.playerName}
-                                      sx={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, bgcolor: 'action.hover' }}
-                                    />
-                                  )}
-                                  <Box sx={{ minWidth: 0 }}>
-                                    <Typography sx={{ fontWeight: 700, fontSize: isDesktop ? '0.82rem' : '0.75rem', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                      {isDesktop ? e.playerName : abbrevName(e.playerName)}
-                                    </Typography>
-                                    <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', fontWeight: 600 }}>
-                                      {e.teamAbbr}
-                                    </Typography>
+                              <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3 }}>
+                                {def.label}
+                                {isActive && (
+                                  <Box component="span" sx={{ fontSize: '0.65rem', opacity: 0.8 }}>
+                                    {sortAsc ? '↑' : '↓'}
                                   </Box>
-                                </Box>
+                                )}
                               </Box>
-
-                              {/* Stat columns */}
-                              {statDefs.map(def => {
-                                const isActive = def.key === lbFullscreen.sortKey
-                                const isFeatured = def.key === lbFullscreen.def.key
-                                const val = def.format(def.getValue(stat))
-                                return (
-                                  <Box component="td" key={def.key} sx={{
-                                    ...tdSx, textAlign: 'right',
-                                    bgcolor: isActive ? `${ACCENT}08` : isFeatured ? `${ACCENT}04` : undefined,
-                                    fontSize: isActive ? '0.88rem' : '0.78rem',
-                                    fontWeight: isActive ? 800 : isFeatured ? 600 : 400,
-                                    color: isActive ? ACCENT : isFeatured ? `${ACCENT}cc` : 'text.primary',
-                                  }}>
-                                    {val}
-                                  </Box>
-                                )
-                              })}
                             </Box>
                           )
                         })}
                       </Box>
                     </Box>
-                  </Box>
 
-                  {/* Bottom close */}
-                  <Box
-                    onClick={() => setLbFullscreen(null)}
-                    sx={{
-                      mx: 2, mb: 2, mt: 0.5, flexShrink: 0,
-                      py: 1.1, borderRadius: 999,
-                      border: '1px solid', borderColor: 'divider',
-                      color: 'text.secondary',
-                      fontWeight: 700, fontSize: '0.83rem', cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75,
-                      '&:hover': { bgcolor: 'action.hover' }, transition: 'background 0.15s',
-                    }}
-                  >
-                    <Close sx={{ fontSize: '1rem' }} /> Close
+                    <Box component="tbody">
+                      {sortedEntries.map((e, rank) => {
+                        const stat = e.stat
+                        return (
+                          <Box component="tr" key={e.playerId}
+                            onClick={() => handleLbPlayerClick(e.playerId)}
+                            sx={{ cursor: 'pointer', '&:hover > td, &:hover > th': { bgcolor: `${ACCENT}0e` } }}
+                          >
+                            {/* Sticky player cell */}
+                            <Box component="th" sx={{
+                              ...stTdSx, textAlign: 'left',
+                              position: 'sticky', left: 0, zIndex: 2,
+                              bgcolor: 'background.paper', fontWeight: 'normal',
+                              pl: isDesktop ? '16px' : '8px',
+                            }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: isDesktop ? 1 : 0.6 }}>
+                                <Typography sx={{
+                                  fontSize: rank < 3 ? '0.9rem' : '0.62rem', fontWeight: 800,
+                                  color: 'text.disabled', width: isDesktop ? 22 : 18,
+                                  textAlign: 'center', flexShrink: 0, lineHeight: 1,
+                                }}>
+                                  {rank < 3 ? MEDALS_FS[rank] : `${rank + 1}`}
+                                </Typography>
+                                {isDesktop && (
+                                  <Box component="img"
+                                    src={`https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${e.playerId}/headshot/67/current`}
+                                    alt={e.playerName}
+                                    sx={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, bgcolor: 'action.hover' }}
+                                  />
+                                )}
+                                <Box sx={{ minWidth: 0 }}>
+                                  <Typography sx={{ fontWeight: 700, fontSize: isDesktop ? '0.82rem' : '0.75rem', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {isDesktop ? e.playerName : abbrevName(e.playerName)}
+                                  </Typography>
+                                  <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', fontWeight: 600 }}>
+                                    {e.teamAbbr}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            </Box>
+
+                            {/* Stat value cells */}
+                            {statDefs.map(def => {
+                              const isActive = def.key === sortKey
+                              const val = def.format(def.getValue(stat))
+                              return (
+                                <Box component="td" key={def.key} sx={{
+                                  ...stTdSx, textAlign: 'right',
+                                  bgcolor: isActive ? `${ACCENT}08` : undefined,
+                                  fontSize: isActive ? '0.88rem' : '0.78rem',
+                                  fontWeight: isActive ? 800 : 400,
+                                  color: isActive ? ACCENT : 'text.primary',
+                                }}>
+                                  {val}
+                                </Box>
+                              )
+                            })}
+                          </Box>
+                        )
+                      })}
+                    </Box>
                   </Box>
-                </Paper>
-              </Box>
-            )
-          })()}
-        </Box>
+                </Box>
+
+                {/* Load more / count footer */}
+                <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', fontWeight: 600 }}>
+                    Showing {sortedEntries.length} of {totalInDataset}
+                  </Typography>
+                  {lbStatsLimit < totalInDataset && (
+                    <Box
+                      onClick={() => setLbStatsLimit(l => l + 50)}
+                      sx={{
+                        cursor: 'pointer', userSelect: 'none',
+                        fontSize: '0.72rem', fontWeight: 700,
+                        color: 'text.disabled',
+                        '&:hover': { color: ACCENT }, transition: 'color 0.15s',
+                      }}
+                    >
+                      Load 50 more ↓
+                    </Box>
+                  )}
+                </Box>
+              </Paper>
+            )}
+          </Box>
         )
       })()}
 
