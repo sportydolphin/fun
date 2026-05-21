@@ -526,7 +526,7 @@ export default function MlbStats() {
   }, [allTeams, vizSeason, selectTeam])
 
   return (
-    <Box sx={{ maxWidth: { xs: 640, md: 1280 }, mx: 'auto', overflowX: 'hidden' }}>
+    <Box sx={{ maxWidth: { xs: 640, md: 1280 }, mx: 'auto' }}>
 
       {/* Tab switcher — scrollable on mobile so 5 tabs don't overflow the viewport */}
       <Box sx={{
@@ -1236,9 +1236,13 @@ export default function MlbStats() {
                         return (
                           <Box component="tr" key={e.playerId}
                             onClick={() => handleLbPlayerClick(e.playerId)}
-                            sx={{ cursor: 'pointer', '&:hover > td, &:hover > th': { bgcolor: `${ACCENT}0e` } }}
+                            sx={{
+                              cursor: 'pointer',
+                              // Tint only the scrollable stat cells — NOT the sticky th
+                              '&:hover > td': { bgcolor: `${ACCENT}0e` },
+                            }}
                           >
-                            {/* Sticky player cell */}
+                            {/* Sticky player cell — always opaque so scrolled cells never show through */}
                             <Box component="th" sx={{
                               ...stTdSx, textAlign: 'left',
                               position: 'sticky', left: 0, zIndex: 2,
@@ -1248,6 +1252,8 @@ export default function MlbStats() {
                               borderRight: '1px solid',
                               borderColor: 'divider',
                               pr: isDesktop ? '12px' : '8px',
+                              // Opaque hover tint — blend accent with paper manually
+                              'tr:hover > &': { bgcolor: 'action.hover' },
                             }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: isDesktop ? 1 : 0.6 }}>
                                 <Typography sx={{
