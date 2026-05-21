@@ -1156,7 +1156,12 @@ export default function MlbStats() {
             {loadingLb && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
 
             {!loadingLb && lbData && (
-              <Paper elevation={2} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+              <Paper elevation={2} sx={{
+                borderRadius: { xs: 0, sm: 3 },
+                overflow: 'hidden',
+                mx: { xs: -2, sm: 0 },
+                boxShadow: { xs: 'none', sm: undefined },
+              }}>
                 {/* Table header strip */}
                 <Box sx={{
                   px: { xs: 2, sm: 3 }, py: 1.5,
@@ -1184,8 +1189,10 @@ export default function MlbStats() {
                           bgcolor: 'background.paper',
                           textAlign: 'left',
                           borderBottom: '2px solid', borderColor: 'divider',
+                          borderRight: '1px solid', // matches the body sticky cell
                           minWidth: isDesktop ? 180 : 120, color: 'text.disabled',
                           pl: isDesktop ? '16px' : '8px',
+                          pr: isDesktop ? '12px' : '8px',
                         }}>
                           Player
                         </Box>
@@ -1237,11 +1244,17 @@ export default function MlbStats() {
                               position: 'sticky', left: 0, zIndex: 2,
                               bgcolor: 'background.paper', fontWeight: 'normal',
                               pl: isDesktop ? '16px' : '8px',
+                              // Right-edge separator so scrolled stat cells don't bleed into the name
+                              borderRight: '1px solid',
+                              borderColor: 'divider',
+                              pr: isDesktop ? '12px' : '8px',
                             }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: isDesktop ? 1 : 0.6 }}>
                                 <Typography sx={{
                                   fontSize: leagueRank < 3 ? '0.9rem' : '0.82rem', fontWeight: 800,
-                                  color: 'text.disabled', width: isDesktop ? 22 : 18,
+                                  color: 'text.disabled',
+                                  // Wide enough for 3-digit numbers (100+)
+                                  minWidth: isDesktop ? 22 : 28,
                                   textAlign: 'center', flexShrink: 0, lineHeight: 1,
                                 }}>
                                   {leagueRank < 3 ? MEDALS_FS[leagueRank] : `${leagueRank + 1}`}
