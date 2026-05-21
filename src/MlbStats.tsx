@@ -1055,22 +1055,27 @@ export default function MlbStats() {
         const activeDef = statDefs.find(d => d.key === sortKey) ?? statDefs[0]
 
         // ── Qualification filter ──────────────────────────────────────────────
-        // Estimate the number of team games played from the max PA / IP in the
-        // dataset, then use the standard MLB thresholds (3.1 PA/game hitting,
-        // 1.0 IP/game pitching) to decide who "qualifies".
+        // Estimate team games played, then apply standard MLB thresholds:
+        //   Hitting:  3.1 PA per team game  (502 PA for a full 162-game season)
+        //   Pitching: 1.0 IP per team game  (162 IP for a full season)
+        //
+        // Hitting estimator:  max PA in dataset ÷ 4.3 PA/game (avg for a regular)
+        // Pitching estimator: max gamesStarted × 5 (ace starts every 5th game)
         const qualifiedPool = (() => {
           const all = lbData ?? []
           if (!lbQualified) return all
           if (lbGroup === 'hitting') {
             const maxPA = Math.max(0, ...all.map(e => Number(e.stat?.plateAppearances ?? 0)))
-            const estGames = maxPA > 0 ? Math.round(maxPA / 4.3) : 162 // ~4.3 PA per game for regulars
+            const estGames = maxPA > 0 ? Math.round(maxPA / 4.3) : 162
             const threshold = Math.max(30, Math.round(estGames * 3.1))
             return all.filter(e => Number(e.stat?.plateAppearances ?? 0) >= threshold)
           } else {
-            const maxIP = Math.max(0, ...all.map(e => parseFloat(e.stat?.inningsPitched ?? '0')))
-            const estGames = maxIP > 0 ? Math.round(maxIP / 1.5) : 162 // starter ~1.5 IP per team game
-            const threshold = Math.max(15, Math.round(estGames * 1.0))
-            return all.filter(e => parseFloat(e.stat?.inningsPitched ?? '0') >= threshold)
+            // gamesStarted: an ace starts every 5th game → maxGS × 5 ≈ team games
+            const maxGS = Math.max(0, ...all.map(e => Number(e.stat?.gamesStarted ?? 0)))
+            const estGames = maxGS > 0 ? maxGS * 5 : 162
+            const ipThreshold = Math.max(20, Math.round(estGames * 1.0))
+            const ipOf = (e: any) => parseFloat(String(e.stat?.inningsPitched ?? 0)) || 0
+            return all.filter(e => ipOf(e) >= ipThreshold)
           }
         })()
 
@@ -1122,21 +1127,21 @@ export default function MlbStats() {
 
         return (
           <Box>
-            {/* Controls row */}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, flexWrap: 'wrap', gap: 1.5 }}>
+            {/* Controls row — single line, no wrapping */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5, gap: 1 }}>
               <SegControl
                 options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
                 value={lbGroup}
                 onChange={v => { setLbGroup(v as 'hitting' | 'pitching'); setLbFullscreen(null); setLbStatsLimit(50) }}
               />
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
                 <Box sx={{ ...pillActionSx, p: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT } }}>
                   <select value={vizSeason} onChange={e => setVizSeason(Number(e.target.value))}
-                    style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: '6px 16px', borderRadius: 999, fontFamily: 'inherit' }}>
+                    style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: '6px 12px', borderRadius: 999, fontFamily: 'inherit' }}>
                     {TEAM_SEASONS.map(y => <option key={y} value={y}>{y}</option>)}
                   </select>
                 </Box>
-                {/* Qualified toggle */}
+                {/* Qualified / All toggle */}
                 <Box
                   onClick={() => { setLbQualified(q => !q); setLbStatsLimit(50) }}
                   sx={{
@@ -1145,10 +1150,11 @@ export default function MlbStats() {
                     color: lbQualified ? ACCENT : 'text.secondary',
                     bgcolor: lbQualified ? `${ACCENT}12` : 'transparent',
                     cursor: 'pointer', userSelect: 'none',
-                    display: 'flex', alignItems: 'center', gap: 0.5,
+                    display: 'flex', alignItems: 'center', gap: 0.4,
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  {lbQualified ? '✓ Qualified' : 'All players'}
+                  {lbQualified ? '✓ Qual' : 'All'}
                 </Box>
               </Box>
             </Box>
