@@ -81,17 +81,17 @@ const PIT_COLS: ColDef[] = [
 ]
 
 const thSx = {
-  py: '7px', px: { xs: '10px', sm: '14px' },
-  fontSize: '0.6rem', fontWeight: 700,
-  letterSpacing: '0.6px', textTransform: 'uppercase' as const,
+  py: '7px', px: { xs: '4px', sm: '14px' },
+  fontSize: { xs: '0.56rem', sm: '0.6rem' }, fontWeight: 700,
+  letterSpacing: '0.4px', textTransform: 'uppercase' as const,
   whiteSpace: 'nowrap' as const, userSelect: 'none' as const,
   color: 'text.disabled',
   borderBottom: '1px solid', borderColor: 'divider',
 }
 
 const tdSx = {
-  py: '7px', px: { xs: '10px', sm: '14px' },
-  fontSize: { xs: '0.8rem', sm: '0.82rem' },
+  py: '7px', px: { xs: '4px', sm: '14px' },
+  fontSize: { xs: '0.75rem', sm: '0.82rem' },
   whiteSpace: 'nowrap' as const,
 }
 
@@ -129,13 +129,12 @@ function GameSection({ title, entries, cols, dataKey, highlightDate }: {
         </Typography>
       )}
 
-      {/* Scroll wrapper — full-width, scrolls horizontally if needed */}
       <Box sx={{ width: '100%', overflowX: 'auto', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
-        <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: 'max-content' }}>
+        <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%' }}>
 
           <Box component="thead" sx={{ position: 'sticky', top: 0, zIndex: 2 }}>
             <Box component="tr" sx={{ bgcolor: 'background.paper' }}>
-              <Box component="th" sx={{ ...thSx, textAlign: 'left', pl: { xs: '12px', sm: '16px' } }}>
+              <Box component="th" sx={{ ...thSx, textAlign: 'left', pl: { xs: '8px', sm: '16px' } }}>
                 Date
               </Box>
               <Box component="th" sx={{ ...thSx, textAlign: 'left' }}>
@@ -164,8 +163,8 @@ function GameSection({ title, entries, cols, dataKey, highlightDate }: {
                   }}>
 
                   {/* Date */}
-                  <Box component="td" sx={{ ...tdSx, ...borderProps, textAlign: 'left', pl: { xs: '12px', sm: '16px' }, color: 'text.secondary',
-                    ...(g.date === highlightDate ? { borderLeft: `3px solid ${ACCENT}`, pl: { xs: '9px', sm: '13px' } } : {}) }}>
+                  <Box component="td" sx={{ ...tdSx, ...borderProps, textAlign: 'left', pl: { xs: '8px', sm: '16px' }, color: 'text.secondary',
+                    ...(g.date === highlightDate ? { borderLeft: `3px solid ${ACCENT}`, pl: { xs: '5px', sm: '13px' } } : {}) }}>
                     {fmtDate(g.date)}
                   </Box>
 
