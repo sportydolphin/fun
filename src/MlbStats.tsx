@@ -1057,18 +1057,17 @@ export default function MlbStats() {
           {/* Leaderboard fullscreen modal */}
           {lbFullscreen && (() => {
             const statDefs = lbFullscreen.group === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS
-            const statMap = new Map(lbData?.map(e => [e.playerId, e.stat]) ?? [])
             const activeDef = statDefs.find(d => d.key === lbFullscreen.sortKey) ?? lbFullscreen.def
-            const sortedEntries = [...lbFullscreen.entries].sort((a, b) => {
-              const sa = statMap.get(a.playerId)
-              const sb = statMap.get(b.playerId)
-              const va = Number(activeDef.leaderValue ? activeDef.leaderValue(sa) : activeDef.getValue(sa))
-              const vb = Number(activeDef.leaderValue ? activeDef.leaderValue(sb) : activeDef.getValue(sb))
-              if (isNaN(va) && isNaN(vb)) return 0
-              if (isNaN(va)) return 1
-              if (isNaN(vb)) return -1
-              return lbFullscreen.sortAsc ? va - vb : vb - va
-            })
+            // Always re-rank from the full dataset so clicking a column header gives the
+            // true top/bottom 50 for that stat, not just a re-sort of the original 50.
+            const sortedEntries = (lbData ?? [])
+              .map(e => {
+                const v = Number(activeDef.leaderValue ? activeDef.leaderValue(e.stat) : activeDef.getValue(e.stat))
+                return { ...e, _v: v }
+              })
+              .filter(e => !isNaN(e._v))
+              .sort((a, b) => lbFullscreen.sortAsc ? a._v - b._v : b._v - a._v)
+              .slice(0, 50)
             const MEDALS_FS = ['🥇', '🥈', '🥉']
             const colPx = isDesktop ? '10px' : '5px'
             const thSx = {
@@ -1121,10 +1120,10 @@ export default function MlbStats() {
                   }}>
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography sx={{ fontWeight: 900, fontSize: { xs: '1.1rem', sm: '1.25rem' }, letterSpacing: '-0.4px', lineHeight: 1.2 }}>
-                        {lbFullscreen.def.leaderLabel ?? lbFullscreen.def.label}
+                        {activeDef.leaderLabel ?? activeDef.label}
                       </Typography>
                       <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, mt: 0.3, textTransform: 'uppercase', letterSpacing: 1.1 }}>
-                        {vizSeason} MLB · {lbFullscreen.group}{lbFullscreen.def.lowerIsBetter ? ' · lower = better' : ''}
+                        {vizSeason} MLB · {lbFullscreen.group}{activeDef.lowerIsBetter ? ' · lower = better' : ''}
                       </Typography>
                     </Box>
                     <Box
@@ -1206,7 +1205,7 @@ export default function MlbStats() {
 
                       <Box component="tbody">
                         {sortedEntries.map((e, rank) => {
-                          const stat = statMap.get(e.playerId)
+                          const stat = e.stat
                           return (
                             <Box component="tr" key={e.playerId}
                               onClick={() => { handleLbPlayerClick(e.playerId); setLbFullscreen(null) }}
