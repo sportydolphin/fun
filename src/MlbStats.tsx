@@ -552,10 +552,15 @@ export default function MlbStats() {
   }, [allTeams, vizSeason, selectTeam])
 
   return (
-    <Box sx={{ maxWidth: { xs: 640, md: 1280 }, mx: 'auto' }}>
+    <Box sx={{ maxWidth: { xs: 640, md: 1280 }, mx: 'auto', overflowX: 'hidden' }}>
 
-      {/* Tab switcher */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+      {/* Tab switcher — scrollable on mobile so 5 tabs don't overflow the viewport */}
+      <Box sx={{
+        display: 'flex', justifyContent: { xs: 'flex-start', sm: 'center' }, mb: 3,
+        overflowX: 'auto',
+        '&::-webkit-scrollbar': { display: 'none' },
+        msOverflowStyle: 'none', scrollbarWidth: 'none',
+      }}>
         <SegControl
           options={[
             { value: 'search', label: 'Search' },
@@ -982,7 +987,7 @@ export default function MlbStats() {
                             >
                               {/* Medal / rank indicator */}
                               <Typography sx={{
-                                fontSize: rank < 3 ? '1rem' : '0.65rem',
+                                fontSize: rank < 3 ? '1rem' : '0.82rem',
                                 fontWeight: 800,
                                 color: 'text.disabled',
                                 width: 22,
@@ -1097,6 +1102,7 @@ export default function MlbStats() {
           py: '7px', px: colPx,
           borderBottom: '1px solid', borderColor: 'divider',
           whiteSpace: 'nowrap' as const,
+          verticalAlign: 'middle' as const,
         }
         const abbrevName = (name: string) => {
           const i = name.indexOf(' ')
@@ -1235,7 +1241,7 @@ export default function MlbStats() {
                             }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: isDesktop ? 1 : 0.6 }}>
                                 <Typography sx={{
-                                  fontSize: rank < 3 ? '0.9rem' : '0.62rem', fontWeight: 800,
+                                  fontSize: rank < 3 ? '0.9rem' : '0.82rem', fontWeight: 800,
                                   color: 'text.disabled', width: isDesktop ? 22 : 18,
                                   textAlign: 'center', flexShrink: 0, lineHeight: 1,
                                 }}>
