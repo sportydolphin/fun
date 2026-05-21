@@ -1115,12 +1115,17 @@ export default function MlbStats() {
             : { def: activeDef, group: lbGroup, sortKey: def.key, sortAsc: newAsc, entries: [] }
           )
         }
-        const totalInDataset = (lbData ?? [])
+        // True league rank in the natural order for this stat (independent of current sort direction)
+        const naturalAsc = activeDef.lowerIsBetter ?? false
+        const naturalOrder = (lbData ?? [])
           .map(e => {
             const v = Number(activeDef.leaderValue ? activeDef.leaderValue(e.stat) : activeDef.getValue(e.stat))
-            return v
+            return { playerId: e.playerId, _v: v }
           })
-          .filter(v => !isNaN(v)).length
+          .filter(e => !isNaN(e._v))
+          .sort((a, b) => naturalAsc ? a._v - b._v : b._v - a._v)
+        const leagueRankMap = new Map(naturalOrder.map((e, i) => [e.playerId, i]))
+        const totalInDataset = naturalOrder.length
 
         return (
           <Box>
@@ -1225,8 +1230,10 @@ export default function MlbStats() {
                     </Box>
 
                     <Box component="tbody">
-                      {sortedEntries.map((e, rank) => {
+                      {sortedEntries.map((e) => {
                         const stat = e.stat
+                        // 0-indexed position in the natural (best-first) ordering
+                        const leagueRank = leagueRankMap.get(e.playerId) ?? 0
                         return (
                           <Box component="tr" key={e.playerId}
                             onClick={() => handleLbPlayerClick(e.playerId)}
@@ -1241,11 +1248,11 @@ export default function MlbStats() {
                             }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: isDesktop ? 1 : 0.6 }}>
                                 <Typography sx={{
-                                  fontSize: rank < 3 ? '0.9rem' : '0.82rem', fontWeight: 800,
+                                  fontSize: leagueRank < 3 ? '0.9rem' : '0.82rem', fontWeight: 800,
                                   color: 'text.disabled', width: isDesktop ? 22 : 18,
                                   textAlign: 'center', flexShrink: 0, lineHeight: 1,
                                 }}>
-                                  {rank < 3 ? MEDALS_FS[rank] : `${rank + 1}`}
+                                  {leagueRank < 3 ? MEDALS_FS[leagueRank] : `${leagueRank + 1}`}
                                 </Typography>
                                 {isDesktop && (
                                   <Box component="img"
