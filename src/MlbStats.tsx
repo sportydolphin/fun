@@ -107,7 +107,6 @@ export default function MlbStats() {
     sortAsc: boolean
     entries: Array<{ playerId: number; playerName: string; teamAbbr: string; val: any }>
   } | null>(null)
-  const [lbDownloading, setLbDownloading] = useState(false)
   const [lbStatsLimit, setLbStatsLimit] = useState(50)
 
   // Career trends
@@ -125,7 +124,6 @@ export default function MlbStats() {
   const nameMap = useMemo(() => new Map(allTeams.map(t => [t.id, t.name])), [allTeams])
 
   const cardRef = useRef<HTMLDivElement>(null)
-  const lbCardRef = useRef<HTMLDivElement>(null)
   const blockDropdownRef = useRef(false)  // prevents dropdown re-opening after programmatic query set
   const loadGenRef = useRef(0)            // incremented each load; stale async callbacks bail out early
   const autoLoadedRef = useRef(false)
@@ -303,31 +301,6 @@ export default function MlbStats() {
     }).catch(() => {})
   }, [selectPlayer, lbGroup, vizSeason, view])
 
-  const handleLbTikTok = useCallback(async () => {
-    if (!lbCardRef.current || !lbFullscreen) return
-    setLbDownloading(true)
-    try {
-      const captured = await html2canvas(lbCardRef.current, { useCORS: true, scale: 3, logging: false, backgroundColor: null })
-      const out = document.createElement('canvas')
-      out.width = 1080; out.height = 1920
-      const ctx = out.getContext('2d')!
-      ctx.fillStyle = '#0f172a'
-      ctx.fillRect(0, 0, 1080, 1920)
-      const scale = (1080 * 0.88) / captured.width
-      const dw = captured.width * scale; const dh = captured.height * scale
-      const dx = (1080 - dw) / 2; const dy = 80
-      ctx.drawImage(captured, dx, dy, dw, dh)
-      const subject = (lbFullscreen.def.leaderLabel ?? lbFullscreen.def.label ?? 'leaderboard').replace(/\s+/g, '-').toLowerCase()
-      const link = document.createElement('a')
-      link.download = `${subject}-${vizSeason}-tiktok.png`
-      link.href = out.toDataURL('image/png')
-      link.click()
-    } catch (e) {
-      console.error('Download failed:', e)
-    } finally {
-      setLbDownloading(false)
-    }
-  }, [lbFullscreen, vizSeason])
 
   // Fetch career splits whenever the selected player changes
   useEffect(() => {
@@ -1143,28 +1116,13 @@ export default function MlbStats() {
                     {TEAM_SEASONS.map(y => <option key={y} value={y}>{y}</option>)}
                   </select>
                 </Box>
-                <Box
-                  onClick={!lbDownloading ? handleLbTikTok : undefined}
-                  sx={{
-                    ...pillActionSx,
-                    bgcolor: ACCENT, color: '#000', borderColor: ACCENT,
-                    fontWeight: 700, fontSize: '0.72rem',
-                    cursor: lbDownloading ? 'default' : 'pointer',
-                    opacity: lbDownloading ? 0.6 : 1,
-                    display: 'flex', alignItems: 'center', gap: 0.4,
-                    transition: 'opacity 0.15s',
-                  }}
-                >
-                  <FileDownload sx={{ fontSize: '0.85rem' }} />
-                  {lbDownloading ? 'Saving…' : 'TikTok'}
-                </Box>
               </Box>
             </Box>
 
             {loadingLb && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress size={28} /></Box>}
 
             {!loadingLb && lbData && (
-              <Paper ref={lbCardRef} elevation={2} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+              <Paper elevation={2} sx={{ borderRadius: 3, overflow: 'hidden' }}>
                 {/* Table header strip */}
                 <Box sx={{
                   px: { xs: 2, sm: 3 }, py: 1.5,
