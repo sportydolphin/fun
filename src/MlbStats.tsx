@@ -7,7 +7,7 @@ import {
 import { Search, Shuffle, FileDownload, KeyboardArrowDown, InfoOutlined, OpenInFull, Close, Tune } from '@mui/icons-material'
 import html2canvas from 'html2canvas'
 
-import { RankMode, Player, Team, Palette, StatDef, TeamSummary, CareerStatSplit } from './mlb/types'
+import { RankMode, Player, Team, Palette, StatDef, TeamSummary, CareerStatSplit, TeamPlayerStat } from './mlb/types'
 import { fmt, fmtDecimal, fmtR, parseIP, statCols, niceTicks } from './mlb/utils'
 import {
   ACCENT,
@@ -21,11 +21,13 @@ import {
   fetchYearByYearSplits, fetchCareerData, fetchAndRankPlayers, fetchAllTeams,
   fetchTeamStats, fetchLeaderboardData, fetchTeamRankings,
   fetchTeamSummaryData, fetchPlayerCareerStats, fetchRecentGames, fetchCareerStats,
+  fetchTeamTopPlayers,
 } from './mlb/api'
 import {
   SegControl, PillChip, pillActionSx, linkPillSx,
   StatItem, StatItemProps, StatPicker, StatPickerProps, StatGrid, StatGridProps,
   CardInner, CardInnerProps, TeamCardInner, TeamCardInnerProps,
+  FeaturedMiniCard,
   SectionLabel,
 } from './mlb/components'
 import { useChartTooltip, ChartTooltip, TeamDot, TeamEraOpsPlot, TeamWinRDPlot, TeamFraudPanel } from './mlb/charts'
@@ -111,6 +113,9 @@ export default function MlbStats() {
   const [teamPitLeaders, setTeamPitLeaders] = useState<Map<string, number[]>>(new Map())
   const [selectedTeamHitStats, setSelectedTeamHitStats] = useState<string[]>(DEFAULT_TEAM_HIT_STATS)
   const [selectedTeamPitStats, setSelectedTeamPitStats] = useState<string[]>(DEFAULT_TEAM_PIT_STATS)
+  const [teamFeaturedData, setTeamFeaturedData] = useState<{ hitters: TeamPlayerStat[]; pitchers: TeamPlayerStat[] } | null>(null)
+  const [featuredHitLeaders, setFeaturedHitLeaders] = useState<Map<string, number[]>>(new Map())
+  const [featuredPitLeaders, setFeaturedPitLeaders] = useState<Map<string, number[]>>(new Map())
 
   // Shared
   const [loadingStats, setLoadingStats] = useState(false)
@@ -287,20 +292,31 @@ export default function MlbStats() {
 
   const loadTeamStats = useCallback(async (t: Team, s: number, initial = true) => {
     const gen = ++loadGenRef.current
-    if (initial) { setLoadingStats(true); setTeamHitting(null); setTeamPitching(null); setTeamHitLeaders(new Map()); setTeamPitLeaders(new Map()) }
-    else setRefreshing(true)
+    if (initial) {
+      setLoadingStats(true)
+      setTeamHitting(null); setTeamPitching(null)
+      setTeamHitLeaders(new Map()); setTeamPitLeaders(new Map())
+      setTeamFeaturedData(null)
+    } else setRefreshing(true)
     try {
-      const [hitting, pitching, hLeaders, pLeaders] = await Promise.all([
+      const [hitting, pitching, hLeaders, pLeaders, featured, fHitLeaders, fPitLeaders] = await Promise.all([
         fetchTeamStats(t.id, 'hitting', s),
         fetchTeamStats(t.id, 'pitching', s),
         fetchTeamRankings('hitting', s, TEAM_HITTING_DEFS),
         fetchTeamRankings('pitching', s, TEAM_PITCHING_DEFS),
+        fetchTeamTopPlayers(t.id, s),
+        // Individual player league-wide leaders — used for mini-card rank badges + smart stat selection
+        fetchAndRankPlayers('hitting', s, HITTING_STAT_DEFS),
+        fetchAndRankPlayers('pitching', s, PITCHING_STAT_DEFS),
       ])
       if (gen !== loadGenRef.current) return
       setTeamHitting(hitting)
       setTeamPitching(pitching)
       setTeamHitLeaders(hLeaders)
       setTeamPitLeaders(pLeaders)
+      setTeamFeaturedData(featured)
+      setFeaturedHitLeaders(fHitLeaders)
+      setFeaturedPitLeaders(fPitLeaders)
     } finally {
       if (gen === loadGenRef.current) { setLoadingStats(false); setRefreshing(false) }
     }
@@ -564,6 +580,31 @@ export default function MlbStats() {
     selectedHitStats: selectedTeamHitStats, selectedPitStats: selectedTeamPitStats,
     onToggleHitStat: toggleTeamHitStat, onTogglePitStat: toggleTeamPitStat,
   } : null
+
+  // Pick 3 featured players for the team card: 1 best pitcher + 2 best hitters
+  // (falls back to more pitchers if the team lacks qualified hitters)
+  const featuredPlayers = useMemo((): Array<TeamPlayerStat & { isPitcher: boolean }> => {
+    if (!teamFeaturedData) return []
+    const { hitters, pitchers } = teamFeaturedData
+    const starters  = pitchers.filter(p => p.gamesStarted >= 3)
+    const closers   = pitchers.filter(p => p.gamesStarted < 3 && p.saves >= 3)
+    const relievers = pitchers.filter(p => p.gamesStarted < 3 && p.saves < 3)
+
+    const result: Array<TeamPlayerStat & { isPitcher: boolean }> = []
+    const used = new Set<number>()
+
+    const addP = (p: TeamPlayerStat) => { if (!used.has(p.playerId)) { result.push({ ...p, isPitcher: true  }); used.add(p.playerId) } }
+    const addH = (h: TeamPlayerStat) => { if (!used.has(h.playerId)) { result.push({ ...h, isPitcher: false }); used.add(h.playerId) } }
+
+    // 1st: best starting pitcher (by ERA); fall back to closer, then reliever
+    ;(starters[0] ?? closers[0] ?? relievers[0]) && addP(starters[0] ?? closers[0] ?? relievers[0])
+    // 2nd + 3rd: top hitters by OPS
+    hitters.forEach(h => result.length < 3 && addH(h))
+    // Back-fill with more pitchers if fewer than 2 hitters qualified
+    ;[...starters.slice(1), ...closers, ...relievers].forEach(p => result.length < 3 && addP(p))
+
+    return result.slice(0, 3)
+  }, [teamFeaturedData])
 
   const handleVizNavigate = useCallback((id: number) => {
     const t = allTeams.find(t => t.id === id)
@@ -1736,6 +1777,38 @@ export default function MlbStats() {
                     <Box component="a" href={`https://baseballsavant.mlb.com/team/${team.id}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Savant ↗</Box>
                   </>)
                 })()}
+              </Box>
+            )}
+
+            {/* ── Featured players (team view only) ── */}
+            {team && featuredPlayers.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <Typography sx={{
+                  fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase',
+                  letterSpacing: 1.6, color: 'text.disabled', mb: 1,
+                }}>
+                  Featured Players
+                </Typography>
+                <Box sx={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: 1,
+                }}>
+                  {featuredPlayers.map(p => (
+                    <FeaturedMiniCard
+                      key={p.playerId}
+                      entry={p}
+                      teamId={team.id}
+                      hitLeaders={featuredHitLeaders}
+                      pitLeaders={featuredPitLeaders}
+                      onClick={() => {
+                        fetchPlayerDetails(p.playerId)
+                          .then(details => { if (details) selectPlayer(details) })
+                          .catch(() => {})
+                      }}
+                    />
+                  ))}
+                </Box>
               </Box>
             )}
           </Box>

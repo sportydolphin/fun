@@ -2,8 +2,8 @@ import React, { useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { Popover } from '@mui/material'
 import { KeyboardArrowDown } from '@mui/icons-material'
-import { RankMode, Palette, StatDef, Player, Team } from './types'
-import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT } from './constants'
+import { RankMode, Palette, StatDef, Player, Team, TeamPlayerStat } from './types'
+import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG } from './constants'
 import { statCols } from './utils'
 
 // ─── UI primitives ────────────────────────────────────────────────────────────
@@ -464,6 +464,182 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
         mt={hasHitting ? 1 : 0}
       />
     </>
+  )
+}
+
+// ─── Featured player mini-card ────────────────────────────────────────────────
+//
+// Shown as a trio of cards below the team stat card. Each card surfaces the
+// 3 stats where the player ranks best in the league (from a curated candidate
+// set), falling back to sensible positional defaults when no rank data is
+// available.
+
+const HIT_MINI_CANDIDATES  = ['avg', 'hr', 'rbi', 'ops', 'obp', 'slg', 'sb', '2b', '3b', 'bb']
+const HIT_MINI_FALLBACK    = ['avg', 'hr', 'ops']
+const PIT_SP_CANDIDATES    = ['era', 'k', 'whip', 'so9', 'ip']
+const PIT_SP_FALLBACK      = ['era', 'k', 'whip']
+const PIT_RP_CANDIDATES    = ['era', 'sv', 'k', 'whip']
+const PIT_RP_FALLBACK      = ['era', 'sv', 'k']
+
+function pickMiniStats(
+  playerId: number,
+  isPitcher: boolean,
+  isCloser: boolean,
+  defs: StatDef[],
+  leaders: Map<string, number[]>,
+): StatDef[] {
+  const candidates = isPitcher
+    ? (isCloser ? PIT_RP_CANDIDATES : PIT_SP_CANDIDATES)
+    : HIT_MINI_CANDIDATES
+  const fallback = isPitcher
+    ? (isCloser ? PIT_RP_FALLBACK : PIT_SP_FALLBACK)
+    : HIT_MINI_FALLBACK
+
+  // Score each candidate by league rank (lower rank = better)
+  const scored = candidates
+    .map(key => {
+      const def = defs.find(d => d.key === key)
+      if (!def) return null
+      const ids = def.leaderCategory ? (leaders.get(def.leaderCategory) ?? []) : []
+      const rank = ids.indexOf(playerId)
+      return { def, rank: rank === -1 ? 9999 : rank }
+    })
+    .filter((x): x is { def: StatDef; rank: number } => x !== null)
+    .sort((a, b) => a.rank - b.rank)
+
+  // Take best-ranked stats first, then fill with fallbacks
+  const selected: StatDef[] = []
+  for (const { def, rank } of scored) {
+    if (selected.length >= 3) break
+    if (rank < 9999) selected.push(def)
+  }
+  for (const key of fallback) {
+    if (selected.length >= 3) break
+    const def = defs.find(d => d.key === key)
+    if (def && !selected.find(s => s.key === key)) selected.push(def)
+  }
+
+  // Return in the natural defs order so layout is consistent
+  const keys = new Set(selected.map(d => d.key))
+  return defs.filter(d => keys.has(d.key)).slice(0, 3)
+}
+
+export function FeaturedMiniCard({
+  entry, teamId, hitLeaders, pitLeaders, onClick,
+}: {
+  entry: TeamPlayerStat & { isPitcher: boolean }
+  teamId: number
+  hitLeaders: Map<string, number[]>
+  pitLeaders: Map<string, number[]>
+  onClick: () => void
+}) {
+  const isStarter = entry.isPitcher && entry.gamesStarted >= 3
+  const isCloser  = entry.isPitcher && !isStarter && entry.saves >= 3
+
+  // Derive a clean position label from stats when the API gives a generic 'P'
+  const posLabel = entry.isPitcher
+    ? (isStarter ? 'SP' : isCloser ? 'CL' : 'RP')
+    : entry.position
+
+  const defs    = entry.isPitcher ? PITCHING_STAT_DEFS : HITTING_STAT_DEFS
+  const leaders = entry.isPitcher ? pitLeaders : hitLeaders
+  const statDefs = pickMiniStats(entry.playerId, entry.isPitcher, isCloser, defs, leaders)
+
+  // Abbreviated name: "F. Last Name"
+  const parts = entry.playerName.trim().split(/\s+/)
+  const shortName = parts.length > 1
+    ? `${parts[0][0]}. ${parts.slice(1).join(' ')}`
+    : entry.playerName
+
+  const teamColor = TEAM_BG[teamId] ?? ACCENT
+
+  return (
+    <Box
+      onClick={onClick}
+      sx={{
+        borderRadius: 2.5, border: '1px solid', borderColor: 'divider',
+        bgcolor: 'background.paper', overflow: 'hidden',
+        cursor: 'pointer', transition: 'border-color 0.15s, box-shadow 0.15s',
+        '&:hover': { borderColor: ACCENT, boxShadow: `0 0 0 1px ${ACCENT}50` },
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        minWidth: 0,
+      }}
+    >
+      {/* Thin team-color accent bar */}
+      <Box sx={{ width: '100%', height: 3, bgcolor: teamColor, flexShrink: 0 }} />
+
+      <Box sx={{ px: 1.25, pt: 1.5, pb: 1.5, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        {/* Headshot */}
+        <Box sx={{
+          width: 52, height: 52, borderRadius: '50%', overflow: 'hidden',
+          border: `2px solid ${teamColor}`, bgcolor: 'action.hover',
+          flexShrink: 0, mb: 1,
+        }}>
+          <Box
+            component="img"
+            src={HEADSHOT(entry.playerId)}
+            alt={entry.playerName}
+            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }}
+          />
+        </Box>
+
+        {/* Name */}
+        <Typography sx={{
+          fontWeight: 700, fontSize: '0.76rem', lineHeight: 1.2,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          width: '100%', textAlign: 'center', mb: 0.2,
+        }}>
+          {shortName}
+        </Typography>
+
+        {/* Position badge */}
+        <Box sx={{
+          display: 'inline-flex', px: 0.75, height: 16, borderRadius: 1,
+          alignItems: 'center', justifyContent: 'center',
+          bgcolor: `${teamColor}22`, mb: 1.5,
+        }}>
+          <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, color: teamColor, letterSpacing: 0.5 }}>
+            {posLabel}
+          </Typography>
+        </Box>
+
+        {/* Stat columns */}
+        <Box sx={{ display: 'flex', width: '100%' }}>
+          {statDefs.map((def, i) => {
+            const value = def.format(def.getValue(entry.stat))
+            const ids   = def.leaderCategory ? (leaders.get(def.leaderCategory) ?? []) : []
+            const rank  = ids.indexOf(entry.playerId)
+            const isElite = rank !== -1 && rank < 5
+            return (
+              <Box key={def.key} sx={{
+                flex: 1, textAlign: 'center',
+                borderLeft: i > 0 ? '1px solid' : 'none',
+                borderColor: 'divider',
+                px: 0.25,
+              }}>
+                <Typography sx={{
+                  fontSize: '0.52rem', fontWeight: 700, textTransform: 'uppercase',
+                  letterSpacing: 0.6, color: 'text.disabled', lineHeight: 1, mb: 0.4,
+                }}>
+                  {def.label}
+                </Typography>
+                <Typography sx={{
+                  fontSize: '0.95rem', fontWeight: 800, lineHeight: 1,
+                  color: isElite ? ACCENT : 'text.primary',
+                }}>
+                  {value}
+                </Typography>
+                {isElite && (
+                  <Typography sx={{ fontSize: '0.5rem', color: ACCENT, fontWeight: 700, mt: 0.3, lineHeight: 1 }}>
+                    #{rank + 1}
+                  </Typography>
+                )}
+              </Box>
+            )
+          })}
+        </Box>
+      </Box>
+    </Box>
   )
 }
 

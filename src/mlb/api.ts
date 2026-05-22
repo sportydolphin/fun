@@ -1,4 +1,4 @@
-import { Player, Team, StatDef, TeamSummary, CareerStatSplit, RecentGameEntry, StandingsDivision } from './types'
+import { Player, Team, StatDef, TeamSummary, CareerStatSplit, RecentGameEntry, StandingsDivision, TeamPlayerStat } from './types'
 import { TEAM_ABBR } from './constants'
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
@@ -273,6 +273,61 @@ export async function fetchPlayerCareerStats(id: number, groups: Array<'hitting'
     hitting: bySeasonHit.get(season) ?? null,
     pitching: bySeasonPit.get(season) ?? null,
   }))
+}
+
+// ─── Team featured players ────────────────────────────────────────────────────
+//
+// Fetch all individual player season stats for a team so we can surface the
+// team's best hitters and pitchers as mini-cards on the team card.
+// Each group is sorted by the most meaningful metric so callers can slice off
+// the top N without further work.
+
+export async function fetchTeamTopPlayers(
+  teamId: number,
+  season: number,
+): Promise<{ hitters: TeamPlayerStat[]; pitchers: TeamPlayerStat[] }> {
+  const [hd, pd] = await Promise.all([
+    fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting&season=${season}&sportId=1&teamId=${teamId}`)
+      .then(r => r.json()).catch(() => null),
+    fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=pitching&season=${season}&sportId=1&teamId=${teamId}`)
+      .then(r => r.json()).catch(() => null),
+  ])
+
+  const hitSplits: any[] = hd?.stats?.[0]?.splits ?? []
+  const pitSplits: any[] = pd?.stats?.[0]?.splits ?? []
+
+  const hitters: TeamPlayerStat[] = hitSplits
+    .filter(s =>
+      s.player?.id &&
+      Number(s.stat?.plateAppearances ?? 0) >= 50 &&
+      s.position?.type !== 'Pitcher',
+    )
+    .map(s => ({
+      playerId: Number(s.player.id),
+      playerName: s.player.fullName ?? '',
+      position: s.position?.abbreviation ?? '?',
+      gamesStarted: 0,
+      saves: 0,
+      stat: s.stat,
+    }))
+    .sort((a, b) => Number(b.stat?.ops ?? 0) - Number(a.stat?.ops ?? 0))
+
+  const pitchers: TeamPlayerStat[] = pitSplits
+    .filter(s =>
+      s.player?.id &&
+      parseFloat(String(s.stat?.inningsPitched ?? '0')) >= 5,
+    )
+    .map(s => ({
+      playerId: Number(s.player.id),
+      playerName: s.player.fullName ?? '',
+      position: s.position?.abbreviation ?? 'P',
+      gamesStarted: Number(s.stat?.gamesStarted ?? 0),
+      saves: Number(s.stat?.saves ?? 0),
+      stat: s.stat,
+    }))
+    .sort((a, b) => Number(a.stat?.era ?? 99) - Number(b.stat?.era ?? 99))
+
+  return { hitters, pitchers }
 }
 
 // ─── Standings ────────────────────────────────────────────────────────────────

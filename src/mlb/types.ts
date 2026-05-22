@@ -104,6 +104,19 @@ export interface StandingsTeamRecord {
   divisionLeader: boolean
 }
 
+// ─── Featured team players ────────────────────────────────────────────────────
+
+export interface TeamPlayerStat {
+  playerId: number
+  playerName: string
+  /** Abbreviated position from the API: SP, RP, OF, 3B, etc. */
+  position: string
+  /** > 0 for starters */
+  gamesStarted: number
+  saves: number
+  stat: any
+}
+
 export interface StandingsDivision {
   divisionId: number
   divisionName: string
