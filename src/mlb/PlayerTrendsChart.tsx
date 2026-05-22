@@ -41,10 +41,36 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
 }) {
   const [hovIdx, setHovIdx] = useState<number | null>(null)
   const [tipPos, setTipPos] = useState({ x: 0, y: 0 })
+  const [leagueAvg, setLeagueAvg] = useState<number | null>(null)
   const boxRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const rafRef = useRef<number | null>(null)
   const hovIdxRef = useRef<number | null>(null)
+
+  // Fetch league-average OPS (hitters) or ERA (pitchers) for this season
+  useEffect(() => {
+    let cancelled = false
+    setLeagueAvg(null)
+    fetchLeagueStatsBySeason(season, isPitcher ? 'pitching' : 'hitting').then(all => {
+      if (cancelled) return
+      if (!isPitcher) {
+        const lgH   = all.reduce((s, x) => s + Number(x.hits ?? 0), 0)
+        const lgAB  = all.reduce((s, x) => s + Number(x.atBats ?? 0), 0)
+        const lgBB  = all.reduce((s, x) => s + Number(x.baseOnBalls ?? 0), 0)
+        const lgHBP = all.reduce((s, x) => s + Number(x.hitByPitch ?? 0), 0)
+        const lgSF  = all.reduce((s, x) => s + Number(x.sacFlies ?? 0), 0)
+        const lgTB  = all.reduce((s, x) =>
+          s + Number(x.hits ?? 0) + Number(x.doubles ?? 0) + 2*Number(x.triples ?? 0) + 3*Number(x.homeRuns ?? 0), 0)
+        const denom = lgAB + lgBB + lgHBP + lgSF
+        if (denom > 0 && lgAB > 0) setLeagueAvg((lgH + lgBB + lgHBP) / denom + lgTB / lgAB)
+      } else {
+        const lgER = all.reduce((s, x) => s + Number(x.earnedRuns ?? 0), 0)
+        const lgIP = all.reduce((s, x) => s + parseIP(x.inningsPitched ?? '0'), 0)
+        if (lgIP > 0) setLeagueAvg((lgER * 9) / lgIP)
+      }
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [season, isPitcher]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
   const fmtDate = (d: string) => {
@@ -159,27 +185,6 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
     )
   }
 
-  // Season average (full season, all games)
-  const seasonAvg = (() => {
-    if (isPitcher) {
-      const er = chrono.reduce((s, x) => s + Number(x.pitching?.earnedRuns ?? 0), 0)
-      const ip = chrono.reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
-      return ip > 0 ? (er * 9) / ip : null
-    }
-    const h   = chrono.reduce((s, x) => s + Number(x.hitting?.hits ?? 0), 0)
-    const ab  = chrono.reduce((s, x) => s + Number(x.hitting?.atBats ?? 0), 0)
-    const bb  = chrono.reduce((s, x) => s + Number(x.hitting?.baseOnBalls ?? 0), 0)
-    const hbp = chrono.reduce((s, x) => s + Number(x.hitting?.hitByPitch ?? 0), 0)
-    const sf  = chrono.reduce((s, x) => s + Number(x.hitting?.sacFlies ?? 0), 0)
-    const tb  = chrono.reduce((s, x) => {
-      const hx = x.hitting; if (!hx) return s
-      return s + Number(hx.hits ?? 0) + Number(hx.doubles ?? 0) + 2*Number(hx.triples ?? 0) + 3*Number(hx.homeRuns ?? 0)
-    }, 0)
-    const denom = ab + bb + hbp + sf
-    if (denom === 0) return null
-    return (h + bb + hbp) / denom + (ab > 0 ? tb / ab : 0)
-  })()
-
   const label     = isPitcher ? 'ERA' : 'OPS'
   const lowerBetter = isPitcher
   const fmt       = isPitcher ? (v: number) => v.toFixed(2) : (v: number) => fmtR(v, 3)
@@ -192,10 +197,10 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
   const n = pts.length
 
   const vals = pts.map(p => p.value)
-  const allVals = seasonAvg != null ? [...vals, seasonAvg] : vals
+  const allVals = leagueAvg != null ? [...vals, leagueAvg] : vals
   const lo = Math.min(...allVals), hi = Math.max(...allVals)
   const rng = hi - lo || 0.1
-  const yPad = rng * 0.35
+  const yPad = rng * 0.28
   const yMin = Math.max(0, lo - yPad), yMax = hi + yPad
 
   const sx = (i: number) => m.l + (n <= 1 ? iW / 2 : (i / (n - 1)) * iW)
@@ -209,19 +214,19 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
   const xLabelCount = Math.min(6, n)
   const xLabelIdxs  = Array.from({ length: xLabelCount }, (_, k) => Math.round(k * (n - 1) / Math.max(1, xLabelCount - 1)))
 
-  // Y ticks
+  // Y ticks — pick the step from a candidate list that gives ~6 lines
   const yTicks = (() => {
     if (yMin >= yMax) return [yMin]
-    const r2 = yMax - yMin
-    const roughStep = r2 / 3
-    const mag = Math.pow(10, Math.floor(Math.log10(roughStep)))
-    const norm = roughStep / mag
-    const step = norm <= 1 ? mag : norm <= 2 ? 2*mag : norm <= 5 ? 5*mag : 10*mag
-    const tlo = Math.ceil(yMin  / step - 1e-9) * step
-    const thi = Math.floor(yMax / step + 1e-9) * step
-    const cnt = Math.round((thi - tlo) / step)
+    const range = yMax - yMin
+    const steps = [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 25, 50, 100]
+    const step = steps.reduce((best, s) =>
+      Math.abs(range / s - 6) < Math.abs(range / best - 6) ? s : best
+    )
+    const lo2 = Math.ceil(yMin / step - 1e-9) * step
     const ticks: number[] = []
-    for (let i = 0; i <= cnt; i++) ticks.push(parseFloat((tlo + i * step).toPrecision(12)))
+    for (let v = lo2; v <= yMax + 1e-9; v = parseFloat((v + step).toPrecision(10))) {
+      ticks.push(parseFloat(v.toPrecision(10)))
+    }
     return ticks.length ? ticks : [yMin, yMax]
   })()
 
@@ -273,13 +278,13 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
             {fmt(currentPt.value)}
           </Typography>
         </Box>
-        {seasonAvg != null && (
+        {leagueAvg != null && (
           <Box>
             <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>
-              Season {label}
+              League {label}
             </Typography>
             <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>
-              {fmt(seasonAvg)}
+              {fmt(leagueAvg)}
             </Typography>
           </Box>
         )}
@@ -321,14 +326,14 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
           {/* Fill */}
           <path d={fillPath} fill={`url(#${gradId})`} />
 
-          {/* Season avg dashed line */}
-          {seasonAvg != null && (() => {
-            const y = sy(seasonAvg)
+          {/* League avg dashed line */}
+          {leagueAvg != null && (() => {
+            const y = sy(leagueAvg)
             return (
               <>
                 <line x1={m.l} y1={y} x2={m.l + iW} y2={y} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} />
                 <text x={m.l + 5} y={y - 5} fill="#f59e0b" fillOpacity={0.75} fontSize={9.5} fontWeight={700}>
-                  season avg {fmt(seasonAvg)}
+                  lg avg {fmt(leagueAvg)}
                 </text>
               </>
             )
