@@ -264,8 +264,9 @@ export function StatGrid({ defs, stats, selected, palette, rankMode, playerId, l
             sx={{
               width: `${100 / cols}%`, pb: 2,
               cursor: onToggle ? 'pointer' : 'default',
-              transition: 'opacity 0.15s',
-              '&:hover': onToggle ? { opacity: 0.6 } : {},
+              transition: 'background 0.15s',
+              borderRadius: 2,
+              '&:hover': onToggle ? { bgcolor: 'action.hover' } : {},
             }}
           >
             <StatItem

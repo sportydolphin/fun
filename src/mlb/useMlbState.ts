@@ -73,6 +73,10 @@ export function useMlbState() {
   const [teamSummaries, setTeamSummaries] = useState<TeamSummary[]>([])
   const [loadingViz, setLoadingViz] = useState(false)
 
+  // ─── Stats-table highlight (set when navigating from a player-card stat) ─────
+  const [statsHighlightPlayerId, setStatsHighlightPlayerId] = useState<number | null>(null)
+  const [statsHighlightStatKey,  setStatsHighlightStatKey]  = useState<string | null>(null)
+
   // ─── Leaderboard ─────────────────────────────────────────────────────────────
   const [lbGroup, setLbGroup] = useState<'hitting' | 'pitching'>('hitting')
   const [lbData, setLbData] = useState<Array<{ playerId: number; playerName: string; teamAbbr: string; teamId: number; stat: any }> | null>(null)
@@ -295,6 +299,19 @@ export function useMlbState() {
     else if (team) loadTeamStats(team, s, false)
   }, [player, team, loadStats, loadTeamStats])
 
+  const handleStatCardClick = useCallback((statKey: string, group: 'hitting' | 'pitching') => {
+    const defs = group === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS
+    const def  = defs.find(d => d.key === statKey) ?? defs[0]
+    setView('stats')
+    setLbGroup(group)
+    setVizSeason(season)
+    setLbFullscreen({ def, group, sortKey: statKey, sortAsc: def.lowerIsBetter ?? false, entries: [] })
+    setLbQualified(false)
+    setLbStatsLimit(500)
+    setStatsHighlightPlayerId(player?.id ?? null)
+    setStatsHighlightStatKey(statKey)
+  }, [player, season])
+
   const handleVizNavigate = useCallback((id: number) => {
     const t = allTeams.find(t => t.id === id)
     if (!t) return
@@ -495,7 +512,8 @@ export function useMlbState() {
     palette, season: statsView === 'career' ? 'Career' : season,
     teamDisplay, rankMode, showPosition, showTeam, showAge, showNumber,
     selectedHitStats, selectedPitStats,
-    onToggleHitStat: toggleHitStat, onTogglePitStat: togglePitStat,
+    onToggleHitStat: statsView === 'season' ? (key: string) => handleStatCardClick(key, 'hitting') : undefined,
+    onTogglePitStat: statsView === 'season' ? (key: string) => handleStatCardClick(key, 'pitching') : undefined,
   } : null
 
   const teamCardProps: TeamCardInnerProps | null = team ? {
@@ -576,5 +594,9 @@ export function useMlbState() {
     nameMap,
     playerCardProps, teamCardProps,
     handleSeasonChange,
+
+    // Stats-table highlight
+    statsHighlightPlayerId, setStatsHighlightPlayerId,
+    statsHighlightStatKey, setStatsHighlightStatKey,
   }
 }

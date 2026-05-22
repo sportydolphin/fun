@@ -89,6 +89,10 @@ export default function MlbStats() {
           isDesktop={isDesktop}
           canHover={canHover}
           handleLbPlayerClick={state.handleLbPlayerClick}
+          highlightPlayerId={state.statsHighlightPlayerId}
+          highlightStatKey={state.statsHighlightStatKey}
+          setHighlightPlayerId={state.setStatsHighlightPlayerId}
+          setHighlightStatKey={state.setStatsHighlightStatKey}
         />
       )}
 

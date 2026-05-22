@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import { Box, Typography, Paper, CircularProgress } from '@mui/material'
 import { LbFullscreenState } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED } from '../constants'
@@ -19,6 +19,10 @@ export interface StatsViewProps {
   isDesktop: boolean
   canHover: boolean
   handleLbPlayerClick: (playerId: number) => void
+  highlightPlayerId?: number | null
+  highlightStatKey?: string | null
+  setHighlightPlayerId?: (id: number | null) => void
+  setHighlightStatKey?: (key: string | null) => void
 }
 
 export function StatsView({
@@ -27,7 +31,21 @@ export function StatsView({
   lbStatsLimit, setLbStatsLimit,
   lbQualified, setLbQualified,
   isDesktop, canHover, handleLbPlayerClick,
+  highlightPlayerId, highlightStatKey,
+  setHighlightPlayerId, setHighlightStatKey,
 }: StatsViewProps) {
+  const highlightRowRef = useRef<HTMLElement | null>(null)
+
+  // Scroll the highlighted row into view whenever it changes or data loads
+  useEffect(() => {
+    if (!highlightPlayerId) return
+    const timer = setTimeout(() => {
+      if (highlightRowRef.current) {
+        highlightRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 120)
+    return () => clearTimeout(timer)
+  }, [highlightPlayerId, lbData])
   const statDefs = lbGroup === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS
   const sortKey   = lbFullscreen?.sortKey   ?? LB_FEATURED[lbGroup][0]
   const sortAsc   = lbFullscreen?.sortAsc   ?? (statDefs.find(d => d.key === sortKey)?.lowerIsBetter ?? false)
@@ -84,6 +102,9 @@ export function StatsView({
       ? { ...prev, sortKey: def.key, sortAsc: newAsc }
       : { def: activeDef, group: lbGroup, sortKey: def.key, sortAsc: newAsc, entries: [] }
     )
+    // Clear card-stat highlight when user manually re-sorts
+    setHighlightPlayerId?.(null)
+    setHighlightStatKey?.(null)
   }
 
   const naturalAsc = activeDef.lowerIsBetter ?? false
@@ -212,24 +233,29 @@ export function StatsView({
                 {sortedEntries.map((e) => {
                   const stat = e.stat
                   const leagueRank = leagueRankMap.get(e.playerId) ?? 0
+                  const isHighlighted = e.playerId === highlightPlayerId
                   return (
                     <Box component="tr" key={e.playerId}
+                      ref={isHighlighted ? (el: HTMLElement | null) => { highlightRowRef.current = el } : undefined}
                       onClick={() => handleLbPlayerClick(e.playerId)}
                       sx={{
                         cursor: 'pointer',
-                        '&:hover > td': { bgcolor: `${ACCENT}0e` },
+                        bgcolor: isHighlighted ? `${ACCENT}10` : undefined,
+                        '&:hover > td, &:hover > th': { bgcolor: isHighlighted ? `${ACCENT}18` : `${ACCENT}0e` },
+                        transition: 'background 0.2s',
                       }}
                     >
                       {/* Sticky player cell */}
                       <Box component="th" sx={{
                         ...stTdSx, textAlign: 'left',
                         position: 'sticky', left: 0, zIndex: 2,
-                        bgcolor: 'background.paper', fontWeight: 'normal',
+                        bgcolor: isHighlighted ? `${ACCENT}10` : 'background.paper',
+                        fontWeight: 'normal',
                         pl: isDesktop ? '16px' : '8px',
-                        borderRight: '1px solid',
-                        borderColor: 'divider',
+                        borderRight: isHighlighted ? `2px solid ${ACCENT}` : '1px solid',
+                        borderColor: isHighlighted ? ACCENT : 'divider',
                         pr: isDesktop ? '12px' : '8px',
-                        'tr:hover > &': { bgcolor: 'action.hover' },
+                        'tr:hover > &': { bgcolor: isHighlighted ? `${ACCENT}18` : 'action.hover' },
                       }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: isDesktop ? 1 : 0.6 }}>
                           <Typography sx={{
@@ -260,15 +286,18 @@ export function StatsView({
 
                       {/* Stat value cells */}
                       {statDefs.map(def => {
-                        const isActive = def.key === sortKey
+                        const isActive   = def.key === sortKey
+                        const isFocused  = isHighlighted && def.key === highlightStatKey
                         const val = def.format(def.getValue(stat))
                         return (
                           <Box component="td" key={def.key} sx={{
                             ...stTdSx, textAlign: 'right',
-                            bgcolor: isActive ? `${ACCENT}08` : undefined,
-                            fontSize: isActive ? '0.88rem' : '0.78rem',
-                            fontWeight: isActive ? 800 : 400,
-                            color: isActive ? ACCENT : 'text.primary',
+                            bgcolor: isFocused ? `${ACCENT}28` : isActive ? `${ACCENT}08` : undefined,
+                            fontSize: isActive || isFocused ? '0.88rem' : '0.78rem',
+                            fontWeight: isActive || isFocused ? 800 : 400,
+                            color: isFocused ? ACCENT : isActive ? ACCENT : 'text.primary',
+                            outline: isFocused ? `2px solid ${ACCENT}60` : undefined,
+                            outlineOffset: '-2px',
                           }}>
                             {val}
                           </Box>
