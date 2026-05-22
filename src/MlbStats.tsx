@@ -430,11 +430,32 @@ export default function MlbStats() {
     window.history.replaceState({}, '', `/mlb${qs ? '?' + qs : ''}`)
   }, [view, player, team, lbGroup, vizSeason])
 
-  // Restore state when the browser back button is pressed (e.g. leaderboard → player → back)
+  // Restore state when the browser back button is pressed
   useEffect(() => {
     const handlePop = () => {
       const params = new URLSearchParams(window.location.search)
       const viewParam = params.get('view')
+      const tid = params.get('tid')
+      const pid = params.get('pid')
+
+      if (tid) {
+        // Back to a team card (e.g. after clicking a featured player)
+        const t = allTeams.find(t => t.id === Number(tid))
+        if (t) {
+          blockDropdownRef.current = true
+          setQuery(t.name)
+          setView('search')
+          selectTeam(t)
+        }
+        return
+      }
+      if (pid) {
+        // Back to a player card
+        fetchPlayerDetails(Number(pid))
+          .then(p => { if (p) selectPlayer(p) })
+          .catch(() => {})
+        return
+      }
       if (viewParam === 'leaderboard') {
         setView('leaderboard')
         setPlayer(null)
@@ -457,7 +478,7 @@ export default function MlbStats() {
     }
     window.addEventListener('popstate', handlePop)
     return () => window.removeEventListener('popstate', handlePop)
-  }, [])
+  }, [allTeams, selectTeam, selectPlayer])
 
   useEffect(() => {
     if (autoLoadedRef.current) return
@@ -1518,10 +1539,14 @@ export default function MlbStats() {
                           width: 48, height: 48, borderRadius: 1.5, flexShrink: 0,
                           bgcolor: TEAM_BG[t.id] ?? 'grey.700',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          overflow: 'hidden',
                         }}>
-                          <Typography sx={{ color: '#fff', fontWeight: 900, fontSize: abbr.length > 2 ? '0.65rem' : '0.8rem', letterSpacing: '-0.5px' }}>
-                            {abbr}
-                          </Typography>
+                          <Box
+                            component="img"
+                            src={`https://www.mlbstatic.com/team-logos/team-cap-on-dark/${t.id}.svg`}
+                            alt={t.abbreviation}
+                            sx={{ width: 32, height: 32, objectFit: 'contain', display: 'block' }}
+                          />
                         </Box>
                         <Box>
                           <Typography sx={{ fontWeight: 600, fontSize: '0.9rem', lineHeight: 1.2 }}>{t.name}</Typography>
@@ -1802,6 +1827,10 @@ export default function MlbStats() {
                       hitLeaders={featuredHitLeaders}
                       pitLeaders={featuredPitLeaders}
                       onClick={() => {
+                        // Push the team URL so the browser back button returns here
+                        const params = new URLSearchParams()
+                        params.set('tid', String(team.id))
+                        window.history.pushState({}, '', `/mlb?${params.toString()}`)
                         fetchPlayerDetails(p.playerId)
                           .then(details => { if (details) selectPlayer(details) })
                           .catch(() => {})

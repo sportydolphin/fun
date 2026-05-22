@@ -545,12 +545,6 @@ export function FeaturedMiniCard({
   const leaders = entry.isPitcher ? pitLeaders : hitLeaders
   const statDefs = pickMiniStats(entry.playerId, entry.isPitcher, isCloser, defs, leaders)
 
-  // Abbreviated name: "F. Last Name"
-  const parts = entry.playerName.trim().split(/\s+/)
-  const shortName = parts.length > 1
-    ? `${parts[0][0]}. ${parts.slice(1).join(' ')}`
-    : entry.playerName
-
   const teamColor = TEAM_BG[teamId] ?? ACCENT
 
   return (
@@ -569,27 +563,28 @@ export function FeaturedMiniCard({
       <Box sx={{ width: '100%', height: 3, bgcolor: teamColor, flexShrink: 0 }} />
 
       <Box sx={{ px: 1.25, pt: 1.5, pb: 1.5, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        {/* Headshot */}
+        {/* Headshot — portrait rectangle so the full face fits */}
         <Box sx={{
-          width: 52, height: 52, borderRadius: '50%', overflow: 'hidden',
+          width: 64, height: 78, borderRadius: 2, overflow: 'hidden',
           border: `2px solid ${teamColor}`, bgcolor: 'action.hover',
-          flexShrink: 0, mb: 1,
+          flexShrink: 0, mb: 1, mx: 'auto',
         }}>
           <Box
             component="img"
             src={HEADSHOT(entry.playerId)}
             alt={entry.playerName}
-            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }}
+            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%', display: 'block' }}
           />
         </Box>
 
-        {/* Name */}
+        {/* Full name — wraps to 2 lines for long names */}
         <Typography sx={{
-          fontWeight: 700, fontSize: '0.76rem', lineHeight: 1.2,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          width: '100%', textAlign: 'center', mb: 0.2,
+          fontWeight: 700, fontSize: '0.76rem', lineHeight: 1.25,
+          textAlign: 'center', mb: 0.25, px: 0.5,
+          display: '-webkit-box', WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical', overflow: 'hidden',
         }}>
-          {shortName}
+          {entry.playerName}
         </Typography>
 
         {/* Position badge */}
