@@ -950,12 +950,19 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
               zIndex: 10,
             }}>
               <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1 }}>{hov.season}</Typography>
-              {hov.teamAbbr && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.3 }}>
-                  {hov.teamId && <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: TEAM_BG[hov.teamId] ?? 'grey.500', flexShrink: 0 }} />}
-                  <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>{hov.teamAbbr}</Typography>
-                </Box>
-              )}
+              {hov.teamAbbr && (() => {
+                const traded = hov.teamAbbr.includes('/')
+                return (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.3 }}>
+                    {!traded && hov.teamId && (
+                      <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: TEAM_BG[hov.teamId] ?? 'grey.500', flexShrink: 0 }} />
+                    )}
+                    <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', fontStyle: traded ? 'italic' : 'normal' }}>
+                      {hov.teamAbbr}
+                    </Typography>
+                  </Box>
+                )
+              })()}
               {hov.isPace ? (
                 <>
                   <Typography sx={{ fontWeight: 800, fontSize: '1.05rem', color: ACCENT, mt: 0.25, lineHeight: 1 }}>

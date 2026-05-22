@@ -236,9 +236,10 @@ export async function fetchPlayerCareerStats(id: number, groups: Array<'hitting'
     groups.map(async group => ({ group, splits: await fetchYearByYearSplits(id, group) }))
   )
 
-  const bySeasonHit = new Map<number, any>()
-  const bySeasonPit = new Map<number, any>()
-  const bySeasonTeam = new Map<number, { id: number | null; abbr: string | null }>()
+  const bySeasonHit     = new Map<number, any>()
+  const bySeasonPit     = new Map<number, any>()
+  const bySeasonTeamId  = new Map<number, number | null>()    // primary team (most games) for dot color
+  const bySeasonAbbrs   = new Map<number, string[]>()         // all teams in chronological API order
 
   for (const { group, splits } of results) {
     const seasonMap = new Map<number, any[]>()
@@ -249,30 +250,38 @@ export async function fetchPlayerCareerStats(id: number, groups: Array<'hitting'
       seasonMap.get(s)!.push(split)
     }
     for (const [season, seasonSplits] of seasonMap) {
-      // Pick the split with the most games (handles traded players — biggest sample = combined/primary)
+      // Collect all unique real-team abbreviations (API order = chronological)
+      if (!bySeasonAbbrs.has(season)) {
+        const abbrs: string[] = []
+        for (const sp of seasonSplits) {
+          const abbr = sp.team?.id ? (TEAM_ABBR[sp.team.id] ?? sp.team?.abbreviation ?? null) : null
+          if (abbr && !abbrs.includes(abbr)) abbrs.push(abbr)
+        }
+        bySeasonAbbrs.set(season, abbrs)
+      }
+
+      // Pick the split with the most games for the stat value (and primary team color)
       const best = seasonSplits.reduce((a, b) =>
         (Number(b.stat?.gamesPlayed ?? b.stat?.gamesStarted ?? 0) >
          Number(a.stat?.gamesPlayed ?? a.stat?.gamesStarted ?? 0)) ? b : a
       )
-      if (!bySeasonTeam.has(season)) {
-        bySeasonTeam.set(season, {
-          id: best.team?.id ?? null,
-          abbr: (best.team?.id ? TEAM_ABBR[best.team.id] : null) ?? best.team?.abbreviation ?? null,
-        })
-      }
+      if (!bySeasonTeamId.has(season)) bySeasonTeamId.set(season, best.team?.id ?? null)
       if (group === 'hitting') bySeasonHit.set(season, best.stat)
       else bySeasonPit.set(season, best.stat)
     }
   }
 
   const allSeasons = [...new Set([...bySeasonHit.keys(), ...bySeasonPit.keys()])].sort((a, b) => a - b)
-  return allSeasons.map(season => ({
-    season,
-    teamId: bySeasonTeam.get(season)?.id ?? null,
-    teamAbbr: bySeasonTeam.get(season)?.abbr ?? null,
-    hitting: bySeasonHit.get(season) ?? null,
-    pitching: bySeasonPit.get(season) ?? null,
-  }))
+  return allSeasons.map(season => {
+    const abbrs = bySeasonAbbrs.get(season) ?? []
+    return {
+      season,
+      teamId:   bySeasonTeamId.get(season) ?? null,
+      teamAbbr: abbrs.length > 0 ? abbrs.join('/') : null,
+      hitting:  bySeasonHit.get(season) ?? null,
+      pitching: bySeasonPit.get(season) ?? null,
+    }
+  })
 }
 
 // ─── Team featured players ────────────────────────────────────────────────────
