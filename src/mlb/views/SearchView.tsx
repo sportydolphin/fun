@@ -1,4 +1,4 @@
-import React, { useRef } from 'react'
+import React, { useRef, useEffect } from 'react'
 import {
   Box, Typography, Paper, CircularProgress,
   List, ListItemButton, Divider, ClickAwayListener,
@@ -12,6 +12,7 @@ import { SegControl, PillChip, pillActionSx, linkPillSx, SectionLabel } from '..
 import { CardInner, CardInnerProps, TeamCardInner, TeamCardInnerProps, FeaturedMiniCard } from '../cards'
 import { PlayerTrendsChart } from '../PlayerTrendsChart'
 import { RecentGamesTable } from '../RecentGamesTable'
+import { CareerStatsTable } from '../CareerStatsTable'
 import { fetchPlayerDetails } from '../api'
 
 export interface SearchViewProps {
@@ -123,6 +124,11 @@ export function SearchView({
   const [exportAnchor, setExportAnchor] = React.useState<HTMLElement | null>(null)
   const [downloading, setDownloading] = React.useState(false)
   const [cardOptionsAnchor, setCardOptionsAnchor] = React.useState<HTMLElement | null>(null)
+  const [highlightedCareerYear, setHighlightedCareerYear] = React.useState<number | null>(null)
+  const [careerTableOpen, setCareerTableOpen] = React.useState(true)
+
+  // Reset career highlight when player changes
+  useEffect(() => { setHighlightedCareerYear(null) }, [player?.id])
 
   const handleDownload = async (mode: 'centered' | 'tiktok') => {
     if (!cardRef.current) return
@@ -558,12 +564,44 @@ export function SearchView({
                     season={season}
                     chartMode={statsView === 'season' ? 'rolling' : 'career'}
                     onGameSelect={date => setHighlightedGameDate(d => d === date ? null : date)}
+                    onYearSelect={statsView === 'career' ? (s => setHighlightedCareerYear(y => y === s ? null : s)) : undefined}
                   />
                 </Box>
               )}
 
-              {/* Recent Games — directly below chart, collapsible */}
-              {player && (loadingRecent || recentGames.length > 0) && (
+              {/* Career Year-by-Year — shown when in career mode */}
+              {player && statsView === 'career' && (careerSplits?.length ?? 0) > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Box
+                    onClick={() => setCareerTableOpen(o => !o)}
+                    sx={{
+                      mb: careerTableOpen ? 1.25 : 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      cursor: 'pointer', userSelect: 'none',
+                      '&:hover .ct-chevron': { color: 'text.primary' },
+                    }}
+                  >
+                    <SectionLabel>Year by Year</SectionLabel>
+                    <Box className="ct-chevron" sx={{
+                      fontSize: '0.75rem', color: 'text.disabled',
+                      transition: 'transform 0.18s, color 0.15s',
+                      transform: careerTableOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+                    }}>▾</Box>
+                  </Box>
+
+                  {careerTableOpen && (
+                    <CareerStatsTable
+                      splits={careerSplits!}
+                      isPitcher={player.primaryPosition?.code === '1'}
+                      isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
+                      highlightYear={highlightedCareerYear}
+                    />
+                  )}
+                </Box>
+              )}
+
+              {/* Recent Games — shown when in season mode */}
+              {player && statsView === 'season' && (loadingRecent || recentGames.length > 0) && (
                 <Box sx={{ mt: 2 }}>
                   <Box
                     onClick={() => setRecentGamesOpen(o => !o)}
@@ -633,8 +671,38 @@ export function SearchView({
         </Box>
       )}
 
-      {/* Recent games fallback — player only, when Trends column not shown */}
-      {hasStats && player && !showTrends && (loadingRecent || recentGames.length > 0) && (
+      {/* Career year-by-year fallback — player only, when Trends column not shown and career mode */}
+      {hasStats && player && !showTrends && statsView === 'career' && (careerSplits?.length ?? 0) > 0 && (
+        <Box sx={{ mb: 2 }}>
+          <Box
+            onClick={() => setCareerTableOpen(o => !o)}
+            sx={{
+              mb: careerTableOpen ? 1.25 : 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'pointer', userSelect: 'none',
+              '&:hover .ct-chevron': { color: 'text.primary' },
+            }}
+          >
+            <SectionLabel>Year by Year</SectionLabel>
+            <Box className="ct-chevron" sx={{
+              fontSize: '0.75rem', color: 'text.disabled',
+              transition: 'transform 0.18s, color 0.15s',
+              transform: careerTableOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+            }}>▾</Box>
+          </Box>
+          {careerTableOpen && (
+            <CareerStatsTable
+              splits={careerSplits!}
+              isPitcher={player.primaryPosition?.code === '1'}
+              isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
+              highlightYear={highlightedCareerYear}
+            />
+          )}
+        </Box>
+      )}
+
+      {/* Recent games fallback — player only, when Trends column not shown and season mode */}
+      {hasStats && player && !showTrends && statsView === 'season' && (loadingRecent || recentGames.length > 0) && (
         <Box sx={{ mb: 2 }}>
           <Box
             onClick={() => setRecentGamesOpen(o => !o)}

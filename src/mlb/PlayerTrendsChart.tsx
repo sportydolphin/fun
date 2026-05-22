@@ -428,7 +428,7 @@ const trendSelSx: React.CSSProperties = {
   color: 'inherit', padding: '4px 10px', borderRadius: 999, fontFamily: 'inherit',
 }
 
-export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season, chartMode, onGameSelect }: {
+export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season, chartMode, onGameSelect, onYearSelect }: {
   splits: CareerStatSplit[]
   isPitcher: boolean
   isTwoWay: boolean
@@ -436,6 +436,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   season: number
   chartMode: 'career' | 'rolling'
   onGameSelect?: (date: string) => void
+  onYearSelect?: (season: number) => void
 }) {
   const initGroup: 'hitting' | 'pitching' = (isPitcher && !isTwoWay) ? 'pitching' : 'hitting'
   const [group, setGroup] = useState<'hitting' | 'pitching'>(initGroup)
@@ -445,6 +446,11 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   const rafRef = useRef<number | null>(null)
   const [hovIdx, setHovIdx] = useState<number | null>(null)
   const [tipPos, setTipPos] = useState({ x: 0, y: 0 })
+  // Refs for career-chart year selection via touch
+  const onYearSelectRef = useRef(onYearSelect)
+  useEffect(() => { onYearSelectRef.current = onYearSelect }, [onYearSelect])
+  const careerHovIdxRef = useRef<number | null>(null)
+  const currentFptsRef  = useRef<Array<{ season: number }>>([]) // kept in sync before SVG render
   const [rangeStart, setRangeStart] = useState<number | null>(null)
   const [rangeEnd, setRangeEnd] = useState<number | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -502,10 +508,19 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
       const relX = ((touch.clientX - rect.left) / rect.width) * W_SVG - M_L
       const frac = Math.max(0, Math.min(1, relX / IW))
       // n captured at effect time via closure; effect re-runs whenever n changes
-      setHovIdx(Math.round(frac * (currentN.current - 1)))
+      const idx = Math.round(frac * (currentN.current - 1))
+      careerHovIdxRef.current = idx
+      setHovIdx(idx)
       setTipPos({ x: (touch.clientX - rect.left) / rect.width * 100, y: (touch.clientY - rect.top) / rect.height * 100 })
     }
-    const handleTouchEnd = () => setHovIdx(null)
+    const handleTouchEnd = () => {
+      if (careerHovIdxRef.current != null) {
+        const sel = currentFptsRef.current[careerHovIdxRef.current]
+        if (sel) onYearSelectRef.current?.(sel.season)
+      }
+      careerHovIdxRef.current = null
+      setHovIdx(null)
+    }
     svg.addEventListener('touchstart', handleTouch, { passive: false })
     svg.addEventListener('touchmove',  handleTouch, { passive: false })
     svg.addEventListener('touchend',   handleTouchEnd)
@@ -601,7 +616,8 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   const m = { t: 24, r: 18, b: 34, l: 46 }
   const iW = W - m.l - m.r, iH = H - m.t - m.b
   const n = fpts.length
-  currentN.current = n   // keep touch handler in sync without re-registering
+  currentN.current = n        // keep touch handler in sync without re-registering
+  currentFptsRef.current = fpts  // keep year-select touch handler in sync
 
   const vals = fpts.map(p => p.value)
   const leagueValsInRange = fpts.map(p => leagueAvgPts.get(p.season)).filter((v): v is number => v != null)
@@ -807,8 +823,16 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
 
       {/* Chart */}
       <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
-        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}
+        <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block', cursor: onYearSelect ? 'pointer' : 'default' }}
           onMouseMove={handleMouseMove}
+          onClick={onYearSelect ? ((e: React.MouseEvent<SVGSVGElement>) => {
+            if (!boxRef.current) return
+            const rect = boxRef.current.getBoundingClientRect()
+            const relX = ((e.clientX - rect.left) / rect.width) * W - m.l
+            const frac = Math.max(0, Math.min(1, relX / iW))
+            const idx  = Math.round(frac * (n - 1))
+            if (fpts[idx]) onYearSelect(fpts[idx].season)
+          }) : undefined}
           onMouseLeave={() => {
             if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
             setHovIdx(null)
