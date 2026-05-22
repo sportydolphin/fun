@@ -349,12 +349,12 @@ export function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pit
       <StatGrid
         defs={HITTING_STAT_DEFS} stats={hittingStats} selected={selectedHitStats}
         palette={palette} rankMode={rankMode} playerId={player.id} leaders={hitLeaders}
-        season={season} label="Hitting" large={large} onToggle={onToggleHitStat}
+        season={season} label="Hitting" large={large}
       />
       <StatGrid
         defs={PITCHING_STAT_DEFS} stats={pitchingStats} selected={effectivePitStats}
         palette={palette} rankMode={rankMode} playerId={player.id} leaders={pitLeaders}
-        season={season} label="Pitching" large={large} onToggle={onTogglePitStat}
+        season={season} label="Pitching" large={large}
         mt={hasHitting ? 1 : 0}
       />
     </>

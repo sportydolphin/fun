@@ -239,10 +239,20 @@ function buildWCList(divisions: StandingsDivision[], leagueId: number): WCTeam[]
     .filter(d => d.leagueId === leagueId)
     .flatMap(d => d.teams.filter(t => t.divisionRank !== 1))
     .sort((a, b) => b.wins - a.wins || a.losses - b.losses)
-  const lastWC = nonLeaders[2]
+  const lastWC = nonLeaders[2] // team on the bubble (3rd WC spot = cutoff line)
   return nonLeaders.map((t, i) => {
     const inSpot = i < 3
-    if (inSpot) return { team: t, wcGB: '-', inSpot }
+    if (inSpot) {
+      // WC #1 and #2: show how many games ahead of the cutoff they are
+      if (i < 2 && lastWC) {
+        const ahead = ((t.wins - lastWC.wins) + (lastWC.losses - t.losses)) / 2
+        const wcGB = ahead > 0 ? `+${ahead.toFixed(1).replace(/\.0$/, '')}` : '-'
+        return { team: t, wcGB, inSpot }
+      }
+      // WC #3: they ARE the cutoff line
+      return { team: t, wcGB: '-', inSpot }
+    }
+    // Out of WC: show games behind the cutoff
     const diff = lastWC ? ((lastWC.wins - lastWC.losses) - (t.wins - t.losses)) / 2 : 0
     const gb = diff > 0 ? `-${diff.toFixed(1).replace(/\.0$/, '')}` : '-'
     return { team: t, wcGB: gb, inSpot }
@@ -286,7 +296,7 @@ function PlayoffTeamRow({ team, label, gb, isIn, isLast, showSep, onTeamClick }:
           {team.pct}
         </Typography>
         {/* Badge or GB */}
-        <Box sx={{ minWidth: 40, textAlign: 'right' }}>
+        <Box sx={{ minWidth: 60, textAlign: 'right' }}>
           {label ?? (
             <Typography sx={{ fontSize: '0.75rem', color: 'text.disabled', fontWeight: 600 }}>{gb}</Typography>
           )}
@@ -310,7 +320,7 @@ const ColHeaders = () => (
       <Typography key={i} sx={{
         fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase',
         letterSpacing: 0.5, color: 'text.disabled', textAlign: 'right',
-        minWidth: i === 0 ? 44 : i === 1 ? 34 : i === 2 ? 40 : 26,
+        minWidth: i === 0 ? 44 : i === 1 ? 34 : i === 2 ? 60 : 26,
         display: i === 1 ? { xs: 'none', sm: 'block' } : 'block',
       }}>{h}</Typography>
     ))}
@@ -363,17 +373,33 @@ function PlayoffLeagueCard({ label, divisions, leagueId, onTeamClick }: {
           Wild Card Race
         </Typography>
       </Box>
-      {wcList.map((wc, i) => (
-        <PlayoffTeamRow
-          key={wc.team.teamId} team={wc.team}
-          label={wc.inSpot ? WC_BADGE : undefined}
-          gb={wc.inSpot ? undefined : wc.wcGB}
-          isIn={wc.inSpot}
-          isLast={i === wcList.length - 1}
-          showSep={i === lastInIdx && lastInIdx < wcList.length - 1}
-          onTeamClick={onTeamClick}
-        />
-      ))}
+      {wcList.map((wc, i) => {
+        let rowLabel: React.ReactNode
+        if (wc.inSpot) {
+          if (i < 2 && wc.wcGB !== '-') {
+            // Show WC badge + games-ahead value for spots 1 & 2
+            rowLabel = (
+              <Box sx={{ display: 'inline-flex', gap: 0.5, alignItems: 'center', justifyContent: 'flex-end' }}>
+                {WC_BADGE}
+                <Typography sx={{ fontSize: '0.72rem', color: '#22c55e', fontWeight: 700 }}>{wc.wcGB}</Typography>
+              </Box>
+            )
+          } else {
+            rowLabel = WC_BADGE
+          }
+        }
+        return (
+          <PlayoffTeamRow
+            key={wc.team.teamId} team={wc.team}
+            label={rowLabel}
+            gb={wc.inSpot ? undefined : wc.wcGB}
+            isIn={wc.inSpot}
+            isLast={i === wcList.length - 1}
+            showSep={i === lastInIdx && lastInIdx < wcList.length - 1}
+            onTeamClick={onTeamClick}
+          />
+        )
+      })}
     </Box>
   )
 }
