@@ -352,6 +352,7 @@ export async function fetchTeamStanding(teamId: number, season: number): Promise
         divisionName: div.divisionName,
         gamesBack: t.gamesBack,
         wcGamesBack: t.wcGamesBack,
+        wcRank: t.wcRank,
         divisionLeader: t.divisionLeader,
       }
     }
@@ -385,6 +386,7 @@ export async function fetchStandings(season: number): Promise<StandingsDivision[
         pct: t.winningPercentage ?? '.000',
         gamesBack: t.gamesBack ?? '-',
         wcGamesBack: t.wildCardGamesBack ?? '-',
+        wcRank: Number(t.wildCardRank ?? 0),
         divisionRank: Number(t.divisionRank ?? 0),
         streakCode: t.streak?.streakCode ?? '',
         lastTen,

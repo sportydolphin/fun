@@ -95,6 +95,7 @@ export interface StandingsTeamRecord {
   pct: string        // e.g. ".571"
   gamesBack: string  // "-" for leader
   wcGamesBack: string
+  wcRank: number      // 1–3 = holds a WC spot; 0 = not applicable
   divisionRank: number
   streakCode: string // "W3" or "L2"
   lastTen: string    // "8-2"
@@ -131,6 +132,7 @@ export interface TeamStandingInfo {
   divisionName: string
   gamesBack: string    // "-" when leading
   wcGamesBack: string  // "-" when leading or division leader
+  wcRank: number       // 1–3 = holds a WC spot; 0 = not applicable
   divisionLeader: boolean
 }
 

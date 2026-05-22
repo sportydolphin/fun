@@ -157,9 +157,19 @@ export function StatItem({ label, value, playerId, leaderCategory, leaders, pale
       }}>
         {value}
       </Typography>
-      <Typography sx={{ color: palette.rank, fontSize: '0.63rem', fontWeight: 700, mt: 0.4, height: '1rem', letterSpacing: 0.5 }}>
-        {badge}
-      </Typography>
+      <Box sx={{ mt: 0.5, minHeight: '1.3rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {badge ? (
+          <Box sx={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            bgcolor: `${palette.rank}22`, borderRadius: 0.75,
+            px: 0.75, py: 0.15,
+          }}>
+            <Typography sx={{ color: palette.rank, fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.4, lineHeight: 1.4 }}>
+              {badge}
+            </Typography>
+          </Box>
+        ) : null}
+      </Box>
     </Box>
   )
 }

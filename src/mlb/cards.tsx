@@ -143,7 +143,9 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
     ? [
         `${ordinal(standing.divisionRank)} in ${standing.divisionName}`,
         !standing.divisionLeader && standing.gamesBack !== '-' ? `${standing.gamesBack} GB` : null,
-        !standing.divisionLeader && standing.wcGamesBack !== '-' ? `WC: ${standing.wcGamesBack}` : null,
+        !standing.divisionLeader && standing.wcRank >= 1 && standing.wcRank <= 3
+          ? `WC #${standing.wcRank}${standing.wcGamesBack !== '-' ? ` · ${standing.wcGamesBack} GB` : ''}`
+          : null,
       ].filter(Boolean).join(' · ')
     : null
 
@@ -180,16 +182,15 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
           }}>
             {team.name}
           </Typography>
-          {subtitle && (
-            <Typography sx={{ textAlign: 'center', color: palette.sub, fontSize: '1rem', fontWeight: 500, mb: standingLine ? 0.75 : 2.5 }}>
-              {subtitle}
-            </Typography>
-          )}
-          {standingLine && (
-            <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: '0.78rem', fontWeight: 700, mb: 2.5 }}>
+          {standingLine ? (
+            <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: '0.82rem', fontWeight: 700, mb: 2.5 }}>
               {standingLine}
             </Typography>
-          )}
+          ) : subtitle ? (
+            <Typography sx={{ textAlign: 'center', color: palette.sub, fontSize: '1rem', fontWeight: 500, mb: 2.5 }}>
+              {subtitle}
+            </Typography>
+          ) : null}
           {wins != null && losses != null && (
             <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, mb: 2.5 }}>
               {[['W', wins], ['L', losses], ...(pct ? [['PCT', pct]] : [])].map(([lbl, val]) => (
@@ -213,16 +214,15 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
             }}>
               {team.name}
             </Typography>
-            {subtitle && (
-              <Typography sx={{ color: palette.sub, fontSize: '0.82rem', fontWeight: 500, mb: standingLine ? 0.25 : wins != null ? 1 : 0 }}>
-                {subtitle}
-              </Typography>
-            )}
-            {standingLine && (
-              <Typography sx={{ color: palette.rank, fontSize: '0.72rem', fontWeight: 700, mb: wins != null ? 0.75 : 0 }}>
+            {standingLine ? (
+              <Typography sx={{ color: palette.rank, fontSize: '0.75rem', fontWeight: 700, mb: wins != null ? 0.75 : 0 }}>
                 {standingLine}
               </Typography>
-            )}
+            ) : subtitle ? (
+              <Typography sx={{ color: palette.sub, fontSize: '0.82rem', fontWeight: 500, mb: wins != null ? 1 : 0 }}>
+                {subtitle}
+              </Typography>
+            ) : null}
             {wins != null && losses != null && (
               <Box sx={{ display: 'flex', gap: 2.5 }}>
                 {[['W', wins], ['L', losses], ...(pct ? [['PCT', pct]] : [])].map(([lbl, val]) => (
