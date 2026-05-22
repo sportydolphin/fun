@@ -181,6 +181,7 @@ export default function MlbStats() {
   const loadGenRef = useRef(0)            // incremented each load; stale async callbacks bail out early
   const autoLoadedRef = useRef(false)
   const urlViewReadRef = useRef(false)
+  const prevPlayerIdRef = useRef<number | null>(null)
 
   const toggleHitStat = useCallback((key: string) => setSelectedHitStats(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]), [])
   const togglePitStat = useCallback((key: string) => setSelectedPitStats(prev => prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]), [])
@@ -385,9 +386,11 @@ export default function MlbStats() {
 
   // Fetch game log whenever player or season changes
   useEffect(() => {
-    if (!player) { setRecentGames([]); return }
+    if (!player) { prevPlayerIdRef.current = null; setRecentGames([]); return }
+    const playerChanged = prevPlayerIdRef.current !== player.id
+    prevPlayerIdRef.current = player.id
+    if (playerChanged) setRecentGames([])
     setLoadingRecent(true)
-    setRecentGames([])
     const isPitcher = player.primaryPosition?.code === '1'
     const isTwoWay = player.primaryPosition?.type === 'Two-Way Player'
     const groups: Array<'hitting' | 'pitching'> = isTwoWay ? ['hitting', 'pitching'] : isPitcher ? ['pitching'] : ['hitting']
@@ -626,6 +629,8 @@ export default function MlbStats() {
 
     return result.slice(0, 3)
   }, [teamFeaturedData])
+
+  const showFeaturedRight = !!team && featuredPlayers.length > 0
 
   const handleVizNavigate = useCallback((id: number) => {
     const t = allTeams.find(t => t.id === id)
@@ -1618,7 +1623,7 @@ export default function MlbStats() {
 
       {hasStats && (
         <Box sx={{
-          display: { xs: 'block', md: showTrends ? 'grid' : 'block' },
+          display: { xs: 'block', md: (showTrends || showFeaturedRight) ? 'grid' : 'block' },
           gridTemplateColumns: { md: 'minmax(0, 460px) 1fr' },
           gap: { md: 4 },
           alignItems: 'start',
@@ -1805,44 +1810,9 @@ export default function MlbStats() {
               </Box>
             )}
 
-            {/* ── Featured players (team view only) ── */}
-            {team && featuredPlayers.length > 0 && (
-              <Box sx={{ mt: 2 }}>
-                <Typography sx={{
-                  fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase',
-                  letterSpacing: 1.6, color: 'text.disabled', mb: 1,
-                }}>
-                  Featured Players
-                </Typography>
-                <Box sx={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: 1,
-                }}>
-                  {featuredPlayers.map(p => (
-                    <FeaturedMiniCard
-                      key={p.playerId}
-                      entry={p}
-                      teamId={team.id}
-                      hitLeaders={featuredHitLeaders}
-                      pitLeaders={featuredPitLeaders}
-                      onClick={() => {
-                        // Push the team URL so the browser back button returns here
-                        const params = new URLSearchParams()
-                        params.set('tid', String(team.id))
-                        window.history.pushState({}, '', `/mlb?${params.toString()}`)
-                        fetchPlayerDetails(p.playerId)
-                          .then(details => { if (details) selectPlayer(details) })
-                          .catch(() => {})
-                      }}
-                    />
-                  ))}
-                </Box>
-              </Box>
-            )}
           </Box>
 
-          {/* Trends + Recent Games (right column) */}
+          {/* Right column: Trends + Recent Games (player) OR Featured Players (team) */}
           {showTrends && (
             <Box sx={{ mt: { xs: 2, md: 0 } }}>
               <Box sx={{ mb: 1.25 }}>
@@ -1888,19 +1858,51 @@ export default function MlbStats() {
                   </Box>
 
                   {recentGamesOpen && (
-                    loadingRecent ? (
+                    loadingRecent && recentGames.length === 0 ? (
                       <Box sx={{ textAlign: 'center', py: 2 }}><CircularProgress size={20} /></Box>
-                    ) : (
+                    ) : recentGames.length > 0 ? (
                       <RecentGamesTable
                         games={recentGames}
                         isPitcher={player.primaryPosition?.code === '1'}
                         isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
                         highlightDate={highlightedGameDate ?? undefined}
                       />
-                    )
+                    ) : null
                   )}
                 </Box>
               )}
+            </Box>
+          )}
+
+          {/* Featured Players (team view, right column) */}
+          {showFeaturedRight && (
+            <Box sx={{ mt: { xs: 2, md: 0 } }}>
+              <Box sx={{ mb: 1.25 }}>
+                <SectionLabel>Featured Players</SectionLabel>
+              </Box>
+              <Box sx={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(3, 1fr)',
+                gap: 1,
+              }}>
+                {featuredPlayers.map(p => (
+                  <FeaturedMiniCard
+                    key={p.playerId}
+                    entry={p}
+                    teamId={team!.id}
+                    hitLeaders={featuredHitLeaders}
+                    pitLeaders={featuredPitLeaders}
+                    onClick={() => {
+                      const params = new URLSearchParams()
+                      params.set('tid', String(team!.id))
+                      window.history.pushState({}, '', `/mlb?${params.toString()}`)
+                      fetchPlayerDetails(p.playerId)
+                        .then(details => { if (details) selectPlayer(details) })
+                        .catch(() => {})
+                    }}
+                  />
+                ))}
+              </Box>
             </Box>
           )}
         </Box>
@@ -1925,16 +1927,16 @@ export default function MlbStats() {
             }}>▾</Box>
           </Box>
           {recentGamesOpen && (
-            loadingRecent ? (
+            loadingRecent && recentGames.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 2 }}><CircularProgress size={20} /></Box>
-            ) : (
+            ) : recentGames.length > 0 ? (
               <RecentGamesTable
                 games={recentGames}
                 isPitcher={player.primaryPosition?.code === '1'}
                 isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
                 highlightDate={highlightedGameDate ?? undefined}
               />
-            )
+            ) : null
           )}
         </Box>
       )}

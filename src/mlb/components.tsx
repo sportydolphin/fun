@@ -380,7 +380,7 @@ export interface TeamCardInnerProps {
 }
 
 export function TeamCardInner({ team, hittingStats, pitchingStats, palette, season, rankMode, hitLeaders, pitLeaders, large, selectedHitStats, selectedPitStats, onToggleHitStat, onTogglePitStat }: TeamCardInnerProps) {
-  const logoSize = large ? 160 : 120
+  const logoSize = large ? 160 : 72
 
   const wins = pitchingStats?.wins ?? hittingStats?.wins
   const losses = pitchingStats?.losses ?? hittingStats?.losses
@@ -395,60 +395,83 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
 
   const hasHitting = hittingStats && TEAM_HITTING_DEFS.some(d => selectedHitStats.includes(d.key))
 
+  const logoEl = (
+    <Box sx={{
+      width: logoSize, height: logoSize,
+      borderRadius: '50%',
+      border: `3px solid ${palette.text}`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      bgcolor: '#fff',
+      overflow: 'hidden',
+      flexShrink: 0,
+    }}>
+      <Box
+        component="img"
+        src={`https://www.mlbstatic.com/team-logos/${team.id}.svg`}
+        alt={team.abbreviation}
+        crossOrigin="anonymous"
+        sx={{ width: '82%', height: '82%', objectFit: 'contain' }}
+      />
+    </Box>
+  )
+
   return (
     <>
-      {/* Team logo */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2.5 }}>
-        <Box sx={{
-          width: logoSize, height: logoSize,
-          borderRadius: '50%',
-          border: `3px solid ${palette.text}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          bgcolor: '#fff',
-          overflow: 'hidden',
-          flexShrink: 0,
-        }}>
-          <Box
-            component="img"
-            src={`https://www.mlbstatic.com/team-logos/${team.id}.svg`}
-            alt={team.abbreviation}
-            crossOrigin="anonymous"
-            sx={{ width: '82%', height: '82%', objectFit: 'contain' }}
-          />
-        </Box>
-      </Box>
-
-      <Typography sx={{
-        textAlign: 'center', color: palette.text, fontWeight: 800,
-        fontSize: large ? { xs: '1.8rem', sm: '2.2rem' } : { xs: '1.4rem', sm: '1.8rem' },
-        lineHeight: 1.1, letterSpacing: '-0.3px', mb: 0.5,
-      }}>
-        {team.name}
-      </Typography>
-
-      {subtitle && (
-        <Typography sx={{
-          textAlign: 'center', color: palette.sub,
-          fontSize: large ? '1rem' : '0.85rem',
-          fontWeight: 500, mb: 2.5,
-        }}>
-          {subtitle}
-        </Typography>
-      )}
-
-      {/* Record */}
-      {wins != null && losses != null && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, mb: 2.5 }}>
-          {[['W', wins], ['L', losses], ...(pct ? [['PCT', pct]] : [])].map(([lbl, val]) => (
-            <Box key={lbl as string} sx={{ textAlign: 'center' }}>
-              <Typography sx={{ color: palette.rank, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2, mb: 0.5 }}>
-                {lbl}
-              </Typography>
-              <Typography sx={{ color: palette.text, fontWeight: 800, fontSize: large ? '2.2rem' : '1.8rem', lineHeight: 1 }}>
-                {val}
-              </Typography>
+      {large ? (
+        /* Fullscreen: keep original vertical layout */
+        <>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2.5 }}>{logoEl}</Box>
+          <Typography sx={{
+            textAlign: 'center', color: palette.text, fontWeight: 800,
+            fontSize: { xs: '1.8rem', sm: '2.2rem' },
+            lineHeight: 1.1, letterSpacing: '-0.3px', mb: 0.5,
+          }}>
+            {team.name}
+          </Typography>
+          {subtitle && (
+            <Typography sx={{ textAlign: 'center', color: palette.sub, fontSize: '1rem', fontWeight: 500, mb: 2.5 }}>
+              {subtitle}
+            </Typography>
+          )}
+          {wins != null && losses != null && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 4, mb: 2.5 }}>
+              {[['W', wins], ['L', losses], ...(pct ? [['PCT', pct]] : [])].map(([lbl, val]) => (
+                <Box key={lbl as string} sx={{ textAlign: 'center' }}>
+                  <Typography sx={{ color: palette.rank, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2, mb: 0.5 }}>{lbl}</Typography>
+                  <Typography sx={{ color: palette.text, fontWeight: 800, fontSize: '2.2rem', lineHeight: 1 }}>{val}</Typography>
+                </Box>
+              ))}
             </Box>
-          ))}
+          )}
+        </>
+      ) : (
+        /* Normal: horizontal header — logo left, name/record right */
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+          {logoEl}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{
+              color: palette.text, fontWeight: 800,
+              fontSize: { xs: '1.2rem', sm: '1.5rem' },
+              lineHeight: 1.1, letterSpacing: '-0.3px', mb: 0.25,
+            }}>
+              {team.name}
+            </Typography>
+            {subtitle && (
+              <Typography sx={{ color: palette.sub, fontSize: '0.82rem', fontWeight: 500, mb: wins != null ? 1 : 0 }}>
+                {subtitle}
+              </Typography>
+            )}
+            {wins != null && losses != null && (
+              <Box sx={{ display: 'flex', gap: 2.5 }}>
+                {[['W', wins], ['L', losses], ...(pct ? [['PCT', pct]] : [])].map(([lbl, val]) => (
+                  <Box key={lbl as string}>
+                    <Typography sx={{ color: palette.rank, fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, mb: 0.25 }}>{lbl}</Typography>
+                    <Typography sx={{ color: palette.text, fontWeight: 800, fontSize: '1.35rem', lineHeight: 1 }}>{val}</Typography>
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </Box>
         </Box>
       )}
 
