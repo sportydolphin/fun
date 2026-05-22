@@ -144,9 +144,9 @@ export function StatItem({ label, value, playerId, leaderCategory, leaders, pale
   return (
     <Box sx={{ textAlign: 'center' }}>
       <Typography sx={{
-        color: palette.text, fontWeight: 800,
-        fontSize: large ? { xs: '0.8rem', sm: '0.9rem' } : { xs: '0.7rem', sm: '0.8rem' },
-        textTransform: 'uppercase', letterSpacing: 1.5, opacity: 0.7, mb: 0.4,
+        color: palette.text, fontWeight: 700,
+        fontSize: large ? { xs: '0.82rem', sm: '0.92rem' } : { xs: '0.74rem', sm: '0.82rem' },
+        letterSpacing: 0.3, opacity: 0.85, mb: 0.4,
       }}>
         {label}
       </Typography>
@@ -259,7 +259,7 @@ export function StatGrid({ defs, stats, selected, palette, rankMode, playerId, l
             }}
           >
             <StatItem
-              label={def.label}
+              label={def.leaderLabel ?? def.label}
               value={def.format(def.getValue(stats))}
               playerId={playerId}
               leaderCategory={def.leaderCategory}

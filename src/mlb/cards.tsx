@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Box, Typography } from '@mui/material'
-import { RankMode, Palette, StatDef, Player, Team, TeamPlayerStat } from './types'
+import { RankMode, Palette, StatDef, Player, Team, TeamPlayerStat, TeamStandingInfo } from './types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG } from './constants'
 import { StatGrid } from './ui'
 
@@ -114,9 +114,16 @@ export interface TeamCardInnerProps {
   selectedPitStats: string[]
   onToggleHitStat?: (key: string) => void
   onTogglePitStat?: (key: string) => void
+  standing?: TeamStandingInfo
 }
 
-export function TeamCardInner({ team, hittingStats, pitchingStats, palette, season, rankMode, hitLeaders, pitLeaders, large, selectedHitStats, selectedPitStats, onToggleHitStat, onTogglePitStat }: TeamCardInnerProps) {
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0])
+}
+
+export function TeamCardInner({ team, hittingStats, pitchingStats, palette, season, rankMode, hitLeaders, pitLeaders, large, selectedHitStats, selectedPitStats, onToggleHitStat, onTogglePitStat, standing }: TeamCardInnerProps) {
   const logoSize = large ? 160 : 72
 
   const wins = pitchingStats?.wins ?? hittingStats?.wins
@@ -131,6 +138,14 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
   const subtitle = [leagueShort, divisionLabel].filter(Boolean).join(' · ')
 
   const hasHitting = hittingStats && TEAM_HITTING_DEFS.some(d => selectedHitStats.includes(d.key))
+
+  const standingLine = standing
+    ? [
+        `${ordinal(standing.divisionRank)} in ${standing.divisionName}`,
+        !standing.divisionLeader && standing.gamesBack !== '-' ? `${standing.gamesBack} GB` : null,
+        !standing.divisionLeader && standing.wcGamesBack !== '-' ? `WC: ${standing.wcGamesBack}` : null,
+      ].filter(Boolean).join(' · ')
+    : null
 
   const logoEl = (
     <Box sx={{
@@ -166,8 +181,13 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
             {team.name}
           </Typography>
           {subtitle && (
-            <Typography sx={{ textAlign: 'center', color: palette.sub, fontSize: '1rem', fontWeight: 500, mb: 2.5 }}>
+            <Typography sx={{ textAlign: 'center', color: palette.sub, fontSize: '1rem', fontWeight: 500, mb: standingLine ? 0.75 : 2.5 }}>
               {subtitle}
+            </Typography>
+          )}
+          {standingLine && (
+            <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: '0.78rem', fontWeight: 700, mb: 2.5 }}>
+              {standingLine}
             </Typography>
           )}
           {wins != null && losses != null && (
@@ -194,8 +214,13 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
               {team.name}
             </Typography>
             {subtitle && (
-              <Typography sx={{ color: palette.sub, fontSize: '0.82rem', fontWeight: 500, mb: wins != null ? 1 : 0 }}>
+              <Typography sx={{ color: palette.sub, fontSize: '0.82rem', fontWeight: 500, mb: standingLine ? 0.25 : wins != null ? 1 : 0 }}>
                 {subtitle}
+              </Typography>
+            )}
+            {standingLine && (
+              <Typography sx={{ color: palette.rank, fontSize: '0.72rem', fontWeight: 700, mb: wins != null ? 0.75 : 0 }}>
+                {standingLine}
               </Typography>
             )}
             {wins != null && losses != null && (

@@ -1,4 +1,4 @@
-import { Player, Team, StatDef, TeamSummary, CareerStatSplit, RecentGameEntry, StandingsDivision, TeamPlayerStat } from './types'
+import { Player, Team, StatDef, TeamSummary, CareerStatSplit, RecentGameEntry, StandingsDivision, TeamPlayerStat, TeamStandingInfo } from './types'
 import { TEAM_ABBR } from './constants'
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
@@ -331,6 +331,33 @@ export async function fetchTeamTopPlayers(
 }
 
 // ─── Standings ────────────────────────────────────────────────────────────────
+
+// Cache full standings by season (reused by both the Standings view and the team card)
+const standingsCache = new Map<number, Promise<StandingsDivision[]>>()
+
+function fetchStandingsCached(season: number): Promise<StandingsDivision[]> {
+  if (!standingsCache.has(season)) {
+    standingsCache.set(season, fetchStandings(season).catch(() => []))
+  }
+  return standingsCache.get(season)!
+}
+
+export async function fetchTeamStanding(teamId: number, season: number): Promise<TeamStandingInfo | null> {
+  const standings = await fetchStandingsCached(season)
+  for (const div of standings) {
+    const t = div.teams.find(t => t.teamId === teamId)
+    if (t) {
+      return {
+        divisionRank: t.divisionRank,
+        divisionName: div.divisionName,
+        gamesBack: t.gamesBack,
+        wcGamesBack: t.wcGamesBack,
+        divisionLeader: t.divisionLeader,
+      }
+    }
+  }
+  return null
+}
 
 // The standings endpoint returns division objects with only {id, link} — no name field.
 // Hard-code names by the stable MLB division IDs.

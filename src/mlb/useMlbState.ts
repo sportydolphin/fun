@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import {
   RankMode, Player, Team, Palette, TeamSummary, CareerStatSplit,
-  TeamPlayerStat, RecentGameEntry, LbFullscreenState,
+  TeamPlayerStat, RecentGameEntry, LbFullscreenState, TeamStandingInfo,
 } from './types'
 import {
   ACCENT,
@@ -15,7 +15,7 @@ import {
   fetchCareerData, fetchAndRankPlayers, fetchAllTeams,
   fetchTeamStats, fetchLeaderboardData, fetchTeamRankings,
   fetchTeamSummaryData, fetchPlayerCareerStats, fetchRecentGames, fetchCareerStats,
-  fetchTeamTopPlayers,
+  fetchTeamTopPlayers, fetchTeamStanding,
 } from './api'
 import { computeSmartHitStats, computeSmartPitStats } from './smartStats'
 import type { CardInnerProps } from './cards'
@@ -52,6 +52,7 @@ export function useMlbState() {
   const [teamFeaturedData, setTeamFeaturedData] = useState<{ hitters: TeamPlayerStat[]; pitchers: TeamPlayerStat[] } | null>(null)
   const [featuredHitLeaders, setFeaturedHitLeaders] = useState<Map<string, number[]>>(new Map())
   const [featuredPitLeaders, setFeaturedPitLeaders] = useState<Map<string, number[]>>(new Map())
+  const [teamStanding, setTeamStanding] = useState<TeamStandingInfo | null>(null)
 
   // ─── Shared ───────────────────────────────────────────────────────────────────
   const [loadingStats, setLoadingStats] = useState(false)
@@ -214,9 +215,10 @@ export function useMlbState() {
       setTeamHitting(null); setTeamPitching(null)
       setTeamHitLeaders(new Map()); setTeamPitLeaders(new Map())
       setTeamFeaturedData(null)
+      setTeamStanding(null)
     } else setRefreshing(true)
     try {
-      const [hitting, pitching, hLeaders, pLeaders, featured, fHitLeaders, fPitLeaders] = await Promise.all([
+      const [hitting, pitching, hLeaders, pLeaders, featured, fHitLeaders, fPitLeaders, standing] = await Promise.all([
         fetchTeamStats(t.id, 'hitting', s),
         fetchTeamStats(t.id, 'pitching', s),
         fetchTeamRankings('hitting', s, TEAM_HITTING_DEFS),
@@ -224,6 +226,7 @@ export function useMlbState() {
         fetchTeamTopPlayers(t.id, s),
         fetchAndRankPlayers('hitting', s, HITTING_STAT_DEFS),
         fetchAndRankPlayers('pitching', s, PITCHING_STAT_DEFS),
+        fetchTeamStanding(t.id, s),
       ])
       if (gen !== loadGenRef.current) return
       setTeamHitting(hitting)
@@ -233,6 +236,7 @@ export function useMlbState() {
       setTeamFeaturedData(featured)
       setFeaturedHitLeaders(fHitLeaders)
       setFeaturedPitLeaders(fPitLeaders)
+      setTeamStanding(standing)
     } finally {
       if (gen === loadGenRef.current) { setLoadingStats(false); setRefreshing(false) }
     }
@@ -254,6 +258,7 @@ export function useMlbState() {
     setStatsView('season')
     setHighlightedGameDate(null)
     setTeam(null)
+    setTeamStanding(null)
     setAvailableSeasons(seasons.length ? seasons : [CURRENT_SEASON])
     setSeasonTeams(teamsBySeason)
     setSeason(CURRENT_SEASON)
@@ -463,10 +468,11 @@ export function useMlbState() {
     const addH = (h: TeamPlayerStat) => { if (!used.has(h.playerId)) { result.push({ ...h, isPitcher: false }); used.add(h.playerId) } }
 
     ;(starters[0] ?? closers[0] ?? relievers[0]) && addP(starters[0] ?? closers[0] ?? relievers[0])
-    hitters.forEach(h => result.length < 3 && addH(h))
-    ;[...starters.slice(1), ...closers, ...relievers].forEach(p => result.length < 3 && addP(p))
+    hitters.forEach(h => result.length < 4 && addH(h))
+    ;[...starters.slice(1), ...closers, ...relievers].forEach(p => result.length < 6 && addP(p))
+    hitters.forEach(h => result.length < 6 && addH(h))
 
-    return result.slice(0, 3)
+    return result.slice(0, 6)
   }, [teamFeaturedData])
 
   // ─── Computed values ──────────────────────────────────────────────────────────
@@ -497,6 +503,7 @@ export function useMlbState() {
     rankMode, hitLeaders: teamHitLeaders, pitLeaders: teamPitLeaders,
     selectedHitStats: selectedTeamHitStats, selectedPitStats: selectedTeamPitStats,
     onToggleHitStat: toggleTeamHitStat, onTogglePitStat: toggleTeamPitStat,
+    standing: teamStanding ?? undefined,
   } : null
 
   // ─── Return ───────────────────────────────────────────────────────────────────

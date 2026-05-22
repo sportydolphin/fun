@@ -124,6 +124,16 @@ export interface StandingsDivision {
   teams: StandingsTeamRecord[]
 }
 
+// ─── Team standing ────────────────────────────────────────────────────────────
+
+export interface TeamStandingInfo {
+  divisionRank: number
+  divisionName: string
+  gamesBack: string    // "-" when leading
+  wcGamesBack: string  // "-" when leading or division leader
+  divisionLeader: boolean
+}
+
 // ─── Leaderboard fullscreen state ─────────────────────────────────────────────
 
 export interface LbFullscreenState {
