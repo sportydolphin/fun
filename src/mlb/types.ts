@@ -123,3 +123,13 @@ export interface StandingsDivision {
   leagueId: number   // 103=AL, 104=NL
   teams: StandingsTeamRecord[]
 }
+
+// ─── Leaderboard fullscreen state ─────────────────────────────────────────────
+
+export interface LbFullscreenState {
+  def: StatDef
+  group: 'hitting' | 'pitching'
+  sortKey: string
+  sortAsc: boolean
+  entries: Array<{ playerId: number; playerName: string; teamAbbr: string; val: any }>
+}
