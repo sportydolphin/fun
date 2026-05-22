@@ -33,9 +33,10 @@ function fetchLeagueStatsBySeason(season: number, group: 'hitting' | 'pitching')
 
 // ─── Rolling window chart (current season) ───────────────────────────────────
 
-function RollingWindowChart({ games, isPitcher, onGameSelect }: {
+function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
   games: RecentGameEntry[]
   isPitcher: boolean
+  season: number
   onGameSelect?: (date: string) => void
 }) {
   const [hovIdx, setHovIdx] = useState<number | null>(null)
@@ -258,7 +259,7 @@ function RollingWindowChart({ games, isPitcher, onGameSelect }: {
           {label}
         </Typography>
         <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontWeight: 600 }}>
-          this season
+          {season}
         </Typography>
       </Box>
 
@@ -406,8 +407,8 @@ function RollingWindowChart({ games, isPitcher, onGameSelect }: {
 
       <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.75 }}>
         {isPitcher && !isStarter
-          ? `Rolling ERA · each point = last ~${RP_IP_TARGET} innings (${currentPt.size} apps) · lower is better`
-          : `Rolling ${label} · each point = last ${isPitcher ? `${SP_WINDOW} starts` : `${HIT_WINDOW} games`}${lowerBetter ? ' · lower is better' : ''}`}
+          ? `${season} rolling ERA · each point = last ~${RP_IP_TARGET} innings (${currentPt.size} apps) · lower is better`
+          : `${season} rolling ${label} · each point = last ${isPitcher ? `${SP_WINDOW} starts` : `${HIT_WINDOW} games`}${lowerBetter ? ' · lower is better' : ''}`}
       </Typography>
     </Box>
   )
@@ -422,11 +423,13 @@ const trendSelSx: React.CSSProperties = {
   color: 'inherit', padding: '4px 10px', borderRadius: 999, fontFamily: 'inherit',
 }
 
-export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, onGameSelect }: {
+export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season, chartMode, onGameSelect }: {
   splits: CareerStatSplit[]
   isPitcher: boolean
   isTwoWay: boolean
   gameLog?: RecentGameEntry[]
+  season: number
+  chartMode: 'career' | 'rolling'
   onGameSelect?: (date: string) => void
 }) {
   const initGroup: 'hitting' | 'pitching' = (isPitcher && !isTwoWay) ? 'pitching' : 'hitting'
@@ -442,7 +445,6 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, onGame
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   const [leagueAvgPts, setLeagueAvgPts] = useState<Map<number, number>>(new Map())
-  const [chartMode, setChartMode] = useState<'career' | 'rolling'>('career')
 
   // Reset to sensible default when group changes
   useEffect(() => { setStatKey(group === 'pitching' ? 'era' : 'ops') }, [group])
@@ -454,7 +456,6 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, onGame
     setRangeStart(null)
     setRangeEnd(null)
     setLeagueAvgPts(new Map())
-    setChartMode('career')
   }, [splits]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch per-year league averages (must be before any early return — React hook rule)
@@ -722,19 +723,8 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, onGame
         </Box>
       )}
 
-      {/* Career / Rolling toggle — shown when season game log is available */}
-      {!!gameLog && gameLog.filter(g => group === 'pitching' ? g.pitching != null : g.hitting != null).length >= 3 && (
-        <Box sx={{ mb: 1.5 }}>
-          <SegControl
-            options={[{ value: 'career', label: 'Career' }, { value: 'rolling', label: 'This Season' }]}
-            value={chartMode}
-            onChange={v => setChartMode(v as 'career' | 'rolling')}
-          />
-        </Box>
-      )}
-
-      {chartMode === 'rolling' ? (
-        <RollingWindowChart games={gameLog!} isPitcher={group === 'pitching'} onGameSelect={onGameSelect} />
+      {chartMode === 'rolling' && gameLog ? (
+        <RollingWindowChart games={gameLog} isPitcher={group === 'pitching'} season={season} onGameSelect={onGameSelect} />
       ) : (
       <>
 

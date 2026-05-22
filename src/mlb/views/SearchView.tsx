@@ -555,6 +555,8 @@ export function SearchView({
                     isPitcher={player!.primaryPosition?.code === '1'}
                     isTwoWay={player!.primaryPosition?.type === 'Two-Way Player'}
                     gameLog={recentGames}
+                    season={season}
+                    chartMode={statsView === 'season' ? 'rolling' : 'career'}
                     onGameSelect={date => setHighlightedGameDate(d => d === date ? null : date)}
                   />
                 </Box>
