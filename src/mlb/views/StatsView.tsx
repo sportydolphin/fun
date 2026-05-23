@@ -82,7 +82,7 @@ export function StatsView({
   const colPx = isDesktop ? '10px' : '5px'
   const stThSx = {
     py: 1, px: colPx,
-    fontSize: '0.62rem', fontWeight: 700,
+    fontSize: '0.68rem', fontWeight: 700,
     textTransform: 'uppercase' as const, letterSpacing: '0.5px',
     whiteSpace: 'nowrap' as const,
   }
@@ -107,16 +107,11 @@ export function StatsView({
     setHighlightStatKey?.(null)
   }
 
-  const naturalAsc = activeDef.lowerIsBetter ?? false
-  const naturalOrder = qualifiedPool
-    .map(e => {
-      const v = Number(activeDef.leaderValue ? activeDef.leaderValue(e.stat) : activeDef.getValue(e.stat))
-      return { playerId: e.playerId, _v: v }
-    })
-    .filter(e => !isNaN(e._v))
-    .sort((a, b) => naturalAsc ? a._v - b._v : b._v - a._v)
-  const leagueRankMap = new Map(naturalOrder.map((e, i) => [e.playerId, i]))
-  const totalInDataset = naturalOrder.length
+  // Total players with a valid value — used for rank numbering and the footer count
+  const totalInDataset = qualifiedPool.filter(e => {
+    const v = Number(activeDef.leaderValue ? activeDef.leaderValue(e.stat) : activeDef.getValue(e.stat))
+    return !isNaN(v)
+  }).length
 
   const loadingLb = lbData == null
 
@@ -202,6 +197,7 @@ export function StatsView({
                     const isActive = def.key === sortKey
                     return (
                       <Box component="th" key={def.key}
+                        title={def.leaderLabel ?? def.label}
                         onClick={() => handleColClick(def)}
                         sx={{
                           ...stThSx,
@@ -215,11 +211,23 @@ export function StatsView({
                           transition: 'background 0.15s, color 0.15s',
                           userSelect: 'none',
                         }}>
-                        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3 }}>
-                          {def.label}
-                          {isActive && (
-                            <Box component="span" sx={{ fontSize: '0.65rem', opacity: 0.8 }}>
-                              {sortAsc ? '↑' : '↓'}
+                        <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25 }}>
+                          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3 }}>
+                            {def.label}
+                            {isActive && (
+                              <Box component="span" sx={{ fontSize: '0.65rem', opacity: 0.8 }}>
+                                {sortAsc ? '↑' : '↓'}
+                              </Box>
+                            )}
+                          </Box>
+                          {def.leaderLabel && def.leaderLabel !== def.label && (
+                            <Box sx={{
+                              fontSize: '0.54rem', fontWeight: 500,
+                              textTransform: 'none', letterSpacing: 0,
+                              opacity: isActive ? 0.75 : 0.5,
+                              lineHeight: 1,
+                            }}>
+                              {def.leaderLabel}
                             </Box>
                           )}
                         </Box>
@@ -230,9 +238,11 @@ export function StatsView({
               </Box>
 
               <Box component="tbody">
-                {sortedEntries.map((e) => {
+                {sortedEntries.map((e, idx) => {
                   const stat = e.stat
-                  const leagueRank = leagueRankMap.get(e.playerId) ?? 0
+                  // Rank 1 = best. Descending: row 0 is best → rank 1, 2, 3…
+                  // Ascending: row 0 is worst → rank total, total-1, total-2…
+                  const displayRank = sortAsc ? totalInDataset - idx : idx + 1
                   const isHighlighted = e.playerId === highlightPlayerId
                   return (
                     <Box component="tr" key={e.playerId}
@@ -259,12 +269,12 @@ export function StatsView({
                       }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: isDesktop ? 1 : 0.6 }}>
                           <Typography sx={{
-                            fontSize: leagueRank < 3 ? '0.9rem' : '0.82rem', fontWeight: 800,
+                            fontSize: displayRank <= 3 ? '0.9rem' : '0.82rem', fontWeight: 800,
                             color: 'text.disabled',
                             minWidth: isDesktop ? 22 : 28,
                             textAlign: 'center', flexShrink: 0, lineHeight: 1,
                           }}>
-                            {leagueRank < 3 ? MEDALS_FS[leagueRank] : `${leagueRank + 1}`}
+                            {displayRank <= 3 ? MEDALS_FS[displayRank - 1] : `${displayRank}`}
                           </Typography>
                           {isDesktop && (
                             <Box component="img"
