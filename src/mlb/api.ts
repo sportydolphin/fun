@@ -369,6 +369,11 @@ export async function fetchTeamStanding(teamId: number, season: number): Promise
   return null
 }
 
+export async function fetchDivisionForTeam(teamId: number, season: number): Promise<StandingsDivision | null> {
+  const standings = await fetchStandingsCached(season)
+  return standings.find(div => div.teams.some(t => t.teamId === teamId)) ?? null
+}
+
 // The standings endpoint returns division objects with only {id, link} — no name field.
 // Hard-code names by the stable MLB division IDs.
 const DIVISION_NAMES: Record<number, string> = {

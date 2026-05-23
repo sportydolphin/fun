@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import {
   RankMode, Player, Team, Palette, TeamSummary, CareerStatSplit,
-  TeamPlayerStat, RecentGameEntry, LbFullscreenState, TeamStandingInfo,
+  TeamPlayerStat, RecentGameEntry, LbFullscreenState, TeamStandingInfo, StandingsDivision,
 } from './types'
 import {
   ACCENT,
@@ -15,7 +15,7 @@ import {
   fetchCareerData, fetchAndRankPlayers, fetchAllTeams,
   fetchTeamStats, fetchLeaderboardData, fetchTeamRankings,
   fetchTeamSummaryData, fetchPlayerCareerStats, fetchRecentGames, fetchCareerStats,
-  fetchTeamTopPlayers, fetchTeamStanding,
+  fetchTeamTopPlayers, fetchTeamStanding, fetchDivisionForTeam,
 } from './api'
 import { computeSmartHitStats, computeSmartPitStats } from './smartStats'
 import type { CardInnerProps } from './cards'
@@ -53,6 +53,7 @@ export function useMlbState() {
   const [featuredHitLeaders, setFeaturedHitLeaders] = useState<Map<string, number[]>>(new Map())
   const [featuredPitLeaders, setFeaturedPitLeaders] = useState<Map<string, number[]>>(new Map())
   const [teamStanding, setTeamStanding] = useState<TeamStandingInfo | null>(null)
+  const [divisionStandings, setDivisionStandings] = useState<StandingsDivision | null>(null)
 
   // ─── Shared ───────────────────────────────────────────────────────────────────
   const [loadingStats, setLoadingStats] = useState(false)
@@ -220,9 +221,10 @@ export function useMlbState() {
       setTeamHitLeaders(new Map()); setTeamPitLeaders(new Map())
       setTeamFeaturedData(null)
       setTeamStanding(null)
+      setDivisionStandings(null)
     } else setRefreshing(true)
     try {
-      const [hitting, pitching, hLeaders, pLeaders, featured, fHitLeaders, fPitLeaders, standing] = await Promise.all([
+      const [hitting, pitching, hLeaders, pLeaders, featured, fHitLeaders, fPitLeaders, standing, division] = await Promise.all([
         fetchTeamStats(t.id, 'hitting', s),
         fetchTeamStats(t.id, 'pitching', s),
         fetchTeamRankings('hitting', s, TEAM_HITTING_DEFS),
@@ -231,6 +233,7 @@ export function useMlbState() {
         fetchAndRankPlayers('hitting', s, HITTING_STAT_DEFS),
         fetchAndRankPlayers('pitching', s, PITCHING_STAT_DEFS),
         fetchTeamStanding(t.id, s),
+        fetchDivisionForTeam(t.id, s),
       ])
       if (gen !== loadGenRef.current) return
       setTeamHitting(hitting)
@@ -241,6 +244,7 @@ export function useMlbState() {
       setFeaturedHitLeaders(fHitLeaders)
       setFeaturedPitLeaders(fPitLeaders)
       setTeamStanding(standing)
+      setDivisionStandings(division)
     } finally {
       if (gen === loadGenRef.current) { setLoadingStats(false); setRefreshing(false) }
     }
@@ -471,25 +475,29 @@ export function useMlbState() {
 
   const nameMap = useMemo(() => new Map(allTeams.map(t => [t.id, t.name])), [allTeams])
 
-  const featuredPlayers = useMemo((): Array<TeamPlayerStat & { isPitcher: boolean }> => {
+  const featuredPlayers = useMemo((): Array<TeamPlayerStat & { isPitcher: boolean; awardLabel: string; highlightStat: string }> => {
     if (!teamFeaturedData) return []
     const { hitters, pitchers } = teamFeaturedData
-    const starters  = pitchers.filter(p => p.gamesStarted >= 3)
-    const closers   = pitchers.filter(p => p.gamesStarted < 3 && p.saves >= 3)
-    const relievers = pitchers.filter(p => p.gamesStarted < 3 && p.saves < 3)
 
-    const result: Array<TeamPlayerStat & { isPitcher: boolean }> = []
-    const used = new Set<number>()
+    const result: Array<TeamPlayerStat & { isPitcher: boolean; awardLabel: string; highlightStat: string }> = []
 
-    const addP = (p: TeamPlayerStat) => { if (!used.has(p.playerId)) { result.push({ ...p, isPitcher: true  }); used.add(p.playerId) } }
-    const addH = (h: TeamPlayerStat) => { if (!used.has(h.playerId)) { result.push({ ...h, isPitcher: false }); used.add(h.playerId) } }
+    // Highest OPS — hitters already sorted by OPS desc from the API
+    const topOps = hitters[0]
+    if (topOps) result.push({ ...topOps, isPitcher: false, awardLabel: 'Highest OPS', highlightStat: 'ops' })
 
-    ;(starters[0] ?? closers[0] ?? relievers[0]) && addP(starters[0] ?? closers[0] ?? relievers[0])
-    hitters.forEach(h => result.length < 4 && addH(h))
-    ;[...starters.slice(1), ...closers, ...relievers].forEach(p => result.length < 6 && addP(p))
-    hitters.forEach(h => result.length < 6 && addH(h))
+    // Lowest ERA — prefer starters (≥3 GS), pitchers already sorted by ERA asc
+    const topEra = pitchers.find(p => p.gamesStarted >= 3) ?? pitchers[0]
+    if (topEra) result.push({ ...topEra, isPitcher: true, awardLabel: 'Lowest ERA', highlightStat: 'era' })
 
-    return result.slice(0, 6)
+    // Most HR
+    const topHr = [...hitters].sort((a, b) => Number(b.stat?.homeRuns ?? 0) - Number(a.stat?.homeRuns ?? 0))[0]
+    if (topHr) result.push({ ...topHr, isPitcher: false, awardLabel: 'Most HR', highlightStat: 'hr' })
+
+    // Most SB
+    const topSb = [...hitters].sort((a, b) => Number(b.stat?.stolenBases ?? 0) - Number(a.stat?.stolenBases ?? 0))[0]
+    if (topSb) result.push({ ...topSb, isPitcher: false, awardLabel: 'Most SB', highlightStat: 'sb' })
+
+    return result
   }, [teamFeaturedData])
 
   // ─── Computed values ──────────────────────────────────────────────────────────
@@ -551,6 +559,7 @@ export function useMlbState() {
     teamFeaturedData,
     featuredHitLeaders, featuredPitLeaders,
     featuredPlayers,
+    divisionStandings,
 
     // Shared
     loadingStats, refreshing,

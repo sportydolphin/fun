@@ -165,6 +165,7 @@ export default function MlbStats() {
           featuredPlayers={state.featuredPlayers}
           featuredHitLeaders={state.featuredHitLeaders}
           featuredPitLeaders={state.featuredPitLeaders}
+          divisionStandings={state.divisionStandings}
         />
       )}
 

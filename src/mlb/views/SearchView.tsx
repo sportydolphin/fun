@@ -6,10 +6,10 @@ import {
 } from '@mui/material'
 import { Search, Shuffle, FileDownload, InfoOutlined, OpenInFull, Tune } from '@mui/icons-material'
 import html2canvas from 'html2canvas'
-import { Player, Team, Palette, RankMode, TeamPlayerStat, CareerStatSplit, RecentGameEntry } from '../types'
+import { Player, Team, Palette, RankMode, TeamPlayerStat, CareerStatSplit, RecentGameEntry, StandingsDivision } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG, TEAM_ABBR, BBREF_ABBR, DEFAULT_HIT_STATS, DEFAULT_PIT_STATS, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette } from '../constants'
 import { SegControl, PillChip, pillActionSx, linkPillSx, SectionLabel } from '../ui'
-import { CardInner, CardInnerProps, TeamCardInner, TeamCardInnerProps, FeaturedMiniCard } from '../cards'
+import { CardInner, CardInnerProps, TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsCard } from '../cards'
 import { PlayerTrendsChart } from '../PlayerTrendsChart'
 import { RecentGamesTable } from '../RecentGamesTable'
 import { CareerStatsTable } from '../CareerStatsTable'
@@ -95,9 +95,10 @@ export interface SearchViewProps {
 
   // Featured players (team view)
   showFeaturedRight: boolean
-  featuredPlayers: Array<TeamPlayerStat & { isPitcher: boolean }>
+  featuredPlayers: Array<TeamPlayerStat & { isPitcher: boolean; awardLabel: string; highlightStat: string }>
   featuredHitLeaders: Map<string, number[]>
   featuredPitLeaders: Map<string, number[]>
+  divisionStandings: StandingsDivision | null
 }
 
 export function SearchView({
@@ -117,7 +118,7 @@ export function SearchView({
   showTrends, careerSplits, loadingCareer,
   recentGames, loadingRecent, recentGamesOpen, setRecentGamesOpen,
   highlightedGameDate, setHighlightedGameDate,
-  showFeaturedRight, featuredPlayers, featuredHitLeaders, featuredPitLeaders,
+  showFeaturedRight, featuredPlayers, featuredHitLeaders, featuredPitLeaders, divisionStandings,
 }: SearchViewProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const [fullscreen, setFullscreen] = React.useState(false)
@@ -226,6 +227,7 @@ export function SearchView({
               component="input"
               value={query}
               onChange={(e: any) => setQuery(e.target.value)}
+              onFocus={() => setQuery('')}
               placeholder="Search player or team…"
               sx={{
                 flex: 1, border: 'none', outline: 'none', bgcolor: 'transparent',
@@ -353,7 +355,7 @@ export function SearchView({
 
       {hasStats && (
         <Box sx={{
-          display: { xs: 'block', md: (showTrends || showFeaturedRight) ? 'grid' : 'block' },
+          display: { xs: 'block', md: (showTrends || showFeaturedRight || (!!team && !!divisionStandings)) ? 'grid' : 'block' },
           gridTemplateColumns: { md: 'minmax(0, 460px) 1fr' },
           gap: { md: 4 },
           alignItems: 'start',
@@ -637,35 +639,49 @@ export function SearchView({
             </Box>
           )}
 
-          {/* Featured Players (team view, right column) */}
-          {showFeaturedRight && (
-            <Box sx={{ mt: { xs: 2, md: 0 } }}>
-              <Box sx={{ mb: 1.25 }}>
-                <SectionLabel>Featured Players</SectionLabel>
-              </Box>
-              <Box sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: 1,
-              }}>
-                {featuredPlayers.map(p => (
-                  <FeaturedMiniCard
-                    key={p.playerId}
-                    entry={p}
-                    teamId={team!.id}
-                    hitLeaders={featuredHitLeaders}
-                    pitLeaders={featuredPitLeaders}
-                    onClick={() => {
-                      const params = new URLSearchParams()
-                      params.set('tid', String(team!.id))
-                      window.history.pushState({}, '', `/mlb?${params.toString()}`)
-                      fetchPlayerDetails(p.playerId)
-                        .then(details => { if (details) selectPlayer(details) })
-                        .catch(() => {})
-                    }}
+          {/* Team right column: division standings + award player cards */}
+          {!!team && (showFeaturedRight || !!divisionStandings) && (
+            <Box sx={{ mt: { xs: 2, md: 0 }, display: 'flex', flexDirection: 'column', gap: 2 }}>
+
+              {/* Division standings card */}
+              {divisionStandings && (
+                <Box>
+                  <Box sx={{ mb: 1.25 }}><SectionLabel>Division</SectionLabel></Box>
+                  <DivisionStandingsCard
+                    division={divisionStandings}
+                    highlightTeamId={team.id}
+                    season={season}
                   />
-                ))}
-              </Box>
+                </Box>
+              )}
+
+              {/* Award leader cards — 2×2 grid */}
+              {showFeaturedRight && (
+                <Box>
+                  <Box sx={{ mb: 1.25 }}><SectionLabel>Team Leaders</SectionLabel></Box>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 1 }}>
+                    {featuredPlayers.map(p => (
+                      <FeaturedMiniCard
+                        key={`${p.playerId}-${p.highlightStat}`}
+                        entry={p}
+                        teamId={team.id}
+                        hitLeaders={featuredHitLeaders}
+                        pitLeaders={featuredPitLeaders}
+                        awardLabel={p.awardLabel}
+                        highlightStat={p.highlightStat}
+                        onClick={() => {
+                          const params = new URLSearchParams()
+                          params.set('tid', String(team.id))
+                          window.history.pushState({}, '', `/mlb?${params.toString()}`)
+                          fetchPlayerDetails(p.playerId)
+                            .then(details => { if (details) selectPlayer(details) })
+                            .catch(() => {})
+                        }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
             </Box>
           )}
         </Box>

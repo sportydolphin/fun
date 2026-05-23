@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Box, Typography } from '@mui/material'
-import { RankMode, Palette, StatDef, Player, Team, TeamPlayerStat, TeamStandingInfo } from './types'
+import { RankMode, Palette, StatDef, Player, Team, TeamPlayerStat, TeamStandingInfo, StandingsDivision } from './types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG } from './constants'
 import { StatGrid } from './ui'
 
@@ -254,81 +254,42 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
 
 // ─── Featured player mini-card ────────────────────────────────────────────────
 //
-// Shown as a trio of cards below the team stat card. Each card surfaces the
-// 3 stats where the player ranks best in the league (from a curated candidate
-// set), falling back to sensible positional defaults when no rank data is
-// available.
+// Each card is pinned to a specific team-leader award (Highest OPS, Lowest ERA,
+// Most HR, Most SB).  The award label is shown as a banner, and the displayed
+// stats are chosen to give context around that award category.
 
-const HIT_MINI_CANDIDATES  = ['avg', 'hr', 'rbi', 'ops', 'obp', 'slg', 'sb', '2b', '3b', 'bb']
-const HIT_MINI_FALLBACK    = ['avg', 'hr', 'ops']
-const PIT_SP_CANDIDATES    = ['era', 'k', 'whip', 'so9', 'ip']
-const PIT_SP_FALLBACK      = ['era', 'k', 'whip']
-const PIT_RP_CANDIDATES    = ['era', 'sv', 'k', 'whip']
-const PIT_RP_FALLBACK      = ['era', 'sv', 'k']
-
-function pickMiniStats(
-  playerId: number,
-  isPitcher: boolean,
-  isCloser: boolean,
-  defs: StatDef[],
-  leaders: Map<string, number[]>,
-): StatDef[] {
-  const candidates = isPitcher
-    ? (isCloser ? PIT_RP_CANDIDATES : PIT_SP_CANDIDATES)
-    : HIT_MINI_CANDIDATES
-  const fallback = isPitcher
-    ? (isCloser ? PIT_RP_FALLBACK : PIT_SP_FALLBACK)
-    : HIT_MINI_FALLBACK
-
-  // Score each candidate by league rank (lower rank = better)
-  const scored = candidates
-    .map(key => {
-      const def = defs.find(d => d.key === key)
-      if (!def) return null
-      const ids = def.leaderCategory ? (leaders.get(def.leaderCategory) ?? []) : []
-      const rank = ids.indexOf(playerId)
-      return { def, rank: rank === -1 ? 9999 : rank }
-    })
-    .filter((x): x is { def: StatDef; rank: number } => x !== null)
-    .sort((a, b) => a.rank - b.rank)
-
-  // Take best-ranked stats first, then fill with fallbacks
-  const selected: StatDef[] = []
-  for (const { def, rank } of scored) {
-    if (selected.length >= 3) break
-    if (rank < 9999) selected.push(def)
-  }
-  for (const key of fallback) {
-    if (selected.length >= 3) break
-    const def = defs.find(d => d.key === key)
-    if (def && !selected.find(s => s.key === key)) selected.push(def)
-  }
-
-  // Return in the natural defs order so layout is consistent
-  const keys = new Set(selected.map(d => d.key))
-  return defs.filter(d => keys.has(d.key)).slice(0, 3)
+const AWARD_STATS: Record<string, string[]> = {
+  ops: ['ops', 'avg', 'hr'],
+  era: ['era', 'wl', 'k'],
+  hr:  ['hr', 'rbi', 'avg'],
+  sb:  ['sb', 'avg', 'ops'],
 }
 
 export function FeaturedMiniCard({
-  entry, teamId, hitLeaders, pitLeaders, onClick,
+  entry, teamId, hitLeaders, pitLeaders, onClick, awardLabel, highlightStat,
 }: {
   entry: TeamPlayerStat & { isPitcher: boolean }
   teamId: number
   hitLeaders: Map<string, number[]>
   pitLeaders: Map<string, number[]>
   onClick: () => void
+  awardLabel: string
+  highlightStat: string
 }) {
   const isStarter = entry.isPitcher && entry.gamesStarted >= 3
   const isCloser  = entry.isPitcher && !isStarter && entry.saves >= 3
 
-  // Derive a clean position label from stats when the API gives a generic 'P'
   const posLabel = entry.isPitcher
     ? (isStarter ? 'SP' : isCloser ? 'CL' : 'RP')
     : entry.position
 
   const defs    = entry.isPitcher ? PITCHING_STAT_DEFS : HITTING_STAT_DEFS
   const leaders = entry.isPitcher ? pitLeaders : hitLeaders
-  const statDefs = pickMiniStats(entry.playerId, entry.isPitcher, isCloser, defs, leaders)
+
+  const statKeys = AWARD_STATS[highlightStat] ?? [highlightStat]
+  const statDefs = statKeys
+    .map(k => defs.find(d => d.key === k))
+    .filter((d): d is StatDef => d != null)
 
   const teamColor = TEAM_BG[teamId] ?? ACCENT
 
@@ -344,15 +305,26 @@ export function FeaturedMiniCard({
         minWidth: 0,
       }}
     >
-      {/* Thin team-color accent bar */}
-      <Box sx={{ width: '100%', height: 3, bgcolor: teamColor, flexShrink: 0 }} />
+      {/* Award label banner */}
+      <Box sx={{
+        width: '100%', bgcolor: `${teamColor}22`,
+        borderBottom: `1px solid ${teamColor}40`,
+        px: 1, py: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Typography sx={{
+          fontSize: '0.58rem', fontWeight: 800, textTransform: 'uppercase',
+          letterSpacing: 0.8, color: teamColor, lineHeight: 1,
+        }}>
+          {awardLabel}
+        </Typography>
+      </Box>
 
-      <Box sx={{ px: 1.25, pt: 1.5, pb: 1.5, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        {/* Headshot — portrait rectangle so the full face fits */}
+      <Box sx={{ px: 1.25, pt: 1.25, pb: 1.5, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        {/* Headshot */}
         <Box sx={{
-          width: 64, height: 78, borderRadius: 2, overflow: 'hidden',
+          width: 56, height: 68, borderRadius: 2, overflow: 'hidden',
           border: `2px solid ${teamColor}`, bgcolor: 'action.hover',
-          flexShrink: 0, mb: 1, mx: 'auto',
+          flexShrink: 0, mb: 0.75, mx: 'auto',
         }}>
           <Box
             component="img"
@@ -362,9 +334,9 @@ export function FeaturedMiniCard({
           />
         </Box>
 
-        {/* Full name — wraps to 2 lines for long names */}
+        {/* Full name */}
         <Typography sx={{
-          fontWeight: 700, fontSize: '0.76rem', lineHeight: 1.25,
+          fontWeight: 700, fontSize: '0.74rem', lineHeight: 1.2,
           textAlign: 'center', mb: 0.25, px: 0.5,
           display: '-webkit-box', WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical', overflow: 'hidden',
@@ -374,22 +346,23 @@ export function FeaturedMiniCard({
 
         {/* Position badge */}
         <Box sx={{
-          display: 'inline-flex', px: 0.75, height: 16, borderRadius: 1,
+          display: 'inline-flex', px: 0.75, height: 15, borderRadius: 1,
           alignItems: 'center', justifyContent: 'center',
-          bgcolor: `${teamColor}22`, mb: 1.5,
+          bgcolor: `${teamColor}22`, mb: 1.25,
         }}>
-          <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, color: teamColor, letterSpacing: 0.5 }}>
+          <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, color: teamColor, letterSpacing: 0.5 }}>
             {posLabel}
           </Typography>
         </Box>
 
-        {/* Stat columns */}
+        {/* Stat columns — first stat is the award stat, shown slightly larger */}
         <Box sx={{ display: 'flex', width: '100%' }}>
           {statDefs.map((def, i) => {
             const value = def.format(def.getValue(entry.stat))
             const ids   = def.leaderCategory ? (leaders.get(def.leaderCategory) ?? []) : []
             const rank  = ids.indexOf(entry.playerId)
             const isElite = rank !== -1 && rank < 5
+            const isAward = i === 0
             return (
               <Box key={def.key} sx={{
                 flex: 1, textAlign: 'center',
@@ -399,13 +372,15 @@ export function FeaturedMiniCard({
               }}>
                 <Typography sx={{
                   fontSize: '0.52rem', fontWeight: 700, textTransform: 'uppercase',
-                  letterSpacing: 0.6, color: 'text.disabled', lineHeight: 1, mb: 0.4,
+                  letterSpacing: 0.6, color: isAward ? teamColor : 'text.disabled',
+                  lineHeight: 1, mb: 0.4,
                 }}>
                   {def.label}
                 </Typography>
                 <Typography sx={{
-                  fontSize: '0.95rem', fontWeight: 800, lineHeight: 1,
-                  color: isElite ? ACCENT : 'text.primary',
+                  fontSize: isAward ? '1.05rem' : '0.9rem',
+                  fontWeight: 800, lineHeight: 1,
+                  color: isElite ? ACCENT : isAward ? 'text.primary' : 'text.secondary',
                 }}>
                   {value}
                 </Typography>
@@ -419,6 +394,101 @@ export function FeaturedMiniCard({
           })}
         </Box>
       </Box>
+    </Box>
+  )
+}
+
+// ─── Division standings card ───────────────────────────────────────────────────
+
+export function DivisionStandingsCard({
+  division, highlightTeamId, season,
+}: {
+  division: StandingsDivision
+  highlightTeamId: number
+  season: number
+}) {
+  const sorted = [...division.teams].sort((a, b) => a.divisionRank - b.divisionRank)
+  const teamColor = TEAM_BG[highlightTeamId] ?? ACCENT
+
+  const hdrSx = {
+    fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase' as const,
+    letterSpacing: 0.5, color: 'text.disabled', lineHeight: 1,
+  }
+  const cellSx = { fontSize: '0.75rem', fontWeight: 600, lineHeight: 1 }
+
+  return (
+    <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
+      {/* Header */}
+      <Box sx={{
+        px: 1.5, py: 0.85,
+        background: `linear-gradient(90deg, ${teamColor}20 0%, transparent 100%)`,
+        borderBottom: '1px solid', borderColor: 'divider',
+        display: 'flex', alignItems: 'baseline', gap: 1,
+      }}>
+        <Typography sx={{ fontWeight: 800, fontSize: '0.82rem', letterSpacing: '-0.2px' }}>
+          {division.divisionName}
+        </Typography>
+        <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', fontWeight: 600 }}>
+          {season}
+        </Typography>
+      </Box>
+
+      {/* Column headers */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: '18px 40px 1fr 26px 26px 36px', px: 1.25, py: 0.5, borderBottom: '1px solid', borderColor: 'divider', gap: '4px' }}>
+        <Typography sx={hdrSx}>#</Typography>
+        <Box />
+        <Typography sx={hdrSx}>Team</Typography>
+        <Typography sx={{ ...hdrSx, textAlign: 'right' }}>W</Typography>
+        <Typography sx={{ ...hdrSx, textAlign: 'right' }}>L</Typography>
+        <Typography sx={{ ...hdrSx, textAlign: 'right' }}>GB</Typography>
+      </Box>
+
+      {/* Team rows */}
+      {sorted.map((t, idx) => {
+        const isHL = t.teamId === highlightTeamId
+        return (
+          <Box key={t.teamId} sx={{
+            display: 'grid', gridTemplateColumns: '18px 40px 1fr 26px 26px 36px',
+            alignItems: 'center', gap: '4px',
+            px: 1.25, py: 0.7,
+            bgcolor: isHL ? `${teamColor}14` : undefined,
+            borderLeft: `3px solid ${isHL ? teamColor : 'transparent'}`,
+            borderBottom: idx < sorted.length - 1 ? '1px solid' : 'none',
+            borderColor: 'divider',
+          }}>
+            {/* Rank */}
+            <Typography sx={{ ...cellSx, color: isHL ? teamColor : 'text.disabled', fontWeight: isHL ? 800 : 600 }}>
+              {t.divisionRank}
+            </Typography>
+            {/* Logo */}
+            <Box sx={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Box
+                component="img"
+                src={`https://www.mlbstatic.com/team-logos/${t.teamId}.svg`}
+                alt={t.abbr}
+                crossOrigin="anonymous"
+                sx={{ width: 20, height: 20, objectFit: 'contain', opacity: isHL ? 1 : 0.7 }}
+              />
+            </Box>
+            {/* Name */}
+            <Typography sx={{ ...cellSx, fontWeight: isHL ? 800 : 600, color: isHL ? 'text.primary' : 'text.secondary' }}>
+              {t.abbr}
+            </Typography>
+            {/* W */}
+            <Typography sx={{ ...cellSx, textAlign: 'right', color: 'text.primary' }}>{t.wins}</Typography>
+            {/* L */}
+            <Typography sx={{ ...cellSx, textAlign: 'right', color: 'text.secondary' }}>{t.losses}</Typography>
+            {/* GB */}
+            <Typography sx={{
+              ...cellSx, textAlign: 'right',
+              color: t.divisionLeader ? (isHL ? teamColor : ACCENT) : 'text.disabled',
+              fontWeight: t.divisionLeader ? 800 : 600,
+            }}>
+              {t.gamesBack}
+            </Typography>
+          </Box>
+        )
+      })}
     </Box>
   )
 }
