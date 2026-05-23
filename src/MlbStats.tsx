@@ -44,6 +44,10 @@ export default function MlbStats() {
           followedTeamId={state.followedTeamId}
           onFollowTeam={state.followTeam}
           onUnfollowTeam={state.unfollowTeam}
+          followedPlayerIds={state.followedPlayerIds}
+          onFollowPlayer={state.followPlayer}
+          onUnfollowPlayer={state.unfollowPlayer}
+          onPlayerClick={state.handleFollowedPlayerClick}
         />
       )}
 

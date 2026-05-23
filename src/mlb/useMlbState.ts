@@ -84,6 +84,31 @@ export function useMlbState() {
     setFollowedTeamId(null)
   }, [])
 
+  // ─── Followed players (persisted to localStorage) ─────────────────────────────
+  const [followedPlayerIds, setFollowedPlayerIds] = useState<number[]>(() => {
+    try {
+      const s = localStorage.getItem('mlb_fav_player_ids')
+      return s ? JSON.parse(s) : []
+    } catch { return [] }
+  })
+
+  const followPlayer = useCallback((id: number) => {
+    setFollowedPlayerIds(prev => {
+      if (prev.includes(id)) return prev
+      const next = [...prev, id]
+      try { localStorage.setItem('mlb_fav_player_ids', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }, [])
+
+  const unfollowPlayer = useCallback((id: number) => {
+    setFollowedPlayerIds(prev => {
+      const next = prev.filter(x => x !== id)
+      try { localStorage.setItem('mlb_fav_player_ids', JSON.stringify(next)) } catch {}
+      return next
+    })
+  }, [])
+
   // ─── View & navigation ────────────────────────────────────────────────────────
   const [view, setView] = useState<'home' | 'search' | 'viz' | 'leaderboard' | 'standings' | 'stats'>(() => {
     try {
@@ -341,6 +366,12 @@ export function useMlbState() {
     setStatsHighlightPlayerId(player?.id ?? null)
     setStatsHighlightStatKey(statKey)
   }, [player, season])
+
+  const handleFollowedPlayerClick = useCallback((playerId: number) => {
+    fetchPlayerDetails(playerId)
+      .then(p => { if (p) { selectPlayer(p); setView('search') } })
+      .catch(() => {})
+  }, [selectPlayer])
 
   const handleVizNavigate = useCallback((id: number) => {
     const t = allTeams.find(t => t.id === id)
@@ -605,6 +636,10 @@ export function useMlbState() {
 
     // Followed team
     followedTeamId, followTeam, unfollowTeam,
+
+    // Followed players
+    followedPlayerIds, followPlayer, unfollowPlayer,
+    handleFollowedPlayerClick,
 
     // View & navigation
     view, setView,
