@@ -7,6 +7,7 @@ import { VizView } from './mlb/views/VizView'
 import { LeaderboardView } from './mlb/views/LeaderboardView'
 import { StatsView } from './mlb/views/StatsView'
 import { SearchView } from './mlb/views/SearchView'
+import { HomeView } from './mlb/views/HomeView'
 
 export default function MlbStats() {
   const state = useMlbState()
@@ -25,6 +26,7 @@ export default function MlbStats() {
       }}>
         <SegControl
           options={[
+            { value: 'home', label: '⚾ Home' },
             { value: 'search', label: 'Search' },
             { value: 'standings', label: 'Standings' },
             { value: 'viz', label: 'Visualize' },
@@ -35,6 +37,15 @@ export default function MlbStats() {
           onChange={v => state.setView(v as any)}
         />
       </Box>
+
+      {state.view === 'home' && (
+        <HomeView
+          allTeams={state.allTeams}
+          followedTeamId={state.followedTeamId}
+          onFollowTeam={state.followTeam}
+          onUnfollowTeam={state.unfollowTeam}
+        />
+      )}
 
       {state.view === 'standings' && (
         <Standings season={state.season} onTeamClick={state.handleVizNavigate} />

@@ -68,8 +68,32 @@ export function useMlbState() {
   const [showAge, setShowAge] = useState(false)
   const [showNumber, setShowNumber] = useState(false)
 
+  // ─── Followed team (persisted to localStorage) ───────────────────────────────
+  const [followedTeamId, setFollowedTeamId] = useState<number | null>(() => {
+    try { const s = localStorage.getItem('mlb_fav_team_id'); return s ? Number(s) : null } catch { return null }
+  })
+
+  const followTeam   = useCallback((teamId: number) => {
+    try { localStorage.setItem('mlb_fav_team_id', String(teamId)) } catch {}
+    setFollowedTeamId(teamId)
+    setView('home')
+  }, [])
+
+  const unfollowTeam = useCallback(() => {
+    try { localStorage.removeItem('mlb_fav_team_id') } catch {}
+    setFollowedTeamId(null)
+  }, [])
+
   // ─── View & navigation ────────────────────────────────────────────────────────
-  const [view, setView] = useState<'search' | 'viz' | 'leaderboard' | 'standings' | 'stats'>('search')
+  const [view, setView] = useState<'home' | 'search' | 'viz' | 'leaderboard' | 'standings' | 'stats'>(() => {
+    try {
+      // URL view param takes priority
+      const vp = new URLSearchParams(window.location.search).get('view')
+      if (vp && ['home','search','viz','leaderboard','standings','stats'].includes(vp)) return vp as any
+      // Default to Home if a team is already followed
+      return localStorage.getItem('mlb_fav_team_id') ? 'home' : 'search'
+    } catch { return 'search' }
+  })
   const [vizSeason, setVizSeason] = useState(CURRENT_SEASON)
   const [teamSummaries, setTeamSummaries] = useState<TeamSummary[]>([])
   const [loadingViz, setLoadingViz] = useState(false)
@@ -436,6 +460,10 @@ export function useMlbState() {
         setView('standings')
         setPlayer(null)
         setTeam(null)
+      } else if (viewParam === 'home') {
+        setView('home')
+        setPlayer(null)
+        setTeam(null)
       }
     }
     window.addEventListener('popstate', handlePop)
@@ -450,7 +478,7 @@ export function useMlbState() {
     if (!urlViewReadRef.current) {
       urlViewReadRef.current = true
       const viewParam = params.get('view')
-      if (viewParam === 'viz' || viewParam === 'leaderboard' || viewParam === 'standings' || viewParam === 'stats') setView(viewParam as any)
+      if (viewParam && ['home','viz','leaderboard','standings','stats'].includes(viewParam)) setView(viewParam as any)
       const lbParam = params.get('lb')
       if (lbParam === 'pitching') setLbGroup('pitching')
       const seasonParam = params.get('season')
@@ -574,6 +602,9 @@ export function useMlbState() {
     showTeam, setShowTeam,
     showAge, setShowAge,
     showNumber, setShowNumber,
+
+    // Followed team
+    followedTeamId, followTeam, unfollowTeam,
 
     // View & navigation
     view, setView,

@@ -160,6 +160,40 @@ export const TEAM_BG: Record<number, string> = {
   158: '#12284B',  // MIL
 }
 
+// Secondary / accent colors — used as the contrasting foreground on team-color backgrounds
+export const TEAM_SECONDARY: Record<number, string> = {
+  108: '#B8CBE4',  // LAA  - light blue
+  109: '#E3D4AD',  // ARI  - sand
+  110: '#000000',  // BAL  - black
+  111: '#0C2340',  // BOS  - navy
+  112: '#CC3433',  // CHC  - red
+  113: '#000000',  // CIN  - black
+  114: '#E31937',  // CLE  - red
+  115: '#C4CED4',  // COL  - silver
+  116: '#FA4616',  // DET  - orange
+  117: '#EB6E1F',  // HOU  - orange
+  118: '#BD9B60',  // KC   - gold
+  119: '#EF3E42',  // LAD  - red
+  120: '#14225A',  // WSH  - navy
+  121: '#FF5910',  // NYM  - orange
+  133: '#EFB21E',  // OAK  - gold
+  134: '#FDB827',  // PIT  - gold
+  135: '#FFC425',  // SD   - gold
+  136: '#C4CED4',  // SEA  - silver
+  137: '#FD5A1E',  // SF   - orange
+  138: '#0C2340',  // STL  - navy
+  139: '#8FBCE6',  // TB   - sky blue
+  140: '#C0111F',  // TEX  - red
+  141: '#E8291C',  // TOR  - red
+  142: '#D31145',  // MIN  - red
+  143: '#002D72',  // PHI  - blue
+  144: '#13274F',  // ATL  - navy
+  145: '#C4CED4',  // CWS  - silver
+  146: '#00A3E0',  // MIA  - blue
+  147: '#C4CED3',  // NYY  - silver
+  158: '#B6922E',  // MIL  - gold
+}
+
 export const DEFAULT_PALETTE: Palette = {
   bg: 'hsl(220, 70%, 15%)',
   text: '#ffffff',

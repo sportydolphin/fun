@@ -211,23 +211,11 @@ export function StatsView({
                           transition: 'background 0.15s, color 0.15s',
                           userSelect: 'none',
                         }}>
-                        <Box sx={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.25 }}>
-                          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3 }}>
-                            {def.label}
-                            {isActive && (
-                              <Box component="span" sx={{ fontSize: '0.65rem', opacity: 0.8 }}>
-                                {sortAsc ? '↑' : '↓'}
-                              </Box>
-                            )}
-                          </Box>
-                          {def.leaderLabel && def.leaderLabel !== def.label && (
-                            <Box sx={{
-                              fontSize: '0.54rem', fontWeight: 500,
-                              textTransform: 'none', letterSpacing: 0,
-                              opacity: isActive ? 0.75 : 0.5,
-                              lineHeight: 1,
-                            }}>
-                              {def.leaderLabel}
+                        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3 }}>
+                          {def.label}
+                          {isActive && (
+                            <Box component="span" sx={{ fontSize: '0.65rem', opacity: 0.8 }}>
+                              {sortAsc ? '↑' : '↓'}
                             </Box>
                           )}
                         </Box>
