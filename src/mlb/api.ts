@@ -1,4 +1,4 @@
-import { Player, Team, StatDef, TeamSummary, CareerStatSplit, RecentGameEntry, StandingsDivision, TeamPlayerStat, TeamStandingInfo } from './types'
+import { Player, Team, StatDef, TeamSummary, CareerStatSplit, RecentGameEntry, StandingsDivision, TeamPlayerStat, TeamStandingInfo, SosEntry } from './types'
 import { TEAM_ABBR } from './constants'
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
@@ -374,6 +374,80 @@ export async function fetchTeamStanding(teamId: number, season: number): Promise
 export async function fetchDivisionForTeam(teamId: number, season: number): Promise<StandingsDivision | null> {
   const standings = await fetchStandingsCached(season)
   return standings.find(div => div.teams.some(t => t.teamId === teamId)) ?? null
+}
+
+// ─── Strength of Schedule ────────────────────────────────────────────────────
+//
+// Fetch all remaining regular-season games, cross-reference each opponent's
+// current win%, and return 30 SosEntry objects sorted hardest → easiest.
+
+const sosCache = new Map<number, Promise<SosEntry[]>>()
+
+export function fetchStrengthOfSchedule(season: number): Promise<SosEntry[]> {
+  if (!sosCache.has(season)) {
+    sosCache.set(season, _buildSosEntries(season).catch(() => []))
+  }
+  return sosCache.get(season)!
+}
+
+async function _buildSosEntries(season: number): Promise<SosEntry[]> {
+  const standings = await fetchStandingsCached(season)
+
+  // Build lookup maps from standings
+  const winPctMap = new Map<number, number>()
+  const teamInfoMap = new Map<number, { abbr: string; teamName: string; wins: number; losses: number }>()
+  for (const div of standings) {
+    for (const t of div.teams) {
+      winPctMap.set(t.teamId, parseFloat(t.pct) || 0)
+      teamInfoMap.set(t.teamId, { abbr: t.abbr, teamName: t.teamName, wins: t.wins, losses: t.losses })
+    }
+  }
+
+  // Fetch remaining schedule (only the fields we need to keep response small)
+  const today = new Date().toISOString().split('T')[0]
+  const endDate = `${season}-10-06`
+  const r = await fetch(
+    `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${today}&endDate=${endDate}&gameType=R` +
+    `&fields=dates,date,games,teams,home,away,team,id`
+  )
+  const d = await r.json()
+
+  // Accumulate opponent win% lists per team
+  const oppPcts = new Map<number, number[]>()
+  for (const dateObj of d.dates ?? []) {
+    for (const game of dateObj.games ?? []) {
+      const homeId = Number(game.teams?.home?.team?.id)
+      const awayId = Number(game.teams?.away?.team?.id)
+      if (!homeId || !awayId) continue
+
+      const homePct = winPctMap.get(homeId) ?? 0.5
+      const awayPct = winPctMap.get(awayId) ?? 0.5
+
+      if (!oppPcts.has(homeId)) oppPcts.set(homeId, [])
+      if (!oppPcts.has(awayId)) oppPcts.set(awayId, [])
+
+      oppPcts.get(homeId)!.push(awayPct)
+      oppPcts.get(awayId)!.push(homePct)
+    }
+  }
+
+  // Build entries
+  const entries: SosEntry[] = []
+  for (const [teamId, info] of teamInfoMap) {
+    const pcts = oppPcts.get(teamId) ?? []
+    const avg = pcts.length > 0 ? pcts.reduce((s, p) => s + p, 0) / pcts.length : 0
+    entries.push({
+      teamId,
+      abbr: info.abbr,
+      teamName: info.teamName,
+      remainingGames: pcts.length,
+      oppWinPct: avg,
+      wins: info.wins,
+      losses: info.losses,
+    })
+  }
+
+  return entries.sort((a, b) => b.oppWinPct - a.oppWinPct)
 }
 
 // The standings endpoint returns division objects with only {id, link} — no name field.

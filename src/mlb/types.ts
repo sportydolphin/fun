@@ -136,6 +136,18 @@ export interface TeamStandingInfo {
   divisionLeader: boolean
 }
 
+// ─── Strength of Schedule ─────────────────────────────────────────────────────
+
+export interface SosEntry {
+  teamId: number
+  abbr: string
+  teamName: string
+  remainingGames: number
+  oppWinPct: number    // average opponent win% across remaining games
+  wins: number
+  losses: number
+}
+
 // ─── Leaderboard fullscreen state ─────────────────────────────────────────────
 
 export interface LbFullscreenState {
