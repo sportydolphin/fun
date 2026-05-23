@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
 import { Team } from '../types'
 import { TEAM_BG, TEAM_SECONDARY } from '../constants'
@@ -83,7 +83,6 @@ function TeamPicker({ allTeams, onSelect }: { allTeams: Team[]; onSelect: (id: n
                   onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
                     const img = e.currentTarget
                     img.style.display = 'none'
-                    // show abbr fallback via parent bg
                   }}
                 />
               </Box>
@@ -96,6 +95,304 @@ function TeamPicker({ allTeams, onSelect }: { allTeams: Team[]; onSelect: (id: n
             </Box>
           )
         })}
+      </Box>
+    </Box>
+  )
+}
+
+// ─── Schedule types & fetch ───────────────────────────────────────────────────
+
+interface ScheduleGame {
+  gamePk:        number
+  date:          string
+  gameTime:      string
+  isHome:        boolean
+  opponentId:    number
+  opponentAbbr:  string
+  state:         'final' | 'live' | 'preview'
+  teamScore:     number | null
+  opponentScore: number | null
+  isWin:         boolean | null
+}
+
+async function fetchTeamSchedule(teamId: number): Promise<ScheduleGame[]> {
+  const today = new Date()
+  const start = new Date(today)
+  start.setDate(start.getDate() - 14)
+  const end = new Date(today)
+  end.setDate(end.getDate() + 21)
+  const toISO = (d: Date) => d.toISOString().split('T')[0]
+
+  const r = await fetch(
+    `https://statsapi.mlb.com/api/v1/schedule?teamId=${teamId}&sportId=1` +
+    `&startDate=${toISO(start)}&endDate=${toISO(end)}&gameType=R` +
+    `&fields=dates,date,games,gamePk,gameDate,status,abstractGameState,teams,home,away,team,id,abbreviation,score,isWinner`
+  )
+  const d = await r.json()
+
+  const games: ScheduleGame[] = []
+  for (const dateObj of d.dates ?? []) {
+    for (const game of dateObj.games ?? []) {
+      const homeId = Number(game.teams?.home?.team?.id)
+      const isHome = homeId === teamId
+      const opp    = isHome ? game.teams.away : game.teams.home
+      const mine   = isHome ? game.teams.home : game.teams.away
+
+      const raw   = game.status?.abstractGameState ?? 'Preview'
+      const state = raw === 'Final' ? 'final' : raw === 'Live' ? 'live' : 'preview'
+
+      let gameTime = ''
+      if (game.gameDate) {
+        gameTime = new Date(game.gameDate).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+      }
+
+      games.push({
+        gamePk:        game.gamePk,
+        date:          dateObj.date,
+        gameTime,
+        isHome,
+        opponentId:    Number(opp?.team?.id ?? 0),
+        opponentAbbr:  opp?.team?.abbreviation ?? '???',
+        state:         state as ScheduleGame['state'],
+        teamScore:     state !== 'preview' ? Number(mine?.score ?? 0) : null,
+        opponentScore: state !== 'preview' ? Number(opp?.score  ?? 0) : null,
+        isWin:         state === 'final' ? Boolean(mine?.isWinner) : null,
+      })
+    }
+  }
+
+  return games.sort((a, b) => a.date.localeCompare(b.date))
+}
+
+// ─── Game chip ────────────────────────────────────────────────────────────────
+
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+function chipDate(d: string) {
+  const [, m, day] = d.split('-').map(Number)
+  return `${MONTHS_SHORT[m - 1]} ${day}`
+}
+
+function GameChip({ game, teamColor, secondary, highlight, innerRef }: {
+  game:      ScheduleGame
+  teamColor: string
+  secondary: string
+  highlight: boolean
+  innerRef?: React.RefObject<HTMLDivElement>
+}) {
+  const isFinal = game.state === 'final'
+  const isLive  = game.state === 'live'
+  const isWin   = game.isWin === true
+
+  return (
+    <Box
+      ref={innerRef}
+      sx={{
+        flexShrink: 0,
+        width: 72,
+        borderRadius: 2,
+        border: `1.5px solid ${highlight ? secondary : `${secondary}28`}`,
+        bgcolor: highlight ? `${secondary}14` : `rgba(0,0,0,0.20)`,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        py: 1.25, px: 0.75,
+        gap: 0.5,
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      {/* TODAY / LIVE banner at top */}
+      {highlight && (
+        <Box sx={{
+          position: 'absolute', top: 0, left: 0, right: 0,
+          bgcolor: isLive ? '#ef4444' : secondary,
+          py: '2.5px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Typography sx={{
+            fontSize: '0.46rem', fontWeight: 900, letterSpacing: 1.5,
+            color: isLive ? '#fff' : teamColor,
+            textTransform: 'uppercase', lineHeight: 1,
+          }}>
+            {isLive ? '● LIVE' : 'TODAY'}
+          </Typography>
+        </Box>
+      )}
+
+      {/* Date */}
+      <Typography sx={{
+        fontSize: '0.58rem', fontWeight: 700,
+        color: `${secondary}80`, lineHeight: 1,
+        mt: highlight ? 1.4 : 0,
+        letterSpacing: 0.3,
+      }}>
+        {chipDate(game.date)}
+      </Typography>
+
+      {/* @ / VS */}
+      <Typography sx={{
+        fontSize: '0.48rem', fontWeight: 800,
+        color: `${secondary}50`, lineHeight: 1, letterSpacing: 1,
+      }}>
+        {game.isHome ? 'VS' : '@'}
+      </Typography>
+
+      {/* Opponent logo */}
+      <Box sx={{
+        width: 30, height: 30, borderRadius: '50%',
+        bgcolor: '#fff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden', flexShrink: 0,
+      }}>
+        <Box
+          component="img"
+          src={`https://www.mlbstatic.com/team-logos/${game.opponentId}.svg`}
+          alt={game.opponentAbbr}
+          sx={{ width: 22, height: 22, objectFit: 'contain' }}
+        />
+      </Box>
+
+      {/* Opponent abbr */}
+      <Typography sx={{
+        fontSize: '0.62rem', fontWeight: 800,
+        color: secondary, lineHeight: 1,
+      }}>
+        {game.opponentAbbr}
+      </Typography>
+
+      {/* Score + W/L for final; score for live; time for preview */}
+      {isFinal ? (
+        <>
+          <Typography sx={{
+            fontSize: '0.72rem', fontWeight: 700,
+            color: secondary, lineHeight: 1,
+          }}>
+            {game.teamScore}–{game.opponentScore}
+          </Typography>
+          <Box sx={{
+            px: 0.8, py: '2px', borderRadius: 1,
+            bgcolor: isWin ? '#22c55e22' : '#ef444422',
+          }}>
+            <Typography sx={{
+              fontSize: '0.6rem', fontWeight: 900, lineHeight: 1,
+              color: isWin ? '#22c55e' : '#ef4444',
+            }}>
+              {isWin ? 'W' : 'L'}
+            </Typography>
+          </Box>
+        </>
+      ) : isLive ? (
+        <Typography sx={{
+          fontSize: '0.72rem', fontWeight: 800,
+          color: '#ef4444', lineHeight: 1,
+        }}>
+          {game.teamScore}–{game.opponentScore}
+        </Typography>
+      ) : (
+        <Typography sx={{
+          fontSize: '0.56rem', fontWeight: 600,
+          color: `${secondary}65`, lineHeight: 1,
+          textAlign: 'center',
+        }}>
+          {game.gameTime}
+        </Typography>
+      )}
+    </Box>
+  )
+}
+
+// ─── Schedule strip ───────────────────────────────────────────────────────────
+
+function TeamScheduleStrip({ teamId, teamColor, secondary }: {
+  teamId:    number
+  teamColor: string
+  secondary: string
+}) {
+  const [games, setGames]   = useState<ScheduleGame[]>([])
+  const [loading, setLoading] = useState(true)
+  const todayChipRef  = useRef<HTMLDivElement>(null)
+  const containerRef  = useRef<HTMLDivElement>(null)
+  const today = new Date().toISOString().split('T')[0]
+
+  useEffect(() => {
+    setLoading(true)
+    fetchTeamSchedule(teamId)
+      .then(setGames)
+      .finally(() => setLoading(false))
+  }, [teamId])
+
+  // Center the today/next chip after render
+  useEffect(() => {
+    const container = containerRef.current
+    const chip      = todayChipRef.current
+    if (!container || !chip) return
+    const offset = chip.offsetLeft - container.clientWidth / 2 + chip.offsetWidth / 2
+    container.scrollTo({ left: Math.max(0, offset), behavior: 'smooth' })
+  }, [games])
+
+  if (loading) return (
+    <Box sx={{ mt: 4, textAlign: 'center' }}>
+      <Typography sx={{ fontSize: '0.7rem', color: `${secondary}45`, fontWeight: 600 }}>
+        Loading schedule…
+      </Typography>
+    </Box>
+  )
+  if (!games.length) return null
+
+  // Highlight the next upcoming (or today's) game
+  const nextGame = games.find(g => g.date >= today) ?? games[games.length - 1]
+
+  return (
+    <Box sx={{ mt: 4, width: '100%', position: 'relative' }}>
+      {/* Section label */}
+      <Typography sx={{
+        fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase',
+        letterSpacing: 2.5, color: secondary, opacity: 0.45,
+        mb: 1.5, textAlign: 'center',
+      }}>
+        Schedule
+      </Typography>
+
+      {/* Fade-out edges */}
+      <Box sx={{ position: 'relative' }}>
+        <Box sx={{
+          position: 'absolute', left: 0, top: 0, bottom: 12, width: 32, zIndex: 2,
+          background: `linear-gradient(to right, ${teamColor} 40%, transparent)`,
+          pointerEvents: 'none',
+        }} />
+        <Box sx={{
+          position: 'absolute', right: 0, top: 0, bottom: 12, width: 32, zIndex: 2,
+          background: `linear-gradient(to left, ${teamColor} 40%, transparent)`,
+          pointerEvents: 'none',
+        }} />
+
+        {/* Scrollable chip row */}
+        <Box
+          ref={containerRef}
+          sx={{
+            display: 'flex', flexDirection: 'row', gap: 1,
+            overflowX: 'auto',
+            px: 3, pb: 1,
+            '&::-webkit-scrollbar': { height: 3 },
+            '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
+            '&::-webkit-scrollbar-thumb': { bgcolor: `${secondary}25`, borderRadius: 2 },
+            scrollbarWidth: 'thin',
+            scrollbarColor: `${secondary}25 transparent`,
+          }}
+        >
+          {games.map(g => {
+            const isHighlight = g.gamePk === nextGame.gamePk
+            return (
+              <GameChip
+                key={g.gamePk}
+                game={g}
+                teamColor={teamColor}
+                secondary={secondary}
+                highlight={isHighlight}
+                innerRef={isHighlight ? todayChipRef : undefined}
+              />
+            )
+          })}
+        </Box>
       </Box>
     </Box>
   )
@@ -122,26 +419,23 @@ export function HomeView({ allTeams, followedTeamId, onFollowTeam, onUnfollowTea
   const abbr      = team?.abbreviation ?? '—'
   const name      = team?.name         ?? '—'
 
-  // Split team name into city + nickname for stacked display
-  // Works for most: "Los Angeles Dodgers" → ["Los Angeles", "Dodgers"]
-  // Falls back to single line for anything unusual
-  const words     = name.split(' ')
-  const nickname  = words[words.length - 1]
-  const city      = words.slice(0, -1).join(' ')
+  const words    = name.split(' ')
+  const nickname = words[words.length - 1]
+  const city     = words.slice(0, -1).join(' ')
 
   return (
     <Box sx={{
       minHeight: 'calc(100vh - 130px)',
       borderRadius: { xs: 0, sm: 3 },
       bgcolor: bg,
-      mx: { xs: -2, sm: 0 },   // bleed to viewport edges on mobile
+      mx: { xs: -2, sm: 0 },
       display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
+      alignItems: 'center', justifyContent: 'flex-start',
       position: 'relative', overflow: 'hidden',
-      px: 3, py: 8,
+      px: 3, pt: 8, pb: 5,
     }}>
 
-      {/* Subtle radial glow behind the logo in the secondary color */}
+      {/* Subtle radial glow */}
       <Box sx={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
         background: `radial-gradient(ellipse 70% 55% at 50% 38%, ${secondary}22 0%, transparent 70%)`,
@@ -162,7 +456,7 @@ export function HomeView({ allTeams, followedTeamId, onFollowTeam, onUnfollowTea
         <TeamLogo teamId={followedTeamId} abbr={abbr} size={130} />
       </Box>
 
-      {/* City name (smaller) */}
+      {/* City name */}
       {city && (
         <Typography sx={{
           fontSize: { xs: '1rem', sm: '1.2rem' },
@@ -176,7 +470,7 @@ export function HomeView({ allTeams, followedTeamId, onFollowTeam, onUnfollowTea
         </Typography>
       )}
 
-      {/* Nickname (massive) */}
+      {/* Nickname */}
       <Typography sx={{
         fontSize: { xs: '2.8rem', sm: '4rem' },
         fontWeight: 900, textTransform: 'uppercase',
@@ -206,6 +500,14 @@ export function HomeView({ allTeams, followedTeamId, onFollowTeam, onUnfollowTea
       >
         Change Team
       </Box>
+
+      {/* Schedule strip */}
+      <TeamScheduleStrip
+        teamId={followedTeamId}
+        teamColor={bg}
+        secondary={secondary}
+      />
+
     </Box>
   )
 }

@@ -409,7 +409,7 @@ export function useMlbState() {
     const params = new URLSearchParams()
     if (player) params.set('pid', String(player.id))
     else if (team) params.set('tid', String(team.id))
-    if (view !== 'search') params.set('view', view)
+    params.set('view', view)
     if (view === 'leaderboard' || view === 'viz' || view === 'stats') {
       if (lbGroup !== 'hitting') params.set('lb', lbGroup)
       if (vizSeason !== CURRENT_SEASON) params.set('season', String(vizSeason))
