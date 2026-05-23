@@ -262,15 +262,17 @@ export function useMlbState() {
     const resolved = details ?? p
     setPalette(teamPalette(resolved.currentTeam?.id))
     const { seasons, teamsBySeason } = careerData
+    const isRetired = resolved.active === false
+    const initialSeason = isRetired && seasons.length > 0 ? seasons[0] : CURRENT_SEASON
     setPlayer(resolved)
-    setStatsView('season')
+    setStatsView(isRetired ? 'career' : 'season')
     setHighlightedGameDate(null)
     setTeam(null)
     setTeamStanding(null)
     setAvailableSeasons(seasons.length ? seasons : [CURRENT_SEASON])
     setSeasonTeams(teamsBySeason)
-    setSeason(CURRENT_SEASON)
-    await loadStats(resolved, CURRENT_SEASON)
+    setSeason(initialSeason)
+    await loadStats(resolved, initialSeason)
   }, [loadStats])
 
   const selectTeam = useCallback(async (t: Team) => {

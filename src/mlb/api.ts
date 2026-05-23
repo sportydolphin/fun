@@ -6,7 +6,9 @@ import { TEAM_ABBR } from './constants'
 export async function searchPlayers(name: string): Promise<Player[]> {
   const r = await fetch(`https://statsapi.mlb.com/api/v1/people/search?names=${encodeURIComponent(name)}&sportId=1&hydrate=currentTeam`)
   const d = await r.json()
-  return (d.people ?? []).filter((p: Player) => p.active !== false)
+  const people: Player[] = d.people ?? []
+  // Active players first, retired players after — covers the full modern era
+  return people.sort((a, b) => (b.active ? 1 : 0) - (a.active ? 1 : 0))
 }
 
 export async function fetchPlayerDetails(id: number): Promise<Player | null> {

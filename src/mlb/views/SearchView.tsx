@@ -244,7 +244,9 @@ export function SearchView({
                 {playerResults.map((p, i) => {
                   const pos = p.primaryPosition?.abbreviation ?? p.primaryPosition?.name ?? ''
                   const teamAbbr = p.currentTeam?.id != null ? TEAM_ABBR[p.currentTeam.id] : undefined
-                  const sub = [pos, teamAbbr].filter(Boolean).join(' | ')
+                  const sub = p.active === false
+                    ? [pos, 'Retired'].filter(Boolean).join(' | ')
+                    : [pos, teamAbbr].filter(Boolean).join(' | ')
                   return (
                     <React.Fragment key={`p-${p.id}`}>
                       {i > 0 && <Divider />}
