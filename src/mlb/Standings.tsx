@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { ACCENT, TEAM_BG } from './constants'
-import { fetchStandings, fetchStrengthOfSchedule } from './api'
-import { StandingsDivision, StandingsTeamRecord, SosEntry } from './types'
+import { fetchStandings } from './api'
+import { StandingsDivision, StandingsTeamRecord } from './types'
 import { SegControl } from './components'
 
 // ─── Division display order ───────────────────────────────────────────────────
@@ -421,190 +421,16 @@ function PlayoffPicture({ divisions, onTeamClick }: {
   )
 }
 
-// ─── Strength of Schedule view ───────────────────────────────────────────────
-
-const SOS_TIERS: Array<{ maxRank: number; label: string; emoji: string; color: string }> = [
-  { maxRank: 5,  label: 'Absolute Gauntlet', emoji: '💀', color: '#ef4444' },
-  { maxRank: 12, label: 'Uphill Battle',      emoji: '😤', color: '#f97316' },
-  { maxRank: 20, label: 'Middle of the Pack', emoji: '⚖️',  color: '#eab308' },
-  { maxRank: 26, label: 'Lucky Draw',         emoji: '😌', color: '#84cc16' },
-  { maxRank: 30, label: 'Vacation Mode',      emoji: '🏖️', color: '#22c55e' },
-]
-
-function sosTierForRank(rank: number) {
-  return SOS_TIERS.find(t => rank <= t.maxRank) ?? SOS_TIERS[SOS_TIERS.length - 1]
-}
-
-function difficultyColor(norm: number): string {
-  if (norm > 0.75) return '#ef4444'
-  if (norm > 0.5)  return '#f97316'
-  if (norm > 0.25) return '#eab308'
-  return '#22c55e'
-}
-
-function SosView({ entries, onTeamClick }: {
-  entries: SosEntry[]
-  onTeamClick?: (teamId: number) => void
-}) {
-  if (!entries.length) return null
-
-  const minPct = Math.min(...entries.map(e => e.oppWinPct))
-  const maxPct = Math.max(...entries.map(e => e.oppWinPct))
-  const range  = maxPct - minPct || 0.001
-
-  // Track which tiers have already shown their header
-  const shownTiers = new Set<string>()
-
-  return (
-    <Box>
-      <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mb: 2.5 }}>
-        Average opponent win% across all remaining regular-season games · hardest → easiest
-      </Typography>
-
-      {/* Column headers */}
-      <Box sx={{
-        display: 'grid',
-        gridTemplateColumns: '28px 32px 1fr 52px 52px 1fr 40px',
-        alignItems: 'center', gap: 1,
-        px: 1.5, mb: 0.5,
-      }}>
-        <Box />
-        <Box />
-        <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled' }}>Team</Typography>
-        <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled', textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>W–L</Typography>
-        <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled', textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>Games</Typography>
-        <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled', pl: 1 }}>Difficulty</Typography>
-        <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled', textAlign: 'right' }}>Opp%</Typography>
-      </Box>
-
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {entries.map((e, idx) => {
-          const rank = idx + 1
-          const norm = (e.oppWinPct - minPct) / range  // 0 = easiest, 1 = hardest
-          const color = difficultyColor(norm)
-          const barWidth = `${5 + norm * 95}%`
-          const tier = sosTierForRank(rank)
-          const showTierHeader = !shownTiers.has(tier.label)
-          if (showTierHeader) shownTiers.add(tier.label)
-
-          // Format opp win% as .xxx
-          const pctStr = '.' + Math.round(e.oppWinPct * 1000).toString().padStart(3, '0')
-
-          return (
-            <React.Fragment key={e.teamId}>
-              {showTierHeader && (
-                <Box sx={{
-                  display: 'flex', alignItems: 'center', gap: 1,
-                  px: 1.5, pt: idx === 0 ? 0 : 1, pb: 0.25,
-                }}>
-                  <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.2, color: tier.color }}>
-                    {tier.emoji} {tier.label}
-                  </Typography>
-                  <Box sx={{ flex: 1, height: '1px', bgcolor: `${tier.color}30` }} />
-                </Box>
-              )}
-
-              <Box
-                onClick={() => onTeamClick?.(e.teamId)}
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: '28px 32px 1fr 52px 52px 1fr 40px',
-                  alignItems: 'center', gap: 1,
-                  px: 1.5, py: '9px',
-                  borderRadius: 1.5,
-                  border: '1px solid', borderColor: 'divider',
-                  bgcolor: 'background.paper',
-                  borderLeft: `3px solid ${TEAM_BG[e.teamId] ?? '#444'}`,
-                  cursor: onTeamClick ? 'pointer' : 'default',
-                  transition: 'background 0.12s',
-                  '&:hover': { bgcolor: onTeamClick ? 'action.hover' : undefined },
-                }}
-              >
-                {/* Rank */}
-                <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: 'text.disabled', textAlign: 'center' }}>
-                  {rank}
-                </Typography>
-
-                {/* Logo */}
-                <TeamLogo teamId={e.teamId} abbr={e.abbr} />
-
-                {/* Team name */}
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, lineHeight: 1.2 }}>{e.abbr}</Typography>
-                  <Typography sx={{
-                    fontSize: '0.61rem', color: 'text.disabled', lineHeight: 1.2,
-                    display: { xs: 'none', md: 'block' },
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>{e.teamName}</Typography>
-                </Box>
-
-                {/* W–L */}
-                <Typography sx={{
-                  fontSize: '0.78rem', color: 'text.secondary', fontWeight: 500,
-                  textAlign: 'right', display: { xs: 'none', sm: 'block' },
-                }}>
-                  {e.wins}–{e.losses}
-                </Typography>
-
-                {/* Remaining games */}
-                <Typography sx={{
-                  fontSize: '0.72rem', color: 'text.disabled',
-                  textAlign: 'right', display: { xs: 'none', sm: 'block' },
-                }}>
-                  {e.remainingGames}G
-                </Typography>
-
-                {/* Difficulty bar */}
-                <Box sx={{ px: 0.5 }}>
-                  <Box sx={{
-                    height: 8, borderRadius: 4,
-                    bgcolor: 'action.disabledBackground', overflow: 'hidden',
-                  }}>
-                    <Box sx={{
-                      height: '100%', width: barWidth,
-                      borderRadius: 4, bgcolor: color,
-                      transition: 'width 0.5s ease',
-                    }} />
-                  </Box>
-                </Box>
-
-                {/* Opp win% */}
-                <Typography sx={{
-                  fontSize: '0.78rem', fontWeight: 700, color,
-                  textAlign: 'right', fontVariantNumeric: 'tabular-nums',
-                }}>
-                  {pctStr}
-                </Typography>
-              </Box>
-            </React.Fragment>
-          )
-        })}
-      </Box>
-
-      <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 2, textAlign: 'center' }}>
-        Win records from current standings · schedule data from MLB Stats API
-      </Typography>
-    </Box>
-  )
-}
-
 // ─── Standings component ──────────────────────────────────────────────────────
 
 export function Standings({ season, onTeamClick }: {
   season: number
   onTeamClick?: (teamId: number) => void
 }) {
-  const [mode, setMode] = useState<'divisions' | 'playoffs' | 'sos'>('divisions')
-
-  // Standings data
+  const [mode, setMode] = useState<'divisions' | 'playoffs'>('divisions')
   const [divisions, setDivisions] = useState<StandingsDivision[]>([])
-  const [loading, setLoading]     = useState(false)
-  const [error, setError]         = useState(false)
-
-  // SOS data (lazy — only fetched when the tab is opened)
-  const [sosData, setSosData]       = useState<SosEntry[]>([])
-  const [loadingSos, setLoadingSos] = useState(false)
-  const [errorSos, setErrorSos]     = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -616,72 +442,28 @@ export function Standings({ season, onTeamClick }: {
     return () => { cancelled = true }
   }, [season])
 
-  // Reset SOS cache when season changes
-  useEffect(() => { setSosData([]); setErrorSos(false) }, [season])
-
-  // Fetch SOS the first time the tab is activated
-  useEffect(() => {
-    if (mode !== 'sos') return
-    if (sosData.length > 0 || loadingSos) return
-    let cancelled = false
-    setLoadingSos(true); setErrorSos(false)
-    fetchStrengthOfSchedule(season)
-      .then(data => { if (!cancelled) setSosData(data) })
-      .catch(() => { if (!cancelled) setErrorSos(true) })
-      .finally(() => { if (!cancelled) setLoadingSos(false) })
-    return () => { cancelled = true }
-  }, [mode, season])
-
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
         <SegControl
-          options={[
-            { value: 'divisions', label: 'Divisions' },
-            { value: 'playoffs', label: 'Playoff Picture' },
-            { value: 'sos', label: '⚔️ Schedule Strength' },
-          ]}
+          options={[{ value: 'divisions', label: 'Divisions' }, { value: 'playoffs', label: 'Playoff Picture' }]}
           value={mode}
-          onChange={v => setMode(v as 'divisions' | 'playoffs' | 'sos')}
+          onChange={v => setMode(v as 'divisions' | 'playoffs')}
         />
       </Box>
 
-      {/* Divisions / Playoff Picture loading state */}
-      {mode !== 'sos' && loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress size={36} sx={{ color: ACCENT }} />
-        </Box>
-      )}
-      {mode !== 'sos' && !loading && error && (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
-          <Typography sx={{ color: 'text.secondary' }}>Could not load standings. Please try again.</Typography>
-        </Box>
-      )}
+      {loading && <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress size={36} sx={{ color: ACCENT }} /></Box>}
+      {!loading && error && <Box sx={{ textAlign: 'center', py: 8 }}><Typography sx={{ color: 'text.secondary' }}>Could not load standings. Please try again.</Typography></Box>}
 
-      {mode === 'divisions' && !loading && !error && divisions.length > 0 && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <LeagueSection label="American League" order={AL_ORDER} leagueId={103} divisions={divisions} onTeamClick={onTeamClick} />
-          <LeagueSection label="National League" order={NL_ORDER} leagueId={104} divisions={divisions} onTeamClick={onTeamClick} />
-        </Box>
-      )}
-
-      {mode === 'playoffs' && !loading && !error && divisions.length > 0 && (
-        <PlayoffPicture divisions={divisions} onTeamClick={onTeamClick} />
-      )}
-
-      {/* SOS tab */}
-      {mode === 'sos' && loadingSos && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress size={36} sx={{ color: ACCENT }} />
-        </Box>
-      )}
-      {mode === 'sos' && !loadingSos && errorSos && (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
-          <Typography sx={{ color: 'text.secondary' }}>Could not load schedule data. Please try again.</Typography>
-        </Box>
-      )}
-      {mode === 'sos' && !loadingSos && !errorSos && sosData.length > 0 && (
-        <SosView entries={sosData} onTeamClick={onTeamClick} />
+      {!loading && !error && divisions.length > 0 && (
+        mode === 'divisions' ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <LeagueSection label="American League" order={AL_ORDER} leagueId={103} divisions={divisions} onTeamClick={onTeamClick} />
+            <LeagueSection label="National League" order={NL_ORDER} leagueId={104} divisions={divisions} onTeamClick={onTeamClick} />
+          </Box>
+        ) : (
+          <PlayoffPicture divisions={divisions} onTeamClick={onTeamClick} />
+        )
       )}
     </Box>
   )

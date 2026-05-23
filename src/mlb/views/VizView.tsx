@@ -1,13 +1,223 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box, Typography, Paper, List, ListItemButton, Divider,
-  ClickAwayListener, Tooltip, CircularProgress,
+  ClickAwayListener, Tooltip, CircularProgress, IconButton,
 } from '@mui/material'
-import { Search, InfoOutlined } from '@mui/icons-material'
-import { TeamSummary } from '../types'
-import { ACCENT, TEAM_BG, TEAM_SEASONS } from '../constants'
+import { Search, InfoOutlined, OpenInFull, ArrowBack } from '@mui/icons-material'
+import { TeamSummary, SosEntry } from '../types'
+import { ACCENT, TEAM_BG, TEAM_SEASONS, CURRENT_SEASON } from '../constants'
 import { pillActionSx } from '../ui'
 import { TeamEraOpsPlot, TeamWinRDPlot, TeamFraudPanel } from '../charts'
+import { fetchStrengthOfSchedule } from '../api'
+
+// ─── SOS helpers ─────────────────────────────────────────────────────────────
+
+function sosColor(norm: number): string {
+  if (norm > 0.75) return '#ef4444'
+  if (norm > 0.5)  return '#f97316'
+  if (norm > 0.25) return '#eab308'
+  return '#22c55e'
+}
+
+function SosTeamDot({ teamId, abbr }: { teamId: number; abbr: string }) {
+  return (
+    <Box sx={{
+      width: 26, height: 26, borderRadius: '50%',
+      bgcolor: TEAM_BG[teamId] ?? '#555',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    }}>
+      <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: abbr.length > 2 ? '0.5rem' : '0.6rem', lineHeight: 1 }}>
+        {abbr}
+      </Typography>
+    </Box>
+  )
+}
+
+// Compact 5-row card shown on the Visualize tab
+function SosMiniCard({ title, subtitle, slice, allEntries, onExpand, loading }: {
+  title: React.ReactNode
+  subtitle: string
+  slice: SosEntry[]
+  allEntries: SosEntry[]
+  onExpand: () => void
+  loading: boolean
+}) {
+  const minPct = allEntries.length ? Math.min(...allEntries.map(e => e.oppWinPct)) : 0
+  const maxPct = allEntries.length ? Math.max(...allEntries.map(e => e.oppWinPct)) : 1
+  const range  = maxPct - minPct || 0.001
+
+  return (
+    <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
+      {/* Header */}
+      <Box sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Box>
+          <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>{title}</Typography>
+          <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.1 }}>{subtitle}</Typography>
+        </Box>
+        <Tooltip title="View all 30 teams" arrow placement="top">
+          <IconButton size="small" onClick={onExpand} sx={{ color: 'text.disabled', '&:hover': { color: ACCENT } }}>
+            <OpenInFull sx={{ fontSize: '1rem' }} />
+          </IconButton>
+        </Tooltip>
+      </Box>
+
+      {/* Rows */}
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+          <CircularProgress size={22} sx={{ color: ACCENT }} />
+        </Box>
+      ) : (
+        slice.map((e, idx) => {
+          const norm  = (e.oppWinPct - minPct) / range
+          const color = sosColor(norm)
+          const barW  = `${5 + norm * 95}%`
+          const pctStr = '.' + Math.round(e.oppWinPct * 1000).toString().padStart(3, '0')
+          const rankInFull = allEntries.findIndex(x => x.teamId === e.teamId) + 1
+          return (
+            <Box key={e.teamId} sx={{
+              display: 'grid',
+              gridTemplateColumns: '22px 28px 1fr 60px 36px',
+              alignItems: 'center', gap: 1,
+              px: 1.5, py: '9px',
+              borderBottom: idx < slice.length - 1 ? '1px solid' : 'none',
+              borderColor: 'divider',
+              borderLeft: `3px solid ${TEAM_BG[e.teamId] ?? '#444'}`,
+            }}>
+              <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontWeight: 700, textAlign: 'center' }}>
+                {rankInFull}
+              </Typography>
+              <SosTeamDot teamId={e.teamId} abbr={e.abbr} />
+              <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {e.abbr}
+              </Typography>
+              <Box>
+                <Box sx={{ height: 6, borderRadius: 3, bgcolor: 'action.disabledBackground', overflow: 'hidden' }}>
+                  <Box sx={{ height: '100%', width: barW, borderRadius: 3, bgcolor: color }} />
+                </Box>
+              </Box>
+              <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                {pctStr}
+              </Typography>
+            </Box>
+          )
+        })
+      )}
+
+      {/* Footer link */}
+      {!loading && (
+        <Box sx={{ px: 2, py: '7px', borderTop: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'flex-end' }}>
+          <Typography onClick={onExpand} sx={{ fontSize: '0.72rem', color: ACCENT, fontWeight: 700, cursor: 'pointer', userSelect: 'none', '&:hover': { textDecoration: 'underline' } }}>
+            View all 30 →
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  )
+}
+
+// Full 30-team ranked list shown when a mini card is expanded
+function SosFullscreen({ entries, direction, onClose }: {
+  entries: SosEntry[]
+  direction: 'hardest' | 'easiest'
+  onClose: () => void
+}) {
+  const sorted = direction === 'easiest' ? [...entries].reverse() : entries
+  const minPct = entries.length ? Math.min(...entries.map(e => e.oppWinPct)) : 0
+  const maxPct = entries.length ? Math.max(...entries.map(e => e.oppWinPct)) : 1
+  const range  = maxPct - minPct || 0.001
+
+  const SOS_TIERS = [
+    { maxRank: 5,  label: 'Absolute Gauntlet', emoji: '💀', color: '#ef4444' },
+    { maxRank: 12, label: 'Uphill Battle',      emoji: '😤', color: '#f97316' },
+    { maxRank: 20, label: 'Middle of the Pack', emoji: '⚖️',  color: '#eab308' },
+    { maxRank: 26, label: 'Lucky Draw',         emoji: '😌', color: '#84cc16' },
+    { maxRank: 30, label: 'Vacation Mode',      emoji: '🏖️', color: '#22c55e' },
+  ]
+  function tierForRank(rank: number) {
+    return SOS_TIERS.find(t => rank <= t.maxRank) ?? SOS_TIERS[SOS_TIERS.length - 1]
+  }
+
+  const shownTiers = new Set<string>()
+
+  return (
+    <Box>
+      {/* Back header */}
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 2 }}>
+        <IconButton size="small" onClick={onClose} sx={{ mt: 0.25, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
+          <ArrowBack sx={{ fontSize: '1.1rem' }} />
+        </IconButton>
+        <Box>
+          <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>
+            {direction === 'hardest' ? '⚔️ Hardest Schedules — All 30 Teams' : '🏖️ Easiest Schedules — All 30 Teams'}
+          </Typography>
+          <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>
+            Avg opponent win% · remaining regular-season games ·{' '}
+            {direction === 'hardest' ? 'toughest → lightest' : 'lightest → toughest'}
+          </Typography>
+        </Box>
+      </Box>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {sorted.map((e, idx) => {
+          const rank  = idx + 1
+          const norm  = (e.oppWinPct - minPct) / range
+          const color = sosColor(norm)
+          const barW  = `${5 + norm * 95}%`
+          const pctStr = '.' + Math.round(e.oppWinPct * 1000).toString().padStart(3, '0')
+          const tier = tierForRank(rank)
+          const showHeader = !shownTiers.has(tier.label)
+          if (showHeader) shownTiers.add(tier.label)
+
+          return (
+            <React.Fragment key={e.teamId}>
+              {showHeader && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 0.5, pt: idx === 0 ? 0 : 1, pb: 0.25 }}>
+                  <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.2, color: tier.color }}>
+                    {tier.emoji} {tier.label}
+                  </Typography>
+                  <Box sx={{ flex: 1, height: '1px', bgcolor: `${tier.color}30` }} />
+                </Box>
+              )}
+              <Box sx={{
+                display: 'grid',
+                gridTemplateColumns: '26px 28px 1fr 50px 48px 1fr 38px',
+                alignItems: 'center', gap: 1,
+                px: 1.5, py: '9px',
+                borderRadius: 1.5,
+                border: '1px solid', borderColor: 'divider',
+                bgcolor: 'background.paper',
+                borderLeft: `3px solid ${TEAM_BG[e.teamId] ?? '#444'}`,
+              }}>
+                <Typography sx={{ fontSize: '0.76rem', fontWeight: 700, color: 'text.disabled', textAlign: 'center' }}>{rank}</Typography>
+                <SosTeamDot teamId={e.teamId} abbr={e.abbr} />
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, lineHeight: 1.2 }}>{e.abbr}</Typography>
+                  <Typography sx={{ fontSize: '0.61rem', color: 'text.disabled', lineHeight: 1.2, display: { xs: 'none', sm: 'block' }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {e.teamName}
+                  </Typography>
+                </Box>
+                <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+                  {e.wins}–{e.losses}
+                </Typography>
+                <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+                  {e.remainingGames}G
+                </Typography>
+                <Box sx={{ px: 0.5 }}>
+                  <Box sx={{ height: 8, borderRadius: 4, bgcolor: 'action.disabledBackground', overflow: 'hidden' }}>
+                    <Box sx={{ height: '100%', width: barW, borderRadius: 4, bgcolor: color, transition: 'width 0.5s ease' }} />
+                  </Box>
+                </Box>
+                <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                  {pctStr}
+                </Typography>
+              </Box>
+            </React.Fragment>
+          )
+        })}
+      </Box>
+    </Box>
+  )
+}
 
 export interface VizViewProps {
   vizSeason: number
@@ -27,6 +237,26 @@ export function VizView({
   const [vizHoverId, setVizHoverId] = useState<number | null>(null)
   const [vizSearch, setVizSearch] = useState('')
   const [vizSearchOpen, setVizSearchOpen] = useState(false)
+
+  // ─── SOS state ────────────────────────────────────────────────────────────
+  const [sosData, setSosData]           = useState<SosEntry[]>([])
+  const [loadingSos, setLoadingSos]     = useState(false)
+  const [sosFullscreen, setSosFullscreen] = useState<'hardest' | 'easiest' | null>(null)
+
+  // Only load SOS for the current season (past seasons have no remaining games)
+  const showSos = vizSeason === CURRENT_SEASON
+
+  useEffect(() => {
+    if (!showSos) { setSosData([]); setSosFullscreen(null); return }
+    if (sosData.length > 0) return   // already loaded for this season
+    let cancelled = false
+    setLoadingSos(true)
+    fetchStrengthOfSchedule(vizSeason)
+      .then(d => { if (!cancelled) setSosData(d) })
+      .catch(() => { if (!cancelled) setSosData([]) })
+      .finally(() => { if (!cancelled) setLoadingSos(false) })
+    return () => { cancelled = true }
+  }, [vizSeason, showSos])
 
   return (
     <Box>
@@ -216,6 +446,48 @@ export function VizView({
             </Typography>
             <TeamFraudPanel data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={handleVizNavigate} onHoverTeam={canHover ? setVizHoverId : undefined} type="cursed" />
           </Box>
+
+          {/* SOS section — current season only */}
+          {showSos && (
+            <>
+              <Divider sx={{ gridColumn: '1 / -1' }} />
+
+              {sosFullscreen ? (
+                /* Full 30-team list spans both columns */
+                <Box sx={{ gridColumn: '1 / -1', pt: { xs: 3, md: 3.5 }, minWidth: 0 }}>
+                  <SosFullscreen
+                    entries={sosData}
+                    direction={sosFullscreen}
+                    onClose={() => setSosFullscreen(null)}
+                  />
+                </Box>
+              ) : (
+                /* Two compact cards — one per column */
+                <>
+                  <Box sx={{ pt: { xs: 3, md: 3.5 }, minWidth: 0 }}>
+                    <SosMiniCard
+                      title="⚔️ Hardest Schedules"
+                      subtitle="Toughest remaining opponents"
+                      slice={sosData.slice(0, 5)}
+                      allEntries={sosData}
+                      onExpand={() => setSosFullscreen('hardest')}
+                      loading={loadingSos}
+                    />
+                  </Box>
+                  <Box sx={{ pt: { xs: 3, md: 3.5 }, minWidth: 0 }}>
+                    <SosMiniCard
+                      title="🏖️ Easiest Schedules"
+                      subtitle="Softest remaining opponents"
+                      slice={[...sosData].slice(-5).reverse()}
+                      allEntries={sosData}
+                      onExpand={() => setSosFullscreen('easiest')}
+                      loading={loadingSos}
+                    />
+                  </Box>
+                </>
+              )}
+            </>
+          )}
         </Box>
       )}
 
