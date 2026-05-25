@@ -26,7 +26,7 @@ export default function MlbStats() {
       }}>
         <SegControl
           options={[
-            { value: 'home', label: '⚾ Home' },
+            { value: 'home', label: 'Home' },
             { value: 'search', label: 'Search' },
             { value: 'standings', label: 'Standings' },
             { value: 'viz', label: 'Visualize' },
@@ -48,6 +48,7 @@ export default function MlbStats() {
           onFollowPlayer={state.followPlayer}
           onUnfollowPlayer={state.unfollowPlayer}
           onPlayerClick={state.handleFollowedPlayerClick}
+          onTeamClick={state.handleTeamSearchClick}
         />
       )}
 

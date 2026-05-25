@@ -373,6 +373,12 @@ export function useMlbState() {
       .catch(() => {})
   }, [selectPlayer])
 
+  const handleTeamSearchClick = useCallback((teamId: number) => {
+    const t = allTeams.find(t => t.id === teamId)
+    if (!t) return
+    selectTeam(t).then(() => setView('search'))
+  }, [allTeams, selectTeam])
+
   const handleVizNavigate = useCallback((id: number) => {
     const t = allTeams.find(t => t.id === id)
     if (!t) return
@@ -640,6 +646,7 @@ export function useMlbState() {
     // Followed players
     followedPlayerIds, followPlayer, unfollowPlayer,
     handleFollowedPlayerClick,
+    handleTeamSearchClick,
 
     // View & navigation
     view, setView,

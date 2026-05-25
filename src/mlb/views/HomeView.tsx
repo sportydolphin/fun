@@ -178,9 +178,10 @@ interface GamePreviewData {
 
 async function fetchGamePreview(gamePk: number): Promise<GamePreviewData | null> {
   try {
+    // Step 1 — get game info + probable pitcher IDs (no stats hydration here; unreliable)
     const r = await fetch(
       `https://statsapi.mlb.com/api/v1/schedule?gamePk=${gamePk}` +
-      `&hydrate=probablePitcher(stats),venue,weather`
+      `&hydrate=probablePitcher,venue,weather`
     )
     const d = await r.json()
     const game = d.dates?.[0]?.games?.[0]
@@ -189,19 +190,31 @@ async function fetchGamePreview(gamePk: number): Promise<GamePreviewData | null>
     const ht = game.teams?.home
     const at = game.teams?.away
 
-    // pitchHand.code is not reliably returned by schedule hydration —
-    // fetch it directly from the people endpoint for both pitchers.
     const homePitcherId = ht?.probablePitcher?.id ? Number(ht.probablePitcher.id) : null
     const awayPitcherId = at?.probablePitcher?.id ? Number(at.probablePitcher.id) : null
     const pitcherIds = [homePitcherId, awayPitcherId].filter((x): x is number => x !== null)
 
-    const handMap: Record<number, string> = {}
+    // Step 2 — fetch hand + season stats from people endpoint (always reliable)
+    type PitcherDetails = { hand: string; era: string; ip: string; wins: number; losses: number }
+    const pitcherMap: Record<number, PitcherDetails> = {}
     if (pitcherIds.length > 0) {
       try {
-        const pr = await fetch(`https://statsapi.mlb.com/api/v1/people?personIds=${pitcherIds.join(',')}`)
+        const season = new Date().getFullYear()
+        const pr = await fetch(
+          `https://statsapi.mlb.com/api/v1/people?personIds=${pitcherIds.join(',')}` +
+          `&hydrate=stats(group=pitching,type=season,season=${season})`
+        )
         const pd = await pr.json()
         for (const p of pd.people ?? []) {
-          handMap[Number(p.id)] = p.pitchHand?.code ?? '?'
+          const grp  = (p.stats ?? []).find((s: any) => s.group?.displayName === 'pitching')
+          const stat = grp?.splits?.[0]?.stat ?? {}
+          pitcherMap[Number(p.id)] = {
+            hand:   p.pitchHand?.code        ?? '?',
+            era:    stat.era                 ?? '—',
+            ip:     stat.inningsPitched      ?? '—',
+            wins:   Number(stat.wins   ?? 0),
+            losses: Number(stat.losses ?? 0),
+          }
         }
       } catch { /* non-fatal */ }
     }
@@ -209,18 +222,15 @@ async function fetchGamePreview(gamePk: number): Promise<GamePreviewData | null>
     const parsePitcher = (side: any): ProbablePitcher | null => {
       const p = side?.probablePitcher
       if (!p) return null
-      const seasonStats = (p.stats ?? []).find(
-        (s: any) => s.group?.displayName === 'pitching' && s.type?.displayName === 'season'
-      )
-      const stat = seasonStats?.splits?.[0]?.stat ?? {}
+      const det = pitcherMap[Number(p.id)] ?? {}
       return {
         id:     Number(p.id),
-        name:   p.fullName ?? '—',
-        era:    stat.era             ?? '—',
-        wins:   Number(stat.wins   ?? 0),
-        losses: Number(stat.losses ?? 0),
-        ip:     stat.inningsPitched  ?? '—',
-        hand:   handMap[Number(p.id)] ?? p.pitchHand?.code ?? '?',
+        name:   p.fullName        ?? '—',
+        era:    det.era           ?? '—',
+        ip:     det.ip            ?? '—',
+        wins:   det.wins          ?? 0,
+        losses: det.losses        ?? 0,
+        hand:   det.hand          ?? '?',
       }
     }
 
@@ -350,10 +360,12 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
 
 // ─── Game preview modal ───────────────────────────────────────────────────────
 
-function PitcherPanel({ pitcher, teamId, side }: {
-  pitcher: ProbablePitcher | null
-  teamId:  number
-  side:    'Away' | 'Home'
+function PitcherPanel({ pitcher, teamId, side, onPlayerClick, onTeamClick }: {
+  pitcher:       ProbablePitcher | null
+  teamId:        number
+  side:          'Away' | 'Home'
+  onPlayerClick?: () => void
+  onTeamClick?:   () => void
 }) {
   const col = TEAM_BG[teamId] ?? '#444'
   return (
@@ -363,42 +375,59 @@ function PitcherPanel({ pitcher, teamId, side }: {
         {side}
       </Typography>
 
-      {/* Team logo — white circle + team-color border for visibility on any background */}
-      <Box sx={{
-        width: 38, height: 38, borderRadius: '50%',
-        bgcolor: '#fff', border: `2.5px solid ${col}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        overflow: 'hidden', flexShrink: 0,
-        boxShadow: `0 0 0 1px ${col}40`,
-      }}>
+      {/* Team logo — clickable, white circle + team-color border */}
+      <Box
+        onClick={onTeamClick}
+        sx={{
+          width: 38, height: 38, borderRadius: '50%',
+          bgcolor: '#fff', border: `2.5px solid ${col}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          overflow: 'hidden', flexShrink: 0,
+          boxShadow: `0 0 0 1px ${col}40`,
+          cursor: onTeamClick ? 'pointer' : 'default',
+          transition: 'transform 0.12s, box-shadow 0.12s',
+          '&:hover': onTeamClick ? { transform: 'scale(1.1)', boxShadow: `0 0 0 2px ${col}80` } : {},
+        }}
+      >
         <Box component="img"
           src={`https://www.mlbstatic.com/team-logos/${teamId}.svg`}
           sx={{ width: 26, height: 26, objectFit: 'contain' }}
         />
       </Box>
 
-      {/* Headshot */}
+      {/* Pitcher content — clickable if pitcher known */}
       {pitcher ? (
         <>
-          <Box sx={{ width: 84, height: 100, borderRadius: 2.5, overflow: 'hidden', border: `2px solid ${col}50`, bgcolor: 'action.hover', flexShrink: 0 }}>
-            <Box component="img" src={HEADSHOT(pitcher.id)} alt={pitcher.name}
-              sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%', display: 'block' }} />
+          {/* Headshot + name = clickable player link */}
+          <Box
+            onClick={onPlayerClick}
+            sx={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.6,
+              cursor: onPlayerClick ? 'pointer' : 'default',
+              '&:hover .pitcher-name': onPlayerClick ? { color: ACCENT } : {},
+              transition: 'opacity 0.12s',
+              '&:hover': onPlayerClick ? { opacity: 0.85 } : {},
+            }}
+          >
+            <Box sx={{ width: 84, height: 100, borderRadius: 2.5, overflow: 'hidden', border: `2px solid ${col}50`, bgcolor: 'action.hover', flexShrink: 0 }}>
+              <Box component="img" src={HEADSHOT(pitcher.id)} alt={pitcher.name}
+                sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%', display: 'block' }} />
+            </Box>
+            <Typography className="pitcher-name" sx={{
+              fontWeight: 700, fontSize: '0.88rem', lineHeight: 1.25, textAlign: 'center', px: 0.5,
+              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+              transition: 'color 0.12s',
+            }}>
+              {pitcher.name}
+            </Typography>
           </Box>
 
-          {/* Name */}
-          <Typography sx={{
-            fontWeight: 700, fontSize: '0.88rem', lineHeight: 1.25, textAlign: 'center', px: 0.5,
-            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-          }}>
-            {pitcher.name}
-          </Typography>
-
-          {/* Handedness */}
+          {/* Handedness — not clickable */}
           <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', textAlign: 'center', lineHeight: 1, fontWeight: 600 }}>
             {pitcher.hand === 'R' ? 'RHP' : pitcher.hand === 'L' ? 'LHP' : `${pitcher.hand}HP`}
           </Typography>
 
-          {/* Stats: ERA + IP (no W-L) */}
+          {/* Stats: ERA + IP */}
           <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 0.25 }}>
             <Box sx={{ textAlign: 'center' }}>
               <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, lineHeight: 1, color: 'text.primary' }}>{pitcher.era}</Typography>
@@ -422,12 +451,14 @@ function PitcherPanel({ pitcher, teamId, side }: {
   )
 }
 
-function GamePreviewModal({ game, myTeamId, previewData, loading, onClose }: {
-  game:        ScheduleGame
-  myTeamId:    number
-  previewData: GamePreviewData | null
-  loading:     boolean
-  onClose:     () => void
+function GamePreviewModal({ game, myTeamId, previewData, loading, onClose, onPlayerClick, onTeamClick }: {
+  game:          ScheduleGame
+  myTeamId:      number
+  previewData:   GamePreviewData | null
+  loading:       boolean
+  onClose:       () => void
+  onPlayerClick?: (id: number) => void
+  onTeamClick?:   (id: number) => void
 }) {
   // Close on Escape
   useEffect(() => {
@@ -435,6 +466,10 @@ function GamePreviewModal({ game, myTeamId, previewData, loading, onClose }: {
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
   }, [onClose])
+
+  // Wrap callbacks to close modal before navigating
+  const handlePlayerClick = useCallback((id: number) => { onClose(); onPlayerClick?.(id) }, [onClose, onPlayerClick])
+  const handleTeamClick   = useCallback((id: number) => { onClose(); onTeamClick?.(id)   }, [onClose, onTeamClick])
 
   const myAbbr  = TEAM_ABBR[myTeamId] ?? '?'
   const oppAbbr = game.opponentAbbr
@@ -510,14 +545,22 @@ function GamePreviewModal({ game, myTeamId, previewData, loading, onClose }: {
               </Typography>
 
               <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                <PitcherPanel pitcher={awayPitcher} teamId={awayTeamId} side="Away" />
+                <PitcherPanel
+                  pitcher={awayPitcher} teamId={awayTeamId} side="Away"
+                  onPlayerClick={awayPitcher ? () => handlePlayerClick(awayPitcher.id) : undefined}
+                  onTeamClick={() => handleTeamClick(awayTeamId)}
+                />
 
                 {/* @ divider — vertically centred with the headshots */}
                 <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', pt: '66px' }}>
                   <Typography sx={{ fontWeight: 900, fontSize: '0.9rem', color: 'text.disabled', lineHeight: 1 }}>@</Typography>
                 </Box>
 
-                <PitcherPanel pitcher={homePitcher} teamId={homeTeamId} side="Home" />
+                <PitcherPanel
+                  pitcher={homePitcher} teamId={homeTeamId} side="Home"
+                  onPlayerClick={homePitcher ? () => handlePlayerClick(homePitcher.id) : undefined}
+                  onTeamClick={() => handleTeamClick(homeTeamId)}
+                />
               </Box>
 
               {/* Weather */}
@@ -538,7 +581,12 @@ function GamePreviewModal({ game, myTeamId, previewData, loading, onClose }: {
 
 // ─── Schedule strip ───────────────────────────────────────────────────────────
 
-function TeamScheduleStrip({ teamId, teamColor }: { teamId: number; teamColor: string }) {
+function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClick }: {
+  teamId:         number
+  teamColor:      string
+  onPlayerClick?: (id: number) => void
+  onTeamClick?:   (id: number) => void
+}) {
   const theme     = useTheme()
   const paperBg   = theme.palette.background.paper
   const [games, setGames]     = useState<ScheduleGame[]>([])
@@ -632,6 +680,8 @@ function TeamScheduleStrip({ teamId, teamColor }: { teamId: number; teamColor: s
           previewData={previewData}
           loading={loadingPreview}
           onClose={handleClosePreview}
+          onPlayerClick={onPlayerClick}
+          onTeamClick={onTeamClick}
         />
       )}
     </>
@@ -1351,13 +1401,14 @@ export interface HomeViewProps {
   onFollowPlayer:    (id: number) => void
   onUnfollowPlayer:  (id: number) => void
   onPlayerClick:     (id: number) => void
+  onTeamClick?:      (id: number) => void
 }
 
 // ─── HomeView ─────────────────────────────────────────────────────────────────
 
 export function HomeView({
   allTeams, followedTeamId, onFollowTeam, onUnfollowTeam,
-  followedPlayerIds, onFollowPlayer, onUnfollowPlayer, onPlayerClick,
+  followedPlayerIds, onFollowPlayer, onUnfollowPlayer, onPlayerClick, onTeamClick,
 }: HomeViewProps) {
   const [standing, setStanding]           = useState<StandingSummary | null>(null)
   const [hotGuy,   setHotGuy]             = useState<HotGuyData | null>(null)
@@ -1471,7 +1522,7 @@ export function HomeView({
           }}>
             Schedule
           </Typography>
-          <TeamScheduleStrip teamId={followedTeamId} teamColor={bg} />
+          <TeamScheduleStrip teamId={followedTeamId} teamColor={bg} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
         </Box>
       </Box>
 
