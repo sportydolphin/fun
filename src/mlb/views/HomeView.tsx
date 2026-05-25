@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Box, Typography, InputBase, useTheme } from '@mui/material'
 import { Team, Player } from '../types'
 import { TEAM_BG, ACCENT, HEADSHOT, CURRENT_SEASON, TEAM_ABBR } from '../constants'
@@ -157,14 +157,78 @@ async function fetchTeamSchedule(teamId: number): Promise<ScheduleGame[]> {
   return games.sort((a, b) => a.date.localeCompare(b.date))
 }
 
+// ─── Game preview data & fetch ───────────────────────────────────────────────
+
+interface ProbablePitcher {
+  id:     number
+  name:   string
+  era:    string
+  wins:   number
+  losses: number
+  hand:   string   // 'R' | 'L'
+  ip:     string   // season IP
+}
+
+interface GamePreviewData {
+  venue:       string
+  weatherDesc: string
+  home: { teamId: number; abbr: string; pitcher: ProbablePitcher | null }
+  away: { teamId: number; abbr: string; pitcher: ProbablePitcher | null }
+}
+
+async function fetchGamePreview(gamePk: number): Promise<GamePreviewData | null> {
+  try {
+    const r = await fetch(
+      `https://statsapi.mlb.com/api/v1/schedule?gamePk=${gamePk}` +
+      `&hydrate=probablePitcher(stats),venue,weather`
+    )
+    const d = await r.json()
+    const game = d.dates?.[0]?.games?.[0]
+    if (!game) return null
+
+    const parsePitcher = (side: any): ProbablePitcher | null => {
+      const p = side?.probablePitcher
+      if (!p) return null
+      const seasonStats = (p.stats ?? []).find(
+        (s: any) => s.group?.displayName === 'pitching' && s.type?.displayName === 'season'
+      )
+      const stat = seasonStats?.splits?.[0]?.stat ?? {}
+      return {
+        id:     Number(p.id),
+        name:   p.fullName ?? '—',
+        era:    stat.era    ?? '—',
+        wins:   Number(stat.wins   ?? 0),
+        losses: Number(stat.losses ?? 0),
+        ip:     stat.inningsPitched ?? '—',
+        hand:   p.pitchHand?.code  ?? '?',
+      }
+    }
+
+    const ht = game.teams?.home
+    const at = game.teams?.away
+    const w  = game.weather
+    const weatherDesc = w
+      ? [w.condition, w.temp ? `${w.temp}°F` : null, w.wind || null].filter(Boolean).join(' · ')
+      : ''
+
+    return {
+      venue:       game.venue?.name ?? '',
+      weatherDesc,
+      home: { teamId: Number(ht?.team?.id ?? 0), abbr: TEAM_ABBR[Number(ht?.team?.id ?? 0)] ?? '?', pitcher: parsePitcher(ht) },
+      away: { teamId: Number(at?.team?.id ?? 0), abbr: TEAM_ABBR[Number(at?.team?.id ?? 0)] ?? '?', pitcher: parsePitcher(at) },
+    }
+  } catch { return null }
+}
+
 // ─── Game chip ────────────────────────────────────────────────────────────────
 
-function GameChip({ game, teamColor, highlight, isActualToday, innerRef }: {
+function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick }: {
   game:          ScheduleGame
   teamColor:     string
   highlight:     boolean
   isActualToday: boolean
-  innerRef?: React.RefObject<HTMLDivElement>
+  innerRef?:     React.RefObject<HTMLDivElement>
+  onClick?:      () => void
 }) {
   const isFinal = game.state === 'final'
   const isLive  = game.state === 'live'
@@ -173,6 +237,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef }: {
   return (
     <Box
       ref={innerRef}
+      onClick={onClick}
       sx={{
         flexShrink: 0, width: 70,
         borderRadius: 2,
@@ -182,6 +247,12 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef }: {
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         py: 1.25, px: 0.75, gap: 0.5,
         position: 'relative', overflow: 'hidden',
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'border-color 0.12s, background-color 0.12s',
+        '&:hover': onClick ? {
+          borderColor: `${teamColor}70`,
+          bgcolor: highlight ? `${teamColor}22` : `${teamColor}12`,
+        } : {},
       }}
     >
       {/* TODAY / NEXT / LIVE banner */}
@@ -259,6 +330,179 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef }: {
   )
 }
 
+// ─── Game preview modal ───────────────────────────────────────────────────────
+
+function PitcherPanel({ pitcher, teamId, side }: {
+  pitcher: ProbablePitcher | null
+  teamId:  number
+  side:    'Away' | 'Home'
+}) {
+  const col = TEAM_BG[teamId] ?? '#444'
+  return (
+    <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75 }}>
+      {/* Side label */}
+      <Typography sx={{ fontSize: '0.53rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.2, color: 'text.disabled', lineHeight: 1 }}>
+        {side}
+      </Typography>
+
+      {/* Team logo circle */}
+      <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: col, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+        <Box component="img" src={`https://www.mlbstatic.com/team-logos/team-cap-on-dark/${teamId}.svg`} sx={{ width: 20, height: 20, objectFit: 'contain' }} />
+      </Box>
+
+      {/* Headshot */}
+      {pitcher ? (
+        <>
+          <Box sx={{ width: 68, height: 80, borderRadius: 2, overflow: 'hidden', border: `2px solid ${col}40`, bgcolor: 'action.hover', flexShrink: 0 }}>
+            <Box component="img" src={HEADSHOT(pitcher.id)} alt={pitcher.name}
+              sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%', display: 'block' }} />
+          </Box>
+          <Typography sx={{
+            fontWeight: 700, fontSize: '0.76rem', lineHeight: 1.2, textAlign: 'center', px: 0.5,
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          }}>
+            {pitcher.name}
+          </Typography>
+          <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', textAlign: 'center', lineHeight: 1 }}>
+            {pitcher.hand}HP
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'center' }}>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography sx={{ fontSize: '0.92rem', fontWeight: 800, lineHeight: 1, color: 'text.primary' }}>{pitcher.era}</Typography>
+              <Typography sx={{ fontSize: '0.53rem', textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', lineHeight: 1, mt: 0.2 }}>ERA</Typography>
+            </Box>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography sx={{ fontSize: '0.92rem', fontWeight: 800, lineHeight: 1, color: 'text.primary' }}>{pitcher.wins}-{pitcher.losses}</Typography>
+              <Typography sx={{ fontSize: '0.53rem', textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', lineHeight: 1, mt: 0.2 }}>W-L</Typography>
+            </Box>
+          </Box>
+        </>
+      ) : (
+        <>
+          <Box sx={{ width: 68, height: 80, borderRadius: 2, bgcolor: 'action.hover', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', fontWeight: 600 }}>TBD</Typography>
+          </Box>
+          <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontWeight: 600 }}>Starter TBD</Typography>
+        </>
+      )}
+    </Box>
+  )
+}
+
+function GamePreviewModal({ game, myTeamId, previewData, loading, onClose }: {
+  game:        ScheduleGame
+  myTeamId:    number
+  previewData: GamePreviewData | null
+  loading:     boolean
+  onClose:     () => void
+}) {
+  // Close on Escape
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [onClose])
+
+  const myAbbr  = TEAM_ABBR[myTeamId] ?? '?'
+  const oppAbbr = game.opponentAbbr
+
+  // Away @ Home header
+  const awayAbbr = game.isHome ? oppAbbr : myAbbr
+  const homeAbbr = game.isHome ? myAbbr  : oppAbbr
+
+  // Map API home/away to the visual slots
+  const awayTeamId  = previewData?.away.teamId ?? (game.isHome ? game.opponentId : myTeamId)
+  const homeTeamId  = previewData?.home.teamId ?? (game.isHome ? myTeamId        : game.opponentId)
+  const awayPitcher = previewData?.away.pitcher ?? null
+  const homePitcher = previewData?.home.pitcher ?? null
+
+  return (
+    // Backdrop — click directly on it to close
+    <Box
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      sx={{
+        position: 'fixed', inset: 0, zIndex: 1400,
+        bgcolor: 'rgba(0,0,0,0.55)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        p: 2,
+      }}
+    >
+      <Box sx={{
+        bgcolor: 'background.paper', borderRadius: 3,
+        border: '1px solid', borderColor: 'divider',
+        width: '100%', maxWidth: 360,
+        boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
+        overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontWeight: 800, fontSize: '1rem', lineHeight: 1.2 }}>
+              {awayAbbr}
+              <Box component="span" sx={{ color: 'text.disabled', fontWeight: 400, mx: 0.75 }}>@</Box>
+              {homeAbbr}
+            </Typography>
+            <Typography sx={{ fontSize: '0.67rem', color: 'text.secondary', mt: 0.3, lineHeight: 1.3 }}>
+              {chipDate(game.date)} · {game.gameTime}
+              {previewData?.venue ? ` · ${previewData.venue}` : ''}
+            </Typography>
+          </Box>
+          <Box
+            onClick={onClose}
+            sx={{
+              flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', color: 'text.disabled',
+              '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+              transition: 'background 0.12s, color 0.12s',
+            }}
+          >
+            <Typography sx={{ fontSize: '0.75rem', lineHeight: 1 }}>✕</Typography>
+          </Box>
+        </Box>
+
+        {/* Body */}
+        <Box sx={{ px: 2.5, py: 2.25 }}>
+          {loading ? (
+            <Box sx={{ py: 4, textAlign: 'center' }}>
+              <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Loading game details…</Typography>
+            </Box>
+          ) : (
+            <>
+              <Typography sx={{
+                fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase',
+                letterSpacing: 1.5, color: 'text.disabled', mb: 2, textAlign: 'center',
+              }}>
+                Probable Starters
+              </Typography>
+
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                <PitcherPanel pitcher={awayPitcher} teamId={awayTeamId} side="Away" />
+
+                {/* VS divider */}
+                <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', pt: '52px' }}>
+                  <Typography sx={{ fontWeight: 900, fontSize: '0.78rem', color: 'text.disabled', lineHeight: 1 }}>@</Typography>
+                </Box>
+
+                <PitcherPanel pitcher={homePitcher} teamId={homeTeamId} side="Home" />
+              </Box>
+
+              {/* Weather */}
+              {previewData?.weatherDesc && (
+                <Box sx={{ mt: 2.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                  <Typography sx={{ fontSize: '0.66rem', color: 'text.secondary' }}>
+                    {previewData.weatherDesc}
+                  </Typography>
+                </Box>
+              )}
+            </>
+          )}
+        </Box>
+      </Box>
+    </Box>
+  )
+}
+
 // ─── Schedule strip ───────────────────────────────────────────────────────────
 
 function TeamScheduleStrip({ teamId, teamColor }: { teamId: number; teamColor: string }) {
@@ -268,6 +512,12 @@ function TeamScheduleStrip({ teamId, teamColor }: { teamId: number; teamColor: s
   const [loading, setLoading] = useState(true)
   const chipRef      = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Preview modal state
+  const [selectedGame,   setSelectedGame]   = useState<ScheduleGame | null>(null)
+  const [previewData,    setPreviewData]     = useState<GamePreviewData | null>(null)
+  const [loadingPreview, setLoadingPreview]  = useState(false)
+
   // Use local date so we never bleed into the next calendar day via UTC offset
   const now   = new Date()
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -283,6 +533,20 @@ function TeamScheduleStrip({ teamId, teamColor }: { teamId: number; teamColor: s
     c.scrollTo({ left: Math.max(0, el.offsetLeft - c.clientWidth / 2 + el.offsetWidth / 2), behavior: 'smooth' })
   }, [games])
 
+  const handleChipClick = useCallback((g: ScheduleGame) => {
+    setSelectedGame(g)
+    setPreviewData(null)
+    setLoadingPreview(true)
+    fetchGamePreview(g.gamePk)
+      .then(setPreviewData)
+      .finally(() => setLoadingPreview(false))
+  }, [])
+
+  const handleClosePreview = useCallback(() => {
+    setSelectedGame(null)
+    setPreviewData(null)
+  }, [])
+
   if (loading) return (
     <Box sx={{ py: 2, textAlign: 'center' }}>
       <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled' }}>Loading schedule…</Typography>
@@ -293,37 +557,51 @@ function TeamScheduleStrip({ teamId, teamColor }: { teamId: number; teamColor: s
   const nextGame = games.find(g => g.date >= today) ?? games[games.length - 1]
 
   return (
-    <Box sx={{ position: 'relative' }}>
-      {/* Edge fades */}
-      <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 8, width: 28, zIndex: 2,
-        background: `linear-gradient(to right, ${paperBg}, transparent)`, pointerEvents: 'none' }} />
-      <Box sx={{ position: 'absolute', right: 0, top: 0, bottom: 8, width: 28, zIndex: 2,
-        background: `linear-gradient(to left, ${paperBg}, transparent)`, pointerEvents: 'none' }} />
+    <>
+      <Box sx={{ position: 'relative' }}>
+        {/* Edge fades */}
+        <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 8, width: 28, zIndex: 2,
+          background: `linear-gradient(to right, ${paperBg}, transparent)`, pointerEvents: 'none' }} />
+        <Box sx={{ position: 'absolute', right: 0, top: 0, bottom: 8, width: 28, zIndex: 2,
+          background: `linear-gradient(to left, ${paperBg}, transparent)`, pointerEvents: 'none' }} />
 
-      <Box
-        ref={containerRef}
-        sx={{
-          display: 'flex', gap: 1, overflowX: 'auto', px: 3, pb: 1,
-          '&::-webkit-scrollbar': { height: 3 },
-          '&::-webkit-scrollbar-thumb': { bgcolor: `${teamColor}30`, borderRadius: 2 },
-          scrollbarWidth: 'thin', scrollbarColor: `${teamColor}30 transparent`,
-        }}
-      >
-        {games.map(g => {
-          const isHL = g.gamePk === nextGame.gamePk
-          return (
-            <GameChip
-              key={g.gamePk}
-              game={g}
-              teamColor={teamColor}
-              highlight={isHL}
-              isActualToday={isHL && nextGame.date === today}
-              innerRef={isHL ? chipRef : undefined}
-            />
-          )
-        })}
+        <Box
+          ref={containerRef}
+          sx={{
+            display: 'flex', gap: 1, overflowX: 'auto', px: 3, pb: 1,
+            '&::-webkit-scrollbar': { height: 3 },
+            '&::-webkit-scrollbar-thumb': { bgcolor: `${teamColor}30`, borderRadius: 2 },
+            scrollbarWidth: 'thin', scrollbarColor: `${teamColor}30 transparent`,
+          }}
+        >
+          {games.map(g => {
+            const isHL = g.gamePk === nextGame.gamePk
+            return (
+              <GameChip
+                key={g.gamePk}
+                game={g}
+                teamColor={teamColor}
+                highlight={isHL}
+                isActualToday={isHL && nextGame.date === today}
+                innerRef={isHL ? chipRef : undefined}
+                onClick={g.state === 'preview' ? () => handleChipClick(g) : undefined}
+              />
+            )
+          })}
+        </Box>
       </Box>
-    </Box>
+
+      {/* Game preview modal */}
+      {selectedGame && (
+        <GamePreviewModal
+          game={selectedGame}
+          myTeamId={teamId}
+          previewData={previewData}
+          loading={loadingPreview}
+          onClose={handleClosePreview}
+        />
+      )}
+    </>
   )
 }
 
