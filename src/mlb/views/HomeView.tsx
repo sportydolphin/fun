@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Box, Typography, InputBase, useTheme } from '@mui/material'
 import { Team, Player } from '../types'
-import { TEAM_BG, ACCENT, HEADSHOT, CURRENT_SEASON } from '../constants'
+import { TEAM_BG, ACCENT, HEADSHOT, CURRENT_SEASON, TEAM_ABBR } from '../constants'
 import { searchPlayers, fetchDivisionForTeam } from '../api'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -128,7 +128,7 @@ async function fetchTeamSchedule(teamId: number): Promise<ScheduleGame[]> {
   const r = await fetch(
     `https://statsapi.mlb.com/api/v1/schedule?teamId=${teamId}&sportId=1` +
     `&startDate=${toISO(start)}&endDate=${toISO(end)}&gameType=R` +
-    `&fields=dates,date,games,gamePk,gameDate,status,abstractGameState,teams,home,away,team,id,abbreviation,score,isWinner`
+    `&fields=dates,date,games,gamePk,gameDate,status,abstractGameState,teams,home,away,team,id,score,isWinner`
   )
   const d = await r.json()
 
@@ -146,7 +146,7 @@ async function fetchTeamSchedule(teamId: number): Promise<ScheduleGame[]> {
         gameTime:      game.gameDate ? new Date(game.gameDate).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '',
         isHome,
         opponentId:    Number(opp?.team?.id ?? 0),
-        opponentAbbr:  opp?.team?.abbreviation ?? '???',
+        opponentAbbr:  TEAM_ABBR[Number(opp?.team?.id ?? 0)] ?? '???',
         state:         state as ScheduleGame['state'],
         teamScore:     state !== 'preview' ? Number(mine?.score ?? 0) : null,
         opponentScore: state !== 'preview' ? Number(opp?.score  ?? 0) : null,
@@ -159,10 +159,11 @@ async function fetchTeamSchedule(teamId: number): Promise<ScheduleGame[]> {
 
 // ─── Game chip ────────────────────────────────────────────────────────────────
 
-function GameChip({ game, teamColor, highlight, innerRef }: {
-  game:      ScheduleGame
-  teamColor: string
-  highlight: boolean
+function GameChip({ game, teamColor, highlight, isActualToday, innerRef }: {
+  game:          ScheduleGame
+  teamColor:     string
+  highlight:     boolean
+  isActualToday: boolean
   innerRef?: React.RefObject<HTMLDivElement>
 }) {
   const isFinal = game.state === 'final'
@@ -183,11 +184,11 @@ function GameChip({ game, teamColor, highlight, innerRef }: {
         position: 'relative', overflow: 'hidden',
       }}
     >
-      {/* TODAY / LIVE banner */}
+      {/* TODAY / NEXT / LIVE banner */}
       {highlight && (
         <Box sx={{
           position: 'absolute', top: 0, left: 0, right: 0,
-          bgcolor: isLive ? '#ef4444' : teamColor,
+          bgcolor: isLive ? '#ef4444' : isActualToday ? teamColor : `${teamColor}90`,
           py: '2.5px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
@@ -195,7 +196,7 @@ function GameChip({ game, teamColor, highlight, innerRef }: {
             fontSize: '0.44rem', fontWeight: 900, letterSpacing: 1.5,
             color: '#fff', textTransform: 'uppercase', lineHeight: 1,
           }}>
-            {isLive ? '● LIVE' : 'TODAY'}
+            {isLive ? '● LIVE' : isActualToday ? 'TODAY' : 'NEXT'}
           </Typography>
         </Box>
       )}
@@ -267,7 +268,9 @@ function TeamScheduleStrip({ teamId, teamColor }: { teamId: number; teamColor: s
   const [loading, setLoading] = useState(true)
   const chipRef      = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const today = new Date().toISOString().split('T')[0]
+  // Use local date so we never bleed into the next calendar day via UTC offset
+  const now   = new Date()
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
   useEffect(() => {
     setLoading(true)
@@ -314,6 +317,7 @@ function TeamScheduleStrip({ teamId, teamColor }: { teamId: number; teamColor: s
               game={g}
               teamColor={teamColor}
               highlight={isHL}
+              isActualToday={isHL && nextGame.date === today}
               innerRef={isHL ? chipRef : undefined}
             />
           )
