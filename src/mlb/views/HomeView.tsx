@@ -327,6 +327,399 @@ function TeamScheduleStrip({ teamId, teamColor }: { teamId: number; teamColor: s
   )
 }
 
+// ─── Hot Guy of the Day ───────────────────────────────────────────────────────
+//
+// Scoring rules — designed to reward many different performance types:
+//
+//  HITTERS (min 15 PA over 14 days)
+//   • AVG tier:   ≥.400=50  ≥.370=35  ≥.340=22  ≥.310=12  ≥.280=4
+//   • OPS tier:  ≥1.200=55 ≥1.000=35 ≥.950=25  ≥.900=16  ≥.850=8
+//   • HR bonus:  +20 each   (power)
+//   • RBI bonus: +3 each    (run production)
+//   • SB bonus:  +10 each   (speed/baserunning)
+//   • XBH bonus: +4 each    (2B/3B, extra-base contact)
+//   • BB bonus:  +3 each    (plate discipline)
+//
+//  PITCHERS (min 3 IP over 14 days)
+//   • ERA tier:  0.00=80  ≤1.00=60  ≤2.00=40  ≤3.00=20  ≤3.75=8
+//   • WHIP tier: ≤0.60=40 ≤0.80=28 ≤1.00=16  ≤1.15=7
+//   • K bonus:   +3 each   (dominance)
+//   • Win:       +20        Save: +25        Hold: +12
+//   • Volume (starters): ≥18 IP=+25  ≥14 IP=+15  ≥10 IP=+8
+
+interface HotGuyStats {
+  // Hitter
+  avg?:    string
+  ops?:    string
+  hr?:     number
+  rbi?:    number
+  sb?:     number
+  hits?:   number
+  ab?:     number
+  doubles?: number
+  bb?:     number
+  pa?:     number
+  // Pitcher
+  era?:    string
+  whip?:   string
+  k?:      number
+  ip?:     string
+  wins?:   number
+  losses?: number
+  saves?:  number
+  holds?:  number
+  gs?:     number
+}
+
+interface HotGuyData {
+  playerId:   number
+  playerName: string
+  position:   string
+  teamId:     number
+  teamName:   string
+  isPitcher:  boolean
+  isStarter:  boolean
+  period:     string
+  stats:      HotGuyStats
+}
+
+function localDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+
+function formatPeriod(start: string, end: string): string {
+  const [, sm, sd] = start.split('-').map(Number)
+  const [, em, ed] = end.split('-').map(Number)
+  const M = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  return sm === em ? `${M[sm-1]} ${sd}–${ed}` : `${M[sm-1]} ${sd} – ${M[em-1]} ${ed}`
+}
+
+function parseIP(ip: string | number | undefined): number {
+  const s = String(ip ?? '0')
+  const [w = '0', f = '0'] = s.split('.')
+  return Number(w) + Number(f) / 3
+}
+
+function scoreHitter(stat: any): number {
+  const pa = Number(stat.plateAppearances ?? 0)
+  if (pa < 15) return -1
+  let score = 0
+  const avg = parseFloat(stat.avg ?? '0')
+  const ops = parseFloat(stat.ops ?? '0')
+  const hr  = Number(stat.homeRuns ?? 0)
+  const sb  = Number(stat.stolenBases ?? 0)
+  const xbh = Number(stat.doubles ?? 0) + Number(stat.triples ?? 0) + hr
+  const bb  = Number(stat.baseOnBalls ?? 0)
+  if      (avg >= .400) score += 50
+  else if (avg >= .370) score += 35
+  else if (avg >= .340) score += 22
+  else if (avg >= .310) score += 12
+  else if (avg >= .280) score += 4
+  if      (ops >= 1.200) score += 55
+  else if (ops >= 1.000) score += 35
+  else if (ops >= .950)  score += 25
+  else if (ops >= .900)  score += 16
+  else if (ops >= .850)  score += 8
+  score += hr * 20
+  score += Number(stat.rbi ?? 0) * 3
+  score += sb * 10
+  score += (xbh - hr) * 4
+  score += bb * 3
+  return score
+}
+
+function scorePitcher(stat: any): number {
+  const ip = parseIP(stat.inningsPitched)
+  if (ip < 3) return -1
+  let score = 0
+  const era   = parseFloat(stat.era ?? '99')
+  const whip  = parseFloat(stat.whip ?? '99')
+  const er    = Number(stat.earnedRuns ?? 0)
+  const k     = Number(stat.strikeOuts ?? 0)
+  const saves = Number(stat.saves ?? 0)
+  const holds = Number(stat.holds ?? 0)
+  const wins  = Number(stat.wins ?? 0)
+  if      (er === 0)    score += 80
+  else if (era <= 1.00) score += 60
+  else if (era <= 2.00) score += 40
+  else if (era <= 3.00) score += 20
+  else if (era <= 3.75) score += 8
+  if      (whip <= 0.60) score += 40
+  else if (whip <= 0.80) score += 28
+  else if (whip <= 1.00) score += 16
+  else if (whip <= 1.15) score += 7
+  score += k * 3
+  score += wins * 20
+  score += saves * 25
+  score += holds * 12
+  if      (ip >= 18) score += 25
+  else if (ip >= 14) score += 15
+  else if (ip >= 10) score += 8
+  return score
+}
+
+// Module-level cache — avoids re-fetching on every tab switch within same day
+const _hotGuyCache: { date: string; data: HotGuyData | null } = { date: '', data: null }
+
+async function fetchHotGuy(): Promise<HotGuyData | null> {
+  const now   = new Date()
+  const today = localDate(now)
+  if (_hotGuyCache.date === today) return _hotGuyCache.data
+
+  try {
+    const startD = new Date(now)
+    startD.setDate(startD.getDate() - 14)
+    const start  = localDate(startD)
+    const season = now.getFullYear()
+    const period = formatPeriod(start, today)
+
+    const [hitRes, pitRes] = await Promise.all([
+      fetch(`https://statsapi.mlb.com/api/v1/stats?stats=byDateRange&startDate=${start}&endDate=${today}&group=hitting&season=${season}&sportId=1&limit=2000`)
+        .then(r => r.json()).catch(() => null),
+      fetch(`https://statsapi.mlb.com/api/v1/stats?stats=byDateRange&startDate=${start}&endDate=${today}&group=pitching&season=${season}&sportId=1&limit=2000`)
+        .then(r => r.json()).catch(() => null),
+    ])
+
+    const hitSplits: any[] = hitRes?.stats?.[0]?.splits ?? []
+    const pitSplits: any[] = pitRes?.stats?.[0]?.splits ?? []
+
+    let best: { score: number; data: HotGuyData } | null = null
+
+    for (const s of hitSplits) {
+      const score = scoreHitter(s.stat)
+      if (score <= 0 || (best && score <= best.score)) continue
+      best = {
+        score,
+        data: {
+          playerId:   Number(s.player?.id),
+          playerName: s.player?.fullName ?? '—',
+          position:   s.position?.abbreviation ?? s.position?.code ?? 'OF',
+          teamId:     Number(s.team?.id ?? 0),
+          teamName:   s.team?.name ?? '—',
+          isPitcher: false, isStarter: false,
+          period,
+          stats: {
+            avg:     s.stat.avg,
+            ops:     s.stat.ops,
+            hr:      Number(s.stat.homeRuns ?? 0),
+            rbi:     Number(s.stat.rbi ?? 0),
+            sb:      Number(s.stat.stolenBases ?? 0),
+            hits:    Number(s.stat.hits ?? 0),
+            ab:      Number(s.stat.atBats ?? 0),
+            doubles: Number(s.stat.doubles ?? 0),
+            bb:      Number(s.stat.baseOnBalls ?? 0),
+            pa:      Number(s.stat.plateAppearances ?? 0),
+          },
+        },
+      }
+    }
+
+    for (const s of pitSplits) {
+      const score = scorePitcher(s.stat)
+      if (score <= 0 || (best && score <= best.score)) continue
+      const gs        = Number(s.stat.gamesStarted ?? 0)
+      const ipDecimal = parseIP(s.stat.inningsPitched)
+      const isStarter = gs >= 1 && ipDecimal >= 9
+      best = {
+        score,
+        data: {
+          playerId:   Number(s.player?.id),
+          playerName: s.player?.fullName ?? '—',
+          position:   s.position?.abbreviation ?? (isStarter ? 'SP' : 'RP'),
+          teamId:     Number(s.team?.id ?? 0),
+          teamName:   s.team?.name ?? '—',
+          isPitcher: true, isStarter,
+          period: isStarter ? `Last ${gs} start${gs !== 1 ? 's' : ''}` : period,
+          stats: {
+            era:    s.stat.era,
+            whip:   s.stat.whip,
+            k:      Number(s.stat.strikeOuts ?? 0),
+            ip:     s.stat.inningsPitched,
+            wins:   Number(s.stat.wins ?? 0),
+            losses: Number(s.stat.losses ?? 0),
+            saves:  Number(s.stat.saves ?? 0),
+            holds:  Number(s.stat.holds ?? 0),
+            gs,
+          },
+        },
+      }
+    }
+
+    _hotGuyCache.date = today
+    _hotGuyCache.data = best?.data ?? null
+    return _hotGuyCache.data
+  } catch { return null }
+}
+
+// ─── Hot Guy card ─────────────────────────────────────────────────────────────
+
+function HotGuyCard({ data }: { data: HotGuyData }) {
+  const teamColor = TEAM_BG[data.teamId] ?? '#444'
+  const abbr = TEAM_ABBR[data.teamId] ?? '—'
+
+  // Determine which stat leads (most impressive single number)
+  const heroStat = (() => {
+    if (!data.isPitcher) {
+      const avg = parseFloat(data.stats.avg ?? '0')
+      const ops = parseFloat(data.stats.ops ?? '0')
+      const hr  = data.stats.hr ?? 0
+      const sb  = data.stats.sb ?? 0
+      if (avg >= .380) return 'avg'
+      if (hr  >= 4)    return 'hr'
+      if (sb  >= 5)    return 'sb'
+      if (ops >= .950) return 'ops'
+      return 'avg'
+    } else {
+      const saves = data.stats.saves ?? 0
+      const er    = parseFloat(data.stats.era ?? '99')
+      if (saves >= 3) return 'saves'
+      if (er === 0)   return 'era'
+      return 'era'
+    }
+  })()
+
+  interface StatItem { label: string; value: string; hero: boolean }
+
+  const statItems: StatItem[] = data.isPitcher
+    ? [
+        { label: 'ERA',  value: data.stats.era  ?? '—',                 hero: heroStat === 'era'   },
+        { label: 'WHIP', value: data.stats.whip ?? '—',                 hero: false                },
+        { label: 'K',    value: String(data.stats.k  ?? 0),             hero: false                },
+        { label: 'IP',   value: String(data.stats.ip ?? '—'),           hero: false                },
+        ...(data.isStarter
+          ? [{ label: 'W-L', value: `${data.stats.wins ?? 0}-${data.stats.losses ?? 0}`, hero: false }]
+          : [
+              ...(data.stats.saves ? [{ label: 'SV',  value: String(data.stats.saves), hero: heroStat === 'saves' }] : []),
+              ...(data.stats.holds ? [{ label: 'HLD', value: String(data.stats.holds), hero: false                }] : []),
+            ]
+        ),
+      ]
+    : [
+        { label: 'AVG', value: data.stats.avg ?? '—',              hero: heroStat === 'avg' },
+        { label: 'OPS', value: data.stats.ops ?? '—',              hero: heroStat === 'ops' },
+        { label: 'HR',  value: String(data.stats.hr  ?? 0),        hero: heroStat === 'hr'  },
+        { label: 'RBI', value: String(data.stats.rbi ?? 0),        hero: false              },
+        ...(data.stats.sb ? [{ label: 'SB', value: String(data.stats.sb), hero: heroStat === 'sb' }] : []),
+      ]
+    // Move the hero stat to front
+    .sort((a, b) => (b.hero ? 1 : 0) - (a.hero ? 1 : 0))
+
+  // One-line summary of the raw counting performance
+  const summaryLine = data.isPitcher
+    ? [
+        `${data.stats.ip} IP`,
+        `${data.stats.k} K`,
+        data.isStarter && (data.stats.wins || data.stats.losses)
+          ? `${data.stats.wins ?? 0}W–${data.stats.losses ?? 0}L`
+          : null,
+        !data.isStarter && data.stats.saves  ? `${data.stats.saves} SV`  : null,
+        !data.isStarter && data.stats.holds  ? `${data.stats.holds} HLD` : null,
+      ].filter(Boolean).join(' · ')
+    : [
+        `${data.stats.hits}-for-${data.stats.ab}`,
+        data.stats.hr  ? `${data.stats.hr} HR`  : null,
+        data.stats.sb  ? `${data.stats.sb} SB`  : null,
+        data.stats.rbi ? `${data.stats.rbi} RBI` : null,
+      ].filter(Boolean).join(' · ')
+
+  return (
+    <Box sx={{
+      borderRadius: 3, overflow: 'hidden',
+      border: '1px solid', borderColor: `${teamColor}45`,
+      bgcolor: 'background.paper',
+      background: `linear-gradient(135deg, ${teamColor}20 0%, ${teamColor}0c 50%, transparent 80%)`,
+    }}>
+      {/* Header bar */}
+      <Box sx={{
+        px: 2.5, py: 1.25,
+        borderBottom: '1px solid', borderColor: 'divider',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <Typography sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 1.5, color: teamColor }}>
+          🔥 Hot Guy of the Day
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {/* Team logo chip */}
+          <Box sx={{
+            width: 18, height: 18, borderRadius: '50%', bgcolor: teamColor,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+          }}>
+            <Box component="img"
+              src={`https://www.mlbstatic.com/team-logos/team-cap-on-dark/${data.teamId}.svg`}
+              sx={{ width: 14, height: 14, objectFit: 'contain' }}
+            />
+          </Box>
+          <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: 'text.disabled' }}>
+            {abbr} · {data.period}
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* Body */}
+      <Box sx={{ display: 'flex', gap: 2.5, px: 2.5, py: 2, alignItems: 'flex-start' }}>
+        {/* Headshot */}
+        <Box sx={{
+          flexShrink: 0, width: 84, height: 100,
+          borderRadius: 2.5, overflow: 'hidden',
+          border: `2px solid ${teamColor}55`,
+          bgcolor: 'action.hover',
+        }}>
+          <Box
+            component="img"
+            src={HEADSHOT(data.playerId)}
+            alt={data.playerName}
+            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%', display: 'block' }}
+          />
+        </Box>
+
+        {/* Info */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 900, fontSize: { xs: '1.1rem', sm: '1.3rem' }, lineHeight: 1.1, mb: 0.3 }}>
+            {data.playerName}
+          </Typography>
+          <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', mb: 1.75 }}>
+            {data.position} · {data.teamName}
+          </Typography>
+
+          {/* Stat grid */}
+          <Box sx={{ display: 'flex', gap: { xs: 1.5, sm: 2.5 }, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            {statItems.map(s => (
+              <Box key={s.label} sx={{ textAlign: 'left' }}>
+                <Typography sx={{
+                  fontSize:   s.hero ? { xs: '1.6rem', sm: '1.9rem' } : { xs: '1rem', sm: '1.15rem' },
+                  fontWeight: 900, lineHeight: 1,
+                  color: s.hero ? teamColor : 'text.primary',
+                  letterSpacing: s.hero ? '-0.5px' : 0,
+                }}>
+                  {s.value}
+                </Typography>
+                <Typography sx={{
+                  fontSize: '0.52rem', fontWeight: 700,
+                  textTransform: 'uppercase', letterSpacing: 0.8,
+                  color: s.hero ? `${teamColor}bb` : 'text.disabled',
+                  lineHeight: 1, mt: 0.2,
+                }}>
+                  {s.label}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+
+          {/* Summary line */}
+          {summaryLine && (
+            <Typography sx={{
+              mt: 1.5, fontSize: '0.68rem', color: 'text.secondary',
+              fontWeight: 600, letterSpacing: 0.1,
+            }}>
+              {summaryLine}
+            </Typography>
+          )}
+        </Box>
+      </Box>
+    </Box>
+  )
+}
+
 // ─── Followed player data & fetch ─────────────────────────────────────────────
 
 interface FollowedPlayerInfo {
@@ -656,7 +1049,15 @@ export function HomeView({
   allTeams, followedTeamId, onFollowTeam, onUnfollowTeam,
   followedPlayerIds, onFollowPlayer, onUnfollowPlayer, onPlayerClick,
 }: HomeViewProps) {
-  const [standing, setStanding] = useState<StandingSummary | null>(null)
+  const [standing, setStanding]       = useState<StandingSummary | null>(null)
+  const [hotGuy, setHotGuy]           = useState<HotGuyData | null>(null)
+  const [loadingHotGuy, setLoadingHotGuy] = useState(false)
+
+  // Fetch hot guy once on mount (league-wide, not team-specific)
+  useEffect(() => {
+    setLoadingHotGuy(true)
+    fetchHotGuy().then(setHotGuy).finally(() => setLoadingHotGuy(false))
+  }, [])
 
   useEffect(() => {
     if (!followedTeamId) return
@@ -761,6 +1162,14 @@ export function HomeView({
           <TeamScheduleStrip teamId={followedTeamId} teamColor={bg} />
         </Box>
       </Box>
+
+      {/* ── Hot Guy of the Day ───────────────────────────────────────────────── */}
+      {hotGuy && <HotGuyCard data={hotGuy} />}
+      {loadingHotGuy && !hotGuy && (
+        <Box sx={{ py: 2, textAlign: 'center' }}>
+          <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Finding today's hot guy…</Typography>
+        </Box>
+      )}
 
       {/* ── Followed players ──────────────────────────────────────────────────── */}
       <FollowedPlayersSection
