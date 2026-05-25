@@ -186,6 +186,26 @@ async function fetchGamePreview(gamePk: number): Promise<GamePreviewData | null>
     const game = d.dates?.[0]?.games?.[0]
     if (!game) return null
 
+    const ht = game.teams?.home
+    const at = game.teams?.away
+
+    // pitchHand.code is not reliably returned by schedule hydration —
+    // fetch it directly from the people endpoint for both pitchers.
+    const homePitcherId = ht?.probablePitcher?.id ? Number(ht.probablePitcher.id) : null
+    const awayPitcherId = at?.probablePitcher?.id ? Number(at.probablePitcher.id) : null
+    const pitcherIds = [homePitcherId, awayPitcherId].filter((x): x is number => x !== null)
+
+    const handMap: Record<number, string> = {}
+    if (pitcherIds.length > 0) {
+      try {
+        const pr = await fetch(`https://statsapi.mlb.com/api/v1/people?personIds=${pitcherIds.join(',')}`)
+        const pd = await pr.json()
+        for (const p of pd.people ?? []) {
+          handMap[Number(p.id)] = p.pitchHand?.code ?? '?'
+        }
+      } catch { /* non-fatal */ }
+    }
+
     const parsePitcher = (side: any): ProbablePitcher | null => {
       const p = side?.probablePitcher
       if (!p) return null
@@ -196,17 +216,15 @@ async function fetchGamePreview(gamePk: number): Promise<GamePreviewData | null>
       return {
         id:     Number(p.id),
         name:   p.fullName ?? '—',
-        era:    stat.era    ?? '—',
+        era:    stat.era             ?? '—',
         wins:   Number(stat.wins   ?? 0),
         losses: Number(stat.losses ?? 0),
-        ip:     stat.inningsPitched ?? '—',
-        hand:   p.pitchHand?.code  ?? '?',
+        ip:     stat.inningsPitched  ?? '—',
+        hand:   handMap[Number(p.id)] ?? p.pitchHand?.code ?? '?',
       }
     }
 
-    const ht = game.teams?.home
-    const at = game.teams?.away
-    const w  = game.weather
+    const w = game.weather
     const weatherDesc = w
       ? [w.condition, w.temp ? `${w.temp}°F` : null, w.wind || null].filter(Boolean).join(' · ')
       : ''
@@ -339,50 +357,65 @@ function PitcherPanel({ pitcher, teamId, side }: {
 }) {
   const col = TEAM_BG[teamId] ?? '#444'
   return (
-    <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75 }}>
+    <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
       {/* Side label */}
-      <Typography sx={{ fontSize: '0.53rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.2, color: 'text.disabled', lineHeight: 1 }}>
+      <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.2, color: 'text.disabled', lineHeight: 1 }}>
         {side}
       </Typography>
 
-      {/* Team logo circle */}
-      <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: col, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-        <Box component="img" src={`https://www.mlbstatic.com/team-logos/team-cap-on-dark/${teamId}.svg`} sx={{ width: 20, height: 20, objectFit: 'contain' }} />
+      {/* Team logo — white circle + team-color border for visibility on any background */}
+      <Box sx={{
+        width: 38, height: 38, borderRadius: '50%',
+        bgcolor: '#fff', border: `2.5px solid ${col}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden', flexShrink: 0,
+        boxShadow: `0 0 0 1px ${col}40`,
+      }}>
+        <Box component="img"
+          src={`https://www.mlbstatic.com/team-logos/${teamId}.svg`}
+          sx={{ width: 26, height: 26, objectFit: 'contain' }}
+        />
       </Box>
 
       {/* Headshot */}
       {pitcher ? (
         <>
-          <Box sx={{ width: 68, height: 80, borderRadius: 2, overflow: 'hidden', border: `2px solid ${col}40`, bgcolor: 'action.hover', flexShrink: 0 }}>
+          <Box sx={{ width: 84, height: 100, borderRadius: 2.5, overflow: 'hidden', border: `2px solid ${col}50`, bgcolor: 'action.hover', flexShrink: 0 }}>
             <Box component="img" src={HEADSHOT(pitcher.id)} alt={pitcher.name}
               sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%', display: 'block' }} />
           </Box>
+
+          {/* Name */}
           <Typography sx={{
-            fontWeight: 700, fontSize: '0.76rem', lineHeight: 1.2, textAlign: 'center', px: 0.5,
+            fontWeight: 700, fontSize: '0.88rem', lineHeight: 1.25, textAlign: 'center', px: 0.5,
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}>
             {pitcher.name}
           </Typography>
-          <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', textAlign: 'center', lineHeight: 1 }}>
-            {pitcher.hand}HP
+
+          {/* Handedness */}
+          <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', textAlign: 'center', lineHeight: 1, fontWeight: 600 }}>
+            {pitcher.hand === 'R' ? 'RHP' : pitcher.hand === 'L' ? 'LHP' : `${pitcher.hand}HP`}
           </Typography>
-          <Box sx={{ display: 'flex', gap: 1.5, justifyContent: 'center' }}>
+
+          {/* Stats: ERA + IP (no W-L) */}
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 0.25 }}>
             <Box sx={{ textAlign: 'center' }}>
-              <Typography sx={{ fontSize: '0.92rem', fontWeight: 800, lineHeight: 1, color: 'text.primary' }}>{pitcher.era}</Typography>
-              <Typography sx={{ fontSize: '0.53rem', textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', lineHeight: 1, mt: 0.2 }}>ERA</Typography>
+              <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, lineHeight: 1, color: 'text.primary' }}>{pitcher.era}</Typography>
+              <Typography sx={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', lineHeight: 1, mt: 0.3 }}>ERA</Typography>
             </Box>
             <Box sx={{ textAlign: 'center' }}>
-              <Typography sx={{ fontSize: '0.92rem', fontWeight: 800, lineHeight: 1, color: 'text.primary' }}>{pitcher.wins}-{pitcher.losses}</Typography>
-              <Typography sx={{ fontSize: '0.53rem', textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', lineHeight: 1, mt: 0.2 }}>W-L</Typography>
+              <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, lineHeight: 1, color: 'text.primary' }}>{pitcher.ip}</Typography>
+              <Typography sx={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', lineHeight: 1, mt: 0.3 }}>IP</Typography>
             </Box>
           </Box>
         </>
       ) : (
         <>
-          <Box sx={{ width: 68, height: 80, borderRadius: 2, bgcolor: 'action.hover', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', fontWeight: 600 }}>TBD</Typography>
+          <Box sx={{ width: 84, height: 100, borderRadius: 2.5, bgcolor: 'action.hover', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontWeight: 600 }}>TBD</Typography>
           </Box>
-          <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontWeight: 600 }}>Starter TBD</Typography>
+          <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', fontWeight: 600 }}>Starter TBD</Typography>
         </>
       )}
     </Box>
@@ -430,19 +463,19 @@ function GamePreviewModal({ game, myTeamId, previewData, loading, onClose }: {
       <Box sx={{
         bgcolor: 'background.paper', borderRadius: 3,
         border: '1px solid', borderColor: 'divider',
-        width: '100%', maxWidth: 360,
+        width: '100%', maxWidth: 460,
         boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
         overflow: 'hidden',
       }}>
         {/* Header */}
-        <Box sx={{ px: 2.5, py: 1.5, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+        <Box sx={{ px: 3, py: 2, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 800, fontSize: '1rem', lineHeight: 1.2 }}>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.25rem', lineHeight: 1.2 }}>
               {awayAbbr}
-              <Box component="span" sx={{ color: 'text.disabled', fontWeight: 400, mx: 0.75 }}>@</Box>
+              <Box component="span" sx={{ color: 'text.disabled', fontWeight: 400, mx: 1 }}>@</Box>
               {homeAbbr}
             </Typography>
-            <Typography sx={{ fontSize: '0.67rem', color: 'text.secondary', mt: 0.3, lineHeight: 1.3 }}>
+            <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: 0.4, lineHeight: 1.3 }}>
               {chipDate(game.date)} · {game.gameTime}
               {previewData?.venue ? ` · ${previewData.venue}` : ''}
             </Typography>
@@ -450,38 +483,38 @@ function GamePreviewModal({ game, myTeamId, previewData, loading, onClose }: {
           <Box
             onClick={onClose}
             sx={{
-              flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
+              flexShrink: 0, width: 30, height: 30, borderRadius: '50%',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', color: 'text.disabled',
               '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
               transition: 'background 0.12s, color 0.12s',
             }}
           >
-            <Typography sx={{ fontSize: '0.75rem', lineHeight: 1 }}>✕</Typography>
+            <Typography sx={{ fontSize: '0.85rem', lineHeight: 1 }}>✕</Typography>
           </Box>
         </Box>
 
         {/* Body */}
-        <Box sx={{ px: 2.5, py: 2.25 }}>
+        <Box sx={{ px: 3, py: 2.75 }}>
           {loading ? (
-            <Box sx={{ py: 4, textAlign: 'center' }}>
-              <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Loading game details…</Typography>
+            <Box sx={{ py: 5, textAlign: 'center' }}>
+              <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled' }}>Loading game details…</Typography>
             </Box>
           ) : (
             <>
               <Typography sx={{
-                fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase',
-                letterSpacing: 1.5, color: 'text.disabled', mb: 2, textAlign: 'center',
+                fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase',
+                letterSpacing: 1.5, color: 'text.disabled', mb: 2.5, textAlign: 'center',
               }}>
                 Probable Starters
               </Typography>
 
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                 <PitcherPanel pitcher={awayPitcher} teamId={awayTeamId} side="Away" />
 
-                {/* VS divider */}
-                <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', pt: '52px' }}>
-                  <Typography sx={{ fontWeight: 900, fontSize: '0.78rem', color: 'text.disabled', lineHeight: 1 }}>@</Typography>
+                {/* @ divider — vertically centred with the headshots */}
+                <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', pt: '66px' }}>
+                  <Typography sx={{ fontWeight: 900, fontSize: '0.9rem', color: 'text.disabled', lineHeight: 1 }}>@</Typography>
                 </Box>
 
                 <PitcherPanel pitcher={homePitcher} teamId={homeTeamId} side="Home" />
@@ -489,8 +522,8 @@ function GamePreviewModal({ game, myTeamId, previewData, loading, onClose }: {
 
               {/* Weather */}
               {previewData?.weatherDesc && (
-                <Box sx={{ mt: 2.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
-                  <Typography sx={{ fontSize: '0.66rem', color: 'text.secondary' }}>
+                <Box sx={{ mt: 3, pt: 1.75, borderTop: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
+                  <Typography sx={{ fontSize: '0.76rem', color: 'text.secondary' }}>
                     {previewData.weatherDesc}
                   </Typography>
                 </Box>
