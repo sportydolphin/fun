@@ -104,7 +104,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = useCallback(async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.href },
+      // Use origin + /mlb so it always lands on the right page regardless
+      // of what path the user was on when they clicked the button
+      options: { redirectTo: `${window.location.origin}/mlb` },
     })
     // Page will redirect to Google — nothing to handle here
   }, [])
