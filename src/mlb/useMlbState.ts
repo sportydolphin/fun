@@ -52,7 +52,7 @@ async function savePrefsToSupabase(
 }
 
 export function useMlbState() {
-  const { user } = useAuth()
+  const { user, openAuthDialog } = useAuth()
   // ─── Search ──────────────────────────────────────────────────────────────────
   const [query, setQuery] = useState('')
   const [playerResults, setPlayerResults] = useState<Player[]>([])
@@ -108,7 +108,9 @@ export function useMlbState() {
     try { localStorage.setItem('mlb_fav_team_id', String(teamId)) } catch {}
     setFollowedTeamId(teamId)
     setView('home')
-  }, [])
+    // Prompt account creation so the user can sync this choice across devices
+    if (!user) openAuthDialog('signup')
+  }, [user, openAuthDialog])
 
   const unfollowTeam = useCallback(() => {
     try { localStorage.removeItem('mlb_fav_team_id') } catch {}
