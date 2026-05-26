@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react'
-import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField } from '@mui/material'
-import { Brightness4, Brightness7, Lock } from '@mui/icons-material'
+import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Tooltip } from '@mui/material'
+import { Brightness4, Brightness7, Lock, AccountCircle } from '@mui/icons-material'
 import { useTheme } from './ThemeContext'
+import { AuthProvider, useAuth } from './AuthContext'
 import CupsGame from '../projects/cups-game/src/CupsGame'
 import TestGame from './TestGame'
 import Stopwatch from './Stopwatch'
@@ -29,14 +30,39 @@ const PROJECTS = [
   { label: 'Poop Pile',     emoji: '💩',  desc: 'Stack the poops',        path: '/poop',     color: 'hsl(24,  58%, 38%)' },
 ]
 
-export default function App() {
+function AppInner() {
   const { mode, toggleTheme } = useTheme()
+  const { user, signIn, signUp, signOut } = useAuth()
   const [path, setPath] = useState<Route | string>(window.location.pathname as Route)
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_KEY) === '1')
   const [lockDialogOpen, setLockDialogOpen] = useState(false)
   const [pendingPath, setPendingPath] = useState<string | null>(null)
   const [pwInput, setPwInput] = useState('')
   const [pwError, setPwError] = useState(false)
+
+  // ─── Auth modal state ────────────────────────────────────────────────────────
+  const [authOpen,     setAuthOpen]     = useState(false)
+  const [authMode,     setAuthMode]     = useState<'signin' | 'signup'>('signin')
+  const [authEmail,    setAuthEmail]    = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authError,    setAuthError]    = useState('')
+  const [authLoading,  setAuthLoading]  = useState(false)
+
+  const openAuth = useCallback((mode: 'signin' | 'signup' = 'signin') => {
+    setAuthMode(mode); setAuthEmail(''); setAuthPassword(''); setAuthError('')
+    setAuthOpen(true)
+  }, [])
+
+  const handleAuthSubmit = useCallback(async () => {
+    if (!authEmail.trim() || !authPassword) return
+    setAuthLoading(true); setAuthError('')
+    const err = authMode === 'signin'
+      ? await signIn(authEmail.trim(), authPassword)
+      : await signUp(authEmail.trim(), authPassword)
+    setAuthLoading(false)
+    if (err) { setAuthError(err) }
+    else { setAuthOpen(false) }
+  }, [authMode, authEmail, authPassword, signIn, signUp])
 
   useEffect(() => {
     const onPop = () => setPath(window.location.pathname as Route)
@@ -186,8 +212,57 @@ export default function App() {
           <IconButton onClick={toggleTheme} color="inherit">
             {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
           </IconButton>
+          {user ? (
+            <Tooltip title={`Signed in as ${user.email} — click to sign out`}>
+              <IconButton onClick={signOut} color="inherit" size="small">
+                <AccountCircle sx={{ color: 'success.main' }} />
+              </IconButton>
+            </Tooltip>
+          ) : (
+            <Tooltip title="Sign in to sync your followed team & players">
+              <IconButton onClick={() => openAuth('signin')} color="inherit" size="small">
+                <AccountCircle sx={{ opacity: 0.5 }} />
+              </IconButton>
+            </Tooltip>
+          )}
         </Toolbar>
       </AppBar>
+
+      {/* Auth dialog */}
+      <Dialog open={authOpen} onClose={() => setAuthOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          {authMode === 'signin' ? '🔑 Sign In' : '✨ Create Account'}
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus fullWidth label="Email" type="email"
+            value={authEmail} onChange={e => { setAuthEmail(e.target.value); setAuthError('') }}
+            onKeyDown={e => e.key === 'Enter' && handleAuthSubmit()}
+            sx={{ mt: 1, mb: 1.5 }}
+          />
+          <TextField
+            fullWidth label="Password" type="password"
+            value={authPassword} onChange={e => { setAuthPassword(e.target.value); setAuthError('') }}
+            onKeyDown={e => e.key === 'Enter' && handleAuthSubmit()}
+            error={!!authError} helperText={authError || ' '}
+          />
+          <Box sx={{ mt: 0.5, textAlign: 'center' }}>
+            <Typography
+              component="span"
+              sx={{ fontSize: '0.8rem', color: 'text.secondary', cursor: 'pointer', '&:hover': { color: 'text.primary' } }}
+              onClick={() => { setAuthMode(m => m === 'signin' ? 'signup' : 'signin'); setAuthError('') }}
+            >
+              {authMode === 'signin' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAuthOpen(false)}>Cancel</Button>
+          <Button onClick={handleAuthSubmit} variant="contained" disabled={authLoading || !authEmail || !authPassword}>
+            {authLoading ? 'Loading…' : authMode === 'signin' ? 'Sign In' : 'Create Account'}
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Box sx={{ p: 2 }}>
         {path === '/' && <Home />}
         {path === '/cups' && (
@@ -223,5 +298,13 @@ export default function App() {
         {path === '/mlb' && <MlbStats />}
       </Box>
     </>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
   )
 }

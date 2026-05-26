@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useAuth } from '../AuthContext'
+import { supabase } from '../lib/supabase'
 import {
   RankMode, Player, Team, Palette, TeamSummary, CareerStatSplit,
   TeamPlayerStat, RecentGameEntry, LbFullscreenState, TeamStandingInfo, StandingsDivision,
@@ -21,7 +23,36 @@ import { computeSmartHitStats, computeSmartPitStats } from './smartStats'
 import type { CardInnerProps } from './cards'
 import type { TeamCardInnerProps } from './cards'
 
+// ─── Supabase prefs helpers ───────────────────────────────────────────────────
+
+async function loadPrefsFromSupabase(userId: string) {
+  const { data, error } = await supabase
+    .from('user_preferences')
+    .select('followed_team_id, followed_player_ids')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) { console.warn('[prefs] load error:', error.message); return null }
+  return data
+}
+
+async function savePrefsToSupabase(
+  userId: string,
+  followedTeamId: number | null,
+  followedPlayerIds: number[],
+) {
+  const { error } = await supabase
+    .from('user_preferences')
+    .upsert({
+      user_id: userId,
+      followed_team_id: followedTeamId,
+      followed_player_ids: followedPlayerIds,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' })
+  if (error) console.warn('[prefs] save error:', error.message)
+}
+
 export function useMlbState() {
+  const { user } = useAuth()
   // ─── Search ──────────────────────────────────────────────────────────────────
   const [query, setQuery] = useState('')
   const [playerResults, setPlayerResults] = useState<Player[]>([])
@@ -108,6 +139,48 @@ export function useMlbState() {
       return next
     })
   }, [])
+
+  // ─── Supabase: load prefs on login ────────────────────────────────────────────
+  // When a user logs in, pull their preferences. If they have a row, apply it and
+  // override localStorage. If they don't have a row yet, push local state to create one.
+  const prevUserIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    const uid = user?.id ?? null
+    if (uid === prevUserIdRef.current) return   // same user (or still logged out), skip
+    prevUserIdRef.current = uid
+
+    if (!uid) return  // logged out — keep using localStorage as-is
+
+    loadPrefsFromSupabase(uid).then(row => {
+      if (row) {
+        // Supabase wins: update state + localStorage
+        const tid = row.followed_team_id ?? null
+        const pids: number[] = row.followed_player_ids ?? []
+        setFollowedTeamId(tid)
+        setFollowedPlayerIds(pids)
+        try {
+          if (tid !== null) localStorage.setItem('mlb_fav_team_id', String(tid))
+          else localStorage.removeItem('mlb_fav_team_id')
+          localStorage.setItem('mlb_fav_player_ids', JSON.stringify(pids))
+        } catch {}
+      } else {
+        // No row yet — push current local state to create one
+        savePrefsToSupabase(uid, followedTeamId, followedPlayerIds)
+      }
+    })
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Supabase: sync prefs on change (when logged in) ─────────────────────────
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (!user?.id) return
+    // Debounce to avoid a write on every keystroke during bulk follow
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
+    syncTimerRef.current = setTimeout(() => {
+      savePrefsToSupabase(user.id, followedTeamId, followedPlayerIds)
+    }, 800)
+    return () => { if (syncTimerRef.current) clearTimeout(syncTimerRef.current) }
+  }, [user?.id, followedTeamId, followedPlayerIds])
 
   // ─── View & navigation ────────────────────────────────────────────────────────
   const [view, setView] = useState<'home' | 'search' | 'viz' | 'leaderboard' | 'standings' | 'stats'>(() => {
