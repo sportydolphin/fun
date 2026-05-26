@@ -19,16 +19,28 @@ function sosColor(norm: number): string {
   return '#22c55e'
 }
 
-function SosTeamDot({ teamId, abbr }: { teamId: number; abbr: string }) {
+function SosTeamDot({ teamId, abbr, size = 26 }: { teamId: number; abbr: string; size?: number }) {
+  const [failed, setFailed] = useState(false)
+  const col = TEAM_BG[teamId] ?? '#555'
   return (
     <Box sx={{
-      width: 26, height: 26, borderRadius: '50%',
-      bgcolor: TEAM_BG[teamId] ?? '#555',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      bgcolor: '#fff', border: `2px solid ${col}`, boxShadow: `0 0 0 1px ${col}25`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
     }}>
-      <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: abbr.length > 2 ? '0.5rem' : '0.6rem', lineHeight: 1 }}>
-        {abbr}
-      </Typography>
+      {failed ? (
+        <Typography sx={{ color: col, fontWeight: 900, fontSize: abbr.length > 2 ? '0.48rem' : '0.58rem', lineHeight: 1 }}>
+          {abbr}
+        </Typography>
+      ) : (
+        <Box
+          component="img"
+          src={`https://www.mlbstatic.com/team-logos/${teamId}.svg`}
+          alt={abbr}
+          onError={() => setFailed(true)}
+          sx={{ width: '72%', height: '72%', objectFit: 'contain', display: 'block' }}
+        />
+      )}
     </Box>
   )
 }

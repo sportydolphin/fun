@@ -79,15 +79,16 @@ function TeamPicker({ allTeams, onSelect }: { allTeams: Team[]; onSelect: (id: n
               }}
             >
               <Box sx={{
-                width: 44, height: 44, borderRadius: '50%', bgcolor: bg,
+                width: 44, height: 44, borderRadius: '50%',
+                bgcolor: '#fff', border: `2px solid ${bg}`, boxShadow: `0 0 0 1px ${bg}30`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 overflow: 'hidden', flexShrink: 0,
               }}>
                 <Box
                   component="img"
-                  src={`https://www.mlbstatic.com/team-logos/team-cap-on-dark/${t.id}.svg`}
+                  src={`https://www.mlbstatic.com/team-logos/${t.id}.svg`}
                   alt={t.abbreviation}
-                  sx={{ width: 34, height: 34, objectFit: 'contain' }}
+                  sx={{ width: 30, height: 30, objectFit: 'contain' }}
                   onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
                     e.currentTarget.style.display = 'none'
                   }}

@@ -374,10 +374,11 @@ export function TeamFraudPanel({ data, nameMap, highlightTeamId, onSelectTeam, o
             {/* Team logo */}
             <Box sx={{
               width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-              bgcolor: logoFailed ? (TEAM_BG[team.id] ?? 'grey.600') : '#fff',
+              bgcolor: logoFailed ? (TEAM_BG[team.id] ?? '#555') : '#fff',
+              border: `2px solid ${TEAM_BG[team.id] ?? '#444'}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               overflow: 'hidden',
-              boxShadow: isHighlighted ? `0 0 0 2.5px ${accent}` : '0 1px 4px rgba(0,0,0,0.15)',
+              boxShadow: isHighlighted ? `0 0 0 2.5px ${accent}` : `0 0 0 1px ${(TEAM_BG[team.id] ?? '#444')}30`,
             }}>
               {logoFailed ? (
                 <Typography sx={{ color: '#fff', fontWeight: 900, fontSize: team.abbr.length > 2 ? '0.48rem' : '0.6rem', lineHeight: 1 }}>
