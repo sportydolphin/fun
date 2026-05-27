@@ -173,8 +173,8 @@ export function StatsView({
             </Typography>
           </Box>
 
-          {/* Scrollable table */}
-          <Box sx={{ overflowX: 'auto' }}>
+          {/* Scrollable table — overflow both axes so sticky thead works vertically */}
+          <Box sx={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
             <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: '100%' }}>
               <Box component="thead">
                 <Box component="tr">
