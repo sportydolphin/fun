@@ -154,6 +154,34 @@ export async function fetchGamePreview(gamePk: number): Promise<GamePreviewData 
   } catch { return null }
 }
 
+// ─── Live game fetch ──────────────────────────────────────────────────────────
+
+interface LiveInning {
+  currentInning:        number | null
+  currentInningOrdinal: string | null
+  inningHalf:           'top' | 'bottom' | null
+  outs:                 number | null
+}
+
+async function fetchLiveInning(gamePk: number): Promise<LiveInning | null> {
+  try {
+    const r = await fetch(
+      `https://statsapi.mlb.com/api/v1.1/game/${gamePk}/feed/live` +
+      `?fields=liveData,linescore,currentInning,currentInningOrdinal,inningHalf,outs`
+    )
+    const d = await r.json()
+    const ls = d.liveData?.linescore
+    if (!ls) return null
+    const half = String(ls.inningHalf ?? '').toLowerCase()
+    return {
+      currentInning:        ls.currentInning        ?? null,
+      currentInningOrdinal: ls.currentInningOrdinal ?? null,
+      inningHalf:           half === 'top' ? 'top' : half === 'bottom' ? 'bottom' : null,
+      outs:                 ls.outs                 ?? null,
+    }
+  } catch { return null }
+}
+
 // ─── GameChip ─────────────────────────────────────────────────────────────────
 
 function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick }: {
@@ -722,6 +750,82 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
   )
 }
 
+// ─── CompactPitcherRow ────────────────────────────────────────────────────────
+// Two-pitcher inline bar for the home card — much smaller than PitcherPanel
+
+function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, loading, onPlayerClick }: {
+  awayPitcher:   ProbablePitcher | null
+  homePitcher:   ProbablePitcher | null
+  awayTeamId:    number
+  homeTeamId:    number
+  loading:       boolean
+  onPlayerClick?: (id: number) => void
+}) {
+  const shortName = (name: string) => {
+    const parts = name.trim().split(' ')
+    return parts.length <= 1 ? name : `${parts[0][0]}. ${parts.slice(1).join(' ')}`
+  }
+  const awayCol = TEAM_BG[awayTeamId] ?? '#444'
+  const homeCol = TEAM_BG[homeTeamId] ?? '#444'
+
+  if (loading) return (
+    <Box sx={{ pt: 1.25, mt: 0.75, borderTop: '1px solid', borderColor: 'divider' }}>
+      <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled' }}>Loading starters…</Typography>
+    </Box>
+  )
+
+  const PitcherChip = ({ pitcher, col, align }: { pitcher: ProbablePitcher | null; col: string; align: 'left' | 'right' }) => (
+    <Box
+      onClick={() => pitcher && onPlayerClick?.(pitcher.id)}
+      sx={{
+        flex: 1, minWidth: 0,
+        display: 'flex', alignItems: 'center',
+        gap: 0.75,
+        flexDirection: align === 'right' ? 'row-reverse' : 'row',
+        cursor: pitcher && onPlayerClick ? 'pointer' : 'default',
+        '&:hover .pmn': pitcher && onPlayerClick ? { color: ACCENT } : {},
+      }}
+    >
+      {/* Headshot */}
+      <Box sx={{
+        width: 34, height: 42, borderRadius: 1.5, overflow: 'hidden', flexShrink: 0,
+        border: `1.5px solid ${col}40`, bgcolor: 'action.hover',
+      }}>
+        {pitcher && (
+          <Box component="img" src={HEADSHOT(pitcher.id)} alt={pitcher.name}
+            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%', display: 'block' }} />
+        )}
+      </Box>
+      {/* Name + stats */}
+      <Box sx={{ minWidth: 0, textAlign: align }}>
+        <Typography className="pmn" sx={{
+          fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.2,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          transition: 'color 0.12s',
+        }}>
+          {pitcher ? shortName(pitcher.name) : 'TBD'}
+        </Typography>
+        {pitcher && (
+          <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', lineHeight: 1 }}>
+            {pitcher.hand === 'R' ? 'RHP' : 'LHP'} · {pitcher.era} ERA
+          </Typography>
+        )}
+      </Box>
+    </Box>
+  )
+
+  return (
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 1,
+      pt: 1.25, mt: 0.75, borderTop: '1px solid', borderColor: 'divider',
+    }}>
+      <PitcherChip pitcher={awayPitcher} col={awayCol} align="left" />
+      <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>vs</Typography>
+      <PitcherChip pitcher={homePitcher} col={homeCol} align="right" />
+    </Box>
+  )
+}
+
 // ─── TeamScheduleStrip ────────────────────────────────────────────────────────
 
 export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClick }: {
@@ -734,6 +838,7 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
   const [loading,        setLoading]        = useState(true)
   const [previewData,    setPreviewData]    = useState<GamePreviewData | null>(null)
   const [loadingPreview, setLoadingPreview] = useState(false)
+  const [liveInfo,       setLiveInfo]       = useState<LiveInning | null>(null)
   const [showFullSched,  setShowFullSched]  = useState(false)
 
   const now   = new Date()
@@ -742,13 +847,16 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
   useEffect(() => {
     setLoading(true)
     setPreviewData(null)
+    setLiveInfo(null)
     fetchTeamSchedule(teamId).then(g => {
       setGames(g)
-      // Auto-load pitcher preview for the next/current game — no click needed
       const next = g.find(x => x.date >= today) ?? g[g.length - 1]
       if (next) {
         setLoadingPreview(true)
         fetchGamePreview(next.gamePk).then(setPreviewData).finally(() => setLoadingPreview(false))
+        if (next.state === 'live') {
+          fetchLiveInning(next.gamePk).then(setLiveInfo)
+        }
       }
     }).finally(() => setLoading(false))
   }, [teamId])
@@ -764,12 +872,11 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
   const nextGame = games.find(g => g.date >= today) ?? games[games.length - 1]
   const showLast = lastGame !== null && lastGame.gamePk !== nextGame.gamePk
 
-  const isToday  = nextGame.date === today
-  const isLive   = nextGame.state === 'live'
+  const isToday   = nextGame.date === today
+  const isLive    = nextGame.state === 'live'
+  const isPreview = nextGame.state === 'preview'
   const nextLabel      = isLive ? '● LIVE' : isToday ? 'Today' : 'Next Game'
   const nextLabelColor = isLive ? '#ef4444' : isToday ? teamColor : undefined
-
-  const showPitchers = nextGame.state === 'preview' || nextGame.state === 'live'
 
   const awayTeamId  = previewData?.away.teamId ?? (nextGame.isHome ? nextGame.opponentId : teamId)
   const homeTeamId  = previewData?.home.teamId ?? (nextGame.isHome ? teamId : nextGame.opponentId)
@@ -780,66 +887,66 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
     <>
       <Box sx={{ px: 2.5, pb: 2, pt: 0.5 }}>
 
-        {/* ── Last + Next game row ──────────────────────────────────────────── */}
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', mb: showPitchers ? 2.5 : 1.5 }}>
+        {/* ── Last + Next game (with inline pitchers / live info) ───────────── */}
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
           {showLast && (
             <>
-              <CompactGameCard
-                game={lastGame!}
-                label="Last Game"
-                onTeamClick={onTeamClick}
-              />
+              <CompactGameCard game={lastGame!} label="Last Game" onTeamClick={onTeamClick} />
               <Box sx={{ width: '1px', bgcolor: 'divider', alignSelf: 'stretch', my: 0.25, flexShrink: 0 }} />
             </>
           )}
-          <CompactGameCard
-            game={nextGame}
-            label={nextLabel}
-            labelColor={nextLabelColor}
-            onTeamClick={onTeamClick}
-          />
-        </Box>
 
-        {/* ── Inline pitcher preview (auto-loaded) ─────────────────────────── */}
-        {showPitchers && (
-          <>
-            <Typography sx={{
-              fontSize: '0.54rem', fontWeight: 800, textTransform: 'uppercase',
-              letterSpacing: 1.5, color: 'text.disabled', textAlign: 'center', mb: 2,
-            }}>
-              Probable Starters
-            </Typography>
+          {/* Next / live game column — pitchers or live status nested inline */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <CompactGameCard
+              game={nextGame}
+              label={nextLabel}
+              labelColor={nextLabelColor}
+              onTeamClick={onTeamClick}
+            />
 
-            {loadingPreview ? (
-              <Box sx={{ py: 3, textAlign: 'center' }}>
-                <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Loading starters…</Typography>
-              </Box>
-            ) : (
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                <PitcherPanel
-                  pitcher={awayPitcher}
-                  teamId={awayTeamId}
-                  side="Away"
-                  onPlayerClick={awayPitcher ? () => onPlayerClick?.(awayPitcher.id) : undefined}
-                  onTeamClick={() => onTeamClick?.(awayTeamId)}
-                />
-                <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', pt: '66px' }}>
-                  <Typography sx={{ fontWeight: 900, fontSize: '0.9rem', color: 'text.disabled', lineHeight: 1 }}>@</Typography>
-                </Box>
-                <PitcherPanel
-                  pitcher={homePitcher}
-                  teamId={homeTeamId}
-                  side="Home"
-                  onPlayerClick={homePitcher ? () => onPlayerClick?.(homePitcher.id) : undefined}
-                  onTeamClick={() => onTeamClick?.(homeTeamId)}
-                />
+            {/* Preview game: compact two-pitcher bar */}
+            {isPreview && (
+              <CompactPitcherRow
+                awayPitcher={awayPitcher}
+                homePitcher={homePitcher}
+                awayTeamId={awayTeamId}
+                homeTeamId={homeTeamId}
+                loading={loadingPreview}
+                onPlayerClick={onPlayerClick}
+              />
+            )}
+
+            {/* Live game: inning + venue */}
+            {isLive && (
+              <Box sx={{ pt: 1.25, mt: 0.75, borderTop: '1px solid', borderColor: 'divider' }}>
+                {liveInfo ? (
+                  <Typography sx={{ fontSize: '0.74rem', fontWeight: 700, lineHeight: 1.4 }}>
+                    {liveInfo.inningHalf === 'top' ? '▲' : '▼'}{' '}
+                    {liveInfo.currentInningOrdinal ?? liveInfo.currentInning}
+                    {liveInfo.outs !== null && (
+                      <Box component="span" sx={{ color: 'text.secondary', fontWeight: 400 }}>
+                        {' · '}{liveInfo.outs} out{liveInfo.outs !== 1 ? 's' : ''}
+                      </Box>
+                    )}
+                  </Typography>
+                ) : (
+                  <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: '#ef4444', lineHeight: 1 }}>
+                    IN PROGRESS
+                  </Typography>
+                )}
+                {(previewData?.venue || previewData?.weatherDesc) && (
+                  <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled', mt: 0.3, lineHeight: 1.3 }}>
+                    {[previewData.venue, previewData.weatherDesc].filter(Boolean).join(' · ')}
+                  </Typography>
+                )}
               </Box>
             )}
-          </>
-        )}
+          </Box>
+        </Box>
 
         {/* ── View Full Schedule ────────────────────────────────────────────── */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: showPitchers ? 2.5 : 0.5 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1.5 }}>
           <Box
             onClick={() => setShowFullSched(true)}
             sx={{
