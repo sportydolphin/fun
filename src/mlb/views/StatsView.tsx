@@ -35,17 +35,21 @@ export function StatsView({
   setHighlightPlayerId, setHighlightStatKey,
 }: StatsViewProps) {
   const highlightRowRef = useRef<HTMLElement | null>(null)
+  const highlightColRef = useRef<HTMLElement | null>(null)
 
-  // Scroll the highlighted row into view whenever it changes or data loads
+  // Scroll the highlighted row+column into view whenever they change or data loads
   useEffect(() => {
     if (!highlightPlayerId) return
     const timer = setTimeout(() => {
-      if (highlightRowRef.current) {
+      if (highlightColRef.current) {
+        // Focused cell: center both row (block) and column (inline)
+        highlightColRef.current.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+      } else if (highlightRowRef.current) {
         highlightRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }
     }, 120)
     return () => clearTimeout(timer)
-  }, [highlightPlayerId, lbData])
+  }, [highlightPlayerId, highlightStatKey, lbData])
   const statDefs = lbGroup === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS
   const sortKey   = lbFullscreen?.sortKey   ?? LB_FEATURED[lbGroup][0]
   const sortAsc   = lbFullscreen?.sortAsc   ?? (statDefs.find(d => d.key === sortKey)?.lowerIsBetter ?? false)
@@ -203,11 +207,12 @@ export function StatsView({
                           ...stThSx,
                           position: 'sticky', top: 0, zIndex: 3,
                           textAlign: 'right', cursor: 'pointer',
-                          bgcolor: isActive ? `${ACCENT}14` : 'background.paper',
+                          bgcolor: 'background.paper',
+                          boxShadow: isActive ? `inset 0 0 0 9999px ${ACCENT}14` : 'none',
                           borderBottom: isActive ? `2px solid ${ACCENT}` : '2px solid',
                           borderColor: isActive ? ACCENT : 'divider',
                           color: isActive ? ACCENT : 'text.disabled',
-                          '&:hover': { bgcolor: `${ACCENT}18`, color: ACCENT },
+                          '&:hover': { boxShadow: `inset 0 0 0 9999px ${ACCENT}18`, color: ACCENT },
                           transition: 'background 0.15s, color 0.15s',
                           userSelect: 'none',
                         }}>
@@ -289,7 +294,9 @@ export function StatsView({
                         const isFocused  = isHighlighted && def.key === highlightStatKey
                         const val = def.format(def.getValue(stat))
                         return (
-                          <Box component="td" key={def.key} sx={{
+                          <Box component="td" key={def.key}
+                            ref={isFocused ? (el: HTMLElement | null) => { highlightColRef.current = el } : undefined}
+                            sx={{
                             ...stTdSx, textAlign: 'right',
                             bgcolor: isFocused ? `${ACCENT}28` : isActive ? `${ACCENT}08` : undefined,
                             fontSize: isActive || isFocused ? '0.88rem' : '0.78rem',
