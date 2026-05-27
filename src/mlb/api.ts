@@ -70,7 +70,7 @@ export async function fetchAndRankPlayers(
 ): Promise<Map<string, number[]>> {
   try {
     const r = await fetch(
-      `https://statsapi.mlb.com/api/v1/stats?stats=season&group=${group}&season=${season}&sportId=1&limit=2000`
+      `https://statsapi.mlb.com/api/v1/stats?stats=season&group=${group}&season=${season}&sportId=1&limit=2000&playerPool=All`
     )
     const d = await r.json()
     const splits: any[] = d.stats?.[0]?.splits ?? []
@@ -119,7 +119,7 @@ export async function fetchLeaderboardData(
 ): Promise<Array<{ playerId: number; playerName: string; teamAbbr: string; teamId: number; stat: any }>> {
   try {
     const r = await fetch(
-      `https://statsapi.mlb.com/api/v1/stats?stats=season&group=${group}&season=${season}&sportId=1&limit=2000`
+      `https://statsapi.mlb.com/api/v1/stats?stats=season&group=${group}&season=${season}&sportId=1&limit=2000&playerPool=All`
     )
     const d = await r.json()
     return (d.stats?.[0]?.splits ?? []).map((s: any) => ({

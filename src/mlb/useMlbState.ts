@@ -437,7 +437,7 @@ export function useMlbState() {
     setLbGroup(group)
     setVizSeason(season)
     setLbFullscreen({ def, group, sortKey: statKey, sortAsc: def.lowerIsBetter ?? false, entries: [] })
-    setLbQualified(false)
+    setLbQualified(true)
     setLbStatsLimit(500)
     setStatsHighlightPlayerId(player?.id ?? null)
     setStatsHighlightStatKey(statKey)
