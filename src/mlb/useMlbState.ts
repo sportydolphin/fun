@@ -412,15 +412,11 @@ export function useMlbState() {
   }, [loadTeamStats])
 
   const handleLbPlayerClick = useCallback((playerId: number) => {
-    const params = new URLSearchParams()
-    params.set('view', view === 'stats' ? 'stats' : 'leaderboard')
-    if (lbGroup !== 'hitting') params.set('lb', lbGroup)
-    if (vizSeason !== CURRENT_SEASON) params.set('season', String(vizSeason))
-    window.history.pushState({}, '', `/mlb?${params.toString()}`)
+    window.history.pushState({}, '', window.location.href)
     fetchPlayerDetails(playerId).then(p => {
       if (p) { selectPlayer(p); setView('search') }
     }).catch(() => {})
-  }, [selectPlayer, lbGroup, vizSeason, view])
+  }, [selectPlayer])
 
   const handleSeasonChange = useCallback((s: number) => {
     setHighlightedGameDate(null)
@@ -444,6 +440,7 @@ export function useMlbState() {
   }, [player, season])
 
   const handleFollowedPlayerClick = useCallback((playerId: number) => {
+    window.history.pushState({}, '', window.location.href)
     fetchPlayerDetails(playerId)
       .then(p => { if (p) { selectPlayer(p); setView('search') } })
       .catch(() => {})
@@ -452,18 +449,16 @@ export function useMlbState() {
   const handleTeamSearchClick = useCallback((teamId: number) => {
     const t = allTeams.find(t => t.id === teamId)
     if (!t) return
+    window.history.pushState({}, '', window.location.href)
     selectTeam(t).then(() => setView('search'))
   }, [allTeams, selectTeam])
 
   const handleVizNavigate = useCallback((id: number) => {
     const t = allTeams.find(t => t.id === id)
     if (!t) return
-    const params = new URLSearchParams()
-    params.set('view', 'viz')
-    if (vizSeason !== CURRENT_SEASON) params.set('season', String(vizSeason))
-    window.history.pushState({}, '', `/mlb?${params.toString()}`)
+    window.history.pushState({}, '', window.location.href)
     selectTeam(t).then(() => setView('search'))
-  }, [allTeams, vizSeason, selectTeam])
+  }, [allTeams, selectTeam])
 
   // ─── Effects: player-level data ───────────────────────────────────────────────
 

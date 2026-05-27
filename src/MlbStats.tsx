@@ -34,7 +34,10 @@ export default function MlbStats() {
             { value: 'stats', label: 'Stats' },
           ]}
           value={state.view}
-          onChange={v => state.setView(v as any)}
+          onChange={v => {
+            window.history.pushState({}, '', window.location.href)
+            state.setView(v as any)
+          }}
         />
       </Box>
 

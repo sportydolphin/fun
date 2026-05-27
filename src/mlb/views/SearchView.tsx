@@ -250,7 +250,7 @@ export function SearchView({
                   return (
                     <React.Fragment key={`p-${p.id}`}>
                       {i > 0 && <Divider />}
-                      <ListItemButton onClick={() => selectPlayer(p)} sx={{ gap: 1.5, py: 1 }}>
+                      <ListItemButton onClick={() => { window.history.pushState({}, '', window.location.href); selectPlayer(p) }} sx={{ gap: 1.5, py: 1 }}>
                         <Box sx={{
                           width: 48, height: 48, borderRadius: 1.5, flexShrink: 0,
                           backgroundImage: `url(${HEADSHOT(p.id)})`,
@@ -274,7 +274,7 @@ export function SearchView({
                   return (
                     <React.Fragment key={`t-${t.id}`}>
                       {i > 0 && <Divider />}
-                      <ListItemButton onClick={() => selectTeam(t)} sx={{ gap: 1.5, py: 1 }}>
+                      <ListItemButton onClick={() => { window.history.pushState({}, '', window.location.href); selectTeam(t) }} sx={{ gap: 1.5, py: 1 }}>
                         <Box sx={{
                           width: 48, height: 48, borderRadius: 1.5, flexShrink: 0,
                           bgcolor: TEAM_BG[t.id] ?? 'grey.700',
