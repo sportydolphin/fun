@@ -185,19 +185,19 @@ function AppInner() {
           >
             sportydolphin.fun
           </Typography>
-          <IconButton onClick={toggleTheme} color="inherit">
+          <IconButton onClick={toggleTheme} sx={{ color: 'text.primary' }}>
             {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
           </IconButton>
           {user ? (
             <Tooltip title={`Signed in as ${user.email} — click to sign out`}>
-              <IconButton onClick={signOut} color="inherit" size="small">
+              <IconButton onClick={signOut} size="small">
                 <AccountCircle sx={{ color: 'success.main' }} />
               </IconButton>
             </Tooltip>
           ) : (
             <Tooltip title="Sign in to sync your followed team & players">
-              <IconButton onClick={() => openAuthDialog('signin')} color="inherit" size="small">
-                <AccountCircle sx={{ opacity: 0.5 }} />
+              <IconButton onClick={() => openAuthDialog('signin')} size="small" sx={{ color: 'text.secondary' }}>
+                <AccountCircle />
               </IconButton>
             </Tooltip>
           )}
