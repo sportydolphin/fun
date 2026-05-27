@@ -233,10 +233,10 @@ export function HomeView({
           </Box>
         </Box>
 
-        <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 1.5, pb: 0.5 }}>
+        <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 1.75 }}>
           <Typography sx={{
             fontSize: '0.56rem', fontWeight: 800, textTransform: 'uppercase',
-            letterSpacing: 2, color: 'text.disabled', textAlign: 'center', mb: 1.25,
+            letterSpacing: 2, color: 'text.disabled', textAlign: 'center', mb: 1.5, px: 2.5,
           }}>
             Schedule
           </Typography>

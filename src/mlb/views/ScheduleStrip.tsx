@@ -465,6 +465,224 @@ function GamePreviewModal({ game, myTeamId, previewData, loading, onClose, onPla
   )
 }
 
+// ─── CompactGameCard ──────────────────────────────────────────────────────────
+// Compact single-game summary (last game OR next game header)
+
+function CompactGameCard({ game, label, labelColor, onTeamClick }: {
+  game:        ScheduleGame
+  label:       string
+  labelColor?: string
+  onTeamClick?: (id: number) => void
+}) {
+  const isFinal = game.state === 'final'
+  const isLive  = game.state === 'live'
+  const isWin   = game.isWin === true
+  const col     = TEAM_BG[game.opponentId] ?? '#444'
+
+  return (
+    <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+      <Typography sx={{
+        fontSize: '0.52rem', fontWeight: 800, textTransform: 'uppercase',
+        letterSpacing: 1.5, color: labelColor ?? 'text.disabled', lineHeight: 1,
+      }}>
+        {label}
+      </Typography>
+      <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', lineHeight: 1, fontWeight: 500 }}>
+        {chipDate(game.date)} · {game.isHome ? 'vs' : '@'} {game.opponentAbbr}
+      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.25 }}>
+        <Box
+          onClick={() => onTeamClick?.(game.opponentId)}
+          sx={{
+            width: 32, height: 32, borderRadius: '50%', bgcolor: '#fff',
+            border: `2px solid ${col}`, display: 'flex', alignItems: 'center',
+            justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
+            boxShadow: `0 0 0 1px ${col}30`,
+            cursor: onTeamClick ? 'pointer' : 'default',
+            transition: 'transform 0.12s, box-shadow 0.12s',
+            '&:hover': onTeamClick ? { transform: 'scale(1.1)', boxShadow: `0 0 0 2px ${col}60` } : {},
+          }}
+        >
+          <Box
+            component="img"
+            src={`https://www.mlbstatic.com/team-logos/${game.opponentId}.svg`}
+            alt={game.opponentAbbr}
+            sx={{ width: 22, height: 22, objectFit: 'contain' }}
+          />
+        </Box>
+
+        {(isFinal || isLive) ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Typography sx={{
+              fontSize: '1.05rem', fontWeight: 800, lineHeight: 1,
+              color: isLive ? '#ef4444' : 'text.primary',
+            }}>
+              {game.teamScore}–{game.opponentScore}
+            </Typography>
+            {isFinal && (
+              <Box sx={{ px: 0.6, py: '2px', borderRadius: 0.5, bgcolor: isWin ? '#22c55e22' : '#ef444422' }}>
+                <Typography sx={{ fontSize: '0.68rem', fontWeight: 900, lineHeight: 1, color: isWin ? '#22c55e' : '#ef4444' }}>
+                  {isWin ? 'W' : 'L'}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        ) : (
+          <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1 }}>
+            {game.gameTime}
+          </Typography>
+        )}
+      </Box>
+    </Box>
+  )
+}
+
+// ─── FullScheduleModal ────────────────────────────────────────────────────────
+
+function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, onTeamClick, onClose }: {
+  games:          ScheduleGame[]
+  myTeamId:       number
+  teamColor:      string
+  today:          string
+  onPlayerClick?: (id: number) => void
+  onTeamClick?:   (id: number) => void
+  onClose:        () => void
+}) {
+  const theme   = useTheme()
+  const paperBg = theme.palette.background.paper
+
+  const chipRef      = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const [selectedGame,   setSelectedGame]   = useState<ScheduleGame | null>(null)
+  const [previewData,    setPreviewData]     = useState<GamePreviewData | null>(null)
+  const [loadingPreview, setLoadingPreview]  = useState(false)
+
+  const nextGame = games.find(g => g.date >= today) ?? games[games.length - 1]
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [onClose])
+
+  useEffect(() => {
+    const c = containerRef.current, el = chipRef.current
+    if (!c || !el) return
+    const t = setTimeout(() => {
+      c.scrollTo({ left: Math.max(0, el.offsetLeft - c.clientWidth / 2 + el.offsetWidth / 2), behavior: 'smooth' })
+    }, 80)
+    return () => clearTimeout(t)
+  }, [games])
+
+  const handleChipClick = useCallback((g: ScheduleGame) => {
+    setSelectedGame(g)
+    setPreviewData(null)
+    setLoadingPreview(true)
+    fetchGamePreview(g.gamePk).then(setPreviewData).finally(() => setLoadingPreview(false))
+  }, [])
+
+  const handleClosePreview = useCallback(() => { setSelectedGame(null); setPreviewData(null) }, [])
+
+  return (
+    <>
+      <Box
+        onClick={e => { if (e.target === e.currentTarget) onClose() }}
+        sx={{
+          position: 'fixed', inset: 0, zIndex: 1300,
+          bgcolor: 'rgba(0,0,0,0.55)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          p: 2,
+        }}
+      >
+        <Box sx={{
+          bgcolor: 'background.paper', borderRadius: 3,
+          border: '1px solid', borderColor: 'divider',
+          width: '100%', maxWidth: 560,
+          boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
+          overflow: 'hidden',
+        }}>
+          {/* Header */}
+          <Box sx={{
+            px: 3, py: 2, borderBottom: '1px solid', borderColor: 'divider',
+            display: 'flex', alignItems: 'center', gap: 1.5,
+          }}>
+            <Typography sx={{ flex: 1, fontWeight: 800, fontSize: '1rem' }}>
+              Full Schedule
+            </Typography>
+            <Box
+              onClick={onClose}
+              sx={{
+                flexShrink: 0, width: 28, height: 28, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: 'text.disabled',
+                '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+                transition: 'background 0.12s, color 0.12s',
+              }}
+            >
+              <Typography sx={{ fontSize: '0.85rem', lineHeight: 1 }}>✕</Typography>
+            </Box>
+          </Box>
+
+          {/* Chip strip */}
+          <Box sx={{ py: 2.5, position: 'relative' }}>
+            <Box sx={{
+              position: 'absolute', left: 0, top: 0, bottom: 8, width: 28, zIndex: 2,
+              background: `linear-gradient(to right, ${paperBg}, transparent)`, pointerEvents: 'none',
+            }} />
+            <Box sx={{
+              position: 'absolute', right: 0, top: 0, bottom: 8, width: 28, zIndex: 2,
+              background: `linear-gradient(to left, ${paperBg}, transparent)`, pointerEvents: 'none',
+            }} />
+            <Box
+              ref={containerRef}
+              sx={{
+                display: 'flex', gap: 1, overflowX: 'auto', px: 3, pb: 1,
+                '&::-webkit-scrollbar': { height: 3 },
+                '&::-webkit-scrollbar-thumb': { bgcolor: `${teamColor}30`, borderRadius: 2 },
+                scrollbarWidth: 'thin', scrollbarColor: `${teamColor}30 transparent`,
+              }}
+            >
+              {games.map(g => {
+                const isHL = g.gamePk === nextGame.gamePk
+                return (
+                  <GameChip
+                    key={g.gamePk}
+                    game={g}
+                    teamColor={teamColor}
+                    highlight={isHL}
+                    isActualToday={isHL && nextGame.date === today}
+                    innerRef={isHL ? chipRef : undefined}
+                    onClick={() => handleChipClick(g)}
+                  />
+                )
+              })}
+            </Box>
+          </Box>
+
+          <Box sx={{ px: 3, pb: 2.5 }}>
+            <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', textAlign: 'center' }}>
+              Tap any game to see matchup details & probable starters
+            </Typography>
+          </Box>
+        </Box>
+      </Box>
+
+      {selectedGame && (
+        <GamePreviewModal
+          game={selectedGame}
+          myTeamId={myTeamId}
+          previewData={previewData}
+          loading={loadingPreview}
+          onClose={handleClosePreview}
+          onPlayerClick={id => { onClose(); onPlayerClick?.(id) }}
+          onTeamClick={id => { onClose(); onTeamClick?.(id) }}
+        />
+      )}
+    </>
+  )
+}
+
 // ─── TeamScheduleStrip ────────────────────────────────────────────────────────
 
 export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClick }: {
@@ -473,44 +691,28 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
 }) {
-  const theme     = useTheme()
-  const paperBg   = theme.palette.background.paper
-  const [games, setGames]     = useState<ScheduleGame[]>([])
-  const [loading, setLoading] = useState(true)
-  const chipRef      = useRef<HTMLDivElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  const [selectedGame,   setSelectedGame]   = useState<ScheduleGame | null>(null)
-  const [previewData,    setPreviewData]     = useState<GamePreviewData | null>(null)
-  const [loadingPreview, setLoadingPreview]  = useState(false)
+  const [games,          setGames]          = useState<ScheduleGame[]>([])
+  const [loading,        setLoading]        = useState(true)
+  const [previewData,    setPreviewData]    = useState<GamePreviewData | null>(null)
+  const [loadingPreview, setLoadingPreview] = useState(false)
+  const [showFullSched,  setShowFullSched]  = useState(false)
 
   const now   = new Date()
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
   useEffect(() => {
     setLoading(true)
-    fetchTeamSchedule(teamId).then(setGames).finally(() => setLoading(false))
+    setPreviewData(null)
+    fetchTeamSchedule(teamId).then(g => {
+      setGames(g)
+      // Auto-load pitcher preview for the next/current game — no click needed
+      const next = g.find(x => x.date >= today) ?? g[g.length - 1]
+      if (next) {
+        setLoadingPreview(true)
+        fetchGamePreview(next.gamePk).then(setPreviewData).finally(() => setLoadingPreview(false))
+      }
+    }).finally(() => setLoading(false))
   }, [teamId])
-
-  useEffect(() => {
-    const c = containerRef.current, el = chipRef.current
-    if (!c || !el) return
-    c.scrollTo({ left: Math.max(0, el.offsetLeft - c.clientWidth / 2 + el.offsetWidth / 2), behavior: 'smooth' })
-  }, [games])
-
-  const handleChipClick = useCallback((g: ScheduleGame) => {
-    setSelectedGame(g)
-    setPreviewData(null)
-    setLoadingPreview(true)
-    fetchGamePreview(g.gamePk)
-      .then(setPreviewData)
-      .finally(() => setLoadingPreview(false))
-  }, [])
-
-  const handleClosePreview = useCallback(() => {
-    setSelectedGame(null)
-    setPreviewData(null)
-  }, [])
 
   if (loading) return (
     <Box sx={{ py: 2, textAlign: 'center' }}>
@@ -519,51 +721,111 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
   )
   if (!games.length) return null
 
+  const lastGame = [...games].reverse().find(g => g.state === 'final') ?? null
   const nextGame = games.find(g => g.date >= today) ?? games[games.length - 1]
+  const showLast = lastGame !== null && lastGame.gamePk !== nextGame.gamePk
+
+  const isToday  = nextGame.date === today
+  const isLive   = nextGame.state === 'live'
+  const nextLabel      = isLive ? '● LIVE' : isToday ? 'Today' : 'Next Game'
+  const nextLabelColor = isLive ? '#ef4444' : isToday ? teamColor : undefined
+
+  const showPitchers = nextGame.state === 'preview' || nextGame.state === 'live'
+
+  const awayTeamId  = previewData?.away.teamId ?? (nextGame.isHome ? nextGame.opponentId : teamId)
+  const homeTeamId  = previewData?.home.teamId ?? (nextGame.isHome ? teamId : nextGame.opponentId)
+  const awayPitcher = previewData?.away.pitcher ?? null
+  const homePitcher = previewData?.home.pitcher ?? null
 
   return (
     <>
-      <Box sx={{ position: 'relative' }}>
-        <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 8, width: 28, zIndex: 2,
-          background: `linear-gradient(to right, ${paperBg}, transparent)`, pointerEvents: 'none' }} />
-        <Box sx={{ position: 'absolute', right: 0, top: 0, bottom: 8, width: 28, zIndex: 2,
-          background: `linear-gradient(to left, ${paperBg}, transparent)`, pointerEvents: 'none' }} />
+      <Box sx={{ px: 2.5, pb: 2, pt: 0.5 }}>
 
-        <Box
-          ref={containerRef}
-          sx={{
-            display: 'flex', gap: 1, overflowX: 'auto', px: 3, pb: 1,
-            '&::-webkit-scrollbar': { height: 3 },
-            '&::-webkit-scrollbar-thumb': { bgcolor: `${teamColor}30`, borderRadius: 2 },
-            scrollbarWidth: 'thin', scrollbarColor: `${teamColor}30 transparent`,
-          }}
-        >
-          {games.map(g => {
-            const isHL = g.gamePk === nextGame.gamePk
-            return (
-              <GameChip
-                key={g.gamePk}
-                game={g}
-                teamColor={teamColor}
-                highlight={isHL}
-                isActualToday={isHL && nextGame.date === today}
-                innerRef={isHL ? chipRef : undefined}
-                onClick={g.state === 'preview' ? () => handleChipClick(g) : undefined}
+        {/* ── Last + Next game row ──────────────────────────────────────────── */}
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', mb: showPitchers ? 2.5 : 1.5 }}>
+          {showLast && (
+            <>
+              <CompactGameCard
+                game={lastGame!}
+                label="Last Game"
+                onTeamClick={onTeamClick}
               />
-            )
-          })}
+              <Box sx={{ width: '1px', bgcolor: 'divider', alignSelf: 'stretch', my: 0.25, flexShrink: 0 }} />
+            </>
+          )}
+          <CompactGameCard
+            game={nextGame}
+            label={nextLabel}
+            labelColor={nextLabelColor}
+            onTeamClick={onTeamClick}
+          />
+        </Box>
+
+        {/* ── Inline pitcher preview (auto-loaded) ─────────────────────────── */}
+        {showPitchers && (
+          <>
+            <Typography sx={{
+              fontSize: '0.54rem', fontWeight: 800, textTransform: 'uppercase',
+              letterSpacing: 1.5, color: 'text.disabled', textAlign: 'center', mb: 2,
+            }}>
+              Probable Starters
+            </Typography>
+
+            {loadingPreview ? (
+              <Box sx={{ py: 3, textAlign: 'center' }}>
+                <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Loading starters…</Typography>
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                <PitcherPanel
+                  pitcher={awayPitcher}
+                  teamId={awayTeamId}
+                  side="Away"
+                  onPlayerClick={awayPitcher ? () => onPlayerClick?.(awayPitcher.id) : undefined}
+                  onTeamClick={() => onTeamClick?.(awayTeamId)}
+                />
+                <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', pt: '66px' }}>
+                  <Typography sx={{ fontWeight: 900, fontSize: '0.9rem', color: 'text.disabled', lineHeight: 1 }}>@</Typography>
+                </Box>
+                <PitcherPanel
+                  pitcher={homePitcher}
+                  teamId={homeTeamId}
+                  side="Home"
+                  onPlayerClick={homePitcher ? () => onPlayerClick?.(homePitcher.id) : undefined}
+                  onTeamClick={() => onTeamClick?.(homeTeamId)}
+                />
+              </Box>
+            )}
+          </>
+        )}
+
+        {/* ── View Full Schedule ────────────────────────────────────────────── */}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: showPitchers ? 2.5 : 0.5 }}>
+          <Box
+            onClick={() => setShowFullSched(true)}
+            sx={{
+              fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.5,
+              px: 1.5, py: 0.6, borderRadius: 999,
+              border: '1px solid', borderColor: 'divider',
+              transition: 'color 0.12s, border-color 0.12s, background-color 0.12s',
+              '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' },
+            }}
+          >
+            View Full Schedule →
+          </Box>
         </Box>
       </Box>
 
-      {selectedGame && (
-        <GamePreviewModal
-          game={selectedGame}
+      {showFullSched && (
+        <FullScheduleModal
+          games={games}
           myTeamId={teamId}
-          previewData={previewData}
-          loading={loadingPreview}
-          onClose={handleClosePreview}
+          teamColor={teamColor}
+          today={today}
           onPlayerClick={onPlayerClick}
           onTeamClick={onTeamClick}
+          onClose={() => setShowFullSched(false)}
         />
       )}
     </>
