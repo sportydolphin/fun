@@ -556,9 +556,10 @@ export function SearchView({
                 <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress size={22} /></Box>
               ) : (
                 <Box sx={{
-                  borderRadius: { xs: 2, sm: 3 },
+                  borderRadius: { xs: 0, sm: 3 },
                   border: '1px solid', borderColor: 'divider',
-                  p: { xs: 1, sm: 1.5 },
+                  p: { xs: 0.75, sm: 1.5 },
+                  mx: { xs: -2, sm: 0 },
                 }}>
                   <PlayerTrendsChart
                     splits={careerSplits!}
@@ -628,12 +629,14 @@ export function SearchView({
                     loadingRecent && recentGames.length === 0 ? (
                       <Box sx={{ textAlign: 'center', py: 2 }}><CircularProgress size={20} /></Box>
                     ) : recentGames.length > 0 ? (
-                      <RecentGamesTable
-                        games={recentGames}
-                        isPitcher={player.primaryPosition?.code === '1'}
-                        isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
-                        highlightDate={highlightedGameDate ?? undefined}
-                      />
+                      <Box sx={{ mx: { xs: -2, sm: 0 } }}>
+                        <RecentGamesTable
+                          games={recentGames}
+                          isPitcher={player.primaryPosition?.code === '1'}
+                          isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
+                          highlightDate={highlightedGameDate ?? undefined}
+                        />
+                      </Box>
                     ) : null
                   )}
                 </Box>
@@ -741,12 +744,14 @@ export function SearchView({
             loadingRecent && recentGames.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 2 }}><CircularProgress size={20} /></Box>
             ) : recentGames.length > 0 ? (
-              <RecentGamesTable
-                games={recentGames}
-                isPitcher={player.primaryPosition?.code === '1'}
-                isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
-                highlightDate={highlightedGameDate ?? undefined}
-              />
+              <Box sx={{ mx: { xs: -2, sm: 0 } }}>
+                <RecentGamesTable
+                  games={recentGames}
+                  isPitcher={player.primaryPosition?.code === '1'}
+                  isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
+                  highlightDate={highlightedGameDate ?? undefined}
+                />
+              </Box>
             ) : null
           )}
         </Box>

@@ -95,6 +95,28 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
   const RP_IP_TARGET = 15        // relievers: last ~15 innings
   const RP_MIN_IP    = 3         // minimum IP before we start plotting for RP
 
+  // Player's own season stat computed from the full game log
+  const seasonStat = (() => {
+    if (!isPitcher) {
+      const h   = chrono.reduce((s, x) => s + Number(x.hitting?.hits          ?? 0), 0)
+      const ab  = chrono.reduce((s, x) => s + Number(x.hitting?.atBats        ?? 0), 0)
+      const bb  = chrono.reduce((s, x) => s + Number(x.hitting?.baseOnBalls   ?? 0), 0)
+      const hbp = chrono.reduce((s, x) => s + Number(x.hitting?.hitByPitch    ?? 0), 0)
+      const sf  = chrono.reduce((s, x) => s + Number(x.hitting?.sacFlies      ?? 0), 0)
+      const tb  = chrono.reduce((s, x) => {
+        const hx = x.hitting; if (!hx) return s
+        return s + Number(hx.hits ?? 0) + Number(hx.doubles ?? 0) + 2*Number(hx.triples ?? 0) + 3*Number(hx.homeRuns ?? 0)
+      }, 0)
+      const denom = ab + bb + hbp + sf
+      const ops   = denom > 0 && ab > 0 ? (h + bb + hbp) / denom + tb / ab : null
+      return { stat: ops, volume: ab, volumeLabel: 'AB' as const }
+    } else {
+      const er = chrono.reduce((s, x) => s + Number(x.pitching?.earnedRuns     ?? 0), 0)
+      const ip = chrono.reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
+      return { stat: ip > 0 ? (er * 9) / ip : null, volume: ip, volumeLabel: 'IP' as const }
+    }
+  })()
+
   const pts = chrono
     .map((g, i) => {
       if (!isPitcher) {
@@ -278,21 +300,23 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
             {fmt(currentPt.value)}
           </Typography>
         </Box>
-        {leagueAvg != null && (
+        {seasonStat.stat != null && (
           <Box>
             <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>
-              League {label}
+              Season {label}
             </Typography>
             <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>
-              {fmt(leagueAvg)}
+              {fmt(seasonStat.stat)}
             </Typography>
           </Box>
         )}
         <Box>
           <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>
-            {isPitcher ? 'Starts' : 'Games'}
+            {seasonStat.volumeLabel}
           </Typography>
-          <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>{chrono.length}</Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>
+            {seasonStat.volumeLabel === 'IP' ? seasonStat.volume.toFixed(1) : seasonStat.volume}
+          </Typography>
         </Box>
       </Box>
 

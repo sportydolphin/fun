@@ -129,7 +129,7 @@ function GameSection({ title, entries, cols, dataKey, highlightDate }: {
         </Typography>
       )}
 
-      <Box sx={{ width: '100%', overflowX: 'auto', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+      <Box sx={{ width: '100%', overflowX: 'auto', borderRadius: { xs: 0, sm: 2 }, border: '1px solid', borderColor: 'divider' }}>
         <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%' }}>
 
           <Box component="thead" sx={{ position: 'sticky', top: 0, zIndex: 2 }}>
