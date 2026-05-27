@@ -239,7 +239,7 @@ export function StatsView({
                       sx={{
                         cursor: 'pointer',
                         bgcolor: isHighlighted ? `${ACCENT}10` : undefined,
-                        '&:hover > td, &:hover > th': { bgcolor: isHighlighted ? `${ACCENT}18` : `${ACCENT}0e` },
+                        '&:hover > td': { bgcolor: isHighlighted ? `${ACCENT}18` : `${ACCENT}0e` },
                         transition: 'background 0.2s',
                       }}
                     >
