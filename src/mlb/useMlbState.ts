@@ -432,6 +432,7 @@ export function useMlbState() {
   const handleStatCardClick = useCallback((statKey: string, group: 'hitting' | 'pitching') => {
     const defs = group === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS
     const def  = defs.find(d => d.key === statKey) ?? defs[0]
+    window.history.pushState({}, '', window.location.href)
     setView('stats')
     setLbGroup(group)
     setVizSeason(season)
@@ -549,6 +550,7 @@ export function useMlbState() {
         return
       }
       if (pid) {
+        setView('search')
         fetchPlayerDetails(Number(pid))
           .then(p => { if (p) selectPlayer(p) })
           .catch(() => {})

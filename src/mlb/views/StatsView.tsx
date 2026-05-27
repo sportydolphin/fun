@@ -230,7 +230,7 @@ export function StatsView({
                   const stat = e.stat
                   // Rank 1 = best. Descending: row 0 is best → rank 1, 2, 3…
                   // Ascending: row 0 is worst → rank total, total-1, total-2…
-                  const displayRank = sortAsc ? totalInDataset - idx : idx + 1
+                  const displayRank = idx + 1
                   const isHighlighted = e.playerId === highlightPlayerId
                   return (
                     <Box component="tr" key={e.playerId}
@@ -247,13 +247,14 @@ export function StatsView({
                       <Box component="th" sx={{
                         ...stTdSx, textAlign: 'left',
                         position: 'sticky', left: 0, zIndex: 2,
-                        bgcolor: isHighlighted ? `${ACCENT}10` : 'background.paper',
+                        bgcolor: 'background.paper',
+                        boxShadow: isHighlighted ? `inset 0 0 0 9999px ${ACCENT}10` : 'none',
                         fontWeight: 'normal',
                         pl: isDesktop ? '16px' : '8px',
                         borderRight: isHighlighted ? `2px solid ${ACCENT}` : '1px solid',
                         borderColor: isHighlighted ? ACCENT : 'divider',
                         pr: isDesktop ? '12px' : '8px',
-                        'tr:hover > &': { bgcolor: isHighlighted ? `${ACCENT}18` : 'action.hover' },
+                        'tr:hover > &': { boxShadow: `inset 0 0 0 9999px ${isHighlighted ? ACCENT + '18' : ACCENT + '0e'}` },
                       }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: isDesktop ? 1 : 0.6 }}>
                           <Typography sx={{
