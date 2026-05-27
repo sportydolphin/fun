@@ -23,21 +23,24 @@ function TeamLogoCircle({ teamId, abbr, size }: { teamId: number; abbr: string; 
   const bg = TEAM_BG[teamId] ?? '#444'
   return (
     <Box sx={{
-      width: size, height: size, borderRadius: '50%', bgcolor: bg,
+      width: size, height: size, borderRadius: '50%',
+      bgcolor: '#fff',
+      border: `2.5px solid ${bg}`,
+      boxShadow: `0 0 0 1px ${bg}30`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       overflow: 'hidden', flexShrink: 0,
     }}>
       {failed ? (
-        <Typography sx={{ color: '#fff', fontWeight: 900, fontSize: size * 0.28, lineHeight: 1 }}>
+        <Typography sx={{ color: bg, fontWeight: 900, fontSize: size * 0.28, lineHeight: 1 }}>
           {abbr}
         </Typography>
       ) : (
         <Box
           component="img"
-          src={`https://www.mlbstatic.com/team-logos/team-cap-on-dark/${teamId}.svg`}
+          src={`https://www.mlbstatic.com/team-logos/${teamId}.svg`}
           alt={abbr}
           onError={() => setFailed(true)}
-          sx={{ width: '76%', height: '76%', objectFit: 'contain' }}
+          sx={{ width: '78%', height: '78%', objectFit: 'contain' }}
         />
       )}
     </Box>
@@ -165,10 +168,9 @@ export function HomeView({
   const team     = allTeams.find(t => t.id === followedTeamId)
   const bg       = TEAM_BG[followedTeamId] ?? '#1a2035'
   const abbr     = team?.abbreviation ?? '—'
-  const name     = team?.name ?? '—'
-  const words    = name.split(' ')
-  const nickname = words[words.length - 1]
-  const city     = words.slice(0, -1).join(' ')
+  // Prefer the API's dedicated location/team fields; fall back to naive word-split
+  const nickname = team?.teamName     ?? (() => { const w = (team?.name ?? '').split(' '); return w[w.length - 1] })()
+  const city     = team?.locationName ?? (() => { const w = (team?.name ?? '').split(' '); return w.slice(0, -1).join(' ') })()
 
   const standingLine = standing ? [
     `${standing.wins}–${standing.losses}`,
@@ -190,28 +192,28 @@ export function HomeView({
         bgcolor: 'background.paper',
         background: `linear-gradient(135deg, ${bg}1a 0%, ${bg}0a 45%, transparent 70%)`,
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2.5, pt: 2.5, pb: 2 }}>
-          <TeamLogoCircle teamId={followedTeamId} abbr={abbr} size={62} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, pt: 1.5, pb: 1.25 }}>
+          <TeamLogoCircle teamId={followedTeamId} abbr={abbr} size={44} />
 
           <Box sx={{ flex: 1, minWidth: 0 }}>
             {city && (
               <Typography sx={{
-                fontSize: '0.6rem', fontWeight: 700, letterSpacing: '3px',
-                textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1, mb: 0.3,
+                fontSize: '0.58rem', fontWeight: 700, letterSpacing: '2.5px',
+                textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1, mb: 0.25,
               }}>
                 {city}
               </Typography>
             )}
             <Typography sx={{
-              fontSize: { xs: '1.5rem', sm: '1.9rem' },
+              fontSize: { xs: '1.2rem', sm: '1.4rem' },
               fontWeight: 900, textTransform: 'uppercase',
-              letterSpacing: '-1px', lineHeight: 1,
+              letterSpacing: '-0.5px', lineHeight: 1,
               color: 'text.primary',
             }}>
               {nickname}
             </Typography>
             {standingLine && (
-              <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 0.5, lineHeight: 1 }}>
+              <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.3, lineHeight: 1 }}>
                 {standingLine}
               </Typography>
             )}
@@ -221,8 +223,8 @@ export function HomeView({
             onClick={onUnfollowTeam}
             sx={{
               alignSelf: 'flex-start',
-              fontSize: '0.62rem', fontWeight: 700, color: 'text.disabled',
-              cursor: 'pointer', px: 1.25, py: 0.5,
+              fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled',
+              cursor: 'pointer', px: 1.1, py: 0.4,
               borderRadius: 999, border: '1px solid', borderColor: 'divider',
               whiteSpace: 'nowrap', flexShrink: 0,
               transition: 'color 0.12s, border-color 0.12s',
@@ -233,13 +235,7 @@ export function HomeView({
           </Box>
         </Box>
 
-        <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 1.75 }}>
-          <Typography sx={{
-            fontSize: '0.56rem', fontWeight: 800, textTransform: 'uppercase',
-            letterSpacing: 2, color: 'text.disabled', textAlign: 'center', mb: 1.5, px: 2.5,
-          }}>
-            Schedule
-          </Typography>
+        <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 1.25 }}>
           <TeamScheduleStrip teamId={followedTeamId} teamColor={bg} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
         </Box>
       </Box>

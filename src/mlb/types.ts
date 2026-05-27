@@ -17,6 +17,8 @@ export interface Team {
   id: number
   name: string
   abbreviation: string
+  teamName?: string       // e.g. "Red Sox" (from MLB API)
+  locationName?: string  // e.g. "Boston" (from MLB API)
   division?: { name: string }
   league?: { name: string }
 }

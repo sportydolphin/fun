@@ -305,7 +305,7 @@ function PitcherPanel({ pitcher, teamId, side, onPlayerClick, onTeamClick }: {
               '&:hover': onPlayerClick ? { opacity: 0.85 } : {},
             }}
           >
-            <Box sx={{ width: 84, height: 100, borderRadius: 2.5, overflow: 'hidden', border: `2px solid ${col}50`, bgcolor: 'action.hover', flexShrink: 0 }}>
+            <Box sx={{ width: 72, height: 86, borderRadius: 2.5, overflow: 'hidden', border: `2px solid ${col}50`, bgcolor: 'action.hover', flexShrink: 0 }}>
               <Box component="img" src={HEADSHOT(pitcher.id)} alt={pitcher.name}
                 sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%', display: 'block' }} />
             </Box>
@@ -335,7 +335,7 @@ function PitcherPanel({ pitcher, teamId, side, onPlayerClick, onTeamClick }: {
         </>
       ) : (
         <>
-          <Box sx={{ width: 84, height: 100, borderRadius: 2.5, bgcolor: 'action.hover', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Box sx={{ width: 72, height: 86, borderRadius: 2.5, bgcolor: 'action.hover', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontWeight: 600 }}>TBD</Typography>
           </Box>
           <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', fontWeight: 600 }}>Starter TBD</Typography>
@@ -557,6 +557,8 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
   const [selectedGame,   setSelectedGame]   = useState<ScheduleGame | null>(null)
   const [previewData,    setPreviewData]     = useState<GamePreviewData | null>(null)
   const [loadingPreview, setLoadingPreview]  = useState(false)
+  const [canScrollLeft,  setCanScrollLeft]   = useState(false)
+  const [canScrollRight, setCanScrollRight]  = useState(true)
 
   const nextGame = games.find(g => g.date >= today) ?? games[games.length - 1]
 
@@ -575,6 +577,17 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
     return () => clearTimeout(t)
   }, [games])
 
+  const handleScroll = useCallback(() => {
+    const c = containerRef.current
+    if (!c) return
+    setCanScrollLeft(c.scrollLeft > 8)
+    setCanScrollRight(c.scrollLeft < c.scrollWidth - c.clientWidth - 8)
+  }, [])
+
+  const scrollStrip = useCallback((dir: 'left' | 'right') => {
+    containerRef.current?.scrollBy({ left: dir === 'right' ? 280 : -280, behavior: 'smooth' })
+  }, [])
+
   const handleChipClick = useCallback((g: ScheduleGame) => {
     setSelectedGame(g)
     setPreviewData(null)
@@ -583,6 +596,20 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
   }, [])
 
   const handleClosePreview = useCallback(() => { setSelectedGame(null); setPreviewData(null) }, [])
+
+  // Arrow button style shared by both sides
+  const arrowBtn = (visible: boolean) => ({
+    position: 'absolute' as const, top: '50%', transform: 'translateY(-50%)',
+    zIndex: 3, width: 30, height: 30, borderRadius: '50%',
+    bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+    opacity: visible ? 1 : 0, pointerEvents: visible ? 'auto' : 'none',
+    transition: 'opacity 0.15s, background-color 0.12s',
+    '&:hover': { bgcolor: 'action.hover' },
+    // only show on pointer:fine (mouse) devices
+    '@media (pointer: coarse)': { display: 'none' },
+  } as const)
 
   return (
     <>
@@ -624,20 +651,32 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
             </Box>
           </Box>
 
-          {/* Chip strip */}
+          {/* Chip strip with desktop scroll arrows */}
           <Box sx={{ py: 2.5, position: 'relative' }}>
+            {/* Fade gradients */}
             <Box sx={{
-              position: 'absolute', left: 0, top: 0, bottom: 8, width: 28, zIndex: 2,
-              background: `linear-gradient(to right, ${paperBg}, transparent)`, pointerEvents: 'none',
+              position: 'absolute', left: 0, top: 0, bottom: 8, width: 40, zIndex: 2,
+              background: `linear-gradient(to right, ${paperBg} 40%, transparent)`, pointerEvents: 'none',
             }} />
             <Box sx={{
-              position: 'absolute', right: 0, top: 0, bottom: 8, width: 28, zIndex: 2,
-              background: `linear-gradient(to left, ${paperBg}, transparent)`, pointerEvents: 'none',
+              position: 'absolute', right: 0, top: 0, bottom: 8, width: 40, zIndex: 2,
+              background: `linear-gradient(to left, ${paperBg} 40%, transparent)`, pointerEvents: 'none',
             }} />
+
+            {/* ◀ scroll button */}
+            <Box onClick={() => scrollStrip('left')} sx={{ ...arrowBtn(canScrollLeft), left: 6 }}>
+              <Typography sx={{ fontSize: '0.7rem', lineHeight: 1, color: 'text.secondary', mt: '-1px' }}>◀</Typography>
+            </Box>
+            {/* ▶ scroll button */}
+            <Box onClick={() => scrollStrip('right')} sx={{ ...arrowBtn(canScrollRight), right: 6 }}>
+              <Typography sx={{ fontSize: '0.7rem', lineHeight: 1, color: 'text.secondary', mt: '-1px' }}>▶</Typography>
+            </Box>
+
             <Box
               ref={containerRef}
+              onScroll={handleScroll}
               sx={{
-                display: 'flex', gap: 1, overflowX: 'auto', px: 3, pb: 1,
+                display: 'flex', gap: 1, overflowX: 'auto', px: 5, pb: 1,
                 '&::-webkit-scrollbar': { height: 3 },
                 '&::-webkit-scrollbar-thumb': { bgcolor: `${teamColor}30`, borderRadius: 2 },
                 scrollbarWidth: 'thin', scrollbarColor: `${teamColor}30 transparent`,
