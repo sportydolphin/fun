@@ -1023,13 +1023,16 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
 }) {
-  const [games,          setGames]          = useState<ScheduleGame[]>([])
-  const [loading,        setLoading]        = useState(true)
-  const [previewData,    setPreviewData]    = useState<GamePreviewData | null>(null)
-  const [loadingPreview, setLoadingPreview] = useState(false)
-  const [liveInfo,       setLiveInfo]       = useState<LiveGameData | null>(null)
-  const [loadingLive,    setLoadingLive]    = useState(false)
-  const [showFullSched,  setShowFullSched]  = useState(false)
+  const [games,               setGames]               = useState<ScheduleGame[]>([])
+  const [loading,             setLoading]             = useState(true)
+  const [previewData,         setPreviewData]         = useState<GamePreviewData | null>(null)
+  const [loadingPreview,      setLoadingPreview]      = useState(false)
+  const [liveInfo,            setLiveInfo]            = useState<LiveGameData | null>(null)
+  const [loadingLive,         setLoadingLive]         = useState(false)
+  const [upcomingGame,        setUpcomingGame]        = useState<ScheduleGame | null>(null)
+  const [upcomingPreviewData, setUpcomingPreviewData] = useState<GamePreviewData | null>(null)
+  const [loadingUpcoming,     setLoadingUpcoming]     = useState(false)
+  const [showFullSched,       setShowFullSched]       = useState(false)
 
   const now   = new Date()
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -1038,6 +1041,8 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
     setLoading(true)
     setPreviewData(null)
     setLiveInfo(null)
+    setUpcomingGame(null)
+    setUpcomingPreviewData(null)
     fetchTeamSchedule(teamId).then(g => {
       setGames(g)
       const next = g.find(x => x.date >= today) ?? g[g.length - 1]
@@ -1048,6 +1053,16 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
         } else if (next.state === 'preview') {
           setLoadingPreview(true)
           fetchGamePreview(next.gamePk).then(setPreviewData).finally(() => setLoadingPreview(false))
+        } else if (next.state === 'final') {
+          // Today's game ended — also surface the next upcoming game
+          const upcoming = g.find(x => x.state === 'preview')
+          if (upcoming) {
+            setUpcomingGame(upcoming)
+            setLoadingUpcoming(true)
+            fetchGamePreview(upcoming.gamePk)
+              .then(setUpcomingPreviewData)
+              .finally(() => setLoadingUpcoming(false))
+          }
         }
       }
     }).finally(() => setLoading(false))
@@ -1060,15 +1075,22 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
   )
   if (!games.length) return null
 
-  const lastGame = [...games].reverse().find(g => g.state === 'final') ?? null
-  const nextGame = games.find(g => g.date >= today) ?? games[games.length - 1]
-  const showLast = lastGame !== null && lastGame.gamePk !== nextGame.gamePk
-
-  const isToday   = nextGame.date === today
+  const lastGame  = [...games].reverse().find(g => g.state === 'final') ?? null
+  const nextGame  = games.find(g => g.date >= today) ?? games[games.length - 1]
+  const isFinal   = nextGame.state === 'final'
   const isLive    = nextGame.state === 'live'
   const isPreview = nextGame.state === 'preview'
-  const nextLabel      = isLive ? '● LIVE' : isToday ? 'Today' : 'Next Game'
-  const nextLabelColor = isLive ? '#ef4444' : isToday ? teamColor : undefined
+  const isToday   = nextGame.date === today
+  // Only show separate "last game" when it differs from the primary card and isn't itself final-today
+  const showLast  = lastGame !== null && lastGame.gamePk !== nextGame.gamePk && !isFinal
+
+  const nextLabel = isLive ? '● LIVE'
+    : isFinal ? 'FINAL'
+    : isToday  ? 'Today'
+    : 'Next Game'
+  const nextLabelColor = isLive ? '#ef4444'
+    : isFinal ? (nextGame.isWin === true ? '#22c55e' : nextGame.isWin === false ? '#ef4444' : undefined)
+    : isToday ? teamColor : undefined
 
   const awayTeamId  = previewData?.away.teamId ?? (nextGame.isHome ? nextGame.opponentId : teamId)
   const homeTeamId  = previewData?.home.teamId ?? (nextGame.isHome ? teamId : nextGame.opponentId)
@@ -1098,7 +1120,7 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
               </>
             )}
 
-            {/* Next game column — compact pitcher bar for preview games */}
+            {/* Primary game column (final result or next preview) */}
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <CompactGameCard
                 game={nextGame}
@@ -1117,6 +1139,28 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
                 />
               )}
             </Box>
+
+            {/* When today is done, show the next upcoming game on the right */}
+            {isFinal && upcomingGame && (
+              <>
+                <Box sx={{ width: '1px', bgcolor: 'divider', alignSelf: 'stretch', my: 0.25, flexShrink: 0 }} />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <CompactGameCard
+                    game={upcomingGame}
+                    label="Next Game"
+                    onTeamClick={onTeamClick}
+                  />
+                  <CompactPitcherRow
+                    awayPitcher={upcomingPreviewData?.away.pitcher ?? null}
+                    homePitcher={upcomingPreviewData?.home.pitcher ?? null}
+                    awayTeamId={upcomingPreviewData?.away.teamId ?? (upcomingGame.isHome ? upcomingGame.opponentId : teamId)}
+                    homeTeamId={upcomingPreviewData?.home.teamId ?? (upcomingGame.isHome ? teamId : upcomingGame.opponentId)}
+                    loading={loadingUpcoming}
+                    onPlayerClick={onPlayerClick}
+                  />
+                </Box>
+              </>
+            )}
           </Box>
         )}
 

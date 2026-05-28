@@ -207,7 +207,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   const headerPy = compact ? 1.25 : 1.75
 
   return (
-    <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
+    <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden', flex: 1 }}>
       {/* Header */}
       <Box sx={{
         px, py: headerPy,

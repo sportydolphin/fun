@@ -7,6 +7,7 @@ import { TeamScheduleStrip } from './ScheduleStrip'
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
+import { SuggestedPlayersSection } from './SuggestedPlayers'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -320,7 +321,7 @@ export function HomeView({
 
               {followedTeamId ? (
                 // Side-by-side: compact team card (left) + players (right)
-                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'stretch' }}>
 
                   {/* Compact team card */}
                   <Box sx={{
@@ -330,6 +331,7 @@ export function HomeView({
                     borderLeft: `4px solid ${bg}`,
                     bgcolor: 'background.paper',
                     background: `linear-gradient(135deg, ${bg}1a 0%, ${bg}08 50%, transparent 75%)`,
+                    display: 'flex', flexDirection: 'column',
                   }}>
                     {/* Team header — compact 2-row layout */}
                     <Box sx={{ px: 1.5, pt: 1.25, pb: 1 }}>
@@ -383,8 +385,8 @@ export function HomeView({
                     </Box>
                   </Box>
 
-                  {/* Followed players — compact mode */}
-                  <Box sx={{ flex: '0 0 calc(50% - 6px)', minWidth: 0 }}>
+                  {/* Followed players — compact mode, stretches to match team card */}
+                  <Box sx={{ flex: '0 0 calc(50% - 6px)', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                     <FollowedPlayersSection
                       followedPlayerIds={followedPlayerIds}
                       onUnfollow={onUnfollowPlayer}
@@ -408,6 +410,15 @@ export function HomeView({
                     liveTeamIds={liveTeamIds}
                   />
                 </>
+              )}
+
+              {/* ── Suggested Players ───────────────────────────────────────── */}
+              {followedTeamId && (
+                <SuggestedPlayersSection
+                  teamId={followedTeamId}
+                  followedPlayerIds={followedPlayerIds}
+                  onFollow={onFollowPlayer}
+                />
               )}
 
               {/* ── My Predictions ──────────────────────────────────────────── */}

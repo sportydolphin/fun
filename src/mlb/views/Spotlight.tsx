@@ -170,8 +170,9 @@ export async function fetchSpotlight(): Promise<{ hot: HotGuyData | null; cold: 
     const hitSplits: any[] = hitRes?.stats?.[0]?.splits ?? []
     const pitSplits: any[] = pitRes?.stats?.[0]?.splits ?? []
 
-    let best:  { score: number; data: HotGuyData } | null = null
-    let worst: { score: number; data: HotGuyData } | null = null
+    type Candidate = { score: number; data: HotGuyData }
+    const hotPool:  Candidate[] = []
+    const coldPool: Candidate[] = []
 
     for (const s of hitSplits) {
       const hotScore  = scoreHitter(s.stat)
@@ -182,10 +183,10 @@ export async function fetchSpotlight(): Promise<{ hot: HotGuyData | null; cold: 
         teamId: Number(s.team?.id ?? 0), teamName: s.team?.name ?? '—',
         isPitcher: false, isStarter: false, period,
       }
-      if (hotScore > 0 && (!best  || hotScore  > best.score))
-        best  = { score: hotScore,  data: { ...base, stats: { avg: s.stat.avg, ops: s.stat.ops, hr: Number(s.stat.homeRuns ?? 0), rbi: Number(s.stat.rbi ?? 0), sb: Number(s.stat.stolenBases ?? 0), hits: Number(s.stat.hits ?? 0), ab: Number(s.stat.atBats ?? 0), doubles: Number(s.stat.doubles ?? 0), bb: Number(s.stat.baseOnBalls ?? 0), pa: Number(s.stat.plateAppearances ?? 0) } } }
-      if (coldScore > 0 && (!worst || coldScore > worst.score))
-        worst = { score: coldScore, data: { ...base, stats: { avg: s.stat.avg, ops: s.stat.ops, k: Number(s.stat.strikeOuts ?? 0), hits: Number(s.stat.hits ?? 0), ab: Number(s.stat.atBats ?? 0), pa: Number(s.stat.plateAppearances ?? 0), hr: Number(s.stat.homeRuns ?? 0), rbi: Number(s.stat.rbi ?? 0) } } }
+      if (hotScore > 0)
+        hotPool.push({ score: hotScore,  data: { ...base, stats: { avg: s.stat.avg, ops: s.stat.ops, hr: Number(s.stat.homeRuns ?? 0), rbi: Number(s.stat.rbi ?? 0), sb: Number(s.stat.stolenBases ?? 0), hits: Number(s.stat.hits ?? 0), ab: Number(s.stat.atBats ?? 0), doubles: Number(s.stat.doubles ?? 0), bb: Number(s.stat.baseOnBalls ?? 0), pa: Number(s.stat.plateAppearances ?? 0) } } })
+      if (coldScore > 0)
+        coldPool.push({ score: coldScore, data: { ...base, stats: { avg: s.stat.avg, ops: s.stat.ops, k: Number(s.stat.strikeOuts ?? 0), hits: Number(s.stat.hits ?? 0), ab: Number(s.stat.atBats ?? 0), pa: Number(s.stat.plateAppearances ?? 0), hr: Number(s.stat.homeRuns ?? 0), rbi: Number(s.stat.rbi ?? 0) } } })
     }
 
     for (const s of pitSplits) {
@@ -200,15 +201,24 @@ export async function fetchSpotlight(): Promise<{ hot: HotGuyData | null; cold: 
         teamId: Number(s.team?.id ?? 0), teamName: s.team?.name ?? '—',
         isPitcher: true, isStarter, period: pitPeriod,
       }
-      if (hotScore > 0 && (!best  || hotScore  > best.score))
-        best  = { score: hotScore,  data: { ...base, stats: { era: s.stat.era, whip: s.stat.whip, k: Number(s.stat.strikeOuts ?? 0), ip: s.stat.inningsPitched, wins: Number(s.stat.wins ?? 0), losses: Number(s.stat.losses ?? 0), saves: Number(s.stat.saves ?? 0), holds: Number(s.stat.holds ?? 0), gs } } }
-      if (coldScore > 0 && (!worst || coldScore > worst.score))
-        worst = { score: coldScore, data: { ...base, stats: { era: s.stat.era, whip: s.stat.whip, k: Number(s.stat.strikeOuts ?? 0), ip: s.stat.inningsPitched, er: Number(s.stat.earnedRuns ?? 0), bb: Number(s.stat.baseOnBalls ?? 0), wins: Number(s.stat.wins ?? 0), losses: Number(s.stat.losses ?? 0), gs } } }
+      if (hotScore > 0)
+        hotPool.push({ score: hotScore,  data: { ...base, stats: { era: s.stat.era, whip: s.stat.whip, k: Number(s.stat.strikeOuts ?? 0), ip: s.stat.inningsPitched, wins: Number(s.stat.wins ?? 0), losses: Number(s.stat.losses ?? 0), saves: Number(s.stat.saves ?? 0), holds: Number(s.stat.holds ?? 0), gs } } })
+      if (coldScore > 0)
+        coldPool.push({ score: coldScore, data: { ...base, stats: { era: s.stat.era, whip: s.stat.whip, k: Number(s.stat.strikeOuts ?? 0), ip: s.stat.inningsPitched, er: Number(s.stat.earnedRuns ?? 0), bb: Number(s.stat.baseOnBalls ?? 0), wins: Number(s.stat.wins ?? 0), losses: Number(s.stat.losses ?? 0), gs } } })
     }
 
+    // Sort by score descending, then rotate by day-of-month so the featured
+    // player changes daily while always being from the legitimate top tier.
+    hotPool.sort( (a, b) => b.score - a.score)
+    coldPool.sort((a, b) => b.score - a.score)
+    const POOL_SIZE = 7
+    const day = now.getDate()
+    const hotIdx  = day % Math.min(POOL_SIZE, hotPool.length  || 1)
+    const coldIdx = (day + 3) % Math.min(POOL_SIZE, coldPool.length || 1)
+
     _spotlightCache.date = today
-    _spotlightCache.hot  = best?.data  ?? null
-    _spotlightCache.cold = worst?.data ?? null
+    _spotlightCache.hot  = hotPool[hotIdx]?.data   ?? null
+    _spotlightCache.cold = coldPool[coldIdx]?.data ?? null
     return { hot: _spotlightCache.hot, cold: _spotlightCache.cold }
   } catch { return { hot: null, cold: null } }
 }
