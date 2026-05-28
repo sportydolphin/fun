@@ -10,7 +10,7 @@ interface FollowedPlayerInfo {
   id:        number
   fullName:  string
   position:  string
-  teamAbbr:  string
+  teamAbbr:  string   // '' if no current team
   teamId:    number
   isPitcher: boolean
   keyLabel:  string
@@ -32,16 +32,16 @@ async function fetchFollowedPlayerData(id: number): Promise<FollowedPlayerInfo |
     const isPitcher = p.primaryPosition?.code === '1'
     const hitStat   = hitRes?.stats?.[0]?.splits?.[0]?.stat ?? null
     const pitStat   = pitRes?.stats?.[0]?.splits?.[0]?.stat ?? null
-    let keyLabel = '', keyValue = '—'
+    let keyLabel = '', keyValue = ''
     if (!isPitcher && hitStat?.ops)  { keyLabel = 'OPS'; keyValue = hitStat.ops }
     else if (!isPitcher && hitStat?.avg) { keyLabel = 'AVG'; keyValue = hitStat.avg }
     else if (isPitcher && pitStat?.era)  { keyLabel = 'ERA'; keyValue = pitStat.era }
     return {
       id: p.id,
-      fullName: p.fullName ?? '',
-      position: p.primaryPosition?.abbreviation ?? p.primaryPosition?.code ?? '?',
-      teamAbbr: p.currentTeam?.abbreviation ?? '—',
-      teamId: Number(p.currentTeam?.id ?? 0),
+      fullName:  p.fullName ?? '',
+      position:  p.primaryPosition?.abbreviation ?? p.primaryPosition?.code ?? '?',
+      teamAbbr:  p.currentTeam?.abbreviation ?? '',   // empty string, not '—'
+      teamId:    Number(p.currentTeam?.id ?? 0),
       isPitcher,
       keyLabel,
       keyValue,
@@ -51,13 +51,17 @@ async function fetchFollowedPlayerData(id: number): Promise<FollowedPlayerInfo |
 
 // ─── FollowedPlayerCard ───────────────────────────────────────────────────────
 
-function FollowedPlayerCard({ id, data, onRemove, onClick }: {
+function FollowedPlayerCard({ id, data, isLive, onRemove, onClick }: {
   id:       number
   data:     FollowedPlayerInfo | null
+  isLive:   boolean
   onRemove: () => void
   onClick:  () => void
 }) {
   const teamColor = TEAM_BG[data?.teamId ?? 0] ?? '#444'
+  const subtitle  = data
+    ? [data.position, data.teamAbbr].filter(Boolean).join(' · ')
+    : ''
 
   return (
     <Box
@@ -73,35 +77,48 @@ function FollowedPlayerCard({ id, data, onRemove, onClick }: {
         '&:hover .remove-btn': { opacity: 1 },
       }}
     >
+      {/* Remove button */}
       <Box
         className="remove-btn"
         onClick={e => { e.stopPropagation(); onRemove() }}
         sx={{
-          position: 'absolute', top: 22, right: 4, zIndex: 3,
+          position: 'absolute', top: 22, right: 4, zIndex: 4,
           width: 18, height: 18, borderRadius: '50%',
           bgcolor: 'rgba(0,0,0,0.65)', color: '#fff',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '0.6rem', fontWeight: 900, cursor: 'pointer',
-          opacity: 0, transition: 'opacity 0.12s',
-          lineHeight: 1,
+          opacity: 0, transition: 'opacity 0.12s', lineHeight: 1,
         }}
       >
         ✕
       </Box>
 
+      {/* Team color bar */}
       <Box sx={{ height: 3, bgcolor: teamColor }} />
 
       <Box sx={{ px: 1, pt: 1, pb: 1.25, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-        <Box sx={{
-          width: 54, height: 62, borderRadius: 1.5,
-          overflow: 'hidden', bgcolor: 'action.hover', flexShrink: 0,
-        }}>
+        {/* Headshot + live overlay */}
+        <Box sx={{ position: 'relative', width: 54, height: 62, borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover', flexShrink: 0 }}>
           <Box
             component="img"
             src={HEADSHOT(id)}
             alt={data?.fullName ?? ''}
             sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%', display: 'block' }}
           />
+          {/* LIVE badge — red bar at bottom of headshot */}
+          {isLive && (
+            <Box sx={{
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              bgcolor: 'rgba(239,68,68,0.92)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px',
+              py: '2.5px',
+            }}>
+              <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: '#fff', flexShrink: 0 }} />
+              <Typography sx={{ fontSize: '0.42rem', fontWeight: 900, color: '#fff', lineHeight: 1, letterSpacing: '0.6px' }}>
+                LIVE
+              </Typography>
+            </Box>
+          )}
         </Box>
 
         <Typography sx={{
@@ -113,11 +130,13 @@ function FollowedPlayerCard({ id, data, onRemove, onClick }: {
           {data?.fullName ?? '…'}
         </Typography>
 
-        <Typography sx={{ fontSize: '0.56rem', color: 'text.disabled', lineHeight: 1 }}>
-          {data ? `${data.position} · ${data.teamAbbr}` : ''}
-        </Typography>
+        {subtitle && (
+          <Typography sx={{ fontSize: '0.56rem', color: 'text.disabled', lineHeight: 1 }}>
+            {subtitle}
+          </Typography>
+        )}
 
-        {data?.keyValue && data.keyValue !== '—' && (
+        {data?.keyValue && (
           <Box sx={{ textAlign: 'center', mt: 0.25 }}>
             <Typography sx={{ fontSize: '0.48rem', color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.5, lineHeight: 1 }}>
               {data.keyLabel}
@@ -134,11 +153,13 @@ function FollowedPlayerCard({ id, data, onRemove, onClick }: {
 
 // ─── FollowedPlayersSection ───────────────────────────────────────────────────
 
-export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayerClick, onFollow }: {
+export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayerClick, onFollow, liveTeamIds, compact }: {
   followedPlayerIds: number[]
   onUnfollow:    (id: number) => void
   onPlayerClick: (id: number) => void
   onFollow:      (id: number) => void
+  liveTeamIds?:  Set<number>
+  compact?:      boolean
 }) {
   const [playerData, setPlayerData]     = useState<Record<number, FollowedPlayerInfo>>({})
   const [adding, setAdding]             = useState(false)
@@ -182,29 +203,48 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
     setAdding(false); setAddQuery(''); setAddResults([])
   }
 
+  const px = compact ? 1.5 : 2.5
+  const headerPy = compact ? 1.25 : 1.75
+
   return (
     <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
-      <Box sx={{ px: 2.5, py: 1.75, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Typography sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 1.5, color: ACCENT }}>
-          ★ Your Players
+      {/* Header */}
+      <Box sx={{
+        px, py: headerPy,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        borderBottom: '1px solid', borderColor: 'divider',
+        gap: 0.5,
+      }}>
+        <Typography sx={{
+          fontWeight: 800,
+          fontSize: compact ? '0.65rem' : '0.72rem',
+          textTransform: 'uppercase', letterSpacing: 1.2, color: ACCENT,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          {compact ? '★ Players' : '★ Your Players'}
         </Typography>
         <Box
           onClick={() => { setAdding(a => !a); setAddQuery(''); setAddResults([]) }}
           sx={{
-            cursor: 'pointer', fontSize: '0.68rem', fontWeight: 700, color: ACCENT,
-            px: 1.5, py: 0.5, borderRadius: 999,
-            border: `1px solid ${ACCENT}40`,
+            flexShrink: 0,
+            cursor: 'pointer',
+            fontSize: compact ? '0.62rem' : '0.68rem',
+            fontWeight: 700, color: ACCENT,
+            px: compact ? 1 : 1.5, py: 0.5,
+            borderRadius: 999, border: `1px solid ${ACCENT}40`,
             transition: 'background 0.12s',
             '&:hover': { bgcolor: `${ACCENT}15` },
+            whiteSpace: 'nowrap',
           }}
         >
-          {adding ? '✕ Cancel' : '+ Add'}
+          {adding ? '✕' : '+ Add'}
         </Box>
       </Box>
 
-      <Box sx={{ px: 2.5, pt: 2, pb: 2.5 }}>
+      <Box sx={{ px, pt: compact ? 1.5 : 2, pb: compact ? 1.5 : 2.5 }}>
+        {/* Add-player search */}
         {adding && (
-          <Box ref={searchRef} sx={{ mb: 2, position: 'relative' }}>
+          <Box ref={searchRef} sx={{ mb: 1.5, position: 'relative' }}>
             <InputBase
               autoFocus
               placeholder="Search player…"
@@ -212,14 +252,15 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
               onChange={e => setAddQuery(e.target.value)}
               onKeyDown={e => e.key === 'Escape' && (setAdding(false), setAddQuery(''), setAddResults([]))}
               sx={{
-                width: '100%', px: 1.5, py: 0.875,
+                width: '100%', px: 1.25, py: 0.75,
                 bgcolor: 'action.hover', borderRadius: 2,
-                fontSize: '0.875rem', border: '1px solid', borderColor: 'divider',
+                fontSize: compact ? '0.8rem' : '0.875rem',
+                border: '1px solid', borderColor: 'divider',
               }}
             />
             {(addResults.length > 0 || addSearching) && (
               <Box sx={{
-                position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 100,
+                position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200,
                 bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
                 borderRadius: 2, overflow: 'hidden',
                 boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
@@ -245,7 +286,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                         sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%' }} />
                     </Box>
                     <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2 }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {p.fullName}
                       </Typography>
                       <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary' }}>
@@ -254,7 +295,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                     </Box>
                     {followedPlayerIds.includes(p.id) && (
                       <Typography sx={{ fontSize: '0.6rem', color: ACCENT, fontWeight: 700, ml: 'auto', flexShrink: 0 }}>
-                        ✓ Following
+                        ✓
                       </Typography>
                     )}
                   </Box>
@@ -264,12 +305,17 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
           </Box>
         )}
 
+        {/* Player cards */}
         {followedPlayerIds.length === 0 ? (
-          <Box sx={{ py: 3, textAlign: 'center' }}>
-            <Typography sx={{ color: 'text.disabled', fontSize: '0.82rem', mb: 0.5 }}>No players followed yet</Typography>
-            <Typography sx={{ color: 'text.disabled', fontSize: '0.72rem' }}>
-              Tap <Box component="span" sx={{ color: ACCENT, fontWeight: 700 }}>+ Add</Box> to follow players and track them here
+          <Box sx={{ py: compact ? 2 : 3, textAlign: 'center' }}>
+            <Typography sx={{ color: 'text.disabled', fontSize: compact ? '0.72rem' : '0.82rem', mb: 0.5, lineHeight: 1.4 }}>
+              {compact ? 'No players yet' : 'No players followed yet'}
             </Typography>
+            {!compact && (
+              <Typography sx={{ color: 'text.disabled', fontSize: '0.72rem' }}>
+                Tap <Box component="span" sx={{ color: ACCENT, fontWeight: 700 }}>+ Add</Box> to track players
+              </Typography>
+            )}
           </Box>
         ) : (
           <Box sx={{
@@ -277,15 +323,20 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
             '&::-webkit-scrollbar': { display: 'none' },
             scrollbarWidth: 'none',
           }}>
-            {followedPlayerIds.map(id => (
-              <FollowedPlayerCard
-                key={id}
-                id={id}
-                data={playerData[id] ?? null}
-                onRemove={() => onUnfollow(id)}
-                onClick={() => onPlayerClick(id)}
-              />
-            ))}
+            {followedPlayerIds.map(id => {
+              const data = playerData[id] ?? null
+              const isLive = !!(liveTeamIds && data?.teamId && liveTeamIds.has(data.teamId))
+              return (
+                <FollowedPlayerCard
+                  key={id}
+                  id={id}
+                  data={data}
+                  isLive={isLive}
+                  onRemove={() => onUnfollow(id)}
+                  onClick={() => onPlayerClick(id)}
+                />
+              )
+            })}
           </Box>
         )}
       </Box>
