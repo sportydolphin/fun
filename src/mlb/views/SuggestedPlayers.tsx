@@ -100,7 +100,7 @@ function SuggestionChip({ player, alreadyFollowed, onFollow }: {
         flexShrink: 0, border: `1.5px solid ${col}40`,
       }}>
         <Box component="img" src={HEADSHOT(player.id)} alt={player.fullName}
-          sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%' }} />
+          sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 40%' }} />
       </Box>
 
       {/* Name + meta */}

@@ -47,6 +47,20 @@ export interface GamePreviewData {
   away: { teamId: number; abbr: string; pitcher: ProbablePitcher | null }
 }
 
+export interface GameFinalDetails {
+  decisionPitcher: { name: string; isWinner: boolean; ip: string; er: number; k: number } | null
+  topHitter:       { name: string; hits: number; ab: number; hr: number; rbi: number } | null
+}
+
+function formatIP(ip: string): string {
+  if (!ip || ip === '—') return '?'
+  const [w = '0', f = '0'] = ip.split('.')
+  if (f === '0' || f === '') return w
+  if (f === '1') return `${w}⅓`
+  if (f === '2') return `${w}⅔`
+  return ip
+}
+
 // ─── Schedule fetch ───────────────────────────────────────────────────────────
 
 export async function fetchTeamSchedule(teamId: number): Promise<ScheduleGame[]> {
@@ -156,6 +170,62 @@ export async function fetchGamePreview(gamePk: number): Promise<GamePreviewData 
       home: { teamId: Number(ht?.team?.id ?? 0), abbr: TEAM_ABBR[Number(ht?.team?.id ?? 0)] ?? '?', pitcher: parsePitcher(ht) },
       away: { teamId: Number(at?.team?.id ?? 0), abbr: TEAM_ABBR[Number(at?.team?.id ?? 0)] ?? '?', pitcher: parsePitcher(at) },
     }
+  } catch { return null }
+}
+
+// ─── Final game box-score fetch ───────────────────────────────────────────────
+
+async function fetchGameFinalDetails(gamePk: number, myTeamId: number): Promise<GameFinalDetails | null> {
+  try {
+    const r = await fetch(`https://statsapi.mlb.com/api/v1/game/${gamePk}/boxscore`)
+    const d = await r.json()
+
+    const decisions = d.decisions ?? {}
+    const homeId    = Number(d.teams?.home?.team?.id ?? 0)
+    const mySide    = homeId === myTeamId ? 'home' : 'away'
+    const myData    = d.teams?.[mySide]
+    const myPlayers = myData?.players ?? {}
+
+    // Find the key pitcher from my team (winner if we won, loser if we lost)
+    const winnerId = decisions.winner?.id ? Number(decisions.winner.id) : null
+    const loserId  = decisions.loser?.id  ? Number(decisions.loser.id)  : null
+    const iHaveWinner = winnerId && !!myPlayers[`ID${winnerId}`]
+    const myPitcherId = iHaveWinner ? winnerId : loserId
+    const isWinner    = !!iHaveWinner
+
+    let decisionPitcher: GameFinalDetails['decisionPitcher'] = null
+    if (myPitcherId) {
+      const p = myPlayers[`ID${myPitcherId}`]
+      if (p) {
+        const s = p.stats?.pitching ?? {}
+        decisionPitcher = {
+          name:     p.person?.fullName ?? '—',
+          isWinner,
+          ip:       String(s.inningsPitched ?? '—'),
+          er:       Number(s.earnedRuns ?? 0),
+          k:        Number(s.strikeOuts ?? 0),
+        }
+      }
+    }
+
+    // Top hitter from my team (by hits + HR/RBI bonus)
+    let topHitter: GameFinalDetails['topHitter'] = null
+    let bestScore = 0
+    for (const batterId of (myData?.batters ?? []) as number[]) {
+      const p  = myPlayers[`ID${batterId}`]
+      const s  = p?.stats?.batting ?? {}
+      const ab  = Number(s.atBats   ?? 0); if (ab === 0) continue
+      const hits = Number(s.hits      ?? 0)
+      const hr   = Number(s.homeRuns  ?? 0)
+      const rbi  = Number(s.rbi       ?? 0)
+      const score = hits * 10 + hr * 5 + rbi * 2
+      if (score > bestScore) {
+        bestScore = score
+        topHitter = { name: p.person?.fullName ?? '—', hits, ab, hr, rbi }
+      }
+    }
+
+    return { decisionPitcher, topHitter }
   } catch { return null }
 }
 
@@ -361,7 +431,7 @@ function PitcherPanel({ pitcher, teamId, side, onPlayerClick, onTeamClick }: {
           >
             <Box sx={{ width: 72, height: 86, borderRadius: 2.5, overflow: 'hidden', border: `2px solid ${col}50`, bgcolor: 'action.hover', flexShrink: 0 }}>
               <Box component="img" src={HEADSHOT(pitcher.id)} alt={pitcher.name}
-                sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%', display: 'block' }} />
+                sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 40%', display: 'block' }} />
             </Box>
             <Typography className="pitcher-name" sx={{
               fontWeight: 700, fontSize: '0.88rem', lineHeight: 1.25, textAlign: 'center', px: 0.5,
@@ -522,11 +592,12 @@ function GamePreviewModal({ game, myTeamId, previewData, loading, onClose, onPla
 // ─── CompactGameCard ──────────────────────────────────────────────────────────
 // Compact single-game summary (last game OR next game header)
 
-function CompactGameCard({ game, label, labelColor, onTeamClick }: {
-  game:        ScheduleGame
-  label:       string
-  labelColor?: string
-  onTeamClick?: (id: number) => void
+function CompactGameCard({ game, label, labelColor, finalDetails, onTeamClick }: {
+  game:          ScheduleGame
+  label:         string
+  labelColor?:   string
+  finalDetails?: GameFinalDetails | null
+  onTeamClick?:  (id: number) => void
 }) {
   const isFinal = game.state === 'final'
   const isLive  = game.state === 'live'
@@ -587,6 +658,41 @@ function CompactGameCard({ game, label, labelColor, onTeamClick }: {
           </Typography>
         )}
       </Box>
+
+      {/* ── Final game performance details ─────────────────────────────────── */}
+      {isFinal && finalDetails && (finalDetails.decisionPitcher || finalDetails.topHitter) && (
+        <Box sx={{ pt: 0.75, borderTop: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', gap: 0.4 }}>
+          {finalDetails.decisionPitcher && (
+            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+              <Typography sx={{
+                fontSize: '0.52rem', fontWeight: 900, lineHeight: 1, flexShrink: 0,
+                color: finalDetails.decisionPitcher.isWinner ? '#22c55e' : '#ef4444',
+              }}>
+                {finalDetails.decisionPitcher.isWinner ? 'W' : 'L'}
+              </Typography>
+              <Typography sx={{ fontSize: { xs: '0.62rem', sm: '0.68rem' }, fontWeight: 700, lineHeight: 1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {finalDetails.decisionPitcher.name.split(' ').slice(-1)[0]}
+              </Typography>
+              <Typography sx={{ fontSize: { xs: '0.56rem', sm: '0.62rem' }, color: 'text.secondary', lineHeight: 1, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                {formatIP(finalDetails.decisionPitcher.ip)} IP · {finalDetails.decisionPitcher.er} ER · {finalDetails.decisionPitcher.k}K
+              </Typography>
+            </Box>
+          )}
+          {finalDetails.topHitter && finalDetails.topHitter.hits > 0 && (
+            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
+              <Typography sx={{ fontSize: '0.54rem', lineHeight: 1, flexShrink: 0 }}>⚾</Typography>
+              <Typography sx={{ fontSize: { xs: '0.62rem', sm: '0.68rem' }, fontWeight: 700, lineHeight: 1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {finalDetails.topHitter.name.split(' ').slice(-1)[0]}
+              </Typography>
+              <Typography sx={{ fontSize: { xs: '0.56rem', sm: '0.62rem' }, color: 'text.secondary', lineHeight: 1, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                {finalDetails.topHitter.hits}-{finalDetails.topHitter.ab}
+                {finalDetails.topHitter.hr  > 0 && ` · ${finalDetails.topHitter.hr}HR`}
+                {finalDetails.topHitter.rbi > 0 && ` · ${finalDetails.topHitter.rbi}RBI`}
+              </Typography>
+            </Box>
+          )}
+        </Box>
+      )}
     </Box>
   )
 }
@@ -815,7 +921,7 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
       }}>
         {pitcher && (
           <Box component="img" src={HEADSHOT(pitcher.id)} alt={pitcher.name}
-            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%', display: 'block' }} />
+            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 40%', display: 'block' }} />
         )}
       </Box>
       {/* Name + stats */}
@@ -1032,6 +1138,7 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
   const [upcomingGame,        setUpcomingGame]        = useState<ScheduleGame | null>(null)
   const [upcomingPreviewData, setUpcomingPreviewData] = useState<GamePreviewData | null>(null)
   const [loadingUpcoming,     setLoadingUpcoming]     = useState(false)
+  const [finalDetails,        setFinalDetails]        = useState<GameFinalDetails | null>(null)
   const [showFullSched,       setShowFullSched]       = useState(false)
 
   const now   = new Date()
@@ -1043,6 +1150,7 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
     setLiveInfo(null)
     setUpcomingGame(null)
     setUpcomingPreviewData(null)
+    setFinalDetails(null)
     fetchTeamSchedule(teamId).then(g => {
       setGames(g)
       const next = g.find(x => x.date >= today) ?? g[g.length - 1]
@@ -1054,7 +1162,9 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
           setLoadingPreview(true)
           fetchGamePreview(next.gamePk).then(setPreviewData).finally(() => setLoadingPreview(false))
         } else if (next.state === 'final') {
-          // Today's game ended — also surface the next upcoming game
+          // Today's game ended — fetch box score for performance details
+          fetchGameFinalDetails(next.gamePk, teamId).then(setFinalDetails)
+          // Also surface the next upcoming game
           const upcoming = g.find(x => x.state === 'preview')
           if (upcoming) {
             setUpcomingGame(upcoming)
@@ -1126,6 +1236,7 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
                 game={nextGame}
                 label={nextLabel}
                 labelColor={nextLabelColor}
+                finalDetails={isFinal ? finalDetails : null}
                 onTeamClick={onTeamClick}
               />
               {isPreview && (

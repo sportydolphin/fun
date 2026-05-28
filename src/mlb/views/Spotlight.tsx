@@ -320,7 +320,7 @@ export function SpotlightCard({ data, mode }: { data: HotGuyData; mode: 'hot' | 
             component="img"
             src={HEADSHOT(data.playerId)}
             alt={data.playerName}
-            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%', display: 'block' }}
+            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 40%', display: 'block' }}
           />
         </Box>
 
