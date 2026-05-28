@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, ACCENT } from '../constants'
 import { useAuth } from '../../AuthContext'
 import { supabase } from '../../lib/supabase'
+import { PredictionStatsModal } from './PredictionStats'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -383,6 +384,7 @@ export function PredictorWidget({ onPlayerClick, onTeamClick }: {
   const [predictions, setPredictions] = useState<Record<number, number>>({})
   const [loading,     setLoading]     = useState(true)
   const [modalOpen,   setModalOpen]   = useState(false)
+  const [statsOpen,   setStatsOpen]   = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -456,21 +458,40 @@ export function PredictorWidget({ onPlayerClick, onTeamClick }: {
               </Typography>
             )}
           </Box>
-          <Box
-            onClick={() => !loading && games.length > 0 && setModalOpen(true)}
-            sx={{
-              fontSize: '0.68rem', fontWeight: 700,
-              color: loading || games.length === 0 ? 'text.disabled' : ACCENT,
-              px: 1.5, py: 0.5, borderRadius: 999,
-              border: '1px solid',
-              borderColor: loading || games.length === 0 ? 'divider' : `${ACCENT}40`,
-              cursor: loading || games.length === 0 ? 'default' : 'pointer',
-              transition: 'background 0.12s',
-              '&:hover': loading || games.length === 0 ? {} : { bgcolor: `${ACCENT}15` },
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {loading ? '…' : pickedCount === 0 ? 'Make Predictions' : 'View Picks'}
+          <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
+            {user && (
+              <Box
+                onClick={() => setStatsOpen(true)}
+                sx={{
+                  fontSize: '0.68rem', fontWeight: 700,
+                  color: 'text.secondary',
+                  px: 1.25, py: 0.5, borderRadius: 999,
+                  border: '1px solid', borderColor: 'divider',
+                  cursor: 'pointer',
+                  transition: 'all 0.12s',
+                  '&:hover': { bgcolor: 'action.hover', borderColor: `${ACCENT}40`, color: ACCENT },
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                📊 Stats
+              </Box>
+            )}
+            <Box
+              onClick={() => !loading && games.length > 0 && setModalOpen(true)}
+              sx={{
+                fontSize: '0.68rem', fontWeight: 700,
+                color: loading || games.length === 0 ? 'text.disabled' : ACCENT,
+                px: 1.5, py: 0.5, borderRadius: 999,
+                border: '1px solid',
+                borderColor: loading || games.length === 0 ? 'divider' : `${ACCENT}40`,
+                cursor: loading || games.length === 0 ? 'default' : 'pointer',
+                transition: 'background 0.12s',
+                '&:hover': loading || games.length === 0 ? {} : { bgcolor: `${ACCENT}15` },
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {loading ? '…' : pickedCount === 0 ? 'Make Predictions' : 'View Picks'}
+            </Box>
           </Box>
         </Box>
 
@@ -526,6 +547,13 @@ export function PredictorWidget({ onPlayerClick, onTeamClick }: {
         onPlayerClick={id => { setModalOpen(false); onPlayerClick(id) }}
         onTeamClick={id => { setModalOpen(false); onTeamClick(id) }}
         isSignedIn={!!user}
+      />
+
+      <PredictionStatsModal
+        open={statsOpen}
+        userId={user?.id}
+        displayName={user?.email?.split('@')[0] ?? 'Anonymous'}
+        onClose={() => setStatsOpen(false)}
       />
     </>
   )
