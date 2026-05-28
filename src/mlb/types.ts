@@ -42,6 +42,7 @@ export interface StatDef {
   defaultSelected: boolean
   poop?: boolean
   lowerIsBetter?: boolean
+  isRate?: boolean   // true = only show rank badge for qualified players
 }
 
 // ─── Visualization data ───────────────────────────────────────────────────────

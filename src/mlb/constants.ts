@@ -10,15 +10,15 @@ export const ACCENT = '#60a5fa'
 export const HITTING_STAT_DEFS: StatDef[] = [
   { key: 'ab',   label: 'AB',   getValue: s => s.atBats,        format: fmt,  leaderCategory: '',                    defaultSelected: false },
   { key: 'h',    label: 'H',    leaderLabel: 'Hits',            getValue: s => s.hits,          format: fmt,  leaderCategory: 'hits',                defaultSelected: false },
-  { key: 'avg',  label: 'AVG',  leaderLabel: 'Batting Average', getValue: s => s.avg,           format: fmt,  leaderCategory: 'battingAverage',      defaultSelected: true  },
+  { key: 'avg',  label: 'AVG',  leaderLabel: 'Batting Average', getValue: s => s.avg,           format: fmt,  leaderCategory: 'battingAverage',      defaultSelected: true,  isRate: true },
   { key: '1b',   label: '1B',   getValue: s => s.hits != null ? s.hits - (s.doubles ?? 0) - (s.triples ?? 0) - (s.homeRuns ?? 0) : null, format: fmt, leaderCategory: '', defaultSelected: false },
   { key: '2b',   label: '2B',   leaderLabel: 'Doubles',         getValue: s => s.doubles,       format: fmt,  leaderCategory: 'doubles',             defaultSelected: false },
   { key: '3b',   label: '3B',   leaderLabel: 'Triples',         getValue: s => s.triples,       format: fmt,  leaderCategory: 'triples',             defaultSelected: false },
   { key: 'hr',   label: 'HR',   leaderLabel: 'Home Runs',       getValue: s => s.homeRuns,      format: fmt,  leaderCategory: 'homeRuns',            defaultSelected: true  },
   { key: 'rbi',  label: 'RBI',  leaderLabel: 'RBIs',            getValue: s => s.rbi,           format: fmt,  leaderCategory: 'runsBattedIn',        defaultSelected: true  },
-  { key: 'obp',  label: 'OBP',  leaderLabel: 'On-Base %',       getValue: s => s.obp,           format: fmt,  leaderCategory: 'onBasePercentage',    defaultSelected: false },
-  { key: 'slg',  label: 'SLG',  leaderLabel: 'Slugging %',      getValue: s => s.slg,           format: fmt,  leaderCategory: 'sluggingPercentage',  defaultSelected: false },
-  { key: 'ops',  label: 'OPS',  getValue: s => s.ops,           format: fmt,  leaderCategory: 'onBasePlusSlugging',  defaultSelected: true  },
+  { key: 'obp',  label: 'OBP',  leaderLabel: 'On-Base %',       getValue: s => s.obp,           format: fmt,  leaderCategory: 'onBasePercentage',    defaultSelected: false, isRate: true },
+  { key: 'slg',  label: 'SLG',  leaderLabel: 'Slugging %',      getValue: s => s.slg,           format: fmt,  leaderCategory: 'sluggingPercentage',  defaultSelected: false, isRate: true },
+  { key: 'ops',  label: 'OPS',  getValue: s => s.ops,           format: fmt,  leaderCategory: 'onBasePlusSlugging',  defaultSelected: true,  isRate: true },
   { key: 'k',    label: 'K',    leaderLabel: 'Strikeouts',      getValue: s => s.strikeOuts,    format: fmt,  leaderCategory: 'strikeouts',          defaultSelected: false, poop: true },
   { key: 'bb',   label: 'BB',   leaderLabel: 'Walks',           getValue: s => s.baseOnBalls,   format: fmt,  leaderCategory: 'walks',               defaultSelected: false },
   { key: 'sb',   label: 'SB',   leaderLabel: 'Stolen Bases',    getValue: s => s.stolenBases,   format: fmt,  leaderCategory: 'stolenBases',         defaultSelected: false },
@@ -27,11 +27,11 @@ export const HITTING_STAT_DEFS: StatDef[] = [
 
 export const PITCHING_STAT_DEFS: StatDef[] = [
   { key: 'wl',   label: 'W-L',  leaderLabel: 'Wins',              getValue: s => s.wins != null ? `${s.wins}-${s.losses ?? 0}` : null, leaderValue: s => s.wins != null ? Number(s.wins) : null, format: v => v ?? '—', leaderCategory: 'wins', defaultSelected: true  },
-  { key: 'era',  label: 'ERA',  leaderLabel: 'ERA',               getValue: s => s.era,              format: fmt,                   leaderCategory: 'earnedRunAverage',             defaultSelected: true,  lowerIsBetter: true },
+  { key: 'era',  label: 'ERA',  leaderLabel: 'ERA',               getValue: s => s.era,              format: fmt,                   leaderCategory: 'earnedRunAverage',             defaultSelected: true,  lowerIsBetter: true, isRate: true },
   { key: 'g',    label: 'G',    getValue: s => s.gamesPlayed,      format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'gs',   label: 'GS',   getValue: s => s.gamesStarted,     format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'ip',   label: 'IP',   leaderLabel: 'Innings Pitched',   getValue: s => s.inningsPitched,   format: fmt,                   leaderCategory: 'inningsPitched',               defaultSelected: true  },
-  { key: 'whip', label: 'WHIP', leaderLabel: 'WHIP',              getValue: s => s.whip,             format: fmt,                   leaderCategory: 'walksAndHitsPerInningPitched',  defaultSelected: true,  lowerIsBetter: true },
+  { key: 'whip', label: 'WHIP', leaderLabel: 'WHIP',              getValue: s => s.whip,             format: fmt,                   leaderCategory: 'walksAndHitsPerInningPitched',  defaultSelected: true,  lowerIsBetter: true, isRate: true },
   { key: 'sv',   label: 'SV',   leaderLabel: 'Saves',             getValue: s => s.saves,            format: fmt,                   leaderCategory: 'saves',                        defaultSelected: false },
   { key: 'h',    label: 'H',    getValue: s => s.hits,             format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'r',    label: 'R',    getValue: s => s.runs,             format: fmt,                   leaderCategory: '',                             defaultSelected: false },
@@ -39,7 +39,7 @@ export const PITCHING_STAT_DEFS: StatDef[] = [
   { key: 'hr',   label: 'HR',   getValue: s => s.homeRuns,         format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'bb',   label: 'BB',   getValue: s => s.baseOnBalls,      format: fmt,                   leaderCategory: '',                             defaultSelected: false },
   { key: 'k',    label: 'K',    leaderLabel: 'Strikeouts',        getValue: s => s.strikeOuts,       format: fmt,                   leaderCategory: 'strikeouts',                   defaultSelected: true  },
-  { key: 'so9',  label: 'SO/9', leaderLabel: 'K per 9',          getValue: s => s.strikeoutsPer9Inn, format: v => fmtDecimal(v, 2), leaderCategory: 'strikeoutsPer9Inn',            defaultSelected: false },
+  { key: 'so9',  label: 'SO/9', leaderLabel: 'K per 9',          getValue: s => s.strikeoutsPer9Inn, format: v => fmtDecimal(v, 2), leaderCategory: 'strikeoutsPer9Inn',            defaultSelected: false, isRate: true },
 ]
 
 // ─── Team stat definitions ────────────────────────────────────────────────────

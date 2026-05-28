@@ -74,10 +74,22 @@ export async function fetchAndRankPlayers(
     )
     const d = await r.json()
     const splits: any[] = d.stats?.[0]?.splits ?? []
+    // Estimate how far into the season we are by the max games played by any player
+    const maxGames = Math.max(...splits.map(s => Number(s.stat?.gamesPlayed ?? 0)), 1)
+    const minPA = Math.round(maxGames * 3.1)   // batting qualification threshold
+    const minIP = maxGames * 1.0                // pitching qualification threshold
     const map = new Map<string, number[]>()
     for (const def of defs) {
       if (!def.leaderCategory) continue
-      const entries = splits
+      // For rate stats, only rank players who have enough PA / IP to qualify
+      const qualifiedSplits = def.isRate
+        ? splits.filter(s =>
+            group === 'hitting'
+              ? Number(s.stat?.plateAppearances ?? 0) >= minPA
+              : parseFloat(s.stat?.inningsPitched ?? '0') >= minIP
+          )
+        : splits
+      const entries = qualifiedSplits
         .map(s => ({ id: Number(s.player?.id), val: def.getValue(s.stat) }))
         .filter(x => x.id > 0 && x.val != null && x.val !== '' && !isNaN(Number(x.val)))
       // Sort ascending only for stats where lower is better (ERA, WHIP); all others descending
