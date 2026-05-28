@@ -48,8 +48,8 @@ export interface GamePreviewData {
 }
 
 export interface GameFinalDetails {
-  decisionPitcher: { name: string; isWinner: boolean; ip: string; er: number; k: number } | null
-  topHitter:       { name: string; hits: number; ab: number; hr: number; rbi: number } | null
+  decisionPitcher: { id: number; name: string; isWinner: boolean; ip: string; er: number; k: number } | null
+  topHitter:       { id: number; name: string; hits: number; ab: number; hr: number; rbi: number } | null
 }
 
 function formatIP(ip: string): string {
@@ -199,6 +199,7 @@ async function fetchGameFinalDetails(gamePk: number, myTeamId: number): Promise<
       if (p) {
         const s = p.stats?.pitching ?? {}
         decisionPitcher = {
+          id:       myPitcherId,
           name:     p.person?.fullName ?? '—',
           isWinner,
           ip:       String(s.inningsPitched ?? '—'),
@@ -221,7 +222,7 @@ async function fetchGameFinalDetails(gamePk: number, myTeamId: number): Promise<
       const score = hits * 10 + hr * 5 + rbi * 2
       if (score > bestScore) {
         bestScore = score
-        topHitter = { name: p.person?.fullName ?? '—', hits, ab, hr, rbi }
+        topHitter = { id: batterId, name: p.person?.fullName ?? '—', hits, ab, hr, rbi }
       }
     }
 
@@ -592,13 +593,12 @@ function GamePreviewModal({ game, myTeamId, previewData, loading, onClose, onPla
 // ─── CompactGameCard ──────────────────────────────────────────────────────────
 // Compact single-game summary (last game OR next game header)
 
-function CompactGameCard({ game, myTeamId, label, labelColor, finalDetails, onTeamClick }: {
-  game:          ScheduleGame
-  myTeamId?:     number
-  label:         string
-  labelColor?:   string
-  finalDetails?: GameFinalDetails | null
-  onTeamClick?:  (id: number) => void
+function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick }: {
+  game:         ScheduleGame
+  myTeamId?:    number
+  label:        string
+  labelColor?:  string
+  onTeamClick?: (id: number) => void
 }) {
   const isFinal = game.state === 'final'
   const isLive  = game.state === 'live'
@@ -647,8 +647,8 @@ function CompactGameCard({ game, myTeamId, label, labelColor, finalDetails, onTe
         {chipDate(game.date)} · {game.isHome ? 'vs' : '@'} {game.opponentAbbr}
       </Typography>
 
-      {/* Score / time row */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25 }}>
+      {/* Score / time row — fixed minHeight so both FINAL and NEXT GAME rows are the same height */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25, minHeight: 32 }}>
         {(isFinal || isLive) && myTeamId ? (
           // Two-logo layout: [away logo] awayScore–homeScore [home logo] [W/L]
           <>
@@ -701,40 +701,6 @@ function CompactGameCard({ game, myTeamId, label, labelColor, finalDetails, onTe
         )}
       </Box>
 
-      {/* ── Final game performance details ─────────────────────────────────── */}
-      {isFinal && finalDetails && (finalDetails.decisionPitcher || finalDetails.topHitter) && (
-        <Box sx={{ pt: 0.75, borderTop: '1px solid', borderColor: 'divider', display: 'flex', flexDirection: 'column', gap: 0.4 }}>
-          {finalDetails.decisionPitcher && (
-            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-              <Typography sx={{
-                fontSize: '0.52rem', fontWeight: 900, lineHeight: 1, flexShrink: 0,
-                color: finalDetails.decisionPitcher.isWinner ? '#22c55e' : '#ef4444',
-              }}>
-                {finalDetails.decisionPitcher.isWinner ? 'W' : 'L'}
-              </Typography>
-              <Typography sx={{ fontSize: { xs: '0.62rem', sm: '0.68rem' }, fontWeight: 700, lineHeight: 1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {finalDetails.decisionPitcher.name.split(' ').slice(-1)[0]}
-              </Typography>
-              <Typography sx={{ fontSize: { xs: '0.56rem', sm: '0.62rem' }, color: 'text.secondary', lineHeight: 1, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                {formatIP(finalDetails.decisionPitcher.ip)} IP · {finalDetails.decisionPitcher.er} ER · {finalDetails.decisionPitcher.k}K
-              </Typography>
-            </Box>
-          )}
-          {finalDetails.topHitter && finalDetails.topHitter.hits > 0 && (
-            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-              <Typography sx={{ fontSize: '0.54rem', lineHeight: 1, flexShrink: 0 }}>⚾</Typography>
-              <Typography sx={{ fontSize: { xs: '0.62rem', sm: '0.68rem' }, fontWeight: 700, lineHeight: 1, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {finalDetails.topHitter.name.split(' ').slice(-1)[0]}
-              </Typography>
-              <Typography sx={{ fontSize: { xs: '0.56rem', sm: '0.62rem' }, color: 'text.secondary', lineHeight: 1, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                {finalDetails.topHitter.hits}-{finalDetails.topHitter.ab}
-                {finalDetails.topHitter.hr  > 0 && ` · ${finalDetails.topHitter.hr}HR`}
-                {finalDetails.topHitter.rbi > 0 && ` · ${finalDetails.topHitter.rbi}RBI`}
-              </Typography>
-            </Box>
-          )}
-        </Box>
-      )}
     </Box>
   )
 }
@@ -992,6 +958,90 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
       <PitcherChip pitcher={awayPitcher} col={awayCol} align="left" />
       <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>vs</Typography>
       <PitcherChip pitcher={homePitcher} col={homeCol} align="right" />
+    </Box>
+  )
+}
+
+// ─── CompactPerformerRow ──────────────────────────────────────────────────────
+// Featured performers from a completed game — mirrors CompactPitcherRow layout
+
+function CompactPerformerRow({ finalDetails, onPlayerClick }: {
+  finalDetails:   GameFinalDetails
+  onPlayerClick?: (id: number) => void
+}) {
+  const pitcher  = finalDetails.decisionPitcher
+  const hitter   = finalDetails.topHitter
+  const showHitter = hitter && hitter.hits > 0
+
+  if (!pitcher && !showHitter) return null
+
+  const PerformerChip = ({ id, name, statLine, borderCol, align }: {
+    id?:        number
+    name:       string
+    statLine:   string
+    borderCol?: string
+    align:      'left' | 'right'
+  }) => (
+    <Box
+      onClick={() => id && onPlayerClick?.(id)}
+      sx={{
+        flex: 1, minWidth: 0,
+        display: 'flex', alignItems: 'center', gap: 0.75,
+        flexDirection: align === 'right' ? 'row-reverse' : 'row',
+        cursor: id && onPlayerClick ? 'pointer' : 'default',
+        '&:hover .pmn': id && onPlayerClick ? { color: ACCENT } : {},
+      }}
+    >
+      <Box sx={{
+        width: 34, height: 42, borderRadius: 1.5, overflow: 'hidden', flexShrink: 0,
+        border: `1.5px solid ${borderCol ?? 'rgba(128,128,128,0.25)'}`,
+        bgcolor: 'action.hover',
+      }}>
+        {id && (
+          <Box component="img" src={HEADSHOT(id)} alt={name}
+            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }} />
+        )}
+      </Box>
+      <Box sx={{ minWidth: 0, textAlign: align }}>
+        <Typography className="pmn" sx={{
+          fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.2,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          transition: 'color 0.12s',
+        }}>
+          {shortName(name)}
+        </Typography>
+        <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', lineHeight: 1 }}>
+          {statLine}
+        </Typography>
+      </Box>
+    </Box>
+  )
+
+  return (
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 1,
+      pt: 1.25, mt: 0.75, borderTop: '1px solid', borderColor: 'divider',
+    }}>
+      {pitcher && (
+        <PerformerChip
+          id={pitcher.id}
+          name={pitcher.name}
+          statLine={`${pitcher.isWinner ? 'W' : 'L'} · ${formatIP(pitcher.ip)} IP · ${pitcher.k}K`}
+          borderCol={pitcher.isWinner ? '#22c55e40' : '#ef444440'}
+          align="left"
+        />
+      )}
+      {pitcher && showHitter && (
+        <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>·</Typography>
+      )}
+      {showHitter && (
+        <PerformerChip
+          id={hitter!.id}
+          name={hitter!.name}
+          statLine={`${hitter!.hits}-${hitter!.ab}${hitter!.hr > 0 ? ` · ${hitter!.hr}HR` : ''}${hitter!.rbi > 0 ? ` · ${hitter!.rbi}RBI` : ''}`}
+          align={pitcher ? 'right' : 'left'}
+        />
+      )}
     </Box>
   )
 }
@@ -1280,7 +1330,6 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
                 myTeamId={teamId}
                 label={nextLabel}
                 labelColor={nextLabelColor}
-                finalDetails={isFinal ? finalDetails : null}
                 onTeamClick={onTeamClick}
               />
               {isPreview && (
@@ -1290,6 +1339,12 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
                   awayTeamId={awayTeamId}
                   homeTeamId={homeTeamId}
                   loading={loadingPreview}
+                  onPlayerClick={onPlayerClick}
+                />
+              )}
+              {isFinal && finalDetails && (
+                <CompactPerformerRow
+                  finalDetails={finalDetails}
                   onPlayerClick={onPlayerClick}
                 />
               )}

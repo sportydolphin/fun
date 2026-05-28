@@ -123,9 +123,8 @@ function FollowedPlayerCard({ id, data, isLive, onRemove, onClick }: {
 
         <Typography sx={{
           fontWeight: 700, fontSize: { xs: '0.65rem', sm: '0.78rem' }, lineHeight: 1.2,
-          textAlign: 'center', px: 0.25,
-          display: '-webkit-box', WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          textAlign: 'center', px: 0.25, width: '100%',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {data?.fullName ?? '…'}
         </Typography>
