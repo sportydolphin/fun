@@ -7,7 +7,6 @@ import { TeamScheduleStrip } from './ScheduleStrip'
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
-import { SuggestedPlayersSection } from './SuggestedPlayers'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -321,12 +320,12 @@ export function HomeView({
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
 
               {followedTeamId ? (
-                // Side-by-side: compact team card (left) + players (right)
-                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'stretch' }}>
+                // Side-by-side on sm+, stacked on mobile
+                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, alignItems: 'stretch' }}>
 
                   {/* Compact team card */}
                   <Box sx={{
-                    flex: '0 0 calc(50% - 6px)', minWidth: 0,
+                    flex: { xs: '1 1 auto', sm: '0 0 calc(50% - 6px)' }, minWidth: 0,
                     borderRadius: 3, overflow: 'hidden',
                     border: '1px solid', borderColor: `${bg}40`,
                     borderLeft: `4px solid ${bg}`,
@@ -404,13 +403,14 @@ export function HomeView({
                   </Box>
 
                   {/* Followed players — compact mode, stretches to match team card */}
-                  <Box sx={{ flex: '0 0 calc(50% - 6px)', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                  <Box sx={{ flex: { xs: '1 1 auto', sm: '0 0 calc(50% - 6px)' }, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                     <FollowedPlayersSection
                       followedPlayerIds={followedPlayerIds}
                       onUnfollow={onUnfollowPlayer}
                       onPlayerClick={onPlayerClick}
                       onFollow={onFollowPlayer}
                       liveTeamIds={liveTeamIds}
+                      teamId={followedTeamId}
                       compact
                     />
                   </Box>
@@ -428,15 +428,6 @@ export function HomeView({
                     liveTeamIds={liveTeamIds}
                   />
                 </>
-              )}
-
-              {/* ── Suggested Players ───────────────────────────────────────── */}
-              {followedTeamId && (
-                <SuggestedPlayersSection
-                  teamId={followedTeamId}
-                  followedPlayerIds={followedPlayerIds}
-                  onFollow={onFollowPlayer}
-                />
               )}
 
               {/* ── My Predictions ──────────────────────────────────────────── */}

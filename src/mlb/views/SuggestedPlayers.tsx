@@ -4,7 +4,7 @@ import { TEAM_BG, TEAM_ABBR, HEADSHOT, ACCENT, CURRENT_SEASON } from '../constan
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface SuggestionPlayer {
+export interface SuggestionPlayer {
   id:           number
   fullName:     string
   position:     string
@@ -15,7 +15,7 @@ interface SuggestionPlayer {
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
-async function fetchSuggestions(teamId: number, followedIds: number[]): Promise<SuggestionPlayer[]> {
+export async function fetchSuggestions(teamId: number, followedIds: number[]): Promise<SuggestionPlayer[]> {
   const out: SuggestionPlayer[] = []
 
   // ── Roster from followed team (rotated daily for variety) ─────────────────
@@ -72,7 +72,7 @@ async function fetchSuggestions(teamId: number, followedIds: number[]): Promise<
 
 // ─── SuggestionChip ───────────────────────────────────────────────────────────
 
-function SuggestionChip({ player, alreadyFollowed, onFollow }: {
+export function SuggestionChip({ player, alreadyFollowed, onFollow }: {
   player:          SuggestionPlayer
   alreadyFollowed: boolean
   onFollow:        () => void

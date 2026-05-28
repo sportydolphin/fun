@@ -3,6 +3,7 @@ import { Box, Typography, InputBase } from '@mui/material'
 import { Player } from '../types'
 import { TEAM_BG, ACCENT, HEADSHOT, CURRENT_SEASON } from '../constants'
 import { searchPlayers } from '../api'
+import { fetchSuggestions, SuggestionChip, SuggestionPlayer } from './SuggestedPlayers'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -152,19 +153,21 @@ function FollowedPlayerCard({ id, data, isLive, onRemove, onClick }: {
 
 // ─── FollowedPlayersSection ───────────────────────────────────────────────────
 
-export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayerClick, onFollow, liveTeamIds, compact }: {
+export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayerClick, onFollow, liveTeamIds, compact, teamId }: {
   followedPlayerIds: number[]
   onUnfollow:    (id: number) => void
   onPlayerClick: (id: number) => void
   onFollow:      (id: number) => void
   liveTeamIds?:  Set<number>
   compact?:      boolean
+  teamId?:       number
 }) {
-  const [playerData, setPlayerData]     = useState<Record<number, FollowedPlayerInfo>>({})
-  const [adding, setAdding]             = useState(false)
-  const [addQuery, setAddQuery]         = useState('')
-  const [addResults, setAddResults]     = useState<Player[]>([])
-  const [addSearching, setAddSearching] = useState(false)
+  const [playerData, setPlayerData]       = useState<Record<number, FollowedPlayerInfo>>({})
+  const [adding, setAdding]               = useState(false)
+  const [addQuery, setAddQuery]           = useState('')
+  const [addResults, setAddResults]       = useState<Player[]>([])
+  const [addSearching, setAddSearching]   = useState(false)
+  const [suggestions, setSuggestions]     = useState<SuggestionPlayer[]>([])
   const searchRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -175,6 +178,11 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
       }).catch(() => {})
     }
   }, [followedPlayerIds]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!adding || !teamId) return
+    fetchSuggestions(teamId, followedPlayerIds).then(setSuggestions).catch(() => {})
+  }, [adding, teamId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (addQuery.length < 2) { setAddResults([]); return }
@@ -257,6 +265,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                 border: '1px solid', borderColor: 'divider',
               }}
             />
+            {/* Search results dropdown */}
             {(addResults.length > 0 || addSearching) && (
               <Box sx={{
                 position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200,
@@ -298,6 +307,27 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                       </Typography>
                     )}
                   </Box>
+                ))}
+              </Box>
+            )}
+            {/* Suggestions shown when no query typed yet */}
+            {addQuery.length < 2 && suggestions.length > 0 && (
+              <Box sx={{
+                position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200,
+                bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
+                borderRadius: 2, boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+                p: 1.25, display: 'flex', flexDirection: 'column', gap: 0.75,
+              }}>
+                <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled', px: 0.25 }}>
+                  ✨ Suggested
+                </Typography>
+                {suggestions.map(p => (
+                  <SuggestionChip
+                    key={p.id}
+                    player={p}
+                    alreadyFollowed={followedPlayerIds.includes(p.id)}
+                    onFollow={() => { onFollow(p.id); setAdding(false); setAddQuery(''); setAddResults([]) }}
+                  />
                 ))}
               </Box>
             )}
