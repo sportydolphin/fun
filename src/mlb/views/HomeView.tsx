@@ -214,6 +214,7 @@ export function HomeView({
   const [coldGuy,          setColdGuy]          = useState<HotGuyData | null>(null)
   const [loadingSpotlight, setLoadingSpotlight] = useState(false)
   const [liveTeamIds,      setLiveTeamIds]      = useState<Set<number>>(new Set())
+  const [showTeamSchedule, setShowTeamSchedule] = useState(false)
 
   useEffect(() => {
     setLoadingSpotlight(true)
@@ -335,21 +336,36 @@ export function HomeView({
                   }}>
                     {/* Team header — compact 2-row layout */}
                     <Box sx={{ px: 1.5, pt: 1.25, pb: 1 }}>
-                      {/* Row 1: logo + change button */}
+                      {/* Row 1: logo + schedule + change buttons */}
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
                         <TeamLogoCircle teamId={followedTeamId} abbr={abbr} size={32} />
-                        <Box
-                          onClick={onUnfollowTeam}
-                          sx={{
-                            fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled',
-                            cursor: 'pointer', px: 0.9, py: 0.3,
-                            borderRadius: 999, border: '1px solid', borderColor: 'divider',
-                            whiteSpace: 'nowrap', flexShrink: 0,
-                            transition: 'color 0.12s, border-color 0.12s',
-                            '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
-                          }}
-                        >
-                          Change
+                        <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center' }}>
+                          <Box
+                            onClick={() => setShowTeamSchedule(true)}
+                            sx={{
+                              fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled',
+                              cursor: 'pointer', px: 0.9, py: 0.3,
+                              borderRadius: 999, border: '1px solid', borderColor: 'divider',
+                              whiteSpace: 'nowrap', flexShrink: 0,
+                              transition: 'color 0.12s, border-color 0.12s',
+                              '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
+                            }}
+                          >
+                            Schedule →
+                          </Box>
+                          <Box
+                            onClick={onUnfollowTeam}
+                            sx={{
+                              fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled',
+                              cursor: 'pointer', px: 0.9, py: 0.3,
+                              borderRadius: 999, border: '1px solid', borderColor: 'divider',
+                              whiteSpace: 'nowrap', flexShrink: 0,
+                              transition: 'color 0.12s, border-color 0.12s',
+                              '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
+                            }}
+                          >
+                            Change
+                          </Box>
                         </Box>
                       </Box>
                       {/* Row 2: city + nickname + standing */}
@@ -379,6 +395,8 @@ export function HomeView({
                       <TeamScheduleStrip
                         teamId={followedTeamId}
                         teamColor={bg}
+                        showSchedule={showTeamSchedule}
+                        onScheduleClose={() => setShowTeamSchedule(false)}
                         onPlayerClick={onPlayerClick}
                         onTeamClick={onTeamClick}
                       />

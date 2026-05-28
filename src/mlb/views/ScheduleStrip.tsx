@@ -592,8 +592,9 @@ function GamePreviewModal({ game, myTeamId, previewData, loading, onClose, onPla
 // ─── CompactGameCard ──────────────────────────────────────────────────────────
 // Compact single-game summary (last game OR next game header)
 
-function CompactGameCard({ game, label, labelColor, finalDetails, onTeamClick }: {
+function CompactGameCard({ game, myTeamId, label, labelColor, finalDetails, onTeamClick }: {
   game:          ScheduleGame
+  myTeamId?:     number
   label:         string
   labelColor?:   string
   finalDetails?: GameFinalDetails | null
@@ -602,7 +603,37 @@ function CompactGameCard({ game, label, labelColor, finalDetails, onTeamClick }:
   const isFinal = game.state === 'final'
   const isLive  = game.state === 'live'
   const isWin   = game.isWin === true
-  const col     = TEAM_BG[game.opponentId] ?? '#444'
+
+  // Derive away/home team IDs and per-side scores
+  const awayTeamId = myTeamId ? (game.isHome ? game.opponentId : myTeamId) : game.opponentId
+  const homeTeamId = myTeamId ? (game.isHome ? myTeamId        : game.opponentId) : game.opponentId
+  const awayScore  = game.isHome ? game.opponentScore : game.teamScore
+  const homeScore  = game.isHome ? game.teamScore     : game.opponentScore
+  const awayCol    = TEAM_BG[awayTeamId] ?? '#444'
+  const homeCol    = TEAM_BG[homeTeamId] ?? '#444'
+  const oppCol     = TEAM_BG[game.opponentId] ?? '#444'
+
+  // Small clickable logo circle
+  const logoCircle = (teamId: number, col: string, size: number) => (
+    <Box
+      onClick={() => onTeamClick?.(teamId)}
+      sx={{
+        width: size, height: size, borderRadius: '50%', bgcolor: '#fff',
+        border: `1.5px solid ${col}`, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
+        boxShadow: `0 0 0 1px ${col}30`,
+        cursor: onTeamClick ? 'pointer' : 'default',
+        transition: 'transform 0.12s, box-shadow 0.12s',
+        '&:hover': onTeamClick ? { transform: 'scale(1.1)', boxShadow: `0 0 0 2px ${col}60` } : {},
+      }}
+    >
+      <Box component="img"
+        src={`https://www.mlbstatic.com/team-logos/${teamId}.svg`}
+        alt={TEAM_ABBR[teamId] ?? ''}
+        sx={{ width: Math.round(size * 0.7), height: Math.round(size * 0.7), objectFit: 'contain' }}
+      />
+    </Box>
+  )
 
   return (
     <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
@@ -615,35 +646,22 @@ function CompactGameCard({ game, label, labelColor, finalDetails, onTeamClick }:
       <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', lineHeight: 1, fontWeight: 500 }}>
         {chipDate(game.date)} · {game.isHome ? 'vs' : '@'} {game.opponentAbbr}
       </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.25 }}>
-        <Box
-          onClick={() => onTeamClick?.(game.opponentId)}
-          sx={{
-            width: 32, height: 32, borderRadius: '50%', bgcolor: '#fff',
-            border: `2px solid ${col}`, display: 'flex', alignItems: 'center',
-            justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
-            boxShadow: `0 0 0 1px ${col}30`,
-            cursor: onTeamClick ? 'pointer' : 'default',
-            transition: 'transform 0.12s, box-shadow 0.12s',
-            '&:hover': onTeamClick ? { transform: 'scale(1.1)', boxShadow: `0 0 0 2px ${col}60` } : {},
-          }}
-        >
-          <Box
-            component="img"
-            src={`https://www.mlbstatic.com/team-logos/${game.opponentId}.svg`}
-            alt={game.opponentAbbr}
-            sx={{ width: 22, height: 22, objectFit: 'contain' }}
-          />
-        </Box>
 
-        {(isFinal || isLive) ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+      {/* Score / time row */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25 }}>
+        {(isFinal || isLive) && myTeamId ? (
+          // Two-logo layout: [away logo] awayScore–homeScore [home logo] [W/L]
+          <>
+            {logoCircle(awayTeamId, awayCol, 26)}
             <Typography sx={{
-              fontSize: '1.05rem', fontWeight: 800, lineHeight: 1,
+              fontSize: { xs: '0.95rem', sm: '1.05rem' }, fontWeight: 800, lineHeight: 1,
               color: isLive ? '#ef4444' : 'text.primary',
             }}>
-              {game.teamScore}–{game.opponentScore}
+              {awayScore ?? 0}
+              <Box component="span" sx={{ mx: 0.3, color: 'text.disabled', fontWeight: 300 }}>–</Box>
+              {homeScore ?? 0}
             </Typography>
+            {logoCircle(homeTeamId, homeCol, 26)}
             {isFinal && (
               <Box sx={{ px: 0.6, py: '2px', borderRadius: 0.5, bgcolor: isWin ? '#22c55e22' : '#ef444422' }}>
                 <Typography sx={{ fontSize: '0.68rem', fontWeight: 900, lineHeight: 1, color: isWin ? '#22c55e' : '#ef4444' }}>
@@ -651,11 +669,35 @@ function CompactGameCard({ game, label, labelColor, finalDetails, onTeamClick }:
                 </Typography>
               </Box>
             )}
-          </Box>
+          </>
+        ) : (isFinal || isLive) ? (
+          // Fallback: single opponent logo + score
+          <>
+            {logoCircle(game.opponentId, oppCol, 32)}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Typography sx={{
+                fontSize: '1.05rem', fontWeight: 800, lineHeight: 1,
+                color: isLive ? '#ef4444' : 'text.primary',
+              }}>
+                {game.teamScore}–{game.opponentScore}
+              </Typography>
+              {isFinal && (
+                <Box sx={{ px: 0.6, py: '2px', borderRadius: 0.5, bgcolor: isWin ? '#22c55e22' : '#ef444422' }}>
+                  <Typography sx={{ fontSize: '0.68rem', fontWeight: 900, lineHeight: 1, color: isWin ? '#22c55e' : '#ef4444' }}>
+                    {isWin ? 'W' : 'L'}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </>
         ) : (
-          <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1 }}>
-            {game.gameTime}
-          </Typography>
+          // Preview: opponent logo + game time
+          <>
+            {logoCircle(game.opponentId, oppCol, 32)}
+            <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1 }}>
+              {game.gameTime}
+            </Typography>
+          </>
         )}
       </Box>
 
@@ -1123,11 +1165,13 @@ function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick, onTeam
 
 // ─── TeamScheduleStrip ────────────────────────────────────────────────────────
 
-export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClick }: {
-  teamId:         number
-  teamColor:      string
-  onPlayerClick?: (id: number) => void
-  onTeamClick?:   (id: number) => void
+export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleClose, onPlayerClick, onTeamClick }: {
+  teamId:           number
+  teamColor:        string
+  showSchedule?:    boolean
+  onScheduleClose?: () => void
+  onPlayerClick?:   (id: number) => void
+  onTeamClick?:     (id: number) => void
 }) {
   const [games,               setGames]               = useState<ScheduleGame[]>([])
   const [loading,             setLoading]             = useState(true)
@@ -1139,7 +1183,6 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
   const [upcomingPreviewData, setUpcomingPreviewData] = useState<GamePreviewData | null>(null)
   const [loadingUpcoming,     setLoadingUpcoming]     = useState(false)
   const [finalDetails,        setFinalDetails]        = useState<GameFinalDetails | null>(null)
-  const [showFullSched,       setShowFullSched]       = useState(false)
 
   const now   = new Date()
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -1211,23 +1254,6 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
     <>
       <Box sx={{ px: 2.5, pb: 1.5, pt: 0.5 }}>
 
-        {/* ── View Full Schedule (top-right) ───────────────────────────────── */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-          <Box
-            onClick={() => setShowFullSched(true)}
-            sx={{
-              fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.5,
-              px: 1.5, py: 0.6, borderRadius: 999,
-              border: '1px solid', borderColor: 'divider',
-              transition: 'color 0.12s, border-color 0.12s, background-color 0.12s',
-              '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' },
-            }}
-          >
-            View Full Schedule →
-          </Box>
-        </Box>
-
         {/* ── Game section: live = full-width card; else last + next ──────── */}
         {isLive ? (
           <LiveGameCard
@@ -1242,7 +1268,7 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
             {showLast && (
               <>
-                <CompactGameCard game={lastGame!} label="Last Game" onTeamClick={onTeamClick} />
+                <CompactGameCard game={lastGame!} myTeamId={teamId} label="Last Game" onTeamClick={onTeamClick} />
                 <Box sx={{ width: '1px', bgcolor: 'divider', alignSelf: 'stretch', my: 0.25, flexShrink: 0 }} />
               </>
             )}
@@ -1251,6 +1277,7 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
             <Box sx={{ flex: 1, minWidth: 0 }}>
               <CompactGameCard
                 game={nextGame}
+                myTeamId={teamId}
                 label={nextLabel}
                 labelColor={nextLabelColor}
                 finalDetails={isFinal ? finalDetails : null}
@@ -1275,6 +1302,7 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <CompactGameCard
                     game={upcomingGame}
+                    myTeamId={teamId}
                     label="Next Game"
                     onTeamClick={onTeamClick}
                   />
@@ -1294,7 +1322,7 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
 
       </Box>
 
-      {showFullSched && (
+      {showSchedule && (
         <FullScheduleModal
           games={games}
           myTeamId={teamId}
@@ -1302,7 +1330,7 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
           today={today}
           onPlayerClick={onPlayerClick}
           onTeamClick={onTeamClick}
-          onClose={() => setShowFullSched(false)}
+          onClose={() => onScheduleClose?.()}
         />
       )}
     </>
