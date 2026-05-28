@@ -22,6 +22,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
+import ws from 'ws'
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
@@ -35,6 +36,7 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
+  realtime: { transport: ws },
 })
 
 const CURRENT_SEASON = new Date().getFullYear()

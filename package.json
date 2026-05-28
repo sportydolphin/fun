@@ -18,7 +18,8 @@
     "@supabase/supabase-js": "^2.106.2",
     "html2canvas": "^1.4.1",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
