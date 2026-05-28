@@ -289,8 +289,8 @@ export function HomeView({
         <Box sx={{
           display: 'flex',
           width: '200%',
-          transform: `translateX(${homeTab === 'league' ? '0%' : '-50%'})`,
-          transition: 'transform 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
+          marginLeft: homeTab === 'league' ? '0%' : '-100%',
+          transition: 'margin-left 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
           alignItems: 'flex-start',
         }}>
 
