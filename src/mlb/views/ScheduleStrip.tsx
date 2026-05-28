@@ -431,7 +431,7 @@ function PitcherPanel({ pitcher, teamId, side, onPlayerClick, onTeamClick }: {
           >
             <Box sx={{ width: 72, height: 86, borderRadius: 2.5, overflow: 'hidden', border: `2px solid ${col}50`, bgcolor: 'action.hover', flexShrink: 0 }}>
               <Box component="img" src={HEADSHOT(pitcher.id)} alt={pitcher.name}
-                sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 40%', display: 'block' }} />
+                sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }} />
             </Box>
             <Typography className="pitcher-name" sx={{
               fontWeight: 700, fontSize: '0.88rem', lineHeight: 1.25, textAlign: 'center', px: 0.5,
@@ -921,7 +921,7 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
       }}>
         {pitcher && (
           <Box component="img" src={HEADSHOT(pitcher.id)} alt={pitcher.name}
-            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 40%', display: 'block' }} />
+            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }} />
         )}
       </Box>
       {/* Name + stats */}
@@ -1209,7 +1209,24 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
 
   return (
     <>
-      <Box sx={{ px: 2.5, pb: 2, pt: 0.5 }}>
+      <Box sx={{ px: 2.5, pb: 1.5, pt: 0.5 }}>
+
+        {/* ── View Full Schedule (top-right) ───────────────────────────────── */}
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+          <Box
+            onClick={() => setShowFullSched(true)}
+            sx={{
+              fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.5,
+              px: 1.5, py: 0.6, borderRadius: 999,
+              border: '1px solid', borderColor: 'divider',
+              transition: 'color 0.12s, border-color 0.12s, background-color 0.12s',
+              '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' },
+            }}
+          >
+            View Full Schedule →
+          </Box>
+        </Box>
 
         {/* ── Game section: live = full-width card; else last + next ──────── */}
         {isLive ? (
@@ -1275,22 +1292,6 @@ export function TeamScheduleStrip({ teamId, teamColor, onPlayerClick, onTeamClic
           </Box>
         )}
 
-        {/* ── View Full Schedule ────────────────────────────────────────────── */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1.5 }}>
-          <Box
-            onClick={() => setShowFullSched(true)}
-            sx={{
-              fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary',
-              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.5,
-              px: 1.5, py: 0.6, borderRadius: 999,
-              border: '1px solid', borderColor: 'divider',
-              transition: 'color 0.12s, border-color 0.12s, background-color 0.12s',
-              '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' },
-            }}
-          >
-            View Full Schedule →
-          </Box>
-        </Box>
       </Box>
 
       {showFullSched && (

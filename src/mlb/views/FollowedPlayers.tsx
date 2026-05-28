@@ -103,7 +103,7 @@ function FollowedPlayerCard({ id, data, isLive, onRemove, onClick }: {
             component="img"
             src={HEADSHOT(id)}
             alt={data?.fullName ?? ''}
-            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 40%', display: 'block' }}
+            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }}
           />
           {/* LIVE badge — red bar at bottom of headshot */}
           {isLive && (
@@ -283,7 +283,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                   >
                     <Box sx={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', bgcolor: 'action.hover', flexShrink: 0 }}>
                       <Box component="img" src={HEADSHOT(p.id)}
-                        sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 40%' }} />
+                        sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }} />
                     </Box>
                     <Box sx={{ minWidth: 0 }}>
                       <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
