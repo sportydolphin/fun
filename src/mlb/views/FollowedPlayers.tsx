@@ -68,7 +68,7 @@ function FollowedPlayerCard({ id, data, isLive, onRemove, onClick }: {
       onClick={onClick}
       sx={{
         position: 'relative', flexShrink: 0,
-        width: 86, borderRadius: 2.5,
+        width: { xs: 86, sm: 108 }, borderRadius: 2.5,
         border: '1px solid', borderColor: 'divider',
         bgcolor: 'background.paper', overflow: 'hidden',
         cursor: 'pointer',
@@ -98,7 +98,7 @@ function FollowedPlayerCard({ id, data, isLive, onRemove, onClick }: {
 
       <Box sx={{ px: 1, pt: 1, pb: 1.25, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
         {/* Headshot + live overlay */}
-        <Box sx={{ position: 'relative', width: 54, height: 62, borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover', flexShrink: 0 }}>
+        <Box sx={{ position: 'relative', width: { xs: 54, sm: 68 }, height: { xs: 62, sm: 78 }, borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover', flexShrink: 0 }}>
           <Box
             component="img"
             src={HEADSHOT(id)}
@@ -122,7 +122,7 @@ function FollowedPlayerCard({ id, data, isLive, onRemove, onClick }: {
         </Box>
 
         <Typography sx={{
-          fontWeight: 700, fontSize: '0.65rem', lineHeight: 1.2,
+          fontWeight: 700, fontSize: { xs: '0.65rem', sm: '0.78rem' }, lineHeight: 1.2,
           textAlign: 'center', px: 0.25,
           display: '-webkit-box', WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical', overflow: 'hidden',
@@ -131,17 +131,17 @@ function FollowedPlayerCard({ id, data, isLive, onRemove, onClick }: {
         </Typography>
 
         {subtitle && (
-          <Typography sx={{ fontSize: '0.56rem', color: 'text.disabled', lineHeight: 1 }}>
+          <Typography sx={{ fontSize: { xs: '0.58rem', sm: '0.72rem' }, color: 'text.secondary', lineHeight: 1 }}>
             {subtitle}
           </Typography>
         )}
 
         {data?.keyValue && (
           <Box sx={{ textAlign: 'center', mt: 0.25 }}>
-            <Typography sx={{ fontSize: '0.48rem', color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.5, lineHeight: 1 }}>
+            <Typography sx={{ fontSize: { xs: '0.54rem', sm: '0.64rem' }, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5, lineHeight: 1 }}>
               {data.keyLabel}
             </Typography>
-            <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, lineHeight: 1.1 }}>
+            <Typography sx={{ fontSize: { xs: '0.92rem', sm: '1.1rem' }, fontWeight: 800, lineHeight: 1.1 }}>
               {data.keyValue}
             </Typography>
           </Box>

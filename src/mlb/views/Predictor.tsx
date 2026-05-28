@@ -174,7 +174,7 @@ function PredTeamSide({ side, game, prediction, locked, onPick, onTeamNav, onPla
       {/* Team logo — click votes (bubbles to parent) */}
       <Box
         sx={{
-          width: 44, height: 44, borderRadius: '50%',
+          width: { xs: 44, sm: 54 }, height: { xs: 44, sm: 54 }, borderRadius: '50%',
           bgcolor: '#fff', border: `2px solid ${col}`,
           boxShadow: picked ? `0 0 0 3px ${col}35` : `0 0 0 1px ${col}20`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -194,7 +194,7 @@ function PredTeamSide({ side, game, prediction, locked, onPick, onTeamNav, onPla
       <Typography
         onClick={e => { e.stopPropagation(); onTeamNav(team.teamId) }}
         sx={{
-          fontWeight: 700, fontSize: '0.75rem', lineHeight: 1.2, textAlign: 'center',
+          fontWeight: 700, fontSize: { xs: '0.75rem', sm: '0.88rem' }, lineHeight: 1.2, textAlign: 'center',
           cursor: 'pointer', transition: 'color 0.12s',
           '&:hover': { color: ACCENT },
         }}
@@ -208,7 +208,7 @@ function PredTeamSide({ side, game, prediction, locked, onPick, onTeamNav, onPla
           <Typography
             onClick={e => { e.stopPropagation(); onPlayerNav(team.pitcher!.id) }}
             sx={{
-              fontSize: '0.65rem', color: 'text.secondary', lineHeight: 1.3,
+              fontSize: { xs: '0.66rem', sm: '0.78rem' }, color: 'text.secondary', lineHeight: 1.3,
               cursor: 'pointer', transition: 'color 0.12s',
               '&:hover': { color: ACCENT },
             }}
@@ -219,12 +219,12 @@ function PredTeamSide({ side, game, prediction, locked, onPick, onTeamNav, onPla
               {team.pitcher.hand === 'R' ? 'RHP' : team.pitcher.hand === 'L' ? 'LHP' : '—'}
             </Box>
           </Typography>
-          <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', lineHeight: 1, mt: '2px' }}>
+          <Typography sx={{ fontSize: { xs: '0.6rem', sm: '0.72rem' }, color: 'text.secondary', lineHeight: 1, mt: '2px' }}>
             {team.pitcher.era} ERA
           </Typography>
         </Box>
       ) : (
-        <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', lineHeight: 1 }}>TBD</Typography>
+        <Typography sx={{ fontSize: { xs: '0.6rem', sm: '0.72rem' }, color: 'text.disabled', lineHeight: 1 }}>TBD</Typography>
       )}
     </Box>
   )
@@ -250,8 +250,8 @@ function PredictionCard({ game, prediction, onPick, onTeamNav, onPlayerNav }: {
           <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0 }} />
         )}
         <Typography sx={{
-          fontSize: '0.6rem', fontWeight: 700, letterSpacing: 0.5, lineHeight: 1,
-          color: game.state === 'live' ? '#ef4444' : 'text.disabled',
+          fontSize: { xs: '0.62rem', sm: '0.74rem' }, fontWeight: 700, letterSpacing: 0.5, lineHeight: 1,
+          color: game.state === 'live' ? '#ef4444' : 'text.secondary',
           textTransform: 'uppercase',
         }}>
           {game.state === 'live' ? 'Live' : game.state === 'final' ? 'Final' : game.gameTime}
@@ -491,7 +491,7 @@ export function PredictorWidget({ onPlayerClick, onTeamClick }: {
                     onClick={() => setModalOpen(true)}
                     sx={{
                       display: 'flex', alignItems: 'center', gap: 0.4,
-                      px: 0.75, py: 0.4, borderRadius: 1,
+                      px: { xs: 0.75, sm: 1 }, py: { xs: 0.4, sm: 0.55 }, borderRadius: 1,
                       border: '1px solid',
                       borderColor: correct ? '#22c55e50' : wrong ? '#ef444450' : 'divider',
                       bgcolor: correct ? '#22c55e10' : wrong ? '#ef444410' : 'transparent',
@@ -500,11 +500,11 @@ export function PredictorWidget({ onPlayerClick, onTeamClick }: {
                       '&:hover': { bgcolor: 'action.hover' },
                     }}
                   >
-                    <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, lineHeight: 1, color: myPick === g.away.teamId ? ACCENT : 'text.disabled' }}>
+                    <Typography sx={{ fontSize: { xs: '0.62rem', sm: '0.76rem' }, fontWeight: 700, lineHeight: 1, color: myPick === g.away.teamId ? ACCENT : 'text.secondary' }}>
                       {g.away.abbr}
                     </Typography>
-                    <Typography sx={{ fontSize: '0.5rem', color: 'text.disabled', lineHeight: 1 }}>@</Typography>
-                    <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, lineHeight: 1, color: myPick === g.home.teamId ? ACCENT : 'text.disabled' }}>
+                    <Typography sx={{ fontSize: { xs: '0.52rem', sm: '0.64rem' }, color: 'text.disabled', lineHeight: 1 }}>@</Typography>
+                    <Typography sx={{ fontSize: { xs: '0.62rem', sm: '0.76rem' }, fontWeight: 700, lineHeight: 1, color: myPick === g.home.teamId ? ACCENT : 'text.secondary' }}>
                       {g.home.abbr}
                     </Typography>
                     {correct && <Typography sx={{ fontSize: '0.55rem', lineHeight: 1, color: '#22c55e', ml: '1px' }}>✓</Typography>}

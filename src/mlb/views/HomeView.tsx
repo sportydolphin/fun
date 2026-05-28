@@ -353,20 +353,20 @@ export function HomeView({
                       {/* Row 2: city + nickname + standing */}
                       {city && (
                         <Typography sx={{
-                          fontSize: '0.48rem', fontWeight: 700, letterSpacing: '2px',
+                          fontSize: { xs: '0.5rem', sm: '0.62rem' }, fontWeight: 700, letterSpacing: '2px',
                           textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1, mb: 0.2,
                         }}>
                           {city}
                         </Typography>
                       )}
                       <Typography sx={{
-                        fontSize: '1rem', fontWeight: 900,
+                        fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 900,
                         textTransform: 'uppercase', letterSpacing: '-0.5px', lineHeight: 1,
                       }}>
                         {nickname}
                       </Typography>
                       {standingLine && (
-                        <Typography sx={{ fontSize: '0.58rem', color: 'text.secondary', mt: 0.3, lineHeight: 1.3 }}>
+                        <Typography sx={{ fontSize: { xs: '0.62rem', sm: '0.74rem' }, color: 'text.secondary', mt: 0.3, lineHeight: 1.3 }}>
                           {standingLine}
                         </Typography>
                       )}
