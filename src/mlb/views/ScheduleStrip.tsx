@@ -593,12 +593,13 @@ function GamePreviewModal({ game, myTeamId, previewData, loading, onClose, onPla
 // ─── CompactGameCard ──────────────────────────────────────────────────────────
 // Compact single-game summary (last game OR next game header)
 
-function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick }: {
+function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick, onClick }: {
   game:         ScheduleGame
   myTeamId?:    number
   label:        string
   labelColor?:  string
   onTeamClick?: (id: number) => void
+  onClick?:     () => void
 }) {
   const isFinal = game.state === 'final'
   const isLive  = game.state === 'live'
@@ -1333,20 +1334,24 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
                 onTeamClick={onTeamClick}
               />
               {isPreview && (
-                <CompactPitcherRow
-                  awayPitcher={awayPitcher}
-                  homePitcher={homePitcher}
-                  awayTeamId={awayTeamId}
-                  homeTeamId={homeTeamId}
-                  loading={loadingPreview}
-                  onPlayerClick={onPlayerClick}
-                />
+                <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                  <CompactPitcherRow
+                    awayPitcher={awayPitcher}
+                    homePitcher={homePitcher}
+                    awayTeamId={awayTeamId}
+                    homeTeamId={homeTeamId}
+                    loading={loadingPreview}
+                    onPlayerClick={onPlayerClick}
+                  />
+                </Box>
               )}
               {isFinal && finalDetails && (
-                <CompactPerformerRow
-                  finalDetails={finalDetails}
-                  onPlayerClick={onPlayerClick}
-                />
+                <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                  <CompactPerformerRow
+                    finalDetails={finalDetails}
+                    onPlayerClick={onPlayerClick}
+                  />
+                </Box>
               )}
             </Box>
 
@@ -1361,14 +1366,16 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
                     label="Next Game"
                     onTeamClick={onTeamClick}
                   />
-                  <CompactPitcherRow
-                    awayPitcher={upcomingPreviewData?.away.pitcher ?? null}
-                    homePitcher={upcomingPreviewData?.home.pitcher ?? null}
-                    awayTeamId={upcomingPreviewData?.away.teamId ?? (upcomingGame.isHome ? upcomingGame.opponentId : teamId)}
-                    homeTeamId={upcomingPreviewData?.home.teamId ?? (upcomingGame.isHome ? teamId : upcomingGame.opponentId)}
-                    loading={loadingUpcoming}
-                    onPlayerClick={onPlayerClick}
-                  />
+                  <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                    <CompactPitcherRow
+                      awayPitcher={upcomingPreviewData?.away.pitcher ?? null}
+                      homePitcher={upcomingPreviewData?.home.pitcher ?? null}
+                      awayTeamId={upcomingPreviewData?.away.teamId ?? (upcomingGame.isHome ? upcomingGame.opponentId : teamId)}
+                      homeTeamId={upcomingPreviewData?.home.teamId ?? (upcomingGame.isHome ? teamId : upcomingGame.opponentId)}
+                      loading={loadingUpcoming}
+                      onPlayerClick={onPlayerClick}
+                    />
+                  </Box>
                 </Box>
               </>
             )}
