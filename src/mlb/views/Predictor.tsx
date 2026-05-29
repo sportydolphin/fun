@@ -94,6 +94,26 @@ export async function fetchTodayGames(dateStr: string): Promise<TodayGame[]> {
   } catch { return [] }
 }
 
+// ─── Vote totals ──────────────────────────────────────────────────────────────
+
+// Returns: gamePk → teamId → count  (all users, not just current user)
+export async function fetchVotesByGame(date: string): Promise<Record<number, Record<number, number>>> {
+  try {
+    const { data } = await supabase
+      .from('game_predictions')
+      .select('game_pk, predicted_team_id')
+      .eq('game_date', date)
+    const result: Record<number, Record<number, number>> = {}
+    for (const row of data ?? []) {
+      const pk  = Number(row.game_pk)
+      const tid = Number(row.predicted_team_id)
+      if (!result[pk]) result[pk] = {}
+      result[pk][tid] = (result[pk][tid] ?? 0) + 1
+    }
+    return result
+  } catch { return {} }
+}
+
 // ─── Persistence ──────────────────────────────────────────────────────────────
 
 const predKey = (date: string) => `mlb_preds_${date}`
@@ -225,13 +245,22 @@ function PredTeamSide({ side, game, prediction, locked, onPick, onTeamNav }: {
 
 // ─── PredictionCard ───────────────────────────────────────────────────────────
 
-function PredictionCard({ game, prediction, onPick, onTeamNav }: {
-  game:        TodayGame
-  prediction:  number | null
-  onPick:      (teamId: number) => void
-  onTeamNav:   (teamId: number) => void
+function PredictionCard({ game, prediction, onPick, onTeamNav, gameVotes }: {
+  game:       TodayGame
+  prediction: number | null
+  onPick:     (teamId: number) => void
+  onTeamNav:  (teamId: number) => void
+  gameVotes?: Record<number, number>  // teamId → count
 }) {
-  const locked = game.state !== 'preview'
+  const locked    = game.state !== 'preview'
+  const awayVotes = gameVotes?.[game.away.teamId] ?? 0
+  const homeVotes = gameVotes?.[game.home.teamId] ?? 0
+  const totalVotes = awayVotes + homeVotes
+  const awayPct   = totalVotes ? Math.round(awayVotes / totalVotes * 100) : null
+  const homePct   = awayPct !== null ? 100 - awayPct : null
+  const awayCol   = TEAM_BG[game.away.teamId] ?? '#888'
+  const homeCol   = TEAM_BG[game.home.teamId] ?? '#888'
+
   return (
     <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden', flexShrink: 0 }}>
       <Box sx={{
@@ -260,16 +289,38 @@ function PredictionCard({ game, prediction, onPick, onTeamNav }: {
         </Box>
         <PredTeamSide side="home" game={game} prediction={prediction} locked={locked} onPick={onPick} onTeamNav={onTeamNav} />
       </Box>
+
+      {/* Vote split bar */}
+      {awayPct !== null && homePct !== null && (
+        <Box sx={{ px: 1.25, pb: 1.25 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', minWidth: 22, textAlign: 'right', lineHeight: 1 }}>
+              {awayPct}%
+            </Typography>
+            <Box sx={{ flex: 1, display: 'flex', borderRadius: 999, overflow: 'hidden', height: 5 }}>
+              <Box sx={{ width: `${awayPct}%`, bgcolor: awayCol, opacity: 0.65, transition: 'width 0.4s ease' }} />
+              <Box sx={{ flex: 1, bgcolor: homeCol, opacity: 0.65 }} />
+            </Box>
+            <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', minWidth: 22, lineHeight: 1 }}>
+              {homePct}%
+            </Typography>
+          </Box>
+          <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', textAlign: 'center', mt: 0.4, lineHeight: 1 }}>
+            {totalVotes} {totalVotes === 1 ? 'pick' : 'picks'}
+          </Typography>
+        </Box>
+      )}
     </Box>
   )
 }
 
 // ─── PredictorModal ───────────────────────────────────────────────────────────
 
-function PredictorModal({ open, games, predictions, onPick, onClose, onTeamClick, isSignedIn }: {
+function PredictorModal({ open, games, predictions, allVotes, onPick, onClose, onTeamClick, isSignedIn }: {
   open:          boolean
   games:         TodayGame[]
   predictions:   Record<number, number>
+  allVotes:      Record<number, Record<number, number>>
   onPick:        (gamePk: number, teamId: number) => void
   onClose:       () => void
   onTeamClick:   (id: number) => void
@@ -351,6 +402,7 @@ function PredictorModal({ open, games, predictions, onPick, onClose, onTeamClick
               prediction={predictions[game.gamePk] ?? null}
               onPick={teamId => onPick(game.gamePk, teamId)}
               onTeamNav={id => { onClose(); onTeamClick(id) }}
+              gameVotes={allVotes[game.gamePk]}
             />
           ))}
         </Box>
@@ -370,6 +422,7 @@ export function PredictorWidget({ onTeamClick }: {
 
   const [games,       setGames]       = useState<TodayGame[]>([])
   const [predictions, setPredictions] = useState<Record<number, number>>({})
+  const [allVotes,    setAllVotes]    = useState<Record<number, Record<number, number>>>({})
   const [loading,     setLoading]     = useState(true)
   const [modalOpen,   setModalOpen]   = useState(false)
   const [statsOpen,   setStatsOpen]   = useState(false)
@@ -401,6 +454,8 @@ export function PredictorWidget({ onTeamClick }: {
 
   useEffect(() => {
     if (!modalOpen) return
+    // Fetch votes immediately when modal opens
+    fetchVotesByGame(today).then(setAllVotes)
     const id = setInterval(() => {
       fetchTodayGames(today).then(updated =>
         setGames(prev => updated.map(u => ({
@@ -409,6 +464,7 @@ export function PredictorWidget({ onTeamClick }: {
           away: { ...u.away, pitcher: u.away.pitcher ?? prev.find(p => p.gamePk === u.gamePk)?.away.pitcher ?? null },
         })))
       )
+      fetchVotesByGame(today).then(setAllVotes)
     }, 3 * 60_000)
     return () => clearInterval(id)
   }, [modalOpen, today])
@@ -416,10 +472,18 @@ export function PredictorWidget({ onTeamClick }: {
   const handlePick = useCallback((gamePk: number, teamId: number) => {
     const g = games.find(g => g.gamePk === gamePk)
     if (!g || g.state !== 'preview') return
+    const prevTeamId = predictions[gamePk]
     setPredictions(prev => ({ ...prev, [gamePk]: teamId }))
+    // Optimistically update vote counts
+    setAllVotes(prev => {
+      const gameV = { ...(prev[gamePk] ?? {}) }
+      if (prevTeamId && prevTeamId !== teamId) gameV[prevTeamId] = Math.max(0, (gameV[prevTeamId] ?? 1) - 1)
+      if (user) gameV[teamId] = (gameV[teamId] ?? 0) + (prevTeamId ? 0 : 1)  // only add if first pick
+      return { ...prev, [gamePk]: gameV }
+    })
     saveLocalPred(today, gamePk, teamId)
-    if (user) savePredToSb(user.id, today, gamePk, teamId)
-  }, [games, today, user])
+    if (user) savePredToSb(user.id, today, gamePk, teamId).then(() => fetchVotesByGame(today).then(setAllVotes))
+  }, [games, predictions, today, user])
 
   const pickedCount  = Object.keys(predictions).length
   const finalized    = games.filter(g => g.state === 'final' && predictions[g.gamePk] !== undefined)
@@ -530,6 +594,7 @@ export function PredictorWidget({ onTeamClick }: {
         open={modalOpen}
         games={games}
         predictions={predictions}
+        allVotes={allVotes}
         onPick={handlePick}
         onClose={() => setModalOpen(false)}
         onTeamClick={id => { setModalOpen(false); onTeamClick(id) }}
