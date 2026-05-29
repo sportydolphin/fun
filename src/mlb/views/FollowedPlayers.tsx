@@ -347,7 +347,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
             )}
           </Box>
         ) : (
-          <Box sx={{
+          <Box data-swipe-ignore="true" sx={{
             display: 'flex', gap: 1.25, overflowX: 'auto', pb: 0.5,
             '&::-webkit-scrollbar': { display: 'none' },
             scrollbarWidth: 'none',

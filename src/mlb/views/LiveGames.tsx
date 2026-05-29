@@ -573,7 +573,7 @@ export function LiveGamesSection() {
         </Box>
 
         {/* Horizontally scrollable strip of mini cards */}
-        <Box sx={{
+        <Box data-swipe-ignore="true" sx={{
           display: 'flex', gap: 1, p: 1.25,
           overflowX: 'auto',
           '&::-webkit-scrollbar': { display: 'none' },

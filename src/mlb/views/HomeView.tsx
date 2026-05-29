@@ -241,14 +241,22 @@ export function HomeView({
   }, [followedTeamId])
 
   // ── Touch / swipe ─────────────────────────────────────────────────────────────
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const touchStartRef = useRef<{ x: number; y: number; ignore: boolean } | null>(null)
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
-    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+    // Walk up the DOM — if the touch originates inside a horizontally-scrollable
+    // child (marked data-swipe-ignore="true"), don't use it to switch tabs.
+    let ignore = false
+    let el: EventTarget | null = e.target
+    while (el instanceof Element) {
+      if (el.getAttribute('data-swipe-ignore') === 'true') { ignore = true; break }
+      el = el.parentElement
+    }
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, ignore }
   }, [])
 
   const onTouchEnd = useCallback((e: React.TouchEvent) => {
-    if (!touchStartRef.current) return
+    if (!touchStartRef.current || touchStartRef.current.ignore) return
     const dx = e.changedTouches[0].clientX - touchStartRef.current.x
     const dy = e.changedTouches[0].clientY - touchStartRef.current.y
     touchStartRef.current = null
