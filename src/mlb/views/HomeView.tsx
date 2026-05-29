@@ -7,6 +7,7 @@ import { TeamScheduleStrip } from './ScheduleStrip'
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
+import { LiveGamesSection } from './LiveGames'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -296,6 +297,10 @@ export function HomeView({
           {/* ── Panel 1: Around the League ────────────────────────────────────── */}
           <Box sx={{ width: '50%', flexShrink: 0, minWidth: 0 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+
+              {/* Live games — only renders when games are active */}
+              <LiveGamesSection />
+
               {loadingSpotlight && !hotGuy && !coldGuy && (
                 <Box sx={{ py: 4, textAlign: 'center' }}>
                   <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Loading spotlight…</Typography>
