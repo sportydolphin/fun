@@ -432,7 +432,6 @@ export function HomeView({
 
               {/* ── My Predictions ──────────────────────────────────────────── */}
               <PredictorWidget
-                onPlayerClick={onPlayerClick}
                 onTeamClick={onTeamClick ?? (() => {})}
               />
 

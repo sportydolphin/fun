@@ -126,14 +126,13 @@ async function savePredToSb(userId: string, date: string, gamePk: number, teamId
 
 // ─── PredTeamSide ─────────────────────────────────────────────────────────────
 
-function PredTeamSide({ side, game, prediction, locked, onPick, onTeamNav, onPlayerNav }: {
+function PredTeamSide({ side, game, prediction, locked, onPick, onTeamNav }: {
   side:        'away' | 'home'
   game:        TodayGame
   prediction:  number | null
   locked:      boolean
   onPick:      (teamId: number) => void
   onTeamNav:   (teamId: number) => void
-  onPlayerNav: (pitcherId: number) => void
 }) {
   const team    = side === 'away' ? game.away : game.home
   const col     = TEAM_BG[team.teamId] ?? '#444'
@@ -203,17 +202,10 @@ function PredTeamSide({ side, game, prediction, locked, onPick, onTeamNav, onPla
         {nickname}
       </Typography>
 
-      {/* Pitcher — click navigates to player */}
+      {/* Pitcher — display only, whole card half is the pick target */}
       {team.pitcher ? (
         <Box sx={{ textAlign: 'center' }}>
-          <Typography
-            onClick={e => { e.stopPropagation(); onPlayerNav(team.pitcher!.id) }}
-            sx={{
-              fontSize: { xs: '0.66rem', sm: '0.78rem' }, color: 'text.secondary', lineHeight: 1.3,
-              cursor: 'pointer', transition: 'color 0.12s',
-              '&:hover': { color: ACCENT },
-            }}
-          >
+          <Typography sx={{ fontSize: { xs: '0.66rem', sm: '0.78rem' }, color: 'text.secondary', lineHeight: 1.3 }}>
             {team.pitcher.name.split(' ').slice(-1)[0]}
             {' '}
             <Box component="span" sx={{ color: 'text.disabled' }}>
@@ -233,12 +225,11 @@ function PredTeamSide({ side, game, prediction, locked, onPick, onTeamNav, onPla
 
 // ─── PredictionCard ───────────────────────────────────────────────────────────
 
-function PredictionCard({ game, prediction, onPick, onTeamNav, onPlayerNav }: {
+function PredictionCard({ game, prediction, onPick, onTeamNav }: {
   game:        TodayGame
   prediction:  number | null
   onPick:      (teamId: number) => void
   onTeamNav:   (teamId: number) => void
-  onPlayerNav: (pitcherId: number) => void
 }) {
   const locked = game.state !== 'preview'
   return (
@@ -263,11 +254,11 @@ function PredictionCard({ game, prediction, onPick, onTeamNav, onPlayerNav }: {
       </Box>
 
       <Box sx={{ p: 1, display: 'flex', gap: 0.5, alignItems: 'stretch' }}>
-        <PredTeamSide side="away" game={game} prediction={prediction} locked={locked} onPick={onPick} onTeamNav={onTeamNav} onPlayerNav={onPlayerNav} />
+        <PredTeamSide side="away" game={game} prediction={prediction} locked={locked} onPick={onPick} onTeamNav={onTeamNav} />
         <Box sx={{ display: 'flex', alignItems: 'center', px: 0.25 }}>
           <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', lineHeight: 1 }}>@</Typography>
         </Box>
-        <PredTeamSide side="home" game={game} prediction={prediction} locked={locked} onPick={onPick} onTeamNav={onTeamNav} onPlayerNav={onPlayerNav} />
+        <PredTeamSide side="home" game={game} prediction={prediction} locked={locked} onPick={onPick} onTeamNav={onTeamNav} />
       </Box>
     </Box>
   )
@@ -275,13 +266,12 @@ function PredictionCard({ game, prediction, onPick, onTeamNav, onPlayerNav }: {
 
 // ─── PredictorModal ───────────────────────────────────────────────────────────
 
-function PredictorModal({ open, games, predictions, onPick, onClose, onPlayerClick, onTeamClick, isSignedIn }: {
+function PredictorModal({ open, games, predictions, onPick, onClose, onTeamClick, isSignedIn }: {
   open:          boolean
   games:         TodayGame[]
   predictions:   Record<number, number>
   onPick:        (gamePk: number, teamId: number) => void
   onClose:       () => void
-  onPlayerClick: (id: number) => void
   onTeamClick:   (id: number) => void
   isSignedIn:    boolean
 }) {
@@ -361,7 +351,6 @@ function PredictorModal({ open, games, predictions, onPick, onClose, onPlayerCli
               prediction={predictions[game.gamePk] ?? null}
               onPick={teamId => onPick(game.gamePk, teamId)}
               onTeamNav={id => { onClose(); onTeamClick(id) }}
-              onPlayerNav={id => { onClose(); onPlayerClick(id) }}
             />
           ))}
         </Box>
@@ -372,9 +361,8 @@ function PredictorModal({ open, games, predictions, onPick, onClose, onPlayerCli
 
 // ─── PredictorWidget ──────────────────────────────────────────────────────────
 
-export function PredictorWidget({ onPlayerClick, onTeamClick }: {
-  onPlayerClick: (id: number) => void
-  onTeamClick:   (id: number) => void
+export function PredictorWidget({ onTeamClick }: {
+  onTeamClick: (id: number) => void
 }) {
   const { user } = useAuth()
   const now   = new Date()
@@ -544,7 +532,6 @@ export function PredictorWidget({ onPlayerClick, onTeamClick }: {
         predictions={predictions}
         onPick={handlePick}
         onClose={() => setModalOpen(false)}
-        onPlayerClick={id => { setModalOpen(false); onPlayerClick(id) }}
         onTeamClick={id => { setModalOpen(false); onTeamClick(id) }}
         isSignedIn={!!user}
       />
