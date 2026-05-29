@@ -31,10 +31,10 @@ export default function MlbStats() {
   }, [topQuery, state.playerResults, state.teamResults, state.searching])
 
   const handleTopSelect = (fn: () => void) => {
+    window.history.pushState({ returnView: state.view }, '', window.location.href)
     fn()
     setTopQuery('')
     setTopOpen(false)
-    window.history.pushState({}, '', window.location.href)
     state.setView('search')
   }
 
@@ -138,7 +138,7 @@ export default function MlbStats() {
           ]}
           value={state.view}
           onChange={v => {
-            window.history.pushState({}, '', window.location.href)
+            window.history.pushState({ returnView: state.view }, '', window.location.href)
             state.setView(v as any)
           }}
         />

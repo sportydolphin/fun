@@ -412,11 +412,11 @@ export function useMlbState() {
   }, [loadTeamStats])
 
   const handleLbPlayerClick = useCallback((playerId: number) => {
-    window.history.pushState({}, '', window.location.href)
+    window.history.pushState({ returnView: view }, '', window.location.href)
     fetchPlayerDetails(playerId).then(p => {
       if (p) { selectPlayer(p); setView('search') }
     }).catch(() => {})
-  }, [selectPlayer])
+  }, [selectPlayer, view])
 
   const handleSeasonChange = useCallback((s: number) => {
     setHighlightedGameDate(null)
@@ -428,7 +428,7 @@ export function useMlbState() {
   const handleStatCardClick = useCallback((statKey: string, group: 'hitting' | 'pitching') => {
     const defs = group === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS
     const def  = defs.find(d => d.key === statKey) ?? defs[0]
-    window.history.pushState({}, '', window.location.href)
+    window.history.pushState({ returnView: view }, '', window.location.href)
     setView('stats')
     setLbGroup(group)
     setVizSeason(season)
@@ -437,28 +437,28 @@ export function useMlbState() {
     setLbStatsLimit(500)
     setStatsHighlightPlayerId(player?.id ?? null)
     setStatsHighlightStatKey(statKey)
-  }, [player, season])
+  }, [player, season, view])
 
   const handleFollowedPlayerClick = useCallback((playerId: number) => {
-    window.history.pushState({}, '', window.location.href)
+    window.history.pushState({ returnView: view }, '', window.location.href)
     fetchPlayerDetails(playerId)
       .then(p => { if (p) { selectPlayer(p); setView('search') } })
       .catch(() => {})
-  }, [selectPlayer])
+  }, [selectPlayer, view])
 
   const handleTeamSearchClick = useCallback((teamId: number) => {
     const t = allTeams.find(t => t.id === teamId)
     if (!t) return
-    window.history.pushState({}, '', window.location.href)
+    window.history.pushState({ returnView: view }, '', window.location.href)
     selectTeam(t).then(() => setView('search'))
-  }, [allTeams, selectTeam])
+  }, [allTeams, selectTeam, view])
 
   const handleVizNavigate = useCallback((id: number) => {
     const t = allTeams.find(t => t.id === id)
     if (!t) return
-    window.history.pushState({}, '', window.location.href)
+    window.history.pushState({ returnView: view }, '', window.location.href)
     selectTeam(t).then(() => setView('search'))
-  }, [allTeams, selectTeam])
+  }, [allTeams, selectTeam, view])
 
   // ─── Effects: player-level data ───────────────────────────────────────────────
 
@@ -528,7 +528,17 @@ export function useMlbState() {
 
   // Restore state when the browser back button is pressed
   useEffect(() => {
-    const handlePop = () => {
+    const handlePop = (e: PopStateEvent) => {
+      // Most reliable: use the returnView we encoded in pushState
+      if (e.state?.returnView) {
+        const rv = e.state.returnView as string
+        setView(rv as any)
+        setPlayer(null)
+        setTeam(null)
+        return
+      }
+
+      // Fallback: parse URL params (covers older history entries / deep links)
       const params = new URLSearchParams(window.location.search)
       const viewParam = params.get('view')
       const tid = params.get('tid')
