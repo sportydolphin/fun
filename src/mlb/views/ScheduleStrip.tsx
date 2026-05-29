@@ -614,10 +614,10 @@ function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick, onCli
   const homeCol    = TEAM_BG[homeTeamId] ?? '#444'
   const oppCol     = TEAM_BG[game.opponentId] ?? '#444'
 
-  // Small clickable logo circle
+  // Small clickable logo circle — stops propagation so it doesn't trigger the card onClick
   const logoCircle = (teamId: number, col: string, size: number) => (
     <Box
-      onClick={() => onTeamClick?.(teamId)}
+      onClick={e => { e.stopPropagation(); onTeamClick?.(teamId) }}
       sx={{
         width: size, height: size, borderRadius: '50%', bgcolor: '#fff',
         border: `1.5px solid ${col}`, display: 'flex', alignItems: 'center',
@@ -637,7 +637,18 @@ function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick, onCli
   )
 
   return (
-    <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+    <Box
+      onClick={onClick}
+      sx={{
+        flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75,
+        cursor: onClick ? 'pointer' : 'default',
+        borderRadius: 1.5,
+        transition: 'background-color 0.12s',
+        '&:hover': onClick ? { bgcolor: 'action.hover' } : {},
+        p: onClick ? 0.5 : 0,
+        m: onClick ? -0.5 : 0,
+      }}
+    >
       <Typography sx={{
         fontSize: '0.52rem', fontWeight: 800, textTransform: 'uppercase',
         letterSpacing: 1.5, color: labelColor ?? 'text.disabled', lineHeight: 1,
@@ -702,6 +713,16 @@ function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick, onCli
         )}
       </Box>
 
+      {/* Tap hint — only shown on mobile when card is clickable (pitcher row is hidden there) */}
+      {onClick && (
+        <Typography sx={{
+          display: { xs: 'block', sm: 'none' },
+          fontSize: '0.56rem', color: ACCENT, fontWeight: 700,
+          letterSpacing: 0.3, lineHeight: 1, mt: 0.25,
+        }}>
+          Tap for pitchers →
+        </Typography>
+      )}
     </Box>
   )
 }
@@ -1232,6 +1253,10 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
   const [loadingLive,         setLoadingLive]         = useState(false)
   const [upcomingGame,        setUpcomingGame]        = useState<ScheduleGame | null>(null)
   const [upcomingPreviewData, setUpcomingPreviewData] = useState<GamePreviewData | null>(null)
+  // Modal state for tapping a game card
+  const [modalGame,           setModalGame]           = useState<ScheduleGame | null>(null)
+  const [modalPreview,        setModalPreview]        = useState<GamePreviewData | null>(null)
+  const [modalLoading,        setModalLoading]        = useState(false)
   const [loadingUpcoming,     setLoadingUpcoming]     = useState(false)
   const [finalDetails,        setFinalDetails]        = useState<GameFinalDetails | null>(null)
 
@@ -1332,6 +1357,11 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
                 label={nextLabel}
                 labelColor={nextLabelColor}
                 onTeamClick={onTeamClick}
+                onClick={isPreview ? () => {
+                  setModalGame(nextGame)
+                  setModalPreview(previewData)
+                  setModalLoading(loadingPreview)
+                } : undefined}
               />
               {isPreview && (
                 <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
@@ -1365,6 +1395,11 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
                     myTeamId={teamId}
                     label="Next Game"
                     onTeamClick={onTeamClick}
+                    onClick={() => {
+                      setModalGame(upcomingGame)
+                      setModalPreview(upcomingPreviewData)
+                      setModalLoading(loadingUpcoming)
+                    }}
                   />
                   <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
                     <CompactPitcherRow
@@ -1393,6 +1428,18 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
           onPlayerClick={onPlayerClick}
           onTeamClick={onTeamClick}
           onClose={() => onScheduleClose?.()}
+        />
+      )}
+
+      {modalGame && (
+        <GamePreviewModal
+          game={modalGame}
+          myTeamId={teamId}
+          previewData={modalPreview}
+          loading={modalLoading}
+          onClose={() => { setModalGame(null); setModalPreview(null) }}
+          onPlayerClick={onPlayerClick}
+          onTeamClick={onTeamClick}
         />
       )}
     </>
