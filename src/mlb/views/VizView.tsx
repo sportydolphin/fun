@@ -8,7 +8,7 @@ import { TeamSummary, SosEntry } from '../types'
 import { ACCENT, TEAM_BG, TEAM_SEASONS, CURRENT_SEASON } from '../constants'
 import { pillActionSx } from '../ui'
 import { TeamEraOpsPlot, TeamWinRDPlot, TeamFraudPanel, PayrollWinsPlot } from '../charts'
-import { fetchStrengthOfSchedule } from '../api'
+import { fetchStrengthOfSchedule, fetchTeamPayrolls } from '../api'
 import { TEAM_PAYROLLS_2026 } from '../constants'
 
 // ─── SOS helpers ─────────────────────────────────────────────────────────────
@@ -368,8 +368,22 @@ export function VizView({
   // ─── Fraud modal state ────────────────────────────────────────────────────
   const [fraudModal, setFraudModal] = useState<'fraud' | 'cursed' | null>(null)
 
-  // Only load SOS for the current season (past seasons have no remaining games)
+  // ─── Payroll state — live from Supabase, falls back to hardcoded constant ─
+  const [payrolls, setPayrolls] = useState<Record<number, number>>(TEAM_PAYROLLS_2026)
+
+  // Only load SOS / payrolls for the current season (past seasons have no data)
   const showSos = vizSeason === CURRENT_SEASON
+
+  useEffect(() => {
+    if (!showSos) { setPayrolls(TEAM_PAYROLLS_2026); return }
+    fetchTeamPayrolls(vizSeason).then(live => {
+      if (Object.keys(live).length >= 28) {
+        // Good data from Supabase — use it
+        setPayrolls(live)
+      }
+      // Otherwise keep the hardcoded fallback already set in initial state
+    })
+  }, [vizSeason, showSos])
 
   useEffect(() => {
     if (!showSos) { setSosData([]); setSosModal(null); return }
@@ -585,7 +599,7 @@ export function VizView({
                 </Typography>
                 <PayrollWinsPlot
                   data={teamSummaries}
-                  payrolls={TEAM_PAYROLLS_2026}
+                  payrolls={payrolls}
                   nameMap={nameMap}
                   highlightTeamId={vizHoverId ?? vizHighlightId}
                   onSelectTeam={canHover ? handleVizNavigate : undefined}

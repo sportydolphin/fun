@@ -1,5 +1,6 @@
 import { Player, Team, StatDef, TeamSummary, CareerStatSplit, RecentGameEntry, StandingsDivision, TeamPlayerStat, TeamStandingInfo, SosEntry } from './types'
 import { TEAM_ABBR } from './constants'
+import { supabase } from '../lib/supabase'
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
 
@@ -505,4 +506,23 @@ export async function fetchStandings(season: number): Promise<StandingsDivision[
       teams,
     }
   })
+}
+
+// ─── Payroll data (sourced from FanGraphs via daily GH Actions job) ──────────
+
+/**
+ * Fetches team payrolls for the given season from the Supabase `team_payrolls`
+ * table (updated daily by scripts/update-payrolls.mjs).
+ *
+ * Returns a Record<teamId, payrollInMillions> or an empty object on failure
+ * (caller should fall back to the hardcoded TEAM_PAYROLLS_2026 constant).
+ */
+export async function fetchTeamPayrolls(season: number): Promise<Record<number, number>> {
+  const { data, error } = await supabase
+    .from('team_payrolls')
+    .select('team_id, payroll_m')
+    .eq('season', season)
+
+  if (error || !data?.length) return {}
+  return Object.fromEntries(data.map(r => [Number(r.team_id), Number(r.payroll_m)]))
 }
