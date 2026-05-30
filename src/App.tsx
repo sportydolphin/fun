@@ -3,7 +3,10 @@ import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, Dial
 import { Brightness4, Brightness7, Lock, AccountCircle } from '@mui/icons-material'
 import { useTheme } from './ThemeContext'
 import { AuthProvider, useAuth } from './AuthContext'
+import { AdminPanel } from './AdminPanel'
 import CupsGame from '../projects/cups-game/src/CupsGame'
+
+const ADMIN_EMAIL = 'snichols246@gmail.com'
 import TestGame from './TestGame'
 import Stopwatch from './Stopwatch'
 import WeightGame from './WeightGame'
@@ -35,7 +38,9 @@ function AppInner() {
   const { user, signOut, openAuthDialog } = useAuth()
   const [path, setPath] = useState<Route | string>(window.location.pathname as Route)
   const [accountOpen, setAccountOpen] = useState(false)
+  const [adminOpen,   setAdminOpen]   = useState(false)
   const accountBtnRef = useRef<HTMLButtonElement>(null)
+  const isAdmin = user?.email === ADMIN_EMAIL
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_KEY) === '1')
   const [lockDialogOpen, setLockDialogOpen] = useState(false)
   const [pendingPath, setPendingPath] = useState<string | null>(null)
@@ -225,6 +230,21 @@ function AppInner() {
                       </Typography>
                     </Box>
 
+                    {/* Admin — only shown to the site owner */}
+                    {isAdmin && (
+                      <Box
+                        onClick={() => { setAccountOpen(false); setAdminOpen(true) }}
+                        sx={{
+                          px: 2, py: 1.1, cursor: 'pointer',
+                          display: 'flex', alignItems: 'center', gap: 1,
+                          borderBottom: '1px solid', borderColor: 'divider',
+                          '&:hover': { bgcolor: 'action.hover' },
+                        }}
+                      >
+                        <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>⚡ Admin</Typography>
+                      </Box>
+                    )}
+
                     {/* Sign out */}
                     <Box
                       onClick={async () => { setAccountOpen(false); await signOut() }}
@@ -286,6 +306,8 @@ function AppInner() {
         )}
         {path === '/mlb' && <MlbStats />}
       </Box>
+
+      <AdminPanel open={adminOpen} onClose={() => setAdminOpen(false)} />
     </>
   )
 }

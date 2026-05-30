@@ -1,0 +1,215 @@
+import React, { useEffect, useState } from 'react'
+import {
+  Dialog, DialogTitle, DialogContent, IconButton,
+  Box, Typography, Divider, CircularProgress,
+} from '@mui/material'
+import { Close } from '@mui/icons-material'
+import { supabase } from './lib/supabase'
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface PayrollRow { updated_at: string; season: number }
+interface StatRow    { display_name: string; accuracy_pct: number; correct_predictions: number; total_predictions: number }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const h = Math.floor(diff / 3_600_000)
+  if (h < 1)  return 'just now'
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
+function FreshnessChip({ updatedAt }: { updatedAt: string }) {
+  const ageH = (Date.now() - new Date(updatedAt).getTime()) / 3_600_000
+  const fresh = ageH < 26
+  return (
+    <Box sx={{
+      display: 'inline-flex', alignItems: 'center', gap: 0.5,
+      px: 1, py: 0.25, borderRadius: 999,
+      bgcolor: fresh ? '#22c55e18' : '#f9731618',
+      border: '1px solid', borderColor: fresh ? '#22c55e40' : '#f9731640',
+    }}>
+      <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: fresh ? '#22c55e' : '#f97316' }} />
+      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: fresh ? '#22c55e' : '#f97316' }}>
+        {fresh ? 'Fresh' : 'Stale'}
+      </Typography>
+    </Box>
+  )
+}
+
+// ─── Stat row ─────────────────────────────────────────────────────────────────
+
+function StatRow({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 0.9 }}>
+      <Box>
+        <Typography sx={{ fontSize: '0.82rem', fontWeight: 600 }}>{label}</Typography>
+        {sub && <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.1 }}>{sub}</Typography>}
+      </Box>
+      <Box sx={{ textAlign: 'right' }}>{value}</Box>
+    </Box>
+  )
+}
+
+// ─── Section header ───────────────────────────────────────────────────────────
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Box sx={{ mb: 2.5 }}>
+      <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: 'text.disabled', mb: 1 }}>
+        {title}
+      </Typography>
+      <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+        {children}
+      </Box>
+    </Box>
+  )
+}
+
+// ─── Quick link button ────────────────────────────────────────────────────────
+
+function QuickLink({ label, href, emoji }: { label: string; href: string; emoji: string }) {
+  return (
+    <Box
+      component="a" href={href} target="_blank" rel="noopener noreferrer"
+      sx={{
+        display: 'flex', alignItems: 'center', gap: 1.25,
+        px: 1.5, py: 1.1, textDecoration: 'none',
+        '&:hover': { bgcolor: 'action.hover' },
+        '&:not(:last-child)': { borderBottom: '1px solid', borderColor: 'divider' },
+      }}
+    >
+      <Typography sx={{ fontSize: '1rem', lineHeight: 1 }}>{emoji}</Typography>
+      <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: 'text.primary' }}>{label}</Typography>
+      <Typography sx={{ ml: 'auto', fontSize: '0.72rem', color: 'text.disabled' }}>↗</Typography>
+    </Box>
+  )
+}
+
+// ─── Admin Panel ──────────────────────────────────────────────────────────────
+
+export function AdminPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [payrolls, setPayrolls]   = useState<PayrollRow[] | null>(null)
+  const [predCount, setPredCount] = useState<number | null>(null)
+  const [botStats, setBotStats]   = useState<StatRow[] | null>(null)
+  const [loading, setLoading]     = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setLoading(true)
+
+    Promise.all([
+      // Most-recent payroll update per season
+      supabase.from('team_payrolls')
+        .select('season, updated_at')
+        .order('updated_at', { ascending: false })
+        .limit(1),
+
+      // Total prediction count
+      supabase.from('game_predictions')
+        .select('*', { count: 'exact', head: true }),
+
+      // Bot + user leaderboard stats
+      supabase.from('prediction_stats')
+        .select('display_name, accuracy_pct, correct_predictions, total_predictions')
+        .order('accuracy_pct', { ascending: false })
+        .limit(10),
+    ]).then(([pr, pc, bs]) => {
+      setPayrolls((pr.data ?? []) as PayrollRow[])
+      setPredCount(pc.count ?? 0)
+      setBotStats((bs.data ?? []) as StatRow[])
+    }).finally(() => setLoading(false))
+  }, [open])
+
+  const latestPayroll = payrolls?.[0]
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth
+      PaperProps={{ sx: { borderRadius: 3 } }}>
+
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography sx={{ fontSize: '1rem', fontWeight: 800 }}>⚡ Admin</Typography>
+          <Box sx={{ px: 1, py: 0.2, borderRadius: 999, bgcolor: 'warning.main', opacity: 0.9 }}>
+            <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#000', letterSpacing: 0.5 }}>OWNER</Typography>
+          </Box>
+        </Box>
+        <IconButton size="small" onClick={onClose} sx={{ color: 'text.secondary' }}>
+          <Close sx={{ fontSize: '1.1rem' }} />
+        </IconButton>
+      </DialogTitle>
+
+      <Divider />
+
+      <DialogContent sx={{ pt: 2.5 }}>
+        {loading ? (
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : (
+          <>
+            {/* ── Payroll data ─────────────────────────────────────────── */}
+            <Section title="Payroll Data">
+              {latestPayroll ? (
+                <Box sx={{ px: 1.5 }}>
+                  <StatRow
+                    label={`${latestPayroll.season} season`}
+                    sub={`Updated ${timeAgo(latestPayroll.updated_at)}`}
+                    value={<FreshnessChip updatedAt={latestPayroll.updated_at} />}
+                  />
+                </Box>
+              ) : (
+                <Box sx={{ px: 1.5, py: 1 }}>
+                  <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>
+                    No payroll data — run <code>npm run payrolls</code>
+                  </Typography>
+                </Box>
+              )}
+            </Section>
+
+            {/* ── Prediction activity ───────────────────────────────────── */}
+            <Section title="Prediction Activity">
+              <Box sx={{ px: 1.5 }}>
+                <StatRow
+                  label="Total predictions"
+                  value={<Typography sx={{ fontSize: '0.88rem', fontWeight: 700 }}>{predCount?.toLocaleString() ?? '—'}</Typography>}
+                />
+              </Box>
+            </Section>
+
+            {/* ── Leaderboard ───────────────────────────────────────────── */}
+            {botStats && botStats.length > 0 && (
+              <Section title="Prediction Leaderboard">
+                <Box sx={{ px: 1.5 }}>
+                  {botStats.map((s, i) => (
+                    <React.Fragment key={s.display_name}>
+                      {i > 0 && <Divider />}
+                      <StatRow
+                        label={s.display_name}
+                        sub={`${s.correct_predictions}/${s.total_predictions} correct`}
+                        value={
+                          <Typography sx={{ fontSize: '0.88rem', fontWeight: 700, color: s.accuracy_pct >= 55 ? 'success.main' : 'text.primary' }}>
+                            {s.accuracy_pct}%
+                          </Typography>
+                        }
+                      />
+                    </React.Fragment>
+                  ))}
+                </Box>
+              </Section>
+            )}
+
+            {/* ── Quick links ───────────────────────────────────────────── */}
+            <Section title="Quick Links">
+              <QuickLink emoji="🔄" label="GitHub Actions — Run workflows" href="https://github.com/sportydolphin/fun/actions" />
+              <QuickLink emoji="🗄️" label="Supabase Dashboard" href="https://supabase.com/dashboard" />
+              <QuickLink emoji="📦" label="GitHub Repository" href="https://github.com/sportydolphin/fun" />
+            </Section>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
