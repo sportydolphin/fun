@@ -207,6 +207,42 @@ export function teamPalette(teamId?: number): Palette {
   return { bg, text: '#ffffff', sub: 'rgba(255,255,255,0.62)', rank: 'rgba(255,255,255,0.42)', divider: 'rgba(255,255,255,0.16)' }
 }
 
+// ─── 2026 Payroll data ────────────────────────────────────────────────────────
+// Source: FanGraphs Roster Resource (https://fangraphs.com/roster-resource/payroll/{slug})
+// Scraped 2026-05-30. Units: millions USD. Update when significant contracts are signed.
+export const TEAM_PAYROLLS_2026: Record<number, number> = {
+  108: 184,  // LAA
+  109: 196,  // ARI
+  110: 166,  // BAL
+  111: 196,  // BOS
+  112: 232,  // CHC
+  113: 128,  // CIN
+  114:  86,  // CLE
+  115: 122,  // COL
+  116: 217,  // DET
+  117: 237,  // HOU
+  118: 149,  // KC
+  119: 400,  // LAD
+  120:  96,  // WSH
+  121: 368,  // NYM
+  133:  95,  // OAK
+  134: 108,  // PIT
+  135: 209,  // SD
+  136: 163,  // SEA
+  137: 201,  // SF
+  138:  99,  // STL
+  139:  87,  // TB
+  140: 186,  // TEX
+  141: 289,  // TOR
+  142: 107,  // MIN
+  143: 287,  // PHI
+  144: 254,  // ATL
+  145:  88,  // CWS
+  146:  74,  // MIA
+  147: 308,  // NYY
+  158: 131,  // MIL
+}
+
 export function randomPalette(): Palette {
   const hue = Math.floor(Math.random() * 360)
   const sat = 65 + Math.floor(Math.random() * 30)

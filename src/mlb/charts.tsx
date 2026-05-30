@@ -526,3 +526,174 @@ export function TeamLuckChart({ data, nameMap, highlightTeamId, onSelectTeam }: 
     </Box>
   )
 }
+
+// ─── Payroll vs Win% scatter ──────────────────────────────────────────────────
+
+export function PayrollWinsPlot({
+  data, payrolls, nameMap, highlightTeamId, onSelectTeam, onHoverTeam,
+}: {
+  data: TeamSummary[]
+  payrolls: Record<number, number>
+  nameMap: Map<number, string>
+  highlightTeamId: number | null
+  onSelectTeam?: (id: number) => void
+  onHoverTeam?: (id: number | null) => void
+}) {
+  const boxRef = useRef<HTMLDivElement>(null)
+  type Pt = TeamSummary & { name: string; winPct: number; payroll: number }
+  const { hovered, setHovered, tipPos, onEnter } = useChartTooltip<Pt>(boxRef as React.RefObject<HTMLDivElement>)
+
+  const pts = data
+    .filter(d => payrolls[d.id] != null && d.wins + d.losses > 0)
+    .map(d => ({
+      ...d,
+      name: nameMap.get(d.id) ?? d.abbr,
+      winPct: d.wins / (d.wins + d.losses),
+      payroll: payrolls[d.id],
+    }))
+
+  if (pts.length === 0) return null
+
+  const W = 560, H = 400
+  const m = { t: 36, r: 24, b: 52, l: 52 }
+  const iW = W - m.l - m.r, iH = H - m.t - m.b
+
+  const payVals = pts.map(p => p.payroll)
+  const wpVals  = pts.map(p => p.winPct)
+
+  const payPad = (Math.max(...payVals) - Math.min(...payVals)) * 0.08
+  const wpPad  = (Math.max(...wpVals)  - Math.min(...wpVals))  * 0.16
+  const xMin = Math.min(...payVals) - payPad,  xMax = Math.max(...payVals) + payPad
+  const yMin = Math.min(...wpVals)  - wpPad,   yMax = Math.max(...wpVals)  + wpPad
+
+  // SVG helpers — win% higher = higher on chart (flip y)
+  const sx = (v: number) => m.l + ((v - xMin) / (xMax - xMin)) * iW
+  const sy = (v: number) => m.t + ((yMax - v) / (yMax - yMin)) * iH
+
+  // Quadrant dividers: median payroll + .500 win%
+  const sortedPay = [...payVals].sort((a, b) => a - b)
+  const medPay = sortedPay[Math.floor(sortedPay.length / 2)]
+  const mx = sx(medPay), my = sy(0.5)
+
+  // Regression line for "avg efficiency"
+  const n = pts.length
+  const sumX  = pts.reduce((s, p) => s + p.payroll, 0)
+  const sumY  = pts.reduce((s, p) => s + p.winPct, 0)
+  const sumXY = pts.reduce((s, p) => s + p.payroll * p.winPct, 0)
+  const sumX2 = pts.reduce((s, p) => s + p.payroll * p.payroll, 0)
+  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX)
+  const intercept = (sumY - slope * sumX) / n
+  const rx1 = xMin, ry1 = intercept + slope * xMin
+  const rx2 = xMax, ry2 = intercept + slope * xMax
+
+  // X ticks: $50M steps
+  const xStep = 50
+  const xTicks: number[] = []
+  for (let v = Math.ceil(xMin / xStep) * xStep; v <= xMax; v += xStep) xTicks.push(v)
+
+  // Y ticks: .05 win% steps
+  const yStep = 0.05
+  const yTicks: number[] = []
+  for (let v = Math.ceil(yMin / yStep) * yStep; v <= yMax + 0.001; v += yStep) yTicks.push(parseFloat(v.toFixed(3)))
+
+  return (
+    <Box ref={boxRef} sx={{ position: 'relative', userSelect: 'none' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}
+        onMouseLeave={() => { setHovered(null); onHoverTeam?.(null) }}>
+
+        {/* Quadrant fills */}
+        <rect x={m.l}  y={m.t}  width={mx - m.l}       height={my - m.t}       fill="#22c55e" fillOpacity={0.06} />
+        <rect x={mx}   y={m.t}  width={m.l + iW - mx}   height={my - m.t}       fill="#60a5fa" fillOpacity={0.06} />
+        <rect x={m.l}  y={my}   width={mx - m.l}         height={m.t + iH - my} fill="#94a3b8" fillOpacity={0.05} />
+        <rect x={mx}   y={my}   width={m.l + iW - mx}    height={m.t + iH - my} fill="#ef4444" fillOpacity={0.06} />
+
+        {/* Grid lines */}
+        {xTicks.map((v, i) => <line key={i} x1={sx(v)} y1={m.t} x2={sx(v)} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.07} strokeWidth={1} />)}
+        {yTicks.map((v, i) => <line key={i} x1={m.l} y1={sy(v)} x2={m.l + iW} y2={sy(v)} stroke="currentColor" strokeOpacity={0.07} strokeWidth={1} />)}
+
+        {/* Regression "avg efficiency" line */}
+        <line
+          x1={sx(rx1)} y1={sy(ry1)} x2={sx(rx2)} y2={sy(ry2)}
+          stroke="#a78bfa" strokeWidth={1.5} strokeDasharray="5 4" strokeOpacity={0.55} />
+        <text x={sx(rx2) - 5} y={sy(ry2) - 6}
+          fill="#a78bfa" fillOpacity={0.75} fontSize={8} fontWeight={700} textAnchor="end">
+          avg efficiency
+        </text>
+
+        {/* Quadrant divider lines */}
+        <line x1={mx} y1={m.t} x2={mx} y2={m.t + iH} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="6 4" strokeOpacity={0.6} />
+        <line x1={m.l} y1={my} x2={m.l + iW} y2={my} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="6 4" strokeOpacity={0.6} />
+        <text x={mx + 4} y={m.t + 11} fill="#60a5fa" fillOpacity={0.78} fontSize={8.5} fontWeight={700}>
+          med. ${Math.round(medPay)}M
+        </text>
+        <text x={m.l + iW - 5} y={my - 5} fill="#60a5fa" fillOpacity={0.78} fontSize={8.5} fontWeight={700} textAnchor="end">.500</text>
+
+        {/* Quadrant labels */}
+        <text x={m.l + 7} y={m.t + 19} fill="#22c55e" fillOpacity={0.7} fontSize={9.5} fontWeight={800}>MONEYBALL</text>
+        <text x={m.l + iW - 7} y={m.t + 19} fill="#60a5fa" fillOpacity={0.7} fontSize={9.5} fontWeight={800} textAnchor="end">ALL IN</text>
+        <text x={m.l + 7} y={m.t + iH - 9} fill="#94a3b8" fillOpacity={0.65} fontSize={9.5} fontWeight={800}>REBUILDING</text>
+        <text x={m.l + iW - 7} y={m.t + iH - 9} fill="#ef4444" fillOpacity={0.7} fontSize={9.5} fontWeight={800} textAnchor="end">BURNING $$$</text>
+
+        {/* Axes */}
+        <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.5} />
+        <line x1={m.l} y1={m.t + iH} x2={m.l + iW} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.3} strokeWidth={1.5} />
+
+        {/* X-axis ticks */}
+        {xTicks.map((v, i) => (
+          <g key={i}>
+            <line x1={sx(v)} y1={m.t + iH} x2={sx(v)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
+            <text x={sx(v)} y={m.t + iH + 16} textAnchor="middle" fill="currentColor" fillOpacity={0.72} fontSize={10}>${v}M</text>
+          </g>
+        ))}
+
+        {/* Y-axis ticks (win% as .NNN) */}
+        {yTicks.map((v, i) => (
+          <g key={i}>
+            <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
+            <text x={m.l - 8} y={sy(v) + 3.5} textAnchor="end" fill="currentColor" fillOpacity={0.72} fontSize={10}>
+              {('.' + Math.round(v * 1000).toString().padStart(3, '0'))}
+            </text>
+          </g>
+        ))}
+
+        {/* Axis labels */}
+        <text x={m.l + iW / 2} y={H - 4} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">
+          2026 Payroll →
+        </text>
+        <text transform={`translate(13,${m.t + iH / 2}) rotate(-90)`} textAnchor="middle" fill="currentColor" fillOpacity={0.78} fontSize={11} fontWeight={700} letterSpacing="0.8">
+          Win % ↑
+        </text>
+
+        {/* Team bubbles — highlighted on top */}
+        {[...pts]
+          .sort((a, b) => (a.id === highlightTeamId ? 1 : 0) - (b.id === highlightTeamId ? 1 : 0))
+          .map(team => (
+            <TeamDot key={team.id} team={team}
+              x={sx(team.payroll)} y={sy(team.winPct)}
+              hovered={hovered?.id === team.id}
+              dimmed={highlightTeamId != null && team.id !== highlightTeamId}
+              highlighted={highlightTeamId === team.id}
+              onEnter={(t, e) => {
+                onEnter({ ...t, name: nameMap.get(t.id) ?? t.abbr, winPct: team.winPct, payroll: team.payroll }, e)
+                onHoverTeam?.(t.id)
+              }}
+              onLeave={() => setHovered(null)}
+              onSelect={onSelectTeam}
+            />
+          ))}
+      </svg>
+
+      {hovered && (
+        <ChartTooltip tipPos={tipPos}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: TEAM_BG[hovered.id] ?? 'grey.500', flexShrink: 0 }} />
+            <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2 }}>{hovered.name}</Typography>
+          </Box>
+          <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>Record <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{hovered.wins}–{hovered.losses}</Box></Typography>
+          <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>Win% <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{('.' + Math.round(hovered.winPct * 1000).toString().padStart(3, '0'))}</Box></Typography>
+          <Typography sx={{ fontSize: '0.73rem', color: 'text.secondary' }}>Payroll <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>${Math.round(hovered.payroll)}M</Box></Typography>
+        </ChartTooltip>
+      )}
+    </Box>
+  )
+}

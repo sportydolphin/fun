@@ -7,8 +7,9 @@ import { Search, InfoOutlined, OpenInFull, Close } from '@mui/icons-material'
 import { TeamSummary, SosEntry } from '../types'
 import { ACCENT, TEAM_BG, TEAM_SEASONS, CURRENT_SEASON } from '../constants'
 import { pillActionSx } from '../ui'
-import { TeamEraOpsPlot, TeamWinRDPlot, TeamFraudPanel } from '../charts'
+import { TeamEraOpsPlot, TeamWinRDPlot, TeamFraudPanel, PayrollWinsPlot } from '../charts'
 import { fetchStrengthOfSchedule } from '../api'
+import { TEAM_PAYROLLS_2026 } from '../constants'
 
 // ─── SOS helpers ─────────────────────────────────────────────────────────────
 
@@ -557,6 +558,42 @@ export function VizView({
               subtitle="Losing more than their scoring predicts · weighted by standings position"
             />
           </Box>
+
+          {/* Chart 5: Payroll vs Wins — current season only */}
+          {showSos && (
+            <>
+              <Divider sx={{ gridColumn: '1 / -1' }} />
+              <Box sx={{ gridColumn: '1 / -1', pt: { xs: 3, md: 3.5 }, minWidth: 0 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
+                  <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Payroll vs. Performance</Typography>
+                  <Tooltip arrow placement="top" title={
+                    <Box sx={{ maxWidth: 290, p: 0.5 }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
+                      <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
+                        Each bubble is a team's 2026 estimated payroll plotted against their current win percentage.
+                        The purple dashed line is the league's average efficiency — how well teams are performing per dollar spent.
+                        Teams above the line are outperforming their payroll. Teams below are underperforming.
+                        The quadrant labels show the four archetypes: Moneyball teams win a lot while spending little, All-In teams buy their wins, Rebuilding teams spend little and lose, and Burning $$$ teams spend big but lose anyway.
+                      </Typography>
+                    </Box>
+                  }>
+                    <InfoOutlined sx={{ fontSize: '0.95rem', color: 'text.disabled', cursor: 'help', mt: '1px' }} />
+                  </Tooltip>
+                </Box>
+                <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
+                  2026 estimated payroll vs current win% · above the dashed line = best value
+                </Typography>
+                <PayrollWinsPlot
+                  data={teamSummaries}
+                  payrolls={TEAM_PAYROLLS_2026}
+                  nameMap={nameMap}
+                  highlightTeamId={vizHoverId ?? vizHighlightId}
+                  onSelectTeam={canHover ? handleVizNavigate : undefined}
+                  onHoverTeam={canHover ? setVizHoverId : undefined}
+                />
+              </Box>
+            </>
+          )}
 
           {/* SOS section — current season only */}
           {showSos && (
