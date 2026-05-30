@@ -3,7 +3,7 @@ import {
   Box, Typography, Paper, List, ListItemButton, Divider,
   ClickAwayListener, Tooltip, CircularProgress, IconButton,
 } from '@mui/material'
-import { Search, InfoOutlined, OpenInFull, ArrowBack } from '@mui/icons-material'
+import { Search, InfoOutlined, OpenInFull, Close } from '@mui/icons-material'
 import { TeamSummary, SosEntry } from '../types'
 import { ACCENT, TEAM_BG, TEAM_SEASONS, CURRENT_SEASON } from '../constants'
 import { pillActionSx } from '../ui'
@@ -45,7 +45,67 @@ function SosTeamDot({ teamId, abbr, size = 26 }: { teamId: number; abbr: string;
   )
 }
 
-// Compact 5-row card shown on the Visualize tab
+// ─── Shared modal overlay ─────────────────────────────────────────────────────
+
+function FullscreenModal({ open, onClose, title, subtitle, children }: {
+  open: boolean
+  onClose: () => void
+  title: React.ReactNode
+  subtitle?: string
+  children: React.ReactNode
+}) {
+  if (!open) return null
+  return (
+    <Box
+      sx={{
+        position: 'fixed', inset: 0, zIndex: 1300,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        bgcolor: 'rgba(0,0,0,0.55)', p: 2,
+      }}
+      onClick={onClose}
+    >
+      <Box
+        sx={{
+          bgcolor: 'background.paper',
+          borderRadius: 3,
+          width: '100%',
+          maxWidth: 540,
+          maxHeight: '86vh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.4)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <Box sx={{
+          px: 2.5, py: 1.75,
+          borderBottom: '1px solid', borderColor: 'divider',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+          flexShrink: 0,
+        }}>
+          <Box>
+            <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>{title}</Typography>
+            {subtitle && (
+              <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.1 }}>{subtitle}</Typography>
+            )}
+          </Box>
+          <IconButton size="small" onClick={onClose} sx={{ ml: 1, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
+            <Close sx={{ fontSize: '1.1rem' }} />
+          </IconButton>
+        </Box>
+        {/* Scrollable body */}
+        <Box sx={{ overflowY: 'auto', p: 2 }}>
+          {children}
+        </Box>
+      </Box>
+    </Box>
+  )
+}
+
+// ─── SOS mini card (5 rows) ───────────────────────────────────────────────────
+
 function SosMiniCard({ title, subtitle, slice, allEntries, onExpand, loading }: {
   title: React.ReactNode
   subtitle: string
@@ -115,7 +175,7 @@ function SosMiniCard({ title, subtitle, slice, allEntries, onExpand, loading }: 
         })
       )}
 
-      {/* Footer link */}
+      {/* Footer */}
       {!loading && (
         <Box sx={{ px: 2, py: '7px', borderTop: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'flex-end' }}>
           <Typography onClick={onExpand} sx={{ fontSize: '0.72rem', color: ACCENT, fontWeight: 700, cursor: 'pointer', userSelect: 'none', '&:hover': { textDecoration: 'underline' } }}>
@@ -127,11 +187,11 @@ function SosMiniCard({ title, subtitle, slice, allEntries, onExpand, loading }: 
   )
 }
 
-// Full 30-team ranked list shown when a mini card is expanded
-function SosFullscreen({ entries, direction, onClose }: {
+// ─── SOS full content (used inside modal) ─────────────────────────────────────
+
+function SosFullContent({ entries, direction }: {
   entries: SosEntry[]
   direction: 'hardest' | 'easiest'
-  onClose: () => void
 }) {
   const sorted = direction === 'easiest' ? [...entries].reverse() : entries
   const minPct = entries.length ? Math.min(...entries.map(e => e.oppWinPct)) : 0
@@ -152,84 +212,133 @@ function SosFullscreen({ entries, direction, onClose }: {
   const shownTiers = new Set<string>()
 
   return (
-    <Box>
-      {/* Back header */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 2 }}>
-        <IconButton size="small" onClick={onClose} sx={{ mt: 0.25, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
-          <ArrowBack sx={{ fontSize: '1.1rem' }} />
-        </IconButton>
-        <Box>
-          <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>
-            {direction === 'hardest' ? '⚔️ Hardest Schedules — All 30 Teams' : '🏖️ Easiest Schedules — All 30 Teams'}
-          </Typography>
-          <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>
-            Avg opponent win% · remaining regular-season games ·{' '}
-            {direction === 'hardest' ? 'toughest → lightest' : 'lightest → toughest'}
-          </Typography>
-        </Box>
-      </Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      {sorted.map((e, idx) => {
+        const rank  = idx + 1
+        const norm  = (e.oppWinPct - minPct) / range
+        const color = sosColor(norm)
+        const barW  = `${5 + norm * 95}%`
+        const pctStr = '.' + Math.round(e.oppWinPct * 1000).toString().padStart(3, '0')
+        const tier = tierForRank(rank)
+        const showHeader = !shownTiers.has(tier.label)
+        if (showHeader) shownTiers.add(tier.label)
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-        {sorted.map((e, idx) => {
-          const rank  = idx + 1
-          const norm  = (e.oppWinPct - minPct) / range
-          const color = sosColor(norm)
-          const barW  = `${5 + norm * 95}%`
-          const pctStr = '.' + Math.round(e.oppWinPct * 1000).toString().padStart(3, '0')
-          const tier = tierForRank(rank)
-          const showHeader = !shownTiers.has(tier.label)
-          if (showHeader) shownTiers.add(tier.label)
-
-          return (
-            <React.Fragment key={e.teamId}>
-              {showHeader && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 0.5, pt: idx === 0 ? 0 : 1, pb: 0.25 }}>
-                  <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.2, color: tier.color }}>
-                    {tier.emoji} {tier.label}
-                  </Typography>
-                  <Box sx={{ flex: 1, height: '1px', bgcolor: `${tier.color}30` }} />
-                </Box>
-              )}
-              <Box sx={{
-                display: 'grid',
-                gridTemplateColumns: '26px 28px 1fr 50px 48px 1fr 38px',
-                alignItems: 'center', gap: 1,
-                px: 1.5, py: '9px',
-                borderRadius: 1.5,
-                border: '1px solid', borderColor: 'divider',
-                bgcolor: 'background.paper',
-                borderLeft: `3px solid ${TEAM_BG[e.teamId] ?? '#444'}`,
-              }}>
-                <Typography sx={{ fontSize: '0.76rem', fontWeight: 700, color: 'text.disabled', textAlign: 'center' }}>{rank}</Typography>
-                <SosTeamDot teamId={e.teamId} abbr={e.abbr} />
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, lineHeight: 1.2 }}>{e.abbr}</Typography>
-                  <Typography sx={{ fontSize: '0.61rem', color: 'text.disabled', lineHeight: 1.2, display: { xs: 'none', sm: 'block' }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {e.teamName}
-                  </Typography>
-                </Box>
-                <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
-                  {e.wins}–{e.losses}
+        return (
+          <React.Fragment key={e.teamId}>
+            {showHeader && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 0.5, pt: idx === 0 ? 0 : 1, pb: 0.25 }}>
+                <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.2, color: tier.color }}>
+                  {tier.emoji} {tier.label}
                 </Typography>
-                <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
-                  {e.remainingGames}G
-                </Typography>
-                <Box sx={{ px: 0.5 }}>
-                  <Box sx={{ height: 8, borderRadius: 4, bgcolor: 'action.disabledBackground', overflow: 'hidden' }}>
-                    <Box sx={{ height: '100%', width: barW, borderRadius: 4, bgcolor: color, transition: 'width 0.5s ease' }} />
-                  </Box>
-                </Box>
-                <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                  {pctStr}
+                <Box sx={{ flex: 1, height: '1px', bgcolor: `${tier.color}30` }} />
+              </Box>
+            )}
+            <Box sx={{
+              display: 'grid',
+              gridTemplateColumns: '26px 28px 1fr 50px 48px 1fr 38px',
+              alignItems: 'center', gap: 1,
+              px: 1.5, py: '9px',
+              borderRadius: 1.5,
+              border: '1px solid', borderColor: 'divider',
+              bgcolor: 'background.paper',
+              borderLeft: `3px solid ${TEAM_BG[e.teamId] ?? '#444'}`,
+            }}>
+              <Typography sx={{ fontSize: '0.76rem', fontWeight: 700, color: 'text.disabled', textAlign: 'center' }}>{rank}</Typography>
+              <SosTeamDot teamId={e.teamId} abbr={e.abbr} />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, lineHeight: 1.2 }}>{e.abbr}</Typography>
+                <Typography sx={{ fontSize: '0.61rem', color: 'text.disabled', lineHeight: 1.2, display: { xs: 'none', sm: 'block' }, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {e.teamName}
                 </Typography>
               </Box>
-            </React.Fragment>
-          )
-        })}
+              <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+                {e.wins}–{e.losses}
+              </Typography>
+              <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+                {e.remainingGames}G
+              </Typography>
+              <Box sx={{ px: 0.5 }}>
+                <Box sx={{ height: 8, borderRadius: 4, bgcolor: 'action.disabledBackground', overflow: 'hidden' }}>
+                  <Box sx={{ height: '100%', width: barW, borderRadius: 4, bgcolor: color, transition: 'width 0.5s ease' }} />
+                </Box>
+              </Box>
+              <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                {pctStr}
+              </Typography>
+            </Box>
+          </React.Fragment>
+        )
+      })}
+    </Box>
+  )
+}
+
+// ─── Fraud mini card wrapper ──────────────────────────────────────────────────
+
+function FraudMiniCard({ type, data, nameMap, highlightTeamId, onSelectTeam, onHoverTeam, onExpand, tooltipText, subtitle }: {
+  type: 'fraud' | 'cursed'
+  data: TeamSummary[]
+  nameMap: Map<number, string>
+  highlightTeamId: number | null
+  onSelectTeam?: (id: number) => void
+  onHoverTeam?: (id: number | null) => void
+  onExpand: () => void
+  tooltipText: string
+  subtitle: string
+}) {
+  const isFraud = type === 'fraud'
+  const title = isFraud ? '🚨 Top Frauds' : '💀 Most Cursed'
+  const viewAllLabel = isFraud ? 'View all frauds →' : 'View all cursed →'
+
+  return (
+    <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
+      {/* Header */}
+      <Box sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>{title}</Typography>
+            <Tooltip arrow placement="top" title={
+              <Box sx={{ maxWidth: 270, p: 0.5 }}>
+                <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
+                <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>{tooltipText}</Typography>
+              </Box>
+            }>
+              <InfoOutlined sx={{ fontSize: '0.88rem', color: 'text.disabled', cursor: 'help' }} />
+            </Tooltip>
+          </Box>
+          <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.1 }}>{subtitle}</Typography>
+        </Box>
+        <Tooltip title="View all teams" arrow placement="top">
+          <IconButton size="small" onClick={onExpand} sx={{ color: 'text.disabled', '&:hover': { color: ACCENT } }}>
+            <OpenInFull sx={{ fontSize: '1rem' }} />
+          </IconButton>
+        </Tooltip>
+      </Box>
+
+      {/* Panel rows */}
+      <Box sx={{ px: 0.5, py: 0.5 }}>
+        <TeamFraudPanel
+          data={data}
+          nameMap={nameMap}
+          highlightTeamId={highlightTeamId}
+          onSelectTeam={onSelectTeam}
+          onHoverTeam={onHoverTeam}
+          type={type}
+          limit={5}
+        />
+      </Box>
+
+      {/* Footer */}
+      <Box sx={{ px: 2, py: '7px', borderTop: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'flex-end' }}>
+        <Typography onClick={onExpand} sx={{ fontSize: '0.72rem', color: ACCENT, fontWeight: 700, cursor: 'pointer', userSelect: 'none', '&:hover': { textDecoration: 'underline' } }}>
+          {viewAllLabel}
+        </Typography>
       </Box>
     </Box>
   )
 }
+
+// ─── Main view ────────────────────────────────────────────────────────────────
 
 export interface VizViewProps {
   vizSeason: number
@@ -251,16 +360,19 @@ export function VizView({
   const [vizSearchOpen, setVizSearchOpen] = useState(false)
 
   // ─── SOS state ────────────────────────────────────────────────────────────
-  const [sosData, setSosData]           = useState<SosEntry[]>([])
-  const [loadingSos, setLoadingSos]     = useState(false)
-  const [sosFullscreen, setSosFullscreen] = useState<'hardest' | 'easiest' | null>(null)
+  const [sosData, setSosData]       = useState<SosEntry[]>([])
+  const [loadingSos, setLoadingSos] = useState(false)
+  const [sosModal, setSosModal]     = useState<'hardest' | 'easiest' | null>(null)
+
+  // ─── Fraud modal state ────────────────────────────────────────────────────
+  const [fraudModal, setFraudModal] = useState<'fraud' | 'cursed' | null>(null)
 
   // Only load SOS for the current season (past seasons have no remaining games)
   const showSos = vizSeason === CURRENT_SEASON
 
   useEffect(() => {
-    if (!showSos) { setSosData([]); setSosFullscreen(null); return }
-    if (sosData.length > 0) return   // already loaded for this season
+    if (!showSos) { setSosData([]); setSosModal(null); return }
+    if (sosData.length > 0) return
     let cancelled = false
     setLoadingSos(true)
     fetchStrengthOfSchedule(vizSeason)
@@ -269,6 +381,9 @@ export function VizView({
       .finally(() => { if (!cancelled) setLoadingSos(false) })
     return () => { cancelled = true }
   }, [vizSeason, showSos])
+
+  const fraudTooltip = 'Teams winning the most games above what their run differential predicts, weighted by how well they\'re actually doing. A first-place team winning 5 more than expected ranks higher than a last-place team winning 6 more — because the first-place team is actually fooling people. Bar length = weighted fraud score. Number = raw wins above expectation.'
+  const cursedTooltip = 'Teams losing the most games beyond what their run differential predicts, weighted by how poorly they\'re already doing. A last-place team underperforming by 4 wins ranks higher than a first-place team underperforming by 5 — because the first-place team is still fine. Bar length = weighted cursed score. Number = raw wins below expectation.'
 
   return (
     <Box>
@@ -413,50 +528,34 @@ export function VizView({
           {/* Desktop-only row divider */}
           <Divider sx={{ display: { xs: 'none', md: 'block' }, gridColumn: '1 / -1' }} />
 
-          {/* Chart 3: Fraud Watch — Top Frauds */}
+          {/* Chart 3: Fraud Watch — Top Frauds (mini card) */}
           <Box sx={{ pt: { xs: 3, md: 3.5 }, minWidth: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-              <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>🚨 Top Frauds</Typography>
-              <Tooltip arrow placement="top" title={
-                <Box sx={{ maxWidth: 270, p: 0.5 }}>
-                  <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
-                  <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
-                    Teams winning the most games above what their run differential predicts, weighted by how well they're actually doing.
-                    A first-place team winning 5 more than expected ranks higher than a last-place team winning 6 more — because the first-place team is actually fooling people.
-                    Bar length = weighted fraud score. Number = raw wins above expectation.
-                  </Typography>
-                </Box>
-              }>
-                <InfoOutlined sx={{ fontSize: '0.95rem', color: 'text.disabled', cursor: 'help', mt: '1px' }} />
-              </Tooltip>
-            </Box>
-            <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
-              Winning more than their scoring predicts · weighted by standings position
-            </Typography>
-            <TeamFraudPanel data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={handleVizNavigate} onHoverTeam={canHover ? setVizHoverId : undefined} type="fraud" />
+            <FraudMiniCard
+              type="fraud"
+              data={teamSummaries}
+              nameMap={nameMap}
+              highlightTeamId={vizHoverId ?? vizHighlightId}
+              onSelectTeam={handleVizNavigate}
+              onHoverTeam={canHover ? setVizHoverId : undefined}
+              onExpand={() => setFraudModal('fraud')}
+              tooltipText={fraudTooltip}
+              subtitle="Winning more than their scoring predicts · weighted by standings position"
+            />
           </Box>
 
-          {/* Chart 4: Fraud Watch — Most Cursed */}
+          {/* Chart 4: Fraud Watch — Most Cursed (mini card) */}
           <Box sx={{ pt: { xs: 3, md: 3.5 }, minWidth: 0 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
-              <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>💀 Most Cursed</Typography>
-              <Tooltip arrow placement="top" title={
-                <Box sx={{ maxWidth: 270, p: 0.5 }}>
-                  <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
-                  <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>
-                    Teams losing the most games beyond what their run differential predicts, weighted by how poorly they're already doing.
-                    A last-place team underperforming by 4 wins ranks higher than a first-place team underperforming by 5 — because the first-place team is still fine.
-                    Bar length = weighted cursed score. Number = raw wins below expectation.
-                  </Typography>
-                </Box>
-              }>
-                <InfoOutlined sx={{ fontSize: '0.95rem', color: 'text.disabled', cursor: 'help', mt: '1px' }} />
-              </Tooltip>
-            </Box>
-            <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>
-              Losing more than their scoring predicts · weighted by standings position
-            </Typography>
-            <TeamFraudPanel data={teamSummaries} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={handleVizNavigate} onHoverTeam={canHover ? setVizHoverId : undefined} type="cursed" />
+            <FraudMiniCard
+              type="cursed"
+              data={teamSummaries}
+              nameMap={nameMap}
+              highlightTeamId={vizHoverId ?? vizHighlightId}
+              onSelectTeam={handleVizNavigate}
+              onHoverTeam={canHover ? setVizHoverId : undefined}
+              onExpand={() => setFraudModal('cursed')}
+              tooltipText={cursedTooltip}
+              subtitle="Losing more than their scoring predicts · weighted by standings position"
+            />
           </Box>
 
           {/* SOS section — current season only */}
@@ -464,40 +563,26 @@ export function VizView({
             <>
               <Divider sx={{ gridColumn: '1 / -1' }} />
 
-              {sosFullscreen ? (
-                /* Full 30-team list spans both columns */
-                <Box sx={{ gridColumn: '1 / -1', pt: { xs: 3, md: 3.5 }, minWidth: 0 }}>
-                  <SosFullscreen
-                    entries={sosData}
-                    direction={sosFullscreen}
-                    onClose={() => setSosFullscreen(null)}
-                  />
-                </Box>
-              ) : (
-                /* Two compact cards — one per column */
-                <>
-                  <Box sx={{ pt: { xs: 3, md: 3.5 }, minWidth: 0 }}>
-                    <SosMiniCard
-                      title="⚔️ Hardest Schedules"
-                      subtitle="Toughest remaining opponents"
-                      slice={sosData.slice(0, 5)}
-                      allEntries={sosData}
-                      onExpand={() => setSosFullscreen('hardest')}
-                      loading={loadingSos}
-                    />
-                  </Box>
-                  <Box sx={{ pt: { xs: 3, md: 3.5 }, minWidth: 0 }}>
-                    <SosMiniCard
-                      title="🏖️ Easiest Schedules"
-                      subtitle="Softest remaining opponents"
-                      slice={[...sosData].slice(-5).reverse()}
-                      allEntries={sosData}
-                      onExpand={() => setSosFullscreen('easiest')}
-                      loading={loadingSos}
-                    />
-                  </Box>
-                </>
-              )}
+              <Box sx={{ pt: { xs: 3, md: 3.5 }, minWidth: 0 }}>
+                <SosMiniCard
+                  title="⚔️ Hardest Schedules"
+                  subtitle="Toughest remaining opponents"
+                  slice={sosData.slice(0, 5)}
+                  allEntries={sosData}
+                  onExpand={() => setSosModal('hardest')}
+                  loading={loadingSos}
+                />
+              </Box>
+              <Box sx={{ pt: { xs: 3, md: 3.5 }, minWidth: 0 }}>
+                <SosMiniCard
+                  title="🏖️ Easiest Schedules"
+                  subtitle="Softest remaining opponents"
+                  slice={[...sosData].slice(-5).reverse()}
+                  allEntries={sosData}
+                  onExpand={() => setSosModal('easiest')}
+                  loading={loadingSos}
+                />
+              </Box>
             </>
           )}
         </Box>
@@ -506,6 +591,58 @@ export function VizView({
       {!loadingViz && teamSummaries.length === 0 && (
         <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>No team stats available for {vizSeason}.</Typography>
       )}
+
+      {/* ── SOS Modals ─────────────────────────────────────────────────────── */}
+      <FullscreenModal
+        open={sosModal === 'hardest'}
+        onClose={() => setSosModal(null)}
+        title="⚔️ Hardest Schedules — All 30 Teams"
+        subtitle="Avg opponent win% · remaining regular-season games · toughest → lightest"
+      >
+        <SosFullContent entries={sosData} direction="hardest" />
+      </FullscreenModal>
+
+      <FullscreenModal
+        open={sosModal === 'easiest'}
+        onClose={() => setSosModal(null)}
+        title="🏖️ Easiest Schedules — All 30 Teams"
+        subtitle="Avg opponent win% · remaining regular-season games · lightest → toughest"
+      >
+        <SosFullContent entries={sosData} direction="easiest" />
+      </FullscreenModal>
+
+      {/* ── Fraud Modals ───────────────────────────────────────────────────── */}
+      <FullscreenModal
+        open={fraudModal === 'fraud'}
+        onClose={() => setFraudModal(null)}
+        title="🚨 Top Frauds — All Teams"
+        subtitle="Winning more than their scoring predicts · weighted by standings position"
+      >
+        <TeamFraudPanel
+          data={teamSummaries}
+          nameMap={nameMap}
+          highlightTeamId={null}
+          onSelectTeam={id => { setFraudModal(null); handleVizNavigate(id) }}
+          type="fraud"
+          limit={30}
+        />
+      </FullscreenModal>
+
+      <FullscreenModal
+        open={fraudModal === 'cursed'}
+        onClose={() => setFraudModal(null)}
+        title="💀 Most Cursed — All Teams"
+        subtitle="Losing more than their scoring predicts · weighted by standings position"
+      >
+        <TeamFraudPanel
+          data={teamSummaries}
+          nameMap={nameMap}
+          highlightTeamId={null}
+          onSelectTeam={id => { setFraudModal(null); handleVizNavigate(id) }}
+          type="cursed"
+          limit={30}
+        />
+      </FullscreenModal>
     </Box>
   )
 }

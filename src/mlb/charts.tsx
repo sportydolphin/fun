@@ -300,13 +300,14 @@ export function TeamWinRDPlot({ data, nameMap, highlightTeamId, onSelectTeam, on
 // Fraud score  = delta × winPct         — overperforming matters MORE when you're winning
 // Cursed score = |delta| × (1−winPct)   — underperforming matters MORE when you're already losing
 
-export function TeamFraudPanel({ data, nameMap, highlightTeamId, onSelectTeam, onHoverTeam, type }: {
+export function TeamFraudPanel({ data, nameMap, highlightTeamId, onSelectTeam, onHoverTeam, type, limit = 5 }: {
   data: TeamSummary[]
   nameMap: Map<number, string>
   highlightTeamId: number | null
   onSelectTeam?: (id: number) => void
   onHoverTeam?: (id: number | null) => void
   type: 'fraud' | 'cursed'
+  limit?: number
 }) {
   const [logoErrors, setLogoErrors] = useState<Set<number>>(new Set())
 
@@ -328,7 +329,7 @@ export function TeamFraudPanel({ data, nameMap, highlightTeamId, onSelectTeam, o
   const teams = [...withScores]
     .filter(t => isFraud ? t.delta > 0 : t.delta < 0)
     .sort((a, b) => isFraud ? b.fraudScore - a.fraudScore : b.cursedScore - a.cursedScore)
-    .slice(0, 5)
+    .slice(0, limit)
 
   if (!teams.length) return null
 
