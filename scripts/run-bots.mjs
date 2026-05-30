@@ -44,7 +44,7 @@ const CURRENT_SEASON = new Date().getFullYear()
 /** Bot definitions — emails are never used for real login, just as unique keys */
 const BOTS = [
   { email: 'bot-coinflip@mlbpicks.internal',    displayName: '🤖 Coin Flip' },
-  { email: 'bot-betterrecord@mlbpicks.internal', displayName: '📊 Better Record' },
+  { email: 'bot-betterrecord@mlbpicks.internal', displayName: '🚂 Bandwagon Bot' },
 ]
 
 // ─── Date helper ─────────────────────────────────────────────────────────────
