@@ -1,20 +1,17 @@
 #!/usr/bin/env node
 /**
- * update-payrolls.mjs — Scrapes 2026 team payroll estimates from FanGraphs
+ * update-payrolls.mjs — Fetches team payroll estimates from FanGraphs
  * Roster Resource and upserts them into the Supabase `team_payrolls` table.
  *
- * Runs server-side (no CORS restriction) so plain fetch() works fine.
- * FanGraphs uses server-side rendering — payroll totals are in the initial HTML.
+ * FanGraphs uses Next.js SSR — the full data is embedded in __NEXT_DATA__ JSON
+ * in the initial HTML response, so no headless browser is needed.
+ * We extract dataOverall[season].estPayroll for the current season.
  *
  * Usage (local):
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/update-payrolls.mjs
+ *   OR: node --env-file=.env scripts/update-payrolls.mjs  (needs SERVICE_ROLE_KEY set)
  *
- * Or via npm script:
- *   npm run payrolls
- *
- * Required env vars:
- *   SUPABASE_URL               — your project URL (or VITE_SUPABASE_URL as fallback)
- *   SUPABASE_SERVICE_ROLE_KEY  — service role key (NEVER the anon key)
+ * npm script: npm run payrolls
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -46,61 +43,41 @@ const TEAM_SLUGS = {
   146: 'marlins',       147: 'yankees',       158: 'brewers',
 }
 
-// ─── Parse payroll from HTML ──────────────────────────────────────────────────
-
-/**
- * Extracts the total estimated payroll (in $M) from a FanGraphs payroll page.
- * Handles both abbreviated ("$196M") and full ("$196,327,167") dollar amounts.
- */
-function parsePayroll(html) {
-  // Strip tags and normalise whitespace so the text is easy to regex
-  const text = html
-    .replace(/<script[\s\S]*?<\/script>/gi, '')  // drop JS blocks
-    .replace(/<style[\s\S]*?<\/style>/gi, '')     // drop CSS blocks
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ')
-
-  // Find "payroll" in text, then look for the nearest dollar amount after it
-  const payrollIdx = text.toLowerCase().indexOf('payroll')
-  if (payrollIdx === -1) return null
-
-  // Search in the 300-char window that follows "payroll"
-  const window = text.slice(payrollIdx, payrollIdx + 300)
-
-  // Match $NNN,NNN,NNN or $NNNm (case insensitive M suffix)
-  const match = window.match(/\$\s*([\d,]+(?:\.\d+)?)\s*(M|B)?(?!\d)/i)
-  if (!match) return null
-
-  const raw    = parseFloat(match[1].replace(/,/g, ''))
-  const suffix = (match[2] ?? '').toUpperCase()
-
-  let millions
-  if (suffix === 'B')         millions = raw * 1_000
-  else if (suffix === 'M')    millions = raw
-  else if (raw > 10_000_000)  millions = raw / 1_000_000   // full dollar amount
-  else if (raw > 1_000)       millions = raw / 1_000        // thousands?
-  else                        millions = raw                 // already millions
-
-  return Math.round(millions * 100) / 100   // 2 decimal places
-}
-
-// ─── Fetch one team page ──────────────────────────────────────────────────────
+// ─── Fetch + parse one team page ─────────────────────────────────────────────
 
 async function fetchTeamPayroll(teamId, slug) {
   const url = `https://www.fangraphs.com/roster-resource/payroll/${slug}`
   const res = await fetch(url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120',
       'Accept':     'text/html,application/xhtml+xml',
     },
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
   const html = await res.text()
-  const payroll = parsePayroll(html)
-  if (payroll === null) throw new Error('Could not find payroll figure in HTML')
-  if (payroll < 40 || payroll > 600) throw new Error(`Suspicious payroll value: ${payroll}M`)
-  return { teamId: Number(teamId), payroll }
+
+  // FanGraphs is Next.js SSR — full data is in __NEXT_DATA__ JSON
+  const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/)
+  if (!match) throw new Error('No __NEXT_DATA__ found in HTML')
+
+  const nextData   = JSON.parse(match[1])
+  const queryData  = nextData?.props?.pageProps?.dehydratedState?.queries?.[0]?.state?.data
+  const dataOverall = queryData?.dataOverall
+
+  if (!Array.isArray(dataOverall)) throw new Error('dataOverall missing from __NEXT_DATA__')
+
+  const row = dataOverall.find(r => r.Season === SEASON)
+  if (!row) throw new Error(`No dataOverall entry for season ${SEASON}`)
+
+  // estPayroll is the best field: guaranteed + arb + pre-arb estimates
+  const payrollDollars = row.estPayroll ?? row.TotalPayroll
+  if (!payrollDollars || payrollDollars <= 0) throw new Error(`No valid payroll figure (got ${payrollDollars})`)
+
+  const payrollM = Math.round(payrollDollars / 1_000_000 * 100) / 100
+  if (payrollM < 40 || payrollM > 700) throw new Error(`Suspicious value: $${payrollM}M`)
+
+  return { teamId: Number(teamId), payroll: payrollM }
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -113,7 +90,7 @@ async function main() {
     realtime: { transport: ws },
   })
 
-  const rows = []
+  const rows   = []
   const failed = []
 
   for (const [teamId, slug] of Object.entries(TEAM_SLUGS)) {
@@ -131,14 +108,14 @@ async function main() {
       failed.push(slug)
     }
 
-    // Small delay — polite to FanGraphs, prevents rate-limiting
+    // Small delay — polite to FanGraphs
     await new Promise(r => setTimeout(r, 200))
   }
 
   console.log(`\n  Parsed ${rows.length}/30 teams  (${failed.length} failed)`)
 
   if (rows.length < 20) {
-    console.error('\n❌  Too many failures — aborting upsert (check FanGraphs HTML structure)')
+    console.error('\n❌  Too many failures — aborting upsert')
     process.exit(1)
   }
 
@@ -148,12 +125,12 @@ async function main() {
 
   if (error) {
     console.error(`\n❌  Supabase upsert failed: ${error.message}`)
-    console.error('    Make sure you ran scripts/create_team_payrolls.sql in the Supabase SQL editor first.')
+    console.error('    Make sure you ran scripts/create_team_payrolls.sql first.')
     process.exit(1)
   }
 
   if (failed.length > 0) {
-    console.warn(`\n⚠️  Failed teams: ${failed.join(', ')}`)
+    console.warn(`\n⚠️   Failed teams: ${failed.join(', ')}`)
   }
 
   console.log(`\n✅  Upserted ${rows.length} teams to team_payrolls\n`)
