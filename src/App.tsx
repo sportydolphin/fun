@@ -4,6 +4,8 @@ import { Brightness4, Brightness7, Lock, AccountCircle } from '@mui/icons-materi
 import { useTheme } from './ThemeContext'
 import { AuthProvider, useAuth } from './AuthContext'
 import { AdminPanel } from './AdminPanel'
+import { UsernameDialog } from './UsernameDialog'
+import { supabase } from './lib/supabase'
 import CupsGame from '../projects/cups-game/src/CupsGame'
 
 const ADMIN_EMAIL = 'snichols246@gmail.com'
@@ -37,10 +39,19 @@ function AppInner() {
   const { mode, toggleTheme } = useTheme()
   const { user, signOut, openAuthDialog } = useAuth()
   const [path, setPath] = useState<Route | string>(window.location.pathname as Route)
-  const [accountOpen, setAccountOpen] = useState(false)
-  const [adminOpen,   setAdminOpen]   = useState(false)
+  const [accountOpen,      setAccountOpen]      = useState(false)
+  const [adminOpen,        setAdminOpen]        = useState(false)
+  const [usernameOpen,     setUsernameOpen]     = useState(false)
+  const [username,         setUsername]         = useState<string | null>(null)
   const accountBtnRef = useRef<HTMLButtonElement>(null)
   const isAdmin = user?.email === ADMIN_EMAIL
+
+  // Fetch username whenever the logged-in user changes
+  useEffect(() => {
+    if (!user) { setUsername(null); return }
+    supabase.from('usernames').select('username').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => setUsername(data?.username ?? null))
+  }, [user?.id])
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_KEY) === '1')
   const [lockDialogOpen, setLockDialogOpen] = useState(false)
   const [pendingPath, setPendingPath] = useState<string | null>(null)
@@ -215,19 +226,42 @@ function AppInner() {
                   }}>
                     {/* User info */}
                     <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
-                      {user.user_metadata?.full_name && (
+                      {/* Username (primary) or full name if no username */}
+                      {username ? (
+                        <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', lineHeight: 1.3, mb: 0.2 }}>
+                          @{username}
+                        </Typography>
+                      ) : user.user_metadata?.full_name ? (
                         <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', lineHeight: 1.3, mb: 0.2 }}>
                           {user.user_metadata.full_name}
                         </Typography>
-                      )}
+                      ) : null}
                       <Typography sx={{
-                        fontSize: user.user_metadata?.full_name ? '0.72rem' : '0.9rem',
-                        fontWeight: user.user_metadata?.full_name ? 400 : 600,
-                        color: user.user_metadata?.full_name ? 'text.secondary' : 'text.primary',
+                        fontSize: (username || user.user_metadata?.full_name) ? '0.72rem' : '0.9rem',
+                        fontWeight: (username || user.user_metadata?.full_name) ? 400 : 600,
+                        color: (username || user.user_metadata?.full_name) ? 'text.secondary' : 'text.primary',
                         lineHeight: 1.3, wordBreak: 'break-all',
                       }}>
                         {user.email}
                       </Typography>
+                    </Box>
+
+                    {/* Set / change username */}
+                    <Box
+                      onClick={() => { setAccountOpen(false); setUsernameOpen(true) }}
+                      sx={{
+                        px: 2, py: 1.1, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        borderBottom: '1px solid', borderColor: 'divider',
+                        '&:hover': { bgcolor: 'action.hover' },
+                      }}
+                    >
+                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                        {username ? `@${username}` : 'Set username'}
+                      </Typography>
+                      {!username && (
+                        <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>optional</Typography>
+                      )}
                     </Box>
 
                     {/* Admin — only shown to the site owner */}
@@ -308,6 +342,16 @@ function AppInner() {
       </Box>
 
       <AdminPanel open={adminOpen} onClose={() => setAdminOpen(false)} />
+
+      {user && (
+        <UsernameDialog
+          open={usernameOpen}
+          onClose={() => setUsernameOpen(false)}
+          userId={user.id}
+          currentUsername={username}
+          onSaved={setUsername}
+        />
+      )}
     </>
   )
 }
