@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react'
-import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Tooltip } from '@mui/material'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
+import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Tooltip, Paper, ClickAwayListener } from '@mui/material'
 import { Brightness4, Brightness7, Lock, AccountCircle } from '@mui/icons-material'
 import { useTheme } from './ThemeContext'
 import { AuthProvider, useAuth } from './AuthContext'
@@ -34,6 +34,8 @@ function AppInner() {
   const { mode, toggleTheme } = useTheme()
   const { user, signOut, openAuthDialog } = useAuth()
   const [path, setPath] = useState<Route | string>(window.location.pathname as Route)
+  const [accountOpen, setAccountOpen] = useState(false)
+  const accountBtnRef = useRef<HTMLButtonElement>(null)
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_KEY) === '1')
   const [lockDialogOpen, setLockDialogOpen] = useState(false)
   const [pendingPath, setPendingPath] = useState<string | null>(null)
@@ -189,11 +191,57 @@ function AppInner() {
             {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
           </IconButton>
           {user ? (
-            <Tooltip title={`Signed in as ${user.email} — click to sign out`}>
-              <IconButton onClick={signOut} size="small">
-                <AccountCircle sx={{ color: 'success.main' }} />
-              </IconButton>
-            </Tooltip>
+            <ClickAwayListener onClickAway={() => setAccountOpen(false)}>
+              <Box sx={{ position: 'relative' }}>
+                <IconButton
+                  ref={accountBtnRef}
+                  onClick={() => setAccountOpen(o => !o)}
+                  size="small"
+                  sx={{ color: 'success.main' }}
+                >
+                  <AccountCircle />
+                </IconButton>
+
+                {accountOpen && (
+                  <Paper elevation={8} sx={{
+                    position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 1400,
+                    borderRadius: 2.5, minWidth: 220, overflow: 'hidden',
+                    border: '1px solid', borderColor: 'divider',
+                  }}>
+                    {/* User info */}
+                    <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                      {user.user_metadata?.full_name && (
+                        <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', lineHeight: 1.3, mb: 0.2 }}>
+                          {user.user_metadata.full_name}
+                        </Typography>
+                      )}
+                      <Typography sx={{
+                        fontSize: user.user_metadata?.full_name ? '0.72rem' : '0.9rem',
+                        fontWeight: user.user_metadata?.full_name ? 400 : 600,
+                        color: user.user_metadata?.full_name ? 'text.secondary' : 'text.primary',
+                        lineHeight: 1.3, wordBreak: 'break-all',
+                      }}>
+                        {user.email}
+                      </Typography>
+                    </Box>
+
+                    {/* Sign out */}
+                    <Box
+                      onClick={async () => { setAccountOpen(false); await signOut() }}
+                      sx={{
+                        px: 2, py: 1.25, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 1,
+                        '&:hover': { bgcolor: 'action.hover' },
+                      }}
+                    >
+                      <Typography sx={{ fontSize: '0.85rem', color: 'error.main', fontWeight: 600 }}>
+                        Sign out
+                      </Typography>
+                    </Box>
+                  </Paper>
+                )}
+              </Box>
+            </ClickAwayListener>
           ) : (
             <Tooltip title="Sign in to sync your followed team & players">
               <IconButton onClick={() => openAuthDialog('signin')} size="small" sx={{ color: 'text.secondary' }}>
