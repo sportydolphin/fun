@@ -137,12 +137,12 @@ async function fetchPersonalStats(userId: string): Promise<PersonalStats | null>
   const favoriteWins = Object.entries(winPicks)
     .map(([id, count]) => ({ teamId: Number(id), teamAbbr: TEAM_ABBR[Number(id)] ?? '?', count }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, 5)
+    .slice(0, 3)
 
   const favoriteLosses = Object.entries(lossPicks)
     .map(([id, count]) => ({ teamId: Number(id), teamAbbr: TEAM_ABBR[Number(id)] ?? '?', count }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, 5)
+    .slice(0, 3)
 
   // Min 3 picks for statistical significance
   const bestPickRate = Object.entries(teamStats)
@@ -152,7 +152,7 @@ async function fetchPersonalStats(userId: string): Promise<PersonalStats | null>
       ...s, pct: Math.round(s.correct / s.total * 100),
     }))
     .sort((a, b) => b.pct - a.pct || b.total - a.total)
-    .slice(0, 5)
+    .slice(0, 3)
 
   return {
     totalPredicted, finalizedCount, correctPredictions, accuracyPct,
@@ -221,60 +221,116 @@ function StatPill({ label, value, accent }: { label: string; value: string | num
   )
 }
 
-// ─── SectionLabel ─────────────────────────────────────────────────────────────
+// ─── TeamPodium ───────────────────────────────────────────────────────────────
+// Shows up to 3 teams as large logo cards in a row.
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+const RANK_COLORS = ['#f59e0b', '#94a3b8', '#cd7c2e']  // gold / silver / bronze
+
+function TeamLogoCard({ teamId, teamAbbr, rank, mainLabel, subLabel }: {
+  teamId:    number
+  teamAbbr:  string
+  rank:      number   // 0-based
+  mainLabel: string
+  subLabel?: string
+}) {
+  const [failed, setFailed] = useState(false)
+  const col      = TEAM_BG[teamId] ?? '#555'
+  const rankCol  = RANK_COLORS[rank] ?? '#94a3b8'
+  const logoSize = rank === 0 ? 68 : 56
+
   return (
-    <Typography sx={{
-      fontWeight: 800, fontSize: '0.62rem',
-      textTransform: 'uppercase', letterSpacing: 1.2,
-      color: ACCENT, mb: 0.75, mt: 0.25,
-    }}>
-      {children}
-    </Typography>
+    <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.6 }}>
+      {/* Logo with rank badge */}
+      <Box sx={{ position: 'relative', mb: 0.25 }}>
+        <Box sx={{
+          width: logoSize, height: logoSize, borderRadius: '50%',
+          bgcolor: '#fff',
+          border: `2.5px solid ${col}`,
+          boxShadow: rank === 0 ? `0 0 0 2px ${rankCol}55, 0 4px 16px ${col}30` : `0 2px 8px ${col}20`,
+          overflow: 'hidden', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'box-shadow 0.2s',
+        }}>
+          {failed ? (
+            <Typography sx={{ color: col, fontWeight: 900, fontSize: logoSize * 0.28, lineHeight: 1 }}>
+              {teamAbbr}
+            </Typography>
+          ) : (
+            <Box
+              component="img"
+              src={`https://www.mlbstatic.com/team-logos/${teamId}.svg`}
+              alt={teamAbbr}
+              onError={() => setFailed(true)}
+              sx={{ width: '78%', height: '78%', objectFit: 'contain', display: 'block' }}
+            />
+          )}
+        </Box>
+
+        {/* Rank badge */}
+        <Box sx={{
+          position: 'absolute', top: -3, right: -3,
+          width: 20, height: 20, borderRadius: '50%',
+          bgcolor: rankCol,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+          border: '1.5px solid', borderColor: 'background.paper',
+        }}>
+          <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#fff', lineHeight: 1 }}>
+            {rank + 1}
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* Team abbr */}
+      <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: 'text.secondary', lineHeight: 1 }}>
+        {teamAbbr}
+      </Typography>
+
+      {/* Main stat */}
+      <Typography sx={{ fontSize: rank === 0 ? '1.05rem' : '0.92rem', fontWeight: 800, color: col, lineHeight: 1 }}>
+        {mainLabel}
+      </Typography>
+
+      {/* Sub label (e.g. "8/10") */}
+      {subLabel && (
+        <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1 }}>
+          {subLabel}
+        </Typography>
+      )}
+    </Box>
   )
 }
 
-// ─── TeamBarRow ───────────────────────────────────────────────────────────────
-
-function TeamBarRow({ teamId, teamAbbr, value, maxValue, rightLabel }: {
-  teamId:     number
-  teamAbbr:   string
-  value:      number
-  maxValue:   number
-  rightLabel: string
+function TeamPodium({ title, teams, getMain, getSub }: {
+  title:   string
+  teams:   Array<{ teamId: number; teamAbbr: string; [key: string]: any }>
+  getMain: (t: any) => string
+  getSub?: (t: any) => string
 }) {
-  const col    = TEAM_BG[teamId] ?? '#444'
-  const barPct = maxValue > 0 ? Math.min(Math.round((value / maxValue) * 100), 100) : 0
+  const top3 = teams.slice(0, 3)
+  if (top3.length === 0) return null
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.45 }}>
-      <Box sx={{
-        width: 22, height: 22, borderRadius: '50%',
-        bgcolor: '#fff', border: `1.5px solid ${col}40`,
-        overflow: 'hidden', flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+    <Box>
+      <Typography sx={{
+        fontWeight: 800, fontSize: '0.62rem',
+        textTransform: 'uppercase', letterSpacing: 1.2,
+        color: ACCENT, mb: 1.25,
       }}>
-        <Box
-          component="img"
-          src={`https://www.mlbstatic.com/team-logos/${teamId}.svg`}
-          alt={teamAbbr}
-          sx={{ width: '80%', height: '80%', objectFit: 'contain' }}
-        />
-      </Box>
-      <Typography sx={{ fontSize: '0.66rem', fontWeight: 700, width: 28, flexShrink: 0, color: 'text.secondary' }}>
-        {teamAbbr}
+        {title}
       </Typography>
-      <Box sx={{ flex: 1, height: 5, borderRadius: 3, bgcolor: 'divider', overflow: 'hidden' }}>
-        <Box sx={{
-          width: `${barPct}%`, height: '100%',
-          bgcolor: col, borderRadius: 3,
-          transition: 'width 0.5s cubic-bezier(0.4,0,0.2,1)',
-        }} />
+      <Box sx={{ display: 'flex', gap: 1 }}>
+        {top3.map((t, i) => (
+          <TeamLogoCard
+            key={t.teamId}
+            teamId={t.teamId}
+            teamAbbr={t.teamAbbr}
+            rank={i}
+            mainLabel={getMain(t)}
+            subLabel={getSub?.(t)}
+          />
+        ))}
       </Box>
-      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, minWidth: 56, textAlign: 'right', flexShrink: 0 }}>
-        {rightLabel}
-      </Typography>
     </Box>
   )
 }
@@ -283,8 +339,9 @@ function TeamBarRow({ teamId, teamAbbr, value, maxValue, rightLabel }: {
 
 function MyStatsContent({ stats }: { stats: PersonalStats }) {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {/* Row 1: Accuracy · Correct · Total picks */}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+
+      {/* Summary pills */}
       <Box sx={{ display: 'flex', gap: 1 }}>
         <StatPill
           label="Accuracy"
@@ -296,67 +353,33 @@ function MyStatsContent({ stats }: { stats: PersonalStats }) {
           value={`${stats.correctPredictions}/${stats.finalizedCount}`}
         />
         <StatPill
-          label="Total Picks"
-          value={stats.totalPredicted}
+          label="🔥 Streak"
+          value={stats.currentStreak}
         />
       </Box>
 
-      {/* Row 2: Current streak · Best streak */}
-      <Box sx={{ display: 'flex', gap: 1 }}>
-        <StatPill label="🔥 Streak" value={stats.currentStreak} />
-        <StatPill label="Best Streak" value={stats.bestStreak} />
-      </Box>
-
       {/* Most picked to win */}
-      {stats.favoriteWins.length > 0 && (
-        <Box>
-          <SectionLabel>Most Picked to Win</SectionLabel>
-          {stats.favoriteWins.map(t => (
-            <TeamBarRow
-              key={t.teamId}
-              teamId={t.teamId}
-              teamAbbr={t.teamAbbr}
-              value={t.count}
-              maxValue={stats.favoriteWins[0].count}
-              rightLabel={`${t.count}×`}
-            />
-          ))}
-        </Box>
-      )}
+      <TeamPodium
+        title="Most Picked to Win"
+        teams={stats.favoriteWins}
+        getMain={t => `${t.count}×`}
+      />
 
-      {/* Most predicted to lose */}
-      {stats.favoriteLosses.length > 0 && (
-        <Box>
-          <SectionLabel>Most Predicted to Lose</SectionLabel>
-          {stats.favoriteLosses.map(t => (
-            <TeamBarRow
-              key={t.teamId}
-              teamId={t.teamId}
-              teamAbbr={t.teamAbbr}
-              value={t.count}
-              maxValue={stats.favoriteLosses[0].count}
-              rightLabel={`${t.count}×`}
-            />
-          ))}
-        </Box>
-      )}
+      {/* Most picked to lose */}
+      <TeamPodium
+        title="Most Picked to Lose"
+        teams={stats.favoriteLosses}
+        getMain={t => `${t.count}×`}
+      />
 
-      {/* Best pick rate by team (min 3 picks) */}
-      {stats.bestPickRate.length > 0 && (
-        <Box>
-          <SectionLabel>Best Pick Rate (min 3 picks)</SectionLabel>
-          {stats.bestPickRate.map(t => (
-            <TeamBarRow
-              key={t.teamId}
-              teamId={t.teamId}
-              teamAbbr={t.teamAbbr}
-              value={t.pct}
-              maxValue={100}
-              rightLabel={`${t.pct}% (${t.correct}/${t.total})`}
-            />
-          ))}
-        </Box>
-      )}
+      {/* Best pick rate (min 3 picks) */}
+      <TeamPodium
+        title="Best Pick Rate"
+        teams={stats.bestPickRate}
+        getMain={t => `${t.pct}%`}
+        getSub={t => `${t.correct}/${t.total}`}
+      />
+
     </Box>
   )
 }
