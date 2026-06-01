@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { Box, Typography } from '@mui/material'
 import { Team } from '../types'
 import { TEAM_BG, CURRENT_SEASON } from '../constants'
 import { fetchDivisionForTeam } from '../api'
-import { TeamScheduleStrip } from './ScheduleStrip'
+// ~1,400-line schedule module — lazy so the League tab doesn't pull it in.
+const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
@@ -404,14 +405,16 @@ export function HomeView({
 
                     {/* Schedule strip */}
                     <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 1.25 }}>
-                      <TeamScheduleStrip
-                        teamId={followedTeamId}
-                        teamColor={bg}
-                        showSchedule={showTeamSchedule}
-                        onScheduleClose={() => setShowTeamSchedule(false)}
-                        onPlayerClick={onPlayerClick}
-                        onTeamClick={onTeamClick}
-                      />
+                      <Suspense fallback={<Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', px: 1.5, py: 1 }}>Loading schedule…</Typography>}>
+                        <TeamScheduleStrip
+                          teamId={followedTeamId}
+                          teamColor={bg}
+                          showSchedule={showTeamSchedule}
+                          onScheduleClose={() => setShowTeamSchedule(false)}
+                          onPlayerClick={onPlayerClick}
+                          onTeamClick={onTeamClick}
+                        />
+                      </Suspense>
                     </Box>
                   </Box>
 

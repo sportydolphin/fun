@@ -5,11 +5,16 @@ import { ACCENT, CURRENT_SEASON, TEAM_BG } from './constants'
 import { fmtR, parseIP } from './utils'
 import { SegControl } from './components'
 import { TREND_HIT_DEFS, TREND_PIT_DEFS } from './trendDefs'
+import { fetchSeasonPlayerStats } from './api'
 
 export { TREND_HIT_DEFS, TREND_PIT_DEFS } from './trendDefs'
 
 
 // ─── League avg cache (module-level, keyed "hitting-2023") ────────────────────
+//
+// The raw per-season payload is fetched + cached once in api.ts and shared with
+// the leaderboard / rankings; here we just cache the lighter mapped-to-`.stat`
+// projection so repeated chart interactions don't re-map 2,000 rows each time.
 
 const leagueStatsCache = new Map<string, Promise<any[]>>()
 const LEAGUE_CACHE_MAX = 30
@@ -22,10 +27,7 @@ function fetchLeagueStatsBySeason(season: number, group: 'hitting' | 'pitching')
       leagueStatsCache.delete(leagueStatsCache.keys().next().value!)
     }
     leagueStatsCache.set(key,
-      fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=${group}&season=${season}&sportId=1&limit=2000`)
-        .then(r => r.json())
-        .then((d: any) => (d.stats?.[0]?.splits ?? []).map((s: any) => s.stat))
-        .catch(() => [])
+      fetchSeasonPlayerStats(group, season).then(splits => splits.map((s: any) => s.stat))
     )
   }
   return leagueStatsCache.get(key)!

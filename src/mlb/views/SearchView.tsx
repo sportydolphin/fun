@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, lazy, Suspense } from 'react'
 import {
   Box, Typography, Paper, CircularProgress,
   List, ListItemButton, Divider, ClickAwayListener,
@@ -10,7 +10,8 @@ import { Player, Team, Palette, RankMode, TeamPlayerStat, CareerStatSplit, Recen
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG, TEAM_ABBR, BBREF_ABBR, DEFAULT_HIT_STATS, DEFAULT_PIT_STATS, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette } from '../constants'
 import { SegControl, PillChip, pillActionSx, linkPillSx, SectionLabel } from '../ui'
 import { CardInner, CardInnerProps, TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsCard } from '../cards'
-import { PlayerTrendsChart } from '../PlayerTrendsChart'
+// ~1,000-line chart module — lazy so it only loads once a player card is open.
+const PlayerTrendsChart = lazy(() => import('../PlayerTrendsChart').then(m => ({ default: m.PlayerTrendsChart })))
 import { RecentGamesTable } from '../RecentGamesTable'
 import { CareerStatsTable } from '../CareerStatsTable'
 import { fetchPlayerDetails } from '../api'
@@ -460,16 +461,18 @@ export function SearchView({
                   p: { xs: 0.75, sm: 1.5 },
                   mx: { xs: -2, sm: 0 },
                 }}>
-                  <PlayerTrendsChart
-                    splits={careerSplits!}
-                    isPitcher={player!.primaryPosition?.code === '1'}
-                    isTwoWay={player!.primaryPosition?.type === 'Two-Way Player'}
-                    gameLog={recentGames}
-                    season={season}
-                    chartMode={statsView === 'season' ? 'rolling' : 'career'}
-                    onGameSelect={date => setHighlightedGameDate(d => d === date ? null : date)}
-                    onYearSelect={statsView === 'career' ? (s => setHighlightedCareerYear(y => y === s ? null : s)) : undefined}
-                  />
+                  <Suspense fallback={<Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress size={22} /></Box>}>
+                    <PlayerTrendsChart
+                      splits={careerSplits!}
+                      isPitcher={player!.primaryPosition?.code === '1'}
+                      isTwoWay={player!.primaryPosition?.type === 'Two-Way Player'}
+                      gameLog={recentGames}
+                      season={season}
+                      chartMode={statsView === 'season' ? 'rolling' : 'career'}
+                      onGameSelect={date => setHighlightedGameDate(d => d === date ? null : date)}
+                      onYearSelect={statsView === 'career' ? (s => setHighlightedCareerYear(y => y === s ? null : s)) : undefined}
+                    />
+                  </Suspense>
                 </Box>
               )}
 

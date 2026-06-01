@@ -61,6 +61,24 @@ export async function fetchCareerData(id: number, groups: Array<'hitting' | 'pit
   return { seasons: [...seasons].sort((a, b) => b - a), teamsBySeason }
 }
 
+// Cache the full "every player in a season" payload so the many consumers that
+// need it — leaderboard, per-stat rankings, and the trends chart's league
+// averages — all share a single network request per (group, season).
+const seasonStatsCache = new Map<string, Promise<any[]>>()
+
+export function fetchSeasonPlayerStats(group: 'hitting' | 'pitching', season: number): Promise<any[]> {
+  const key = `${group}-${season}`
+  if (!seasonStatsCache.has(key)) {
+    seasonStatsCache.set(key,
+      fetch(`https://statsapi.mlb.com/api/v1/stats?stats=season&group=${group}&season=${season}&sportId=1&limit=2000&playerPool=All`)
+        .then(r => r.json())
+        .then((d: any) => d.stats?.[0]?.splits ?? [])
+        .catch(() => [])
+    )
+  }
+  return seasonStatsCache.get(key)!
+}
+
 // Fetch all players' season stats for a group, then rank locally per stat def.
 // Replaces the old stats/leaders endpoint which silently drops most categories
 // when more than ~3 are batched in one request.
@@ -70,11 +88,7 @@ export async function fetchAndRankPlayers(
   defs: StatDef[]
 ): Promise<Map<string, number[]>> {
   try {
-    const r = await fetch(
-      `https://statsapi.mlb.com/api/v1/stats?stats=season&group=${group}&season=${season}&sportId=1&limit=2000&playerPool=All`
-    )
-    const d = await r.json()
-    const splits: any[] = d.stats?.[0]?.splits ?? []
+    const splits = await fetchSeasonPlayerStats(group, season)
     // Estimate how far into the season we are by the max games played by any player
     const maxGames = Math.max(...splits.map(s => Number(s.stat?.gamesPlayed ?? 0)), 1)
     const minPA = Math.round(maxGames * 3.1)   // batting qualification threshold
@@ -131,11 +145,8 @@ export async function fetchLeaderboardData(
   season: number
 ): Promise<Array<{ playerId: number; playerName: string; teamAbbr: string; teamId: number; stat: any }>> {
   try {
-    const r = await fetch(
-      `https://statsapi.mlb.com/api/v1/stats?stats=season&group=${group}&season=${season}&sportId=1&limit=2000&playerPool=All`
-    )
-    const d = await r.json()
-    return (d.stats?.[0]?.splits ?? []).map((s: any) => ({
+    const splits = await fetchSeasonPlayerStats(group, season)
+    return splits.map((s: any) => ({
       playerId: Number(s.player?.id),
       playerName: s.player?.fullName ?? '—',
       teamAbbr: s.team?.abbreviation ?? TEAM_ABBR[s.team?.id] ?? '—',

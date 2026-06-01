@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react'
-import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Tooltip, Paper, ClickAwayListener } from '@mui/material'
+import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react'
+import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Tooltip, Paper, ClickAwayListener, CircularProgress } from '@mui/material'
 import { Brightness4, Brightness7, Lock, AccountCircle } from '@mui/icons-material'
 import { useTheme } from './ThemeContext'
 import { AuthProvider, useAuth } from './AuthContext'
@@ -13,7 +13,10 @@ import TestGame from './TestGame'
 import Stopwatch from './Stopwatch'
 import WeightGame from './WeightGame'
 import PoopGame from './PoopGame'
-import MlbStats from './MlbStats'
+
+// The MLB feature is by far the largest part of the app — code-split it so the
+// landing page and other projects don't ship its ~entire view tree up front.
+const MlbStats = lazy(() => import('./MlbStats'))
 
 type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame' | '/mlb'
 
@@ -338,7 +341,11 @@ function AppInner() {
             <TestGame />
           </Box>
         )}
-        {path === '/mlb' && <MlbStats />}
+        {path === '/mlb' && (
+          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+            <MlbStats />
+          </Suspense>
+        )}
       </Box>
 
       <AdminPanel open={adminOpen} onClose={() => setAdminOpen(false)} />
