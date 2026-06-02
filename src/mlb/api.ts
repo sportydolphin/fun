@@ -232,6 +232,7 @@ export async function fetchRecentGames(
           date: split.date ?? '',
           isHome: split.isHome ?? true,
           opponentAbbr: split.opponent?.abbreviation ?? TEAM_ABBR[split.opponent?.id] ?? '???',
+          opponentId: split.opponent?.id != null ? Number(split.opponent.id) : null,
           hitting: null,
           pitching: null,
         })

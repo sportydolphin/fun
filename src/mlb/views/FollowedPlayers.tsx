@@ -327,6 +327,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                     player={p}
                     alreadyFollowed={followedPlayerIds.includes(p.id)}
                     onFollow={() => { onFollow(p.id); setAdding(false); setAddQuery(''); setAddResults([]) }}
+                    onPlayerClick={onPlayerClick}
                   />
                 ))}
               </Box>

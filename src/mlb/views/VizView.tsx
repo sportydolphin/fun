@@ -107,13 +107,14 @@ function FullscreenModal({ open, onClose, title, subtitle, children }: {
 
 // ─── SOS mini card (5 rows) ───────────────────────────────────────────────────
 
-function SosMiniCard({ title, subtitle, slice, allEntries, onExpand, loading }: {
+function SosMiniCard({ title, subtitle, slice, allEntries, onExpand, loading, onSelectTeam }: {
   title: React.ReactNode
   subtitle: string
   slice: SosEntry[]
   allEntries: SosEntry[]
   onExpand: () => void
   loading: boolean
+  onSelectTeam?: (id: number) => void
 }) {
   const minPct = allEntries.length ? Math.min(...allEntries.map(e => e.oppWinPct)) : 0
   const maxPct = allEntries.length ? Math.max(...allEntries.map(e => e.oppWinPct)) : 1
@@ -147,7 +148,9 @@ function SosMiniCard({ title, subtitle, slice, allEntries, onExpand, loading }: 
           const pctStr = '.' + Math.round(e.oppWinPct * 1000).toString().padStart(3, '0')
           const rankInFull = allEntries.findIndex(x => x.teamId === e.teamId) + 1
           return (
-            <Box key={e.teamId} sx={{
+            <Box key={e.teamId}
+              onClick={onSelectTeam ? () => onSelectTeam(e.teamId) : undefined}
+              sx={{
               display: 'grid',
               gridTemplateColumns: '22px 28px 1fr 60px 36px',
               alignItems: 'center', gap: 1,
@@ -155,6 +158,7 @@ function SosMiniCard({ title, subtitle, slice, allEntries, onExpand, loading }: 
               borderBottom: idx < slice.length - 1 ? '1px solid' : 'none',
               borderColor: 'divider',
               borderLeft: `3px solid ${TEAM_BG[e.teamId] ?? '#444'}`,
+              ...(onSelectTeam ? { cursor: 'pointer', transition: 'background-color 0.12s', '&:hover': { bgcolor: 'action.hover' } } : {}),
             }}>
               <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontWeight: 700, textAlign: 'center' }}>
                 {rankInFull}
@@ -190,9 +194,10 @@ function SosMiniCard({ title, subtitle, slice, allEntries, onExpand, loading }: 
 
 // ─── SOS full content (used inside modal) ─────────────────────────────────────
 
-function SosFullContent({ entries, direction }: {
+function SosFullContent({ entries, direction, onSelectTeam }: {
   entries: SosEntry[]
   direction: 'hardest' | 'easiest'
+  onSelectTeam?: (id: number) => void
 }) {
   const sorted = direction === 'easiest' ? [...entries].reverse() : entries
   const minPct = entries.length ? Math.min(...entries.map(e => e.oppWinPct)) : 0
@@ -234,13 +239,16 @@ function SosFullContent({ entries, direction }: {
                 <Box sx={{ flex: 1, height: '1px', bgcolor: `${tier.color}30` }} />
               </Box>
             )}
-            <Box sx={{
+            <Box
+              onClick={onSelectTeam ? () => onSelectTeam(e.teamId) : undefined}
+              sx={{
               display: 'grid',
               gridTemplateColumns: '26px 28px 1fr 50px 48px 1fr 38px',
               alignItems: 'center', gap: 1,
               px: 1.5, py: '9px',
               borderRadius: 1.5,
               border: '1px solid', borderColor: 'divider',
+              ...(onSelectTeam ? { cursor: 'pointer', '&:hover': { bgcolor: 'action.hover', borderColor: 'text.secondary' } } : {}),
               bgcolor: 'background.paper',
               borderLeft: `3px solid ${TEAM_BG[e.teamId] ?? '#444'}`,
             }}>
@@ -648,6 +656,7 @@ export function VizView({
                         allEntries={sosData}
                         onExpand={() => setSosModal('hardest')}
                         loading={loadingSos}
+                        onSelectTeam={handleVizNavigate}
                       />
                     </Box>
                     <Box sx={{ pt: { xs: 2, md: 0 }, minWidth: 0 }}>
@@ -658,6 +667,7 @@ export function VizView({
                         allEntries={sosData}
                         onExpand={() => setSosModal('easiest')}
                         loading={loadingSos}
+                        onSelectTeam={handleVizNavigate}
                       />
                     </Box>
                   </>
@@ -680,7 +690,7 @@ export function VizView({
         title="⚔️ Hardest Schedules — All 30 Teams"
         subtitle="Avg opponent win% · remaining regular-season games · toughest → lightest"
       >
-        <SosFullContent entries={sosData} direction="hardest" />
+        <SosFullContent entries={sosData} direction="hardest" onSelectTeam={id => { setSosModal(null); handleVizNavigate(id) }} />
       </FullscreenModal>
 
       <FullscreenModal
@@ -689,7 +699,7 @@ export function VizView({
         title="🏖️ Easiest Schedules — All 30 Teams"
         subtitle="Avg opponent win% · remaining regular-season games · lightest → toughest"
       >
-        <SosFullContent entries={sosData} direction="easiest" />
+        <SosFullContent entries={sosData} direction="easiest" onSelectTeam={id => { setSosModal(null); handleVizNavigate(id) }} />
       </FullscreenModal>
 
       {/* ── Fraud Modals ───────────────────────────────────────────────────── */}

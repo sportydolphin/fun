@@ -227,7 +227,11 @@ export async function fetchSpotlight(): Promise<{ hot: HotGuyData | null; cold: 
 
 const COLD_ACCENT = '#60a5fa'
 
-export function SpotlightCard({ data, mode }: { data: HotGuyData; mode: 'hot' | 'cold' }) {
+export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
+  data: HotGuyData; mode: 'hot' | 'cold'
+  onPlayerClick?: (id: number) => void
+  onTeamClick?:   (id: number) => void
+}) {
   const teamColor = TEAM_BG[data.teamId] ?? '#444'
   const abbr      = TEAM_ABBR[data.teamId] ?? '—'
   const accent    = mode === 'hot' ? teamColor : COLD_ACCENT
@@ -281,12 +285,18 @@ export function SpotlightCard({ data, mode }: { data: HotGuyData; mode: 'hot' | 
   })()
 
   return (
-    <Box sx={{
+    <Box
+      onClick={onPlayerClick ? () => onPlayerClick(data.playerId) : undefined}
+      sx={{
       flex: 1, minWidth: 0, borderRadius: 2.5, overflow: 'hidden',
       border: '1px solid', borderColor: `${accent}45`,
       bgcolor: 'background.paper',
       background: `linear-gradient(155deg, ${accent}18 0%, ${accent}08 55%, transparent 80%)`,
       display: 'flex', flexDirection: 'column',
+      ...(onPlayerClick ? {
+        cursor: 'pointer', transition: 'border-color 0.15s, box-shadow 0.15s',
+        '&:hover': { borderColor: `${accent}80`, boxShadow: `0 4px 16px ${accent}25` },
+      } : {}),
     }}>
       <Box sx={{
         px: 1.75, py: 1,
@@ -332,7 +342,13 @@ export function SpotlightCard({ data, mode }: { data: HotGuyData; mode: 'hot' | 
             {data.playerName}
           </Typography>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mb: 1.25 }}>
+          <Box
+            onClick={onTeamClick ? (e) => { e.stopPropagation(); onTeamClick(data.teamId) } : undefined}
+            sx={{
+              display: 'inline-flex', alignItems: 'center', gap: 0.6, mb: 1.25,
+              ...(onTeamClick ? { cursor: 'pointer', '&:hover .spotlight-team-abbr': { color: 'text.primary', textDecoration: 'underline' } } : {}),
+            }}
+          >
             <Box sx={{
               width: 14, height: 14, borderRadius: '50%', bgcolor: teamColor,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -343,7 +359,7 @@ export function SpotlightCard({ data, mode }: { data: HotGuyData; mode: 'hot' | 
                 sx={{ width: 11, height: 11, objectFit: 'contain' }}
               />
             </Box>
-            <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1 }}>
+            <Typography className="spotlight-team-abbr" sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1 }}>
               {data.position} · {abbr}
             </Typography>
           </Box>

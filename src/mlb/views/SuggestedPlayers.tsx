@@ -72,17 +72,20 @@ export async function fetchSuggestions(teamId: number, followedIds: number[]): P
 
 // ─── SuggestionChip ───────────────────────────────────────────────────────────
 
-export function SuggestionChip({ player, alreadyFollowed, onFollow }: {
+export function SuggestionChip({ player, alreadyFollowed, onFollow, onPlayerClick }: {
   player:          SuggestionPlayer
   alreadyFollowed: boolean
   onFollow:        () => void
+  onPlayerClick?:  (id: number) => void
 }) {
   const col      = TEAM_BG[player.teamId] ?? '#444'
   // Show last name for brevity (keeps chips narrow)
   const lastName = player.fullName.split(' ').slice(1).join(' ') || player.fullName
 
   return (
-    <Box sx={{
+    <Box
+      onClick={onPlayerClick ? () => onPlayerClick(player.id) : undefined}
+      sx={{
       flexShrink: 0,
       display: 'flex', alignItems: 'center', gap: 0.75,
       px: 1, py: 0.75, borderRadius: 2,
@@ -91,6 +94,7 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow }: {
       bgcolor:     player.isTeamPlayer ? `${col}08` : 'transparent',
       minWidth: 138,
       transition: 'border-color 0.15s, background-color 0.15s',
+      ...(onPlayerClick ? { cursor: 'pointer' } : {}),
       '&:hover': { borderColor: `${col}60`, bgcolor: `${col}10` },
     }}>
       {/* Headshot */}
@@ -121,7 +125,7 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow }: {
 
       {/* Follow / already-followed indicator */}
       <Box
-        onClick={alreadyFollowed ? undefined : onFollow}
+        onClick={alreadyFollowed ? (e => e.stopPropagation()) : (e => { e.stopPropagation(); onFollow() })}
         sx={{
           flexShrink: 0, width: 20, height: 20, borderRadius: '50%',
           display: 'flex', alignItems: 'center', justifyContent: 'center',

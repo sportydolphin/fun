@@ -72,6 +72,7 @@ export interface RecentGameEntry {
   date: string
   isHome: boolean
   opponentAbbr: string
+  opponentId: number | null
   hitting: any | null
   pitching: any | null
 }

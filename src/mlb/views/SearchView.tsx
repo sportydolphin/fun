@@ -27,6 +27,8 @@ export interface SearchViewProps {
   setDropdownOpen: (o: boolean) => void
   selectPlayer: (p: Player) => void
   selectTeam: (t: Team) => void
+  // History-pushing cross-link nav (for opponent/division team links within this view)
+  onTeamClick?: (id: number) => void
 
   // Display state
   player: Player | null
@@ -104,7 +106,7 @@ export interface SearchViewProps {
 
 export function SearchView({
   query, setQuery, playerResults, teamResults,
-  searching, dropdownOpen, setDropdownOpen, selectPlayer, selectTeam,
+  searching, dropdownOpen, setDropdownOpen, selectPlayer, selectTeam, onTeamClick,
   player, team, palette, setPalette, season, loadingStats, hasStats,
   rankMode, setRankMode, showPosition, setShowPosition, showTeam, setShowTeam,
   showAge, setShowAge, showNumber, setShowNumber,
@@ -537,6 +539,7 @@ export function SearchView({
                           isPitcher={player.primaryPosition?.code === '1'}
                           isTwoWay={player.primaryPosition?.type === 'Two-Way Player'}
                           highlightDate={highlightedGameDate ?? undefined}
+                          onTeamClick={onTeamClick}
                         />
                       </Box>
                     ) : null
@@ -558,6 +561,7 @@ export function SearchView({
                     division={divisionStandings}
                     highlightTeamId={team.id}
                     season={season}
+                    onTeamClick={onTeamClick}
                   />
                 </Box>
               )}

@@ -309,7 +309,7 @@ export function HomeView({
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
 
               {/* Live games — only renders when games are active */}
-              <LiveGamesSection />
+              <LiveGamesSection onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
 
               {/* Final scores scoreboard — browse by date, click for box score */}
               <FinalGamesSection onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
@@ -321,8 +321,8 @@ export function HomeView({
               )}
               {(hotGuy || coldGuy) && (
                 <Box sx={{ display: 'flex', gap: 1.5, flexDirection: { xs: 'column', sm: 'row' } }}>
-                  {hotGuy  && <SpotlightCard data={hotGuy}  mode="hot"  />}
-                  {coldGuy && <SpotlightCard data={coldGuy} mode="cold" />}
+                  {hotGuy  && <SpotlightCard data={hotGuy}  mode="hot"  onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />}
+                  {coldGuy && <SpotlightCard data={coldGuy} mode="cold" onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />}
                 </Box>
               )}
               {!loadingSpotlight && !hotGuy && !coldGuy && (

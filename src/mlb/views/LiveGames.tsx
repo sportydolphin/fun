@@ -263,7 +263,11 @@ function LiveGameMiniCard({ game, onClick }: { game: LiveGameSummary; onClick: (
 
 // ─── Detailed live game modal ──────────────────────────────────────────────────
 
-function LiveGameDetailModal({ gamePk, onClose }: { gamePk: number; onClose: () => void }) {
+function LiveGameDetailModal({ gamePk, onClose, onPlayerClick, onTeamClick }: {
+  gamePk: number; onClose: () => void
+  onPlayerClick?: (id: number) => void
+  onTeamClick?:   (id: number) => void
+}) {
   const [detail,       setDetail]       = useState<LiveGameDetail | null>(null)
   const [loading,      setLoading]      = useState(true)
   const [lastRefresh,  setLastRefresh]  = useState<Date | null>(null)
@@ -370,7 +374,10 @@ function LiveGameDetailModal({ gamePk, onClose }: { gamePk: number; onClose: () 
         <Box sx={{ px: 2, pt: 2.5, pb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
 
           {/* Away team */}
-          <Box sx={teamCol(awayCol)}>
+          <Box
+            onClick={onTeamClick ? () => { onTeamClick(detail.away.teamId); onClose() } : undefined}
+            sx={{ ...teamCol(awayCol), ...(onTeamClick ? { cursor: 'pointer' } : {}) }}
+          >
             <Box sx={{
               width: 52, height: 52, borderRadius: '50%', bgcolor: '#fff',
               border: `2.5px solid ${awayCol}`, boxShadow: `0 0 0 1px ${awayCol}30`,
@@ -427,7 +434,10 @@ function LiveGameDetailModal({ gamePk, onClose }: { gamePk: number; onClose: () 
           </Box>
 
           {/* Home team */}
-          <Box sx={teamCol(homeCol)}>
+          <Box
+            onClick={onTeamClick ? () => { onTeamClick(detail.home.teamId); onClose() } : undefined}
+            sx={{ ...teamCol(homeCol), ...(onTeamClick ? { cursor: 'pointer' } : {}) }}
+          >
             <Box sx={{
               width: 52, height: 52, borderRadius: '50%', bgcolor: '#fff',
               border: `2.5px solid ${homeCol}`, boxShadow: `0 0 0 1px ${homeCol}30`,
@@ -465,7 +475,13 @@ function LiveGameDetailModal({ gamePk, onClose }: { gamePk: number; onClose: () 
                   }}>
                     At Bat
                   </Typography>
-                  <Typography sx={{ fontSize: '0.88rem', fontWeight: 600, lineHeight: 1.2 }}>
+                  <Typography
+                    onClick={onPlayerClick && detail.batter ? () => { onPlayerClick(detail.batter!.id); onClose() } : undefined}
+                    sx={{
+                      fontSize: '0.88rem', fontWeight: 600, lineHeight: 1.2,
+                      ...(onPlayerClick ? { cursor: 'pointer', '&:hover': { color: 'primary.main', textDecoration: 'underline' } } : {}),
+                    }}
+                  >
                     {detail.batter.name}
                   </Typography>
                 </Box>
@@ -478,7 +494,13 @@ function LiveGameDetailModal({ gamePk, onClose }: { gamePk: number; onClose: () 
                   }}>
                     Pitching
                   </Typography>
-                  <Typography sx={{ fontSize: '0.88rem', fontWeight: 600, lineHeight: 1.2 }}>
+                  <Typography
+                    onClick={onPlayerClick && detail.pitcher ? () => { onPlayerClick(detail.pitcher!.id); onClose() } : undefined}
+                    sx={{
+                      fontSize: '0.88rem', fontWeight: 600, lineHeight: 1.2,
+                      ...(onPlayerClick ? { cursor: 'pointer', '&:hover': { color: 'primary.main', textDecoration: 'underline' } } : {}),
+                    }}
+                  >
                     {detail.pitcher.name}
                   </Typography>
                 </Box>
@@ -534,7 +556,10 @@ function LiveGameDetailModal({ gamePk, onClose }: { gamePk: number; onClose: () 
 
 // ─── LiveGamesSection ─────────────────────────────────────────────────────────
 
-export function LiveGamesSection() {
+export function LiveGamesSection({ onPlayerClick, onTeamClick }: {
+  onPlayerClick?: (id: number) => void
+  onTeamClick?:   (id: number) => void
+} = {}) {
   const [games,      setGames]      = useState<LiveGameSummary[]>([])
   const [loading,    setLoading]    = useState(true)
   const [openGamePk, setOpenGamePk] = useState<number | null>(null)
@@ -593,6 +618,8 @@ export function LiveGamesSection() {
         <LiveGameDetailModal
           gamePk={openGamePk}
           onClose={() => setOpenGamePk(null)}
+          onPlayerClick={onPlayerClick}
+          onTeamClick={onTeamClick}
         />
       )}
     </>

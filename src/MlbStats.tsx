@@ -229,6 +229,7 @@ export default function MlbStats() {
           setDropdownOpen={state.setDropdownOpen}
           selectPlayer={state.selectPlayer}
           selectTeam={state.selectTeam}
+          onTeamClick={state.handleTeamSearchClick}
           player={state.player}
           team={state.team}
           palette={state.palette}

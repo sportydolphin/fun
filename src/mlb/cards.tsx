@@ -401,11 +401,12 @@ export function FeaturedMiniCard({
 // ─── Division standings card ───────────────────────────────────────────────────
 
 export function DivisionStandingsCard({
-  division, highlightTeamId, season,
+  division, highlightTeamId, season, onTeamClick,
 }: {
   division: StandingsDivision
   highlightTeamId: number
   season: number
+  onTeamClick?: (id: number) => void
 }) {
   const sorted = [...division.teams].sort((a, b) => a.divisionRank - b.divisionRank)
   const teamColor = TEAM_BG[highlightTeamId] ?? ACCENT
@@ -446,8 +447,11 @@ export function DivisionStandingsCard({
       {/* Team rows */}
       {sorted.map((t, idx) => {
         const isHL = t.teamId === highlightTeamId
+        const clickable = !!onTeamClick && !isHL
         return (
-          <Box key={t.teamId} sx={{
+          <Box key={t.teamId}
+            onClick={clickable ? () => onTeamClick!(t.teamId) : undefined}
+            sx={{
             display: 'grid', gridTemplateColumns: '18px 40px 1fr 26px 26px 36px',
             alignItems: 'center', gap: '4px',
             px: 1.25, py: 0.7,
@@ -455,6 +459,7 @@ export function DivisionStandingsCard({
             borderLeft: `3px solid ${isHL ? teamColor : 'transparent'}`,
             borderBottom: idx < sorted.length - 1 ? '1px solid' : 'none',
             borderColor: 'divider',
+            ...(clickable ? { cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } } : {}),
           }}>
             {/* Rank */}
             <Typography sx={{ ...cellSx, color: isHL ? teamColor : 'text.disabled', fontWeight: isHL ? 800 : 600 }}>

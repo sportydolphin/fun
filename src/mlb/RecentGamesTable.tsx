@@ -95,12 +95,13 @@ const tdSx = {
   whiteSpace: 'nowrap' as const,
 }
 
-function GameSection({ title, entries, cols, dataKey, highlightDate }: {
+function GameSection({ title, entries, cols, dataKey, highlightDate, onTeamClick }: {
   title?: string
   entries: RecentGameEntry[]
   cols: ColDef[]
   dataKey: 'hitting' | 'pitching'
   highlightDate?: string
+  onTeamClick?: (id: number) => void
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -170,10 +171,18 @@ function GameSection({ title, entries, cols, dataKey, highlightDate }: {
 
                   {/* Opponent */}
                   <Box component="td" sx={{ ...tdSx, ...borderProps, textAlign: 'left', fontWeight: 600 }}>
-                    {g.isHome
-                      ? g.opponentAbbr
-                      : <><Box component="span" sx={{ color: 'text.disabled', fontWeight: 400, mr: '1px' }}>@</Box>{g.opponentAbbr}</>
-                    }
+                    <Box
+                      component="span"
+                      onClick={onTeamClick && g.opponentId != null ? () => onTeamClick(g.opponentId!) : undefined}
+                      sx={onTeamClick && g.opponentId != null
+                        ? { cursor: 'pointer', '&:hover': { color: 'primary.main', textDecoration: 'underline' } }
+                        : undefined}
+                    >
+                      {g.isHome
+                        ? g.opponentAbbr
+                        : <><Box component="span" sx={{ color: 'text.disabled', fontWeight: 400, mr: '1px' }}>@</Box>{g.opponentAbbr}</>
+                      }
+                    </Box>
                   </Box>
 
                   {/* Stat cells */}
@@ -210,11 +219,12 @@ function GameSection({ title, entries, cols, dataKey, highlightDate }: {
   )
 }
 
-export function RecentGamesTable({ games, isPitcher, isTwoWay, highlightDate }: {
+export function RecentGamesTable({ games, isPitcher, isTwoWay, highlightDate, onTeamClick }: {
   games: RecentGameEntry[]
   isPitcher: boolean
   isTwoWay: boolean
   highlightDate?: string
+  onTeamClick?: (id: number) => void
 }) {
   const hitGames = games.filter(g => g.hitting  != null)
   const pitGames = games.filter(g => g.pitching != null)
@@ -233,6 +243,7 @@ export function RecentGamesTable({ games, isPitcher, isTwoWay, highlightDate }: 
           cols={HIT_COLS}
           dataKey="hitting"
           highlightDate={highlightDate}
+          onTeamClick={onTeamClick}
         />
       )}
       {showPitching && (
@@ -242,6 +253,7 @@ export function RecentGamesTable({ games, isPitcher, isTwoWay, highlightDate }: 
           cols={PIT_COLS}
           dataKey="pitching"
           highlightDate={highlightDate}
+          onTeamClick={onTeamClick}
         />
       )}
     </Box>
