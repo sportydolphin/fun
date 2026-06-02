@@ -4,6 +4,8 @@ import { TEAM_BG, TEAM_ABBR } from '../constants'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type GameState = 'live' | 'final' | 'preview'
+
 interface FinalTeam {
   teamId:   number
   abbr:     string
@@ -16,7 +18,8 @@ interface FinalTeam {
 
 interface FinalGameSummary {
   gamePk:     number
-  statusText: string                 // "Final" or "Final/10" for extras
+  state:      GameState
+  statusText: string                 // "Final"/"Final/10", live inning ("▲ 5th"), or start time
   home:       FinalTeam
   away:       FinalTeam
   winPitcher:  string | null
@@ -88,8 +91,10 @@ function fromISO(s: string): Date {
 function dateLabel(iso: string): string {
   const todayISO = toISO(new Date())
   const yest = new Date(); yest.setDate(yest.getDate() - 1)
+  const tom  = new Date(); tom.setDate(tom.getDate() + 1)
   if (iso === todayISO)        return 'Today'
   if (iso === toISO(yest))     return 'Yesterday'
+  if (iso === toISO(tom))      return 'Tomorrow'
   return fromISO(iso).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
@@ -108,10 +113,10 @@ export async function fetchFinalGames(dateISO: string): Promise<FinalGameSummary
     const out: FinalGameSummary[] = []
     for (const dateObj of d.dates ?? []) {
       for (const game of dateObj.games ?? []) {
-        if (game.status?.abstractGameState !== 'Final') continue
         if (!SCORED_GAME_TYPES.has(game.gameType)) continue
-        const ls = game.linescore
-        if (!ls) continue
+        const abs   = game.status?.abstractGameState
+        const state: GameState = abs === 'Final' ? 'final' : abs === 'Live' ? 'live' : 'preview'
+        const ls    = game.linescore ?? {}
 
         const mkTeam = (side: 'home' | 'away'): FinalTeam => {
           const t   = game.teams?.[side]
@@ -128,13 +133,35 @@ export async function fetchFinalGames(dateISO: string): Promise<FinalGameSummary
           }
         }
 
-        // Extra innings → "Final/10". scheduledInnings defaults to 9.
-        const scheduled = ls.scheduledInnings ?? 9
-        const played    = ls.currentInning ?? scheduled
-        const statusText = played > scheduled ? `Final/${played}` : 'Final'
+        let statusText: string
+        if (state === 'final') {
+          // Extra innings → "Final/10". scheduledInnings defaults to 9.
+          const scheduled = ls.scheduledInnings ?? 9
+          const played    = ls.currentInning ?? scheduled
+          statusText = played > scheduled ? `Final/${played}` : 'Final'
+        } else if (state === 'live') {
+          const ord  = ls.currentInningOrdinal
+          const half = ls.inningHalf as string | undefined
+          if (ord) {
+            const arrow = half === 'Bottom' || half === 'End' ? '▼' : '▲'
+            statusText = `${arrow} ${ord}`
+          } else {
+            statusText = game.status?.detailedState ?? 'Live'
+          }
+        } else {
+          // Preview / scheduled — show start time, or a notable status (Postponed, etc.)
+          const detailed = game.status?.detailedState ?? ''
+          if (detailed && !['Scheduled', 'Pre-Game', 'Warmup'].includes(detailed)) {
+            statusText = detailed
+          } else {
+            const dt = game.gameDate ? new Date(game.gameDate) : null
+            statusText = dt ? dt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'TBD'
+          }
+        }
 
         out.push({
           gamePk:     game.gamePk,
+          state,
           statusText,
           home:       mkTeam('home'),
           away:       mkTeam('away'),
@@ -246,26 +273,52 @@ function LogoBubble({ teamId, abbr, size, ring = 1.5 }: {
   )
 }
 
-// ─── Mini final-score card ──────────────────────────────────────────────────
+// ─── Pulsing live dot ─────────────────────────────────────────────────────────
 
-function FinalGameMiniCard({ game, onClick }: { game: FinalGameSummary; onClick: () => void }) {
+function LiveDot({ size = 6 }: { size?: number }) {
+  return (
+    <Box sx={{
+      width: size, height: size, borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0,
+      animation: 'scoreLivePulse 1.6s ease-in-out infinite',
+      '@keyframes scoreLivePulse': { '0%,100%': { opacity: 1, transform: 'scale(1)' }, '50%': { opacity: 0.45, transform: 'scale(0.8)' } },
+    }} />
+  )
+}
+
+// ─── Mini score card (final / live / preview) ────────────────────────────────
+
+function FinalGameMiniCard({ game, onClick }: { game: FinalGameSummary; onClick?: () => void }) {
+  const isPreview = game.state === 'preview'
+  const isLive    = game.state === 'live'
+  const statusColor = isLive ? '#ef4444' : 'text.disabled'
+
+  // Which team to emphasize: winner (final) or current leader (live)
+  const emphasize = (t: FinalTeam): boolean => {
+    if (isPreview) return false
+    if (game.state === 'final') return t.isWinner
+    const other = t === game.away ? game.home : game.away
+    return t.runs > other.runs
+  }
+
   const teamRow = (t: FinalTeam) => {
-    const won = t.isWinner
+    const em = emphasize(t)
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
         <LogoBubble teamId={t.teamId} abbr={t.abbr} size={20} />
         <Typography sx={{
-          flex: 1, fontSize: '0.74rem', fontWeight: won ? 800 : 500, lineHeight: 1,
-          color: won ? 'text.primary' : 'text.secondary',
+          flex: 1, fontSize: '0.74rem', fontWeight: em ? 800 : 500, lineHeight: 1,
+          color: em ? 'text.primary' : 'text.secondary',
         }}>
           {t.abbr}
         </Typography>
-        <Typography sx={{
-          fontSize: '0.9rem', fontWeight: won ? 800 : 500, lineHeight: 1,
-          color: won ? 'text.primary' : 'text.secondary', minWidth: 16, textAlign: 'right',
-        }}>
-          {t.runs}
-        </Typography>
+        {!isPreview && (
+          <Typography sx={{
+            fontSize: '0.9rem', fontWeight: em ? 800 : 500, lineHeight: 1,
+            color: em ? 'text.primary' : 'text.secondary', minWidth: 16, textAlign: 'right',
+          }}>
+            {t.runs}
+          </Typography>
+        )}
       </Box>
     )
   }
@@ -277,25 +330,31 @@ function FinalGameMiniCard({ game, onClick }: { game: FinalGameSummary; onClick:
         flexShrink: 0, width: 124,
         borderRadius: 2, border: '1px solid', borderColor: 'divider',
         bgcolor: 'background.paper', overflow: 'hidden',
-        cursor: 'pointer', userSelect: 'none',
+        userSelect: 'none',
         transition: 'all 0.15s',
-        '&:hover': { borderColor: 'text.secondary', transform: 'translateY(-2px)', boxShadow: '0 6px 18px rgba(0,0,0,0.18)' },
+        ...(onClick ? {
+          cursor: 'pointer',
+          '&:hover': { borderColor: 'text.secondary', transform: 'translateY(-2px)', boxShadow: '0 6px 18px rgba(0,0,0,0.18)' },
+        } : {}),
       }}
     >
       {/* Status row */}
-      <Box sx={{ display: 'flex', alignItems: 'center', px: 1, pt: 0.8, pb: 0.4 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, px: 1, pt: 0.8, pb: 0.4 }}>
+        {isLive && <LiveDot size={5} />}
         <Typography sx={{
-          fontSize: '0.56rem', fontWeight: 800, color: 'text.disabled',
+          fontSize: '0.56rem', fontWeight: 800, color: statusColor,
           letterSpacing: 0.6, textTransform: 'uppercase', lineHeight: 1,
         }}>
           {game.statusText}
         </Typography>
-        <Typography sx={{ fontSize: '0.55rem', color: 'text.disabled', ml: 'auto', lineHeight: 1 }}>
-          Box →
-        </Typography>
+        {onClick && (
+          <Typography sx={{ fontSize: '0.55rem', color: 'text.disabled', ml: 'auto', lineHeight: 1 }}>
+            Box →
+          </Typography>
+        )}
       </Box>
 
-      {/* Scores */}
+      {/* Teams + scores */}
       <Box sx={{ px: 1, pb: 0.8, display: 'flex', flexDirection: 'column', gap: 0.35 }}>
         {teamRow(game.away)}
         {teamRow(game.home)}
@@ -639,26 +698,21 @@ function BoxScoreModal({ game, onClose, onPlayerClick, onTeamClick }: {
 // ─── Date navigator ────────────────────────────────────────────────────────────
 
 function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: string) => void }) {
-  const todayISO = toISO(new Date())
-  const atToday  = dateISO >= todayISO
-
   const shift = (days: number) => {
     const d = fromISO(dateISO); d.setDate(d.getDate() + days)
     onChange(toISO(d))
   }
 
-  const arrowSx = (disabled: boolean) => ({
+  const arrowSx = {
     width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    cursor: disabled ? 'default' : 'pointer',
-    color: disabled ? 'text.disabled' : 'text.secondary',
-    opacity: disabled ? 0.4 : 1,
-    '&:hover': disabled ? {} : { bgcolor: 'action.hover', color: 'text.primary' },
-  })
+    cursor: 'pointer', color: 'text.secondary',
+    '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+  }
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-      <Box onClick={() => shift(-1)} sx={arrowSx(false)}>
+      <Box onClick={() => shift(-1)} sx={arrowSx}>
         <Typography sx={{ fontSize: '0.9rem', lineHeight: 1 }}>‹</Typography>
       </Box>
 
@@ -674,7 +728,6 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
           component="input"
           type="date"
           value={dateISO}
-          max={todayISO}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.value) onChange(e.target.value) }}
           sx={{
             position: 'absolute', inset: 0, width: '100%', height: '100%',
@@ -683,7 +736,7 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
         />
       </Box>
 
-      <Box onClick={() => { if (!atToday) shift(1) }} sx={arrowSx(atToday)}>
+      <Box onClick={() => shift(1)} sx={arrowSx}>
         <Typography sx={{ fontSize: '0.9rem', lineHeight: 1 }}>›</Typography>
       </Box>
     </Box>
@@ -701,7 +754,7 @@ export function FinalGamesSection({ onPlayerClick, onTeamClick }: {
   const [loading,    setLoading]    = useState(true)
   const [openGame,   setOpenGame]   = useState<FinalGameSummary | null>(null)
 
-  // Once, on first load: if today has no finals yet, drop back to yesterday.
+  // Once, on first load: if the default date has no games at all, drop back to yesterday.
   const autoFellBackRef = useRef(false)
 
   useEffect(() => {
@@ -738,7 +791,7 @@ export function FinalGamesSection({ onPlayerClick, onTeamClick }: {
             fontWeight: 800, fontSize: '0.7rem', textTransform: 'uppercase',
             letterSpacing: 1.4, color: 'text.secondary', lineHeight: 1,
           }}>
-            Final Scores
+            Scores
           </Typography>
           {!loading && games.length > 0 && (
             <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', lineHeight: 1 }}>
@@ -757,7 +810,7 @@ export function FinalGamesSection({ onPlayerClick, onTeamClick }: {
           </Box>
         ) : games.length === 0 ? (
           <Box sx={{ py: 3, textAlign: 'center' }}>
-            <Typography sx={{ fontSize: '0.74rem', color: 'text.disabled' }}>No completed games on this date</Typography>
+            <Typography sx={{ fontSize: '0.74rem', color: 'text.disabled' }}>No games scheduled on this date</Typography>
           </Box>
         ) : (
           <Box data-swipe-ignore="true" sx={{
@@ -770,7 +823,8 @@ export function FinalGamesSection({ onPlayerClick, onTeamClick }: {
               <FinalGameMiniCard
                 key={game.gamePk}
                 game={game}
-                onClick={() => setOpenGame(game)}
+                // Box score exists for live & finished games; upcoming games aren't clickable.
+                onClick={game.state === 'preview' ? undefined : () => setOpenGame(game)}
               />
             ))}
           </Box>
