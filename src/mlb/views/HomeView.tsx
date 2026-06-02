@@ -9,6 +9,7 @@ import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
 import { LiveGamesSection } from './LiveGames'
+import { FinalGamesSection } from './FinalGames'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -309,6 +310,9 @@ export function HomeView({
 
               {/* Live games — only renders when games are active */}
               <LiveGamesSection />
+
+              {/* Final scores scoreboard — browse by date, click for box score */}
+              <FinalGamesSection onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
 
               {loadingSpotlight && !hotGuy && !coldGuy && (
                 <Box sx={{ py: 4, textAlign: 'center' }}>
