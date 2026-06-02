@@ -4,7 +4,8 @@
  *
  * Bots:
  *   🤖 Coin Flip     — randomly picks home or away for each game
- *   📊 Better Record — picks the team with the better win% (home team breaks ties)
+ *   🚂 Bandwagon Bot — picks the team with the better win% (home team breaks ties)
+ *   🤖 Homer Bot     — always picks the home team
  *
  * Bot users are created as real Supabase auth accounts on first run so they
  * satisfy FK constraints and appear on the leaderboard like any other user.
@@ -45,6 +46,7 @@ const CURRENT_SEASON = new Date().getFullYear()
 const BOTS = [
   { email: 'bot-coinflip@mlbpicks.internal',    displayName: '🤖 Coin Flip' },
   { email: 'bot-betterrecord@mlbpicks.internal', displayName: '🚂 Bandwagon Bot' },
+  { email: 'bot-hometeam@mlbpicks.internal',    displayName: '🤖 Homer Bot' },
 ]
 
 // ─── Date helper ─────────────────────────────────────────────────────────────
@@ -134,6 +136,10 @@ function betterRecordPick(game, winPct) {
   return home >= away ? game.homeId : game.awayId   // home team breaks ties
 }
 
+function homeTeamPick(game) {
+  return game.homeId   // bet on home-field advantage, every time
+}
+
 // ─── Stats computation ────────────────────────────────────────────────────────
 
 /**
@@ -209,12 +215,14 @@ async function main() {
 
   // ── 1. Get or create bot auth users ────────────────────────────────────────
   console.log('👤 Resolving bot users…')
-  const [coinFlipId, betterRecordId] = await Promise.all([
+  const [coinFlipId, betterRecordId, homerId] = await Promise.all([
     getOrCreateBotUser(BOTS[0].email, BOTS[0].displayName),
     getOrCreateBotUser(BOTS[1].email, BOTS[1].displayName),
+    getOrCreateBotUser(BOTS[2].email, BOTS[2].displayName),
   ])
   console.log(`  🤖 Coin Flip ID:     ${coinFlipId}`)
   console.log(`  📊 Better Record ID: ${betterRecordId}`)
+  console.log(`  🏠 Homer Bot ID:     ${homerId}`)
 
   // ── 2. Fetch today's games ─────────────────────────────────────────────────
   console.log(`\n📅 Fetching games for ${date}…`)
@@ -241,6 +249,13 @@ async function main() {
       predicted_team_id: betterRecordPick(g, standings),
     }))
 
+    const homerRows = preview.map(g => ({
+      user_id:           homerId,
+      game_date:         date,
+      game_pk:           g.gamePk,
+      predicted_team_id: homeTeamPick(g),
+    }))
+
     // ignoreDuplicates: true → first pick wins, don't overwrite if already set
     const { error: cfErr } = await supabase
       .from('game_predictions')
@@ -253,6 +268,12 @@ async function main() {
       .upsert(betterRecordRows, { onConflict: 'user_id,game_pk', ignoreDuplicates: true })
     if (brErr) console.error(`  ❌ Better Record insert failed: ${brErr.message}`)
     else console.log(`  📊 Better Record: ${betterRecordRows.length} picks saved`)
+
+    const { error: hmErr } = await supabase
+      .from('game_predictions')
+      .upsert(homerRows, { onConflict: 'user_id,game_pk', ignoreDuplicates: true })
+    if (hmErr) console.error(`  ❌ Homer Bot insert failed: ${hmErr.message}`)
+    else console.log(`  🏠 Homer Bot: ${homerRows.length} picks saved`)
   } else {
     console.log('  No upcoming games — skipping picks')
   }
@@ -261,6 +282,7 @@ async function main() {
   console.log('\n📈 Updating leaderboard stats…')
   await computeAndUpsertStats(coinFlipId,     BOTS[0].displayName)
   await computeAndUpsertStats(betterRecordId, BOTS[1].displayName)
+  await computeAndUpsertStats(homerId,        BOTS[2].displayName)
 
   console.log('\n✅ Done\n')
 }
