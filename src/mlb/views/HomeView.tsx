@@ -8,7 +8,6 @@ const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ defa
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
-import { LiveGamesSection } from './LiveGames'
 import { FinalGamesSection } from './FinalGames'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -308,10 +307,7 @@ export function HomeView({
           <Box sx={{ width: '50%', flexShrink: 0, minWidth: 0 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
 
-              {/* Live games — only renders when games are active */}
-              <LiveGamesSection onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
-
-              {/* Final scores scoreboard — browse by date, click for box score */}
+              {/* Scoreboard — by-date live/past/future games, click for box score */}
               <FinalGamesSection onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
 
               {loadingSpotlight && !hotGuy && !coldGuy && (
@@ -338,12 +334,12 @@ export function HomeView({
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
 
               {followedTeamId ? (
-                // Side-by-side on sm+, stacked on mobile
-                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, alignItems: 'stretch' }}>
+                // Side-by-side on md+, stacked below (avoids cramped ~300px columns on tablets)
+                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 1.5, alignItems: 'stretch' }}>
 
                   {/* Compact team card */}
                   <Box sx={{
-                    flex: { xs: '1 1 auto', sm: '0 0 calc(50% - 6px)' }, minWidth: 0,
+                    flex: { xs: '1 1 auto', md: '0 0 calc(50% - 6px)' }, minWidth: 0,
                     borderRadius: 3, overflow: 'hidden',
                     border: '1px solid', borderColor: `${bg}40`,
                     borderLeft: `4px solid ${bg}`,
@@ -423,7 +419,7 @@ export function HomeView({
                   </Box>
 
                   {/* Followed players — compact mode, stretches to match team card */}
-                  <Box sx={{ flex: { xs: '1 1 auto', sm: '0 0 calc(50% - 6px)' }, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                  <Box sx={{ flex: { xs: '1 1 auto', md: '0 0 calc(50% - 6px)' }, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                     <FollowedPlayersSection
                       followedPlayerIds={followedPlayerIds}
                       onUnfollow={onUnfollowPlayer}

@@ -38,8 +38,12 @@ export default function MlbStats() {
     state.setView('search')
   }
 
+  // The Home dashboard reads best at a tighter width; the data-dense views
+  // (search/stats/leaderboard/viz) use the full width for side-by-side columns.
+  const containerMaxWidth = state.view === 'home' ? { xs: 640, md: 980 } : { xs: 640, md: 1280 }
+
   return (
-    <Box sx={{ maxWidth: { xs: 640, md: 1280 }, mx: 'auto' }}>
+    <Box sx={{ maxWidth: containerMaxWidth, mx: 'auto' }}>
 
       {/* ── Persistent search bar ─────────────────────────────────────────── */}
       <ClickAwayListener onClickAway={() => { setTopOpen(false) }}>
