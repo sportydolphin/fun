@@ -520,6 +520,36 @@ export async function fetchStandings(season: number): Promise<StandingsDivision[
   })
 }
 
+// ─── Team average ages ────────────────────────────────────────────────────────
+
+const teamAgeCache = new Map<number, Promise<Record<number, number>>>()
+
+export function fetchTeamAverageAges(season: number): Promise<Record<number, number>> {
+  if (!teamAgeCache.has(season)) {
+    teamAgeCache.set(season, _buildTeamAges(season).catch(() => ({})))
+  }
+  return teamAgeCache.get(season)!
+}
+
+async function _buildTeamAges(season: number): Promise<Record<number, number>> {
+  const r = await fetch(`https://statsapi.mlb.com/api/v1/sports/1/players?season=${season}&gameType=R`)
+  const d = await r.json()
+  const people: any[] = d.people ?? []
+  const byTeam = new Map<number, number[]>()
+  for (const p of people) {
+    const teamId = Number(p.currentTeam?.id)
+    const age = Number(p.currentAge)
+    if (!teamId || !(age >= 17 && age <= 55)) continue
+    if (!byTeam.has(teamId)) byTeam.set(teamId, [])
+    byTeam.get(teamId)!.push(age)
+  }
+  const out: Record<number, number> = {}
+  for (const [teamId, ages] of byTeam) {
+    if (ages.length >= 5) out[teamId] = ages.reduce((s, a) => s + a, 0) / ages.length
+  }
+  return out
+}
+
 // ─── Payroll data (sourced from FanGraphs via daily GH Actions job) ──────────
 
 /**

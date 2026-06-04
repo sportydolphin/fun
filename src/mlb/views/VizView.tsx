@@ -5,10 +5,10 @@ import {
 } from '@mui/material'
 import { Search, InfoOutlined, OpenInFull, Close } from '@mui/icons-material'
 import { TeamSummary, SosEntry } from '../types'
-import { ACCENT, TEAM_BG, TEAM_SEASONS, CURRENT_SEASON } from '../constants'
+import { ACCENT, TEAM_BG, TEAM_ABBR, TEAM_SEASONS, CURRENT_SEASON } from '../constants'
 import { pillActionSx } from '../ui'
 import { TeamEraOpsPlot, TeamWinRDPlot, TeamFraudPanel, PayrollWinsPlot } from '../charts'
-import { fetchStrengthOfSchedule, fetchTeamPayrolls } from '../api'
+import { fetchStrengthOfSchedule, fetchTeamPayrolls, fetchTeamAverageAges } from '../api'
 import { TEAM_PAYROLLS_2026 } from '../constants'
 
 // ─── SOS helpers ─────────────────────────────────────────────────────────────
@@ -347,6 +347,78 @@ function FraudMiniCard({ type, data, nameMap, highlightTeamId, onSelectTeam, onH
   )
 }
 
+// ─── Team Age Card ────────────────────────────────────────────────────────────
+
+interface AgeEntry { teamId: number; abbr: string; avgAge: number }
+
+function TeamAgeCard({ type, entries, loading, onSelectTeam }: {
+  type: 'oldest' | 'youngest'
+  entries: AgeEntry[]   // all teams sorted oldest → youngest
+  loading: boolean
+  onSelectTeam?: (id: number) => void
+}) {
+  const isOldest = type === 'oldest'
+  const title    = isOldest ? '👴 Oldest Rosters' : '🌱 Youngest Rosters'
+  const subtitle = isOldest ? 'Highest avg roster age' : 'Lowest avg roster age'
+  const color    = isOldest ? '#f97316' : '#22c55e'
+  const slice    = isOldest ? entries.slice(0, 3) : [...entries].slice(-3).reverse()
+
+  const minAge = entries.length ? entries[entries.length - 1].avgAge : 25
+  const maxAge = entries.length ? entries[0].avgAge : 35
+  const range  = maxAge - minAge || 0.1
+
+  return (
+    <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
+      <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>{title}</Typography>
+        <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.1 }}>{subtitle}</Typography>
+      </Box>
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+          <CircularProgress size={22} sx={{ color: ACCENT }} />
+        </Box>
+      ) : (
+        slice.map((t, idx) => {
+          const norm = (t.avgAge - minAge) / range
+          const barW = `${8 + (isOldest ? norm : 1 - norm) * 87}%`
+          return (
+            <Box
+              key={t.teamId}
+              onClick={onSelectTeam ? () => onSelectTeam(t.teamId) : undefined}
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: '20px 28px 1fr 60px 44px',
+                alignItems: 'center', gap: 1,
+                px: 1.5, py: '9px',
+                borderBottom: idx < slice.length - 1 ? '1px solid' : 'none',
+                borderColor: 'divider',
+                borderLeft: `3px solid ${TEAM_BG[t.teamId] ?? '#444'}`,
+                ...(onSelectTeam ? { cursor: 'pointer', transition: 'background-color 0.12s', '&:hover': { bgcolor: 'action.hover' } } : {}),
+              }}
+            >
+              <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontWeight: 700, textAlign: 'center' }}>
+                {idx + 1}
+              </Typography>
+              <SosTeamDot teamId={t.teamId} abbr={t.abbr} />
+              <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {t.abbr}
+              </Typography>
+              <Box>
+                <Box sx={{ height: 6, borderRadius: 3, bgcolor: 'action.disabledBackground', overflow: 'hidden' }}>
+                  <Box sx={{ height: '100%', width: barW, borderRadius: 3, bgcolor: color }} />
+                </Box>
+              </Box>
+              <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                {t.avgAge.toFixed(1)}
+              </Typography>
+            </Box>
+          )
+        })
+      )}
+    </Box>
+  )
+}
+
 // ─── VizSubNav — in-page tab switcher ────────────────────────────────────────
 
 type VizTab = 'graphs' | 'report-card'
@@ -422,6 +494,10 @@ export function VizView({
   // ─── Fraud modal state ────────────────────────────────────────────────────
   const [fraudModal, setFraudModal] = useState<'fraud' | 'cursed' | null>(null)
 
+  // ─── Team age state ───────────────────────────────────────────────────────
+  const [ageEntries, setAgeEntries]   = useState<AgeEntry[]>([])
+  const [loadingAges, setLoadingAges] = useState(false)
+
   // ─── Payroll state — live from Supabase, falls back to hardcoded constant ─
   const [payrolls, setPayrolls] = useState<Record<number, number>>(TEAM_PAYROLLS_2026)
 
@@ -444,6 +520,25 @@ export function VizView({
       .then(d => { if (!cancelled) setSosData(d) })
       .catch(() => { if (!cancelled) setSosData([]) })
       .finally(() => { if (!cancelled) setLoadingSos(false) })
+    return () => { cancelled = true }
+  }, [vizSeason, showSos])
+
+  useEffect(() => {
+    if (!showSos) { setAgeEntries([]); return }
+    if (ageEntries.length > 0) return
+    let cancelled = false
+    setLoadingAges(true)
+    fetchTeamAverageAges(vizSeason)
+      .then(ages => {
+        if (cancelled) return
+        const entries: AgeEntry[] = Object.entries(ages)
+          .map(([id, avgAge]) => ({ teamId: Number(id), abbr: TEAM_ABBR[Number(id)] ?? '?', avgAge }))
+          .filter(e => e.abbr !== '?')
+          .sort((a, b) => b.avgAge - a.avgAge)
+        setAgeEntries(entries)
+      })
+      .catch(() => { if (!cancelled) setAgeEntries([]) })
+      .finally(() => { if (!cancelled) setLoadingAges(false) })
     return () => { cancelled = true }
   }, [vizSeason, showSos])
 
@@ -643,6 +738,19 @@ export function VizView({
                     subtitle="Losing more than their scoring predicts"
                   />
                 </Box>
+
+                {/* Team Ages — current season only */}
+                {showSos && (
+                  <>
+                    <Divider sx={{ gridColumn: '1 / -1', my: 2 }} />
+                    <Box sx={{ minWidth: 0 }}>
+                      <TeamAgeCard type="oldest" entries={ageEntries} loading={loadingAges} onSelectTeam={handleVizNavigate} />
+                    </Box>
+                    <Box sx={{ pt: { xs: 2, md: 0 }, minWidth: 0 }}>
+                      <TeamAgeCard type="youngest" entries={ageEntries} loading={loadingAges} onSelectTeam={handleVizNavigate} />
+                    </Box>
+                  </>
+                )}
 
                 {/* Schedules — current season only */}
                 {showSos && (
