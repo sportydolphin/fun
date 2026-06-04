@@ -22,6 +22,7 @@ jobs:
 
       - name: Update team payrolls
         run: node scripts/update-payrolls.mjs
+        continue-on-error: true
         env:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
