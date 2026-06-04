@@ -6,6 +6,7 @@ import { fetchDivisionForTeam } from '../api'
 // ~1,400-line schedule module — lazy so the League tab doesn't pull it in.
 const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
+import { TopPerformers } from './TopPerformers'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
 import { FinalGamesSection } from './FinalGames'
@@ -309,6 +310,9 @@ export function HomeView({
 
               {/* Scoreboard — by-date live/past/future games, click for box score */}
               <FinalGamesSection onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+
+              {/* Top performers cycling carousel */}
+              <TopPerformers onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
 
               {loadingSpotlight && !hotGuy && !coldGuy && (
                 <Box sx={{ py: 4, textAlign: 'center' }}>

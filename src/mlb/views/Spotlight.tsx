@@ -147,7 +147,13 @@ function scoreColdPitcher(stat: any): number {
 
 // ─── Spotlight fetch ──────────────────────────────────────────────────────────
 
-const _spotlightCache: { date: string; hot: HotGuyData | null; cold: HotGuyData | null } = { date: '', hot: null, cold: null }
+const _spotlightCache: {
+  date: string
+  hot:  HotGuyData | null
+  cold: HotGuyData | null
+  topHitters:  HotGuyData[]
+  topPitchers: HotGuyData[]
+} = { date: '', hot: null, cold: null, topHitters: [], topPitchers: [] }
 
 export async function fetchSpotlight(): Promise<{ hot: HotGuyData | null; cold: HotGuyData | null }> {
   const now   = new Date()
@@ -216,11 +222,19 @@ export async function fetchSpotlight(): Promise<{ hot: HotGuyData | null; cold: 
     const hotIdx  = day % Math.min(POOL_SIZE, hotPool.length  || 1)
     const coldIdx = (day + 3) % Math.min(POOL_SIZE, coldPool.length || 1)
 
-    _spotlightCache.date = today
-    _spotlightCache.hot  = hotPool[hotIdx]?.data   ?? null
-    _spotlightCache.cold = coldPool[coldIdx]?.data ?? null
+    const TOP_N = 3
+    _spotlightCache.date        = today
+    _spotlightCache.hot         = hotPool[hotIdx]?.data   ?? null
+    _spotlightCache.cold        = coldPool[coldIdx]?.data ?? null
+    _spotlightCache.topHitters  = hotPool.filter(c => !c.data.isPitcher).slice(0, TOP_N).map(c => c.data)
+    _spotlightCache.topPitchers = hotPool.filter(c =>  c.data.isPitcher).slice(0, TOP_N).map(c => c.data)
     return { hot: _spotlightCache.hot, cold: _spotlightCache.cold }
   } catch { return { hot: null, cold: null } }
+}
+
+export async function fetchTopPerformers(): Promise<{ hitters: HotGuyData[]; pitchers: HotGuyData[] }> {
+  await fetchSpotlight()
+  return { hitters: _spotlightCache.topHitters, pitchers: _spotlightCache.topPitchers }
 }
 
 // ─── SpotlightCard ────────────────────────────────────────────────────────────
