@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
-import { fetchTopPerformers } from './Spotlight'
+import { fetchRecentGamePerformers } from './Spotlight'
 import type { HotGuyData } from './Spotlight'
 
 const CYCLE_MS = 5000
@@ -12,29 +12,34 @@ interface PerformerEntry extends HotGuyData {
 
 function buildStatItems(data: HotGuyData): Array<{ label: string; value: string; hero: boolean }> {
   if (!data.isPitcher) {
-    const avg = parseFloat(data.stats.avg ?? '0')
-    const hr  = data.stats.hr ?? 0
-    const sb  = data.stats.sb ?? 0
-    const hero = avg >= .380 ? 'avg' : hr >= 4 ? 'hr' : sb >= 5 ? 'sb' : 'ops'
-    return [
-      { label: 'AVG', value: data.stats.avg ?? '—',       hero: hero === 'avg' },
-      { label: 'OPS', value: data.stats.ops ?? '—',       hero: hero === 'ops' },
-      { label: 'HR',  value: String(hr),                  hero: hero === 'hr'  },
-      { label: 'RBI', value: String(data.stats.rbi ?? 0), hero: false          },
-    ].sort((a, b) => (b.hero ? 1 : 0) - (a.hero ? 1 : 0))
+    const hr  = data.stats.hr  ?? 0
+    const rbi = data.stats.rbi ?? 0
+    const sb  = data.stats.sb  ?? 0
+    const h   = data.stats.hits ?? 0
+    const ab  = data.stats.ab  ?? 0
+    const hero = hr >= 2 ? 'hr' : rbi >= 4 ? 'rbi' : sb >= 2 ? 'sb' : 'h'
+    const items = [
+      { label: 'H-AB', value: ab > 0 ? `${h}-${ab}` : String(h), hero: hero === 'h'   },
+      { label: 'HR',   value: String(hr),                          hero: hero === 'hr'  },
+      { label: 'RBI',  value: String(rbi),                         hero: hero === 'rbi' },
+    ]
+    if (sb > 0) items.push({ label: 'SB', value: String(sb), hero: hero === 'sb' })
+    return items.sort((a, b) => (b.hero ? 1 : 0) - (a.hero ? 1 : 0))
   }
-  const hero = (data.stats.saves ?? 0) >= 3 ? 'saves' : 'era'
-  return [
-    { label: 'ERA',  value: data.stats.era  ?? '—',              hero: hero === 'era'   },
-    { label: 'WHIP', value: data.stats.whip ?? '—',              hero: false            },
-    { label: 'K',    value: String(data.stats.k ?? 0),           hero: false            },
-    ...(data.isStarter
-      ? [{ label: 'W-L', value: `${data.stats.wins ?? 0}-${data.stats.losses ?? 0}`, hero: false }]
-      : data.stats.saves
-        ? [{ label: 'SV', value: String(data.stats.saves), hero: hero === 'saves' }]
-        : []
-    ),
-  ].sort((a, b) => (b.hero ? 1 : 0) - (a.hero ? 1 : 0))
+  const k  = data.stats.k     ?? 0
+  const ip = data.stats.ip    ?? '0'
+  const er = data.stats.er    ?? 0
+  const sv = data.stats.saves ?? 0
+  const w  = data.stats.wins  ?? 0
+  const hero = k >= 10 ? 'k' : sv > 0 ? 'sv' : 'ip'
+  const items: Array<{ label: string; value: string; hero: boolean }> = [
+    { label: 'K',  value: String(k),  hero: hero === 'k'  },
+    { label: 'IP', value: String(ip), hero: hero === 'ip' },
+    { label: 'ER', value: String(er), hero: false         },
+  ]
+  if (sv > 0) items.push({ label: 'SV', value: String(sv), hero: hero === 'sv' })
+  else if (w > 0) items.push({ label: 'W', value: String(w), hero: false })
+  return items.sort((a, b) => (b.hero ? 1 : 0) - (a.hero ? 1 : 0))
 }
 
 export function TopPerformers({
@@ -52,7 +57,7 @@ export function TopPerformers({
   const prevIdxRef = useRef(0)
 
   useEffect(() => {
-    fetchTopPerformers().then(({ hitters, pitchers }) => {
+    fetchRecentGamePerformers().then(({ hitters, pitchers }) => {
       const combined: PerformerEntry[] = []
       const max = Math.max(hitters.length, pitchers.length)
       for (let i = 0; i < max; i++) {
@@ -115,7 +120,7 @@ export function TopPerformers({
           border: '1px solid', borderColor: 'divider',
         }}>
           <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'text.secondary', letterSpacing: 0.3, lineHeight: 1 }}>
-            Last 14 days
+            Single game
           </Typography>
         </Box>
       </Box>
@@ -146,7 +151,7 @@ export function TopPerformers({
             fontWeight: 900, fontSize: '0.65rem', textTransform: 'uppercase',
             letterSpacing: 1.2, color: teamColor, lineHeight: 1,
           }}>
-            {current.role === 'hitter' ? 'Top Hitter' : 'Top Pitcher'}
+            {current.period}
           </Typography>
           <Typography sx={{ fontSize: '0.6rem', fontWeight: 600, color: 'text.disabled', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
             {activeIdx + 1} / {performers.length}

@@ -237,6 +237,145 @@ export async function fetchTopPerformers(): Promise<{ hitters: HotGuyData[]; pit
   return { hitters: _spotlightCache.topHitters, pitchers: _spotlightCache.topPitchers }
 }
 
+// ─── Single-game performer fetch ──────────────────────────────────────────────
+
+function gameDateLabel(date: string, now: Date): string {
+  const today     = localDate(now)
+  const yesterday = localDate(new Date(now.getTime() - 86400000))
+  if (date === today)     return 'Today'
+  if (date === yesterday) return 'Yesterday'
+  const d = new Date(date + 'T12:00:00')
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function scoreHitterGame(stat: any): number {
+  const ab  = Number(stat.atBats ?? 0)
+  if (ab < 2) return -1
+  const h   = Number(stat.hits        ?? 0)
+  const hr  = Number(stat.homeRuns    ?? 0)
+  const rbi = Number(stat.rbi         ?? 0)
+  const sb  = Number(stat.stolenBases ?? 0)
+  const d2  = Number(stat.doubles     ?? 0)
+  const t   = Number(stat.triples     ?? 0)
+  let score = h * 5 + hr * 30 + rbi * 8 + sb * 12 + d2 * 10 + t * 15
+  if (h  >= 3) score += 20
+  if (h  >= 4) score += 20
+  if (hr >= 2) score += 30
+  if (hr >= 3) score += 20
+  if (rbi >= 5) score += 25
+  if (rbi >= 7) score += 25
+  return score
+}
+
+function scorePitcherGame(stat: any): number {
+  const ip = parseIP(stat.inningsPitched)
+  if (ip < 3) return -1
+  const er = Number(stat.earnedRuns  ?? 0)
+  const k  = Number(stat.strikeOuts  ?? 0)
+  const w  = Number(stat.wins        ?? 0)
+  const sv = Number(stat.saves       ?? 0)
+  let score = k * 5 + Math.min(ip, 9) * 3 + w * 15 + sv * 20
+  if (er === 0 && ip >= 6) score += 60
+  else if (er === 0 && ip >= 5) score += 30
+  else if (er <= 1 && ip >= 6) score += 25
+  if (k >= 10) score += 30
+  if (k >= 12) score += 20
+  return score
+}
+
+let _recentCache: { hitters: HotGuyData[]; pitchers: HotGuyData[] } | null = null
+
+export async function fetchRecentGamePerformers(): Promise<{ hitters: HotGuyData[]; pitchers: HotGuyData[] }> {
+  if (_recentCache) return _recentCache
+
+  try {
+    const now    = new Date()
+    const today  = localDate(now)
+    const season = now.getFullYear()
+
+    const lookback = localDate(new Date(now.getTime() - 7 * 86400000))
+    const schedRes = await fetch(
+      `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${lookback}&endDate=${today}&gameType=R` +
+      `&fields=dates,date,games,status,abstractGameState`
+    ).then(r => r.json()).catch(() => null)
+
+    const gameDays: string[] = []
+    for (const dateObj of [...(schedRes?.dates ?? [])].reverse()) {
+      const hasFinal = (dateObj.games ?? []).some((g: any) => g.status?.abstractGameState === 'Final')
+      if (hasFinal) gameDays.push(dateObj.date as string)
+      if (gameDays.length >= 3) break
+    }
+
+    if (gameDays.length === 0) return { hitters: [], pitchers: [] }
+
+    type Candidate = { score: number; data: HotGuyData }
+    const pool: Candidate[] = []
+
+    await Promise.all(gameDays.map(async date => {
+      const period = gameDateLabel(date, now)
+      const [hitRes, pitRes] = await Promise.all([
+        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=byDateRange&startDate=${date}&endDate=${date}&group=hitting&season=${season}&sportId=1&limit=2000`)
+          .then(r => r.json()).catch(() => null),
+        fetch(`https://statsapi.mlb.com/api/v1/stats?stats=byDateRange&startDate=${date}&endDate=${date}&group=pitching&season=${season}&sportId=1&limit=2000`)
+          .then(r => r.json()).catch(() => null),
+      ])
+
+      for (const s of (hitRes?.stats?.[0]?.splits ?? [])) {
+        const score = scoreHitterGame(s.stat)
+        if (score <= 0) continue
+        pool.push({ score, data: {
+          playerId:   Number(s.player?.id),
+          playerName: s.player?.fullName ?? '—',
+          position:   s.position?.abbreviation ?? s.position?.code ?? 'OF',
+          teamId:     Number(s.team?.id ?? 0),
+          teamName:   s.team?.name ?? '—',
+          isPitcher: false, isStarter: false, period,
+          stats: {
+            hits: Number(s.stat.hits        ?? 0),
+            ab:   Number(s.stat.atBats      ?? 0),
+            hr:   Number(s.stat.homeRuns    ?? 0),
+            rbi:  Number(s.stat.rbi         ?? 0),
+            sb:   Number(s.stat.stolenBases ?? 0),
+          },
+        }})
+      }
+
+      for (const s of (pitRes?.stats?.[0]?.splits ?? [])) {
+        const score = scorePitcherGame(s.stat)
+        if (score <= 0) continue
+        const gs        = Number(s.stat.gamesStarted ?? 0)
+        const isStarter = gs >= 1
+        pool.push({ score, data: {
+          playerId:   Number(s.player?.id),
+          playerName: s.player?.fullName ?? '—',
+          position:   s.position?.abbreviation ?? (isStarter ? 'SP' : 'RP'),
+          teamId:     Number(s.team?.id ?? 0),
+          teamName:   s.team?.name ?? '—',
+          isPitcher: true, isStarter, period,
+          stats: {
+            k:     Number(s.stat.strikeOuts  ?? 0),
+            ip:    s.stat.inningsPitched,
+            er:    Number(s.stat.earnedRuns  ?? 0),
+            wins:  Number(s.stat.wins        ?? 0),
+            saves: Number(s.stat.saves       ?? 0),
+            holds: Number(s.stat.holds       ?? 0),
+            gs,
+          },
+        }})
+      }
+    }))
+
+    pool.sort((a, b) => b.score - a.score)
+    _recentCache = {
+      hitters:  pool.filter(c => !c.data.isPitcher).slice(0, 10).map(c => c.data),
+      pitchers: pool.filter(c =>  c.data.isPitcher).slice(0, 10).map(c => c.data),
+    }
+    return _recentCache
+  } catch {
+    return { hitters: [], pitchers: [] }
+  }
+}
+
 // ─── SpotlightCard ────────────────────────────────────────────────────────────
 
 const COLD_ACCENT = '#60a5fa'
