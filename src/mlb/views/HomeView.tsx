@@ -136,12 +136,12 @@ interface StandingSummary {
 // ─── HomeSubNav — in-page tab switcher ────────────────────────────────────────
 // Underline style keeps it visually distinct from the primary SegControl tabs.
 
-function HomeSubNav({ tab, teamLabel, onChange }: {
-  tab: 'league' | 'team'; teamLabel: string; onChange: (t: 'league' | 'team') => void
+function HomeSubNav({ tab, onChange }: {
+  tab: 'league' | 'team'; onChange: (t: 'league' | 'team') => void
 }) {
   const tabs: Array<{ value: 'league' | 'team'; label: string }> = [
     { value: 'league', label: 'Around the League' },
-    { value: 'team',   label: teamLabel },
+    { value: 'team',   label: 'My Stuff' },
   ]
   return (
     <Box sx={{
@@ -273,10 +273,6 @@ export function HomeView({
   const nickname = followedTeam?.teamName     ?? (() => { const w = (followedTeam?.name ?? '').split(' '); return w[w.length - 1] })()
   const city     = followedTeam?.locationName ?? (() => { const w = (followedTeam?.name ?? '').split(' '); return w.slice(0, -1).join(' ') })()
 
-  const teamTabLabel = followedTeamId
-    ? (followedTeam?.teamName ?? followedTeam?.name?.split(' ').pop() ?? 'My Team')
-    : 'My Team'
-
   const standingLine = standing ? [
     `${standing.wins}–${standing.losses}`,
     `${ordinal(standing.divisionRank)} ${standing.divisionName}`,
@@ -288,7 +284,7 @@ export function HomeView({
   return (
     <Box>
       {/* ── In-page tab switcher ─────────────────────────────────────────────── */}
-      <HomeSubNav tab={homeTab} teamLabel={teamTabLabel} onChange={setHomeTab} />
+      <HomeSubNav tab={homeTab} onChange={setHomeTab} />
 
       {/* ── Swipeable two-panel layout ───────────────────────────────────────── */}
       <Box

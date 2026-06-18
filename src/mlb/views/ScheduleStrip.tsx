@@ -24,7 +24,7 @@ export interface ScheduleGame {
   isHome:        boolean
   opponentId:    number
   opponentAbbr:  string
-  state:         'final' | 'live' | 'preview'
+  state:         'final' | 'live' | 'preview' | 'postponed'
   teamScore:     number | null
   opponentScore: number | null
   isWin:         boolean | null
@@ -72,7 +72,7 @@ export async function fetchTeamSchedule(teamId: number): Promise<ScheduleGame[]>
   const r = await fetch(
     `https://statsapi.mlb.com/api/v1/schedule?teamId=${teamId}&sportId=1` +
     `&startDate=${toISO(start)}&endDate=${toISO(end)}&gameType=R` +
-    `&fields=dates,date,games,gamePk,gameDate,status,abstractGameState,teams,home,away,team,id,score,isWinner`
+    `&fields=dates,date,games,gamePk,gameDate,status,abstractGameState,detailedState,teams,home,away,team,id,score,isWinner`
   )
   const d = await r.json()
 
@@ -82,8 +82,12 @@ export async function fetchTeamSchedule(teamId: number): Promise<ScheduleGame[]>
       const isHome = Number(game.teams?.home?.team?.id) === teamId
       const opp    = isHome ? game.teams.away : game.teams.home
       const mine   = isHome ? game.teams.home : game.teams.away
-      const raw    = game.status?.abstractGameState ?? 'Preview'
-      const state  = raw === 'Final' ? 'final' : raw === 'Live' ? 'live' : 'preview'
+      const raw      = game.status?.abstractGameState ?? 'Preview'
+      const detailed = game.status?.detailedState ?? ''
+      const state    = detailed === 'Postponed' ? 'postponed'
+                     : raw === 'Final'          ? 'final'
+                     : raw === 'Live'           ? 'live'
+                     : 'preview'
       games.push({
         gamePk:        game.gamePk,
         date:          dateObj.date,
@@ -289,9 +293,10 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
   innerRef?:     React.RefObject<HTMLDivElement>
   onClick?:      () => void
 }) {
-  const isFinal = game.state === 'final'
-  const isLive  = game.state === 'live'
-  const isWin   = game.isWin === true
+  const isFinal     = game.state === 'final'
+  const isLive      = game.state === 'live'
+  const isPostponed = game.state === 'postponed'
+  const isWin       = game.isWin === true
 
   return (
     <Box
@@ -317,7 +322,10 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
       {highlight && (
         <Box sx={{
           position: 'absolute', top: 0, left: 0, right: 0,
-          bgcolor: isLive ? '#ef4444' : isActualToday ? teamColor : `${teamColor}90`,
+          bgcolor: isLive       ? '#ef4444'
+                 : isPostponed  ? 'rgba(128,128,128,0.5)'
+                 : isActualToday ? teamColor
+                 : `${teamColor}90`,
           py: '2.5px',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
@@ -325,7 +333,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
             fontSize: '0.44rem', fontWeight: 900, letterSpacing: 1.5,
             color: '#fff', textTransform: 'uppercase', lineHeight: 1,
           }}>
-            {isLive ? '● LIVE' : isActualToday ? 'TODAY' : 'NEXT'}
+            {isLive ? '● LIVE' : isPostponed ? 'PPD' : isActualToday ? 'TODAY' : 'NEXT'}
           </Typography>
         </Box>
       )}
@@ -373,6 +381,10 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
       ) : isLive ? (
         <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, color: '#ef4444', lineHeight: 1 }}>
           {game.teamScore}–{game.opponentScore}
+        </Typography>
+      ) : isPostponed ? (
+        <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', lineHeight: 1, letterSpacing: 0.5 }}>
+          PPD
         </Typography>
       ) : (
         <Typography sx={{ fontSize: '0.54rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1, textAlign: 'center' }}>
@@ -525,7 +537,7 @@ function GamePreviewModal({ game, myTeamId, previewData, loading, onClose, onPla
               {homeAbbr}
             </Typography>
             <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: 0.4, lineHeight: 1.3 }}>
-              {chipDate(game.date)} · {game.gameTime}
+              {chipDate(game.date)} · {game.state === 'postponed' ? 'Postponed' : game.gameTime}
               {previewData?.venue ? ` · ${previewData.venue}` : ''}
             </Typography>
           </Box>
@@ -703,11 +715,11 @@ function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick, onCli
             </Box>
           </>
         ) : (
-          // Preview: opponent logo + game time
+          // Preview / postponed: opponent logo + game time or PPD
           <>
             {logoCircle(game.opponentId, oppCol, 32)}
-            <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1 }}>
-              {game.gameTime}
+            <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: game.state === 'postponed' ? 'text.disabled' : 'text.secondary', lineHeight: 1 }}>
+              {game.state === 'postponed' ? 'PPD' : game.gameTime}
             </Typography>
           </>
         )}
@@ -1292,6 +1304,16 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
               .then(setUpcomingPreviewData)
               .finally(() => setLoadingUpcoming(false))
           }
+        } else if (next.state === 'postponed') {
+          // Game postponed — surface the next real upcoming game
+          const upcoming = g.find(x => x.state === 'preview')
+          if (upcoming) {
+            setUpcomingGame(upcoming)
+            setLoadingUpcoming(true)
+            fetchGamePreview(upcoming.gamePk)
+              .then(setUpcomingPreviewData)
+              .finally(() => setLoadingUpcoming(false))
+          }
         }
       }
     }).finally(() => setLoading(false))
@@ -1304,22 +1326,25 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
   )
   if (!games.length) return null
 
-  const lastGame  = [...games].reverse().find(g => g.state === 'final') ?? null
-  const nextGame  = games.find(g => g.date >= today) ?? games[games.length - 1]
-  const isFinal   = nextGame.state === 'final'
-  const isLive    = nextGame.state === 'live'
-  const isPreview = nextGame.state === 'preview'
-  const isToday   = nextGame.date === today
-  // Only show separate "last game" when it differs from the primary card and isn't itself final-today
-  const showLast  = lastGame !== null && lastGame.gamePk !== nextGame.gamePk && !isFinal
+  const lastGame    = [...games].reverse().find(g => g.state === 'final') ?? null
+  const nextGame    = games.find(g => g.date >= today) ?? games[games.length - 1]
+  const isFinal     = nextGame.state === 'final'
+  const isLive      = nextGame.state === 'live'
+  const isPreview   = nextGame.state === 'preview'
+  const isPostponed = nextGame.state === 'postponed'
+  const isToday     = nextGame.date === today
+  // Only show separate "last game" when it differs from the primary card and isn't itself final/postponed today
+  const showLast  = lastGame !== null && lastGame.gamePk !== nextGame.gamePk && !isFinal && !isPostponed
 
-  const nextLabel = isLive ? '● LIVE'
-    : isFinal ? 'FINAL'
-    : isToday  ? 'Today'
+  const nextLabel = isLive       ? '● LIVE'
+    : isFinal     ? 'FINAL'
+    : isPostponed ? 'PPD'
+    : isToday     ? 'Today'
     : 'Next Game'
-  const nextLabelColor = isLive ? '#ef4444'
-    : isFinal ? (nextGame.isWin === true ? '#22c55e' : nextGame.isWin === false ? '#ef4444' : undefined)
-    : isToday ? teamColor : undefined
+  const nextLabelColor = isLive      ? '#ef4444'
+    : isFinal     ? (nextGame.isWin === true ? '#22c55e' : nextGame.isWin === false ? '#ef4444' : undefined)
+    : isPostponed ? undefined
+    : isToday     ? teamColor : undefined
 
   const awayTeamId  = previewData?.away.teamId ?? (nextGame.isHome ? nextGame.opponentId : teamId)
   const homeTeamId  = previewData?.home.teamId ?? (nextGame.isHome ? teamId : nextGame.opponentId)
@@ -1385,8 +1410,8 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
               )}
             </Box>
 
-            {/* When today is done, show the next upcoming game on the right */}
-            {isFinal && upcomingGame && (
+            {/* When today is done or postponed, show the next upcoming game on the right */}
+            {(isFinal || isPostponed) && upcomingGame && (
               <>
                 <Box sx={{ width: '1px', bgcolor: 'divider', alignSelf: 'stretch', my: 0.25, flexShrink: 0 }} />
                 <Box sx={{ flex: 1, minWidth: 0 }}>

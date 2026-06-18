@@ -4,7 +4,7 @@ import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { fetchRecentGamePerformers } from './Spotlight'
 import type { HotGuyData } from './Spotlight'
 
-const CYCLE_MS = 5000
+const CYCLE_MS = 10000
 
 interface PerformerEntry extends HotGuyData {
   role: 'hitter' | 'pitcher'
