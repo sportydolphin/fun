@@ -117,6 +117,17 @@ export function useMlbState() {
     setFollowedTeamId(null)
   }, [])
 
+  // ─── Home sub-tab ('Around the League' vs 'My Stuff') ────────────────────────
+  // Lifted out of HomeView so it survives the unmount/remount that happens when
+  // navigating away to a player/team and back — see handlePop below.
+  const [homeTab, setHomeTab] = useState<'league' | 'team'>(
+    () => followedTeamId ? 'team' : 'league'
+  )
+
+  useEffect(() => {
+    if (followedTeamId) setHomeTab('team')
+  }, [followedTeamId])
+
   // ─── Followed players (persisted to localStorage) ─────────────────────────────
   const [followedPlayerIds, setFollowedPlayerIds] = useState<number[]>(() => {
     try {
@@ -412,11 +423,11 @@ export function useMlbState() {
   }, [loadTeamStats])
 
   const handleLbPlayerClick = useCallback((playerId: number) => {
-    window.history.pushState({ returnView: view }, '', window.location.href)
+    window.history.pushState({ returnView: view, returnHomeTab: homeTab }, '', window.location.href)
     fetchPlayerDetails(playerId).then(p => {
       if (p) { selectPlayer(p); setView('search') }
     }).catch(() => {})
-  }, [selectPlayer, view])
+  }, [selectPlayer, view, homeTab])
 
   const handleSeasonChange = useCallback((s: number) => {
     setHighlightedGameDate(null)
@@ -428,7 +439,7 @@ export function useMlbState() {
   const handleStatCardClick = useCallback((statKey: string, group: 'hitting' | 'pitching') => {
     const defs = group === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS
     const def  = defs.find(d => d.key === statKey) ?? defs[0]
-    window.history.pushState({ returnView: view }, '', window.location.href)
+    window.history.pushState({ returnView: view, returnHomeTab: homeTab }, '', window.location.href)
     setView('stats')
     setLbGroup(group)
     setVizSeason(season)
@@ -437,28 +448,28 @@ export function useMlbState() {
     setLbStatsLimit(500)
     setStatsHighlightPlayerId(player?.id ?? null)
     setStatsHighlightStatKey(statKey)
-  }, [player, season, view])
+  }, [player, season, view, homeTab])
 
   const handleFollowedPlayerClick = useCallback((playerId: number) => {
-    window.history.pushState({ returnView: view }, '', window.location.href)
+    window.history.pushState({ returnView: view, returnHomeTab: homeTab }, '', window.location.href)
     fetchPlayerDetails(playerId)
       .then(p => { if (p) { selectPlayer(p); setView('search') } })
       .catch(() => {})
-  }, [selectPlayer, view])
+  }, [selectPlayer, view, homeTab])
 
   const handleTeamSearchClick = useCallback((teamId: number) => {
     const t = allTeams.find(t => t.id === teamId)
     if (!t) return
-    window.history.pushState({ returnView: view }, '', window.location.href)
+    window.history.pushState({ returnView: view, returnHomeTab: homeTab }, '', window.location.href)
     selectTeam(t).then(() => setView('search'))
-  }, [allTeams, selectTeam, view])
+  }, [allTeams, selectTeam, view, homeTab])
 
   const handleVizNavigate = useCallback((id: number) => {
     const t = allTeams.find(t => t.id === id)
     if (!t) return
-    window.history.pushState({ returnView: view }, '', window.location.href)
+    window.history.pushState({ returnView: view, returnHomeTab: homeTab }, '', window.location.href)
     selectTeam(t).then(() => setView('search'))
-  }, [allTeams, selectTeam, view])
+  }, [allTeams, selectTeam, view, homeTab])
 
   // ─── Effects: player-level data ───────────────────────────────────────────────
 
@@ -523,7 +534,9 @@ export function useMlbState() {
       if (vizSeason !== CURRENT_SEASON) params.set('season', String(vizSeason))
     }
     const qs = params.toString()
-    window.history.replaceState({}, '', `/mlb${qs ? '?' + qs : ''}`)
+    // Preserve the existing history-entry state (e.g. returnView/returnHomeTab
+    // pushed by a cross-link click) — replaceState only needs to touch the URL.
+    window.history.replaceState(window.history.state, '', `/mlb${qs ? '?' + qs : ''}`)
   }, [view, player, team, lbGroup, vizSeason])
 
   // Restore state when the browser back button is pressed
@@ -533,17 +546,53 @@ export function useMlbState() {
       if (e.state?.returnView) {
         const rv = e.state.returnView as string
         setView(rv as any)
+        if (e.state.returnHomeTab) setHomeTab(e.state.returnHomeTab as 'league' | 'team')
         setPlayer(null)
         setTeam(null)
         return
       }
 
-      // Fallback: parse URL params (covers older history entries / deep links)
+      // Fallback: parse URL params (covers older history entries / deep links).
+      // Check `view` first — a player/team can be set in the background (e.g. the
+      // random auto-load on Home) while view stays 'home', so a stray `pid`/`tid`
+      // must never override an explicit non-search view param.
       const params = new URLSearchParams(window.location.search)
       const viewParam = params.get('view')
       const tid = params.get('tid')
       const pid = params.get('pid')
 
+      if (viewParam === 'leaderboard') {
+        setView('leaderboard')
+        setPlayer(null)
+        setTeam(null)
+        setLbGroup(params.get('lb') === 'pitching' ? 'pitching' : 'hitting')
+        return
+      }
+      if (viewParam === 'stats') {
+        setView('stats')
+        setPlayer(null)
+        setTeam(null)
+        setLbGroup(params.get('lb') === 'pitching' ? 'pitching' : 'hitting')
+        return
+      }
+      if (viewParam === 'viz') {
+        setView('viz')
+        setPlayer(null)
+        setTeam(null)
+        return
+      }
+      if (viewParam === 'standings') {
+        setView('standings')
+        setPlayer(null)
+        setTeam(null)
+        return
+      }
+      if (viewParam === 'home') {
+        setView('home')
+        setPlayer(null)
+        setTeam(null)
+        return
+      }
       if (tid) {
         const t = allTeams.find(t => t.id === Number(tid))
         if (t) {
@@ -560,29 +609,6 @@ export function useMlbState() {
           .then(p => { if (p) selectPlayer(p) })
           .catch(() => {})
         return
-      }
-      if (viewParam === 'leaderboard') {
-        setView('leaderboard')
-        setPlayer(null)
-        setTeam(null)
-        setLbGroup(params.get('lb') === 'pitching' ? 'pitching' : 'hitting')
-      } else if (viewParam === 'stats') {
-        setView('stats')
-        setPlayer(null)
-        setTeam(null)
-        setLbGroup(params.get('lb') === 'pitching' ? 'pitching' : 'hitting')
-      } else if (viewParam === 'viz') {
-        setView('viz')
-        setPlayer(null)
-        setTeam(null)
-      } else if (viewParam === 'standings') {
-        setView('standings')
-        setPlayer(null)
-        setTeam(null)
-      } else if (viewParam === 'home') {
-        setView('home')
-        setPlayer(null)
-        setTeam(null)
       }
     }
     window.addEventListener('popstate', handlePop)
@@ -724,6 +750,7 @@ export function useMlbState() {
 
     // Followed team
     followedTeamId, followTeam, unfollowTeam,
+    homeTab, setHomeTab,
 
     // Followed players
     followedPlayerIds, followPlayer, unfollowPlayer,

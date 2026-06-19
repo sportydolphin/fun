@@ -192,6 +192,9 @@ export interface HomeViewProps {
   onUnfollowPlayer:  (id: number) => void
   onPlayerClick:     (id: number) => void
   onTeamClick?:      (id: number) => void
+  // Lifted to useMlbState so browser Back can restore the sub-tab — see [[nav-back-stack]]
+  homeTab:           'league' | 'team'
+  onHomeTabChange:   (t: 'league' | 'team') => void
 }
 
 // ─── HomeView ─────────────────────────────────────────────────────────────────
@@ -199,16 +202,8 @@ export interface HomeViewProps {
 export function HomeView({
   allTeams, followedTeamId, onFollowTeam, onUnfollowTeam,
   followedPlayerIds, onFollowPlayer, onUnfollowPlayer, onPlayerClick, onTeamClick,
+  homeTab, onHomeTabChange,
 }: HomeViewProps) {
-
-  // ── Sub-page state ───────────────────────────────────────────────────────────
-  const [homeTab, setHomeTab] = useState<'league' | 'team'>(
-    () => followedTeamId ? 'team' : 'league'
-  )
-
-  useEffect(() => {
-    if (followedTeamId) setHomeTab('team')
-  }, [followedTeamId])
 
   // ── Data ─────────────────────────────────────────────────────────────────────
   const [standing,         setStanding]         = useState<StandingSummary | null>(null)
@@ -263,7 +258,7 @@ export function HomeView({
     const dy = e.changedTouches[0].clientY - touchStartRef.current.y
     touchStartRef.current = null
     if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return
-    setHomeTab(dx < 0 ? 'team' : 'league')
+    onHomeTabChange(dx < 0 ? 'team' : 'league')
   }, [])
 
   // ── Derived team info ─────────────────────────────────────────────────────────
@@ -284,7 +279,7 @@ export function HomeView({
   return (
     <Box>
       {/* ── In-page tab switcher ─────────────────────────────────────────────── */}
-      <HomeSubNav tab={homeTab} onChange={setHomeTab} />
+      <HomeSubNav tab={homeTab} onChange={onHomeTabChange} />
 
       {/* ── Swipeable two-panel layout ───────────────────────────────────────── */}
       <Box

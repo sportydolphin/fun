@@ -31,7 +31,7 @@ export default function MlbStats() {
   }, [topQuery, state.playerResults, state.teamResults, state.searching])
 
   const handleTopSelect = (fn: () => void) => {
-    window.history.pushState({ returnView: state.view }, '', window.location.href)
+    window.history.pushState({ returnView: state.view, returnHomeTab: state.homeTab }, '', window.location.href)
     fn()
     setTopQuery('')
     setTopOpen(false)
@@ -142,7 +142,7 @@ export default function MlbStats() {
           ]}
           value={state.view}
           onChange={v => {
-            window.history.pushState({ returnView: state.view }, '', window.location.href)
+            window.history.pushState({ returnView: state.view, returnHomeTab: state.homeTab }, '', window.location.href)
             state.setView(v as any)
           }}
         />
@@ -159,6 +159,8 @@ export default function MlbStats() {
           onUnfollowPlayer={state.unfollowPlayer}
           onPlayerClick={state.handleFollowedPlayerClick}
           onTeamClick={state.handleTeamSearchClick}
+          homeTab={state.homeTab}
+          onHomeTabChange={state.setHomeTab}
         />
       )}
 
