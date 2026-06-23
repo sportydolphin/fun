@@ -134,13 +134,6 @@ export function UsernameDialog({ open, onClose, userId, currentUsername, onSaved
       </DialogTitle>
 
       <DialogContent sx={{ pt: '8px !important' }}>
-        <Box sx={{ mb: 1.5, px: 1.5, py: 1.25, borderRadius: 2, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider' }}>
-          <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', lineHeight: 1.5 }}>
-            Pick a unique handle — 3–20 characters, letters, numbers, <code>_</code> and <code>-</code> only.
-            Your email is always used as a fallback if you skip this.
-          </Typography>
-        </Box>
-
         <TextField
           autoFocus fullWidth
           label="Username"

@@ -3,9 +3,9 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, Typography, Box, CircularProgress, IconButton,
 } from '@mui/material'
-import { Close, ChevronRight } from '@mui/icons-material'
+import { Close, ChevronRight, ExpandMore } from '@mui/icons-material'
 import { Team } from './mlb/types'
-import { TEAM_BG } from './mlb/constants'
+import { TEAM_BG, ACCENT } from './mlb/constants'
 import { fetchAllTeams } from './mlb/api'
 import {
   loadPrefsFromSupabase, savePrefsToSupabase,
@@ -27,10 +27,12 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
   const [teamId, setTeamId]   = useState<number | null>(null)
   const [playerIds, setPlayerIds] = useState<number[]>([])
   const [saving, setSaving]   = useState(false)
+  const [teamPickerOpen, setTeamPickerOpen] = useState(false)
 
   // Load team list + current preference whenever the dialog opens
   useEffect(() => {
     if (!open) return
+    setTeamPickerOpen(false)
     setLoadingTeams(true)
     fetchAllTeams().then(setTeams).catch(() => setTeams([])).finally(() => setLoadingTeams(false))
 
@@ -88,73 +90,121 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
         </Box>
 
         {/* Preferred team */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
-          <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'text.disabled' }}>
-            Preferred Team
-          </Typography>
-          {teamId != null && (
-            <Typography
-              onClick={() => selectTeam(null)}
-              sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'error.main', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-            >
-              Clear
-            </Typography>
-          )}
-        </Box>
-
-        {loadingTeams ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-            <CircularProgress size={22} />
-          </Box>
-        ) : (
-          <Box sx={{
-            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(58px, 1fr))', gap: 0.75,
-            maxHeight: 260, overflowY: 'auto', pr: 0.5,
-          }}>
-            {sortedTeams.map(t => {
-              const bg = TEAM_BG[t.id] ?? '#444'
-              const selected = teamId === t.id
-              return (
-                <Box
-                  key={t.id}
-                  onClick={() => selectTeam(t.id)}
-                  sx={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5,
-                    p: 1, borderRadius: 2, cursor: 'pointer', userSelect: 'none',
-                    border: '1.5px solid', borderColor: selected ? bg : 'transparent',
-                    bgcolor: selected ? `${bg}1a` : 'transparent',
-                    transition: 'all 0.15s',
-                    '&:hover': { borderColor: bg, bgcolor: `${bg}14` },
-                  }}
-                >
-                  <Box sx={{
-                    width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
-                    bgcolor: '#fff', border: `2px solid ${bg}`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-                  }}>
-                    <Box
-                      component="img"
-                      src={`https://www.mlbstatic.com/team-logos/${t.id}.svg`}
-                      alt={t.abbreviation}
-                      sx={{ width: 24, height: 24, objectFit: 'contain' }}
-                      onError={(e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.display = 'none' }}
-                    />
-                  </Box>
-                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, lineHeight: 1.1, textAlign: 'center' }}>
-                    {t.abbreviation}
+        <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'text.disabled', mb: 0.75 }}>
+          Preferred Team
+        </Typography>
+        <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+          {(() => {
+            const selectedTeam = teams.find(t => t.id === teamId)
+            const bg = teamId != null ? (TEAM_BG[teamId] ?? '#444') : undefined
+            return (
+              <Box
+                onClick={() => setTeamPickerOpen(o => !o)}
+                sx={{
+                  px: 1.75, py: 1.1, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                  {selectedTeam ? (
+                    <Box sx={{
+                      width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                      bgcolor: '#fff', border: `2px solid ${bg}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                    }}>
+                      <Box
+                        component="img"
+                        src={`https://www.mlbstatic.com/team-logos/${selectedTeam.id}.svg`}
+                        alt={selectedTeam.abbreviation}
+                        sx={{ width: 17, height: 17, objectFit: 'contain' }}
+                        onError={(e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.display = 'none' }}
+                      />
+                    </Box>
+                  ) : null}
+                  <Typography sx={{ fontSize: '0.88rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {selectedTeam ? selectedTeam.name : loadingTeams ? 'Loading…' : 'Not set'}
                   </Typography>
                 </Box>
-              )
-            })}
-          </Box>
-        )}
+                <ExpandMore sx={{ color: 'text.disabled', flexShrink: 0, transition: 'transform 0.15s', transform: teamPickerOpen ? 'rotate(180deg)' : 'none' }} />
+              </Box>
+            )
+          })()}
+
+          {teamPickerOpen && (
+            <Box sx={{ borderTop: '1px solid', borderColor: 'divider', p: 1 }}>
+              {loadingTeams ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size={20} />
+                </Box>
+              ) : (
+                <>
+                  <Box sx={{
+                    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(54px, 1fr))', gap: 0.5,
+                    maxHeight: 168, overflowY: 'auto', pr: 0.5,
+                  }}>
+                    {sortedTeams.map(t => {
+                      const bg = TEAM_BG[t.id] ?? '#444'
+                      const selected = teamId === t.id
+                      return (
+                        <Box
+                          key={t.id}
+                          onClick={() => selectTeam(t.id)}
+                          sx={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.4,
+                            p: 0.75, borderRadius: 2, cursor: 'pointer', userSelect: 'none',
+                            border: '1.5px solid', borderColor: selected ? bg : 'transparent',
+                            bgcolor: selected ? `${bg}1a` : 'transparent',
+                            transition: 'all 0.15s',
+                            '&:hover': { borderColor: bg, bgcolor: `${bg}14` },
+                          }}
+                        >
+                          <Box sx={{
+                            width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                            bgcolor: '#fff', border: `2px solid ${bg}`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                          }}>
+                            <Box
+                              component="img"
+                              src={`https://www.mlbstatic.com/team-logos/${t.id}.svg`}
+                              alt={t.abbreviation}
+                              sx={{ width: 20, height: 20, objectFit: 'contain' }}
+                              onError={(e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.display = 'none' }}
+                            />
+                          </Box>
+                          <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, lineHeight: 1.1, textAlign: 'center' }}>
+                            {t.abbreviation}
+                          </Typography>
+                        </Box>
+                      )
+                    })}
+                  </Box>
+                  {teamId != null && (
+                    <Typography
+                      onClick={() => selectTeam(null)}
+                      sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'error.main', cursor: 'pointer', mt: 1, '&:hover': { textDecoration: 'underline' } }}
+                    >
+                      Clear preferred team
+                    </Typography>
+                  )}
+                </>
+              )}
+            </Box>
+          )}
+        </Box>
         <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 1 }}>
           {saving ? 'Saving…' : 'Synced to your account — follows you across devices.'}
         </Typography>
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose} variant="contained">Done</Button>
+        <Button
+          onClick={onClose}
+          variant="contained"
+          sx={{ bgcolor: ACCENT, color: '#fff', '&:hover': { bgcolor: ACCENT, filter: 'brightness(0.92)' } }}
+        >
+          Done
+        </Button>
       </DialogActions>
     </Dialog>
   )

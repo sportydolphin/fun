@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react'
 import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Tooltip, Paper, ClickAwayListener, CircularProgress } from '@mui/material'
-import { Brightness4, Brightness7, AccountCircle, Settings as SettingsIcon } from '@mui/icons-material'
+import { Brightness4, Brightness7, AccountCircle } from '@mui/icons-material'
 import { useTheme } from './ThemeContext'
 import { AuthProvider, useAuth } from './AuthContext'
 import { AdminPanel } from './AdminPanel'
@@ -122,7 +122,7 @@ function AppInner() {
           >
             sportydolphin.fun
           </Typography>
-          <IconButton onClick={toggleTheme} sx={{ color: 'text.primary' }}>
+          <IconButton onClick={toggleTheme} sx={{ color: mode === 'dark' ? '#fbbf24' : 'text.primary' }}>
             {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
           </IconButton>
           {user ? (
@@ -175,8 +175,7 @@ function AppInner() {
                         '&:hover': { bgcolor: 'action.hover' },
                       }}
                     >
-                      <SettingsIcon sx={{ fontSize: '1.05rem', color: 'text.secondary' }} />
-                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>Settings</Typography>
+                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>⚙️ Settings</Typography>
                     </Box>
 
                     {/* Admin — only shown to the site owner */}
