@@ -85,6 +85,9 @@ export function TopPerformers({
   }, [performers.length])
 
   const go = (delta: number) => {
+    // Manual navigation via the arrows stops the auto-cycle for good — the
+    // user is browsing on their own now.
+    pausedRef.current = true
     setVisible(false)
     setTimeout(() => {
       setActiveIdx(i => (i + delta + performers.length) % performers.length)

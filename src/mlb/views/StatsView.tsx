@@ -3,6 +3,7 @@ import { Box, Typography, Paper, CircularProgress } from '@mui/material'
 import { LbFullscreenState } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED } from '../constants'
 import { SegControl, pillActionSx } from '../ui'
+import { filterQualified } from '../utils'
 
 export interface StatsViewProps {
   lbGroup: 'hitting' | 'pitching'
@@ -58,19 +59,7 @@ export function StatsView({
   // ── Qualification filter ──────────────────────────────────────────────
   const qualifiedPool = (() => {
     const all = lbData ?? []
-    if (!lbQualified) return all
-    if (lbGroup === 'hitting') {
-      const maxPA = Math.max(0, ...all.map(e => Number(e.stat?.plateAppearances ?? 0)))
-      const estGames = maxPA > 0 ? Math.round(maxPA / 4.3) : 162
-      const threshold = Math.max(30, Math.round(estGames * 3.1))
-      return all.filter(e => Number(e.stat?.plateAppearances ?? 0) >= threshold)
-    } else {
-      const maxGS = Math.max(0, ...all.map(e => Number(e.stat?.gamesStarted ?? 0)))
-      const estGames = maxGS > 0 ? maxGS * 5 : 162
-      const ipThreshold = Math.max(20, Math.round(estGames * 1.0))
-      const ipOf = (e: any) => parseFloat(String(e.stat?.inningsPitched ?? 0)) || 0
-      return all.filter(e => ipOf(e) >= ipThreshold)
-    }
+    return lbQualified ? filterQualified(all, lbGroup) : all
   })()
 
   const sortedEntries = qualifiedPool

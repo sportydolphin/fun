@@ -6,6 +6,7 @@ import { Tune, KeyboardArrowDown, OpenInFull } from '@mui/icons-material'
 import { StatDef, LbFullscreenState } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED } from '../constants'
 import { SegControl, PillChip, pillActionSx } from '../ui'
+import { filterQualified } from '../utils'
 
 export interface LeaderboardViewProps {
   lbGroup: 'hitting' | 'pitching'
@@ -152,6 +153,9 @@ export function LeaderboardView({
         const defs = lbSortedDefs.filter(d => lbSelectedKeys.includes(d.key))
         const MEDALS = ['🥇', '🥈', '🥉']
         const maxEntries = lbIsDefault && isDesktop ? 10 : 5
+        // Collapsed cards only show qualified players by default — otherwise a
+        // player with a handful of ABs/IP can camp the top of a rate stat.
+        const qualifiedData = filterQualified(lbData, lbGroup)
         return (
           <Box
             onMouseLeave={() => setLbHoverId(null)}
@@ -163,7 +167,7 @@ export function LeaderboardView({
           >
             {defs.map(def => {
               const asc = def.lowerIsBetter ?? false
-              const allEntries = lbData
+              const allEntries = qualifiedData
                 .map(e => {
                   const sortVal = def.leaderValue ? def.leaderValue(e.stat) : def.getValue(e.stat)
                   return { ...e, val: def.getValue(e.stat), sortVal }

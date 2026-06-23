@@ -24,6 +24,24 @@ export function parseIP(ip: any): number {
   return whole + outs / 3
 }
 
+// Filter a leaderboard pool down to "qualified" players — enough plate
+// appearances (hitting) or innings pitched (pitching) relative to the season's
+// leader, so a player with 3 ABs can't camp the top of a rate-stat board.
+export function filterQualified<T extends { stat: any }>(entries: T[], group: 'hitting' | 'pitching'): T[] {
+  if (group === 'hitting') {
+    const maxPA = Math.max(0, ...entries.map(e => Number(e.stat?.plateAppearances ?? 0)))
+    const estGames = maxPA > 0 ? Math.round(maxPA / 4.3) : 162
+    const threshold = Math.max(30, Math.round(estGames * 3.1))
+    return entries.filter(e => Number(e.stat?.plateAppearances ?? 0) >= threshold)
+  } else {
+    const maxGS = Math.max(0, ...entries.map(e => Number(e.stat?.gamesStarted ?? 0)))
+    const estGames = maxGS > 0 ? maxGS * 5 : 162
+    const ipThreshold = Math.max(20, Math.round(estGames * 1.0))
+    const ipOf = (e: any) => parseFloat(String(e.stat?.inningsPitched ?? 0)) || 0
+    return entries.filter(e => ipOf(e) >= ipThreshold)
+  }
+}
+
 export function statCols(n: number): number {
   if (n <= 3) return n || 1
   for (let cols = 3; cols >= 2; cols--) {

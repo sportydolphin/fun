@@ -745,7 +745,8 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
 
 // ─── FinalGamesSection ─────────────────────────────────────────────────────────
 
-export function FinalGamesSection({ onPlayerClick, onTeamClick }: {
+export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }: {
+  followedTeamId?: number | null
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
 }) {
@@ -775,6 +776,18 @@ export function FinalGamesSection({ onPlayerClick, onTeamClick }: {
       .catch(() => { if (!cancelled) { setGames([]); setLoading(false) } })
     return () => { cancelled = true }
   }, [dateISO])
+
+  // Live games first, then final, then upcoming — and within each group, the
+  // followed team's game (if any) leads the pack.
+  const STATE_ORDER: Record<GameState, number> = { live: 0, final: 1, preview: 2 }
+  const sortedGames = [...games].sort((a, b) => {
+    const stateDiff = STATE_ORDER[a.state] - STATE_ORDER[b.state]
+    if (stateDiff !== 0) return stateDiff
+    const aMine = followedTeamId != null && (a.home.teamId === followedTeamId || a.away.teamId === followedTeamId)
+    const bMine = followedTeamId != null && (b.home.teamId === followedTeamId || b.away.teamId === followedTeamId)
+    if (aMine !== bMine) return aMine ? -1 : 1
+    return 0
+  })
 
   return (
     <>
@@ -819,7 +832,7 @@ export function FinalGamesSection({ onPlayerClick, onTeamClick }: {
             '&::-webkit-scrollbar': { display: 'none' },
             msOverflowStyle: 'none', scrollbarWidth: 'none',
           }}>
-            {games.map(game => (
+            {sortedGames.map(game => (
               <FinalGameMiniCard
                 key={game.gamePk}
                 game={game}

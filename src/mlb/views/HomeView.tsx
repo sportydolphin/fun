@@ -300,7 +300,7 @@ export function HomeView({
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
 
               {/* Scoreboard — by-date live/past/future games, click for box score */}
-              <FinalGamesSection onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+              <FinalGamesSection followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
 
               {/* Top performers cycling carousel */}
               <TopPerformers onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
