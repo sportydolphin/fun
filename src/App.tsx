@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react'
 import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Tooltip, Paper, ClickAwayListener, CircularProgress } from '@mui/material'
-import { Brightness4, Brightness7, Lock, AccountCircle } from '@mui/icons-material'
+import { Brightness4, Brightness7, AccountCircle, Settings as SettingsIcon } from '@mui/icons-material'
 import { useTheme } from './ThemeContext'
 import { AuthProvider, useAuth } from './AuthContext'
 import { AdminPanel } from './AdminPanel'
 import { UsernameDialog } from './UsernameDialog'
+import { SettingsDialog } from './SettingsDialog'
 import { supabase } from './lib/supabase'
 import CupsGame from '../projects/cups-game/src/CupsGame'
 
@@ -41,10 +42,17 @@ const PROJECTS = [
 function AppInner() {
   const { mode, toggleTheme } = useTheme()
   const { user, signOut, openAuthDialog } = useAuth()
-  const [path, setPath] = useState<Route | string>(window.location.pathname as Route)
+  // Root redirects straight to MLB Stats — it's the main site now. Other mini
+  // apps are still reachable, just tucked behind the admin menu.
+  const [path, setPath] = useState<Route | string>(() => {
+    const p = window.location.pathname
+    if (p === '/') { window.history.replaceState({}, '', '/mlb'); return '/mlb' }
+    return p as Route
+  })
   const [accountOpen,      setAccountOpen]      = useState(false)
   const [adminOpen,        setAdminOpen]        = useState(false)
   const [usernameOpen,     setUsernameOpen]     = useState(false)
+  const [settingsOpen,     setSettingsOpen]     = useState(false)
   const [username,         setUsername]         = useState<string | null>(null)
   const accountBtnRef = useRef<HTMLButtonElement>(null)
   const isAdmin = user?.email === ADMIN_EMAIL
@@ -62,7 +70,11 @@ function AppInner() {
   const [pwError, setPwError] = useState(false)
 
   useEffect(() => {
-    const onPop = () => setPath(window.location.pathname as Route)
+    const onPop = () => {
+      const p = window.location.pathname
+      if (p === '/') { window.history.replaceState({}, '', '/mlb'); setPath('/mlb'); return }
+      setPath(p as Route)
+    }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
@@ -90,110 +102,14 @@ function AppInner() {
   }, [pwInput, pendingPath])
 
   const backBtn = (
-    <Box onClick={() => navigate('/')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
+    <Box onClick={() => navigate('/mlb')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
   )
 
-  const Home = useCallback(() => (
-    <Box sx={{ textAlign: 'center', py: 4, px: 1 }}>
-      <Typography
-        variant="h5"
-        sx={{ fontWeight: 800, mb: 1, letterSpacing: '-0.3px' }}
-      >
-        what do you want to do? 🐬
-      </Typography>
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        sx={{ mb: 4 }}
-      >
-        pick something fun
-      </Typography>
-
-      <Box sx={{
-        display: 'grid',
-        gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' },
-        gap: { xs: 1.5, sm: 2 },
-        maxWidth: 680,
-        mx: 'auto',
-      }}>
-        {PROJECTS.map(p => {
-          const locked = LOCKED_PATHS.has(p.path) && !unlocked
-          return (
-            <Box
-              key={p.path}
-              onClick={() => handleTileClick(p)}
-              sx={{
-                bgcolor: p.color,
-                borderRadius: 3,
-                p: { xs: 2, sm: 2.5 },
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 0.75,
-                position: 'relative',
-                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-                userSelect: 'none',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: '0 10px 28px rgba(0,0,0,0.22)',
-                },
-                '&:active': {
-                  transform: 'translateY(-1px)',
-                },
-              }}
-            >
-              {locked && (
-                <Box sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'rgba(0,0,0,0.25)', borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Lock sx={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.9)' }} />
-                </Box>
-              )}
-              <Typography sx={{ fontSize: { xs: '2rem', sm: '2.4rem' }, lineHeight: 1 }}>
-                {p.emoji}
-              </Typography>
-              <Typography sx={{
-                color: '#fff',
-                fontWeight: 700,
-                fontSize: { xs: '0.85rem', sm: '0.95rem' },
-                lineHeight: 1.2,
-              }}>
-                {p.label}
-              </Typography>
-              <Typography sx={{
-                color: 'rgba(255,255,255,0.7)',
-                fontSize: { xs: '0.7rem', sm: '0.75rem' },
-                lineHeight: 1.2,
-              }}>
-                {p.desc}
-              </Typography>
-            </Box>
-          )
-        })}
-      </Box>
-
-      <Dialog open={lockDialogOpen} onClose={() => setLockDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>🔒 Password required</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            type="password"
-            label="Password"
-            value={pwInput}
-            error={pwError}
-            helperText={pwError ? 'Incorrect password' : ''}
-            onChange={e => { setPwInput(e.target.value); setPwError(false) }}
-            onKeyDown={e => { if (e.key === 'Enter') handlePwSubmit() }}
-            sx={{ mt: 1 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setLockDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handlePwSubmit} variant="contained">Unlock</Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
-  ), [unlocked, lockDialogOpen, pwInput, pwError, handleTileClick, handlePwSubmit])
+  // Other mini apps (everything but MLB Stats) — opened from the admin menu now
+  // that the site lands on /mlb directly.
+  const otherApps = PROJECTS.filter(p => p.path !== '/mlb')
+  const isAppLocked = useCallback((path: string) => LOCKED_PATHS.has(path) && !unlocked, [unlocked])
+  const openApp = useCallback((path: string) => { setAdminOpen(false); handleTileClick({ path }) }, [handleTileClick])
 
   return (
     <>
@@ -201,7 +117,7 @@ function AppInner() {
         <Toolbar>
           <Typography
             variant="h6" component="div"
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/mlb')}
             sx={{ flexGrow: 1, fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
           >
             sportydolphin.fun
@@ -249,22 +165,18 @@ function AppInner() {
                       </Typography>
                     </Box>
 
-                    {/* Set / change username */}
+                    {/* Settings */}
                     <Box
-                      onClick={() => { setAccountOpen(false); setUsernameOpen(true) }}
+                      onClick={() => { setAccountOpen(false); setSettingsOpen(true) }}
                       sx={{
                         px: 2, py: 1.1, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        display: 'flex', alignItems: 'center', gap: 1,
                         borderBottom: '1px solid', borderColor: 'divider',
                         '&:hover': { bgcolor: 'action.hover' },
                       }}
                     >
-                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>
-                        {username ? `@${username}` : 'Set username'}
-                      </Typography>
-                      {!username && (
-                        <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>optional</Typography>
-                      )}
+                      <SettingsIcon sx={{ fontSize: '1.05rem', color: 'text.secondary' }} />
+                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>Settings</Typography>
                     </Box>
 
                     {/* Admin — only shown to the site owner */}
@@ -310,7 +222,6 @@ function AppInner() {
       </AppBar>
 
       <Box sx={{ p: 2 }}>
-        {path === '/' && <Home />}
         {path === '/cups' && (
           <Box>
             {backBtn}
@@ -348,16 +259,54 @@ function AppInner() {
         )}
       </Box>
 
-      <AdminPanel open={adminOpen} onClose={() => setAdminOpen(false)} />
+      <AdminPanel
+        open={adminOpen}
+        onClose={() => setAdminOpen(false)}
+        apps={otherApps}
+        isAppLocked={isAppLocked}
+        onOpenApp={openApp}
+      />
+
+      <Dialog open={lockDialogOpen} onClose={() => setLockDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>🔒 Password required</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            type="password"
+            label="Password"
+            value={pwInput}
+            error={pwError}
+            helperText={pwError ? 'Incorrect password' : ''}
+            onChange={e => { setPwInput(e.target.value); setPwError(false) }}
+            onKeyDown={e => { if (e.key === 'Enter') handlePwSubmit() }}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLockDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handlePwSubmit} variant="contained">Unlock</Button>
+        </DialogActions>
+      </Dialog>
 
       {user && (
-        <UsernameDialog
-          open={usernameOpen}
-          onClose={() => setUsernameOpen(false)}
-          userId={user.id}
-          currentUsername={username}
-          onSaved={setUsername}
-        />
+        <>
+          <UsernameDialog
+            open={usernameOpen}
+            onClose={() => setUsernameOpen(false)}
+            userId={user.id}
+            currentUsername={username}
+            onSaved={setUsername}
+          />
+          <SettingsDialog
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            userId={user.id}
+            email={user.email ?? ''}
+            currentUsername={username}
+            onEditUsername={() => { setSettingsOpen(false); setUsernameOpen(true) }}
+          />
+        </>
       )}
     </>
   )

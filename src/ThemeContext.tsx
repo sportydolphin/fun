@@ -49,19 +49,38 @@ interface AppThemeProviderProps {
   children: React.ReactNode;
 }
 
+function prefersDark(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
 export const AppThemeProvider: React.FC<AppThemeProviderProps> = ({ children }) => {
   const [mode, setMode] = useState<ThemeMode>(() => {
     const saved = localStorage.getItem('theme');
-    return (saved as ThemeMode) || 'light';
+    if (saved === 'light' || saved === 'dark') return saved;
+    return prefersDark() ? 'dark' : 'light';
   });
 
+  // Until the user explicitly picks a theme via the toggle button, keep
+  // following the device's color scheme — including live changes (e.g.
+  // system dark mode turning on at sunset) while the app is open.
   useEffect(() => {
-    localStorage.setItem('theme', mode);
+    if (localStorage.getItem('theme')) return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => setMode(e.matches ? 'dark' : 'light');
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  useEffect(() => {
     document.documentElement.setAttribute('data-theme', mode);
   }, [mode]);
 
   const toggleTheme = () => {
-    setMode(prev => prev === 'light' ? 'dark' : 'light');
+    setMode(prev => {
+      const next = prev === 'light' ? 'dark' : 'light';
+      localStorage.setItem('theme', next);
+      return next;
+    });
   };
 
   const theme = createAppTheme(mode);

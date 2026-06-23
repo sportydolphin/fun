@@ -1,10 +1,13 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useAuth } from '../AuthContext'
-import { supabase } from '../lib/supabase'
 import {
   RankMode, Player, Team, Palette, TeamSummary, CareerStatSplit,
   TeamPlayerStat, RecentGameEntry, LbFullscreenState, TeamStandingInfo, StandingsDivision,
 } from './types'
+import {
+  loadPrefsFromSupabase, savePrefsToSupabase,
+  getLocalFollowedTeamId, setLocalFollowedTeamId, getLocalFollowedPlayerIds,
+} from './prefs'
 import {
   ACCENT,
   HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS,
@@ -22,34 +25,6 @@ import {
 import { computeSmartHitStats, computeSmartPitStats } from './smartStats'
 import type { CardInnerProps } from './cards'
 import type { TeamCardInnerProps } from './cards'
-
-// ─── Supabase prefs helpers ───────────────────────────────────────────────────
-
-async function loadPrefsFromSupabase(userId: string) {
-  const { data, error } = await supabase
-    .from('user_preferences')
-    .select('followed_team_id, followed_player_ids')
-    .eq('user_id', userId)
-    .maybeSingle()
-  if (error) { console.warn('[prefs] load error:', error.message); return null }
-  return data
-}
-
-async function savePrefsToSupabase(
-  userId: string,
-  followedTeamId: number | null,
-  followedPlayerIds: number[],
-) {
-  const { error } = await supabase
-    .from('user_preferences')
-    .upsert({
-      user_id: userId,
-      followed_team_id: followedTeamId,
-      followed_player_ids: followedPlayerIds,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' })
-  if (error) console.warn('[prefs] save error:', error.message)
-}
 
 export function useMlbState() {
   const { user, openAuthDialog } = useAuth()
@@ -100,12 +75,10 @@ export function useMlbState() {
   const [showNumber, setShowNumber] = useState(false)
 
   // ─── Followed team (persisted to localStorage) ───────────────────────────────
-  const [followedTeamId, setFollowedTeamId] = useState<number | null>(() => {
-    try { const s = localStorage.getItem('mlb_fav_team_id'); return s ? Number(s) : null } catch { return null }
-  })
+  const [followedTeamId, setFollowedTeamId] = useState<number | null>(getLocalFollowedTeamId)
 
   const followTeam   = useCallback((teamId: number) => {
-    try { localStorage.setItem('mlb_fav_team_id', String(teamId)) } catch {}
+    setLocalFollowedTeamId(teamId)
     setFollowedTeamId(teamId)
     setView('home')
     // Prompt account creation so the user can sync this choice across devices
@@ -113,7 +86,7 @@ export function useMlbState() {
   }, [user, openAuthDialog])
 
   const unfollowTeam = useCallback(() => {
-    try { localStorage.removeItem('mlb_fav_team_id') } catch {}
+    setLocalFollowedTeamId(null)
     setFollowedTeamId(null)
   }, [])
 
@@ -129,12 +102,7 @@ export function useMlbState() {
   }, [followedTeamId])
 
   // ─── Followed players (persisted to localStorage) ─────────────────────────────
-  const [followedPlayerIds, setFollowedPlayerIds] = useState<number[]>(() => {
-    try {
-      const s = localStorage.getItem('mlb_fav_player_ids')
-      return s ? JSON.parse(s) : []
-    } catch { return [] }
-  })
+  const [followedPlayerIds, setFollowedPlayerIds] = useState<number[]>(getLocalFollowedPlayerIds)
 
   const followPlayer = useCallback((id: number) => {
     setFollowedPlayerIds(prev => {
@@ -171,11 +139,8 @@ export function useMlbState() {
         const pids: number[] = row.followed_player_ids ?? []
         setFollowedTeamId(tid)
         setFollowedPlayerIds(pids)
-        try {
-          if (tid !== null) localStorage.setItem('mlb_fav_team_id', String(tid))
-          else localStorage.removeItem('mlb_fav_team_id')
-          localStorage.setItem('mlb_fav_player_ids', JSON.stringify(pids))
-        } catch {}
+        setLocalFollowedTeamId(tid)
+        try { localStorage.setItem('mlb_fav_player_ids', JSON.stringify(pids)) } catch {}
       } else {
         // No row yet — push current local state to create one
         savePrefsToSupabase(uid, followedTeamId, followedPlayerIds)
