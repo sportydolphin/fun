@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { Box, Typography, Button, Card, CardContent } from '@mui/material'
-import '../styles.css'
 
 type Cup = { width: number; height: number; fill: number; water: number }
 

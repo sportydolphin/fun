@@ -122,7 +122,7 @@ function AppInner() {
           >
             sportydolphin.fun
           </Typography>
-          <IconButton onClick={toggleTheme} sx={{ color: mode === 'dark' ? '#fbbf24' : 'text.primary' }}>
+          <IconButton onClick={toggleTheme} size="small" sx={{ color: mode === 'dark' ? '#fbbf24' : 'text.primary' }}>
             {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
           </IconButton>
           {user ? (
