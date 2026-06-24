@@ -100,7 +100,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         sessionStorage.setItem('sdAuthToast', 'in')
         window.location.reload()
       } else if (event === 'SIGNED_OUT') {
-        sessionStorage.setItem('sdAuthToast', 'out')
+        // Don't clobber a more specific toast (e.g. 'deleted') already staged
+        // by whoever triggered this sign-out.
+        if (!sessionStorage.getItem('sdAuthToast')) sessionStorage.setItem('sdAuthToast', 'out')
         window.location.reload()
       }
     })

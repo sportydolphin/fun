@@ -56,15 +56,16 @@ function AppInner() {
   const [usernameOpen,     setUsernameOpen]     = useState(false)
   const [settingsOpen,     setSettingsOpen]     = useState(false)
   const [username,         setUsername]         = useState<string | null>(null)
-  const [authToast,        setAuthToast]         = useState<'in' | 'out' | null>(null)
+  const [authToast,        setAuthToast]         = useState<'in' | 'out' | 'deleted' | null>(null)
   const accountBtnRef = useRef<HTMLButtonElement>(null)
   const isAdmin = user?.email === ADMIN_EMAIL
   const isDesktop = useMediaQuery('(min-width: 600px)')
 
-  // Show the post sign-in/out toast stashed by AuthContext just before it reloaded the page
+  // Show the post sign-in/out toast stashed by AuthContext (or the delete-account
+  // flow) just before it reloaded the page
   useEffect(() => {
     const v = sessionStorage.getItem('sdAuthToast')
-    if (v === 'in' || v === 'out') {
+    if (v === 'in' || v === 'out' || v === 'deleted') {
       setAuthToast(v)
       sessionStorage.removeItem('sdAuthToast')
     }
@@ -369,7 +370,7 @@ function AppInner() {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert severity="success" variant="filled" onClose={() => setAuthToast(null)}>
-          {authToast === 'in' ? 'Successfully signed in' : 'Signed out'}
+          {authToast === 'in' ? 'Successfully signed in' : authToast === 'deleted' ? 'Your account has been deleted' : 'Signed out'}
         </Alert>
       </Snackbar>
     </>

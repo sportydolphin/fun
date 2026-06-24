@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Typography, Box, CircularProgress, IconButton,
+  Button, Typography, Box, CircularProgress, IconButton, TextField,
 } from '@mui/material'
-import { Close, ChevronRight, ExpandMore } from '@mui/icons-material'
+import { Close, ChevronRight, ExpandMore, WarningAmber } from '@mui/icons-material'
 import { Team } from './mlb/types'
 import { TEAM_BG, ACCENT } from './mlb/constants'
 import { fetchAllTeams } from './mlb/api'
+import { supabase } from './lib/supabase'
 import {
   loadPrefsFromSupabase, savePrefsToSupabase,
   getLocalFollowedTeamId, setLocalFollowedTeamId, getLocalFollowedPlayerIds,
@@ -23,6 +24,10 @@ interface Props {
 
 export function SettingsDialog({ open, onClose, userId, email, currentUsername, onEditUsername }: Props) {
   const [teams, setTeams]     = useState<Team[]>([])
+  const [deleteOpen,   setDeleteOpen]   = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleting,     setDeleting]     = useState(false)
+  const [deleteErr,    setDeleteErr]    = useState('')
   const [loadingTeams, setLoadingTeams] = useState(false)
   const [teamId, setTeamId]   = useState<number | null>(null)
   const [playerIds, setPlayerIds] = useState<number[]>([])
@@ -33,6 +38,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
   useEffect(() => {
     if (!open) return
     setTeamPickerOpen(false)
+    setDeleteOpen(false); setDeleteConfirm(''); setDeleteErr(''); setDeleting(false)
     setLoadingTeams(true)
     fetchAllTeams().then(setTeams).catch(() => setTeams([])).finally(() => setLoadingTeams(false))
 
@@ -55,6 +61,22 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
   }
 
   const sortedTeams = [...teams].sort((a, b) => a.name.localeCompare(b.name))
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true)
+    setDeleteErr('')
+    const { error } = await supabase.functions.invoke('delete-account')
+    if (error) {
+      setDeleting(false)
+      setDeleteErr('Something went wrong deleting your account. Please try again.')
+      return
+    }
+    // The account is gone server-side — sign out locally to match. AuthContext's
+    // listener picks up SIGNED_OUT and reloads; we stash the more specific
+    // "deleted" toast first so it isn't overwritten by the generic sign-out one.
+    sessionStorage.setItem('sdAuthToast', 'deleted')
+    await supabase.auth.signOut()
+  }
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
@@ -195,6 +217,59 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
         <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 1 }}>
           {saving ? 'Saving…' : 'Synced to your account — follows you across devices.'}
         </Typography>
+
+        {/* Danger zone */}
+        <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'text.disabled', mt: 3, mb: 0.75 }}>
+          Danger Zone
+        </Typography>
+        <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'error.main', overflow: 'hidden' }}>
+          {!deleteOpen ? (
+            <Box
+              onClick={() => setDeleteOpen(true)}
+              sx={{
+                px: 1.75, py: 1.1, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
+                '&:hover': { bgcolor: 'action.hover' },
+              }}
+            >
+              <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, color: 'error.main' }}>
+                Delete account
+              </Typography>
+              <ChevronRight sx={{ color: 'error.main', flexShrink: 0 }} />
+            </Box>
+          ) : (
+            <Box sx={{ p: 1.75 }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1.25 }}>
+                <WarningAmber sx={{ color: 'error.main', fontSize: '1.1rem', mt: '1px', flexShrink: 0 }} />
+                <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', lineHeight: 1.5 }}>
+                  This permanently deletes your account, username, followed team/players, and prediction history. This can't be undone.
+                </Typography>
+              </Box>
+              <TextField
+                fullWidth size="small"
+                label='Type "DELETE" to confirm'
+                value={deleteConfirm}
+                onChange={e => { setDeleteConfirm(e.target.value); setDeleteErr('') }}
+                error={!!deleteErr}
+                helperText={deleteErr || ' '}
+                inputProps={{ spellCheck: false, autoCapitalize: 'none', autoCorrect: 'off' }}
+                sx={{ mb: 1 }}
+              />
+              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                <Button size="small" onClick={() => { setDeleteOpen(false); setDeleteConfirm(''); setDeleteErr('') }} disabled={deleting}>
+                  Cancel
+                </Button>
+                <Button
+                  size="small" variant="contained" color="error"
+                  onClick={handleDeleteAccount}
+                  disabled={deleteConfirm !== 'DELETE' || deleting}
+                >
+                  {deleting ? 'Deleting…' : 'Delete my account'}
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </Box>
       </DialogContent>
 
       <DialogActions>
