@@ -2,7 +2,7 @@ import React, { useRef, useEffect, lazy, Suspense } from 'react'
 import {
   Box, Typography, Paper, CircularProgress,
   List, ListItemButton, Divider, ClickAwayListener,
-  Popover, Menu, MenuItem, Tooltip,
+  Popover, Menu, MenuItem, Tooltip, useMediaQuery,
 } from '@mui/material'
 import { Search, Shuffle, FileDownload, InfoOutlined, OpenInFull, Tune } from '@mui/icons-material'
 import html2canvas from 'html2canvas'
@@ -124,6 +124,7 @@ export function SearchView({
   showFeaturedRight, featuredPlayers, featuredHitLeaders, featuredPitLeaders, divisionStandings,
 }: SearchViewProps) {
   const cardRef = useRef<HTMLDivElement>(null)
+  const isMobile = !useMediaQuery('(min-width: 600px)')
   const [fullscreen, setFullscreen] = React.useState(false)
   const [exportAnchor, setExportAnchor] = React.useState<HTMLElement | null>(null)
   const [downloading, setDownloading] = React.useState(false)
@@ -471,7 +472,7 @@ export function SearchView({
                       gameLog={recentGames}
                       season={season}
                       chartMode={statsView === 'season' ? 'rolling' : 'career'}
-                      onGameSelect={date => setHighlightedGameDate(d => d === date ? null : date)}
+                      onGameSelect={isMobile ? undefined : (date => setHighlightedGameDate(d => d === date ? null : date))}
                       onYearSelect={statsView === 'career' ? (s => setHighlightedCareerYear(y => y === s ? null : s)) : undefined}
                     />
                   </Suspense>

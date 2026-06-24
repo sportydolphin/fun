@@ -2,9 +2,16 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import type { Session, User } from '@supabase/supabase-js'
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, Box, Typography, Divider,
+  Button, TextField, Box, Typography, Divider, CircularProgress,
 } from '@mui/material'
+import { CheckCircle, Cancel } from '@mui/icons-material'
 import { supabase } from './lib/supabase'
+import { usernameValidationMsg, isUsernameTaken } from './lib/usernames'
+
+// Key prefix for stashing a chosen-at-signup username until the account has a
+// real session to write it under (email confirmation may gate that) — picked
+// up by App.tsx's username-assignment effect once the user is actually signed in.
+export const PENDING_USERNAME_PREFIX = 'sdPendingUsername:'
 
 // ─── Error messages ───────────────────────────────────────────────────────────
 
@@ -67,11 +74,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // ── Dialog state ───────────────────────────────────────────────────────────
   const [open,       setOpen]       = useState(false)
   const [mode,       setMode]       = useState<'signin' | 'signup'>('signin')
-  const [email,      setEmail]      = useState('')
-  const [password,   setPassword]   = useState('')
+  const [email,        setEmail]        = useState('')
+  const [password,     setPassword]     = useState('')
+  const [username,     setUsernameVal]  = useState('')
+  const [usernameStat, setUsernameStat] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
   const [error,      setError]      = useState('')
   const [successMsg, setSuccessMsg] = useState('')  // shown after email sign-up
   const [busy,       setBusy]       = useState(false)
+  const usernameDebounceRef = React.useRef<ReturnType<typeof setTimeout>>()
 
   // ── Auth session ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -79,9 +89,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(data.session)
       setLoading(false)
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, sess) => {
       setSession(sess)
       if (sess) setOpen(false)  // close dialog once a session exists
+      // Full reload on a genuine sign-in/out (not the initial session restore on
+      // page load) — the conventional way to make sure every bit of app state
+      // (followed team, players, etc.) re-syncs cleanly. The post-reload toast
+      // is picked up by App.tsx via sessionStorage.
+      if (event === 'SIGNED_IN') {
+        sessionStorage.setItem('sdAuthToast', 'in')
+        window.location.reload()
+      } else if (event === 'SIGNED_OUT') {
+        sessionStorage.setItem('sdAuthToast', 'out')
+        window.location.reload()
+      }
     })
     return () => subscription.unsubscribe()
   }, [])
@@ -113,7 +134,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ── Dialog controls ────────────────────────────────────────────────────────
   const openAuthDialog = useCallback((m: 'signin' | 'signup' = 'signin') => {
-    setMode(m); setEmail(''); setPassword(''); setError(''); setSuccessMsg('')
+    setMode(m); setEmail(''); setPassword(''); setUsernameVal(''); setUsernameStat('idle')
+    setError(''); setSuccessMsg('')
     setOpen(true)
   }, [])
 
@@ -126,28 +148,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setError(''); setSuccessMsg('')
   }, [])
 
+  const handleUsernameChange = useCallback((val: string) => {
+    setUsernameVal(val)
+    clearTimeout(usernameDebounceRef.current)
+    if (val.length === 0 || usernameValidationMsg(val)) { setUsernameStat('idle'); return }
+    setUsernameStat('checking')
+    usernameDebounceRef.current = setTimeout(async () => {
+      setUsernameStat((await isUsernameTaken(val)) ? 'taken' : 'available')
+    }, 450)
+  }, [])
+
   const handleSubmit = useCallback(async () => {
     const em = email.trim()
     if (!em || !password) return
+
+    if (mode === 'signup') {
+      const desired = username.trim()
+      if (desired) {
+        const fmtErr = usernameValidationMsg(desired)
+        if (fmtErr) { setError(fmtErr); return }
+        if (usernameStat === 'taken') { setError('That username is already taken.'); return }
+        if (usernameStat === 'checking') { setError('Still checking that username — one sec.'); return }
+      }
+    }
+
     setBusy(true); setError(''); setSuccessMsg('')
 
     if (mode === 'signin') {
       const err = await signIn(em, password)
       setBusy(false)
       if (err) setError(err)
-      // success: onAuthStateChange fires → setOpen(false)
+      // success: onAuthStateChange fires → reload + toast
     } else {
       const { data, error: sbErr } = await supabase.auth.signUp({ email: em, password })
       setBusy(false)
       if (sbErr) {
         setError(friendlyError(sbErr.message))
-      } else if (!data.session) {
+        return
+      }
+      // Stash the chosen username (if any) so it can be applied once the
+      // account has a real session — App.tsx's assignment effect picks this
+      // up immediately (auto-confirm) or after the user confirms their email.
+      const desired = username.trim()
+      if (desired) localStorage.setItem(`${PENDING_USERNAME_PREFIX}${em.toLowerCase()}`, desired)
+      if (!data.session) {
         // Email confirmation required — session is null until they click the link
         setSuccessMsg(`Check your inbox! We sent a confirmation link to ${em}.`)
       }
-      // If session exists (auto-confirm enabled), onAuthStateChange closes the dialog
+      // If session exists (auto-confirm enabled), onAuthStateChange reloads the page
     }
-  }, [mode, email, password, signIn])
+  }, [mode, email, password, username, usernameStat, signIn])
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -216,16 +266,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 value={password}
                 onChange={e => { setPassword(e.target.value); setError('') }}
                 onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-                error={!!error}
-                helperText={error
-                  ? <Box component="span" sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
-                      <Box component="span" sx={{ flexShrink: 0, mt: '1px' }}>⚠️</Box>
-                      <Box component="span">{error}</Box>
-                    </Box>
-                  : ' '}
+                sx={{ mb: mode === 'signup' ? 1.5 : 0 }}
               />
 
-              <Box sx={{ mt: 0.5, textAlign: 'center' }}>
+              {mode === 'signup' && (
+                <TextField
+                  fullWidth label="Username (optional)"
+                  value={username}
+                  onChange={e => { handleUsernameChange(e.target.value); setError('') }}
+                  onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                  inputProps={{ spellCheck: false, autoCapitalize: 'none', autoCorrect: 'off' }}
+                  InputProps={{
+                    startAdornment: (
+                      <Typography sx={{ color: 'text.disabled', mr: 0.25, fontSize: '1rem', lineHeight: 1, userSelect: 'none' }}>@</Typography>
+                    ),
+                  }}
+                  error={usernameStat === 'taken' || !!usernameValidationMsg(username)}
+                  helperText={
+                    usernameValidationMsg(username) ? usernameValidationMsg(username)
+                    : usernameStat === 'checking' ? (
+                      <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+                        <CircularProgress size={10} /> Checking…
+                      </Box>
+                    ) : usernameStat === 'available' ? (
+                      <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: 'success.main' }}>
+                        <CheckCircle sx={{ fontSize: '0.85rem' }} /> Available
+                      </Box>
+                    ) : usernameStat === 'taken' ? (
+                      <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: 'error.main' }}>
+                        <Cancel sx={{ fontSize: '0.85rem' }} /> Already taken
+                      </Box>
+                    ) : "Leave blank and we'll pick one for you"
+                  }
+                  FormHelperTextProps={{ component: 'div' } as object}
+                />
+              )}
+
+              {error && (
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mt: 1, color: 'error.main' }}>
+                  <Box component="span" sx={{ flexShrink: 0, mt: '1px' }}>⚠️</Box>
+                  <Typography sx={{ fontSize: '0.78rem' }}>{error}</Typography>
+                </Box>
+              )}
+
+              <Box sx={{ mt: 1.5, textAlign: 'center' }}>
                 <Typography
                   component="span"
                   onClick={switchMode}
@@ -246,7 +330,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             <Button
               onClick={handleSubmit}
               variant="contained"
-              disabled={busy || !email || !password}
+              disabled={busy || !email || !password || (
+                mode === 'signup' && !!username.trim() &&
+                (usernameStat === 'taken' || usernameStat === 'checking' || !!usernameValidationMsg(username))
+              )}
             >
               {busy ? 'Loading…' : mode === 'signin' ? 'Sign In' : 'Create Account'}
             </Button>

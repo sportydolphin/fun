@@ -164,14 +164,6 @@ function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, rows, loa
         )}
       </Box>
 
-      {/* Footer */}
-      {!loading && (
-        <Box sx={{ px: 2, py: '7px', borderTop: '1px solid', borderColor: 'divider', display: 'flex', justifyContent: 'flex-end' }}>
-          <Typography onClick={onExpand} sx={{ fontSize: '0.72rem', color: ACCENT, fontWeight: 700, cursor: 'pointer', userSelect: 'none', '&:hover': { textDecoration: 'underline' } }}>
-            View all {rows.length} →
-          </Typography>
-        </Box>
-      )}
     </Box>
   )
 }

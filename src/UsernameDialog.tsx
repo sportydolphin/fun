@@ -5,18 +5,7 @@ import {
 } from '@mui/material'
 import { CheckCircle, Cancel } from '@mui/icons-material'
 import { supabase } from './lib/supabase'
-
-// ─── Validation ───────────────────────────────────────────────────────────────
-
-const VALID_RE = /^[a-zA-Z0-9_-]{3,20}$/
-
-function validationMsg(val: string): string | null {
-  if (val.length === 0)  return null
-  if (val.length < 3)   return 'At least 3 characters'
-  if (val.length > 20)  return 'Max 20 characters'
-  if (!/^[a-zA-Z0-9_-]+$/.test(val)) return 'Letters, numbers, _ and - only'
-  return null
-}
+import { USERNAME_RE as VALID_RE, usernameValidationMsg as validationMsg } from './lib/usernames'
 
 // ─── Component ────────────────────────────────────────────────────────────────
 

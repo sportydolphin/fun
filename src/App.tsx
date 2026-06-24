@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react'
-import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Tooltip, Paper, ClickAwayListener, CircularProgress } from '@mui/material'
+import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Tooltip, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery } from '@mui/material'
 import { Brightness4, Brightness7, AccountCircle } from '@mui/icons-material'
 import { useTheme } from './ThemeContext'
 import { AuthProvider, useAuth } from './AuthContext'
+import { PENDING_USERNAME_PREFIX } from './AuthContext'
 import { AdminPanel } from './AdminPanel'
 import { UsernameDialog } from './UsernameDialog'
 import { SettingsDialog } from './SettingsDialog'
 import { supabase } from './lib/supabase'
+import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from './lib/usernames'
 import CupsGame from '../projects/cups-game/src/CupsGame'
 
 const ADMIN_EMAIL = 'snichols246@gmail.com'
@@ -54,14 +56,52 @@ function AppInner() {
   const [usernameOpen,     setUsernameOpen]     = useState(false)
   const [settingsOpen,     setSettingsOpen]     = useState(false)
   const [username,         setUsername]         = useState<string | null>(null)
+  const [authToast,        setAuthToast]         = useState<'in' | 'out' | null>(null)
   const accountBtnRef = useRef<HTMLButtonElement>(null)
   const isAdmin = user?.email === ADMIN_EMAIL
+  const isDesktop = useMediaQuery('(min-width: 600px)')
 
-  // Fetch username whenever the logged-in user changes
+  // Show the post sign-in/out toast stashed by AuthContext just before it reloaded the page
+  useEffect(() => {
+    const v = sessionStorage.getItem('sdAuthToast')
+    if (v === 'in' || v === 'out') {
+      setAuthToast(v)
+      sessionStorage.removeItem('sdAuthToast')
+    }
+  }, [])
+
+  // Fetch username whenever the logged-in user changes — if the account doesn't
+  // have one yet, assign one now: whatever they chose at signup (stashed in
+  // localStorage since email confirmation may have gated having a session then),
+  // or otherwise a random baseball-themed name. Covers Google sign-ins too,
+  // since those never go through the signup dialog at all.
   useEffect(() => {
     if (!user) { setUsername(null); return }
+    let cancelled = false
+
     supabase.from('usernames').select('username').eq('user_id', user.id).maybeSingle()
-      .then(({ data }) => setUsername(data?.username ?? null))
+      .then(async ({ data }) => {
+        if (cancelled) return
+        if (data?.username) { setUsername(data.username); return }
+
+        const pendingKey = user.email ? `${PENDING_USERNAME_PREFIX}${user.email.toLowerCase()}` : null
+        const pending = pendingKey ? localStorage.getItem(pendingKey) : null
+        let final = (pending && !usernameValidationMsg(pending) && !(await isUsernameTaken(pending)))
+          ? pending
+          : await generateUniqueUsername()
+
+        let { error } = await supabase.from('usernames').upsert({ user_id: user.id, username: final }, { onConflict: 'user_id' })
+        if (error?.code === '23505') {
+          // Race — someone grabbed it between our check and the insert. Fall back to a fresh random one.
+          final = await generateUniqueUsername()
+          ;({ error } = await supabase.from('usernames').upsert({ user_id: user.id, username: final }, { onConflict: 'user_id' }))
+        }
+        if (cancelled) return
+        if (pendingKey) localStorage.removeItem(pendingKey)
+        if (!error) setUsername(final)
+      })
+
+    return () => { cancelled = true }
   }, [user?.id])
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_KEY) === '1')
   const [lockDialogOpen, setLockDialogOpen] = useState(false)
@@ -128,14 +168,28 @@ function AppInner() {
           {user ? (
             <ClickAwayListener onClickAway={() => setAccountOpen(false)}>
               <Box sx={{ position: 'relative' }}>
-                <IconButton
-                  ref={accountBtnRef}
+                <Box
                   onClick={() => setAccountOpen(o => !o)}
-                  size="small"
-                  sx={{ color: 'success.main' }}
+                  sx={{
+                    display: 'flex', alignItems: 'center', gap: 0.75, cursor: 'pointer',
+                    pl: isDesktop ? 1 : 0, pr: isDesktop ? 0.5 : 0, py: 0.25, borderRadius: 999,
+                    '&:hover': { bgcolor: 'action.hover' },
+                  }}
                 >
-                  <AccountCircle />
-                </IconButton>
+                  {isDesktop && (username || user.user_metadata?.full_name) && (
+                    <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                      {username ? `@${username}` : user.user_metadata.full_name}
+                    </Typography>
+                  )}
+                  <IconButton
+                    ref={accountBtnRef}
+                    component="span"
+                    size="small"
+                    sx={{ color: 'success.main' }}
+                  >
+                    <AccountCircle />
+                  </IconButton>
+                </Box>
 
                 {accountOpen && (
                   <Paper elevation={8} sx={{
@@ -307,6 +361,17 @@ function AppInner() {
           />
         </>
       )}
+
+      <Snackbar
+        open={!!authToast}
+        autoHideDuration={3500}
+        onClose={() => setAuthToast(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="success" variant="filled" onClose={() => setAuthToast(null)}>
+          {authToast === 'in' ? 'Successfully signed in' : 'Signed out'}
+        </Alert>
+      </Snackbar>
     </>
   )
 }

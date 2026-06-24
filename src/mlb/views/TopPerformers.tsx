@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Box, Typography } from '@mui/material'
+import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { fetchRecentGamePerformers } from './Spotlight'
 import type { HotGuyData } from './Spotlight'
 
-const CYCLE_MS = 10000
+const CYCLE_MS = 15000
 
 interface PerformerEntry extends HotGuyData {
   role: 'hitter' | 'pitcher'
@@ -95,6 +96,21 @@ export function TopPerformers({
     }, 180)
   }
 
+  // ── Touch / swipe within the card — marked data-swipe-ignore so it doesn't
+  // also trigger HomeView's Around-the-League / My-Stuff tab swipe.
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+  }, [])
+  const onTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStartRef.current) return
+    const dx = e.changedTouches[0].clientX - touchStartRef.current.x
+    const dy = e.changedTouches[0].clientY - touchStartRef.current.y
+    touchStartRef.current = null
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return
+    go(dx < 0 ? 1 : -1)
+  }, [])
+
   if (loading) {
     return (
       <Box sx={{ py: 3, textAlign: 'center' }}>
@@ -110,7 +126,14 @@ export function TopPerformers({
   const statItems  = buildStatItems(current)
 
   return (
-    <Box onMouseEnter={() => { pausedRef.current = true }} onMouseLeave={() => { pausedRef.current = false }}>
+    <Box
+      data-swipe-ignore="true"
+      onMouseEnter={() => { pausedRef.current = true }}
+      onMouseLeave={() => { pausedRef.current = false }}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      sx={{ width: '100%', maxWidth: 380, mx: 'auto' }}
+    >
 
       {/* ── Section header ────────────────────────────────────────────────── */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.25 }}>
@@ -237,12 +260,20 @@ export function TopPerformers({
       </Box>
 
       {/* ── Dot navigation ───────────────────────────────────────────────── */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 0.75, mt: 1.25 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: { xs: 1, sm: 0.75 }, mt: 1.25 }}>
         <Box
           onClick={(e) => { e.stopPropagation(); go(-1) }}
-          sx={{ fontSize: '1rem', lineHeight: 1, color: 'text.disabled', cursor: 'pointer', px: 0.25, userSelect: 'none', '&:hover': { color: 'text.primary' } }}
+          sx={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: { xs: 36, sm: 26 }, height: { xs: 36, sm: 26 },
+            borderRadius: '50%',
+            bgcolor: 'action.hover',
+            color: 'text.secondary',
+            cursor: 'pointer', userSelect: 'none', flexShrink: 0,
+            '&:hover': { color: 'text.primary', bgcolor: 'action.selected' },
+          }}
         >
-          ‹
+          <ChevronLeft sx={{ fontSize: { xs: '1.4rem', sm: '1.1rem' } }} />
         </Box>
         {performers.map((p, i) => (
           <Box
@@ -262,9 +293,17 @@ export function TopPerformers({
         ))}
         <Box
           onClick={(e) => { e.stopPropagation(); go(1) }}
-          sx={{ fontSize: '1rem', lineHeight: 1, color: 'text.disabled', cursor: 'pointer', px: 0.25, userSelect: 'none', '&:hover': { color: 'text.primary' } }}
+          sx={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: { xs: 36, sm: 26 }, height: { xs: 36, sm: 26 },
+            borderRadius: '50%',
+            bgcolor: 'action.hover',
+            color: 'text.secondary',
+            cursor: 'pointer', userSelect: 'none', flexShrink: 0,
+            '&:hover': { color: 'text.primary', bgcolor: 'action.selected' },
+          }}
         >
-          ›
+          <ChevronRight sx={{ fontSize: { xs: '1.4rem', sm: '1.1rem' } }} />
         </Box>
       </Box>
     </Box>

@@ -162,7 +162,7 @@ export function StatsView({
               {activeDef.leaderLabel ?? activeDef.label}
             </Typography>
             <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
-              {vizSeason} MLB · {lbGroup}{activeDef.lowerIsBetter ? ' · lower = better' : ''}
+              {vizSeason} MLB{activeDef.lowerIsBetter ? ' · lower = better' : ''}
             </Typography>
           </Box>
 
