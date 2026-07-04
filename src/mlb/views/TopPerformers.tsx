@@ -136,19 +136,10 @@ export function TopPerformers({
     >
 
       {/* ── Section header ────────────────────────────────────────────────── */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.25 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.25 }}>
         <Typography sx={{ fontWeight: 800, fontSize: '0.78rem', letterSpacing: 0.3, color: 'text.primary' }}>
-          Peak Form
+          Standout Performances
         </Typography>
-        <Box sx={{
-          px: 1, py: '3px', borderRadius: 999,
-          bgcolor: 'action.hover',
-          border: '1px solid', borderColor: 'divider',
-        }}>
-          <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'text.secondary', letterSpacing: 0.3, lineHeight: 1 }}>
-            Single game
-          </Typography>
-        </Box>
       </Box>
 
       {/* ── Cycling card ─────────────────────────────────────────────────── */}

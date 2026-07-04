@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
-import { TEAM_BG, TEAM_ABBR } from '../constants'
+import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,6 +72,27 @@ interface BoxScore {
   innings: InningLine[]
   away:    TeamBox
   home:    TeamBox
+}
+
+// ─── Game preview types ───────────────────────────────────────────────────────
+
+interface ProbablePitcher {
+  id:     number
+  name:   string
+  hand:   string          // 'R' | 'L' | 'S' | '?'
+  era:    string | null
+  wins:   number
+  losses: number
+  whip:   string | null
+  k:      number
+  ip:     string | null
+}
+
+interface GamePreviewData {
+  venueName:    string
+  weather:      { condition: string; temp: string; wind: string } | null
+  awayPitcher:  ProbablePitcher | null
+  homePitcher:  ProbablePitcher | null
 }
 
 // ─── Date helpers (local, not UTC — avoids evening off-by-one) ──────────────────
@@ -251,6 +272,56 @@ async function fetchBoxScore(gamePk: number): Promise<BoxScore | null> {
   } catch { return null }
 }
 
+async function fetchGamePreview(gamePk: number): Promise<GamePreviewData | null> {
+  try {
+    const season = new Date().getFullYear()
+    const schedRes = await fetch(
+      `https://statsapi.mlb.com/api/v1/schedule?sportId=1&gamePk=${gamePk}` +
+      `&hydrate=probablePitcher,venue,weather`
+    ).then(r => r.json()).catch(() => null)
+
+    const game = schedRes?.dates?.[0]?.games?.[0]
+    if (!game) return null
+
+    const venueName = game.venue?.name ?? ''
+    const w = game.weather
+    const weather = (w && (w.condition || w.temp || w.wind))
+      ? { condition: w.condition ?? '', temp: w.temp ?? '', wind: w.wind ?? '' }
+      : null
+
+    const fetchPitcher = async (raw: any): Promise<ProbablePitcher | null> => {
+      if (!raw?.id) return null
+      try {
+        const r = await fetch(
+          `https://statsapi.mlb.com/api/v1/people/${raw.id}?hydrate=stats(group=pitching,type=season,season=${season})`
+        ).then(r => r.json())
+        const person = r.people?.[0]
+        const stat = person?.stats?.find((s: any) => s.group?.displayName === 'pitching')?.splits?.[0]?.stat
+        return {
+          id:     raw.id,
+          name:   raw.fullName,
+          hand:   person?.pitchHand?.code ?? '?',
+          era:    stat?.era    ?? null,
+          wins:   Number(stat?.wins      ?? 0),
+          losses: Number(stat?.losses    ?? 0),
+          whip:   stat?.whip   ?? null,
+          k:      Number(stat?.strikeOuts ?? 0),
+          ip:     stat?.inningsPitched ?? null,
+        }
+      } catch {
+        return { id: raw.id, name: raw.fullName, hand: '?', era: null, wins: 0, losses: 0, whip: null, k: 0, ip: null }
+      }
+    }
+
+    const [awayPitcher, homePitcher] = await Promise.all([
+      fetchPitcher(game.teams?.away?.probablePitcher),
+      fetchPitcher(game.teams?.home?.probablePitcher),
+    ])
+
+    return { venueName, weather, awayPitcher, homePitcher }
+  } catch { return null }
+}
+
 // ─── Team logo bubble ───────────────────────────────────────────────────────
 
 function LogoBubble({ teamId, abbr, size, ring = 1.5 }: {
@@ -349,7 +420,7 @@ function FinalGameMiniCard({ game, onClick }: { game: FinalGameSummary; onClick?
         </Typography>
         {onClick && (
           <Typography sx={{ fontSize: '0.55rem', color: 'text.disabled', ml: 'auto', lineHeight: 1 }}>
-            Box →
+            {isPreview ? 'Preview →' : 'Box →'}
           </Typography>
         )}
       </Box>
@@ -555,6 +626,206 @@ function TeamBoxSection({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?
     </Box>
   )
 }
+
+// ─── Game preview modal ───────────────────────────────────────────────────────
+
+function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick }: {
+  game: FinalGameSummary
+  onClose: () => void
+  onPlayerClick?: (id: number) => void
+  onTeamClick?:   (id: number) => void
+}) {
+  const [preview, setPreview] = useState<GamePreviewData | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    fetchGamePreview(game.gamePk).then(p => { setPreview(p); setLoading(false) })
+  }, [game.gamePk])
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [onClose])
+
+  function PitcherCard({ pitcher, team }: { pitcher: ProbablePitcher | null; team: FinalTeam }) {
+    const teamColor = TEAM_BG[team.teamId] ?? '#444'
+    return (
+      <Box
+        onClick={pitcher && onPlayerClick ? () => { onPlayerClick(pitcher.id); onClose() } : undefined}
+        sx={{
+          flex: 1, p: 1.5, borderRadius: 2,
+          bgcolor: `${teamColor}10`,
+          border: '1px solid', borderColor: `${teamColor}30`,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75,
+          cursor: pitcher && onPlayerClick ? 'pointer' : 'default',
+          transition: 'border-color 0.15s',
+          ...(pitcher && onPlayerClick ? { '&:hover': { borderColor: `${teamColor}60` } } : {}),
+        }}
+      >
+        <Box sx={{
+          width: 58, height: 70, borderRadius: 1.5, overflow: 'hidden',
+          border: `2px solid ${teamColor}40`, bgcolor: 'action.hover', flexShrink: 0,
+        }}>
+          {pitcher ? (
+            <Box component="img"
+              src={HEADSHOT(pitcher.id)} alt={pitcher.name}
+              sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }}
+            />
+          ) : (
+            <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Typography sx={{ fontSize: '1.4rem', lineHeight: 1 }}>?</Typography>
+            </Box>
+          )}
+        </Box>
+
+        <Box sx={{ textAlign: 'center', minWidth: 0 }}>
+          <Typography sx={{
+            fontWeight: 800, fontSize: '0.8rem', lineHeight: 1.2,
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          }}>
+            {pitcher?.name ?? 'TBD'}
+          </Typography>
+          <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1, mt: 0.2 }}>
+            {pitcher ? `${pitcher.hand}HP · ${team.abbr}` : team.abbr}
+          </Typography>
+        </Box>
+
+        {pitcher && (
+          <Box sx={{ display: 'flex', gap: 1.25, flexWrap: 'wrap', justifyContent: 'center' }}>
+            {[
+              { label: 'W-L',  value: pitcher.era !== null ? `${pitcher.wins}-${pitcher.losses}` : '—' },
+              { label: 'ERA',  value: pitcher.era  ?? '—' },
+              { label: 'WHIP', value: pitcher.whip ?? '—' },
+              { label: 'K',    value: String(pitcher.k) },
+            ].map(s => (
+              <Box key={s.label} sx={{ textAlign: 'center' }}>
+                <Typography sx={{ fontSize: '0.9rem', fontWeight: 900, lineHeight: 1, color: teamColor, letterSpacing: '-0.3px' }}>
+                  {s.value}
+                </Typography>
+                <Typography sx={{
+                  fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase',
+                  letterSpacing: 0.4, color: 'text.secondary', lineHeight: 1, mt: 0.2,
+                }}>
+                  {s.label}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        )}
+      </Box>
+    )
+  }
+
+  const teamSide = (t: FinalTeam) => (
+    <Box
+      onClick={onTeamClick ? () => { onTeamClick(t.teamId); onClose() } : undefined}
+      sx={{
+        flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.6,
+        cursor: onTeamClick ? 'pointer' : 'default',
+      }}
+    >
+      <LogoBubble teamId={t.teamId} abbr={t.abbr} size={48} ring={2.5} />
+      <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary', lineHeight: 1 }}>{t.abbr}</Typography>
+    </Box>
+  )
+
+  return (
+    <Box
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      sx={{
+        position: 'fixed', inset: 0, zIndex: 1500,
+        bgcolor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        p: { xs: 1, sm: 2 },
+      }}
+    >
+      <Box sx={{
+        bgcolor: 'background.paper', borderRadius: 3,
+        border: '1px solid', borderColor: 'divider',
+        width: '100%', maxWidth: 480,
+        maxHeight: '90vh', overflowY: 'auto',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
+        '&::-webkit-scrollbar': { width: 4 },
+        '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },
+      }}>
+
+        {/* Header */}
+        <Box sx={{
+          px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider',
+          display: 'flex', alignItems: 'center', gap: 1,
+          position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1,
+        }}>
+          <Typography sx={{
+            flex: 1, fontWeight: 800, fontSize: '0.72rem', color: 'text.secondary',
+            textTransform: 'uppercase', letterSpacing: 1, lineHeight: 1,
+          }}>
+            Preview · {game.statusText}
+          </Typography>
+          <Box
+            onClick={onClose}
+            sx={{
+              flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', color: 'text.disabled',
+              '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+            }}
+          >
+            <Typography sx={{ fontSize: '0.75rem', lineHeight: 1 }}>✕</Typography>
+          </Box>
+        </Box>
+
+        {/* Matchup */}
+        <Box sx={{ px: 2, pt: 2.5, pb: 1.75, display: 'flex', alignItems: 'center', gap: 1 }}>
+          {teamSide(game.away)}
+          <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled', px: 1 }}>@</Typography>
+          {teamSide(game.home)}
+        </Box>
+
+        {/* Venue + weather */}
+        {!loading && preview && (
+          <Box sx={{ px: 2, pb: 1.5, display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 1.5 }}>
+            {preview.venueName && (
+              <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', textAlign: 'center' }}>
+                {preview.venueName}
+              </Typography>
+            )}
+            {preview.weather && (
+              <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', textAlign: 'center' }}>
+                {preview.weather.temp}°F · {preview.weather.condition}
+                {preview.weather.wind ? ` · ${preview.weather.wind}` : ''}
+              </Typography>
+            )}
+          </Box>
+        )}
+
+        {/* Probable starters */}
+        <Box sx={{ borderTop: '1px solid', borderColor: 'divider', px: 2, py: 1.5 }}>
+          <Typography sx={{
+            fontSize: '0.58rem', fontWeight: 700, color: 'text.disabled',
+            textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1, mb: 1.25,
+          }}>
+            Probable Starters
+          </Typography>
+          {loading ? (
+            <Box sx={{ py: 3, textAlign: 'center' }}>
+              <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Loading…</Typography>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', gap: 1.5 }}>
+              <PitcherCard pitcher={preview?.awayPitcher ?? null} team={game.away} />
+              <PitcherCard pitcher={preview?.homePitcher ?? null} team={game.home} />
+            </Box>
+          )}
+        </Box>
+
+      </Box>
+    </Box>
+  )
+}
+
+// ─── Box-score modal ──────────────────────────────────────────────────────────
 
 function BoxScoreModal({ game, onClose, onPlayerClick, onTeamClick }: {
   game: FinalGameSummary
@@ -836,22 +1107,28 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
               <FinalGameMiniCard
                 key={game.gamePk}
                 game={game}
-                // Box score exists for live & finished games; upcoming games aren't clickable.
-                onClick={game.state === 'preview' ? undefined : () => setOpenGame(game)}
+                onClick={() => setOpenGame(game)}
               />
             ))}
           </Box>
         )}
       </Box>
 
-      {openGame && (
+      {openGame && openGame.state === 'preview' ? (
+        <GamePreviewModal
+          game={openGame}
+          onClose={() => setOpenGame(null)}
+          onPlayerClick={onPlayerClick}
+          onTeamClick={onTeamClick}
+        />
+      ) : openGame ? (
         <BoxScoreModal
           game={openGame}
           onClose={() => setOpenGame(null)}
           onPlayerClick={onPlayerClick}
           onTeamClick={onTeamClick}
         />
-      )}
+      ) : null}
     </>
   )
 }

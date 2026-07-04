@@ -311,9 +311,24 @@ export function HomeView({
                 </Box>
               )}
               {(hotGuy || coldGuy) && (
-                <Box sx={{ display: 'flex', gap: 1.5, flexDirection: { xs: 'column', sm: 'row' } }}>
-                  {hotGuy  && <SpotlightCard data={hotGuy}  mode="hot"  onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />}
-                  {coldGuy && <SpotlightCard data={coldGuy} mode="cold" onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />}
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.25 }}>
+                    <Typography sx={{ fontWeight: 800, fontSize: '0.78rem', letterSpacing: 0.3, color: 'text.primary' }}>
+                      Streak Watch
+                    </Typography>
+                    <Box sx={{
+                      px: 1, py: '3px', borderRadius: 999,
+                      bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider',
+                    }}>
+                      <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'text.secondary', letterSpacing: 0.3, lineHeight: 1 }}>
+                        Last 14 days
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 1.5, flexDirection: { xs: 'column', sm: 'row' } }}>
+                    {hotGuy  && <SpotlightCard data={hotGuy}  mode="hot"  onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />}
+                    {coldGuy && <SpotlightCard data={coldGuy} mode="cold" onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />}
+                  </Box>
                 </Box>
               )}
               {!loadingSpotlight && !hotGuy && !coldGuy && (

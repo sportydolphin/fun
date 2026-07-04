@@ -98,12 +98,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // is picked up by App.tsx via sessionStorage.
       if (event === 'SIGNED_IN') {
         sessionStorage.setItem('sdAuthToast', 'in')
-        window.location.reload()
+        // Use replace() instead of reload() so any OAuth callback params
+        // (hash #access_token=… or PKCE ?code=…) are stripped from the URL.
+        // reload() preserves those params, causing Supabase to re-process them
+        // and fire SIGNED_IN again on every load → infinite reload loop.
+        window.location.replace(window.location.pathname)
       } else if (event === 'SIGNED_OUT') {
         // Don't clobber a more specific toast (e.g. 'deleted') already staged
         // by whoever triggered this sign-out.
         if (!sessionStorage.getItem('sdAuthToast')) sessionStorage.setItem('sdAuthToast', 'out')
-        window.location.reload()
+        window.location.replace(window.location.pathname)
       }
     })
     return () => subscription.unsubscribe()
