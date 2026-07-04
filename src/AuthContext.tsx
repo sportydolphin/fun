@@ -85,31 +85,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ── Auth session ───────────────────────────────────────────────────────────
   useEffect(() => {
+    // Tracks the user ID we knew about before the current auth event fires.
+    // undefined = not yet initialised (getSession / INITIAL_SESSION hasn't run)
+    // null      = confirmed signed-out state
+    // string    = confirmed signed-in user id
+    // We use this to gate the reload: only reload on SIGNED_IN when we were
+    // previously signed OUT. This stops spurious reloads from SIGNED_IN events
+    // that Supabase v2 emits during token refresh or alongside INITIAL_SESSION.
+    let prevUserId: string | null | undefined = undefined
+
     supabase.auth.getSession().then(({ data }) => {
+      if (prevUserId === undefined) prevUserId = data.session?.user.id ?? null
       setSession(data.session)
       setLoading(false)
     })
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, sess) => {
       setSession(sess)
-      if (sess) setOpen(false)  // close dialog once a session exists
-      // Full reload on a genuine sign-in/out (not the initial session restore on
-      // page load) — the conventional way to make sure every bit of app state
-      // (followed team, players, etc.) re-syncs cleanly. The post-reload toast
-      // is picked up by App.tsx via sessionStorage.
-      if (event === 'SIGNED_IN') {
-        sessionStorage.setItem('sdAuthToast', 'in')
-        // Use replace() instead of reload() so any OAuth callback params
-        // (hash #access_token=… or PKCE ?code=…) are stripped from the URL.
-        // reload() preserves those params, causing Supabase to re-process them
-        // and fire SIGNED_IN again on every load → infinite reload loop.
-        window.location.replace(window.location.pathname)
+      if (sess) setOpen(false)
+
+      if (event === 'INITIAL_SESSION') {
+        // Seed our knowledge of the pre-sign-in state from the page-load snapshot.
+        prevUserId = sess?.user.id ?? null
+      } else if (event === 'SIGNED_IN') {
+        const wasSignedOut = prevUserId === null  // null = confirmed signed-out
+        prevUserId = sess?.user.id ?? null
+        if (wasSignedOut) {
+          // Genuine transition from signed-out → signed-in. Reload to a clean URL
+          // so any OAuth callback params (?code= / #access_token=) are stripped and
+          // won't cause Supabase to re-fire SIGNED_IN on the next load.
+          sessionStorage.setItem('sdAuthToast', 'in')
+          window.location.replace(window.location.pathname)
+        }
+        // else: prevUserId was a UUID (token refresh) or undefined (too early) → skip
       } else if (event === 'SIGNED_OUT') {
-        // Don't clobber a more specific toast (e.g. 'deleted') already staged
-        // by whoever triggered this sign-out.
+        prevUserId = null
+        // Don't clobber a more specific toast (e.g. 'deleted') already staged.
         if (!sessionStorage.getItem('sdAuthToast')) sessionStorage.setItem('sdAuthToast', 'out')
         window.location.replace(window.location.pathname)
       }
     })
+
     return () => subscription.unsubscribe()
   }, [])
 
