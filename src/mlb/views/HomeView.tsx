@@ -195,6 +195,7 @@ export interface HomeViewProps {
   // Lifted to useMlbState so browser Back can restore the sub-tab — see [[nav-back-stack]]
   homeTab:           'league' | 'team'
   onHomeTabChange:   (t: 'league' | 'team') => void
+  onLeaderboard?:    () => void
 }
 
 // ─── HomeView ─────────────────────────────────────────────────────────────────
@@ -202,7 +203,7 @@ export interface HomeViewProps {
 export function HomeView({
   allTeams, followedTeamId, onFollowTeam, onUnfollowTeam,
   followedPlayerIds, onFollowPlayer, onUnfollowPlayer, onPlayerClick, onTeamClick,
-  homeTab, onHomeTabChange,
+  homeTab, onHomeTabChange, onLeaderboard,
 }: HomeViewProps) {
 
   // ── Data ─────────────────────────────────────────────────────────────────────
@@ -278,6 +279,11 @@ export function HomeView({
 
   return (
     <Box>
+      {/* ── Scoreboard — above tabs, persists on both panels ─────────────────── */}
+      <Box sx={{ mb: 2 }}>
+        <FinalGamesSection followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+      </Box>
+
       {/* ── In-page tab switcher ─────────────────────────────────────────────── */}
       <HomeSubNav tab={homeTab} onChange={onHomeTabChange} />
 
@@ -297,45 +303,42 @@ export function HomeView({
 
           {/* ── Panel 1: Around the League ────────────────────────────────────── */}
           <Box sx={{ width: '50%', flexShrink: 0, minWidth: 0 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, alignItems: 'start' }}>
 
-              {/* Scoreboard — by-date live/past/future games, click for box score */}
-              <FinalGamesSection followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
-
-              {/* Top performers cycling carousel */}
+              {/* Left column: Standout Performances */}
               <TopPerformers onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
 
-              {loadingSpotlight && !hotGuy && !coldGuy && (
-                <Box sx={{ py: 4, textAlign: 'center' }}>
-                  <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Loading spotlight…</Typography>
-                </Box>
-              )}
-              {(hotGuy || coldGuy) && (
-                <Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.25 }}>
-                    <Typography sx={{ fontWeight: 800, fontSize: '0.78rem', letterSpacing: 0.3, color: 'text.primary' }}>
-                      Streak Watch
-                    </Typography>
-                    <Box sx={{
+              {/* Right column: Featured daily report card */}
+              <Box>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.25 }}>
+                  <Typography sx={{ fontWeight: 800, fontSize: '0.78rem', letterSpacing: 0.3, color: 'text.primary' }}>
+                    Featured
+                  </Typography>
+                  <Box
+                    onClick={onLeaderboard}
+                    sx={{
                       px: 1, py: '3px', borderRadius: 999,
                       bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider',
-                    }}>
-                      <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'text.secondary', letterSpacing: 0.3, lineHeight: 1 }}>
-                        Last 14 days
-                      </Typography>
-                    </Box>
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 1.5, flexDirection: { xs: 'column', sm: 'row' } }}>
-                    {hotGuy  && <SpotlightCard data={hotGuy}  mode="hot"  onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />}
-                    {coldGuy && <SpotlightCard data={coldGuy} mode="cold" onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />}
+                      cursor: onLeaderboard ? 'pointer' : 'default',
+                      transition: 'border-color 0.12s',
+                      '&:hover': onLeaderboard ? { borderColor: 'text.secondary' } : {},
+                    }}
+                  >
+                    <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'text.secondary', letterSpacing: 0.3, lineHeight: 1 }}>
+                      View All →
+                    </Typography>
                   </Box>
                 </Box>
-              )}
-              {!loadingSpotlight && !hotGuy && !coldGuy && (
-                <Box sx={{ py: 4, textAlign: 'center' }}>
-                  <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No spotlight data available</Typography>
-                </Box>
-              )}
+                {loadingSpotlight && !hotGuy && (
+                  <Box sx={{ py: 4, textAlign: 'center' }}>
+                    <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Loading…</Typography>
+                  </Box>
+                )}
+                {hotGuy && (
+                  <SpotlightCard data={hotGuy} mode="hot" onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+                )}
+              </Box>
+
             </Box>
           </Box>
 

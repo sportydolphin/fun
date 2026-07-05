@@ -1153,10 +1153,25 @@ function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick, onTeam
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-      {/* Date + opponent */}
-      <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', lineHeight: 1, fontWeight: 500 }}>
-        {chipDate(game.date)} · {game.isHome ? 'vs' : '@'} {game.opponentAbbr}
-      </Typography>
+      {/* LIVE badge + Date + opponent */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{
+          display: 'inline-flex', alignItems: 'center', gap: 0.4,
+          px: 0.6, py: '2px', borderRadius: 0.5, bgcolor: '#ef444418',
+        }}>
+          <Box sx={{
+            width: 5, height: 5, borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0,
+            '@keyframes livepulse': { '0%': { opacity: 1 }, '50%': { opacity: 0.3 }, '100%': { opacity: 1 } },
+            animation: 'livepulse 1.5s ease-in-out infinite',
+          }} />
+          <Typography sx={{ fontSize: '0.52rem', fontWeight: 900, color: '#ef4444', letterSpacing: 1, textTransform: 'uppercase', lineHeight: 1 }}>
+            LIVE
+          </Typography>
+        </Box>
+        <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', lineHeight: 1, fontWeight: 500 }}>
+          {chipDate(game.date)} · {game.isHome ? 'vs' : '@'} {game.opponentAbbr}
+        </Typography>
+      </Box>
 
       {/* Score row: [away logo] AWAY  X — Y  HOME [home logo] */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
@@ -1166,7 +1181,7 @@ function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick, onTeam
         </Typography>
         <Typography sx={{ fontSize: '1.4rem', fontWeight: 900, lineHeight: 1, color: '#ef4444', mx: 0.5 }}>
           {awayRuns}
-          <Box component="span" sx={{ mx: 0.5, color: 'text.disabled', fontWeight: 300, fontSize: '1.1rem' }}>—</Box>
+          <Box component="span" sx={{ mx: 0.3, color: 'text.disabled', fontWeight: 400 }}>–</Box>
           {homeRuns}
         </Typography>
         <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: 'text.secondary', minWidth: 30, textAlign: 'center' }}>
@@ -1180,29 +1195,33 @@ function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick, onTeam
         <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled', lineHeight: 1 }}>Loading…</Typography>
       ) : liveData ? (
         <>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            {/* Left: inning half + ordinal */}
             <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, lineHeight: 1 }}>
               {liveData.inningHalf === 'top' ? '▲' : liveData.inningHalf === 'bottom' ? '▼' : ''}
               {' '}{liveData.currentInningOrdinal ?? liveData.currentInning}
             </Typography>
-            {liveData.outs !== null && (
-              <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', lineHeight: 1 }}>
-                {liveData.outs} out{liveData.outs !== 1 ? 's' : ''}
-              </Typography>
-            )}
-            {liveData.balls !== null && liveData.strikes !== null && (
-              <Box sx={{ px: 0.7, py: '2px', borderRadius: 0.5, bgcolor: 'action.hover' }}>
-                <Typography sx={{ fontSize: '0.66rem', fontWeight: 700, lineHeight: 1, letterSpacing: 0.2 }}>
-                  {liveData.balls}–{liveData.strikes}
-                </Typography>
-              </Box>
-            )}
-            <Box sx={{ ml: 'auto' }}>
+            {/* Right: diamond on top, outs + count below */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
               <BaseDiamond
                 onFirst={liveData.onFirst}
                 onSecond={liveData.onSecond}
                 onThird={liveData.onThird}
               />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {liveData.outs !== null && (
+                  <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', lineHeight: 1 }}>
+                    {liveData.outs} out{liveData.outs !== 1 ? 's' : ''}
+                  </Typography>
+                )}
+                {liveData.balls !== null && liveData.strikes !== null && (
+                  <Box sx={{ px: 0.7, py: '2px', borderRadius: 0.5, bgcolor: 'action.hover' }}>
+                    <Typography sx={{ fontSize: '0.66rem', fontWeight: 700, lineHeight: 1, letterSpacing: 0.2 }}>
+                      {liveData.balls}–{liveData.strikes}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
             </Box>
           </Box>
 
@@ -1271,6 +1290,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
   const [modalLoading,        setModalLoading]        = useState(false)
   const [loadingUpcoming,     setLoadingUpcoming]     = useState(false)
   const [finalDetails,        setFinalDetails]        = useState<GameFinalDetails | null>(null)
+  const [liveGamePk,          setLiveGamePk]          = useState<number | null>(null)
 
   const now   = new Date()
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -1279,6 +1299,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
     setLoading(true)
     setPreviewData(null)
     setLiveInfo(null)
+    setLiveGamePk(null)
     setUpcomingGame(null)
     setUpcomingPreviewData(null)
     setFinalDetails(null)
@@ -1287,6 +1308,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
       const next = g.find(x => x.date >= today) ?? g[g.length - 1]
       if (next) {
         if (next.state === 'live') {
+          setLiveGamePk(next.gamePk)
           setLoadingLive(true)
           fetchLiveGameData(next.gamePk).then(setLiveInfo).finally(() => setLoadingLive(false))
         } else if (next.state === 'preview') {
@@ -1318,6 +1340,27 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
       }
     }).finally(() => setLoading(false))
   }, [teamId])
+
+  useEffect(() => {
+    if (!liveGamePk) return
+    const pollLive = setInterval(() => {
+      fetchLiveGameData(liveGamePk).then(data => { if (data) setLiveInfo(data) })
+    }, 30_000)
+    const pollSchedule = setInterval(() => {
+      const n = new Date()
+      const d = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
+      fetchTeamSchedule(teamId).then(g => {
+        setGames(g)
+        const next = g.find(x => x.date >= d) ?? g[g.length - 1]
+        if (next?.state === 'live') {
+          fetchLiveGameData(next.gamePk).then(data => { if (data) setLiveInfo(data) })
+        } else {
+          setLiveGamePk(null)
+        }
+      })
+    }, 90_000)
+    return () => { clearInterval(pollLive); clearInterval(pollSchedule) }
+  }, [liveGamePk, teamId])
 
   if (loading) return (
     <Box sx={{ py: 2, textAlign: 'center' }}>

@@ -43,22 +43,26 @@ export function fetchYearByYearSplits(id: number, group: 'hitting' | 'pitching')
 export async function fetchCareerData(id: number, groups: Array<'hitting' | 'pitching'>): Promise<{
   seasons: number[]
   teamsBySeason: Map<number, string[]>
+  teamIdsBySeason: Map<number, number>
 }> {
   const results = await Promise.all(groups.map(group => fetchYearByYearSplits(id, group)))
   const allSplits = results.flat()
   const teamsBySeason = new Map<number, string[]>()
+  const teamIdsBySeason = new Map<number, number>()
   const seasons = new Set<number>()
   for (const split of allSplits) {
     const s = Number(split.season)
     if (!s) continue
     seasons.add(s)
-    const abbr = TEAM_ABBR[split.team?.id]
+    const teamId = Number(split.team?.id ?? 0)
+    const abbr = TEAM_ABBR[teamId]
     if (abbr) {
       const existing = teamsBySeason.get(s) ?? []
       if (!existing.includes(abbr)) teamsBySeason.set(s, [...existing, abbr])
     }
+    if (teamId && !teamIdsBySeason.has(s)) teamIdsBySeason.set(s, teamId)
   }
-  return { seasons: [...seasons].sort((a, b) => b - a), teamsBySeason }
+  return { seasons: [...seasons].sort((a, b) => b - a), teamsBySeason, teamIdsBySeason }
 }
 
 // Cache the full "every player in a season" payload so the many consumers that

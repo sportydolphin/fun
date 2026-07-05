@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, useTheme } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -385,9 +385,12 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
 }) {
+  const theme     = useTheme()
+  const isDark    = theme.palette.mode === 'dark'
   const teamColor = TEAM_BG[data.teamId] ?? '#444'
   const abbr      = TEAM_ABBR[data.teamId] ?? '—'
   const accent    = mode === 'hot' ? teamColor : COLD_ACCENT
+  const labelColor = mode === 'hot' ? (isDark ? '#fb923c' : teamColor) : COLD_ACCENT
 
   interface StatItem { label: string; value: string; hero: boolean }
 
@@ -442,7 +445,7 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
       onClick={onPlayerClick ? () => onPlayerClick(data.playerId) : undefined}
       sx={{
       flex: 1, minWidth: 0, borderRadius: 2.5, overflow: 'hidden',
-      border: '1px solid', borderColor: `${accent}45`,
+      border: '1px solid', borderColor: `${accent}${isDark ? 'aa' : '45'}`,
       bgcolor: 'background.paper',
       background: `linear-gradient(155deg, ${accent}18 0%, ${accent}08 55%, transparent 80%)`,
       display: 'flex', flexDirection: 'column',
@@ -458,15 +461,15 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
       }}>
         <Typography sx={{
           fontWeight: 900, fontSize: '0.68rem', textTransform: 'uppercase',
-          letterSpacing: 1.2, color: accent, flex: 1, lineHeight: 1,
+          letterSpacing: 1.2, color: labelColor, flex: 1, lineHeight: 1,
         }}>
           {mode === 'hot' ? '🔥 On Fire' : '🥶 Ice Cold'}
         </Typography>
         <Box sx={{
           px: 1, py: '3px', borderRadius: 999,
-          bgcolor: `${accent}20`, border: `1px solid ${accent}40`, flexShrink: 0,
+          bgcolor: `${labelColor}20`, border: `1px solid ${labelColor}40`, flexShrink: 0,
         }}>
-          <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: accent, letterSpacing: 0.3, lineHeight: 1 }}>
+          <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: labelColor, letterSpacing: 0.3, lineHeight: 1 }}>
             {data.period}
           </Typography>
         </Box>

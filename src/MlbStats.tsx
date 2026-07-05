@@ -161,6 +161,7 @@ export default function MlbStats() {
           onTeamClick={state.handleTeamSearchClick}
           homeTab={state.homeTab}
           onHomeTabChange={state.setHomeTab}
+          onLeaderboard={() => state.setView('leaderboard')}
         />
       )}
 

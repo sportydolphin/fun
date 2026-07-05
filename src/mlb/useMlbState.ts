@@ -43,7 +43,8 @@ export function useMlbState() {
   const [hitLeaders, setHitLeaders] = useState<Map<string, number[]>>(new Map())
   const [pitLeaders, setPitLeaders] = useState<Map<string, number[]>>(new Map())
   const [availableSeasons, setAvailableSeasons] = useState<number[]>([CURRENT_SEASON])
-  const [seasonTeams, setSeasonTeams] = useState<Map<number, string[]>>(new Map())
+  const [seasonTeams,    setSeasonTeams]    = useState<Map<number, string[]>>(new Map())
+  const [teamIdsBySeason, setTeamIdsBySeason] = useState<Map<number, number>>(new Map())
   const [selectedHitStats, setSelectedHitStats] = useState<string[]>(DEFAULT_HIT_STATS)
   const [selectedPitStats, setSelectedPitStats] = useState<string[]>(DEFAULT_PIT_STATS)
 
@@ -361,7 +362,7 @@ export function useMlbState() {
     const [details, careerData] = await Promise.all([fetchPlayerDetails(p.id), fetchCareerData(p.id, groups)])
     const resolved = details ?? p
     setPalette(teamPalette(resolved.currentTeam?.id))
-    const { seasons, teamsBySeason } = careerData
+    const { seasons, teamsBySeason, teamIdsBySeason: tids } = careerData
     const isRetired = resolved.active === false
     const initialSeason = isRetired && seasons.length > 0 ? seasons[0] : CURRENT_SEASON
     setPlayer(resolved)
@@ -371,6 +372,7 @@ export function useMlbState() {
     setTeamStanding(null)
     setAvailableSeasons(seasons.length ? seasons : [CURRENT_SEASON])
     setSeasonTeams(teamsBySeason)
+    setTeamIdsBySeason(tids)
     setSeason(initialSeason)
     await loadStats(resolved, initialSeason)
   }, [loadStats])
@@ -397,9 +399,14 @@ export function useMlbState() {
   const handleSeasonChange = useCallback((s: number) => {
     setHighlightedGameDate(null)
     setSeason(s)
-    if (player) loadStats(player, s, false)
-    else if (team) loadTeamStats(team, s, false)
-  }, [player, team, loadStats, loadTeamStats])
+    if (player) {
+      const tid = s === CURRENT_SEASON ? player.currentTeam?.id : (teamIdsBySeason.get(s) ?? player.currentTeam?.id)
+      setPalette(teamPalette(tid))
+      loadStats(player, s, false)
+    } else if (team) {
+      loadTeamStats(team, s, false)
+    }
+  }, [player, team, loadStats, loadTeamStats, teamIdsBySeason])
 
   const handleStatCardClick = useCallback((statKey: string, group: 'hitting' | 'pitching') => {
     const defs = group === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS

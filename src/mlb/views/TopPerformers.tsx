@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, useTheme } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { fetchRecentGamePerformers } from './Spotlight'
@@ -111,6 +111,9 @@ export function TopPerformers({
     go(dx < 0 ? 1 : -1)
   }, [])
 
+  const theme      = useTheme()
+  const isDark     = theme.palette.mode === 'dark'
+
   if (loading) {
     return (
       <Box sx={{ py: 3, textAlign: 'center' }}>
@@ -147,7 +150,7 @@ export function TopPerformers({
         onClick={() => onPlayerClick?.(current.playerId)}
         sx={{
           borderRadius: 2.5, overflow: 'hidden',
-          border: '1px solid', borderColor: `${teamColor}45`,
+          border: '1px solid', borderColor: `${teamColor}${isDark ? 'aa' : '45'}`,
           bgcolor: 'background.paper',
           background: `linear-gradient(155deg, ${teamColor}18 0%, ${teamColor}08 55%, transparent 80%)`,
           cursor: onPlayerClick ? 'pointer' : 'default',
