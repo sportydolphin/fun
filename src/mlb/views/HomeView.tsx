@@ -6,6 +6,7 @@ import { fetchDivisionForTeam } from '../api'
 // ~1,400-line schedule module — lazy so the League tab doesn't pull it in.
 const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
+import { useIsDark, borderAlpha, cardGradient135 } from '../colorUtils'
 import { TopPerformers } from './TopPerformers'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
@@ -262,6 +263,8 @@ export function HomeView({
     onHomeTabChange(dx < 0 ? 'team' : 'league')
   }, [])
 
+  const isDark = useIsDark()
+
   // ── Derived team info ─────────────────────────────────────────────────────────
   const followedTeam = allTeams.find(t => t.id === followedTeamId)
   const bg       = TEAM_BG[followedTeamId ?? 0] ?? '#1a2035'
@@ -337,6 +340,9 @@ export function HomeView({
                 {hotGuy && (
                   <SpotlightCard data={hotGuy} mode="hot" onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
                 )}
+                {coldGuy && (
+                  <SpotlightCard data={coldGuy} mode="cold" onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+                )}
               </Box>
 
             </Box>
@@ -354,10 +360,10 @@ export function HomeView({
                   <Box sx={{
                     flex: { xs: '1 1 auto', md: '0 0 calc(50% - 6px)' }, minWidth: 0,
                     borderRadius: 3, overflow: 'hidden',
-                    border: '1px solid', borderColor: `${bg}40`,
+                    border: '1px solid', borderColor: borderAlpha(bg, isDark),
                     borderLeft: `4px solid ${bg}`,
                     bgcolor: 'background.paper',
-                    background: `linear-gradient(135deg, ${bg}1a 0%, ${bg}08 50%, transparent 75%)`,
+                    background: cardGradient135(bg, isDark),
                     display: 'flex', flexDirection: 'column',
                   }}>
                     {/* Team header — compact 2-row layout */}

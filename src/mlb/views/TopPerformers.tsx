@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Box, Typography, useTheme } from '@mui/material'
+import { Box, Typography } from '@mui/material'
+import { useIsDark, accentColor, borderAlpha } from '../colorUtils'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { fetchRecentGamePerformers } from './Spotlight'
@@ -111,8 +112,7 @@ export function TopPerformers({
     go(dx < 0 ? 1 : -1)
   }, [])
 
-  const theme      = useTheme()
-  const isDark     = theme.palette.mode === 'dark'
+  const isDark     = useIsDark()
 
   if (loading) {
     return (
@@ -126,6 +126,7 @@ export function TopPerformers({
   const current    = performers[activeIdx]
   const teamColor  = TEAM_BG[current.teamId] ?? '#888'
   const abbr       = TEAM_ABBR[current.teamId] ?? '—'
+  const accentText = accentColor(teamColor, isDark)
   const statItems  = buildStatItems(current)
 
   return (
@@ -150,7 +151,7 @@ export function TopPerformers({
         onClick={() => onPlayerClick?.(current.playerId)}
         sx={{
           borderRadius: 2.5, overflow: 'hidden',
-          border: '1px solid', borderColor: `${teamColor}${isDark ? 'aa' : '45'}`,
+          border: '1px solid', borderColor: borderAlpha(teamColor, isDark),
           bgcolor: 'background.paper',
           background: `linear-gradient(155deg, ${teamColor}18 0%, ${teamColor}08 55%, transparent 80%)`,
           cursor: onPlayerClick ? 'pointer' : 'default',
@@ -169,7 +170,7 @@ export function TopPerformers({
         }}>
           <Typography sx={{
             fontWeight: 900, fontSize: '0.65rem', textTransform: 'uppercase',
-            letterSpacing: 1.2, color: teamColor, lineHeight: 1,
+            letterSpacing: 1.2, color: accentText, lineHeight: 1,
           }}>
             {current.period}
           </Typography>
@@ -234,7 +235,7 @@ export function TopPerformers({
                   <Typography sx={{
                     fontSize:   s.hero ? { xs: '1.35rem', sm: '1.5rem' } : { xs: '0.88rem', sm: '1rem' },
                     fontWeight: 900, lineHeight: 1,
-                    color:      s.hero ? teamColor : 'text.primary',
+                    color:      s.hero ? accentText : 'text.primary',
                     letterSpacing: s.hero ? '-0.3px' : 0,
                   }}>
                     {s.value}

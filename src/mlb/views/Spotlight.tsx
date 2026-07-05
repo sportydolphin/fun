@@ -1,6 +1,7 @@
 import React from 'react'
-import { Box, Typography, useTheme } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
+import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, cardGradient } from '../colorUtils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -385,12 +386,12 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
 }) {
-  const theme     = useTheme()
-  const isDark    = theme.palette.mode === 'dark'
-  const teamColor = TEAM_BG[data.teamId] ?? '#444'
-  const abbr      = TEAM_ABBR[data.teamId] ?? '—'
-  const accent    = mode === 'hot' ? teamColor : COLD_ACCENT
+  const isDark     = useIsDark()
+  const teamColor  = TEAM_BG[data.teamId] ?? '#444'
+  const abbr       = TEAM_ABBR[data.teamId] ?? '—'
+  const accent     = mode === 'hot' ? teamColor : COLD_ACCENT
   const labelColor = mode === 'hot' ? (isDark ? '#fb923c' : teamColor) : COLD_ACCENT
+  const accentText = mode === 'hot' ? accentColor(teamColor, isDark) : COLD_ACCENT
 
   interface StatItem { label: string; value: string; hero: boolean }
 
@@ -445,9 +446,9 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
       onClick={onPlayerClick ? () => onPlayerClick(data.playerId) : undefined}
       sx={{
       flex: 1, minWidth: 0, borderRadius: 2.5, overflow: 'hidden',
-      border: '1px solid', borderColor: `${accent}${isDark ? 'aa' : '45'}`,
+      border: '1px solid', borderColor: borderAlpha(accent, isDark),
       bgcolor: 'background.paper',
-      background: `linear-gradient(155deg, ${accent}18 0%, ${accent}08 55%, transparent 80%)`,
+      background: cardGradient(accent, isDark),
       display: 'flex', flexDirection: 'column',
       ...(onPlayerClick ? {
         cursor: 'pointer', transition: 'border-color 0.15s, box-shadow 0.15s',
@@ -479,7 +480,7 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
         <Box sx={{
           flexShrink: 0, width: 58, height: 70,
           borderRadius: 2, overflow: 'hidden',
-          border: `2px solid ${accent}40`,
+          border: `2px solid ${photoBorderAlpha(accent, isDark)}`,
           bgcolor: 'action.hover',
         }}>
           <Box
@@ -526,7 +527,7 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
                 <Typography sx={{
                   fontSize:   s.hero ? { xs: '1.35rem', sm: '1.5rem' } : { xs: '0.88rem', sm: '1rem' },
                   fontWeight: 900, lineHeight: 1,
-                  color:      s.hero ? accent : 'text.primary',
+                  color:      s.hero ? accentText : 'text.primary',
                   letterSpacing: s.hero ? '-0.3px' : 0,
                 }}>
                   {s.value}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
+import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../colorUtils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -649,15 +650,18 @@ function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick }: {
     return () => document.removeEventListener('keydown', h)
   }, [onClose])
 
+  const isDark = useIsDark()
+
   function PitcherCard({ pitcher, team }: { pitcher: ProbablePitcher | null; team: FinalTeam }) {
-    const teamColor = TEAM_BG[team.teamId] ?? '#444'
+    const teamColor  = TEAM_BG[team.teamId] ?? '#444'
+    const accentText = accentColor(teamColor, isDark)
     return (
       <Box
         onClick={pitcher && onPlayerClick ? () => { onPlayerClick(pitcher.id); onClose() } : undefined}
         sx={{
           flex: 1, p: 1.5, borderRadius: 2,
           bgcolor: `${teamColor}10`,
-          border: '1px solid', borderColor: `${teamColor}30`,
+          border: '1px solid', borderColor: borderAlpha(teamColor, isDark),
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75,
           cursor: pitcher && onPlayerClick ? 'pointer' : 'default',
           transition: 'border-color 0.15s',
@@ -666,7 +670,7 @@ function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick }: {
       >
         <Box sx={{
           width: 58, height: 70, borderRadius: 1.5, overflow: 'hidden',
-          border: `2px solid ${teamColor}40`, bgcolor: 'action.hover', flexShrink: 0,
+          border: `2px solid ${photoBorderAlpha(teamColor, isDark)}`, bgcolor: 'action.hover', flexShrink: 0,
         }}>
           {pitcher ? (
             <Box component="img"
@@ -701,7 +705,7 @@ function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick }: {
               { label: 'K',    value: String(pitcher.k) },
             ].map(s => (
               <Box key={s.label} sx={{ textAlign: 'center' }}>
-                <Typography sx={{ fontSize: '0.9rem', fontWeight: 900, lineHeight: 1, color: teamColor, letterSpacing: '-0.3px' }}>
+                <Typography sx={{ fontSize: '0.9rem', fontWeight: 900, lineHeight: 1, color: accentText, letterSpacing: '-0.3px' }}>
                   {s.value}
                 </Typography>
                 <Typography sx={{

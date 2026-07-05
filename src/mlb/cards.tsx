@@ -4,6 +4,7 @@ import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { RankMode, Palette, StatDef, Player, Team, TeamPlayerStat, TeamStandingInfo, StandingsDivision } from './types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG } from './constants'
+import { useIsDark, accentColor, borderAlpha } from './colorUtils'
 import { StatGrid } from './ui'
 
 // ─── Player card inner ────────────────────────────────────────────────────────
@@ -292,6 +293,8 @@ export function FeaturedMiniCard({
     .filter((d): d is StatDef => d != null)
 
   const teamColor = TEAM_BG[teamId] ?? ACCENT
+  const isDark    = useIsDark()
+  const accent    = accentColor(teamColor, isDark)
 
   return (
     <Box
@@ -308,12 +311,12 @@ export function FeaturedMiniCard({
       {/* Award label banner */}
       <Box sx={{
         width: '100%', bgcolor: `${teamColor}22`,
-        borderBottom: `1px solid ${teamColor}40`,
+        borderBottom: `1px solid ${borderAlpha(teamColor, isDark)}`,
         px: 1, py: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <Typography sx={{
           fontSize: '0.58rem', fontWeight: 800, textTransform: 'uppercase',
-          letterSpacing: 0.8, color: teamColor, lineHeight: 1,
+          letterSpacing: 0.8, color: accent, lineHeight: 1,
         }}>
           {awardLabel}
         </Typography>
@@ -350,7 +353,7 @@ export function FeaturedMiniCard({
           alignItems: 'center', justifyContent: 'center',
           bgcolor: `${teamColor}22`, mb: 1.25,
         }}>
-          <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, color: teamColor, letterSpacing: 0.5 }}>
+          <Typography sx={{ fontSize: '0.54rem', fontWeight: 800, color: accent, letterSpacing: 0.5 }}>
             {posLabel}
           </Typography>
         </Box>
@@ -372,7 +375,7 @@ export function FeaturedMiniCard({
               }}>
                 <Typography sx={{
                   fontSize: '0.52rem', fontWeight: 700, textTransform: 'uppercase',
-                  letterSpacing: 0.6, color: isAward ? teamColor : 'text.disabled',
+                  letterSpacing: 0.6, color: isAward ? accent : 'text.disabled',
                   lineHeight: 1, mb: 0.4,
                 }}>
                   {def.label}
@@ -410,6 +413,8 @@ export function DivisionStandingsCard({
 }) {
   const sorted = [...division.teams].sort((a, b) => a.divisionRank - b.divisionRank)
   const teamColor = TEAM_BG[highlightTeamId] ?? ACCENT
+  const isDark2   = useIsDark()
+  const accent2   = accentColor(teamColor, isDark2)
 
   const hdrSx = {
     fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase' as const,
@@ -462,7 +467,7 @@ export function DivisionStandingsCard({
             ...(clickable ? { cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } } : {}),
           }}>
             {/* Rank */}
-            <Typography sx={{ ...cellSx, color: isHL ? teamColor : 'text.disabled', fontWeight: isHL ? 800 : 600 }}>
+            <Typography sx={{ ...cellSx, color: isHL ? accent2 : 'text.disabled', fontWeight: isHL ? 800 : 600 }}>
               {t.divisionRank}
             </Typography>
             {/* Logo */}
@@ -486,7 +491,7 @@ export function DivisionStandingsCard({
             {/* GB */}
             <Typography sx={{
               ...cellSx, textAlign: 'right',
-              color: t.divisionLeader ? (isHL ? teamColor : ACCENT) : 'text.disabled',
+              color: t.divisionLeader ? (isHL ? accent2 : ACCENT) : 'text.disabled',
               fontWeight: t.divisionLeader ? 800 : 600,
             }}>
               {t.gamesBack}
