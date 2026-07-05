@@ -125,7 +125,7 @@ function FollowedPlayerRow({ id, data, isLive, editMode, isSelected, onRemove, o
       {/* Headshot */}
       <Box sx={{
         position: 'relative', flexShrink: 0,
-        width: 34, height: 34, borderRadius: '50%',
+        width: 30, height: 38, borderRadius: 1,
         overflow: 'hidden', bgcolor: 'action.hover',
         border: `2px solid ${teamColor}50`,
       }}>
@@ -433,7 +433,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
             )}
           </Box>
         ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', py: 0.5 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', py: 0.5, maxHeight: 260, overflowY: 'auto' }}>
             {followedPlayerIds.map((id, i) => {
               const data   = playerData[id] ?? null
               const isLive = !!(liveTeamIds && data?.teamId && liveTeamIds.has(data.teamId))

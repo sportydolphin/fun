@@ -38,6 +38,13 @@ export function cardGradient(hex: string, isDark: boolean): string {
   return `linear-gradient(155deg, ${hex}${isDark ? '28' : '18'} 0%, ${hex}${isDark ? '10' : '08'} 55%, transparent 80%)`
 }
 
+// Format a games-back string to always show one decimal place ("1" → "1.0", "0.5" → "0.5", "-" → "-").
+export function fmtGB(gb: string): string {
+  if (!gb || gb === '-') return gb
+  const n = parseFloat(gb)
+  return isNaN(n) ? gb : n.toFixed(1)
+}
+
 // Background gradient for left-accented team cards (135deg variant).
 export function cardGradient135(hex: string, isDark: boolean): string {
   return `linear-gradient(135deg, ${hex}${isDark ? '2e' : '1a'} 0%, ${hex}${isDark ? '10' : '08'} 50%, transparent 75%)`

@@ -6,7 +6,7 @@ import { fetchDivisionForTeam, fetchTeamSummaryData } from '../api'
 // ~1,400-line schedule module — lazy so the League tab doesn't pull it in.
 const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
-import { useIsDark, borderAlpha, cardGradient135 } from '../colorUtils'
+import { useIsDark, borderAlpha, cardGradient135, fmtGB } from '../colorUtils'
 import { TopPerformers } from './TopPerformers'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
@@ -293,7 +293,7 @@ export function HomeView({
   const standingLine = standing ? [
     `${standing.wins}–${standing.losses}`,
     `${ordinal(standing.divisionRank)} ${standing.divisionName}`,
-    !standing.divisionLeader && standing.gamesBack !== '-' ? `${standing.gamesBack} GB` : null,
+    !standing.divisionLeader && standing.gamesBack !== '-' ? `${fmtGB(standing.gamesBack)} GB` : null,
   ].filter(Boolean).join(' · ') : null
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -369,7 +369,7 @@ export function HomeView({
             <Box sx={{ mt: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.25 }}>
                 <Typography sx={{ fontWeight: 800, fontSize: '0.78rem', letterSpacing: 0.3, color: 'text.primary' }}>
-                  Report Card
+                  Featured Report Card
                 </Typography>
                 <Box
                   onClick={onViz}

@@ -4,7 +4,7 @@ import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { RankMode, Palette, StatDef, Player, Team, TeamPlayerStat, TeamStandingInfo, StandingsDivision } from './types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG } from './constants'
-import { useIsDark, accentColor, borderAlpha } from './colorUtils'
+import { useIsDark, accentColor, borderAlpha, fmtGB } from './colorUtils'
 import { StatGrid } from './ui'
 
 // ─── Player card inner ────────────────────────────────────────────────────────
@@ -143,9 +143,9 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
   const standingLine = standing
     ? [
         `${ordinal(standing.divisionRank)} in ${standing.divisionName}`,
-        !standing.divisionLeader && standing.gamesBack !== '-' ? `${standing.gamesBack} GB` : null,
+        !standing.divisionLeader && standing.gamesBack !== '-' ? `${fmtGB(standing.gamesBack)} GB` : null,
         !standing.divisionLeader && standing.wcRank >= 1 && standing.wcRank <= 3
-          ? `WC #${standing.wcRank}${standing.wcGamesBack !== '-' ? ` · ${standing.wcGamesBack} GB` : ''}`
+          ? `WC #${standing.wcRank}${standing.wcGamesBack !== '-' ? ` · ${fmtGB(standing.wcGamesBack)} GB` : ''}`
           : null,
       ].filter(Boolean).join(' · ')
     : null
@@ -494,7 +494,7 @@ export function DivisionStandingsCard({
               color: t.divisionLeader ? (isHL ? accent2 : ACCENT) : 'text.disabled',
               fontWeight: t.divisionLeader ? 800 : 600,
             }}>
-              {t.gamesBack}
+              {fmtGB(t.gamesBack)}
             </Typography>
           </Box>
         )

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { ACCENT, TEAM_BG } from './constants'
+import { fmtGB } from './colorUtils'
 import { fetchStandings } from './api'
 import { StandingsDivision, StandingsTeamRecord } from './types'
 import { SegControl } from './components'
@@ -180,7 +181,7 @@ function DivisionCard({ division, wcIds, onTeamClick }: {
                   <Box component="td" sx={{ ...tdSx, ...borderSx }}>{t.wins}</Box>
                   <Box component="td" sx={{ ...tdSx, ...borderSx }}>{t.losses}</Box>
                   <Box component="td" sx={{ ...tdSx, ...borderSx, color: 'text.secondary' }}>{t.pct}</Box>
-                  <Box component="td" sx={{ ...tdSx, ...borderSx, color: t.gamesBack === '-' ? 'text.disabled' : 'text.primary' }}>{t.gamesBack}</Box>
+                  <Box component="td" sx={{ ...tdSx, ...borderSx, color: t.gamesBack === '-' ? 'text.disabled' : 'text.primary' }}>{fmtGB(t.gamesBack)}</Box>
                   <Box component="td" sx={{ ...tdSx, ...borderSx, ...hiddenXs }}><L10Cell value={t.lastTen} /></Box>
                   <Box component="td" sx={{ ...tdSx, ...borderSx, ...hiddenXs }}><StreakCell code={t.streakCode} /></Box>
                   <Box component="td" sx={{ ...tdSx, ...borderSx, ...hiddenXs }}><DiffCell diff={t.runDiff} /></Box>
@@ -246,7 +247,7 @@ function buildWCList(divisions: StandingsDivision[], leagueId: number): WCTeam[]
       // WC #1 and #2: show how many games ahead of the cutoff they are
       if (i < 2 && lastWC) {
         const ahead = ((t.wins - lastWC.wins) + (lastWC.losses - t.losses)) / 2
-        const wcGB = ahead > 0 ? `+${ahead.toFixed(1).replace(/\.0$/, '')}` : '-'
+        const wcGB = ahead > 0 ? `+${ahead.toFixed(1)}` : '-'
         return { team: t, wcGB, inSpot }
       }
       // WC #3: they ARE the cutoff line
@@ -254,7 +255,7 @@ function buildWCList(divisions: StandingsDivision[], leagueId: number): WCTeam[]
     }
     // Out of WC: show games behind the cutoff
     const diff = lastWC ? ((lastWC.wins - lastWC.losses) - (t.wins - t.losses)) / 2 : 0
-    const gb = diff > 0 ? `-${diff.toFixed(1).replace(/\.0$/, '')}` : '-'
+    const gb = diff > 0 ? `-${diff.toFixed(1)}` : '-'
     return { team: t, wcGB: gb, inSpot }
   })
 }

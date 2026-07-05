@@ -379,14 +379,14 @@ function FinalGameMiniCard({ game, onClick }: { game: FinalGameSummary; onClick?
         <LogoBubble teamId={t.teamId} abbr={t.abbr} size={20} />
         <Typography sx={{
           flex: 1, fontSize: '0.74rem', fontWeight: em ? 800 : 500, lineHeight: 1,
-          color: em ? 'text.primary' : 'text.secondary',
+          color: (isLive || em) ? 'text.primary' : 'text.secondary',
         }}>
           {t.abbr}
         </Typography>
         {!isPreview && (
           <Typography sx={{
             fontSize: '0.9rem', fontWeight: em ? 800 : 500, lineHeight: 1,
-            color: em ? 'text.primary' : 'text.secondary', minWidth: 16, textAlign: 'right',
+            color: (isLive || em) ? 'text.primary' : 'text.secondary', minWidth: 16, textAlign: 'right',
           }}>
             {t.runs}
           </Typography>
