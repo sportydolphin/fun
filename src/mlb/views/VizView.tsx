@@ -13,7 +13,7 @@ import { TEAM_PAYROLLS_2026 } from '../constants'
 
 // ─── Leaderboard row model — shared by every Report Card board ───────────────
 
-interface LbRow {
+export interface LbRow {
   teamId: number
   abbr: string
   name: string
@@ -34,7 +34,7 @@ interface Board {
   loading: boolean
 }
 
-function TeamLogo({ teamId, abbr, size = 36, accent, highlighted }: {
+export function TeamLogo({ teamId, abbr, size = 36, accent, highlighted }: {
   teamId: number; abbr: string; size?: number; accent?: string; highlighted?: boolean
 }) {
   const [failed, setFailed] = useState(false)
@@ -64,7 +64,7 @@ function TeamLogo({ teamId, abbr, size = 36, accent, highlighted }: {
   )
 }
 
-function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect }: {
+export function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect }: {
   row: LbRow; rank: number; accent: string; showLabel: boolean; onSelect?: (id: number) => void
 }) {
   return (
@@ -119,7 +119,7 @@ function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect }: {
 
 // ─── Mini card — top 3 rows + snarky labels ───────────────────────────────────
 
-function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, rows, loading, onExpand, onSelectTeam }: Board & {
+export function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, rows, loading, onExpand, onSelectTeam }: Board & {
   onExpand: () => void
   onSelectTeam?: (id: number) => void
 }) {
@@ -289,7 +289,7 @@ function VizSubNav({ tab, onChange }: { tab: VizTab; onChange: (t: VizTab) => vo
 
 interface AgeEntry { teamId: number; abbr: string; avgAge: number }
 
-function buildFraudRows(data: TeamSummary[], nameMap: Map<number, string>, type: 'fraud' | 'cursed'): LbRow[] {
+export function buildFraudRows(data: TeamSummary[], nameMap: Map<number, string>, type: 'fraud' | 'cursed'): LbRow[] {
   const isFraud = type === 'fraud'
   const withScores = data
     .filter(d => !isNaN(d.rs) && !isNaN(d.ra) && d.wins + d.losses > 0)

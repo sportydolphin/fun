@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { Box, Typography } from '@mui/material'
-import { Team } from '../types'
+import { Team, TeamSummary } from '../types'
 import { TEAM_BG, CURRENT_SEASON } from '../constants'
-import { fetchDivisionForTeam } from '../api'
+import { fetchDivisionForTeam, fetchTeamSummaryData } from '../api'
 // ~1,400-line schedule module — lazy so the League tab doesn't pull it in.
 const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
@@ -11,6 +11,7 @@ import { TopPerformers } from './TopPerformers'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
 import { FinalGamesSection } from './FinalGames'
+import { LeaderboardCard, buildFraudRows, LbRow } from './VizView'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -197,6 +198,7 @@ export interface HomeViewProps {
   homeTab:           'league' | 'team'
   onHomeTabChange:   (t: 'league' | 'team') => void
   onLeaderboard?:    () => void
+  onViz?:            () => void
 }
 
 // ─── HomeView ─────────────────────────────────────────────────────────────────
@@ -204,7 +206,7 @@ export interface HomeViewProps {
 export function HomeView({
   allTeams, followedTeamId, onFollowTeam, onUnfollowTeam,
   followedPlayerIds, onFollowPlayer, onUnfollowPlayer, onPlayerClick, onTeamClick,
-  homeTab, onHomeTabChange, onLeaderboard,
+  homeTab, onHomeTabChange, onLeaderboard, onViz,
 }: HomeViewProps) {
 
   // ── Data ─────────────────────────────────────────────────────────────────────
@@ -214,12 +216,20 @@ export function HomeView({
   const [loadingSpotlight, setLoadingSpotlight] = useState(false)
   const [liveTeamIds,      setLiveTeamIds]      = useState<Set<number>>(new Set())
   const [showTeamSchedule, setShowTeamSchedule] = useState(false)
+  const [teamSummaries,    setTeamSummaries]    = useState<TeamSummary[]>([])
+  const [loadingBoard,     setLoadingBoard]     = useState(true)
 
   useEffect(() => {
     setLoadingSpotlight(true)
     fetchSpotlight()
       .then(({ hot, cold }) => { setHotGuy(hot); setColdGuy(cold) })
       .finally(() => setLoadingSpotlight(false))
+  }, [])
+
+  useEffect(() => {
+    fetchTeamSummaryData(CURRENT_SEASON)
+      .then(setTeamSummaries)
+      .finally(() => setLoadingBoard(false))
   }, [])
 
   // Fetch which teams are currently in live games
@@ -264,6 +274,14 @@ export function HomeView({
   }, [])
 
   const isDark = useIsDark()
+
+  // ── Daily rotating report card ────────────────────────────────────────────────
+  const nameMap    = new Map(allTeams.map(t => [t.id, t.name]))
+  const boardType  = new Date().getDate() % 2 === 0 ? 'fraud' : 'cursed'
+  const boardRows: LbRow[] = teamSummaries.length > 0 ? buildFraudRows(teamSummaries, nameMap, boardType) : []
+  const boardMeta  = boardType === 'fraud'
+    ? { icon: '🚨', title: 'Top Frauds',    subtitle: 'Winning more than their scoring predicts', accent: '#f97316' }
+    : { icon: '💀', title: 'Most Cursed',   subtitle: 'Losing more than their scoring predicts',  accent: '#818cf8' }
 
   // ── Derived team info ─────────────────────────────────────────────────────────
   const followedTeam = allTeams.find(t => t.id === followedTeamId)
@@ -346,6 +364,37 @@ export function HomeView({
               </Box>
 
             </Box>
+
+            {/* ── Daily report card — full-width below the two columns ─────────── */}
+            <Box sx={{ mt: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.25 }}>
+                <Typography sx={{ fontWeight: 800, fontSize: '0.78rem', letterSpacing: 0.3, color: 'text.primary' }}>
+                  Report Card
+                </Typography>
+                <Box
+                  onClick={onViz}
+                  sx={{
+                    px: 1, py: '3px', borderRadius: 999,
+                    bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider',
+                    cursor: onViz ? 'pointer' : 'default',
+                    transition: 'border-color 0.12s',
+                    '&:hover': onViz ? { borderColor: 'text.secondary' } : {},
+                  }}
+                >
+                  <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'text.secondary', letterSpacing: 0.3, lineHeight: 1 }}>
+                    View All →
+                  </Typography>
+                </Box>
+              </Box>
+              <LeaderboardCard
+                {...boardMeta}
+                rows={boardRows}
+                loading={loadingBoard}
+                onExpand={onViz ?? (() => {})}
+                onSelectTeam={onTeamClick}
+              />
+            </Box>
+
           </Box>
 
           {/* ── Panel 2: My Team ──────────────────────────────────────────────── */}

@@ -162,6 +162,7 @@ export default function MlbStats() {
           homeTab={state.homeTab}
           onHomeTabChange={state.setHomeTab}
           onLeaderboard={() => state.setView('leaderboard')}
+          onViz={() => { state.setView('viz') }}
         />
       )}
 
