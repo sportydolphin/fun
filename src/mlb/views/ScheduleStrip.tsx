@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT, ACCENT } from '../constants'
+import { BoxScoreModal, FinalGameSummary } from './FinalGames'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -605,13 +606,12 @@ function GamePreviewModal({ game, myTeamId, previewData, loading, onClose, onPla
 // ─── CompactGameCard ──────────────────────────────────────────────────────────
 // Compact single-game summary (last game OR next game header)
 
-function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick, onClick }: {
+function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick }: {
   game:         ScheduleGame
   myTeamId?:    number
   label:        string
   labelColor?:  string
   onTeamClick?: (id: number) => void
-  onClick?:     () => void
 }) {
   const isFinal = game.state === 'final'
   const isLive  = game.state === 'live'
@@ -649,18 +649,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick, onCli
   )
 
   return (
-    <Box
-      onClick={onClick}
-      sx={{
-        flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75,
-        cursor: onClick ? 'pointer' : 'default',
-        borderRadius: 1.5,
-        transition: 'background-color 0.12s',
-        '&:hover': onClick ? { bgcolor: 'action.hover' } : {},
-        p: onClick ? 0.5 : 0,
-        m: onClick ? -0.5 : 0,
-      }}
-    >
+    <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
       <Typography sx={{
         fontSize: '0.52rem', fontWeight: 800, textTransform: 'uppercase',
         letterSpacing: 1.5, color: labelColor ?? 'text.disabled', lineHeight: 1,
@@ -725,16 +714,6 @@ function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick, onCli
         )}
       </Box>
 
-      {/* Tap hint — only shown on mobile when card is clickable (pitcher row is hidden there) */}
-      {onClick && (
-        <Typography sx={{
-          display: { xs: 'block', sm: 'none' },
-          fontSize: '0.56rem', color: ACCENT, fontWeight: 700,
-          letterSpacing: 0.3, lineHeight: 1, mt: 0.25,
-        }}>
-          Tap for pitchers →
-        </Typography>
-      )}
     </Box>
   )
 }
@@ -939,14 +918,14 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
   const homeCol = TEAM_BG[homeTeamId] ?? '#444'
 
   if (loading) return (
-    <Box sx={{ pt: 1.25, mt: 0.75, borderTop: '1px solid', borderColor: 'divider' }}>
+    <Box sx={{ mt: 0.75 }}>
       <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled' }}>Loading starters…</Typography>
     </Box>
   )
 
   const PitcherChip = ({ pitcher, col, align }: { pitcher: ProbablePitcher | null; col: string; align: 'left' | 'right' }) => (
     <Box
-      onClick={() => pitcher && onPlayerClick?.(pitcher.id)}
+      onClick={e => { e.stopPropagation(); pitcher && onPlayerClick?.(pitcher.id) }}
       sx={{
         flex: 1, minWidth: 0,
         display: 'flex', alignItems: 'center',
@@ -985,10 +964,7 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
   )
 
   return (
-    <Box sx={{
-      display: 'flex', alignItems: 'center', gap: 1,
-      pt: 1.25, mt: 0.75, borderTop: '1px solid', borderColor: 'divider',
-    }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75 }}>
       <PitcherChip pitcher={awayPitcher} col={awayCol} align="left" />
       <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>vs</Typography>
       <PitcherChip pitcher={homePitcher} col={homeCol} align="right" />
@@ -1017,7 +993,7 @@ function CompactPerformerRow({ finalDetails, onPlayerClick }: {
     align:      'left' | 'right'
   }) => (
     <Box
-      onClick={() => id && onPlayerClick?.(id)}
+      onClick={e => { e.stopPropagation(); id && onPlayerClick?.(id) }}
       sx={{
         flex: 1, minWidth: 0,
         display: 'flex', alignItems: 'center', gap: 0.75,
@@ -1052,10 +1028,7 @@ function CompactPerformerRow({ finalDetails, onPlayerClick }: {
   )
 
   return (
-    <Box sx={{
-      display: 'flex', alignItems: 'center', gap: 1,
-      pt: 1.25, mt: 0.75, borderTop: '1px solid', borderColor: 'divider',
-    }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75 }}>
       {pitcher && (
         <PerformerChip
           id={pitcher.id}
@@ -1266,6 +1239,26 @@ function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick, onTeam
   )
 }
 
+// ─── gameToFinalSummary ───────────────────────────────────────────────────────
+// Build the minimal FinalGameSummary needed to open BoxScoreModal from a ScheduleGame.
+// The modal fetches R/H/E and batting/pitching tables itself; we only supply the header.
+
+function gameToFinalSummary(game: ScheduleGame, myTeamId: number): FinalGameSummary {
+  const awayId  = game.isHome ? game.opponentId : myTeamId
+  const homeId  = game.isHome ? myTeamId        : game.opponentId
+  const homeWon = game.isHome ? (game.isWin ?? false) : !(game.isWin ?? false)
+  return {
+    gamePk:     game.gamePk,
+    state:      'final',
+    statusText: 'Final',
+    away:  { teamId: awayId, abbr: TEAM_ABBR[awayId] ?? '???', name: '', runs: game.isHome ? (game.opponentScore ?? 0) : (game.teamScore ?? 0), hits: 0, errors: 0, isWinner: !homeWon },
+    home:  { teamId: homeId, abbr: TEAM_ABBR[homeId] ?? '???', name: '', runs: game.isHome ? (game.teamScore ?? 0) : (game.opponentScore ?? 0), hits: 0, errors: 0, isWinner: homeWon },
+    winPitcher:  null,
+    losePitcher: null,
+    savePitcher: null,
+  }
+}
+
 // ─── TeamScheduleStrip ────────────────────────────────────────────────────────
 
 export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleClose, onPlayerClick, onTeamClick }: {
@@ -1292,6 +1285,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
   const [finalDetails,        setFinalDetails]        = useState<GameFinalDetails | null>(null)
   const [lastFinalDetails,    setLastFinalDetails]    = useState<GameFinalDetails | null>(null)
   const [liveGamePk,          setLiveGamePk]          = useState<number | null>(null)
+  const [boxScoreGame,        setBoxScoreGame]        = useState<FinalGameSummary | null>(null)
 
   const now   = new Date()
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -1416,51 +1410,61 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
             {showLast && (
               <>
-                <Box sx={{ minWidth: 0 }}>
+                {/* Last game — whole card is clickable, opens box score modal */}
+                <Box
+                  onClick={() => setBoxScoreGame(gameToFinalSummary(lastGame!, teamId))}
+                  sx={{ minWidth: 0, cursor: 'pointer', borderRadius: 1.5, transition: 'background-color 0.12s', '&:hover': { bgcolor: 'action.hover' } }}
+                >
                   <CompactGameCard game={lastGame!} myTeamId={teamId} label="Last Game" onTeamClick={onTeamClick} />
                   {lastFinalDetails && (
-                    <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-                      <CompactPerformerRow finalDetails={lastFinalDetails} onPlayerClick={onPlayerClick} />
-                    </Box>
+                    <CompactPerformerRow finalDetails={lastFinalDetails} onPlayerClick={onPlayerClick} />
                   )}
                 </Box>
                 <Box sx={{ width: '1px', bgcolor: 'divider', alignSelf: 'stretch', my: 0.25, flexShrink: 0 }} />
               </>
             )}
 
-            {/* Primary game column (final result or next preview) */}
-            <Box sx={{ flex: 1, minWidth: 0 }}>
+            {/* Primary game column — whole card is clickable */}
+            <Box
+              onClick={() => {
+                if (isPreview) {
+                  setModalGame(nextGame)
+                  setModalPreview(previewData)
+                  setModalLoading(loadingPreview)
+                } else if (isFinal) {
+                  setBoxScoreGame(gameToFinalSummary(nextGame, teamId))
+                }
+              }}
+              sx={{
+                flex: 1, minWidth: 0,
+                cursor: (isPreview || isFinal) ? 'pointer' : 'default',
+                borderRadius: 1.5,
+                transition: 'background-color 0.12s',
+                '&:hover': (isPreview || isFinal) ? { bgcolor: 'action.hover' } : {},
+              }}
+            >
               <CompactGameCard
                 game={nextGame}
                 myTeamId={teamId}
                 label={nextLabel}
                 labelColor={nextLabelColor}
                 onTeamClick={onTeamClick}
-                onClick={isPreview ? () => {
-                  setModalGame(nextGame)
-                  setModalPreview(previewData)
-                  setModalLoading(loadingPreview)
-                } : undefined}
               />
               {isPreview && (
-                <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-                  <CompactPitcherRow
-                    awayPitcher={awayPitcher}
-                    homePitcher={homePitcher}
-                    awayTeamId={awayTeamId}
-                    homeTeamId={homeTeamId}
-                    loading={loadingPreview}
-                    onPlayerClick={onPlayerClick}
-                  />
-                </Box>
+                <CompactPitcherRow
+                  awayPitcher={awayPitcher}
+                  homePitcher={homePitcher}
+                  awayTeamId={awayTeamId}
+                  homeTeamId={homeTeamId}
+                  loading={loadingPreview}
+                  onPlayerClick={onPlayerClick}
+                />
               )}
               {isFinal && finalDetails && (
-                <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-                  <CompactPerformerRow
-                    finalDetails={finalDetails}
-                    onPlayerClick={onPlayerClick}
-                  />
-                </Box>
+                <CompactPerformerRow
+                  finalDetails={finalDetails}
+                  onPlayerClick={onPlayerClick}
+                />
               )}
             </Box>
 
@@ -1468,28 +1472,29 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
             {(isFinal || isPostponed) && upcomingGame && (
               <>
                 <Box sx={{ width: '1px', bgcolor: 'divider', alignSelf: 'stretch', my: 0.25, flexShrink: 0 }} />
-                <Box sx={{ flex: 1, minWidth: 0 }}>
+                {/* Upcoming game — whole card clickable, opens game preview modal */}
+                <Box
+                  onClick={() => {
+                    setModalGame(upcomingGame)
+                    setModalPreview(upcomingPreviewData)
+                    setModalLoading(loadingUpcoming)
+                  }}
+                  sx={{ flex: 1, minWidth: 0, cursor: 'pointer', borderRadius: 1.5, transition: 'background-color 0.12s', '&:hover': { bgcolor: 'action.hover' } }}
+                >
                   <CompactGameCard
                     game={upcomingGame}
                     myTeamId={teamId}
                     label="Next Game"
                     onTeamClick={onTeamClick}
-                    onClick={() => {
-                      setModalGame(upcomingGame)
-                      setModalPreview(upcomingPreviewData)
-                      setModalLoading(loadingUpcoming)
-                    }}
                   />
-                  <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-                    <CompactPitcherRow
-                      awayPitcher={upcomingPreviewData?.away.pitcher ?? null}
-                      homePitcher={upcomingPreviewData?.home.pitcher ?? null}
-                      awayTeamId={upcomingPreviewData?.away.teamId ?? (upcomingGame.isHome ? upcomingGame.opponentId : teamId)}
-                      homeTeamId={upcomingPreviewData?.home.teamId ?? (upcomingGame.isHome ? teamId : upcomingGame.opponentId)}
-                      loading={loadingUpcoming}
-                      onPlayerClick={onPlayerClick}
-                    />
-                  </Box>
+                  <CompactPitcherRow
+                    awayPitcher={upcomingPreviewData?.away.pitcher ?? null}
+                    homePitcher={upcomingPreviewData?.home.pitcher ?? null}
+                    awayTeamId={upcomingPreviewData?.away.teamId ?? (upcomingGame.isHome ? upcomingGame.opponentId : teamId)}
+                    homeTeamId={upcomingPreviewData?.home.teamId ?? (upcomingGame.isHome ? teamId : upcomingGame.opponentId)}
+                    loading={loadingUpcoming}
+                    onPlayerClick={onPlayerClick}
+                  />
                 </Box>
               </>
             )}
@@ -1517,6 +1522,15 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
           previewData={modalPreview}
           loading={modalLoading}
           onClose={() => { setModalGame(null); setModalPreview(null) }}
+          onPlayerClick={onPlayerClick}
+          onTeamClick={onTeamClick}
+        />
+      )}
+
+      {boxScoreGame && (
+        <BoxScoreModal
+          game={boxScoreGame}
+          onClose={() => setBoxScoreGame(null)}
           onPlayerClick={onPlayerClick}
           onTeamClick={onTeamClick}
         />

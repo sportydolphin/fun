@@ -7,7 +7,7 @@ import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../colorU
 
 type GameState = 'live' | 'final' | 'preview'
 
-interface FinalTeam {
+export interface FinalTeam {
   teamId:   number
   abbr:     string
   name:     string
@@ -17,7 +17,7 @@ interface FinalTeam {
   isWinner: boolean
 }
 
-interface FinalGameSummary {
+export interface FinalGameSummary {
   gamePk:     number
   state:      GameState
   statusText: string                 // "Final"/"Final/10", live inning ("▲ 5th"), or start time
@@ -831,7 +831,7 @@ function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick }: {
 
 // ─── Box-score modal ──────────────────────────────────────────────────────────
 
-function BoxScoreModal({ game, onClose, onPlayerClick, onTeamClick }: {
+export function BoxScoreModal({ game, onClose, onPlayerClick, onTeamClick }: {
   game: FinalGameSummary
   onClose: () => void
   onPlayerClick?: (id: number) => void
