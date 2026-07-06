@@ -170,7 +170,7 @@ export function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, ro
 
 // ─── Fullscreen modal — full scrollable ranking, no snarky labels ─────────────
 
-function LeaderboardModal({ open, onClose, icon, title, subtitle, accent, rows, onSelectTeam }: {
+export function LeaderboardModal({ open, onClose, icon, title, subtitle, accent, rows, onSelectTeam }: {
   open: boolean
   onClose: () => void
   icon?: string
@@ -352,6 +352,27 @@ function buildAgeRows(entries: AgeEntry[], nameMap: Map<number, string>, type: '
   })
 }
 
+const HIGHEST_PAYROLL_LABELS = ['GOING ALL IN', 'SPENDING UP', 'BIG DOLLARS']
+const LOWEST_PAYROLL_LABELS  = ['BUDGET SQUAD', 'POCKET CHANGE', 'WHO TF R U']
+
+function buildPayrollRows(payrolls: Record<number, number>, nameMap: Map<number, string>, direction: 'highest' | 'lowest'): LbRow[] {
+  const entries = Object.entries(payrolls).map(([idStr, amount]) => {
+    const id = Number(idStr)
+    return { teamId: id, abbr: TEAM_ABBR[id] ?? '?', name: nameMap.get(id) ?? '', amount }
+  }).filter(e => e.name)
+  const sorted = [...entries].sort((a, b) => direction === 'highest' ? b.amount - a.amount : a.amount - b.amount)
+  const max = sorted[0]?.amount ?? 1
+  const min = sorted[sorted.length - 1]?.amount ?? 0
+  const range = max - min || 1
+  const labels = direction === 'highest' ? HIGHEST_PAYROLL_LABELS : LOWEST_PAYROLL_LABELS
+  return sorted.map((e, idx) => ({
+    teamId: e.teamId, abbr: e.abbr, name: e.name,
+    value: `$${e.amount}M`,
+    barFraction: direction === 'highest' ? (e.amount - min) / range : (max - e.amount) / range,
+    label: idx < labels.length ? labels[idx] : undefined,
+  }))
+}
+
 const HARDEST_LABELS = ['GOOD LUCK LOL', 'UPHILL BATTLE', 'ROUGH PATCH']
 const EASIEST_LABELS = ['VACATION MODE', 'EASY STREET', 'BIG CHILLING']
 
@@ -393,9 +414,9 @@ export interface VizViewProps {
 
 export function VizView({
   vizSeason, setVizSeason, teamSummaries, loadingViz,
-  nameMap, handleVizNavigate, canHover,
-}: VizViewProps) {
-  const [vizTab, setVizTab]           = useState<VizTab>('graphs')
+  nameMap, handleVizNavigate, canHover, defaultTab = 'graphs',
+}: VizViewProps & { defaultTab?: VizTab }) {
+  const [vizTab, setVizTab]           = useState<VizTab>(defaultTab)
   const [vizHighlightId, setVizHighlightId] = useState<number | null>(null)
   const [vizHoverId, setVizHoverId]   = useState<number | null>(null)
   const [vizSearch, setVizSearch]     = useState('')
@@ -507,6 +528,16 @@ export function VizView({
         rows: buildSosRows(sosData, 'easiest'), loading: loadingSos,
       },
     ] : []),
+    {
+      id: 'highest-payroll', icon: '💰', title: 'Highest Payrolls', accent: '#eab308',
+      subtitle: '2026 estimated payroll spend',
+      rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'highest'), loading: false,
+    },
+    {
+      id: 'lowest-payroll', icon: '🪙', title: 'Lowest Payrolls', accent: '#22c55e',
+      subtitle: '2026 estimated payroll spend',
+      rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'lowest'), loading: false,
+    },
   ]
 
   const activeBoard = boards.find(b => b.id === expandedBoard) ?? null
@@ -637,9 +668,7 @@ export function VizView({
 
                 {/* Payroll vs Performance — current season only */}
                 {showSos && (
-                  <>
-                    <Divider sx={{ gridColumn: '1 / -1' }} />
-                    <Box sx={{ gridColumn: '1 / -1', pt: { xs: 3, md: 3.5 }, minWidth: 0 }}>
+                  <Box sx={{ pt: { xs: 3, md: 0 }, pb: 3.5, borderBottom: '1px solid', borderColor: 'divider', minWidth: 0 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.25 }}>
                         <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>Payroll vs. Performance</Typography>
                         <Tooltip arrow placement="top" title={
@@ -654,7 +683,6 @@ export function VizView({
                       <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mb: 1.5 }}>{vizSeason} estimated payroll vs current win% · above the dashed line = best value</Typography>
                       <PayrollWinsPlot data={teamSummaries} payrolls={payrolls} nameMap={nameMap} highlightTeamId={vizHoverId ?? vizHighlightId} onSelectTeam={canHover ? handleVizNavigate : undefined} onHoverTeam={canHover ? setVizHoverId : undefined} />
                     </Box>
-                  </>
                 )}
               </Box>
             </Box>

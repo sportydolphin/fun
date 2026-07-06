@@ -1005,7 +1005,7 @@ function CompactPerformerRow({ finalDetails, onPlayerClick }: {
 }) {
   const pitcher  = finalDetails.decisionPitcher
   const hitter   = finalDetails.topHitter
-  const showHitter = hitter && hitter.hits > 0
+  const showHitter = hitter && hitter.ab > 0
 
   if (!pitcher && !showHitter) return null
 
@@ -1290,6 +1290,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
   const [modalLoading,        setModalLoading]        = useState(false)
   const [loadingUpcoming,     setLoadingUpcoming]     = useState(false)
   const [finalDetails,        setFinalDetails]        = useState<GameFinalDetails | null>(null)
+  const [lastFinalDetails,    setLastFinalDetails]    = useState<GameFinalDetails | null>(null)
   const [liveGamePk,          setLiveGamePk]          = useState<number | null>(null)
 
   const now   = new Date()
@@ -1303,6 +1304,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
     setUpcomingGame(null)
     setUpcomingPreviewData(null)
     setFinalDetails(null)
+    setLastFinalDetails(null)
     fetchTeamSchedule(teamId).then(g => {
       setGames(g)
       const next = g.find(x => x.date >= today) ?? g[g.length - 1]
@@ -1314,6 +1316,8 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
         } else if (next.state === 'preview') {
           setLoadingPreview(true)
           fetchGamePreview(next.gamePk).then(setPreviewData).finally(() => setLoadingPreview(false))
+          const lastFinal = [...g].reverse().find(x => x.state === 'final')
+          if (lastFinal) fetchGameFinalDetails(lastFinal.gamePk, teamId).then(setLastFinalDetails)
         } else if (next.state === 'final') {
           // Today's game ended — fetch box score for performance details
           fetchGameFinalDetails(next.gamePk, teamId).then(setFinalDetails)
@@ -1412,7 +1416,14 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
             {showLast && (
               <>
-                <CompactGameCard game={lastGame!} myTeamId={teamId} label="Last Game" onTeamClick={onTeamClick} />
+                <Box sx={{ minWidth: 0 }}>
+                  <CompactGameCard game={lastGame!} myTeamId={teamId} label="Last Game" onTeamClick={onTeamClick} />
+                  {lastFinalDetails && (
+                    <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                      <CompactPerformerRow finalDetails={lastFinalDetails} onPlayerClick={onPlayerClick} />
+                    </Box>
+                  )}
+                </Box>
                 <Box sx={{ width: '1px', bgcolor: 'divider', alignSelf: 'stretch', my: 0.25, flexShrink: 0 }} />
               </>
             )}

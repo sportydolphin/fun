@@ -11,7 +11,7 @@ import { TopPerformers } from './TopPerformers'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
 import { FinalGamesSection } from './FinalGames'
-import { LeaderboardCard, buildFraudRows, LbRow } from './VizView'
+import { LeaderboardCard, LeaderboardModal, buildFraudRows, LbRow } from './VizView'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -218,6 +218,7 @@ export function HomeView({
   const [showTeamSchedule, setShowTeamSchedule] = useState(false)
   const [teamSummaries,    setTeamSummaries]    = useState<TeamSummary[]>([])
   const [loadingBoard,     setLoadingBoard]     = useState(true)
+  const [featuredExpanded, setFeaturedExpanded] = useState(false)
 
   useEffect(() => {
     setLoadingSpotlight(true)
@@ -390,10 +391,17 @@ export function HomeView({
                 {...boardMeta}
                 rows={boardRows}
                 loading={loadingBoard}
-                onExpand={onViz ?? (() => {})}
+                onExpand={() => setFeaturedExpanded(true)}
                 onSelectTeam={onTeamClick}
               />
             </Box>
+            <LeaderboardModal
+              open={featuredExpanded}
+              onClose={() => setFeaturedExpanded(false)}
+              {...boardMeta}
+              rows={boardRows}
+              onSelectTeam={onTeamClick}
+            />
 
           </Box>
 

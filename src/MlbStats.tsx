@@ -162,7 +162,11 @@ export default function MlbStats() {
           homeTab={state.homeTab}
           onHomeTabChange={state.setHomeTab}
           onLeaderboard={() => state.setView('leaderboard')}
-          onViz={() => { state.setView('viz') }}
+          onViz={() => {
+            window.history.pushState({ returnView: state.view, returnHomeTab: state.homeTab }, '', window.location.href)
+            state.setVizDefaultTab('report-card')
+            state.setView('viz')
+          }}
         />
       )}
 
@@ -179,6 +183,7 @@ export default function MlbStats() {
           nameMap={state.nameMap}
           handleVizNavigate={state.handleVizNavigate}
           canHover={canHover}
+          defaultTab={state.vizDefaultTab}
         />
       )}
 

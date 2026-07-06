@@ -172,6 +172,7 @@ export function useMlbState() {
     } catch { return 'search' }
   })
   const [vizSeason, setVizSeason] = useState(CURRENT_SEASON)
+  const [vizDefaultTab, setVizDefaultTab] = useState<'graphs' | 'report-card'>('graphs')
   const [teamSummaries, setTeamSummaries] = useState<TeamSummary[]>([])
   const [loadingViz, setLoadingViz] = useState(false)
 
@@ -732,6 +733,7 @@ export function useMlbState() {
     // View & navigation
     view, setView,
     vizSeason, setVizSeason,
+    vizDefaultTab, setVizDefaultTab,
     teamSummaries, loadingViz,
     handleVizNavigate,
 
