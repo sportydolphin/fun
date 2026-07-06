@@ -255,7 +255,7 @@ export function TopPerformers({
       </Box>
 
       {/* ── Dot navigation ───────────────────────────────────────────────── */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: { xs: 1, sm: 0.75 }, mt: 1.25 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: { xs: 0.75, sm: 0.75 }, mt: 1.25, overflow: 'hidden' }}>
         <Box
           onClick={(e) => { e.stopPropagation(); go(-1) }}
           sx={{

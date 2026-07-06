@@ -324,8 +324,8 @@ export function HomeView({
         }}>
 
           {/* ── Panel 1: Around the League ────────────────────────────────────── */}
-          <Box sx={{ width: '50%', flexShrink: 0, minWidth: 0 }}>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, alignItems: 'start' }}>
+          <Box sx={{ width: '50%', flexShrink: 0, minWidth: 0, overflowX: 'hidden' }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: '1fr 1fr' }, gap: 2, alignItems: 'start' }}>
 
               {/* Left column: Standout Performances */}
               <TopPerformers onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
@@ -406,7 +406,7 @@ export function HomeView({
           </Box>
 
           {/* ── Panel 2: My Team ──────────────────────────────────────────────── */}
-          <Box sx={{ width: '50%', flexShrink: 0, minWidth: 0 }}>
+          <Box sx={{ width: '50%', flexShrink: 0, minWidth: 0, overflowX: 'hidden' }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
 
               {followedTeamId ? (
