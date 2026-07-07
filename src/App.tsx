@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react'
-import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Tooltip, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery } from '@mui/material'
-import { Brightness4, Brightness7, AccountCircle } from '@mui/icons-material'
+import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Tooltip, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, List, ListItemButton, Divider } from '@mui/material'
+import { Brightness4, Brightness7, AccountCircle, Search, Close } from '@mui/icons-material'
+import { useSearchBridge, setSearchQuery } from './mlb/SearchBridgeContext'
+import type { PlayerBridgeItem, TeamBridgeItem, ToolbarSuggestion } from './mlb/SearchBridgeContext'
+import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT } from './mlb/constants'
 import { useTheme } from './ThemeContext'
 import { AuthProvider, useAuth } from './AuthContext'
 import { PENDING_USERNAME_PREFIX } from './AuthContext'
@@ -41,6 +44,50 @@ const PROJECTS = [
   { label: 'Poop Pile',     emoji: '💩',  desc: 'Stack the poops',        path: '/poop',     color: 'hsl(24,  58%, 38%)' },
 ]
 
+function ToolbarSuggestionsDropdown({ suggestions, onSelect }: {
+  suggestions: ToolbarSuggestion[]
+  onSelect: (s: ToolbarSuggestion) => void
+}) {
+  const teamPlayers = suggestions.filter(s => s.isTeamPlayer)
+  const trending    = suggestions.filter(s => !s.isTeamPlayer)
+
+  const renderSection = (label: string, players: ToolbarSuggestion[]) => (
+    <>
+      <Box sx={{ px: 1.5, pt: 1, pb: 0.25 }}>
+        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled' }}>
+          {label}
+        </Typography>
+      </Box>
+      <List dense disablePadding>
+        {players.map((s, i) => (
+          <React.Fragment key={`sug-${s.id}`}>
+            {i > 0 && <Divider />}
+            <ListItemButton onClick={() => onSelect(s)} sx={{ gap: 1.25, py: 0.6 }}>
+              <Box sx={{ width: 40, height: 54, borderRadius: 1.5, flexShrink: 0, backgroundImage: `url(${HEADSHOT(s.id)})`, backgroundSize: 'cover', backgroundPosition: 'center 5%', bgcolor: 'action.hover' }} />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', lineHeight: 1.2 }}>{s.fullName}</Typography>
+                <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{s.position} · {s.teamAbbr}</Typography>
+              </Box>
+            </ListItemButton>
+          </React.Fragment>
+        ))}
+      </List>
+    </>
+  )
+
+  return (
+    <Paper elevation={8} sx={{
+      position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
+      zIndex: 1500, borderRadius: 2.5, overflow: 'hidden', minWidth: 260,
+    }}>
+      {teamPlayers.length > 0 && renderSection('Your Team', teamPlayers)}
+      {teamPlayers.length > 0 && trending.length > 0 && <Divider sx={{ mt: 0.5 }} />}
+      {trending.length > 0 && renderSection('Trending', trending)}
+      <Box sx={{ height: 6 }} />
+    </Paper>
+  )
+}
+
 function AppInner() {
   const { mode, toggleTheme } = useTheme()
   const { user, signOut, openAuthDialog } = useAuth()
@@ -60,6 +107,42 @@ function AppInner() {
   const accountBtnRef = useRef<HTMLButtonElement>(null)
   const isAdmin = user?.email === ADMIN_EMAIL
   const isDesktop = useMediaQuery('(min-width: 600px)')
+
+  // ── Toolbar search bridge ─────────────────────────────────────────────────
+  const bridge = useSearchBridge()
+  const [mobileSearchExpanded, setMobileSearchExpanded] = useState(false)
+  const [toolbarDropdownOpen, setToolbarDropdownOpen] = useState(false)
+  const [toolbarInputFocused, setToolbarInputFocused] = useState(false)
+
+  useEffect(() => {
+    setToolbarDropdownOpen(
+      bridge.query.length >= 2 &&
+      (bridge.playerResults.length > 0 || bridge.teamResults.length > 0 || bridge.searching)
+    )
+  }, [bridge.query, bridge.playerResults, bridge.teamResults, bridge.searching])
+
+  const handleToolbarSelectPlayer = (p: PlayerBridgeItem) => {
+    bridge.handleSelectPlayer?.(p)
+    setMobileSearchExpanded(false)
+    setToolbarInputFocused(false)
+  }
+
+  const handleToolbarSelectTeam = (t: TeamBridgeItem) => {
+    bridge.handleSelectTeam?.(t)
+    setMobileSearchExpanded(false)
+    setToolbarInputFocused(false)
+  }
+
+  const handleToolbarSelectSuggestion = (s: ToolbarSuggestion) => {
+    bridge.handleSelectPlayer?.({
+      id: s.id,
+      fullName: s.fullName,
+      primaryPosition: { abbreviation: s.position },
+      currentTeam: { id: s.teamId },
+    })
+    setMobileSearchExpanded(false)
+    setToolbarInputFocused(false)
+  }
 
   // Show the post sign-in/out toast stashed by AuthContext (or the delete-account
   // flow) just before it reloaded the page
@@ -156,16 +239,162 @@ function AppInner() {
     <>
       <AppBar position="static" color="default" elevation={1}>
         <Toolbar>
+          {/* Close button — mobile search mode only */}
+          {!isDesktop && mobileSearchExpanded && (
+            <IconButton size="small" onClick={() => { setMobileSearchExpanded(false); setSearchQuery('') }} sx={{ mr: 0.5, flexShrink: 0 }}>
+              <Close fontSize="small" />
+            </IconButton>
+          )}
+
+          {/* Brand name — hidden while mobile search is expanded */}
           <Typography
             variant="h6" component="div"
             onClick={() => navigate('/mlb')}
-            sx={{ flexGrow: 1, fontWeight: 700, cursor: 'pointer', userSelect: 'none' }}
+            sx={{
+              flex: 1, minWidth: 0, fontWeight: 700, cursor: 'pointer', userSelect: 'none',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              display: mobileSearchExpanded && !isDesktop ? 'none' : undefined,
+            }}
           >
             sportydolphin.fun
           </Typography>
-          <IconButton onClick={toggleTheme} size="small" sx={{ color: mode === 'dark' ? '#fbbf24' : 'text.primary' }}>
-            {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
-          </IconButton>
+
+          {/* Toolbar search — desktop: always visible when MLB loaded; mobile: expands on tap */}
+          {bridge.isRegistered && (isDesktop || mobileSearchExpanded) && (
+            <ClickAwayListener onClickAway={() => {
+              setToolbarDropdownOpen(false)
+              setToolbarInputFocused(false)
+              if (!isDesktop) { setMobileSearchExpanded(false); setSearchQuery('') }
+            }}>
+              <Box sx={{
+                position: 'relative',
+                width: isDesktop ? 260 : undefined,
+                flex: !isDesktop ? 1 : undefined,
+                mx: isDesktop ? 1.5 : 0,
+              }}>
+                <Box sx={{
+                  display: 'flex', alignItems: 'center', gap: 0.75,
+                  px: 1.5, py: 0.55,
+                  borderRadius: 999,
+                  border: '1.5px solid',
+                  borderColor: toolbarDropdownOpen ? ACCENT : 'divider',
+                  bgcolor: 'background.paper',
+                  transition: 'border-color 0.2s',
+                }}>
+                  {bridge.searching && bridge.query.length >= 2
+                    ? <CircularProgress size={13} sx={{ color: 'text.disabled', flexShrink: 0 }} />
+                    : <Search sx={{ fontSize: '0.9rem', color: 'text.disabled', flexShrink: 0 }} />
+                  }
+                  <Box
+                    component="input"
+                    autoFocus={mobileSearchExpanded && !isDesktop}
+                    value={bridge.query}
+                    onChange={(e: any) => setSearchQuery(e.target.value)}
+                    onFocus={() => {
+                      setToolbarInputFocused(true)
+                      if (bridge.query.length >= 2) setToolbarDropdownOpen(true)
+                    }}
+                    onKeyDown={(e: any) => {
+                      if (e.key === 'Escape') {
+                        setSearchQuery('')
+                        setToolbarDropdownOpen(false)
+                        setToolbarInputFocused(false)
+                        if (!isDesktop) setMobileSearchExpanded(false)
+                      }
+                    }}
+                    placeholder="Search player or team…"
+                    sx={{
+                      flex: 1, border: 'none', outline: 'none', bgcolor: 'transparent',
+                      fontSize: '0.82rem', color: 'text.primary', p: 0, fontFamily: 'inherit',
+                      '&::placeholder': { color: 'text.disabled' },
+                      minWidth: 0,
+                    }}
+                  />
+                  {bridge.query && (
+                    <Box
+                      onClick={() => setSearchQuery('')}
+                      sx={{ cursor: 'pointer', color: 'text.disabled', display: 'flex', flexShrink: 0, '&:hover': { color: 'text.primary' } }}
+                    >
+                      <Close sx={{ fontSize: '0.85rem' }} />
+                    </Box>
+                  )}
+                </Box>
+
+                {/* Suggestions dropdown — shown when input is focused and query is empty */}
+                {toolbarInputFocused && bridge.query.length < 2 && bridge.toolbarSuggestions.length > 0 && (
+                  <ToolbarSuggestionsDropdown
+                    suggestions={bridge.toolbarSuggestions}
+                    onSelect={handleToolbarSelectSuggestion}
+                  />
+                )}
+
+                {/* Search results dropdown */}
+                {toolbarDropdownOpen && bridge.query.length >= 2 && (bridge.playerResults.length > 0 || bridge.teamResults.length > 0) && (
+                  <Paper elevation={8} sx={{
+                    position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
+                    zIndex: 1500, borderRadius: 2.5, overflow: 'hidden', minWidth: 240,
+                  }}>
+                    <List dense disablePadding>
+                      {bridge.playerResults.slice(0, 6).map((p, i) => {
+                        const pos = p.primaryPosition?.abbreviation ?? p.primaryPosition?.name ?? ''
+                        const teamAbbr = p.currentTeam?.id != null ? TEAM_ABBR[p.currentTeam.id as number] : undefined
+                        const sub = p.active === false
+                          ? [pos, 'Retired'].filter(Boolean).join(' | ')
+                          : [pos, teamAbbr].filter(Boolean).join(' | ')
+                        return (
+                          <React.Fragment key={`tbp-${p.id}`}>
+                            {i > 0 && <Divider />}
+                            <ListItemButton onClick={() => handleToolbarSelectPlayer(p)} sx={{ gap: 1.25, py: 0.75 }}>
+                              <Box sx={{ width: 36, height: 36, borderRadius: 1.5, flexShrink: 0, backgroundImage: `url(${HEADSHOT(p.id)})`, backgroundSize: 'cover', backgroundPosition: 'center 20%', bgcolor: 'grey.200' }} />
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', lineHeight: 1.2 }}>{p.fullName}</Typography>
+                                {sub && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{sub}</Typography>}
+                              </Box>
+                            </ListItemButton>
+                          </React.Fragment>
+                        )
+                      })}
+                      {bridge.playerResults.length > 0 && bridge.teamResults.length > 0 && (
+                        <Divider sx={{ borderStyle: 'dashed' }} />
+                      )}
+                      {bridge.teamResults.slice(0, 3).map((t, i) => {
+                        const divShort = t.division?.name?.replace(/American League |National League /, '') ?? ''
+                        const leagueShort = t.league?.name?.includes('American') ? 'AL' : t.league?.name?.includes('National') ? 'NL' : ''
+                        const sub = [leagueShort, divShort].filter(Boolean).join(' · ')
+                        return (
+                          <React.Fragment key={`tbt-${t.id}`}>
+                            {i > 0 && <Divider />}
+                            <ListItemButton onClick={() => handleToolbarSelectTeam(t)} sx={{ gap: 1.25, py: 0.75 }}>
+                              <Box sx={{ width: 36, height: 36, borderRadius: 1.5, flexShrink: 0, bgcolor: TEAM_BG[t.id] ?? 'grey.700', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                                <Box component="img" src={`https://www.mlbstatic.com/team-logos/team-cap-on-dark/${t.id}.svg`} alt={t.abbreviation} sx={{ width: 26, height: 26, objectFit: 'contain' }} />
+                              </Box>
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', lineHeight: 1.2 }}>{t.name}</Typography>
+                                {sub && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{sub}</Typography>}
+                              </Box>
+                            </ListItemButton>
+                          </React.Fragment>
+                        )
+                      })}
+                    </List>
+                  </Paper>
+                )}
+              </Box>
+            </ClickAwayListener>
+          )}
+
+          {/* Right-side icons — flex:1 on desktop so they balance the brand and keep search centered */}
+          <Box sx={{ flex: isDesktop ? 1 : undefined, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+            {/* Mobile: search icon when not expanded */}
+            {bridge.isRegistered && !isDesktop && !mobileSearchExpanded && (
+              <IconButton size="small" onClick={() => setMobileSearchExpanded(true)} sx={{ color: 'text.secondary', mr: 0.25 }}>
+                <Search fontSize="small" />
+              </IconButton>
+            )}
+
+            <IconButton onClick={toggleTheme} size="small" sx={{ color: mode === 'dark' ? '#fbbf24' : 'text.primary' }}>
+              {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
+            </IconButton>
           {user ? (
             <ClickAwayListener onClickAway={() => setAccountOpen(false)}>
               <Box sx={{ position: 'relative' }}>
@@ -272,6 +501,7 @@ function AppInner() {
               </IconButton>
             </Tooltip>
           )}
+          </Box>
         </Toolbar>
       </AppBar>
 

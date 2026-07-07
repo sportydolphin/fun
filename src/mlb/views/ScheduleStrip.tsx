@@ -49,8 +49,8 @@ export interface GamePreviewData {
 }
 
 export interface GameFinalDetails {
-  decisionPitcher: { id: number; name: string; isWinner: boolean; ip: string; er: number; k: number } | null
-  topHitter:       { id: number; name: string; hits: number; ab: number; hr: number; rbi: number } | null
+  winnerPitcher: { id: number; name: string; ip: string; er: number; teamId: number } | null
+  loserPitcher:  { id: number; name: string; ip: string; er: number; teamId: number } | null
 }
 
 function formatIP(ip: string): string {
@@ -180,58 +180,49 @@ export async function fetchGamePreview(gamePk: number): Promise<GamePreviewData 
 
 // ─── Final game box-score fetch ───────────────────────────────────────────────
 
-async function fetchGameFinalDetails(gamePk: number, myTeamId: number): Promise<GameFinalDetails | null> {
+async function fetchGameFinalDetails(gamePk: number, _myTeamId: number): Promise<GameFinalDetails | null> {
   try {
     const r = await fetch(`https://statsapi.mlb.com/api/v1/game/${gamePk}/boxscore`)
     const d = await r.json()
 
     const decisions = d.decisions ?? {}
+    const winnerId  = decisions.winner?.id ? Number(decisions.winner.id) : null
     const homeId    = Number(d.teams?.home?.team?.id ?? 0)
-    const mySide    = homeId === myTeamId ? 'home' : 'away'
-    const myData    = d.teams?.[mySide]
-    const myPlayers = myData?.players ?? {}
+    const awayId    = Number(d.teams?.away?.team?.id ?? 0)
 
-    // Find the key pitcher from my team (winner if we won, loser if we lost)
-    const winnerId = decisions.winner?.id ? Number(decisions.winner.id) : null
-    const loserId  = decisions.loser?.id  ? Number(decisions.loser.id)  : null
-    const iHaveWinner = winnerId && !!myPlayers[`ID${winnerId}`]
-    const myPitcherId = iHaveWinner ? winnerId : loserId
-    const isWinner    = !!iHaveWinner
-
-    let decisionPitcher: GameFinalDetails['decisionPitcher'] = null
-    if (myPitcherId) {
-      const p = myPlayers[`ID${myPitcherId}`]
-      if (p) {
-        const s = p.stats?.pitching ?? {}
-        decisionPitcher = {
-          id:       myPitcherId,
-          name:     p.person?.fullName ?? '—',
-          isWinner,
-          ip:       String(s.inningsPitched ?? '—'),
-          er:       Number(s.earnedRuns ?? 0),
-          k:        Number(s.strikeOuts ?? 0),
+    const findTopPitcher = (side: 'home' | 'away') => {
+      const sideData    = d.teams?.[side]
+      const sidePlayers = sideData?.players ?? {}
+      const teamId      = side === 'home' ? homeId : awayId
+      let best: GameFinalDetails['winnerPitcher'] = null
+      let maxOuts = 0
+      for (const pitcherId of (sideData?.pitchers ?? []) as number[]) {
+        const p = sidePlayers[`ID${pitcherId}`]
+        if (!p) continue
+        const s     = p.stats?.pitching ?? {}
+        const ipStr = String(s.inningsPitched ?? '0')
+        const [w = '0', f = '0'] = ipStr.split('.')
+        const outs  = Number(w) * 3 + Number(f)
+        if (outs > maxOuts) {
+          maxOuts = outs
+          best = { id: pitcherId, name: p.person?.fullName ?? '—', ip: ipStr, er: Number(s.earnedRuns ?? 0), teamId }
         }
       }
+      return best
     }
 
-    // Top hitter from my team (by hits + HR/RBI bonus)
-    let topHitter: GameFinalDetails['topHitter'] = null
-    let bestScore = 0
-    for (const batterId of (myData?.batters ?? []) as number[]) {
-      const p  = myPlayers[`ID${batterId}`]
-      const s  = p?.stats?.batting ?? {}
-      const ab  = Number(s.atBats   ?? 0); if (ab === 0) continue
-      const hits = Number(s.hits      ?? 0)
-      const hr   = Number(s.homeRuns  ?? 0)
-      const rbi  = Number(s.rbi       ?? 0)
-      const score = hits * 10 + hr * 5 + rbi * 2
-      if (score > bestScore) {
-        bestScore = score
-        topHitter = { id: batterId, name: p.person?.fullName ?? '—', hits, ab, hr, rbi }
-      }
-    }
+    const homePitcher = findTopPitcher('home')
+    const awayPitcher = findTopPitcher('away')
 
-    return { decisionPitcher, topHitter }
+    // Determine winning side from the decision pitcher; fall back to score
+    const homeWon = winnerId
+      ? !!d.teams?.home?.players?.[`ID${winnerId}`]
+      : (d.teams?.home?.teamStats?.batting?.runs ?? 0) > (d.teams?.away?.teamStats?.batting?.runs ?? 0)
+
+    return {
+      winnerPitcher: homeWon ? homePitcher : awayPitcher,
+      loserPitcher:  homeWon ? awayPitcher : homePitcher,
+    }
   } catch { return null }
 }
 
@@ -626,18 +617,19 @@ function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick }: {
   const homeCol    = TEAM_BG[homeTeamId] ?? '#444'
   const oppCol     = TEAM_BG[game.opponentId] ?? '#444'
 
-  // Small clickable logo circle — stops propagation so it doesn't trigger the card onClick
-  const logoCircle = (teamId: number, col: string, size: number) => (
+  // Small clickable logo circle — ringCol overrides border for W/L ring on the followed team
+  const logoCircle = (teamId: number, col: string, size: number, ringCol?: string) => (
     <Box
       onClick={e => { e.stopPropagation(); onTeamClick?.(teamId) }}
       sx={{
         width: size, height: size, borderRadius: '50%', bgcolor: '#fff',
-        border: `1.5px solid ${col}`, display: 'flex', alignItems: 'center',
+        border: ringCol ? `2.5px solid ${ringCol}` : `1.5px solid ${col}`,
+        display: 'flex', alignItems: 'center',
         justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
-        boxShadow: `0 0 0 1px ${col}30`,
+        boxShadow: ringCol ? `0 0 0 1px ${ringCol}50` : `0 0 0 1px ${col}30`,
         cursor: onTeamClick ? 'pointer' : 'default',
         transition: 'transform 0.12s, box-shadow 0.12s',
-        '&:hover': onTeamClick ? { transform: 'scale(1.1)', boxShadow: `0 0 0 2px ${col}60` } : {},
+        '&:hover': onTeamClick ? { transform: 'scale(1.1)', boxShadow: ringCol ? `0 0 0 2px ${ringCol}80` : `0 0 0 2px ${col}60` } : {},
       }}
     >
       <Box component="img"
@@ -663,54 +655,42 @@ function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick }: {
       {/* Score / time row — fixed minHeight so both FINAL and NEXT GAME rows are the same height */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25, minHeight: 32 }}>
         {(isFinal || isLive) && myTeamId ? (
-          // Two-logo layout: [away logo] awayScore–homeScore [home logo] [W/L]
+          // Two-logo layout: winner gets green ring, loser gets red ring
           <>
-            {logoCircle(awayTeamId, awayCol, 26)}
-            <Typography sx={{
-              fontSize: { xs: '0.95rem', sm: '1.05rem' }, fontWeight: 800, lineHeight: 1,
-              color: isLive ? '#ef4444' : 'text.primary',
-            }}>
-              {awayScore ?? 0}
-              <Box component="span" sx={{ mx: 0.3, color: 'text.disabled', fontWeight: 300 }}>–</Box>
-              {homeScore ?? 0}
-            </Typography>
-            {logoCircle(homeTeamId, homeCol, 26)}
-            {isFinal && (
-              <Box sx={{ px: 0.6, py: '2px', borderRadius: 0.5, bgcolor: isWin ? '#22c55e22' : '#ef444422' }}>
-                <Typography sx={{ fontSize: '0.68rem', fontWeight: 900, lineHeight: 1, color: isWin ? '#22c55e' : '#ef4444' }}>
-                  {isWin ? 'W' : 'L'}
-                </Typography>
-              </Box>
-            )}
+            {(() => {
+              const awayWon = awayTeamId === myTeamId ? isWin : !isWin
+              return (
+                <>
+                  {logoCircle(awayTeamId, awayCol, 26, isFinal ? (awayWon ? '#22c55e' : '#ef4444') : undefined)}
+                  <Typography sx={{
+                    fontSize: { xs: '0.95rem', sm: '1.05rem' }, fontWeight: 800, lineHeight: 1,
+                    color: isLive ? '#ef4444' : 'text.primary',
+                  }}>
+                    {awayScore ?? 0}
+                    <Box component="span" sx={{ mx: 0.3, color: 'text.disabled', fontWeight: 300 }}>–</Box>
+                    {homeScore ?? 0}
+                  </Typography>
+                  {logoCircle(homeTeamId, homeCol, 26, isFinal ? (awayWon ? '#ef4444' : '#22c55e') : undefined)}
+                </>
+              )
+            })()}
           </>
         ) : (isFinal || isLive) ? (
-          // Fallback: single opponent logo + score
+          // Fallback: single opponent logo + score (no myTeamId context)
           <>
             {logoCircle(game.opponentId, oppCol, 32)}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Typography sx={{
-                fontSize: '1.05rem', fontWeight: 800, lineHeight: 1,
-                color: isLive ? '#ef4444' : 'text.primary',
-              }}>
-                {game.teamScore}–{game.opponentScore}
-              </Typography>
-              {isFinal && (
-                <Box sx={{ px: 0.6, py: '2px', borderRadius: 0.5, bgcolor: isWin ? '#22c55e22' : '#ef444422' }}>
-                  <Typography sx={{ fontSize: '0.68rem', fontWeight: 900, lineHeight: 1, color: isWin ? '#22c55e' : '#ef4444' }}>
-                    {isWin ? 'W' : 'L'}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          </>
-        ) : (
-          // Preview / postponed: opponent logo + game time or PPD
-          <>
-            {logoCircle(game.opponentId, oppCol, 32)}
-            <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: game.state === 'postponed' ? 'text.disabled' : 'text.secondary', lineHeight: 1 }}>
-              {game.state === 'postponed' ? 'PPD' : game.gameTime}
+            <Typography sx={{
+              fontSize: '1.05rem', fontWeight: 800, lineHeight: 1,
+              color: isLive ? '#ef4444' : 'text.primary',
+            }}>
+              {game.teamScore}–{game.opponentScore}
             </Typography>
           </>
+        ) : (
+          // Preview / postponed: just the game time — team logos live in CompactPitcherRow below
+          <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: game.state === 'postponed' ? 'text.disabled' : 'text.primary', lineHeight: 1 }}>
+            {game.state === 'postponed' ? 'PPD' : game.gameTime}
+          </Typography>
         )}
       </Box>
 
@@ -923,51 +903,50 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
     </Box>
   )
 
-  const PitcherChip = ({ pitcher, col, align }: { pitcher: ProbablePitcher | null; col: string; align: 'left' | 'right' }) => (
-    <Box
-      onClick={e => { e.stopPropagation(); pitcher && onPlayerClick?.(pitcher.id) }}
-      sx={{
-        flex: 1, minWidth: 0,
-        display: 'flex', alignItems: 'center',
-        gap: 0.75,
-        flexDirection: align === 'right' ? 'row-reverse' : 'row',
-        cursor: pitcher && onPlayerClick ? 'pointer' : 'default',
-        '&:hover .pmn': pitcher && onPlayerClick ? { color: ACCENT } : {},
-      }}
-    >
-      {/* Headshot */}
-      <Box sx={{
-        width: 34, height: 42, borderRadius: 1.5, overflow: 'hidden', flexShrink: 0,
-        border: `1.5px solid ${col}40`, bgcolor: 'action.hover',
-      }}>
-        {pitcher && (
-          <Box component="img" src={HEADSHOT(pitcher.id)} alt={pitcher.name}
-            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }} />
-        )}
-      </Box>
-      {/* Name + stats */}
-      <Box sx={{ minWidth: 0, textAlign: align }}>
-        <Typography className="pmn" sx={{
-          fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.2,
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          transition: 'color 0.12s',
+  const PitcherChip = ({ pitcher, teamId }: { pitcher: ProbablePitcher | null; teamId: number }) => {
+    const col = TEAM_BG[teamId] ?? '#444'
+    return (
+      <Box
+        onClick={e => { e.stopPropagation(); pitcher && onPlayerClick?.(pitcher.id) }}
+        sx={{
+          flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75,
+          cursor: pitcher && onPlayerClick ? 'pointer' : 'default',
+          '&:hover .pmn': pitcher && onPlayerClick ? { color: ACCENT } : {},
+        }}
+      >
+        <Box sx={{
+          width: 22, height: 22, borderRadius: '50%', bgcolor: '#fff',
+          border: `1.5px solid ${col}`, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
         }}>
-          {pitcher ? shortName(pitcher.name) : 'TBD'}
-        </Typography>
-        {pitcher && (
-          <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', lineHeight: 1 }}>
-            {pitcher.hand === 'R' ? 'RHP' : 'LHP'} · {pitcher.era} ERA
+          <Box component="img"
+            src={`https://www.mlbstatic.com/team-logos/${teamId}.svg`}
+            sx={{ width: 15, height: 15, objectFit: 'contain' }}
+          />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography className="pmn" sx={{
+            fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.2,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            transition: 'color 0.12s',
+          }}>
+            {pitcher ? shortName(pitcher.name) : 'TBD'}
           </Typography>
-        )}
+          {pitcher && (
+            <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', lineHeight: 1 }}>
+              {pitcher.era} ERA
+            </Typography>
+          )}
+        </Box>
       </Box>
-    </Box>
-  )
+    )
+  }
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75 }}>
-      <PitcherChip pitcher={awayPitcher} col={awayCol} align="left" />
+      <PitcherChip pitcher={awayPitcher} teamId={awayTeamId} />
       <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>vs</Typography>
-      <PitcherChip pitcher={homePitcher} col={homeCol} align="right" />
+      <PitcherChip pitcher={homePitcher} teamId={homeTeamId} />
     </Box>
   )
 }
@@ -979,76 +958,54 @@ function CompactPerformerRow({ finalDetails, onPlayerClick }: {
   finalDetails:   GameFinalDetails
   onPlayerClick?: (id: number) => void
 }) {
-  const pitcher  = finalDetails.decisionPitcher
-  const hitter   = finalDetails.topHitter
-  const showHitter = hitter && hitter.ab > 0
+  const winner = finalDetails.winnerPitcher
+  const loser  = finalDetails.loserPitcher
+  if (!winner && !loser) return null
 
-  if (!pitcher && !showHitter) return null
-
-  const PerformerChip = ({ id, name, statLine, borderCol, align }: {
-    id?:        number
-    name:       string
-    statLine:   string
-    borderCol?: string
-    align:      'left' | 'right'
-  }) => (
-    <Box
-      onClick={e => { e.stopPropagation(); id && onPlayerClick?.(id) }}
-      sx={{
-        flex: 1, minWidth: 0,
-        display: 'flex', alignItems: 'center', gap: 0.75,
-        flexDirection: align === 'right' ? 'row-reverse' : 'row',
-        cursor: id && onPlayerClick ? 'pointer' : 'default',
-        '&:hover .pmn': id && onPlayerClick ? { color: ACCENT } : {},
-      }}
-    >
-      <Box sx={{
-        width: 34, height: 42, borderRadius: 1.5, overflow: 'hidden', flexShrink: 0,
-        border: `1.5px solid ${borderCol ?? 'rgba(128,128,128,0.25)'}`,
-        bgcolor: 'action.hover',
-      }}>
-        {id && (
-          <Box component="img" src={HEADSHOT(id)} alt={name}
-            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }} />
-        )}
-      </Box>
-      <Box sx={{ minWidth: 0, textAlign: align }}>
-        <Typography className="pmn" sx={{
-          fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.2,
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          transition: 'color 0.12s',
+  const PlayerCard = ({ player }: { player: NonNullable<GameFinalDetails['winnerPitcher']> }) => {
+    const col = TEAM_BG[player.teamId] ?? '#444'
+    return (
+      <Box
+        onClick={e => { e.stopPropagation(); onPlayerClick?.(player.id) }}
+        sx={{
+          flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75,
+          cursor: onPlayerClick ? 'pointer' : 'default',
+          '&:hover .pmn': onPlayerClick ? { color: ACCENT } : {},
+        }}
+      >
+        <Box sx={{
+          width: 22, height: 22, borderRadius: '50%', bgcolor: '#fff',
+          border: `1.5px solid ${col}`, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
         }}>
-          {shortName(name)}
-        </Typography>
-        <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', lineHeight: 1 }}>
-          {statLine}
-        </Typography>
+          <Box component="img"
+            src={`https://www.mlbstatic.com/team-logos/${player.teamId}.svg`}
+            sx={{ width: 15, height: 15, objectFit: 'contain' }}
+          />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography className="pmn" sx={{
+            fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.2,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            transition: 'color 0.12s',
+          }}>
+            {shortName(player.name)}
+          </Typography>
+          <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', lineHeight: 1 }}>
+            {formatIP(player.ip)} IP · {player.er}ER
+          </Typography>
+        </Box>
       </Box>
-    </Box>
-  )
+    )
+  }
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75 }}>
-      {pitcher && (
-        <PerformerChip
-          id={pitcher.id}
-          name={pitcher.name}
-          statLine={`${pitcher.isWinner ? 'W' : 'L'} · ${formatIP(pitcher.ip)} IP · ${pitcher.k}K`}
-          borderCol={pitcher.isWinner ? '#22c55e40' : '#ef444440'}
-          align="left"
-        />
-      )}
-      {pitcher && showHitter && (
+      {winner && <PlayerCard player={winner} />}
+      {winner && loser && (
         <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>·</Typography>
       )}
-      {showHitter && (
-        <PerformerChip
-          id={hitter!.id}
-          name={hitter!.name}
-          statLine={`${hitter!.hits}-${hitter!.ab}${hitter!.hr > 0 ? ` · ${hitter!.hr}HR` : ''}${hitter!.rbi > 0 ? ` · ${hitter!.rbi}RBI` : ''}`}
-          align={pitcher ? 'right' : 'left'}
-        />
-      )}
+      {loser && <PlayerCard player={loser} />}
     </Box>
   )
 }
@@ -1394,10 +1351,9 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
 
   return (
     <>
-      <Box sx={{ px: 2.5, pb: 1.5, pt: 0.5 }}>
-
-        {/* ── Game section: live = full-width card; else last + next ──────── */}
-        {isLive ? (
+      {/* ── Game section: live = full-width card; else last + next ──────── */}
+      {isLive ? (
+        <Box sx={{ px: 2.5, pt: 1.25, pb: 1.5 }}>
           <LiveGameCard
             game={nextGame}
             myTeamId={teamId}
@@ -1406,102 +1362,105 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
             onPlayerClick={onPlayerClick}
             onTeamClick={onTeamClick}
           />
-        ) : (
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-            {showLast && (
-              <>
-                {/* Last game — whole card is clickable, opens box score modal */}
-                <Box
-                  onClick={() => setBoxScoreGame(gameToFinalSummary(lastGame!, teamId))}
-                  sx={{ minWidth: 0, cursor: 'pointer', borderRadius: 1.5, transition: 'background-color 0.12s', '&:hover': { bgcolor: 'action.hover' } }}
-                >
-                  <CompactGameCard game={lastGame!} myTeamId={teamId} label="Last Game" onTeamClick={onTeamClick} />
-                  {lastFinalDetails && (
-                    <CompactPerformerRow finalDetails={lastFinalDetails} onPlayerClick={onPlayerClick} />
-                  )}
-                </Box>
-                <Box sx={{ width: '1px', bgcolor: 'divider', alignSelf: 'stretch', my: 0.25, flexShrink: 0 }} />
-              </>
-            )}
+        </Box>
+      ) : (
+        // Each column owns its own padding so the hover bg fills edge-to-edge
+        // (top flush with the divider, bottom flush with the card bottom).
+        <Box sx={{ display: 'flex', alignItems: 'stretch' }}>
+          {showLast && (
+            <>
+              {/* Last game — whole card is clickable, opens box score modal */}
+              <Box
+                onClick={() => setBoxScoreGame(gameToFinalSummary(lastGame!, teamId))}
+                sx={{ flex: 1, minWidth: 0, cursor: 'pointer', pl: 2.5, pr: 1.5, pt: 1.25, pb: 1.5, transition: 'background-color 0.12s', '&:hover': { bgcolor: 'action.hover' } }}
+              >
+                <CompactGameCard game={lastGame!} myTeamId={teamId} label="Last Game" onTeamClick={onTeamClick} />
+                {lastFinalDetails && (
+                  <CompactPerformerRow finalDetails={lastFinalDetails} onPlayerClick={onPlayerClick} />
+                )}
+              </Box>
+              <Box sx={{ width: '1px', bgcolor: 'divider', flexShrink: 0 }} />
+            </>
+          )}
 
-            {/* Primary game column — whole card is clickable */}
-            <Box
-              onClick={() => {
-                if (isPreview) {
-                  setModalGame(nextGame)
-                  setModalPreview(previewData)
-                  setModalLoading(loadingPreview)
-                } else if (isFinal) {
-                  setBoxScoreGame(gameToFinalSummary(nextGame, teamId))
-                }
-              }}
-              sx={{
-                flex: 1, minWidth: 0,
-                cursor: (isPreview || isFinal) ? 'pointer' : 'default',
-                borderRadius: 1.5,
-                transition: 'background-color 0.12s',
-                '&:hover': (isPreview || isFinal) ? { bgcolor: 'action.hover' } : {},
-              }}
-            >
-              <CompactGameCard
-                game={nextGame}
-                myTeamId={teamId}
-                label={nextLabel}
-                labelColor={nextLabelColor}
-                onTeamClick={onTeamClick}
+          {/* Primary game column — whole card is clickable */}
+          <Box
+            onClick={() => {
+              if (isPreview) {
+                setModalGame(nextGame)
+                setModalPreview(previewData)
+                setModalLoading(loadingPreview)
+              } else if (isFinal) {
+                setBoxScoreGame(gameToFinalSummary(nextGame, teamId))
+              }
+            }}
+            sx={{
+              flex: 1, minWidth: 0,
+              cursor: (isPreview || isFinal) ? 'pointer' : 'default',
+              pl: showLast ? 1.5 : 2.5,
+              pr: ((isFinal || isPostponed) && upcomingGame) ? 1.5 : 2.5,
+              pt: 1.25, pb: 1.5,
+              transition: 'background-color 0.12s',
+              '&:hover': (isPreview || isFinal) ? { bgcolor: 'action.hover' } : {},
+            }}
+          >
+            <CompactGameCard
+              game={nextGame}
+              myTeamId={teamId}
+              label={nextLabel}
+              labelColor={nextLabelColor}
+              onTeamClick={onTeamClick}
+            />
+            {isPreview && (
+              <CompactPitcherRow
+                awayPitcher={awayPitcher}
+                homePitcher={homePitcher}
+                awayTeamId={awayTeamId}
+                homeTeamId={homeTeamId}
+                loading={loadingPreview}
+                onPlayerClick={onPlayerClick}
               />
-              {isPreview && (
-                <CompactPitcherRow
-                  awayPitcher={awayPitcher}
-                  homePitcher={homePitcher}
-                  awayTeamId={awayTeamId}
-                  homeTeamId={homeTeamId}
-                  loading={loadingPreview}
-                  onPlayerClick={onPlayerClick}
-                />
-              )}
-              {isFinal && finalDetails && (
-                <CompactPerformerRow
-                  finalDetails={finalDetails}
-                  onPlayerClick={onPlayerClick}
-                />
-              )}
-            </Box>
-
-            {/* When today is done or postponed, show the next upcoming game on the right */}
-            {(isFinal || isPostponed) && upcomingGame && (
-              <>
-                <Box sx={{ width: '1px', bgcolor: 'divider', alignSelf: 'stretch', my: 0.25, flexShrink: 0 }} />
-                {/* Upcoming game — whole card clickable, opens game preview modal */}
-                <Box
-                  onClick={() => {
-                    setModalGame(upcomingGame)
-                    setModalPreview(upcomingPreviewData)
-                    setModalLoading(loadingUpcoming)
-                  }}
-                  sx={{ flex: 1, minWidth: 0, cursor: 'pointer', borderRadius: 1.5, transition: 'background-color 0.12s', '&:hover': { bgcolor: 'action.hover' } }}
-                >
-                  <CompactGameCard
-                    game={upcomingGame}
-                    myTeamId={teamId}
-                    label="Next Game"
-                    onTeamClick={onTeamClick}
-                  />
-                  <CompactPitcherRow
-                    awayPitcher={upcomingPreviewData?.away.pitcher ?? null}
-                    homePitcher={upcomingPreviewData?.home.pitcher ?? null}
-                    awayTeamId={upcomingPreviewData?.away.teamId ?? (upcomingGame.isHome ? upcomingGame.opponentId : teamId)}
-                    homeTeamId={upcomingPreviewData?.home.teamId ?? (upcomingGame.isHome ? teamId : upcomingGame.opponentId)}
-                    loading={loadingUpcoming}
-                    onPlayerClick={onPlayerClick}
-                  />
-                </Box>
-              </>
+            )}
+            {isFinal && finalDetails && (
+              <CompactPerformerRow
+                finalDetails={finalDetails}
+                onPlayerClick={onPlayerClick}
+              />
             )}
           </Box>
-        )}
 
-      </Box>
+          {/* When today is done or postponed, show the next upcoming game on the right */}
+          {(isFinal || isPostponed) && upcomingGame && (
+            <>
+              <Box sx={{ width: '1px', bgcolor: 'divider', flexShrink: 0 }} />
+              {/* Upcoming game — whole card clickable, opens game preview modal */}
+              <Box
+                onClick={() => {
+                  setModalGame(upcomingGame)
+                  setModalPreview(upcomingPreviewData)
+                  setModalLoading(loadingUpcoming)
+                }}
+                sx={{ flex: 1, minWidth: 0, cursor: 'pointer', pl: 1.5, pr: 2.5, pt: 1.25, pb: 1.5, transition: 'background-color 0.12s', '&:hover': { bgcolor: 'action.hover' } }}
+              >
+                <CompactGameCard
+                  game={upcomingGame}
+                  myTeamId={teamId}
+                  label="Next Game"
+                  onTeamClick={onTeamClick}
+                />
+                <CompactPitcherRow
+                  awayPitcher={upcomingPreviewData?.away.pitcher ?? null}
+                  homePitcher={upcomingPreviewData?.home.pitcher ?? null}
+                  awayTeamId={upcomingPreviewData?.away.teamId ?? (upcomingGame.isHome ? upcomingGame.opponentId : teamId)}
+                  homeTeamId={upcomingPreviewData?.home.teamId ?? (upcomingGame.isHome ? teamId : upcomingGame.opponentId)}
+                  loading={loadingUpcoming}
+                  onPlayerClick={onPlayerClick}
+                />
+              </Box>
+            </>
+          )}
+        </Box>
+      )}
 
       {showSchedule && (
         <FullScheduleModal

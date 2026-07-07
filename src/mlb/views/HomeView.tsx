@@ -423,19 +423,32 @@ export function HomeView({
                     background: cardGradient135(bg, isDark),
                     display: 'flex', flexDirection: 'column',
                   }}>
-                    {/* Team header — compact 2-row layout */}
+                    {/* Team header — single-row: logo | name+city+standing (flex:1) | buttons */}
                     <Box sx={{ px: 1.5, pt: 1.25, pb: 1 }}>
-                      {/* Row 1: logo + schedule + change buttons */}
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.75 }}>
-                        <TeamLogoCircle teamId={followedTeamId} abbr={abbr} size={32} />
-                        <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <TeamLogoCircle teamId={followedTeamId} abbr={abbr} size={34} />
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography sx={{
+                            fontSize: { xs: '1.05rem', sm: '1.25rem' }, fontWeight: 900,
+                            letterSpacing: '-0.5px', lineHeight: 1.25,
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                          }}>
+                            {city ? `${city} ${nickname}` : nickname}
+                          </Typography>
+                          {standingLine && (
+                            <Typography sx={{ fontSize: { xs: '0.62rem', sm: '0.74rem' }, color: 'text.secondary', mt: 0.35, lineHeight: 1.3 }}>
+                              {standingLine}
+                            </Typography>
+                          )}
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
                           <Box
                             onClick={() => setShowTeamSchedule(true)}
                             sx={{
                               fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled',
                               cursor: 'pointer', px: 0.9, py: 0.3,
                               borderRadius: 999, border: '1px solid', borderColor: 'divider',
-                              whiteSpace: 'nowrap', flexShrink: 0,
+                              whiteSpace: 'nowrap',
                               transition: 'color 0.12s, border-color 0.12s',
                               '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
                             }}
@@ -448,7 +461,7 @@ export function HomeView({
                               fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled',
                               cursor: 'pointer', px: 0.9, py: 0.3,
                               borderRadius: 999, border: '1px solid', borderColor: 'divider',
-                              whiteSpace: 'nowrap', flexShrink: 0,
+                              whiteSpace: 'nowrap',
                               transition: 'color 0.12s, border-color 0.12s',
                               '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
                             }}
@@ -457,30 +470,10 @@ export function HomeView({
                           </Box>
                         </Box>
                       </Box>
-                      {/* Row 2: city + nickname + standing */}
-                      {city && (
-                        <Typography sx={{
-                          fontSize: { xs: '0.5rem', sm: '0.62rem' }, fontWeight: 700, letterSpacing: '2px',
-                          textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1, mb: 0.2,
-                        }}>
-                          {city}
-                        </Typography>
-                      )}
-                      <Typography sx={{
-                        fontSize: { xs: '1rem', sm: '1.2rem' }, fontWeight: 900,
-                        textTransform: 'uppercase', letterSpacing: '-0.5px', lineHeight: 1,
-                      }}>
-                        {nickname}
-                      </Typography>
-                      {standingLine && (
-                        <Typography sx={{ fontSize: { xs: '0.62rem', sm: '0.74rem' }, color: 'text.secondary', mt: 0.3, lineHeight: 1.3 }}>
-                          {standingLine}
-                        </Typography>
-                      )}
                     </Box>
 
                     {/* Schedule strip */}
-                    <Box sx={{ borderTop: '1px solid', borderColor: 'divider', pt: 1.25 }}>
+                    <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
                       <Suspense fallback={<Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', px: 1.5, py: 1 }}>Loading schedule…</Typography>}>
                         <TeamScheduleStrip
                           teamId={followedTeamId}
@@ -494,17 +487,24 @@ export function HomeView({
                     </Box>
                   </Box>
 
-                  {/* Followed players — compact mode, stretches to match team card */}
-                  <Box sx={{ flex: { xs: '1 1 auto', md: '0 0 calc(50% - 6px)' }, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                    <FollowedPlayersSection
-                      followedPlayerIds={followedPlayerIds}
-                      onUnfollow={onUnfollowPlayer}
-                      onPlayerClick={onPlayerClick}
-                      onFollow={onFollowPlayer}
-                      liveTeamIds={liveTeamIds}
-                      teamId={followedTeamId}
-                      compact
-                    />
+                  {/* Followed players — compact mode.
+                      On md+: position:relative wrapper with no in-flow content → row height
+                      is determined by the team card alone. An absolute inner box fills the
+                      column (which stretches to team-card height), so the player list scrolls
+                      within that fixed space.
+                      On xs/sm: static flow → card grows with content, no internal scroll. */}
+                  <Box sx={{ flex: { xs: '1 1 auto', md: '0 0 calc(50% - 6px)' }, minWidth: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                    <Box sx={{ position: { xs: 'static', md: 'absolute' }, top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column' }}>
+                      <FollowedPlayersSection
+                        followedPlayerIds={followedPlayerIds}
+                        onUnfollow={onUnfollowPlayer}
+                        onPlayerClick={onPlayerClick}
+                        onFollow={onFollowPlayer}
+                        liveTeamIds={liveTeamIds}
+                        teamId={followedTeamId}
+                        compact
+                      />
+                    </Box>
                   </Box>
 
                 </Box>

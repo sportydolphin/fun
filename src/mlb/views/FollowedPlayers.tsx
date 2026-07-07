@@ -282,7 +282,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   }
 
   return (
-    <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden', flex: 1 }}>
+    <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <Box sx={{
@@ -325,6 +325,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                 </Box>
               )}
               <Box
+                onMouseDown={e => e.stopPropagation()}
                 onClick={() => { setAdding(a => !a); setAddQuery(''); setAddResults([]) }}
                 sx={pillSx(ACCENT, compact)}
               >
@@ -335,7 +336,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
         </Box>
       </Box>
 
-      <Box sx={{ pt: adding ? 1.5 : 0, pb: 0.5 }}>
+      <Box sx={{ pt: adding ? 1.5 : 0, pb: 0.5, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {/* ── Add-player search ─────────────────────────────────────────────── */}
         {adding && (
           <Box ref={searchRef} sx={{ mb: 1, px: 1.5, position: 'relative' }}>
@@ -404,7 +405,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                 p: 1.25, display: 'flex', flexDirection: 'column', gap: 0.75,
               }}>
                 <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled', px: 0.25 }}>
-                  ✨ Suggested
+                  Suggested
                 </Typography>
                 {suggestions.map(p => (
                   <SuggestionChip
@@ -433,7 +434,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
             )}
           </Box>
         ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', py: 0.5, maxHeight: 260, overflowY: 'auto' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', py: 0.5, flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {followedPlayerIds.map((id, i) => {
               const data   = playerData[id] ?? null
               const isLive = !!(liveTeamIds && data?.teamId && liveTeamIds.has(data.teamId))

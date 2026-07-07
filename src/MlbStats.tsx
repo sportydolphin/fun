@@ -1,42 +1,60 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { Box, useMediaQuery, Paper, List, ListItemButton, Divider, Typography, CircularProgress, ClickAwayListener } from '@mui/material'
-import { Search } from '@mui/icons-material'
+import React, { useEffect, useCallback } from 'react'
+import { Box, useMediaQuery } from '@mui/material'
 import { useMlbState } from './mlb/useMlbState'
 import { SegControl } from './mlb/ui'
-import { ACCENT, HEADSHOT, TEAM_BG, TEAM_ABBR } from './mlb/constants'
 import { Standings } from './mlb/Standings'
 import { VizView } from './mlb/views/VizView'
 import { LeaderboardView } from './mlb/views/LeaderboardView'
 import { StatsView } from './mlb/views/StatsView'
 import { SearchView } from './mlb/views/SearchView'
 import { HomeView } from './mlb/views/HomeView'
+import { useSearchBridge, updateSearchBridge, setSearchQuery } from './mlb/SearchBridgeContext'
+import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
 
 export default function MlbStats() {
   const state = useMlbState()
   const isDesktop = useMediaQuery('(min-width: 600px)')
   const canHover = useMediaQuery('(hover: hover)')
+  const bridge = useSearchBridge()
 
-  // ── Top search bar state ───────────────────────────────────────────────────
-  const [topQuery, setTopQuery]       = useState('')
-  const [topOpen,  setTopOpen]        = useState(false)
-  const topRef = useRef<HTMLDivElement>(null)
-
-  // Reuse the same search results & searching flag from state when the top bar is active
+  // Sync query typed in the toolbar → useMlbState debounced search
   useEffect(() => {
-    state.setQuery(topQuery)
-  }, [topQuery]) // eslint-disable-line react-hooks/exhaustive-deps
+    state.setQuery(bridge.query)
+  }, [bridge.query]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    setTopOpen(topQuery.length >= 2 && (state.playerResults.length > 0 || state.teamResults.length > 0 || state.searching))
-  }, [topQuery, state.playerResults, state.teamResults, state.searching])
-
-  const handleTopSelect = (fn: () => void) => {
+  // Push current result state + selection handlers up to the toolbar bridge
+  const handleBridgeSelect = useCallback((fn: () => void) => {
     window.history.pushState({ returnView: state.view, returnHomeTab: state.homeTab }, '', window.location.href)
     fn()
-    setTopQuery('')
-    setTopOpen(false)
+    setSearchQuery('')
     state.setView('search')
-  }
+  }, [state.view, state.homeTab, state.setView]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    updateSearchBridge({
+      playerResults: state.playerResults,
+      teamResults: state.teamResults,
+      searching: state.searching,
+      handleSelectPlayer: p => handleBridgeSelect(() => state.selectPlayer(p as any)),
+      handleSelectTeam: t => handleBridgeSelect(() => state.selectTeam(t as any)),
+      isRegistered: true,
+    })
+  }, [state.playerResults, state.teamResults, state.searching, handleBridgeSelect]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch toolbar suggestions whenever the followed team changes
+  useEffect(() => {
+    fetchSuggestions(state.followedTeamId ?? 0, [])
+      .then(sugs => updateSearchBridge({ toolbarSuggestions: sugs }))
+      .catch(() => {})
+  }, [state.followedTeamId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Unregister from toolbar when this component unmounts
+  useEffect(() => {
+    return () => {
+      updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], searching: false, handleSelectPlayer: null, handleSelectTeam: null, toolbarSuggestions: [] })
+      setSearchQuery('')
+    }
+  }, [])
 
   // The Home dashboard reads best at a tighter width; the data-dense views
   // (search/stats/leaderboard/viz) use the full width for side-by-side columns.
@@ -44,85 +62,6 @@ export default function MlbStats() {
 
   return (
     <Box sx={{ maxWidth: containerMaxWidth, mx: 'auto' }}>
-
-      {/* ── Persistent search bar ─────────────────────────────────────────── */}
-      <ClickAwayListener onClickAway={() => { setTopOpen(false) }}>
-        <Box ref={topRef} sx={{ position: 'relative', mb: 2 }}>
-          <Box sx={{
-            display: 'flex', alignItems: 'center', gap: 1,
-            px: 2, py: 0.9,
-            borderRadius: 999,
-            border: '1.5px solid',
-            borderColor: topOpen ? ACCENT : 'divider',
-            bgcolor: 'background.paper',
-            transition: 'border-color 0.2s, box-shadow 0.2s',
-            boxShadow: topOpen ? `0 0 0 3px ${ACCENT}22` : 'none',
-          }}>
-            {state.searching && topQuery.length >= 2
-              ? <CircularProgress size={15} sx={{ color: 'text.disabled', flexShrink: 0 }} />
-              : <Search sx={{ fontSize: '1rem', color: 'text.disabled', flexShrink: 0 }} />
-            }
-            <Box
-              component="input"
-              value={topQuery}
-              onChange={(e: any) => setTopQuery(e.target.value)}
-              onFocus={() => { if (topQuery.length >= 2) setTopOpen(true) }}
-              onKeyDown={(e: any) => e.key === 'Escape' && (setTopQuery(''), setTopOpen(false))}
-              placeholder="Search player or team…"
-              sx={{
-                flex: 1, border: 'none', outline: 'none', bgcolor: 'transparent',
-                fontSize: '0.88rem', color: 'text.primary', p: 0, fontFamily: 'inherit',
-                '&::placeholder': { color: 'text.disabled' },
-              }}
-            />
-          </Box>
-          {topOpen && (state.playerResults.length > 0 || state.teamResults.length > 0) && (
-            <Paper elevation={8} sx={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 300, borderRadius: 2.5, overflow: 'hidden' }}>
-              <List dense disablePadding>
-                {state.playerResults.slice(0, 6).map((p, i) => {
-                  const pos = p.primaryPosition?.abbreviation ?? p.primaryPosition?.name ?? ''
-                  const teamAbbr = p.currentTeam?.id != null ? TEAM_ABBR[p.currentTeam.id] : undefined
-                  const sub = p.active === false
-                    ? [pos, 'Retired'].filter(Boolean).join(' | ')
-                    : [pos, teamAbbr].filter(Boolean).join(' | ')
-                  return (
-                    <React.Fragment key={`p-${p.id}`}>
-                      {i > 0 && <Divider />}
-                      <ListItemButton onClick={() => handleTopSelect(() => state.selectPlayer(p))} sx={{ gap: 1.25, py: 0.75 }}>
-                        <Box sx={{ width: 38, height: 38, borderRadius: 1.5, flexShrink: 0, backgroundImage: `url(${HEADSHOT(p.id)})`, backgroundSize: 'cover', backgroundPosition: 'center 20%', bgcolor: 'grey.200' }} />
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', lineHeight: 1.2 }}>{p.fullName}</Typography>
-                          {sub && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{sub}</Typography>}
-                        </Box>
-                      </ListItemButton>
-                    </React.Fragment>
-                  )
-                })}
-                {state.playerResults.length > 0 && state.teamResults.length > 0 && <Divider sx={{ borderStyle: 'dashed' }} />}
-                {state.teamResults.slice(0, 3).map((t, i) => {
-                  const divShort = t.division?.name?.replace(/American League |National League /, '') ?? ''
-                  const leagueShort = t.league?.name?.includes('American') ? 'AL' : t.league?.name?.includes('National') ? 'NL' : ''
-                  const sub = [leagueShort, divShort].filter(Boolean).join(' · ')
-                  return (
-                    <React.Fragment key={`t-${t.id}`}>
-                      {i > 0 && <Divider />}
-                      <ListItemButton onClick={() => handleTopSelect(() => state.selectTeam(t))} sx={{ gap: 1.25, py: 0.75 }}>
-                        <Box sx={{ width: 38, height: 38, borderRadius: 1.5, flexShrink: 0, bgcolor: TEAM_BG[t.id] ?? 'grey.700', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                          <Box component="img" src={`https://www.mlbstatic.com/team-logos/team-cap-on-dark/${t.id}.svg`} alt={t.abbreviation} sx={{ width: 26, height: 26, objectFit: 'contain' }} />
-                        </Box>
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', lineHeight: 1.2 }}>{t.name}</Typography>
-                          {sub && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{sub}</Typography>}
-                        </Box>
-                      </ListItemButton>
-                    </React.Fragment>
-                  )
-                })}
-              </List>
-            </Paper>
-          )}
-        </Box>
-      </ClickAwayListener>
 
       {/* Tab switcher — scrollable on mobile so tabs don't overflow the viewport */}
       <Box sx={{

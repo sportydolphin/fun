@@ -59,7 +59,7 @@ export async function fetchSuggestions(teamId: number, followedIds: number[]): P
         out.push({
           id:           Number(p.person.id),
           fullName:     p.person.fullName ?? '',
-          position:     p.position?.abbreviation ?? p.position?.type ?? '?',
+          position:     p.rank != null ? `#${p.rank} OPS` : 'OPS',
           teamId:       tid,
           teamAbbr:     TEAM_ABBR[tid] ?? '?',
           isTeamPlayer: false,
@@ -84,7 +84,7 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow, onPlayerClic
 
   return (
     <Box
-      onClick={onPlayerClick ? () => onPlayerClick(player.id) : undefined}
+      onClick={alreadyFollowed ? undefined : onFollow}
       sx={{
       flexShrink: 0,
       display: 'flex', alignItems: 'center', gap: 0.75,
@@ -93,9 +93,9 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow, onPlayerClic
       borderColor: player.isTeamPlayer ? `${col}40` : 'divider',
       bgcolor:     player.isTeamPlayer ? `${col}08` : 'transparent',
       minWidth: 138,
+      cursor: alreadyFollowed ? 'default' : 'pointer',
       transition: 'border-color 0.15s, background-color 0.15s',
-      ...(onPlayerClick ? { cursor: 'pointer' } : {}),
-      '&:hover': { borderColor: `${col}60`, bgcolor: `${col}10` },
+      '&:hover': alreadyFollowed ? {} : { borderColor: `${col}60`, bgcolor: `${col}10` },
     }}>
       {/* Headshot */}
       <Box sx={{
@@ -123,24 +123,17 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow, onPlayerClic
         </Typography>
       </Box>
 
-      {/* Follow / already-followed indicator */}
-      <Box
-        onClick={alreadyFollowed ? (e => e.stopPropagation()) : (e => { e.stopPropagation(); onFollow() })}
-        sx={{
+      {/* Already-followed indicator */}
+      {alreadyFollowed && (
+        <Box sx={{
           flexShrink: 0, width: 20, height: 20, borderRadius: '50%',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          border: '1.5px solid',
-          borderColor: alreadyFollowed ? '#22c55e60' : `${ACCENT}60`,
-          color:       alreadyFollowed ? '#22c55e'   : ACCENT,
-          fontSize:    alreadyFollowed ? '0.6rem' : '0.82rem',
-          fontWeight: 900, lineHeight: 1,
-          cursor: alreadyFollowed ? 'default' : 'pointer',
-          transition: 'all 0.12s',
-          '&:hover': alreadyFollowed ? {} : { bgcolor: ACCENT, color: '#fff', borderColor: ACCENT },
-        }}
-      >
-        {alreadyFollowed ? '✓' : '+'}
-      </Box>
+          border: '1.5px solid #22c55e60',
+          color: '#22c55e', fontSize: '0.6rem', fontWeight: 900, lineHeight: 1,
+        }}>
+          ✓
+        </Box>
+      )}
     </Box>
   )
 }
@@ -179,7 +172,7 @@ export function SuggestedPlayersSection({ teamId, followedPlayerIds, onFollow }:
           fontWeight: 800, fontSize: { xs: '0.65rem', sm: '0.72rem' },
           textTransform: 'uppercase', letterSpacing: 1.2, color: ACCENT,
         }}>
-          ✨ Suggested Players
+          Suggested Players
         </Typography>
         <Typography sx={{ fontSize: { xs: '0.58rem', sm: '0.64rem' }, color: 'text.disabled' }}>
           ★ = your team

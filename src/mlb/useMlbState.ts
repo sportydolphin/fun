@@ -222,6 +222,26 @@ export function useMlbState() {
     fetchAllTeams().then(setAllTeams).catch(() => {})
   }, [])
 
+  const devAutoFilledRef = useRef(false)
+
+  // Dev mode: auto-pick a random team + a few players when running on localhost
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    if (allTeams.length === 0) return
+    if (devAutoFilledRef.current) return
+    devAutoFilledRef.current = true
+    if (followedTeamId === null) {
+      const team = allTeams[Math.floor(Math.random() * allTeams.length)]
+      setLocalFollowedTeamId(team.id)
+      setFollowedTeamId(team.id)
+    }
+    if (followedPlayerIds.length === 0) {
+      const picks = [...FEATURED_PLAYER_IDS].sort(() => Math.random() - 0.5).slice(0, 3)
+      setFollowedPlayerIds(picks)
+      try { localStorage.setItem('mlb_fav_player_ids', JSON.stringify(picks)) } catch {}
+    }
+  }, [allTeams])
+
   // Load visualization data when switching to viz tab or changing season
   useEffect(() => {
     if (view !== 'viz') return
