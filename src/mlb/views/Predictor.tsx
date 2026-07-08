@@ -489,38 +489,26 @@ export function PredictorWidget({ onTeamClick }: {
   const finalized    = games.filter(g => g.state === 'final' && predictions[g.gamePk] !== undefined)
   const correctCount = finalized.filter(g => predictions[g.gamePk] === g.winnerId).length
   const pct          = finalized.length ? Math.round(correctCount / finalized.length * 100) : null
-
-  const statLabel = pct !== null
-    ? `${correctCount} / ${finalized.length} correct · ${pct}%`
-    : pickedCount > 0
-    ? `${pickedCount} / ${games.length} games picked`
-    : null
+  const previewCount = games.filter(g => g.state === 'preview').length
+  const allDone      = games.length > 0 && games.every(g => g.state === 'final')
+  const canOpen      = !loading && games.length > 0
 
   return (
     <>
       <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
         <Box sx={{ px: 2.5, py: 1.75, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Box>
-            <Typography sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 1.5, color: ACCENT }}>
-              🎯 Predict Today's Games
-            </Typography>
-            {statLabel && (
-              <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 0.25, lineHeight: 1 }}>
-                {statLabel}
-              </Typography>
-            )}
-          </Box>
+          <Typography sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 1.5, color: ACCENT }}>
+            🎯 Predict Today's Games
+          </Typography>
           <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
             {user && (
               <Box
                 onClick={() => setStatsOpen(true)}
                 sx={{
-                  fontSize: '0.68rem', fontWeight: 700,
-                  color: 'text.secondary',
+                  fontSize: '0.68rem', fontWeight: 700, color: 'text.secondary',
                   px: 1.25, py: 0.5, borderRadius: 999,
                   border: '1px solid', borderColor: 'divider',
-                  cursor: 'pointer',
-                  transition: 'all 0.12s',
+                  cursor: 'pointer', transition: 'all 0.12s',
                   '&:hover': { bgcolor: 'action.hover', borderColor: `${ACCENT}40`, color: ACCENT },
                   whiteSpace: 'nowrap',
                 }}
@@ -529,16 +517,16 @@ export function PredictorWidget({ onTeamClick }: {
               </Box>
             )}
             <Box
-              onClick={() => !loading && games.length > 0 && setModalOpen(true)}
+              onClick={() => canOpen && setModalOpen(true)}
               sx={{
                 fontSize: '0.68rem', fontWeight: 700,
-                color: loading || games.length === 0 ? 'text.disabled' : ACCENT,
+                color: canOpen ? ACCENT : 'text.disabled',
                 px: 1.5, py: 0.5, borderRadius: 999,
                 border: '1px solid',
-                borderColor: loading || games.length === 0 ? 'divider' : `${ACCENT}40`,
-                cursor: loading || games.length === 0 ? 'default' : 'pointer',
+                borderColor: canOpen ? `${ACCENT}40` : 'divider',
+                cursor: canOpen ? 'pointer' : 'default',
                 transition: 'background 0.12s',
-                '&:hover': loading || games.length === 0 ? {} : { bgcolor: `${ACCENT}15` },
+                '&:hover': canOpen ? { bgcolor: `${ACCENT}15` } : {},
                 whiteSpace: 'nowrap',
               }}
             >
@@ -547,45 +535,41 @@ export function PredictorWidget({ onTeamClick }: {
           </Box>
         </Box>
 
-        <Box sx={{ px: 2.5, py: 1.25 }}>
+        {/* Summary line — click to open the modal */}
+        <Box
+          onClick={() => canOpen && setModalOpen(true)}
+          sx={{
+            px: 2.5, py: 1.5,
+            cursor: canOpen ? 'pointer' : 'default',
+            transition: 'background 0.12s',
+            '&:hover': canOpen ? { bgcolor: 'action.hover' } : {},
+          }}
+        >
           {loading ? (
-            <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Loading today's schedule…</Typography>
+            <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>Loading today's schedule…</Typography>
           ) : games.length === 0 ? (
-            <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>No games today</Typography>
+            <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No games today</Typography>
+          ) : previewCount > 0 ? (
+            <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
+              <Box component="span" sx={{ color: ACCENT, fontWeight: 800 }}>{previewCount}</Box>
+              {' '}{previewCount === 1 ? 'game' : 'games'} to predict
+            </Typography>
+          ) : allDone && finalized.length > 0 ? (
+            <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
+              <Box component="span" sx={{ color: correctCount / finalized.length >= 0.5 ? '#22c55e' : '#ef4444', fontWeight: 800 }}>
+                {correctCount} / {finalized.length}
+              </Box>
+              {' '}correct
+              {pct !== null && (
+                <Box component="span" sx={{ color: 'text.disabled', fontWeight: 400, fontSize: '0.78rem' }}>
+                  {' '}· {pct}%
+                </Box>
+              )}
+            </Typography>
           ) : (
-            <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-              {games.map(g => {
-                const myPick  = predictions[g.gamePk]
-                const correct = g.state === 'final' && myPick !== undefined && myPick === g.winnerId
-                const wrong   = g.state === 'final' && myPick !== undefined && myPick !== g.winnerId
-                return (
-                  <Box
-                    key={g.gamePk}
-                    onClick={() => setModalOpen(true)}
-                    sx={{
-                      display: 'flex', alignItems: 'center', gap: 0.4,
-                      px: { xs: 0.75, sm: 1 }, py: { xs: 0.4, sm: 0.55 }, borderRadius: 1,
-                      border: '1px solid',
-                      borderColor: correct ? '#22c55e50' : wrong ? '#ef444450' : 'divider',
-                      bgcolor: correct ? '#22c55e10' : wrong ? '#ef444410' : 'transparent',
-                      cursor: 'pointer',
-                      transition: 'background 0.12s',
-                      '&:hover': { bgcolor: 'action.hover' },
-                    }}
-                  >
-                    <Typography sx={{ fontSize: { xs: '0.62rem', sm: '0.76rem' }, fontWeight: 700, lineHeight: 1, color: myPick === g.away.teamId ? ACCENT : 'text.secondary' }}>
-                      {g.away.abbr}
-                    </Typography>
-                    <Typography sx={{ fontSize: { xs: '0.52rem', sm: '0.64rem' }, color: 'text.disabled', lineHeight: 1 }}>@</Typography>
-                    <Typography sx={{ fontSize: { xs: '0.62rem', sm: '0.76rem' }, fontWeight: 700, lineHeight: 1, color: myPick === g.home.teamId ? ACCENT : 'text.secondary' }}>
-                      {g.home.abbr}
-                    </Typography>
-                    {correct && <Typography sx={{ fontSize: '0.55rem', lineHeight: 1, color: '#22c55e', ml: '1px' }}>✓</Typography>}
-                    {wrong   && <Typography sx={{ fontSize: '0.55rem', lineHeight: 1, color: '#ef4444', ml: '1px' }}>✗</Typography>}
-                  </Box>
-                )
-              })}
-            </Box>
+            <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>
+              {games.some(g => g.state === 'live') ? 'Games in progress' : 'All games finished'}
+            </Typography>
           )}
         </Box>
       </Box>

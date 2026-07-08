@@ -641,7 +641,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick }: {
   )
 
   return (
-    <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+    <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: { xs: 0.35, sm: 0.75 } }}>
       <Typography sx={{
         fontSize: '0.52rem', fontWeight: 800, textTransform: 'uppercase',
         letterSpacing: 1.5, color: labelColor ?? 'text.disabled', lineHeight: 1,
@@ -653,7 +653,7 @@ function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick }: {
       </Typography>
 
       {/* Score / time row — fixed minHeight so both FINAL and NEXT GAME rows are the same height */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25, minHeight: 32 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: { xs: 0, sm: 0.25 }, minHeight: { xs: 26, sm: 32 } }}>
         {(isFinal || isLive) && myTeamId ? (
           // Two-logo layout: winner gets green ring, loser gets red ring
           <>
@@ -916,7 +916,7 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
       >
         <Box sx={{
           width: 22, height: 22, borderRadius: '50%', bgcolor: '#fff',
-          border: `1.5px solid ${col}`, display: 'flex', alignItems: 'center',
+          border: `1.5px solid ${col}`, display: { xs: 'none', sm: 'flex' }, alignItems: 'center',
           justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
         }}>
           <Box component="img"
@@ -943,7 +943,7 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
   }
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: { xs: 0.4, sm: 0.75 } }}>
       <PitcherChip pitcher={awayPitcher} teamId={awayTeamId} />
       <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>vs</Typography>
       <PitcherChip pitcher={homePitcher} teamId={homeTeamId} />
@@ -975,7 +975,7 @@ function CompactPerformerRow({ finalDetails, onPlayerClick }: {
       >
         <Box sx={{
           width: 22, height: 22, borderRadius: '50%', bgcolor: '#fff',
-          border: `1.5px solid ${col}`, display: 'flex', alignItems: 'center',
+          border: `1.5px solid ${col}`, display: { xs: 'none', sm: 'flex' }, alignItems: 'center',
           justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
         }}>
           <Box component="img"
@@ -1000,7 +1000,7 @@ function CompactPerformerRow({ finalDetails, onPlayerClick }: {
   }
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: { xs: 0.4, sm: 0.75 } }}>
       {winner && <PlayerCard player={winner} />}
       {winner && loser && (
         <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>·</Typography>
@@ -1366,20 +1366,20 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
       ) : (
         // Each column owns its own padding so the hover bg fills edge-to-edge
         // (top flush with the divider, bottom flush with the card bottom).
-        <Box sx={{ display: 'flex', alignItems: 'stretch' }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'stretch' }}>
           {showLast && (
             <>
               {/* Last game — whole card is clickable, opens box score modal */}
               <Box
                 onClick={() => setBoxScoreGame(gameToFinalSummary(lastGame!, teamId))}
-                sx={{ flex: 1, minWidth: 0, cursor: 'pointer', pl: 2.5, pr: 1.5, pt: 1.25, pb: 1.5, transition: 'background-color 0.12s', '&:hover': { bgcolor: 'action.hover' } }}
+                sx={{ flex: 1, minWidth: 0, cursor: 'pointer', pl: 2.5, pr: { xs: 2.5, sm: 1.5 }, pt: { xs: 0.75, sm: 1.25 }, pb: { xs: 0.75, sm: 1.5 }, transition: 'background-color 0.12s', '&:hover': { bgcolor: 'action.hover' } }}
               >
                 <CompactGameCard game={lastGame!} myTeamId={teamId} label="Last Game" onTeamClick={onTeamClick} />
                 {lastFinalDetails && (
                   <CompactPerformerRow finalDetails={lastFinalDetails} onPlayerClick={onPlayerClick} />
                 )}
               </Box>
-              <Box sx={{ width: '1px', bgcolor: 'divider', flexShrink: 0 }} />
+              <Box sx={{ width: { xs: 'auto', sm: '1px' }, height: { xs: '1px', sm: 'auto' }, bgcolor: 'divider', flexShrink: 0 }} />
             </>
           )}
 
@@ -1397,9 +1397,9 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
             sx={{
               flex: 1, minWidth: 0,
               cursor: (isPreview || isFinal) ? 'pointer' : 'default',
-              pl: showLast ? 1.5 : 2.5,
-              pr: ((isFinal || isPostponed) && upcomingGame) ? 1.5 : 2.5,
-              pt: 1.25, pb: 1.5,
+              pl: { xs: 2.5, sm: showLast ? 1.5 : 2.5 },
+              pr: { xs: 2.5, sm: ((isFinal || isPostponed) && upcomingGame) ? 1.5 : 2.5 },
+              pt: { xs: 0.75, sm: 1.25 }, pb: { xs: 0.75, sm: 1.5 },
               transition: 'background-color 0.12s',
               '&:hover': (isPreview || isFinal) ? { bgcolor: 'action.hover' } : {},
             }}
@@ -1432,7 +1432,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
           {/* When today is done or postponed, show the next upcoming game on the right */}
           {(isFinal || isPostponed) && upcomingGame && (
             <>
-              <Box sx={{ width: '1px', bgcolor: 'divider', flexShrink: 0 }} />
+              <Box sx={{ width: { xs: 'auto', sm: '1px' }, height: { xs: '1px', sm: 'auto' }, bgcolor: 'divider', flexShrink: 0 }} />
               {/* Upcoming game — whole card clickable, opens game preview modal */}
               <Box
                 onClick={() => {
@@ -1440,7 +1440,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
                   setModalPreview(upcomingPreviewData)
                   setModalLoading(loadingUpcoming)
                 }}
-                sx={{ flex: 1, minWidth: 0, cursor: 'pointer', pl: 1.5, pr: 2.5, pt: 1.25, pb: 1.5, transition: 'background-color 0.12s', '&:hover': { bgcolor: 'action.hover' } }}
+                sx={{ flex: 1, minWidth: 0, cursor: 'pointer', pl: { xs: 2.5, sm: 1.5 }, pr: 2.5, pt: { xs: 0.75, sm: 1.25 }, pb: { xs: 0.75, sm: 1.5 }, transition: 'background-color 0.12s', '&:hover': { bgcolor: 'action.hover' } }}
               >
                 <CompactGameCard
                   game={upcomingGame}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Box, Typography, InputBase } from '@mui/material'
 import { Player } from '../types'
-import { TEAM_BG, ACCENT, HEADSHOT, CURRENT_SEASON } from '../constants'
+import { TEAM_BG, TEAM_ABBR, ACCENT, HEADSHOT, CURRENT_SEASON } from '../constants'
 import { searchPlayers } from '../api'
 import { fetchSuggestions, SuggestionChip, SuggestionPlayer } from './SuggestedPlayers'
 
@@ -68,7 +68,7 @@ async function fetchFollowedPlayerData(id: number): Promise<FollowedPlayerInfo |
       id: p.id,
       fullName:  p.fullName ?? '',
       position:  p.primaryPosition?.abbreviation ?? p.primaryPosition?.code ?? '?',
-      teamAbbr:  p.currentTeam?.abbreviation ?? '',
+      teamAbbr:  TEAM_ABBR[Number(p.currentTeam?.id ?? 0)] ?? p.currentTeam?.abbreviation ?? '',
       teamId:    Number(p.currentTeam?.id ?? 0),
       isPitcher,
       stats,
@@ -224,7 +224,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   const [suggestions, setSuggestions]   = useState<SuggestionPlayer[]>([])
   const [editMode, setEditMode]         = useState(false)
   const [selected, setSelected]         = useState<Set<number>>(new Set())
-  const searchRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     for (const id of followedPlayerIds) {
@@ -253,7 +253,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   useEffect(() => {
     if (!adding) return
     const handle = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
         setAdding(false); setAddQuery(''); setAddResults([])
       }
     }
@@ -285,25 +285,48 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
     <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <Box sx={{
+      <Box ref={headerRef} sx={{
         px: 1.5, py: compact ? 1.1 : 1.4,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         borderBottom: '1px solid', borderColor: 'divider',
         gap: 0.5, minHeight: 40,
+        position: 'relative',
       }}>
-        <Typography sx={{
-          fontWeight: 800,
-          fontSize: compact ? '0.65rem' : '0.72rem',
-          textTransform: 'uppercase', letterSpacing: 1.2,
-          color: editMode ? 'text.secondary' : ACCENT,
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          transition: 'color 0.15s',
-        }}>
-          {editMode
-            ? (selected.size > 0 ? `${selected.size} selected` : 'Tap to select')
-            : (compact ? '★ Players' : '★ Your Players')}
-        </Typography>
+        {/* Title — hidden while search is open */}
+        {!adding && (
+          <Typography sx={{
+            fontWeight: 800,
+            fontSize: compact ? '0.65rem' : '0.72rem',
+            textTransform: 'uppercase', letterSpacing: 1.2,
+            color: editMode ? 'text.secondary' : ACCENT,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            transition: 'color 0.15s',
+          }}>
+            {editMode
+              ? (selected.size > 0 ? `${selected.size} selected` : 'Tap to select')
+              : (compact ? '★ Players' : '★ Your Players')}
+          </Typography>
+        )}
 
+        {/* Inline search input — takes over the title area */}
+        {adding && (
+          <InputBase
+            autoFocus
+            placeholder="Search player…"
+            value={addQuery}
+            onChange={e => setAddQuery(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Escape') { setAdding(false); setAddQuery(''); setAddResults([]) }
+            }}
+            sx={{
+              flex: 1,
+              fontSize: compact ? '0.8rem' : '0.875rem',
+              '& input': { p: 0 },
+            }}
+          />
+        )}
+
+        {/* Action buttons */}
         <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
           {editMode ? (
             <>
@@ -318,7 +341,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
             </>
           ) : (
             <>
-              {followedPlayerIds.length > 0 && (
+              {!adding && followedPlayerIds.length > 0 && (
                 <Box onClick={() => { setEditMode(true); setAdding(false); setAddQuery(''); setAddResults([]) }}
                   sx={pillSx(ACCENT, compact)}>
                   ✎ Edit
@@ -334,107 +357,98 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
             </>
           )}
         </Box>
-      </Box>
 
-      <Box sx={{ pt: adding ? 1.5 : 0, pb: 0.5, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        {/* ── Add-player search ─────────────────────────────────────────────── */}
-        {adding && (
-          <Box ref={searchRef} sx={{ mb: 1, px: 1.5, position: 'relative' }}>
-            <InputBase
-              autoFocus
-              placeholder="Search player…"
-              value={addQuery}
-              onChange={e => setAddQuery(e.target.value)}
-              onKeyDown={e => e.key === 'Escape' && (setAdding(false), setAddQuery(''), setAddResults([]))}
-              sx={{
-                width: '100%', px: 1.25, py: 0.75,
-                bgcolor: 'action.hover', borderRadius: 2,
-                fontSize: compact ? '0.8rem' : '0.875rem',
-                border: '1px solid', borderColor: 'divider',
-              }}
-            />
-            {(addResults.length > 0 || addSearching) && (
-              <Box sx={{
-                position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200,
-                bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
-                borderRadius: 2, overflow: 'hidden',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
-              }}>
-                {addSearching && !addResults.length && (
-                  <Box sx={{ px: 2, py: 1.5 }}>
-                    <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>Searching…</Typography>
-                  </Box>
+        {/* Search results dropdown */}
+        {adding && (addResults.length > 0 || addSearching) && (
+          <Box sx={{
+            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+            bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
+            borderRadius: 2, overflow: 'hidden',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+          }}>
+            {addSearching && !addResults.length && (
+              <Box sx={{ px: 2, py: 1.5 }}>
+                <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>Searching…</Typography>
+              </Box>
+            )}
+            {addResults.map((p, i) => (
+              <Box
+                key={p.id}
+                onClick={() => handleAdd(p)}
+                sx={{
+                  px: 1.5, py: 0.9, cursor: 'pointer',
+                  borderTop: i > 0 ? '1px solid' : 'none', borderColor: 'divider',
+                  display: 'flex', alignItems: 'center', gap: 1.25,
+                  '&:hover': { bgcolor: 'action.hover' },
+                }}
+              >
+                <Box sx={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', bgcolor: 'action.hover', flexShrink: 0 }}>
+                  <Box component="img" src={HEADSHOT(p.id)}
+                    sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }} />
+                </Box>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {p.fullName}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary' }}>
+                    {p.primaryPosition?.name}{!p.active ? ' · retired' : ''}
+                  </Typography>
+                </Box>
+                {followedPlayerIds.includes(p.id) && (
+                  <Typography sx={{ fontSize: '0.6rem', color: ACCENT, fontWeight: 700, ml: 'auto', flexShrink: 0 }}>
+                    ✓
+                  </Typography>
                 )}
-                {addResults.map((p, i) => (
-                  <Box
-                    key={p.id}
-                    onClick={() => handleAdd(p)}
-                    sx={{
-                      px: 1.5, py: 0.9, cursor: 'pointer',
-                      borderTop: i > 0 ? '1px solid' : 'none', borderColor: 'divider',
-                      display: 'flex', alignItems: 'center', gap: 1.25,
-                      '&:hover': { bgcolor: 'action.hover' },
-                    }}
-                  >
-                    <Box sx={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', bgcolor: 'action.hover', flexShrink: 0 }}>
-                      <Box component="img" src={HEADSHOT(p.id)}
-                        sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }} />
-                    </Box>
-                    <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {p.fullName}
-                      </Typography>
-                      <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary' }}>
-                        {p.primaryPosition?.name}{!p.active ? ' · retired' : ''}
-                      </Typography>
-                    </Box>
-                    {followedPlayerIds.includes(p.id) && (
-                      <Typography sx={{ fontSize: '0.6rem', color: ACCENT, fontWeight: 700, ml: 'auto', flexShrink: 0 }}>
-                        ✓
-                      </Typography>
-                    )}
-                  </Box>
-                ))}
               </Box>
-            )}
-            {addQuery.length < 2 && suggestions.length > 0 && (
-              <Box sx={{
-                position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 200,
-                bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
-                borderRadius: 2, boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
-                p: 1.25, display: 'flex', flexDirection: 'column', gap: 0.75,
-              }}>
-                <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled', px: 0.25 }}>
-                  Suggested
-                </Typography>
-                {suggestions.map(p => (
-                  <SuggestionChip
-                    key={p.id}
-                    player={p}
-                    alreadyFollowed={followedPlayerIds.includes(p.id)}
-                    onFollow={() => { onFollow(p.id); setAdding(false); setAddQuery(''); setAddResults([]) }}
-                    onPlayerClick={onPlayerClick}
-                  />
-                ))}
-              </Box>
-            )}
+            ))}
           </Box>
         )}
 
-        {/* ── Player rows ───────────────────────────────────────────────────── */}
+        {/* Suggestions dropdown */}
+        {adding && addQuery.length < 2 && suggestions.length > 0 && (
+          <Box sx={{
+            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+            bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
+            borderRadius: 2, boxShadow: '0 8px 24px rgba(0,0,0,0.45)',
+            p: 1.25, display: 'flex', flexDirection: 'column', gap: 0.75,
+          }}>
+            <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled', px: 0.25 }}>
+              Suggested
+            </Typography>
+            {suggestions.map(p => (
+              <SuggestionChip
+                key={p.id}
+                player={p}
+                alreadyFollowed={followedPlayerIds.includes(p.id)}
+                onFollow={() => { onFollow(p.id); setAdding(false); setAddQuery(''); setAddResults([]) }}
+                onPlayerClick={onPlayerClick}
+              />
+            ))}
+          </Box>
+        )}
+      </Box>
+
+      {/* ── Player rows ───────────────────────────────────────────────────────── */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
         {followedPlayerIds.length === 0 ? (
           <Box sx={{ py: compact ? 2.5 : 3.5, textAlign: 'center' }}>
             <Typography sx={{ color: 'text.disabled', fontSize: compact ? '0.72rem' : '0.82rem', mb: 0.5, lineHeight: 1.4 }}>
               {compact ? 'No players yet' : 'No players followed yet'}
             </Typography>
-            {!compact && (
-              <Typography sx={{ color: 'text.disabled', fontSize: '0.72rem' }}>
-                Tap <Box component="span" sx={{ color: ACCENT, fontWeight: 700 }}>+ Add</Box> to track players
-              </Typography>
-            )}
           </Box>
         ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', py: 0.5, flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <Box sx={{
+            display: 'flex', flexDirection: 'column', py: 0.5, flex: 1, minHeight: 0, overflowY: 'auto',
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'transparent transparent',
+            '&::-webkit-scrollbar': { width: 4 },
+            '&::-webkit-scrollbar-track': { background: 'transparent' },
+            '&::-webkit-scrollbar-thumb': { background: 'transparent', borderRadius: 2 },
+            '&:hover': {
+              scrollbarColor: 'rgba(128,128,128,0.35) transparent',
+              '&::-webkit-scrollbar-thumb': { background: 'rgba(128,128,128,0.35)' },
+            },
+          }}>
             {followedPlayerIds.map((id, i) => {
               const data   = playerData[id] ?? null
               const isLive = !!(liveTeamIds && data?.teamId && liveTeamIds.has(data.teamId))
@@ -454,6 +468,26 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                 </React.Fragment>
               )
             })}
+          </Box>
+        )}
+
+        {/* Wide add button — always visible below last player, hidden while search or edit is open */}
+        {!editMode && !adding && (
+          <Box
+            onClick={() => { setAdding(true); setAddQuery(''); setAddResults([]) }}
+            sx={{
+              mx: 1.5, mt: 0.5, mb: 1,
+              py: 0.85,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              borderRadius: 2,
+              border: '1.5px dashed', borderColor: 'divider',
+              cursor: 'pointer', color: 'text.disabled',
+              fontSize: '0.75rem', fontWeight: 600,
+              transition: 'border-color 0.15s, color 0.15s, background 0.15s',
+              '&:hover': { borderColor: ACCENT, color: ACCENT, bgcolor: `${ACCENT}08` },
+            }}
+          >
+            + Add Player
           </Box>
         )}
       </Box>

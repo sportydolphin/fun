@@ -219,6 +219,16 @@ export function HomeView({
   const [teamSummaries,    setTeamSummaries]    = useState<TeamSummary[]>([])
   const [loadingBoard,     setLoadingBoard]     = useState(true)
   const [featuredExpanded, setFeaturedExpanded] = useState(false)
+  const leftColRef  = useRef<HTMLDivElement>(null)
+  const [leftColHeight, setLeftColHeight] = useState<number | null>(null)
+
+  useEffect(() => {
+    const el = leftColRef.current
+    if (!el) return
+    const ro = new ResizeObserver(entries => setLeftColHeight(entries[0].contentRect.height))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   useEffect(() => {
     setLoadingSpotlight(true)
@@ -407,15 +417,20 @@ export function HomeView({
 
           {/* ── Panel 2: My Team ──────────────────────────────────────────────── */}
           <Box sx={{ width: '50%', flexShrink: 0, minWidth: 0, overflowX: 'hidden' }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {followedTeamId ? (
+              /* ── Two-column grid: left col = team + predictor, right col = players ── */
+              <Box sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+                gap: 1.5,
+                alignItems: 'start',
+              }}>
 
-              {followedTeamId ? (
-                // Side-by-side on md+, stacked below (avoids cramped ~300px columns on tablets)
-                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 1.5, alignItems: 'stretch' }}>
+                {/* Left column: team card + predictor stacked */}
+                <Box ref={leftColRef} sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
 
-                  {/* Compact team card */}
+                  {/* Team card */}
                   <Box sx={{
-                    flex: { xs: '1 1 auto', md: '0 0 calc(50% - 6px)' }, minWidth: 0,
                     borderRadius: 3, overflow: 'hidden',
                     border: '1px solid', borderColor: borderAlpha(bg, isDark),
                     borderLeft: `4px solid ${bg}`,
@@ -423,7 +438,7 @@ export function HomeView({
                     background: cardGradient135(bg, isDark),
                     display: 'flex', flexDirection: 'column',
                   }}>
-                    {/* Team header — single-row: logo | name+city+standing (flex:1) | buttons */}
+                    {/* Team header — logo | name+standing | buttons */}
                     <Box sx={{ px: 1.5, pt: 1.25, pb: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <TeamLogoCircle teamId={followedTeamId} abbr={abbr} size={34} />
@@ -487,47 +502,42 @@ export function HomeView({
                     </Box>
                   </Box>
 
-                  {/* Followed players — compact mode.
-                      On md+: position:relative wrapper with no in-flow content → row height
-                      is determined by the team card alone. An absolute inner box fills the
-                      column (which stretches to team-card height), so the player list scrolls
-                      within that fixed space.
-                      On xs/sm: static flow → card grows with content, no internal scroll. */}
-                  <Box sx={{ flex: { xs: '1 1 auto', md: '0 0 calc(50% - 6px)' }, minWidth: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-                    <Box sx={{ position: { xs: 'static', md: 'absolute' }, top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column' }}>
-                      <FollowedPlayersSection
-                        followedPlayerIds={followedPlayerIds}
-                        onUnfollow={onUnfollowPlayer}
-                        onPlayerClick={onPlayerClick}
-                        onFollow={onFollowPlayer}
-                        liveTeamIds={liveTeamIds}
-                        teamId={followedTeamId}
-                        compact
-                      />
-                    </Box>
-                  </Box>
+                  {/* Predictor */}
+                  <PredictorWidget onTeamClick={onTeamClick ?? (() => {})} />
 
                 </Box>
-              ) : (
-                /* No team: full-width picker + full-width players below */
-                <>
-                  <TeamPicker allTeams={allTeams} onSelect={onFollowTeam} />
+
+                {/* Right column: players — grows with content, capped at left column height */}
+                <Box sx={{
+                  display: 'flex', flexDirection: 'column',
+                  maxHeight: { xs: 'none', md: leftColHeight ? `${leftColHeight}px` : 'none' },
+                }}>
                   <FollowedPlayersSection
                     followedPlayerIds={followedPlayerIds}
                     onUnfollow={onUnfollowPlayer}
                     onPlayerClick={onPlayerClick}
                     onFollow={onFollowPlayer}
                     liveTeamIds={liveTeamIds}
+                    teamId={followedTeamId}
+                    compact
                   />
-                </>
-              )}
+                </Box>
 
-              {/* ── My Predictions ──────────────────────────────────────────── */}
-              <PredictorWidget
-                onTeamClick={onTeamClick ?? (() => {})}
-              />
-
-            </Box>
+              </Box>
+            ) : (
+              /* No team: full-width picker + players + predictor stacked */
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TeamPicker allTeams={allTeams} onSelect={onFollowTeam} />
+                <FollowedPlayersSection
+                  followedPlayerIds={followedPlayerIds}
+                  onUnfollow={onUnfollowPlayer}
+                  onPlayerClick={onPlayerClick}
+                  onFollow={onFollowPlayer}
+                  liveTeamIds={liveTeamIds}
+                />
+                <PredictorWidget onTeamClick={onTeamClick ?? (() => {})} />
+              </Box>
+            )}
           </Box>
 
         </Box>

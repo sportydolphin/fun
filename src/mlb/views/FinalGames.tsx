@@ -420,7 +420,7 @@ function FinalGameMiniCard({ game, onClick }: { game: FinalGameSummary; onClick?
           {game.statusText}
         </Typography>
         {onClick && (
-          <Typography sx={{ fontSize: '0.55rem', color: 'text.disabled', ml: 'auto', lineHeight: 1 }}>
+          <Typography sx={{ fontSize: '0.55rem', color: 'text.disabled', ml: 'auto', lineHeight: 1, display: 'flex', alignItems: 'center' }}>
             {isPreview ? 'Preview →' : 'Box →'}
           </Typography>
         )}
@@ -1052,16 +1052,13 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
     return () => { cancelled = true }
   }, [dateISO])
 
-  // Live games first, then final, then upcoming — and within each group, the
-  // followed team's game (if any) leads the pack.
+  // Followed team always leads; within the rest, live → final → preview.
   const STATE_ORDER: Record<GameState, number> = { live: 0, final: 1, preview: 2 }
   const sortedGames = [...games].sort((a, b) => {
-    const stateDiff = STATE_ORDER[a.state] - STATE_ORDER[b.state]
-    if (stateDiff !== 0) return stateDiff
     const aMine = followedTeamId != null && (a.home.teamId === followedTeamId || a.away.teamId === followedTeamId)
     const bMine = followedTeamId != null && (b.home.teamId === followedTeamId || b.away.teamId === followedTeamId)
     if (aMine !== bMine) return aMine ? -1 : 1
-    return 0
+    return STATE_ORDER[a.state] - STATE_ORDER[b.state]
   })
 
   return (
