@@ -3,5 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   root: '.',
-  plugins: [react()]
+  plugins: [react()],
+  // Dev-server port can be assigned by tooling (e.g. Claude preview) via PORT.
+  server: process.env.PORT ? { port: Number(process.env.PORT) } : undefined,
 })

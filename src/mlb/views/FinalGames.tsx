@@ -1,7 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../colorUtils'
+
+// Loaded on first game click — keeps the Game Center out of the home bundle.
+const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,7 +72,7 @@ interface TeamBox {
   pitchers: PitcherLine[]
 }
 
-interface BoxScore {
+export interface BoxScore {
   innings: InningLine[]
   away:    TeamBox
   home:    TeamBox
@@ -197,80 +200,73 @@ export async function fetchFinalGames(dateISO: string): Promise<FinalGameSummary
   } catch { return [] }
 }
 
-async function fetchBoxScore(gamePk: number): Promise<BoxScore | null> {
-  try {
-    const [lsRes, boxRes] = await Promise.all([
-      fetch(`https://statsapi.mlb.com/api/v1/game/${gamePk}/linescore`),
-      fetch(`https://statsapi.mlb.com/api/v1/game/${gamePk}/boxscore`),
-    ])
-    const ls  = await lsRes.json()
-    const box = await boxRes.json()
+// Shared with LiveGameCenter, which parses the same shapes out of the live feed
+// (liveData.linescore / liveData.boxscore) instead of the standalone endpoints.
+export function parseBoxScoreData(ls: any, box: any): BoxScore {
+  const innings: InningLine[] = (ls.innings ?? []).map((i: any) => ({
+    num:  i.num,
+    away: i.away?.runs ?? null,
+    home: i.home?.runs ?? null,
+  }))
 
-    const innings: InningLine[] = (ls.innings ?? []).map((i: any) => ({
-      num:  i.num,
-      away: i.away?.runs ?? null,
-      home: i.home?.runs ?? null,
-    }))
+  const mkTeamBox = (side: 'home' | 'away'): TeamBox => {
+    const t       = box.teams?.[side] ?? {}
+    const players = t.players ?? {}
+    const lst     = ls.teams?.[side] ?? {}
 
-    const mkTeamBox = (side: 'home' | 'away'): TeamBox => {
-      const t       = box.teams?.[side] ?? {}
-      const players = t.players ?? {}
-      const lst     = ls.teams?.[side] ?? {}
-
-      const batters: BatterLine[] = (t.batters ?? []).map((pid: number) => {
-        const p  = players[`ID${pid}`] ?? {}
-        const b  = p.stats?.batting ?? {}
-        const sb = p.seasonStats?.batting ?? {}
-        // battingOrder is "100", "200" for starters; "101", "201" for subs.
-        const order = String(p.battingOrder ?? '')
-        return {
-          id:    Number(p.person?.id ?? pid),
-          name:  p.person?.fullName ?? '—',
-          pos:   p.position?.abbreviation ?? '',
-          ab:    b.atBats     ?? 0,
-          r:     b.runs       ?? 0,
-          h:     b.hits       ?? 0,
-          rbi:   b.rbi        ?? 0,
-          bb:    b.baseOnBalls ?? 0,
-          k:     b.strikeOuts ?? 0,
-          avg:   sb.avg ?? b.avg ?? '',
-          isSub: order !== '' && !order.endsWith('00'),
-        }
-      })
-
-      const pitchers: PitcherLine[] = (t.pitchers ?? []).map((pid: number) => {
-        const p  = players[`ID${pid}`] ?? {}
-        const pt = p.stats?.pitching ?? {}
-        const sp = p.seasonStats?.pitching ?? {}
-        return {
-          id:   Number(p.person?.id ?? pid),
-          name: p.person?.fullName ?? '—',
-          note: pt.note ? String(pt.note).replace(/[()]/g, '') : null,
-          ip:   pt.inningsPitched ?? '0.0',
-          h:    pt.hits        ?? 0,
-          r:    pt.runs        ?? 0,
-          er:   pt.earnedRuns  ?? 0,
-          bb:   pt.baseOnBalls ?? 0,
-          k:    pt.strikeOuts  ?? 0,
-          era:  sp.era ?? null,
-        }
-      })
-
-      const id = Number(t.team?.id ?? 0)
+    const batters: BatterLine[] = (t.batters ?? []).map((pid: number) => {
+      const p  = players[`ID${pid}`] ?? {}
+      const b  = p.stats?.batting ?? {}
+      const sb = p.seasonStats?.batting ?? {}
+      // battingOrder is "100", "200" for starters; "101", "201" for subs.
+      const order = String(p.battingOrder ?? '')
       return {
-        teamId:   id,
-        abbr:     TEAM_ABBR[id] ?? t.team?.abbreviation ?? '???',
-        name:     t.team?.name ?? '???',
-        runs:     lst.runs   ?? 0,
-        hits:     lst.hits   ?? 0,
-        errors:   lst.errors ?? 0,
-        batters,
-        pitchers,
+        id:    Number(p.person?.id ?? pid),
+        name:  p.person?.fullName ?? '—',
+        pos:   p.position?.abbreviation ?? '',
+        ab:    b.atBats     ?? 0,
+        r:     b.runs       ?? 0,
+        h:     b.hits       ?? 0,
+        rbi:   b.rbi        ?? 0,
+        bb:    b.baseOnBalls ?? 0,
+        k:     b.strikeOuts ?? 0,
+        avg:   sb.avg ?? b.avg ?? '',
+        isSub: order !== '' && !order.endsWith('00'),
       }
-    }
+    })
 
-    return { innings, away: mkTeamBox('away'), home: mkTeamBox('home') }
-  } catch { return null }
+    const pitchers: PitcherLine[] = (t.pitchers ?? []).map((pid: number) => {
+      const p  = players[`ID${pid}`] ?? {}
+      const pt = p.stats?.pitching ?? {}
+      const sp = p.seasonStats?.pitching ?? {}
+      return {
+        id:   Number(p.person?.id ?? pid),
+        name: p.person?.fullName ?? '—',
+        note: pt.note ? String(pt.note).replace(/[()]/g, '') : null,
+        ip:   pt.inningsPitched ?? '0.0',
+        h:    pt.hits        ?? 0,
+        r:    pt.runs        ?? 0,
+        er:   pt.earnedRuns  ?? 0,
+        bb:   pt.baseOnBalls ?? 0,
+        k:    pt.strikeOuts  ?? 0,
+        era:  sp.era ?? null,
+      }
+    })
+
+    const id = Number(t.team?.id ?? 0)
+    return {
+      teamId:   id,
+      abbr:     TEAM_ABBR[id] ?? t.team?.abbreviation ?? '???',
+      name:     t.team?.name ?? '???',
+      runs:     lst.runs   ?? 0,
+      hits:     lst.hits   ?? 0,
+      errors:   lst.errors ?? 0,
+      batters,
+      pitchers,
+    }
+  }
+
+  return { innings, away: mkTeamBox('away'), home: mkTeamBox('home') }
 }
 
 async function fetchGamePreview(gamePk: number): Promise<GamePreviewData | null> {
@@ -325,7 +321,7 @@ async function fetchGamePreview(gamePk: number): Promise<GamePreviewData | null>
 
 // ─── Team logo bubble ───────────────────────────────────────────────────────
 
-function LogoBubble({ teamId, abbr, size, ring = 1.5 }: {
+export function LogoBubble({ teamId, abbr, size, ring = 1.5 }: {
   teamId: number; abbr: string; size: number; ring?: number
 }) {
   const col = TEAM_BG[teamId] ?? '#555'
@@ -347,7 +343,7 @@ function LogoBubble({ teamId, abbr, size, ring = 1.5 }: {
 
 // ─── Pulsing live dot ─────────────────────────────────────────────────────────
 
-function LiveDot({ size = 6 }: { size?: number }) {
+export function LiveDot({ size = 6 }: { size?: number }) {
   return (
     <Box sx={{
       width: size, height: size, borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0,
@@ -460,7 +456,7 @@ function StatCell({ children, bold = false }: { children: React.ReactNode; bold?
   )
 }
 
-function LineScoreTable({ box }: { box: BoxScore }) {
+export function LineScoreTable({ box }: { box: BoxScore }) {
   const rows: Array<{ side: 'away' | 'home'; t: TeamBox }> = [
     { side: 'away', t: box.away },
     { side: 'home', t: box.home },
@@ -597,7 +593,7 @@ function PitchingTable({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?:
   )
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+export function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <Typography sx={{
       fontSize: '0.58rem', fontWeight: 700, color: 'text.disabled',
@@ -608,7 +604,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-function TeamBoxSection({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?: (id: number) => void }) {
+export function TeamBoxSection({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?: (id: number) => void }) {
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.25, bgcolor: 'action.hover' }}>
@@ -829,147 +825,6 @@ function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick }: {
   )
 }
 
-// ─── Box-score modal ──────────────────────────────────────────────────────────
-
-export function BoxScoreModal({ game, onClose, onPlayerClick, onTeamClick }: {
-  game: FinalGameSummary
-  onClose: () => void
-  onPlayerClick?: (id: number) => void
-  onTeamClick?: (id: number) => void
-}) {
-  const [box,     setBox]     = useState<BoxScore | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    setLoading(true)
-    fetchBoxScore(game.gamePk).then(setBox).finally(() => setLoading(false))
-  }, [game.gamePk])
-
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
-  }, [onClose])
-
-  const teamHeader = (t: FinalTeam, align: 'flex-start' | 'flex-end') => (
-    <Box
-      onClick={onTeamClick ? () => { onTeamClick(t.teamId); onClose() } : undefined}
-      sx={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.6, flex: 1, minWidth: 0,
-        ...(onTeamClick ? { cursor: 'pointer' } : {}),
-      }}
-    >
-      <LogoBubble teamId={t.teamId} abbr={t.abbr} size={48} ring={2.5} />
-      <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary', lineHeight: 1 }}>{t.abbr}</Typography>
-      <Typography sx={{
-        fontSize: '2.2rem', fontWeight: t.isWinner ? 900 : 600, lineHeight: 1,
-        color: t.isWinner ? 'text.primary' : 'text.secondary',
-      }}>
-        {t.runs}
-      </Typography>
-    </Box>
-  )
-
-  const decisions = [
-    game.winPitcher  && { label: 'W',  name: game.winPitcher },
-    game.losePitcher && { label: 'L',  name: game.losePitcher },
-    game.savePitcher && { label: 'SV', name: game.savePitcher },
-  ].filter(Boolean) as Array<{ label: string; name: string }>
-
-  return (
-    <Box
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      sx={{
-        position: 'fixed', inset: 0, zIndex: 1500,
-        bgcolor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        p: { xs: 1, sm: 2 },
-      }}
-    >
-      <Box sx={{
-        bgcolor: 'background.paper', borderRadius: 3,
-        border: '1px solid', borderColor: 'divider',
-        width: '100%', maxWidth: 540,
-        maxHeight: '90vh', overflowY: 'auto',
-        boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
-        '&::-webkit-scrollbar': { width: 4 },
-        '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },
-      }}>
-
-        {/* Header */}
-        <Box sx={{
-          px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider',
-          display: 'flex', alignItems: 'center', gap: 1,
-          position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1,
-        }}>
-          <Typography sx={{
-            flex: 1, fontWeight: 800, fontSize: '0.72rem', color: 'text.secondary',
-            textTransform: 'uppercase', letterSpacing: 1, lineHeight: 1,
-          }}>
-            {game.statusText}
-          </Typography>
-          <Box
-            onClick={onClose}
-            sx={{
-              flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: 'text.disabled',
-              '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
-            }}
-          >
-            <Typography sx={{ fontSize: '0.75rem', lineHeight: 1 }}>✕</Typography>
-          </Box>
-        </Box>
-
-        {/* Score summary */}
-        <Box sx={{ px: 2, pt: 2.5, pb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-          {teamHeader(game.away, 'flex-start')}
-          <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled', px: 1 }}>@</Typography>
-          {teamHeader(game.home, 'flex-end')}
-        </Box>
-
-        {/* Decisions */}
-        {decisions.length > 0 && (
-          <Box sx={{
-            px: 2, pb: 1.5, display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 1.5,
-          }}>
-            {decisions.map(d => (
-              <Box key={d.label} sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
-                <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: 'primary.main', lineHeight: 1 }}>{d.label}</Typography>
-                <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1 }}>{d.name}</Typography>
-              </Box>
-            ))}
-          </Box>
-        )}
-
-        {loading && !box && (
-          <Box sx={{ py: 4, textAlign: 'center' }}>
-            <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>Loading box score…</Typography>
-          </Box>
-        )}
-
-        {box && (
-          <>
-            {/* Line score */}
-            <Box sx={{ borderTop: '1px solid', borderColor: 'divider', px: 2, py: 1.5 }}>
-              <Box sx={{ mb: 1 }}><SectionLabel>Line Score</SectionLabel></Box>
-              <LineScoreTable box={box} />
-            </Box>
-
-            {/* Box score per team */}
-            <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-              <TeamBoxSection team={box.away} onPlayerClick={onPlayerClick} />
-            </Box>
-            <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-              <TeamBoxSection team={box.home} onPlayerClick={onPlayerClick} />
-            </Box>
-          </>
-        )}
-      </Box>
-    </Box>
-  )
-}
-
 // ─── Date navigator ────────────────────────────────────────────────────────────
 
 function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: string) => void }) {
@@ -1123,12 +978,14 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
           onTeamClick={onTeamClick}
         />
       ) : openGame ? (
-        <BoxScoreModal
-          game={openGame}
-          onClose={() => setOpenGame(null)}
-          onPlayerClick={onPlayerClick}
-          onTeamClick={onTeamClick}
-        />
+        <Suspense fallback={null}>
+          <GameCenterModal
+            game={openGame}
+            onClose={() => setOpenGame(null)}
+            onPlayerClick={onPlayerClick}
+            onTeamClick={onTeamClick}
+          />
+        </Suspense>
       ) : null}
     </>
   )

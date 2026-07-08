@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT, ACCENT } from '../constants'
-import { BoxScoreModal, FinalGameSummary } from './FinalGames'
+import { FinalGameSummary } from './FinalGames'
+import { GameCenterModal } from './LiveGameCenter'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -1197,7 +1198,7 @@ function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick, onTeam
 }
 
 // ─── gameToFinalSummary ───────────────────────────────────────────────────────
-// Build the minimal FinalGameSummary needed to open BoxScoreModal from a ScheduleGame.
+// Build the minimal FinalGameSummary needed to open GameCenterModal from a ScheduleGame.
 // The modal fetches R/H/E and batting/pitching tables itself; we only supply the header.
 
 function gameToFinalSummary(game: ScheduleGame, myTeamId: number): FinalGameSummary {
@@ -1487,7 +1488,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
       )}
 
       {boxScoreGame && (
-        <BoxScoreModal
+        <GameCenterModal
           game={boxScoreGame}
           onClose={() => setBoxScoreGame(null)}
           onPlayerClick={onPlayerClick}
