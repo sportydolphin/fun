@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { Box, Typography } from '@mui/material'
-import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
+import { TEAM_BG, TEAM_ABBR, TEAM_DIVISION, HEADSHOT } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../colorUtils'
 
 // Loaded on first game click — keeps the Game Center out of the home bundle.
@@ -49,16 +49,17 @@ interface BatterLine {
 }
 
 interface PitcherLine {
-  id:   number
-  name: string
-  note: string | null   // "(W, 10-6)", "(S, 28)", etc.
-  ip:   string
-  h:    number
-  r:    number
-  er:   number
-  bb:   number
-  k:    number
-  era:  string | null    // season ERA when available
+  id:      number
+  name:    string
+  note:    string | null   // "(W, 10-6)", "(S, 28)", etc.
+  ip:      string
+  h:       number
+  r:       number
+  er:      number
+  bb:      number
+  k:       number
+  pitches: number | null   // pitch count for the game
+  era:     string | null    // season ERA when available
 }
 
 interface TeamBox {
@@ -246,14 +247,15 @@ export function parseBoxScoreData(ls: any, box: any): BoxScore {
       return {
         id:   Number(p.person?.id ?? pid),
         name: p.person?.fullName ?? '—',
-        note: pt.note ? String(pt.note).replace(/[()]/g, '') : null,
-        ip:   pt.inningsPitched ?? '0.0',
-        h:    pt.hits        ?? 0,
-        r:    pt.runs        ?? 0,
-        er:   pt.earnedRuns  ?? 0,
-        bb:   pt.baseOnBalls ?? 0,
-        k:    pt.strikeOuts  ?? 0,
-        era:  sp.era ?? null,
+        note:    pt.note ? String(pt.note).replace(/[()]/g, '') : null,
+        ip:      pt.inningsPitched ?? '0.0',
+        h:       pt.hits        ?? 0,
+        r:       pt.runs        ?? 0,
+        er:      pt.earnedRuns  ?? 0,
+        bb:      pt.baseOnBalls ?? 0,
+        k:       pt.strikeOuts  ?? 0,
+        pitches: pt.pitchesThrown ?? pt.numberOfPitches ?? null,
+        era:     sp.era ?? null,
       }
     })
 
@@ -569,6 +571,7 @@ function PitchingTable({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?:
             </Box>
             <StatHead w={32}>IP</StatHead><StatHead>H</StatHead><StatHead>R</StatHead>
             <StatHead>ER</StatHead><StatHead>BB</StatHead><StatHead>SO</StatHead>
+            <StatHead>P</StatHead>
             <StatHead w={36}>ERA</StatHead>
           </Box>
         </Box>
@@ -595,6 +598,7 @@ function PitchingTable({ team, onPlayerClick }: { team: TeamBox; onPlayerClick?:
               </Box>
               <StatCell bold>{p.ip}</StatCell><StatCell>{p.h}</StatCell><StatCell>{p.r}</StatCell>
               <StatCell>{p.er}</StatCell><StatCell>{p.bb}</StatCell><StatCell>{p.k}</StatCell>
+              <StatCell>{p.pitches ?? '—'}</StatCell>
               <StatCell>{p.era ?? '—'}</StatCell>
             </Box>
           ))}
@@ -1029,12 +1033,37 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
     return () => { cancelled = true }
   }, [dateISO])
 
-  // Followed team always leads; within the rest, live → final → preview.
+  // Ordering (see request):
+  //   1. Followed team's game is always first, no matter what.
+  //   2. Live games come first; the division/league order applies *within* live,
+  //      then again within the non-live games.
+  //   3. Division order: followed team → its division rivals → rest of its league
+  //      → other league.
+  //   4. Final before preview as a final tiebreaker.
   const STATE_ORDER: Record<GameState, number> = { live: 0, final: 1, preview: 2 }
+  const myDiv    = followedTeamId != null ? TEAM_DIVISION[followedTeamId] : undefined
+  const myLeague = myDiv?.slice(0, 2)
+
+  // Relevance of a single team to the followed team: 0 division, 1 league, 2 other.
+  const teamRel = (teamId: number): number => {
+    const div = TEAM_DIVISION[teamId]
+    if (!div || !myDiv) return 2
+    if (div === myDiv) return 0
+    if (div.slice(0, 2) === myLeague) return 1
+    return 2
+  }
+  // A game ranks by its most relevant team.
+  const gameRel = (g: FinalGameSummary) => Math.min(teamRel(g.home.teamId), teamRel(g.away.teamId))
+  const isMine  = (g: FinalGameSummary) =>
+    followedTeamId != null && (g.home.teamId === followedTeamId || g.away.teamId === followedTeamId)
+
   const sortedGames = [...games].sort((a, b) => {
-    const aMine = followedTeamId != null && (a.home.teamId === followedTeamId || a.away.teamId === followedTeamId)
-    const bMine = followedTeamId != null && (b.home.teamId === followedTeamId || b.away.teamId === followedTeamId)
+    const aMine = isMine(a), bMine = isMine(b)
     if (aMine !== bMine) return aMine ? -1 : 1
+    const aLive = a.state === 'live', bLive = b.state === 'live'
+    if (aLive !== bLive) return aLive ? -1 : 1
+    const rel = gameRel(a) - gameRel(b)
+    if (rel !== 0) return rel
     return STATE_ORDER[a.state] - STATE_ORDER[b.state]
   })
 

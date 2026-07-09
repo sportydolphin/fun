@@ -637,6 +637,12 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick }: {
               <SituationPanel sit={data.situation} onPlayerClick={selectPlayer} />
             )}
 
+            {/* Line score — always shown in the regular view */}
+            <Box sx={{ borderTop: '1px solid', borderColor: 'divider', px: 2, py: 1.5 }}>
+              <Box sx={{ mb: 1 }}><SectionLabel>Line Score</SectionLabel></Box>
+              <LineScoreTable box={data.box} />
+            </Box>
+
             {/* Win probability */}
             <WinProbChart pts={wp} away={data.away} home={data.home} />
 
@@ -647,7 +653,7 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick }: {
               position: 'sticky', top: 43, bgcolor: 'background.paper', zIndex: 1,
             }}>
               {tabChip('plays', 'Plays')}
-              {tabChip('box', 'Box Score')}
+              {tabChip('box', 'Full Box Score')}
               {tab === 'plays' && (
                 <Box sx={{ ml: 'auto', display: 'flex', gap: 0.5 }}>
                   {hasScoring && filterChip(true, 'Scoring')}
@@ -666,10 +672,6 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick }: {
               </Box>
             ) : (
               <>
-                <Box sx={{ borderTop: '1px solid', borderColor: 'divider', px: 2, py: 1.5 }}>
-                  <Box sx={{ mb: 1 }}><SectionLabel>Line Score</SectionLabel></Box>
-                  <LineScoreTable box={data.box} />
-                </Box>
                 <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
                   <TeamBoxSection team={data.box.away} onPlayerClick={selectPlayer} />
                 </Box>

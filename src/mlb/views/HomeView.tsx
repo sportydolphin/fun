@@ -144,7 +144,7 @@ function HomeSubNav({ tab, onChange }: {
 }) {
   const tabs: Array<{ value: 'league' | 'team'; label: string }> = [
     { value: 'league', label: 'Around the League' },
-    { value: 'team',   label: 'My Stuff' },
+    { value: 'team',   label: 'My Feed' },
   ]
   return (
     <Box sx={{

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, useTheme } from '@mui/material'
 import { CareerStatSplit, RecentGameEntry } from './types'
 import { ACCENT, CURRENT_SEASON, TEAM_BG } from './constants'
 import { fmtR, parseIP } from './utils'
@@ -48,6 +48,9 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
   const svgRef = useRef<SVGSVGElement>(null)
   const rafRef = useRef<number | null>(null)
   const hovIdxRef = useRef<number | null>(null)
+  // Background-colored halo behind on-chart text labels so they stay legible even
+  // where the trendline passes through them.
+  const labelHalo = { stroke: useTheme().palette.background.paper, strokeWidth: 3.5, strokeLinejoin: 'round', paintOrder: 'stroke' } as const
 
   // Fetch league-average OPS (hitters) or ERA (pitchers) for this season
   useEffect(() => {
@@ -170,7 +173,7 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
   useEffect(() => {
     const svg = svgRef.current
     if (!svg || !boxRef.current) return
-    const W_SVG = 560, M_L = 46, IW = W_SVG - M_L - 18
+    const W_SVG = 560, M_L = 42, IW = W_SVG - 42 - 16
     const handleTouch = (e: TouchEvent) => {
       e.preventDefault()
       const touch = e.touches[0] ?? e.changedTouches[0]
@@ -210,13 +213,15 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
   }
 
   const label     = isPitcher ? 'ERA' : 'OPS'
-  const lowerBetter = isPitcher
   const fmt       = isPitcher ? (v: number) => v.toFixed(2) : (v: number) => fmtR(v, 3)
   const currentPt = pts[pts.length - 1]
+  // A past season is finished — its trailing window is just the end of the year,
+  // not "recent form", so drop the "Last N games/starts" summary tile.
+  const seasonComplete = season < CURRENT_SEASON
 
-  // SVG layout
-  const W = 560, H = 200
-  const m = { t: 16, r: 18, b: 30, l: 46 }
+  // SVG layout — matches the career chart's tight gutters + taller body
+  const W = 560, H = 224
+  const m = { t: 18, r: 16, b: 30, l: 42 }
   const iW = W - m.l - m.r, iH = H - m.t - m.b
   const n = pts.length
 
@@ -227,16 +232,38 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
   const yPad = rng * 0.28
   const yMin = Math.max(0, lo - yPad), yMax = hi + yPad
 
+  // Line/area span the full plot width, right up to the axes.
   const sx = (i: number) => m.l + (n <= 1 ? iW / 2 : (i / (n - 1)) * iW)
   const sy = (v: number) => m.t + ((yMax - v) / (yMax - yMin)) * iH
 
   const gradId = `rolling-${isPitcher ? 'p' : 'h'}`
   const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(i).toFixed(1)},${sy(p.value).toFixed(1)}`).join(' ')
-  const fillPath = `${linePath} L${sx(n-1).toFixed(1)},${(m.t + iH).toFixed(1)} L${m.l.toFixed(1)},${(m.t + iH).toFixed(1)} Z`
+  const fillPath = `${linePath} L${sx(n-1).toFixed(1)},${(m.t + iH).toFixed(1)} L${sx(0).toFixed(1)},${(m.t + iH).toFixed(1)} Z`
 
-  // Sparse X-axis date labels (~6)
-  const xLabelCount = Math.min(6, n)
-  const xLabelIdxs  = Array.from({ length: xLabelCount }, (_, k) => Math.round(k * (n - 1) / Math.max(1, xLabelCount - 1)))
+  // X-axis ticks: one per calendar month (labeled "May", "Jun", …), placed at that
+  // month's first game. Markers jammed against either edge are dropped so labels
+  // never clip. If the span is too short for ≥2 month markers (a cup of coffee, or
+  // a scattered/injury-shortened year), fall back to a few edge-anchored dates.
+  const xTicks: Array<{ idx: number; label: string }> = (() => {
+    const monthFirsts: Array<{ idx: number; label: string }> = []
+    let lastKey = ''
+    pts.forEach((p, i) => {
+      const [y, mo] = p.date.split('-').map(Number)
+      const key = `${y}-${mo}`
+      if (key !== lastKey) { monthFirsts.push({ idx: i, label: MONTHS[mo - 1] }); lastKey = key }
+    })
+    // Drop month markers sitting within 4% of either end (avoids start/end clipping
+    // and the partial first month, while keeping legit early/late-month labels).
+    const pad = (n - 1) * 0.04
+    const monthTicks = monthFirsts.filter(t => t.idx >= pad && t.idx <= (n - 1) - pad)
+    if (monthTicks.length >= 2) return monthTicks
+    // Fallback for very short / sparse spans: up to 3 spaced date labels.
+    const count = Math.min(3, n)
+    return Array.from({ length: count }, (_, k) => {
+      const idx = Math.round(k * (n - 1) / Math.max(1, count - 1))
+      return { idx, label: fmtDate(pts[idx].date) }
+    })
+  })()
 
   // Y ticks — pick the step from a candidate list that gives ~6 lines
   const yTicks = (() => {
@@ -284,30 +311,32 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
     <Box>
       {/* Chart title */}
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 1.25 }}>
-        <Typography sx={{ fontWeight: 800, fontSize: '1.1rem', letterSpacing: '-0.01em' }}>
+        <Typography sx={{ fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.02em' }}>
           {label}
         </Typography>
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontWeight: 600 }}>
+        <Typography sx={{ fontSize: '1.5rem', color: 'text.secondary', fontWeight: 800, letterSpacing: '-0.02em' }}>
           {season}
         </Typography>
       </Box>
 
       {/* Summary row */}
       <Box sx={{ display: 'flex', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
-        <Box>
-          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>
-            {isPitcher && !isStarter ? `Last ${currentPt.ip != null ? currentPt.ip.toFixed(1) : '—'} IP` : `Last ${currentPt.size} ${isPitcher ? 'starts' : 'games'}`}
-          </Typography>
-          <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT, lineHeight: 1.2 }}>
-            {fmt(currentPt.value)}
-          </Typography>
-        </Box>
+        {!seasonComplete && (
+          <Box>
+            <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: 0.2, color: 'text.disabled' }}>
+              {isPitcher && !isStarter ? `Last ${currentPt.ip != null ? currentPt.ip.toFixed(1) : '—'} IP` : `Last ${currentPt.size} ${isPitcher ? 'starts' : 'games'}`}
+            </Typography>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT, lineHeight: 1.2 }}>
+              {fmt(currentPt.value)}
+            </Typography>
+          </Box>
+        )}
         {seasonStat.stat != null && (
           <Box>
-            <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>
+            <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: 0.2, color: 'text.disabled' }}>
               Season {label}
             </Typography>
-            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2, color: seasonComplete ? ACCENT : 'text.primary' }}>
               {fmt(seasonStat.stat)}
             </Typography>
           </Box>
@@ -352,32 +381,29 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
           {/* Fill */}
           <path d={fillPath} fill={`url(#${gradId})`} />
 
-          {/* League avg dashed line */}
-          {leagueAvg != null && (() => {
-            const y = sy(leagueAvg)
-            return (
-              <>
-                <line x1={m.l} y1={y} x2={m.l + iW} y2={y} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} />
-                <text x={m.l + 5} y={y - 5} fill="#f59e0b" fillOpacity={0.75} fontSize={9.5} fontWeight={700}>
-                  lg avg {fmt(leagueAvg)}
-                </text>
-              </>
-            )
-          })()}
+          {/* League avg dashed line (label drawn on top, later) */}
+          {leagueAvg != null && (
+            <line x1={m.l} y1={sy(leagueAvg)} x2={m.l + iW} y2={sy(leagueAvg)} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} />
+          )}
 
           {/* Line */}
           <path d={linePath} fill="none" stroke={ACCENT} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
 
-          {/* Dots — only show on hover, plus first and last */}
+          {/* Dots — only on hover; the line runs edge-to-edge with no endpoint markers */}
           {pts.map((p, i) => {
-            const isHov  = hovIdx === i
-            const isEdge = i === 0 || i === n - 1
-            if (!isHov && !isEdge) return null
+            if (hovIdx !== i) return null
             return (
-              <circle key={i} cx={sx(i)} cy={sy(p.value)} r={isHov ? 7 : 4}
-                fill={ACCENT} stroke="currentColor" strokeWidth={isHov ? 0 : 1.5} opacity={isHov ? 1 : 0.6} />
+              <circle key={i} cx={sx(i)} cy={sy(p.value)} r={7}
+                fill={ACCENT} stroke="currentColor" strokeWidth={0} opacity={1} />
             )
           })}
+
+          {/* League-avg label — drawn after the trendline so its halo sits on top */}
+          {leagueAvg != null && (
+            <text x={m.l + 5} y={sy(leagueAvg) - 5} fill="#f59e0b" fillOpacity={1} fontSize={10} fontWeight={700} {...labelHalo}>
+              lg avg {fmt(leagueAvg)}
+            </text>
+          )}
 
           {/* Axes */}
           <line x1={m.l} y1={m.t} x2={m.l} y2={m.t + iH} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1.5} />
@@ -387,21 +413,24 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
           {yTicks.map((v, i) => (
             <g key={i}>
               <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-              <text x={m.l - 7} y={sy(v) + 4} textAnchor="end" fill="currentColor" fillOpacity={0.88} fontSize={10} fontWeight={600}>
+              <text x={m.l - 8} y={sy(v) + 4} textAnchor="end" fill="currentColor" fillOpacity={0.9} fontSize={12.5} fontWeight={600}>
                 {fmt(v)}
               </text>
             </g>
           ))}
 
-          {/* X ticks (dates) */}
-          {xLabelIdxs.map(idx => (
-            <g key={idx}>
-              <line x1={sx(idx)} y1={m.t + iH} x2={sx(idx)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1} />
-              <text x={sx(idx)} y={m.t + iH + 16} textAnchor="middle" fill="currentColor" fillOpacity={0.7} fontSize={9.5}>
-                {fmtDate(pts[idx].date)}
-              </text>
-            </g>
-          ))}
+          {/* X ticks (month markers, or dates for short spans) */}
+          {xTicks.map(({ idx, label }) => {
+            const anchor = idx <= 0 ? 'start' : idx >= n - 1 ? 'end' : 'middle'
+            return (
+              <g key={idx}>
+                <line x1={sx(idx)} y1={m.t + iH} x2={sx(idx)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1} />
+                <text x={sx(idx)} y={m.t + iH + 18} textAnchor={anchor} fill="currentColor" fillOpacity={0.9} fontSize={12.5} fontWeight={600}>
+                  {label}
+                </text>
+              </g>
+            )
+          })}
         </svg>
 
         {/* Tooltip */}
@@ -438,8 +467,8 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
 
       <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.75 }}>
         {isPitcher && !isStarter
-          ? `${season} rolling ERA · each point = last ~${RP_IP_TARGET} innings (${currentPt.size} apps) · lower is better`
-          : `${season} rolling ${label} · each point = last ${isPitcher ? `${SP_WINDOW} starts` : `${HIT_WINDOW} games`}${lowerBetter ? ' · lower is better' : ''}`}
+          ? `${season} rolling ERA · each point = last ~${RP_IP_TARGET} innings (${currentPt.size} apps)`
+          : `${season} rolling ${label} · each point = last ${isPitcher ? `${SP_WINDOW} starts` : `${HIT_WINDOW} games`}`}
       </Typography>
     </Box>
   )
@@ -467,6 +496,9 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   const initGroup: 'hitting' | 'pitching' = (isPitcher && !isTwoWay) ? 'pitching' : 'hitting'
   const [group, setGroup] = useState<'hitting' | 'pitching'>(initGroup)
   const [statKey, setStatKey] = useState(initGroup === 'pitching' ? 'era' : 'ops')
+  // Background-colored halo behind on-chart text labels so they stay legible even
+  // where the trendline passes through them.
+  const labelHalo = { stroke: useTheme().palette.background.paper, strokeWidth: 3.5, strokeLinejoin: 'round', paintOrder: 'stroke' } as const
   const boxRef = useRef<HTMLDivElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const rafRef = useRef<number | null>(null)
@@ -525,7 +557,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   useEffect(() => {
     const svg = svgRef.current
     if (!svg || !boxRef.current) return
-    const W_SVG = 560, M_L = 56, IW = W_SVG - M_L - 22
+    const W_SVG = 560, M_L = 42, IW = W_SVG - 42 - 16
     const handleTouch = (e: TouchEvent) => {
       e.preventDefault()
       const touch = e.touches[0] ?? e.changedTouches[0]
@@ -637,9 +669,10 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   const fptsRaw = pts.filter(p => p.season >= effStart && p.season <= effEnd)
   const fpts = fptsRaw.length >= 2 ? fptsRaw : pts // fall back to all if range too narrow
 
-  // SVG layout — compact margins for mobile readability
-  const W = 560, H = 250
-  const m = { t: 24, r: 18, b: 34, l: 46 }
+  // SVG layout — tight gutters (just enough for the axis labels) with a taller
+  // body so the plot fills more of the card.
+  const W = 560, H = 272
+  const m = { t: 20, r: 16, b: 30, l: 42 }
   const iW = W - m.l - m.r, iH = H - m.t - m.b
   const n = fpts.length
   currentN.current = n        // keep touch handler in sync without re-registering
@@ -653,6 +686,8 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   const yPad = range * 0.28
   const yMin = Math.max(0, minVal - yPad), yMax = maxVal + yPad
 
+  // Line/area span the full plot width, right up to the axes. The endpoint dots
+  // are skipped below so nothing sits on top of the axis / y-axis numbers.
   const sx = (i: number) => m.l + (n === 1 ? iW / 2 : (i / (n - 1)) * iW)
   const sy = (v: number) => m.t + ((yMax - v) / (yMax - yMin)) * iH
 
@@ -683,7 +718,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   })
 
   // Fill area — uses full polyline regardless of short seasons (background only)
-  const fillD = `${fpts.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(i).toFixed(1)},${sy(p.value).toFixed(1)}`).join(' ')} L${sx(n - 1).toFixed(1)},${(m.t + iH).toFixed(1)} L${m.l.toFixed(1)},${(m.t + iH).toFixed(1)} Z`
+  const fillD = `${fpts.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(i).toFixed(1)},${sy(p.value).toFixed(1)}`).join(' ')} L${sx(n - 1).toFixed(1)},${(m.t + iH).toFixed(1)} L${sx(0).toFixed(1)},${(m.t + iH).toFixed(1)} Z`
 
   // Career avg for summary row (player's own weighted avg for rate stats, mean for counting)
   const statObjs = fpts.map(p => p.statObj)
@@ -828,21 +863,21 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
       <Box sx={{ display: 'flex', gap: 3, mb: 1.5, flexWrap: 'wrap' }}>
         {avg != null && (
           <Box>
-            <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>
+            <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: 0.2, color: 'text.disabled' }}>
               {currentDef.counting ? `Avg / yr` : `Career ${currentDef.label}`}
             </Typography>
             <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', color: ACCENT, lineHeight: 1.2 }}>{currentDef.fmt(avg)}</Typography>
           </Box>
         )}
         <Box>
-          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>Best season</Typography>
+          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: 0.2, color: 'text.disabled' }}>Best season</Typography>
           <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>
             {currentDef.fmt(fpts[bestIdx].isPace ? fpts[bestIdx].actual! : fpts[bestIdx].value)}
             <Typography component="span" sx={{ fontSize: '0.72rem', color: 'text.secondary', fontWeight: 600, ml: 0.75 }}>({fpts[bestIdx].season})</Typography>
           </Typography>
         </Box>
         <Box>
-          <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: 'text.disabled' }}>Seasons</Typography>
+          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: 0.2, color: 'text.disabled' }}>Seasons</Typography>
           <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', lineHeight: 1.2 }}>{n}</Typography>
         </Box>
       </Box>
@@ -883,32 +918,21 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
           {/* Fill */}
           <path d={fillD} fill={`url(#${gradId})`} />
 
-          {/* Horizontal avg line — counting stats only */}
+          {/* Horizontal avg line — counting stats only (label drawn on top, later) */}
           {showHorizAvg && (
-            <>
-              <line x1={m.l} y1={avgY} x2={m.l + iW} y2={avgY} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} />
-              <text x={m.l + 4} y={avgY - 6} fill="#f59e0b" fillOpacity={0.78} fontSize={10} fontWeight={700}>avg {currentDef.fmt(avg!)}</text>
-            </>
+            <line x1={m.l} y1={avgY} x2={m.l + iW} y2={avgY} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} />
           )}
 
-          {/* League avg line — rate stats, one point per season */}
-          {showLeagueAvgLine && (() => {
-            const lgPts = fpts.map((p, i) => {
-              const v = leagueAvgPts.get(p.season)
-              return v != null ? `${i === 0 || !fpts[i - 1] || leagueAvgPts.get(fpts[i - 1].season) == null ? 'M' : 'L'}${sx(i).toFixed(1)},${sy(v).toFixed(1)}` : null
-            }).filter(Boolean).join(' ')
-            const lastPt = [...fpts].reverse().find(p => leagueAvgPts.has(p.season))
-            const lastIdx = lastPt ? fpts.indexOf(lastPt) : -1
-            return (
-              <>
-                <path d={lgPts} fill="none" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} strokeLinejoin="round" />
-                {lastPt && lastIdx >= 0 && (
-                  <text x={sx(lastIdx) + 4} y={sy(leagueAvgPts.get(lastPt.season)!) - 5}
-                    fill="#f59e0b" fillOpacity={0.78} fontSize={9.5} fontWeight={700}>lg avg</text>
-                )}
-              </>
-            )
-          })()}
+          {/* League avg line — rate stats, one point per season (label drawn on top, later) */}
+          {showLeagueAvgLine && (
+            <path
+              d={fpts.map((p, i) => {
+                const v = leagueAvgPts.get(p.season)
+                return v != null ? `${i === 0 || !fpts[i - 1] || leagueAvgPts.get(fpts[i - 1].season) == null ? 'M' : 'L'}${sx(i).toFixed(1)},${sy(v).toFixed(1)}` : null
+              }).filter(Boolean).join(' ')}
+              fill="none" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="5 3" strokeOpacity={0.6} strokeLinejoin="round"
+            />
+          )}
 
           {/* Line — solid for normal seasons, dashed+faded when either endpoint is a short season */}
           {lineSegs.map((seg, i) => (
@@ -919,9 +943,12 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
             />
           ))}
 
-          {/* Dots */}
+          {/* Dots — endpoints touch the axes, so skip their static marker (the line
+              still reaches the axis; hover still shows a dot). */}
           {fpts.map((p, i) => {
             const isHov = hovIdx === i
+            const isEdge = i === 0 || i === n - 1
+            if (isEdge && !isHov) return null
             const isBest = i === bestIdx
             const short = isShort(p)
             const color = p.teamId ? (TEAM_BG[p.teamId] ?? ACCENT) : ACCENT
@@ -937,10 +964,27 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
             )
           })}
 
-          {/* Best season star annotation */}
+          {/* Avg / league-avg labels — drawn here (after the trendline) so their
+              halo sits on top of the line and stays legible. */}
+          {showHorizAvg && (
+            <text x={m.l + 4} y={avgY - 6} fill="#f59e0b" fillOpacity={1} fontSize={10.5} fontWeight={700} {...labelHalo}>avg {currentDef.fmt(avg!)}</text>
+          )}
+          {showLeagueAvgLine && (() => {
+            const lastPt = [...fpts].reverse().find(p => leagueAvgPts.has(p.season))
+            const lastIdx = lastPt ? fpts.indexOf(lastPt) : -1
+            if (!lastPt || lastIdx < 0) return null
+            return (
+              <text x={sx(lastIdx) - 4} y={sy(leagueAvgPts.get(lastPt.season)!) - 6}
+                textAnchor="end" fill="#f59e0b" fillOpacity={1} fontSize={10} fontWeight={700} {...labelHalo}>lg avg</text>
+            )
+          })()}
+
+          {/* Best season star annotation — anchor to the nearest edge so it never
+              runs past the y-axis when the best year is the first/last point */}
           {!hov && (
-            <text x={sx(bestIdx)} y={sy(fpts[bestIdx].value) - 13}
-              fill="currentColor" fillOpacity={0.55} fontSize={10} textAnchor="middle">★ {fpts[bestIdx].season}</text>
+            <text x={sx(bestIdx)} y={sy(fpts[bestIdx].value) - 14}
+              fill="currentColor" fillOpacity={0.6} fontSize={11.5} fontWeight={600}
+              textAnchor={bestIdx === 0 ? 'start' : bestIdx === n - 1 ? 'end' : 'middle'}>★ {fpts[bestIdx].season}</text>
           )}
 
           {/* Current-year pace label on the dot */}
@@ -949,8 +993,9 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
             if (paceIdx === -1 || hovIdx === paceIdx) return null
             const pp = fpts[paceIdx]
             return (
-              <text x={sx(paceIdx)} y={sy(pp.value) - 13}
-                fill={ACCENT} fillOpacity={0.8} fontSize={9.5} fontWeight={700} textAnchor="middle">
+              <text x={sx(paceIdx)} y={sy(pp.value) - 14}
+                fill={ACCENT} fillOpacity={0.85} fontSize={10.5} fontWeight={700}
+                textAnchor={paceIdx === n - 1 ? 'end' : paceIdx === 0 ? 'start' : 'middle'}>
                 ~{currentDef.fmt(pp.value)} pace
               </text>
             )
@@ -964,7 +1009,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
           {yTicks.map((v, i) => (
             <g key={i}>
               <line x1={m.l - 5} y1={sy(v)} x2={m.l} y2={sy(v)} stroke="currentColor" strokeOpacity={0.4} strokeWidth={1} />
-              <text x={m.l - 7} y={sy(v) + 4} textAnchor="end" fill="currentColor" fillOpacity={0.88} fontSize={10} fontWeight={600}>{currentDef.fmt(v)}</text>
+              <text x={m.l - 8} y={sy(v) + 4} textAnchor="end" fill="currentColor" fillOpacity={0.9} fontSize={12.5} fontWeight={600}>{currentDef.fmt(v)}</text>
             </g>
           ))}
 
@@ -972,7 +1017,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
           {fpts.map((p, i) => (
             <g key={p.season}>
               <line x1={sx(i)} y1={m.t + iH} x2={sx(i)} y2={m.t + iH + 5} stroke="currentColor" strokeOpacity={0.35} strokeWidth={1} />
-              <text x={sx(i)} y={m.t + iH + 16} textAnchor="middle" fill="currentColor" fillOpacity={0.88} fontSize={10.5} fontWeight={600}>
+              <text x={sx(i)} y={m.t + iH + 19} textAnchor="middle" fill="currentColor" fillOpacity={0.9} fontSize={12.5} fontWeight={600}>
                 '{String(p.season).slice(2)}
               </text>
             </g>
@@ -1046,12 +1091,6 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
           )
         })()}
       </Box>
-
-      {currentDef.lowerBetter && (
-        <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.75, textAlign: 'right' }}>
-          ↓ lower is better for {currentDef.label}
-        </Typography>
-      )}
 
       </>
       )}

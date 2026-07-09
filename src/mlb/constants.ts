@@ -125,6 +125,24 @@ export const BBREF_ABBR: Record<string, string> = {
   CWS: 'CHW', WSH: 'WSN', SF: 'SFG', KC: 'KCR', SD: 'SDP', TB: 'TBR',
 }
 
+// Team id → division code ('AL'/'NL' + 'E'/'C'/'W'). League = first two chars.
+// Used to order the scoreboard around the followed team (division rivals → same
+// league → other league).
+export const TEAM_DIVISION: Record<number, string> = {
+  // AL East
+  110: 'ALE', 111: 'ALE', 147: 'ALE', 139: 'ALE', 141: 'ALE',
+  // AL Central
+  145: 'ALC', 114: 'ALC', 116: 'ALC', 118: 'ALC', 142: 'ALC',
+  // AL West
+  117: 'ALW', 108: 'ALW', 133: 'ALW', 136: 'ALW', 140: 'ALW',
+  // NL East
+  144: 'NLE', 146: 'NLE', 121: 'NLE', 143: 'NLE', 120: 'NLE',
+  // NL Central
+  112: 'NLC', 113: 'NLC', 158: 'NLC', 134: 'NLC', 138: 'NLC',
+  // NL West
+  109: 'NLW', 115: 'NLW', 119: 'NLW', 135: 'NLW', 137: 'NLW',
+}
+
 // ─── Palette ─────────────────────────────────────────────────────────────────
 
 export const TEAM_BG: Record<number, string> = {

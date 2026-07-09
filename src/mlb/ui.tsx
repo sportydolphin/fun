@@ -131,13 +131,16 @@ export function StatItem({ label, value, playerId, leaderCategory, leaders, pale
   const bottomN = ids.length > 0 && ids.length <= 30 ? 5 : 20
   const inBottom = rank !== -1 && ids.length > 0 && rank >= ids.length - bottomN
 
-  let badge = ''
+  // Emoji + rank number are rendered separately so the emoji stays fully opaque
+  // (the translucent rank color would otherwise dim it).
+  let emoji = ''
+  let rankNum = 0
   if (rankMode !== 'none' && rank !== -1) {
     const showBadge = rankMode === 'all' || (rankMode === 'top5' && (inTop5 || inBottom))
     if (showBadge) {
-      if (inTop5) badge = `${poop ? '💩' : '🔥'} #${rank + 1}`
-      else if (inBottom) badge = `${poop ? '🔥' : '💩'} #${rank + 1}`
-      else badge = `#${rank + 1}`
+      rankNum = rank + 1
+      if (inTop5) emoji = poop ? '💩' : '🔥'
+      else if (inBottom) emoji = poop ? '🔥' : '💩'
     }
   }
 
@@ -158,14 +161,19 @@ export function StatItem({ label, value, playerId, leaderCategory, leaders, pale
         {value}
       </Typography>
       <Box sx={{ mt: 0.5, minHeight: '1.3rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {badge ? (
+        {rankNum > 0 ? (
           <Box sx={{
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 0.4,
             bgcolor: `${palette.rank}22`, borderRadius: 0.75,
             px: 0.75, py: 0.15,
           }}>
-            <Typography sx={{ color: palette.rank, fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.4, lineHeight: 1.4 }}>
-              {badge}
+            {emoji && (
+              <Typography component="span" sx={{ fontSize: '0.82rem', lineHeight: 1.4, opacity: 1 }}>
+                {emoji}
+              </Typography>
+            )}
+            <Typography component="span" sx={{ color: palette.rank, fontSize: '0.8rem', fontWeight: 800, letterSpacing: 0.4, lineHeight: 1.4 }}>
+              #{rankNum}
             </Typography>
           </Box>
         ) : null}
@@ -245,17 +253,28 @@ export interface StatGridProps {
   large?: boolean
   onToggle?: (key: string) => void
   mt?: number
+  bigYear?: boolean     // show the season year large & bright, without the group word
+  showHeader?: boolean  // false suppresses the header entirely (e.g. 2nd section of a two-way card)
 }
 
-export function StatGrid({ defs, stats, selected, palette, rankMode, playerId, leaders, season, label, large, onToggle, mt }: StatGridProps) {
+export function StatGrid({ defs, stats, selected, palette, rankMode, playerId, leaders, season, label, large, onToggle, mt, bigYear, showHeader = true }: StatGridProps) {
   const visible = defs.filter(d => selected.includes(d.key))
   if (!stats || visible.length === 0) return null
   const cols = statCols(visible.length)
   return (
     <Box sx={{ borderTop: `1px solid ${palette.divider}`, pt: 2.5, mt: mt ?? 0 }}>
-      <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2.5, mb: 2 }}>
-        {season} {label}
-      </Typography>
+      {showHeader && (bigYear ? (
+        <Typography sx={{
+          textAlign: 'center', color: palette.text, fontWeight: 800,
+          fontSize: large ? '1.5rem' : '1.2rem', letterSpacing: '-0.3px', lineHeight: 1, mb: 2,
+        }}>
+          {season}
+        </Typography>
+      ) : (
+        <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2.5, mb: 2 }}>
+          {season} {label}
+        </Typography>
+      ))}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
         {visible.map(def => (
           <Box
@@ -270,7 +289,9 @@ export function StatGrid({ defs, stats, selected, palette, rankMode, playerId, l
             }}
           >
             <StatItem
-              label={def.leaderLabel ?? def.label}
+              // W-L shows a "12-4" value, so use the short label here rather than
+              // the leaderboard's "Wins" (which ranks by wins alone).
+              label={def.key === 'wl' ? def.label : (def.leaderLabel ?? def.label)}
               value={def.format(def.getValue(stats))}
               playerId={playerId}
               leaderCategory={def.leaderCategory}
