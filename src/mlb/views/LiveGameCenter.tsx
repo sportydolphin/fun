@@ -76,8 +76,11 @@ async function fetchGameCenter(gamePk: number): Promise<GameCenterData | null> {
     const ls = ld.linescore ?? {}
 
     const abs = gd.status?.abstractGameState
+    // Warmup reports "Live" ~20 min before first pitch — treat as preview.
     const state: GameCenterData['state'] =
-      abs === 'Final' ? 'final' : abs === 'Live' ? 'live' : 'preview'
+      abs === 'Final' ? 'final'
+      : abs === 'Live' && gd.status?.detailedState !== 'Warmup' ? 'live'
+      : 'preview'
 
     const mkTeam = (side: 'home' | 'away'): GcTeam => {
       const t   = gd.teams?.[side] ?? {}

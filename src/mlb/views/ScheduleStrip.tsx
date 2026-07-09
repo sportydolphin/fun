@@ -23,6 +23,7 @@ export interface ScheduleGame {
   gamePk:        number
   date:          string
   gameTime:      string
+  gameDateISO:   string | null
   isHome:        boolean
   opponentId:    number
   opponentAbbr:  string
@@ -86,14 +87,17 @@ export async function fetchTeamSchedule(teamId: number): Promise<ScheduleGame[]>
       const mine   = isHome ? game.teams.home : game.teams.away
       const raw      = game.status?.abstractGameState ?? 'Preview'
       const detailed = game.status?.detailedState ?? ''
+      // StatsAPI flips abstractGameState to "Live" during warmup (~20 min before
+      // first pitch); only "In Progress" is really live.
       const state    = detailed === 'Postponed' ? 'postponed'
                      : raw === 'Final'          ? 'final'
-                     : raw === 'Live'           ? 'live'
+                     : raw === 'Live' && detailed !== 'Warmup' ? 'live'
                      : 'preview'
       games.push({
         gamePk:        game.gamePk,
         date:          dateObj.date,
         gameTime:      game.gameDate ? new Date(game.gameDate).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '',
+        gameDateISO:   game.gameDate ?? null,
         isHome,
         opponentId:    Number(opp?.team?.id ?? 0),
         opponentAbbr:  TEAM_ABBR[Number(opp?.team?.id ?? 0)] ?? '???',
@@ -595,6 +599,65 @@ function GamePreviewModal({ game, myTeamId, previewData, loading, onClose, onPla
   )
 }
 
+// ─── Countdown ────────────────────────────────────────────────────────────────
+
+// Ticks every second — cheap since at most one or two of these mount at a time.
+function useCountdownNow(): number {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1_000)
+    return () => clearInterval(id)
+  }, [])
+  return now
+}
+
+function GameCountdown({ iso }: { iso: string }) {
+  const targetMs = new Date(iso).getTime()
+  const now      = useCountdownNow()
+  const diffMs   = targetMs - now
+
+  if (diffMs <= 0) return null
+
+  const totalMin = Math.floor(diffMs / 60_000)
+  const days     = Math.floor(totalMin / 1440)
+  const hours    = Math.floor((totalMin % 1440) / 60)
+  const mins     = totalMin % 60
+  const secs     = Math.floor((diffMs % 60_000) / 1000)
+
+  const text =
+    days  > 0 ? `${days}d ${hours}h`
+    : hours > 0 ? `${hours}h ${mins}m`
+    : mins  > 0 ? `${mins}m`
+    : `${secs}s`
+
+  // far: >3h away (quiet) · soon: 3h–15m (accent) · imminent: <15m (warm + pulsing)
+  const urgency  = diffMs <= 15 * 60_000 ? 'imminent' : diffMs <= 3 * 3_600_000 ? 'soon' : 'far'
+  const tint     = urgency === 'imminent' ? '#f59e0b' : urgency === 'soon' ? ACCENT : undefined
+
+  return (
+    <Box sx={{
+      display: 'inline-flex', alignItems: 'center', gap: 0.4,
+      px: 0.6, py: '2px', borderRadius: 999, lineHeight: 1,
+      bgcolor: tint ? `${tint}18` : 'action.hover',
+      border: '1px solid', borderColor: tint ? `${tint}45` : 'divider',
+    }}>
+      {urgency === 'imminent' && (
+        <Box sx={{
+          width: 5, height: 5, borderRadius: '50%', bgcolor: tint, flexShrink: 0,
+          animation: 'countdownPulse 1.1s ease-in-out infinite',
+          '@keyframes countdownPulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.25 } },
+        }} />
+      )}
+      <Typography sx={{
+        fontSize: '0.62rem', fontWeight: 700, lineHeight: 1, whiteSpace: 'nowrap',
+        color: tint ?? 'text.disabled',
+      }}>
+        in {text}
+      </Typography>
+    </Box>
+  )
+}
+
 // ─── CompactGameCard ──────────────────────────────────────────────────────────
 // Compact single-game summary (last game OR next game header)
 
@@ -654,24 +717,29 @@ function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick }: {
       </Typography>
 
       {/* Score / time row — fixed minHeight so both FINAL and NEXT GAME rows are the same height */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: { xs: 0, sm: 0.25 }, minHeight: { xs: 26, sm: 32 } }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: { xs: 0, sm: 0.25 }, minHeight: { xs: 26, sm: 32 } }}>
         {(isFinal || isLive) && myTeamId ? (
-          // Two-logo layout: winner gets green ring, loser gets red ring
+          // Two halves mirroring CompactPerformerRow below, so each team's logo sits
+          // centered above its pitcher's logo. Winner gets green ring, loser red.
           <>
             {(() => {
               const awayWon = awayTeamId === myTeamId ? isWin : !isWin
-              return (
-                <>
-                  {logoCircle(awayTeamId, awayCol, 26, isFinal ? (awayWon ? '#22c55e' : '#ef4444') : undefined)}
+              const half = (teamId: number, col: string, score: number | null, won: boolean) => (
+                <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  {logoCircle(teamId, col, 26, isFinal ? (won ? '#22c55e' : '#ef4444') : undefined)}
                   <Typography sx={{
                     fontSize: { xs: '0.95rem', sm: '1.05rem' }, fontWeight: 800, lineHeight: 1,
                     color: isLive ? '#ef4444' : 'text.primary',
                   }}>
-                    {awayScore ?? 0}
-                    <Box component="span" sx={{ mx: 0.3, color: 'text.disabled', fontWeight: 300 }}>–</Box>
-                    {homeScore ?? 0}
+                    {score ?? 0}
                   </Typography>
-                  {logoCircle(homeTeamId, homeCol, 26, isFinal ? (awayWon ? '#ef4444' : '#22c55e') : undefined)}
+                </Box>
+              )
+              return (
+                <>
+                  {half(awayTeamId, awayCol, awayScore, awayWon)}
+                  <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>·</Typography>
+                  {half(homeTeamId, homeCol, homeScore, !awayWon)}
                 </>
               )
             })()}
@@ -688,10 +756,15 @@ function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick }: {
             </Typography>
           </>
         ) : (
-          // Preview / postponed: just the game time — team logos live in CompactPitcherRow below
-          <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: game.state === 'postponed' ? 'text.disabled' : 'text.primary', lineHeight: 1 }}>
-            {game.state === 'postponed' ? 'PPD' : game.gameTime}
-          </Typography>
+          // Preview / postponed: game time (+ live countdown) — team logos live in CompactPitcherRow below
+          <>
+            <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, color: game.state === 'postponed' ? 'text.disabled' : 'text.primary', lineHeight: 1 }}>
+              {game.state === 'postponed' ? 'PPD' : game.gameTime}
+            </Typography>
+            {game.state === 'preview' && game.gameDateISO && (
+              <GameCountdown iso={game.gameDateISO} />
+            )}
+          </>
         )}
       </Box>
 
@@ -955,13 +1028,17 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
 // ─── CompactPerformerRow ──────────────────────────────────────────────────────
 // Featured performers from a completed game — mirrors CompactPitcherRow layout
 
-function CompactPerformerRow({ finalDetails, onPlayerClick }: {
+function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick }: {
   finalDetails:   GameFinalDetails
+  awayTeamId?:    number   // when set, order pitchers away → home so logos align with the score row above
   onPlayerClick?: (id: number) => void
 }) {
-  const winner = finalDetails.winnerPitcher
-  const loser  = finalDetails.loserPitcher
-  if (!winner && !loser) return null
+  let first  = finalDetails.winnerPitcher
+  let second = finalDetails.loserPitcher
+  if (!first && !second) return null
+  if (awayTeamId != null && first && second && second.teamId === awayTeamId) {
+    [first, second] = [second, first]
+  }
 
   const PlayerCard = ({ player }: { player: NonNullable<GameFinalDetails['winnerPitcher']> }) => {
     const col = TEAM_BG[player.teamId] ?? '#444'
@@ -974,15 +1051,21 @@ function CompactPerformerRow({ finalDetails, onPlayerClick }: {
           '&:hover .pmn': onPlayerClick ? { color: ACCENT } : {},
         }}
       >
+        {/* 26px frame matches the score-row logo width so the circles share a center line */}
         <Box sx={{
-          width: 22, height: 22, borderRadius: '50%', bgcolor: '#fff',
-          border: `1.5px solid ${col}`, display: { xs: 'none', sm: 'flex' }, alignItems: 'center',
-          justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
+          width: 26, display: { xs: 'none', sm: 'flex' }, alignItems: 'center',
+          justifyContent: 'center', flexShrink: 0,
         }}>
-          <Box component="img"
-            src={`https://www.mlbstatic.com/team-logos/${player.teamId}.svg`}
-            sx={{ width: 15, height: 15, objectFit: 'contain' }}
-          />
+          <Box sx={{
+            width: 22, height: 22, borderRadius: '50%', bgcolor: '#fff',
+            border: `1.5px solid ${col}`, display: 'flex', alignItems: 'center',
+            justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
+          }}>
+            <Box component="img"
+              src={`https://www.mlbstatic.com/team-logos/${player.teamId}.svg`}
+              sx={{ width: 15, height: 15, objectFit: 'contain' }}
+            />
+          </Box>
         </Box>
         <Box sx={{ minWidth: 0 }}>
           <Typography className="pmn" sx={{
@@ -1002,11 +1085,11 @@ function CompactPerformerRow({ finalDetails, onPlayerClick }: {
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: { xs: 0.4, sm: 0.75 } }}>
-      {winner && <PlayerCard player={winner} />}
-      {winner && loser && (
+      {first && <PlayerCard player={first} />}
+      {first && second && (
         <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>·</Typography>
       )}
-      {loser && <PlayerCard player={loser} />}
+      {second && <PlayerCard player={second} />}
     </Box>
   )
 }
@@ -1043,13 +1126,14 @@ function BaseDiamond({ onFirst, onSecond, onThird }: {
 
 // ─── LiveGameCard ─────────────────────────────────────────────────────────────
 
-function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick, onTeamClick }: {
+function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick, onTeamClick, onOpenCenter }: {
   game:           ScheduleGame
   myTeamId:       number
   liveData:       LiveGameData | null
   loading:        boolean
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
+  onOpenCenter?:  () => void
 }) {
   const awayTeamId = game.isHome ? game.opponentId : myTeamId
   const homeTeamId = game.isHome ? myTeamId        : game.opponentId
@@ -1102,6 +1186,22 @@ function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick, onTeam
         <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', lineHeight: 1, fontWeight: 500 }}>
           {chipDate(game.date)} · {game.isHome ? 'vs' : '@'} {game.opponentAbbr}
         </Typography>
+        {onOpenCenter && (
+          <Box
+            onClick={onOpenCenter}
+            sx={{
+              ml: 'auto', flexShrink: 0,
+              fontSize: '0.55rem', fontWeight: 700, color: '#ef4444',
+              cursor: 'pointer', px: 0.9, py: 0.3,
+              borderRadius: 999, border: '1px solid', borderColor: '#ef444450',
+              whiteSpace: 'nowrap',
+              transition: 'background-color 0.12s, border-color 0.12s',
+              '&:hover': { bgcolor: '#ef444414', borderColor: '#ef4444' },
+            }}
+          >
+            Game Center →
+          </Box>
+        )}
       </Box>
 
       {/* Score row: [away logo] AWAY  X — Y  HOME [home logo] */}
@@ -1205,10 +1305,11 @@ function gameToFinalSummary(game: ScheduleGame, myTeamId: number): FinalGameSumm
   const awayId  = game.isHome ? game.opponentId : myTeamId
   const homeId  = game.isHome ? myTeamId        : game.opponentId
   const homeWon = game.isHome ? (game.isWin ?? false) : !(game.isWin ?? false)
+  const isLive  = game.state === 'live'
   return {
     gamePk:     game.gamePk,
-    state:      'final',
-    statusText: 'Final',
+    state:      isLive ? 'live' : 'final',
+    statusText: isLive ? 'Live' : 'Final',
     away:  { teamId: awayId, abbr: TEAM_ABBR[awayId] ?? '???', name: '', runs: game.isHome ? (game.opponentScore ?? 0) : (game.teamScore ?? 0), hits: 0, errors: 0, isWinner: !homeWon },
     home:  { teamId: homeId, abbr: TEAM_ABBR[homeId] ?? '???', name: '', runs: game.isHome ? (game.teamScore ?? 0) : (game.opponentScore ?? 0), hits: 0, errors: 0, isWinner: homeWon },
     winPitcher:  null,
@@ -1362,6 +1463,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
             loading={loadingLive}
             onPlayerClick={onPlayerClick}
             onTeamClick={onTeamClick}
+            onOpenCenter={() => setBoxScoreGame(gameToFinalSummary(nextGame, teamId))}
           />
         </Box>
       ) : (
@@ -1377,7 +1479,11 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
               >
                 <CompactGameCard game={lastGame!} myTeamId={teamId} label="Last Game" onTeamClick={onTeamClick} />
                 {lastFinalDetails && (
-                  <CompactPerformerRow finalDetails={lastFinalDetails} onPlayerClick={onPlayerClick} />
+                  <CompactPerformerRow
+                    finalDetails={lastFinalDetails}
+                    awayTeamId={lastGame!.isHome ? lastGame!.opponentId : teamId}
+                    onPlayerClick={onPlayerClick}
+                  />
                 )}
               </Box>
               <Box sx={{ width: { xs: 'auto', sm: '1px' }, height: { xs: '1px', sm: 'auto' }, bgcolor: 'divider', flexShrink: 0 }} />
@@ -1425,6 +1531,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
             {isFinal && finalDetails && (
               <CompactPerformerRow
                 finalDetails={finalDetails}
+                awayTeamId={nextGame.isHome ? nextGame.opponentId : teamId}
                 onPlayerClick={onPlayerClick}
               />
             )}

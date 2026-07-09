@@ -139,8 +139,12 @@ export async function fetchFinalGames(dateISO: string): Promise<FinalGameSummary
     for (const dateObj of d.dates ?? []) {
       for (const game of dateObj.games ?? []) {
         if (!SCORED_GAME_TYPES.has(game.gameType)) continue
-        const abs   = game.status?.abstractGameState
-        const state: GameState = abs === 'Final' ? 'final' : abs === 'Live' ? 'live' : 'preview'
+        const abs      = game.status?.abstractGameState
+        const detState = game.status?.detailedState ?? ''
+        // "Live" during Warmup (~20 min pre-first-pitch) isn't really live yet.
+        const state: GameState = abs === 'Final' ? 'final'
+          : abs === 'Live' && detState !== 'Warmup' ? 'live'
+          : 'preview'
         const ls    = game.linescore ?? {}
 
         const mkTeam = (side: 'home' | 'away'): FinalTeam => {
@@ -355,7 +359,12 @@ export function LiveDot({ size = 6 }: { size?: number }) {
 
 // ─── Mini score card (final / live / preview) ────────────────────────────────
 
-function FinalGameMiniCard({ game, onClick }: { game: FinalGameSummary; onClick?: () => void }) {
+function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
+  game:    FinalGameSummary
+  onClick?: () => void
+  wide?:    boolean          // fill the parent (grid cell) instead of fixed strip width
+  accent?:  string           // ring color to call out the followed team's game
+}) {
   const isPreview = game.state === 'preview'
   const isLive    = game.state === 'live'
   const statusColor = isLive ? '#ef4444' : 'text.disabled'
@@ -395,14 +404,16 @@ function FinalGameMiniCard({ game, onClick }: { game: FinalGameSummary; onClick?
     <Box
       onClick={onClick}
       sx={{
-        flexShrink: 0, width: 124,
-        borderRadius: 2, border: '1px solid', borderColor: 'divider',
+        flexShrink: 0, width: wide ? '100%' : 124, minWidth: 0,
+        borderRadius: 2, border: '1px solid',
+        borderColor: accent ? `${accent}70` : 'divider',
+        boxShadow: accent ? `0 0 0 1.5px ${accent}40` : 'none',
         bgcolor: 'background.paper', overflow: 'hidden',
         userSelect: 'none',
         transition: 'all 0.15s',
         ...(onClick ? {
           cursor: 'pointer',
-          '&:hover': { borderColor: 'text.secondary', transform: 'translateY(-2px)', boxShadow: '0 6px 18px rgba(0,0,0,0.18)' },
+          '&:hover': { borderColor: accent ?? 'text.secondary', transform: 'translateY(-2px)', boxShadow: '0 6px 18px rgba(0,0,0,0.18)' },
         } : {}),
       }}
     >
@@ -873,6 +884,116 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
   )
 }
 
+// ─── ScoreboardModal — all scores side by side ────────────────────────────────
+
+function ScoreboardModal({ dateISO, onDateChange, games, loading, followedTeamId, onGameClick, onClose, gameModalOpen }: {
+  dateISO:        string
+  onDateChange:   (iso: string) => void
+  games:          FinalGameSummary[]   // pre-sorted: followed team first
+  loading:        boolean
+  followedTeamId?: number | null
+  onGameClick:    (g: FinalGameSummary) => void
+  onClose:        () => void
+  gameModalOpen:  boolean              // a game modal is stacked on top — let it own Escape
+}) {
+  useEffect(() => {
+    if (gameModalOpen) return
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [onClose, gameModalOpen])
+
+  const isMine = (g: FinalGameSummary) =>
+    followedTeamId != null && (g.home.teamId === followedTeamId || g.away.teamId === followedTeamId)
+
+  return (
+    <Box
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      sx={{
+        position: 'fixed', inset: 0, zIndex: 1400,
+        bgcolor: 'rgba(0,0,0,0.55)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        p: { xs: 1, sm: 2.5 },
+      }}
+    >
+      <Box sx={{
+        bgcolor: 'background.paper', borderRadius: 3,
+        border: '1px solid', borderColor: 'divider',
+        width: '100%', maxWidth: 1000,
+        maxHeight: '90vh',
+        display: 'flex', flexDirection: 'column',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
+        overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <Box sx={{
+          px: { xs: 2, sm: 2.5 }, py: 1.5, borderBottom: '1px solid', borderColor: 'divider',
+          display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, flexWrap: 'wrap',
+        }}>
+          <Typography sx={{
+            fontWeight: 800, fontSize: '0.78rem', textTransform: 'uppercase',
+            letterSpacing: 1.4, color: 'text.secondary', lineHeight: 1,
+          }}>
+            Scores
+          </Typography>
+          {!loading && games.length > 0 && (
+            <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', lineHeight: 1 }}>
+              · {games.length} {games.length === 1 ? 'game' : 'games'}
+            </Typography>
+          )}
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <DateNav dateISO={dateISO} onChange={onDateChange} />
+            <Box
+              onClick={onClose}
+              sx={{
+                width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: 'text.disabled',
+                '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+              }}
+            >
+              <Typography sx={{ fontSize: '0.8rem', lineHeight: 1 }}>✕</Typography>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Grid of all games */}
+        <Box sx={{
+          overflowY: 'auto', flex: 1, minHeight: 0, p: { xs: 1.5, sm: 2 },
+          '&::-webkit-scrollbar': { width: 4 },
+          '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },
+        }}>
+          {loading ? (
+            <Box sx={{ py: 6, textAlign: 'center' }}>
+              <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>Loading…</Typography>
+            </Box>
+          ) : games.length === 0 ? (
+            <Box sx={{ py: 6, textAlign: 'center' }}>
+              <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No games scheduled on this date</Typography>
+            </Box>
+          ) : (
+            <Box sx={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(148px, 1fr))',
+              gap: 1.25,
+            }}>
+              {games.map(game => (
+                <FinalGameMiniCard
+                  key={game.gamePk}
+                  game={game}
+                  wide
+                  accent={isMine(game) ? (TEAM_BG[followedTeamId!] ?? undefined) : undefined}
+                  onClick={() => onGameClick(game)}
+                />
+              ))}
+            </Box>
+          )}
+        </Box>
+      </Box>
+    </Box>
+  )
+}
+
 // ─── FinalGamesSection ─────────────────────────────────────────────────────────
 
 export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }: {
@@ -884,6 +1005,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
   const [games,      setGames]      = useState<FinalGameSummary[]>([])
   const [loading,    setLoading]    = useState(true)
   const [openGame,   setOpenGame]   = useState<FinalGameSummary | null>(null)
+  const [expanded,   setExpanded]   = useState(false)
 
   // Once, on first load: if the default date has no games at all, drop back to yesterday.
   const autoFellBackRef = useRef(false)
@@ -938,8 +1060,20 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
               · {games.length} {games.length === 1 ? 'game' : 'games'}
             </Typography>
           )}
-          <Box sx={{ ml: 'auto' }}>
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <DateNav dateISO={dateISO} onChange={setDateISO} />
+            <Box
+              onClick={() => setExpanded(true)}
+              title="View all scores"
+              sx={{
+                width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: 'text.secondary',
+                '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+              }}
+            >
+              <Typography sx={{ fontSize: '0.85rem', lineHeight: 1 }}>⛶</Typography>
+            </Box>
           </Box>
         </Box>
 
@@ -969,6 +1103,19 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
           </Box>
         )}
       </Box>
+
+      {expanded && (
+        <ScoreboardModal
+          dateISO={dateISO}
+          onDateChange={setDateISO}
+          games={sortedGames}
+          loading={loading}
+          followedTeamId={followedTeamId}
+          onGameClick={setOpenGame}
+          onClose={() => setExpanded(false)}
+          gameModalOpen={openGame !== null}
+        />
+      )}
 
       {openGame && openGame.state === 'preview' ? (
         <GamePreviewModal

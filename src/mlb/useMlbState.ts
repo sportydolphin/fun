@@ -385,9 +385,13 @@ export function useMlbState() {
     setPalette(teamPalette(resolved.currentTeam?.id))
     const { seasons, teamsBySeason, teamIdsBySeason: tids } = careerData
     const isRetired = resolved.active === false
-    const initialSeason = isRetired && seasons.length > 0 ? seasons[0] : CURRENT_SEASON
+    // No stats this season (retired, injured, or hasn't played yet) → open on
+    // career view instead of an empty current-season page. `seasons` is sorted
+    // desc, so seasons[0] is the most recent season with stats.
+    const useCareer = isRetired || !seasons.includes(CURRENT_SEASON)
+    const initialSeason = useCareer && seasons.length > 0 ? seasons[0] : CURRENT_SEASON
     setPlayer(resolved)
-    setStatsView(isRetired ? 'career' : 'season')
+    setStatsView(useCareer ? 'career' : 'season')
     setHighlightedGameDate(null)
     setTeam(null)
     setTeamStanding(null)

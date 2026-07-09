@@ -26,13 +26,14 @@ async function fetchLiveTeamIds(): Promise<Set<number>> {
     const today = new Date().toISOString().split('T')[0]
     const r = await fetch(
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1&gameType=R&date=${today}` +
-      `&fields=dates,games,status,abstractGameState,teams,home,away,team,id`
+      `&fields=dates,games,status,abstractGameState,detailedState,teams,home,away,team,id`
     )
     const d = await r.json()
     const ids = new Set<number>()
     for (const dateObj of d.dates ?? []) {
       for (const game of dateObj.games ?? []) {
-        if (game.status?.abstractGameState === 'Live') {
+        // Warmup reports abstractGameState "Live" ~20 min before first pitch — skip it.
+        if (game.status?.abstractGameState === 'Live' && game.status?.detailedState !== 'Warmup') {
           const hid = game.teams?.home?.team?.id
           const aid = game.teams?.away?.team?.id
           if (hid) ids.add(Number(hid))
@@ -503,7 +504,7 @@ export function HomeView({
                   </Box>
 
                   {/* Predictor */}
-                  <PredictorWidget onTeamClick={onTeamClick ?? (() => {})} />
+                  <PredictorWidget />
 
                 </Box>
 
@@ -535,7 +536,7 @@ export function HomeView({
                   onFollow={onFollowPlayer}
                   liveTeamIds={liveTeamIds}
                 />
-                <PredictorWidget onTeamClick={onTeamClick ?? (() => {})} />
+                <PredictorWidget />
               </Box>
             )}
           </Box>

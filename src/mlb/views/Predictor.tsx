@@ -41,7 +41,9 @@ export async function fetchTodayGames(dateStr: string): Promise<TodayGame[]> {
         const ht      = g.teams?.home
         const at      = g.teams?.away
         const rawSt   = g.status?.abstractGameState ?? 'Preview'
-        const state   = rawSt === 'Final' ? 'final' : rawSt === 'Live' ? 'live' : 'preview' as TodayGame['state']
+        const detSt   = g.status?.detailedState ?? ''
+        // Warmup reports "Live" ~20 min early — keep it pickable until first pitch.
+        const state   = rawSt === 'Final' ? 'final' : rawSt === 'Live' && detSt !== 'Warmup' ? 'live' : 'preview' as TodayGame['state']
         const homeId  = Number(ht?.team?.id ?? 0)
         const awayId  = Number(at?.team?.id ?? 0)
         const homePId = ht?.probablePitcher?.id ? Number(ht.probablePitcher.id) : null
@@ -146,13 +148,12 @@ async function savePredToSb(userId: string, date: string, gamePk: number, teamId
 
 // ─── PredTeamSide ─────────────────────────────────────────────────────────────
 
-function PredTeamSide({ side, game, prediction, locked, onPick, onTeamNav }: {
+function PredTeamSide({ side, game, prediction, locked, onPick }: {
   side:        'away' | 'home'
   game:        TodayGame
   prediction:  number | null
   locked:      boolean
   onPick:      (teamId: number) => void
-  onTeamNav:   (teamId: number) => void
 }) {
   const team    = side === 'away' ? game.away : game.home
   const col     = TEAM_BG[team.teamId] ?? '#444'
@@ -210,13 +211,10 @@ function PredTeamSide({ side, game, prediction, locked, onPick, onTeamNav }: {
         />
       </Box>
 
-      {/* Team nickname — click navigates to team */}
+      {/* Team nickname */}
       <Typography
-        onClick={e => { e.stopPropagation(); onTeamNav(team.teamId) }}
         sx={{
           fontWeight: 700, fontSize: { xs: '0.75rem', sm: '0.88rem' }, lineHeight: 1.2, textAlign: 'center',
-          cursor: 'pointer', transition: 'color 0.12s',
-          '&:hover': { color: ACCENT },
         }}
       >
         {nickname}
@@ -245,11 +243,10 @@ function PredTeamSide({ side, game, prediction, locked, onPick, onTeamNav }: {
 
 // ─── PredictionCard ───────────────────────────────────────────────────────────
 
-function PredictionCard({ game, prediction, onPick, onTeamNav, gameVotes }: {
+function PredictionCard({ game, prediction, onPick, gameVotes }: {
   game:       TodayGame
   prediction: number | null
   onPick:     (teamId: number) => void
-  onTeamNav:  (teamId: number) => void
   gameVotes?: Record<number, number>  // teamId → count
 }) {
   const locked    = game.state !== 'preview'
@@ -283,11 +280,11 @@ function PredictionCard({ game, prediction, onPick, onTeamNav, gameVotes }: {
       </Box>
 
       <Box sx={{ p: 1, display: 'flex', gap: 0.5, alignItems: 'stretch' }}>
-        <PredTeamSide side="away" game={game} prediction={prediction} locked={locked} onPick={onPick} onTeamNav={onTeamNav} />
+        <PredTeamSide side="away" game={game} prediction={prediction} locked={locked} onPick={onPick} />
         <Box sx={{ display: 'flex', alignItems: 'center', px: 0.25 }}>
           <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', lineHeight: 1 }}>@</Typography>
         </Box>
-        <PredTeamSide side="home" game={game} prediction={prediction} locked={locked} onPick={onPick} onTeamNav={onTeamNav} />
+        <PredTeamSide side="home" game={game} prediction={prediction} locked={locked} onPick={onPick} />
       </Box>
 
       {/* Vote split bar */}
@@ -316,14 +313,13 @@ function PredictionCard({ game, prediction, onPick, onTeamNav, gameVotes }: {
 
 // ─── PredictorModal ───────────────────────────────────────────────────────────
 
-function PredictorModal({ open, games, predictions, allVotes, onPick, onClose, onTeamClick, isSignedIn }: {
+function PredictorModal({ open, games, predictions, allVotes, onPick, onClose, isSignedIn }: {
   open:          boolean
   games:         TodayGame[]
   predictions:   Record<number, number>
   allVotes:      Record<number, Record<number, number>>
   onPick:        (gamePk: number, teamId: number) => void
   onClose:       () => void
-  onTeamClick:   (id: number) => void
   isSignedIn:    boolean
 }) {
   useEffect(() => {
@@ -401,7 +397,6 @@ function PredictorModal({ open, games, predictions, allVotes, onPick, onClose, o
               game={game}
               prediction={predictions[game.gamePk] ?? null}
               onPick={teamId => onPick(game.gamePk, teamId)}
-              onTeamNav={id => { onClose(); onTeamClick(id) }}
               gameVotes={allVotes[game.gamePk]}
             />
           ))}
@@ -413,9 +408,7 @@ function PredictorModal({ open, games, predictions, allVotes, onPick, onClose, o
 
 // ─── PredictorWidget ──────────────────────────────────────────────────────────
 
-export function PredictorWidget({ onTeamClick }: {
-  onTeamClick: (id: number) => void
-}) {
+export function PredictorWidget() {
   const { user } = useAuth()
   const now   = new Date()
   const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
@@ -485,13 +478,16 @@ export function PredictorWidget({ onTeamClick }: {
     if (user) savePredToSb(user.id, today, gamePk, teamId).then(() => fetchVotesByGame(today).then(setAllVotes))
   }, [games, predictions, today, user])
 
-  const pickedCount  = Object.keys(predictions).length
-  const finalized    = games.filter(g => g.state === 'final' && predictions[g.gamePk] !== undefined)
-  const correctCount = finalized.filter(g => predictions[g.gamePk] === g.winnerId).length
-  const pct          = finalized.length ? Math.round(correctCount / finalized.length * 100) : null
-  const previewCount = games.filter(g => g.state === 'preview').length
-  const allDone      = games.length > 0 && games.every(g => g.state === 'final')
-  const canOpen      = !loading && games.length > 0
+  const pickedCount       = Object.keys(predictions).length
+  const finalized         = games.filter(g => g.state === 'final' && predictions[g.gamePk] !== undefined)
+  const correctCount      = finalized.filter(g => predictions[g.gamePk] === g.winnerId).length
+  const pct               = finalized.length ? Math.round(correctCount / finalized.length * 100) : null
+  const previewGames      = games.filter(g => g.state === 'preview')
+  const previewCount      = previewGames.length
+  const pickedPreviewCount = previewGames.filter(g => predictions[g.gamePk] !== undefined).length
+  const remainingCount    = previewCount - pickedPreviewCount
+  const allDone           = games.length > 0 && games.every(g => g.state === 'final')
+  const canOpen           = !loading && games.length > 0
 
   return (
     <>
@@ -549,10 +545,20 @@ export function PredictorWidget({ onTeamClick }: {
             <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>Loading today's schedule…</Typography>
           ) : games.length === 0 ? (
             <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No games today</Typography>
+          ) : previewCount > 0 && remainingCount > 0 ? (
+            <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
+              <Box component="span" sx={{ color: ACCENT, fontWeight: 800 }}>{remainingCount}</Box>
+              {' '}{remainingCount === 1 ? 'game' : 'games'} left to predict
+              {pickedPreviewCount > 0 && (
+                <Box component="span" sx={{ color: 'text.disabled', fontWeight: 400, fontSize: '0.78rem' }}>
+                  {' '}· {pickedPreviewCount}/{previewCount} done
+                </Box>
+              )}
+            </Typography>
           ) : previewCount > 0 ? (
             <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
-              <Box component="span" sx={{ color: ACCENT, fontWeight: 800 }}>{previewCount}</Box>
-              {' '}{previewCount === 1 ? 'game' : 'games'} to predict
+              <Box component="span" sx={{ color: '#22c55e', fontWeight: 800 }}>✓</Box>
+              {' '}All {previewCount === 1 ? 'prediction' : 'predictions'} made
             </Typography>
           ) : allDone && finalized.length > 0 ? (
             <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
@@ -581,7 +587,6 @@ export function PredictorWidget({ onTeamClick }: {
         allVotes={allVotes}
         onPick={handlePick}
         onClose={() => setModalOpen(false)}
-        onTeamClick={id => { setModalOpen(false); onTeamClick(id) }}
         isSignedIn={!!user}
       />
 
