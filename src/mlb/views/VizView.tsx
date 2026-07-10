@@ -119,7 +119,7 @@ export function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect }: {
 
 // ─── Mini card — top 3 rows + snarky labels ───────────────────────────────────
 
-export function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, rows, loading, onExpand, onSelectTeam }: Board & {
+export function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, rows, loading, onExpand, onSelectTeam }: Omit<Board, 'id'> & {
   onExpand: () => void
   onSelectTeam?: (id: number) => void
 }) {

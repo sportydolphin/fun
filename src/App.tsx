@@ -36,6 +36,15 @@ function navigate(to: string) {
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
+// Retired players: show the years they played (e.g. "2001–2019") instead of just "Retired".
+function retiredSpan(p: PlayerBridgeItem): string {
+  const debutYear = p.mlbDebutDate?.slice(0, 4)
+  const lastYear = p.lastPlayedDate?.slice(0, 4)
+  if (debutYear && lastYear) return `${debutYear}–${lastYear}`
+  if (debutYear) return `${debutYear}–`
+  return 'Retired'
+}
+
 const PROJECTS = [
   { label: 'MLB Stats',     emoji: '📊',  desc: 'Player stat card maker', path: '/mlb',      color: 'hsl(0,   68%, 42%)' },
   { label: 'Test Game',     emoji: '🐟',  desc: 'Watch the fish trade',   path: '/testgame', color: 'hsl(260, 58%, 50%)' },
@@ -413,7 +422,7 @@ function AppInner() {
                         const pos = p.primaryPosition?.abbreviation ?? p.primaryPosition?.name ?? ''
                         const teamAbbr = p.currentTeam?.id != null ? TEAM_ABBR[p.currentTeam.id as number] : undefined
                         const sub = p.active === false
-                          ? [pos, 'Retired'].filter(Boolean).join(' | ')
+                          ? [pos, retiredSpan(p)].filter(Boolean).join(' | ')
                           : [pos, teamAbbr].filter(Boolean).join(' | ')
                         return (
                           <React.Fragment key={`tbp-${p.id}`}>

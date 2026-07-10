@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback } from 'react'
-import { Box, useMediaQuery } from '@mui/material'
+import { Box, Typography, Popover, Tooltip, useMediaQuery } from '@mui/material'
+import { Settings } from '@mui/icons-material'
 import { useMlbState } from './mlb/useMlbState'
 import { SegControl } from './mlb/ui'
 import { Standings } from './mlb/Standings'
@@ -74,7 +75,15 @@ export default function MlbStats() {
   const containerMaxWidth = state.view === 'home' ? { xs: 640, md: 980 } : { xs: 640, md: 1280 }
 
   return (
-    <Box sx={{ maxWidth: containerMaxWidth, mx: 'auto' }}>
+    <Box sx={{ maxWidth: containerMaxWidth, mx: 'auto', position: 'relative' }}>
+
+      {/* Local-dev-only settings menu (never rendered in production builds) */}
+      {import.meta.env.DEV && (
+        <DevSettings
+          seasonSelectorStyle={state.seasonSelectorStyle}
+          setSeasonSelectorStyle={state.setSeasonSelectorStyle}
+        />
+      )}
 
       {/* Tab switcher — scrollable on mobile so tabs don't overflow the viewport */}
       <Box sx={{
@@ -123,7 +132,7 @@ export default function MlbStats() {
       )}
 
       {state.view === 'standings' && (
-        <Standings season={state.season} onTeamClick={state.handleVizNavigate} />
+        <Standings season={state.season} onTeamClick={state.handleVizNavigate} highlightTeamId={state.followedTeamId} />
       )}
 
       {state.view === 'viz' && (
@@ -166,6 +175,8 @@ export default function MlbStats() {
           setLbGroup={state.setLbGroup}
           vizSeason={state.vizSeason}
           setVizSeason={state.setVizSeason}
+          allTime={state.statsAllTime}
+          setAllTime={state.setStatsAllTime}
           lbData={state.lbData}
           lbFullscreen={state.lbFullscreen}
           setLbFullscreen={state.setLbFullscreen}
@@ -218,6 +229,7 @@ export default function MlbStats() {
           handleSeasonChange={state.handleSeasonChange}
           careerHittingTotals={state.careerHittingTotals}
           careerPitchingTotals={state.careerPitchingTotals}
+          seasonSelectorStyle={state.seasonSelectorStyle}
           hittingStats={state.hittingStats}
           pitchingStats={state.pitchingStats}
           teamHitting={state.teamHitting}
@@ -258,5 +270,55 @@ export default function MlbStats() {
       )}
 
     </Box>
+  )
+}
+
+// ─── Local-dev-only settings ──────────────────────────────────────────────────
+// Rendered only under import.meta.env.DEV. A small gear at the top-right opens a
+// menu of settings that only exist during local development.
+function DevSettings({ seasonSelectorStyle, setSeasonSelectorStyle }: {
+  seasonSelectorStyle: 'dropdown' | 'buttons'
+  setSeasonSelectorStyle: (s: 'dropdown' | 'buttons') => void
+}) {
+  const [anchor, setAnchor] = React.useState<HTMLElement | null>(null)
+  return (
+    <>
+      <Tooltip title="Dev settings (local only)">
+        <Box
+          onClick={e => setAnchor(e.currentTarget)}
+          sx={{
+            position: 'absolute', top: 0, right: 0, zIndex: 20,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 30, height: 30, borderRadius: '50%', cursor: 'pointer',
+            color: anchor ? 'warning.main' : 'text.disabled',
+            border: '1px solid', borderColor: anchor ? 'warning.main' : 'divider',
+            '&:hover': { color: 'warning.main', borderColor: 'warning.main' },
+            transition: 'color 0.15s, border-color 0.15s',
+          }}
+        >
+          <Settings sx={{ fontSize: '1rem' }} />
+        </Box>
+      </Tooltip>
+      <Popover
+        open={Boolean(anchor)}
+        anchorEl={anchor}
+        onClose={() => setAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        PaperProps={{ sx: { borderRadius: 2.5, p: 2, mt: 0.75, width: 260, boxShadow: '0 8px 32px rgba(0,0,0,0.14)' } }}
+      >
+        <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'warning.main', mb: 1.5 }}>
+          🛠 Dev Settings · local only
+        </Typography>
+        <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: 'text.secondary', mb: 0.75 }}>
+          Player-card season selector
+        </Typography>
+        <SegControl
+          options={[{ value: 'dropdown', label: 'Dropdown' }, { value: 'buttons', label: 'Buttons' }]}
+          value={seasonSelectorStyle}
+          onChange={v => setSeasonSelectorStyle(v as 'dropdown' | 'buttons')}
+        />
+      </Popover>
+    </>
   )
 }

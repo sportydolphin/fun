@@ -31,7 +31,7 @@ export interface CardInnerProps {
 }
 
 export function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pitLeaders, palette, season, teamDisplay, rankMode, showPosition, showTeam, showAge, showNumber, large, selectedHitStats, selectedPitStats, onToggleHitStat, onTogglePitStat }: CardInnerProps) {
-  const photoSize = large ? 200 : 120
+  const photoSize = large ? 190 : 108
   const hasHitting = hittingStats && HITTING_STAT_DEFS.some(d => selectedHitStats.includes(d.key))
 
   // Auto-show saves for closers/relievers who have them
@@ -42,6 +42,8 @@ export function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pit
       ? ['sv', ...selectedPitStats.filter(k => k !== 'wl')]  // pure reliever: swap W-L for SV
       : [...selectedPitStats, 'sv']
     : selectedPitStats
+  const hasPitching = pitchingStats && PITCHING_STAT_DEFS.some(d => effectivePitStats.includes(d.key))
+  const twoWay = hasHitting && hasPitching
 
   const subtitleParts: string[] = []
   if (showPosition && player.primaryPosition?.name) subtitleParts.push(player.primaryPosition.name)
@@ -49,53 +51,78 @@ export function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pit
   if (showAge && player.currentAge != null) subtitleParts.push(`Age ${player.currentAge}`)
   if (showNumber && player.primaryNumber) subtitleParts.push(`#${player.primaryNumber}`)
 
-  return (
-    <>
-      <Box sx={{ display: 'flex', justifyContent: 'center', mb: large ? 2.5 : 1.5 }}>
-        <Box sx={{
-          width: photoSize,
-          height: Math.round(photoSize * 1.2),
-          borderRadius: 3,
-          overflow: 'hidden',
-          border: `3px solid ${palette.text}`,
-          flexShrink: 0,
-          bgcolor: palette.divider,
-          backgroundImage: `url(${HEADSHOT(player.id)})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center 20%',
-        }} />
-      </Box>
+  const photo = (
+    <Box sx={{
+      width: photoSize,
+      height: Math.round(photoSize * 1.2),
+      borderRadius: 3,
+      overflow: 'hidden',
+      border: `3px solid ${palette.text}`,
+      flexShrink: 0,
+      bgcolor: palette.divider,
+      backgroundImage: `url(${HEADSHOT(player.id)})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center 20%',
+    }} />
+  )
 
+  const identityText = (
+    <>
       <Typography sx={{
-        textAlign: 'center', color: palette.text, fontWeight: 800,
-        fontSize: large ? { xs: '2rem', sm: '2.4rem' } : { xs: '1.3rem', sm: '1.6rem' },
-        lineHeight: 1.1, letterSpacing: '-0.3px', mb: 0.5,
+        color: palette.text, fontWeight: 800,
+        fontSize: large ? { xs: '2rem', sm: '2.4rem' } : { xs: '1.25rem', sm: '1.5rem' },
+        lineHeight: 1.05, letterSpacing: '-0.3px',
       }}>
         {player.fullName}
       </Typography>
 
-      {subtitleParts.length > 0 ? (
+      {subtitleParts.length > 0 && (
         <Typography sx={{
-          textAlign: 'center', color: palette.sub,
+          color: palette.sub,
           fontSize: large ? '1rem' : { xs: '0.75rem', sm: '0.82rem' },
-          fontWeight: 500, mb: large ? 3.5 : 2,
+          fontWeight: 500,
         }}>
           {subtitleParts.join(' · ')}
         </Typography>
-      ) : <Box sx={{ mb: large ? 3.5 : 2 }} />}
+      )}
+
+      {/* Season/Career — the big, prominent value the arrows & dropdown drive */}
+      <Typography data-card-year sx={{
+        color: palette.text, fontWeight: 900,
+        fontSize: large ? { xs: '2.2rem', sm: '2.6rem' } : { xs: '1.7rem', sm: '2rem' },
+        lineHeight: 1, letterSpacing: '-0.5px', mt: large ? 0.4 : 0.25,
+      }}>
+        {season}
+      </Typography>
+    </>
+  )
+
+  return (
+    <>
+      {/* Identity header — portrait on the left, name/subtitle/year stacked to the right.
+          The portrait always sits centered inside a fixed left-50% slot so its horizontal
+          position never shifts regardless of how many stat columns render below. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: large ? 2.5 : 2 }}>
+        <Box sx={{ width: '50%', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+          {photo}
+        </Box>
+        <Box sx={{ width: '50%', minWidth: 0, display: 'flex', flexDirection: 'column', gap: large ? 0.6 : 0.4, textAlign: 'center', px: large ? 1 : 0.5 }}>
+          {identityText}
+        </Box>
+      </Box>
 
       <StatGrid
         defs={HITTING_STAT_DEFS} stats={hittingStats} selected={selectedHitStats}
         palette={palette} rankMode={rankMode} playerId={player.id} leaders={hitLeaders}
         season={season} label="Hitting" large={large} onToggle={onToggleHitStat}
-        bigYear
+        showHeader={twoWay} sectionLabel="Hitting"
       />
       <StatGrid
         defs={PITCHING_STAT_DEFS} stats={pitchingStats} selected={effectivePitStats}
         palette={palette} rankMode={rankMode} playerId={player.id} leaders={pitLeaders}
         season={season} label="Pitching" large={large} onToggle={onTogglePitStat}
         mt={hasHitting ? 1 : 0}
-        bigYear showHeader={!hasHitting}
+        showHeader={twoWay} sectionLabel="Pitching"
       />
     </>
   )

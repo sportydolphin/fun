@@ -1,10 +1,10 @@
-import React, { useRef, useEffect, lazy, Suspense } from 'react'
+import React, { useRef, useEffect, useLayoutEffect, lazy, Suspense } from 'react'
 import {
   Box, Typography, Paper, CircularProgress,
   List, ListItemButton, Divider, ClickAwayListener,
   Popover, Menu, MenuItem, Tooltip, useMediaQuery,
 } from '@mui/material'
-import { Search, Shuffle, FileDownload, InfoOutlined, OpenInFull, Tune } from '@mui/icons-material'
+import { Search, Shuffle, FileDownload, InfoOutlined, OpenInFull, Tune, ChevronLeft, ChevronRight, MoreVert } from '@mui/icons-material'
 import html2canvas from 'html2canvas'
 import { Player, Team, Palette, RankMode, TeamPlayerStat, CareerStatSplit, RecentGameEntry, StandingsDivision } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG, TEAM_ABBR, BBREF_ABBR, DEFAULT_HIT_STATS, DEFAULT_PIT_STATS, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette } from '../constants'
@@ -58,6 +58,7 @@ export interface SearchViewProps {
   handleSeasonChange: (s: number) => void
   careerHittingTotals: any
   careerPitchingTotals: any
+  seasonSelectorStyle: 'dropdown' | 'buttons'
 
   // Stats
   hittingStats: any
@@ -111,7 +112,7 @@ export function SearchView({
   rankMode, setRankMode, showPosition, setShowPosition, showTeam, setShowTeam,
   showAge, setShowAge, showNumber, setShowNumber,
   statsView, setStatsView, currentAvailableSeasons, handleSeasonChange,
-  careerHittingTotals, careerPitchingTotals,
+  careerHittingTotals, careerPitchingTotals, seasonSelectorStyle,
   hittingStats, pitchingStats, teamHitting, teamPitching,
   selectedHitStats, setSelectedHitStats, selectedPitStats, setSelectedPitStats,
   selectedTeamHitStats, setSelectedTeamHitStats, selectedTeamPitStats, setSelectedTeamPitStats,
@@ -126,18 +127,44 @@ export function SearchView({
   const cardRef = useRef<HTMLDivElement>(null)
   const isMobile = !useMediaQuery('(min-width: 600px)')
   const [fullscreen, setFullscreen] = React.useState(false)
-  const [exportAnchor, setExportAnchor] = React.useState<HTMLElement | null>(null)
+  const [cardMenuAnchor, setCardMenuAnchor] = React.useState<HTMLElement | null>(null)
   const [downloading, setDownloading] = React.useState(false)
   const [cardOptionsAnchor, setCardOptionsAnchor] = React.useState<HTMLElement | null>(null)
   const [highlightedCareerYear, setHighlightedCareerYear] = React.useState<number | null>(null)
   const [careerTableOpen, setCareerTableOpen] = React.useState(true)
+
+  // Position of the card's year text (relative to the card's positioned wrap), so the
+  // prev/next-year arrows sit right beside the value they're changing — vertically
+  // centered on it and flanking it left/right — instead of pinned to the card edges.
+  const cardWrapRef = useRef<HTMLDivElement>(null)
+  const [yearRect, setYearRect] = React.useState<{ top: number; left: number; right: number } | null>(null)
+  useLayoutEffect(() => {
+    const wrap = cardWrapRef.current
+    if (!wrap) return
+    const measure = () => {
+      const yearEl = wrap.querySelector('[data-card-year]') as HTMLElement | null
+      if (!yearEl) { setYearRect(null); return }
+      const wr = wrap.getBoundingClientRect()
+      // The year text is centered inside a full-width block, so the element's own
+      // getBoundingClientRect() returns the whole (wide) box, not the digits — a Range
+      // over its text content gives the tight bounds of the actual rendered glyphs.
+      const range = document.createRange()
+      range.selectNodeContents(yearEl)
+      const yr = range.getBoundingClientRect()
+      setYearRect({ top: yr.top - wr.top + yr.height / 2, left: yr.left - wr.left, right: yr.right - wr.left })
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(wrap)
+    return () => ro.disconnect()
+  }, [player?.id, season, statsView, hasStats])
 
   // Reset career highlight when player changes
   useEffect(() => { setHighlightedCareerYear(null) }, [player?.id])
 
   const handleDownload = async (mode: 'centered' | 'tiktok') => {
     if (!cardRef.current) return
-    setExportAnchor(null)
+    setCardMenuAnchor(null)
     setDownloading(true)
     try {
       const imgEls = Array.from(cardRef.current.querySelectorAll<HTMLImageElement>('img'))
@@ -208,55 +235,86 @@ export function SearchView({
 
       {loadingStats && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress /></Box>}
 
-      {/* Unified season / career selector */}
-      {(hasStats || loadingStats) && (
-        <Box sx={{
-          display: 'flex', gap: 0.75, mb: 1.5, overflowX: 'auto', pb: 0.5,
-          msOverflowStyle: 'none', scrollbarWidth: 'none',
-          '&::-webkit-scrollbar': { display: 'none' },
-        }}>
-          {/* Career pill */}
-          {player && (careerHittingTotals != null || careerPitchingTotals != null) && (() => {
-            const active = statsView === 'career'
-            return (
-              <Box
-                onClick={() => setStatsView('career')}
-                sx={{
-                  flexShrink: 0, px: 1.5, py: 0.55, borderRadius: 999,
-                  cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700,
-                  userSelect: 'none', whiteSpace: 'nowrap',
-                  bgcolor: active ? ACCENT : 'transparent',
-                  color: active ? '#000' : 'text.secondary',
-                  border: '1.5px solid', borderColor: active ? ACCENT : 'divider',
-                  transition: 'all 0.15s',
-                }}
+      {/* Unified season / career selector — dropdown by default; year pills when the
+          dev setting flips it to 'buttons'. Career is always its own emphasized toggle. */}
+      {(hasStats || loadingStats) && (() => {
+        const hasCareer = player && (careerHittingTotals != null || careerPitchingTotals != null)
+        const careerActive = statsView === 'career'
+
+        const careerToggle = hasCareer && (
+          <Box
+            onClick={() => setStatsView('career')}
+            sx={{
+              flexShrink: 0, px: 1.6, py: 0.6, borderRadius: 999,
+              cursor: 'pointer', fontSize: '0.82rem', fontWeight: 800, letterSpacing: 0.2,
+              userSelect: 'none', whiteSpace: 'nowrap',
+              display: 'inline-flex', alignItems: 'center', gap: 0.5,
+              bgcolor: careerActive ? ACCENT : 'transparent',
+              color: careerActive ? '#000' : 'text.secondary',
+              border: '1.5px solid', borderColor: careerActive ? ACCENT : 'divider',
+              transition: 'all 0.15s',
+              '&:hover': careerActive ? {} : { borderColor: ACCENT, color: ACCENT },
+            }}
+          >
+            ★ Career
+          </Box>
+        )
+
+        if (seasonSelectorStyle === 'buttons') {
+          // Legacy pills (kept for the dev toggle)
+          return (
+            <Box sx={{
+              display: 'flex', justifyContent: 'center', gap: 0.75, mb: 1.5, overflowX: 'auto', pb: 0.5,
+              msOverflowStyle: 'none', scrollbarWidth: 'none',
+              '&::-webkit-scrollbar': { display: 'none' },
+            }}>
+              {careerToggle}
+              {currentAvailableSeasons.map(y => {
+                const active = statsView === 'season' && season === y
+                return (
+                  <Box key={y}
+                    onClick={() => { setStatsView('season'); handleSeasonChange(y) }}
+                    sx={{
+                      flexShrink: 0, px: 1.5, py: 0.55, borderRadius: 999,
+                      cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700,
+                      userSelect: 'none', whiteSpace: 'nowrap',
+                      bgcolor: active ? ACCENT : 'transparent',
+                      color: active ? '#000' : 'text.secondary',
+                      border: '1.5px solid', borderColor: active ? ACCENT : 'divider',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {y}
+                  </Box>
+                )
+              })}
+            </Box>
+          )
+        }
+
+        // Dropdown mode (default)
+        return (
+          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 1.5, alignItems: 'center' }}>
+            {careerToggle}
+            <Box sx={{
+              display: 'inline-flex', alignItems: 'center', borderRadius: 999,
+              border: '1.5px solid', borderColor: 'divider',
+              opacity: careerActive ? 0.55 : 1,
+              transition: 'opacity 0.15s, border-color 0.15s',
+              '&:focus-within': { borderColor: ACCENT },
+            }}>
+              <select
+                value={careerActive ? '' : String(season)}
+                onChange={e => { setStatsView('season'); handleSeasonChange(Number(e.target.value)) }}
+                style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer', color: 'inherit', padding: '6px 14px', borderRadius: 999, fontFamily: 'inherit' }}
               >
-                Career
-              </Box>
-            )
-          })()}
-          {/* Year pills */}
-          {currentAvailableSeasons.map(y => {
-            const active = statsView === 'season' && season === y
-            return (
-              <Box key={y}
-                onClick={() => { setStatsView('season'); handleSeasonChange(y) }}
-                sx={{
-                  flexShrink: 0, px: 1.5, py: 0.55, borderRadius: 999,
-                  cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700,
-                  userSelect: 'none', whiteSpace: 'nowrap',
-                  bgcolor: active ? ACCENT : 'transparent',
-                  color: active ? '#000' : 'text.secondary',
-                  border: '1.5px solid', borderColor: active ? ACCENT : 'divider',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {y}
-              </Box>
-            )
-          })}
-        </Box>
-      )}
+                {careerActive && <option value="" disabled>Jump to season…</option>}
+                {currentAvailableSeasons.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </Box>
+          </Box>
+        )
+      })()}
 
       {hasStats && (
         <Box sx={{
@@ -268,7 +326,7 @@ export function SearchView({
         }}>
           {/* Left column: card + actions */}
           <Box>
-            <Box sx={{ position: 'relative' }}>
+            <Box ref={cardWrapRef} sx={{ position: 'relative' }}>
               <Paper ref={cardRef} elevation={4} sx={{
                 borderRadius: 4, overflow: 'hidden', background: palette.bg,
                 transition: 'background 0.45s ease', p: { xs: 2, sm: 2.5 },
@@ -276,45 +334,83 @@ export function SearchView({
                 {playerCardProps && <CardInner {...playerCardProps} />}
                 {teamCardProps && <TeamCardInner {...teamCardProps} />}
               </Paper>
-              {/* Icon bar: download · options · fullscreen */}
-              <Box sx={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 0.5 }}>
-                {(() => {
-                  const iconBtnSx = {
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    p: 0.5, borderRadius: 1.5,
-                    bgcolor: 'rgba(0,0,0,0.22)', color: 'rgba(255,255,255,0.7)',
-                    cursor: 'pointer',
-                    '&:hover': { bgcolor: 'rgba(0,0,0,0.42)', color: '#fff' },
-                    transition: 'background 0.15s, color 0.15s',
-                  }
-                  return (<>
-                    <Tooltip title={downloading ? 'Saving…' : 'Download'}>
-                      <Box onClick={!downloading ? (e => setExportAnchor(e.currentTarget as HTMLElement)) : undefined} sx={{ ...iconBtnSx, opacity: downloading ? 0.55 : 1 }}>
-                        {downloading ? <CircularProgress size={13} sx={{ color: 'rgba(255,255,255,0.6)' }} /> : <FileDownload sx={{ fontSize: '0.88rem' }} />}
+              {/* Prev/next-year arrows — player season card only (hidden on career).
+                  Siblings of the Paper so they're excluded from the image export.
+                  Flank the big year title directly (yearRect), rather than pinning to
+                  the card's outer edges. */}
+              {playerCardProps && statsView === 'season' && yearRect != null && (() => {
+                const idx = currentAvailableSeasons.indexOf(season)
+                const olderYear = idx >= 0 && idx < currentAvailableSeasons.length - 1 ? currentAvailableSeasons[idx + 1] : null
+                const newerYear = idx > 0 ? currentAvailableSeasons[idx - 1] : null
+                const navBtnSx = {
+                  position: 'absolute' as const, top: `${yearRect.top}px`, transform: 'translateY(-50%)',
+                  zIndex: 2, width: 30, height: 30, borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  bgcolor: 'rgba(0,0,0,0.32)', color: '#fff', cursor: 'pointer',
+                  backdropFilter: 'blur(2px)',
+                  '&:hover': { bgcolor: 'rgba(0,0,0,0.55)' },
+                  transition: 'background 0.15s',
+                }
+                return (<>
+                  {olderYear != null && (
+                    <Tooltip title={`${olderYear} season`} placement="top">
+                      <Box onClick={() => handleSeasonChange(olderYear)} sx={{ ...navBtnSx, left: `${yearRect.left - 38}px` }}>
+                        <ChevronLeft sx={{ fontSize: '1.3rem' }} />
                       </Box>
                     </Tooltip>
-                    <Tooltip title="Options">
-                      <Box onClick={e => setCardOptionsAnchor(e.currentTarget as HTMLElement)} sx={{ ...iconBtnSx, bgcolor: cardOptionsAnchor ? 'rgba(0,0,0,0.42)' : 'rgba(0,0,0,0.22)' }}>
-                        <Tune sx={{ fontSize: '0.88rem' }} />
+                  )}
+                  {newerYear != null && (
+                    <Tooltip title={`${newerYear} season`} placement="top">
+                      <Box onClick={() => handleSeasonChange(newerYear)} sx={{ ...navBtnSx, left: `${yearRect.right + 8}px` }}>
+                        <ChevronRight sx={{ fontSize: '1.3rem' }} />
                       </Box>
                     </Tooltip>
-                    <Tooltip title="Fullscreen">
-                      <Box onClick={() => setFullscreen(true)} sx={iconBtnSx}>
-                        <OpenInFull sx={{ fontSize: '0.88rem' }} />
-                      </Box>
-                    </Tooltip>
-                  </>)
-                })()}
+                  )}
+                </>)
+              })()}
+              {/* Card actions — collapsed into a single ⋮ menu */}
+              <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
+                <Tooltip title={downloading ? 'Saving…' : 'Card options'}>
+                  <Box
+                    onClick={e => setCardMenuAnchor(e.currentTarget as HTMLElement)}
+                    sx={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      p: 0.5, borderRadius: 1.5,
+                      bgcolor: (cardMenuAnchor || cardOptionsAnchor) ? 'rgba(0,0,0,0.42)' : 'rgba(0,0,0,0.22)',
+                      color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
+                      '&:hover': { bgcolor: 'rgba(0,0,0,0.42)', color: '#fff' },
+                      transition: 'background 0.15s, color 0.15s',
+                    }}
+                  >
+                    {downloading ? <CircularProgress size={13} sx={{ color: 'rgba(255,255,255,0.6)' }} /> : <MoreVert sx={{ fontSize: '0.95rem' }} />}
+                  </Box>
+                </Tooltip>
               </Box>
-              {/* Export menu */}
+              {/* Actions menu */}
               <Menu
-                anchorEl={exportAnchor}
-                open={Boolean(exportAnchor)}
-                onClose={() => setExportAnchor(null)}
-                PaperProps={{ sx: { borderRadius: 2, mt: 0.5, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: 180 } }}
+                anchorEl={cardMenuAnchor}
+                open={Boolean(cardMenuAnchor)}
+                onClose={() => setCardMenuAnchor(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                PaperProps={{ sx: { borderRadius: 2, mt: 0.5, boxShadow: '0 8px 24px rgba(0,0,0,0.14)', minWidth: 190 } }}
               >
-                <MenuItem onClick={() => handleDownload('centered')} sx={{ fontSize: '0.85rem' }}>Download centered</MenuItem>
-                <MenuItem onClick={() => handleDownload('tiktok')} sx={{ fontSize: '0.85rem' }}>Download for TikTok</MenuItem>
+                <MenuItem
+                  onClick={() => { const el = cardMenuAnchor; setCardMenuAnchor(null); setCardOptionsAnchor(el) }}
+                  sx={{ fontSize: '0.85rem', gap: 1 }}
+                >
+                  <Tune sx={{ fontSize: '1rem' }} /> Customize card
+                </MenuItem>
+                <MenuItem onClick={() => { setCardMenuAnchor(null); setFullscreen(true) }} sx={{ fontSize: '0.85rem', gap: 1 }}>
+                  <OpenInFull sx={{ fontSize: '1rem' }} /> Fullscreen
+                </MenuItem>
+                <Divider />
+                <MenuItem disabled={downloading} onClick={() => handleDownload('centered')} sx={{ fontSize: '0.85rem', gap: 1 }}>
+                  <FileDownload sx={{ fontSize: '1rem' }} /> Download centered
+                </MenuItem>
+                <MenuItem disabled={downloading} onClick={() => handleDownload('tiktok')} sx={{ fontSize: '0.85rem', gap: 1 }}>
+                  <FileDownload sx={{ fontSize: '1rem' }} /> Download for TikTok
+                </MenuItem>
               </Menu>
               {/* Options popover */}
               <Popover
@@ -452,9 +548,6 @@ export function SearchView({
           {/* Right column: Trends + Recent Games (player) OR Featured Players (team) */}
           {showTrends && (
             <Box sx={{ mt: { xs: 2, md: 0 } }}>
-              <Box sx={{ mb: 1.25 }}>
-                <SectionLabel>Trends</SectionLabel>
-              </Box>
               {loadingCareer ? (
                 <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress size={22} /></Box>
               ) : (
@@ -522,7 +615,7 @@ export function SearchView({
                       '&:hover .rg-chevron': { color: 'text.primary' },
                     }}
                   >
-                    <SectionLabel>Recent Games</SectionLabel>
+                    <SectionLabel strong>Recent Games</SectionLabel>
                     <Box className="rg-chevron" sx={{
                       fontSize: '0.75rem', color: 'text.disabled',
                       transition: 'transform 0.18s, color 0.15s',
@@ -640,7 +733,7 @@ export function SearchView({
               cursor: 'pointer', userSelect: 'none',
             }}
           >
-            <SectionLabel>Recent Games</SectionLabel>
+            <SectionLabel strong>Recent Games</SectionLabel>
             <Box sx={{
               fontSize: '0.75rem', color: 'text.disabled',
               transition: 'transform 0.18s',

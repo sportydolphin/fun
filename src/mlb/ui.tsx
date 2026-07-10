@@ -102,9 +102,14 @@ export const linkPillSx = {
   '&:hover': { borderColor: ACCENT, color: ACCENT },
 }
 
-export function SectionLabel({ children }: { children: React.ReactNode }) {
+export function SectionLabel({ children, strong }: { children: React.ReactNode; strong?: boolean }) {
   return (
-    <Typography sx={{ fontSize: '0.63rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.8, color: 'text.disabled', mb: 1 }}>
+    <Typography sx={{
+      fontSize: strong ? '0.78rem' : '0.63rem',
+      fontWeight: strong ? 800 : 700,
+      textTransform: 'uppercase', letterSpacing: 1.8,
+      color: strong ? 'text.primary' : 'text.disabled', mb: 1,
+    }}>
       {children}
     </Typography>
   )
@@ -255,15 +260,20 @@ export interface StatGridProps {
   mt?: number
   bigYear?: boolean     // show the season year large & bright, without the group word
   showHeader?: boolean  // false suppresses the header entirely (e.g. 2nd section of a two-way card)
+  sectionLabel?: string // when set, header shows just this group label (no season) — used by the player card, which shows the year separately up top
 }
 
-export function StatGrid({ defs, stats, selected, palette, rankMode, playerId, leaders, season, label, large, onToggle, mt, bigYear, showHeader = true }: StatGridProps) {
+export function StatGrid({ defs, stats, selected, palette, rankMode, playerId, leaders, season, label, large, onToggle, mt, bigYear, showHeader = true, sectionLabel }: StatGridProps) {
   const visible = defs.filter(d => selected.includes(d.key))
   if (!stats || visible.length === 0) return null
   const cols = statCols(visible.length)
   return (
     <Box sx={{ borderTop: `1px solid ${palette.divider}`, pt: 2.5, mt: mt ?? 0 }}>
-      {showHeader && (bigYear ? (
+      {showHeader && (sectionLabel ? (
+        <Typography sx={{ textAlign: 'center', color: palette.rank, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2.5, mb: 2 }}>
+          {sectionLabel}
+        </Typography>
+      ) : bigYear ? (
         <Typography sx={{
           textAlign: 'center', color: palette.text, fontWeight: 800,
           fontSize: large ? '1.5rem' : '1.2rem', letterSpacing: '-0.3px', lineHeight: 1, mb: 2,

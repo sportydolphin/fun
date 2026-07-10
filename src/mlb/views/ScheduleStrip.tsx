@@ -17,6 +17,11 @@ function shortName(name: string) {
   return parts.length <= 1 ? name : `${parts[0][0]}. ${parts.slice(1).join(' ')}`
 }
 
+// Cap the two-half (away | home) rows so the second team/pitcher sits close to the
+// first instead of spreading to ~50% of the wide My-Feed column. Shared by the score
+// row, performer row, and pitcher row so their logos stay vertically aligned.
+const COMPACT_ROW_MAX = 240
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface ScheduleGame {
@@ -661,11 +666,13 @@ function GameCountdown({ iso }: { iso: string }) {
 // ─── CompactGameCard ──────────────────────────────────────────────────────────
 // Compact single-game summary (last game OR next game header)
 
-function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick }: {
+function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAction, onTeamClick }: {
   game:         ScheduleGame
   myTeamId?:    number
   label:        string
   labelColor?:  string
+  actionLabel?: string
+  onAction?:    () => void
   onTeamClick?: (id: number) => void
 }) {
   const isFinal = game.state === 'final'
@@ -706,40 +713,63 @@ function CompactGameCard({ game, myTeamId, label, labelColor, onTeamClick }: {
 
   return (
     <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: { xs: 0.35, sm: 0.75 } }}>
-      <Typography sx={{
-        fontSize: '0.52rem', fontWeight: 800, textTransform: 'uppercase',
-        letterSpacing: 1.5, color: labelColor ?? 'text.disabled', lineHeight: 1,
-      }}>
-        {label}
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+        <Typography sx={{
+          fontSize: '0.52rem', fontWeight: 800, textTransform: 'uppercase',
+          letterSpacing: 1.5, color: labelColor ?? 'text.disabled', lineHeight: 1,
+        }}>
+          {label}
+        </Typography>
+        {actionLabel && onAction && (
+          <Box
+            onClick={e => { e.stopPropagation(); onAction() }}
+            sx={{
+              flexShrink: 0,
+              fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled',
+              cursor: 'pointer', px: 0.9, py: 0.3,
+              borderRadius: 999, border: '1px solid', borderColor: 'divider',
+              whiteSpace: 'nowrap',
+              transition: 'color 0.12s, border-color 0.12s',
+              '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
+            }}
+          >
+            {actionLabel}
+          </Box>
+        )}
+      </Box>
       <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', lineHeight: 1, fontWeight: 500 }}>
         {chipDate(game.date)} · {game.isHome ? 'vs' : '@'} {game.opponentAbbr}
       </Typography>
 
       {/* Score / time row — fixed minHeight so both FINAL and NEXT GAME rows are the same height */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: { xs: 0, sm: 0.25 }, minHeight: { xs: 26, sm: 32 } }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: { xs: 0, sm: 0.25 }, minHeight: { xs: 26, sm: 32 }, maxWidth: COMPACT_ROW_MAX }}>
         {(isFinal || isLive) && myTeamId ? (
-          // Two halves mirroring CompactPerformerRow below, so each team's logo sits
-          // centered above its pitcher's logo. Winner gets green ring, loser red.
+          // Scoreboard-style, mirrored around the dash: away team → score – score ← home team,
+          // so the two scores sit adjacent to the dash instead of a logo sitting next to it.
           <>
             {(() => {
               const awayWon = awayTeamId === myTeamId ? isWin : !isWin
-              const half = (teamId: number, col: string, score: number | null, won: boolean) => (
-                <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                  {logoCircle(teamId, col, 26, isFinal ? (won ? '#22c55e' : '#ef4444') : undefined)}
-                  <Typography sx={{
-                    fontSize: { xs: '0.95rem', sm: '1.05rem' }, fontWeight: 800, lineHeight: 1,
-                    color: isLive ? '#ef4444' : 'text.primary',
-                  }}>
-                    {score ?? 0}
-                  </Typography>
-                </Box>
+              const scoreTxt = (score: number | null) => (
+                <Typography sx={{
+                  fontSize: { xs: '0.95rem', sm: '1.05rem' }, fontWeight: 800, lineHeight: 1,
+                  color: isLive ? '#ef4444' : 'text.primary',
+                }}>
+                  {score ?? 0}
+                </Typography>
               )
+              const logo = (teamId: number, col: string, won: boolean) =>
+                logoCircle(teamId, col, 26, isFinal ? (won ? '#22c55e' : '#ef4444') : undefined)
               return (
                 <>
-                  {half(awayTeamId, awayCol, awayScore, awayWon)}
-                  <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>·</Typography>
-                  {half(homeTeamId, homeCol, homeScore, !awayWon)}
+                  <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {logo(awayTeamId, awayCol, awayWon)}
+                    {scoreTxt(awayScore)}
+                  </Box>
+                  <Typography sx={{ fontSize: '0.85rem', fontWeight: 400, color: 'text.disabled', flexShrink: 0 }}>–</Typography>
+                  <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {scoreTxt(homeScore)}
+                    {logo(homeTeamId, homeCol, !awayWon)}
+                  </Box>
                 </>
               )
             })()}
@@ -983,7 +1013,7 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
       <Box
         onClick={e => { e.stopPropagation(); pitcher && onPlayerClick?.(pitcher.id) }}
         sx={{
-          flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75,
+          minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75,
           cursor: pitcher && onPlayerClick ? 'pointer' : 'default',
           '&:hover .pmn': pitcher && onPlayerClick ? { color: ACCENT } : {},
         }}
@@ -998,7 +1028,7 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
             sx={{ width: 15, height: 15, objectFit: 'contain' }}
           />
         </Box>
-        <Box sx={{ minWidth: 0 }}>
+        <Box sx={{ minWidth: 0, maxWidth: 96 }}>
           <Typography className="pmn" sx={{
             fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.2,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -1017,7 +1047,7 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
   }
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: { xs: 0.4, sm: 0.75 } }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: { xs: 0.4, sm: 0.75 }, maxWidth: COMPACT_ROW_MAX }}>
       <PitcherChip pitcher={awayPitcher} teamId={awayTeamId} />
       <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>vs</Typography>
       <PitcherChip pitcher={homePitcher} teamId={homeTeamId} />
@@ -1046,7 +1076,7 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick }: {
       <Box
         onClick={e => { e.stopPropagation(); onPlayerClick?.(player.id) }}
         sx={{
-          flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75,
+          minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75,
           cursor: onPlayerClick ? 'pointer' : 'default',
           '&:hover .pmn': onPlayerClick ? { color: ACCENT } : {},
         }}
@@ -1067,7 +1097,7 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick }: {
             />
           </Box>
         </Box>
-        <Box sx={{ minWidth: 0 }}>
+        <Box sx={{ minWidth: 0, maxWidth: 96 }}>
           <Typography className="pmn" sx={{
             fontSize: '0.72rem', fontWeight: 700, lineHeight: 1.2,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -1084,7 +1114,7 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick }: {
   }
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: { xs: 0.4, sm: 0.75 } }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: { xs: 0.4, sm: 0.75 }, maxWidth: COMPACT_ROW_MAX }}>
       {first && <PlayerCard player={first} />}
       {first && second && (
         <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>·</Typography>
@@ -1477,7 +1507,14 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
                 onClick={() => setBoxScoreGame(gameToFinalSummary(lastGame!, teamId))}
                 sx={{ flex: 1, minWidth: 0, cursor: 'pointer', pl: 2.5, pr: { xs: 2.5, sm: 1.5 }, pt: { xs: 0.75, sm: 1.25 }, pb: { xs: 0.75, sm: 1.5 }, transition: 'background-color 0.12s', '&:hover': { bgcolor: 'action.hover' } }}
               >
-                <CompactGameCard game={lastGame!} myTeamId={teamId} label="Last Game" onTeamClick={onTeamClick} />
+                <CompactGameCard
+                  game={lastGame!}
+                  myTeamId={teamId}
+                  label="Last Game"
+                  actionLabel="Recap →"
+                  onAction={() => setBoxScoreGame(gameToFinalSummary(lastGame!, teamId))}
+                  onTeamClick={onTeamClick}
+                />
                 {lastFinalDetails && (
                   <CompactPerformerRow
                     finalDetails={lastFinalDetails}
@@ -1516,6 +1553,14 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
               myTeamId={teamId}
               label={nextLabel}
               labelColor={nextLabelColor}
+              actionLabel={isPreview ? 'Preview →' : isFinal ? 'Recap →' : undefined}
+              onAction={
+                isPreview
+                  ? () => { setModalGame(nextGame); setModalPreview(previewData); setModalLoading(loadingPreview) }
+                  : isFinal
+                  ? () => setBoxScoreGame(gameToFinalSummary(nextGame, teamId))
+                  : undefined
+              }
               onTeamClick={onTeamClick}
             />
             {isPreview && (
@@ -1554,6 +1599,8 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
                   game={upcomingGame}
                   myTeamId={teamId}
                   label="Next Game"
+                  actionLabel="Preview →"
+                  onAction={() => { setModalGame(upcomingGame); setModalPreview(upcomingPreviewData); setModalLoading(loadingUpcoming) }}
                   onTeamClick={onTeamClick}
                 />
                 <CompactPitcherRow

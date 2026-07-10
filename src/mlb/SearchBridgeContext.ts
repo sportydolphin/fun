@@ -8,6 +8,8 @@ export interface PlayerBridgeItem {
   primaryPosition?: { abbreviation?: string; name?: string; code?: string }
   currentTeam?: { id?: number }
   active?: boolean
+  mlbDebutDate?: string
+  lastPlayedDate?: string
 }
 
 export interface TeamBridgeItem {

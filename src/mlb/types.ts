@@ -11,6 +11,8 @@ export interface Player {
   currentTeam?: { id: number; name: string }
   currentAge?: number
   primaryNumber?: string
+  mlbDebutDate?: string   // e.g. "2001-04-02" — used to show a career span for retired players
+  lastPlayedDate?: string // e.g. "2019-03-21"
 }
 
 export interface Team {

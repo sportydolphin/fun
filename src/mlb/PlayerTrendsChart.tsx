@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Box, Typography, useTheme } from '@mui/material'
+import { Box, Typography, useTheme, useMediaQuery } from '@mui/material'
 import { CareerStatSplit, RecentGameEntry } from './types'
 import { ACCENT, CURRENT_SEASON, TEAM_BG } from './constants'
 import { fmtR, parseIP } from './utils'
@@ -33,6 +33,24 @@ function fetchLeagueStatsBySeason(season: number, group: 'hitting' | 'pitching')
   return leagueStatsCache.get(key)!
 }
 
+// ─── Hover-tooltip anchoring (shared by both chart tooltips) ─────────────────
+//
+// Always anchored above the hovered/touched point — never below — per design:
+// a tooltip below the point gets covered by a finger on touch, and showing it
+// on one side sometimes and the other side other times reads as inconsistent.
+// The gap between the point and the tooltip differs by input: on touch, a
+// finger occludes a wide area around the contact point, so the tooltip needs
+// real clearance; a mouse cursor is a single pixel, so it can sit right above it.
+function tooltipAnchorSx(tipPos: { x: number; y: number }, canHover: boolean) {
+  const gapPx = canHover ? 10 : 40
+  const tipLeft = Math.min(Math.max(tipPos.x, 12), 82)
+  return {
+    left: `${tipLeft}%`,
+    top: `calc(${tipPos.y}% - ${gapPx}px)`,
+    transform: 'translate(-50%, -100%)',
+  } as const
+}
+
 // ─── Rolling window chart (current season) ───────────────────────────────────
 
 function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
@@ -41,6 +59,7 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
   season: number
   onGameSelect?: (date: string) => void
 }) {
+  const canHover = useMediaQuery('(hover: hover)')
   const [hovIdx, setHovIdx] = useState<number | null>(null)
   const [tipPos, setTipPos] = useState({ x: 0, y: 0 })
   const [leagueAvg, setLeagueAvg] = useState<number | null>(null)
@@ -433,16 +452,11 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
           })}
         </svg>
 
-        {/* Tooltip */}
-        {hov && (() => {
-          const tipLeft = Math.min(Math.max(tipPos.x, 12), 82)
-          const tipAbove = tipPos.y > 40
-          return (
+        {/* Tooltip — always above the hovered point (see tooltipAnchorSx) */}
+        {hov && (
             <Box sx={{
               position: 'absolute',
-              left: `${tipLeft}%`,
-              top: tipAbove ? `${tipPos.y - 16}%` : `${tipPos.y + 4}%`,
-              transform: tipAbove ? 'translate(-50%, -100%)' : 'translate(-50%, 8px)',
+              ...tooltipAnchorSx(tipPos, canHover),
               pointerEvents: 'none',
               bgcolor: 'background.paper', border: '1.5px solid', borderColor: 'divider',
               borderRadius: 2, px: 1.5, py: 1, boxShadow: '0 4px 18px rgba(0,0,0,0.13)',
@@ -461,8 +475,7 @@ function RollingWindowChart({ games, isPitcher, season, onGameSelect }: {
                   : `last ${hov.size} ${isPitcher ? 'starts' : 'games'}`}
               </Typography>
             </Box>
-          )
-        })()}
+        )}
       </Box>
 
       <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.75 }}>
@@ -493,6 +506,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   onGameSelect?: (date: string) => void
   onYearSelect?: (season: number) => void
 }) {
+  const canHover = useMediaQuery('(hover: hover)')
   const initGroup: 'hitting' | 'pitching' = (isPitcher && !isTwoWay) ? 'pitching' : 'hitting'
   const [group, setGroup] = useState<'hitting' | 'pitching'>(initGroup)
   const [statKey, setStatKey] = useState(initGroup === 'pitching' ? 'era' : 'ops')
@@ -1024,16 +1038,12 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
           ))}
         </svg>
 
-        {/* Tooltip */}
+        {/* Tooltip — always above the hovered point (see tooltipAnchorSx) */}
         {hov && (() => {
-          const tipLeft = Math.min(Math.max(tipPos.x, 12), 82)
-          const tipAbove = tipPos.y > 40
           return (
             <Box sx={{
               position: 'absolute',
-              left: `${tipLeft}%`,
-              top: tipAbove ? `${tipPos.y - 16}%` : `${tipPos.y + 4}%`,
-              transform: tipAbove ? 'translate(-50%, -100%)' : 'translate(-50%, 8px)',
+              ...tooltipAnchorSx(tipPos, canHover),
               pointerEvents: 'none',
               bgcolor: 'background.paper',
               border: '1.5px solid',

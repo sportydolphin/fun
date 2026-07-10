@@ -22,7 +22,7 @@ import {
 import {
   searchPlayers, fetchPlayerDetails, fetchStats,
   fetchCareerData, fetchAndRankPlayers, fetchAllTeams,
-  fetchTeamStats, fetchLeaderboardData, fetchTeamRankings,
+  fetchTeamStats, fetchLeaderboardData, fetchAllTimeLeaderboardData, fetchTeamRankings,
   fetchTeamSummaryData, fetchPlayerCareerStats, fetchRecentGames, fetchCareerStats,
   fetchTeamTopPlayers, fetchTeamStanding, fetchDivisionForTeam,
 } from './api'
@@ -218,6 +218,16 @@ export function useMlbState() {
   })
   const [vizSeason, setVizSeason] = useState(CURRENT_SEASON)
   const [vizDefaultTab, setVizDefaultTab] = useState<'graphs' | 'report-card'>('graphs')
+
+  // ─── Local-dev-only settings ────────────────────────────────────────────────
+  // Player-card season selector style: 'dropdown' (default) or 'buttons' (year pills).
+  // Toggled from the dev settings menu (rendered only when import.meta.env.DEV).
+  const [seasonSelectorStyle, setSeasonSelectorStyle] = useState<'dropdown' | 'buttons'>(() => {
+    try { return (localStorage.getItem('mlb_dev_season_selector') as 'dropdown' | 'buttons') || 'dropdown' } catch { return 'dropdown' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('mlb_dev_season_selector', seasonSelectorStyle) } catch {}
+  }, [seasonSelectorStyle])
   const [teamSummaries, setTeamSummaries] = useState<TeamSummary[]>([])
   const [loadingViz, setLoadingViz] = useState(false)
 
@@ -233,6 +243,11 @@ export function useMlbState() {
   const [lbFullscreen, setLbFullscreen] = useState<LbFullscreenState | null>(null)
   const [lbStatsLimit, setLbStatsLimit] = useState(50)
   const [lbQualified, setLbQualified] = useState(true)
+  // All-time (career) mode for the Stats tab only — kept separate from vizSeason so
+  // it never leaks into the Leaderboard/Viz tabs, which share vizSeason.
+  const [statsAllTime, setStatsAllTime] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('season') === 'all' } catch { return false }
+  })
 
   // ─── Career trends ────────────────────────────────────────────────────────────
   const [careerSplits, setCareerSplits] = useState<CareerStatSplit[] | null>(null)
@@ -302,10 +317,13 @@ export function useMlbState() {
     if (view !== 'leaderboard' && view !== 'stats') return
     setLoadingLb(true)
     setLbData(null)
-    fetchLeaderboardData(lbGroup, vizSeason)
+    const req = (view === 'stats' && statsAllTime)
+      ? fetchAllTimeLeaderboardData(lbGroup)
+      : fetchLeaderboardData(lbGroup, vizSeason)
+    req
       .then(setLbData)
       .finally(() => setLoadingLb(false))
-  }, [view, lbGroup, vizSeason])
+  }, [view, lbGroup, vizSeason, statsAllTime])
 
   // Reset to featured defaults whenever the leaderboard group switches
   useEffect(() => {
@@ -417,7 +435,10 @@ export function useMlbState() {
     }
   }, [])
 
-  const selectPlayer = useCallback(async (p: Player) => {
+  // `restore` lets a browser-history pop reopen the exact season/career view the
+  // user had active (rather than selectPlayer's normal "most sensible default")
+  // — see the popstate handler below, which is the only caller that passes it.
+  const selectPlayer = useCallback(async (p: Player, restore?: { season?: number; statsView?: 'season' | 'career' }) => {
     blockDropdownRef.current = true
     setDropdownOpen(false)
     setQuery(p.fullName)
@@ -431,14 +452,15 @@ export function useMlbState() {
       type: 'player', id: resolved.id, name: resolved.fullName,
       teamId: resolved.currentTeam?.id, position: resolved.primaryPosition?.abbreviation,
     })
-    setPalette(teamPalette(resolved.currentTeam?.id))
     const { seasons, teamsBySeason, teamIdsBySeason: tids } = careerData
     const isRetired = resolved.active === false
     // No stats this season (retired, injured, or hasn't played yet) → open on
     // career view instead of an empty current-season page. `seasons` is sorted
     // desc, so seasons[0] is the most recent season with stats.
-    const useCareer = isRetired || !seasons.includes(CURRENT_SEASON)
-    const initialSeason = useCareer && seasons.length > 0 ? seasons[0] : CURRENT_SEASON
+    const useCareer = restore?.statsView ? restore.statsView === 'career' : (isRetired || !seasons.includes(CURRENT_SEASON))
+    const initialSeason = restore?.season ?? (useCareer && seasons.length > 0 ? seasons[0] : CURRENT_SEASON)
+    const paletteTeamId = initialSeason === CURRENT_SEASON ? resolved.currentTeam?.id : (tids.get(initialSeason) ?? resolved.currentTeam?.id)
+    setPalette(teamPalette(paletteTeamId))
     setPlayer(resolved)
     setStatsView(useCareer ? 'career' : 'season')
     setHighlightedGameDate(null)
@@ -483,19 +505,39 @@ export function useMlbState() {
     }
   }, [player, team, loadStats, loadTeamStats, teamIdsBySeason])
 
-  const handleStatCardClick = useCallback((statKey: string, group: 'hitting' | 'pitching') => {
+  // Jump from a player-card stat to the Stats leaderboard, sorted by that stat and
+  // focused on the player. From a season card → that season's board; from the career
+  // card → the all-time board (the career pool holds the top ~100 per stat, so the
+  // player is auto-focused when they rank there and the board just shows otherwise).
+  const handleStatCardClick = useCallback((statKey: string, group: 'hitting' | 'pitching', allTime = false) => {
     const defs = group === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS
     const def  = defs.find(d => d.key === statKey) ?? defs[0]
+    // Enrich the CURRENT (about-to-be-left) history entry with everything needed to
+    // fully restore it — not just "which view", but the exact player/season/career
+    // toggle. This matters because popstate delivers the state of the entry you land
+    // ON, not the one you're leaving: if the user reached this player via one or more
+    // prior cross-link pushes, this entry's state up to now only described how to get
+    // back to WHATEVER screen came before the player was selected. replaceState here
+    // (before the pushState below creates the new 'stats' entry) fixes that so a
+    // single Back press from the stats leaderboard returns exactly to this player,
+    // same season, same season/career toggle — not further back in the chain.
+    if (player) {
+      window.history.replaceState(
+        { view: 'search', playerId: player.id, season, statsView },
+        '', window.location.href,
+      )
+    }
     window.history.pushState({ returnView: view, returnHomeTab: homeTab }, '', window.location.href)
     setView('stats')
     setLbGroup(group)
-    setVizSeason(season)
+    setStatsAllTime(allTime)
+    if (!allTime) setVizSeason(season)
     setLbFullscreen({ def, group, sortKey: statKey, sortAsc: def.lowerIsBetter ?? false, entries: [] })
     setLbQualified(true)
     setLbStatsLimit(500)
     setStatsHighlightPlayerId(player?.id ?? null)
     setStatsHighlightStatKey(statKey)
-  }, [player, season, view, homeTab])
+  }, [player, season, statsView, view, homeTab])
 
   const handleFollowedPlayerClick = useCallback((playerId: number) => {
     window.history.pushState({ returnView: view, returnHomeTab: homeTab }, '', window.location.href)
@@ -578,17 +620,32 @@ export function useMlbState() {
     params.set('view', view)
     if (view === 'leaderboard' || view === 'viz' || view === 'stats') {
       if (lbGroup !== 'hitting') params.set('lb', lbGroup)
-      if (vizSeason !== CURRENT_SEASON) params.set('season', String(vizSeason))
+      if (view === 'stats' && statsAllTime) params.set('season', 'all')
+      else if (vizSeason !== CURRENT_SEASON) params.set('season', String(vizSeason))
     }
     const qs = params.toString()
     // Preserve the existing history-entry state (e.g. returnView/returnHomeTab
     // pushed by a cross-link click) — replaceState only needs to touch the URL.
     window.history.replaceState(window.history.state, '', `/mlb${qs ? '?' + qs : ''}`)
-  }, [view, player, team, lbGroup, vizSeason])
+  }, [view, player, team, lbGroup, vizSeason, statsAllTime])
 
   // Restore state when the browser back button is pressed
   useEffect(() => {
     const handlePop = (e: PopStateEvent) => {
+      // Richest case: a self-describing search-view snapshot (see handleStatCardClick,
+      // which replaceStates this onto the entry right before pushing a stat-leaderboard
+      // jump). Restores the exact player + season + season/career toggle, not just the
+      // view — so Back from the stats leaderboard lands exactly back where you were.
+      if (e.state?.view === 'search' && e.state.playerId) {
+        setStatsHighlightPlayerId(null)
+        setStatsHighlightStatKey(null)
+        setView('search')
+        fetchPlayerDetails(e.state.playerId).then(p => {
+          if (p) selectPlayer(p, { season: e.state.season, statsView: e.state.statsView })
+        }).catch(() => {})
+        return
+      }
+
       // Most reliable: use the returnView we encoded in pushState
       if (e.state?.returnView) {
         const rv = e.state.returnView as string
@@ -674,7 +731,8 @@ export function useMlbState() {
       const lbParam = params.get('lb')
       if (lbParam === 'pitching') setLbGroup('pitching')
       const seasonParam = params.get('season')
-      if (seasonParam) setVizSeason(Number(seasonParam))
+      if (seasonParam === 'all') setStatsAllTime(true)
+      else if (seasonParam) setVizSeason(Number(seasonParam))
     }
 
     const pid = params.get('pid')
@@ -742,8 +800,8 @@ export function useMlbState() {
     palette, season: statsView === 'career' ? 'Career' : season,
     teamDisplay, rankMode, showPosition, showTeam, showAge, showNumber,
     selectedHitStats, selectedPitStats,
-    onToggleHitStat: statsView === 'season' ? (key: string) => handleStatCardClick(key, 'hitting') : undefined,
-    onTogglePitStat: statsView === 'season' ? (key: string) => handleStatCardClick(key, 'pitching') : undefined,
+    onToggleHitStat: (key: string) => handleStatCardClick(key, 'hitting', statsView === 'career'),
+    onTogglePitStat: (key: string) => handleStatCardClick(key, 'pitching', statsView === 'career'),
   } : null
 
   const teamCardProps: TeamCardInnerProps | null = team ? {
@@ -811,6 +869,7 @@ export function useMlbState() {
     view, setView,
     vizSeason, setVizSeason,
     vizDefaultTab, setVizDefaultTab,
+    seasonSelectorStyle, setSeasonSelectorStyle,
     teamSummaries, loadingViz,
     handleVizNavigate,
 
@@ -821,6 +880,7 @@ export function useMlbState() {
     lbFullscreen, setLbFullscreen,
     lbStatsLimit, setLbStatsLimit,
     lbQualified, setLbQualified,
+    statsAllTime, setStatsAllTime,
     handleLbPlayerClick,
 
     // Career trends

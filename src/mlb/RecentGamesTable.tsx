@@ -74,6 +74,7 @@ const HIT_COLS: ColDef[] = [
 const PIT_COLS: ColDef[] = [
   { h: 'Dec', cell: s => <DecBadge s={s} /> },
   { h: 'IP',  cell: s => <Num v={s?.inningsPitched ?? null} /> },
+  { h: 'P',   cell: s => <Num v={s?.numberOfPitches ?? s?.pitchesThrown ?? null} /> },
   { h: 'H',   cell: s => <Num v={s?.hits ?? null} /> },
   { h: 'ER',  cell: s => <Num v={s?.earnedRuns ?? null}  warn={Number(s?.earnedRuns) >= 4} /> },
   { h: 'BB',  cell: s => <Num v={s?.baseOnBalls ?? null} /> },
@@ -82,11 +83,11 @@ const PIT_COLS: ColDef[] = [
 
 const thSx = {
   py: '7px', px: { xs: '4px', sm: '14px' },
-  fontSize: { xs: '0.56rem', sm: '0.6rem' }, fontWeight: 700,
-  letterSpacing: '0.4px', textTransform: 'uppercase' as const,
+  fontSize: { xs: '0.6rem', sm: '0.66rem' }, fontWeight: 800,
+  letterSpacing: '0.5px', textTransform: 'uppercase' as const,
   whiteSpace: 'nowrap' as const, userSelect: 'none' as const,
-  color: 'text.disabled',
-  borderBottom: '1px solid', borderColor: 'divider',
+  color: 'text.primary',
+  borderBottom: '2px solid', borderColor: 'divider',
 }
 
 const tdSx = {

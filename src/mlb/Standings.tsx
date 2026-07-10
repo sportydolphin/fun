@@ -106,10 +106,11 @@ const hiddenXs = { display: { xs: 'none', sm: 'table-cell' } }
 
 // ─── Division card ────────────────────────────────────────────────────────────
 
-function DivisionCard({ division, wcIds, onTeamClick }: {
+function DivisionCard({ division, wcIds, onTeamClick, highlightTeamId }: {
   division: StandingsDivision
   wcIds: Set<number>
   onTeamClick?: (teamId: number) => void
+  highlightTeamId?: number | null
 }) {
   const teams = [...division.teams].sort((a, b) => a.divisionRank - b.divisionRank)
 
@@ -148,7 +149,9 @@ function DivisionCard({ division, wcIds, onTeamClick }: {
             const teamColor = TEAM_BG[t.teamId] ?? '#666'
             const notLast = i < teams.length - 1
             const isSepRow = showSeparator && i === lastPlayoffIdx
+            const isMine = highlightTeamId != null && t.teamId === highlightTeamId
             const borderSx = { borderBottom: notLast ? '1px solid' : 'none', borderColor: 'divider' }
+            const highlightSx = isMine ? { bgcolor: `${teamColor}22` } : undefined
             const clickable = !!onTeamClick
 
             return (
@@ -158,14 +161,16 @@ function DivisionCard({ division, wcIds, onTeamClick }: {
                   onClick={() => onTeamClick?.(t.teamId)}
                   sx={{
                     cursor: clickable ? 'pointer' : 'default',
+                    '& > td': highlightSx,
                     '&:hover > td': { bgcolor: clickable ? 'action.hover' : undefined },
                     transition: 'background 0.12s',
                   }}
                 >
                   {/* Team cell */}
                   <Box component="td" sx={{
-                    ...tdSx, ...borderSx, textAlign: 'left', pl: '9px',
+                    ...tdSx, ...borderSx, ...highlightSx, textAlign: 'left', pl: '9px',
                     borderLeft: `3px solid ${teamColor}`,
+                    fontWeight: isMine ? 800 : undefined,
                   }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <TeamLogo teamId={t.teamId} abbr={t.abbr} />
@@ -203,12 +208,13 @@ function DivisionCard({ division, wcIds, onTeamClick }: {
 
 // ─── League section ───────────────────────────────────────────────────────────
 
-function LeagueSection({ label, order, leagueId, divisions, onTeamClick }: {
+function LeagueSection({ label, order, leagueId, divisions, onTeamClick, highlightTeamId }: {
   label: string
   order: number[]
   leagueId: number
   divisions: StandingsDivision[]
   onTeamClick?: (teamId: number) => void
+  highlightTeamId?: number | null
 }) {
   const wcIds = computeWildCardIds(divisions, leagueId)
   const sorted = order
@@ -224,7 +230,7 @@ function LeagueSection({ label, order, leagueId, divisions, onTeamClick }: {
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(3, 1fr)' }, gap: 2 }}>
         {sorted.map(div => (
-          <DivisionCard key={div.divisionId} division={div} wcIds={wcIds} onTeamClick={onTeamClick} />
+          <DivisionCard key={div.divisionId} division={div} wcIds={wcIds} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />
         ))}
       </Box>
     </Box>
@@ -233,13 +239,24 @@ function LeagueSection({ label, order, leagueId, divisions, onTeamClick }: {
 
 // ─── Playoff picture ──────────────────────────────────────────────────────────
 
-function PlayoffTeamRow({ team, label, gb, isIn, isLast, showSep, onTeamClick }: {
-  team: StandingsTeamRecord; label?: React.ReactNode; gb?: string
+// Games back from the wild-card cutoff (the 3rd/last-in team). Positive = ahead of
+// the line, negative = behind, "-" = the cutoff itself, so the column always fills.
+function fmtWcGap(gap: number): string {
+  if (gap === 0) return '-'
+  const s = Math.abs(gap).toFixed(1).replace(/\.0$/, '')
+  return gap > 0 ? `+${s}` : `-${s}`
+}
+
+function PlayoffTeamRow({ team, gbText, isIn, isLast, showSep, onTeamClick, highlightTeamId }: {
+  team: StandingsTeamRecord; gbText: string
   isIn: boolean; isLast: boolean; showSep: boolean
   onTeamClick?: (teamId: number) => void
+  highlightTeamId?: number | null
 }) {
   const teamColor = TEAM_BG[team.teamId] ?? '#666'
   const clickable = !!onTeamClick
+  const isMine = highlightTeamId != null && team.teamId === highlightTeamId
+  const gapNum = parseFloat(gbText)
 
   return (
     <>
@@ -250,15 +267,18 @@ function PlayoffTeamRow({ team, label, gb, isIn, isLast, showSep, onTeamClick }:
           px: 1.5, py: '9px',
           borderBottom: isLast ? 'none' : '1px solid', borderColor: 'divider',
           borderLeft: `3px solid ${teamColor}`,
-          opacity: isIn ? 1 : 0.6,
+          bgcolor: isMine ? `${teamColor}22` : undefined,
           cursor: clickable ? 'pointer' : 'default',
           '&:hover': { bgcolor: clickable ? 'action.hover' : undefined },
           transition: 'background 0.12s',
         }}
       >
-        <TeamLogo teamId={team.teamId} abbr={team.abbr} />
+        {/* Only the logo dims for teams outside the top 3 — everything else stays fully visible */}
+        <Box sx={{ display: 'flex', opacity: isIn ? 1 : 0.35 }}>
+          <TeamLogo teamId={team.teamId} abbr={team.abbr} />
+        </Box>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontSize: '0.84rem', fontWeight: 700, lineHeight: 1.2 }}>{team.abbr}</Typography>
+          <Typography sx={{ fontSize: '0.84rem', fontWeight: isMine ? 800 : 700, lineHeight: 1.2 }}>{team.abbr}</Typography>
           <Typography sx={{ fontSize: '0.61rem', color: 'text.disabled', lineHeight: 1.2, display: { xs: 'none', sm: 'block' } }}>
             {team.teamName}
           </Typography>
@@ -269,11 +289,13 @@ function PlayoffTeamRow({ team, label, gb, isIn, isLast, showSep, onTeamClick }:
         <Typography sx={{ fontSize: '0.75rem', color: 'text.disabled', minWidth: 34, textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
           {team.pct}
         </Typography>
-        {/* Badge or GB */}
+        {/* Games back from the wild-card line */}
         <Box sx={{ minWidth: 60, textAlign: 'right' }}>
-          {label ?? (
-            <Typography sx={{ fontSize: '0.75rem', color: 'text.disabled', fontWeight: 600 }}>{gb}</Typography>
-          )}
+          <Typography sx={{
+            fontSize: '0.75rem', fontWeight: 700,
+            fontVariantNumeric: 'tabular-nums',
+            color: gapNum > 0 ? '#22c55e' : gapNum < 0 ? '#ef4444' : 'text.disabled',
+          }}>{gbText}</Typography>
         </Box>
         {/* Streak */}
         <Typography sx={{
@@ -283,14 +305,14 @@ function PlayoffTeamRow({ team, label, gb, isIn, isLast, showSep, onTeamClick }:
           {team.streakCode || '—'}
         </Typography>
       </Box>
-      {showSep && <Box sx={{ mx: 1.5, borderBottom: '1.5px dashed', borderColor: `${ACCENT}40` }} />}
+      {showSep && <Box sx={{ borderBottom: '2px solid', borderColor: ACCENT }} />}
     </>
   )
 }
 
 const ColHeaders = () => (
   <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-    {(['W–L', 'PCT', '', 'Strk'] as const).map((h, i) => (
+    {(['W–L', 'PCT', 'GB', 'Strk'] as const).map((h, i) => (
       <Typography key={i} sx={{
         fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase',
         letterSpacing: 0.5, color: 'text.disabled', textAlign: 'right',
@@ -301,9 +323,10 @@ const ColHeaders = () => (
   </Box>
 )
 
-function PlayoffLeagueCard({ label, divisions, leagueId, onTeamClick }: {
+function PlayoffLeagueCard({ label, divisions, leagueId, onTeamClick, highlightTeamId }: {
   label: string; divisions: StandingsDivision[]; leagueId: number
   onTeamClick?: (teamId: number) => void
+  highlightTeamId?: number | null
 }) {
   // Wild card race only: every non-division-leader, ordered by the API's own wild
   // card rank (record as a tiebreak). Games-back comes straight from the API so
@@ -316,10 +339,11 @@ function PlayoffLeagueCard({ label, divisions, leagueId, onTeamClick }: {
       return ra !== rb ? ra - rb : (b.wins - a.wins || a.losses - b.losses)
     })
   const lastInIdx = 2 // top 3 hold the wild card spots
-
-  const WC_BADGE = (
-    <Box sx={{ display: 'inline-flex', px: 0.75, height: 18, borderRadius: 1, alignItems: 'center', bgcolor: `${ACCENT}18`, color: ACCENT, fontSize: '0.58rem', fontWeight: 800 }}>WC</Box>
-  )
+  // The 3rd wild-card team is the cutoff line; every team's games-back is measured
+  // against it so the column fills top-to-bottom (+ ahead of the line, − behind it).
+  const cutoff = wcTeams[lastInIdx]
+  const gapFromCutoff = (t: StandingsTeamRecord) =>
+    cutoff ? ((t.wins - cutoff.wins) + (cutoff.losses - t.losses)) / 2 : 0
 
   return (
     <Box sx={{ borderRadius: 2.5, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
@@ -340,12 +364,12 @@ function PlayoffLeagueCard({ label, divisions, leagueId, onTeamClick }: {
         return (
           <PlayoffTeamRow
             key={t.teamId} team={t}
-            label={isIn ? WC_BADGE : undefined}
-            gb={isIn ? undefined : t.wcGamesBack}
+            gbText={fmtWcGap(gapFromCutoff(t))}
             isIn={isIn}
             isLast={i === wcTeams.length - 1}
             showSep={i === lastInIdx && lastInIdx < wcTeams.length - 1}
             onTeamClick={onTeamClick}
+            highlightTeamId={highlightTeamId}
           />
         )
       })}
@@ -353,18 +377,19 @@ function PlayoffLeagueCard({ label, divisions, leagueId, onTeamClick }: {
   )
 }
 
-function PlayoffPicture({ divisions, onTeamClick }: {
+function PlayoffPicture({ divisions, onTeamClick, highlightTeamId }: {
   divisions: StandingsDivision[]
   onTeamClick?: (teamId: number) => void
+  highlightTeamId?: number | null
 }) {
   return (
     <Box>
       <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mb: 2 }}>
-        Wild card race · 3 spots per league · dashed line = playoff cutoff
+        Wild card race · 3 spots per league · line = playoff cutoff
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
-        <PlayoffLeagueCard label="American League" divisions={divisions} leagueId={103} onTeamClick={onTeamClick} />
-        <PlayoffLeagueCard label="National League" divisions={divisions} leagueId={104} onTeamClick={onTeamClick} />
+        <PlayoffLeagueCard label="American League" divisions={divisions} leagueId={103} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />
+        <PlayoffLeagueCard label="National League" divisions={divisions} leagueId={104} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />
       </Box>
     </Box>
   )
@@ -372,9 +397,10 @@ function PlayoffPicture({ divisions, onTeamClick }: {
 
 // ─── Standings component ──────────────────────────────────────────────────────
 
-export function Standings({ season, onTeamClick }: {
+export function Standings({ season, onTeamClick, highlightTeamId }: {
   season: number
   onTeamClick?: (teamId: number) => void
+  highlightTeamId?: number | null
 }) {
   const [mode, setMode] = useState<'divisions' | 'playoffs'>('divisions')
   const [divisions, setDivisions] = useState<StandingsDivision[]>([])
@@ -407,11 +433,11 @@ export function Standings({ season, onTeamClick }: {
       {!loading && !error && divisions.length > 0 && (
         mode === 'divisions' ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <LeagueSection label="American League" order={AL_ORDER} leagueId={103} divisions={divisions} onTeamClick={onTeamClick} />
-            <LeagueSection label="National League" order={NL_ORDER} leagueId={104} divisions={divisions} onTeamClick={onTeamClick} />
+            <LeagueSection label="American League" order={AL_ORDER} leagueId={103} divisions={divisions} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />
+            <LeagueSection label="National League" order={NL_ORDER} leagueId={104} divisions={divisions} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />
           </Box>
         ) : (
-          <PlayoffPicture divisions={divisions} onTeamClick={onTeamClick} />
+          <PlayoffPicture divisions={divisions} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />
         )
       )}
     </Box>

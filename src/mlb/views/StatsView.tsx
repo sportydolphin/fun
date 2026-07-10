@@ -10,6 +10,8 @@ export interface StatsViewProps {
   setLbGroup: (g: 'hitting' | 'pitching') => void
   vizSeason: number
   setVizSeason: (s: number) => void
+  allTime: boolean
+  setAllTime: (b: boolean) => void
   lbData: Array<{ playerId: number; playerName: string; teamAbbr: string; teamId: number; stat: any }> | null
   lbFullscreen: LbFullscreenState | null
   setLbFullscreen: (s: LbFullscreenState | null | ((prev: LbFullscreenState | null) => LbFullscreenState | null)) => void
@@ -27,7 +29,7 @@ export interface StatsViewProps {
 }
 
 export function StatsView({
-  lbGroup, setLbGroup, vizSeason, setVizSeason,
+  lbGroup, setLbGroup, vizSeason, setVizSeason, allTime, setAllTime,
   lbData, lbFullscreen, setLbFullscreen,
   lbStatsLimit, setLbStatsLimit,
   lbQualified, setLbQualified,
@@ -61,7 +63,10 @@ export function StatsView({
   // must never be qualified — a part-time player can legitimately lead them.
   const qualifiedPool = (() => {
     const all = lbData ?? []
-    return lbQualified && activeDef.isRate ? filterQualified(all, lbGroup) : all
+    // In all-time mode the pool is already curated per stat (rate leaders come from
+    // the career Qualified pool), and filterQualified's season-based thresholds would
+    // wrongly nuke everyone against career PA/IP totals — so skip it entirely.
+    return !allTime && lbQualified && activeDef.isRate ? filterQualified(all, lbGroup) : all
   })()
 
   const sortedEntries = qualifiedPool
@@ -121,13 +126,22 @@ export function StatsView({
         />
         <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
           <Box sx={{ ...pillActionSx, p: 0, '&:hover': { borderColor: ACCENT }, '&:focus-within': { borderColor: ACCENT } }}>
-            <select value={vizSeason} onChange={e => setVizSeason(Number(e.target.value))}
+            <select
+              value={allTime ? 'all' : String(vizSeason)}
+              onChange={e => {
+                const v = e.target.value
+                if (v === 'all') { setAllTime(true); setLbStatsLimit(50) }
+                else { setAllTime(false); setVizSeason(Number(v)); setLbStatsLimit(50) }
+                setLbFullscreen(null)
+              }}
               style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', color: 'inherit', padding: '6px 12px', borderRadius: 999, fontFamily: 'inherit' }}>
+              <option value="all">All-Time</option>
               {TEAM_SEASONS.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </Box>
-          {/* Qualified / All toggle — only meaningful for rate stats */}
-          {activeDef.isRate && (
+          {/* Qualified / All toggle — only meaningful for rate stats; the all-time pool
+              is already curated per stat, so the toggle is hidden there */}
+          {activeDef.isRate && !allTime && (
             <Box
               onClick={() => { setLbQualified(q => !q); setLbStatsLimit(50) }}
               sx={{
@@ -166,7 +180,7 @@ export function StatsView({
               {activeDef.leaderLabel ?? activeDef.label}
             </Typography>
             <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
-              {vizSeason} MLB{activeDef.lowerIsBetter ? ' · lower = better' : ''}
+              {allTime ? 'All-Time · Career' : `${vizSeason} MLB`}{activeDef.lowerIsBetter ? ' · lower = better' : ''}
             </Typography>
           </Box>
 

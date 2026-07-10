@@ -162,6 +162,78 @@ export async function fetchLeaderboardData(
   }
 }
 
+// ─── All-time (career) leaderboard ──────────────────────────────────────────────
+// The career-stats endpoint holds ~22k players — far too many to fetch and sort
+// client-side. Instead we ask the API for the true career leaders of each headline
+// stat (server-sorted) and union the results into one pool the Stats table can
+// re-sort locally. Rate stats use the Qualified pool (career PA/IP thresholds) so
+// tiny-sample flukes don't top the list; counting stats use the full pool so career
+// relievers (e.g. the all-time saves leaders) aren't excluded.
+type CareerSortSpec = { field: string; pool: 'All' | 'Qualified'; order: 'asc' | 'desc' }
+
+const CAREER_SORTS: Record<'hitting' | 'pitching', CareerSortSpec[]> = {
+  hitting: [
+    { field: 'hits',        pool: 'All',       order: 'desc' },
+    { field: 'homeRuns',    pool: 'All',       order: 'desc' },
+    { field: 'rbi',         pool: 'All',       order: 'desc' },
+    { field: 'doubles',     pool: 'All',       order: 'desc' },
+    { field: 'triples',     pool: 'All',       order: 'desc' },
+    { field: 'stolenBases', pool: 'All',       order: 'desc' },
+    { field: 'baseOnBalls', pool: 'All',       order: 'desc' },
+    { field: 'strikeOuts',  pool: 'All',       order: 'desc' },
+    { field: 'avg',         pool: 'Qualified', order: 'desc' },
+    { field: 'obp',         pool: 'Qualified', order: 'desc' },
+    { field: 'slg',         pool: 'Qualified', order: 'desc' },
+    { field: 'ops',         pool: 'Qualified', order: 'desc' },
+  ],
+  pitching: [
+    { field: 'wins',              pool: 'All',       order: 'desc' },
+    { field: 'inningsPitched',    pool: 'All',       order: 'desc' },
+    { field: 'strikeOuts',        pool: 'All',       order: 'desc' },
+    { field: 'saves',             pool: 'All',       order: 'desc' },
+    { field: 'era',               pool: 'Qualified', order: 'asc'  },
+    { field: 'whip',              pool: 'Qualified', order: 'asc'  },
+    { field: 'strikeoutsPer9Inn', pool: 'Qualified', order: 'desc' },
+  ],
+}
+
+const allTimeCache = new Map<'hitting' | 'pitching', Promise<Array<{ playerId: number; playerName: string; teamAbbr: string; teamId: number; stat: any }>>>()
+
+export function fetchAllTimeLeaderboardData(
+  group: 'hitting' | 'pitching'
+): Promise<Array<{ playerId: number; playerName: string; teamAbbr: string; teamId: number; stat: any }>> {
+  if (!allTimeCache.has(group)) {
+    const specs = CAREER_SORTS[group]
+    const p = Promise.all(specs.map(spec =>
+      fetch(`https://statsapi.mlb.com/api/v1/stats?stats=career&group=${group}&sportId=1&limit=100` +
+        `&playerPool=${spec.pool}&sortStat=${spec.field}&order=${spec.order}`)
+        .then(r => r.json())
+        .then((d: any) => d.stats?.[0]?.splits ?? [])
+        .catch(() => [] as any[])
+    )).then(results => {
+      // Union by playerId. Career stat objects are complete regardless of which sort
+      // surfaced a player, so first-wins dedup is safe.
+      const byId = new Map<number, { playerId: number; playerName: string; teamAbbr: string; teamId: number; stat: any }>()
+      for (const splits of results) {
+        for (const s of splits) {
+          const playerId = Number(s.player?.id)
+          if (!playerId || byId.has(playerId)) continue
+          byId.set(playerId, {
+            playerId,
+            playerName: s.player?.fullName ?? '—',
+            teamAbbr: s.team?.abbreviation ?? TEAM_ABBR[s.team?.id] ?? '—',
+            teamId: Number(s.team?.id) || 0,
+            stat: s.stat,
+          })
+        }
+      }
+      return [...byId.values()]
+    }).catch(() => [])
+    allTimeCache.set(group, p)
+  }
+  return allTimeCache.get(group)!
+}
+
 export async function fetchTeamRankings(group: 'hitting' | 'pitching', season: number, defs: StatDef[]): Promise<Map<string, number[]>> {
   try {
     const teamIds = Object.keys(TEAM_ABBR).map(Number)
