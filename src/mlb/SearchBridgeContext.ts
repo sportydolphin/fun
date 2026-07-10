@@ -1,4 +1,6 @@
 import { useSyncExternalStore } from 'react'
+import type { RecentSearchItem } from './recentSearches'
+export type { RecentSearchItem } from './recentSearches'
 
 export interface PlayerBridgeItem {
   id: number
@@ -34,6 +36,9 @@ export interface SearchBridgeState {
   handleSelectTeam: ((t: TeamBridgeItem) => void) | null
   isRegistered: boolean
   toolbarSuggestions: ToolbarSuggestion[]
+  recentSearches: RecentSearchItem[]
+  handleSelectRecent: ((item: RecentSearchItem) => void) | null
+  clearRecentSearches: (() => void) | null
 }
 
 const DEFAULT: SearchBridgeState = {
@@ -45,6 +50,9 @@ const DEFAULT: SearchBridgeState = {
   handleSelectTeam: null,
   isRegistered: false,
   toolbarSuggestions: [],
+  recentSearches: [],
+  handleSelectRecent: null,
+  clearRecentSearches: null,
 }
 
 let _state: SearchBridgeState = { ...DEFAULT }

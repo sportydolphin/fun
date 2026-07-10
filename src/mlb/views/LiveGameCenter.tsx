@@ -455,6 +455,63 @@ function PlaysList({ plays, away, home, scoringOnly }: {
   )
 }
 
+// ─── Full box score — side-by-side columns on desktop, team toggle on mobile ──
+
+function TeamBoxColumns({ box, onPlayerClick }: {
+  box: BoxScore
+  onPlayerClick?: (id: number) => void
+}) {
+  const [side, setSide] = useState<'away' | 'home'>('away')
+
+  const teamChip = (value: 'away' | 'home', team: BoxScore['away']) => (
+    <Box
+      onClick={() => setSide(value)}
+      sx={{
+        display: 'flex', alignItems: 'center', gap: 0.6,
+        px: 1.5, py: 0.6, borderRadius: 99, cursor: 'pointer', userSelect: 'none',
+        fontSize: '0.66rem', fontWeight: 800, lineHeight: 1,
+        color: side === value ? 'background.paper' : 'text.secondary',
+        bgcolor: side === value ? 'text.primary' : 'action.hover',
+        transition: 'all 0.15s',
+      }}
+    >
+      <LogoBubble teamId={team.teamId} abbr={team.abbr} size={16} ring={1} />
+      {team.abbr}
+    </Box>
+  )
+
+  return (
+    <>
+      {/* Desktop: both teams side by side */}
+      <Box sx={{
+        display: { xs: 'none', md: 'grid' }, gridTemplateColumns: '1fr 1fr',
+        borderTop: '1px solid', borderColor: 'divider',
+      }}>
+        <Box sx={{ minWidth: 0, borderRight: '1px solid', borderColor: 'divider' }}>
+          <TeamBoxSection team={box.away} onPlayerClick={onPlayerClick} />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+          <TeamBoxSection team={box.home} onPlayerClick={onPlayerClick} />
+        </Box>
+      </Box>
+
+      {/* Mobile: one team at a time with a toggle */}
+      <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+        <Box sx={{
+          px: 2, py: 1.25, borderTop: '1px solid', borderColor: 'divider',
+          display: 'flex', gap: 0.75, justifyContent: 'center',
+        }}>
+          {teamChip('away', box.away)}
+          {teamChip('home', box.home)}
+        </Box>
+        <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+          <TeamBoxSection team={side === 'away' ? box.away : box.home} onPlayerClick={onPlayerClick} />
+        </Box>
+      </Box>
+    </>
+  )
+}
+
 // ─── Game Center modal ────────────────────────────────────────────────────────
 
 export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick }: {
@@ -571,7 +628,8 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick }: {
       <Box sx={{
         bgcolor: 'background.paper', borderRadius: 3,
         border: '1px solid', borderColor: 'divider',
-        width: '100%', maxWidth: 560,
+        // Wider on desktop while the side-by-side box score is showing
+        width: '100%', maxWidth: tab === 'box' ? { xs: 560, md: 1100 } : 560,
         maxHeight: '90vh', overflowY: 'auto',
         boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
         '&::-webkit-scrollbar': { width: 4 },
@@ -671,14 +729,7 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick }: {
                 />
               </Box>
             ) : (
-              <>
-                <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-                  <TeamBoxSection team={data.box.away} onPlayerClick={selectPlayer} />
-                </Box>
-                <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-                  <TeamBoxSection team={data.box.home} onPlayerClick={selectPlayer} />
-                </Box>
-              </>
+              <TeamBoxColumns box={data.box} onPlayerClick={selectPlayer} />
             )}
           </>
         )}

@@ -153,8 +153,10 @@ export function LeaderboardView({
         const defs = lbSortedDefs.filter(d => lbSelectedKeys.includes(d.key))
         const MEDALS = ['🥇', '🥈', '🥉']
         const maxEntries = lbIsDefault && isDesktop ? 10 : 5
-        // Collapsed cards only show qualified players by default — otherwise a
-        // player with a handful of ABs/IP can camp the top of a rate stat.
+        // Qualification only applies to rate stats — otherwise a player with a
+        // handful of ABs/IP could camp the top of AVG/ERA. Counting-stat boards
+        // (SB, HR, saves…) must include everyone, since part-time players can
+        // still lead them.
         const qualifiedData = filterQualified(lbData, lbGroup)
         return (
           <Box
@@ -167,7 +169,8 @@ export function LeaderboardView({
           >
             {defs.map(def => {
               const asc = def.lowerIsBetter ?? false
-              const allEntries = qualifiedData
+              const pool = def.isRate ? qualifiedData : lbData
+              const allEntries = pool
                 .map(e => {
                   const sortVal = def.leaderValue ? def.leaderValue(e.stat) : def.getValue(e.stat)
                   return { ...e, val: def.getValue(e.stat), sortVal }

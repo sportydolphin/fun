@@ -2,8 +2,9 @@ import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from 
 import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Tooltip, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, List, ListItemButton, Divider } from '@mui/material'
 import { Brightness4, Brightness7, AccountCircle, Search, Close } from '@mui/icons-material'
 import { useSearchBridge, setSearchQuery } from './mlb/SearchBridgeContext'
-import type { PlayerBridgeItem, TeamBridgeItem, ToolbarSuggestion } from './mlb/SearchBridgeContext'
+import type { PlayerBridgeItem, TeamBridgeItem, ToolbarSuggestion, RecentSearchItem } from './mlb/SearchBridgeContext'
 import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT } from './mlb/constants'
+import { APP_VERSION, CHANGELOG } from './version'
 import { useTheme } from './ThemeContext'
 import { AuthProvider, useAuth } from './AuthContext'
 import { PENDING_USERNAME_PREFIX } from './AuthContext'
@@ -44,12 +45,55 @@ const PROJECTS = [
   { label: 'Poop Pile',     emoji: '💩',  desc: 'Stack the poops',        path: '/poop',     color: 'hsl(24,  58%, 38%)' },
 ]
 
-function ToolbarSuggestionsDropdown({ suggestions, onSelect }: {
+function ToolbarSuggestionsDropdown({ suggestions, onSelect, recents, onSelectRecent, onClearRecents }: {
   suggestions: ToolbarSuggestion[]
   onSelect: (s: ToolbarSuggestion) => void
+  recents: RecentSearchItem[]
+  onSelectRecent: (item: RecentSearchItem) => void
+  onClearRecents: () => void
 }) {
   const teamPlayers = suggestions.filter(s => s.isTeamPlayer)
   const trending    = suggestions.filter(s => !s.isTeamPlayer)
+
+  const renderRecents = () => (
+    <>
+      <Box sx={{ px: 1.5, pt: 1, pb: 0.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled' }}>
+          Recent
+        </Typography>
+        <Box
+          onClick={onClearRecents}
+          sx={{ cursor: 'pointer', fontSize: '0.62rem', fontWeight: 600, color: 'text.disabled', userSelect: 'none', '&:hover': { color: 'error.main' } }}
+        >
+          Clear
+        </Box>
+      </Box>
+      <List dense disablePadding>
+        {recents.map((r, i) => (
+          <React.Fragment key={`rec-${r.type}-${r.id}`}>
+            {i > 0 && <Divider />}
+            <ListItemButton onClick={() => onSelectRecent(r)} sx={{ gap: 1.25, py: 0.6 }}>
+              {r.type === 'player' ? (
+                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, flexShrink: 0, backgroundImage: `url(${HEADSHOT(r.id)})`, backgroundSize: 'cover', backgroundPosition: 'center 20%', bgcolor: 'action.hover' }} />
+              ) : (
+                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, flexShrink: 0, bgcolor: TEAM_BG[r.id] ?? 'grey.700', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  <Box component="img" src={`https://www.mlbstatic.com/team-logos/team-cap-on-dark/${r.id}.svg`} alt={r.name} sx={{ width: 28, height: 28, objectFit: 'contain' }} />
+                </Box>
+              )}
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', lineHeight: 1.2 }}>{r.name}</Typography>
+                <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>
+                  {r.type === 'player'
+                    ? [r.position, r.teamId ? TEAM_ABBR[r.teamId] : null].filter(Boolean).join(' · ')
+                    : 'Team'}
+                </Typography>
+              </Box>
+            </ListItemButton>
+          </React.Fragment>
+        ))}
+      </List>
+    </>
+  )
 
   const renderSection = (label: string, players: ToolbarSuggestion[]) => (
     <>
@@ -79,7 +123,10 @@ function ToolbarSuggestionsDropdown({ suggestions, onSelect }: {
     <Paper elevation={8} sx={{
       position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
       zIndex: 1500, borderRadius: 2.5, overflow: 'hidden', minWidth: 260,
+      maxHeight: '70vh', overflowY: 'auto',
     }}>
+      {recents.length > 0 && renderRecents()}
+      {recents.length > 0 && (teamPlayers.length > 0 || trending.length > 0) && <Divider sx={{ mt: 0.5 }} />}
       {teamPlayers.length > 0 && renderSection('Your Team', teamPlayers)}
       {teamPlayers.length > 0 && trending.length > 0 && <Divider sx={{ mt: 0.5 }} />}
       {trending.length > 0 && renderSection('Trending', trending)}
@@ -99,6 +146,7 @@ function AppInner() {
     return p as Route
   })
   const [accountOpen,      setAccountOpen]      = useState(false)
+  const [changelogOpen,    setChangelogOpen]    = useState(false)
   const [adminOpen,        setAdminOpen]        = useState(false)
   const [usernameOpen,     setUsernameOpen]     = useState(false)
   const [settingsOpen,     setSettingsOpen]     = useState(false)
@@ -246,18 +294,37 @@ function AppInner() {
             </IconButton>
           )}
 
-          {/* Brand name — hidden while mobile search is expanded */}
-          <Typography
-            variant="h6" component="div"
-            onClick={() => navigate('/mlb')}
-            sx={{
-              flex: 1, minWidth: 0, fontWeight: 700, cursor: 'pointer', userSelect: 'none',
-              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-              display: mobileSearchExpanded && !isDesktop ? 'none' : undefined,
-            }}
-          >
-            sportydolphin.fun
-          </Typography>
+          {/* Brand name + version badge — hidden while mobile search is expanded */}
+          <Box sx={{
+            flex: 1, minWidth: 0, display: mobileSearchExpanded && !isDesktop ? 'none' : 'flex',
+            alignItems: 'baseline', gap: 0.75,
+          }}>
+            <Typography
+              variant="h6" component="div"
+              onClick={() => navigate('/mlb')}
+              sx={{
+                minWidth: 0, fontWeight: 700, cursor: 'pointer', userSelect: 'none',
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}
+            >
+              sportydolphin.fun
+            </Typography>
+            <Tooltip title="What's new">
+              <Box
+                onClick={() => setChangelogOpen(true)}
+                sx={{
+                  flexShrink: 0, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
+                  fontSize: '0.6rem', fontWeight: 700, lineHeight: 1.4,
+                  color: 'text.disabled', border: '1px solid', borderColor: 'divider',
+                  borderRadius: 999, px: 0.65, py: '1px',
+                  transition: 'color 0.15s, border-color 0.15s',
+                  '&:hover': { color: ACCENT, borderColor: ACCENT },
+                }}
+              >
+                v{APP_VERSION}
+              </Box>
+            </Tooltip>
+          </Box>
 
           {/* Toolbar search — desktop: always visible when MLB loaded; mobile: expands on tap */}
           {bridge.isRegistered && (isDesktop || mobileSearchExpanded) && (
@@ -320,11 +387,18 @@ function AppInner() {
                   )}
                 </Box>
 
-                {/* Suggestions dropdown — shown when input is focused and query is empty */}
-                {toolbarInputFocused && bridge.query.length < 2 && bridge.toolbarSuggestions.length > 0 && (
+                {/* Recent + suggestions dropdown — shown when input is focused and query is empty */}
+                {toolbarInputFocused && bridge.query.length < 2 && (bridge.recentSearches.length > 0 || bridge.toolbarSuggestions.length > 0) && (
                   <ToolbarSuggestionsDropdown
                     suggestions={bridge.toolbarSuggestions}
                     onSelect={handleToolbarSelectSuggestion}
+                    recents={bridge.recentSearches}
+                    onSelectRecent={(item) => {
+                      bridge.handleSelectRecent?.(item)
+                      setMobileSearchExpanded(false)
+                      setToolbarInputFocused(false)
+                    }}
+                    onClearRecents={() => bridge.clearRecentSearches?.()}
                   />
                 )}
 
@@ -550,6 +624,42 @@ function AppInner() {
         isAppLocked={isAppLocked}
         onOpenApp={openApp}
       />
+
+      <Dialog open={changelogOpen} onClose={() => setChangelogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+          What's New
+          <Typography component="span" sx={{ fontSize: '0.8rem', color: 'text.disabled', fontWeight: 600 }}>
+            · currently v{APP_VERSION}
+          </Typography>
+        </DialogTitle>
+        <DialogContent dividers>
+          {CHANGELOG.map((entry, idx) => (
+            <Box key={entry.version} sx={{ mb: idx === CHANGELOG.length - 1 ? 0 : 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                <Typography sx={{ fontWeight: 800, fontSize: '1rem', lineHeight: 1 }}>v{entry.version}</Typography>
+                {entry.title && (
+                  <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1 }}>
+                    {entry.title}
+                  </Typography>
+                )}
+                <Typography sx={{ ml: 'auto', fontSize: '0.72rem', color: 'text.disabled', lineHeight: 1 }}>
+                  {new Date(`${entry.date}T00:00:00`).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })}
+                </Typography>
+              </Box>
+              <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                {entry.changes.map((c, i) => (
+                  <Typography key={i} component="li" sx={{ fontSize: '0.86rem', color: 'text.secondary', mb: 0.6, lineHeight: 1.45 }}>
+                    {c}
+                  </Typography>
+                ))}
+              </Box>
+            </Box>
+          ))}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setChangelogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={lockDialogOpen} onClose={() => setLockDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>🔒 Password required</DialogTitle>

@@ -57,9 +57,11 @@ export function StatsView({
   const activeDef = statDefs.find(d => d.key === sortKey) ?? statDefs[0]
 
   // ── Qualification filter ──────────────────────────────────────────────
+  // Only meaningful for rate stats (AVG, ERA…). Counting stats (SB, HR, saves…)
+  // must never be qualified — a part-time player can legitimately lead them.
   const qualifiedPool = (() => {
     const all = lbData ?? []
-    return lbQualified ? filterQualified(all, lbGroup) : all
+    return lbQualified && activeDef.isRate ? filterQualified(all, lbGroup) : all
   })()
 
   const sortedEntries = qualifiedPool
@@ -124,21 +126,23 @@ export function StatsView({
               {TEAM_SEASONS.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </Box>
-          {/* Qualified / All toggle */}
-          <Box
-            onClick={() => { setLbQualified(q => !q); setLbStatsLimit(50) }}
-            sx={{
-              ...pillActionSx,
-              borderColor: lbQualified ? ACCENT : 'divider',
-              color: lbQualified ? ACCENT : 'text.secondary',
-              bgcolor: lbQualified ? `${ACCENT}12` : 'transparent',
-              cursor: 'pointer', userSelect: 'none',
-              display: 'flex', alignItems: 'center', gap: 0.4,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {lbQualified ? '✓ Qual' : 'All'}
-          </Box>
+          {/* Qualified / All toggle — only meaningful for rate stats */}
+          {activeDef.isRate && (
+            <Box
+              onClick={() => { setLbQualified(q => !q); setLbStatsLimit(50) }}
+              sx={{
+                ...pillActionSx,
+                borderColor: lbQualified ? ACCENT : 'divider',
+                color: lbQualified ? ACCENT : 'text.secondary',
+                bgcolor: lbQualified ? `${ACCENT}12` : 'transparent',
+                cursor: 'pointer', userSelect: 'none',
+                display: 'flex', alignItems: 'center', gap: 0.4,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {lbQualified ? '✓ Qual' : 'All'}
+            </Box>
+          )}
         </Box>
       </Box>
 

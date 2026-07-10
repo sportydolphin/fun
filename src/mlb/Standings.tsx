@@ -233,33 +233,6 @@ function LeagueSection({ label, order, leagueId, divisions, onTeamClick }: {
 
 // ─── Playoff picture ──────────────────────────────────────────────────────────
 
-interface WCTeam { team: StandingsTeamRecord; wcGB: string; inSpot: boolean }
-
-function buildWCList(divisions: StandingsDivision[], leagueId: number): WCTeam[] {
-  const nonLeaders = divisions
-    .filter(d => d.leagueId === leagueId)
-    .flatMap(d => d.teams.filter(t => t.divisionRank !== 1))
-    .sort((a, b) => b.wins - a.wins || a.losses - b.losses)
-  const lastWC = nonLeaders[2] // team on the bubble (3rd WC spot = cutoff line)
-  return nonLeaders.map((t, i) => {
-    const inSpot = i < 3
-    if (inSpot) {
-      // WC #1 and #2: show how many games ahead of the cutoff they are
-      if (i < 2 && lastWC) {
-        const ahead = ((t.wins - lastWC.wins) + (lastWC.losses - t.losses)) / 2
-        const wcGB = ahead > 0 ? `+${ahead.toFixed(1)}` : '-'
-        return { team: t, wcGB, inSpot }
-      }
-      // WC #3: they ARE the cutoff line
-      return { team: t, wcGB: '-', inSpot }
-    }
-    // Out of WC: show games behind the cutoff
-    const diff = lastWC ? ((lastWC.wins - lastWC.losses) - (t.wins - t.losses)) / 2 : 0
-    const gb = diff > 0 ? `-${diff.toFixed(1)}` : '-'
-    return { team: t, wcGB: gb, inSpot }
-  })
-}
-
 function PlayoffTeamRow({ team, label, gb, isIn, isLast, showSep, onTeamClick }: {
   team: StandingsTeamRecord; label?: React.ReactNode; gb?: string
   isIn: boolean; isLast: boolean; showSep: boolean
@@ -332,17 +305,18 @@ function PlayoffLeagueCard({ label, divisions, leagueId, onTeamClick }: {
   label: string; divisions: StandingsDivision[]; leagueId: number
   onTeamClick?: (teamId: number) => void
 }) {
-  const divWinners = divisions
+  // Wild card race only: every non-division-leader, ordered by the API's own wild
+  // card rank (record as a tiebreak). Games-back comes straight from the API so
+  // the numbers always match MLB's official standings.
+  const wcTeams = divisions
     .filter(d => d.leagueId === leagueId)
-    .flatMap(d => d.teams.filter(t => t.divisionRank === 1))
-    .sort((a, b) => b.wins - a.wins || a.losses - b.losses)
+    .flatMap(d => d.teams.filter(t => t.divisionRank !== 1))
+    .sort((a, b) => {
+      const ra = a.wcRank || 99, rb = b.wcRank || 99
+      return ra !== rb ? ra - rb : (b.wins - a.wins || a.losses - b.losses)
+    })
+  const lastInIdx = 2 // top 3 hold the wild card spots
 
-  const wcList = buildWCList(divisions, leagueId)
-  const lastInIdx = wcList.reduce((acc, t, i) => t.inSpot ? i : acc, -1)
-
-  const DIV_BADGE = (
-    <Box sx={{ display: 'inline-flex', px: 0.75, height: 18, borderRadius: 1, alignItems: 'center', bgcolor: 'rgba(34,197,94,0.12)', color: '#22c55e', fontSize: '0.58rem', fontWeight: 800 }}>DIV</Box>
-  )
   const WC_BADGE = (
     <Box sx={{ display: 'inline-flex', px: 0.75, height: 18, borderRadius: 1, alignItems: 'center', bgcolor: `${ACCENT}18`, color: ACCENT, fontSize: '0.58rem', fontWeight: 800 }}>WC</Box>
   )
@@ -355,48 +329,22 @@ function PlayoffLeagueCard({ label, divisions, leagueId, onTeamClick }: {
         <ColHeaders />
       </Box>
 
-      {/* Division Winners sub-header */}
+      {/* Wild Card sub-header */}
       <Box sx={{ px: 2, py: '6px', bgcolor: 'action.hover' }}>
         <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.2, color: 'text.disabled' }}>
-          Division Winners
+          Wild Card
         </Typography>
       </Box>
-      {divWinners.map((t, i) => (
-        <PlayoffTeamRow
-          key={t.teamId} team={t} label={DIV_BADGE} isIn={true}
-          isLast={false} showSep={false} onTeamClick={onTeamClick}
-        />
-      ))}
-
-      {/* Wild Card sub-header */}
-      <Box sx={{ px: 2, py: '6px', bgcolor: 'action.hover', borderTop: '1px solid', borderColor: 'divider' }}>
-        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.2, color: 'text.disabled' }}>
-          Wild Card Race
-        </Typography>
-      </Box>
-      {wcList.map((wc, i) => {
-        let rowLabel: React.ReactNode
-        if (wc.inSpot) {
-          if (i < 2 && wc.wcGB !== '-') {
-            // Show WC badge + games-ahead value for spots 1 & 2
-            rowLabel = (
-              <Box sx={{ display: 'inline-flex', gap: 0.5, alignItems: 'center', justifyContent: 'flex-end' }}>
-                {WC_BADGE}
-                <Typography sx={{ fontSize: '0.72rem', color: '#22c55e', fontWeight: 700 }}>{wc.wcGB}</Typography>
-              </Box>
-            )
-          } else {
-            rowLabel = WC_BADGE
-          }
-        }
+      {wcTeams.map((t, i) => {
+        const isIn = i <= lastInIdx
         return (
           <PlayoffTeamRow
-            key={wc.team.teamId} team={wc.team}
-            label={rowLabel}
-            gb={wc.inSpot ? undefined : wc.wcGB}
-            isIn={wc.inSpot}
-            isLast={i === wcList.length - 1}
-            showSep={i === lastInIdx && lastInIdx < wcList.length - 1}
+            key={t.teamId} team={t}
+            label={isIn ? WC_BADGE : undefined}
+            gb={isIn ? undefined : t.wcGamesBack}
+            isIn={isIn}
+            isLast={i === wcTeams.length - 1}
+            showSep={i === lastInIdx && lastInIdx < wcTeams.length - 1}
             onTeamClick={onTeamClick}
           />
         )
@@ -412,7 +360,7 @@ function PlayoffPicture({ divisions, onTeamClick }: {
   return (
     <Box>
       <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', mb: 2 }}>
-        3 division winners + 3 wild cards per league · dashed line = playoff cutoff
+        Wild card race · 3 spots per league · dashed line = playoff cutoff
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2.5 }}>
         <PlayoffLeagueCard label="American League" divisions={divisions} leagueId={103} onTeamClick={onTeamClick} />

@@ -48,10 +48,23 @@ export default function MlbStats() {
       .catch(() => {})
   }, [state.followedTeamId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Push recent searches + their re-open / clear handlers up to the toolbar
+  useEffect(() => {
+    updateSearchBridge({
+      recentSearches: state.recentSearches,
+      handleSelectRecent: (item) => {
+        setSearchQuery('')
+        if (item.type === 'team') state.handleTeamSearchClick(item.id)
+        else state.handleFollowedPlayerClick(item.id)
+      },
+      clearRecentSearches: state.clearRecentSearches,
+    })
+  }, [state.recentSearches, state.handleTeamSearchClick, state.handleFollowedPlayerClick, state.clearRecentSearches])
+
   // Unregister from toolbar when this component unmounts
   useEffect(() => {
     return () => {
-      updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], searching: false, handleSelectPlayer: null, handleSelectTeam: null, toolbarSuggestions: [] })
+      updateSearchBridge({ isRegistered: false, playerResults: [], teamResults: [], searching: false, handleSelectPlayer: null, handleSelectTeam: null, toolbarSuggestions: [], recentSearches: [], handleSelectRecent: null, clearRecentSearches: null })
       setSearchQuery('')
     }
   }, [])
