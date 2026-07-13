@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useAuth } from '../AuthContext'
 import {
   RankMode, Player, Team, Palette, TeamSummary, CareerStatSplit,
-  TeamPlayerStat, RecentGameEntry, LbFullscreenState, TeamStandingInfo, StandingsDivision,
+  TeamPlayerStat, RecentGameEntry, RosterEntry, LbFullscreenState, TeamStandingInfo, StandingsDivision,
 } from './types'
 import {
   loadPrefsFromSupabase, savePrefsToSupabase,
@@ -24,7 +24,7 @@ import {
   fetchCareerData, fetchAndRankPlayers, fetchAllTeams,
   fetchTeamStats, fetchLeaderboardData, fetchAllTimeLeaderboardData, fetchTeamRankings,
   fetchTeamSummaryData, fetchPlayerCareerStats, fetchRecentGames, fetchCareerStats,
-  fetchTeamTopPlayers, fetchTeamStanding, fetchDivisionForTeam,
+  fetchTeamTopPlayers, fetchTeamStanding, fetchDivisionForTeam, fetchTeamRoster,
 } from './api'
 import { computeSmartHitStats, computeSmartPitStats } from './smartStats'
 import type { CardInnerProps } from './cards'
@@ -65,6 +65,7 @@ export function useMlbState() {
   const [featuredPitLeaders, setFeaturedPitLeaders] = useState<Map<string, number[]>>(new Map())
   const [teamStanding, setTeamStanding] = useState<TeamStandingInfo | null>(null)
   const [divisionStandings, setDivisionStandings] = useState<StandingsDivision | null>(null)
+  const [teamRoster, setTeamRoster] = useState<RosterEntry[]>([])
 
   // ─── Shared ───────────────────────────────────────────────────────────────────
   const [loadingStats, setLoadingStats] = useState(false)
@@ -407,9 +408,10 @@ export function useMlbState() {
       setTeamFeaturedData(null)
       setTeamStanding(null)
       setDivisionStandings(null)
+      setTeamRoster([])
     } else setRefreshing(true)
     try {
-      const [hitting, pitching, hLeaders, pLeaders, featured, fHitLeaders, fPitLeaders, standing, division] = await Promise.all([
+      const [hitting, pitching, hLeaders, pLeaders, featured, fHitLeaders, fPitLeaders, standing, division, roster] = await Promise.all([
         fetchTeamStats(t.id, 'hitting', s),
         fetchTeamStats(t.id, 'pitching', s),
         fetchTeamRankings('hitting', s, TEAM_HITTING_DEFS),
@@ -419,6 +421,7 @@ export function useMlbState() {
         fetchAndRankPlayers('pitching', s, PITCHING_STAT_DEFS),
         fetchTeamStanding(t.id, s),
         fetchDivisionForTeam(t.id, s),
+        fetchTeamRoster(t.id, s),
       ])
       if (gen !== loadGenRef.current) return
       setTeamHitting(hitting)
@@ -430,6 +433,7 @@ export function useMlbState() {
       setFeaturedPitLeaders(fPitLeaders)
       setTeamStanding(standing)
       setDivisionStandings(division)
+      setTeamRoster(roster)
     } finally {
       if (gen === loadGenRef.current) { setLoadingStats(false); setRefreshing(false) }
     }
@@ -466,6 +470,7 @@ export function useMlbState() {
     setHighlightedGameDate(null)
     setTeam(null)
     setTeamStanding(null)
+    setTeamRoster([])
     setAvailableSeasons(seasons.length ? seasons : [CURRENT_SEASON])
     setSeasonTeams(teamsBySeason)
     setTeamIdsBySeason(tids)
@@ -744,12 +749,16 @@ export function useMlbState() {
       autoLoadedRef.current = true
       const t = allTeams.find(t => t.id === Number(tid))
       if (t) selectTeam(t)
-    } else if (!pid && !tid && allTeams.length > 0) {
+    } else if (!pid && !tid && allTeams.length > 0 && view === 'search') {
+      // Showcase card for the search/card-maker landing page only — a logged-out
+      // visitor with no followed team lands here. Don't do this on 'home' or any
+      // other view: it was silently selecting a random player in the background
+      // (polluting recent searches and the URL) even when nothing was showing it.
       autoLoadedRef.current = true
       const randomId = FEATURED_PLAYER_IDS[Math.floor(Math.random() * FEATURED_PLAYER_IDS.length)]
       fetchPlayerDetails(randomId).then(p => { if (p) selectPlayer(p) }).catch(() => {})
     }
-  }, [allTeams, selectPlayer, selectTeam])
+  }, [allTeams, selectPlayer, selectTeam, view])
 
   // ─── Memos: derived data ──────────────────────────────────────────────────────
 
@@ -840,6 +849,7 @@ export function useMlbState() {
     featuredHitLeaders, featuredPitLeaders,
     featuredPlayers,
     divisionStandings,
+    teamRoster,
 
     // Shared
     loadingStats, refreshing,

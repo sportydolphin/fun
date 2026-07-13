@@ -1,4 +1,4 @@
-import { Player, Team, StatDef, TeamSummary, CareerStatSplit, RecentGameEntry, StandingsDivision, TeamPlayerStat, TeamStandingInfo, SosEntry } from './types'
+import { Player, Team, StatDef, TeamSummary, CareerStatSplit, RecentGameEntry, RosterEntry, StandingsDivision, TeamPlayerStat, TeamStandingInfo, SosEntry } from './types'
 import { TEAM_ABBR } from './constants'
 import { supabase } from '../lib/supabase'
 
@@ -320,6 +320,33 @@ export async function fetchRecentGames(
   }
 
   return [...byGame.values()].sort((a, b) => b.date.localeCompare(a.date))
+}
+
+// Active roster for a team/season. `hydrate=person(...)` pulls bats/throws so the
+// roster rows can show handedness without a second request per player.
+export async function fetchTeamRoster(teamId: number, season: number): Promise<RosterEntry[]> {
+  try {
+    const r = await fetch(
+      `https://statsapi.mlb.com/api/v1/teams/${teamId}/roster?rosterType=active&season=${season}` +
+      `&hydrate=person(batSide,pitchHand)`
+    )
+    const d = await r.json()
+    const roster: any[] = d.roster ?? []
+    return roster.map((e): RosterEntry => ({
+      playerId: Number(e.person?.id),
+      fullName: e.person?.fullName ?? '—',
+      jerseyNumber: e.jerseyNumber ?? '',
+      positionAbbr: e.position?.abbreviation ?? e.person?.primaryPosition?.abbreviation ?? '',
+      positionType: e.position?.type ?? e.person?.primaryPosition?.type ?? '',
+      positionCode: String(e.position?.code ?? e.person?.primaryPosition?.code ?? ''),
+      bats: e.person?.batSide?.code,
+      throws: e.person?.pitchHand?.code,
+      statusCode: e.status?.code ?? 'A',
+      statusDescription: e.status?.description ?? '',
+    })).filter(e => e.playerId)
+  } catch {
+    return []
+  }
 }
 
 export async function fetchCareerStats(id: number, group: 'hitting' | 'pitching'): Promise<any> {

@@ -61,8 +61,12 @@ function ToolbarSuggestionsDropdown({ suggestions, onSelect, recents, onSelectRe
   onSelectRecent: (item: RecentSearchItem) => void
   onClearRecents: () => void
 }) {
-  const teamPlayers = suggestions.filter(s => s.isTeamPlayer)
-  const trending    = suggestions.filter(s => !s.isTeamPlayer)
+  // Never show the same player in both "Recent" and a suggestions section below it.
+  const displayedRecents = recents.slice(0, 5)
+  const recentPlayerIds  = new Set(displayedRecents.filter(r => r.type === 'player').map(r => r.id))
+  const nonRecent        = suggestions.filter(s => !recentPlayerIds.has(s.id))
+  const teamPlayers = nonRecent.filter(s => s.isTeamPlayer)
+  const trending    = nonRecent.filter(s => !s.isTeamPlayer)
 
   const renderRecents = () => (
     <>
@@ -78,12 +82,12 @@ function ToolbarSuggestionsDropdown({ suggestions, onSelect, recents, onSelectRe
         </Box>
       </Box>
       <List dense disablePadding>
-        {recents.map((r, i) => (
+        {displayedRecents.map((r, i) => (
           <React.Fragment key={`rec-${r.type}-${r.id}`}>
             {i > 0 && <Divider />}
             <ListItemButton onClick={() => onSelectRecent(r)} sx={{ gap: 1.25, py: 0.6 }}>
               {r.type === 'player' ? (
-                <Box sx={{ width: 40, height: 40, borderRadius: 1.5, flexShrink: 0, backgroundImage: `url(${HEADSHOT(r.id)})`, backgroundSize: 'cover', backgroundPosition: 'center 20%', bgcolor: 'action.hover' }} />
+                <Box sx={{ width: 40, height: 54, borderRadius: 1.5, flexShrink: 0, backgroundImage: `url(${HEADSHOT(r.id)})`, backgroundSize: 'cover', backgroundPosition: 'center 5%', bgcolor: 'action.hover' }} />
               ) : (
                 <Box sx={{ width: 40, height: 40, borderRadius: 1.5, flexShrink: 0, bgcolor: TEAM_BG[r.id] ?? 'grey.700', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                   <Box component="img" src={`https://www.mlbstatic.com/team-logos/team-cap-on-dark/${r.id}.svg`} alt={r.name} sx={{ width: 28, height: 28, objectFit: 'contain' }} />
@@ -144,6 +148,16 @@ function ToolbarSuggestionsDropdown({ suggestions, onSelect, recents, onSelectRe
   )
 }
 
+// ─── Changelog bullet — plain text, used for both the brief and full-detail lists ──
+
+function ChangelogBullet({ text }: { text: string }) {
+  return (
+    <Typography component="li" sx={{ fontSize: '0.86rem', color: 'text.secondary', mb: 0.6, lineHeight: 1.45 }}>
+      {text}
+    </Typography>
+  )
+}
+
 function AppInner() {
   const { mode, toggleTheme } = useTheme()
   const { user, signOut, openAuthDialog } = useAuth()
@@ -156,6 +170,7 @@ function AppInner() {
   })
   const [accountOpen,      setAccountOpen]      = useState(false)
   const [changelogOpen,    setChangelogOpen]    = useState(false)
+  const [viewAllVersion,   setViewAllVersion]   = useState<string | null>(null)
   const [adminOpen,        setAdminOpen]        = useState(false)
   const [usernameOpen,     setUsernameOpen]     = useState(false)
   const [settingsOpen,     setSettingsOpen]     = useState(false)
@@ -644,7 +659,7 @@ function AppInner() {
         <DialogContent dividers>
           {CHANGELOG.map((entry, idx) => (
             <Box key={entry.version} sx={{ mb: idx === CHANGELOG.length - 1 ? 0 : 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
                 <Typography sx={{ fontWeight: 800, fontSize: '1rem', lineHeight: 1 }}>v{entry.version}</Typography>
                 {entry.title && (
                   <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1 }}>
@@ -655,11 +670,19 @@ function AppInner() {
                   {new Date(`${entry.date}T00:00:00`).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })}
                 </Typography>
               </Box>
+              <Box
+                onClick={() => setViewAllVersion(entry.version)}
+                sx={{
+                  display: 'inline-block', mb: 1, cursor: 'pointer',
+                  fontSize: '0.72rem', fontWeight: 700, color: ACCENT,
+                  '&:hover': { textDecoration: 'underline' },
+                }}
+              >
+                View all changes
+              </Box>
               <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-                {entry.changes.map((c, i) => (
-                  <Typography key={i} component="li" sx={{ fontSize: '0.86rem', color: 'text.secondary', mb: 0.6, lineHeight: 1.45 }}>
-                    {c}
-                  </Typography>
+                {entry.changes.slice(0, 4).map((c, i) => (
+                  <ChangelogBullet key={i} text={c.short} />
                 ))}
               </Box>
             </Box>
@@ -668,6 +691,35 @@ function AppInner() {
         <DialogActions>
           <Button onClick={() => setChangelogOpen(false)}>Close</Button>
         </DialogActions>
+      </Dialog>
+
+      <Dialog open={viewAllVersion !== null} onClose={() => setViewAllVersion(null)} maxWidth="sm" fullWidth>
+        {(() => {
+          const entry = CHANGELOG.find(e => e.version === viewAllVersion)
+          if (!entry) return null
+          return (
+            <>
+              <DialogTitle sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+                v{entry.version}
+                {entry.title && (
+                  <Typography component="span" sx={{ fontSize: '0.8rem', color: 'text.disabled', fontWeight: 600 }}>
+                    {entry.title}
+                  </Typography>
+                )}
+              </DialogTitle>
+              <DialogContent dividers>
+                <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                  {entry.changes.map((c, i) => (
+                    <ChangelogBullet key={i} text={c.full} />
+                  ))}
+                </Box>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setViewAllVersion(null)}>Close</Button>
+              </DialogActions>
+            </>
+          )
+        })()}
       </Dialog>
 
       <Dialog open={lockDialogOpen} onClose={() => setLockDialogOpen(false)} maxWidth="xs" fullWidth>

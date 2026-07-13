@@ -45,36 +45,6 @@ async function fetchLiveTeamIds(): Promise<Set<number>> {
   } catch { return new Set() }
 }
 
-// ─── Team logo ─────────────────────────────────────────────────────────────────
-
-function TeamLogoCircle({ teamId, abbr, size }: { teamId: number; abbr: string; size: number }) {
-  const [failed, setFailed] = useState(false)
-  const bg = TEAM_BG[teamId] ?? '#444'
-  return (
-    <Box sx={{
-      width: size, height: size, borderRadius: '50%',
-      bgcolor: '#fff', border: `2.5px solid ${bg}`,
-      boxShadow: `0 0 0 1px ${bg}30`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      overflow: 'hidden', flexShrink: 0,
-    }}>
-      {failed ? (
-        <Typography sx={{ color: bg, fontWeight: 900, fontSize: size * 0.28, lineHeight: 1 }}>
-          {abbr}
-        </Typography>
-      ) : (
-        <Box
-          component="img"
-          src={`https://www.mlbstatic.com/team-logos/${teamId}.svg`}
-          alt={abbr}
-          onError={() => setFailed(true)}
-          sx={{ width: '78%', height: '78%', objectFit: 'contain' }}
-        />
-      )}
-    </Box>
-  )
-}
-
 // ─── Team picker ───────────────────────────────────────────────────────────────
 
 function TeamPicker({ allTeams, onSelect }: { allTeams: Team[]; onSelect: (id: number) => void }) {
@@ -439,10 +409,9 @@ export function HomeView({
                     background: cardGradient135(bg, isDark),
                     display: 'flex', flexDirection: 'column',
                   }}>
-                    {/* Team header — logo | name+standing | buttons */}
+                    {/* Team header — name+standing | buttons */}
                     <Box sx={{ px: 1.5, pt: 1.25, pb: 1 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <TeamLogoCircle teamId={followedTeamId} abbr={abbr} size={34} />
                         <Box sx={{ flex: 1, minWidth: 0 }}>
                           <Typography sx={{
                             fontSize: { xs: '1.05rem', sm: '1.25rem' }, fontWeight: 900,

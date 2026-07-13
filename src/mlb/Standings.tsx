@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
-import { ACCENT, TEAM_BG } from './constants'
-import { fmtGB } from './colorUtils'
+import { ACCENT, TEAM_BG, TEAM_SECONDARY } from './constants'
+import { fmtGB, useIsDark } from './colorUtils'
 import { fetchStandings } from './api'
 import { StandingsDivision, StandingsTeamRecord } from './types'
 import { SegControl } from './components'
@@ -11,8 +11,10 @@ import { SegControl } from './components'
 const AL_ORDER = [201, 202, 200] // East, Central, West
 const NL_ORDER = [204, 205, 203]
 
-const TEAM_LOGO = (id: number) =>
-  `https://www.mlbstatic.com/team-logos/team-cap-on-dark/${id}.svg`
+// Light mode: full-color primary logo (designed to read on white).
+// Dark mode: the cap-on-dark variant (light elements, meant for dark backgrounds).
+const TEAM_LOGO_LIGHT = (id: number) => `https://www.mlbstatic.com/team-logos/${id}.svg`
+const TEAM_LOGO_DARK  = (id: number) => `https://www.mlbstatic.com/team-logos/team-cap-on-dark/${id}.svg`
 
 // ─── Wild card computation ────────────────────────────────────────────────────
 
@@ -53,30 +55,44 @@ function DiffCell({ diff }: { diff: number }) {
   )
 }
 
-// ─── Team logo — always shown on a team-colored circle so it's visible in both light + dark mode
+// ─── Team logo — a team-color ring framing a logo, adapted per theme so it reads
+// for all 30 teams in both modes:
+//   • Light mode: full-color primary logo on a white center.
+//   • Dark mode: cap-on-dark logo (designed for dark backgrounds) on a dark center.
+// The team-color ring carries the team identity in both modes.
 
 function TeamLogo({ teamId, abbr }: { teamId: number; abbr: string }) {
   const [failed, setFailed] = useState(false)
-  const bg = TEAM_BG[teamId] ?? '#444'
+  const isDark = useIsDark()
+  const ring = TEAM_BG[teamId] ?? '#444'
+  // NYM's navy cap-on-dark logo blends into the dark chip — halo it in the team's
+  // orange accent so it doesn't disappear in dark mode.
+  const halo = isDark && teamId === 121 ? TEAM_SECONDARY[121] : null
   return (
     <Box sx={{
       width: 28, height: 28, borderRadius: '50%',
-      bgcolor: bg,
+      bgcolor: isDark ? '#2e2e2e' : '#fff', border: `2.5px solid ${ring}`,
+      boxShadow: `0 0 0 1px ${ring}30`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       flexShrink: 0, overflow: 'hidden',
     }}>
       {failed ? (
-        // Fallback: team abbreviation initials on the color circle
-        <Typography sx={{ fontSize: '0.5rem', fontWeight: 800, color: '#fff', lineHeight: 1, userSelect: 'none' }}>
+        // Fallback: team abbreviation initials
+        <Typography sx={{ fontSize: '0.5rem', fontWeight: 800, color: isDark ? '#fff' : ring, lineHeight: 1, userSelect: 'none' }}>
           {abbr.slice(0, 3)}
         </Typography>
       ) : (
         <Box
           component="img"
-          src={TEAM_LOGO(teamId)}
+          src={(isDark ? TEAM_LOGO_DARK : TEAM_LOGO_LIGHT)(teamId)}
           alt={abbr}
           onError={() => setFailed(true)}
-          sx={{ width: 20, height: 20, objectFit: 'contain', display: 'block' }}
+          sx={{
+            width: 19, height: 19, objectFit: 'contain', display: 'block',
+            filter: halo
+              ? `drop-shadow(0 0 1px ${halo}) drop-shadow(0 0 1px ${halo})`
+              : 'none',
+          }}
         />
       )}
     </Box>
@@ -273,8 +289,7 @@ function PlayoffTeamRow({ team, gbText, isIn, isLast, showSep, onTeamClick, high
           transition: 'background 0.12s',
         }}
       >
-        {/* Only the logo dims for teams outside the top 3 — everything else stays fully visible */}
-        <Box sx={{ display: 'flex', opacity: isIn ? 1 : 0.35 }}>
+        <Box sx={{ display: 'flex' }}>
           <TeamLogo teamId={team.teamId} abbr={team.abbr} />
         </Box>
         <Box sx={{ flex: 1, minWidth: 0 }}>

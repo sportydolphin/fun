@@ -13,6 +13,64 @@ import { usernameValidationMsg, isUsernameTaken } from './lib/usernames'
 // up by App.tsx's username-assignment effect once the user is actually signed in.
 export const PENDING_USERNAME_PREFIX = 'sdPendingUsername:'
 
+// ─── Dev-only "simulate login" ──────────────────────────────────────────────────
+// Lets local development pretend a random user is signed in, so logged-in UI and
+// flows can be exercised without real Supabase credentials. Persisted in
+// localStorage and surfaced through the same `session`/`user` context values as a
+// real login. Everything here is inert in a production build (import.meta.env.DEV).
+export const SIMULATED_USER_KEY = 'sdDevSimulatedUser'
+
+const SIM_ADJ  = ['Slugger', 'Curveball', 'Southpaw', 'Bullpen', 'Walkoff', 'Grandslam', 'Rookie', 'Closer', 'Ace', 'Cleanup']
+const SIM_NOUN = ['Bomber', 'Rocket', 'Legend', 'Cannon', 'Captain', 'Wizard', 'Hawk', 'Shark', 'Storm', 'Tiger']
+
+interface SimUser { id: string; email: string; fullName: string }
+
+function randomSimUser(): SimUser {
+  const a   = SIM_ADJ[Math.floor(Math.random() * SIM_ADJ.length)]
+  const n   = SIM_NOUN[Math.floor(Math.random() * SIM_NOUN.length)]
+  const num = Math.floor(Math.random() * 900) + 10
+  const id  = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `sim-${Date.now()}-${num}`
+  return { id, email: `${a.toLowerCase()}.${n.toLowerCase()}${num}@example.dev`, fullName: `${a} ${n}` }
+}
+
+function buildSimulatedSession(u: SimUser): Session {
+  const nowSec = Math.floor(Date.now() / 1000)
+  const user = {
+    id:            u.id,
+    aud:           'authenticated',
+    role:          'authenticated',
+    email:         u.email,
+    app_metadata:  { provider: 'dev-sim', providers: ['dev-sim'] },
+    user_metadata: { full_name: u.fullName },
+    created_at:    new Date().toISOString(),
+  } as unknown as User
+  return {
+    access_token:  'dev-simulated-token',
+    refresh_token: 'dev-simulated-refresh',
+    expires_in:    3600,
+    expires_at:    nowSec + 3600,
+    token_type:    'bearer',
+    user,
+  } as Session
+}
+
+function readSimulatedSession(): Session | null {
+  if (!import.meta.env.DEV) return null
+  try {
+    const raw = localStorage.getItem(SIMULATED_USER_KEY)
+    return raw ? buildSimulatedSession(JSON.parse(raw) as SimUser) : null
+  } catch { return null }
+}
+
+// Invoked from the dev settings menu: mint a random user, persist it, and reload
+// so the whole app re-reads auth state as "signed in".
+export function simulateDevLogin(): void {
+  if (!import.meta.env.DEV) return
+  localStorage.setItem(SIMULATED_USER_KEY, JSON.stringify(randomSimUser()))
+  sessionStorage.setItem('sdAuthToast', 'in')
+  window.location.replace(window.location.pathname)
+}
+
 // ─── Error messages ───────────────────────────────────────────────────────────
 
 function friendlyError(raw: string): string {
@@ -68,8 +126,8 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [session, setSession] = useState<Session | null>(() => readSimulatedSession())
+  const [loading, setLoading] = useState(() => readSimulatedSession() === null)
 
   // ── Dialog state ───────────────────────────────────────────────────────────
   const [open,       setOpen]       = useState(false)
@@ -85,6 +143,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ── Auth session ───────────────────────────────────────────────────────────
   useEffect(() => {
+    // Dev-only simulated login is active — keep the fake session and never wire up
+    // the real Supabase listener (which would immediately overwrite it with null).
+    if (readSimulatedSession()) { setLoading(false); return }
+
     // Tracks the user ID we knew about before the current auth event fires.
     // undefined = not yet initialised (getSession / INITIAL_SESSION hasn't run)
     // null      = confirmed signed-out state
@@ -141,6 +203,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signOut = useCallback(async () => {
+    // Clear a simulated dev login without touching real Supabase auth.
+    if (import.meta.env.DEV && localStorage.getItem(SIMULATED_USER_KEY)) {
+      localStorage.removeItem(SIMULATED_USER_KEY)
+      sessionStorage.setItem('sdAuthToast', 'out')
+      window.location.replace(window.location.pathname)
+      return
+    }
     await supabase.auth.signOut()
   }, [])
 

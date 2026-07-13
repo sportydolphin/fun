@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
-import { Box, Typography } from '@mui/material'
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
+import { Box, Typography, useTheme } from '@mui/material'
+import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, TEAM_DIVISION, HEADSHOT } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../colorUtils'
 
@@ -1011,6 +1012,60 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
   const [openGame,   setOpenGame]   = useState<FinalGameSummary | null>(null)
   const [expanded,   setExpanded]   = useState(false)
 
+  const theme = useTheme()
+  const paperBg = theme.palette.background.paper
+  const stripRef = useRef<HTMLDivElement | null>(null)
+  const [canScrollLeft,  setCanScrollLeft]  = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  const handleStripScroll = useCallback(() => {
+    const c = stripRef.current
+    if (!c) return
+    setCanScrollLeft(c.scrollLeft > 8)
+    setCanScrollRight(c.scrollLeft < c.scrollWidth - c.clientWidth - 8)
+  }, [])
+
+  // Click (or tap on mobile): jump by roughly one viewport's worth of games.
+  const scrollStrip = useCallback((dir: 'left' | 'right') => {
+    const c = stripRef.current
+    if (!c) return
+    const amount = Math.round(c.clientWidth * 0.85)
+    c.scrollBy({ left: dir === 'right' ? amount : -amount, behavior: 'smooth' })
+  }, [])
+
+  // Hover (mouse/trackpad only — gated on the `hover` media feature so touch
+  // taps never trigger a runaway auto-scroll): glide continuously while the
+  // pointer stays over the arrow, stop the moment it leaves.
+  const autoScrollDirRef  = useRef<'left' | 'right' | null>(null)
+  const autoScrollRafRef  = useRef<number | null>(null)
+
+  const stepAutoScroll = useCallback(() => {
+    const c = stripRef.current, dir = autoScrollDirRef.current
+    if (!c || !dir) { autoScrollRafRef.current = null; return }
+    c.scrollLeft += dir === 'right' ? 7 : -7
+    autoScrollRafRef.current = requestAnimationFrame(stepAutoScroll)
+  }, [])
+
+  const startAutoScroll = useCallback((dir: 'left' | 'right') => {
+    if (!window.matchMedia?.('(hover: hover) and (pointer: fine)').matches) return
+    autoScrollDirRef.current = dir
+    if (autoScrollRafRef.current == null) autoScrollRafRef.current = requestAnimationFrame(stepAutoScroll)
+  }, [stepAutoScroll])
+
+  const stopAutoScroll = useCallback(() => {
+    autoScrollDirRef.current = null
+    if (autoScrollRafRef.current != null) { cancelAnimationFrame(autoScrollRafRef.current); autoScrollRafRef.current = null }
+  }, [])
+
+  useEffect(() => stopAutoScroll, [stopAutoScroll])
+
+  // Window resize (or phone rotation) changes clientWidth without touching `games`
+  // or firing a scroll event — re-check arrow visibility so it doesn't go stale.
+  useEffect(() => {
+    window.addEventListener('resize', handleStripScroll)
+    return () => window.removeEventListener('resize', handleStripScroll)
+  }, [handleStripScroll])
+
   // Once, on first load: if the default date has no games at all, drop back to yesterday.
   const autoFellBackRef = useRef(false)
 
@@ -1032,6 +1087,13 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
       .catch(() => { if (!cancelled) { setGames([]); setLoading(false) } })
     return () => { cancelled = true }
   }, [dateISO])
+
+  // Re-check arrow visibility whenever the game list (re)renders — new date, new
+  // width, etc. — since scrollWidth/clientWidth only settle after paint.
+  useEffect(() => {
+    const t = setTimeout(handleStripScroll, 50)
+    return () => clearTimeout(t)
+  }, [games, handleStripScroll])
 
   // Ordering (see request):
   //   1. Followed team's game is always first, no matter what.
@@ -1116,19 +1178,72 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
             <Typography sx={{ fontSize: '0.74rem', color: 'text.disabled' }}>No games scheduled on this date</Typography>
           </Box>
         ) : (
-          <Box data-swipe-ignore="true" sx={{
-            display: 'flex', gap: 1, p: 1.25,
-            overflowX: 'auto',
-            '&::-webkit-scrollbar': { display: 'none' },
-            msOverflowStyle: 'none', scrollbarWidth: 'none',
-          }}>
-            {sortedGames.map(game => (
-              <FinalGameMiniCard
-                key={game.gamePk}
-                game={game}
-                onClick={() => setOpenGame(game)}
-              />
-            ))}
+          <Box sx={{ position: 'relative' }}>
+            {/* ◀ / ▶ columnar edge arrows — full-height gradient bars.
+                Desktop: hovering glides the strip continuously (see startAutoScroll).
+                Mobile: no hover to speak of, so a tap just jumps one page. */}
+            <Box
+              onClick={() => scrollStrip('left')}
+              onMouseEnter={() => startAutoScroll('left')}
+              onMouseLeave={stopAutoScroll}
+              sx={{
+                position: 'absolute', left: 0, top: 0, bottom: 0, width: 34, zIndex: 3,
+                display: 'flex', alignItems: 'center', justifyContent: 'flex-start',
+                cursor: 'pointer',
+                opacity: canScrollLeft ? 1 : 0, pointerEvents: canScrollLeft ? 'auto' : 'none',
+                transition: 'opacity 0.15s',
+                background: `linear-gradient(to right, ${paperBg} 0%, ${paperBg}cc 55%, transparent 100%)`,
+                '&:hover .scoreArrowIcon': { color: 'text.primary', transform: 'scale(1.15)' },
+              }}
+            >
+              <Box className="scoreArrowIcon" sx={{
+                display: 'flex', ml: 0.4, color: 'text.secondary',
+                transition: 'color 0.12s, transform 0.12s',
+              }}>
+                <ChevronLeft sx={{ fontSize: '1.3rem' }} />
+              </Box>
+            </Box>
+            <Box
+              onClick={() => scrollStrip('right')}
+              onMouseEnter={() => startAutoScroll('right')}
+              onMouseLeave={stopAutoScroll}
+              sx={{
+                position: 'absolute', right: 0, top: 0, bottom: 0, width: 34, zIndex: 3,
+                display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+                cursor: 'pointer',
+                opacity: canScrollRight ? 1 : 0, pointerEvents: canScrollRight ? 'auto' : 'none',
+                transition: 'opacity 0.15s',
+                background: `linear-gradient(to left, ${paperBg} 0%, ${paperBg}cc 55%, transparent 100%)`,
+                '&:hover .scoreArrowIcon': { color: 'text.primary', transform: 'scale(1.15)' },
+              }}
+            >
+              <Box className="scoreArrowIcon" sx={{
+                display: 'flex', mr: 0.4, color: 'text.secondary',
+                transition: 'color 0.12s, transform 0.12s',
+              }}>
+                <ChevronRight sx={{ fontSize: '1.3rem' }} />
+              </Box>
+            </Box>
+
+            <Box
+              ref={stripRef}
+              onScroll={handleStripScroll}
+              data-swipe-ignore="true"
+              sx={{
+                display: 'flex', gap: 1, p: 1.25,
+                overflowX: 'auto',
+                '&::-webkit-scrollbar': { display: 'none' },
+                msOverflowStyle: 'none', scrollbarWidth: 'none',
+              }}
+            >
+              {sortedGames.map(game => (
+                <FinalGameMiniCard
+                  key={game.gamePk}
+                  game={game}
+                  onClick={() => setOpenGame(game)}
+                />
+              ))}
+            </Box>
           </Box>
         )}
       </Box>

@@ -6,13 +6,14 @@ import {
 } from '@mui/material'
 import { Search, Shuffle, FileDownload, InfoOutlined, OpenInFull, Tune, ChevronLeft, ChevronRight, MoreVert } from '@mui/icons-material'
 import html2canvas from 'html2canvas'
-import { Player, Team, Palette, RankMode, TeamPlayerStat, CareerStatSplit, RecentGameEntry, StandingsDivision } from '../types'
+import { Player, Team, Palette, RankMode, TeamPlayerStat, CareerStatSplit, RecentGameEntry, RosterEntry, StandingsDivision } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG, TEAM_ABBR, BBREF_ABBR, DEFAULT_HIT_STATS, DEFAULT_PIT_STATS, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette } from '../constants'
 import { SegControl, PillChip, pillActionSx, linkPillSx, SectionLabel } from '../ui'
 import { CardInner, CardInnerProps, TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsCard } from '../cards'
 // ~1,000-line chart module — lazy so it only loads once a player card is open.
 const PlayerTrendsChart = lazy(() => import('../PlayerTrendsChart').then(m => ({ default: m.PlayerTrendsChart })))
 import { RecentGamesTable } from '../RecentGamesTable'
+import { TeamRoster } from '../TeamRoster'
 import { CareerStatsTable } from '../CareerStatsTable'
 import { fetchPlayerDetails } from '../api'
 
@@ -103,6 +104,7 @@ export interface SearchViewProps {
   featuredHitLeaders: Map<string, number[]>
   featuredPitLeaders: Map<string, number[]>
   divisionStandings: StandingsDivision | null
+  teamRoster: RosterEntry[]
 }
 
 export function SearchView({
@@ -123,6 +125,7 @@ export function SearchView({
   recentGames, loadingRecent, recentGamesOpen, setRecentGamesOpen,
   highlightedGameDate, setHighlightedGameDate,
   showFeaturedRight, featuredPlayers, featuredHitLeaders, featuredPitLeaders, divisionStandings,
+  teamRoster,
 }: SearchViewProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const isMobile = !useMediaQuery('(min-width: 600px)')
@@ -132,6 +135,17 @@ export function SearchView({
   const [cardOptionsAnchor, setCardOptionsAnchor] = React.useState<HTMLElement | null>(null)
   const [highlightedCareerYear, setHighlightedCareerYear] = React.useState<number | null>(null)
   const [careerTableOpen, setCareerTableOpen] = React.useState(true)
+  const [rosterOpen, setRosterOpen] = React.useState(true)
+
+  // Open a player from within a team page. Pushes a ?tid= history entry first so the
+  // browser Back button returns to this team (mirrors the Team Leaders cards below).
+  const openPlayerFromTeam = React.useCallback((playerId: number) => {
+    if (!team) return
+    window.history.pushState({}, '', `/mlb?tid=${team.id}`)
+    fetchPlayerDetails(playerId)
+      .then(details => { if (details) selectPlayer(details) })
+      .catch(() => {})
+  }, [team, selectPlayer])
 
   // Position of the card's year text (relative to the card's positioned wrap), so the
   // prev/next-year arrows sit right beside the value they're changing — vertically
@@ -688,6 +702,31 @@ export function SearchView({
                 </Box>
               )}
             </Box>
+          )}
+        </Box>
+      )}
+
+      {/* Team roster — full-width, below the card + standings/leaders grid */}
+      {hasStats && !!team && teamRoster.length > 0 && (
+        <Box sx={{ mb: 2 }}>
+          <Box
+            onClick={() => setRosterOpen(o => !o)}
+            sx={{
+              mb: rosterOpen ? 1.25 : 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'pointer', userSelect: 'none',
+              '&:hover .rs-chevron': { color: 'text.primary' },
+            }}
+          >
+            <SectionLabel strong>Roster</SectionLabel>
+            <Box className="rs-chevron" sx={{
+              fontSize: '0.75rem', color: 'text.disabled',
+              transition: 'transform 0.18s, color 0.15s',
+              transform: rosterOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+            }}>▾</Box>
+          </Box>
+          {rosterOpen && (
+            <TeamRoster roster={teamRoster} teamId={team.id} onPlayerClick={openPlayerFromTeam} />
           )}
         </Box>
       )}

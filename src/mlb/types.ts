@@ -79,6 +79,21 @@ export interface RecentGameEntry {
   pitching: any | null
 }
 
+// ─── Team roster ──────────────────────────────────────────────────────────────
+
+export interface RosterEntry {
+  playerId: number
+  fullName: string
+  jerseyNumber: string          // '' when unassigned
+  positionAbbr: string          // e.g. 'SS', 'RHP' → we use the position abbreviation
+  positionType: string          // 'Pitcher' | 'Catcher' | 'Infielder' | 'Outfielder' | 'Hitter' | 'Two-Way Player'
+  positionCode: string          // '1' = pitcher, etc.
+  bats?: string                 // 'L' | 'R' | 'S'
+  throws?: string               // 'L' | 'R'
+  statusCode: string            // 'A' active, 'D10'/'D60' IL, etc.
+  statusDescription: string
+}
+
 export interface TrendStatDef {
   key: string
   label: string

@@ -209,22 +209,31 @@ function ordinal(n: number): string {
 
 // ─── Bases diamond + outs ─────────────────────────────────────────────────────
 
-function BasesDiamond({ onFirst, onSecond, onThird, color }: {
-  onFirst: boolean; onSecond: boolean; onThird: boolean; color: string
+function BasesDiamond({ onFirst, onSecond, onThird, color, size = 22 }: {
+  onFirst: boolean; onSecond: boolean; onThird: boolean; color: string; size?: number
 }) {
-  const base = (cx: number, cy: number, on: boolean) => (
-    <rect
-      x={cx - 8} y={cy - 8} width={16} height={16} rx={2.5}
-      transform={`rotate(45 ${cx} ${cy})`}
-      fill={on ? color : 'none'}
-      stroke={color} strokeOpacity={on ? 1 : 0.3} strokeWidth={2}
-    />
+  const gap = Math.round(size * 0.08)
+  const sq = (occupied: boolean) => (
+    <Box sx={{
+      width: size, height: size,
+      transform: 'rotate(45deg)',
+      bgcolor: occupied ? color : 'transparent',
+      border: `${size >= 12 ? 2 : 1.5}px solid`,
+      borderColor: occupied ? color : 'text.disabled',
+      borderRadius: '1px',
+      transition: 'background-color 0.2s, border-color 0.2s',
+    }} />
   )
   return (
-    <Box component="svg" viewBox="0 0 76 52" sx={{ width: 76, height: 52, display: 'block' }}>
-      {base(38, 13, onSecond)}
-      {base(14, 37, onThird)}
-      {base(62, 37, onFirst)}
+    <Box sx={{
+      display: 'grid',
+      gridTemplateColumns: `repeat(3, ${size}px)`,
+      gridTemplateRows: `repeat(2, ${size}px)`,
+      gap: `${gap}px`,
+      flexShrink: 0,
+    }}>
+      <Box />{sq(onSecond)}<Box />
+      {sq(onThird)}<Box />{sq(onFirst)}
     </Box>
   )
 }

@@ -1,6 +1,7 @@
 import React, { useEffect, useCallback } from 'react'
-import { Box, Typography, Popover, Tooltip, useMediaQuery } from '@mui/material'
+import { Box, Typography, Popover, Tooltip, Divider, Button, useMediaQuery } from '@mui/material'
 import { Settings } from '@mui/icons-material'
+import { useAuth, simulateDevLogin } from './AuthContext'
 import { useMlbState } from './mlb/useMlbState'
 import { SegControl } from './mlb/ui'
 import { Standings } from './mlb/Standings'
@@ -266,6 +267,7 @@ export default function MlbStats() {
           featuredHitLeaders={state.featuredHitLeaders}
           featuredPitLeaders={state.featuredPitLeaders}
           divisionStandings={state.divisionStandings}
+          teamRoster={state.teamRoster}
         />
       )}
 
@@ -281,6 +283,7 @@ function DevSettings({ seasonSelectorStyle, setSeasonSelectorStyle }: {
   setSeasonSelectorStyle: (s: 'dropdown' | 'buttons') => void
 }) {
   const [anchor, setAnchor] = React.useState<HTMLElement | null>(null)
+  const { user, signOut } = useAuth()
   return (
     <>
       <Tooltip title="Dev settings (local only)">
@@ -318,6 +321,37 @@ function DevSettings({ seasonSelectorStyle, setSeasonSelectorStyle }: {
           value={seasonSelectorStyle}
           onChange={v => setSeasonSelectorStyle(v as 'dropdown' | 'buttons')}
         />
+
+        <Divider sx={{ my: 1.75 }} />
+
+        <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: 'text.secondary', mb: 0.75 }}>
+          Simulated login
+        </Typography>
+        {user ? (
+          <Box>
+            <Typography sx={{ fontSize: '0.75rem', color: 'text.primary', mb: 1 }}>
+              Signed in as{' '}
+              <Box component="span" sx={{ fontWeight: 700 }}>
+                {user.user_metadata?.full_name ?? user.email}
+              </Box>
+            </Typography>
+            <Button
+              fullWidth size="small" variant="outlined" color="warning"
+              onClick={() => { signOut() }}
+              sx={{ textTransform: 'none', fontWeight: 600 }}
+            >
+              Sign out
+            </Button>
+          </Box>
+        ) : (
+          <Button
+            fullWidth size="small" variant="contained" color="warning"
+            onClick={() => simulateDevLogin()}
+            sx={{ textTransform: 'none', fontWeight: 600 }}
+          >
+            Simulate login as random user
+          </Button>
+        )}
       </Popover>
     </>
   )
