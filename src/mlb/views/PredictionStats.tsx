@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
-import { TEAM_BG, TEAM_ABBR, ACCENT } from '../constants'
+import { TEAM_ABBR, ACCENT } from '../constants'
+import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
 import { supabase } from '../../lib/supabase'
 
 // ─── Supabase table setup (run once in Supabase SQL editor) ──────────────────
@@ -234,7 +235,8 @@ function TeamLogoCard({ teamId, teamAbbr, rank, mainLabel, subLabel }: {
   subLabel?: string
 }) {
   const [failed, setFailed] = useState(false)
-  const col      = TEAM_BG[teamId] ?? '#555'
+  const isDark   = useIsDark()
+  const col      = ringColor(teamId, isDark)
   const rankCol  = RANK_COLORS[rank] ?? '#94a3b8'
   const logoSize = rank === 0 ? 68 : 56
 
@@ -244,7 +246,7 @@ function TeamLogoCard({ teamId, teamAbbr, rank, mainLabel, subLabel }: {
       <Box sx={{ position: 'relative', mb: 0.25 }}>
         <Box sx={{
           width: logoSize, height: logoSize, borderRadius: '50%',
-          bgcolor: '#fff',
+          bgcolor: teamLogoBg(teamId, isDark),
           border: `2.5px solid ${col}`,
           boxShadow: rank === 0 ? `0 0 0 2px ${rankCol}55, 0 4px 16px ${col}30` : `0 2px 8px ${col}20`,
           overflow: 'hidden', flexShrink: 0,
@@ -258,10 +260,10 @@ function TeamLogoCard({ teamId, teamAbbr, rank, mainLabel, subLabel }: {
           ) : (
             <Box
               component="img"
-              src={`https://www.mlbstatic.com/team-logos/${teamId}.svg`}
+              src={teamLogoSrc(teamId, isDark)}
               alt={teamAbbr}
               onError={() => setFailed(true)}
-              sx={{ width: '78%', height: '78%', objectFit: 'contain', display: 'block' }}
+              sx={{ width: '78%', height: '78%', objectFit: 'contain', display: 'block', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
             />
           )}
         </Box>

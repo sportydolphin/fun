@@ -6,7 +6,7 @@ import { fetchDivisionForTeam, fetchTeamSummaryData } from '../api'
 // ~1,400-line schedule module — lazy so the League tab doesn't pull it in.
 const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
-import { useIsDark, borderAlpha, cardGradient135, fmtGB } from '../colorUtils'
+import { useIsDark, borderAlpha, cardGradient135, fmtGB, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
 import { TopPerformers } from './TopPerformers'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
@@ -49,6 +49,7 @@ async function fetchLiveTeamIds(): Promise<Set<number>> {
 
 function TeamPicker({ allTeams, onSelect }: { allTeams: Team[]; onSelect: (id: number) => void }) {
   const sorted = [...allTeams].sort((a, b) => a.name.localeCompare(b.name))
+  const isDark = useIsDark()
   return (
     <Box>
       <Typography sx={{ fontWeight: 800, fontSize: '1.15rem', mb: 0.5 }}>Pick Your Team</Typography>
@@ -57,7 +58,7 @@ function TeamPicker({ allTeams, onSelect }: { allTeams: Team[]; onSelect: (id: n
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(76px, 1fr))', gap: 1 }}>
         {sorted.map(t => {
-          const bg = TEAM_BG[t.id] ?? '#333'
+          const bg = ringColor(t.id, isDark)
           return (
             <Box
               key={t.id}
@@ -73,15 +74,15 @@ function TeamPicker({ allTeams, onSelect }: { allTeams: Team[]; onSelect: (id: n
             >
               <Box sx={{
                 width: 44, height: 44, borderRadius: '50%',
-                bgcolor: '#fff', border: `2px solid ${bg}`, boxShadow: `0 0 0 1px ${bg}30`,
+                bgcolor: teamLogoBg(t.id, isDark), border: `2px solid ${bg}`, boxShadow: `0 0 0 1px ${bg}30`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 overflow: 'hidden', flexShrink: 0,
               }}>
                 <Box
                   component="img"
-                  src={`https://www.mlbstatic.com/team-logos/${t.id}.svg`}
+                  src={teamLogoSrc(t.id, isDark)}
                   alt={t.abbreviation}
-                  sx={{ width: 30, height: 30, objectFit: 'contain' }}
+                  sx={{ width: 30, height: 30, objectFit: 'contain', transform: teamLogoCrop(t.id, isDark), transformOrigin: 'center' }}
                   onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
                     e.currentTarget.style.display = 'none'
                   }}

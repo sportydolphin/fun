@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, ACCENT } from '../constants'
+import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
 import { useAuth } from '../../AuthContext'
 import { supabase } from '../../lib/supabase'
 import { PredictionStatsModal } from './PredictionStats'
@@ -156,7 +157,8 @@ function PredTeamSide({ side, game, prediction, locked, onPick }: {
   onPick:      (teamId: number) => void
 }) {
   const team    = side === 'away' ? game.away : game.home
-  const col     = TEAM_BG[team.teamId] ?? '#444'
+  const isDark  = useIsDark()
+  const col     = ringColor(team.teamId, isDark)
   const picked  = prediction === team.teamId
   const isWin   = game.state === 'final' && game.winnerId === team.teamId
   const correct = isWin && picked
@@ -196,7 +198,7 @@ function PredTeamSide({ side, game, prediction, locked, onPick }: {
       <Box
         sx={{
           width: { xs: 44, sm: 54 }, height: { xs: 44, sm: 54 }, borderRadius: '50%',
-          bgcolor: '#fff', border: `2px solid ${col}`,
+          bgcolor: teamLogoBg(team.teamId, isDark), border: `2px solid ${col}`,
           boxShadow: picked ? `0 0 0 3px ${col}35` : `0 0 0 1px ${col}20`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           overflow: 'hidden', flexShrink: 0,
@@ -205,9 +207,9 @@ function PredTeamSide({ side, game, prediction, locked, onPick }: {
         }}
       >
         <Box component="img"
-          src={`https://www.mlbstatic.com/team-logos/${team.teamId}.svg`}
+          src={teamLogoSrc(team.teamId, isDark)}
           alt={team.abbr}
-          sx={{ width: '72%', height: '72%', objectFit: 'contain', display: 'block' }}
+          sx={{ width: '72%', height: '72%', objectFit: 'contain', display: 'block', transform: teamLogoCrop(team.teamId, isDark), transformOrigin: 'center' }}
         />
       </Box>
 

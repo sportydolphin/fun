@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.2.0'
+export const APP_VERSION = '1.3.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,29 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.3.0',
+    date:    '2026-07-13',
+    title:   'Team icon colors & fewer standout performances',
+    changes: [
+      {
+        short: 'Team icons redesigned for light and dark mode',
+        full:  'Every team logo across the scores, standings, schedule, and visualize now uses colors and logo art tuned for light and dark mode, so low-contrast teams like the Tigers, White Sox, and Giants are easy to spot against the background.',
+      },
+      {
+        short: 'Fixed off-center team logos',
+        full:  'Several team logos that sat off-center or too small inside their circle are now properly centered and sized.',
+      },
+      {
+        short: 'Fewer, more recent standout performances',
+        full:  'Around the League now shows up to 8 standout performances instead of 20, ordered from the most recent games to the oldest.',
+      },
+      {
+        short: 'Standings show full team names',
+        full:  'Standings list each team by name, like "Yankees", instead of the three-letter abbreviation.',
+      },
+    ],
+  },
   {
     version: '1.2.0',
     date:    '2026-07-12',

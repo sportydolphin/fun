@@ -5,6 +5,16 @@ import { fmt, fmtDecimal } from './utils'
 
 export const ACCENT = '#60a5fa'
 
+// MLB StatsAPI numeric team IDs, named for readability — mirrors TEAM_ABBR below.
+// Plain constants (not an enum) so call sites can write the bare name, e.g.
+// `[BOS]: ...` as a computed object key.
+export const LAA = 108, ARI = 109, BAL = 110, BOS = 111, CHC = 112
+export const CIN = 113, CLE = 114, COL = 115, DET = 116, HOU = 117
+export const KC  = 118, LAD = 119, WSH = 120, NYM = 121, OAK = 133
+export const PIT = 134, SD  = 135, SEA = 136, SF  = 137, STL = 138
+export const TB  = 139, TEX = 140, TOR = 141, MIN = 142, PHI = 143
+export const ATL = 144, CWS = 145, MIA = 146, NYY = 147, MIL = 158
+
 // ─── Player stat definitions ──────────────────────────────────────────────────
 
 export const HITTING_STAT_DEFS: StatDef[] = [
@@ -112,12 +122,22 @@ export const HEADSHOT = (id: number) =>
   `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_426,q_auto:best/v1/people/${id}/headshot/67/current`
 
 export const TEAM_ABBR: Record<number, string> = {
-  108: 'LAA', 109: 'ARI', 110: 'BAL', 111: 'BOS', 112: 'CHC',
-  113: 'CIN', 114: 'CLE', 115: 'COL', 116: 'DET', 117: 'HOU',
-  118: 'KC',  119: 'LAD', 120: 'WSH', 121: 'NYM', 133: 'OAK',
-  134: 'PIT', 135: 'SD',  136: 'SEA', 137: 'SF',  138: 'STL',
-  139: 'TB',  140: 'TEX', 141: 'TOR', 142: 'MIN', 143: 'PHI',
-  144: 'ATL', 145: 'CWS', 146: 'MIA', 147: 'NYY', 158: 'MIL',
+  [LAA]: 'LAA', [ARI]: 'ARI', [BAL]: 'BAL', [BOS]: 'BOS', [CHC]: 'CHC',
+  [CIN]: 'CIN', [CLE]: 'CLE', [COL]: 'COL', [DET]: 'DET', [HOU]: 'HOU',
+  [KC]:  'KC',  [LAD]: 'LAD', [WSH]: 'WSH', [NYM]: 'NYM', [OAK]: 'OAK',
+  [PIT]: 'PIT', [SD]:  'SD',  [SEA]: 'SEA', [SF]:  'SF',  [STL]: 'STL',
+  [TB]:  'TB',  [TEX]: 'TEX', [TOR]: 'TOR', [MIN]: 'MIN', [PHI]: 'PHI',
+  [ATL]: 'ATL', [CWS]: 'CWS', [MIA]: 'MIA', [NYY]: 'NYY', [MIL]: 'MIL',
+}
+
+// Team nickname only (no city/location) — e.g. "Yankees", not "New York Yankees".
+export const TEAM_NICKNAME: Record<number, string> = {
+  [LAA]: 'Angels',      [ARI]: 'Diamondbacks', [BAL]: 'Orioles',    [BOS]: 'Red Sox',   [CHC]: 'Cubs',
+  [CIN]: 'Reds',        [CLE]: 'Guardians',    [COL]: 'Rockies',    [DET]: 'Tigers',    [HOU]: 'Astros',
+  [KC]:  'Royals',      [LAD]: 'Dodgers',      [WSH]: 'Nationals',  [NYM]: 'Mets',      [OAK]: 'Athletics',
+  [PIT]: 'Pirates',     [SD]:  'Padres',       [SEA]: 'Mariners',   [SF]:  'Giants',    [STL]: 'Cardinals',
+  [TB]:  'Rays',        [TEX]: 'Rangers',      [TOR]: 'Blue Jays',  [MIN]: 'Twins',     [PHI]: 'Phillies',
+  [ATL]: 'Braves',      [CWS]: 'White Sox',    [MIA]: 'Marlins',    [NYY]: 'Yankees',   [MIL]: 'Brewers',
 }
 
 // BBRef uses different codes for some franchises
@@ -130,86 +150,231 @@ export const BBREF_ABBR: Record<string, string> = {
 // league → other league).
 export const TEAM_DIVISION: Record<number, string> = {
   // AL East
-  110: 'ALE', 111: 'ALE', 147: 'ALE', 139: 'ALE', 141: 'ALE',
+  [BAL]: 'ALE', [BOS]: 'ALE', [NYY]: 'ALE', [TB]: 'ALE', [TOR]: 'ALE',
   // AL Central
-  145: 'ALC', 114: 'ALC', 116: 'ALC', 118: 'ALC', 142: 'ALC',
+  [CWS]: 'ALC', [CLE]: 'ALC', [DET]: 'ALC', [KC]: 'ALC', [MIN]: 'ALC',
   // AL West
-  117: 'ALW', 108: 'ALW', 133: 'ALW', 136: 'ALW', 140: 'ALW',
+  [HOU]: 'ALW', [LAA]: 'ALW', [OAK]: 'ALW', [SEA]: 'ALW', [TEX]: 'ALW',
   // NL East
-  144: 'NLE', 146: 'NLE', 121: 'NLE', 143: 'NLE', 120: 'NLE',
+  [ATL]: 'NLE', [MIA]: 'NLE', [NYM]: 'NLE', [PHI]: 'NLE', [WSH]: 'NLE',
   // NL Central
-  112: 'NLC', 113: 'NLC', 158: 'NLC', 134: 'NLC', 138: 'NLC',
+  [CHC]: 'NLC', [CIN]: 'NLC', [MIL]: 'NLC', [PIT]: 'NLC', [STL]: 'NLC',
   // NL West
-  109: 'NLW', 115: 'NLW', 119: 'NLW', 135: 'NLW', 137: 'NLW',
+  [ARI]: 'NLW', [COL]: 'NLW', [LAD]: 'NLW', [SD]: 'NLW', [SF]: 'NLW',
 }
 
 // ─── Palette ─────────────────────────────────────────────────────────────────
 
 export const TEAM_BG: Record<number, string> = {
-  108: '#BA0021',  // LAA
-  109: '#A71930',  // ARI
-  110: '#DF4601',  // BAL
-  111: '#BD3039',  // BOS
-  112: '#0E3386',  // CHC
-  113: '#C6011F',  // CIN
-  114: '#00385D',  // CLE
-  115: '#33006F',  // COL
-  116: '#0C2340',  // DET
-  117: '#002D62',  // HOU
-  118: '#004687',  // KC
-  119: '#005A9C',  // LAD
-  120: '#AB0003',  // WSH
-  121: '#002D72',  // NYM
-  133: '#003831',  // OAK
-  134: '#27251F',  // PIT
-  135: '#2F241D',  // SD
-  136: '#005C5C',  // SEA
-  137: '#27251F',  // SF
-  138: '#C41E3A',  // STL
-  139: '#092C5C',  // TB
-  140: '#003278',  // TEX
-  141: '#134A8E',  // TOR
-  142: '#002B5C',  // MIN
-  143: '#E81828',  // PHI
-  144: '#CE1141',  // ATL
-  145: '#27251F',  // CWS
-  146: '#272525',  // MIA
-  147: '#132448',  // NYY
-  158: '#12284B',  // MIL
+  [LAA]: '#BA0021',
+  [ARI]: '#A71930',
+  [BAL]: '#DF4601',
+  [BOS]: '#BD3039',
+  [CHC]: '#0E3386',
+  [CIN]: '#C6011F',
+  [CLE]: '#00385D',
+  [COL]: '#33006F',
+  [DET]: '#0C2340',
+  [HOU]: '#002D62',
+  [KC]:  '#004687',
+  [LAD]: '#005A9C',
+  [WSH]: '#AB0003',
+  [NYM]: '#002D72',
+  [OAK]: '#003831',
+  [PIT]: '#27251F',
+  [SD]:  '#2F241D',
+  [SEA]: '#005C5C',
+  [SF]:  '#27251F',
+  [STL]: '#C41E3A',
+  [TB]:  '#092C5C',
+  [TEX]: '#003278',
+  [TOR]: '#134A8E',
+  [MIN]: '#002B5C',
+  [PHI]: '#E81828',
+  [ATL]: '#CE1141',
+  [CWS]: '#27251F',
+  [MIA]: '#272525',
+  [NYY]: '#132448',
+  [MIL]: '#12284B',
 }
 
 // Secondary / accent colors — used as the contrasting foreground on team-color backgrounds
 export const TEAM_SECONDARY: Record<number, string> = {
-  108: '#B8CBE4',  // LAA  - light blue
-  109: '#E3D4AD',  // ARI  - sand
-  110: '#000000',  // BAL  - black
-  111: '#0C2340',  // BOS  - navy
-  112: '#CC3433',  // CHC  - red
-  113: '#000000',  // CIN  - black
-  114: '#E31937',  // CLE  - red
-  115: '#C4CED4',  // COL  - silver
-  116: '#FA4616',  // DET  - orange
-  117: '#EB6E1F',  // HOU  - orange
-  118: '#BD9B60',  // KC   - gold
-  119: '#EF3E42',  // LAD  - red
-  120: '#14225A',  // WSH  - navy
-  121: '#FF5910',  // NYM  - orange
-  133: '#EFB21E',  // OAK  - gold
-  134: '#FDB827',  // PIT  - gold
-  135: '#FFC425',  // SD   - gold
-  136: '#C4CED4',  // SEA  - silver
-  137: '#FD5A1E',  // SF   - orange
-  138: '#0C2340',  // STL  - navy
-  139: '#8FBCE6',  // TB   - sky blue
-  140: '#C0111F',  // TEX  - red
-  141: '#E8291C',  // TOR  - red
-  142: '#D31145',  // MIN  - red
-  143: '#002D72',  // PHI  - blue
-  144: '#13274F',  // ATL  - navy
-  145: '#C4CED4',  // CWS  - silver
-  146: '#00A3E0',  // MIA  - blue
-  147: '#C4CED3',  // NYY  - silver
-  158: '#B6922E',  // MIL  - gold
+  [LAA]: '#B8CBE4',  // light blue
+  [ARI]: '#E3D4AD',  // sand
+  [BAL]: '#000000',  // black
+  [BOS]: '#0C2340',  // navy
+  [CHC]: '#CC3433',  // red
+  [CIN]: '#000000',  // black
+  [CLE]: '#E31937',  // red
+  [COL]: '#C4CED4',  // silver
+  [DET]: '#FA4616',  // orange
+  [HOU]: '#EB6E1F',  // orange
+  [KC]:  '#BD9B60',  // gold
+  [LAD]: '#EF3E42',  // red
+  [WSH]: '#14225A',  // navy
+  [NYM]: '#FF5910',  // orange
+  [OAK]: '#EFB21E',  // gold
+  [PIT]: '#FDB827',  // gold
+  [SD]:  '#FFC425',  // gold
+  [SEA]: '#C4CED4',  // silver
+  [SF]:  '#FD5A1E',  // orange
+  [STL]: '#0C2340',  // navy
+  [TB]:  '#8FBCE6',  // sky blue
+  [TEX]: '#C0111F',  // red
+  [TOR]: '#E8291C',  // red
+  [MIN]: '#D31145',  // red
+  [PHI]: '#002D72',  // blue
+  [ATL]: '#13274F',  // navy
+  [CWS]: '#C4CED4',  // silver
+  [MIA]: '#00A3E0',  // blue
+  [NYY]: '#C4CED3',  // silver
+  [MIL]: '#B6922E',  // gold
+}
+
+// ─── Icon styling ─────────────────────────────────────────────────────────────
+// The four values that define a team's logo icon: bubble background, ring color,
+// standings-row highlight (left border), and which logo art to use. Tuned
+// visually in the dev-only Icon Studio, then hardcoded per mode in
+// TEAM_ICON_STYLE (dark) and TEAM_ICON_STYLE_LIGHT (light) below.
+
+// Fallback bubble background when a team has no TEAM_ICON_STYLE entry.
+export const DEFAULT_ICON_BG_DARK = '#2e2e2e'
+
+// Logo art variants MLB serves — verified to exist for all 30 clubs.
+export type LogoVariantKey = 'primary' | 'capDark' | 'capLight' | 'primDark' | 'primLight'
+export const LOGO_VARIANTS: { key: LogoVariantKey; label: string; url: (id: number) => string }[] = [
+  { key: 'primary',   label: 'Primary',          url: id => `https://www.mlbstatic.com/team-logos/${id}.svg` },
+  { key: 'capDark',   label: 'Cap · dark bg',    url: id => `https://www.mlbstatic.com/team-logos/team-cap-on-dark/${id}.svg` },
+  { key: 'capLight',  label: 'Cap · light bg',   url: id => `https://www.mlbstatic.com/team-logos/team-cap-on-light/${id}.svg` },
+  { key: 'primDark',  label: 'Primary · dark bg',  url: id => `https://www.mlbstatic.com/team-logos/team-primary-on-dark/${id}.svg` },
+  { key: 'primLight', label: 'Primary · light bg', url: id => `https://www.mlbstatic.com/team-logos/team-primary-on-light/${id}.svg` },
+]
+export function teamLogoUrl(id: number, key: LogoVariantKey): string {
+  return (LOGO_VARIANTS.find(v => v.key === key) ?? LOGO_VARIANTS[0]).url(id)
+}
+
+export interface TeamIconStyle {
+  bg:        string          // logo bubble background
+  ring:      string          // logo bubble ring/border
+  highlight: string          // standings-row left border accent
+  logo:      LogoVariantKey  // which logo art to render
+  ox?:       number          // horizontal logo nudge, % of image box (default 0)
+  oy?:       number          // vertical logo nudge, % of image box (default 0)
+  zoom?:     number          // logo scale multiplier (default 1)
+}
+
+// CSS transform that applies a team's logo crop (nudge + zoom). Identity when
+// no crop is set. transform-origin should be center at the call site.
+export function teamLogoTransform(s?: TeamIconStyle): string {
+  if (!s) return 'none'
+  const ox = s.ox ?? 0, oy = s.oy ?? 0, zoom = s.zoom ?? 1
+  if (!ox && !oy && zoom === 1) return 'none'
+  return `translate(${ox}%, ${oy}%) scale(${zoom})`
+}
+
+// Official brand color palettes per team (primary first). Feeds the Icon Studio's
+// per-team swatch choices for background / ring / highlight.
+export const TEAM_COLOR_PALETTE: Record<number, string[]> = {
+  [LAA]: ['#BA0021', '#003263', '#C4CED4'],
+  [ARI]: ['#A71930', '#E3D4AD', '#000000', '#30CED8'],
+  [BAL]: ['#DF4601', '#000000'],
+  [BOS]: ['#BD3039', '#0C2340'],
+  [CHC]: ['#0E3386', '#CC3433'],
+  [CIN]: ['#C6011F', '#000000'],
+  [CLE]: ['#00385D', '#E31937'],
+  [COL]: ['#33006F', '#C4CED4', '#000000'],
+  [DET]: ['#0C2340', '#FA4616'],
+  [HOU]: ['#002D62', '#EB6E1F'],
+  [KC]:  ['#004687', '#BD9B60'],
+  [LAD]: ['#005A9C', '#EF3E42'],
+  [WSH]: ['#AB0003', '#14225A'],
+  [NYM]: ['#002D72', '#FF5910'],
+  [OAK]: ['#003831', '#EFB21E'],
+  [PIT]: ['#27251F', '#FDB827'],
+  [SD]:  ['#2F241D', '#FFC425'],
+  [SEA]: ['#0C2C56', '#005C5C', '#C4CED4'],
+  [SF]:  ['#FD5A1E', '#27251F', '#AE8F6F'],
+  [STL]: ['#C41E3A', '#0C2340', '#FEDB00'],
+  [TB]:  ['#092C5C', '#8FBCE6', '#F5D130'],
+  [TEX]: ['#003278', '#C0111F'],
+  [TOR]: ['#134A8E', '#1D2D5C', '#E8291C'],
+  [MIN]: ['#002B5C', '#D31145', '#B9975B'],
+  [PHI]: ['#E81828', '#002D72'],
+  [ATL]: ['#13274F', '#CE1141'],
+  [CWS]: ['#27251F', '#C4CED4'],
+  [MIA]: ['#00A3E0', '#EF3340', '#000000', '#FFD100'],
+  [NYY]: ['#003087', '#C4CED3'],
+  [MIL]: ['#12284B', '#FFC52F', '#B6922E'],
+}
+
+// Locked-in DARK-MODE icon styling per team (from the Icon Studio). Consumed by
+// ringColor / teamLogoBg / teamLogoSrc / highlightColor in colorUtils.
+export const TEAM_ICON_STYLE: Record<number, TeamIconStyle> = {
+  [LAA]: { bg: '#000000', ring: '#BA0021', highlight: '#C4CED4', logo: 'primLight' },
+  [ARI]: { bg: '#000000', ring: '#A71930', highlight: '#30CED8', logo: 'primDark' },
+  [BAL]: { bg: '#000000', ring: '#DF4601', highlight: '#DF4601', logo: 'primDark' },
+  [BOS]: { bg: '#0C2340', ring: '#BD3039', highlight: '#BD3039', logo: 'primDark' },
+  [CHC]: { bg: '#0E3386', ring: '#CC3433', highlight: '#0E3386', logo: 'primary' },
+  [CIN]: { bg: '#C6011F', ring: '#C6011F', highlight: '#C6011F', logo: 'primLight' },
+  [CLE]: { bg: '#00385D', ring: '#E50022', highlight: '#E31937', logo: 'primDark' },
+  [COL]: { bg: '#33006F', ring: '#C4CED4', highlight: '#C4CED4', logo: 'primDark' },
+  [DET]: { bg: '#0C2340', ring: '#FFFFFF', highlight: '#FA4616', logo: 'capDark' },
+  [HOU]: { bg: '#002D62', ring: '#EB6E1F', highlight: '#EB6E1F', logo: 'primary' },
+  [KC]:  { bg: '#004687', ring: '#BD9B60', highlight: '#004687', logo: 'capDark' },
+  [LAD]: { bg: '#005A9C', ring: '#FFFFFF', highlight: '#005A9C', logo: 'capDark' },
+  [WSH]: { bg: '#14225A', ring: '#AB0003', highlight: '#AB0003', logo: 'primDark' },
+  [NYM]: { bg: '#002D72', ring: '#FF5910', highlight: '#FF5910', logo: 'capLight' },
+  [OAK]: { bg: '#003831', ring: '#EFB21E', highlight: '#EFB21E', logo: 'capDark' },
+  [PIT]: { bg: '#27251F', ring: '#FDB827', highlight: '#FDB827', logo: 'capDark' },
+  [SD]:  { bg: '#2F241D', ring: '#FFC425', highlight: '#FFC425', logo: 'capDark' },
+  [SEA]: { bg: '#000000', ring: '#005C5C', highlight: '#005C5C', logo: 'primLight' },
+  [SF]:  { bg: '#27251F', ring: '#FD5A1E', highlight: '#FD5A1E', logo: 'primDark' },
+  [STL]: { bg: '#0C2340', ring: '#C41E3A', highlight: '#C41E3A', logo: 'primLight' },
+  [TB]:  { bg: '#092C5C', ring: '#8FBCE6', highlight: '#092C5C', logo: 'capDark' },
+  [TEX]: { bg: '#003278', ring: '#C0111F', highlight: '#C0111F', logo: 'capDark' },
+  [TOR]: { bg: '#1D2D5C', ring: '#E8291C', highlight: '#134A8E', logo: 'primary' },
+  [MIN]: { bg: '#002B5C', ring: '#D31145', highlight: '#D31145', logo: 'capDark' },
+  [PHI]: { bg: '#002D72', ring: '#E81828', highlight: '#E81828', logo: 'primary' },
+  [ATL]: { bg: '#13274F', ring: '#CE1141', highlight: '#CE1141', logo: 'capDark' },
+  [CWS]: { bg: '#000000', ring: '#C4CED4', highlight: '#C4CED4', logo: 'primDark' },
+  [MIA]: { bg: '#000000', ring: '#00A3E0', highlight: '#00A3E0', logo: 'capDark' },
+  [NYY]: { bg: '#000000', ring: '#FFFFFF', highlight: '#C4CED3', logo: 'capDark' },
+  [MIL]: { bg: '#12284B', ring: '#FFC52F', highlight: '#FFC52F', logo: 'primary' },
+}
+
+// Locked-in LIGHT-MODE icon styling per team (from the Icon Studio).
+export const TEAM_ICON_STYLE_LIGHT: Record<number, TeamIconStyle> = {
+  [LAA]: { bg: '#FFFFFF', ring: '#BA0021', highlight: '#BA0021', logo: 'primary', ox: 3, oy: -3, zoom: 1.1 },
+  [ARI]: { bg: '#FFFFFF', ring: '#A71930', highlight: '#A71930', logo: 'primary', oy: -9, zoom: 1.1 },
+  [BAL]: { bg: '#FFFFFF', ring: '#DF4601', highlight: '#DF4601', logo: 'primary', zoom: 1.1 },
+  [BOS]: { bg: '#0C2340', ring: '#0C2340', highlight: '#BD3039', logo: 'primDark', ox: 3, zoom: 1.1 },
+  [CHC]: { bg: '#FFFFFF', ring: '#0E3386', highlight: '#0E3386', logo: 'primary', zoom: 1.1 },
+  [CIN]: { bg: '#FFFFFF', ring: '#C6011F', highlight: '#C6011F', logo: 'primary' },
+  [CLE]: { bg: '#00385D', ring: '#00385D', highlight: '#00385D', logo: 'capDark', zoom: 1.3 },
+  [COL]: { bg: '#FFFFFF', ring: '#33006F', highlight: '#33006F', logo: 'primary', oy: 3 },
+  [DET]: { bg: '#0C2340', ring: '#0C2340', highlight: '#0C2340', logo: 'capDark', ox: 3, zoom: 1.3 },
+  [HOU]: { bg: '#002D62', ring: '#EB6E1F', highlight: '#002D62', logo: 'primary', zoom: 1.4 },
+  [KC]:  { bg: '#004687', ring: '#004687', highlight: '#004687', logo: 'primDark', zoom: 0.9 },
+  [LAD]: { bg: '#005A9C', ring: '#005A9C', highlight: '#005A9C', logo: 'capDark', ox: 3, zoom: 1.2 },
+  [WSH]: { bg: '#AB0003', ring: '#AB0003', highlight: '#AB0003', logo: 'primDark', ox: -3 },
+  [NYM]: { bg: '#002D72', ring: '#002D72', highlight: '#002D72', logo: 'primary', ox: 3, oy: 3 },
+  [OAK]: { bg: '#003831', ring: '#003831', highlight: '#003831', logo: 'capDark', zoom: 1.1 },
+  [PIT]: { bg: '#000000', ring: '#000000', highlight: '#27251F', logo: 'primary', zoom: 0.9 },
+  [SD]:  { bg: '#2F241D', ring: '#2F241D', highlight: '#2F241D', logo: 'capDark', zoom: 1.2 },
+  [SEA]: { bg: '#FFFFFF', ring: '#0C2C56', highlight: '#005C5C', logo: 'primDark', zoom: 1.6 },
+  [SF]:  { bg: '#27251F', ring: '#27251F', highlight: '#27251F', logo: 'primary', ox: 3 },
+  [STL]: { bg: '#FFFFFF', ring: '#C41E3A', highlight: '#C41E3A', logo: 'primary' },
+  [TB]:  { bg: '#092C5C', ring: '#092C5C', highlight: '#092C5C', logo: 'capDark', zoom: 1.2 },
+  [TEX]: { bg: '#FFFFFF', ring: '#003278', highlight: '#003278', logo: 'primary', oy: 3 },
+  [TOR]: { bg: '#134A8E', ring: '#134A8E', highlight: '#134A8E', logo: 'primary', ox: -3, zoom: 1.2 },
+  [MIN]: { bg: '#002B5C', ring: '#002B5C', highlight: '#002B5C', logo: 'capDark', ox: -6, zoom: 1.2 },
+  [PHI]: { bg: '#FFFFFF', ring: '#E81828', highlight: '#E81828', logo: 'primary', zoom: 1.1 },
+  [ATL]: { bg: '#CE1141', ring: '#CE1141', highlight: '#CE1141', logo: 'capDark', ox: -3, zoom: 1.3 },
+  [CWS]: { bg: '#000000', ring: '#27251F', highlight: '#27251F', logo: 'capDark', oy: -3, zoom: 1.3 },
+  [MIA]: { bg: '#FFFFFF', ring: '#000000', highlight: '#00A3E0', logo: 'primary', oy: -3, zoom: 1.1 },
+  [NYY]: { bg: '#FFFFFF', ring: '#003087', highlight: '#132448', logo: 'primary', ox: 3, oy: -3 },
+  [MIL]: { bg: '#FFC52F', ring: '#12284B', highlight: '#12284B', logo: 'primary', zoom: 1.2 },
 }
 
 export const DEFAULT_PALETTE: Palette = {
@@ -229,36 +394,36 @@ export function teamPalette(teamId?: number): Palette {
 // Source: FanGraphs Roster Resource (https://fangraphs.com/roster-resource/payroll/{slug})
 // Scraped 2026-05-30. Units: millions USD. Update when significant contracts are signed.
 export const TEAM_PAYROLLS_2026: Record<number, number> = {
-  108: 184,  // LAA
-  109: 196,  // ARI
-  110: 166,  // BAL
-  111: 196,  // BOS
-  112: 232,  // CHC
-  113: 128,  // CIN
-  114:  86,  // CLE
-  115: 122,  // COL
-  116: 217,  // DET
-  117: 237,  // HOU
-  118: 149,  // KC
-  119: 400,  // LAD
-  120:  96,  // WSH
-  121: 368,  // NYM
-  133:  95,  // OAK
-  134: 108,  // PIT
-  135: 209,  // SD
-  136: 163,  // SEA
-  137: 201,  // SF
-  138:  99,  // STL
-  139:  87,  // TB
-  140: 186,  // TEX
-  141: 289,  // TOR
-  142: 107,  // MIN
-  143: 287,  // PHI
-  144: 254,  // ATL
-  145:  88,  // CWS
-  146:  74,  // MIA
-  147: 308,  // NYY
-  158: 131,  // MIL
+  [LAA]: 184,
+  [ARI]: 196,
+  [BAL]: 166,
+  [BOS]: 196,
+  [CHC]: 232,
+  [CIN]: 128,
+  [CLE]:  86,
+  [COL]: 122,
+  [DET]: 217,
+  [HOU]: 237,
+  [KC]:  149,
+  [LAD]: 400,
+  [WSH]:  96,
+  [NYM]: 368,
+  [OAK]:  95,
+  [PIT]: 108,
+  [SD]:  209,
+  [SEA]: 163,
+  [SF]:  201,
+  [STL]:  99,
+  [TB]:   87,
+  [TEX]: 186,
+  [TOR]: 289,
+  [MIN]: 107,
+  [PHI]: 287,
+  [ATL]: 254,
+  [CWS]:  88,
+  [MIA]:  74,
+  [NYY]: 308,
+  [MIL]: 131,
 }
 
 export function randomPalette(): Palette {

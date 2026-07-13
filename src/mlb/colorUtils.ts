@@ -1,4 +1,5 @@
 import { useTheme } from '@mui/material'
+import { TEAM_BG, TEAM_ICON_STYLE, TEAM_ICON_STYLE_LIGHT, DEFAULT_ICON_BG_DARK, teamLogoUrl, teamLogoTransform } from './constants'
 
 export function useIsDark(): boolean {
   return useTheme().palette.mode === 'dark'
@@ -21,6 +22,43 @@ export function brightColor(hex: string): string {
 // Team color appropriate for text/icons in the current theme.
 export function accentColor(hex: string, isDark: boolean): string {
   return isDark ? brightColor(hex) : hex
+}
+
+// Team logo-bubble ring color for the current theme, from the per-team locked-in
+// icon style for that mode. Dark falls back to a brightened primary; light falls
+// back to the team's primary color.
+export function ringColor(teamId: number, isDark: boolean): string {
+  const base = TEAM_BG[teamId] ?? '#888'
+  if (isDark) return TEAM_ICON_STYLE[teamId]?.ring ?? brightColor(base)
+  return TEAM_ICON_STYLE_LIGHT[teamId]?.ring ?? base
+}
+
+// Team logo-bubble center from the per-team locked-in icon style. Dark falls back
+// to a neutral gray, light falls back to plain white.
+export function teamLogoBg(teamId: number, isDark: boolean): string {
+  if (isDark) return TEAM_ICON_STYLE[teamId]?.bg ?? DEFAULT_ICON_BG_DARK
+  return TEAM_ICON_STYLE_LIGHT[teamId]?.bg ?? '#fff'
+}
+
+// Team logo image source — the per-team locked-in logo variant for the mode.
+// Dark falls back to cap-on-dark, light falls back to the full-color primary.
+export function teamLogoSrc(teamId: number, isDark: boolean): string {
+  if (isDark) return teamLogoUrl(teamId, TEAM_ICON_STYLE[teamId]?.logo ?? 'capDark')
+  return teamLogoUrl(teamId, TEAM_ICON_STYLE_LIGHT[teamId]?.logo ?? 'primary')
+}
+
+// Standings-row left-border accent, from the per-team locked-in icon style.
+// Both modes fall back to the team's primary color.
+export function highlightColor(teamId: number, isDark: boolean): string {
+  const base = TEAM_BG[teamId] ?? '#888'
+  if (isDark) return TEAM_ICON_STYLE[teamId]?.highlight ?? base
+  return TEAM_ICON_STYLE_LIGHT[teamId]?.highlight ?? base
+}
+
+// CSS transform for a team's logo crop (nudge + zoom) in the current mode.
+// 'none' when uncropped. Apply to the logo <img> with transformOrigin: 'center'.
+export function teamLogoCrop(teamId: number, isDark: boolean): string {
+  return teamLogoTransform(isDark ? TEAM_ICON_STYLE[teamId] : TEAM_ICON_STYLE_LIGHT[teamId])
 }
 
 // Opacity-suffixed hex for card borders.

@@ -6,6 +6,7 @@ import {
 import { Search, InfoOutlined, OpenInFull, Close } from '@mui/icons-material'
 import { TeamSummary, SosEntry } from '../types'
 import { ACCENT, TEAM_BG, TEAM_ABBR, TEAM_SEASONS, CURRENT_SEASON } from '../constants'
+import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
 import { pillActionSx } from '../ui'
 import { TeamEraOpsPlot, TeamWinRDPlot, PayrollWinsPlot } from '../charts'
 import { fetchStrengthOfSchedule, fetchTeamPayrolls, fetchTeamAverageAges } from '../api'
@@ -38,11 +39,12 @@ export function TeamLogo({ teamId, abbr, size = 36, accent, highlighted }: {
   teamId: number; abbr: string; size?: number; accent?: string; highlighted?: boolean
 }) {
   const [failed, setFailed] = useState(false)
-  const ring = TEAM_BG[teamId] ?? '#444'
+  const isDark = useIsDark()
+  const ring = ringColor(teamId, isDark)
   return (
     <Box sx={{
       width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      bgcolor: failed ? ring : '#fff',
+      bgcolor: failed ? ring : teamLogoBg(teamId, isDark),
       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
       boxShadow: highlighted && accent ? `0 0 0 2.5px ${accent}` : `0 0 0 1px ${ring}30`,
     }}>
@@ -53,11 +55,11 @@ export function TeamLogo({ teamId, abbr, size = 36, accent, highlighted }: {
       ) : (
         <Box
           component="img"
-          src={`https://www.mlbstatic.com/team-logos/${teamId}.svg`}
+          src={teamLogoSrc(teamId, isDark)}
           alt={abbr}
           crossOrigin="anonymous"
           onError={() => setFailed(true)}
-          sx={{ width: '78%', height: '78%', objectFit: 'contain', display: 'block' }}
+          sx={{ width: '78%', height: '78%', objectFit: 'contain', display: 'block', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
         />
       )}
     </Box>

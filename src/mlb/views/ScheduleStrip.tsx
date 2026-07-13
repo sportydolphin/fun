@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
-import { TEAM_BG, TEAM_ABBR, HEADSHOT, ACCENT } from '../constants'
+import { TEAM_ABBR, HEADSHOT, ACCENT } from '../constants'
+import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
 import { FinalGameSummary } from './FinalGames'
 import { GameCenterModal } from './LiveGameCenter'
 
@@ -339,6 +340,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
   const isLive      = game.state === 'live'
   const isPostponed = game.state === 'postponed'
   const isWin       = game.isWin === true
+  const isDark      = useIsDark()
 
   return (
     <Box
@@ -393,15 +395,15 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
       </Typography>
 
       <Box sx={{
-        width: 28, height: 28, borderRadius: '50%', bgcolor: '#fff',
+        width: 28, height: 28, borderRadius: '50%', bgcolor: teamLogoBg(game.opponentId, isDark),
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         overflow: 'hidden', flexShrink: 0,
       }}>
         <Box
           component="img"
-          src={`https://www.mlbstatic.com/team-logos/${game.opponentId}.svg`}
+          src={teamLogoSrc(game.opponentId, isDark)}
           alt={game.opponentAbbr}
-          sx={{ width: 20, height: 20, objectFit: 'contain' }}
+          sx={{ width: 20, height: 20, objectFit: 'contain', transform: teamLogoCrop(game.opponentId, isDark), transformOrigin: 'center' }}
         />
       </Box>
 
@@ -446,7 +448,8 @@ function PitcherPanel({ pitcher, teamId, side, onPlayerClick, onTeamClick }: {
   onPlayerClick?: () => void
   onTeamClick?:   () => void
 }) {
-  const col = TEAM_BG[teamId] ?? '#444'
+  const isDark = useIsDark()
+  const col = ringColor(teamId, isDark)
   return (
     <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
       <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.2, color: 'text.disabled', lineHeight: 1 }}>
@@ -457,7 +460,7 @@ function PitcherPanel({ pitcher, teamId, side, onPlayerClick, onTeamClick }: {
         onClick={onTeamClick}
         sx={{
           width: 38, height: 38, borderRadius: '50%',
-          bgcolor: '#fff', border: `2.5px solid ${col}`,
+          bgcolor: teamLogoBg(teamId, isDark), border: `2.5px solid ${col}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           overflow: 'hidden', flexShrink: 0,
           boxShadow: `0 0 0 1px ${col}40`,
@@ -467,8 +470,8 @@ function PitcherPanel({ pitcher, teamId, side, onPlayerClick, onTeamClick }: {
         }}
       >
         <Box component="img"
-          src={`https://www.mlbstatic.com/team-logos/${teamId}.svg`}
-          sx={{ width: 26, height: 26, objectFit: 'contain' }}
+          src={teamLogoSrc(teamId, isDark)}
+          sx={{ width: 26, height: 26, objectFit: 'contain', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
         />
       </Box>
 
@@ -724,16 +727,17 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
   const homeTeamId = myTeamId ? (game.isHome ? myTeamId        : game.opponentId) : game.opponentId
   const awayScore  = game.isHome ? game.opponentScore : game.teamScore
   const homeScore  = game.isHome ? game.teamScore     : game.opponentScore
-  const awayCol    = TEAM_BG[awayTeamId] ?? '#444'
-  const homeCol    = TEAM_BG[homeTeamId] ?? '#444'
-  const oppCol     = TEAM_BG[game.opponentId] ?? '#444'
+  const isDark     = useIsDark()
+  const awayCol    = ringColor(awayTeamId, isDark)
+  const homeCol    = ringColor(homeTeamId, isDark)
+  const oppCol     = ringColor(game.opponentId, isDark)
 
   // Small clickable logo circle — ringCol overrides border for W/L ring on the followed team
   const logoCircle = (teamId: number, col: string, size: number, ringCol?: string) => (
     <Box
       onClick={e => { e.stopPropagation(); onTeamClick?.(teamId) }}
       sx={{
-        width: size, height: size, borderRadius: '50%', bgcolor: '#fff',
+        width: size, height: size, borderRadius: '50%', bgcolor: teamLogoBg(teamId, isDark),
         border: ringCol ? `2.5px solid ${ringCol}` : `1.5px solid ${col}`,
         display: 'flex', alignItems: 'center',
         justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
@@ -744,9 +748,9 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
       }}
     >
       <Box component="img"
-        src={`https://www.mlbstatic.com/team-logos/${teamId}.svg`}
+        src={teamLogoSrc(teamId, isDark)}
         alt={TEAM_ABBR[teamId] ?? ''}
-        sx={{ width: Math.round(size * 0.7), height: Math.round(size * 0.7), objectFit: 'contain' }}
+        sx={{ width: Math.round(size * 0.7), height: Math.round(size * 0.7), objectFit: 'contain', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
       />
     </Box>
   )
@@ -1040,8 +1044,9 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
   loading:       boolean
   onPlayerClick?: (id: number) => void
 }) {
-  const awayCol = TEAM_BG[awayTeamId] ?? '#444'
-  const homeCol = TEAM_BG[homeTeamId] ?? '#444'
+  const isDark = useIsDark()
+  const awayCol = ringColor(awayTeamId, isDark)
+  const homeCol = ringColor(homeTeamId, isDark)
 
   if (loading) return (
     <Box sx={{ mt: 0.75 }}>
@@ -1050,7 +1055,7 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
   )
 
   const PitcherChip = ({ pitcher, teamId }: { pitcher: ProbablePitcher | null; teamId: number }) => {
-    const col = TEAM_BG[teamId] ?? '#444'
+    const col = ringColor(teamId, isDark)
     return (
       <Box
         onClick={e => { e.stopPropagation(); pitcher && onPlayerClick?.(pitcher.id) }}
@@ -1061,13 +1066,13 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
         }}
       >
         <Box sx={{
-          width: 22, height: 22, borderRadius: '50%', bgcolor: '#fff',
+          width: 22, height: 22, borderRadius: '50%', bgcolor: teamLogoBg(teamId, isDark),
           border: `1.5px solid ${col}`, display: { xs: 'none', sm: 'flex' }, alignItems: 'center',
           justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
         }}>
           <Box component="img"
-            src={`https://www.mlbstatic.com/team-logos/${teamId}.svg`}
-            sx={{ width: 15, height: 15, objectFit: 'contain' }}
+            src={teamLogoSrc(teamId, isDark)}
+            sx={{ width: 15, height: 15, objectFit: 'contain', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
           />
         </Box>
         <Box sx={{ minWidth: 0, maxWidth: 96 }}>
@@ -1105,6 +1110,7 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick }: {
   awayTeamId?:    number   // when set, order pitchers away → home so logos align with the score row above
   onPlayerClick?: (id: number) => void
 }) {
+  const isDark = useIsDark()
   let first  = finalDetails.winnerPitcher
   let second = finalDetails.loserPitcher
   if (!first && !second) return null
@@ -1113,7 +1119,7 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick }: {
   }
 
   const PlayerCard = ({ player }: { player: NonNullable<GameFinalDetails['winnerPitcher']> }) => {
-    const col = TEAM_BG[player.teamId] ?? '#444'
+    const col = ringColor(player.teamId, isDark)
     return (
       <Box
         onClick={e => { e.stopPropagation(); onPlayerClick?.(player.id) }}
@@ -1129,13 +1135,13 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick }: {
           justifyContent: 'center', flexShrink: 0,
         }}>
           <Box sx={{
-            width: 22, height: 22, borderRadius: '50%', bgcolor: '#fff',
+            width: 22, height: 22, borderRadius: '50%', bgcolor: teamLogoBg(player.teamId, isDark),
             border: `1.5px solid ${col}`, display: 'flex', alignItems: 'center',
             justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
           }}>
             <Box component="img"
-              src={`https://www.mlbstatic.com/team-logos/${player.teamId}.svg`}
-              sx={{ width: 15, height: 15, objectFit: 'contain' }}
+              src={teamLogoSrc(player.teamId, isDark)}
+              sx={{ width: 15, height: 15, objectFit: 'contain', transform: teamLogoCrop(player.teamId, isDark), transformOrigin: 'center' }}
             />
           </Box>
         </Box>
@@ -1290,12 +1296,13 @@ function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick, onTeam
   onTeamClick?:   (id: number) => void
   onOpenCenter?:  () => void
 }) {
+  const isDark     = useIsDark()
   const awayTeamId = game.isHome ? game.opponentId : myTeamId
   const homeTeamId = game.isHome ? myTeamId        : game.opponentId
   const awayAbbr   = TEAM_ABBR[awayTeamId] ?? '???'
   const homeAbbr   = TEAM_ABBR[homeTeamId] ?? '???'
-  const awayCol    = TEAM_BG[awayTeamId] ?? '#444'
-  const homeCol    = TEAM_BG[homeTeamId] ?? '#444'
+  const awayCol    = ringColor(awayTeamId, isDark)
+  const homeCol    = ringColor(homeTeamId, isDark)
 
   // Use live feed scores (most current); fall back to schedule-API scores
   const awayRuns = liveData?.awayRuns ?? (game.isHome ? game.opponentScore : game.teamScore) ?? 0
@@ -1330,7 +1337,7 @@ function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick, onTeam
     <Box
       onClick={() => onTeamClick?.(teamId)}
       sx={{
-        width: 32, height: 32, borderRadius: '50%', bgcolor: '#fff',
+        width: 32, height: 32, borderRadius: '50%', bgcolor: teamLogoBg(teamId, isDark),
         border: `2px solid ${col}`, display: 'flex', alignItems: 'center',
         justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
         boxShadow: `0 0 0 1px ${col}30`,
@@ -1340,9 +1347,9 @@ function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick, onTeam
       }}
     >
       <Box component="img"
-        src={`https://www.mlbstatic.com/team-logos/${teamId}.svg`}
+        src={teamLogoSrc(teamId, isDark)}
         alt={TEAM_ABBR[teamId]}
-        sx={{ width: 22, height: 22, objectFit: 'contain' }} />
+        sx={{ width: 22, height: 22, objectFit: 'contain', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }} />
     </Box>
   )
 

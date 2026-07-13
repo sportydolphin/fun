@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 
 import { Box, Typography, useTheme } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, TEAM_DIVISION, HEADSHOT } from '../constants'
-import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../colorUtils'
+import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
 
 // Loaded on first game click — keeps the Game Center out of the home bundle.
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
@@ -331,18 +331,19 @@ async function fetchGamePreview(gamePk: number): Promise<GamePreviewData | null>
 export function LogoBubble({ teamId, abbr, size, ring = 1.5 }: {
   teamId: number; abbr: string; size: number; ring?: number
 }) {
-  const col = TEAM_BG[teamId] ?? '#555'
+  const isDark = useIsDark()
+  const col = ringColor(teamId, isDark)
   return (
     <Box sx={{
-      width: size, height: size, borderRadius: '50%', bgcolor: '#fff',
+      width: size, height: size, borderRadius: '50%', bgcolor: teamLogoBg(teamId, isDark),
       border: `${ring}px solid ${col}`, flexShrink: 0,
       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
     }}>
       <Box
         component="img"
-        src={`https://www.mlbstatic.com/team-logos/${teamId}.svg`}
+        src={teamLogoSrc(teamId, isDark)}
         alt={abbr}
-        sx={{ width: size * 0.72, height: size * 0.72, objectFit: 'contain' }}
+        sx={{ width: size * 0.72, height: size * 0.72, objectFit: 'contain', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
       />
     </Box>
   )

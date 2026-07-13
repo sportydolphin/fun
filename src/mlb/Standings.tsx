@@ -1,20 +1,18 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, lazy, Suspense } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
-import { ACCENT, TEAM_BG, TEAM_SECONDARY } from './constants'
-import { fmtGB, useIsDark } from './colorUtils'
+import { ACCENT, TEAM_NICKNAME } from './constants'
+import { fmtGB, useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, highlightColor } from './colorUtils'
 import { fetchStandings } from './api'
 import { StandingsDivision, StandingsTeamRecord } from './types'
 import { SegControl } from './components'
+
+// Dev-only icon tuner — lazy so it's stripped from production builds.
+const IconStudio = import.meta.env.DEV ? lazy(() => import('./dev/IconStudio')) : null
 
 // ─── Division display order ───────────────────────────────────────────────────
 
 const AL_ORDER = [201, 202, 200] // East, Central, West
 const NL_ORDER = [204, 205, 203]
-
-// Light mode: full-color primary logo (designed to read on white).
-// Dark mode: the cap-on-dark variant (light elements, meant for dark backgrounds).
-const TEAM_LOGO_LIGHT = (id: number) => `https://www.mlbstatic.com/team-logos/${id}.svg`
-const TEAM_LOGO_DARK  = (id: number) => `https://www.mlbstatic.com/team-logos/team-cap-on-dark/${id}.svg`
 
 // ─── Wild card computation ────────────────────────────────────────────────────
 
@@ -58,20 +56,17 @@ function DiffCell({ diff }: { diff: number }) {
 // ─── Team logo — a team-color ring framing a logo, adapted per theme so it reads
 // for all 30 teams in both modes:
 //   • Light mode: full-color primary logo on a white center.
-//   • Dark mode: cap-on-dark logo (designed for dark backgrounds) on a dark center.
+//   • Dark mode: per-team locked-in bg / ring / logo (TEAM_ICON_STYLE).
 // The team-color ring carries the team identity in both modes.
 
 function TeamLogo({ teamId, abbr }: { teamId: number; abbr: string }) {
   const [failed, setFailed] = useState(false)
   const isDark = useIsDark()
-  const ring = TEAM_BG[teamId] ?? '#444'
-  // NYM's navy cap-on-dark logo blends into the dark chip — halo it in the team's
-  // orange accent so it doesn't disappear in dark mode.
-  const halo = isDark && teamId === 121 ? TEAM_SECONDARY[121] : null
+  const ring = ringColor(teamId, isDark)
   return (
     <Box sx={{
       width: 28, height: 28, borderRadius: '50%',
-      bgcolor: isDark ? '#2e2e2e' : '#fff', border: `2.5px solid ${ring}`,
+      bgcolor: teamLogoBg(teamId, isDark), border: `2.5px solid ${ring}`,
       boxShadow: `0 0 0 1px ${ring}30`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       flexShrink: 0, overflow: 'hidden',
@@ -84,15 +79,10 @@ function TeamLogo({ teamId, abbr }: { teamId: number; abbr: string }) {
       ) : (
         <Box
           component="img"
-          src={(isDark ? TEAM_LOGO_DARK : TEAM_LOGO_LIGHT)(teamId)}
+          src={teamLogoSrc(teamId, isDark)}
           alt={abbr}
           onError={() => setFailed(true)}
-          sx={{
-            width: 19, height: 19, objectFit: 'contain', display: 'block',
-            filter: halo
-              ? `drop-shadow(0 0 1px ${halo}) drop-shadow(0 0 1px ${halo})`
-              : 'none',
-          }}
+          sx={{ width: 19, height: 19, objectFit: 'contain', display: 'block', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
         />
       )}
     </Box>
@@ -129,6 +119,7 @@ function DivisionCard({ division, wcIds, onTeamClick, highlightTeamId }: {
   highlightTeamId?: number | null
 }) {
   const teams = [...division.teams].sort((a, b) => a.divisionRank - b.divisionRank)
+  const isDark = useIsDark()
 
   let lastPlayoffIdx = -1
   for (let i = 0; i < teams.length; i++) {
@@ -162,7 +153,7 @@ function DivisionCard({ division, wcIds, onTeamClick, highlightTeamId }: {
 
         <Box component="tbody">
           {teams.map((t, i) => {
-            const teamColor = TEAM_BG[t.teamId] ?? '#666'
+            const teamColor = highlightColor(t.teamId, isDark)
             const notLast = i < teams.length - 1
             const isSepRow = showSeparator && i === lastPlayoffIdx
             const isMine = highlightTeamId != null && t.teamId === highlightTeamId
@@ -190,12 +181,9 @@ function DivisionCard({ division, wcIds, onTeamClick, highlightTeamId }: {
                   }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <TeamLogo teamId={t.teamId} abbr={t.abbr} />
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.2 }}>{t.abbr}</Typography>
-                        <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1.2, display: { xs: 'none', md: 'block' } }}>
-                          {t.teamName}
-                        </Typography>
-                      </Box>
+                      <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.2 }}>
+                        {TEAM_NICKNAME[t.teamId] ?? t.abbr}
+                      </Typography>
                     </Box>
                   </Box>
 
@@ -269,7 +257,8 @@ function PlayoffTeamRow({ team, gbText, isIn, isLast, showSep, onTeamClick, high
   onTeamClick?: (teamId: number) => void
   highlightTeamId?: number | null
 }) {
-  const teamColor = TEAM_BG[team.teamId] ?? '#666'
+  const isDark = useIsDark()
+  const teamColor = highlightColor(team.teamId, isDark)
   const clickable = !!onTeamClick
   const isMine = highlightTeamId != null && team.teamId === highlightTeamId
   const gapNum = parseFloat(gbText)
@@ -293,9 +282,8 @@ function PlayoffTeamRow({ team, gbText, isIn, isLast, showSep, onTeamClick, high
           <TeamLogo teamId={team.teamId} abbr={team.abbr} />
         </Box>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontSize: '0.84rem', fontWeight: isMine ? 800 : 700, lineHeight: 1.2 }}>{team.abbr}</Typography>
-          <Typography sx={{ fontSize: '0.61rem', color: 'text.disabled', lineHeight: 1.2, display: { xs: 'none', sm: 'block' } }}>
-            {team.teamName}
+          <Typography sx={{ fontSize: '0.84rem', fontWeight: isMine ? 800 : 700, lineHeight: 1.2 }}>
+            {TEAM_NICKNAME[team.teamId] ?? team.abbr}
           </Typography>
         </Box>
         <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary', minWidth: 44, textAlign: 'right' }}>
@@ -421,6 +409,7 @@ export function Standings({ season, onTeamClick, highlightTeamId }: {
   const [divisions, setDivisions] = useState<StandingsDivision[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
+  const [studioOpen, setStudioOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -433,7 +422,29 @@ export function Standings({ season, onTeamClick, highlightTeamId }: {
   }, [season])
 
   return (
-    <Box>
+    <Box sx={{ position: 'relative' }}>
+      {/* Dev-only: open the icon-styling tuner */}
+      {import.meta.env.DEV && (
+        <Box
+          onClick={() => setStudioOpen(true)}
+          sx={{
+            position: 'absolute', top: -4, right: 0, zIndex: 3,
+            px: 1.1, py: 0.4, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
+            fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary',
+            border: '1px solid', borderColor: 'divider',
+            '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
+          }}
+        >
+          🎨 Icon Studio
+        </Box>
+      )}
+
+      {IconStudio && studioOpen && (
+        <Suspense fallback={null}>
+          <IconStudio onClose={() => setStudioOpen(false)} />
+        </Suspense>
+      )}
+
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
         <SegControl
           options={[{ value: 'divisions', label: 'Divisions' }, { value: 'playoffs', label: 'Playoff Picture' }]}

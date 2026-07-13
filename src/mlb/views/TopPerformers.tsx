@@ -60,12 +60,11 @@ export function TopPerformers({
 
   useEffect(() => {
     fetchRecentGamePerformers().then(({ hitters, pitchers }) => {
-      const combined: PerformerEntry[] = []
-      const max = Math.max(hitters.length, pitchers.length)
-      for (let i = 0; i < max; i++) {
-        if (hitters[i])  combined.push({ ...hitters[i],  role: 'hitter'  })
-        if (pitchers[i]) combined.push({ ...pitchers[i], role: 'pitcher' })
-      }
+      const combined: PerformerEntry[] = [
+        ...hitters.map(h  => ({ ...h,  role: 'hitter'  as const })),
+        ...pitchers.map(p => ({ ...p, role: 'pitcher' as const })),
+      ]
+      combined.sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''))
       setPerformers(combined)
       setLoading(false)
     })

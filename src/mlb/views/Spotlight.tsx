@@ -37,6 +37,7 @@ export interface HotGuyData {
   isPitcher:  boolean
   isStarter:  boolean
   period:     string
+  date?:      string
   stats:      HotGuyStats
 }
 
@@ -330,7 +331,7 @@ export async function fetchRecentGamePerformers(): Promise<{ hitters: HotGuyData
           position:   s.position?.abbreviation ?? s.position?.code ?? 'OF',
           teamId:     Number(s.team?.id ?? 0),
           teamName:   s.team?.name ?? '—',
-          isPitcher: false, isStarter: false, period,
+          isPitcher: false, isStarter: false, period, date,
           stats: {
             hits: Number(s.stat.hits        ?? 0),
             ab:   Number(s.stat.atBats      ?? 0),
@@ -352,7 +353,7 @@ export async function fetchRecentGamePerformers(): Promise<{ hitters: HotGuyData
           position:   s.position?.abbreviation ?? (isStarter ? 'SP' : 'RP'),
           teamId:     Number(s.team?.id ?? 0),
           teamName:   s.team?.name ?? '—',
-          isPitcher: true, isStarter, period,
+          isPitcher: true, isStarter, period, date,
           stats: {
             k:     Number(s.stat.strikeOuts  ?? 0),
             ip:    s.stat.inningsPitched,
@@ -366,10 +367,10 @@ export async function fetchRecentGamePerformers(): Promise<{ hitters: HotGuyData
       }
     }))
 
-    pool.sort((a, b) => b.score - a.score)
+    pool.sort((a, b) => (b.data.date ?? '').localeCompare(a.data.date ?? '') || b.score - a.score)
     _recentCache = {
-      hitters:  pool.filter(c => !c.data.isPitcher).slice(0, 10).map(c => c.data),
-      pitchers: pool.filter(c =>  c.data.isPitcher).slice(0, 10).map(c => c.data),
+      hitters:  pool.filter(c => !c.data.isPitcher).slice(0, 4).map(c => c.data),
+      pitchers: pool.filter(c =>  c.data.isPitcher).slice(0, 4).map(c => c.data),
     }
     return _recentCache
   } catch {
