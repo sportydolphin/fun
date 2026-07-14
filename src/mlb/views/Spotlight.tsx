@@ -477,9 +477,9 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
         </Box>
       </Box>
 
-      <Box sx={{ px: 1.75, pt: 1.5, pb: 1.75, display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+      <Box sx={{ px: 1.75, pt: 1.5, pb: 1.75, display: 'flex', gap: 1.5, alignItems: 'stretch' }}>
         <Box sx={{
-          flexShrink: 0, width: 58, height: 70,
+          flexShrink: 0, width: 58, minHeight: 70,
           borderRadius: 2, overflow: 'hidden',
           border: `2px solid ${photoBorderAlpha(accent, isDark)}`,
           bgcolor: 'action.hover',

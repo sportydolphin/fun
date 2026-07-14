@@ -96,17 +96,6 @@ export function useMlbState() {
     setFollowedTeamId(null)
   }, [])
 
-  // ─── Home sub-tab ('Around the League' vs 'My Stuff') ────────────────────────
-  // Lifted out of HomeView so it survives the unmount/remount that happens when
-  // navigating away to a player/team and back — see handlePop below.
-  const [homeTab, setHomeTab] = useState<'league' | 'team'>(
-    () => followedTeamId ? 'team' : 'league'
-  )
-
-  useEffect(() => {
-    if (followedTeamId) setHomeTab('team')
-  }, [followedTeamId])
-
   // ─── Followed players (persisted to localStorage) ─────────────────────────────
   const [followedPlayerIds, setFollowedPlayerIds] = useState<number[]>(getLocalFollowedPlayerIds)
 
@@ -492,11 +481,11 @@ export function useMlbState() {
   }, [loadTeamStats, addRecentSearch])
 
   const handleLbPlayerClick = useCallback((playerId: number) => {
-    window.history.pushState({ returnView: view, returnHomeTab: homeTab }, '', window.location.href)
+    window.history.pushState({ returnView: view }, '', window.location.href)
     fetchPlayerDetails(playerId).then(p => {
       if (p) { selectPlayer(p); setView('search') }
     }).catch(() => {})
-  }, [selectPlayer, view, homeTab])
+  }, [selectPlayer, view])
 
   const handleSeasonChange = useCallback((s: number) => {
     setHighlightedGameDate(null)
@@ -532,7 +521,7 @@ export function useMlbState() {
         '', window.location.href,
       )
     }
-    window.history.pushState({ returnView: view, returnHomeTab: homeTab }, '', window.location.href)
+    window.history.pushState({ returnView: view }, '', window.location.href)
     setView('stats')
     setLbGroup(group)
     setStatsAllTime(allTime)
@@ -542,28 +531,28 @@ export function useMlbState() {
     setLbStatsLimit(500)
     setStatsHighlightPlayerId(player?.id ?? null)
     setStatsHighlightStatKey(statKey)
-  }, [player, season, statsView, view, homeTab])
+  }, [player, season, statsView, view])
 
   const handleFollowedPlayerClick = useCallback((playerId: number) => {
-    window.history.pushState({ returnView: view, returnHomeTab: homeTab }, '', window.location.href)
+    window.history.pushState({ returnView: view }, '', window.location.href)
     fetchPlayerDetails(playerId)
       .then(p => { if (p) { selectPlayer(p); setView('search') } })
       .catch(() => {})
-  }, [selectPlayer, view, homeTab])
+  }, [selectPlayer, view])
 
   const handleTeamSearchClick = useCallback((teamId: number) => {
     const t = allTeams.find(t => t.id === teamId)
     if (!t) return
-    window.history.pushState({ returnView: view, returnHomeTab: homeTab }, '', window.location.href)
+    window.history.pushState({ returnView: view }, '', window.location.href)
     selectTeam(t).then(() => setView('search'))
-  }, [allTeams, selectTeam, view, homeTab])
+  }, [allTeams, selectTeam, view])
 
   const handleVizNavigate = useCallback((id: number) => {
     const t = allTeams.find(t => t.id === id)
     if (!t) return
-    window.history.pushState({ returnView: view, returnHomeTab: homeTab }, '', window.location.href)
+    window.history.pushState({ returnView: view }, '', window.location.href)
     selectTeam(t).then(() => setView('search'))
-  }, [allTeams, selectTeam, view, homeTab])
+  }, [allTeams, selectTeam, view])
 
   // ─── Effects: player-level data ───────────────────────────────────────────────
 
@@ -629,8 +618,8 @@ export function useMlbState() {
       else if (vizSeason !== CURRENT_SEASON) params.set('season', String(vizSeason))
     }
     const qs = params.toString()
-    // Preserve the existing history-entry state (e.g. returnView/returnHomeTab
-    // pushed by a cross-link click) — replaceState only needs to touch the URL.
+    // Preserve the existing history-entry state (e.g. returnView pushed by a
+    // cross-link click) — replaceState only needs to touch the URL.
     window.history.replaceState(window.history.state, '', `/mlb${qs ? '?' + qs : ''}`)
   }, [view, player, team, lbGroup, vizSeason, statsAllTime])
 
@@ -655,7 +644,6 @@ export function useMlbState() {
       if (e.state?.returnView) {
         const rv = e.state.returnView as string
         setView(rv as any)
-        if (e.state.returnHomeTab) setHomeTab(e.state.returnHomeTab as 'league' | 'team')
         setPlayer(null)
         setTeam(null)
         return
@@ -865,7 +853,6 @@ export function useMlbState() {
 
     // Followed team
     followedTeamId, followTeam, unfollowTeam,
-    homeTab, setHomeTab,
 
     // Followed players
     followedPlayerIds, followPlayer, unfollowPlayer,

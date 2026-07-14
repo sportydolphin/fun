@@ -310,7 +310,7 @@ function AppInner() {
   return (
     <>
       <AppBar position="static" color="default" elevation={1}>
-        <Toolbar>
+        <Toolbar variant="dense" sx={{ minHeight: 48, py: 0.5 }}>
           {/* Close button — mobile search mode only */}
           {!isDesktop && mobileSearchExpanded && (
             <IconButton size="small" onClick={() => { setMobileSearchExpanded(false); setSearchQuery('') }} sx={{ mr: 0.5, flexShrink: 0 }}>
@@ -649,8 +649,8 @@ function AppInner() {
         onOpenApp={openApp}
       />
 
-      <Dialog open={changelogOpen} onClose={() => setChangelogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+      <Dialog open={changelogOpen} onClose={() => setChangelogOpen(false)} maxWidth="sm" fullWidth fullScreen={!isDesktop}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
           What's New
           <Typography component="span" sx={{ fontSize: '0.8rem', color: 'text.disabled', fontWeight: 600 }}>
             · currently v{APP_VERSION}
@@ -693,13 +693,13 @@ function AppInner() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={viewAllVersion !== null} onClose={() => setViewAllVersion(null)} maxWidth="sm" fullWidth>
+      <Dialog open={viewAllVersion !== null} onClose={() => setViewAllVersion(null)} maxWidth="sm" fullWidth fullScreen={!isDesktop}>
         {(() => {
           const entry = CHANGELOG.find(e => e.version === viewAllVersion)
           if (!entry) return null
           return (
             <>
-              <DialogTitle sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+              <DialogTitle sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
                 v{entry.version}
                 {entry.title && (
                   <Typography component="span" sx={{ fontSize: '0.8rem', color: 'text.disabled', fontWeight: 600 }}>

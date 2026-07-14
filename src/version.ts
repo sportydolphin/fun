@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.3.0'
+export const APP_VERSION = '1.4.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,33 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.4.0',
+    date:    '2026-07-14',
+    title:   'Home feed redesign & scoreboard navigation',
+    changes: [
+      {
+        short: 'Home is now a single scrolling feed',
+        full:  'The home page combines your team and around-the-league content into one page instead of two tabs. Your team, players, and predictor sit up top, with standout performances and league features below.',
+      },
+      {
+        short: 'Standout performances redesigned',
+        full:  'Standout performances now match the look of the On Fire and Ice Cold cards, slide side to side as you move between players, and have a Box Score button that opens the recap from that game.',
+      },
+      {
+        short: 'Scoreboard skips days with no games',
+        full:  'The scoreboard date arrows jump straight to the next or previous day that actually has games and stay within the season. There is a Today button to jump back, and if today has no games it shows the next day that does.',
+      },
+      {
+        short: 'Clearer game dates on your team card',
+        full:  'The last game and next game on your team card now show larger, clearer dates, saying Yesterday or Tomorrow when close by and the date otherwise.',
+      },
+      {
+        short: 'Shorter site header',
+        full:  'The bar at the top of the site with the site name and search is now shorter, leaving more room for content.',
+      },
+    ],
+  },
   {
     version: '1.3.0',
     date:    '2026-07-13',

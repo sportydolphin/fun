@@ -523,16 +523,17 @@ function TeamBoxColumns({ box, onPlayerClick }: {
 
 // ─── Game Center modal ────────────────────────────────────────────────────────
 
-export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick }: {
+export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, initialTab }: {
   game: FinalGameSummary
   onClose: () => void
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
+  initialTab?:    'plays' | 'box'
 }) {
   const [data,        setData]        = useState<GameCenterData | null>(null)
   const [wp,          setWp]          = useState<WpPoint[]>([])
   const [loading,     setLoading]     = useState(true)
-  const [tab,         setTab]         = useState<'plays' | 'box'>('plays')
+  const [tab,         setTab]         = useState<'plays' | 'box'>(initialTab ?? 'plays')
   const [scoringOnly, setScoringOnly] = useState(true)
 
   const load = useCallback(async () => {

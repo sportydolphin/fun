@@ -712,7 +712,7 @@ function GameCountdown({ iso }: { iso: string }) {
 function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAction, onTeamClick }: {
   game:         ScheduleGame
   myTeamId?:    number
-  label:        string
+  label?:       string
   labelColor?:  string
   actionLabel?: string
   onAction?:    () => void
@@ -758,15 +758,17 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
   return (
     <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: { xs: 0.35, sm: 0.75 } }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-        <Typography sx={{ fontSize: '0.65rem', lineHeight: 1 }}>
-          <Box component="span" sx={{
-            fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.5,
-            color: labelColor ?? 'text.disabled',
-          }}>
-            {label}
-          </Box>
-          <Box component="span" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-            {' '}· {relativeChipDate(game.date)}
+        <Typography component="div" sx={{ lineHeight: 1 }}>
+          {label && (
+            <Box component="span" sx={{
+              fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.5,
+              color: labelColor ?? 'text.disabled', mr: 0.6,
+            }}>
+              {label}
+            </Box>
+          )}
+          <Box component="span" sx={{ fontSize: '0.9rem', fontWeight: 800, color: 'text.primary' }}>
+            {relativeChipDate(game.date)}
           </Box>
         </Typography>
         {actionLabel && onAction && (
@@ -1631,7 +1633,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
     : isFinal     ? 'FINAL'
     : isPostponed ? 'PPD'
     : isToday     ? 'Today'
-    : 'Next Game'
+    : undefined
   const nextLabelColor = isLive      ? '#ef4444'
     : isFinal     ? (nextGame.isWin === true ? '#22c55e' : nextGame.isWin === false ? '#ef4444' : undefined)
     : isPostponed ? undefined
@@ -1671,7 +1673,6 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
                 <CompactGameCard
                   game={lastGame!}
                   myTeamId={teamId}
-                  label="Last Game"
                   actionLabel="Recap →"
                   onAction={() => setBoxScoreGame(gameToFinalSummary(lastGame!, teamId))}
                   onTeamClick={onTeamClick}
@@ -1759,7 +1760,6 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
                 <CompactGameCard
                   game={upcomingGame}
                   myTeamId={teamId}
-                  label="Next Game"
                   actionLabel="Preview →"
                   onAction={() => { setModalGame(upcomingGame); setModalPreview(upcomingPreviewData); setModalLoading(loadingUpcoming) }}
                   onTeamClick={onTeamClick}

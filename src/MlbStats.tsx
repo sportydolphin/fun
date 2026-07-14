@@ -26,11 +26,11 @@ export default function MlbStats() {
 
   // Push current result state + selection handlers up to the toolbar bridge
   const handleBridgeSelect = useCallback((fn: () => void) => {
-    window.history.pushState({ returnView: state.view, returnHomeTab: state.homeTab }, '', window.location.href)
+    window.history.pushState({ returnView: state.view }, '', window.location.href)
     fn()
     setSearchQuery('')
     state.setView('search')
-  }, [state.view, state.homeTab, state.setView]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state.view, state.setView]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     updateSearchBridge({
@@ -104,7 +104,7 @@ export default function MlbStats() {
           ]}
           value={state.view}
           onChange={v => {
-            window.history.pushState({ returnView: state.view, returnHomeTab: state.homeTab }, '', window.location.href)
+            window.history.pushState({ returnView: state.view }, '', window.location.href)
             state.setView(v as any)
           }}
         />
@@ -121,11 +121,9 @@ export default function MlbStats() {
           onUnfollowPlayer={state.unfollowPlayer}
           onPlayerClick={state.handleFollowedPlayerClick}
           onTeamClick={state.handleTeamSearchClick}
-          homeTab={state.homeTab}
-          onHomeTabChange={state.setHomeTab}
           onLeaderboard={() => state.setView('leaderboard')}
           onViz={() => {
-            window.history.pushState({ returnView: state.view, returnHomeTab: state.homeTab }, '', window.location.href)
+            window.history.pushState({ returnView: state.view }, '', window.location.href)
             state.setVizDefaultTab('report-card')
             state.setView('viz')
           }}

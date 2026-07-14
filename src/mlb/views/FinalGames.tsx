@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
-import { TEAM_BG, TEAM_ABBR, TEAM_DIVISION, HEADSHOT } from '../constants'
+import { TEAM_BG, TEAM_ABBR, TEAM_DIVISION, HEADSHOT, CURRENT_SEASON } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
 
 // Loaded on first game click — keeps the Game Center out of the home bundle.
@@ -130,7 +130,86 @@ const SCORED_GAME_TYPES = new Set(['R', 'F', 'D', 'L', 'W'])
 
 // ─── API ────────────────────────────────────────────────────────────────────
 
+// In-memory cache of resolved games per date. Past/future dates are static
+// (a Final result never changes, a Preview's start time rarely does) so once
+// fetched they're safe to reuse for the rest of the session — this is what
+// makes date-nav feel instant after the first visit to a date. "Today" is
+// deliberately never cached since a live game's score/inning keeps changing.
+const gamesCache = new Map<string, FinalGameSummary[]>()
+
+function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
+  const out: FinalGameSummary[] = []
+  for (const game of dateObj.games ?? []) {
+    if (!SCORED_GAME_TYPES.has(game.gameType)) continue
+    const abs      = game.status?.abstractGameState
+    const detState = game.status?.detailedState ?? ''
+    // "Live" during Warmup (~20 min pre-first-pitch) isn't really live yet.
+    const state: GameState = abs === 'Final' ? 'final'
+      : abs === 'Live' && detState !== 'Warmup' ? 'live'
+      : 'preview'
+    const ls    = game.linescore ?? {}
+
+    const mkTeam = (side: 'home' | 'away'): FinalTeam => {
+      const t   = game.teams?.[side]
+      const lst = ls.teams?.[side] ?? {}
+      const id  = Number(t?.team?.id ?? 0)
+      return {
+        teamId:   id,
+        abbr:     TEAM_ABBR[id] ?? t?.team?.abbreviation ?? '???',
+        name:     t?.team?.name ?? '???',
+        runs:     lst.runs   ?? t?.score ?? 0,
+        hits:     lst.hits   ?? 0,
+        errors:   lst.errors ?? 0,
+        isWinner: Boolean(t?.isWinner),
+      }
+    }
+
+    let statusText: string
+    if (state === 'final') {
+      // Extra innings → "Final/10". scheduledInnings defaults to 9.
+      const scheduled = ls.scheduledInnings ?? 9
+      const played    = ls.currentInning ?? scheduled
+      statusText = played > scheduled ? `Final/${played}` : 'Final'
+    } else if (state === 'live') {
+      const ord  = ls.currentInningOrdinal
+      const half = ls.inningHalf as string | undefined
+      if (ord) {
+        const arrow = half === 'Bottom' || half === 'End' ? '▼' : '▲'
+        statusText = `${arrow} ${ord}`
+      } else {
+        statusText = game.status?.detailedState ?? 'Live'
+      }
+    } else {
+      // Preview / scheduled — show start time, or a notable status (Postponed, etc.)
+      const detailed = game.status?.detailedState ?? ''
+      if (detailed && !['Scheduled', 'Pre-Game', 'Warmup'].includes(detailed)) {
+        statusText = detailed
+      } else {
+        const dt = game.gameDate ? new Date(game.gameDate) : null
+        statusText = dt ? dt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'TBD'
+      }
+    }
+
+    out.push({
+      gamePk:     game.gamePk,
+      state,
+      statusText,
+      home:       mkTeam('home'),
+      away:       mkTeam('away'),
+      winPitcher:  game.decisions?.winner?.fullName ?? null,
+      losePitcher: game.decisions?.loser?.fullName  ?? null,
+      savePitcher: game.decisions?.save?.fullName    ?? null,
+    })
+  }
+  return out
+}
+
 export async function fetchFinalGames(dateISO: string): Promise<FinalGameSummary[]> {
+  const cacheable = dateISO !== toISO(new Date())
+  if (cacheable) {
+    const cached = gamesCache.get(dateISO)
+    if (cached) return cached
+  }
   try {
     const r = await fetch(
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${dateISO}` +
@@ -138,72 +217,98 @@ export async function fetchFinalGames(dateISO: string): Promise<FinalGameSummary
     )
     const d = await r.json()
     const out: FinalGameSummary[] = []
-    for (const dateObj of d.dates ?? []) {
-      for (const game of dateObj.games ?? []) {
-        if (!SCORED_GAME_TYPES.has(game.gameType)) continue
-        const abs      = game.status?.abstractGameState
-        const detState = game.status?.detailedState ?? ''
-        // "Live" during Warmup (~20 min pre-first-pitch) isn't really live yet.
-        const state: GameState = abs === 'Final' ? 'final'
-          : abs === 'Live' && detState !== 'Warmup' ? 'live'
-          : 'preview'
-        const ls    = game.linescore ?? {}
-
-        const mkTeam = (side: 'home' | 'away'): FinalTeam => {
-          const t   = game.teams?.[side]
-          const lst = ls.teams?.[side] ?? {}
-          const id  = Number(t?.team?.id ?? 0)
-          return {
-            teamId:   id,
-            abbr:     TEAM_ABBR[id] ?? t?.team?.abbreviation ?? '???',
-            name:     t?.team?.name ?? '???',
-            runs:     lst.runs   ?? t?.score ?? 0,
-            hits:     lst.hits   ?? 0,
-            errors:   lst.errors ?? 0,
-            isWinner: Boolean(t?.isWinner),
-          }
-        }
-
-        let statusText: string
-        if (state === 'final') {
-          // Extra innings → "Final/10". scheduledInnings defaults to 9.
-          const scheduled = ls.scheduledInnings ?? 9
-          const played    = ls.currentInning ?? scheduled
-          statusText = played > scheduled ? `Final/${played}` : 'Final'
-        } else if (state === 'live') {
-          const ord  = ls.currentInningOrdinal
-          const half = ls.inningHalf as string | undefined
-          if (ord) {
-            const arrow = half === 'Bottom' || half === 'End' ? '▼' : '▲'
-            statusText = `${arrow} ${ord}`
-          } else {
-            statusText = game.status?.detailedState ?? 'Live'
-          }
-        } else {
-          // Preview / scheduled — show start time, or a notable status (Postponed, etc.)
-          const detailed = game.status?.detailedState ?? ''
-          if (detailed && !['Scheduled', 'Pre-Game', 'Warmup'].includes(detailed)) {
-            statusText = detailed
-          } else {
-            const dt = game.gameDate ? new Date(game.gameDate) : null
-            statusText = dt ? dt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'TBD'
-          }
-        }
-
-        out.push({
-          gamePk:     game.gamePk,
-          state,
-          statusText,
-          home:       mkTeam('home'),
-          away:       mkTeam('away'),
-          winPitcher:  game.decisions?.winner?.fullName ?? null,
-          losePitcher: game.decisions?.loser?.fullName  ?? null,
-          savePitcher: game.decisions?.save?.fullName    ?? null,
-        })
-      }
-    }
+    for (const dateObj of d.dates ?? []) out.push(...parseScheduleDateGames(dateObj))
+    if (cacheable) gamesCache.set(dateISO, out)
     return out
   } catch { return [] }
+}
+
+// Fetches a whole date range in one request and primes gamesCache with every
+// date in it (again skipping "today", for the same live-score reason as
+// above) — this is what lets date-nav resolve the target date's games from
+// cache instead of a second round trip after jumping.
+async function primeGamesCache(startISO: string, endISO: string): Promise<Map<string, FinalGameSummary[]>> {
+  const map = new Map<string, FinalGameSummary[]>()
+  try {
+    const r = await fetch(
+      `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${startISO}&endDate=${endISO}` +
+      `&hydrate=linescore,decisions`
+    )
+    const d = await r.json()
+    const today = toISO(new Date())
+    for (const dateObj of d.dates ?? []) {
+      const iso   = dateObj.date as string
+      const games = parseScheduleDateGames(dateObj)
+      map.set(iso, games)
+      if (games.length > 0 && iso !== today) gamesCache.set(iso, games)
+    }
+  } catch { /* best-effort — findAdjacentGameDate just sees an empty map */ }
+  return map
+}
+
+function pickNearestGameDate(map: Map<string, FinalGameSummary[]>, dir: 1 | -1): string | null {
+  const dates = [...map.entries()].filter(([, g]) => g.length > 0).map(([iso]) => iso).sort()
+  if (dates.length === 0) return null
+  return dir === 1 ? dates[0] : dates[dates.length - 1]
+}
+
+// ─── Season bounds (clamps date-nav to the actual season) ──────────────────────
+
+interface SeasonBounds { start: string; end: string }
+const seasonBoundsCache = new Map<number, Promise<SeasonBounds>>()
+
+function fetchSeasonBounds(season: number): Promise<SeasonBounds> {
+  let p = seasonBoundsCache.get(season)
+  if (p) return p
+  p = fetch(`https://statsapi.mlb.com/api/v1/seasons/${season}?sportId=1`)
+    .then(r => r.json())
+    .then(d => {
+      const s = d.seasons?.[0]
+      return {
+        start: String(s?.regularSeasonStartDate ?? s?.seasonStartDate ?? `${season}-03-01`).slice(0, 10),
+        end:   String(s?.postSeasonEndDate ?? s?.seasonEndDate ?? `${season}-11-30`).slice(0, 10),
+      }
+    })
+    .catch(() => ({ start: `${season}-03-01`, end: `${season}-11-30` }))
+  seasonBoundsCache.set(season, p)
+  return p
+}
+
+const clampISO = (iso: string, bounds: SeasonBounds) =>
+  iso < bounds.start ? bounds.start : iso > bounds.end ? bounds.end : iso
+
+// A ~month-wide window comfortably covers any real in-season gap (All-Star
+// break, a playoff off-day) in a single request, while also priming the
+// cache for that whole stretch — so stepping through several dates in a row
+// after the first click costs no further network calls.
+const NAV_WINDOW_DAYS = 30
+
+// Nearest date with a scored game past `fromDateISO` in the given direction,
+// clamped to the season bounds. Returning null past a bound is what keeps
+// date-nav from wandering outside the season.
+async function findAdjacentGameDate(fromDateISO: string, dir: 1 | -1, season: number): Promise<string | null> {
+  const bounds = await fetchSeasonBounds(season)
+  const probeDate = fromISO(fromDateISO)
+  probeDate.setDate(probeDate.getDate() + dir)
+  const probe = toISO(probeDate)
+
+  const edgeDate = fromISO(probe)
+  edgeDate.setDate(edgeDate.getDate() + dir * NAV_WINDOW_DAYS)
+  const windowEdge = toISO(edgeDate)
+
+  let start = clampISO(dir === 1 ? probe : windowEdge, bounds)
+  let end   = clampISO(dir === 1 ? windowEdge : probe, bounds)
+  if (start <= end) {
+    const found = pickNearestGameDate(await primeGamesCache(start, end), dir)
+    if (found) return found
+  }
+
+  // Rare: no games anywhere in the ~month window — sweep the rest of the
+  // season in one more request rather than giving up.
+  start = clampISO(dir === 1 ? windowEdge : bounds.start, bounds)
+  end   = clampISO(dir === 1 ? bounds.end : windowEdge, bounds)
+  if (start > end) return null
+  return pickNearestGameDate(await primeGamesCache(start, end), dir)
 }
 
 // Shared with LiveGameCenter, which parses the same shapes out of the live feed
@@ -845,16 +950,35 @@ function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick }: {
 // ─── Date navigator ────────────────────────────────────────────────────────────
 
 function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: string) => void }) {
-  const shift = (days: number) => {
-    const d = fromISO(dateISO); d.setDate(d.getDate() + days)
-    onChange(toISO(d))
+  const [bounds,     setBounds]     = useState<SeasonBounds | null>(null)
+  const [navigating, setNavigating] = useState(false)
+  const navigatingRef = useRef(false)
+
+  useEffect(() => {
+    fetchSeasonBounds(CURRENT_SEASON).then(setBounds)
+  }, [])
+
+  // Arrows skip straight to the nearest date with games — never landing on a
+  // dead date — and clamp to the season's actual start/end.
+  const shift = async (dir: 1 | -1) => {
+    if (navigatingRef.current) return
+    navigatingRef.current = true
+    setNavigating(true)
+    try {
+      const next = await findAdjacentGameDate(dateISO, dir, CURRENT_SEASON)
+      if (next) onChange(next)
+    } finally {
+      navigatingRef.current = false
+      setNavigating(false)
+    }
   }
 
   const arrowSx = {
     width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    cursor: 'pointer', color: 'text.secondary',
-    '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+    cursor: navigating ? 'default' : 'pointer', color: 'text.secondary',
+    opacity: navigating ? 0.5 : 1,
+    '&:hover': navigating ? {} : { bgcolor: 'action.hover', color: 'text.primary' },
   }
 
   return (
@@ -875,6 +999,8 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
           component="input"
           type="date"
           value={dateISO}
+          min={bounds?.start}
+          max={bounds?.end}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.value) onChange(e.target.value) }}
           sx={{
             position: 'absolute', inset: 0, width: '100%', height: '100%',
@@ -886,6 +1012,23 @@ function DateNav({ dateISO, onChange }: { dateISO: string; onChange: (iso: strin
       <Box onClick={() => shift(1)} sx={arrowSx}>
         <Typography sx={{ fontSize: '0.9rem', lineHeight: 1 }}>›</Typography>
       </Box>
+
+      {/* Only shown when not already viewing today — jumps straight back. */}
+      {dateISO !== toISO(new Date()) && (
+        <Box
+          onClick={() => onChange(toISO(new Date()))}
+          sx={{
+            fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled',
+            cursor: 'pointer', px: 0.9, py: 0.3, ml: 0.25,
+            borderRadius: 999, border: '1px solid', borderColor: 'divider',
+            whiteSpace: 'nowrap',
+            transition: 'color 0.12s, border-color 0.12s',
+            '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
+          }}
+        >
+          Today
+        </Box>
+      )}
     </Box>
   )
 }
@@ -942,11 +1085,6 @@ function ScoreboardModal({ dateISO, onDateChange, games, loading, followedTeamId
           }}>
             Scores
           </Typography>
-          {!loading && games.length > 0 && (
-            <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', lineHeight: 1 }}>
-              · {games.length} {games.length === 1 ? 'game' : 'games'}
-            </Typography>
-          )}
           <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.75 }}>
             <DateNav dateISO={dateISO} onChange={onDateChange} />
             <Box
@@ -1067,19 +1205,31 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
     return () => window.removeEventListener('resize', handleStripScroll)
   }, [handleStripScroll])
 
-  // Once, on first load: if the default date has no games at all, drop back to yesterday.
-  const autoFellBackRef = useRef(false)
+  // Once, on first load: if today has no games at all (off day, All-Star break,
+  // offseason), roll forward to the next date that does.
+  const autoAdvancedRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     fetchFinalGames(dateISO)
-      .then(g => {
+      .then(async g => {
         if (cancelled) return
-        if (g.length === 0 && dateISO === toISO(new Date()) && !autoFellBackRef.current) {
-          autoFellBackRef.current = true
-          const y = new Date(); y.setDate(y.getDate() - 1)
-          setDateISO(toISO(y))   // re-triggers this effect; stay in loading state
+        if (g.length === 0 && dateISO === toISO(new Date()) && !autoAdvancedRef.current) {
+          autoAdvancedRef.current = true
+          const next = await findAdjacentGameDate(dateISO, 1, CURRENT_SEASON)
+          if (cancelled) return
+          if (next) {
+            const gg = await fetchFinalGames(next)   // already cached by findAdjacentGameDate
+            if (cancelled) return
+            setDateISO(next)
+            setGames(gg)
+            setLoading(false)
+            return
+          }
+          // Nothing found ahead — show today's empty state as-is.
+          setGames([])
+          setLoading(false)
           return
         }
         setGames(g)
@@ -1138,7 +1288,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
       }}>
         {/* Header with date nav */}
         <Box sx={{
-          px: 2, py: 1.1, borderBottom: '1px solid', borderColor: 'divider',
+          px: 2, py: 0.5, borderBottom: '1px solid', borderColor: 'divider',
           display: 'flex', alignItems: 'center', gap: 1,
         }}>
           <Typography sx={{
@@ -1147,11 +1297,6 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
           }}>
             Scores
           </Typography>
-          {!loading && games.length > 0 && (
-            <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', lineHeight: 1 }}>
-              · {games.length} {games.length === 1 ? 'game' : 'games'}
-            </Typography>
-          )}
           <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <DateNav dateISO={dateISO} onChange={setDateISO} />
             <Box
