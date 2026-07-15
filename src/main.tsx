@@ -15,3 +15,11 @@ if (rootEl) {
     </AppThemeProvider>
   )
 }
+
+// Register the service worker that receives Web Push notifications. Harmless if
+// push is never enabled — it just sits idle until a subscription exists.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => { /* non-fatal */ })
+  })
+}

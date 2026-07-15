@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest",
     "bots": "node scripts/run-bots.mjs",
-    "payrolls": "node scripts/update-payrolls.mjs"
+    "payrolls": "node scripts/update-payrolls.mjs",
+    "reminders": "node scripts/send-reminders.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -32,6 +33,7 @@
     "jsdom": "^27.4.0",
     "typescript": "^5.2.2",
     "vite": "^6.4.2",
-    "vitest": "^4.0.17"
+    "vitest": "^4.0.17",
+    "web-push": "^3.6.7"
   }
 }

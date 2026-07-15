@@ -21,7 +21,7 @@
 - **Live Game Center** 🔬🎯 — Tap a live/final game → play-by-play, diamond with baserunners, count/outs, batter vs pitcher matchup, scoring-play timeline, win-probability chart. APIs: `/api/v1.1/game/{gamePk}/feed/live` + `/api/v1/game/{gamePk}/winProbability`. ✅ **BUILT July 2026** (`src/mlb/views/LiveGameCenter.tsx`)
 - **Predictions 2.0** 🎮 — Confidence points, weekly/monthly leaderboards, streak badges, heater banner. Add a smart rival (Elo Bot / Pythag Bot) in `run-bots.mjs`.
 - **Daily Trivia** 🎮🎯 — One auto-generated question/day from StatsAPI history, Wordle-style streaks, shared leaderboard infra.
-- **PWA + push notifications** ⚙️ — Service worker, installable; "picks lock soon," "your team up 2–1 in the 8th," milestone alerts. Multiplies everything else.
+- **PWA + push notifications** ⚙️ — Service worker, installable; "picks lock soon," "your team up 2–1 in the 8th," milestone alerts. Multiplies everything else. 🟡 **FOUNDATION BUILT July 2026** — installable PWA (manifest + SW), Web Push subscribe/unsubscribe (Settings → Notifications), and a daily "make your picks" reminder via GitHub Action (`scripts/send-reminders.mjs` + `daily-reminders.yml`). Setup + remaining infra steps in `docs/PUSH_NOTIFICATIONS.md`. Next alert types (team game starting, live score/milestone) reuse this plumbing.
 - **Stat explainers** 🎯 — Tap any stat abbreviation → plain-English tooltip. One shared component, app-wide.
 
 ## Phase 2 — Social layer

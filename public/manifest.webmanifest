@@ -1,0 +1,20 @@
+{
+  "name": "SportyDolphin — MLB Stats",
+  "short_name": "MLB Picks",
+  "description": "Live scores, box scores, and daily pick'em for Major League Baseball.",
+  "id": "/mlb",
+  "start_url": "/mlb?view=home",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

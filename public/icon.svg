@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Maskable: full-bleed background, subject kept within the ~80% safe zone -->
+  <rect width="512" height="512" fill="#0f172a"/>
+  <circle cx="256" cy="256" r="132" fill="#f8fafc"/>
+  <!-- Baseball stitching, left and right seams -->
+  <g fill="none" stroke="#e11d48" stroke-width="9" stroke-linecap="round">
+    <path d="M168 158 C 150 210 150 302 168 354"/>
+    <path d="M344 158 C 362 210 362 302 344 354"/>
+    <g stroke-width="7">
+      <path d="M182 190 l 24 -8 M180 214 l 26 -6 M180 240 l 27 -4 M180 272 l 27 4 M180 298 l 26 6 M182 322 l 24 8"/>
+      <path d="M330 190 l -24 -8 M332 214 l -26 -6 M332 240 l -27 -4 M332 272 l -27 4 M332 298 l -26 6 M330 322 l -24 8"/>
+    </g>
+  </g>
+</svg>

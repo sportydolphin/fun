@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Typography, Box, CircularProgress, IconButton, TextField,
+  Button, Typography, Box, CircularProgress, IconButton, TextField, Switch,
 } from '@mui/material'
 import { Close, ChevronRight, ExpandMore, WarningAmber } from '@mui/icons-material'
 import { Team } from './mlb/types'
@@ -12,6 +12,10 @@ import {
   loadPrefsFromSupabase, savePrefsToSupabase,
   getLocalFollowedTeamId, setLocalFollowedTeamId, getLocalFollowedPlayerIds,
 } from './mlb/prefs'
+import {
+  pushSupported, pushConfigured, notificationPermission,
+  isSubscribed, enablePush, disablePush,
+} from './lib/push'
 
 interface Props {
   open:            boolean
@@ -20,6 +24,80 @@ interface Props {
   email:           string
   currentUsername: string | null
   onEditUsername:  () => void   // closes Settings and opens the username dialog
+}
+
+// ─── Notifications section ──────────────────────────────────────────────────
+// Opt-in toggle for daily "make your picks" push reminders. Being subscribed in
+// this browser IS the opt-in — there's no separate preference to store.
+
+function NotificationsSection({ open, userId }: { open: boolean; userId: string }) {
+  const supported  = pushSupported()
+  const configured = pushConfigured()
+  const [enabled, setEnabled] = useState(false)
+  const [busy,    setBusy]    = useState(false)
+  const [perm,    setPerm]    = useState<ReturnType<typeof notificationPermission>>('default')
+  const [err,     setErr]     = useState('')
+
+  // Reflect the actual subscription state each time the dialog opens.
+  useEffect(() => {
+    if (!open) return
+    setErr('')
+    setPerm(notificationPermission())
+    if (supported) isSubscribed().then(setEnabled).catch(() => setEnabled(false))
+  }, [open, supported])
+
+  const handleToggle = async (next: boolean) => {
+    if (busy) return
+    setBusy(true); setErr('')
+    const error = next ? await enablePush(userId) : await disablePush(userId)
+    if (error) {
+      setErr(error)
+      setEnabled(await isSubscribed().catch(() => false))
+    } else {
+      setEnabled(next)
+    }
+    setPerm(notificationPermission())
+    setBusy(false)
+  }
+
+  const disabled = busy || !supported || !configured || perm === 'denied'
+
+  let hint: string
+  if (!supported)            hint = 'This browser doesn’t support push notifications.'
+  else if (!configured)      hint = 'Notifications aren’t set up on this deployment yet.'
+  else if (perm === 'denied') hint = 'Blocked — turn notifications back on for this site in your browser settings.'
+  else if (enabled)          hint = 'On — we’ll remind you to make your picks before first pitch.'
+  else                       hint = 'Get a daily nudge to pick today’s games before they lock.'
+
+  return (
+    <>
+      <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'text.disabled', mt: 3, mb: 0.75 }}>
+        Notifications
+      </Typography>
+      <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+        <Box sx={{ px: 1.75, py: 1.1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: '0.88rem', fontWeight: 700 }}>Daily pick reminders</Typography>
+            <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 0.25, lineHeight: 1.4 }}>
+              {busy ? 'Working…' : hint}
+            </Typography>
+          </Box>
+          <Switch
+            checked={enabled}
+            disabled={disabled}
+            onChange={e => handleToggle(e.target.checked)}
+            sx={{ flexShrink: 0 }}
+          />
+        </Box>
+      </Box>
+      {err && (
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mt: 0.75, color: 'error.main' }}>
+          <Box component="span" sx={{ flexShrink: 0, mt: '1px', fontSize: '0.8rem' }}>⚠️</Box>
+          <Typography sx={{ fontSize: '0.74rem' }}>{err}</Typography>
+        </Box>
+      )}
+    </>
+  )
 }
 
 export function SettingsDialog({ open, onClose, userId, email, currentUsername, onEditUsername }: Props) {
@@ -217,6 +295,9 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
         <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 1 }}>
           {saving ? 'Saving…' : 'Synced to your account — follows you across devices.'}
         </Typography>
+
+        {/* Notifications */}
+        <NotificationsSection open={open} userId={userId} />
 
         {/* Danger zone */}
         <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'text.disabled', mt: 3, mb: 0.75 }}>
