@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.4.1'
+export const APP_VERSION = '1.5.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.5.0',
+    date:    '2026-07-15',
+    title:   'Notifications and installable app',
+    changes: [
+      {
+        short: 'Get a daily reminder to make your picks',
+        full:  'You can now turn on notifications from Settings. Once a day, before games lock, you get a reminder if you still have picks to make. Turn it off any time from the same place.',
+      },
+      {
+        short: 'Install the app to your home screen',
+        full:  'The site is now an installable app. On your phone or computer you can add it to your home screen and open it like any other app, with its own icon. On iPhone, add it to your home screen to receive notifications.',
+      },
+    ],
+  },
   {
     version: '1.4.1',
     date:    '2026-07-14',

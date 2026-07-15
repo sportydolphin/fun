@@ -323,6 +323,7 @@ export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
             {/* ── Quick links ───────────────────────────────────────────── */}
             <Section title="Quick Links">
               <QuickLink emoji="🔄" label="GitHub Actions — Run workflows" href="https://github.com/sportydolphin/fun/actions" />
+              <QuickLink emoji="☁️" label="Cloudflare Pages — Deploys" href="https://dash.cloudflare.com/ffbac30453d122b1e45cbd885857b100/pages/view/fun" />
               <QuickLink emoji="🗄️" label="Supabase Dashboard" href="https://supabase.com/dashboard" />
               <QuickLink emoji="📦" label="GitHub Repository" href="https://github.com/sportydolphin/fun" />
             </Section>
