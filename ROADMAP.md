@@ -66,6 +66,7 @@ Each is a standalone daily game sharing auth + leaderboard + streak infra:
 - **Precompute nightly, serve from Supabase** ⚙️ — Report cards, spotlight, odds, trivia, grid puzzles via the existing Actions pipeline → tables; client reads one row.
 - **Payroll source resilience** ⚙️ — Fallback for FanGraphs 403s (Spotrac/Cot's) so payroll boards don't silently go stale.
 - **PWA plumbing** ⚙️ — Gateway to notifications, offline scores, installs.
+- **Leaderboard ranking done server-side** ⚙️ — Predictions leaderboard (v1.6.0) now fetches up to 500 `prediction_stats` rows and computes the Wilson-score ranking client-side. Fine at current scale, but as the user base grows this should move into SQL/an RPC (compute the Wilson bound and rank in the query, return only top N + the current user's row) so the client isn't pulling the whole table. See `fetchLeaderboard` in `src/mlb/views/PredictionStats.tsx`.
 
 ---
 
