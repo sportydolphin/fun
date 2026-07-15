@@ -241,7 +241,7 @@ export const TEAM_SECONDARY: Record<number, string> = {
 // Fallback bubble background when a team has no TEAM_ICON_STYLE entry.
 export const DEFAULT_ICON_BG_DARK = '#2e2e2e'
 
-// Logo art variants MLB serves — verified to exist for all 30 clubs.
+// Logo art variants MLB serves — verified to exist for all 30 clubs
 export type LogoVariantKey = 'primary' | 'capDark' | 'capLight' | 'primDark' | 'primLight'
 export const LOGO_VARIANTS: { key: LogoVariantKey; label: string; url: (id: number) => string }[] = [
   { key: 'primary',   label: 'Primary',          url: id => `https://www.mlbstatic.com/team-logos/${id}.svg` },
