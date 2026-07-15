@@ -4,6 +4,7 @@ import { TEAM_ABBR, HEADSHOT, ACCENT } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
 import { FinalGameSummary } from './FinalGames'
 import { GameCenterModal } from './LiveGameCenter'
+import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../homeOverlay'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -1542,6 +1543,20 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
   const now   = new Date()
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
+  // Back-from-Search restore: reopen the team-card modal the user cross-linked
+  // from. The recap (Game Center) is self-contained by gamePk; the preview modal
+  // needs its own fetch since its data isn't derivable from a bare game object.
+  useEffect(() => {
+    const o = getHomeOverlay()
+    if (o?.kind === 'teamRecap') {
+      setBoxScoreGame(o.game)
+    } else if (o?.kind === 'teamPreview') {
+      setModalGame(o.game)
+      setModalLoading(true)
+      fetchGamePreview(o.game.gamePk).then(setModalPreview).finally(() => setModalLoading(false))
+    }
+  }, [])
+
   useEffect(() => {
     setLoading(true)
     setPreviewData(null)
@@ -1784,8 +1799,8 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
           myTeamId={teamId}
           teamColor={teamColor}
           today={today}
-          onPlayerClick={onPlayerClick}
-          onTeamClick={onTeamClick}
+          onPlayerClick={stampOverlay({ kind: 'teamSchedule' }, onPlayerClick)}
+          onTeamClick={stampOverlay({ kind: 'teamSchedule' }, onTeamClick)}
           onClose={() => onScheduleClose?.()}
         />
       )}
@@ -1796,18 +1811,18 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
           myTeamId={teamId}
           previewData={modalPreview}
           loading={modalLoading}
-          onClose={() => { setModalGame(null); setModalPreview(null) }}
-          onPlayerClick={onPlayerClick}
-          onTeamClick={onTeamClick}
+          onClose={() => { setModalGame(null); setModalPreview(null); clearOverlayIf('teamPreview') }}
+          onPlayerClick={stampOverlay({ kind: 'teamPreview', game: modalGame }, onPlayerClick)}
+          onTeamClick={stampOverlay({ kind: 'teamPreview', game: modalGame }, onTeamClick)}
         />
       )}
 
       {boxScoreGame && (
         <GameCenterModal
           game={boxScoreGame}
-          onClose={() => setBoxScoreGame(null)}
-          onPlayerClick={onPlayerClick}
-          onTeamClick={onTeamClick}
+          onClose={() => { setBoxScoreGame(null); clearOverlayIf('teamRecap') }}
+          onPlayerClick={stampOverlay({ kind: 'teamRecap', game: boxScoreGame }, onPlayerClick)}
+          onTeamClick={stampOverlay({ kind: 'teamRecap', game: boxScoreGame }, onTeamClick)}
         />
       )}
     </>

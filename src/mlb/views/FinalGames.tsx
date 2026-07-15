@@ -3,6 +3,7 @@ import { Box, Typography, useTheme } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, TEAM_DIVISION, HEADSHOT, CURRENT_SEASON } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
+import { getHomeOverlay, setHomeOverlay, clearOverlayIf, stampOverlay } from '../homeOverlay'
 
 // Loaded on first game click — keeps the Game Center out of the home bundle.
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
@@ -1151,6 +1152,12 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
   const [openGame,   setOpenGame]   = useState<FinalGameSummary | null>(null)
   const [expanded,   setExpanded]   = useState(false)
 
+  // Back-from-Search restore: reopen the game modal the user cross-linked from.
+  useEffect(() => {
+    const o = getHomeOverlay()
+    if (o?.kind === 'scoreGame') setOpenGame(o.game)
+  }, [])
+
   const theme = useTheme()
   const paperBg = theme.palette.background.paper
   const stripRef = useRef<HTMLDivElement | null>(null)
@@ -1410,17 +1417,17 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
       {openGame && openGame.state === 'preview' ? (
         <GamePreviewModal
           game={openGame}
-          onClose={() => setOpenGame(null)}
-          onPlayerClick={onPlayerClick}
-          onTeamClick={onTeamClick}
+          onClose={() => { setOpenGame(null); clearOverlayIf('scoreGame') }}
+          onPlayerClick={stampOverlay({ kind: 'scoreGame', game: openGame }, onPlayerClick)}
+          onTeamClick={stampOverlay({ kind: 'scoreGame', game: openGame }, onTeamClick)}
         />
       ) : openGame ? (
         <Suspense fallback={null}>
           <GameCenterModal
             game={openGame}
-            onClose={() => setOpenGame(null)}
-            onPlayerClick={onPlayerClick}
-            onTeamClick={onTeamClick}
+            onClose={() => { setOpenGame(null); clearOverlayIf('scoreGame') }}
+            onPlayerClick={stampOverlay({ kind: 'scoreGame', game: openGame }, onPlayerClick)}
+            onTeamClick={stampOverlay({ kind: 'scoreGame', game: openGame }, onTeamClick)}
           />
         </Suspense>
       ) : null}

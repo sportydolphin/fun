@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.4.0'
+export const APP_VERSION = '1.4.1'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.4.1',
+    date:    '2026-07-14',
+    title:   'Back button returns you to the exact spot',
+    changes: [
+      {
+        short: 'Back button reopens the window you came from',
+        full:  'When you tap a player or team from inside a window on the home page, like a game recap, box score, the report card, or the full schedule, the browser back button now returns you to the home page with that same window reopened, instead of just the bare home page.',
+      },
+    ],
+  },
   {
     version: '1.4.0',
     date:    '2026-07-14',

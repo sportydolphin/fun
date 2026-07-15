@@ -11,6 +11,7 @@ import { StatsView } from './mlb/views/StatsView'
 import { SearchView } from './mlb/views/SearchView'
 import { HomeView } from './mlb/views/HomeView'
 import { useSearchBridge, updateSearchBridge, setSearchQuery } from './mlb/SearchBridgeContext'
+import { clearHomeOverlay } from './mlb/homeOverlay'
 import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
 
 export default function MlbStats() {
@@ -104,6 +105,9 @@ export default function MlbStats() {
           ]}
           value={state.view}
           onChange={v => {
+            // A deliberate tab navigation is a fresh start — never let a stale
+            // Home modal reopen from a prior Back-restore path (see homeOverlay).
+            clearHomeOverlay()
             window.history.pushState({ returnView: state.view }, '', window.location.href)
             state.setView(v as any)
           }}

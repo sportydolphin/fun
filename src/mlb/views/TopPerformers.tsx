@@ -7,6 +7,7 @@ import { fetchRecentGamePerformers } from './Spotlight'
 import type { HotGuyData } from './Spotlight'
 import { fetchFinalGames } from './FinalGames'
 import type { FinalGameSummary } from './FinalGames'
+import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../homeOverlay'
 // Loaded on first Box Score click — keeps the Game Center out of the home bundle.
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
 
@@ -87,6 +88,12 @@ export function TopPerformers({
       setPerformers(combined)
       setLoading(false)
     })
+  }, [])
+
+  // Back-from-Search restore: reopen the box score the user cross-linked from.
+  useEffect(() => {
+    const o = getHomeOverlay()
+    if (o?.kind === 'standoutBox') setBoxScoreGame(o.game)
   }, [])
 
   // Kicks off a slide toward the next/prev performer. Ignored if a slide is
@@ -373,9 +380,9 @@ export function TopPerformers({
         <Suspense fallback={null}>
           <GameCenterModal
             game={boxScoreGame}
-            onClose={() => setBoxScoreGame(null)}
-            onPlayerClick={onPlayerClick}
-            onTeamClick={onTeamClick}
+            onClose={() => { setBoxScoreGame(null); clearOverlayIf('standoutBox') }}
+            onPlayerClick={stampOverlay({ kind: 'standoutBox', game: boxScoreGame }, onPlayerClick)}
+            onTeamClick={stampOverlay({ kind: 'standoutBox', game: boxScoreGame }, onTeamClick)}
             initialTab="box"
           />
         </Suspense>

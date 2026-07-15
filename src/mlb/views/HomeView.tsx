@@ -12,6 +12,7 @@ import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
 import { FinalGamesSection } from './FinalGames'
 import { LeaderboardCard, LeaderboardModal, buildFraudRows, LbRow } from './VizView'
+import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../homeOverlay'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -170,6 +171,15 @@ export function HomeView({
     fetchLiveTeamIds().then(setLiveTeamIds)
   }, [])
 
+  // Back-from-Search restore: reopen the report card or full-schedule subwindow
+  // the user cross-linked from (the actual FullScheduleModal lives in the team
+  // card's ScheduleStrip, opened via the showTeamSchedule prop).
+  useEffect(() => {
+    const o = getHomeOverlay()
+    if (o?.kind === 'reportCard')   setFeaturedExpanded(true)
+    if (o?.kind === 'teamSchedule') setShowTeamSchedule(true)
+  }, [])
+
   useEffect(() => {
     if (!followedTeamId) { setStanding(null); return }
     fetchDivisionForTeam(followedTeamId, CURRENT_SEASON).then(div => {
@@ -296,7 +306,7 @@ export function HomeView({
                       teamId={followedTeamId}
                       teamColor={bg}
                       showSchedule={showTeamSchedule}
-                      onScheduleClose={() => setShowTeamSchedule(false)}
+                      onScheduleClose={() => { setShowTeamSchedule(false); clearOverlayIf('teamSchedule') }}
                       onPlayerClick={onPlayerClick}
                       onTeamClick={onTeamClick}
                     />
@@ -416,10 +426,10 @@ export function HomeView({
 
       <LeaderboardModal
         open={featuredExpanded}
-        onClose={() => setFeaturedExpanded(false)}
+        onClose={() => { setFeaturedExpanded(false); clearOverlayIf('reportCard') }}
         {...boardMeta}
         rows={boardRows}
-        onSelectTeam={onTeamClick}
+        onSelectTeam={stampOverlay({ kind: 'reportCard' }, onTeamClick)}
       />
     </Box>
   )
