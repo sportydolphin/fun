@@ -175,23 +175,52 @@ async function upsertMyPredStats(userId: string, displayName: string, stats: Per
   } catch { /* non-fatal — table may not exist yet */ }
 }
 
+// Wilson score lower bound (95% confidence) for a correct/total ratio.
+// Used as the leaderboard ranking key so small samples don't leapfrog proven
+// predictors: a 3/3 (100%) scores ~0.44 while a 100/101 (99%) scores ~0.95.
+// The penalty eases automatically as a user racks up more predictions.
+function wilsonLowerBound(correct: number, total: number): number {
+  if (total === 0) return 0
+  const z  = 1.96
+  const z2 = z * z
+  const p  = correct / total
+  return (p + z2 / (2 * total) - z * Math.sqrt((p * (1 - p) + z2 / (4 * total)) / total)) / (1 + z2 / total)
+}
+
 async function fetchLeaderboard(myUserId: string): Promise<LeaderEntry[]> {
   try {
     const { data } = await supabase
       .from('prediction_stats')
       .select('user_id, display_name, correct_predictions, total_predictions, accuracy_pct')
-      .order('accuracy_pct', { ascending: false })
-      .limit(25)
+      .limit(500)
 
-    return (data ?? []).map((row: any, i: number) => ({
-      userId:      row.user_id,
-      displayName: row.display_name ?? 'Anonymous',
-      rank:        i + 1,
-      accuracy:    row.accuracy_pct    ?? 0,
-      correct:     row.correct_predictions ?? 0,
-      total:       row.total_predictions   ?? 0,
-      isMe:        row.user_id === myUserId,
-    }))
+    // Rank by confidence-adjusted accuracy (Wilson lower bound), tie-breaking by
+    // volume. Everyone stays on the board; the raw accuracy % below is unchanged
+    // — only the ordering accounts for sample size.
+    const ranked: LeaderEntry[] = (data ?? [])
+      .map((row: any) => ({
+        userId:      row.user_id,
+        displayName: row.display_name ?? 'Anonymous',
+        accuracy:    row.accuracy_pct        ?? 0,
+        correct:     row.correct_predictions ?? 0,
+        total:       row.total_predictions   ?? 0,
+        score:       wilsonLowerBound(row.correct_predictions ?? 0, row.total_predictions ?? 0),
+      }))
+      .sort((a, b) => b.score - a.score || b.total - a.total)
+      .map((r, i) => ({
+        userId: r.userId, displayName: r.displayName, rank: i + 1,
+        accuracy: r.accuracy, correct: r.correct, total: r.total,
+        isMe: r.userId === myUserId,
+      }))
+
+    // Show the top 25, but always append the current user's own row (with their
+    // true global rank) if they fall outside it — so they see their score instantly.
+    const top = ranked.slice(0, 25)
+    if (!top.some(e => e.isMe)) {
+      const me = ranked.find(e => e.isMe)
+      if (me) top.push(me)
+    }
+    return top
   } catch { return [] }
 }
 
@@ -404,9 +433,17 @@ function LeaderboardContent({ leaders }: { leaders: LeaderEntry[] }) {
         <Typography sx={{ fontSize: '0.58rem', color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.5, minWidth: 40, textAlign: 'right' }}>Acc.</Typography>
       </Box>
 
-      {leaders.map(entry => (
+      {leaders.map((entry, i) => {
+        const prev = leaders[i - 1]
+        const gap  = prev && entry.rank > prev.rank + 1  // pinned "you" row below the top
+        return (
+        <React.Fragment key={entry.userId}>
+        {gap && (
+          <Typography sx={{ textAlign: 'center', color: 'text.disabled', fontSize: '0.85rem', lineHeight: 1, py: 0.4 }}>
+            ···
+          </Typography>
+        )}
         <Box
-          key={entry.userId}
           sx={{
             display: 'flex', alignItems: 'center', gap: 1,
             py: 0.8, px: entry.isMe ? 0.75 : 0, borderRadius: 1.5,
@@ -441,11 +478,13 @@ function LeaderboardContent({ leaders }: { leaders: LeaderEntry[] }) {
             {Math.round(entry.accuracy)}%
           </Typography>
         </Box>
-      ))}
+        </React.Fragment>
+        )
+      })}
 
       {leaders.length > 0 && (
         <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', textAlign: 'center', mt: 1.5 }}>
-          Ranked by accuracy · Stats update when you view My Stats
+          Ranked by accuracy &amp; volume · Stats update when you view My Stats
         </Typography>
       )}
     </Box>

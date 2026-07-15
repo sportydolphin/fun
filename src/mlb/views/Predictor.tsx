@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Box, Typography } from '@mui/material'
-import { TEAM_BG, TEAM_ABBR, ACCENT } from '../constants'
+import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, ACCENT } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
 import { useAuth } from '../../AuthContext'
 import { supabase } from '../../lib/supabase'
 import { PredictionStatsModal } from './PredictionStats'
+import { useDevSim } from '../devSim'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -313,6 +314,154 @@ function PredictionCard({ game, prediction, onPick, gameVotes }: {
   )
 }
 
+// ─── Inline quick picks (on the home card) ───────────────────────────────────
+// A compact tappable team button used for making a pick directly on the card,
+// without opening the full modal.
+
+function QuickPickTeam({ team, side, picked, dimmed, onPick }: {
+  team:   TodayGame['home']
+  side:   'away' | 'home'
+  picked: boolean
+  dimmed: boolean
+  onPick: () => void
+}) {
+  const isDark = useIsDark()
+  const col    = ringColor(team.teamId, isDark)
+  const away   = side === 'away'
+  const label  = TEAM_NICKNAME[team.teamId] ?? team.name
+
+  const logo = (
+    <Box sx={{
+      width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+      bgcolor: teamLogoBg(team.teamId, isDark), border: `2px solid ${col}`,
+      boxShadow: picked ? `0 0 0 2px ${col}40` : 'none',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+      transition: 'box-shadow 0.15s',
+    }}>
+      <Box component="img"
+        src={teamLogoSrc(team.teamId, isDark)}
+        alt={team.abbr}
+        sx={{ width: '72%', height: '72%', objectFit: 'contain', display: 'block', transform: teamLogoCrop(team.teamId, isDark), transformOrigin: 'center' }}
+      />
+    </Box>
+  )
+  const name = (
+    <Typography sx={{
+      minWidth: 0, fontSize: '0.82rem', fontWeight: picked ? 800 : 600, lineHeight: 1.1,
+      color: picked ? col : 'text.primary',
+      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      textAlign: away ? 'right' : 'left',
+    }}>
+      {label}
+    </Typography>
+  )
+
+  return (
+    // Hug content (no flex:1) so the row is a tight, centred matchup cluster
+    // rather than two half-width halves with empty outer margins.
+    <Box
+      onClick={onPick}
+      sx={{
+        flex: '0 1 auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.7,
+        justifyContent: away ? 'flex-end' : 'flex-start',
+        px: 0.85, py: 0.55, borderRadius: 1.5, cursor: 'pointer',
+        border: '1.5px solid', borderColor: picked ? `${col}70` : 'transparent',
+        bgcolor: picked ? `${col}14` : 'transparent',
+        opacity: dimmed ? 0.45 : 1,
+        transition: 'all 0.15s',
+        '&:hover': { bgcolor: `${col}0e`, borderColor: `${col}40` },
+      }}
+    >
+      {away ? <>{name}{logo}</> : <>{logo}{name}</>}
+    </Box>
+  )
+}
+
+// The crowd-vote share on the outer edge of a matchup row. Reserves its column
+// width even with no votes (renders blank) so the two teams stay aligned.
+function PctLabel({ pct, align }: { pct: number | null; align: 'left' | 'right' }) {
+  return (
+    <Typography sx={{
+      fontSize: '0.72rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+      color: 'text.disabled', textAlign: align, lineHeight: 1, whiteSpace: 'nowrap',
+      visibility: pct === null ? 'hidden' : 'visible',
+    }}>
+      {pct ?? 0}%
+    </Typography>
+  )
+}
+
+function QuickPickRow({ game, prediction, gameVotes, onPick }: {
+  game:       TodayGame
+  prediction: number | null
+  gameVotes?: Record<number, number>  // teamId → count
+  onPick:     (teamId: number) => void
+}) {
+  const hasPick    = prediction !== null
+  const awayVotes  = gameVotes?.[game.away.teamId] ?? 0
+  const homeVotes  = gameVotes?.[game.home.teamId] ?? 0
+  const totalVotes = awayVotes + homeVotes
+  const awayPct    = totalVotes ? Math.round(awayVotes / totalVotes * 100) : null
+  const homePct    = awayPct !== null ? 100 - awayPct : null
+  const isDark     = useIsDark()
+  // Ring color in dark mode gives the bars maximum contrast; light stays on TEAM_BG.
+  const awayCol    = isDark ? ringColor(game.away.teamId, true) : TEAM_BG[game.away.teamId] ?? '#888'
+  const homeCol    = isDark ? ringColor(game.home.teamId, true) : TEAM_BG[game.home.teamId] ?? '#888'
+  const pickedAway = prediction === game.away.teamId
+  const pickedHome = prediction === game.home.teamId
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      {/* 5-column grid: vote% · away (hugs centre) · @ · home (hugs centre) · vote%. */}
+      <Box sx={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(26px,auto) minmax(0,1fr) auto minmax(0,1fr) minmax(26px,auto)',
+        alignItems: 'center', columnGap: 0.6,
+      }}>
+        <PctLabel pct={awayPct} align="left" />
+        <QuickPickTeam
+          team={game.away}
+          side="away"
+          picked={pickedAway}
+          dimmed={hasPick && !pickedAway}
+          onPick={() => onPick(game.away.teamId)}
+        />
+        <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'text.disabled', px: 0.15, lineHeight: 1 }}>@</Typography>
+        <QuickPickTeam
+          team={game.home}
+          side="home"
+          picked={pickedHome}
+          dimmed={hasPick && !pickedHome}
+          onPick={() => onPick(game.home.teamId)}
+        />
+        <PctLabel pct={homePct} align="right" />
+      </Box>
+
+      {/* Tug-of-war meter: crowd split in team colors, scaling with the vote %.
+          The side you picked pulls to full strength so the bar shows the crowd
+          lean and your call at once. A hairline gap marks the boundary. */}
+      {awayPct !== null && (
+        <Box sx={{ display: 'flex', alignItems: 'stretch', height: 6, gap: '2px' }}>
+          <Box sx={{
+            width: `${awayPct}%`, minWidth: awayPct > 0 ? 4 : 0,
+            bgcolor: awayCol, opacity: !hasPick ? 0.72 : pickedAway ? 1 : 0.32,
+            borderRadius: '999px 3px 3px 999px',
+            boxShadow: pickedAway ? `0 0 6px ${awayCol}88` : 'none',
+            transition: 'width 0.45s ease, opacity 0.2s',
+          }} />
+          <Box sx={{
+            flex: 1, minWidth: homePct! > 0 ? 4 : 0,
+            bgcolor: homeCol, opacity: !hasPick ? 0.72 : pickedHome ? 1 : 0.32,
+            borderRadius: '3px 999px 999px 3px',
+            boxShadow: pickedHome ? `0 0 6px ${homeCol}88` : 'none',
+            transition: 'opacity 0.2s',
+          }} />
+        </Box>
+      )}
+    </Box>
+  )
+}
+
 // ─── PredictorModal ───────────────────────────────────────────────────────────
 
 function PredictorModal({ open, games, predictions, allVotes, onPick, onClose, isSignedIn }: {
@@ -421,11 +570,37 @@ export function PredictorWidget() {
   const [loading,     setLoading]     = useState(true)
   const [modalOpen,   setModalOpen]   = useState(false)
   const [statsOpen,   setStatsOpen]   = useState(false)
+  const [username,    setUsername]    = useState<string | null>(null)
+
+  // Dev-only: when the simulator is enabled, drive the widget off a fabricated
+  // slate instead of the real schedule (see devSim.ts). Inert in production —
+  // `import.meta.env.DEV` is false there, so this collapses to the real fetch.
+  const devSim    = useDevSim()
+  const simActive = import.meta.env.DEV && devSim.enabled
 
   useEffect(() => {
+    if (simActive) { setGames(devSim.games); setLoading(false); return }
     setLoading(true)
     fetchTodayGames(today).then(setGames).finally(() => setLoading(false))
-  }, [today])
+  }, [today, simActive, devSim.games])
+
+  // Load crowd-vote splits up front so the inline quick picks can show
+  // percentages (not just when the modal opens). Sim mode uses devSim.votes.
+  useEffect(() => {
+    if (simActive) return
+    fetchVotesByGame(today).then(setAllVotes)
+  }, [today, simActive])
+
+  // Votes shown across the widget: the fabricated splits in sim mode, else real.
+  const displayVotes = simActive ? devSim.votes : allVotes
+
+  // Look up the user's chosen username (from the `usernames` table) so the
+  // predictions leaderboard shows it instead of the email prefix.
+  useEffect(() => {
+    if (!user) { setUsername(null); return }
+    supabase.from('usernames').select('username').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => setUsername(data?.username ?? null))
+  }, [user?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (user) {
@@ -449,6 +624,7 @@ export function PredictorWidget() {
 
   useEffect(() => {
     if (!modalOpen) return
+    if (simActive) return  // don't let the real schedule/votes clobber the sim slate
     // Fetch votes immediately when modal opens
     fetchVotesByGame(today).then(setAllVotes)
     const id = setInterval(() => {
@@ -462,7 +638,7 @@ export function PredictorWidget() {
       fetchVotesByGame(today).then(setAllVotes)
     }, 3 * 60_000)
     return () => clearInterval(id)
-  }, [modalOpen, today])
+  }, [modalOpen, today, simActive])
 
   const handlePick = useCallback((gamePk: number, teamId: number) => {
     const g = games.find(g => g.gamePk === gamePk)
@@ -490,14 +666,27 @@ export function PredictorWidget() {
   const remainingCount    = previewCount - pickedPreviewCount
   const allDone           = games.length > 0 && games.every(g => g.state === 'final')
   const canOpen           = !loading && games.length > 0
+  const quickPicks        = previewGames.slice(0, 3)   // up to 3 open matchups to pick inline
 
   return (
     <>
       <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
         <Box sx={{ px: 2.5, py: 1.75, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Typography sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 1.5, color: ACCENT }}>
-            🎯 Predict Today's Games
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+            {!loading && remainingCount > 0 && (
+              <Box sx={{
+                width: 7, height: 7, borderRadius: '50%', bgcolor: ACCENT, flexShrink: 0,
+                animation: 'predPulse 1.6s ease-in-out infinite',
+                '@keyframes predPulse': {
+                  '0%, 100%': { boxShadow: `0 0 0 0 ${ACCENT}59`, opacity: 1 },
+                  '50%':      { boxShadow: `0 0 0 5px ${ACCENT}00`, opacity: 0.65 },
+                },
+              }} />
+            )}
+            <Typography sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 1.5, color: ACCENT }}>
+              🎯 Predict Today's Games
+            </Typography>
+          </Box>
           <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
             {user && (
               <Box
@@ -580,13 +769,41 @@ export function PredictorWidget() {
             </Typography>
           )}
         </Box>
+
+        {/* Inline quick picks — up to 3 open matchups, tap a logo to pick right here */}
+        {!loading && quickPicks.length > 0 && (
+          <Box sx={{ px: 2.5, pb: 1.75, pt: 0.25, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {quickPicks.map(g => (
+              <QuickPickRow
+                key={g.gamePk}
+                game={g}
+                prediction={predictions[g.gamePk] ?? null}
+                gameVotes={displayVotes[g.gamePk]}
+                onPick={teamId => handlePick(g.gamePk, teamId)}
+              />
+            ))}
+            {games.length > quickPicks.length && (
+              <Box
+                onClick={() => canOpen && setModalOpen(true)}
+                sx={{
+                  alignSelf: 'center', mt: 0.4, px: 1, py: 0.3,
+                  fontSize: '0.68rem', fontWeight: 700, color: ACCENT,
+                  cursor: 'pointer', borderRadius: 999,
+                  '&:hover': { bgcolor: `${ACCENT}12` },
+                }}
+              >
+                View all {games.length} games →
+              </Box>
+            )}
+          </Box>
+        )}
       </Box>
 
       <PredictorModal
         open={modalOpen}
         games={games}
         predictions={predictions}
-        allVotes={allVotes}
+        allVotes={displayVotes}
         onPick={handlePick}
         onClose={() => setModalOpen(false)}
         isSignedIn={!!user}
@@ -595,7 +812,7 @@ export function PredictorWidget() {
       <PredictionStatsModal
         open={statsOpen}
         userId={user?.id}
-        displayName={user?.email?.split('@')[0] ?? 'Anonymous'}
+        displayName={username ?? user?.email?.split('@')[0] ?? 'Anonymous'}
         onClose={() => setStatsOpen(false)}
       />
     </>

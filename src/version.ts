@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.5.0'
+export const APP_VERSION = '1.6.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,25 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.6.0',
+    date:    '2026-07-15',
+    title:   'Predictor vote bars and leaderboard ranking',
+    changes: [
+      {
+        short: 'See the crowd\'s picks on the home predictor',
+        full:  'The predict today\'s games card on the home page now shows each matchup with full team names and a color bar for how everyone has voted, with the percentage on each side. The side you pick fills in with its team color.',
+      },
+      {
+        short: 'Predictions leaderboard rewards a proven record',
+        full:  'The predictions leaderboard now ranks by a confidence-adjusted accuracy, so a few lucky correct picks no longer jump ahead of someone with a long, strong record. Your accuracy percentage is unchanged, and you always see your own row with your true rank even when you are outside the top 25.',
+      },
+      {
+        short: 'On Fire card stands out in dark mode',
+        full:  'The On Fire player card now has an orange outline in dark mode to match its label, so it stands apart from the other cards.',
+      },
+    ],
+  },
   {
     version: '1.5.0',
     date:    '2026-07-15',

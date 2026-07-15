@@ -13,6 +13,7 @@ import { HomeView } from './mlb/views/HomeView'
 import { useSearchBridge, updateSearchBridge, setSearchQuery } from './mlb/SearchBridgeContext'
 import { clearHomeOverlay } from './mlb/homeOverlay'
 import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
+import { useDevSim, setDevSimEnabled, regenerateDevSim, decideDevSimWinners, reopenDevSim } from './mlb/devSim'
 
 export default function MlbStats() {
   const state = useMlbState()
@@ -326,6 +327,10 @@ function DevSettings({ seasonSelectorStyle, setSeasonSelectorStyle }: {
 
         <Divider sx={{ my: 1.75 }} />
 
+        <PredSimControls />
+
+        <Divider sx={{ my: 1.75 }} />
+
         <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: 'text.secondary', mb: 0.75 }}>
           Simulated login
         </Typography>
@@ -355,6 +360,59 @@ function DevSettings({ seasonSelectorStyle, setSeasonSelectorStyle }: {
           </Button>
         )}
       </Popover>
+    </>
+  )
+}
+
+// ─── Prediction-slate simulator (dev only) ─────────────────────────────────────
+// Fabricate a random day of games, then decide their winners, to exercise the
+// Predictor's picks + correct/wrong feedback without waiting on the real schedule.
+// State lives in the devSim module singleton, which PredictorWidget reads.
+function PredSimControls() {
+  const sim = useDevSim()
+  const decided = sim.games.length > 0 && sim.games.every(g => g.state === 'final')
+  return (
+    <>
+      <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: 'text.secondary', mb: 0.75 }}>
+        Prediction simulator
+      </Typography>
+      <SegControl
+        options={[{ value: 'off', label: 'Off' }, { value: 'on', label: 'On' }]}
+        value={sim.enabled ? 'on' : 'off'}
+        onChange={v => setDevSimEnabled(v === 'on')}
+      />
+      {sim.enabled && (
+        <Box sx={{ mt: 1.25, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+          <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>
+            {sim.games.length} fake game{sim.games.length === 1 ? '' : 's'}
+            {' · '}{decided ? 'winners decided' : 'awaiting picks'}
+          </Typography>
+          <Button
+            fullWidth size="small" variant="outlined"
+            onClick={() => regenerateDevSim()}
+            sx={{ textTransform: 'none', fontWeight: 600 }}
+          >
+            🎲 New random slate
+          </Button>
+          {decided ? (
+            <Button
+              fullWidth size="small" variant="outlined"
+              onClick={() => reopenDevSim()}
+              sx={{ textTransform: 'none', fontWeight: 600 }}
+            >
+              ↩ Reopen for picks
+            </Button>
+          ) : (
+            <Button
+              fullWidth size="small" variant="contained"
+              onClick={() => decideDevSimWinners()}
+              sx={{ textTransform: 'none', fontWeight: 600 }}
+            >
+              🏆 Decide winners
+            </Button>
+          )}
+        </Box>
+      )}
     </>
   )
 }
