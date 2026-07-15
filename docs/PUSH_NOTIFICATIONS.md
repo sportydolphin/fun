@@ -17,6 +17,7 @@ GitHub Action nudges signed-in users who still have unpicked games for today.
 | Table | `scripts/create_push_subscriptions.sql` | Stores subscriptions (one row per device) |
 | Sender | `scripts/send-reminders.mjs` | Server-side send via `web-push` |
 | Schedule | `.github/workflows/daily-reminders.yml` | Cron that runs the sender |
+| Test button | `src/AdminPanel.tsx` → `supabase/functions/send-test-push` | Admin "send test notification to me" |
 
 Being subscribed in a browser **is** the opt-in — there's no separate preference
 row. Unsubscribing removes the row.
@@ -66,23 +67,50 @@ The daily sender runs in `Daily Pick Reminders`. Add these repo secrets
 | `VAPID_PRIVATE_KEY` | the private key above |
 | `VAPID_SUBJECT` | `mailto:you@example.com` (a contact address; required by the spec) |
 
+### 5. Test-notification edge function (for the Admin button)
+
+The Admin panel's **"Send test notification to me"** button sends a real push to
+your own devices regardless of the schedule. Sending needs the VAPID *private*
+key, so it runs in an edge function (same pattern as `delete-account`):
+
+```bash
+supabase functions deploy send-test-push
+supabase secrets set \
+  VAPID_PUBLIC_KEY=BCd3nM7dda8C49Th-PJSgwraiaao-pikJplq7pZDIoA_KEws4fgE3KfB1ledOmQW4S7KmNn3dcgEZBs-62X6o_A \
+  VAPID_PRIVATE_KEY=GjFZpp61joRTd1ULE6BnhG2fA2TQuacsjkQNjfSuQGg \
+  VAPID_SUBJECT=mailto:snichols246@gmail.com
+```
+
+(`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are injected automatically — don't
+set those.)
+
 ## Testing end-to-end
+
+Easiest path (no games required):
 
 1. Deploy with `VITE_VAPID_PUBLIC_KEY` set (or run locally — service workers work
    on `http://localhost`).
 2. Sign in, open **Settings → Notifications**, flip **Daily pick reminders** on,
-   and accept the browser permission prompt. A row appears in
-   `push_subscriptions`.
-3. Send yourself a test push (needs the VAPID env vars locally):
+   and accept the browser permission prompt. A row appears in `push_subscriptions`.
+3. Open the **Admin** panel → **Notifications** → **Send test notification to me**.
+   You should get a notification within a couple seconds. (Requires step 5 above.)
 
-   ```bash
-   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
-   VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:you@example.com \
-   node scripts/send-reminders.mjs --test <your-user-id>
-   ```
+Other ways to test the real reminder:
 
-4. Trigger the real reminder run manually from the GitHub Actions UI
-   ("Daily Pick Reminders" → Run workflow), or wait for the daily cron.
+- **GitHub Actions UI:** *Daily Pick Reminders → Run workflow*. Leave the input
+  blank for a normal run, or put your **email** (or user id) in the `test_user`
+  box to force a test push to just you, bypassing the pick/schedule checks.
+- **CLI:**
+  ```bash
+  SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
+  VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:you@example.com \
+  node scripts/send-reminders.mjs --test you@example.com
+  ```
+
+> **Desktop gotcha:** browser push only arrives while the browser is running
+> (Chrome/Edge keep a background process; fully quitting them stops delivery).
+> Also check OS focus/Do-Not-Disturb and site notification permission if a test
+> reports "sent" but nothing appears.
 
 ## Notes & limitations
 

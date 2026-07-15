@@ -102,7 +102,18 @@ async function sendToUser(subs, payload) {
 
 // ─── Test mode ──────────────────────────────────────────────────────────────
 
-async function runTest(userId) {
+/** Accepts a user id or an email; returns the user id. */
+async function resolveUserId(idOrEmail) {
+  if (!idOrEmail.includes('@')) return idOrEmail
+  const { data, error } = await supabase.auth.admin.listUsers({ perPage: 1000 })
+  if (error) throw new Error(`listUsers failed: ${error.message}`)
+  const match = data?.users?.find(u => (u.email ?? '').toLowerCase() === idOrEmail.toLowerCase())
+  if (!match) throw new Error(`No user found with email ${idOrEmail}`)
+  return match.id
+}
+
+async function runTest(idOrEmail) {
+  const userId = await resolveUserId(idOrEmail)
   const { data: subs, error } = await supabase
     .from('push_subscriptions')
     .select('endpoint, p256dh, auth')

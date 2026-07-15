@@ -6,6 +6,11 @@ on:
     # first pitches. Adjust to taste; day games (~1 PM ET) get the shortest heads-up.
     - cron: '0 16 * * *'
   workflow_dispatch:   # also triggerable manually from the GitHub Actions UI
+    inputs:
+      test_user:
+        description: 'Optional: send a one-off TEST push to this user (id or email), bypassing pick checks. Leave blank for a normal reminder run.'
+        required: false
+        default: ''
 
 jobs:
   send-reminders:
@@ -15,17 +20,23 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Send pick reminders
-        run: node scripts/send-reminders.mjs
         env:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           VAPID_PUBLIC_KEY:          ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY:         ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_SUBJECT:             ${{ secrets.VAPID_SUBJECT }}
+          TEST_USER:                 ${{ inputs.test_user }}
+        run: |
+          if [ -n "$TEST_USER" ]; then
+            node scripts/send-reminders.mjs --test "$TEST_USER"
+          else
+            node scripts/send-reminders.mjs
+          fi

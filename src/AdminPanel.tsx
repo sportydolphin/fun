@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import {
   Dialog, DialogTitle, DialogContent, IconButton,
-  Box, Typography, Divider, CircularProgress,
+  Box, Typography, Divider, CircularProgress, Button,
 } from '@mui/material'
 import { Close, Lock } from '@mui/icons-material'
 import { supabase } from './lib/supabase'
+import { isSubscribed } from './lib/push'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -128,6 +129,70 @@ function AppGrid({ apps, isAppLocked, onOpenApp }: {
   )
 }
 
+// ─── Test-notification section ──────────────────────────────────────────────
+// Fires the send-test-push edge function, which pushes a test notification to
+// the current user's own devices regardless of whether there are games today.
+
+function TestNotificationSection({ open }: { open: boolean }) {
+  const [subscribedHere, setSubscribedHere] = useState<boolean | null>(null)
+  const [status, setStatus] = useState<'idle' | 'sending' | 'done' | 'error'>('idle')
+  const [msg, setMsg]       = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    setStatus('idle'); setMsg('')
+    isSubscribed().then(setSubscribedHere).catch(() => setSubscribedHere(false))
+  }, [open])
+
+  const sendTest = async () => {
+    setStatus('sending'); setMsg('')
+    const { data, error } = await supabase.functions.invoke('send-test-push')
+    if (error) {
+      let m = 'Send failed. Is the send-test-push function deployed with VAPID secrets set?'
+      try {
+        const body = await (error as { context?: Response }).context?.json?.()
+        if (body?.error) m = body.error
+      } catch { /* keep default */ }
+      setMsg(m); setStatus('error')
+      return
+    }
+    const sent = (data as { sent?: number })?.sent ?? 0
+    const devices = (data as { devices?: number })?.devices ?? 0
+    setMsg(sent > 0
+      ? `Sent to ${sent}/${devices} device(s). Check your notifications.`
+      : `No device accepted the push (0/${devices}). Your subscription may be stale — toggle reminders off/on in Settings.`)
+    setStatus(sent > 0 ? 'done' : 'error')
+  }
+
+  return (
+    <Section title="Notifications">
+      <Box sx={{ p: 1.5 }}>
+        <Button
+          fullWidth variant="outlined"
+          onClick={sendTest}
+          disabled={status === 'sending'}
+          sx={{ textTransform: 'none', fontWeight: 700 }}
+        >
+          {status === 'sending' ? 'Sending…' : '🔔 Send test notification to me'}
+        </Button>
+        {subscribedHere === false && status === 'idle' && (
+          <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.75, lineHeight: 1.4 }}>
+            This device isn’t subscribed yet — enable “Daily pick reminders” in Settings first. (The test still reaches any other device you’ve subscribed.)
+          </Typography>
+        )}
+        {msg && (
+          <Typography sx={{
+            fontSize: '0.72rem', mt: 0.75, lineHeight: 1.4,
+            color: status === 'error' ? 'error.main' : 'success.main',
+          }}>
+            {msg}
+          </Typography>
+        )}
+      </Box>
+    </Section>
+  )
+}
+
 // ─── Admin Panel ──────────────────────────────────────────────────────────────
 
 export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
@@ -194,6 +259,9 @@ export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
         <Section title="Other Apps">
           <AppGrid apps={apps} isAppLocked={isAppLocked} onOpenApp={onOpenApp} />
         </Section>
+
+        {/* ── Test notification ──────────────────────────────────────── */}
+        <TestNotificationSection open={open} />
 
         {loading ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
