@@ -3,7 +3,7 @@ import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, Dial
 import { Brightness4, Brightness7, AccountCircle, Search, Close } from '@mui/icons-material'
 import { useSearchBridge, setSearchQuery } from './mlb/SearchBridgeContext'
 import type { PlayerBridgeItem, TeamBridgeItem, ToolbarSuggestion, RecentSearchItem } from './mlb/SearchBridgeContext'
-import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT } from './mlb/constants'
+import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT, DESKTOP_ZOOM } from './mlb/constants'
 import { APP_VERSION, CHANGELOG } from './version'
 import { useTheme } from './ThemeContext'
 import { AuthProvider, useAuth } from './AuthContext'
@@ -136,7 +136,9 @@ function ToolbarSuggestionsDropdown({ suggestions, onSelect, recents, onSelectRe
     <Paper elevation={8} sx={{
       position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
       zIndex: 1500, borderRadius: 2.5, overflow: 'hidden', minWidth: 260,
-      maxHeight: '70vh', overflowY: 'auto',
+      // Divide by --app-zoom so this stays within the viewport under the desktop
+      // `zoom` (which doesn't shrink viewport units). Defaults to 1 → unchanged.
+      maxHeight: 'calc(70vh / var(--app-zoom, 1))', overflowY: 'auto',
     }}>
       {recents.length > 0 && renderRecents()}
       {recents.length > 0 && (teamPlayers.length > 0 || trending.length > 0) && <Divider sx={{ mt: 0.5 }} />}
@@ -308,7 +310,15 @@ function AppInner() {
   const openApp = useCallback((path: string) => { setAdminOpen(false); handleTileClick({ path }) }, [handleTileClick])
 
   return (
-    <>
+    // Desktop-only content scale (see DESKTOP_ZOOM). Applied at the app root on the
+    // /mlb route so the toolbar scales together with the MLB view; the `--app-zoom`
+    // var inherits into the subtree for viewport-relative sizing that `zoom` can't
+    // compensate. Portaled MUI Dialogs/Snackbar render outside this box (in body),
+    // so they stay at native scale. Mobile (xs) and other routes stay at 1.
+    <Box sx={{
+      '--app-zoom': { xs: '1', md: path === '/mlb' ? String(DESKTOP_ZOOM) : '1' },
+      zoom: 'var(--app-zoom)',
+    }}>
       <AppBar position="static" color="default" elevation={1}>
         <Toolbar variant="dense" sx={{ minHeight: 48, py: 0.5 }}>
           {/* Close button — mobile search mode only */}
@@ -774,7 +784,7 @@ function AppInner() {
           {authToast === 'in' ? 'Successfully signed in' : authToast === 'deleted' ? 'Your account has been deleted' : 'Signed out'}
         </Alert>
       </Snackbar>
-    </>
+    </Box>
   )
 }
 

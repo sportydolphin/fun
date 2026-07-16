@@ -210,18 +210,27 @@ export function TopPerformers({
           } : {}),
         }}
       >
-        {/* Header — period on the left (like "On Fire"), nav stepper on the right */}
+        {/* Header — self-labeling "Single-Game Standout · <date>" on the left (this
+            replaces the old floating section title), nav stepper on the right */}
         <Box sx={{
           px: 1.75, py: 1,
           borderBottom: '1px solid', borderColor: 'divider',
           display: 'flex', alignItems: 'center', gap: 0.75,
         }}>
-          <Typography sx={{
-            fontWeight: 900, fontSize: '0.68rem', textTransform: 'uppercase',
-            letterSpacing: 1.2, color: accentText, flex: 1, lineHeight: 1,
-          }}>
-            {entry.period}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, flex: 1, minWidth: 0 }}>
+            <Typography sx={{
+              fontWeight: 900, fontSize: '0.64rem', textTransform: 'uppercase',
+              letterSpacing: 0.8, color: accentText, lineHeight: 1, whiteSpace: 'nowrap',
+            }}>
+              Single-Game Standout
+            </Typography>
+            <Typography sx={{
+              fontSize: '0.62rem', fontWeight: 600, color: 'text.secondary',
+              lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+              · {entry.period}
+            </Typography>
+          </Box>
           {/* Left/right indicator */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
             <Box onClick={(e) => { e.stopPropagation(); go(-1) }} sx={stepBtnSx}>
@@ -357,14 +366,9 @@ export function TopPerformers({
       sx={{ width: '100%' }}
     >
 
-      {/* ── Section header ────────────────────────────────────────────────── */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.25 }}>
-        <Typography sx={{ fontWeight: 800, fontSize: '0.78rem', letterSpacing: 0.3, color: 'text.primary' }}>
-          Standout Performances
-        </Typography>
-      </Box>
-
-      {/* ── Cards laid out side by side; sliding the track between them ────── */}
+      {/* ── Cards laid out side by side; sliding the track between them.
+             The section title now lives inside each card's header (see renderCard),
+             so there's no separate floating label above the carousel. ────────── */}
       <Box sx={{ overflow: 'hidden', borderRadius: 2.5 }}>
         <Box sx={{
           display: 'flex',

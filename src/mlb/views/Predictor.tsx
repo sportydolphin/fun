@@ -502,7 +502,9 @@ function PredictorModal({ open, games, predictions, allVotes, onPick, onClose, i
         bgcolor: 'background.paper', borderRadius: 3,
         border: '1px solid', borderColor: 'divider',
         width: '100%', maxWidth: 500,
-        maxHeight: '88vh',
+        // `100%` of the padded fixed overlay (not `vh`) so the card stays on-screen
+        // under the desktop `zoom` wrapper, which doesn't shrink viewport units.
+        maxHeight: '100%',
         display: 'flex', flexDirection: 'column',
         boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
         overflow: 'hidden',

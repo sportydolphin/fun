@@ -206,7 +206,9 @@ export function LeaderboardModal({ open, onClose, icon, title, subtitle, accent,
           borderRadius: 3,
           width: '100%',
           maxWidth: 540,
-          maxHeight: '86vh',
+          // `100%` of the padded fixed overlay (not `vh`) so the card stays on-screen
+          // under the desktop `zoom` wrapper, which doesn't shrink viewport units.
+          maxHeight: '100%',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',

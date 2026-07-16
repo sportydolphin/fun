@@ -355,12 +355,10 @@ export function HomeView({
           {/* Standout performances */}
           <TopPerformers onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
 
-          {/* Featured spotlight — hot / cold */}
+          {/* Featured spotlight — hot / cold. No floating section title; the
+              On Fire / Ice Cold cards below are self-labeling. */}
           <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.25 }}>
-              <Typography sx={{ fontWeight: 800, fontSize: '0.78rem', letterSpacing: 0.3, color: 'text.primary' }}>
-                Featured
-              </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mb: 1.25 }}>
               <Box
                 onClick={onLeaderboard}
                 sx={{
@@ -391,12 +389,10 @@ export function HomeView({
             </Box>
           </Box>
 
-          {/* Daily report card */}
+          {/* Daily report card. No floating section title; the card carries its
+              own heading. */}
           <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.25 }}>
-              <Typography sx={{ fontWeight: 800, fontSize: '0.78rem', letterSpacing: 0.3, color: 'text.primary' }}>
-                Featured Report Card
-              </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mb: 1.25 }}>
               <Box
                 onClick={onViz}
                 sx={{

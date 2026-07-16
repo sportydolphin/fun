@@ -640,7 +640,9 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
         border: '1px solid', borderColor: 'divider',
         // Wider on desktop while the side-by-side box score is showing
         width: '100%', maxWidth: tab === 'box' ? { xs: 560, md: 1100 } : 560,
-        maxHeight: '90vh', overflowY: 'auto',
+        // `100%` (of the padded fixed overlay), not `vh`: under the desktop `zoom`
+        // wrapper viewport units don't shrink, so `90vh` would overflow the screen.
+        maxHeight: '100%', overflowY: 'auto',
         boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
         '&::-webkit-scrollbar': { width: 4 },
         '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },

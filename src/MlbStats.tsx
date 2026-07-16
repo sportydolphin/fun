@@ -78,6 +78,9 @@ export default function MlbStats() {
   const containerMaxWidth = state.view === 'home' ? { xs: 640, md: 980 } : { xs: 640, md: 1280 }
 
   return (
+    // The desktop `zoom` that scales this content up lives on the app root (App.tsx)
+    // so the toolbar scales with it; the `--app-zoom` CSS var it sets inherits down
+    // here (see StatsView's scroll-height cap).
     <Box sx={{ maxWidth: containerMaxWidth, mx: 'auto', position: 'relative' }}>
 
       {/* Local-dev-only settings menu (never rendered in production builds) */}

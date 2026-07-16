@@ -194,13 +194,31 @@ async function fetchLeaderboard(myUserId: string): Promise<LeaderEntry[]> {
       .select('user_id, display_name, correct_predictions, total_predictions, accuracy_pct')
       .limit(500)
 
+    // Resolve names at read time from the `usernames` table so the board always
+    // reflects each user's *current* username — the cached `display_name` on the
+    // stats row is only rewritten when that user reopens My Stats, so it goes
+    // stale (e.g. shows the email prefix a user had before setting a username).
+    // Users without a username row (notably the prediction bots) fall back to the
+    // stored display_name.
+    const userIds = (data ?? []).map((r: any) => r.user_id)
+    const nameByUser: Record<string, string> = {}
+    if (userIds.length > 0) {
+      const { data: unames } = await supabase
+        .from('usernames')
+        .select('user_id, username')
+        .in('user_id', userIds)
+      for (const u of unames ?? []) {
+        if (u.username) nameByUser[u.user_id] = u.username
+      }
+    }
+
     // Rank by confidence-adjusted accuracy (Wilson lower bound), tie-breaking by
     // volume. Everyone stays on the board; the raw accuracy % below is unchanged
     // — only the ordering accounts for sample size.
     const ranked: LeaderEntry[] = (data ?? [])
       .map((row: any) => ({
         userId:      row.user_id,
-        displayName: row.display_name ?? 'Anonymous',
+        displayName: nameByUser[row.user_id] ?? row.display_name ?? 'Anonymous',
         accuracy:    row.accuracy_pct        ?? 0,
         correct:     row.correct_predictions ?? 0,
         total:       row.total_predictions   ?? 0,
@@ -550,7 +568,9 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
         bgcolor: 'background.paper', borderRadius: 3,
         border: '1px solid', borderColor: 'divider',
         width: '100%', maxWidth: 460,
-        maxHeight: '88vh',
+        // `100%` of the padded fixed overlay (not `vh`) so the card stays on-screen
+        // under the desktop `zoom` wrapper, which doesn't shrink viewport units.
+        maxHeight: '100%',
         display: 'flex', flexDirection: 'column',
         boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
         overflow: 'hidden',

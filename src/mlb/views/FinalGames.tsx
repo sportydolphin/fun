@@ -868,7 +868,9 @@ function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick }: {
         bgcolor: 'background.paper', borderRadius: 3,
         border: '1px solid', borderColor: 'divider',
         width: '100%', maxWidth: 480,
-        maxHeight: '90vh', overflowY: 'auto',
+        // `100%` of the padded fixed overlay (not `vh`) so the card stays on-screen
+        // under the desktop `zoom` wrapper, which doesn't shrink viewport units.
+        maxHeight: '100%', overflowY: 'auto',
         boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
         '&::-webkit-scrollbar': { width: 4 },
         '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },
@@ -1070,7 +1072,9 @@ function ScoreboardModal({ dateISO, onDateChange, games, loading, followedTeamId
         bgcolor: 'background.paper', borderRadius: 3,
         border: '1px solid', borderColor: 'divider',
         width: '100%', maxWidth: 1000,
-        maxHeight: '90vh',
+        // `100%` of the padded fixed overlay (not `vh`) so the card stays on-screen
+        // under the desktop `zoom` wrapper, which doesn't shrink viewport units.
+        maxHeight: '100%',
         display: 'flex', flexDirection: 'column',
         boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
         overflow: 'hidden',

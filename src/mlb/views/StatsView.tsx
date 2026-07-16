@@ -184,8 +184,11 @@ export function StatsView({
             </Typography>
           </Box>
 
-          {/* Scrollable table — overflow both axes so sticky thead works vertically */}
-          <Box sx={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
+          {/* Scrollable table — overflow both axes so sticky thead works vertically.
+              Divide 100vh by --app-zoom: inside the desktop `zoom` wrapper, viewport
+              units aren't shrunk, so the visible height in this scaled coordinate
+              space is 100vh / zoom. (--app-zoom defaults to 1 → unchanged off desktop.) */}
+          <Box sx={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh / var(--app-zoom, 1) - 280px)' }}>
             <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: '100%' }}>
               <Box component="thead">
                 <Box component="tr">
