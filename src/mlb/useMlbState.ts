@@ -737,15 +737,9 @@ export function useMlbState() {
       autoLoadedRef.current = true
       const t = allTeams.find(t => t.id === Number(tid))
       if (t) selectTeam(t)
-    } else if (!pid && !tid && allTeams.length > 0 && view === 'search') {
-      // Showcase card for the search/card-maker landing page only — a logged-out
-      // visitor with no followed team lands here. Don't do this on 'home' or any
-      // other view: it was silently selecting a random player in the background
-      // (polluting recent searches and the URL) even when nothing was showing it.
-      autoLoadedRef.current = true
-      const randomId = FEATURED_PLAYER_IDS[Math.floor(Math.random() * FEATURED_PLAYER_IDS.length)]
-      fetchPlayerDetails(randomId).then(p => { if (p) selectPlayer(p) }).catch(() => {})
     }
+    // No pid/tid: the search tab shows a "search for a player" prompt rather than
+    // auto-loading a random showcase player (which polluted recent searches + the URL).
   }, [allTeams, selectPlayer, selectTeam, view])
 
   // ─── Memos: derived data ──────────────────────────────────────────────────────

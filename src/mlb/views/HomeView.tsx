@@ -383,7 +383,7 @@ export function HomeView({
                 <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Loading…</Typography>
               </Box>
             )}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {hotGuy && (
                 <SpotlightCard data={hotGuy} mode="hot" onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
               )}

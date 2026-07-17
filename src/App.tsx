@@ -680,20 +680,20 @@ function AppInner() {
                   {new Date(`${entry.date}T00:00:00`).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })}
                 </Typography>
               </Box>
+              <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                {entry.changes.slice(0, 4).map((c, i) => (
+                  <ChangelogBullet key={i} text={c.short} />
+                ))}
+              </Box>
               <Box
                 onClick={() => setViewAllVersion(entry.version)}
                 sx={{
-                  display: 'inline-block', mb: 1, cursor: 'pointer',
+                  display: 'inline-block', mt: 0.75, cursor: 'pointer',
                   fontSize: '0.72rem', fontWeight: 700, color: ACCENT,
                   '&:hover': { textDecoration: 'underline' },
                 }}
               >
                 View all changes
-              </Box>
-              <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-                {entry.changes.slice(0, 4).map((c, i) => (
-                  <ChangelogBullet key={i} text={c.short} />
-                ))}
               </Box>
             </Box>
           ))}

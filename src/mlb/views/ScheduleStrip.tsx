@@ -258,6 +258,7 @@ interface LiveGameData {
   currentInning:        number | null
   currentInningOrdinal: string | null
   inningHalf:           'top' | 'bottom' | null
+  inningState:          string | null   // "Top" | "Middle" | "Bottom" | "End" — "Middle"/"End" = between innings
   outs:                 number | null
   balls:                number | null
   strikes:              number | null
@@ -276,7 +277,7 @@ async function fetchLiveGameData(gamePk: number): Promise<LiveGameData | null> {
   try {
     const r = await fetch(
       `https://statsapi.mlb.com/api/v1.1/game/${gamePk}/feed/live` +
-      `?fields=liveData,linescore,currentInning,currentInningOrdinal,inningHalf,outs,balls,strikes,offense,defense,batter,pitcher,first,second,third,id,fullName,teams,home,away,runs,` +
+      `?fields=liveData,linescore,currentInning,currentInningOrdinal,inningHalf,inningState,outs,balls,strikes,offense,defense,batter,pitcher,first,second,third,id,fullName,teams,home,away,runs,` +
       `boxscore,players,stats,batting,pitching,atBats,hits,rbi,homeRuns,inningsPitched,numberOfPitches`
     )
     const d = await r.json()
@@ -311,6 +312,7 @@ async function fetchLiveGameData(gamePk: number): Promise<LiveGameData | null> {
       currentInning:        ls.currentInning        ?? null,
       currentInningOrdinal: ls.currentInningOrdinal ?? null,
       inningHalf:           half === 'top' ? 'top' : half === 'bottom' ? 'bottom' : null,
+      inningState:          String(ls.inningState ?? '') || null,
       outs:                 ls.outs                 ?? null,
       balls:                ls.balls                ?? null,
       strikes:              ls.strikes              ?? null,
@@ -760,14 +762,6 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
     <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: { xs: 0.35, sm: 0.75 } }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
         <Typography component="div" sx={{ lineHeight: 1 }}>
-          {label && (
-            <Box component="span" sx={{
-              fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.5,
-              color: labelColor ?? 'text.disabled', mr: 0.6,
-            }}>
-              {label}
-            </Box>
-          )}
           <Box component="span" sx={{ fontSize: '0.9rem', fontWeight: 800, color: 'text.primary' }}>
             {relativeChipDate(game.date)}
           </Box>
@@ -844,6 +838,16 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
               <GameCountdown iso={game.gameDateISO} />
             )}
           </>
+        )}
+        {/* Status (FINAL) sits beside the score; the winner ring already carries the W/L color */}
+        {label && (
+          <Box component="span" sx={{
+            ml: 1, flexShrink: 0, alignSelf: 'center',
+            fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase',
+            color: labelColor ?? 'text.secondary', lineHeight: 1,
+          }}>
+            {label}
+          </Box>
         )}
       </Box>
 
@@ -1311,6 +1315,9 @@ function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick, onTeam
   const awayRuns = liveData?.awayRuns ?? (game.isHome ? game.opponentScore : game.teamScore) ?? 0
   const homeRuns = liveData?.homeRuns ?? (game.isHome ? game.teamScore     : game.opponentScore) ?? 0
 
+  // Between innings the count/outs/bases don't apply; the feed's batter/pitcher are who's due up.
+  const betweenInnings = /^(middle|end)$/i.test(liveData?.inningState ?? '')
+
   // ── Celebrate the followed team's hits (subtle) & runs (grand) ──────────────
   const myCol = game.isHome ? homeCol : awayCol
   const prevStatsRef = useRef<{ hits: number | null; runs: number | null }>({ hits: null, runs: null })
@@ -1416,7 +1423,7 @@ function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick, onTeam
                     sx={{ minWidth: 0, cursor: onPlayerClick ? 'pointer' : 'default', '&:hover .lpn': onPlayerClick ? { color: ACCENT } : {} }}
                   >
                     <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', lineHeight: 1 }}>
-                      Pitching
+                      {betweenInnings ? 'On the Mound' : 'Pitching'}
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, mt: 0.2, minWidth: 0 }}>
                       <Typography className="lpn" sx={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.3, transition: 'color 0.12s', flexShrink: 0 }}>
@@ -1436,7 +1443,7 @@ function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick, onTeam
                     sx={{ minWidth: 0, cursor: onPlayerClick ? 'pointer' : 'default', '&:hover .lpn': onPlayerClick ? { color: ACCENT } : {} }}
                   >
                     <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', lineHeight: 1 }}>
-                      At Bat
+                      {betweenInnings ? 'Leading Off' : 'At Bat'}
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, mt: 0.2, minWidth: 0 }}>
                       <Typography className="lpn" sx={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.3, transition: 'color 0.12s', flexShrink: 0 }}>
@@ -1454,32 +1461,49 @@ function LiveGameCard({ game, myTeamId, liveData, loading, onPlayerClick, onTeam
             )}
           </Box>
 
-          {/* Right column: inning + diamond + outs/count — the game "situation" */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.1, flexShrink: 0 }}>
-            <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, lineHeight: 1 }}>
-              {liveData.inningHalf === 'top' ? '▲' : liveData.inningHalf === 'bottom' ? '▼' : ''}
-              {' '}{liveData.currentInningOrdinal ?? liveData.currentInning}
-            </Typography>
-            <BaseDiamond
-              onFirst={liveData.onFirst}
-              onSecond={liveData.onSecond}
-              onThird={liveData.onThird}
-              size={22}
-            />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {liveData.outs !== null && (
-                <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', lineHeight: 1 }}>
-                  {liveData.outs} out{liveData.outs !== 1 ? 's' : ''}
-                </Typography>
-              )}
-              {liveData.balls !== null && liveData.strikes !== null && (
-                <Box sx={{ px: 0.7, py: '2px', borderRadius: 0.5, bgcolor: 'action.hover' }}>
-                  <Typography sx={{ fontSize: '0.66rem', fontWeight: 700, lineHeight: 1, letterSpacing: 0.2 }}>
-                    {liveData.balls}–{liveData.strikes}
+          {/* Right column: inning + diamond + outs/count — the game "situation".
+              Between innings none of those apply, so just show "End of the 4th". */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1.1, flexShrink: 0 }}>
+            {betweenInnings ? (
+              <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, lineHeight: 1.2, color: 'text.secondary', textAlign: 'center' }}>
+                {liveData.inningState} of the {liveData.currentInningOrdinal ?? liveData.currentInning}
+              </Typography>
+            ) : (
+              <>
+                {/* Only the ordinal centers over the bases; the top/bottom arrow is
+                    absolutely positioned to its left so it doesn't shift the centering. */}
+                <Box sx={{ position: 'relative', display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+                  {(liveData.inningHalf === 'top' || liveData.inningHalf === 'bottom') && (
+                    <Typography component="span" sx={{ position: 'absolute', right: '100%', mr: 0.2, fontSize: '0.6rem', fontWeight: 800, lineHeight: 1 }}>
+                      {liveData.inningHalf === 'top' ? '▲' : '▼'}
+                    </Typography>
+                  )}
+                  <Typography component="span" sx={{ fontSize: '0.78rem', fontWeight: 800, lineHeight: 1 }}>
+                    {liveData.currentInningOrdinal ?? liveData.currentInning}
                   </Typography>
                 </Box>
-              )}
-            </Box>
+                <BaseDiamond
+                  onFirst={liveData.onFirst}
+                  onSecond={liveData.onSecond}
+                  onThird={liveData.onThird}
+                  size={22}
+                />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {liveData.outs !== null && (
+                    <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', lineHeight: 1 }}>
+                      {liveData.outs} out{liveData.outs !== 1 ? 's' : ''}
+                    </Typography>
+                  )}
+                  {liveData.balls !== null && liveData.strikes !== null && (
+                    <Box sx={{ px: 0.7, py: '2px', borderRadius: 0.5, bgcolor: 'action.hover' }}>
+                      <Typography sx={{ fontSize: '0.66rem', fontWeight: 700, lineHeight: 1, letterSpacing: 0.2 }}>
+                        {liveData.balls}–{liveData.strikes}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              </>
+            )}
           </Box>
         </Box>
       ) : (
@@ -1640,19 +1664,15 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
   const isLive      = nextGame.state === 'live'
   const isPreview   = nextGame.state === 'preview'
   const isPostponed = nextGame.state === 'postponed'
-  const isToday     = nextGame.date === today
   // Only show separate "last game" when it differs from the primary card and isn't itself final/postponed today
   const showLast  = lastGame !== null && lastGame.gamePk !== nextGame.gamePk && !isFinal && !isPostponed
 
-  const nextLabel = isLive       ? '● LIVE'
-    : isFinal     ? 'FINAL'
-    : isPostponed ? 'PPD'
-    : isToday     ? 'Today'
+  // Only "FINAL" (rendered beside the score, not the date). No "Today" label —
+  // relativeChipDate already prints "Today". PPD is already shown in the score row.
+  const nextLabel = isFinal ? 'FINAL' : undefined
+  const nextLabelColor = isFinal
+    ? (nextGame.isWin === true ? '#22c55e' : nextGame.isWin === false ? '#ef4444' : undefined)
     : undefined
-  const nextLabelColor = isLive      ? '#ef4444'
-    : isFinal     ? (nextGame.isWin === true ? '#22c55e' : nextGame.isWin === false ? '#ef4444' : undefined)
-    : isPostponed ? undefined
-    : isToday     ? teamColor : undefined
 
   const awayTeamId  = previewData?.away.teamId ?? (nextGame.isHome ? nextGame.opponentId : teamId)
   const homeTeamId  = previewData?.home.teamId ?? (nextGame.isHome ? teamId : nextGame.opponentId)

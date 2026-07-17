@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../colorUtils'
@@ -34,6 +34,7 @@ interface GcSituation {
   balls:          number
   strikes:        number
   outs:           number
+  betweenInnings: boolean   // Middle/End of inning — count/outs/bases don't apply; batter+pitcher are "due up"
   battingTeamId:  number
   fieldingTeamId: number
 }
@@ -48,6 +49,8 @@ interface GcPlay {
   awayScore:     number
   homeScore:     number
   battingTeamId: number
+  batter:        string
+  pitcher:       string
 }
 
 interface GameCenterData {
@@ -61,8 +64,9 @@ interface GameCenterData {
 }
 
 interface WpPoint {
-  wp:     number   // home team win probability, 0–100
-  inning: number
+  wp:         number   // home team win probability, 0–100
+  inning:     number
+  atBatIndex: number   // joins to a GcPlay for hover detail
 }
 
 // ─── API ──────────────────────────────────────────────────────────────────────
@@ -119,6 +123,7 @@ async function fetchGameCenter(gamePk: number): Promise<GameCenterData | null> {
       const off     = ls.offense ?? {}
       const def     = ls.defense ?? {}
       const isTop   = Boolean(ls.isTopInning)
+      const between = ls.inningState === 'Middle' || ls.inningState === 'End'
       const batSide = isTop ? 'away' : 'home'
       const pitSide = isTop ? 'home' : 'away'
       const batPlayers = ld.boxscore?.teams?.[batSide]?.players ?? {}
@@ -129,12 +134,16 @@ async function fetchGameCenter(gamePk: number): Promise<GameCenterData | null> {
         const p = batPlayers[`ID${raw.id}`] ?? {}
         const g = p.stats?.batting ?? {}
         const s = p.seasonStats?.batting ?? {}
-        const ab = g.atBats ?? 0
+        // A walk is a plate appearance with 0 AB, so key off PA (not AB) to know they've batted.
+        const played     = (g.plateAppearances ?? 0) > 0
+        const gameLine   = `${g.hits ?? 0}-${g.atBats ?? 0} today`
+        const seasonLine = `AVG ${s.avg ?? '—'} · OPS ${s.ops ?? '—'}`
         return {
           id:    Number(raw.id),
           name:  raw.fullName ?? '—',
-          line1: ab > 0 ? `${g.hits ?? 0}-${ab} today` : 'First AB',
-          line2: `AVG ${s.avg ?? '—'} · OPS ${s.ops ?? '—'}`,
+          // Due up: one line — game stats once they've batted (incl. a walk), else season stats.
+          line1: between ? (played ? gameLine : seasonLine) : (played ? gameLine : 'First AB'),
+          line2: between ? '' : seasonLine,
         }
       }
 
@@ -144,11 +153,15 @@ async function fetchGameCenter(gamePk: number): Promise<GameCenterData | null> {
         const g = p.stats?.pitching ?? {}
         const s = p.seasonStats?.pitching ?? {}
         const pitches = g.pitchesThrown ?? g.numberOfPitches
+        const pitched = (g.battersFaced ?? 0) > 0 || parseFloat(g.inningsPitched ?? '0') > 0
+        const gameLine   = `${g.inningsPitched ?? '0.0'} IP · ${g.strikeOuts ?? 0} K`
+        const seasonLine = `ERA ${s.era ?? '—'}`
         return {
           id:    Number(raw.id),
           name:  raw.fullName ?? '—',
-          line1: `${g.inningsPitched ?? '0.0'} IP · ${g.strikeOuts ?? 0} K`,
-          line2: `${pitches != null ? `${pitches} pitches · ` : ''}ERA ${s.era ?? '—'}`,
+          // Due up: game line only once they've thrown to a batter, else season stats.
+          line1: between ? (pitched ? gameLine : seasonLine) : gameLine,
+          line2: between ? '' : `${pitches != null ? `${pitches} pitches · ` : ''}ERA ${s.era ?? '—'}`,
         }
       }
 
@@ -161,6 +174,7 @@ async function fetchGameCenter(gamePk: number): Promise<GameCenterData | null> {
         balls:          ls.balls   ?? 0,
         strikes:        ls.strikes ?? 0,
         outs:           ls.outs    ?? 0,
+        betweenInnings: between,
         battingTeamId:  isTop ? away.teamId : home.teamId,
         fieldingTeamId: isTop ? home.teamId : away.teamId,
       }
@@ -178,6 +192,8 @@ async function fetchGameCenter(gamePk: number): Promise<GameCenterData | null> {
         awayScore:     p.result?.awayScore ?? 0,
         homeScore:     p.result?.homeScore ?? 0,
         battingTeamId: p.about?.halfInning === 'bottom' ? home.teamId : away.teamId,
+        batter:        p.matchup?.batter?.fullName ?? '',
+        pitcher:       p.matchup?.pitcher?.fullName ?? '',
       }))
 
     const box = parseBoxScoreData(ls, ld.boxscore ?? {})
@@ -195,7 +211,7 @@ async function fetchWinProb(gamePk: number): Promise<WpPoint[]> {
     if (!Array.isArray(d)) return []
     return d
       .filter((p: any) => typeof p.homeTeamWinProbability === 'number')
-      .map((p: any) => ({ wp: p.homeTeamWinProbability, inning: p.about?.inning ?? 0 }))
+      .map((p: any) => ({ wp: p.homeTeamWinProbability, inning: p.about?.inning ?? 0, atBatIndex: p.atBatIndex ?? -1 }))
   } catch { return [] }
 }
 
@@ -212,10 +228,12 @@ function ordinal(n: number): string {
 function BasesDiamond({ onFirst, onSecond, onThird, color, size = 22 }: {
   onFirst: boolean; onSecond: boolean; onThird: boolean; color: string; size?: number
 }) {
-  const gap = Math.round(size * 0.08)
+  // Cell pitch: diagonally-adjacent bases touch at size/√2 center spacing; the 1.06
+  // factor leaves a hair of gap so they're practically — not quite — touching.
+  const unit = (size / Math.SQRT2) * 1.06
   const sq = (occupied: boolean) => (
     <Box sx={{
-      width: size, height: size,
+      width: size, height: size, placeSelf: 'center',
       transform: 'rotate(45deg)',
       bgcolor: occupied ? color : 'transparent',
       border: `${size >= 12 ? 2 : 1.5}px solid`,
@@ -227,9 +245,8 @@ function BasesDiamond({ onFirst, onSecond, onThird, color, size = 22 }: {
   return (
     <Box sx={{
       display: 'grid',
-      gridTemplateColumns: `repeat(3, ${size}px)`,
-      gridTemplateRows: `repeat(2, ${size}px)`,
-      gap: `${gap}px`,
+      gridTemplateColumns: `repeat(3, ${unit}px)`,
+      gridTemplateRows: `repeat(2, ${unit}px)`,
       flexShrink: 0,
     }}>
       <Box />{sq(onSecond)}<Box />
@@ -248,9 +265,6 @@ function OutsDots({ outs }: { outs: number }) {
           border: '1.5px solid', borderColor: i < outs ? '#ef4444' : 'text.disabled',
         }} />
       ))}
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.secondary', ml: 0.25, lineHeight: 1 }}>
-        {outs === 1 ? 'OUT' : 'OUTS'}
-      </Typography>
     </Box>
   )
 }
@@ -302,12 +316,29 @@ function MatchupCard({ label, player, teamId, onSelect }: {
             <Typography sx={{ fontSize: '0.64rem', fontWeight: 700, color: 'text.primary', lineHeight: 1.2, mt: 0.2 }}>
               {player.line1}
             </Typography>
-            <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', lineHeight: 1.2 }}>
-              {player.line2}
-            </Typography>
+            {player.line2 && (
+              <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', lineHeight: 1.2 }}>
+                {player.line2}
+              </Typography>
+            )}
           </>
         )}
       </Box>
+    </Box>
+  )
+}
+
+// Compact bases + count + outs, sized to sit between the two teams in the score header.
+function MiniSituation({ sit }: { sit: GcSituation }) {
+  const isDark = useIsDark()
+  const batCol = accentColor(TEAM_BG[sit.battingTeamId] ?? '#888', isDark)
+  return (
+    <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.7, px: 0.5 }}>
+      <BasesDiamond onFirst={sit.onFirst} onSecond={sit.onSecond} onThird={sit.onThird} color={batCol} size={16} />
+      <Typography sx={{ fontSize: '0.82rem', fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+        {sit.balls}-{sit.strikes}
+      </Typography>
+      <OutsDots outs={sit.outs} />
     </Box>
   )
 }
@@ -316,26 +347,20 @@ function SituationPanel({ sit, onPlayerClick }: {
   sit: GcSituation
   onPlayerClick?: (id: number) => void
 }) {
-  const isDark  = useIsDark()
-  const batCol  = accentColor(TEAM_BG[sit.battingTeamId] ?? '#888', isDark)
   return (
     <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <BasesDiamond onFirst={sit.onFirst} onSecond={sit.onSecond} onThird={sit.onThird} color={batCol} />
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-          <Typography sx={{ fontSize: '1rem', fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-            {sit.balls}-{sit.strikes}
-            <Typography component="span" sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.secondary', ml: 0.5 }}>
-              COUNT
-            </Typography>
+      {sit.betweenInnings && (
+        // Between innings there's no live count/outs/bases — just flag who's due up.
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mb: 1.25 }}>
+          <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'text.disabled', flexShrink: 0 }} />
+          <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+            Due up next inning
           </Typography>
-          <OutsDots outs={sit.outs} />
         </Box>
-        <Box sx={{ flex: 1 }} />
-      </Box>
-      <Box sx={{ display: 'flex', gap: 1, mt: 1.25 }}>
-        <MatchupCard label="At Bat"   player={sit.batter}  teamId={sit.battingTeamId}  onSelect={onPlayerClick} />
-        <MatchupCard label="Pitching" player={sit.pitcher} teamId={sit.fieldingTeamId} onSelect={onPlayerClick} />
+      )}
+      <Box sx={{ display: 'flex', gap: 1 }}>
+        <MatchupCard label={sit.betweenInnings ? 'Leading Off' : 'At Bat'}   player={sit.batter}  teamId={sit.battingTeamId}  onSelect={onPlayerClick} />
+        <MatchupCard label={sit.betweenInnings ? 'On the Mound' : 'Pitching'} player={sit.pitcher} teamId={sit.fieldingTeamId} onSelect={onPlayerClick} />
       </Box>
     </Box>
   )
@@ -343,33 +368,67 @@ function SituationPanel({ sit, onPlayerClick }: {
 
 // ─── Win probability chart ────────────────────────────────────────────────────
 
-function WinProbChart({ pts, away, home }: { pts: WpPoint[]; away: GcTeam; home: GcTeam }) {
+function WinProbChart({ pts, plays, away, home, live }: {
+  pts: WpPoint[]; plays: GcPlay[]; away: GcTeam; home: GcTeam; live: boolean
+}) {
   const isDark = useIsDark()
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [hover, setHover] = useState<number | null>(null)
   if (pts.length < 2) return null
 
   const W = 340, H = 108, PT = 6, PB = 14
   const n = pts.length
-  const x = (i: number) => (i / (n - 1)) * W
   const y = (wp: number) => PT + (1 - wp / 100) * (H - PT - PB)
-  const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)} ${y(p.wp).toFixed(1)}`).join(' ')
-  const mid  = y(50)
+  const mid = y(50)
+
+  // X axis always spans a full 9 innings (more only if the game went to extras); the WP
+  // line is mapped by inning and stops at the current point, so an in-progress game
+  // shows only a partial line reaching to where we are.
+  const lastInning = pts[n - 1].inning
+  const axisInn    = Math.max(9, lastInning)
+  const perInning: Record<number, number> = {}
+  pts.forEach(p => { perInning[p.inning] = (perInning[p.inning] ?? 0) + 1 })
+  const seen: Record<number, number> = {}
+  const px = pts.map(p => {
+    const m = perInning[p.inning]
+    const j = seen[p.inning] ?? 0
+    seen[p.inning] = j + 1
+    return ((p.inning - 1 + (m > 0 ? j / m : 0)) / axisInn) * W
+  })
+  const path = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${px[i].toFixed(1)} ${y(p.wp).toFixed(1)}`).join(' ')
 
   const homeCol = accentColor(TEAM_BG[home.teamId] ?? '#888', isDark)
   const awayCol = accentColor(TEAM_BG[away.teamId] ?? '#888', isDark)
   const grid    = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)'
   const txt     = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)'
 
-  // First play of each inning → gridline + label
-  const inningStarts: Array<{ i: number; inning: number }> = []
-  let prev = 0
-  pts.forEach((p, i) => {
-    if (p.inning !== prev) { inningStarts.push({ i, inning: p.inning }); prev = p.inning }
-  })
-
   const last    = pts[n - 1]
   const leader  = last.wp >= 50 ? home : away
   const leadCol = last.wp >= 50 ? homeCol : awayCol
   const leadPct = Math.round(last.wp >= 50 ? last.wp : 100 - last.wp)
+
+  // Finish the graph: while the game is live, extend a dashed "projected" line at the
+  // current win probability out to the end of the axis so the line doesn't just stop.
+  const lastX = px[n - 1]
+  const lastY = y(last.wp)
+  const showProjection = live && lastX < W - 1
+
+  // Join WP points to their play for the hover tooltip.
+  const playByIdx = new Map(plays.map(p => [p.atBatIndex, p] as const))
+  const hoverPlay = hover != null ? playByIdx.get(pts[hover].atBatIndex) ?? null : null
+
+  const onMove = (e: React.MouseEvent) => {
+    const el = wrapRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const svgX = ((e.clientX - rect.left) / rect.width) * W
+    let best = 0, bd = Infinity
+    for (let i = 0; i < n; i++) { const d = Math.abs(px[i] - svgX); if (d < bd) { bd = d; best = i } }
+    setHover(best)
+  }
+
+  const tipLeft   = hover != null ? Math.min(Math.max((px[hover] / W) * 100, 24), 76) : 0
+  const tipOnTop  = hover != null ? y(pts[hover].wp) > H / 2 : true
 
   return (
     <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
@@ -379,22 +438,82 @@ function WinProbChart({ pts, away, home }: { pts: WpPoint[]; away: GcTeam; home:
           {leader.abbr} {leadPct}%
         </Typography>
       </Box>
-      <Box component="svg" viewBox={`0 0 ${W} ${H}`} sx={{ width: '100%', height: 'auto', display: 'block' }}>
-        <defs>
-          <clipPath id="gcWpTop"><rect x={0} y={0} width={W} height={mid} /></clipPath>
-          <clipPath id="gcWpBot"><rect x={0} y={mid} width={W} height={H - mid} /></clipPath>
-        </defs>
-        {inningStarts.map(s => (
-          <g key={s.inning}>
-            {s.i > 0 && <line x1={x(s.i)} x2={x(s.i)} y1={PT} y2={H - PB} stroke={grid} strokeWidth={1} />}
-            <text x={x(s.i) + 2.5} y={H - 3.5} fontSize={7.5} fill={txt}>{s.inning}</text>
-          </g>
-        ))}
-        <line x1={0} x2={W} y1={mid} y2={mid} stroke={grid} strokeWidth={1} strokeDasharray="3 3" />
-        <path d={path} fill="none" stroke={homeCol} strokeWidth={2} strokeLinejoin="round" clipPath="url(#gcWpTop)" />
-        <path d={path} fill="none" stroke={awayCol} strokeWidth={2} strokeLinejoin="round" clipPath="url(#gcWpBot)" />
-        <text x={3} y={PT + 9}      fontSize={8.5} fontWeight={800} fill={homeCol}>{home.abbr}</text>
-        <text x={3} y={H - PB - 4} fontSize={8.5} fontWeight={800} fill={awayCol}>{away.abbr}</text>
+      <Box
+        ref={wrapRef}
+        sx={{ position: 'relative' }}
+        onMouseMove={onMove}
+        onMouseLeave={() => setHover(null)}
+      >
+        <Box component="svg" viewBox={`0 0 ${W} ${H}`} sx={{ width: '100%', height: 'auto', display: 'block' }}>
+          <defs>
+            <clipPath id="gcWpTop"><rect x={0} y={0} width={W} height={mid} /></clipPath>
+            <clipPath id="gcWpBot"><rect x={0} y={mid} width={W} height={H - mid} /></clipPath>
+          </defs>
+          {Array.from({ length: axisInn }, (_, k) => k + 1).map(inn => {
+            const gx = ((inn - 1) / axisInn) * W
+            return (
+              <g key={inn}>
+                {inn > 1 && <line x1={gx} x2={gx} y1={PT} y2={H - PB} stroke={grid} strokeWidth={1} />}
+                <text x={gx + 2.5} y={H - 3.5} fontSize={7.5} fill={txt}>{inn}</text>
+              </g>
+            )
+          })}
+          <line x1={0} x2={W} y1={mid} y2={mid} stroke={grid} strokeWidth={1} strokeDasharray="3 3" />
+          {/* Projected continuation to the end of the game (dashed, faded) */}
+          {showProjection && (
+            <path
+              d={`M${lastX.toFixed(1)} ${lastY.toFixed(1)} L${W} ${lastY.toFixed(1)}`}
+              fill="none" stroke={leadCol} strokeWidth={2}
+              strokeDasharray="3 3" strokeLinecap="round" opacity={0.45}
+            />
+          )}
+          <path d={path} fill="none" stroke={homeCol} strokeWidth={2} strokeLinejoin="round" clipPath="url(#gcWpTop)" />
+          <path d={path} fill="none" stroke={awayCol} strokeWidth={2} strokeLinejoin="round" clipPath="url(#gcWpBot)" />
+          {/* Marker where the actual line currently ends */}
+          {showProjection && <circle cx={lastX} cy={lastY} r={2.4} fill={leadCol} />}
+          {/* Hover indicator */}
+          {hover != null && (
+            <>
+              <line x1={px[hover]} x2={px[hover]} y1={PT} y2={H - PB} stroke={txt} strokeWidth={1} />
+              <circle cx={px[hover]} cy={y(pts[hover].wp)} r={2.8} fill={pts[hover].wp >= 50 ? homeCol : awayCol} stroke={isDark ? '#000' : '#fff'} strokeWidth={0.9} />
+            </>
+          )}
+          <text x={3} y={PT + 9}      fontSize={8.5} fontWeight={800} fill={homeCol}>{home.abbr}</text>
+          <text x={3} y={H - PB - 4} fontSize={8.5} fontWeight={800} fill={awayCol}>{away.abbr}</text>
+        </Box>
+
+        {/* Floating hover window: inning, score, pitcher, hitter, play */}
+        {hover != null && hoverPlay && (
+          <Box sx={{
+            position: 'absolute', left: `${tipLeft}%`, transform: 'translateX(-50%)',
+            ...(tipOnTop ? { top: 2 } : { bottom: 18 }),
+            width: 200, maxWidth: '80%', pointerEvents: 'none', zIndex: 3,
+            bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
+            borderRadius: 1.5, boxShadow: '0 6px 20px rgba(0,0,0,0.35)', p: 1,
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 0.5 }}>
+              <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.6 }}>
+                {hoverPlay.half === 'top' ? '▲' : '▼'} {ordinal(hoverPlay.inning)}
+              </Typography>
+              <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                {away.abbr} {hoverPlay.awayScore}–{hoverPlay.homeScore} {home.abbr}
+              </Typography>
+            </Box>
+            {hoverPlay.pitcher && (
+              <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', lineHeight: 1.3 }}>
+                <Box component="span" sx={{ color: 'text.disabled' }}>P </Box>{hoverPlay.pitcher}
+              </Typography>
+            )}
+            {hoverPlay.batter && (
+              <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', lineHeight: 1.3 }}>
+                <Box component="span" sx={{ color: 'text.disabled' }}>AB </Box>{hoverPlay.batter}
+              </Typography>
+            )}
+            <Typography sx={{ fontSize: '0.62rem', fontWeight: 600, color: 'text.primary', lineHeight: 1.3, mt: 0.4 }}>
+              {hoverPlay.description}
+            </Typography>
+          </Box>
+        )}
       </Box>
     </Box>
   )
@@ -675,10 +794,14 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
           </Box>
         </Box>
 
-        {/* Score summary */}
+        {/* Score summary — during live play the bases/count/outs sit between the teams */}
         <Box sx={{ px: 2, pt: 2.5, pb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
           {teamHeader(away, home)}
-          <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled', px: 1 }}>@</Typography>
+          {isLive && data?.situation && !data.situation.betweenInnings ? (
+            <MiniSituation sit={data.situation} />
+          ) : (
+            <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled', px: 1 }}>@</Typography>
+          )}
           {teamHeader(home, away)}
         </Box>
 
@@ -714,7 +837,7 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
             </Box>
 
             {/* Win probability */}
-            <WinProbChart pts={wp} away={data.away} home={data.home} />
+            <WinProbChart pts={wp} plays={data.plays} away={data.away} home={data.home} live={isLive} />
 
             {/* Tabs */}
             <Box sx={{

@@ -249,6 +249,19 @@ export function SearchView({
 
       {loadingStats && <Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress /></Box>}
 
+      {/* Nothing selected yet — prompt to search instead of auto-loading a player */}
+      {!hasStats && !loadingStats && (
+        <Box sx={{ textAlign: 'center', py: { xs: 6, sm: 10 }, px: 2, color: 'text.disabled' }}>
+          <Search sx={{ fontSize: '2.6rem', opacity: 0.5, mb: 1 }} />
+          <Typography sx={{ fontSize: '0.98rem', fontWeight: 700, color: 'text.secondary' }}>
+            Search for a player or team
+          </Typography>
+          <Typography sx={{ fontSize: '0.78rem', mt: 0.5 }}>
+            Use the search bar above to look someone up.
+          </Typography>
+        </Box>
+      )}
+
       {/* Unified season / career selector — dropdown by default; year pills when the
           dev setting flips it to 'buttons'. Career is always its own emphasized toggle. */}
       {(hasStats || loadingStats) && (() => {

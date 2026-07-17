@@ -43,13 +43,12 @@ const pillSx = (color = ACCENT, compact = false) => ({
 // ~15 games. Pitchers: rolling ERA over a trailing 3 outings across their last ~12,
 // negated so that — like the hitter line — a rising line always means "performing
 // better". Stroke color encodes momentum (recent half vs. earlier half): green
-// rising, red falling, gray flat. A faint dashed line marks the player's season
-// average, so the form line reads as above / below their own norm.
+// rising, red falling, gray flat. A faint dashed line marks the league average, so
+// the form line reads as above / below the league norm.
 
-interface SparkData { series: number[]; baseline: number | null }
-const _sparkCache = new Map<number, SparkData>()
+const _sparkCache = new Map<number, number[]>()
 
-function computeSparkSeries(games: RecentGameEntry[], isPitcher: boolean): SparkData {
+function computeSparkSeries(games: RecentGameEntry[], isPitcher: boolean): number[] {
   // API returns newest-first; walk chronologically and keep only games the player
   // actually appeared in for the relevant role.
   const chrono = [...games].reverse().filter(g => (isPitcher ? g.pitching : g.hitting) != null)
@@ -86,48 +85,74 @@ function computeSparkSeries(games: RecentGameEntry[], isPitcher: boolean): Spark
   let series = build(recent, isPitcher ? 3 : 5)
   if (series.length < 4) series = build(recent, isPitcher ? 2 : 3)  // sparse log: shrink window
 
-  // Season baseline — the player's whole-season norm in the same units/orientation
-  // as the series, so the form line can be read as "above / below their average".
-  let baseline: number | null = null
-  if (isPitcher) {
-    const er = chrono.reduce((s, x) => s + Number(x.pitching?.earnedRuns ?? 0), 0)
-    const ip = chrono.reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
-    if (ip > 0) baseline = -(er * 9) / ip
-  } else {
-    const h   = chrono.reduce((s, x) => s + Number(x.hitting?.hits        ?? 0), 0)
-    const ab  = chrono.reduce((s, x) => s + Number(x.hitting?.atBats      ?? 0), 0)
-    const bb  = chrono.reduce((s, x) => s + Number(x.hitting?.baseOnBalls ?? 0), 0)
-    const hbp = chrono.reduce((s, x) => s + Number(x.hitting?.hitByPitch  ?? 0), 0)
-    const sf  = chrono.reduce((s, x) => s + Number(x.hitting?.sacFlies    ?? 0), 0)
-    const tb  = chrono.reduce((s, x) => {
-      const hx = x.hitting; if (!hx) return s
-      return s + Number(hx.hits ?? 0) + Number(hx.doubles ?? 0) + 2 * Number(hx.triples ?? 0) + 3 * Number(hx.homeRuns ?? 0)
-    }, 0)
-    if (ab > 0) baseline = (ab + bb + hbp + sf > 0 ? (h + bb + hbp) / (ab + bb + hbp + sf) : 0) + tb / ab
-  }
+  return series
+}
 
-  return { series, baseline }
+// League-average baseline for the sparkline, in the same units/orientation as the
+// series (hitter OPS as-is; pitcher ERA negated). Aggregated from all 30 teams' totals
+// and fetched once per session, so the gray dashed line reads as "above / below league".
+let _leagueAvgPromise: Promise<{ ops: number | null; eraNeg: number | null }> | null = null
+function fetchLeagueAverages() {
+  if (!_leagueAvgPromise) {
+    _leagueAvgPromise = (async () => {
+      try {
+        const base = `https://statsapi.mlb.com/api/v1/teams/stats?season=${CURRENT_SEASON}&sportId=1&stats=season`
+        const [hitRes, pitRes] = await Promise.all([
+          fetch(`${base}&group=hitting`).then(r => r.json()),
+          fetch(`${base}&group=pitching`).then(r => r.json()),
+        ])
+        const hitSplits = (hitRes?.stats ?? []).flatMap((s: any) => s.splits ?? [])
+        let h = 0, ab = 0, bb = 0, hbp = 0, sf = 0, tb = 0
+        hitSplits.forEach((sp: any) => {
+          const st = sp.stat ?? {}
+          h += Number(st.hits ?? 0);        ab  += Number(st.atBats ?? 0)
+          bb += Number(st.baseOnBalls ?? 0); hbp += Number(st.hitByPitch ?? 0)
+          sf += Number(st.sacFlies ?? 0);    tb  += Number(st.totalBases ?? 0)
+        })
+        const denom = ab + bb + hbp + sf
+        const ops = ab > 0 ? (denom > 0 ? (h + bb + hbp) / denom : 0) + tb / ab : null
+
+        const pitSplits = (pitRes?.stats ?? []).flatMap((s: any) => s.splits ?? [])
+        let er = 0, ip = 0
+        pitSplits.forEach((sp: any) => {
+          const st = sp.stat ?? {}
+          er += Number(st.earnedRuns ?? 0); ip += parseIP(st.inningsPitched ?? '0')
+        })
+        const eraNeg = ip > 0 ? -(er * 9) / ip : null
+
+        return { ops, eraNeg }
+      } catch { return { ops: null, eraNeg: null } }
+    })()
+  }
+  return _leagueAvgPromise
 }
 
 function PlayerSparkline({ id, isPitcher }: { id: number; isPitcher: boolean }) {
   const isDark = useIsDark()
-  const [data, setData] = useState<SparkData | null>(() => _sparkCache.get(id) ?? null)
+  const [series, setSeries] = useState<number[] | null>(() => _sparkCache.get(id) ?? null)
+  const [baseline, setBaseline] = useState<number | null>(null)
 
   useEffect(() => {
-    if (_sparkCache.has(id)) { setData(_sparkCache.get(id)!); return }
+    if (_sparkCache.has(id)) { setSeries(_sparkCache.get(id)!); return }
     let cancelled = false
     fetchRecentGames(id, [isPitcher ? 'pitching' : 'hitting'], CURRENT_SEASON)
       .then(games => {
-        const d = computeSparkSeries(games, isPitcher)
-        _sparkCache.set(id, d)
-        if (!cancelled) setData(d)
+        const s = computeSparkSeries(games, isPitcher)
+        _sparkCache.set(id, s)
+        if (!cancelled) setSeries(s)
       })
-      .catch(() => { if (!cancelled) setData({ series: [], baseline: null }) })
+      .catch(() => { if (!cancelled) setSeries([]) })
     return () => { cancelled = true }
   }, [id, isPitcher])
 
-  if (!data || data.series.length < 3) return null
-  const { series, baseline } = data
+  // Gray dashed reference = league average (not the player's own), in series units.
+  useEffect(() => {
+    let cancelled = false
+    fetchLeagueAverages().then(la => { if (!cancelled) setBaseline(isPitcher ? la.eraNeg : la.ops) })
+    return () => { cancelled = true }
+  }, [isPitcher])
+
+  if (!series || series.length < 3) return null
   const n = series.length
 
   // Momentum uses the series' own spread; the y-range additionally includes the
@@ -153,7 +178,7 @@ function PlayerSparkline({ id, isPitcher }: { id: number; isPitcher: boolean }) 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
       style={{ width: '100%', height: 22, display: 'block', overflow: 'visible' }}>
-      {/* Season-average baseline — faint dashed reference behind the form line */}
+      {/* League-average baseline — faint dashed reference behind the form line */}
       {baseline != null && (
         <line x1={0} y1={y(baseline)} x2={W} y2={y(baseline)}
           stroke="currentColor" strokeOpacity={0.32} strokeWidth={1}
@@ -612,25 +637,6 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
           </Box>
         )}
 
-        {/* Wide add button — always visible below last player, hidden while search or edit is open */}
-        {!editMode && !adding && (
-          <Box
-            onClick={() => { setAdding(true); setAddQuery(''); setAddResults([]) }}
-            sx={{
-              mx: 1.5, mt: 0.5, mb: 1,
-              py: 0.85,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              borderRadius: 2,
-              border: '1.5px dashed', borderColor: 'divider',
-              cursor: 'pointer', color: 'text.disabled',
-              fontSize: '0.75rem', fontWeight: 600,
-              transition: 'border-color 0.15s, color 0.15s, background 0.15s',
-              '&:hover': { borderColor: ACCENT, color: ACCENT, bgcolor: `${ACCENT}08` },
-            }}
-          >
-            + Add Player
-          </Box>
-        )}
       </Box>
     </Box>
   )

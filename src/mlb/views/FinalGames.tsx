@@ -570,7 +570,7 @@ function StatHead({ children, w = 26 }: { children: React.ReactNode; w?: number 
 function StatCell({ children, bold = false }: { children: React.ReactNode; bold?: boolean }) {
   return (
     <Box component="td" sx={{
-      fontSize: '0.7rem', fontWeight: bold ? 800 : 500, color: bold ? 'text.primary' : 'text.secondary',
+      fontSize: '0.72rem', fontWeight: bold ? 800 : 600, color: 'text.primary',
       textAlign: 'right', px: 0.4, py: 0.45, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums',
     }}>
       {children}
@@ -583,14 +583,19 @@ export function LineScoreTable({ box }: { box: BoxScore }) {
     { side: 'away', t: box.away },
     { side: 'home', t: box.home },
   ]
+  // Always show a full 9 innings (more only if the game went to extras); innings the
+  // game hasn't reached yet render as blank columns.
+  const lastNum = box.innings.length ? box.innings[box.innings.length - 1].num : 0
+  const byNum   = new Map(box.innings.map(i => [i.num, i] as const))
+  const cols    = Array.from({ length: Math.max(9, lastNum) }, (_, k) => k + 1)
   return (
     <Box data-swipe-ignore="true" sx={{ overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' }, scrollbarWidth: 'none' }}>
       <Box component="table" sx={{ borderCollapse: 'collapse', width: '100%', minWidth: 'max-content' }}>
         <Box component="thead">
           <Box component="tr">
             <Box component="th" sx={{ minWidth: 44 }} />
-            {box.innings.map(i => (
-              <StatHead key={i.num} w={18}>{i.num}</StatHead>
+            {cols.map(num => (
+              <StatHead key={num} w={18}>{num}</StatHead>
             ))}
             <Box component="th" sx={{ width: 8 }} />
             <StatHead w={22}>R</StatHead>
@@ -609,10 +614,12 @@ export function LineScoreTable({ box }: { box: BoxScore }) {
                   </Typography>
                 </Box>
               </Box>
-              {box.innings.map(i => {
+              {cols.map(num => {
+                const i = byNum.get(num)
+                if (!i) return <StatCell key={num}>{''}</StatCell>   // inning not reached yet
                 const v = side === 'away' ? i.away : i.home
                 // Home team that didn't bat in its last frame → "x"
-                return <StatCell key={i.num}>{v == null ? (side === 'home' ? 'x' : '-') : v}</StatCell>
+                return <StatCell key={num}>{v == null ? (side === 'home' ? 'x' : '-') : v}</StatCell>
               })}
               <Box component="td" sx={{ width: 8 }} />
               <StatCell bold>{t.runs}</StatCell>

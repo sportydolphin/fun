@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.7.0'
+export const APP_VERSION = '1.8.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,45 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.8.0',
+    date:    '2026-07-17',
+    title:   'Game Center detail and home polish',
+    changes: [
+      {
+        short: 'Hover the win probability graph to replay the game',
+        full:  'You can now hover over the win probability graph in the Game Center to scrub through the game. A floating window shows the inning, the score at that moment, the pitcher, the hitter, and what happened on that play. The graph also spans a full nine innings and draws a projected line for the rest of a game still in progress.',
+      },
+      {
+        short: 'Cleaner view between innings',
+        full:  'Between innings, the live game on your team card and in the Game Center no longer show a stale count and empty bases. They now say which break it is, like End of the 4th, and show who is due up next with the right stats.',
+      },
+      {
+        short: 'Live situation sits between the teams in Game Center',
+        full:  'In the Game Center, the bases, the balls and strikes count, and the outs now sit between the two teams and their scores at the top of the card, with a larger bases diamond.',
+      },
+      {
+        short: 'Box score always shows all nine innings',
+        full:  'The line score now always shows a full nine innings, leaving later innings blank until the game reaches them, and the numbers are easier to read.',
+      },
+      {
+        short: 'Player form now compares to the league',
+        full:  'The recent form line on each followed player now compares against the league average instead of the player\'s own average, so you can see how they stack up against the rest of the league.',
+      },
+      {
+        short: 'Due-up players show the most useful stats',
+        full:  'When a batter or pitcher is shown as due up next inning, their season stats appear if they have not played yet, and their stats from the current game appear once they have.',
+      },
+      {
+        short: 'Search tab opens with a prompt',
+        full:  'Opening the Search tab no longer loads a random player. It now shows a prompt to search for a player or team.',
+      },
+      {
+        short: 'Final label moved next to the score',
+        full:  'On your team card, a finished game now shows the date first with the word Final next to the score, instead of above the date.',
+      },
+    ],
+  },
   {
     version: '1.7.0',
     date:    '2026-07-17',
