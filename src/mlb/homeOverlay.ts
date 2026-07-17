@@ -18,7 +18,6 @@ import type { ScheduleGame } from './views/ScheduleStrip'
 
 export type HomeOverlay =
   | { kind: 'scoreGame';   game: FinalGameSummary }   // scoreboard → Game Center / preview
-  | { kind: 'reportCard' }                             // report card → expanded leaderboard
   | { kind: 'teamSchedule' }                           // team card → full schedule
   | { kind: 'teamPreview';  game: ScheduleGame }       // team card → game preview
   | { kind: 'teamRecap';    game: FinalGameSummary }   // team card → Game Center recap

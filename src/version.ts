@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.6.0'
+export const APP_VERSION = '1.7.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,29 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.7.0',
+    date:    '2026-07-17',
+    title:   'Home dashboard additions and standout polish',
+    changes: [
+      {
+        short: 'See if your players are heating up or cooling off',
+        full:  'Each followed player now shows a small line of their recent form next to their stats, colored green when trending up and red when trending down, with a faint dashed line marking their season average so you can tell whether they are above or below their usual level.',
+      },
+      {
+        short: 'Standings snapshot below the predictor',
+        full:  'The home page now shows a small standings block below the game predictions. It shows your team\'s division race when they are in the hunt, or the wild card race with your team highlighted and the teams they are chasing when they are further back.',
+      },
+      {
+        short: 'Two report cards on the home page, changing daily',
+        full:  'The home page now shows two report cards instead of one, and the pair changes every day, so over time you see different ones like Top Frauds, Most Cursed, and the highest and lowest payroll boards.',
+      },
+      {
+        short: 'Smoother single-game standout card',
+        full:  'The single-game standout card now slides in both directions as you move between players, and its color fades gradually from one team to the next instead of snapping.',
+      },
+    ],
+  },
   {
     version: '1.6.0',
     date:    '2026-07-15',

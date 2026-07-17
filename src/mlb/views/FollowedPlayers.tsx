@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Box, Typography, InputBase } from '@mui/material'
-import { Player } from '../types'
+import { Player, RecentGameEntry } from '../types'
 import { TEAM_BG, TEAM_ABBR, ACCENT, HEADSHOT, CURRENT_SEASON } from '../constants'
-import { searchPlayers } from '../api'
+import { searchPlayers, fetchRecentGames } from '../api'
+import { parseIP } from '../utils'
 import { fetchSuggestions, SuggestionChip, SuggestionPlayer } from './SuggestedPlayers'
+import { useIsDark, defaultBorder } from '../colorUtils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,6 +34,136 @@ const pillSx = (color = ACCENT, compact = false) => ({
   whiteSpace: 'nowrap',
   userSelect: 'none' as const,
 })
+
+// ─── Recent-form sparkline ──────────────────────────────────────────────────────
+//
+// A tiny, label-less line of the player's rolling form over their recent games — a
+// quick "heating up or cooling off" read that fills the gap between the name and the
+// season stats. Hitters: rolling OPS over a trailing 5-game window across their last
+// ~15 games. Pitchers: rolling ERA over a trailing 3 outings across their last ~12,
+// negated so that — like the hitter line — a rising line always means "performing
+// better". Stroke color encodes momentum (recent half vs. earlier half): green
+// rising, red falling, gray flat. A faint dashed line marks the player's season
+// average, so the form line reads as above / below their own norm.
+
+interface SparkData { series: number[]; baseline: number | null }
+const _sparkCache = new Map<number, SparkData>()
+
+function computeSparkSeries(games: RecentGameEntry[], isPitcher: boolean): SparkData {
+  // API returns newest-first; walk chronologically and keep only games the player
+  // actually appeared in for the relevant role.
+  const chrono = [...games].reverse().filter(g => (isPitcher ? g.pitching : g.hitting) != null)
+
+  const build = (recent: RecentGameEntry[], W: number): number[] => {
+    const out: number[] = []
+    for (let i = W - 1; i < recent.length; i++) {
+      const win = recent.slice(i - W + 1, i + 1)
+      if (isPitcher) {
+        const er = win.reduce((s, x) => s + Number(x.pitching?.earnedRuns ?? 0), 0)
+        const ip = win.reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
+        if (ip <= 0) continue
+        out.push(-(er * 9) / ip)              // negate: lower ERA plots higher
+      } else {
+        const h   = win.reduce((s, x) => s + Number(x.hitting?.hits        ?? 0), 0)
+        const ab  = win.reduce((s, x) => s + Number(x.hitting?.atBats      ?? 0), 0)
+        const bb  = win.reduce((s, x) => s + Number(x.hitting?.baseOnBalls ?? 0), 0)
+        const hbp = win.reduce((s, x) => s + Number(x.hitting?.hitByPitch  ?? 0), 0)
+        const sf  = win.reduce((s, x) => s + Number(x.hitting?.sacFlies    ?? 0), 0)
+        const tb  = win.reduce((s, x) => {
+          const hx = x.hitting; if (!hx) return s
+          return s + Number(hx.hits ?? 0) + Number(hx.doubles ?? 0) + 2 * Number(hx.triples ?? 0) + 3 * Number(hx.homeRuns ?? 0)
+        }, 0)
+        if (ab <= 0) continue
+        const denom = ab + bb + hbp + sf
+        const obp = denom > 0 ? (h + bb + hbp) / denom : 0
+        out.push(obp + tb / ab)               // OPS = OBP + SLG
+      }
+    }
+    return out
+  }
+
+  const recent = chrono.slice(isPitcher ? -12 : -15)
+  let series = build(recent, isPitcher ? 3 : 5)
+  if (series.length < 4) series = build(recent, isPitcher ? 2 : 3)  // sparse log: shrink window
+
+  // Season baseline — the player's whole-season norm in the same units/orientation
+  // as the series, so the form line can be read as "above / below their average".
+  let baseline: number | null = null
+  if (isPitcher) {
+    const er = chrono.reduce((s, x) => s + Number(x.pitching?.earnedRuns ?? 0), 0)
+    const ip = chrono.reduce((s, x) => s + parseIP(x.pitching?.inningsPitched ?? '0'), 0)
+    if (ip > 0) baseline = -(er * 9) / ip
+  } else {
+    const h   = chrono.reduce((s, x) => s + Number(x.hitting?.hits        ?? 0), 0)
+    const ab  = chrono.reduce((s, x) => s + Number(x.hitting?.atBats      ?? 0), 0)
+    const bb  = chrono.reduce((s, x) => s + Number(x.hitting?.baseOnBalls ?? 0), 0)
+    const hbp = chrono.reduce((s, x) => s + Number(x.hitting?.hitByPitch  ?? 0), 0)
+    const sf  = chrono.reduce((s, x) => s + Number(x.hitting?.sacFlies    ?? 0), 0)
+    const tb  = chrono.reduce((s, x) => {
+      const hx = x.hitting; if (!hx) return s
+      return s + Number(hx.hits ?? 0) + Number(hx.doubles ?? 0) + 2 * Number(hx.triples ?? 0) + 3 * Number(hx.homeRuns ?? 0)
+    }, 0)
+    if (ab > 0) baseline = (ab + bb + hbp + sf > 0 ? (h + bb + hbp) / (ab + bb + hbp + sf) : 0) + tb / ab
+  }
+
+  return { series, baseline }
+}
+
+function PlayerSparkline({ id, isPitcher }: { id: number; isPitcher: boolean }) {
+  const isDark = useIsDark()
+  const [data, setData] = useState<SparkData | null>(() => _sparkCache.get(id) ?? null)
+
+  useEffect(() => {
+    if (_sparkCache.has(id)) { setData(_sparkCache.get(id)!); return }
+    let cancelled = false
+    fetchRecentGames(id, [isPitcher ? 'pitching' : 'hitting'], CURRENT_SEASON)
+      .then(games => {
+        const d = computeSparkSeries(games, isPitcher)
+        _sparkCache.set(id, d)
+        if (!cancelled) setData(d)
+      })
+      .catch(() => { if (!cancelled) setData({ series: [], baseline: null }) })
+    return () => { cancelled = true }
+  }, [id, isPitcher])
+
+  if (!data || data.series.length < 3) return null
+  const { series, baseline } = data
+  const n = series.length
+
+  // Momentum uses the series' own spread; the y-range additionally includes the
+  // baseline so the reference line never clips when recent form is far from the norm.
+  const sMin = Math.min(...series), sMax = Math.max(...series)
+  const seriesSpread = (sMax - sMin) || 1
+  const min = baseline != null ? Math.min(sMin, baseline) : sMin
+  const max = baseline != null ? Math.max(sMax, baseline) : sMax
+  const spread = (max - min) || 1
+
+  const W = 100, H = 24, padY = 3
+  const x = (i: number) => (n <= 1 ? W / 2 : (i / (n - 1)) * W)
+  const y = (v: number) => padY + (1 - (v - min) / spread) * (H - 2 * padY)
+  const d = series.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
+
+  // Momentum: mean of the recent half vs. the earlier half, scaled by the series spread.
+  const half = Math.max(1, Math.floor(n / 2))
+  const earlyMean = series.slice(0, half).reduce((s, v) => s + v, 0) / half
+  const lateMean  = series.slice(n - half).reduce((s, v) => s + v, 0) / half
+  const norm = (lateMean - earlyMean) / seriesSpread
+  const color = norm > 0.12 ? '#22c55e' : norm < -0.12 ? '#ef4444' : (isDark ? '#64748b' : '#9ca3af')
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
+      style={{ width: '100%', height: 22, display: 'block', overflow: 'visible' }}>
+      {/* Season-average baseline — faint dashed reference behind the form line */}
+      {baseline != null && (
+        <line x1={0} y1={y(baseline)} x2={W} y2={y(baseline)}
+          stroke="currentColor" strokeOpacity={0.32} strokeWidth={1}
+          strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+      )}
+      <path d={d} fill="none" stroke={color} strokeWidth={1.5}
+        vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
@@ -149,7 +281,7 @@ function FollowedPlayerRow({ id, data, isLive, editMode, isSelected, onRemove, o
         )}
       </Box>
 
-      {/* Name + pos/team */}
+      {/* Name + pos/team — grows to absorb the gap so the sparkline can stay narrow */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{
           fontWeight: 700, fontSize: { xs: '0.78rem', sm: '0.82rem' }, lineHeight: 1.2,
@@ -162,6 +294,11 @@ function FollowedPlayerRow({ id, data, isLive, editMode, isSelected, onRemove, o
             {subtitle}
           </Typography>
         )}
+      </Box>
+
+      {/* Recent-form sparkline — fixed narrow width so the trend's slope reads clearly */}
+      <Box sx={{ flexShrink: 0, width: { xs: 46, sm: 62 }, display: 'flex', alignItems: 'center' }}>
+        {data && <PlayerSparkline id={id} isPitcher={data.isPitcher} />}
       </Box>
 
       {/* Stat cells */}
@@ -225,6 +362,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   const [editMode, setEditMode]         = useState(false)
   const [selected, setSelected]         = useState<Set<number>>(new Set())
   const headerRef = useRef<HTMLDivElement>(null)
+  const isDark = useIsDark()
 
   useEffect(() => {
     for (const id of followedPlayerIds) {
@@ -282,7 +420,10 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   }
 
   return (
-    <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{
+      borderRadius: 3, border: '1px solid', borderColor: defaultBorder(isDark),
+      bgcolor: 'background.paper', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column',
+    }}>
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <Box ref={headerRef} sx={{

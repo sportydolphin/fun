@@ -6,7 +6,7 @@ import {
 import { Search, InfoOutlined, OpenInFull, Close } from '@mui/icons-material'
 import { TeamSummary, SosEntry } from '../types'
 import { ACCENT, TEAM_BG, TEAM_ABBR, TEAM_SEASONS, CURRENT_SEASON } from '../constants'
-import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
+import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder } from '../colorUtils'
 import { pillActionSx } from '../ui'
 import { TeamEraOpsPlot, TeamWinRDPlot, PayrollWinsPlot } from '../charts'
 import { fetchStrengthOfSchedule, fetchTeamPayrolls, fetchTeamAverageAges } from '../api'
@@ -121,13 +121,15 @@ export function LeaderboardRowItem({ row, rank, accent, showLabel, onSelect }: {
 
 // ─── Mini card — top 3 rows + snarky labels ───────────────────────────────────
 
-export function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, rows, loading, onExpand, onSelectTeam }: Omit<Board, 'id'> & {
+export function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, rows, loading, onExpand, onSelectTeam, expandLabel }: Omit<Board, 'id'> & {
   onExpand: () => void
   onSelectTeam?: (id: number) => void
+  expandLabel?: string   // when set, renders a "View All →"-style pill instead of the fullscreen icon
 }) {
   const top3 = rows.slice(0, 3)
+  const isDark = useIsDark()
   return (
-    <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', overflow: 'hidden' }}>
+    <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: defaultBorder(isDark), bgcolor: 'background.paper', overflow: 'hidden' }}>
       {/* Header */}
       <Box sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider' }}>
         <Box>
@@ -146,11 +148,27 @@ export function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, ro
           </Box>
           <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.1 }}>{subtitle}</Typography>
         </Box>
-        <Tooltip title="View all teams" arrow placement="top">
-          <IconButton size="small" onClick={onExpand} sx={{ color: 'text.disabled', '&:hover': { color: ACCENT } }}>
-            <OpenInFull sx={{ fontSize: '1rem' }} />
-          </IconButton>
-        </Tooltip>
+        {expandLabel ? (
+          <Box
+            onClick={onExpand}
+            sx={{
+              px: 1, py: '3px', borderRadius: 999, flexShrink: 0,
+              bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider',
+              cursor: 'pointer', transition: 'border-color 0.12s',
+              '&:hover': { borderColor: 'text.secondary' },
+            }}
+          >
+            <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'text.secondary', letterSpacing: 0.3, lineHeight: 1 }}>
+              {expandLabel}
+            </Typography>
+          </Box>
+        ) : (
+          <Tooltip title="View all teams" arrow placement="top">
+            <IconButton size="small" onClick={onExpand} sx={{ color: 'text.disabled', '&:hover': { color: ACCENT } }}>
+              <OpenInFull sx={{ fontSize: '1rem' }} />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
 
       {/* Rows */}
@@ -359,7 +377,7 @@ function buildAgeRows(entries: AgeEntry[], nameMap: Map<number, string>, type: '
 const HIGHEST_PAYROLL_LABELS = ['GOING ALL IN', 'SPENDING UP', 'BIG DOLLARS']
 const LOWEST_PAYROLL_LABELS  = ['BUDGET SQUAD', 'POCKET CHANGE', 'WHO TF R U']
 
-function buildPayrollRows(payrolls: Record<number, number>, nameMap: Map<number, string>, direction: 'highest' | 'lowest'): LbRow[] {
+export function buildPayrollRows(payrolls: Record<number, number>, nameMap: Map<number, string>, direction: 'highest' | 'lowest'): LbRow[] {
   const entries = Object.entries(payrolls).map(([idStr, amount]) => {
     const id = Number(idStr)
     return { teamId: id, abbr: TEAM_ABBR[id] ?? '?', name: nameMap.get(id) ?? '', amount }

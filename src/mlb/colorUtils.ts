@@ -66,6 +66,12 @@ export function borderAlpha(hex: string, isDark: boolean): string {
   return `${hex}${isDark ? 'cc' : '45'}`
 }
 
+// Default (non-team-colored) card border — darker than MUI's default 'divider'
+// (~12% opacity) so plain card outlines read more defined.
+export function defaultBorder(isDark: boolean): string {
+  return isDark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.28)'
+}
+
 // Opacity-suffixed hex for photo/avatar ring borders.
 export function photoBorderAlpha(hex: string, isDark: boolean): string {
   return `${hex}${isDark ? '99' : '40'}`

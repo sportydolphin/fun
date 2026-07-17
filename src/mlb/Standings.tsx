@@ -59,7 +59,7 @@ function DiffCell({ diff }: { diff: number }) {
 //   • Dark mode: per-team locked-in bg / ring / logo (TEAM_ICON_STYLE).
 // The team-color ring carries the team identity in both modes.
 
-function TeamLogo({ teamId, abbr }: { teamId: number; abbr: string }) {
+export function TeamLogo({ teamId, abbr }: { teamId: number; abbr: string }) {
   const [failed, setFailed] = useState(false)
   const isDark = useIsDark()
   const ring = ringColor(teamId, isDark)

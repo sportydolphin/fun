@@ -184,10 +184,12 @@ export function TopPerformers({
     '&:hover': { color: 'text.primary' },
   }
 
-  // Renders one performer's full card — shared by the idle single-card view
-  // and the two-card slide track, so every card in the "filmstrip" is
-  // identical whether at rest or mid-slide.
-  const renderCard = (entry: PerformerEntry, idx: number, widthPct: string) => {
+  // Renders one performer's content pane (photo + stats + box score) — shared
+  // by the idle single-pane view and the two-pane slide track, so every pane
+  // in the "filmstrip" is identical whether at rest or mid-slide. The header
+  // above (title + nav stepper) is rendered once, outside this track, and
+  // never slides — see the return below.
+  const renderContent = (entry: PerformerEntry, widthPct: string) => {
     const teamColor  = TEAM_BG[entry.teamId] ?? '#888'
     const abbr       = TEAM_ABBR[entry.teamId] ?? '—'
     const accentText = accentColor(teamColor, isDark)
@@ -199,143 +201,95 @@ export function TopPerformers({
         onClick={() => onPlayerClick?.(entry.playerId)}
         sx={{
           width: widthPct, flexShrink: 0,
-          borderRadius: 2.5, overflow: 'hidden',
-          border: '1px solid', borderColor: borderAlpha(teamColor, isDark),
-          bgcolor: 'background.paper',
-          background: cardGradient(teamColor, isDark),
+          px: 1.75, pt: 1.5, pb: 1.75, display: 'flex', gap: 1.5, alignItems: 'stretch',
           cursor: onPlayerClick ? 'pointer' : 'default',
-          transition: 'border-color 0.15s, box-shadow 0.15s',
-          ...(onPlayerClick ? {
-            '&:hover': { borderColor: `${teamColor}80`, boxShadow: `0 4px 16px ${teamColor}25` },
-          } : {}),
         }}
       >
-        {/* Header — self-labeling "Single-Game Standout · <date>" on the left (this
-            replaces the old floating section title), nav stepper on the right */}
         <Box sx={{
-          px: 1.75, py: 1,
-          borderBottom: '1px solid', borderColor: 'divider',
-          display: 'flex', alignItems: 'center', gap: 0.75,
+          flexShrink: 0, width: 58, minHeight: 70,
+          borderRadius: 2, overflow: 'hidden',
+          border: `2px solid ${photoBorderAlpha(teamColor, isDark)}`,
+          bgcolor: 'action.hover',
         }}>
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, flex: 1, minWidth: 0 }}>
-            <Typography sx={{
-              fontWeight: 900, fontSize: '0.64rem', textTransform: 'uppercase',
-              letterSpacing: 0.8, color: accentText, lineHeight: 1, whiteSpace: 'nowrap',
-            }}>
-              Single-Game Standout
-            </Typography>
-            <Typography sx={{
-              fontSize: '0.62rem', fontWeight: 600, color: 'text.secondary',
-              lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-            }}>
-              · {entry.period}
-            </Typography>
-          </Box>
-          {/* Left/right indicator */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
-            <Box onClick={(e) => { e.stopPropagation(); go(-1) }} sx={stepBtnSx}>
-              <ChevronLeft sx={{ fontSize: '1.05rem' }} />
-            </Box>
-            <Typography sx={{
-              fontSize: '0.6rem', fontWeight: 700, color: 'text.secondary',
-              fontVariantNumeric: 'tabular-nums', minWidth: 30, textAlign: 'center', lineHeight: 1,
-            }}>
-              {idx + 1} / {performers.length}
-            </Typography>
-            <Box onClick={(e) => { e.stopPropagation(); go(1) }} sx={stepBtnSx}>
-              <ChevronRight sx={{ fontSize: '1.05rem' }} />
-            </Box>
-          </Box>
+          <Box
+            component="img"
+            src={HEADSHOT(entry.playerId)}
+            alt={entry.playerName}
+            sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }}
+          />
         </Box>
 
-        {/* Player content */}
-        <Box sx={{ px: 1.75, pt: 1.5, pb: 1.75, display: 'flex', gap: 1.5, alignItems: 'stretch' }}>
-          <Box sx={{
-            flexShrink: 0, width: 58, minHeight: 70,
-            borderRadius: 2, overflow: 'hidden',
-            border: `2px solid ${photoBorderAlpha(teamColor, isDark)}`,
-            bgcolor: 'action.hover',
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{
+            fontWeight: 800, fontSize: '0.85rem', lineHeight: 1.15, mb: 0.25,
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}>
-            <Box
-              component="img"
-              src={HEADSHOT(entry.playerId)}
-              alt={entry.playerName}
-              sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }}
-            />
+            {entry.playerName}
+          </Typography>
+
+          <Box
+            onClick={onTeamClick ? (e) => { e.stopPropagation(); onTeamClick(entry.teamId) } : undefined}
+            sx={{
+              display: 'inline-flex', alignItems: 'center', gap: 0.6, mb: 1.25,
+              ...(onTeamClick ? {
+                cursor: 'pointer',
+                '&:hover .tp-abbr': { color: 'text.primary', textDecoration: 'underline' },
+              } : {}),
+            }}
+          >
+            <Box sx={{
+              width: 14, height: 14, borderRadius: '50%', bgcolor: teamColor,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden', flexShrink: 0,
+            }}>
+              <Box
+                component="img"
+                src={`https://www.mlbstatic.com/team-logos/team-cap-on-dark/${entry.teamId}.svg`}
+                sx={{ width: 11, height: 11, objectFit: 'contain' }}
+              />
+            </Box>
+            <Typography className="tp-abbr" sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1 }}>
+              {entry.position} · {abbr}
+            </Typography>
           </Box>
 
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography sx={{
-              fontWeight: 800, fontSize: '0.85rem', lineHeight: 1.15, mb: 0.25,
-              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-            }}>
-              {entry.playerName}
-            </Typography>
-
-            <Box
-              onClick={onTeamClick ? (e) => { e.stopPropagation(); onTeamClick(entry.teamId) } : undefined}
-              sx={{
-                display: 'inline-flex', alignItems: 'center', gap: 0.6, mb: 1.25,
-                ...(onTeamClick ? {
-                  cursor: 'pointer',
-                  '&:hover .tp-abbr': { color: 'text.primary', textDecoration: 'underline' },
-                } : {}),
-              }}
-            >
-              <Box sx={{
-                width: 14, height: 14, borderRadius: '50%', bgcolor: teamColor,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                overflow: 'hidden', flexShrink: 0,
-              }}>
-                <Box
-                  component="img"
-                  src={`https://www.mlbstatic.com/team-logos/team-cap-on-dark/${entry.teamId}.svg`}
-                  sx={{ width: 11, height: 11, objectFit: 'contain' }}
-                />
-              </Box>
-              <Typography className="tp-abbr" sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1 }}>
-                {entry.position} · {abbr}
-              </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 1 }}>
+            <Box sx={{ display: 'flex', gap: { xs: 1.25, sm: 1.75 }, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+              {statItems.map(s => (
+                <Box key={s.label}>
+                  <Typography sx={{
+                    fontSize:   s.hero ? { xs: '1.35rem', sm: '1.5rem' } : { xs: '0.88rem', sm: '1rem' },
+                    fontWeight: 900, lineHeight: 1,
+                    color:      s.hero ? accentText : 'text.primary',
+                    letterSpacing: s.hero ? '-0.3px' : 0,
+                  }}>
+                    {s.value}
+                  </Typography>
+                  <Typography sx={{
+                    fontSize: '0.6rem', fontWeight: 700,
+                    textTransform: 'uppercase', letterSpacing: 0.5,
+                    color: 'text.secondary', lineHeight: 1, mt: 0.2,
+                  }}>
+                    {s.label}
+                  </Typography>
+                </Box>
+              ))}
             </Box>
 
-            <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 1 }}>
-              <Box sx={{ display: 'flex', gap: { xs: 1.25, sm: 1.75 }, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                {statItems.map(s => (
-                  <Box key={s.label}>
-                    <Typography sx={{
-                      fontSize:   s.hero ? { xs: '1.35rem', sm: '1.5rem' } : { xs: '0.88rem', sm: '1rem' },
-                      fontWeight: 900, lineHeight: 1,
-                      color:      s.hero ? accentText : 'text.primary',
-                      letterSpacing: s.hero ? '-0.3px' : 0,
-                    }}>
-                      {s.value}
-                    </Typography>
-                    <Typography sx={{
-                      fontSize: '0.6rem', fontWeight: 700,
-                      textTransform: 'uppercase', letterSpacing: 0.5,
-                      color: 'text.secondary', lineHeight: 1, mt: 0.2,
-                    }}>
-                      {s.label}
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
-
-              {/* Box score — resolves this performance's game and opens the existing recap viewer */}
-              <Box
-                onClick={(e) => { e.stopPropagation(); viewBoxScore(entry) }}
-                sx={{
-                  flexShrink: 0,
-                  fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled',
-                  cursor: 'pointer', px: 0.9, py: 0.3,
-                  borderRadius: 999, border: '1px solid', borderColor: 'divider',
-                  whiteSpace: 'nowrap',
-                  transition: 'color 0.12s, border-color 0.12s',
-                  '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
-                }}
-              >
-                {boxScoreLoadingId === entry.playerId ? 'Loading…' : 'Box Score →'}
-              </Box>
+            {/* Box score — resolves this performance's game and opens the existing recap viewer */}
+            <Box
+              onClick={(e) => { e.stopPropagation(); viewBoxScore(entry) }}
+              sx={{
+                flexShrink: 0,
+                fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled',
+                cursor: 'pointer', px: 0.9, py: 0.3,
+                borderRadius: 999, border: '1px solid', borderColor: 'divider',
+                whiteSpace: 'nowrap',
+                transition: 'color 0.12s, border-color 0.12s',
+                '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
+              }}
+            >
+              {boxScoreLoadingId === entry.playerId ? 'Loading…' : 'Box Score →'}
             </Box>
           </Box>
         </Box>
@@ -343,18 +297,36 @@ export function TopPerformers({
     )
   }
 
-  // Idle: one card at 100% width. Sliding: the from/to pair at 50% each,
-  // ordered so the track only ever needs to move one "page" to reveal the
-  // target — exactly the mechanism HomeView's tab swipe uses.
+  // Idle: one pane at 100% width. Sliding: the from/to pair at 50% each,
+  // ALWAYS in [from, to] DOM order regardless of direction — the currently
+  // active pane (`from`) must stay at array position 0 across the
+  // idle→sliding transition, or React has to move its DOM node from
+  // position 0 to 1 to satisfy a swapped key order. That move happens in
+  // the same commit as the initial (pre-shift) paint, which can collapse
+  // the two-phase reveal into a single frame and skip the transition
+  // entirely — exactly the "prev" direction snapping instead of sliding.
+  // The "prev" case gets its mirrored layout via flexDirection below
+  // instead of reordering children.
   const trackChildren = !slide
-    ? [renderCard(performers[activeIdx], activeIdx, '100%')]
-    : slide.dir === 1
-      ? [renderCard(performers[slide.fromIdx], slide.fromIdx, '50%'), renderCard(performers[slide.toIdx], slide.toIdx, '50%')]
-      : [renderCard(performers[slide.toIdx], slide.toIdx, '50%'), renderCard(performers[slide.fromIdx], slide.fromIdx, '50%')]
+    ? [renderContent(performers[activeIdx], '100%')]
+    : [renderContent(performers[slide.fromIdx], '50%'), renderContent(performers[slide.toIdx], '50%')]
 
   const marginLeft = !slide ? '0%'
     : slide.dir === 1 ? (sliding ? '-100%' : '0%')
     : (sliding ? '0%' : '-100%')
+
+  // The label + count swap to the incoming performer the instant a slide kicks
+  // off (not just once it completes). The border and background gradient, by
+  // contrast, crossfade from the outgoing team's color to the incoming one over
+  // the slide — see the card box below.
+  const headerIdx      = slide ? slide.toIdx : activeIdx
+  const headerEntry     = performers[headerIdx]
+  const headerTeamColor = TEAM_BG[headerEntry.teamId] ?? '#888'
+  const headerAccent    = accentColor(headerTeamColor, isDark)
+  // Team colors for the crossfade: `from` = outgoing pane, `to` = incoming.
+  // At rest both resolve to the active performer; `toColor` === headerTeamColor.
+  const fromColor = TEAM_BG[performers[slide ? slide.fromIdx : activeIdx].teamId] ?? '#888'
+  const toColor   = headerTeamColor
 
   return (
     <Box
@@ -365,18 +337,90 @@ export function TopPerformers({
       onTouchEnd={onTouchEnd}
       sx={{ width: '100%' }}
     >
-
-      {/* ── Cards laid out side by side; sliding the track between them.
-             The section title now lives inside each card's header (see renderCard),
-             so there's no separate floating label above the carousel. ────────── */}
-      <Box sx={{ overflow: 'hidden', borderRadius: 2.5 }}>
+      <Box sx={{
+        position: 'relative',
+        borderRadius: 2.5, overflow: 'hidden',
+        border: '1px solid',
+        // Border color crossfades between team colors over the slide, gated on
+        // `sliding` (same phase as the content slide) so it plants at the
+        // outgoing color, then eases to the incoming one instead of snapping.
+        borderColor: borderAlpha(sliding ? toColor : fromColor, isDark),
+        transition: sliding ? `border-color ${SLIDE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)` : 'none',
+        bgcolor: 'background.paper',
+      }}>
+        {/* Team-color background wash. A CSS gradient can't be transitioned, so
+            two stacked layers TRUE-crossfade: the outgoing team's gradient fades
+            out as the incoming one fades in. Both washes are translucent, so
+            they must not both be visible at full opacity — that would composite
+            into a darker double-wash mid-slide and then snap lighter when it
+            collapses back to one layer at rest. Fading out the base keeps
+            exactly one layer's worth of color on screen throughout. */}
         <Box sx={{
-          display: 'flex',
-          width: slide ? '200%' : '100%',
-          marginLeft,
-          transition: slide ? `margin-left ${SLIDE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)` : 'none',
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: cardGradient(fromColor, isDark),
+          opacity: sliding ? 0 : 1,
+          transition: sliding ? `opacity ${SLIDE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)` : 'none',
+        }} />
+        <Box sx={{
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: cardGradient(toColor, isDark),
+          opacity: sliding ? 1 : 0,
+          transition: sliding ? `opacity ${SLIDE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)` : 'none',
+        }} />
+        {/* Header — self-labeling "Single-Game Standout · <date>" on the left,
+            nav stepper on the right. Static: it never slides. */}
+        <Box sx={{
+          position: 'relative', zIndex: 1,
+          px: 1.75, py: 1,
+          borderBottom: '1px solid', borderColor: 'divider',
+          display: 'flex', alignItems: 'center', gap: 0.75,
         }}>
-          {trackChildren}
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, flex: 1, minWidth: 0 }}>
+            <Typography sx={{
+              fontWeight: 900, fontSize: '0.64rem', textTransform: 'uppercase',
+              letterSpacing: 0.8, color: headerAccent, lineHeight: 1, whiteSpace: 'nowrap',
+            }}>
+              Single-Game Standout
+            </Typography>
+            <Typography sx={{
+              fontSize: '0.62rem', fontWeight: 600, color: 'text.secondary',
+              lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+              · {headerEntry.period}
+            </Typography>
+          </Box>
+          {/* Left/right indicator */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
+            <Box onClick={() => go(-1)} sx={stepBtnSx}>
+              <ChevronLeft sx={{ fontSize: '1.05rem' }} />
+            </Box>
+            <Typography sx={{
+              fontSize: '0.6rem', fontWeight: 700, color: 'text.secondary',
+              fontVariantNumeric: 'tabular-nums', minWidth: 30, textAlign: 'center', lineHeight: 1,
+            }}>
+              {headerIdx + 1} / {performers.length}
+            </Typography>
+            <Box onClick={() => go(1)} sx={stepBtnSx}>
+              <ChevronRight sx={{ fontSize: '1.05rem' }} />
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Content — the only part that slides horizontally between performers. */}
+        <Box sx={{ position: 'relative', zIndex: 1, overflow: 'hidden' }}>
+          <Box sx={{
+            display: 'flex',
+            flexDirection: slide?.dir === -1 ? 'row-reverse' : 'row',
+            width: slide ? '200%' : '100%',
+            marginLeft,
+            // Transition only during phase 2 (sliding). Phase 1 must plant the
+            // start offset with NO transition, or "prev" (whose start offset is
+            // -100%, unlike "next" whose start matches the idle 0%) never gets a
+            // stationary base to animate from and snaps instead of sliding.
+            transition: slide && sliding ? `margin-left ${SLIDE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)` : 'none',
+          }}>
+            {trackChildren}
+          </Box>
         </Box>
       </Box>
 

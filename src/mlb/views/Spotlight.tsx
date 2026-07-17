@@ -448,7 +448,8 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
       sx={{
       flex: 1, minWidth: 0, borderRadius: 2.5, overflow: 'hidden',
       // Outline follows labelColor so the "On Fire" card reads orange in dark mode.
-      border: '1px solid', borderColor: borderAlpha(labelColor, isDark),
+      // Darker/more opaque than the shared borderAlpha() default so the card reads more defined.
+      border: '1px solid', borderColor: `${labelColor}${isDark ? 'ff' : '80'}`,
       bgcolor: 'background.paper',
       background: cardGradient(accent, isDark),
       display: 'flex', flexDirection: 'column',

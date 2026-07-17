@@ -1,7 +1,7 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react'
 import { Box, Typography } from '@mui/material'
 import { Team, TeamSummary } from '../types'
-import { TEAM_BG, CURRENT_SEASON } from '../constants'
+import { TEAM_BG, CURRENT_SEASON, TEAM_PAYROLLS_2026 } from '../constants'
 import { fetchDivisionForTeam, fetchTeamSummaryData } from '../api'
 // ~1,400-line schedule module — lazy so the League tab doesn't pull it in.
 const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
@@ -10,9 +10,10 @@ import { useIsDark, borderAlpha, cardGradient135, fmtGB, ringColor, teamLogoBg, 
 import { TopPerformers } from './TopPerformers'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
+import { StandingsSnapshot } from './StandingsSnapshot'
 import { FinalGamesSection } from './FinalGames'
-import { LeaderboardCard, LeaderboardModal, buildFraudRows, LbRow } from './VizView'
-import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../homeOverlay'
+import { LeaderboardCard, buildFraudRows, buildPayrollRows } from './VizView'
+import { getHomeOverlay, clearOverlayIf } from '../homeOverlay'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -130,7 +131,6 @@ export interface HomeViewProps {
   onUnfollowPlayer:  (id: number) => void
   onPlayerClick:     (id: number) => void
   onTeamClick?:      (id: number) => void
-  onLeaderboard?:    () => void
   onViz?:            () => void
 }
 
@@ -139,7 +139,7 @@ export interface HomeViewProps {
 export function HomeView({
   allTeams, followedTeamId, onFollowTeam, onUnfollowTeam,
   followedPlayerIds, onFollowPlayer, onUnfollowPlayer, onPlayerClick, onTeamClick,
-  onLeaderboard, onViz,
+  onViz,
 }: HomeViewProps) {
 
   // ── Data ─────────────────────────────────────────────────────────────────────
@@ -151,7 +151,6 @@ export function HomeView({
   const [showTeamSchedule, setShowTeamSchedule] = useState(false)
   const [teamSummaries,    setTeamSummaries]    = useState<TeamSummary[]>([])
   const [loadingBoard,     setLoadingBoard]     = useState(true)
-  const [featuredExpanded, setFeaturedExpanded] = useState(false)
 
   useEffect(() => {
     setLoadingSpotlight(true)
@@ -171,12 +170,11 @@ export function HomeView({
     fetchLiveTeamIds().then(setLiveTeamIds)
   }, [])
 
-  // Back-from-Search restore: reopen the report card or full-schedule subwindow
-  // the user cross-linked from (the actual FullScheduleModal lives in the team
-  // card's ScheduleStrip, opened via the showTeamSchedule prop).
+  // Back-from-Search restore: reopen the full-schedule subwindow the user
+  // cross-linked from (the actual FullScheduleModal lives in the team card's
+  // ScheduleStrip, opened via the showTeamSchedule prop).
   useEffect(() => {
     const o = getHomeOverlay()
-    if (o?.kind === 'reportCard')   setFeaturedExpanded(true)
     if (o?.kind === 'teamSchedule') setShowTeamSchedule(true)
   }, [])
 
@@ -194,13 +192,28 @@ export function HomeView({
 
   const isDark = useIsDark()
 
-  // ── Daily rotating report card ────────────────────────────────────────────────
-  const nameMap    = new Map(allTeams.map(t => [t.id, t.name]))
-  const boardType  = new Date().getDate() % 2 === 0 ? 'fraud' : 'cursed'
-  const boardRows: LbRow[] = teamSummaries.length > 0 ? buildFraudRows(teamSummaries, nameMap, boardType) : []
-  const boardMeta  = boardType === 'fraud'
-    ? { icon: '🚨', title: 'Top Frauds',    subtitle: 'Winning more than their scoring predicts', accent: '#f97316' }
-    : { icon: '💀', title: 'Most Cursed',   subtitle: 'Losing more than their scoring predicts',  accent: '#818cf8' }
+  // ── Daily report cards ────────────────────────────────────────────────────────
+  // Two cards, both rotating: each day picks a distinct pair from the pool via a
+  // 6-pair cycle keyed to the day, so the two are always different from each other
+  // and both change day to day. The pool includes the static payroll boards, so no
+  // extra fetches are needed.
+  const nameMap = new Map(allTeams.map(t => [t.id, t.name]))
+  const boardPool = [
+    { icon: '🚨', title: 'Top Frauds',       subtitle: 'Winning more than their scoring predicts', accent: '#f97316', rows: buildFraudRows(teamSummaries, nameMap, 'fraud'),         loading: loadingBoard },
+    { icon: '💀', title: 'Most Cursed',      subtitle: 'Losing more than their scoring predicts',  accent: '#818cf8', rows: buildFraudRows(teamSummaries, nameMap, 'cursed'),        loading: loadingBoard },
+    { icon: '💰', title: 'Highest Payrolls', subtitle: '2026 estimated payroll spend',             accent: '#eab308', rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'highest'), loading: false        },
+    { icon: '🪙', title: 'Lowest Payrolls',  subtitle: '2026 estimated payroll spend',             accent: '#22c55e', rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'lowest'),  loading: false        },
+  ]
+  const boardPairs: Array<[number, number]> = []
+  for (let i = 0; i < boardPool.length; i++)
+    for (let j = i + 1; j < boardPool.length; j++)
+      boardPairs.push([i, j])
+  const dayNum        = Math.floor(Date.now() / 86400000)
+  const [aIdx, bIdx]  = boardPairs[dayNum % boardPairs.length]
+  // Alternate which of the pair sits on top so the ordering feels fresh too.
+  const [primaryBoard, secondBoard] = dayNum % 2 === 0
+    ? [boardPool[aIdx], boardPool[bIdx]]
+    : [boardPool[bIdx], boardPool[aIdx]]
 
   // ── Derived team info ─────────────────────────────────────────────────────────
   const followedTeam = allTeams.find(t => t.id === followedTeamId)
@@ -251,8 +264,9 @@ export function HomeView({
                 background: cardGradient135(bg, isDark),
                 display: 'flex', flexDirection: 'column',
               }}>
-                {/* Team header — name+standing | buttons */}
-                <Box sx={{ px: 1.5, pt: 1.25, pb: 1 }}>
+                {/* Team header — name+standing | buttons. px matches the schedule
+                    strip's 2.5 below so the name/record align with the game text. */}
+                <Box sx={{ px: 2.5, pt: 1.25, pb: 1 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography sx={{
@@ -329,6 +343,9 @@ export function HomeView({
 
               {/* Predictor */}
               <PredictorWidget />
+
+              {/* Standings snapshot — division race if in the hunt, else the wild card */}
+              <StandingsSnapshot followedTeamId={followedTeamId} season={CURRENT_SEASON} onTeamClick={onTeamClick} />
             </>
           ) : (
             /* No team followed: picker leads, so the feed always nudges the core action */
@@ -342,6 +359,9 @@ export function HomeView({
                 liveTeamIds={liveTeamIds}
               />
               <PredictorWidget />
+
+              {/* Standings snapshot — no team followed, so a rotating division */}
+              <StandingsSnapshot followedTeamId={followedTeamId} season={CURRENT_SEASON} onTeamClick={onTeamClick} />
             </>
           )}
         </Box>
@@ -358,22 +378,6 @@ export function HomeView({
           {/* Featured spotlight — hot / cold. No floating section title; the
               On Fire / Ice Cold cards below are self-labeling. */}
           <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mb: 1.25 }}>
-              <Box
-                onClick={onLeaderboard}
-                sx={{
-                  px: 1, py: '3px', borderRadius: 999,
-                  bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider',
-                  cursor: onLeaderboard ? 'pointer' : 'default',
-                  transition: 'border-color 0.12s',
-                  '&:hover': onLeaderboard ? { borderColor: 'text.secondary' } : {},
-                }}
-              >
-                <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'text.secondary', letterSpacing: 0.3, lineHeight: 1 }}>
-                  View All →
-                </Typography>
-              </Box>
-            </Box>
             {loadingSpotlight && !hotGuy && (
               <Box sx={{ py: 4, textAlign: 'center' }}>
                 <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Loading…</Typography>
@@ -389,44 +393,22 @@ export function HomeView({
             </Box>
           </Box>
 
-          {/* Daily report card. No floating section title; the card carries its
-              own heading. */}
-          <Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', mb: 1.25 }}>
-              <Box
-                onClick={onViz}
-                sx={{
-                  px: 1, py: '3px', borderRadius: 999,
-                  bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider',
-                  cursor: onViz ? 'pointer' : 'default',
-                  transition: 'border-color 0.12s',
-                  '&:hover': onViz ? { borderColor: 'text.secondary' } : {},
-                }}
-              >
-                <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'text.secondary', letterSpacing: 0.3, lineHeight: 1 }}>
-                  View All →
-                </Typography>
-              </Box>
-            </Box>
+          {/* Daily report cards — primary (fraud/cursed) plus a differing card that
+              rotates daily. Each carries its own heading. */}
+          {[primaryBoard, secondBoard].map(b => (
             <LeaderboardCard
-              {...boardMeta}
-              rows={boardRows}
-              loading={loadingBoard}
-              onExpand={() => setFeaturedExpanded(true)}
+              key={b.title}
+              icon={b.icon} title={b.title} subtitle={b.subtitle} accent={b.accent}
+              rows={b.rows}
+              loading={b.loading}
+              onExpand={onViz ?? (() => {})}
+              expandLabel="View All →"
               onSelectTeam={onTeamClick}
             />
-          </Box>
+          ))}
         </Box>
 
       </Box>
-
-      <LeaderboardModal
-        open={featuredExpanded}
-        onClose={() => { setFeaturedExpanded(false); clearOverlayIf('reportCard') }}
-        {...boardMeta}
-        rows={boardRows}
-        onSelectTeam={stampOverlay({ kind: 'reportCard' }, onTeamClick)}
-      />
     </Box>
   )
 }

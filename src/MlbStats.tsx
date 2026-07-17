@@ -129,7 +129,6 @@ export default function MlbStats() {
           onUnfollowPlayer={state.unfollowPlayer}
           onPlayerClick={state.handleFollowedPlayerClick}
           onTeamClick={state.handleTeamSearchClick}
-          onLeaderboard={() => state.setView('leaderboard')}
           onViz={() => {
             window.history.pushState({ returnView: state.view }, '', window.location.href)
             state.setVizDefaultTab('report-card')

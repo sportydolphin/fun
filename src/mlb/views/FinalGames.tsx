@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 
 import { Box, Typography, useTheme } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, TEAM_DIVISION, HEADSHOT, CURRENT_SEASON } from '../constants'
-import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
+import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder } from '../colorUtils'
 import { getHomeOverlay, setHomeOverlay, clearOverlayIf, stampOverlay } from '../homeOverlay'
 
 // Loaded on first game click — keeps the Game Center out of the home bundle.
@@ -478,6 +478,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
   const isPreview = game.state === 'preview'
   const isLive    = game.state === 'live'
   const statusColor = isLive ? '#ef4444' : 'text.disabled'
+  const isDark = useIsDark()
 
   // Which team to emphasize: winner (final) or current leader (live)
   const emphasize = (t: FinalTeam): boolean => {
@@ -516,7 +517,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
       sx={{
         flexShrink: 0, width: wide ? '100%' : 124, minWidth: 0,
         borderRadius: 2, border: '1px solid',
-        borderColor: accent ? `${accent}70` : 'divider',
+        borderColor: accent ? `${accent}70` : defaultBorder(isDark),
         boxShadow: accent ? `0 0 0 1.5px ${accent}40` : 'none',
         bgcolor: 'background.paper', overflow: 'hidden',
         userSelect: 'none',
@@ -1155,6 +1156,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
   const [loading,    setLoading]    = useState(true)
   const [openGame,   setOpenGame]   = useState<FinalGameSummary | null>(null)
   const [expanded,   setExpanded]   = useState(false)
+  const isDark = useIsDark()
 
   // Back-from-Search restore: reopen the game modal the user cross-linked from.
   useEffect(() => {
@@ -1294,7 +1296,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
   return (
     <>
       <Box sx={{
-        borderRadius: 3, border: '1px solid', borderColor: 'divider',
+        borderRadius: 3, border: '1px solid', borderColor: defaultBorder(isDark),
         bgcolor: 'background.paper', overflow: 'hidden',
       }}>
         {/* Header with date nav */}
