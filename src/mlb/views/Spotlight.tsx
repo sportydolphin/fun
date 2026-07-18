@@ -1,7 +1,7 @@
 import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
-import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, cardGradient } from '../colorUtils'
+import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -323,6 +323,8 @@ export async function fetchRecentGamePerformers(): Promise<{ hitters: HotGuyData
       ])
 
       for (const s of (hitRes?.stats?.[0]?.splits ?? [])) {
+        // Doubleheader: byDateRange sums both games into one line we can't split, so skip it.
+        if (Number(s.stat?.gamesPlayed ?? 1) > 1) continue
         const score = scoreHitterGame(s.stat)
         if (score <= 0) continue
         pool.push({ score, data: {
@@ -343,6 +345,8 @@ export async function fetchRecentGamePerformers(): Promise<{ hitters: HotGuyData
       }
 
       for (const s of (pitRes?.stats?.[0]?.splits ?? [])) {
+        // Doubleheader: byDateRange sums both appearances into one line, so skip it.
+        if (Number(s.stat?.gamesPlayed ?? 1) > 1) continue
         const score = scorePitcherGame(s.stat)
         if (score <= 0) continue
         const gs        = Number(s.stat.gamesStarted ?? 0)
@@ -510,13 +514,13 @@ export function SpotlightCard({ data, mode, onPlayerClick, onTeamClick }: {
             }}
           >
             <Box sx={{
-              width: 14, height: 14, borderRadius: '50%', bgcolor: teamColor,
+              width: 14, height: 14, borderRadius: '50%', bgcolor: teamLogoBg(data.teamId, isDark),
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               overflow: 'hidden', flexShrink: 0,
             }}>
               <Box component="img"
-                src={`https://www.mlbstatic.com/team-logos/team-cap-on-dark/${data.teamId}.svg`}
-                sx={{ width: 11, height: 11, objectFit: 'contain' }}
+                src={teamLogoSrc(data.teamId, isDark)}
+                sx={{ width: 11, height: 11, objectFit: 'contain', transform: teamLogoCrop(data.teamId, isDark), transformOrigin: 'center' }}
               />
             </Box>
             <Typography className="spotlight-team-abbr" sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1 }}>

@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.8.0'
+export const APP_VERSION = '1.9.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,49 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.9.0',
+    date:    '2026-07-17',
+    title:   'Predictions record, team card and card polish',
+    changes: [
+      {
+        short: 'Your predictions show a running record',
+        full:  'Once the games you predicted start finishing, the predictions card shows how many you got right so far and how many are still to go, instead of only after every game is final. You can still make or change picks.',
+      },
+      {
+        short: 'Pitcher matchups sit beside the score on phones',
+        full:  'On the team card on mobile, the starting pitchers for the recent and upcoming game now sit to the right of the score and time instead of below them, and the two matchups line up with each other.',
+      },
+      {
+        short: 'Followed players card cleanups',
+        full:  'On the followed players card you can hover or tap the small form graph to see what it shows, the stats line up on the right, a long name shortens to a first initial when space is tight, and the hover X is gone (you still remove players from Edit).',
+      },
+      {
+        short: 'Full box score fits the window',
+        full:  'Opening the full box score no longer widens the whole Game Center window. It shows one team at a time with a toggle, and pitchers no longer appear in the batting order.',
+      },
+      {
+        short: 'Standouts show a single game, not a doubleheader total',
+        full:  'Single game standouts no longer combine both games of a doubleheader into one line.',
+      },
+      {
+        short: 'Report cards come first in Visualize',
+        full:  'In the Visualize tab the report cards now come before the graphs, and opening one from the home page jumps to the top of that screen.',
+      },
+      {
+        short: 'Past seasons no longer show current payrolls',
+        full:  'The payroll report cards only show for the current season, since past seasons would otherwise show today\'s payroll numbers, which we don\'t have history for.',
+      },
+      {
+        short: 'Standout and hot/cold cards use the real team logos',
+        full:  'The team icons on the single game standout, On Fire, and Ice Cold cards now match the ones used on the scoreboard and team card, including the light and dark mode versions.',
+      },
+      {
+        short: 'Cleaner section spacing on mobile home',
+        full:  'Removed the divider line between the sections on the mobile home page.',
+      },
+    ],
+  },
   {
     version: '1.8.0',
     date:    '2026-07-17',

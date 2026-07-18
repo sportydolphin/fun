@@ -663,6 +663,8 @@ export function PredictorWidget() {
   const finalized         = games.filter(g => g.state === 'final' && predictions[g.gamePk] !== undefined)
   const correctCount      = finalized.filter(g => predictions[g.gamePk] === g.winnerId).length
   const pct               = finalized.length ? Math.round(correctCount / finalized.length * 100) : null
+  // Predicted games not yet decided — "N to go" once results start coming in.
+  const pendingPicked     = games.filter(g => g.state !== 'final' && predictions[g.gamePk] !== undefined).length
   const previewGames      = games.filter(g => g.state === 'preview')
   const previewCount      = previewGames.length
   const pickedPreviewCount = previewGames.filter(g => predictions[g.gamePk] !== undefined).length
@@ -687,7 +689,7 @@ export function PredictorWidget() {
               }} />
             )}
             <Typography sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 1.5, color: ACCENT }}>
-              🎯 Predict Today's Games
+              🎯 Predictions
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
@@ -739,6 +741,19 @@ export function PredictorWidget() {
             <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>Loading today's schedule…</Typography>
           ) : games.length === 0 ? (
             <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No games today</Typography>
+          ) : finalized.length > 0 && !allDone ? (
+            // Results are coming in — lead with the running record + how many are left.
+            <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
+              <Box component="span" sx={{ color: correctCount / finalized.length >= 0.5 ? '#22c55e' : '#ef4444', fontWeight: 800 }}>
+                {correctCount} / {finalized.length}
+              </Box>
+              {' '}correct
+              {pendingPicked > 0 && (
+                <Box component="span" sx={{ color: 'text.disabled', fontWeight: 400, fontSize: '0.78rem' }}>
+                  {' '}· {pendingPicked} to go
+                </Box>
+              )}
+            </Typography>
           ) : previewCount > 0 && remainingCount > 0 ? (
             <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
               <Box component="span" sx={{ color: ACCENT, fontWeight: 800 }}>{remainingCount}</Box>

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { Box, Typography, InputBase } from '@mui/material'
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react'
+import { Box, Typography, InputBase, Tooltip, ClickAwayListener } from '@mui/material'
 import { Player, RecentGameEntry } from '../types'
 import { TEAM_BG, TEAM_ABBR, ACCENT, HEADSHOT, CURRENT_SEASON } from '../constants'
 import { searchPlayers, fetchRecentGames } from '../api'
@@ -131,6 +131,7 @@ function PlayerSparkline({ id, isPitcher }: { id: number; isPitcher: boolean }) 
   const isDark = useIsDark()
   const [series, setSeries] = useState<number[] | null>(() => _sparkCache.get(id) ?? null)
   const [baseline, setBaseline] = useState<number | null>(null)
+  const [tipOpen, setTipOpen] = useState(false)   // explainer popup (hover on desktop, tap on mobile)
 
   useEffect(() => {
     if (_sparkCache.has(id)) { setSeries(_sparkCache.get(id)!); return }
@@ -175,7 +176,7 @@ function PlayerSparkline({ id, isPitcher }: { id: number; isPitcher: boolean }) 
   const norm = (lateMean - earlyMean) / seriesSpread
   const color = norm > 0.12 ? '#22c55e' : norm < -0.12 ? '#ef4444' : (isDark ? '#64748b' : '#9ca3af')
 
-  return (
+  const svg = (
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
       style={{ width: '100%', height: 22, display: 'block', overflow: 'visible' }}>
       {/* League-average baseline — faint dashed reference behind the form line */}
@@ -187,6 +188,30 @@ function PlayerSparkline({ id, isPitcher }: { id: number; isPitcher: boolean }) 
       <path d={d} fill="none" stroke={color} strokeWidth={1.5}
         vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
+  )
+
+  // Brief plain-language explainer — opens on hover (desktop) or tap (mobile).
+  return (
+    <ClickAwayListener onClickAway={() => setTipOpen(false)}>
+      <Tooltip
+        open={tipOpen}
+        onClose={() => setTipOpen(false)}
+        placement="top"
+        arrow
+        disableFocusListener disableHoverListener disableTouchListener
+        title="Recent form over the last several games. Green means heating up, red means cooling off. The dashed line is the league average."
+        slotProps={{ tooltip: { sx: { maxWidth: 200, fontSize: '0.66rem', lineHeight: 1.45, fontWeight: 500, p: 1 } } }}
+      >
+        <Box
+          onMouseEnter={() => setTipOpen(true)}
+          onMouseLeave={() => setTipOpen(false)}
+          onClick={e => { e.stopPropagation(); setTipOpen(o => !o) }}
+          sx={{ width: '100%', display: 'flex', alignItems: 'center', cursor: 'help' }}
+        >
+          {svg}
+        </Box>
+      </Tooltip>
+    </ClickAwayListener>
   )
 }
 
@@ -233,15 +258,21 @@ async function fetchFollowedPlayerData(id: number): Promise<FollowedPlayerInfo |
   } catch { return null }
 }
 
+// "Mookie Betts" → "M. Betts". Used when the full name doesn't fit the row.
+function abbreviateFirstName(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length < 2 || !parts[0]) return name
+  return `${parts[0][0]}. ${parts.slice(1).join(' ')}`
+}
+
 // ─── FollowedPlayerRow ────────────────────────────────────────────────────────
 
-function FollowedPlayerRow({ id, data, isLive, editMode, isSelected, onRemove, onToggleSelect, onClick }: {
+function FollowedPlayerRow({ id, data, isLive, editMode, isSelected, onToggleSelect, onClick }: {
   id:             number
   data:           FollowedPlayerInfo | null
   isLive:         boolean
   editMode:       boolean
   isSelected:     boolean
-  onRemove:       () => void
   onToggleSelect: () => void
   onClick:        () => void
 }) {
@@ -250,6 +281,24 @@ function FollowedPlayerRow({ id, data, isLive, editMode, isSelected, onRemove, o
   const statCells  = (data?.stats && data.stats.length > 0)
     ? data.stats
     : [{ label: '···', value: '—' }, { label: '···', value: '—' }, { label: '···', value: '—' }]
+
+  const fullName  = data?.fullName ?? '…'
+  const shortName = abbreviateFirstName(fullName)
+  // Crop the first name to an initial only when the full name would overflow the row.
+  const nameBoxRef  = useRef<HTMLDivElement>(null)
+  const fullNameRef = useRef<HTMLSpanElement>(null)
+  const [abbrevName, setAbbrevName] = useState(false)
+  useLayoutEffect(() => {
+    const box = nameBoxRef.current, full = fullNameRef.current
+    if (!box || !full) return
+    const measure = () => setAbbrevName(full.scrollWidth > box.clientWidth)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(box)
+    return () => ro.disconnect()
+  }, [fullName])
+
+  const nameSx = { fontWeight: 700, fontSize: { xs: '0.78rem', sm: '0.82rem' }, lineHeight: 1.2 }
 
   return (
     <Box
@@ -262,7 +311,6 @@ function FollowedPlayerRow({ id, data, isLive, editMode, isSelected, onRemove, o
         transition: 'background 0.12s',
         bgcolor: isSelected ? `${ACCENT}14` : 'transparent',
         '&:hover': { bgcolor: isSelected ? `${ACCENT}1e` : 'action.hover' },
-        ...(!editMode && { '&:hover .fp-remove': { opacity: 1 } }),
       }}
     >
       {/* Selection circle — edit mode */}
@@ -307,12 +355,19 @@ function FollowedPlayerRow({ id, data, isLive, editMode, isSelected, onRemove, o
       </Box>
 
       {/* Name + pos/team — grows to absorb the gap so the sparkline can stay narrow */}
-      <Box sx={{ flex: 1, minWidth: 0 }}>
+      <Box ref={nameBoxRef} sx={{ flex: 1, minWidth: 0, position: 'relative' }}>
+        {/* Hidden full-name measurer — decides whether to crop the first name */}
+        <Box component="span" ref={fullNameRef} aria-hidden sx={{
+          ...nameSx, position: 'absolute', top: 0, left: 0,
+          visibility: 'hidden', whiteSpace: 'nowrap', pointerEvents: 'none',
+        }}>
+          {fullName}
+        </Box>
         <Typography sx={{
-          fontWeight: 700, fontSize: { xs: '0.78rem', sm: '0.82rem' }, lineHeight: 1.2,
+          ...nameSx,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
-          {data?.fullName ?? '…'}
+          {abbrevName ? shortName : fullName}
         </Typography>
         {subtitle && (
           <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1.3 }}>
@@ -321,8 +376,9 @@ function FollowedPlayerRow({ id, data, isLive, editMode, isSelected, onRemove, o
         )}
       </Box>
 
-      {/* Recent-form sparkline — fixed narrow width so the trend's slope reads clearly */}
-      <Box sx={{ flexShrink: 0, width: { xs: 46, sm: 62 }, display: 'flex', alignItems: 'center' }}>
+      {/* Recent-form sparkline — fixed narrow width so the trend's slope reads clearly.
+          Extra right margin sets it apart from the stat columns. */}
+      <Box sx={{ flexShrink: 0, width: { xs: 46, sm: 62 }, mr: { xs: 1, sm: 1.5 }, display: 'flex', alignItems: 'center' }}>
         {data && <PlayerSparkline id={id} isPitcher={data.isPitcher} />}
       </Box>
 
@@ -345,24 +401,6 @@ function FollowedPlayerRow({ id, data, isLive, editMode, isSelected, onRemove, o
         </Box>
       ))}
 
-      {/* Remove button — normal mode */}
-      {!editMode && (
-        <Box
-          className="fp-remove"
-          onClick={e => { e.stopPropagation(); onRemove() }}
-          sx={{
-            flexShrink: 0,
-            width: 20, height: 20, borderRadius: '50%',
-            bgcolor: 'transparent', color: 'text.disabled',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '0.6rem', fontWeight: 900, cursor: 'pointer',
-            opacity: 0, transition: 'opacity 0.12s',
-            '&:hover': { bgcolor: 'error.main', color: '#fff' },
-          }}
-        >
-          ✕
-        </Box>
-      )}
     </Box>
   )
 }
@@ -627,7 +665,6 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                     isLive={isLive}
                     editMode={editMode}
                     isSelected={selected.has(id)}
-                    onRemove={() => onUnfollow(id)}
                     onToggleSelect={() => toggleSelect(id)}
                     onClick={() => onPlayerClick(id)}
                   />

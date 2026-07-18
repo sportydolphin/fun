@@ -268,8 +268,8 @@ type VizTab = 'graphs' | 'report-card'
 
 function VizSubNav({ tab, onChange }: { tab: VizTab; onChange: (t: VizTab) => void }) {
   const tabs: Array<{ value: VizTab; label: string }> = [
-    { value: 'graphs',      label: 'Graphs' },
     { value: 'report-card', label: 'Report Card' },
+    { value: 'graphs',      label: 'Graphs' },
   ]
   return (
     <Box sx={{
@@ -436,7 +436,7 @@ export interface VizViewProps {
 
 export function VizView({
   vizSeason, setVizSeason, teamSummaries, loadingViz,
-  nameMap, handleVizNavigate, canHover, defaultTab = 'graphs',
+  nameMap, handleVizNavigate, canHover, defaultTab = 'report-card',
 }: VizViewProps & { defaultTab?: VizTab }) {
   const [vizTab, setVizTab]           = useState<VizTab>(defaultTab)
   const [vizHighlightId, setVizHighlightId] = useState<number | null>(null)
@@ -510,7 +510,7 @@ export function VizView({
     const dy = e.changedTouches[0].clientY - touchStartRef.current.y
     touchStartRef.current = null
     if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return
-    setVizTab(dx < 0 ? 'report-card' : 'graphs')
+    setVizTab(dx < 0 ? 'graphs' : 'report-card')
   }, [])
 
   const fraudTooltip = 'Teams winning the most games above what their run differential predicts, weighted by how well they\'re actually doing. A first-place team winning 5 more than expected ranks higher than a last-place team winning 6 more — because the first-place team is actually fooling people. Bar length = weighted fraud score. Number = raw wins above expectation.'
@@ -550,16 +550,20 @@ export function VizView({
         rows: buildSosRows(sosData, 'easiest'), loading: loadingSos,
       },
     ] : []),
-    {
-      id: 'highest-payroll', icon: '💰', title: 'Highest Payrolls', accent: '#eab308',
-      subtitle: '2026 estimated payroll spend',
-      rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'highest'), loading: false,
-    },
-    {
-      id: 'lowest-payroll', icon: '🪙', title: 'Lowest Payrolls', accent: '#22c55e',
-      subtitle: '2026 estimated payroll spend',
-      rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'lowest'), loading: false,
-    },
+    // Payroll boards only for the current season — we don't have historical payroll
+    // data, so a past year would otherwise show today's numbers.
+    ...(showSos ? [
+      {
+        id: 'highest-payroll', icon: '💰', title: 'Highest Payrolls', accent: '#eab308',
+        subtitle: '2026 estimated payroll spend',
+        rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'highest'), loading: false,
+      },
+      {
+        id: 'lowest-payroll', icon: '🪙', title: 'Lowest Payrolls', accent: '#22c55e',
+        subtitle: '2026 estimated payroll spend',
+        rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'lowest'), loading: false,
+      },
+    ] : []),
   ]
 
   const activeBoard = boards.find(b => b.id === expandedBoard) ?? null
@@ -644,13 +648,13 @@ export function VizView({
           <Box sx={{
             display: 'flex',
             width: '200%',
-            marginLeft: vizTab === 'graphs' ? '0%' : '-100%',
+            marginLeft: vizTab === 'report-card' ? '0%' : '-100%',
             transition: 'margin-left 0.32s cubic-bezier(0.4, 0, 0.2, 1)',
             alignItems: 'flex-start',
           }}>
 
-            {/* ── Panel 1: Graphs ───────────────────────────────────────────── */}
-            <Box sx={{ width: '50%', flexShrink: 0, minWidth: 0 }}>
+            {/* ── Graphs panel (shown second; flex order places it on the right) ─ */}
+            <Box sx={{ width: '50%', flexShrink: 0, minWidth: 0, order: 2 }}>
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: { md: 5 }, rowGap: 0 }}
                 onMouseLeave={() => setVizHoverId(null)}>
 
@@ -709,8 +713,8 @@ export function VizView({
               </Box>
             </Box>
 
-            {/* ── Panel 2: Report Card — every board uses the same card/modal ─ */}
-            <Box sx={{ width: '50%', flexShrink: 0, minWidth: 0 }}>
+            {/* ── Report Card panel (shown first; flex order places it on the left) ─ */}
+            <Box sx={{ width: '50%', flexShrink: 0, minWidth: 0, order: 1 }}>
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: { md: 3 }, rowGap: 3 }}>
                 {boards.map(board => (
                   <Box key={board.id} sx={{ minWidth: 0 }}>

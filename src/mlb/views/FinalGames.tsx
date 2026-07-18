@@ -345,7 +345,7 @@ export function parseBoxScoreData(ls: any, box: any): BoxScore {
         avg:   sb.avg ?? b.avg ?? '',
         isSub: order !== '' && !order.endsWith('00'),
       }
-    })
+    }).filter((b: BatterLine) => b.pos !== 'P')  // pitchers don't belong in the hitting lineup
 
     const pitchers: PitcherLine[] = (t.pitchers ?? []).map((pid: number) => {
       const p  = players[`ID${pid}`] ?? {}

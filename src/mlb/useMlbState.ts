@@ -207,7 +207,7 @@ export function useMlbState() {
     } catch { return 'search' }
   })
   const [vizSeason, setVizSeason] = useState(CURRENT_SEASON)
-  const [vizDefaultTab, setVizDefaultTab] = useState<'graphs' | 'report-card'>('graphs')
+  const [vizDefaultTab, setVizDefaultTab] = useState<'graphs' | 'report-card'>('report-card')
 
   // ─── Local-dev-only settings ────────────────────────────────────────────────
   // Player-card season selector style: 'dropdown' (default) or 'buttons' (year pills).

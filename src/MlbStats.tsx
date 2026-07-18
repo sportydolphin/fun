@@ -133,6 +133,8 @@ export default function MlbStats() {
             window.history.pushState({ returnView: state.view }, '', window.location.href)
             state.setVizDefaultTab('report-card')
             state.setView('viz')
+            // Land at the top of the report cards, not wherever the home page was scrolled.
+            requestAnimationFrame(() => window.scrollTo({ top: 0 }))
           }}
         />
       )}

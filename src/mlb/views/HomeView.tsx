@@ -109,15 +109,6 @@ interface StandingSummary {
   gamesBack: string; divisionLeader: boolean
 }
 
-// ─── SectionDivider — quiet rule between the two families on mobile ────────────
-// On md+ the two families sit side by side as columns, so this drops out of
-// the grid entirely (display:none) and leaves exactly two column tracks.
-
-function SectionDivider() {
-  return (
-    <Box sx={{ display: { xs: 'block', md: 'none' }, height: '1px', bgcolor: 'divider', my: 1 }} />
-  )
-}
 
 // ─── HomeView props ───────────────────────────────────────────────────────────
 
@@ -239,9 +230,8 @@ export function HomeView({
 
       {/* ── Merged feed ────────────────────────────────────────────────────────
           One scroll: "My Feed" (personal, wider) then "Around the League".
-          On md+ these are two columns; on mobile they stack in DOM order with
-          the SectionDivider between them. The divider is display:none on md, so
-          it drops out of the grid and leaves exactly two column tracks. */}
+          On md+ these are two columns; on mobile they stack in DOM order,
+          separated only by the grid's rowGap (no divider line). */}
       <Box sx={{
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', md: '1.4fr 1fr' },
@@ -365,9 +355,6 @@ export function HomeView({
             </>
           )}
         </Box>
-
-        {/* ═══ Mobile-only family divider (removed from the grid on md) ════════ */}
-        <SectionDivider />
 
         {/* ═══ Discovery column — Around the League ════════════════════════════ */}
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>

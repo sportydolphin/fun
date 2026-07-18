@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
 import { TEAM_ABBR, HEADSHOT, ACCENT } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
@@ -712,7 +712,7 @@ function GameCountdown({ iso }: { iso: string }) {
 // ─── CompactGameCard ──────────────────────────────────────────────────────────
 // Compact single-game summary (last game OR next game header)
 
-function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAction, onTeamClick }: {
+function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAction, onTeamClick, rightSlot, scoreRef, scoreMinWidth }: {
   game:         ScheduleGame
   myTeamId?:    number
   label?:       string
@@ -720,6 +720,9 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
   actionLabel?: string
   onAction?:    () => void
   onTeamClick?: (id: number) => void
+  rightSlot?:   React.ReactNode                 // mobile-only: fills the empty space right of the score
+  scoreRef?:    React.Ref<HTMLDivElement>        // measure the score/time block for cross-card alignment
+  scoreMinWidth?: number                         // mobile: min width so stacked cards' rightSlots line up
 }) {
   const isFinal = game.state === 'final'
   const isLive  = game.state === 'live'
@@ -784,8 +787,10 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
         )}
       </Box>
 
-      {/* Score / time row — fixed minHeight so both FINAL and NEXT GAME rows are the same height */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: { xs: 0, sm: 0.25 }, minHeight: { xs: 26, sm: 32 }, maxWidth: COMPACT_ROW_MAX }}>
+      {/* Score / time row — fixed minHeight so both FINAL and NEXT GAME rows are the same height.
+          On mobile, rightSlot (the pitcher lines) sits just to the right of the score. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: { xs: 0, sm: 0.25 }, minHeight: { xs: 26, sm: 32 } }}>
+        <Box ref={scoreRef} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, maxWidth: COMPACT_ROW_MAX, flexShrink: 0, minWidth: scoreMinWidth ? { xs: `${scoreMinWidth}px`, sm: 0 } : 0 }}>
         {(isFinal || isLive) && myTeamId ? (
           // Scoreboard-style, mirrored around the dash: away team → score – score ← home team,
           // so the two scores sit adjacent to the dash instead of a logo sitting next to it.
@@ -847,6 +852,12 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
             color: labelColor ?? 'text.secondary', lineHeight: 1,
           }}>
             {label}
+          </Box>
+        )}
+        </Box>
+        {rightSlot && (
+          <Box sx={{ display: { xs: 'flex', sm: 'none' }, minWidth: 0, flexShrink: 1, overflow: 'hidden' }}>
+            {rightSlot}
           </Box>
         )}
       </Box>
@@ -1043,13 +1054,14 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
 // ─── CompactPitcherRow ────────────────────────────────────────────────────────
 // Two-pitcher inline bar for the home card — much smaller than PitcherPanel
 
-function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, loading, onPlayerClick }: {
+function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, loading, onPlayerClick, inline }: {
   awayPitcher:   ProbablePitcher | null
   homePitcher:   ProbablePitcher | null
   awayTeamId:    number
   homeTeamId:    number
   loading:       boolean
   onPlayerClick?: (id: number) => void
+  inline?:       boolean   // sit inline to the right of the time (no top margin / width cap)
 }) {
   const isDark = useIsDark()
   const awayCol = ringColor(awayTeamId, isDark)
@@ -1101,7 +1113,11 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
   }
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: { xs: 0.4, sm: 0.75 }, maxWidth: COMPACT_ROW_MAX }}>
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 1, minWidth: 0,
+      mt: inline ? 0 : { xs: 0.4, sm: 0.75 },
+      maxWidth: inline ? 'none' : COMPACT_ROW_MAX,
+    }}>
       <PitcherChip pitcher={awayPitcher} teamId={awayTeamId} />
       <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>vs</Typography>
       <PitcherChip pitcher={homePitcher} teamId={homeTeamId} />
@@ -1112,10 +1128,11 @@ function CompactPitcherRow({ awayPitcher, homePitcher, awayTeamId, homeTeamId, l
 // ─── CompactPerformerRow ──────────────────────────────────────────────────────
 // Featured performers from a completed game — mirrors CompactPitcherRow layout
 
-function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick }: {
+function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick, inline }: {
   finalDetails:   GameFinalDetails
   awayTeamId?:    number   // when set, order pitchers away → home so logos align with the score row above
   onPlayerClick?: (id: number) => void
+  inline?:        boolean  // sit inline to the right of the score (no top margin / width cap)
 }) {
   const isDark = useIsDark()
   let first  = finalDetails.winnerPitcher
@@ -1169,7 +1186,11 @@ function CompactPerformerRow({ finalDetails, awayTeamId, onPlayerClick }: {
   }
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: { xs: 0.4, sm: 0.75 }, maxWidth: COMPACT_ROW_MAX }}>
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 1, minWidth: 0,
+      mt: inline ? 0 : { xs: 0.4, sm: 0.75 },
+      maxWidth: inline ? 'none' : COMPACT_ROW_MAX,
+    }}>
       {first && <PlayerCard player={first} />}
       {first && second && (
         <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', flexShrink: 0 }}>·</Typography>
@@ -1564,6 +1585,25 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
   const [liveGamePk,          setLiveGamePk]          = useState<number | null>(null)
   const [boxScoreGame,        setBoxScoreGame]        = useState<FinalGameSummary | null>(null)
 
+  // Cross-card alignment (mobile): the primary and upcoming game cards stack, and their
+  // inline pitcher matchups should start at the same x. Measure both score/time blocks
+  // and give both a min width equal to the wider one so the pitchers line up.
+  const primaryScoreRef  = useRef<HTMLDivElement>(null)
+  const upcomingScoreRef = useRef<HTMLDivElement>(null)
+  const [scoreAlignW, setScoreAlignW] = useState(0)
+  useLayoutEffect(() => {
+    const els = [primaryScoreRef.current, upcomingScoreRef.current].filter(Boolean) as HTMLDivElement[]
+    if (els.length < 2) { setScoreAlignW(0); return }   // only align when both cards are present
+    const measure = () => {
+      const max = Math.max(...els.map(el => el.scrollWidth))
+      setScoreAlignW(prev => (max > 0 && max !== prev ? max : prev))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    els.forEach(el => ro.observe(el))
+    return () => ro.disconnect()
+  }, [games])
+
   const now   = new Date()
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
@@ -1759,23 +1799,49 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
                   : undefined
               }
               onTeamClick={onTeamClick}
+              rightSlot={
+                isFinal && finalDetails ? (
+                  <CompactPerformerRow
+                    finalDetails={finalDetails}
+                    awayTeamId={nextGame.isHome ? nextGame.opponentId : teamId}
+                    onPlayerClick={onPlayerClick}
+                    inline
+                  />
+                ) : isPreview ? (
+                  <CompactPitcherRow
+                    awayPitcher={awayPitcher}
+                    homePitcher={homePitcher}
+                    awayTeamId={awayTeamId}
+                    homeTeamId={homeTeamId}
+                    loading={loadingPreview}
+                    onPlayerClick={onPlayerClick}
+                    inline
+                  />
+                ) : undefined
+              }
+              scoreRef={primaryScoreRef}
+              scoreMinWidth={isFinal && upcomingGame ? scoreAlignW : undefined}
             />
             {isPreview && (
-              <CompactPitcherRow
-                awayPitcher={awayPitcher}
-                homePitcher={homePitcher}
-                awayTeamId={awayTeamId}
-                homeTeamId={homeTeamId}
-                loading={loadingPreview}
-                onPlayerClick={onPlayerClick}
-              />
+              <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                <CompactPitcherRow
+                  awayPitcher={awayPitcher}
+                  homePitcher={homePitcher}
+                  awayTeamId={awayTeamId}
+                  homeTeamId={homeTeamId}
+                  loading={loadingPreview}
+                  onPlayerClick={onPlayerClick}
+                />
+              </Box>
             )}
             {isFinal && finalDetails && (
-              <CompactPerformerRow
-                finalDetails={finalDetails}
-                awayTeamId={nextGame.isHome ? nextGame.opponentId : teamId}
-                onPlayerClick={onPlayerClick}
-              />
+              <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                <CompactPerformerRow
+                  finalDetails={finalDetails}
+                  awayTeamId={nextGame.isHome ? nextGame.opponentId : teamId}
+                  onPlayerClick={onPlayerClick}
+                />
+              </Box>
             )}
           </Box>
 
@@ -1798,15 +1864,30 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
                   actionLabel="Preview →"
                   onAction={() => { setModalGame(upcomingGame); setModalPreview(upcomingPreviewData); setModalLoading(loadingUpcoming) }}
                   onTeamClick={onTeamClick}
+                  rightSlot={
+                    <CompactPitcherRow
+                      awayPitcher={upcomingPreviewData?.away.pitcher ?? null}
+                      homePitcher={upcomingPreviewData?.home.pitcher ?? null}
+                      awayTeamId={upcomingPreviewData?.away.teamId ?? (upcomingGame.isHome ? upcomingGame.opponentId : teamId)}
+                      homeTeamId={upcomingPreviewData?.home.teamId ?? (upcomingGame.isHome ? teamId : upcomingGame.opponentId)}
+                      loading={loadingUpcoming}
+                      onPlayerClick={onPlayerClick}
+                      inline
+                    />
+                  }
+                  scoreRef={upcomingScoreRef}
+                  scoreMinWidth={scoreAlignW}
                 />
-                <CompactPitcherRow
-                  awayPitcher={upcomingPreviewData?.away.pitcher ?? null}
-                  homePitcher={upcomingPreviewData?.home.pitcher ?? null}
-                  awayTeamId={upcomingPreviewData?.away.teamId ?? (upcomingGame.isHome ? upcomingGame.opponentId : teamId)}
-                  homeTeamId={upcomingPreviewData?.home.teamId ?? (upcomingGame.isHome ? teamId : upcomingGame.opponentId)}
-                  loading={loadingUpcoming}
-                  onPlayerClick={onPlayerClick}
-                />
+                <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                  <CompactPitcherRow
+                    awayPitcher={upcomingPreviewData?.away.pitcher ?? null}
+                    homePitcher={upcomingPreviewData?.home.pitcher ?? null}
+                    awayTeamId={upcomingPreviewData?.away.teamId ?? (upcomingGame.isHome ? upcomingGame.opponentId : teamId)}
+                    homeTeamId={upcomingPreviewData?.home.teamId ?? (upcomingGame.isHome ? teamId : upcomingGame.opponentId)}
+                    loading={loadingUpcoming}
+                    onPlayerClick={onPlayerClick}
+                  />
+                </Box>
               </Box>
             </>
           )}

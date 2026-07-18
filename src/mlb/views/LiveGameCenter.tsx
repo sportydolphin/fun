@@ -608,35 +608,21 @@ function TeamBoxColumns({ box, onPlayerClick }: {
     </Box>
   )
 
+  // One team at a time with a toggle, at every width — keeps the modal from having to
+  // widen for a side-by-side layout.
   return (
-    <>
-      {/* Desktop: both teams side by side */}
+    <Box>
       <Box sx={{
-        display: { xs: 'none', md: 'grid' }, gridTemplateColumns: '1fr 1fr',
-        borderTop: '1px solid', borderColor: 'divider',
+        px: 2, py: 1.25, borderTop: '1px solid', borderColor: 'divider',
+        display: 'flex', gap: 0.75, justifyContent: 'center',
       }}>
-        <Box sx={{ minWidth: 0, borderRight: '1px solid', borderColor: 'divider' }}>
-          <TeamBoxSection team={box.away} onPlayerClick={onPlayerClick} />
-        </Box>
-        <Box sx={{ minWidth: 0 }}>
-          <TeamBoxSection team={box.home} onPlayerClick={onPlayerClick} />
-        </Box>
+        {teamChip('away', box.away)}
+        {teamChip('home', box.home)}
       </Box>
-
-      {/* Mobile: one team at a time with a toggle */}
-      <Box sx={{ display: { xs: 'block', md: 'none' } }}>
-        <Box sx={{
-          px: 2, py: 1.25, borderTop: '1px solid', borderColor: 'divider',
-          display: 'flex', gap: 0.75, justifyContent: 'center',
-        }}>
-          {teamChip('away', box.away)}
-          {teamChip('home', box.home)}
-        </Box>
-        <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-          <TeamBoxSection team={side === 'away' ? box.away : box.home} onPlayerClick={onPlayerClick} />
-        </Box>
+      <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+        <TeamBoxSection team={side === 'away' ? box.away : box.home} onPlayerClick={onPlayerClick} />
       </Box>
-    </>
+    </Box>
   )
 }
 
@@ -757,8 +743,9 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
       <Box sx={{
         bgcolor: 'background.paper', borderRadius: 3,
         border: '1px solid', borderColor: 'divider',
-        // Wider on desktop while the side-by-side box score is showing
-        width: '100%', maxWidth: tab === 'box' ? { xs: 560, md: 1100 } : 560,
+        // Fixed width for every tab — the box score shows one team at a time with a
+        // toggle rather than widening the whole modal (which blew up the WP graph).
+        width: '100%', maxWidth: 560,
         // `100%` (of the padded fixed overlay), not `vh`: under the desktop `zoom`
         // wrapper viewport units don't shrink, so `90vh` would overflow the screen.
         maxHeight: '100%', overflowY: 'auto',

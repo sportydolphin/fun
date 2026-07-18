@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { Box, Typography } from '@mui/material'
-import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, cardGradient } from '../colorUtils'
+import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { fetchRecentGamePerformers } from './Spotlight'
@@ -238,14 +238,14 @@ export function TopPerformers({
             }}
           >
             <Box sx={{
-              width: 14, height: 14, borderRadius: '50%', bgcolor: teamColor,
+              width: 14, height: 14, borderRadius: '50%', bgcolor: teamLogoBg(entry.teamId, isDark),
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               overflow: 'hidden', flexShrink: 0,
             }}>
               <Box
                 component="img"
-                src={`https://www.mlbstatic.com/team-logos/team-cap-on-dark/${entry.teamId}.svg`}
-                sx={{ width: 11, height: 11, objectFit: 'contain' }}
+                src={teamLogoSrc(entry.teamId, isDark)}
+                sx={{ width: 11, height: 11, objectFit: 'contain', transform: teamLogoCrop(entry.teamId, isDark), transformOrigin: 'center' }}
               />
             </Box>
             <Typography className="tp-abbr" sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1 }}>
