@@ -121,10 +121,11 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick }: {
 
 // ─── Fullscreen modal — every move in the window, grouped by day ──────────────
 
-function RosterMovesModal({ open, onClose, moves, onPlayerClick, onTeamClick }: {
+function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick, onTeamClick }: {
   open: boolean
   onClose: () => void
   moves: RosterMove[]
+  followedTeamId?: number | null
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
 }) {
@@ -155,7 +156,10 @@ function RosterMovesModal({ open, onClose, moves, onPlayerClick, onTeamClick }: 
     if (m.fromTeamId != null) teamIdSet.add(m.fromTeamId)
     if (m.toTeamId   != null) teamIdSet.add(m.toTeamId)
   }
-  const filterTeams = [...teamIdSet].sort((a, b) => (TEAM_ABBR[a] ?? '').localeCompare(TEAM_ABBR[b] ?? ''))
+  // Alphabetical by abbreviation, with the user's followed team pinned first
+  const filterTeams = [...teamIdSet].sort((a, b) =>
+    Number(b === followedTeamId) - Number(a === followedTeamId) ||
+    (TEAM_ABBR[a] ?? '').localeCompare(TEAM_ABBR[b] ?? ''))
 
   const shown = filterTeam == null
     ? moves
@@ -306,7 +310,8 @@ function RosterMovesModal({ open, onClose, moves, onPlayerClick, onTeamClick }: 
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
 
-export function RosterMovesCard({ onPlayerClick, onTeamClick }: {
+export function RosterMovesCard({ followedTeamId, onPlayerClick, onTeamClick }: {
+  followedTeamId?: number | null
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
 }) {
@@ -388,6 +393,7 @@ export function RosterMovesCard({ onPlayerClick, onTeamClick }: {
         open={showAll}
         onClose={() => { setShowAll(false); clearOverlayIf('rosterMoves') }}
         moves={moves ?? []}
+        followedTeamId={followedTeamId}
         onPlayerClick={onPlayerClick}
         onTeamClick={onTeamClick}
       />
