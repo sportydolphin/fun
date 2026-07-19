@@ -39,6 +39,10 @@ export const CHANGELOG: ChangelogEntry[] = [
         short: 'View all moves grouped by day',
         full:  'View All on the Roster Moves card opens the full list grouped by day, with a short description of each move. The back button returns you to the open list after you visit a player or team from it.',
       },
+      {
+        short: 'Filter moves by team and collapse days',
+        full:  'In the full roster moves list, tap a team logo at the top to see only that team\'s moves, and tap it again or tap All to clear. Each day header can be tapped to collapse or expand that day, and shows how many moves it holds.',
+      },
     ],
   },
   {

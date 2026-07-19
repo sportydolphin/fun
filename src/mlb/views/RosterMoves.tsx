@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography, IconButton, CircularProgress } from '@mui/material'
-import { Close } from '@mui/icons-material'
+import { Close, KeyboardArrowDown } from '@mui/icons-material'
 import { fetchRosterMoves, RosterMove } from '../api'
-import { CURRENT_SEASON, ACCENT } from '../constants'
-import { useIsDark, defaultBorder } from '../colorUtils'
+import { CURRENT_SEASON, ACCENT, TEAM_ABBR } from '../constants'
+import { useIsDark, defaultBorder, ringColor } from '../colorUtils'
 import { TeamLogo, PlayerHeadshot } from './VizView'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../homeOverlay'
 
@@ -128,6 +128,12 @@ function RosterMovesModal({ open, onClose, moves, onPlayerClick, onTeamClick }: 
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
 }) {
+  const isDark = useIsDark()
+  // Filter to one club (null = all) and per-day collapse. Both survive close/
+  // reopen within a visit — the selected chip and chevrons make the state visible.
+  const [filterTeam, setFilterTeam]       = useState<number | null>(null)
+  const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
+
   // Lock background scroll while fullscreened (same pattern as LeaderboardModal)
   useEffect(() => {
     if (!open) return
@@ -143,12 +149,31 @@ function RosterMovesModal({ open, onClose, moves, onPlayerClick, onTeamClick }: 
   const stampedPlayer = onPlayerClick ? stampOverlay({ kind: 'rosterMoves' }, onPlayerClick) : undefined
   const stampedTeam   = onTeamClick   ? stampOverlay({ kind: 'rosterMoves' }, onTeamClick)   : undefined
 
-  const byDay: Array<{ day: string; items: RosterMove[] }> = []
+  // Every club appearing in the window, alphabetical by abbreviation
+  const teamIdSet = new Set<number>()
   for (const m of moves) {
+    if (m.fromTeamId != null) teamIdSet.add(m.fromTeamId)
+    if (m.toTeamId   != null) teamIdSet.add(m.toTeamId)
+  }
+  const filterTeams = [...teamIdSet].sort((a, b) => (TEAM_ABBR[a] ?? '').localeCompare(TEAM_ABBR[b] ?? ''))
+
+  const shown = filterTeam == null
+    ? moves
+    : moves.filter(m => m.fromTeamId === filterTeam || m.toTeamId === filterTeam)
+
+  const byDay: Array<{ day: string; items: RosterMove[] }> = []
+  for (const m of shown) {
     const last = byDay[byDay.length - 1]
     if (last && last.day === m.date) last.items.push(m)
     else byDay.push({ day: m.date, items: [m] })
   }
+
+  const toggleDay = (day: string) => setCollapsedDays(prev => {
+    const next = new Set(prev)
+    if (next.has(day)) next.delete(day)
+    else next.add(day)
+    return next
+  })
 
   return (
     <Box
@@ -192,23 +217,85 @@ function RosterMovesModal({ open, onClose, moves, onPlayerClick, onTeamClick }: 
           </IconButton>
         </Box>
 
-        <Box sx={{ overflowY: 'auto', p: 1.5 }}>
-          {byDay.map(group => (
-            <Box key={group.day} sx={{ mb: 1 }}>
-              <Typography sx={{
-                fontSize: '0.6rem', fontWeight: 800, color: 'text.disabled',
-                textTransform: 'uppercase', letterSpacing: 1, px: 0.75, pt: 0.75, pb: 0.25,
-              }}>
-                {fmtMoveDay(group.day)}
+        {/* Team filter — every club in the window; tap to isolate, tap again to clear */}
+        {filterTeams.length > 0 && (
+          <Box sx={{
+            display: 'flex', alignItems: 'center', gap: 0.75,
+            px: 1.5, py: 1, borderBottom: '1px solid', borderColor: 'divider',
+            overflowX: 'auto', flexShrink: 0,
+            scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' },
+          }}>
+            <Box
+              onClick={() => setFilterTeam(null)}
+              sx={{
+                px: 1, py: '5px', borderRadius: 999, flexShrink: 0, cursor: 'pointer',
+                border: '1px solid',
+                borderColor: filterTeam == null ? 'text.secondary' : 'divider',
+                bgcolor: filterTeam == null ? 'action.selected' : 'transparent',
+                transition: 'border-color 0.12s, background-color 0.12s',
+              }}
+            >
+              <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, lineHeight: 1, color: filterTeam == null ? 'text.primary' : 'text.secondary' }}>
+                All
               </Typography>
-              {group.items.map(m => (
-                <MoveRowItem key={m.id} move={m} showDescription onPlayerClick={stampedPlayer} onTeamClick={stampedTeam} />
-              ))}
             </Box>
-          ))}
-          {moves.length === 0 && (
+            {filterTeams.map(id => (
+              <Box
+                key={id}
+                onClick={() => setFilterTeam(filterTeam === id ? null : id)}
+                sx={{
+                  flexShrink: 0, cursor: 'pointer', borderRadius: '50%',
+                  opacity: filterTeam == null || filterTeam === id ? 1 : 0.35,
+                  transition: 'opacity 0.15s',
+                }}
+              >
+                <TeamLogo teamId={id} abbr={TEAM_ABBR[id] ?? '?'} size={26} accent={ringColor(id, isDark)} highlighted={filterTeam === id} />
+              </Box>
+            ))}
+          </Box>
+        )}
+
+        <Box sx={{ overflowY: 'auto', p: 1.5 }}>
+          {byDay.map(group => {
+            const collapsed = collapsedDays.has(group.day)
+            return (
+              <Box key={group.day} sx={{ mb: 1 }}>
+                <Box
+                  onClick={() => toggleDay(group.day)}
+                  sx={{
+                    display: 'flex', alignItems: 'center', gap: 0.4,
+                    px: 0.75, pt: 0.75, pb: 0.25,
+                    cursor: 'pointer', userSelect: 'none', borderRadius: 1,
+                    '&:hover .day-label': { color: 'text.secondary' },
+                  }}
+                >
+                  <KeyboardArrowDown sx={{
+                    fontSize: '0.95rem', color: 'text.disabled',
+                    transform: collapsed ? 'rotate(-90deg)' : 'none',
+                    transition: 'transform 0.15s',
+                  }} />
+                  <Typography className="day-label" sx={{
+                    fontSize: '0.6rem', fontWeight: 800, color: 'text.disabled',
+                    textTransform: 'uppercase', letterSpacing: 1,
+                    transition: 'color 0.12s',
+                  }}>
+                    {fmtMoveDay(group.day)}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', ml: 'auto', pr: 0.5 }}>
+                    {group.items.length} {group.items.length === 1 ? 'move' : 'moves'}
+                  </Typography>
+                </Box>
+                {!collapsed && group.items.map(m => (
+                  <MoveRowItem key={m.id} move={m} showDescription onPlayerClick={stampedPlayer} onTeamClick={stampedTeam} />
+                ))}
+              </Box>
+            )
+          })}
+          {shown.length === 0 && (
             <Typography sx={{ fontSize: '0.75rem', color: 'text.disabled', textAlign: 'center', py: 4 }}>
-              No notable moves in the last two weeks.
+              {filterTeam != null
+                ? `No moves for the ${TEAM_ABBR[filterTeam] ?? ''} in the last two weeks.`
+                : 'No notable moves in the last two weeks.'}
             </Typography>
           )}
         </Box>
