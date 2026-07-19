@@ -8,6 +8,7 @@ const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ defa
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
 import { useIsDark, borderAlpha, cardGradient135, fmtGB, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
 import { TopPerformers } from './TopPerformers'
+import { RosterMovesCard } from './RosterMoves'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
 import { StandingsSnapshot } from './StandingsSnapshot'
@@ -361,6 +362,9 @@ export function HomeView({
 
           {/* Standout performances */}
           <TopPerformers onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+
+          {/* Roster moves — trades, DFAs, claims, signings; deadline countdown in July */}
+          <RosterMovesCard onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
 
           {/* Featured spotlight — hot / cold. No floating section title; the
               On Fire / Ice Cold cards below are self-labeling. */}

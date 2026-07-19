@@ -785,3 +785,66 @@ export async function fetchTeamPayrolls(season: number): Promise<Record<number, 
   if (error || !data?.length) return {}
   return Object.fromEntries(data.map(r => [Number(r.team_id), Number(r.payroll_m)]))
 }
+
+// ─── Roster moves (transactions feed) ─────────────────────────────────────────
+
+export interface RosterMove {
+  id:          number
+  playerId:    number
+  playerName:  string
+  fromTeamId:  number | null   // MLB club, or null when that side is a minor-league/other roster
+  toTeamId:    number | null
+  date:        string          // YYYY-MM-DD
+  typeCode:    string          // TR / DES / CLW / REL / SFA / SU
+  typeDesc:    string
+  description: string
+}
+
+// Move types worth surfacing. Everything else on the wire (options, recalls,
+// rehab assignments, draft signings, paper status changes) is daily churn.
+const NOTABLE_MOVE_TYPES = new Set(['TR', 'DES', 'CLW', 'REL', 'SFA', 'SU'])
+
+const ROSTER_MOVE_DAYS = 14
+
+let rosterMovesCache: Promise<RosterMove[]> | null = null
+
+export function fetchRosterMoves(): Promise<RosterMove[]> {
+  if (!rosterMovesCache) {
+    rosterMovesCache = computeRosterMoves().catch(e => { rosterMovesCache = null; throw e })
+  }
+  return rosterMovesCache
+}
+
+function localYmd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+async function computeRosterMoves(): Promise<RosterMove[]> {
+  const end   = new Date()
+  const start = new Date(end.getTime() - ROSTER_MOVE_DAYS * 86400000)
+  const r = await fetch(
+    `https://statsapi.mlb.com/api/v1/transactions?sportId=1&startDate=${localYmd(start)}&endDate=${localYmd(end)}`
+  )
+  const d = await r.json()
+  const moves: RosterMove[] = []
+  const seen = new Set<number>()
+  for (const t of d.transactions ?? []) {
+    if (!NOTABLE_MOVE_TYPES.has(t.typeCode) || !t.person?.id || seen.has(t.id)) continue
+    const fromId = t.fromTeam?.id && TEAM_ABBR[t.fromTeam.id] ? Number(t.fromTeam.id) : null
+    const toId   = t.toTeam?.id   && TEAM_ABBR[t.toTeam.id]   ? Number(t.toTeam.id)   : null
+    // The feed includes minor-league paper moves — keep only moves touching an MLB club.
+    if (fromId == null && toId == null) continue
+    seen.add(t.id)
+    moves.push({
+      id: t.id, playerId: Number(t.person.id), playerName: t.person.fullName ?? '?',
+      fromTeamId: fromId, toTeamId: toId,
+      date: t.date ?? '', typeCode: t.typeCode, typeDesc: t.typeDesc ?? '',
+      description: t.description ?? '',
+    })
+  }
+  // Newest first; trades outrank other moves from the same day.
+  moves.sort((a, b) =>
+    b.date.localeCompare(a.date) ||
+    Number(b.typeCode === 'TR') - Number(a.typeCode === 'TR'))
+  return moves
+}

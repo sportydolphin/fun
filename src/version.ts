@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.10.0'
+export const APP_VERSION = '1.11.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,25 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.11.0',
+    date:    '2026-07-18',
+    title:   'Roster moves and trade deadline countdown',
+    changes: [
+      {
+        short: 'New roster moves card on the home page',
+        full:  'The home page now has a Roster Moves card under Around the League showing the latest trades, DFAs, waiver claims, signings, and suspensions from the last two weeks. Tap a player to open their card, or a team logo to open that team.',
+      },
+      {
+        short: 'Trade deadline countdown',
+        full:  'Through July the Roster Moves card shows a countdown to the July 31 trade deadline, turning red in the final days.',
+      },
+      {
+        short: 'View all moves grouped by day',
+        full:  'View All on the Roster Moves card opens the full list grouped by day, with a short description of each move. The back button returns you to the open list after you visit a player or team from it.',
+      },
+    ],
+  },
   {
     version: '1.10.0',
     date:    '2026-07-18',

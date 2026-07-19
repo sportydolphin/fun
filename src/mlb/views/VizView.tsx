@@ -285,7 +285,7 @@ interface PlayerBoard {
   loading: boolean
 }
 
-function PlayerHeadshot({ playerId, name, size = 36, accent, highlighted }: {
+export function PlayerHeadshot({ playerId, name, size = 36, accent, highlighted }: {
   playerId: number; name: string; size?: number; accent?: string; highlighted?: boolean
 }) {
   return (
