@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.11.0'
+export const APP_VERSION = '1.11.1'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.11.1',
+    date:    '2026-07-18',
+    title:   'Faster streak report cards',
+    changes: [
+      {
+        short: 'Streak boards load from a nightly snapshot',
+        full:  'The player streak report cards in Visualize now load from a snapshot computed once a night instead of fetching a hundred game logs in your browser, so they open much faster. If the snapshot is missing or out of date, the boards still compute live like before.',
+      },
+    ],
+  },
   {
     version: '1.11.0',
     date:    '2026-07-18',

@@ -206,8 +206,29 @@ const STREAK_CANDIDATES = 50
 const streakCache = new Map<number, Promise<StreakLeaders>>()
 
 export function fetchStreakLeaders(season: number): Promise<StreakLeaders> {
-  if (!streakCache.has(season)) streakCache.set(season, computeStreakLeaders(season))
+  if (!streakCache.has(season)) streakCache.set(season, loadStreakLeaders(season))
   return streakCache.get(season)!
+}
+
+// A GitHub Action precomputes the boards nightly (scripts/update-streaks.mjs →
+// streak_leaders table, one jsonb row per season) so most visitors get one
+// Supabase read instead of ~100 game-log fetches. Stale or missing rows fall
+// back to the live computation below — keep the script's logic in sync with it.
+const STREAK_STALE_MS = 48 * 3600 * 1000
+
+async function loadStreakLeaders(season: number): Promise<StreakLeaders> {
+  try {
+    const { data } = await supabase
+      .from('streak_leaders')
+      .select('data, computed_at')
+      .eq('season', season)
+      .limit(1)
+    const row = data?.[0]
+    if (row?.data && Date.now() - new Date(row.computed_at).getTime() < STREAK_STALE_MS) {
+      return row.data as StreakLeaders
+    }
+  } catch { /* table missing or unreachable — compute live */ }
+  return computeStreakLeaders(season)
 }
 
 async function computeStreakLeaders(season: number): Promise<StreakLeaders> {
