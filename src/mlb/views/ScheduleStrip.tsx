@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from
 import { Box, Typography, useTheme } from '@mui/material'
 import { TEAM_ABBR, HEADSHOT, ACCENT } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
-import { FinalGameSummary } from './FinalGames'
+import { FinalGameSummary, GamePreviewModal, PreviewGame } from './FinalGames'
 import { GameCenterModal } from './LiveGameCenter'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../homeOverlay'
 
@@ -74,6 +74,20 @@ export interface GamePreviewData {
 export interface GameFinalDetails {
   winnerPitcher: { id: number; name: string; ip: string; er: number; teamId: number } | null
   loserPitcher:  { id: number; name: string; ip: string; er: number; teamId: number } | null
+}
+
+// Adapt a team-centric ScheduleGame into the shared PreviewGame shape so the schedule
+// surfaces render the exact same preview card as the scoreboard (which fetches its own
+// probable-starter data by gamePk).
+function scheduleGameToPreview(g: ScheduleGame, myTeamId: number): PreviewGame {
+  const mine = { teamId: myTeamId,     abbr: TEAM_ABBR[myTeamId] ?? '?' }
+  const opp  = { teamId: g.opponentId, abbr: g.opponentAbbr }
+  return {
+    gamePk:     g.gamePk,
+    statusText: g.state === 'postponed' ? 'Postponed' : `${chipDate(g.date)} · ${g.gameTime}`,
+    away: g.isHome ? opp : mine,
+    home: g.isHome ? mine : opp,
+  }
 }
 
 function formatIP(ip: string): string {
@@ -442,214 +456,6 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
   )
 }
 
-// ─── PitcherPanel ─────────────────────────────────────────────────────────────
-
-function PitcherPanel({ pitcher, teamId, side, onPlayerClick, onTeamClick }: {
-  pitcher:        ProbablePitcher | null
-  teamId:         number
-  side:           'Away' | 'Home'
-  onPlayerClick?: () => void
-  onTeamClick?:   () => void
-}) {
-  const isDark = useIsDark()
-  const col = ringColor(teamId, isDark)
-  return (
-    <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-      <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.2, color: 'text.disabled', lineHeight: 1 }}>
-        {side}
-      </Typography>
-
-      <Box
-        onClick={onTeamClick}
-        sx={{
-          width: 38, height: 38, borderRadius: '50%',
-          bgcolor: teamLogoBg(teamId, isDark), border: `2.5px solid ${col}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          overflow: 'hidden', flexShrink: 0,
-          boxShadow: `0 0 0 1px ${col}40`,
-          cursor: onTeamClick ? 'pointer' : 'default',
-          transition: 'transform 0.12s, box-shadow 0.12s',
-          '&:hover': onTeamClick ? { transform: 'scale(1.1)', boxShadow: `0 0 0 2px ${col}80` } : {},
-        }}
-      >
-        <Box component="img"
-          src={teamLogoSrc(teamId, isDark)}
-          sx={{ width: 26, height: 26, objectFit: 'contain', transform: teamLogoCrop(teamId, isDark), transformOrigin: 'center' }}
-        />
-      </Box>
-
-      {pitcher ? (
-        <>
-          <Box
-            onClick={onPlayerClick}
-            sx={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.6,
-              cursor: onPlayerClick ? 'pointer' : 'default',
-              '&:hover .pitcher-name': onPlayerClick ? { color: ACCENT } : {},
-              transition: 'opacity 0.12s',
-              '&:hover': onPlayerClick ? { opacity: 0.85 } : {},
-            }}
-          >
-            <Box sx={{ width: 72, height: 86, borderRadius: 2.5, overflow: 'hidden', border: `2px solid ${col}50`, bgcolor: 'action.hover', flexShrink: 0 }}>
-              <Box component="img" src={HEADSHOT(pitcher.id)} alt={pitcher.name}
-                sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }} />
-            </Box>
-            <Typography className="pitcher-name" sx={{
-              fontWeight: 700, fontSize: '0.88rem', lineHeight: 1.25, textAlign: 'center', px: 0.5,
-              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-              transition: 'color 0.12s',
-            }}>
-              {pitcher.name}
-            </Typography>
-          </Box>
-
-          <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', textAlign: 'center', lineHeight: 1, fontWeight: 600 }}>
-            {pitcher.hand === 'R' ? 'RHP' : pitcher.hand === 'L' ? 'LHP' : `${pitcher.hand}HP`}
-          </Typography>
-
-          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 0.25 }}>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, lineHeight: 1, color: 'text.primary' }}>{pitcher.era}</Typography>
-              <Typography sx={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', lineHeight: 1, mt: 0.3 }}>ERA</Typography>
-            </Box>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, lineHeight: 1, color: 'text.primary' }}>{pitcher.ip}</Typography>
-              <Typography sx={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', lineHeight: 1, mt: 0.3 }}>IP</Typography>
-            </Box>
-          </Box>
-        </>
-      ) : (
-        <>
-          <Box sx={{ width: 72, height: 86, borderRadius: 2.5, bgcolor: 'action.hover', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontWeight: 600 }}>TBD</Typography>
-          </Box>
-          <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', fontWeight: 600 }}>Starter TBD</Typography>
-        </>
-      )}
-    </Box>
-  )
-}
-
-// ─── GamePreviewModal ─────────────────────────────────────────────────────────
-
-function GamePreviewModal({ game, myTeamId, previewData, loading, onClose, onPlayerClick, onTeamClick }: {
-  game:           ScheduleGame
-  myTeamId:       number
-  previewData:    GamePreviewData | null
-  loading:        boolean
-  onClose:        () => void
-  onPlayerClick?: (id: number) => void
-  onTeamClick?:   (id: number) => void
-}) {
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
-  }, [onClose])
-
-  const handlePlayerClick = useCallback((id: number) => { onClose(); onPlayerClick?.(id) }, [onClose, onPlayerClick])
-  const handleTeamClick   = useCallback((id: number) => { onClose(); onTeamClick?.(id)   }, [onClose, onTeamClick])
-
-  const myAbbr  = TEAM_ABBR[myTeamId] ?? '?'
-  const oppAbbr = game.opponentAbbr
-  const awayAbbr = game.isHome ? oppAbbr : myAbbr
-  const homeAbbr = game.isHome ? myAbbr  : oppAbbr
-
-  const awayTeamId  = previewData?.away.teamId ?? (game.isHome ? game.opponentId : myTeamId)
-  const homeTeamId  = previewData?.home.teamId ?? (game.isHome ? myTeamId        : game.opponentId)
-  const awayPitcher = previewData?.away.pitcher ?? null
-  const homePitcher = previewData?.home.pitcher ?? null
-
-  return (
-    <Box
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      sx={{
-        position: 'fixed', inset: 0, zIndex: 1400,
-        bgcolor: 'rgba(0,0,0,0.55)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        p: 2,
-      }}
-    >
-      <Box sx={{
-        bgcolor: 'background.paper', borderRadius: 3,
-        border: '1px solid', borderColor: 'divider',
-        width: '100%', maxWidth: 460,
-        boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
-        overflow: 'hidden',
-      }}>
-        <Box sx={{ px: 3, py: 2, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 800, fontSize: '1.25rem', lineHeight: 1.2 }}>
-              {awayAbbr}
-              <Box component="span" sx={{ color: 'text.disabled', fontWeight: 400, mx: 1 }}>@</Box>
-              {homeAbbr}
-            </Typography>
-            <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: 0.4, lineHeight: 1.3 }}>
-              {chipDate(game.date)} · {game.state === 'postponed' ? 'Postponed' : game.gameTime}
-              {previewData?.venue ? ` · ${previewData.venue}` : ''}
-            </Typography>
-          </Box>
-          <Box
-            onClick={onClose}
-            sx={{
-              flexShrink: 0, width: 30, height: 30, borderRadius: '50%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: 'text.disabled',
-              '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
-              transition: 'background 0.12s, color 0.12s',
-            }}
-          >
-            <Typography sx={{ fontSize: '0.85rem', lineHeight: 1 }}>✕</Typography>
-          </Box>
-        </Box>
-
-        <Box sx={{ px: 3, py: 2.75 }}>
-          {loading ? (
-            <Box sx={{ py: 5, textAlign: 'center' }}>
-              <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled' }}>Loading game details…</Typography>
-            </Box>
-          ) : (
-            <>
-              <Typography sx={{
-                fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase',
-                letterSpacing: 1.5, color: 'text.disabled', mb: 2.5, textAlign: 'center',
-              }}>
-                Probable Starters
-              </Typography>
-
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                <PitcherPanel
-                  pitcher={awayPitcher} teamId={awayTeamId} side="Away"
-                  onPlayerClick={awayPitcher ? () => handlePlayerClick(awayPitcher.id) : undefined}
-                  onTeamClick={() => handleTeamClick(awayTeamId)}
-                />
-
-                <Box sx={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', pt: '66px' }}>
-                  <Typography sx={{ fontWeight: 900, fontSize: '0.9rem', color: 'text.disabled', lineHeight: 1 }}>@</Typography>
-                </Box>
-
-                <PitcherPanel
-                  pitcher={homePitcher} teamId={homeTeamId} side="Home"
-                  onPlayerClick={homePitcher ? () => handlePlayerClick(homePitcher.id) : undefined}
-                  onTeamClick={() => handleTeamClick(homeTeamId)}
-                />
-              </Box>
-
-              {previewData?.weatherDesc && (
-                <Box sx={{ mt: 3, pt: 1.75, borderTop: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
-                  <Typography sx={{ fontSize: '0.76rem', color: 'text.secondary' }}>
-                    {previewData.weatherDesc}
-                  </Typography>
-                </Box>
-              )}
-            </>
-          )}
-        </Box>
-      </Box>
-    </Box>
-  )
-}
-
 // ─── Countdown ────────────────────────────────────────────────────────────────
 
 // Ticks every second — cheap since at most one or two of these mount at a time.
@@ -884,8 +690,6 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
   const containerRef = useRef<HTMLDivElement>(null)
 
   const [selectedGame,   setSelectedGame]   = useState<ScheduleGame | null>(null)
-  const [previewData,    setPreviewData]     = useState<GamePreviewData | null>(null)
-  const [loadingPreview, setLoadingPreview]  = useState(false)
   const [canScrollLeft,  setCanScrollLeft]   = useState(false)
   const [canScrollRight, setCanScrollRight]  = useState(true)
 
@@ -917,14 +721,15 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
     containerRef.current?.scrollBy({ left: dir === 'right' ? 280 : -280, behavior: 'smooth' })
   }, [])
 
-  const handleChipClick = useCallback((g: ScheduleGame) => {
-    setSelectedGame(g)
-    setPreviewData(null)
-    setLoadingPreview(true)
-    fetchGamePreview(g.gamePk).then(setPreviewData).finally(() => setLoadingPreview(false))
-  }, [])
+  // The shared preview modal fetches its own probable-starter data by gamePk, so opening
+  // a game is just selecting it.
+  const handleChipClick = useCallback((g: ScheduleGame) => { setSelectedGame(g) }, [])
 
-  const handleClosePreview = useCallback(() => { setSelectedGame(null); setPreviewData(null) }, [])
+  const handleClosePreview = useCallback(() => { setSelectedGame(null) }, [])
+
+  // Index of the open game in the schedule, so the preview's ‹ › arrows can step to the
+  // adjacent (previous / next) scheduled game.
+  const selectedIdx = selectedGame ? games.findIndex(g => g.gamePk === selectedGame.gamePk) : -1
 
   // Arrow button style shared by both sides
   const arrowBtn = (visible: boolean) => ({
@@ -1038,13 +843,12 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
 
       {selectedGame && (
         <GamePreviewModal
-          game={selectedGame}
-          myTeamId={myTeamId}
-          previewData={previewData}
-          loading={loadingPreview}
+          game={scheduleGameToPreview(selectedGame, myTeamId)}
           onClose={handleClosePreview}
           onPlayerClick={id => { onClose(); onPlayerClick?.(id) }}
           onTeamClick={id => { onClose(); onTeamClick?.(id) }}
+          onPrev={selectedIdx > 0 ? () => handleChipClick(games[selectedIdx - 1]) : undefined}
+          onNext={selectedIdx >= 0 && selectedIdx < games.length - 1 ? () => handleChipClick(games[selectedIdx + 1]) : undefined}
         />
       )}
     </>
@@ -1577,8 +1381,6 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
   const [upcomingPreviewData, setUpcomingPreviewData] = useState<GamePreviewData | null>(null)
   // Modal state for tapping a game card
   const [modalGame,           setModalGame]           = useState<ScheduleGame | null>(null)
-  const [modalPreview,        setModalPreview]        = useState<GamePreviewData | null>(null)
-  const [modalLoading,        setModalLoading]        = useState(false)
   const [loadingUpcoming,     setLoadingUpcoming]     = useState(false)
   const [finalDetails,        setFinalDetails]        = useState<GameFinalDetails | null>(null)
   const [lastFinalDetails,    setLastFinalDetails]    = useState<GameFinalDetails | null>(null)
@@ -1607,17 +1409,18 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
   const now   = new Date()
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
-  // Back-from-Search restore: reopen the team-card modal the user cross-linked
-  // from. The recap (Game Center) is self-contained by gamePk; the preview modal
-  // needs its own fetch since its data isn't derivable from a bare game object.
+  // Open a game in the preview popup. The shared modal fetches its own probable-starter
+  // data by gamePk, so this is just selecting it. Shared by the tap handlers and the
+  // popup's ‹ › day-to-day arrows.
+  const openGameModal = useCallback((g: ScheduleGame) => { setModalGame(g) }, [])
+
+  // Back-from-Search restore: reopen the team-card modal the user cross-linked from.
   useEffect(() => {
     const o = getHomeOverlay()
     if (o?.kind === 'teamRecap') {
       setBoxScoreGame(o.game)
     } else if (o?.kind === 'teamPreview') {
       setModalGame(o.game)
-      setModalLoading(true)
-      fetchGamePreview(o.game.gamePk).then(setModalPreview).finally(() => setModalLoading(false))
     }
   }, [])
 
@@ -1769,8 +1572,6 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
             onClick={() => {
               if (isPreview) {
                 setModalGame(nextGame)
-                setModalPreview(previewData)
-                setModalLoading(loadingPreview)
               } else if (isFinal) {
                 setBoxScoreGame(gameToFinalSummary(nextGame, teamId))
               }
@@ -1793,7 +1594,7 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
               actionLabel={isPreview ? 'Preview →' : isFinal ? 'Recap →' : undefined}
               onAction={
                 isPreview
-                  ? () => { setModalGame(nextGame); setModalPreview(previewData); setModalLoading(loadingPreview) }
+                  ? () => setModalGame(nextGame)
                   : isFinal
                   ? () => setBoxScoreGame(gameToFinalSummary(nextGame, teamId))
                   : undefined
@@ -1851,18 +1652,14 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
               <Box sx={{ width: { xs: 'auto', sm: '1px' }, height: { xs: '1px', sm: 'auto' }, bgcolor: 'divider', flexShrink: 0 }} />
               {/* Upcoming game — whole card clickable, opens game preview modal */}
               <Box
-                onClick={() => {
-                  setModalGame(upcomingGame)
-                  setModalPreview(upcomingPreviewData)
-                  setModalLoading(loadingUpcoming)
-                }}
+                onClick={() => setModalGame(upcomingGame)}
                 sx={{ flex: 1, minWidth: 0, cursor: 'pointer', pl: { xs: 2.5, sm: 1.5 }, pr: 2.5, pt: { xs: 0.75, sm: 1.25 }, pb: { xs: 0.75, sm: 1.5 }, transition: 'background-color 0.12s', '&:hover': { bgcolor: 'action.hover' } }}
               >
                 <CompactGameCard
                   game={upcomingGame}
                   myTeamId={teamId}
                   actionLabel="Preview →"
-                  onAction={() => { setModalGame(upcomingGame); setModalPreview(upcomingPreviewData); setModalLoading(loadingUpcoming) }}
+                  onAction={() => setModalGame(upcomingGame)}
                   onTeamClick={onTeamClick}
                   rightSlot={
                     <CompactPitcherRow
@@ -1906,17 +1703,19 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
         />
       )}
 
-      {modalGame && (
-        <GamePreviewModal
-          game={modalGame}
-          myTeamId={teamId}
-          previewData={modalPreview}
-          loading={modalLoading}
-          onClose={() => { setModalGame(null); setModalPreview(null); clearOverlayIf('teamPreview') }}
-          onPlayerClick={stampOverlay({ kind: 'teamPreview', game: modalGame }, onPlayerClick)}
-          onTeamClick={stampOverlay({ kind: 'teamPreview', game: modalGame }, onTeamClick)}
-        />
-      )}
+      {modalGame && (() => {
+        const idx = games.findIndex(g => g.gamePk === modalGame.gamePk)
+        return (
+          <GamePreviewModal
+            game={scheduleGameToPreview(modalGame, teamId)}
+            onClose={() => { setModalGame(null); clearOverlayIf('teamPreview') }}
+            onPlayerClick={stampOverlay({ kind: 'teamPreview', game: modalGame }, onPlayerClick)}
+            onTeamClick={stampOverlay({ kind: 'teamPreview', game: modalGame }, onTeamClick)}
+            onPrev={idx > 0 ? () => openGameModal(games[idx - 1]) : undefined}
+            onNext={idx >= 0 && idx < games.length - 1 ? () => openGameModal(games[idx + 1]) : undefined}
+          />
+        )
+      })()}
 
       {boxScoreGame && (
         <GameCenterModal

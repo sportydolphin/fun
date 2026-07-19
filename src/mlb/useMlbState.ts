@@ -428,10 +428,15 @@ export function useMlbState() {
     }
   }, [])
 
-  // `restore` lets a browser-history pop reopen the exact season/career view the
-  // user had active (rather than selectPlayer's normal "most sensible default")
-  // — see the popstate handler below, which is the only caller that passes it.
-  const selectPlayer = useCallback(async (p: Player, restore?: { season?: number; statsView?: 'season' | 'career' }) => {
+  // `opts` carries two independent concerns:
+  //  • season/statsView — a browser-history pop reopening the exact view the user had
+  //    active (rather than selectPlayer's "most sensible default"); the popstate handler
+  //    is the only caller that passes these.
+  //  • recordRecent — add this player to the top-bar's recent searches. ONLY the explicit
+  //    search-bar selection passes it; cross-links (followed players, spotlight, rosters,
+  //    box scores, standings, …) must NOT pollute recents with players merely clicked
+  //    through from elsewhere.
+  const selectPlayer = useCallback(async (p: Player, opts?: { season?: number; statsView?: 'season' | 'career'; recordRecent?: boolean }) => {
     blockDropdownRef.current = true
     setDropdownOpen(false)
     setQuery(p.fullName)
@@ -441,7 +446,7 @@ export function useMlbState() {
     const groups: Array<'hitting' | 'pitching'> = isTwoWay ? ['hitting', 'pitching'] : isPitcher ? ['pitching'] : ['hitting']
     const [details, careerData] = await Promise.all([fetchPlayerDetails(p.id), fetchCareerData(p.id, groups)])
     const resolved = details ?? p
-    addRecentSearch({
+    if (opts?.recordRecent) addRecentSearch({
       type: 'player', id: resolved.id, name: resolved.fullName,
       teamId: resolved.currentTeam?.id, position: resolved.primaryPosition?.abbreviation,
     })
@@ -450,8 +455,8 @@ export function useMlbState() {
     // No stats this season (retired, injured, or hasn't played yet) → open on
     // career view instead of an empty current-season page. `seasons` is sorted
     // desc, so seasons[0] is the most recent season with stats.
-    const useCareer = restore?.statsView ? restore.statsView === 'career' : (isRetired || !seasons.includes(CURRENT_SEASON))
-    const initialSeason = restore?.season ?? (useCareer && seasons.length > 0 ? seasons[0] : CURRENT_SEASON)
+    const useCareer = opts?.statsView ? opts.statsView === 'career' : (isRetired || !seasons.includes(CURRENT_SEASON))
+    const initialSeason = opts?.season ?? (useCareer && seasons.length > 0 ? seasons[0] : CURRENT_SEASON)
     const paletteTeamId = initialSeason === CURRENT_SEASON ? resolved.currentTeam?.id : (tids.get(initialSeason) ?? resolved.currentTeam?.id)
     setPalette(teamPalette(paletteTeamId))
     setPlayer(resolved)
@@ -467,11 +472,11 @@ export function useMlbState() {
     await loadStats(resolved, initialSeason)
   }, [loadStats, addRecentSearch])
 
-  const selectTeam = useCallback(async (t: Team) => {
+  const selectTeam = useCallback(async (t: Team, opts?: { recordRecent?: boolean }) => {
     blockDropdownRef.current = true
     setDropdownOpen(false)
     setQuery(t.name)
-    addRecentSearch({ type: 'team', id: t.id, name: t.name, teamId: t.id })
+    if (opts?.recordRecent) addRecentSearch({ type: 'team', id: t.id, name: t.name, teamId: t.id })
     setPalette(teamPalette(t.id))
     setTeam(t)
     setPlayer(null)
@@ -480,12 +485,33 @@ export function useMlbState() {
     await loadTeamStats(t, CURRENT_SEASON)
   }, [loadTeamStats, addRecentSearch])
 
+  // ─── History snapshots ────────────────────────────────────────────────────────
+  // Each history entry stores a self-describing snapshot of the view it represents.
+  // This is deliberate: popstate delivers the state of the entry you navigate TO, not
+  // the one you leave — so an entry must describe ITSELF (not "where it came from") for
+  // Back to restore the right screen. See the popstate handler + URL-sync effect below.
+  const currentHistoryState = useCallback((): Record<string, any> => {
+    if (player) return { view: 'search', playerId: player.id, season, statsView }
+    if (team)   return { view: 'search', teamId: team.id }
+    const s: Record<string, any> = { view }
+    if (view === 'leaderboard' || view === 'stats') { s.lb = lbGroup; s.allTime = statsAllTime }
+    return s
+  }, [player, team, season, statsView, view, lbGroup, statsAllTime])
+
+  // Stamp the active entry with the latest snapshot of the current view right before
+  // pushing a new one, so Back returns here with the exact sub-state (e.g. the season
+  // that was on screen) rather than a stale default.
+  const stampCurrentEntry = useCallback(() => {
+    window.history.replaceState(currentHistoryState(), '', window.location.href)
+  }, [currentHistoryState])
+
   const handleLbPlayerClick = useCallback((playerId: number) => {
-    window.history.pushState({ returnView: view }, '', window.location.href)
+    stampCurrentEntry()
+    window.history.pushState({ view: 'search', playerId }, '', window.location.href)
     fetchPlayerDetails(playerId).then(p => {
       if (p) { selectPlayer(p); setView('search') }
     }).catch(() => {})
-  }, [selectPlayer, view])
+  }, [selectPlayer, stampCurrentEntry])
 
   const handleSeasonChange = useCallback((s: number) => {
     setHighlightedGameDate(null)
@@ -506,22 +532,11 @@ export function useMlbState() {
   const handleStatCardClick = useCallback((statKey: string, group: 'hitting' | 'pitching', allTime = false) => {
     const defs = group === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS
     const def  = defs.find(d => d.key === statKey) ?? defs[0]
-    // Enrich the CURRENT (about-to-be-left) history entry with everything needed to
-    // fully restore it — not just "which view", but the exact player/season/career
-    // toggle. This matters because popstate delivers the state of the entry you land
-    // ON, not the one you're leaving: if the user reached this player via one or more
-    // prior cross-link pushes, this entry's state up to now only described how to get
-    // back to WHATEVER screen came before the player was selected. replaceState here
-    // (before the pushState below creates the new 'stats' entry) fixes that so a
-    // single Back press from the stats leaderboard returns exactly to this player,
-    // same season, same season/career toggle — not further back in the chain.
-    if (player) {
-      window.history.replaceState(
-        { view: 'search', playerId: player.id, season, statsView },
-        '', window.location.href,
-      )
-    }
-    window.history.pushState({ returnView: view }, '', window.location.href)
+    // Stamp the player entry we're leaving with its full snapshot (exact player, season,
+    // and season/career toggle) so a single Back from the stats leaderboard returns
+    // right here — then push the destination 'stats' entry.
+    stampCurrentEntry()
+    window.history.pushState({ view: 'stats', lb: group, allTime }, '', window.location.href)
     setView('stats')
     setLbGroup(group)
     setStatsAllTime(allTime)
@@ -531,28 +546,31 @@ export function useMlbState() {
     setLbStatsLimit(500)
     setStatsHighlightPlayerId(player?.id ?? null)
     setStatsHighlightStatKey(statKey)
-  }, [player, season, statsView, view])
+  }, [player, season, statsView, stampCurrentEntry])
 
   const handleFollowedPlayerClick = useCallback((playerId: number) => {
-    window.history.pushState({ returnView: view }, '', window.location.href)
+    stampCurrentEntry()
+    window.history.pushState({ view: 'search', playerId }, '', window.location.href)
     fetchPlayerDetails(playerId)
       .then(p => { if (p) { selectPlayer(p); setView('search') } })
       .catch(() => {})
-  }, [selectPlayer, view])
+  }, [selectPlayer, stampCurrentEntry])
 
   const handleTeamSearchClick = useCallback((teamId: number) => {
     const t = allTeams.find(t => t.id === teamId)
     if (!t) return
-    window.history.pushState({ returnView: view }, '', window.location.href)
+    stampCurrentEntry()
+    window.history.pushState({ view: 'search', teamId }, '', window.location.href)
     selectTeam(t).then(() => setView('search'))
-  }, [allTeams, selectTeam, view])
+  }, [allTeams, selectTeam, stampCurrentEntry])
 
   const handleVizNavigate = useCallback((id: number) => {
     const t = allTeams.find(t => t.id === id)
     if (!t) return
-    window.history.pushState({ returnView: view }, '', window.location.href)
+    stampCurrentEntry()
+    window.history.pushState({ view: 'search', teamId: id }, '', window.location.href)
     selectTeam(t).then(() => setView('search'))
-  }, [allTeams, selectTeam, view])
+  }, [allTeams, selectTeam, stampCurrentEntry])
 
   // ─── Effects: player-level data ───────────────────────────────────────────────
 
@@ -618,34 +636,47 @@ export function useMlbState() {
       else if (vizSeason !== CURRENT_SEASON) params.set('season', String(vizSeason))
     }
     const qs = params.toString()
-    // Preserve the existing history-entry state (e.g. returnView pushed by a
-    // cross-link click) — replaceState only needs to touch the URL.
-    window.history.replaceState(window.history.state, '', `/mlb${qs ? '?' + qs : ''}`)
-  }, [view, player, team, lbGroup, vizSeason, statsAllTime])
+    // Re-stamp the active entry with a self-describing snapshot of the view it now
+    // shows (not just the URL). This is what makes Back work: whichever entry you later
+    // land on carries an accurate description of its own screen, so popstate can restore
+    // it directly. (popstate hands you the state of the entry you arrive at, never the
+    // one you leave — so "where I came from" state is useless here.)
+    window.history.replaceState(currentHistoryState(), '', `/mlb${qs ? '?' + qs : ''}`)
+  }, [view, player, team, lbGroup, vizSeason, statsAllTime, currentHistoryState])
 
   // Restore state when the browser back button is pressed
   useEffect(() => {
     const handlePop = (e: PopStateEvent) => {
-      // Richest case: a self-describing search-view snapshot (see handleStatCardClick,
-      // which replaceStates this onto the entry right before pushing a stat-leaderboard
-      // jump). Restores the exact player + season + season/career toggle, not just the
-      // view — so Back from the stats leaderboard lands exactly back where you were.
-      if (e.state?.view === 'search' && e.state.playerId) {
-        setStatsHighlightPlayerId(null)
-        setStatsHighlightStatKey(null)
-        setView('search')
-        fetchPlayerDetails(e.state.playerId).then(p => {
-          if (p) selectPlayer(p, { season: e.state.season, statsView: e.state.statsView })
-        }).catch(() => {})
-        return
-      }
-
-      // Most reliable: use the returnView we encoded in pushState
-      if (e.state?.returnView) {
-        const rv = e.state.returnView as string
-        setView(rv as any)
+      // Primary path: restore from the self-describing snapshot stamped on this entry
+      // (see currentHistoryState + the URL-sync effect). Each entry describes the screen
+      // it IS, so we can rebuild it exactly — this is what makes Back land where you'd
+      // expect regardless of how you got there.
+      const s = e.state as Record<string, any> | null
+      if (s && (s.playerId || s.teamId || s.view)) {
+        // Player snapshot — restore the exact player, season, and season/career toggle.
+        if (s.playerId) {
+          setStatsHighlightPlayerId(null)
+          setStatsHighlightStatKey(null)
+          setView('search')
+          fetchPlayerDetails(s.playerId).then(p => {
+            if (p) selectPlayer(p, { season: s.season, statsView: s.statsView })
+          }).catch(() => {})
+          return
+        }
+        // Team snapshot.
+        if (s.teamId) {
+          setView('search')
+          const t = allTeams.find(t => t.id === s.teamId)
+          if (t) { blockDropdownRef.current = true; setQuery(t.name); selectTeam(t) }
+          else { setPlayer(null); setTeam(null) }
+          return
+        }
+        // Plain view snapshot (home / standings / viz / leaderboard / stats / empty search).
+        setView(s.view)
         setPlayer(null)
         setTeam(null)
+        if (s.view === 'leaderboard' || s.view === 'stats') setLbGroup(s.lb === 'pitching' ? 'pitching' : 'hitting')
+        if (s.view === 'stats') setStatsAllTime(!!s.allTime)
         return
       }
 
@@ -733,13 +764,36 @@ export function useMlbState() {
     if (pid) {
       autoLoadedRef.current = true
       fetchPlayerDetails(Number(pid)).then(p => { if (p) selectPlayer(p) }).catch(() => {})
-    } else if (tid && allTeams.length > 0) {
+    } else if (tid) {
+      // Wait for the team list before resolving a ?tid= deep link — this effect
+      // re-runs once allTeams arrives. Until then, leave autoLoadedRef false so the
+      // URL-sync effect can't wipe the ?tid= before selectTeam runs.
+      if (allTeams.length > 0) {
+        autoLoadedRef.current = true
+        const t = allTeams.find(t => t.id === Number(tid))
+        if (t) selectTeam(t)
+      }
+    } else {
+      // No pid/tid deep-link to restore (e.g. a home-first session). There's nothing
+      // to load, but we still MUST mark auto-load complete so the URL-sync effect
+      // activates. Otherwise the address bar stays frozen at the initial URL and every
+      // cross-link click (followed player, standout, spotlight, …) leaves the URL
+      // unchanged — so the browser Back button can't return to Home.
+      // The search tab shows a "search for a player" prompt rather than auto-loading a
+      // random showcase player (which polluted recent searches + the URL).
       autoLoadedRef.current = true
-      const t = allTeams.find(t => t.id === Number(tid))
-      if (t) selectTeam(t)
+      // Stamp the landing entry with a self-describing snapshot so a later Back that
+      // returns here restores it. Built from the URL's view param, not React state —
+      // the setView() above is async, so `view` is still the pre-render value here.
+      const vp = params.get('view')
+      const initView = vp && ['home','search','viz','leaderboard','standings','stats'].includes(vp) ? vp : view
+      const snap: Record<string, any> = { view: initView }
+      if (initView === 'leaderboard' || initView === 'stats') {
+        snap.lb = params.get('lb') === 'pitching' ? 'pitching' : 'hitting'
+        snap.allTime = params.get('season') === 'all'
+      }
+      window.history.replaceState(snap, '', window.location.href)
     }
-    // No pid/tid: the search tab shows a "search for a player" prompt rather than
-    // auto-loading a random showcase player (which polluted recent searches + the URL).
   }, [allTeams, selectPlayer, selectTeam, view])
 
   // ─── Memos: derived data ──────────────────────────────────────────────────────
@@ -858,6 +912,7 @@ export function useMlbState() {
 
     // View & navigation
     view, setView,
+    stampCurrentEntry,
     vizSeason, setVizSeason,
     vizDefaultTab, setVizDefaultTab,
     seasonSelectorStyle, setSeasonSelectorStyle,

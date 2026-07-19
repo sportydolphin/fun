@@ -162,6 +162,120 @@ export async function fetchLeaderboardData(
   }
 }
 
+// ─── Active streak leaders (computed from game logs) ─────────────────────────
+// MLB StatsAPI has no streak stat type, so we derive current streaks from each
+// candidate's game log. Candidates are the most-used regulars (hitters by games
+// played, pitchers by innings pitched) — the real streak leaders are always among
+// them, and this keeps us from fetching a game log for all ~2000 players.
+
+export interface StreakRow {
+  playerId: number
+  playerName: string
+  teamAbbr: string
+  teamId: number
+  value: number   // games (hitting / hitless) or outs (scoreless)
+}
+
+export interface StreakLeaders {
+  hitting: StreakRow[]
+  hitless: StreakRow[]
+  scoreless: StreakRow[]
+}
+
+// "5.1" innings → 16 outs. StatsAPI encodes thirds of an inning as .1 / .2.
+function ipToOuts(ip: string | number | undefined): number {
+  const [whole, frac] = String(ip ?? '0').split('.')
+  return (Number(whole) || 0) * 3 + (Number(frac) || 0)
+}
+
+function fetchGameLog(id: number, group: 'hitting' | 'pitching', season: number): Promise<any[]> {
+  return fetch(`https://statsapi.mlb.com/api/v1/people/${id}/stats?stats=gameLog&group=${group}&season=${season}&sportId=1`)
+    .then(r => r.json())
+    .then((d: any) => {
+      const splits = (d.stats?.[0]?.splits ?? []).filter((s: any) => s.gameType === 'R')
+      // Game logs are normally chronological, but sort defensively so the last
+      // element is reliably the most recent game.
+      splits.sort((a: any, b: any) => (a.date ?? '').localeCompare(b.date ?? ''))
+      return splits
+    })
+    .catch(() => [])
+}
+
+const STREAK_CANDIDATES = 50
+
+const streakCache = new Map<number, Promise<StreakLeaders>>()
+
+export function fetchStreakLeaders(season: number): Promise<StreakLeaders> {
+  if (!streakCache.has(season)) streakCache.set(season, computeStreakLeaders(season))
+  return streakCache.get(season)!
+}
+
+async function computeStreakLeaders(season: number): Promise<StreakLeaders> {
+  const meta = (s: any): StreakRow => ({
+    playerId: Number(s.player?.id),
+    playerName: s.player?.fullName ?? '—',
+    teamAbbr: s.team?.abbreviation ?? TEAM_ABBR[s.team?.id] ?? '—',
+    teamId: Number(s.team?.id) || 0,
+    value: 0,
+  })
+
+  const [hitters, pitchers] = await Promise.all([
+    fetchSeasonPlayerStats('hitting', season),
+    fetchSeasonPlayerStats('pitching', season),
+  ])
+
+  const hitCandidates = [...hitters]
+    .filter(s => Number(s.stat?.atBats ?? 0) > 0 && Number(s.player?.id) > 0)
+    .sort((a, b) => Number(b.stat?.gamesPlayed ?? 0) - Number(a.stat?.gamesPlayed ?? 0))
+    .slice(0, STREAK_CANDIDATES)
+  const pitchCandidates = [...pitchers]
+    .filter(s => Number(s.player?.id) > 0)
+    .sort((a, b) => parseFloat(b.stat?.inningsPitched ?? '0') - parseFloat(a.stat?.inningsPitched ?? '0'))
+    .slice(0, STREAK_CANDIDATES)
+
+  const [hitLogs, pitchLogs] = await Promise.all([
+    Promise.all(hitCandidates.map(c => fetchGameLog(Number(c.player.id), 'hitting', season).then(log => ({ m: meta(c), log })))),
+    Promise.all(pitchCandidates.map(c => fetchGameLog(Number(c.player.id), 'pitching', season).then(log => ({ m: meta(c), log })))),
+  ])
+
+  const hitting: StreakRow[] = []
+  const hitless: StreakRow[] = []
+  for (const { m, log } of hitLogs) {
+    let mode: 'hit' | 'hitless' | null = null
+    let games = 0   // consecutive games in the streak
+    let pa = 0      // plate appearances accumulated across those games (for the hitless board)
+    for (let i = log.length - 1; i >= 0; i--) {
+      const ab = Number(log[i].stat?.atBats ?? 0)
+      if (ab === 0) continue   // no official at-bat: never extends or breaks a streak
+      const got = Number(log[i].stat?.hits ?? 0) > 0
+      const gamePa = Number(log[i].stat?.plateAppearances ?? ab)
+      if (mode === null) { mode = got ? 'hit' : 'hitless'; games = 1; pa = gamePa; continue }
+      if ((got && mode === 'hit') || (!got && mode === 'hitless')) { games++; pa += gamePa }
+      else break
+    }
+    // Hitting streaks are measured in games; hitless droughts in plate appearances.
+    if (mode === 'hit' && games >= 2) hitting.push({ ...m, value: games })
+    else if (mode === 'hitless' && games >= 2) hitless.push({ ...m, value: pa })
+  }
+
+  const scoreless: StreakRow[] = []
+  for (const { m, log } of pitchLogs) {
+    let outs = 0
+    for (let i = log.length - 1; i >= 0; i--) {
+      if (Number(log[i].stat?.runs ?? 0) === 0) outs += ipToOuts(log[i].stat?.inningsPitched)
+      else break
+    }
+    if (outs >= 3) scoreless.push({ ...m, value: outs })   // at least one full scoreless inning
+  }
+
+  const byValue = (a: StreakRow, b: StreakRow) => b.value - a.value
+  return {
+    hitting: hitting.sort(byValue).slice(0, 25),
+    hitless: hitless.sort(byValue).slice(0, 25),
+    scoreless: scoreless.sort(byValue).slice(0, 25),
+  }
+}
+
 // ─── All-time (career) leaderboard ──────────────────────────────────────────────
 // The career-stats endpoint holds ~22k players — far too many to fetch and sort
 // client-side. Instead we ask the API for the true career leaders of each headline

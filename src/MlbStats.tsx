@@ -27,20 +27,21 @@ export default function MlbStats() {
   }, [bridge.query]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Push current result state + selection handlers up to the toolbar bridge
-  const handleBridgeSelect = useCallback((fn: () => void) => {
-    window.history.pushState({ returnView: state.view }, '', window.location.href)
+  const handleBridgeSelect = useCallback((fn: () => void, dest: Record<string, any>) => {
+    state.stampCurrentEntry()
+    window.history.pushState(dest, '', window.location.href)
     fn()
     setSearchQuery('')
     state.setView('search')
-  }, [state.view, state.setView]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state.stampCurrentEntry, state.setView]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     updateSearchBridge({
       playerResults: state.playerResults,
       teamResults: state.teamResults,
       searching: state.searching,
-      handleSelectPlayer: p => handleBridgeSelect(() => state.selectPlayer(p as any)),
-      handleSelectTeam: t => handleBridgeSelect(() => state.selectTeam(t as any)),
+      handleSelectPlayer: p => handleBridgeSelect(() => state.selectPlayer(p as any, { recordRecent: true }), { view: 'search', playerId: (p as any).id }),
+      handleSelectTeam: t => handleBridgeSelect(() => state.selectTeam(t as any, { recordRecent: true }), { view: 'search', teamId: (t as any).id }),
       isRegistered: true,
     })
   }, [state.playerResults, state.teamResults, state.searching, handleBridgeSelect]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -112,7 +113,8 @@ export default function MlbStats() {
             // A deliberate tab navigation is a fresh start — never let a stale
             // Home modal reopen from a prior Back-restore path (see homeOverlay).
             clearHomeOverlay()
-            window.history.pushState({ returnView: state.view }, '', window.location.href)
+            state.stampCurrentEntry()
+            window.history.pushState({ view: v }, '', window.location.href)
             state.setView(v as any)
           }}
         />
@@ -130,7 +132,8 @@ export default function MlbStats() {
           onPlayerClick={state.handleFollowedPlayerClick}
           onTeamClick={state.handleTeamSearchClick}
           onViz={() => {
-            window.history.pushState({ returnView: state.view }, '', window.location.href)
+            state.stampCurrentEntry()
+            window.history.pushState({ view: 'viz' }, '', window.location.href)
             state.setVizDefaultTab('report-card')
             state.setView('viz')
             // Land at the top of the report cards, not wherever the home page was scrolled.
@@ -151,6 +154,7 @@ export default function MlbStats() {
           loadingViz={state.loadingViz}
           nameMap={state.nameMap}
           handleVizNavigate={state.handleVizNavigate}
+          handleLbPlayerClick={state.handleLbPlayerClick}
           canHover={canHover}
           defaultTab={state.vizDefaultTab}
         />

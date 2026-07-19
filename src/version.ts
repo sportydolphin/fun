@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.9.0'
+export const APP_VERSION = '1.10.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,33 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.10.0',
+    date:    '2026-07-18',
+    title:   'Player streak boards',
+    changes: [
+      {
+        short: 'New report cards for player streaks',
+        full:  'The report cards in Visualize now include three player boards: active hitting streaks, scoreless inning streaks for pitchers, and hitless slumps. Each row shows the player photo and team, and tapping a player opens their card.',
+      },
+      {
+        short: 'Schedule game previews match the scoreboard',
+        full:  'Opening an upcoming game from the team schedule now shows the same preview card you get from the scoreboard, with the probable starters for both sides.',
+      },
+      {
+        short: 'Back button restores screens more exactly',
+        full:  'Going back now returns you to the exact leaderboard or stats view you had, including the group and all time toggle, and to the same season or career view on a player page.',
+      },
+      {
+        short: 'Recent searches only record real selections',
+        full:  'Players and teams you reach with the back button or by browsing no longer get added to your recent searches. Only picks you make from the search bar are recorded.',
+      },
+      {
+        short: 'Fixed misplaced season arrows on desktop',
+        full:  'The previous and next season arrows beside the year on a player card no longer drift out of position on desktop.',
+      },
+    ],
+  },
   {
     version: '1.9.0',
     date:    '2026-07-17',

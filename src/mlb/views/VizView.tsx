@@ -9,7 +9,7 @@ import { ACCENT, TEAM_BG, TEAM_ABBR, TEAM_SEASONS, CURRENT_SEASON } from '../con
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder } from '../colorUtils'
 import { pillActionSx } from '../ui'
 import { TeamEraOpsPlot, TeamWinRDPlot, PayrollWinsPlot } from '../charts'
-import { fetchStrengthOfSchedule, fetchTeamPayrolls, fetchTeamAverageAges } from '../api'
+import { fetchStrengthOfSchedule, fetchTeamPayrolls, fetchTeamAverageAges, fetchStreakLeaders, StreakLeaders, StreakRow } from '../api'
 import { TEAM_PAYROLLS_2026 } from '../constants'
 
 // ─── Leaderboard row model — shared by every Report Card board ───────────────
@@ -262,6 +262,238 @@ export function LeaderboardModal({ open, onClose, icon, title, subtitle, accent,
   )
 }
 
+// ─── Player report cards — headshot rows for the active-streak boards ─────────
+
+export interface PlayerLbRow {
+  playerId: number
+  playerName: string
+  teamId: number
+  teamAbbr: string
+  value: string
+  barFraction: number   // 0..1
+  label?: string        // snarky verdict — only shown in the 3-row mini card
+}
+
+interface PlayerBoard {
+  id: string
+  icon: string
+  title: string
+  subtitle: string
+  accent: string
+  tooltipText?: string
+  rows: PlayerLbRow[]
+  loading: boolean
+}
+
+function PlayerHeadshot({ playerId, name, size = 36, accent, highlighted }: {
+  playerId: number; name: string; size?: number; accent?: string; highlighted?: boolean
+}) {
+  return (
+    <Box
+      component="img"
+      src={`https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${playerId}/headshot/67/current`}
+      alt={name}
+      sx={{
+        width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0,
+        bgcolor: 'action.hover',
+        boxShadow: highlighted && accent ? `0 0 0 2.5px ${accent}` : '0 0 0 1px rgba(128,128,128,0.25)',
+      }}
+    />
+  )
+}
+
+export function PlayerLeaderboardRowItem({ row, rank, accent, showLabel, onSelect }: {
+  row: PlayerLbRow; rank: number; accent: string; showLabel: boolean; onSelect?: (id: number) => void
+}) {
+  return (
+    <Box
+      onClick={onSelect ? () => onSelect(row.playerId) : undefined}
+      sx={{
+        display: 'flex', alignItems: 'center', gap: 1.25,
+        py: 0.9, px: 0.75, borderRadius: 2,
+        ...(onSelect ? { cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } } : {}),
+        transition: 'background-color 0.15s',
+      }}
+    >
+      <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', fontWeight: 700, width: 16, textAlign: 'right', flexShrink: 0 }}>
+        {rank}
+      </Typography>
+
+      <PlayerHeadshot playerId={row.playerId} name={row.playerName} accent={accent} />
+
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {row.playerName}
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.15 }}>
+          {row.teamId > 0 && (
+            <Box sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+              <Box
+                component="img"
+                src={`https://www.mlbstatic.com/team-logos/${row.teamId}.svg`}
+                alt={row.teamAbbr}
+                sx={{ width: 11, height: 11, objectFit: 'contain' }}
+                onError={(ev: React.SyntheticEvent<HTMLImageElement>) => { ev.currentTarget.parentElement!.style.display = 'none' }}
+              />
+            </Box>
+          )}
+          <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, lineHeight: 1 }}>
+            {row.teamAbbr}
+          </Typography>
+        </Box>
+      </Box>
+
+      <Box sx={{ width: 80, flexShrink: 0 }}>
+        <Box sx={{ height: 5, bgcolor: 'action.hover', borderRadius: 1, overflow: 'hidden', mb: 0.5 }}>
+          <Box sx={{ height: '100%', width: `${Math.max(row.barFraction, 0) * 100}%`, bgcolor: accent, borderRadius: 1, opacity: 0.85, transition: 'width 0.3s' }} />
+        </Box>
+        <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color: accent, textAlign: 'right', lineHeight: 1 }}>
+          {row.value}
+        </Typography>
+      </Box>
+
+      {showLabel && (
+        <Typography sx={{
+          fontSize: '0.54rem', fontWeight: 800, color: accent,
+          width: 76, flexShrink: 0, textAlign: 'right',
+          letterSpacing: '0.3px', lineHeight: 1.25,
+          textTransform: 'uppercase',
+        }}>
+          {row.label ?? ''}
+        </Typography>
+      )}
+    </Box>
+  )
+}
+
+export function PlayerLeaderboardCard({ icon, title, subtitle, accent, tooltipText, rows, loading, onExpand, onSelectPlayer }: Omit<PlayerBoard, 'id'> & {
+  onExpand: () => void
+  onSelectPlayer?: (id: number) => void
+}) {
+  const top3 = rows.slice(0, 3)
+  const isDark = useIsDark()
+  return (
+    <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: defaultBorder(isDark), bgcolor: 'background.paper', overflow: 'hidden' }}>
+      {/* Header */}
+      <Box sx={{ px: 2, py: 1.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>{icon} {title}</Typography>
+            {tooltipText && (
+              <Tooltip arrow placement="top" title={
+                <Box sx={{ maxWidth: 270, p: 0.5 }}>
+                  <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
+                  <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>{tooltipText}</Typography>
+                </Box>
+              }>
+                <InfoOutlined sx={{ fontSize: '0.88rem', color: 'text.disabled', cursor: 'help' }} />
+              </Tooltip>
+            )}
+          </Box>
+          <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.1 }}>{subtitle}</Typography>
+        </Box>
+        <Tooltip title="View all players" arrow placement="top">
+          <IconButton size="small" onClick={onExpand} sx={{ color: 'text.disabled', '&:hover': { color: ACCENT } }}>
+            <OpenInFull sx={{ fontSize: '1rem' }} />
+          </IconButton>
+        </Tooltip>
+      </Box>
+
+      {/* Rows */}
+      <Box sx={{ px: 0.5, py: 0.5 }}>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+            <CircularProgress size={22} sx={{ color: ACCENT }} />
+          </Box>
+        ) : top3.length === 0 ? (
+          <Typography sx={{ textAlign: 'center', py: 2.5, fontSize: '0.72rem', color: 'text.disabled' }}>
+            No active streaks
+          </Typography>
+        ) : (
+          top3.map((row, idx) => (
+            <PlayerLeaderboardRowItem key={row.playerId} row={row} rank={idx + 1} accent={accent} showLabel onSelect={onSelectPlayer} />
+          ))
+        )}
+      </Box>
+    </Box>
+  )
+}
+
+export function PlayerLeaderboardModal({ open, onClose, icon, title, subtitle, accent, rows, onSelectPlayer }: {
+  open: boolean
+  onClose: () => void
+  icon?: string
+  title?: string
+  subtitle?: string
+  accent?: string
+  rows: PlayerLbRow[]
+  onSelectPlayer?: (id: number) => void
+}) {
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [open])
+
+  if (!open) return null
+  return (
+    <Box
+      sx={{ position: 'fixed', inset: 0, zIndex: 1300, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'rgba(0,0,0,0.55)', p: 2 }}
+      onClick={onClose}
+    >
+      <Box
+        sx={{
+          bgcolor: 'background.paper', borderRadius: 3, width: '100%', maxWidth: 540,
+          maxHeight: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.4)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <Box sx={{ px: 2.5, py: 1.75, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
+          <Box>
+            <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>{icon} {title}</Typography>
+            {subtitle && <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.1 }}>{subtitle}</Typography>}
+          </Box>
+          <IconButton size="small" onClick={onClose} sx={{ ml: 1, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
+            <Close sx={{ fontSize: '1.1rem' }} />
+          </IconButton>
+        </Box>
+        <Box sx={{ overflowY: 'auto', p: 1.5 }}>
+          {rows.map((row, idx) => (
+            <PlayerLeaderboardRowItem key={row.playerId} row={row} rank={idx + 1} accent={accent ?? ACCENT} showLabel={false} onSelect={onSelectPlayer} />
+          ))}
+        </Box>
+      </Box>
+    </Box>
+  )
+}
+
+// ─── Streak row builder — StreakRow[] (from the API) → display PlayerLbRow[] ───
+
+const HIT_STREAK_LABELS = ['ON FIRE', 'LOCKED IN', 'HEATING UP']
+const HITLESS_LABELS    = ['ICE COLD', 'LOST IT', 'IN A FUNK']
+const SCORELESS_LABELS  = ['UNTOUCHABLE', 'DEALING', 'FILTHY']
+
+function outsToIp(outs: number): string {
+  return `${Math.floor(outs / 3)}.${outs % 3}`
+}
+
+export function buildStreakRows(rows: StreakRow[], kind: 'hitting' | 'hitless' | 'scoreless'): PlayerLbRow[] {
+  if (!rows.length) return []
+  const max = rows[0].value || 1   // API returns each board pre-sorted desc by value
+  const labels = kind === 'hitting' ? HIT_STREAK_LABELS : kind === 'hitless' ? HITLESS_LABELS : SCORELESS_LABELS
+  return rows.map((r, idx) => ({
+    playerId: r.playerId,
+    playerName: r.playerName,
+    teamId: r.teamId,
+    teamAbbr: r.teamAbbr,
+    value: kind === 'scoreless' ? `${outsToIp(r.value)} IP` : kind === 'hitless' ? `${r.value} PA` : `${r.value} G`,
+    barFraction: r.value / max,
+    label: idx < labels.length ? labels[idx] : undefined,
+  }))
+}
+
 // ─── VizSubNav — in-page tab switcher ────────────────────────────────────────
 
 type VizTab = 'graphs' | 'report-card'
@@ -431,12 +663,13 @@ export interface VizViewProps {
   loadingViz: boolean
   nameMap: Map<number, string>
   handleVizNavigate: (id: number) => void
+  handleLbPlayerClick: (id: number) => void
   canHover: boolean
 }
 
 export function VizView({
   vizSeason, setVizSeason, teamSummaries, loadingViz,
-  nameMap, handleVizNavigate, canHover, defaultTab = 'report-card',
+  nameMap, handleVizNavigate, handleLbPlayerClick, canHover, defaultTab = 'report-card',
 }: VizViewProps & { defaultTab?: VizTab }) {
   const [vizTab, setVizTab]           = useState<VizTab>(defaultTab)
   const [vizHighlightId, setVizHighlightId] = useState<number | null>(null)
@@ -457,6 +690,11 @@ export function VizView({
 
   // ─── Payroll state — live from Supabase, falls back to hardcoded constant ─
   const [payrolls, setPayrolls] = useState<Record<number, number>>(TEAM_PAYROLLS_2026)
+
+  // ─── Active-streak state — the player report cards (computed from game logs) ─
+  const [streaks, setStreaks]             = useState<StreakLeaders | null>(null)
+  const [loadingStreaks, setLoadingStreaks] = useState(false)
+  const [expandedPlayerBoard, setExpandedPlayerBoard] = useState<string | null>(null)
 
   // Only load SOS / payrolls for the current season (past seasons have no data)
   const showSos = vizSeason === CURRENT_SEASON
@@ -496,6 +734,19 @@ export function VizView({
       })
       .catch(() => { if (!cancelled) setAgeEntries([]) })
       .finally(() => { if (!cancelled) setLoadingAges(false) })
+    return () => { cancelled = true }
+  }, [vizSeason, showSos])
+
+  // Active streaks only make sense for the live season — past seasons are over,
+  // so their "current" streak is just wherever the player finished the year.
+  useEffect(() => {
+    if (!showSos) { setStreaks(null); setExpandedPlayerBoard(null); return }
+    let cancelled = false
+    setLoadingStreaks(true)
+    fetchStreakLeaders(vizSeason)
+      .then(d => { if (!cancelled) setStreaks(d) })
+      .catch(() => { if (!cancelled) setStreaks(null) })
+      .finally(() => { if (!cancelled) setLoadingStreaks(false) })
     return () => { cancelled = true }
   }, [vizSeason, showSos])
 
@@ -567,6 +818,30 @@ export function VizView({
   ]
 
   const activeBoard = boards.find(b => b.id === expandedBoard) ?? null
+
+  // ─── Player report cards — active streaks (current season only) ────────────
+  const playerBoards: PlayerBoard[] = showSos ? [
+    {
+      id: 'hit-streak', icon: '🔥', title: 'Hitting Streaks', accent: '#f97316',
+      subtitle: 'Longest active hitting streaks',
+      tooltipText: 'Each hitter\'s current run of consecutive games with at least one hit. Games with no official at-bat (all walks or HBP) don\'t break the streak. Computed live from the game logs of the league\'s most-used hitters.',
+      rows: buildStreakRows(streaks?.hitting ?? [], 'hitting'), loading: loadingStreaks,
+    },
+    {
+      id: 'scoreless', icon: '🧊', title: 'Scoreless Streaks', accent: '#38bdf8',
+      subtitle: 'Longest active scoreless-inning runs',
+      tooltipText: 'Innings pitched across each pitcher\'s current run of consecutive scoreless outings — the streak ends the last time they gave up a run. Computed live from game logs, so it counts whole scoreless appearances.',
+      rows: buildStreakRows(streaks?.scoreless ?? [], 'scoreless'), loading: loadingStreaks,
+    },
+    {
+      id: 'hitless', icon: '🥶', title: 'Hitless Streaks', accent: '#a78bfa',
+      subtitle: 'Longest active hitless droughts',
+      tooltipText: 'Each hitter\'s current run of consecutive games without a hit (0-fers), measured by the total plate appearances in the drought — the cold-streak flip side of the hitting-streak board. Games with no official at-bat are skipped.',
+      rows: buildStreakRows(streaks?.hitless ?? [], 'hitless'), loading: loadingStreaks,
+    },
+  ] : []
+
+  const activePlayerBoard = playerBoards.find(b => b.id === expandedPlayerBoard) ?? null
 
   return (
     <Box>
@@ -716,6 +991,15 @@ export function VizView({
             {/* ── Report Card panel (shown first; flex order places it on the left) ─ */}
             <Box sx={{ width: '50%', flexShrink: 0, minWidth: 0, order: 1 }}>
               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, columnGap: { md: 3 }, rowGap: 3 }}>
+                {playerBoards.map(board => (
+                  <Box key={board.id} sx={{ minWidth: 0 }}>
+                    <PlayerLeaderboardCard
+                      {...board}
+                      onExpand={() => setExpandedPlayerBoard(board.id)}
+                      onSelectPlayer={handleLbPlayerClick}
+                    />
+                  </Box>
+                ))}
                 {boards.map(board => (
                   <Box key={board.id} sx={{ minWidth: 0 }}>
                     <LeaderboardCard
@@ -746,6 +1030,18 @@ export function VizView({
         accent={activeBoard?.accent}
         rows={activeBoard?.rows ?? []}
         onSelectTeam={id => { setExpandedBoard(null); handleVizNavigate(id) }}
+      />
+
+      {/* ── Player streak fullscreen modal ────────────────────────────────── */}
+      <PlayerLeaderboardModal
+        open={activePlayerBoard != null}
+        onClose={() => setExpandedPlayerBoard(null)}
+        icon={activePlayerBoard?.icon}
+        title={activePlayerBoard ? `${activePlayerBoard.title} — Top ${activePlayerBoard.rows.length}` : undefined}
+        subtitle={activePlayerBoard?.subtitle}
+        accent={activePlayerBoard?.accent}
+        rows={activePlayerBoard?.rows ?? []}
+        onSelectPlayer={id => { setExpandedPlayerBoard(null); handleLbPlayerClick(id) }}
       />
     </Box>
   )

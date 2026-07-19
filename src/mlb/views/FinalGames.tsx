@@ -102,6 +102,16 @@ interface GamePreviewData {
   homePitcher:  ProbablePitcher | null
 }
 
+// Minimal game shape the shared preview modal needs. FinalGameSummary satisfies this
+// structurally (scoreboard), and the team ScheduleStrip builds one from its own game
+// objects — so both surfaces render the exact same preview card.
+export interface PreviewGame {
+  gamePk:     number
+  statusText: string
+  away: { teamId: number; abbr: string }
+  home: { teamId: number; abbr: string }
+}
+
 // ─── Date helpers (local, not UTC — avoids evening off-by-one) ──────────────────
 
 function toISO(d: Date): string {
@@ -757,49 +767,72 @@ export function TeamBoxSection({ team, onPlayerClick }: { team: TeamBox; onPlaye
 
 // ─── Game preview modal ───────────────────────────────────────────────────────
 
-function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick }: {
-  game: FinalGameSummary
+export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, onPrev, onNext }: {
+  game: PreviewGame
   onClose: () => void
   onPlayerClick?: (id: number) => void
   onTeamClick?:   (id: number) => void
+  // Jump to the previous / next scheduled game without leaving the popup. Undefined at
+  // the ends of the list (arrow hidden).
+  onPrev?: () => void
+  onNext?: () => void
 }) {
-  const [preview, setPreview] = useState<GamePreviewData | null>(null)
-  const [loading, setLoading] = useState(true)
-
+  // Tag the loaded data with the game it belongs to. When `game` switches (‹ › nav) the
+  // tag no longer matches, so `loading` flips true immediately — the skeleton shows in the
+  // very first frame instead of briefly re-showing the previous game's pitchers.
+  const [entry, setEntry] = useState<{ pk: number; data: GamePreviewData | null } | null>(null)
   useEffect(() => {
-    setLoading(true)
-    fetchGamePreview(game.gamePk).then(p => { setPreview(p); setLoading(false) })
+    let cancelled = false
+    fetchGamePreview(game.gamePk).then(d => { if (!cancelled) setEntry({ pk: game.gamePk, data: d }) })
+    return () => { cancelled = true }
   }, [game.gamePk])
+  const loading = !entry || entry.pk !== game.gamePk
+  const preview = loading ? null : entry!.data
 
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const h = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      else if (e.key === 'ArrowLeft'  && onPrev) { e.preventDefault(); onPrev() }
+      else if (e.key === 'ArrowRight' && onNext) { e.preventDefault(); onNext() }
+    }
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
-  }, [onClose])
+  }, [onClose, onPrev, onNext])
 
   const isDark = useIsDark()
 
-  function PitcherCard({ pitcher, team }: { pitcher: ProbablePitcher | null; team: FinalTeam }) {
+  // Shimmer placeholder block — reserves the pitcher card's full height while probable
+  // starters load, so stepping between games with ‹ › doesn't collapse then re-expand.
+  const shimmerSx = {
+    bgcolor: 'action.hover', borderRadius: 0.75,
+    '@keyframes pvPulse': { '0%,100%': { opacity: 0.5 }, '50%': { opacity: 0.85 } },
+    animation: 'pvPulse 1.1s ease-in-out infinite',
+  } as const
+
+  function PitcherCard({ pitcher, team, loading }: { pitcher: ProbablePitcher | null; team: { teamId: number; abbr: string }; loading?: boolean }) {
     const teamColor  = TEAM_BG[team.teamId] ?? '#444'
     const accentText = accentColor(teamColor, isDark)
+    const clickable  = !loading && !!pitcher && !!onPlayerClick
     return (
       <Box
-        onClick={pitcher && onPlayerClick ? () => { onPlayerClick(pitcher.id); onClose() } : undefined}
+        onClick={clickable ? () => { onPlayerClick!(pitcher!.id); onClose() } : undefined}
         sx={{
           flex: 1, p: 1.5, borderRadius: 2,
           bgcolor: `${teamColor}10`,
           border: '1px solid', borderColor: borderAlpha(teamColor, isDark),
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75,
-          cursor: pitcher && onPlayerClick ? 'pointer' : 'default',
+          cursor: clickable ? 'pointer' : 'default',
           transition: 'border-color 0.15s',
-          ...(pitcher && onPlayerClick ? { '&:hover': { borderColor: `${teamColor}60` } } : {}),
+          ...(clickable ? { '&:hover': { borderColor: `${teamColor}60` } } : {}),
         }}
       >
+        {/* Headshot (or its shimmer while loading) */}
         <Box sx={{
           width: 58, height: 70, borderRadius: 1.5, overflow: 'hidden',
           border: `2px solid ${photoBorderAlpha(teamColor, isDark)}`, bgcolor: 'action.hover', flexShrink: 0,
+          ...(loading ? shimmerSx : {}),
         }}>
-          {pitcher ? (
+          {!loading && (pitcher ? (
             <Box component="img"
               src={HEADSHOT(pitcher.id)} alt={pitcher.name}
               sx={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', display: 'block' }}
@@ -808,22 +841,40 @@ function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick }: {
             <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Typography sx={{ fontSize: '1.4rem', lineHeight: 1 }}>?</Typography>
             </Box>
-          )}
+          ))}
         </Box>
 
-        <Box sx={{ textAlign: 'center', minWidth: 0 }}>
-          <Typography sx={{
-            fontWeight: 800, fontSize: '0.8rem', lineHeight: 1.2,
-            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-          }}>
-            {pitcher?.name ?? 'TBD'}
-          </Typography>
-          <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1, mt: 0.2 }}>
-            {pitcher ? `${pitcher.hand}HP · ${team.abbr}` : team.abbr}
-          </Typography>
-        </Box>
+        {/* Name / hand (or shimmer bars) */}
+        {loading ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, py: 0.15 }}>
+            <Box sx={{ ...shimmerSx, width: 84, height: '0.86rem' }} />
+            <Box sx={{ ...shimmerSx, width: 52, height: '0.56rem' }} />
+          </Box>
+        ) : (
+          <Box sx={{ textAlign: 'center', minWidth: 0 }}>
+            <Typography sx={{
+              fontWeight: 800, fontSize: '0.8rem', lineHeight: 1.2,
+              display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+            }}>
+              {pitcher?.name ?? 'TBD'}
+            </Typography>
+            <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1, mt: 0.2 }}>
+              {pitcher ? `${pitcher.hand}HP · ${team.abbr}` : team.abbr}
+            </Typography>
+          </Box>
+        )}
 
-        {pitcher && (
+        {/* Stat row — real numbers, shimmer cells while loading, or nothing for a TBD starter */}
+        {loading ? (
+          <Box sx={{ display: 'flex', gap: 1.25, justifyContent: 'center' }}>
+            {[0, 1, 2, 3].map(i => (
+              <Box key={i} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.35 }}>
+                <Box sx={{ ...shimmerSx, width: 20, height: '0.8rem' }} />
+                <Box sx={{ ...shimmerSx, width: 16, height: '0.46rem' }} />
+              </Box>
+            ))}
+          </Box>
+        ) : pitcher ? (
           <Box sx={{ display: 'flex', gap: 1.25, flexWrap: 'wrap', justifyContent: 'center' }}>
             {[
               { label: 'W-L',  value: pitcher.era !== null ? `${pitcher.wins}-${pitcher.losses}` : '—' },
@@ -844,12 +895,12 @@ function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick }: {
               </Box>
             ))}
           </Box>
-        )}
+        ) : null}
       </Box>
     )
   }
 
-  const teamSide = (t: FinalTeam) => (
+  const teamSide = (t: { teamId: number; abbr: string }) => (
     <Box
       onClick={onTeamClick ? () => { onTeamClick(t.teamId); onClose() } : undefined}
       sx={{
@@ -862,6 +913,20 @@ function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick }: {
     </Box>
   )
 
+  // Prev/next-game arrows straddling the card edges — half in the backdrop margin, half
+  // over the card's padding gutter so they never cover content. Vertically centered.
+  const navArrowSx = (side: 'left' | 'right') => ({
+    position: 'absolute' as const, top: '50%', [side]: 0,
+    transform: side === 'left' ? 'translate(-50%, -50%)' : 'translate(50%, -50%)',
+    zIndex: 2, width: 36, height: 36, borderRadius: '50%',
+    bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.35)',
+    color: 'text.secondary',
+    transition: 'background-color 0.12s, color 0.12s',
+    '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+  } as const)
+
   return (
     <Box
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
@@ -872,10 +937,21 @@ function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick }: {
         p: { xs: 1, sm: 2 },
       }}
     >
+      <Box sx={{ position: 'relative', width: '100%', maxWidth: 480, maxHeight: '100%', display: 'flex' }}>
+        {onPrev && (
+          <Box onClick={e => { e.stopPropagation(); onPrev() }} sx={navArrowSx('left')} aria-label="Previous game">
+            <ChevronLeft sx={{ fontSize: '1.4rem' }} />
+          </Box>
+        )}
+        {onNext && (
+          <Box onClick={e => { e.stopPropagation(); onNext() }} sx={navArrowSx('right')} aria-label="Next game">
+            <ChevronRight sx={{ fontSize: '1.4rem' }} />
+          </Box>
+        )}
       <Box sx={{
         bgcolor: 'background.paper', borderRadius: 3,
         border: '1px solid', borderColor: 'divider',
-        width: '100%', maxWidth: 480,
+        width: '100%',
         // `100%` of the padded fixed overlay (not `vh`) so the card stays on-screen
         // under the desktop `zoom` wrapper, which doesn't shrink viewport units.
         maxHeight: '100%', overflowY: 'auto',
@@ -916,22 +992,25 @@ function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick }: {
           {teamSide(game.home)}
         </Box>
 
-        {/* Venue + weather */}
-        {!loading && preview && (
-          <Box sx={{ px: 2, pb: 1.5, display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 1.5 }}>
-            {preview.venueName && (
-              <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', textAlign: 'center' }}>
-                {preview.venueName}
-              </Typography>
-            )}
-            {preview.weather && (
-              <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', textAlign: 'center' }}>
-                {preview.weather.temp}°F · {preview.weather.condition}
-                {preview.weather.wind ? ` · ${preview.weather.wind}` : ''}
-              </Typography>
-            )}
+        {/* Venue + weather — one line. While loading, a placeholder occupies exactly one
+            text line-box (fontSize × line-height) so the card height doesn't grow the
+            few px a raw-height bar would miss when the real text arrives. */}
+        {loading ? (
+          <Box sx={{ px: 2, pb: 1.5, display: 'flex', justifyContent: 'center' }}>
+            <Box sx={{ height: 'calc(0.68rem * 1.4)', display: 'flex', alignItems: 'center' }}>
+              <Box sx={{ ...shimmerSx, width: 176, height: '0.62rem' }} />
+            </Box>
           </Box>
-        )}
+        ) : preview && (preview.venueName || preview.weather) ? (
+          <Box sx={{ px: 2, pb: 1.5 }}>
+            <Typography sx={{ fontSize: '0.68rem', lineHeight: 1.4, color: 'text.secondary', textAlign: 'center' }}>
+              {[
+                preview.venueName || null,
+                preview.weather ? `${preview.weather.temp}°F · ${preview.weather.condition}${preview.weather.wind ? ` · ${preview.weather.wind}` : ''}` : null,
+              ].filter(Boolean).join('  ·  ')}
+            </Typography>
+          </Box>
+        ) : null}
 
         {/* Probable starters */}
         <Box sx={{ borderTop: '1px solid', borderColor: 'divider', px: 2, py: 1.5 }}>
@@ -941,18 +1020,13 @@ function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick }: {
           }}>
             Probable Starters
           </Typography>
-          {loading ? (
-            <Box sx={{ py: 3, textAlign: 'center' }}>
-              <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>Loading…</Typography>
-            </Box>
-          ) : (
-            <Box sx={{ display: 'flex', gap: 1.5 }}>
-              <PitcherCard pitcher={preview?.awayPitcher ?? null} team={game.away} />
-              <PitcherCard pitcher={preview?.homePitcher ?? null} team={game.home} />
-            </Box>
-          )}
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <PitcherCard pitcher={preview?.awayPitcher ?? null} team={game.away} loading={loading} />
+            <PitcherCard pitcher={preview?.homePitcher ?? null} team={game.home} loading={loading} />
+          </Box>
         </Box>
 
+      </Box>
       </Box>
     </Box>
   )
@@ -1427,14 +1501,21 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
         />
       )}
 
-      {openGame && openGame.state === 'preview' ? (
-        <GamePreviewModal
-          game={openGame}
-          onClose={() => { setOpenGame(null); clearOverlayIf('scoreGame') }}
-          onPlayerClick={stampOverlay({ kind: 'scoreGame', game: openGame }, onPlayerClick)}
-          onTeamClick={stampOverlay({ kind: 'scoreGame', game: openGame }, onTeamClick)}
-        />
-      ) : openGame ? (
+      {openGame && openGame.state === 'preview' ? (() => {
+        // ‹ › steps through the other upcoming games in the current scoreboard list.
+        const previews = sortedGames.filter(g => g.state === 'preview')
+        const idx = previews.findIndex(g => g.gamePk === openGame.gamePk)
+        return (
+          <GamePreviewModal
+            game={openGame}
+            onClose={() => { setOpenGame(null); clearOverlayIf('scoreGame') }}
+            onPlayerClick={stampOverlay({ kind: 'scoreGame', game: openGame }, onPlayerClick)}
+            onTeamClick={stampOverlay({ kind: 'scoreGame', game: openGame }, onTeamClick)}
+            onPrev={idx > 0 ? () => setOpenGame(previews[idx - 1]) : undefined}
+            onNext={idx >= 0 && idx < previews.length - 1 ? () => setOpenGame(previews[idx + 1]) : undefined}
+          />
+        )
+      })() : openGame ? (
         <Suspense fallback={null}>
           <GameCenterModal
             game={openGame}

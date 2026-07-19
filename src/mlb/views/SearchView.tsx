@@ -165,7 +165,18 @@ export function SearchView({
       const range = document.createRange()
       range.selectNodeContents(yearEl)
       const yr = range.getBoundingClientRect()
-      setYearRect({ top: yr.top - wr.top + yr.height / 2, left: yr.left - wr.left, right: yr.right - wr.left })
+      // The app root applies a desktop CSS `zoom` (see App.tsx / --app-zoom), so
+      // getBoundingClientRect() returns zoom-scaled screen coordinates. These deltas are
+      // then used as left/top on the arrow Box, which lives INSIDE the same zoomed
+      // subtree and so gets scaled a second time — divide back down by --app-zoom to
+      // cancel the double-scale and keep the arrows flanking the year. On mobile /
+      // non-/mlb routes --app-zoom is 1, so this is a no-op.
+      const zoom = parseFloat(getComputedStyle(wrap).getPropertyValue('--app-zoom')) || 1
+      setYearRect({
+        top:   (yr.top - wr.top + yr.height / 2) / zoom,
+        left:  (yr.left - wr.left) / zoom,
+        right: (yr.right - wr.left) / zoom,
+      })
     }
     measure()
     const ro = new ResizeObserver(measure)
