@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { Box, Typography, InputBase, Tooltip, ClickAwayListener } from '@mui/material'
 import { Player, RecentGameEntry } from '../types'
 import { TEAM_BG, TEAM_ABBR, ACCENT, HEADSHOT, CURRENT_SEASON } from '../constants'
-import { searchPlayers, fetchRecentGames } from '../api'
+import { searchPlayers, fetchRecentGames, fetchRosterMoves, RosterMove } from '../api'
+import { MOVE_STYLE } from './RosterMoves'
 import { parseIP } from '../utils'
 import { fetchSuggestions, SuggestionChip, SuggestionPlayer } from './SuggestedPlayers'
 import { useIsDark, defaultBorder } from '../colorUtils'
@@ -267,10 +268,11 @@ function abbreviateFirstName(name: string): string {
 
 // ─── FollowedPlayerRow ────────────────────────────────────────────────────────
 
-function FollowedPlayerRow({ id, data, isLive, editMode, isSelected, onToggleSelect, onClick }: {
+function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onToggleSelect, onClick }: {
   id:             number
   data:           FollowedPlayerInfo | null
   isLive:         boolean
+  move:           RosterMove | null
   editMode:       boolean
   isSelected:     boolean
   onToggleSelect: () => void
@@ -369,10 +371,32 @@ function FollowedPlayerRow({ id, data, isLive, editMode, isSelected, onToggleSel
         }}>
           {abbrevName ? shortName : fullName}
         </Typography>
-        {subtitle && (
-          <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1.3 }}>
-            {subtitle}
-          </Typography>
+        {(subtitle || move) && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, overflow: 'hidden' }}>
+            {subtitle && (
+              <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1.3, whiteSpace: 'nowrap' }}>
+                {subtitle}
+              </Typography>
+            )}
+            {move && (() => {
+              const style = MOVE_STYLE[move.typeCode] ?? { label: move.typeDesc, color: '#94a3b8' }
+              // Past tense reads better on a player badge; only the trade label differs
+              const label = move.typeCode === 'TR' ? 'Traded' : style.label
+              return (
+                <Tooltip arrow placement="top" title={move.description || move.typeDesc}>
+                  <Box component="span" sx={{
+                    px: 0.5, py: '1px', borderRadius: 999, flexShrink: 0,
+                    bgcolor: `${style.color}1c`, border: `1px solid ${style.color}55`,
+                    fontSize: '0.5rem', fontWeight: 800, color: style.color,
+                    letterSpacing: 0.4, textTransform: 'uppercase', lineHeight: 1.4,
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {label}
+                  </Box>
+                </Tooltip>
+              )
+            })()}
+          </Box>
         )}
       </Box>
 
@@ -418,6 +442,18 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
 }) {
   const [playerData, setPlayerData]     = useState<Record<number, FollowedPlayerInfo>>({})
   const [adding, setAdding]             = useState(false)
+
+  // Recent notable moves keyed by player — badge source. fetchRosterMoves is
+  // module-cached, so this shares the Roster Moves card's single fetch. Moves
+  // arrive newest-first; the first one seen per player wins.
+  const [playerMoves, setPlayerMoves] = useState<Map<number, RosterMove>>(new Map())
+  useEffect(() => {
+    fetchRosterMoves().then(moves => {
+      const byPlayer = new Map<number, RosterMove>()
+      for (const m of moves) if (!byPlayer.has(m.playerId)) byPlayer.set(m.playerId, m)
+      setPlayerMoves(byPlayer)
+    }).catch(() => {})
+  }, [])
   const [addQuery, setAddQuery]         = useState('')
   const [addResults, setAddResults]     = useState<Player[]>([])
   const [addSearching, setAddSearching] = useState(false)
@@ -663,6 +699,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                     id={id}
                     data={data}
                     isLive={isLive}
+                    move={playerMoves.get(id) ?? null}
                     editMode={editMode}
                     isSelected={selected.has(id)}
                     onToggleSelect={() => toggleSelect(id)}

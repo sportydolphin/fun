@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.11.1'
+export const APP_VERSION = '1.12.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.12.0',
+    date:    '2026-07-18',
+    title:   'Roster move badges on your players',
+    changes: [
+      {
+        short: 'Your players get a badge when they move',
+        full:  'When one of your followed players is traded, claimed, designated for assignment, signed, released, or suspended in the last two weeks, a small colored badge now appears next to their position in your players list. On desktop, hover the badge to read the full move.',
+      },
+    ],
+  },
   {
     version: '1.11.1',
     date:    '2026-07-18',

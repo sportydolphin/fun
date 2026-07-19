@@ -13,7 +13,7 @@ import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../homeOverlay'
 // moves (fetchRosterMoves filters the churn), with a trade-deadline countdown
 // through July. "View All →" opens the full list grouped by day.
 
-const MOVE_STYLE: Record<string, { label: string; color: string }> = {
+export const MOVE_STYLE: Record<string, { label: string; color: string }> = {
   TR:  { label: 'Trade',     color: '#f97316' },
   CLW: { label: 'Claimed',   color: '#818cf8' },
   DES: { label: 'DFA',       color: '#94a3b8' },
