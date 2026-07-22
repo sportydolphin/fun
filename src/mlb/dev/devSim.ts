@@ -11,8 +11,8 @@
 // import.meta.env.DEV, so the bundler drops those call sites entirely.
 
 import { useSyncExternalStore } from 'react'
-import type { TodayGame } from './views/Predictor'
-import { TEAM_ABBR, TEAM_NICKNAME } from './constants'
+import type { TodayGame } from '../views/Predictor'
+import { TEAM_ABBR, TEAM_NICKNAME } from '../constants'
 
 const STORAGE_KEY = 'mlb_dev_sim_slate'
 

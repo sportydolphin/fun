@@ -1,7 +1,7 @@
 // ─── Career trend stat definitions ───────────────────────────────────────────
 
 import { TrendStatDef } from './types'
-import { fmtR, fmtDecimal, parseIP } from './utils'
+import { fmtR, fmtDecimal, parseIP } from './lib/utils'
 
 export const TREND_HIT_DEFS: TrendStatDef[] = [
   { key: 'ops',  label: 'OPS',  get: s => s?.ops != null ? Number(s.ops) : null,                   fmt: v => fmtR(v, 3),

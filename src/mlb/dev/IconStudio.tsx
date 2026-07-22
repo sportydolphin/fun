@@ -14,7 +14,7 @@ import {
   TEAM_ABBR, TEAM_NICKNAME, TEAM_COLOR_PALETTE, LOGO_VARIANTS, teamLogoUrl, teamLogoTransform,
   TEAM_BG, TEAM_ICON_STYLE, TEAM_ICON_STYLE_LIGHT, DEFAULT_ICON_BG_DARK, type LogoVariantKey,
 } from '../constants'
-import { ringColor } from '../colorUtils'
+import { ringColor } from '../lib/colorUtils'
 
 // Universal fallbacks appended to every team's palette so each slot can reach
 // white / neutral gray / black even when the brand palette lacks them.

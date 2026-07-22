@@ -7,7 +7,7 @@
 // The result is ordered the same way the STAT_DEFS arrays are ordered so the
 // card layout is consistent regardless of which bonus stats get added.
 
-import { HITTING_STAT_DEFS, PITCHING_STAT_DEFS } from './constants'
+import { HITTING_STAT_DEFS, PITCHING_STAT_DEFS } from '../constants'
 
 export const HIT_TOP_N = 20  // rank threshold for bonus hitting stats
 export const PIT_TOP_N = 20  // rank threshold for bonus pitching stats

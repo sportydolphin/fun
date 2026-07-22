@@ -8,13 +8,13 @@ import { Search, Shuffle, FileDownload, InfoOutlined, OpenInFull, Tune, ChevronL
 import html2canvas from 'html2canvas'
 import { Player, Team, Palette, RankMode, TeamPlayerStat, CareerStatSplit, RecentGameEntry, RosterEntry, StandingsDivision } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG, TEAM_ABBR, BBREF_ABBR, DEFAULT_HIT_STATS, DEFAULT_PIT_STATS, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette } from '../constants'
-import { SegControl, PillChip, pillActionSx, linkPillSx, SectionLabel } from '../ui'
-import { CardInner, CardInnerProps, TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsCard } from '../cards'
+import { SegControl, PillChip, pillActionSx, linkPillSx, SectionLabel } from '../components/ui'
+import { CardInner, CardInnerProps, TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsCard } from '../components/cards'
 // ~1,000-line chart module — lazy so it only loads once a player card is open.
-const PlayerTrendsChart = lazy(() => import('../PlayerTrendsChart').then(m => ({ default: m.PlayerTrendsChart })))
-import { RecentGamesTable } from '../RecentGamesTable'
-import { TeamRoster } from '../TeamRoster'
-import { CareerStatsTable } from '../CareerStatsTable'
+const PlayerTrendsChart = lazy(() => import('../components/PlayerTrendsChart').then(m => ({ default: m.PlayerTrendsChart })))
+import { RecentGamesTable } from '../components/RecentGamesTable'
+import { TeamRoster } from '../components/TeamRoster'
+import { CareerStatsTable } from '../components/CareerStatsTable'
 import { fetchPlayerDetails } from '../api'
 
 export interface SearchViewProps {

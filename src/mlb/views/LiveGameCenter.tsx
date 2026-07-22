@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
-import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../colorUtils'
+import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../lib/colorUtils'
 import {
   FinalGameSummary, BoxScore, parseBoxScoreData,
   LogoBubble, LiveDot, SectionLabel, LineScoreTable, TeamBoxSection,

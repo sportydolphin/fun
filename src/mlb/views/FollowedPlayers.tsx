@@ -4,9 +4,9 @@ import { Player, RecentGameEntry } from '../types'
 import { TEAM_BG, TEAM_ABBR, ACCENT, HEADSHOT, CURRENT_SEASON } from '../constants'
 import { searchPlayers, fetchRecentGames, fetchRosterMoves, fetchServedSuspensionIds, RosterMove } from '../api'
 import { MOVE_STYLE } from './RosterMoves'
-import { parseIP } from '../utils'
+import { parseIP } from '../lib/utils'
 import { fetchSuggestions, SuggestionChip, SuggestionPlayer } from './SuggestedPlayers'
-import { useIsDark, defaultBorder } from '../colorUtils'
+import { useIsDark, defaultBorder } from '../lib/colorUtils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

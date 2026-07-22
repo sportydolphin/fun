@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ACCENT, HEADSHOT, TEAM_BG } from './constants'
-import { RosterEntry } from './types'
+import { ACCENT, HEADSHOT, TEAM_BG } from '../constants'
+import { RosterEntry } from '../types'
 
 // Position-type groups, in the order they appear on a scorecard. `match` decides
 // which group a roster entry falls into (positionType from the API, with a code

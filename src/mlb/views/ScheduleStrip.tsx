@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
 import { TEAM_ABBR, HEADSHOT, ACCENT } from '../constants'
-import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
+import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 import { FinalGameSummary, GamePreviewModal, PreviewGame } from './FinalGames'
 import { GameCenterModal } from './LiveGameCenter'
-import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../homeOverlay'
+import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

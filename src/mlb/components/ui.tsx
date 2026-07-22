@@ -3,9 +3,9 @@
 import React, { useState } from 'react'
 import { Box, Typography, Popover } from '@mui/material'
 import { KeyboardArrowDown } from '@mui/icons-material'
-import { RankMode, Palette, StatDef } from './types'
-import { ACCENT } from './constants'
-import { statCols } from './utils'
+import { RankMode, Palette, StatDef } from '../types'
+import { ACCENT } from '../constants'
+import { statCols } from '../lib/utils'
 
 export function SegControl({ options, value, onChange }: {
   options: { value: string; label: string }[]

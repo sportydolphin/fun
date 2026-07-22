@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ACCENT } from './constants'
-import { RecentGameEntry } from './types'
+import { ACCENT } from '../constants'
+import { RecentGameEntry } from '../types'
 
 const INIT = 5
 

@@ -13,7 +13,7 @@
 // 4th on). The event *builders* are exported separately so devDrama.ts can
 // fabricate events that render identically to real ones.
 
-import { TEAM_ABBR, TEAM_NICKNAME } from './constants'
+import { TEAM_ABBR, TEAM_NICKNAME } from '../constants'
 
 export type DramaKind = 'perfect' | 'nohitter' | 'walkoff' | 'cycle' | 'marathon'
 

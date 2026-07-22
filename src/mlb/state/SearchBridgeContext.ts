@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
-import type { RecentSearchItem } from './recentSearches'
-export type { RecentSearchItem } from './recentSearches'
+import type { RecentSearchItem } from '../storage/recentSearches'
+export type { RecentSearchItem } from '../storage/recentSearches'
 
 export interface PlayerBridgeItem {
   id: number

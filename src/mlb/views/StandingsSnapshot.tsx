@@ -3,8 +3,8 @@ import { Box, Typography } from '@mui/material'
 import { fetchStandings } from '../api'
 import { StandingsDivision, StandingsTeamRecord } from '../types'
 import { TEAM_NICKNAME, ACCENT } from '../constants'
-import { useIsDark, highlightColor, fmtGB, defaultBorder } from '../colorUtils'
-import { TeamLogo } from '../Standings'
+import { useIsDark, highlightColor, fmtGB, defaultBorder } from '../lib/colorUtils'
+import { TeamLogo } from './Standings'
 
 // Within this many games of the division lead → the division race is still live,
 // so show that. Otherwise the wild card is the more meaningful picture.

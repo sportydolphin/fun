@@ -6,9 +6,9 @@ import {
 import { Search, InfoOutlined, OpenInFull, Close } from '@mui/icons-material'
 import { TeamSummary, SosEntry } from '../types'
 import { ACCENT, TEAM_BG, TEAM_ABBR, TEAM_SEASONS, CURRENT_SEASON } from '../constants'
-import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder } from '../colorUtils'
-import { pillActionSx } from '../ui'
-import { TeamEraOpsPlot, TeamWinRDPlot, PayrollWinsPlot } from '../charts'
+import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder } from '../lib/colorUtils'
+import { pillActionSx } from '../components/ui'
+import { TeamEraOpsPlot, TeamWinRDPlot, PayrollWinsPlot } from '../components/charts'
 import { fetchStrengthOfSchedule, fetchTeamPayrolls, fetchTeamAverageAges, fetchStreakLeaders, StreakLeaders, StreakRow } from '../api'
 import { TEAM_PAYROLLS_2026 } from '../constants'
 

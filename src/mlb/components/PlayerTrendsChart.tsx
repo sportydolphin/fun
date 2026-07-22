@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Box, Typography, useTheme, useMediaQuery } from '@mui/material'
-import { CareerStatSplit, RecentGameEntry } from './types'
-import { ACCENT, CURRENT_SEASON, TEAM_BG } from './constants'
-import { fmtR, parseIP } from './utils'
-import { SegControl } from './components'
-import { TREND_HIT_DEFS, TREND_PIT_DEFS } from './trendDefs'
-import { fetchSeasonPlayerStats } from './api'
+import { CareerStatSplit, RecentGameEntry } from '../types'
+import { ACCENT, CURRENT_SEASON, TEAM_BG } from '../constants'
+import { fmtR, parseIP } from '../lib/utils'
+import { SegControl } from './index'
+import { TREND_HIT_DEFS, TREND_PIT_DEFS } from '../trendDefs'
+import { fetchSeasonPlayerStats } from '../api'
 
-export { TREND_HIT_DEFS, TREND_PIT_DEFS } from './trendDefs'
+export { TREND_HIT_DEFS, TREND_PIT_DEFS } from '../trendDefs'
 
 
 // ─── League avg cache (module-level, keyed "hitting-2023") ────────────────────

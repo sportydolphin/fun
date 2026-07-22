@@ -1,13 +1,13 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
-import { ACCENT, TEAM_NICKNAME } from './constants'
-import { fmtGB, useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, highlightColor } from './colorUtils'
-import { fetchStandings } from './api'
-import { StandingsDivision, StandingsTeamRecord } from './types'
-import { SegControl } from './components'
+import { ACCENT, TEAM_NICKNAME } from '../constants'
+import { fmtGB, useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, highlightColor } from '../lib/colorUtils'
+import { fetchStandings } from '../api'
+import { StandingsDivision, StandingsTeamRecord } from '../types'
+import { SegControl } from '../components'
 
 // Dev-only icon tuner — lazy so it's stripped from production builds.
-const IconStudio = import.meta.env.DEV ? lazy(() => import('./dev/IconStudio')) : null
+const IconStudio = import.meta.env.DEV ? lazy(() => import('../dev/IconStudio')) : null
 
 // ─── Division display order ───────────────────────────────────────────────────
 

@@ -2,8 +2,8 @@ import React, { useEffect, useRef } from 'react'
 import { Box, Typography, Paper, CircularProgress } from '@mui/material'
 import { LbFullscreenState } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED } from '../constants'
-import { SegControl, pillActionSx } from '../ui'
-import { filterQualified } from '../utils'
+import { SegControl, pillActionSx } from '../components/ui'
+import { filterQualified } from '../lib/utils'
 
 export interface StatsViewProps {
   lbGroup: 'hitting' | 'pitching'

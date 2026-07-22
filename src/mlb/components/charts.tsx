@@ -1,8 +1,8 @@
 import React, { useState, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
-import { TeamSummary } from './types'
-import { ACCENT, TEAM_BG } from './constants'
-import { niceTicks, fmtR } from './utils'
+import { TeamSummary } from '../types'
+import { ACCENT, TEAM_BG } from '../constants'
+import { niceTicks, fmtR } from '../lib/utils'
 
 // ─── Shared chart helpers ─────────────────────────────────────────────────────
 

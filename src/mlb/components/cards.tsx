@@ -2,9 +2,9 @@
 
 import React from 'react'
 import { Box, Typography } from '@mui/material'
-import { RankMode, Palette, StatDef, Player, Team, TeamPlayerStat, TeamStandingInfo, StandingsDivision } from './types'
-import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG } from './constants'
-import { useIsDark, accentColor, borderAlpha, fmtGB } from './colorUtils'
+import { RankMode, Palette, StatDef, Player, Team, TeamPlayerStat, TeamStandingInfo, StandingsDivision } from '../types'
+import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG } from '../constants'
+import { useIsDark, accentColor, borderAlpha, fmtGB } from '../lib/colorUtils'
 import { StatGrid } from './ui'
 
 // ─── Player card inner ────────────────────────────────────────────────────────

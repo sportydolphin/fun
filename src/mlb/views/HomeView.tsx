@@ -6,7 +6,7 @@ import { fetchDivisionForTeam, fetchTeamSummaryData } from '../api'
 // ~1,400-line schedule module — lazy so the League tab doesn't pull it in.
 const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
-import { useIsDark, borderAlpha, cardGradient135, fmtGB, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
+import { useIsDark, borderAlpha, cardGradient135, fmtGB, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 import { TopPerformers } from './TopPerformers'
 import { RosterMovesCard } from './RosterMoves'
 import { LiveDramaCard } from './LiveDrama'
@@ -15,7 +15,7 @@ import { PredictorWidget } from './Predictor'
 import { StandingsSnapshot } from './StandingsSnapshot'
 import { FinalGamesSection } from './FinalGames'
 import { LeaderboardCard, buildFraudRows, buildPayrollRows } from './VizView'
-import { getHomeOverlay, clearOverlayIf } from '../homeOverlay'
+import { getHomeOverlay, clearOverlayIf } from '../state/homeOverlay'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

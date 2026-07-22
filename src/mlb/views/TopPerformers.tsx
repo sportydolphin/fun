@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { Box, Typography } from '@mui/material'
-import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
+import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, cardGradient, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { fetchRecentGamePerformers } from './Spotlight'
 import type { HotGuyData } from './Spotlight'
 import { fetchFinalGames } from './FinalGames'
 import type { FinalGameSummary } from './FinalGames'
-import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../homeOverlay'
+import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 // Loaded on first Box Score click — keeps the Game Center out of the home bundle.
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
 

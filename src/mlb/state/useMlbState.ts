@@ -1,34 +1,34 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import { useAuth } from '../AuthContext'
+import { useAuth } from '../../AuthContext'
 import {
   RankMode, Player, Team, Palette, TeamSummary, CareerStatSplit,
   TeamPlayerStat, RecentGameEntry, RosterEntry, LbFullscreenState, TeamStandingInfo, StandingsDivision,
-} from './types'
+} from '../types'
 import {
   loadPrefsFromSupabase, savePrefsToSupabase,
   getLocalFollowedTeamId, setLocalFollowedTeamId, getLocalFollowedPlayerIds,
   loadRecentSearchesFromSupabase, saveRecentSearchesToSupabase,
-} from './prefs'
+} from '../storage/prefs'
 import {
   RecentSearchItem, getLocalRecentSearches, setLocalRecentSearches, mergeRecent,
-} from './recentSearches'
+} from '../storage/recentSearches'
 import {
   ACCENT,
   HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS,
   DEFAULT_HIT_STATS, DEFAULT_PIT_STATS, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS,
   CURRENT_SEASON, TEAM_SEASONS, LB_FEATURED, FEATURED_PLAYER_IDS,
   TEAM_ABBR, DEFAULT_PALETTE, teamPalette,
-} from './constants'
+} from '../constants'
 import {
   searchPlayers, fetchPlayerDetails, fetchStats,
   fetchCareerData, fetchAndRankPlayers, fetchAllTeams,
   fetchTeamStats, fetchLeaderboardData, fetchAllTimeLeaderboardData, fetchTeamRankings,
   fetchTeamSummaryData, fetchPlayerCareerStats, fetchRecentGames, fetchCareerStats,
   fetchTeamTopPlayers, fetchTeamStanding, fetchDivisionForTeam, fetchTeamRoster,
-} from './api'
-import { computeSmartHitStats, computeSmartPitStats } from './smartStats'
-import type { CardInnerProps } from './cards'
-import type { TeamCardInnerProps } from './cards'
+} from '../api'
+import { computeSmartHitStats, computeSmartPitStats } from '../lib/smartStats'
+import type { CardInnerProps } from '../components/cards'
+import type { TeamCardInnerProps } from '../components/cards'
 
 export function useMlbState() {
   const { user, openAuthDialog } = useAuth()

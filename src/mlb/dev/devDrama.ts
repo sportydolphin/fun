@@ -9,11 +9,11 @@
 // so headline/detail/severity render pixel-identical to production events.
 
 import { useSyncExternalStore } from 'react'
-import { TEAM_ABBR } from './constants'
+import { TEAM_ABBR } from '../constants'
 import {
   DramaEvent, DramaSide,
   makeNoHitEvent, makeWalkoffEvent, makeCycleEvent, makeMarathonEvent,
-} from './liveDrama'
+} from '../lib/liveDrama'
 
 const STORAGE_KEY = 'mlb_dev_drama'
 

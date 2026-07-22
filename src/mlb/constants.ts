@@ -1,5 +1,5 @@
 import { StatDef, Palette } from './types'
-import { fmt, fmtDecimal } from './utils'
+import { fmt, fmtDecimal } from './lib/utils'
 
 // ─── Design token ─────────────────────────────────────────────────────────────
 

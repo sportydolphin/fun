@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
-import { DramaEvent, DramaKind, fetchLiveDrama, ord } from '../liveDrama'
-import { useDevDrama } from '../devDrama'
+import { DramaEvent, DramaKind, fetchLiveDrama, ord } from '../lib/liveDrama'
+import { useDevDrama } from '../dev/devDrama'
 import { TEAM_NICKNAME } from '../constants'
-import { useIsDark } from '../colorUtils'
+import { useIsDark } from '../lib/colorUtils'
 import { TeamLogo } from './VizView'
 import { FinalGameSummary } from './FinalGames'
 import { GameCenterModal } from './LiveGameCenter'
-import { stampOverlay, clearOverlayIf } from '../homeOverlay'
+import { stampOverlay, clearOverlayIf } from '../state/homeOverlay'
 
 // ─── "Happening Now" — live drama card ────────────────────────────────────────
 // Appears on Home only while something dramatic is live (no-hitter, walk-off

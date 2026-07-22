@@ -17,7 +17,7 @@
 import { buildGameStart } from '../../../shared/notifications'
 import type { NotificationPayload } from '../../../shared/notifications'
 import type { NotificationContext, NotificationSource } from '../../lib/notifications'
-import { getLocalFollowedTeamId, getLocalGameStartPref } from '../prefs'
+import { getLocalFollowedTeamId, getLocalGameStartPref } from '../storage/prefs'
 
 // How long the reminder lingers past scheduled first pitch, so a user who opens
 // the app right around game time still sees it before it retracts.

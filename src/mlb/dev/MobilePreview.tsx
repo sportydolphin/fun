@@ -13,7 +13,7 @@ import { Box, Typography, Tooltip } from '@mui/material'
 import {
   useDevDevice, setDeviceMode, setDevicePreset, toggleDeviceOrientation,
   currentPreset, DEVICE_PRESETS, FRAME_PARAM,
-} from '../devDevice'
+} from './devDevice'
 
 // Room left for the toolbar above the phone + breathing space around it.
 const CHROME_V = 132

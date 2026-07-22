@@ -14,7 +14,7 @@ import {
   getLocalFollowedTeamId, setLocalFollowedTeamId, getLocalFollowedPlayerIds,
   getLocalGameStartPref, setLocalGameStartPref,
   loadGameStartPrefFromSupabase, saveGameStartPrefToSupabase,
-} from './mlb/prefs'
+} from './mlb/storage/prefs'
 import {
   pushSupported, pushConfigured, notificationPermission,
   isSubscribed, enablePush, disablePush,

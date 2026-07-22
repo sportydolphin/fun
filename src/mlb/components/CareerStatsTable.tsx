@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ACCENT, TEAM_BG } from './constants'
-import { CareerStatSplit } from './types'
-import { fmtR } from './utils'
+import { ACCENT, TEAM_BG } from '../constants'
+import { CareerStatSplit } from '../types'
+import { fmtR } from '../lib/utils'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

@@ -1,6 +1,6 @@
-import { supabase } from '../lib/supabase'
+import { supabase } from '../../lib/supabase'
 import type { RecentSearchItem } from './recentSearches'
-import { DEFAULT_GAME_START_LEAD_MIN } from '../../shared/notifications'
+import { DEFAULT_GAME_START_LEAD_MIN } from '../../../shared/notifications'
 
 // ─── Followed-team / followed-player preference helpers ───────────────────────
 // Shared between useMlbState (the MLB feature) and the global Settings dialog
