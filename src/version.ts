@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.12.0'
+export const APP_VERSION = '1.13.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,29 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.13.0',
+    date:    '2026-07-22',
+    title:   'Notifications bell and game start reminders',
+    changes: [
+      {
+        short: 'A bell at the top collects your notifications',
+        full:  'There is now a bell in the toolbar that gathers your reminders in one place. Unread ones show a count, and opening the bell marks them as read. Reminders that no longer apply, like picks you have since made, clear themselves.',
+      },
+      {
+        short: 'Get a reminder before your team plays',
+        full:  'You can turn on game start reminders in Settings to get a heads up before your followed team\'s next game. They arrive 5 minutes before first pitch by default, and you can change that to 10, 15, or 30 minutes.',
+      },
+      {
+        short: 'Streak boards no longer miss players',
+        full:  'The hitting, hitless, and scoreless streak boards only looked at the players with the most games and innings. That hid streaks from catchers, part time players, and anyone back from an injury, and left relief pitchers off the scoreless board entirely. Everyone with regular playing time is now included.',
+      },
+      {
+        short: 'Streak boards keep up through the day',
+        full:  'The streak boards refreshed once each morning, so a streak from the night before could take a day to show up. They now update again in the evening and overnight as games finish.',
+      },
+    ],
+  },
   {
     version: '1.12.0',
     date:    '2026-07-18',
