@@ -34,7 +34,30 @@ self.addEventListener('push', (event) => {
     data:    { url: payload.url || '/mlb?view=home' },
   }
 
-  event.waitUntil(self.registration.showNotification(title, options))
+  // Show the OS notification, and forward the payload to any open tab so the
+  // in-site bell records it too (src/NotificationBell.tsx listens for this).
+  // Both surfaces key off the same id, so the notification never doubles up.
+  //
+  // Note the two meanings of "icon": the OS wants an image URL, the bell wants
+  // an emoji. Senders put the emoji in `emoji` and leave `icon` for the image,
+  // and the translation happens right here.
+  const forClient = {
+    id:    payload.id || options.tag,
+    type:  payload.type || 'push',
+    title: title,
+    body:  options.body,
+    url:   options.data.url,
+    icon:  payload.emoji || '🔔',
+  }
+
+  event.waitUntil(Promise.all([
+    self.registration.showNotification(title, options),
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        client.postMessage({ type: 'push-received', payload: forClient })
+      }
+    }),
+  ]))
 })
 
 self.addEventListener('notificationclick', (event) => {

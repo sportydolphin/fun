@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, Typography, Box, CircularProgress, IconButton, TextField, Switch,
+  Select, MenuItem,
 } from '@mui/material'
 import { Close, ChevronRight, ExpandMore, WarningAmber } from '@mui/icons-material'
 import { Team } from './mlb/types'
@@ -11,6 +12,8 @@ import { supabase } from './lib/supabase'
 import {
   loadPrefsFromSupabase, savePrefsToSupabase,
   getLocalFollowedTeamId, setLocalFollowedTeamId, getLocalFollowedPlayerIds,
+  getLocalGameStartPref, setLocalGameStartPref,
+  loadGameStartPrefFromSupabase, saveGameStartPrefToSupabase,
 } from './mlb/prefs'
 import {
   pushSupported, pushConfigured, notificationPermission,
@@ -38,6 +41,11 @@ function NotificationsSection({ open, userId }: { open: boolean; userId: string 
   const [perm,    setPerm]    = useState<ReturnType<typeof notificationPermission>>('default')
   const [err,     setErr]     = useState('')
 
+  // Game-start reminder opt-in + lead time (its own preference, independent of
+  // the daily pick reminders above).
+  const [gsEnabled, setGsEnabled] = useState(false)
+  const [gsLead,    setGsLead]    = useState(getLocalGameStartPref().leadMin)
+
   // Reflect the actual subscription state each time the dialog opens.
   useEffect(() => {
     if (!open) return
@@ -45,6 +53,25 @@ function NotificationsSection({ open, userId }: { open: boolean; userId: string 
     setPerm(notificationPermission())
     if (supported) isSubscribed().then(setEnabled).catch(() => setEnabled(false))
   }, [open, supported])
+
+  // Load the game-start preference: localStorage first (instant), then let the
+  // synced account value win if it differs.
+  useEffect(() => {
+    if (!open) return
+    const local = getLocalGameStartPref()
+    setGsEnabled(local.enabled)
+    setGsLead(local.leadMin)
+    loadGameStartPrefFromSupabase(userId).then(row => {
+      if (row) { setGsEnabled(row.enabled); setGsLead(row.leadMin) }
+    })
+  }, [open, userId])
+
+  const persistGameStart = (next: { enabled: boolean; leadMin: number }) => {
+    setLocalGameStartPref(next)
+    saveGameStartPrefToSupabase(userId, next)
+  }
+  const handleGsToggle = (next: boolean) => { setGsEnabled(next); persistGameStart({ enabled: next, leadMin: gsLead }) }
+  const handleGsLead   = (next: number)  => { setGsLead(next);    persistGameStart({ enabled: gsEnabled, leadMin: next }) }
 
   const handleToggle = async (next: boolean) => {
     if (busy) return
@@ -88,6 +115,43 @@ function NotificationsSection({ open, userId }: { open: boolean; userId: string 
             onChange={e => handleToggle(e.target.checked)}
             sx={{ flexShrink: 0 }}
           />
+        </Box>
+
+        {/* Game-start reminder — its own opt-in + lead time. */}
+        <Box sx={{ borderTop: '1px solid', borderColor: 'divider', px: 1.75, py: 1.1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontSize: '0.88rem', fontWeight: 700 }}>Game start reminders</Typography>
+              <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 0.25, lineHeight: 1.4 }}>
+                {gsEnabled
+                  ? 'On — we’ll ping you before your team’s next game.'
+                  : 'Get a heads-up before your followed team’s game starts.'}
+              </Typography>
+            </Box>
+            <Switch
+              checked={gsEnabled}
+              disabled={!supported || !configured}
+              onChange={e => handleGsToggle(e.target.checked)}
+              sx={{ flexShrink: 0 }}
+            />
+          </Box>
+
+          {gsEnabled && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.25 }}>
+              <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary' }}>Remind me</Typography>
+              <Select
+                size="small"
+                value={gsLead}
+                onChange={e => handleGsLead(Number(e.target.value))}
+                sx={{ fontSize: '0.8rem', '& .MuiSelect-select': { py: 0.4 } }}
+              >
+                {[5, 10, 15, 30].map(m => (
+                  <MenuItem key={m} value={m} sx={{ fontSize: '0.8rem' }}>{m} min</MenuItem>
+                ))}
+              </Select>
+              <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary' }}>before first pitch</Typography>
+            </Box>
+          )}
         </Box>
       </Box>
       {err && (

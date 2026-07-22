@@ -122,7 +122,9 @@ export async function fetchVotesByGame(date: string): Promise<Record<number, Rec
 
 const predKey = (date: string) => `mlb_preds_${date}`
 
-function loadLocalPreds(date: string): Record<number, number> {
+// Exported for the picks-ready notification source, so the bell counts picks
+// exactly the way the widget does rather than reimplementing it.
+export function loadLocalPreds(date: string): Record<number, number> {
   try { const s = localStorage.getItem(predKey(date)); return s ? JSON.parse(s) : {} }
   catch { return {} }
 }
@@ -132,7 +134,7 @@ function saveLocalPred(date: string, gamePk: number, teamId: number) {
   catch { /* ignore */ }
 }
 
-async function loadPredsFromSb(userId: string, date: string): Promise<Record<number, number>> {
+export async function loadPredsFromSb(userId: string, date: string): Promise<Record<number, number>> {
   const { data } = await supabase
     .from('game_predictions')
     .select('game_pk, predicted_team_id')

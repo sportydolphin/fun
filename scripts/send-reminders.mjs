@@ -25,6 +25,7 @@
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import webpush from 'web-push'
+import { buildPicksReady } from '../shared/notifications.js'
 
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
@@ -71,6 +72,18 @@ async function fetchPreviewGamePks(date) {
     }
   }
   return pks
+}
+
+/**
+ * Turn a shared-catalog notification into a Web Push wire payload.
+ *
+ * `id` doubles as the push `tag`, so a resend replaces the previous banner and
+ * the in-site bell recognises it as the same notification. The catalog's emoji
+ * travels as `emoji` — `icon` is reserved for the OS notification image, which
+ * sw.js defaults to /icon.svg.
+ */
+function toPushPayload(n) {
+  return { id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.id }
 }
 
 /**
@@ -123,12 +136,14 @@ async function runTest(idOrEmail) {
     console.log(`No subscriptions found for user ${userId}. Enable notifications in the app first.`)
     return
   }
-  const sent = await sendToUser(subs, {
-    title: '⚾ Test notification',
+  const sent = await sendToUser(subs, toPushPayload({
+    id:    'mlb-test',
+    type:  'test',
+    icon:  '⚾',
+    title: 'Test notification',
     body:  'Push notifications are working. You’re all set!',
     url:   '/mlb?view=home',
-    tag:   'mlb-test',
-  })
+  }))
   console.log(`✅ Test sent to ${sent}/${subs.length} device(s).`)
 }
 
@@ -194,12 +209,9 @@ async function main() {
     for (const pk of previewSet) if (!picked.has(pk)) remaining++
     if (remaining === 0) continue
 
-    const payload = {
-      title: '⚾ Don’t forget your picks!',
-      body:  `${remaining} ${remaining === 1 ? 'game' : 'games'} left to predict today — first pitch soon.`,
-      url:   '/mlb?view=home',
-      tag:   'mlb-daily-reminder',
-    }
+    // Same builder the in-site bell uses, so the push and the bell entry are
+    // the same notification rather than two near-duplicates.
+    const payload = toPushPayload(buildPicksReady({ date, remaining, total: previewSet.size }))
     const sent = await sendToUser(subs, payload)
     if (sent > 0) notified++
   }

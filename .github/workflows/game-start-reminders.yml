@@ -1,0 +1,64 @@
+name: Game Start Reminders
+
+on:
+  schedule:
+    # Every 5 minutes, but only when MLB games can actually start, which cuts the
+    # run count roughly in half versus a blanket */5.
+    #
+    #   hours 15-23,0-4 UTC — 11am ET (earliest getaway/holiday games) through
+    #                         ~8pm PT first pitches. Nothing starts 05:00-15:00
+    #                         UTC (1am-11am ET).
+    #   months 3-10         — the regular season. The sender only looks at
+    #                         gameType=R, so Nov-Feb runs could never send.
+    #
+    # The 5-min interval must stay ≤ the smallest selectable lead time (5 min) so
+    # a game can't slip between passes; game_start_sent keeps each reminder to a
+    # single send. Overseas openers (Tokyo, ~06:00 UTC) fall outside the window.
+    # Note: GitHub's scheduler is best-effort and can lag under load.
+    - cron: '*/5 15-23,0-4 * 3-10 *'
+  workflow_dispatch:   # also triggerable manually from the GitHub Actions UI
+    inputs:
+      test_user:
+        description: 'Optional: send a one-off TEST game-start push to this user (id or email), ignoring timing. Leave blank for a normal run.'
+        required: false
+        default: ''
+
+# If a run overruns the 5-min tick, skip rather than stack a second copy.
+concurrency:
+  group: game-start-reminders
+  cancel-in-progress: false
+
+jobs:
+  send-game-start:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5   # a hung fetch shouldn't tie up a runner for six hours
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # `npm ci` would install the whole frontend toolchain (React, MUI, Vite,
+      # Vitest) that this script never imports. The sender needs exactly three
+      # packages, so install just those — versions are read out of package.json
+      # so there's still a single source of truth.
+      - name: Install sender dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','web-push','ws'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Send game-start reminders
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VAPID_PUBLIC_KEY:          ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY:         ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT:             ${{ secrets.VAPID_SUBJECT }}
+          TEST_USER:                 ${{ inputs.test_user }}
+        run: |
+          if [ -n "$TEST_USER" ]; then
+            node scripts/send-game-start.mjs --test "$TEST_USER"
+          else
+            node scripts/send-game-start.mjs
+          fi

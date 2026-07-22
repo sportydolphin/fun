@@ -33,9 +33,5 @@ jobs:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
-      - name: Update streak leaders
-        run: node scripts/update-streaks.mjs
-        continue-on-error: true
-        env:
-          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # Streak leaders moved to .github/workflows/update-streaks.yml — this slot
+      # runs before first pitch, which is exactly when the boards are staleest.

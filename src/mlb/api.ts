@@ -1,5 +1,5 @@
 import { Player, Team, StatDef, TeamSummary, CareerStatSplit, RecentGameEntry, RosterEntry, StandingsDivision, TeamPlayerStat, TeamStandingInfo, SosEntry } from './types'
-import { TEAM_ABBR } from './constants'
+import { TEAM_ABBR, CURRENT_SEASON } from './constants'
 import { supabase } from '../lib/supabase'
 
 // ─── API helpers ─────────────────────────────────────────────────────────────
@@ -164,9 +164,21 @@ export async function fetchLeaderboardData(
 
 // ─── Active streak leaders (computed from game logs) ─────────────────────────
 // MLB StatsAPI has no streak stat type, so we derive current streaks from each
-// candidate's game log. Candidates are the most-used regulars (hitters by games
-// played, pitchers by innings pitched) — the real streak leaders are always among
-// them, and this keeps us from fetching a game log for all ~2000 players.
+// candidate's game log. We can't fetch a log for all ~2000 players, so we narrow
+// to a candidate pool first.
+//
+// That pool used to be "top 50 by games played / innings pitched", on the
+// assumption that the real streak leaders are always among the highest-volume
+// players. That assumption is wrong, and badly so:
+//   · Catchers, platoon bats and anyone back from the IL sit well outside the
+//     top 50 by games played while still running long hitting streaks.
+//   · The top 50 by innings pitched are *all starters*, so scoreless-inning
+//     streaks — overwhelmingly a reliever stat — could never appear at all.
+// Measured mid-2026, 16 of the true top 25 hitting streaks were invisible.
+//
+// So eligibility is now a participation threshold that scales with how far into
+// the season we are, rather than a volume ranking: play about half your team's
+// games (or throw a fifth of the league-leading innings) and you're eligible.
 
 export interface StreakRow {
   playerId: number
@@ -201,7 +213,18 @@ function fetchGameLog(id: number, group: 'hitting' | 'pitching', season: number)
     .catch(() => [])
 }
 
-const STREAK_CANDIDATES = 50
+// Eligibility thresholds, expressed as a fraction of the current league leader
+// so they scale with season progress (in April, half of 20 games is 10).
+const STREAK_MIN_GP_PCT = 0.5    // hitters: ~half your team's games
+const STREAK_MIN_IP_PCT = 0.2    // pitchers: a fifth of the innings leader — keeps relievers in
+const STREAK_MIN_GP      = 10    // floors, so opening week isn't wide open
+const STREAK_MIN_IP      = 5
+
+// Safety bound on game-log fetches. The nightly precompute (update-streaks.mjs)
+// uses a much larger cap — it runs once on CI, where hundreds of fetches are
+// fine. This lower cap only applies to the in-browser fallback below, which is
+// a best-effort approximation; the precomputed board is the authoritative one.
+const STREAK_CANDIDATES = 200
 
 const streakCache = new Map<number, Promise<StreakLeaders>>()
 
@@ -245,12 +268,21 @@ async function computeStreakLeaders(season: number): Promise<StreakLeaders> {
     fetchSeasonPlayerStats('pitching', season),
   ])
 
+  // Scale eligibility off the current leaders, so the same rule works in April
+  // and in September.
+  const maxGP = Math.max(...hitters.map(s => Number(s.stat?.gamesPlayed ?? 0)), 1)
+  const maxIP = Math.max(...pitchers.map(s => parseFloat(s.stat?.inningsPitched ?? '0')), 1)
+  const minGP = Math.max(STREAK_MIN_GP, Math.round(maxGP * STREAK_MIN_GP_PCT))
+  const minIP = Math.max(STREAK_MIN_IP, maxIP * STREAK_MIN_IP_PCT)
+
   const hitCandidates = [...hitters]
     .filter(s => Number(s.stat?.atBats ?? 0) > 0 && Number(s.player?.id) > 0)
+    .filter(s => Number(s.stat?.gamesPlayed ?? 0) >= minGP)
     .sort((a, b) => Number(b.stat?.gamesPlayed ?? 0) - Number(a.stat?.gamesPlayed ?? 0))
     .slice(0, STREAK_CANDIDATES)
   const pitchCandidates = [...pitchers]
     .filter(s => Number(s.player?.id) > 0)
+    .filter(s => parseFloat(s.stat?.inningsPitched ?? '0') >= minIP)
     .sort((a, b) => parseFloat(b.stat?.inningsPitched ?? '0') - parseFloat(a.stat?.inningsPitched ?? '0'))
     .slice(0, STREAK_CANDIDATES)
 
@@ -868,4 +900,203 @@ async function computeRosterMoves(): Promise<RosterMove[]> {
     b.date.localeCompare(a.date) ||
     Number(b.typeCode === 'TR') - Number(a.typeCode === 'TR'))
   return moves
+}
+
+// ─── Served-suspension check ──────────────────────────────────────────────────
+//
+// The transactions feed logs a suspension (SU) but has no matching reinstatement
+// event when it ends — reinstatements simply never appear. So anywhere an SU move
+// is presented as *current state* (the followed-players badge), it would stick
+// for the full 14-day window even after the player was back playing.
+//
+// The 40-man roster carries the live status instead: `SU` while the player is
+// still serving, `A` once reinstated. Note the asymmetry below — a player missing
+// from the roster entirely (suspended off the 40-man, restricted list) is
+// "unknown", not "served", so the badge stays rather than being wrongly cleared.
+
+const SUSPENDED_ROSTER_STATUS = 'SU'
+
+const teamRosterStatusCache = new Map<number, Promise<Map<number, string>>>()
+
+function fetchTeamRosterStatuses(teamId: number): Promise<Map<number, string>> {
+  let p = teamRosterStatusCache.get(teamId)
+  if (!p) {
+    p = fetch(`https://statsapi.mlb.com/api/v1/teams/${teamId}/roster/40Man`)
+      .then(r => r.json())
+      .then(d => new Map<number, string>(
+        (d.roster ?? [])
+          .filter((e: any) => e.person?.id && e.status?.code)
+          .map((e: any) => [Number(e.person.id), String(e.status.code)] as [number, string])
+      ))
+      .catch(e => { teamRosterStatusCache.delete(teamId); throw e })
+    teamRosterStatusCache.set(teamId, p)
+  }
+  return p
+}
+
+/** Player ids whose SU move in `moves` is provably over (back on the roster as
+ *  something other than suspended). Empty when nothing can be confirmed. */
+export async function fetchServedSuspensionIds(moves: RosterMove[]): Promise<Set<number>> {
+  const byTeam = new Map<number, number[]>()
+  for (const m of moves) {
+    if (m.typeCode !== 'SU') continue
+    const teamId = m.toTeamId ?? m.fromTeamId
+    if (teamId == null) continue
+    byTeam.set(teamId, [...(byTeam.get(teamId) ?? []), m.playerId])
+  }
+
+  const served = new Set<number>()
+  await Promise.all([...byTeam].map(async ([teamId, playerIds]) => {
+    try {
+      const statuses = await fetchTeamRosterStatuses(teamId)
+      for (const id of playerIds) {
+        const status = statuses.get(id)
+        if (status && status !== SUSPENDED_ROSTER_STATUS) served.add(id)
+      }
+    } catch { /* unknown → leave the badge alone */ }
+  }))
+  return served
+}
+
+// ─── Team season stats + league ranks ─────────────────────────────────────────
+//
+// Powers the game-preview matchup comparison. The league-wide endpoint returns
+// all 30 clubs in one request per group, which is what makes ranks possible —
+// per-team requests would give values with nothing to rank them against. Two
+// fetches total, module-cached for the session (season totals barely move
+// day to day, and every preview card reuses the same numbers).
+
+export type TeamStatKey = 'avg' | 'obp' | 'slg' | 'ops' | 'rpg' | 'hr' | 'era' | 'whip' | 'k9' | 'baa'
+
+export interface TeamStatValue {
+  display: string
+  rank:    number     // 1 = best in MLB, ties share the better rank
+  // Where the value sits in the league's range, 0 = worst, 1 = best. Already
+  // direction-aware, so a long bar always means "good" — including for ERA and
+  // the other lower-is-better stats.
+  pct:     number
+}
+
+export type TeamSeasonStats = Partial<Record<TeamStatKey, TeamStatValue>>
+
+export interface TeamStatDef {
+  key:    TeamStatKey
+  label:  string
+  group:  'hitting' | 'pitching'
+  better: 'high' | 'low'
+}
+
+// Render order for the comparison table.
+export const TEAM_STAT_DEFS: TeamStatDef[] = [
+  { key: 'avg',  label: 'AVG',  group: 'hitting',  better: 'high' },
+  { key: 'obp',  label: 'OBP',  group: 'hitting',  better: 'high' },
+  { key: 'slg',  label: 'SLG',  group: 'hitting',  better: 'high' },
+  { key: 'ops',  label: 'OPS',  group: 'hitting',  better: 'high' },
+  { key: 'rpg',  label: 'R/G',  group: 'hitting',  better: 'high' },
+  { key: 'hr',   label: 'HR',   group: 'hitting',  better: 'high' },
+  { key: 'era',  label: 'ERA',  group: 'pitching', better: 'low'  },
+  { key: 'whip', label: 'WHIP', group: 'pitching', better: 'low'  },
+  { key: 'k9',   label: 'K/9',  group: 'pitching', better: 'high' },
+  { key: 'baa',  label: 'BAA',  group: 'pitching', better: 'low'  },
+]
+
+// MLB innings notation: "887.2" is 887 innings and 2 *thirds*, not 887.2 innings.
+function inningsToOuts(ip: string): number {
+  const [whole, frac] = String(ip ?? '').split('.')
+  return (Number(whole) || 0) * 3 + (Number(frac) || 0)
+}
+
+// Leading-zero-less rate stats (.263) are the convention for AVG/OBP/SLG/OPS.
+function fmtRate(n: number): string {
+  return n.toFixed(3).replace(/^0/, '')
+}
+
+async function fetchLeagueTeamSplits(group: 'hitting' | 'pitching'): Promise<any[]> {
+  const r = await fetch(
+    `https://statsapi.mlb.com/api/v1/teams/stats?season=${CURRENT_SEASON}&sportIds=1&group=${group}&stats=season`
+  )
+  const d = await r.json()
+  return d.stats?.[0]?.splits ?? []
+}
+
+let teamSeasonStatsCache: Promise<Map<number, TeamSeasonStats>> | null = null
+
+export function fetchTeamSeasonStats(): Promise<Map<number, TeamSeasonStats>> {
+  if (!teamSeasonStatsCache) {
+    teamSeasonStatsCache = computeTeamSeasonStats()
+      .catch(e => { teamSeasonStatsCache = null; throw e })
+  }
+  return teamSeasonStatsCache
+}
+
+async function computeTeamSeasonStats(): Promise<Map<number, TeamSeasonStats>> {
+  const [hitting, pitching] = await Promise.all([
+    fetchLeagueTeamSplits('hitting'),
+    fetchLeagueTeamSplits('pitching'),
+  ])
+
+  // Raw numeric value per team per stat — ranked below, then formatted for display.
+  const raw = new Map<TeamStatKey, Map<number, number>>()
+  const put = (key: TeamStatKey, teamId: number, value: number) => {
+    if (!Number.isFinite(value)) return
+    if (!raw.has(key)) raw.set(key, new Map())
+    raw.get(key)!.set(teamId, value)
+  }
+
+  for (const s of hitting) {
+    const id = Number(s.team?.id); if (!id) continue
+    const st = s.stat ?? {}
+    put('avg', id, Number(st.avg))
+    put('obp', id, Number(st.obp))
+    put('slg', id, Number(st.slg))
+    put('ops', id, Number(st.ops))
+    put('hr',  id, Number(st.homeRuns))
+    // Runs per game, not total runs — clubs sit on different game counts.
+    if (Number(st.gamesPlayed) > 0) put('rpg', id, Number(st.runs) / Number(st.gamesPlayed))
+  }
+
+  for (const s of pitching) {
+    const id = Number(s.team?.id); if (!id) continue
+    const st = s.stat ?? {}
+    put('era',  id, Number(st.era))
+    put('whip', id, Number(st.whip))
+    put('baa',  id, Number(st.avg))
+    const outs = inningsToOuts(st.inningsPitched)
+    if (outs > 0) put('k9', id, (Number(st.strikeOuts) * 27) / outs)
+  }
+
+  const fmt: Record<TeamStatKey, (n: number) => string> = {
+    avg: fmtRate, obp: fmtRate, slg: fmtRate, ops: fmtRate, baa: fmtRate,
+    rpg:  n => n.toFixed(2),
+    hr:   n => String(Math.round(n)),
+    era:  n => n.toFixed(2),
+    whip: n => n.toFixed(2),
+    k9:   n => n.toFixed(1),
+  }
+
+  const out = new Map<number, TeamSeasonStats>()
+  for (const def of TEAM_STAT_DEFS) {
+    const values = raw.get(def.key)
+    if (!values) continue
+    // Sort best-first, then walk assigning ranks; equal values share a rank.
+    const sorted = [...values].sort((a, b) => def.better === 'high' ? b[1] - a[1] : a[1] - b[1])
+    // League range for the bar scale — best and worst are the sorted ends.
+    const best  = sorted[0][1]
+    const worst = sorted[sorted.length - 1][1]
+    const span  = Math.abs(best - worst)
+    let rank = 0
+    let prev: number | null = null
+    sorted.forEach(([teamId, value], i) => {
+      if (prev === null || value !== prev) rank = i + 1
+      prev = value
+      const entry = out.get(teamId) ?? {}
+      entry[def.key] = {
+        display: fmt[def.key](value),
+        rank,
+        pct: span === 0 ? 1 : Math.abs(value - worst) / span,
+      }
+      out.set(teamId, entry)
+    })
+  }
+  return out
 }

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { Box, Typography, InputBase, Tooltip, ClickAwayListener } from '@mui/material'
 import { Player, RecentGameEntry } from '../types'
 import { TEAM_BG, TEAM_ABBR, ACCENT, HEADSHOT, CURRENT_SEASON } from '../constants'
-import { searchPlayers, fetchRecentGames, fetchRosterMoves, RosterMove } from '../api'
+import { searchPlayers, fetchRecentGames, fetchRosterMoves, fetchServedSuspensionIds, RosterMove } from '../api'
 import { MOVE_STYLE } from './RosterMoves'
 import { parseIP } from '../utils'
 import { fetchSuggestions, SuggestionChip, SuggestionPlayer } from './SuggestedPlayers'
@@ -446,11 +446,20 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   // Recent notable moves keyed by player — badge source. fetchRosterMoves is
   // module-cached, so this shares the Roster Moves card's single fetch. Moves
   // arrive newest-first; the first one seen per player wins.
+  //
+  // Unlike the Roster Moves card (a historical log, where "Suspended on Jul 12"
+  // stays true forever), this badge reads as the player's *current* state — so
+  // suspensions the player has already served are dropped first, letting an
+  // older move surface in their place.
   const [playerMoves, setPlayerMoves] = useState<Map<number, RosterMove>>(new Map())
   useEffect(() => {
-    fetchRosterMoves().then(moves => {
+    fetchRosterMoves().then(async moves => {
+      const served = await fetchServedSuspensionIds(moves)
       const byPlayer = new Map<number, RosterMove>()
-      for (const m of moves) if (!byPlayer.has(m.playerId)) byPlayer.set(m.playerId, m)
+      for (const m of moves) {
+        if (m.typeCode === 'SU' && served.has(m.playerId)) continue
+        if (!byPlayer.has(m.playerId)) byPlayer.set(m.playerId, m)
+      }
       setPlayerMoves(byPlayer)
     }).catch(() => {})
   }, [])

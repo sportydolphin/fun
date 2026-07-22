@@ -11,6 +11,7 @@ import { PENDING_USERNAME_PREFIX } from './AuthContext'
 import { AdminPanel } from './AdminPanel'
 import { UsernameDialog } from './UsernameDialog'
 import { SettingsDialog } from './SettingsDialog'
+import { NotificationBell } from './NotificationBell'
 import { supabase } from './lib/supabase'
 import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from './lib/usernames'
 import CupsGame from '../projects/cups-game/src/CupsGame'
@@ -499,6 +500,8 @@ function AppInner() {
                 <Search fontSize="small" />
               </IconButton>
             )}
+
+            <NotificationBell onNavigate={navigate} />
 
             <IconButton onClick={toggleTheme} size="small" sx={{ color: mode === 'dark' ? '#fbbf24' : 'text.primary' }}>
               {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}

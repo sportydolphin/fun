@@ -4,12 +4,15 @@
  * (hitting streaks, hitless slumps, scoreless-inning streaks) behind the
  * player report cards in Visualize.
  *
- * Port of computeStreakLeaders in src/mlb/api.ts: same candidate pool (top 50
- * hitters by games played + top 50 pitchers by innings pitched) and the same
- * streak rules, but the ~100 game-log fetches happen here once a night instead
+ * Port of computeStreakLeaders in src/mlb/api.ts: same eligibility rule and the
+ * same streak rules, but the game-log fetches happen here once a night instead
  * of in every visitor's browser. The result is upserted as one jsonb row per
  * season into `streak_leaders`; the client falls back to computing live when
  * the row is missing or stale. Keep the two implementations in sync.
+ *
+ * The one deliberate difference is STREAK_CANDIDATES: generous here (CI, once a
+ * night), much smaller in the browser fallback. This board is the authoritative
+ * one — the client's live fallback is a best-effort approximation.
  *
  * Usage (local):
  *   node scripts/update-streaks.mjs --dry-run        # compute + print, no Supabase needed
@@ -34,8 +37,20 @@ if (!DRY_RUN && (!SUPABASE_URL || !SERVICE_KEY)) {
 }
 
 const SEASON = new Date().getFullYear()
-const STREAK_CANDIDATES = 50
-const FETCH_CONCURRENCY = 8   // polite parallelism for the ~100 game-log fetches
+
+// Eligibility thresholds — see the long note in src/mlb/api.ts. Ranking by raw
+// volume (the old "top 50 by games played / innings pitched") silently excluded
+// catchers, platoon bats, IL returnees and *every* reliever. These scale with
+// season progress instead.
+const STREAK_MIN_GP_PCT = 0.5
+const STREAK_MIN_IP_PCT = 0.2
+const STREAK_MIN_GP     = 10
+const STREAK_MIN_IP     = 5
+
+// Generous cap: this runs once a night on CI, so a few hundred extra game-log
+// fetches are cheap. The client's fallback uses a much smaller cap.
+const STREAK_CANDIDATES = 600
+const FETCH_CONCURRENCY = 8   // polite parallelism for the game-log fetches
 
 // Fallback when a season-stats split lacks team.abbreviation
 const TEAM_ABBR = {
@@ -105,14 +120,25 @@ async function computeStreakLeaders(season) {
     throw new Error(`Empty season stats pools (hitters ${hitters.length}, pitchers ${pitchers.length})`)
   }
 
+  // Scale eligibility off the current leaders, so the same rule works in April
+  // and in September.
+  const maxGP = Math.max(...hitters.map(s => Number(s.stat?.gamesPlayed ?? 0)), 1)
+  const maxIP = Math.max(...pitchers.map(s => parseFloat(s.stat?.inningsPitched ?? '0')), 1)
+  const minGP = Math.max(STREAK_MIN_GP, Math.round(maxGP * STREAK_MIN_GP_PCT))
+  const minIP = Math.max(STREAK_MIN_IP, maxIP * STREAK_MIN_IP_PCT)
+
   const hitCandidates = [...hitters]
     .filter(s => Number(s.stat?.atBats ?? 0) > 0 && Number(s.player?.id) > 0)
+    .filter(s => Number(s.stat?.gamesPlayed ?? 0) >= minGP)
     .sort((a, b) => Number(b.stat?.gamesPlayed ?? 0) - Number(a.stat?.gamesPlayed ?? 0))
     .slice(0, STREAK_CANDIDATES)
   const pitchCandidates = [...pitchers]
     .filter(s => Number(s.player?.id) > 0)
+    .filter(s => parseFloat(s.stat?.inningsPitched ?? '0') >= minIP)
     .sort((a, b) => parseFloat(b.stat?.inningsPitched ?? '0') - parseFloat(a.stat?.inningsPitched ?? '0'))
     .slice(0, STREAK_CANDIDATES)
+
+  console.log(`  Candidate pool: ${hitCandidates.length} hitters (≥${minGP} G) · ${pitchCandidates.length} pitchers (≥${minIP.toFixed(1)} IP)`)
 
   const hitLogs = await mapPool(hitCandidates, FETCH_CONCURRENCY,
     c => fetchGameLog(Number(c.player.id), 'hitting', season).then(log => ({ m: meta(c), log })))

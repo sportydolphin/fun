@@ -9,6 +9,7 @@ import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
 import { useIsDark, borderAlpha, cardGradient135, fmtGB, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../colorUtils'
 import { TopPerformers } from './TopPerformers'
 import { RosterMovesCard } from './RosterMoves'
+import { LiveDramaCard } from './LiveDrama'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
 import { StandingsSnapshot } from './StandingsSnapshot'
@@ -228,6 +229,9 @@ export function HomeView({
       <Box sx={{ mb: 2 }}>
         <FinalGamesSection followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
       </Box>
+
+      {/* ── Happening Now — only renders while live drama is brewing ───────────── */}
+      <LiveDramaCard onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
 
       {/* ── Merged feed ────────────────────────────────────────────────────────
           One scroll: "My Feed" (personal, wider) then "Around the League".

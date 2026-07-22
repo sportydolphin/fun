@@ -1,0 +1,57 @@
+name: Update Streak Leaders
+
+# Split out of daily-bots.yml because the two want opposite schedules: the
+# prediction bots must run *before* first pitch, while the streak boards are only
+# correct once games have gone final. Running streaks on the bots' 14:00 UTC slot
+# meant the board sat ~19 hours behind — a player could be on a 9-game streak on
+# the broadcast while the site still showed 8.
+#
+# Three passes through the evening cut the worst-case lag from ~19h to ~4h.
+#
+# Why not hourly? Not CI cost — the compute is ~9s for ~700 game-log fetches, and
+# Actions is free on this public repo. The real limit is politeness to MLB's
+# undocumented StatsAPI: 3 passes is ~2k fetches/day, hourly would be ~10k. Add
+# more crons here if you want tighter freshness, with that in mind.
+on:
+  schedule:
+    # 06:00 UTC / 2am ET — every game including west-coast finals is complete, so
+    # this pass locks in a fully correct previous day. Runs year-round: if the row
+    # ever goes >48h stale the client falls back to computing live in the browser
+    # (hundreds of fetches), so it's worth one cheap pass a day even in the
+    # offseason to keep that from triggering.
+    - cron: '0 6 * * *'
+    # In-season only — these two just reduce lag during the day.
+    # 23:00 UTC / 7pm ET — day games are final.
+    - cron: '0 23 * 3-10 *'
+    # 03:00 UTC / 11pm ET — most evening games are final.
+    - cron: '0 3 * 3-10 *'
+  workflow_dispatch:   # also triggerable manually from the GitHub Actions UI
+
+# Never let two passes upsert the same season row at once.
+concurrency:
+  group: update-streaks
+  cancel-in-progress: false
+
+jobs:
+  update-streaks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # update-streaks.mjs imports exactly two packages — no need for `npm ci`
+      # and the whole frontend toolchain.
+      - name: Install script dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Update streak leaders
+        run: node scripts/update-streaks.mjs
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

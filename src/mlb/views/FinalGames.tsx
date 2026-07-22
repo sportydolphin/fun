@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, TEAM_ABBR, TEAM_DIVISION, HEADSHOT, CURRENT_SEASON } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder } from '../colorUtils'
 import { getHomeOverlay, setHomeOverlay, clearOverlayIf, stampOverlay } from '../homeOverlay'
+import { fetchTeamSeasonStats, TEAM_STAT_DEFS, TeamSeasonStats, TeamStatValue } from '../api'
 
 // Loaded on first game click — keeps the Game Center out of the home bundle.
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
@@ -20,6 +21,7 @@ export interface FinalTeam {
   hits:     number
   errors:   number
   isWinner: boolean
+  record?:  string          // "54-38" — season record as of this game
 }
 
 export interface FinalGameSummary {
@@ -164,6 +166,7 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
       const t   = game.teams?.[side]
       const lst = ls.teams?.[side] ?? {}
       const id  = Number(t?.team?.id ?? 0)
+      const rec = t?.leagueRecord
       return {
         teamId:   id,
         abbr:     TEAM_ABBR[id] ?? t?.team?.abbreviation ?? '???',
@@ -172,6 +175,7 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
         hits:     lst.hits   ?? 0,
         errors:   lst.errors ?? 0,
         isWinner: Boolean(t?.isWinner),
+        record:   rec && rec.wins != null && rec.losses != null ? `${rec.wins}-${rec.losses}` : undefined,
       }
     }
 
@@ -503,12 +507,22 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
         <LogoBubble teamId={t.teamId} abbr={t.abbr} size={20} />
-        <Typography sx={{
-          flex: 1, fontSize: '0.74rem', fontWeight: em ? 800 : 500, lineHeight: 1,
-          color: (isLive || em) ? 'text.primary' : 'text.secondary',
-        }}>
-          {t.abbr}
-        </Typography>
+        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.4 }}>
+          <Typography sx={{
+            fontSize: '0.74rem', fontWeight: em ? 800 : 500, lineHeight: 1,
+            color: (isLive || em) ? 'text.primary' : 'text.secondary',
+          }}>
+            {t.abbr}
+          </Typography>
+          {isPreview && t.record && (
+            <Typography sx={{
+              fontSize: '0.56rem', fontWeight: 500, lineHeight: 1, color: 'text.disabled',
+              fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+            }}>
+              {t.record}
+            </Typography>
+          )}
+        </Box>
         {!isPreview && (
           <Typography sx={{
             fontSize: '0.9rem', fontWeight: em ? 800 : 500, lineHeight: 1,
@@ -761,6 +775,200 @@ export function TeamBoxSection({ team, onPlayerClick }: { team: TeamBox; onPlaye
       <Box sx={{ px: 2, pb: 1.5, pt: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
         <PitchingTable team={team} onPlayerClick={onPlayerClick} />
       </Box>
+    </Box>
+  )
+}
+
+// ─── Season comparison (preview modal) ────────────────────────────────────────
+
+function ordinal(n: number): string {
+  // 11th/12th/13th are the exceptions to the 1st/2nd/3rd pattern.
+  const suffix = n % 100 >= 11 && n % 100 <= 13 ? 'th'
+    : n % 10 === 1 ? 'st' : n % 10 === 2 ? 'nd' : n % 10 === 3 ? 'rd' : 'th'
+  return `${n}${suffix}`
+}
+
+// Hue (0–360) of a hex color, for judging whether two team colors are telling
+// enough apart to carry meaning on their own.
+function hexHue(hex: string): number {
+  if (!hex.startsWith('#') || hex.length < 7) return 0
+  const r = parseInt(hex.slice(1, 3), 16) / 255
+  const g = parseInt(hex.slice(3, 5), 16) / 255
+  const b = parseInt(hex.slice(5, 7), 16) / 255
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min
+  if (d === 0) return 0
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+  return (h * 60 + 360) % 360
+}
+
+// Plenty of matchups are two navy clubs (MIN/CLE) or two red ones (BOS/STL) —
+// team colors would then be indistinguishable, and color is doing real work
+// here. When the hues are too close, both sides fall back to a colorblind-safe
+// blue/orange pair instead.
+const FALLBACK_AWAY = '#3b82f6'
+const FALLBACK_HOME = '#f97316'
+const MIN_HUE_GAP   = 40
+
+function comparisonColors(awayId: number, homeId: number, isDark: boolean): [string, string] {
+  const a = accentColor(TEAM_BG[awayId] ?? '#444', isDark)
+  const h = accentColor(TEAM_BG[homeId] ?? '#444', isDark)
+  const gap = Math.abs(hexHue(a) - hexHue(h))
+  const hueGap = Math.min(gap, 360 - gap)
+  return hueGap < MIN_HUE_GAP ? [FALLBACK_AWAY, FALLBACK_HOME] : [a, h]
+}
+
+// Head-to-head season splits for the two clubs. Each row is a diverging bar
+// scaled to the league's range for that stat, so the two sides can be read
+// against each other and against MLB at a glance. Bars always grow toward
+// "better", including for ERA/WHIP/BAA where the lower number wins.
+// Purely informational, so a failed fetch renders nothing rather than an error.
+function TeamComparison({ away, home }: {
+  away: { teamId: number; abbr: string }
+  home: { teamId: number; abbr: string }
+}) {
+  const isDark = useIsDark()
+  const [stats, setStats] = useState<Map<number, TeamSeasonStats> | null>(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    fetchTeamSeasonStats()
+      .then(m => { if (!cancelled) setStats(m) })
+      .catch(() => { if (!cancelled) setFailed(true) })
+    return () => { cancelled = true }
+  }, [])
+
+  const awayStats = stats?.get(away.teamId)
+  const homeStats = stats?.get(home.teamId)
+  const loading   = !stats && !failed
+  if (failed || (stats && !awayStats && !homeStats)) return null
+
+  const [awayColor, homeColor] = comparisonColors(away.teamId, home.teamId, isDark)
+  const trackBg = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)'
+
+  const shimmer = {
+    bgcolor: 'action.hover', borderRadius: 0.75,
+    '@keyframes pvPulse': { '0%,100%': { opacity: 0.5 }, '50%': { opacity: 0.85 } },
+    animation: 'pvPulse 1.1s ease-in-out infinite',
+  } as const
+
+  // value + rank stacked on the outer edge, bar growing inward from it.
+  const valueCell = (v: TeamStatValue | undefined, better: boolean, color: string, align: 'right' | 'left') => (
+    <Box sx={{ width: 42, flexShrink: 0, textAlign: align }}>
+      {loading ? (
+        <Box sx={{ ...shimmer, width: 32, height: '0.8rem', ml: align === 'right' ? 'auto' : 0 }} />
+      ) : (
+        <>
+          <Typography sx={{
+            fontSize: '0.82rem', fontWeight: better ? 900 : 600, lineHeight: 1.1,
+            color: better ? color : 'text.secondary', fontVariantNumeric: 'tabular-nums',
+          }}>
+            {v?.display ?? '—'}
+          </Typography>
+          <Typography sx={{ fontSize: '0.5rem', fontWeight: 600, color: 'text.disabled', lineHeight: 1.2 }}>
+            {v ? ordinal(v.rank) : ''}
+          </Typography>
+        </>
+      )}
+    </Box>
+  )
+
+  // Half-track: bar is anchored at the center label and grows outward, its
+  // length the team's position in the league range for that stat.
+  const bar = (v: TeamStatValue | undefined, better: boolean, color: string, side: 'away' | 'home') => (
+    <Box sx={{
+      flex: 1, minWidth: 0, height: 8, borderRadius: 999, bgcolor: trackBg,
+      position: 'relative', overflow: 'hidden',
+    }}>
+      {!loading && v && (
+        <Box sx={{
+          position: 'absolute', top: 0, bottom: 0,
+          [side === 'away' ? 'right' : 'left']: 0,
+          // Floor keeps a last-in-MLB value visible rather than zero-width.
+          width: `${Math.max(5, v.pct * 100)}%`,
+          bgcolor: color, opacity: better ? 1 : 0.4,
+          borderRadius: 999,
+          transition: 'width 0.35s ease, opacity 0.2s',
+        }} />
+      )}
+    </Box>
+  )
+
+  const row = (def: typeof TEAM_STAT_DEFS[number]) => {
+    const a = awayStats?.[def.key]
+    const h = homeStats?.[def.key]
+    // Rank already encodes direction (1 = best), so it decides the winner for
+    // both higher-is-better and lower-is-better stats.
+    const awayBetter = !!a && !!h && a.rank < h.rank
+    const homeBetter = !!a && !!h && h.rank < a.rank
+
+    return (
+      <Box key={def.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, py: 0.4 }}>
+        {valueCell(a, awayBetter, awayColor, 'right')}
+        {bar(a, awayBetter, awayColor, 'away')}
+        <Typography sx={{
+          flexShrink: 0, width: 38, textAlign: 'center',
+          fontSize: '0.56rem', fontWeight: 800, color: 'text.secondary',
+          textTransform: 'uppercase', letterSpacing: 0.4, lineHeight: 1,
+        }}>
+          {def.label}
+        </Typography>
+        {bar(h, homeBetter, homeColor, 'home')}
+        {valueCell(h, homeBetter, homeColor, 'left')}
+      </Box>
+    )
+  }
+
+  // A hairline rule with the group name set into it — separates Offense from
+  // Pitching without another heavy all-caps header competing with the labels.
+  const groupBlock = (group: 'hitting' | 'pitching', label: string) => (
+    <Box sx={{ mt: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.4 }}>
+        <Typography sx={{
+          fontSize: '0.5rem', fontWeight: 800, color: 'text.disabled',
+          textTransform: 'uppercase', letterSpacing: 1, lineHeight: 1, flexShrink: 0,
+        }}>
+          {label}
+        </Typography>
+        <Box sx={{ flex: 1, height: '1px', bgcolor: 'divider' }} />
+      </Box>
+      {TEAM_STAT_DEFS.filter(d => d.group === group).map(row)}
+    </Box>
+  )
+
+  // Team chip — a colored dot tying the abbr to its bars.
+  const teamChip = (abbr: string, color: string, align: 'right' | 'left') => (
+    <Box sx={{
+      flex: 1, display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0,
+      flexDirection: align === 'right' ? 'row-reverse' : 'row',
+    }}>
+      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />
+      <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color, lineHeight: 1 }}>
+        {abbr}
+      </Typography>
+    </Box>
+  )
+
+  return (
+    <Box sx={{ borderTop: '1px solid', borderColor: 'divider', px: 2, py: 1.5 }}>
+      <Box sx={{ mb: 1 }}>
+        <SectionLabel>Season Comparison</SectionLabel>
+      </Box>
+
+      {/* Legend: which color is which club */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
+        {teamChip(away.abbr, awayColor, 'right')}
+        <Typography sx={{ fontSize: '0.54rem', fontWeight: 700, color: 'text.disabled', flexShrink: 0, lineHeight: 1 }}>
+          VS
+        </Typography>
+        {teamChip(home.abbr, homeColor, 'left')}
+      </Box>
+
+      {groupBlock('hitting', 'Offense')}
+      {groupBlock('pitching', 'Pitching')}
+
+      <Typography sx={{ fontSize: '0.52rem', color: 'text.disabled', mt: 1, textAlign: 'center', lineHeight: 1.5 }}>
+        {CURRENT_SEASON} season · bar length = rank among all 30 clubs, longer is better
+      </Typography>
     </Box>
   )
 }
@@ -1025,6 +1233,9 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
             <PitcherCard pitcher={preview?.homePitcher ?? null} team={game.home} loading={loading} />
           </Box>
         </Box>
+
+        {/* How the two clubs stack up on the season */}
+        <TeamComparison away={game.away} home={game.home} />
 
       </Box>
       </Box>

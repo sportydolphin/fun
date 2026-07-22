@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react'
+import React, { useEffect, useCallback, lazy, Suspense } from 'react'
 import { Box, Typography, Popover, Tooltip, Divider, Button, useMediaQuery } from '@mui/material'
 import { Settings } from '@mui/icons-material'
 import { useAuth, simulateDevLogin } from './AuthContext'
@@ -14,6 +14,13 @@ import { useSearchBridge, updateSearchBridge, setSearchQuery } from './mlb/Searc
 import { clearHomeOverlay } from './mlb/homeOverlay'
 import { fetchSuggestions } from './mlb/views/SuggestedPlayers'
 import { useDevSim, setDevSimEnabled, regenerateDevSim, decideDevSimWinners, reopenDevSim } from './mlb/devSim'
+import { useDevDrama, setDevDramaEnabled, regenerateDevDrama } from './mlb/devDrama'
+import { useDevDevice, setDeviceMode, currentPreset, isInsideDeviceFrame } from './mlb/devDevice'
+import { useNotifications, addEventNotification, refreshNotifications, clearNotifications } from './lib/notifications'
+import { sampleNotifications } from '../shared/notifications'
+import type { NotificationPayload } from '../shared/notifications'
+
+const MobilePreview = import.meta.env.DEV ? lazy(() => import('./mlb/dev/MobilePreview')) : null
 
 export default function MlbStats() {
   const state = useMlbState()
@@ -91,6 +98,9 @@ export default function MlbStats() {
           setSeasonSelectorStyle={state.setSeasonSelectorStyle}
         />
       )}
+
+      {/* Dev-only: re-render the whole app inside a simulated phone viewport */}
+      {import.meta.env.DEV && !isInsideDeviceFrame && <MobilePreviewHost />}
 
       {/* Tab switcher — scrollable on mobile so tabs don't overflow the viewport */}
       <Box sx={{
@@ -286,6 +296,18 @@ export default function MlbStats() {
   )
 }
 
+// Mounts the phone-frame overlay when dev device mode is set to `mobile`. Kept
+// as its own component so MlbStats never has to call the hook in production.
+function MobilePreviewHost() {
+  const device = useDevDevice()
+  if (!MobilePreview || device.mode !== 'mobile') return null
+  return (
+    <Suspense fallback={null}>
+      <MobilePreview />
+    </Suspense>
+  )
+}
+
 // ─── Local-dev-only settings ──────────────────────────────────────────────────
 // Rendered only under import.meta.env.DEV. A small gear at the top-right opens a
 // menu of settings that only exist during local development.
@@ -324,6 +346,10 @@ function DevSettings({ seasonSelectorStyle, setSeasonSelectorStyle }: {
         <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'warning.main', mb: 1.5 }}>
           🛠 Dev Settings · local only
         </Typography>
+        <DeviceModeControls />
+
+        <Divider sx={{ my: 1.75 }} />
+
         <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: 'text.secondary', mb: 0.75 }}>
           Player-card season selector
         </Typography>
@@ -336,6 +362,14 @@ function DevSettings({ seasonSelectorStyle, setSeasonSelectorStyle }: {
         <Divider sx={{ my: 1.75 }} />
 
         <PredSimControls />
+
+        <Divider sx={{ my: 1.75 }} />
+
+        <DramaSimControls />
+
+        <Divider sx={{ my: 1.75 }} />
+
+        <NotificationTestControls />
 
         <Divider sx={{ my: 1.75 }} />
 
@@ -372,10 +406,148 @@ function DevSettings({ seasonSelectorStyle, setSeasonSelectorStyle }: {
   )
 }
 
+// In-site notification tester — the bell's counterpart to the push tester
+// (`node scripts/send-reminders.mjs --test <user>`). Three separate paths, and
+// it's worth knowing which one each button exercises:
+//
+//   Fire <type>   — injects a sample straight into the store. Tests rendering,
+//                   badge counting, and the panel. Samples come from the shared
+//                   catalog, so a new notification type gets a button for free.
+//   Simulate push — replays the exact message sw.js posts to open tabs, so it
+//                   covers the service-worker → bell bridge without needing a
+//                   real push round-trip.
+//   Re-evaluate   — runs the registered sources for real. This is the only
+//                   button that tests derived notifications end to end,
+//                   including retraction when a source stops producing.
+function NotificationTestControls() {
+  const { user } = useAuth()
+  const { items, unread } = useNotifications()
+  const samples = sampleNotifications()
+
+  // What sw.js posts on `push` — replayed here so the listener path is covered.
+  const simulatePush = (payload: NotificationPayload) => {
+    navigator.serviceWorker?.dispatchEvent(
+      new MessageEvent('message', { data: { type: 'push-received', payload } })
+    )
+  }
+
+  const btnSx = { textTransform: 'none' as const, fontWeight: 600, justifyContent: 'flex-start' }
+
+  return (
+    <>
+      <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: 'text.secondary', mb: 0.75 }}>
+        In-site notifications
+      </Typography>
+      <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', mb: 1 }}>
+        {items.length} in the bell · {unread} unread
+      </Typography>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+        {samples.map(s => (
+          <Box key={s.type} sx={{ display: 'flex', gap: 0.5 }}>
+            <Button
+              size="small" variant="outlined" sx={{ ...btnSx, flex: 1 }}
+              onClick={() => addEventNotification(s.payload)}
+            >
+              {s.payload.icon} {s.label}
+            </Button>
+            <Tooltip title="Replay the service-worker push message">
+              <Button
+                size="small" variant="outlined" sx={{ ...btnSx, minWidth: 36, px: 0 }}
+                onClick={() => simulatePush(s.payload)}
+              >
+                📡
+              </Button>
+            </Tooltip>
+          </Box>
+        ))}
+
+        <Button
+          size="small" variant="outlined" sx={btnSx}
+          onClick={() => refreshNotifications({ userId: user?.id ?? null })}
+        >
+          ↻ Re-evaluate sources (real data)
+        </Button>
+        <Button
+          size="small" variant="outlined" color="warning" sx={btnSx}
+          onClick={() => clearNotifications()}
+        >
+          ✕ Clear all
+        </Button>
+      </Box>
+    </>
+  )
+}
+
+// Desktop ⇆ mobile simulation. Flipping to Mobile reloads the app inside a
+// phone-sized iframe (see devDevice.ts / MobilePreview.tsx) so breakpoints and
+// media queries really do resolve at phone width.
+function DeviceModeControls() {
+  const device = useDevDevice()
+  return (
+    <>
+      <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: 'text.secondary', mb: 0.75 }}>
+        Device simulation
+      </Typography>
+      {isInsideDeviceFrame ? (
+        <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>
+          You're inside the simulated phone — use the toolbar above the device to
+          switch presets or exit.
+        </Typography>
+      ) : (
+        <>
+          <SegControl
+            options={[{ value: 'desktop', label: 'Desktop' }, { value: 'mobile', label: 'Mobile' }]}
+            value={device.mode}
+            onChange={v => setDeviceMode(v as 'desktop' | 'mobile')}
+          />
+          {device.mode === 'mobile' && (
+            <Typography sx={{ mt: 1.25, fontSize: '0.7rem', color: 'text.disabled' }}>
+              Simulating {currentPreset(device).label}. Esc exits.
+            </Typography>
+          )}
+        </>
+      )}
+    </>
+  )
+}
+
 // ─── Prediction-slate simulator (dev only) ─────────────────────────────────────
 // Fabricate a random day of games, then decide their winners, to exercise the
 // Predictor's picks + correct/wrong feedback without waiting on the real schedule.
 // State lives in the devSim module singleton, which PredictorWidget reads.
+// Dev-only live drama simulator — feeds fake events to the Home "Happening Now"
+// card. State lives in the devDrama module singleton, which LiveDramaCard reads.
+function DramaSimControls() {
+  const drama = useDevDrama()
+  return (
+    <>
+      <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: 'text.secondary', mb: 0.75 }}>
+        Live drama simulator
+      </Typography>
+      <SegControl
+        options={[{ value: 'off', label: 'Off' }, { value: 'on', label: 'On' }]}
+        value={drama.enabled ? 'on' : 'off'}
+        onChange={v => setDevDramaEnabled(v === 'on')}
+      />
+      {drama.enabled && (
+        <Box sx={{ mt: 1.25, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+          <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>
+            {drama.events.length} fake event{drama.events.length === 1 ? '' : 's'} on the home card
+          </Typography>
+          <Button
+            fullWidth size="small" variant="outlined"
+            onClick={() => regenerateDevDrama()}
+            sx={{ textTransform: 'none', fontWeight: 600 }}
+          >
+            🎲 New random drama
+          </Button>
+        </Box>
+      )}
+    </>
+  )
+}
+
 function PredSimControls() {
   const sim = useDevSim()
   const decided = sim.games.length > 0 && sim.games.every(g => g.state === 'final')
