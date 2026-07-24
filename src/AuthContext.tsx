@@ -86,7 +86,7 @@ function friendlyError(raw: string): string {
   if (m.includes('unable to validate email') || m.includes('invalid format') || m.includes('valid email'))
     return 'Please enter a valid email address.'
   if (m.includes('rate limit') || m.includes('too many request') || m.includes('email rate'))
-    return 'Too many attempts — please wait a minute and try again.'
+    return 'Too many attempts. Please wait a minute and try again.'
   if (m.includes('network') || m.includes('fetch') || m.includes('failed to fetch'))
     return 'Connection error. Check your internet and try again.'
   if (m.includes('email link') || m.includes('otp'))
@@ -259,7 +259,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const fmtErr = usernameValidationMsg(desired)
         if (fmtErr) { setError(fmtErr); return }
         if (usernameStat === 'taken') { setError('That username is already taken.'); return }
-        if (usernameStat === 'checking') { setError('Still checking that username — one sec.'); return }
+        if (usernameStat === 'checking') { setError('Still checking that username, one sec.'); return }
       }
     }
 

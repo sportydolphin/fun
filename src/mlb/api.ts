@@ -185,13 +185,16 @@ export interface StreakRow {
   playerName: string
   teamAbbr: string
   teamId: number
-  value: number   // games (hitting / hitless) or outs (scoreless)
+  value: number    // games (hitting / hitless / gamesPlayed) or outs (scoreless)
+  capped?: boolean // gamesPlayed only: the streak was still alive at the oldest season we searched
 }
 
 export interface StreakLeaders {
   hitting: StreakRow[]
   hitless: StreakRow[]
   scoreless: StreakRow[]
+  /** Optional: rows precomputed before this board existed won't carry it. */
+  gamesPlayed?: StreakRow[]
 }
 
 // "5.1" innings → 16 outs. StatsAPI encodes thirds of an inning as .1 / .2.
@@ -212,6 +215,126 @@ function fetchGameLog(id: number, group: 'hitting' | 'pitching', season: number)
     })
     .catch(() => [])
 }
+
+// ─── Games-played (iron man) streaks ─────────────────────────────────────────
+// The other three boards only need a player's own game log: the streak lives
+// entirely inside the games he appeared in. A consecutive-games-played streak is
+// the opposite — it's broken by a game he *isn't* in, which his log can't show.
+// So we need the team's schedule as the spine and the player's appearances laid
+// against it.
+//
+// Rather than compare dates, each team's completed regular-season games are
+// stored in chronological order and the player's appearances are mapped to
+// positions in that list. Two appearances continue a streak when their positions
+// differ by exactly 1. Seasons are concatenated into one list per team, so the
+// offseason gap between the last game of one year and the first of the next is
+// just another +1 step and streaks carry across years for free.
+//
+// A trade is the one case where positions can't be compared (different teams,
+// different schedules). Official streaks survive a trade, so we do the same.
+
+/** teamId → gamePks of completed regular-season games, oldest first. */
+const seasonScheduleCache = new Map<number, Promise<Map<number, number[]>>>()
+
+function fetchSeasonSchedule(season: number): Promise<Map<number, number[]>> {
+  if (!seasonScheduleCache.has(season)) {
+    seasonScheduleCache.set(season, (async () => {
+      const byTeam = new Map<number, number[]>()
+      try {
+        const r = await fetch(
+          `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${season}-01-01&endDate=${season}-12-31` +
+          `&gameType=R&fields=dates,date,games,gamePk,status,codedGameState,teams,home,away,team,id`
+        )
+        const d = await r.json()
+        // `dates` come back in calendar order, so pushing as we go keeps each
+        // team's list chronological. Postponed and cancelled games never count.
+        //
+        // A suspended game is listed twice, once on the date it started and again
+        // on the date it was finished, but a player's game log only ever records
+        // the original date. Keeping the first listing of each gamePk matches the
+        // logs; without this, the phantom second listing reads as a game everyone
+        // missed and cuts every streak that crosses it.
+        const seen = new Set<number>()
+        for (const day of d.dates ?? []) {
+          for (const g of day.games ?? []) {
+            const state = g.status?.codedGameState
+            if (state !== 'F' && state !== 'O') continue
+            const pk = Number(g.gamePk)
+            if (!pk || seen.has(pk)) continue
+            seen.add(pk)
+            for (const side of ['away', 'home'] as const) {
+              const tid = Number(g.teams?.[side]?.team?.id)
+              if (!tid) continue
+              const arr = byTeam.get(tid)
+              if (arr) arr.push(pk); else byTeam.set(tid, [pk])
+            }
+          }
+        }
+      } catch { /* empty map: the board comes back empty rather than wrong */ }
+      return byTeam
+    })())
+  }
+  return seasonScheduleCache.get(season)!
+}
+
+export interface PlayedGame { gamePk: number; teamId: number }
+
+/** gamePk → position, per team. Rebuilt whenever an older season is prepended. */
+export function buildScheduleIndex(byTeam: Map<number, number[]>): Map<number, Map<number, number>> {
+  const index = new Map<number, Map<number, number>>()
+  for (const [teamId, pks] of byTeam) {
+    const m = new Map<number, number>()
+    pks.forEach((pk, i) => m.set(pk, i))
+    index.set(teamId, m)
+  }
+  return index
+}
+
+/**
+ * Walk a player's appearances backwards from the most recent.
+ *
+ * `games` is the active streak, 0 when the player sat out his team's latest game.
+ * `open` means the walk ran out of history without breaking: he played the very
+ * first game we loaded, so the streak probably continues into an earlier season.
+ */
+export function walkGamesPlayedStreak(
+  played: PlayedGame[],                            // chronological, oldest first
+  byTeam: Map<number, number[]>,
+  index: Map<number, Map<number, number>>,
+): { games: number; open: boolean } {
+  if (played.length === 0) return { games: 0, open: false }
+
+  const posOf = (g: PlayedGame) => index.get(g.teamId)?.get(g.gamePk)
+
+  // Only active streaks belong on the board, so the player must have been in his
+  // team's most recent completed game.
+  const latest = played[played.length - 1]
+  const latestPos = posOf(latest)
+  const teamGames = byTeam.get(latest.teamId)
+  if (latestPos == null || !teamGames || latestPos !== teamGames.length - 1) {
+    return { games: 0, open: false }
+  }
+
+  let games = 1
+  for (let i = played.length - 1; i > 0; i--) {
+    const later = played[i], earlier = played[i - 1]
+    if (later.teamId === earlier.teamId) {
+      const lp = posOf(later), ep = posOf(earlier)
+      if (lp == null || ep == null || lp - ep !== 1) return { games, open: false }
+    }
+    // Different teams: he was traded mid-streak, which doesn't end it.
+    games++
+  }
+
+  // Ran out of loaded games. Only worth looking further back if he played his
+  // team's opening game of the span (rather than debuting partway through it).
+  return { games, open: posOf(played[0]) === 0 }
+}
+
+// How many seasons before the current one to search. Four covers ~650 games,
+// comfortably beyond any streak of the last few decades.
+const IRONMAN_SEASONS_BACK = 4
+const IRONMAN_MIN_GAMES    = 10
 
 // Eligibility thresholds, expressed as a fraction of the current league leader
 // so they scale with season progress (in April, half of 20 games is 10).
@@ -248,20 +371,105 @@ async function loadStreakLeaders(season: number): Promise<StreakLeaders> {
       .limit(1)
     const row = data?.[0]
     if (row?.data && Date.now() - new Date(row.computed_at).getTime() < STREAK_STALE_MS) {
-      return row.data as StreakLeaders
+      const stored = row.data as StreakLeaders
+      if (stored.gamesPlayed) return stored
+      // Row was written before the iron-man board existed. Keep the three cheap
+      // precomputed boards and compute only the missing one, rather than
+      // throwing away a good row and recomputing everything.
+      return { ...stored, gamesPlayed: await computeGamesPlayedLeaders(season) }
     }
   } catch { /* table missing or unreachable — compute live */ }
   return computeStreakLeaders(season)
 }
 
+const streakMeta = (s: any): StreakRow => ({
+  playerId: Number(s.player?.id),
+  playerName: s.player?.fullName ?? '—',
+  teamAbbr: s.team?.abbreviation ?? TEAM_ABBR[s.team?.id] ?? '—',
+  teamId: Number(s.team?.id) || 0,
+  value: 0,
+})
+
+/**
+ * Build the iron-man board from candidates whose game logs are already loaded.
+ *
+ * Starts with the current season's schedule and only reaches back a year at a
+ * time for the handful of players whose streak is still unbroken at the edge of
+ * what's loaded, so a cross-season search costs one extra schedule request plus
+ * a game log for those few players.
+ */
+async function computeGamesPlayedBoard(
+  season: number,
+  entries: { m: StreakRow; log: any[] }[],
+): Promise<StreakRow[]> {
+  const toPlayed = (log: any[]): PlayedGame[] =>
+    log.map(s => ({ gamePk: Number(s.game?.gamePk) || 0, teamId: Number(s.team?.id) || 0 }))
+       .filter(g => g.gamePk > 0 && g.teamId > 0)
+
+  // Per-team spine, oldest game first. Older seasons are prepended as needed;
+  // the cached per-season maps are never mutated.
+  const byTeam = new Map<number, number[]>()
+  const prependSeason = (older: Map<number, number[]>) => {
+    for (const [tid, pks] of older) {
+      const existing = byTeam.get(tid)
+      byTeam.set(tid, existing ? [...pks, ...existing] : [...pks])
+    }
+  }
+
+  prependSeason(await fetchSeasonSchedule(season))
+  let index = buildScheduleIndex(byTeam)
+
+  const state = entries.map(e => ({ m: e.m, played: toPlayed(e.log), games: 0, open: false }))
+  const rewalk = () => {
+    for (const s of state) {
+      const r = walkGamesPlayedStreak(s.played, byTeam, index)
+      s.games = r.games
+      s.open  = r.open
+    }
+  }
+  rewalk()
+
+  for (let back = 1; back <= IRONMAN_SEASONS_BACK; back++) {
+    const stillOpen = state.filter(s => s.open)
+    if (stillOpen.length === 0) break
+    const prev = season - back
+    const [older, logs] = await Promise.all([
+      fetchSeasonSchedule(prev),
+      Promise.all(stillOpen.map(s => fetchGameLog(s.m.playerId, 'hitting', prev))),
+    ])
+    if (older.size === 0) break   // no schedule for that year, so stop here
+    prependSeason(older)
+    stillOpen.forEach((s, i) => { s.played = [...toPlayed(logs[i]), ...s.played] })
+    // Prepending shifted every position, so everyone is rewalked, not just these.
+    index = buildScheduleIndex(byTeam)
+    rewalk()
+  }
+
+  return state
+    .filter(s => s.games >= IRONMAN_MIN_GAMES)
+    .map(s => ({ ...s.m, value: s.games, ...(s.open ? { capped: true } : {}) }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 25)
+}
+
+// Used only when the precomputed row predates this board. A streak can never be
+// longer than the games a player has appeared in this season, so ranking by that
+// and taking the top slice bounds who can reach the top 25.
+const IRONMAN_FALLBACK_CANDIDATES = 100
+
+async function computeGamesPlayedLeaders(season: number): Promise<StreakRow[]> {
+  const hitters = await fetchSeasonPlayerStats('hitting', season)
+  const candidates = [...hitters]
+    .filter(s => Number(s.player?.id) > 0 && Number(s.stat?.gamesPlayed ?? 0) >= IRONMAN_MIN_GAMES)
+    .sort((a, b) => Number(b.stat?.gamesPlayed ?? 0) - Number(a.stat?.gamesPlayed ?? 0))
+    .slice(0, IRONMAN_FALLBACK_CANDIDATES)
+  const logs = await Promise.all(candidates.map(c =>
+    fetchGameLog(Number(c.player.id), 'hitting', season).then(log => ({ m: streakMeta(c), log }))))
+  return computeGamesPlayedBoard(season, logs)
+}
+
 async function computeStreakLeaders(season: number): Promise<StreakLeaders> {
-  const meta = (s: any): StreakRow => ({
-    playerId: Number(s.player?.id),
-    playerName: s.player?.fullName ?? '—',
-    teamAbbr: s.team?.abbreviation ?? TEAM_ABBR[s.team?.id] ?? '—',
-    teamId: Number(s.team?.id) || 0,
-    value: 0,
-  })
+  const meta = streakMeta
 
   const [hitters, pitchers] = await Promise.all([
     fetchSeasonPlayerStats('hitting', season),
@@ -321,12 +529,84 @@ async function computeStreakLeaders(season: number): Promise<StreakLeaders> {
     if (outs >= 3) scoreless.push({ ...m, value: outs })   // at least one full scoreless inning
   }
 
+  // Reuses the hitter game logs already in hand, so the only extra cost here is
+  // the schedule request(s).
+  const gamesPlayed = await computeGamesPlayedBoard(season, hitLogs)
+
   const byValue = (a: StreakRow, b: StreakRow) => b.value - a.value
   return {
     hitting: hitting.sort(byValue).slice(0, 25),
     hitless: hitless.sort(byValue).slice(0, 25),
     scoreless: scoreless.sort(byValue).slice(0, 25),
+    gamesPlayed,
   }
+}
+
+// ─── Pitches per plate appearance (grinders vs. free swingers) ───────────────
+// Who makes pitchers work and who swings at the first thing they see. Both boards
+// come from one request against `playerPool=qualified` — MLB's own 3.1-PA-per-
+// team-game cutoff, so a bench bat with 30 trips can't win either end. That pool is
+// ~150 rows, far cheaper than filtering the cached 2000-player "All" payload, and
+// it's the same qualification a fan would see on a league leaderboard.
+//
+// Unlike the streak boards this is a plain season rate, so it works for past
+// seasons too (`numberOfPitches` goes back to the late-'80s).
+
+export interface PitchPaRow {
+  playerId: number
+  playerName: string
+  teamAbbr: string
+  teamId: number
+  value: number       // pitches seen per plate appearance
+}
+
+export interface PitchPaLeaders {
+  most:   PitchPaRow[]   // grinders, longest at-bats first
+  fewest: PitchPaRow[]   // free swingers, shortest at-bats first
+  min:    number         // league-wide qualified range, so both boards can share
+  max:    number         // one bar scale instead of each normalising to itself
+}
+
+const EMPTY_PITCH_PA: PitchPaLeaders = { most: [], fewest: [], min: 0, max: 0 }
+
+const pitchPaCache = new Map<number, Promise<PitchPaLeaders>>()
+
+export function fetchPitchesPerPa(season: number): Promise<PitchPaLeaders> {
+  if (!pitchPaCache.has(season)) pitchPaCache.set(season, loadPitchesPerPa(season))
+  return pitchPaCache.get(season)!
+}
+
+async function loadPitchesPerPa(season: number): Promise<PitchPaLeaders> {
+  try {
+    const r = await fetch(
+      `https://statsapi.mlb.com/api/v1/stats?stats=season&group=hitting&season=${season}` +
+      `&sportId=1&limit=500&playerPool=qualified`
+    )
+    const d = await r.json()
+    const rows: PitchPaRow[] = (d.stats?.[0]?.splits ?? [])
+      .map((s: any): PitchPaRow => {
+        const pa      = Number(s.stat?.plateAppearances ?? 0)
+        const pitches = Number(s.stat?.numberOfPitches ?? 0)
+        return {
+          playerId:   Number(s.player?.id) || 0,
+          playerName: s.player?.fullName ?? '—',
+          teamAbbr:   s.team?.abbreviation ?? TEAM_ABBR[s.team?.id] ?? '—',
+          teamId:     Number(s.team?.id) || 0,
+          value:      pa > 0 ? pitches / pa : 0,
+        }
+      })
+      .filter((row: PitchPaRow) => row.playerId > 0 && row.value > 0)
+
+    if (rows.length === 0) return EMPTY_PITCH_PA
+
+    const desc = rows.sort((a, b) => b.value - a.value)
+    return {
+      most:   desc.slice(0, 25),
+      fewest: [...desc].reverse().slice(0, 25),
+      min:    desc[desc.length - 1].value,
+      max:    desc[0].value,
+    }
+  } catch { return EMPTY_PITCH_PA }
 }
 
 // ─── All-time (career) leaderboard ──────────────────────────────────────────────

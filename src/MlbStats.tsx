@@ -492,7 +492,7 @@ function DeviceModeControls() {
       </Typography>
       {isInsideDeviceFrame ? (
         <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>
-          You're inside the simulated phone — use the toolbar above the device to
+          You're inside the simulated phone. Use the toolbar above the device to
           switch presets or exit.
         </Typography>
       ) : (

@@ -110,8 +110,8 @@ export function buildGameStart({ gamePk, teamName, matchup, minutesToStart }) {
     icon:  meta.icon,
     title: `${teamName} game starting soon`,
     body:  mins <= 0
-      ? `${matchup} — first pitch is now.`
-      : `${matchup} — first pitch in ${mins} min.`,
+      ? `${matchup}. First pitch is now.`
+      : `${matchup}. First pitch in ${mins} min.`,
     // Opens this game's matchup card (or the Game Center once it's underway)
     // rather than dropping the user on Home to hunt for it.
     url:   gamePk ? `/mlb?view=home&open=game&gamePk=${gamePk}` : meta.defaultUrl,

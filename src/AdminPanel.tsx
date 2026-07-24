@@ -160,7 +160,7 @@ function TestNotificationSection({ open }: { open: boolean }) {
     const devices = (data as { devices?: number })?.devices ?? 0
     setMsg(sent > 0
       ? `Sent to ${sent}/${devices} device(s). Check your notifications.`
-      : `No device accepted the push (0/${devices}). Your subscription may be stale — toggle reminders off/on in Settings.`)
+      : `No device accepted the push (0/${devices}). Your subscription may be stale. Toggle reminders off and back on in Settings.`)
     setStatus(sent > 0 ? 'done' : 'error')
   }
 
@@ -177,7 +177,7 @@ function TestNotificationSection({ open }: { open: boolean }) {
         </Button>
         {subscribedHere === false && status === 'idle' && (
           <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.75, lineHeight: 1.4 }}>
-            This device isn’t subscribed yet — enable “Daily pick reminders” in Settings first. (The test still reaches any other device you’ve subscribed.)
+            This device isn’t subscribed yet. Enable “Daily pick reminders” in Settings first. (The test still reaches any other device you’ve subscribed.)
           </Typography>
         )}
         {msg && (
@@ -282,7 +282,7 @@ export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
               ) : (
                 <Box sx={{ px: 1.5, py: 1 }}>
                   <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>
-                    No payroll data — run <code>npm run payrolls</code>
+                    No payroll data. Run <code>npm run payrolls</code>
                   </Typography>
                 </Box>
               )}

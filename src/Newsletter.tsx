@@ -15,7 +15,7 @@ export default function Newsletter() {
           Join the fun
         </Typography>
         <Typography variant="body1" gutterBottom>
-          Get occasional updates and new games — no spam.
+          Get occasional updates and new games. No spam.
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <TextField

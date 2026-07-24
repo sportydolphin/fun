@@ -9,7 +9,7 @@ import { ACCENT, TEAM_BG, TEAM_ABBR, TEAM_SEASONS, CURRENT_SEASON } from '../con
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder } from '../lib/colorUtils'
 import { pillActionSx } from '../components/ui'
 import { TeamEraOpsPlot, TeamWinRDPlot, PayrollWinsPlot } from '../components/charts'
-import { fetchStrengthOfSchedule, fetchTeamPayrolls, fetchTeamAverageAges, fetchStreakLeaders, StreakLeaders, StreakRow } from '../api'
+import { fetchStrengthOfSchedule, fetchTeamPayrolls, fetchTeamAverageAges, fetchStreakLeaders, StreakLeaders, StreakRow, fetchPitchesPerPa, PitchPaLeaders } from '../api'
 import { TEAM_PAYROLLS_2026 } from '../constants'
 
 // ─── Leaderboard row model — shared by every Report Card board ───────────────
@@ -474,22 +474,57 @@ export function PlayerLeaderboardModal({ open, onClose, icon, title, subtitle, a
 const HIT_STREAK_LABELS = ['ON FIRE', 'LOCKED IN', 'HEATING UP']
 const HITLESS_LABELS    = ['ICE COLD', 'LOST IT', 'IN A FUNK']
 const SCORELESS_LABELS  = ['UNTOUCHABLE', 'DEALING', 'FILTHY']
+const IRONMAN_LABELS    = ['IRON MAN', 'NEVER SITS', 'ALWAYS IN']
 
 function outsToIp(outs: number): string {
   return `${Math.floor(outs / 3)}.${outs % 3}`
 }
 
-export function buildStreakRows(rows: StreakRow[], kind: 'hitting' | 'hitless' | 'scoreless'): PlayerLbRow[] {
+export function buildStreakRows(rows: StreakRow[], kind: 'hitting' | 'hitless' | 'scoreless' | 'gamesPlayed'): PlayerLbRow[] {
   if (!rows.length) return []
   const max = rows[0].value || 1   // API returns each board pre-sorted desc by value
-  const labels = kind === 'hitting' ? HIT_STREAK_LABELS : kind === 'hitless' ? HITLESS_LABELS : SCORELESS_LABELS
+  const labels = kind === 'hitting' ? HIT_STREAK_LABELS
+    : kind === 'hitless' ? HITLESS_LABELS
+    : kind === 'scoreless' ? SCORELESS_LABELS
+    : IRONMAN_LABELS
   return rows.map((r, idx) => ({
     playerId: r.playerId,
     playerName: r.playerName,
     teamId: r.teamId,
     teamAbbr: r.teamAbbr,
-    value: kind === 'scoreless' ? `${outsToIp(r.value)} IP` : kind === 'hitless' ? `${r.value} PA` : `${r.value} G`,
+    // A "+" marks a games-played streak that was still alive at the oldest season
+    // searched, so its true length runs even longer than the number shown.
+    value: kind === 'scoreless' ? `${outsToIp(r.value)} IP`
+      : kind === 'hitless' ? `${r.value} PA`
+      : kind === 'gamesPlayed' ? `${r.value}${r.capped ? '+' : ''} G`
+      : `${r.value} G`,
     barFraction: r.value / max,
+    label: idx < labels.length ? labels[idx] : undefined,
+  }))
+}
+
+// ─── Pitches-per-PA row builder ───────────────────────────────────────────────
+
+const GRINDER_LABELS = ['GRINDER', 'PEST', 'PATIENT']
+const HACKER_LABELS  = ['FREE SWINGER', 'HACKER', 'FIRST PITCH']
+
+export function buildPitchPaRows(data: PitchPaLeaders | null, kind: 'most' | 'fewest'): PlayerLbRow[] {
+  const rows = kind === 'most' ? data?.most : data?.fewest
+  if (!data || !rows?.length) return []
+  const spread = (data.max - data.min) || 1
+  const labels = kind === 'most' ? GRINDER_LABELS : HACKER_LABELS
+
+  return rows.map((r, idx) => ({
+    playerId: r.playerId,
+    playerName: r.playerName,
+    teamId: r.teamId,
+    teamAbbr: r.teamAbbr,
+    value: `${r.value.toFixed(2)} P/PA`,
+    // Scaled across the qualified league's range rather than from zero: every
+    // regular sees somewhere between ~3.1 and ~4.4 pitches a trip, so zero-based
+    // bars would be indistinguishable. Each board's leader fills its bar, and the
+    // far end of the league sits near empty.
+    barFraction: 0.12 + 0.88 * ((kind === 'most' ? r.value - data.min : data.max - r.value) / spread),
     label: idx < labels.length ? labels[idx] : undefined,
   }))
 }
@@ -696,6 +731,10 @@ export function VizView({
   const [loadingStreaks, setLoadingStreaks] = useState(false)
   const [expandedPlayerBoard, setExpandedPlayerBoard] = useState<string | null>(null)
 
+  // ─── Pitches per PA — a season rate, so it loads for any season ────────────
+  const [pitchPa, setPitchPa]             = useState<PitchPaLeaders | null>(null)
+  const [loadingPitchPa, setLoadingPitchPa] = useState(false)
+
   // Only load SOS / payrolls for the current season (past seasons have no data)
   const showSos = vizSeason === CURRENT_SEASON
 
@@ -750,6 +789,16 @@ export function VizView({
     return () => { cancelled = true }
   }, [vizSeason, showSos])
 
+  useEffect(() => {
+    let cancelled = false
+    setLoadingPitchPa(true)
+    fetchPitchesPerPa(vizSeason)
+      .then(d => { if (!cancelled) setPitchPa(d) })
+      .catch(() => { if (!cancelled) setPitchPa(null) })
+      .finally(() => { if (!cancelled) setLoadingPitchPa(false) })
+    return () => { cancelled = true }
+  }, [vizSeason])
+
   // ─── Swipe to switch tabs ─────────────────────────────────────────────────
   const touchStartRef = useRef<{ x: number; y: number } | null>(null)
   const onTouchStart = useCallback((e: React.TouchEvent) => {
@@ -764,8 +813,8 @@ export function VizView({
     setVizTab(dx < 0 ? 'graphs' : 'report-card')
   }, [])
 
-  const fraudTooltip = 'Teams winning the most games above what their run differential predicts, weighted by how well they\'re actually doing. A first-place team winning 5 more than expected ranks higher than a last-place team winning 6 more — because the first-place team is actually fooling people. Bar length = weighted fraud score. Number = raw wins above expectation.'
-  const cursedTooltip = 'Teams losing the most games beyond what their run differential predicts, weighted by how poorly they\'re already doing. A last-place team underperforming by 4 wins ranks higher than a first-place team underperforming by 5 — because the first-place team is still fine. Bar length = weighted cursed score. Number = raw wins below expectation.'
+  const fraudTooltip = 'How many more games a team has won than its scoring says it should. The bar weighs the standings in too, so a contender getting lucky ranks above a last-place team with the same gap. They\'re fooling more people.'
+  const cursedTooltip = 'How many fewer games a team has won than its scoring says it should. The bar weighs the standings in too, so a last-place team getting robbed ranks above a contender with the same gap. A contender is still fine.'
 
   // ─── Report Card boards — every leaderboard follows the same shape ────────
   const boards: Board[] = [
@@ -820,26 +869,48 @@ export function VizView({
   const activeBoard = boards.find(b => b.id === expandedBoard) ?? null
 
   // ─── Player report cards — active streaks (current season only) ────────────
-  const playerBoards: PlayerBoard[] = showSos ? [
-    {
+  // Both pitch boards share the "who counts as qualified" line
+  const QUALIFIED_NOTE = 'Only counts regulars with enough playing time to qualify for a league leaderboard.'
+
+  const playerBoards: PlayerBoard[] = [
+    ...(showSos ? [{
       id: 'hit-streak', icon: '🔥', title: 'Hitting Streaks', accent: '#f97316',
       subtitle: 'Longest active hitting streaks',
-      tooltipText: 'Each hitter\'s current run of consecutive games with at least one hit. Games with no official at-bat (all walks or HBP) don\'t break the streak. Computed live from the game logs of the league\'s most-used hitters.',
+      tooltipText: 'Games in a row with at least one hit. A game with no official at-bat (all walks or hit by pitches) doesn\'t break the streak.',
       rows: buildStreakRows(streaks?.hitting ?? [], 'hitting'), loading: loadingStreaks,
     },
     {
       id: 'scoreless', icon: '🧊', title: 'Scoreless Streaks', accent: '#38bdf8',
       subtitle: 'Longest active scoreless-inning runs',
-      tooltipText: 'Innings pitched across each pitcher\'s current run of consecutive scoreless outings — the streak ends the last time they gave up a run. Computed live from game logs, so it counts whole scoreless appearances.',
+      tooltipText: 'Innings a pitcher has thrown since the last run they gave up. Counted in whole outings, so the streak starts at their first clean appearance after it.',
       rows: buildStreakRows(streaks?.scoreless ?? [], 'scoreless'), loading: loadingStreaks,
     },
     {
       id: 'hitless', icon: '🥶', title: 'Hitless Streaks', accent: '#a78bfa',
       subtitle: 'Longest active hitless droughts',
-      tooltipText: 'Each hitter\'s current run of consecutive games without a hit (0-fers), measured by the total plate appearances in the drought — the cold-streak flip side of the hitting-streak board. Games with no official at-bat are skipped.',
+      tooltipText: 'Trips to the plate a hitter has gone without a hit. The cold flip side of the hitting streaks board. Games with no official at-bat are skipped.',
       rows: buildStreakRows(streaks?.hitless ?? [], 'hitless'), loading: loadingStreaks,
     },
-  ] : []
+    {
+      id: 'games-played', icon: '🦾', title: 'Iron Men', accent: '#eab308',
+      subtitle: 'Longest active games-played streaks',
+      tooltipText: 'Games a player has appeared in without ever sitting one out, carried across seasons. A trade doesn\'t break it. A "+" means the run reaches back further than we searched, so it\'s even longer than shown.',
+      rows: buildStreakRows(streaks?.gamesPlayed ?? [], 'gamesPlayed'), loading: loadingStreaks,
+    }] : []),
+    // Plain season rates, so unlike the streak boards these render for past seasons too
+    {
+      id: 'pitches-most', icon: '⏳', title: 'Grinders', accent: '#14b8a6',
+      subtitle: 'Most pitches seen per plate appearance',
+      tooltipText: `Pitches a hitter sees per trip to the plate. These are the guys who foul balls off and work deep counts, wearing pitchers down. ${QUALIFIED_NOTE}`,
+      rows: buildPitchPaRows(pitchPa, 'most'), loading: loadingPitchPa,
+    },
+    {
+      id: 'pitches-fewest', icon: '⚡', title: 'Free Swingers', accent: '#f43f5e',
+      subtitle: 'Fewest pitches seen per plate appearance',
+      tooltipText: `Pitches a hitter sees per trip to the plate, lowest in the league. These guys jump on an early strike instead of working the count. ${QUALIFIED_NOTE}`,
+      rows: buildPitchPaRows(pitchPa, 'fewest'), loading: loadingPitchPa,
+    },
+  ]
 
   const activePlayerBoard = playerBoards.find(b => b.id === expandedPlayerBoard) ?? null
 
@@ -940,7 +1011,7 @@ export function VizView({
                     <Tooltip arrow placement="top" title={
                       <Box sx={{ maxWidth: 260, p: 0.5 }}>
                         <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
-                        <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>Each bubble is a team plotted by their pitching quality (ERA, vertical) vs their hitting power (OPS, horizontal). Lower ERA = better pitching, so the top of the chart is elite pitching. Higher OPS = better hitting, so the right side is elite offense. The quadrants label each team style — top-right teams have both elite pitching and elite hitting.</Typography>
+                        <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>Each bubble is a team plotted by their pitching quality (ERA, vertical) vs their hitting power (OPS, horizontal). Lower ERA = better pitching, so the top of the chart is elite pitching. Higher OPS = better hitting, so the right side is elite offense. The quadrants label each team style, so top-right teams have both elite pitching and elite hitting.</Typography>
                       </Box>
                     }>
                       <InfoOutlined sx={{ fontSize: '0.95rem', color: 'text.disabled', cursor: 'help', mt: '1px' }} />
@@ -1025,7 +1096,7 @@ export function VizView({
         open={activeBoard != null}
         onClose={() => setExpandedBoard(null)}
         icon={activeBoard?.icon}
-        title={activeBoard ? `${activeBoard.title} — All ${activeBoard.rows.length} Teams` : undefined}
+        title={activeBoard ? `${activeBoard.title}: All ${activeBoard.rows.length} Teams` : undefined}
         subtitle={activeBoard?.subtitle}
         accent={activeBoard?.accent}
         rows={activeBoard?.rows ?? []}
@@ -1037,7 +1108,7 @@ export function VizView({
         open={activePlayerBoard != null}
         onClose={() => setExpandedPlayerBoard(null)}
         icon={activePlayerBoard?.icon}
-        title={activePlayerBoard ? `${activePlayerBoard.title} — Top ${activePlayerBoard.rows.length}` : undefined}
+        title={activePlayerBoard ? `${activePlayerBoard.title}: Top ${activePlayerBoard.rows.length}` : undefined}
         subtitle={activePlayerBoard?.subtitle}
         accent={activePlayerBoard?.accent}
         rows={activePlayerBoard?.rows ?? []}

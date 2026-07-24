@@ -89,8 +89,8 @@ export function makeWalkoffEvent(p: {
     accentTeamId: p.home.id,
     headline: 'Walk-off watch',
     detail: deficit === 0
-      ? `${nickname} batting in the bottom ${ord(p.inning)}, tied ${p.home.score}–${p.away.score} — next run wins it`
-      : `${nickname} down ${deficit} in the bottom ${ord(p.inning)} — one swing can end it`,
+      ? `${nickname} batting in the bottom ${ord(p.inning)}, tied ${p.home.score}–${p.away.score}. Next run wins it`
+      : `${nickname} down ${deficit} in the bottom ${ord(p.inning)}. One swing can end it`,
     severity: 70 + (deficit === 0 ? 5 : 0) + (p.inning > 9 ? 3 : 0),
   }
 }
@@ -114,7 +114,7 @@ export function makeCycleEvent(p: {
     accentTeamId: p.teamId,
     headline: p.complete ? `${p.playerName} hit for the cycle!` : `Cycle watch: ${p.playerName}`,
     detail: p.complete
-      ? `Single, double, triple, homer — the full set · ${scoreline(p.away, p.home)}`
+      ? `Single, double, triple, homer. The full set · ${scoreline(p.away, p.home)}`
       : `${LEG_LABEL[p.missing ?? 'triple']} away from the cycle · ${scoreline(p.away, p.home)}`,
     severity: p.complete ? 65 : 55,
   }
@@ -130,7 +130,7 @@ export function makeMarathonEvent(p: {
     gamePk: p.gamePk, inning: p.inning, half: p.half,
     away: p.away, home: p.home,
     accentTeamId: p.home.id,
-    headline: `${p.inning >= 15 ? 'Marathon' : 'Free baseball'} — ${ord(p.inning)} inning`,
+    headline: `${p.inning >= 15 ? 'Marathon' : 'Free baseball'}, ${ord(p.inning)} inning`,
     detail: `${scoreline(p.away, p.home)} and still going`,
     severity: 40 + p.inning,
   }

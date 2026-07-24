@@ -239,7 +239,7 @@ function CropOverlay({ id, style, onChange, onClose }: {
         p: 2.5, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, maxWidth: '94vw',
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: 2 }}>
-          <Typography sx={{ fontWeight: 800, fontSize: '0.95rem' }}>Adjust crop — {TEAM_NICKNAME[id] ?? TEAM_ABBR[id]}</Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: '0.95rem' }}>Adjust crop: {TEAM_NICKNAME[id] ?? TEAM_ABBR[id]}</Typography>
           <StudioButton onClick={onClose}>Done</StudioButton>
         </Box>
 
@@ -360,7 +360,7 @@ function ExportOverlay({ text, onClose }: { text: string; onClose: () => void })
         bgcolor: '#1b1b1f', color: '#eee', borderRadius: 2, border: '1px solid rgba(255,255,255,0.14)', overflow: 'hidden',
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1.25, borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <Typography sx={{ fontWeight: 800, fontSize: '0.9rem' }}>Export — paste this to lock in values</Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: '0.9rem' }}>Export: paste this to lock in values</Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <StudioButton onClick={copy}>{copied ? 'Copied ✓' : 'Copy'}</StudioButton>
             <StudioButton onClick={onClose}>Close</StudioButton>

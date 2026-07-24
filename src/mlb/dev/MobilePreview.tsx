@@ -116,7 +116,7 @@ export default function MobilePreview() {
       </Box>
 
       <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.45)', textAlign: 'center', px: 2 }}>
-        {preset.label} · {w}×{h}{scale < 1 ? ` · shown at ${Math.round(scale * 100)}%` : ''} — real viewport, so breakpoints match a phone. Pointer is still a mouse, so `(hover: hover)` stays true.
+        {preset.label} · {w}×{h}{scale < 1 ? ` · shown at ${Math.round(scale * 100)}%` : ''}. Real viewport, so breakpoints match a phone. Pointer is still a mouse, so `(hover: hover)` stays true.
       </Typography>
     </Box>,
     document.body,

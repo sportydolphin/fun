@@ -239,7 +239,7 @@ export function StatsView({
                         title={
                           canReverse(def)
                             ? (def.leaderLabel ?? def.label)
-                            : `${def.leaderLabel ?? def.label} — career leaders only. ` +
+                            : `${def.leaderLabel ?? def.label}. Career leaders only. ` +
                               'The bottom of this stat is thousands of players tied on zero, ' +
                               'so there is no meaningful reverse order.'
                         }

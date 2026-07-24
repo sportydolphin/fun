@@ -16,6 +16,13 @@ export const ACCENT = '#60a5fa'
 // by it — see StatsView's scroll-height cap. Tune this one number to taste.
 export const DESKTOP_ZOOM = 1.4
 
+// How many players you can follow at once. The Home "Your Players" card only shows
+// the first few (3 on mobile, 5 from sm up) behind a "View all" toggle, so the list
+// stays a glanceable summary rather than a wall of rows.
+export const MAX_FOLLOWED_PLAYERS = 20
+export const FOLLOWED_PREVIEW_XS = 3
+export const FOLLOWED_PREVIEW_SM = 5
+
 // MLB StatsAPI numeric team IDs, named for readability — mirrors TEAM_ABBR below.
 // Plain constants (not an enum) so call sites can write the bare name, e.g.
 // `[BOS]: ...` as a computed object key.

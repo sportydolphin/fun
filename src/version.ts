@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.14.0'
+export const APP_VERSION = '1.15.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,33 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.15.0',
+    date:    '2026-07-23',
+    title:   'Iron man streaks, today\'s stats, and a shorter players list',
+    changes: [
+      {
+        short: 'New Iron Men board for games-played streaks',
+        full:  'The Report Card in Visualize has a new Iron Men board for the longest active games-played streaks, meaning players who have not sat a single game out. It counts across seasons, so a streak that runs from one year into the next keeps going, and a trade does not break it. A plus sign means the run started even earlier than the years we look back through.',
+      },
+      {
+        short: 'New boards for who works the count and who does not',
+        full:  'Two more Report Card boards: Grinders for the qualified hitters who see the most pitches per trip to the plate, and Free Swingers for those who see the fewest. These work for past seasons too, not just the current one.',
+      },
+      {
+        short: 'Your players show today\'s numbers when they play',
+        full:  'A followed player who is in a game today now shows that day\'s line, such as hits and at bats or a pitcher\'s innings and strikeouts, in place of their season totals. A small Today or Live tag marks it, and the line keeps updating while the game is going.',
+      },
+      {
+        short: 'Your players list stays short with a View all button',
+        full:  'The players list on the home page now shows the first few and hides the rest behind a View all button, so a long list does not take over the page. It shows 3 on a phone and 5 on a wider screen. You can follow up to 20 players.',
+      },
+      {
+        short: 'Plainer wording across the site',
+        full:  'Went through the tooltips, hints, and messages around the site and rewrote them to read more plainly.',
+      },
+    ],
+  },
   {
     version: '1.14.0',
     date:    '2026-07-23',

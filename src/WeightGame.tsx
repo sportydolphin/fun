@@ -79,7 +79,7 @@ export default function WeightGame() {
       return next
     })
     // always incorrect for fun
-    setMsg("Incorrect — they weigh the same!")
+    setMsg("Incorrect! They weigh the same.")
     // brief animation then progress
     setTimeout(() => {
       next()

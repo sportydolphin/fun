@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react'
 import { Box, Typography, InputBase, Tooltip, ClickAwayListener } from '@mui/material'
 import { Player, RecentGameEntry } from '../types'
-import { TEAM_BG, TEAM_ABBR, ACCENT, HEADSHOT, CURRENT_SEASON } from '../constants'
+import {
+  TEAM_BG, TEAM_ABBR, ACCENT, HEADSHOT, CURRENT_SEASON,
+  MAX_FOLLOWED_PLAYERS, FOLLOWED_PREVIEW_XS, FOLLOWED_PREVIEW_SM,
+} from '../constants'
 import { searchPlayers, fetchRecentGames, fetchRosterMoves, fetchServedSuspensionIds, RosterMove } from '../api'
 import { MOVE_STYLE } from './RosterMoves'
 import { parseIP } from '../lib/utils'
@@ -20,6 +23,59 @@ interface FollowedPlayerInfo {
   teamId:    number
   isPitcher: boolean
   stats:     StatCell[]
+  playedToday: boolean       // true when `stats` is today's game line rather than the season
+}
+
+// ─── Game log (shared fetch) ──────────────────────────────────────────────────
+//
+// Both the sparkline and today's stat line read the same season game log, so it's
+// fetched once per player and shared. `fresh` bypasses the cache — used by the
+// live poll so an in-progress game's line keeps ticking.
+
+const _gameLogCache = new Map<string, Promise<RecentGameEntry[]>>()
+
+function loadGameLog(id: number, isPitcher: boolean, fresh = false): Promise<RecentGameEntry[]> {
+  const key = `${id}:${isPitcher ? 'p' : 'h'}`
+  if (fresh || !_gameLogCache.has(key)) {
+    _gameLogCache.set(
+      key,
+      fetchRecentGames(id, [isPitcher ? 'pitching' : 'hitting'], CURRENT_SEASON).catch(() => []),
+    )
+  }
+  return _gameLogCache.get(key)!
+}
+
+// Local calendar date — a west-coast night game is still "today" until local midnight.
+function todayISO(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// Today's line, aggregated across both ends of a doubleheader. Returns null when the
+// player hasn't appeared today — callers fall back to season stats.
+function todayStatCells(games: RecentGameEntry[], isPitcher: boolean): StatCell[] | null {
+  const today = todayISO()
+  const todays = games.filter(g => g.date === today && (isPitcher ? g.pitching : g.hitting) != null)
+  if (todays.length === 0) return null
+
+  const sum = (pick: (g: RecentGameEntry) => any) => todays.reduce((s, g) => s + Number(pick(g) ?? 0), 0)
+
+  if (isPitcher) {
+    const ip = todays.reduce((s, g) => s + parseIP(g.pitching?.inningsPitched ?? '0'), 0)
+    // Outs back to the .0/.1/.2 innings notation
+    const outs = Math.round(ip * 3)
+    return [
+      { label: 'IP', value: `${Math.floor(outs / 3)}.${outs % 3}` },
+      { label: 'ER', value: String(sum(g => g.pitching?.earnedRuns)) },
+      { label: 'K',  value: String(sum(g => g.pitching?.strikeOuts)) },
+    ]
+  }
+
+  return [
+    { label: 'H-AB', value: `${sum(g => g.hitting?.hits)}-${sum(g => g.hitting?.atBats)}` },
+    { label: 'HR',   value: String(sum(g => g.hitting?.homeRuns)) },
+    { label: 'RBI',  value: String(sum(g => g.hitting?.rbi)) },
+  ]
 }
 
 // ─── Shared pill button style ─────────────────────────────────────────────────
@@ -137,7 +193,7 @@ function PlayerSparkline({ id, isPitcher }: { id: number; isPitcher: boolean }) 
   useEffect(() => {
     if (_sparkCache.has(id)) { setSeries(_sparkCache.get(id)!); return }
     let cancelled = false
-    fetchRecentGames(id, [isPitcher ? 'pitching' : 'hitting'], CURRENT_SEASON)
+    loadGameLog(id, isPitcher)
       .then(games => {
         const s = computeSparkSeries(games, isPitcher)
         _sparkCache.set(id, s)
@@ -218,7 +274,7 @@ function PlayerSparkline({ id, isPitcher }: { id: number; isPitcher: boolean }) 
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
-async function fetchFollowedPlayerData(id: number): Promise<FollowedPlayerInfo | null> {
+async function fetchFollowedPlayerData(id: number, fresh = false): Promise<FollowedPlayerInfo | null> {
   try {
     const season = CURRENT_SEASON
     const [detRes, hitRes, pitRes] = await Promise.all([
@@ -247,6 +303,11 @@ async function fetchFollowedPlayerData(id: number): Promise<FollowedPlayerInfo |
       ]
     }
 
+    // If they've played today, that line is the more interesting number — it takes
+    // over the stat cells and the season totals step aside until tomorrow.
+    const today = todayStatCells(await loadGameLog(id, isPitcher, fresh), isPitcher)
+    if (today) stats = today
+
     return {
       id: p.id,
       fullName:  p.fullName ?? '',
@@ -255,6 +316,7 @@ async function fetchFollowedPlayerData(id: number): Promise<FollowedPlayerInfo |
       teamId:    Number(p.currentTeam?.id ?? 0),
       isPitcher,
       stats,
+      playedToday: today != null,
     }
   } catch { return null }
 }
@@ -280,6 +342,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
 }) {
   const teamColor  = TEAM_BG[data?.teamId ?? 0] ?? '#444'
   const subtitle   = data ? [data.position, data.teamAbbr].filter(Boolean).join(' · ') : ''
+  const playedToday = !!data?.playedToday
   const statCells  = (data?.stats && data.stats.length > 0)
     ? data.stats
     : [{ label: '···', value: '—' }, { label: '···', value: '—' }, { label: '···', value: '—' }]
@@ -371,12 +434,24 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
         }}>
           {abbrevName ? shortName : fullName}
         </Typography>
-        {(subtitle || move) && (
+        {(subtitle || move || playedToday) && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, overflow: 'hidden' }}>
             {subtitle && (
               <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', lineHeight: 1.3, whiteSpace: 'nowrap' }}>
                 {subtitle}
               </Typography>
+            )}
+            {/* Flags that the stat cells hold today's game line, not season totals */}
+            {playedToday && (
+              <Box component="span" sx={{
+                px: 0.5, py: '1px', borderRadius: 999, flexShrink: 0,
+                bgcolor: `${ACCENT}1c`, border: `1px solid ${ACCENT}55`,
+                fontSize: '0.5rem', fontWeight: 800, color: ACCENT,
+                letterSpacing: 0.4, textTransform: 'uppercase', lineHeight: 1.4,
+                whiteSpace: 'nowrap',
+              }}>
+                {isLive ? 'Live' : 'Today'}
+              </Box>
             )}
             {move && (() => {
               const style = MOVE_STYLE[move.typeCode] ?? { label: move.typeDesc, color: '#94a3b8' }
@@ -418,7 +493,7 @@ function FollowedPlayerRow({ id, data, isLive, move, editMode, isSelected, onTog
           <Typography sx={{
             fontSize: '0.52rem', fontWeight: 700,
             textTransform: 'uppercase', letterSpacing: 0.4,
-            color: 'text.disabled', lineHeight: 1,
+            color: playedToday ? ACCENT : 'text.disabled', lineHeight: 1,
           }}>
             {s.label}
           </Typography>
@@ -469,8 +544,18 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
   const [suggestions, setSuggestions]   = useState<SuggestionPlayer[]>([])
   const [editMode, setEditMode]         = useState(false)
   const [selected, setSelected]         = useState<Set<number>>(new Set())
+  const [expanded, setExpanded]         = useState(false)
   const headerRef = useRef<HTMLDivElement>(null)
   const isDark = useIsDark()
+
+  // Only a preview of the list shows by default — 3 rows on phones (vertical space is
+  // precious) and 5 from sm up — behind a "View all" toggle. Which rows are dropped is
+  // decided in CSS per breakpoint rather than by slicing, so the card reflows on resize
+  // without a media-query hook. Edit mode force-expands so every player is selectable.
+  const showAll     = expanded || editMode
+  const overflowsXs = followedPlayerIds.length > FOLLOWED_PREVIEW_XS
+  const overflowsSm = followedPlayerIds.length > FOLLOWED_PREVIEW_SM
+  const atLimit     = followedPlayerIds.length >= MAX_FOLLOWED_PLAYERS
 
   useEffect(() => {
     for (const id of followedPlayerIds) {
@@ -480,6 +565,25 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
       }).catch(() => {})
     }
   }, [followedPlayerIds]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // While a followed player's team is playing, their line is today's box score — so
+  // refresh just those players on a slow poll. Read through a ref so new data doesn't
+  // restart the timer.
+  const playerDataRef = useRef(playerData)
+  playerDataRef.current = playerData
+  useEffect(() => {
+    if (!liveTeamIds || liveTeamIds.size === 0) return
+    const t = setInterval(() => {
+      for (const id of followedPlayerIds) {
+        const d = playerDataRef.current[id]
+        if (!d || !liveTeamIds.has(d.teamId)) continue
+        fetchFollowedPlayerData(id, true).then(next => {
+          if (next) setPlayerData(prev => ({ ...prev, [id]: next }))
+        }).catch(() => {})
+      }
+    }, 60_000)
+    return () => clearInterval(t)
+  }, [liveTeamIds, followedPlayerIds])
 
   useEffect(() => {
     if (!adding || !teamId) return
@@ -596,13 +700,27 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                   ✎ Edit
                 </Box>
               )}
-              <Box
-                onMouseDown={e => e.stopPropagation()}
-                onClick={() => { setAdding(a => !a); setAddQuery(''); setAddResults([]) }}
-                sx={pillSx(ACCENT, compact)}
-              >
-                {adding ? '✕' : '+ Add'}
-              </Box>
+              {atLimit && !adding ? (
+                /* Following cap reached — the pill turns into a quiet counter */
+                <Tooltip arrow placement="top"
+                  title={`You can follow up to ${MAX_FOLLOWED_PLAYERS} players. Remove one to add another.`}>
+                  <Box sx={{
+                    ...pillSx(ACCENT, compact),
+                    color: 'text.disabled', borderColor: 'divider',
+                    cursor: 'default', '&:hover': { bgcolor: 'transparent' },
+                  }}>
+                    {MAX_FOLLOWED_PLAYERS}/{MAX_FOLLOWED_PLAYERS}
+                  </Box>
+                </Tooltip>
+              ) : (
+                <Box
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={() => { setAdding(a => !a); setAddQuery(''); setAddResults([]) }}
+                  sx={pillSx(ACCENT, compact)}
+                >
+                  {adding ? '✕' : '+ Add'}
+                </Box>
+              )}
             </>
           )}
         </Box>
@@ -702,7 +820,12 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
               const data   = playerData[id] ?? null
               const isLive = !!(liveTeamIds && data?.teamId && liveTeamIds.has(data.teamId))
               return (
-                <React.Fragment key={id}>
+                <Box key={id} sx={{
+                  display: {
+                    xs: !showAll && i >= FOLLOWED_PREVIEW_XS ? 'none' : 'block',
+                    sm: !showAll && i >= FOLLOWED_PREVIEW_SM ? 'none' : 'block',
+                  },
+                }}>
                   {i > 0 && <Box sx={{ height: '1px', bgcolor: 'divider', mx: 1.5 }} />}
                   <FollowedPlayerRow
                     id={id}
@@ -714,9 +837,37 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                     onToggleSelect={() => toggleSelect(id)}
                     onClick={() => onPlayerClick(id)}
                   />
-                </React.Fragment>
+                </Box>
               )
             })}
+          </Box>
+        )}
+
+        {/* View all / show less — hidden at a breakpoint where nothing is being cut off,
+            and while editing (edit mode already shows the full list). */}
+        {!editMode && overflowsXs && (
+          <Box
+            onClick={() => setExpanded(e => !e)}
+            sx={{
+              display: { xs: 'flex', sm: overflowsSm ? 'flex' : 'none' },
+              alignItems: 'center', justifyContent: 'center', gap: 0.5,
+              px: 1.5, py: 0.75, cursor: 'pointer', flexShrink: 0,
+              borderTop: '1px solid', borderColor: 'divider',
+              color: ACCENT, fontSize: compact ? '0.62rem' : '0.66rem',
+              fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8,
+              userSelect: 'none',
+              transition: 'background 0.12s',
+              '&:hover': { bgcolor: `${ACCENT}12` },
+            }}
+          >
+            {expanded ? 'Show less' : `View all ${followedPlayerIds.length}`}
+            <Box component="span" sx={{
+              fontSize: '0.7rem', lineHeight: 1,
+              transform: expanded ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.15s',
+            }}>
+              ▾
+            </Box>
           </Box>
         )}
 

@@ -80,7 +80,7 @@ export async function enablePush(userId: string): Promise<string | null> {
     user_agent: navigator.userAgent.slice(0, 300),
   }, { onConflict: 'endpoint' })
 
-  if (error) return 'Couldn’t save your subscription — please try again.'
+  if (error) return 'Couldn’t save your subscription. Please try again.'
   return null
 }
 

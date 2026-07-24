@@ -18,7 +18,7 @@ import {
   HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS,
   DEFAULT_HIT_STATS, DEFAULT_PIT_STATS, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS,
   CURRENT_SEASON, TEAM_SEASONS, LB_FEATURED, FEATURED_PLAYER_IDS,
-  TEAM_ABBR, DEFAULT_PALETTE, teamPalette,
+  TEAM_ABBR, DEFAULT_PALETTE, teamPalette, MAX_FOLLOWED_PLAYERS,
 } from '../constants'
 import {
   searchPlayers, fetchPlayerDetails, fetchStats,
@@ -105,6 +105,7 @@ export function useMlbState() {
   const followPlayer = useCallback((id: number) => {
     setFollowedPlayerIds(prev => {
       if (prev.includes(id)) return prev
+      if (prev.length >= MAX_FOLLOWED_PLAYERS) return prev   // hard cap — UI greys out "+ Add" at the limit
       const next = [...prev, id]
       try { localStorage.setItem('mlb_fav_player_ids', JSON.stringify(next)) } catch {}
       return next

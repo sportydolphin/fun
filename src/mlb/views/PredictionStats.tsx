@@ -637,7 +637,7 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
             ) : !stats ? (
               <Box sx={{ py: 5, textAlign: 'center' }}>
                 <Typography sx={{ color: 'text.disabled', fontSize: '0.85rem' }}>
-                  No predictions yet — make some picks first!
+                  No predictions yet. Make some picks first!
                 </Typography>
               </Box>
             ) : (

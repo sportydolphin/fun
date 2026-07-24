@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * update-streaks.mjs — Nightly precompute of the active-streak leader boards
- * (hitting streaks, hitless slumps, scoreless-inning streaks) behind the
- * player report cards in Visualize.
+ * (hitting streaks, hitless slumps, scoreless-inning streaks, games-played
+ * streaks) behind the player report cards in Visualize.
  *
  * Port of computeStreakLeaders in src/mlb/api.ts: same eligibility rule and the
  * same streak rules, but the game-log fetches happen here once a night instead
@@ -86,6 +86,137 @@ function fetchGameLog(id, group, season) {
 function ipToOuts(ip) {
   const [whole, frac] = String(ip ?? '0').split('.')
   return (Number(whole) || 0) * 3 + (Number(frac) || 0)
+}
+
+// ─── Games-played (iron man) streaks — see the long note in src/mlb/api.ts ────
+// A consecutive-games-played streak is broken by a game the player *isn't* in,
+// which his own game log can't show, so the team's schedule is the spine and his
+// appearances are mapped to positions in it. Seasons concatenate per team, so a
+// streak carries across years without any date arithmetic.
+
+const IRONMAN_SEASONS_BACK = 4
+const IRONMAN_MIN_GAMES    = 10
+
+const scheduleCache = new Map()
+
+function fetchSeasonSchedule(season) {
+  if (!scheduleCache.has(season)) {
+    scheduleCache.set(season, (async () => {
+      const byTeam = new Map()
+      try {
+        const r = await fetch(
+          `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${season}-01-01&endDate=${season}-12-31` +
+          `&gameType=R&fields=dates,date,games,gamePk,status,codedGameState,teams,home,away,team,id`
+        )
+        const d = await r.json()
+        // A suspended game is listed twice, on the date it started and again on
+        // the date it finished, but a player's game log only records the original
+        // date. Keep the first listing of each gamePk so the two line up; the
+        // phantom second listing would otherwise read as a game everyone missed.
+        const seen = new Set()
+        for (const day of d.dates ?? []) {
+          for (const g of day.games ?? []) {
+            const state = g.status?.codedGameState
+            if (state !== 'F' && state !== 'O') continue
+            const pk = Number(g.gamePk)
+            if (!pk || seen.has(pk)) continue
+            seen.add(pk)
+            for (const side of ['away', 'home']) {
+              const tid = Number(g.teams?.[side]?.team?.id)
+              if (!tid) continue
+              const arr = byTeam.get(tid)
+              if (arr) arr.push(pk); else byTeam.set(tid, [pk])
+            }
+          }
+        }
+      } catch { /* empty map: board comes back empty rather than wrong */ }
+      return byTeam
+    })())
+  }
+  return scheduleCache.get(season)
+}
+
+function buildScheduleIndex(byTeam) {
+  const index = new Map()
+  for (const [teamId, pks] of byTeam) {
+    const m = new Map()
+    pks.forEach((pk, i) => m.set(pk, i))
+    index.set(teamId, m)
+  }
+  return index
+}
+
+function walkGamesPlayedStreak(played, byTeam, index) {
+  if (played.length === 0) return { games: 0, open: false }
+  const posOf = g => index.get(g.teamId)?.get(g.gamePk)
+
+  const latest = played[played.length - 1]
+  const latestPos = posOf(latest)
+  const teamGames = byTeam.get(latest.teamId)
+  if (latestPos == null || !teamGames || latestPos !== teamGames.length - 1) {
+    return { games: 0, open: false }   // sat out his team's latest game
+  }
+
+  let games = 1
+  for (let i = played.length - 1; i > 0; i--) {
+    const later = played[i], earlier = played[i - 1]
+    if (later.teamId === earlier.teamId) {
+      const lp = posOf(later), ep = posOf(earlier)
+      if (lp == null || ep == null || lp - ep !== 1) return { games, open: false }
+    }
+    // Different teams: traded mid-streak, which doesn't end it.
+    games++
+  }
+  return { games, open: posOf(played[0]) === 0 }
+}
+
+async function computeGamesPlayedBoard(season, entries) {
+  const toPlayed = log =>
+    log.map(s => ({ gamePk: Number(s.game?.gamePk) || 0, teamId: Number(s.team?.id) || 0 }))
+       .filter(g => g.gamePk > 0 && g.teamId > 0)
+
+  const byTeam = new Map()
+  const prependSeason = older => {
+    for (const [tid, pks] of older) {
+      const existing = byTeam.get(tid)
+      byTeam.set(tid, existing ? [...pks, ...existing] : [...pks])
+    }
+  }
+
+  prependSeason(await fetchSeasonSchedule(season))
+  let index = buildScheduleIndex(byTeam)
+
+  const state = entries.map(e => ({ m: e.m, played: toPlayed(e.log), games: 0, open: false }))
+  const rewalk = () => {
+    for (const s of state) {
+      const r = walkGamesPlayedStreak(s.played, byTeam, index)
+      s.games = r.games
+      s.open  = r.open
+    }
+  }
+  rewalk()
+
+  for (let back = 1; back <= IRONMAN_SEASONS_BACK; back++) {
+    const stillOpen = state.filter(s => s.open)
+    if (stillOpen.length === 0) break
+    const prev = season - back
+    console.log(`    reaching back to ${prev} for ${stillOpen.length} player(s) still unbroken`)
+    const [older, logs] = await Promise.all([
+      fetchSeasonSchedule(prev),
+      mapPool(stillOpen, FETCH_CONCURRENCY, s => fetchGameLog(s.m.playerId, 'hitting', prev)),
+    ])
+    if (older.size === 0) break
+    prependSeason(older)
+    stillOpen.forEach((s, i) => { s.played = [...toPlayed(logs[i]), ...s.played] })
+    index = buildScheduleIndex(byTeam)
+    rewalk()
+  }
+
+  return state
+    .filter(s => s.games >= IRONMAN_MIN_GAMES)
+    .map(s => ({ ...s.m, value: s.games, ...(s.open ? { capped: true } : {}) }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 25)
 }
 
 // Run fn over items with at most `limit` in flight
@@ -175,11 +306,16 @@ async function computeStreakLeaders(season) {
     if (outs >= 3) scoreless.push({ ...m, value: outs })   // at least one full scoreless inning
   }
 
+  // Reuses the hitter game logs already fetched above, so this only adds the
+  // schedule request(s).
+  const gamesPlayed = await computeGamesPlayedBoard(season, hitLogs)
+
   const byValue = (a, b) => b.value - a.value
   return {
     hitting: hitting.sort(byValue).slice(0, 25),
     hitless: hitless.sort(byValue).slice(0, 25),
     scoreless: scoreless.sort(byValue).slice(0, 25),
+    gamesPlayed,
   }
 }
 
@@ -199,7 +335,8 @@ async function main() {
   show('🔥 Hitting streaks', data.hitting, 'G ')
   show('🥶 Hitless slumps', data.hitless, 'PA')
   show('🧊 Scoreless streaks', data.scoreless, 'out')
-  console.log(`\n  Rows: hitting ${data.hitting.length} · hitless ${data.hitless.length} · scoreless ${data.scoreless.length}`)
+  show('🦾 Games-played streaks', data.gamesPlayed, 'G ')
+  console.log(`\n  Rows: hitting ${data.hitting.length} · hitless ${data.hitless.length} · scoreless ${data.scoreless.length} · gamesPlayed ${data.gamesPlayed.length}`)
 
   // Never overwrite a good row with an empty one on a bad StatsAPI day
   if (data.hitting.length + data.hitless.length + data.scoreless.length === 0) {

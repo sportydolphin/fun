@@ -92,8 +92,8 @@ function NotificationsSection({ open, userId }: { open: boolean; userId: string 
   let hint: string
   if (!supported)            hint = 'This browser doesn’t support push notifications.'
   else if (!configured)      hint = 'Notifications aren’t set up on this deployment yet.'
-  else if (perm === 'denied') hint = 'Blocked — turn notifications back on for this site in your browser settings.'
-  else if (enabled)          hint = 'On — we’ll remind you to make your picks before first pitch.'
+  else if (perm === 'denied') hint = 'Blocked. Turn notifications back on for this site in your browser settings.'
+  else if (enabled)          hint = 'On. We’ll remind you to make your picks before first pitch.'
   else                       hint = 'Get a daily nudge to pick today’s games before they lock.'
 
   return (
@@ -124,7 +124,7 @@ function NotificationsSection({ open, userId }: { open: boolean; userId: string 
               <Typography sx={{ fontSize: '0.88rem', fontWeight: 700 }}>Game start reminders</Typography>
               <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 0.25, lineHeight: 1.4 }}>
                 {gsEnabled
-                  ? 'On — we’ll ping you before your team’s next game.'
+                  ? 'On. We’ll ping you before your team’s next game.'
                   : 'Get a heads-up before your followed team’s game starts.'}
               </Typography>
             </Box>
@@ -357,7 +357,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
           )}
         </Box>
         <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 1 }}>
-          {saving ? 'Saving…' : 'Synced to your account — follows you across devices.'}
+          {saving ? 'Saving…' : 'Synced to your account, so it follows you across devices.'}
         </Typography>
 
         {/* Notifications */}
