@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react'
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { Box, Typography } from '@mui/material'
 import { Team, TeamSummary } from '../types'
 import { TEAM_BG, CURRENT_SEASON, TEAM_PAYROLLS_2026 } from '../constants'
@@ -127,6 +127,16 @@ export interface HomeViewProps {
   onViz?:            () => void
 }
 
+// Flex `order` for the personal column. The Predictor takes one of two slots
+// depending on whether the user still has picks to make.
+const ORDER = {
+  teamCard:        0,
+  predictorTop:    1,
+  followedPlayers: 2,
+  standings:       3,
+  predictorBottom: 4,
+} as const
+
 // ─── HomeView ─────────────────────────────────────────────────────────────────
 
 export function HomeView({
@@ -144,6 +154,27 @@ export function HomeView({
   const [showTeamSchedule, setShowTeamSchedule] = useState(false)
   const [teamSummaries,    setTeamSummaries]    = useState<TeamSummary[]>([])
   const [loadingBoard,     setLoadingBoard]     = useState(true)
+
+  // ── Predictor placement ──────────────────────────────────────────────────────
+  // Picks still to make → the card sits right under the team card, where it gets
+  // acted on. Nothing left to pick → it drops to the bottom of the feed.
+  //
+  // Latched on the first settled report and then held for the rest of the session:
+  // if it re-ordered live, the card would slide out from under the user the moment
+  // they made their last pick. Reordering happens via CSS `order` rather than by
+  // moving the element, so the widget never unmounts and refetches.
+  //
+  // Starts optimistic (top). The slate and picks take a moment to load, and on a
+  // fresh visit there are almost always picks outstanding — so assuming "pending"
+  // means the common case settles with no visible shift at all.
+  const [picksPending, setPicksPending] = useState(true)
+  const placementLatched = useRef(false)
+  const handlePicksSettled = useCallback((remaining: number) => {
+    if (placementLatched.current) return
+    placementLatched.current = true
+    setPicksPending(remaining > 0)
+  }, [])
+  const predictorOrder = picksPending ? ORDER.predictorTop : ORDER.predictorBottom
 
   useEffect(() => {
     setLoadingSpotlight(true)
@@ -252,6 +283,7 @@ export function HomeView({
             <>
               {/* Team card */}
               <Box sx={{
+                order: ORDER.teamCard,
                 borderRadius: 3, overflow: 'hidden',
                 border: '1px solid', borderColor: borderAlpha(bg, isDark),
                 borderLeft: `4px solid ${bg}`,
@@ -324,7 +356,7 @@ export function HomeView({
               </Box>
 
               {/* Your players — capped so a long list doesn't dominate; scrolls internally */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: { xs: 'none', md: 460 } }}>
+              <Box sx={{ order: ORDER.followedPlayers, display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: { xs: 'none', md: 460 } }}>
                 <FollowedPlayersSection
                   followedPlayerIds={followedPlayerIds}
                   onUnfollow={onUnfollowPlayer}
@@ -336,27 +368,39 @@ export function HomeView({
                 />
               </Box>
 
-              {/* Predictor */}
-              <PredictorWidget />
+              {/* Predictor — under the team card while picks are open, else last */}
+              <Box sx={{ order: predictorOrder, minWidth: 0 }}>
+                <PredictorWidget onPicksSettled={handlePicksSettled} />
+              </Box>
 
               {/* Standings snapshot — division race if in the hunt, else the wild card */}
-              <StandingsSnapshot followedTeamId={followedTeamId} season={CURRENT_SEASON} onTeamClick={onTeamClick} />
+              <Box sx={{ order: ORDER.standings, minWidth: 0 }}>
+                <StandingsSnapshot followedTeamId={followedTeamId} season={CURRENT_SEASON} onTeamClick={onTeamClick} />
+              </Box>
             </>
           ) : (
             /* No team followed: picker leads, so the feed always nudges the core action */
             <>
-              <TeamPicker allTeams={allTeams} onSelect={onFollowTeam} />
-              <FollowedPlayersSection
-                followedPlayerIds={followedPlayerIds}
-                onUnfollow={onUnfollowPlayer}
-                onPlayerClick={onPlayerClick}
-                onFollow={onFollowPlayer}
-                liveTeamIds={liveTeamIds}
-              />
-              <PredictorWidget />
+              <Box sx={{ order: ORDER.teamCard, minWidth: 0 }}>
+                <TeamPicker allTeams={allTeams} onSelect={onFollowTeam} />
+              </Box>
+              <Box sx={{ order: ORDER.followedPlayers, minWidth: 0 }}>
+                <FollowedPlayersSection
+                  followedPlayerIds={followedPlayerIds}
+                  onUnfollow={onUnfollowPlayer}
+                  onPlayerClick={onPlayerClick}
+                  onFollow={onFollowPlayer}
+                  liveTeamIds={liveTeamIds}
+                />
+              </Box>
+              <Box sx={{ order: predictorOrder, minWidth: 0 }}>
+                <PredictorWidget onPicksSettled={handlePicksSettled} />
+              </Box>
 
               {/* Standings snapshot — no team followed, so a rotating division */}
-              <StandingsSnapshot followedTeamId={followedTeamId} season={CURRENT_SEASON} onTeamClick={onTeamClick} />
+              <Box sx={{ order: ORDER.standings, minWidth: 0 }}>
+                <StandingsSnapshot followedTeamId={followedTeamId} season={CURRENT_SEASON} onTeamClick={onTeamClick} />
+              </Box>
             </>
           )}
         </Box>

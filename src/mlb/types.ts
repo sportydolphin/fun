@@ -169,6 +169,54 @@ export interface SosEntry {
   losses: number
 }
 
+// ─── Player contracts ─────────────────────────────────────────────────────────
+
+/** One season of a contract — or of team control beyond it (arb years, free agency). */
+export interface ContractYear {
+  season: number
+  /** Normalised at scrape time; see normaliseYearType in scripts/update-payrolls.mjs. */
+  kind:   'guaranteed' | 'arb' | 'pre-arb' | 'option' | 'free-agent' | 'other'
+  /** FanGraphs' own label, e.g. "CLUB OPTION" — shown on hover. */
+  label:  string
+  /** Whole dollars. Zero for future arb/FA years, which aren't yet negotiated. */
+  salary: number
+}
+
+export interface PlayerContract {
+  mlbamId:         number
+  playerName:      string
+  teamId:          number
+  contractType:    string | null   // Extension / Free Agent / Arbitration / Pre-Arbitration
+  yearsTotal:      number | null
+  totalValue:      number | null   // whole dollars
+  aav:             number | null
+  startSeason:     number | null
+  endSeason:       number | null
+  serviceTime:     string | null   // "5.028" = 5 years, 28 days
+  /** Null when the deal ends on an option — the market date depends on the decision. */
+  freeAgentSeason: number | null
+  description:     string | null   // "6 yr, $170M (2026-31); can opt out after 2030"
+  years:           ContractYear[]
+  updatedAt:       string | null
+}
+
+// ─── Leaderboard entries ──────────────────────────────────────────────────────
+
+/** One player row in the Stats / Leaderboard tables, season or all-time. */
+export interface LeaderboardEntry {
+  playerId:   number
+  playerName: string
+  teamAbbr:   string
+  teamId:     number
+  stat:       any
+  /**
+   * All-time only: the player cleared the career PA/IP minimum (they came back
+   * from a Qualified-pool request). Absent for season data, where qualification
+   * is computed locally from the season's own thresholds instead.
+   */
+  qualified?: boolean
+}
+
 // ─── Leaderboard fullscreen state ─────────────────────────────────────────────
 
 export interface LbFullscreenState {

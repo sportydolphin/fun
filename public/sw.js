@@ -66,9 +66,14 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Focus an already-open app tab if we have one.
+      // Focus an already-open app tab if we have one. Focusing alone would throw
+      // away the notification's `open=` action, so hand the target url to the page
+      // — it parses the action and opens the right thing (src/mlb/state/deepLink.ts).
       for (const client of clientList) {
-        if (client.url.includes('/mlb') && 'focus' in client) return client.focus()
+        if (client.url.includes('/mlb') && 'focus' in client) {
+          if (client.postMessage) client.postMessage({ type: 'notification-click', url: target })
+          return client.focus()
+        }
       }
       // Otherwise open a new one.
       if (self.clients.openWindow) return self.clients.openWindow(target)

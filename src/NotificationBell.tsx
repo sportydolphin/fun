@@ -18,6 +18,7 @@ import {
 } from './lib/notifications'
 import { picksReadySource } from './mlb/notifications/picksReady'
 import { gameStartSource } from './mlb/notifications/gameStart'
+import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 
 // Registered at module load so the set of sources is declared in one place.
 registerNotificationSource(picksReadySource)
@@ -53,20 +54,35 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
 
   // A push that arrives while the tab is open is shown by the OS *and* recorded
   // here, so the bell reflects it too. sw.js forwards the payload.
+  //
+  // It also forwards clicks on an OS notification when this tab is the one it
+  // focuses: focusing can't carry a url, so the action arrives as a message
+  // instead and takes the same path as an in-app bell click.
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
     const onMessage = (e: MessageEvent) => {
       if (e.data?.type === 'push-received' && e.data.payload?.id) {
         addEventNotification(e.data.payload)
       }
+      if (e.data?.type === 'notification-click' && typeof e.data.url === 'string') {
+        const link = parseDeepLink(e.data.url)
+        if (link) requestDeepLink(link)
+        onNavigate(e.data.url)
+      }
     }
     navigator.serviceWorker.addEventListener('message', onMessage)
     return () => navigator.serviceWorker.removeEventListener('message', onMessage)
-  }, [])
+  }, [onNavigate])
 
   const handleClick = (n: AppNotification) => {
     markRead(n.id)
     setOpen(false)
+    // The url's `open=` action is what makes the click useful — without it we'd
+    // just drop the user on Home. Publish it before navigating so a component
+    // that's already mounted (the common case: the bell is clicked from Home)
+    // reacts; a cold start instead picks it up from the url at module load.
+    const link = parseDeepLink(n.url)
+    if (link) requestDeepLink(link)
     onNavigate(n.url)
   }
 

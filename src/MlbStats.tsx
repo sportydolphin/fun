@@ -275,6 +275,7 @@ export default function MlbStats() {
           playerCardProps={state.playerCardProps}
           teamCardProps={state.teamCardProps}
           showTrends={state.showTrends}
+          playerContract={state.playerContract}
           careerSplits={state.careerSplits}
           loadingCareer={state.loadingCareer}
           recentGames={state.recentGames}

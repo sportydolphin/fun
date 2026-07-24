@@ -1,4 +1,4 @@
-import { Player, Team, StatDef, TeamSummary, CareerStatSplit, RecentGameEntry, RosterEntry, StandingsDivision, TeamPlayerStat, TeamStandingInfo, SosEntry } from './types'
+import { Player, Team, StatDef, TeamSummary, CareerStatSplit, RecentGameEntry, RosterEntry, StandingsDivision, TeamPlayerStat, TeamStandingInfo, SosEntry, LeaderboardEntry, PlayerContract, ContractYear } from './types'
 import { TEAM_ABBR, CURRENT_SEASON } from './constants'
 import { supabase } from '../lib/supabase'
 
@@ -147,7 +147,7 @@ export async function fetchTeamStats(id: number, group: 'hitting' | 'pitching', 
 export async function fetchLeaderboardData(
   group: 'hitting' | 'pitching',
   season: number
-): Promise<Array<{ playerId: number; playerName: string; teamAbbr: string; teamId: number; stat: any }>> {
+): Promise<LeaderboardEntry[]> {
   try {
     const splits = await fetchSeasonPlayerStats(group, season)
     return splits.map((s: any) => ({
@@ -336,6 +336,19 @@ async function computeStreakLeaders(season: number): Promise<StreakLeaders> {
 // re-sort locally. Rate stats use the Qualified pool (career PA/IP thresholds) so
 // tiny-sample flukes don't top the list; counting stats use the full pool so career
 // relievers (e.g. the all-time saves leaders) aren't excluded.
+//
+// ── Why rate stats are fetched in both directions ──
+// The pool only contains leaders, so re-sorting it backwards locally would answer
+// the wrong question: not "who has the worst career AVG" but "which of these
+// leaders is weakest at AVG". For rate stats the *real* answer is worth having and
+// the API can give it — sorted ascending within the Qualified pool it returns
+// George McBride (.218) and Mark Belanger (.228), a genuine worst-hitters board —
+// so we fetch that direction too and the reversed sort becomes truthful.
+//
+// Counting stats get no such treatment, because there is no meaningful answer to
+// fetch: ascending career home runs is thousands of players tied on zero, and the
+// endpoint returns an arbitrary handful of them. StatsView therefore refuses to
+// sort those backwards at all rather than showing a list that means nothing.
 type CareerSortSpec = { field: string; pool: 'All' | 'Qualified'; order: 'asc' | 'desc' }
 
 const CAREER_SORTS: Record<'hitting' | 'pitching', CareerSortSpec[]> = {
@@ -352,6 +365,11 @@ const CAREER_SORTS: Record<'hitting' | 'pitching', CareerSortSpec[]> = {
     { field: 'obp',         pool: 'Qualified', order: 'desc' },
     { field: 'slg',         pool: 'Qualified', order: 'desc' },
     { field: 'ops',         pool: 'Qualified', order: 'desc' },
+    // Worst-qualified ends, so the table can be sorted the other way honestly.
+    { field: 'avg',         pool: 'Qualified', order: 'asc'  },
+    { field: 'obp',         pool: 'Qualified', order: 'asc'  },
+    { field: 'slg',         pool: 'Qualified', order: 'asc'  },
+    { field: 'ops',         pool: 'Qualified', order: 'asc'  },
   ],
   pitching: [
     { field: 'wins',              pool: 'All',       order: 'desc' },
@@ -361,36 +379,60 @@ const CAREER_SORTS: Record<'hitting' | 'pitching', CareerSortSpec[]> = {
     { field: 'era',               pool: 'Qualified', order: 'asc'  },
     { field: 'whip',              pool: 'Qualified', order: 'asc'  },
     { field: 'strikeoutsPer9Inn', pool: 'Qualified', order: 'desc' },
+    // For ERA/WHIP "worst" is the high end; SO/9's is the low end.
+    { field: 'era',               pool: 'Qualified', order: 'desc' },
+    { field: 'whip',              pool: 'Qualified', order: 'desc' },
+    { field: 'strikeoutsPer9Inn', pool: 'Qualified', order: 'asc'  },
   ],
 }
 
-const allTimeCache = new Map<'hitting' | 'pitching', Promise<Array<{ playerId: number; playerName: string; teamAbbr: string; teamId: number; stat: any }>>>()
+export interface AllTimeEntry {
+  playerId:   number
+  playerName: string
+  teamAbbr:   string
+  teamId:     number
+  stat:       any
+  /**
+   * The API returned this player in a Qualified-pool request, i.e. they cleared
+   * the career PA/IP minimum. Rate-stat leaderboards restrict to these: without
+   * it a .000-in-1-AB cup-of-coffee player would top any ascending rate sort.
+   */
+  qualified:  boolean
+}
 
-export function fetchAllTimeLeaderboardData(
-  group: 'hitting' | 'pitching'
-): Promise<Array<{ playerId: number; playerName: string; teamAbbr: string; teamId: number; stat: any }>> {
+const allTimeCache = new Map<'hitting' | 'pitching', Promise<AllTimeEntry[]>>()
+
+export function fetchAllTimeLeaderboardData(group: 'hitting' | 'pitching'): Promise<AllTimeEntry[]> {
   if (!allTimeCache.has(group)) {
     const specs = CAREER_SORTS[group]
     const p = Promise.all(specs.map(spec =>
       fetch(`https://statsapi.mlb.com/api/v1/stats?stats=career&group=${group}&sportId=1&limit=100` +
         `&playerPool=${spec.pool}&sortStat=${spec.field}&order=${spec.order}`)
         .then(r => r.json())
-        .then((d: any) => d.stats?.[0]?.splits ?? [])
-        .catch(() => [] as any[])
+        .then((d: any) => ({ spec, splits: (d.stats?.[0]?.splits ?? []) as any[] }))
+        .catch(() => ({ spec, splits: [] as any[] }))
     )).then(results => {
       // Union by playerId. Career stat objects are complete regardless of which sort
-      // surfaced a player, so first-wins dedup is safe.
-      const byId = new Map<number, { playerId: number; playerName: string; teamAbbr: string; teamId: number; stat: any }>()
-      for (const splits of results) {
+      // surfaced a player, so first-wins dedup is safe for the stats themselves —
+      // but `qualified` must OR across every request, since a player can arrive
+      // first via an All-pool counting sort and only later via a Qualified one.
+      const byId = new Map<number, AllTimeEntry>()
+      for (const { spec, splits } of results) {
         for (const s of splits) {
           const playerId = Number(s.player?.id)
-          if (!playerId || byId.has(playerId)) continue
+          if (!playerId) continue
+          const existing = byId.get(playerId)
+          if (existing) {
+            if (spec.pool === 'Qualified') existing.qualified = true
+            continue
+          }
           byId.set(playerId, {
             playerId,
             playerName: s.player?.fullName ?? '—',
             teamAbbr: s.team?.abbreviation ?? TEAM_ABBR[s.team?.id] ?? '—',
             teamId: Number(s.team?.id) || 0,
             stat: s.stat,
+            qualified: spec.pool === 'Qualified',
           })
         }
       }
@@ -837,6 +879,53 @@ export async function fetchTeamPayrolls(season: number): Promise<Record<number, 
 
   if (error || !data?.length) return {}
   return Object.fromEntries(data.map(r => [Number(r.team_id), Number(r.payroll_m)]))
+}
+
+// ─── Player contracts ─────────────────────────────────────────────────────────
+// Sourced from FanGraphs Roster Resource by scripts/update-payrolls.mjs (see
+// scripts/create_player_contracts.sql). Scraped server-side into Supabase rather
+// than fetched here: FanGraphs serves HTML with no CORS headers, so the browser
+// can't read it directly even if we wanted to parse it client-side.
+
+const contractCache = new Map<number, Promise<PlayerContract | null>>()
+
+/** One player's contract, or null when we have no row for them (minor leaguers, etc). */
+export function fetchPlayerContract(mlbamId: number): Promise<PlayerContract | null> {
+  if (!contractCache.has(mlbamId)) {
+    // async IIFE, not a .then chain: the Supabase builder is a thenable, not a
+    // real Promise, so it has no .catch to hang the failure path on.
+    const p = (async (): Promise<PlayerContract | null> => {
+      try {
+        const { data, error } = await supabase
+          .from('player_contracts')
+          .select('*')
+          .eq('mlbam_id', mlbamId)
+          .maybeSingle()
+        if (error || !data) return null
+        return {
+          mlbamId:         Number(data.mlbam_id),
+          playerName:      data.player_name,
+          teamId:          Number(data.team_id),
+          contractType:    data.contract_type ?? null,
+          yearsTotal:      data.years_total ?? null,
+          totalValue:      data.total_value != null ? Number(data.total_value) : null,
+          aav:             data.aav != null ? Number(data.aav) : null,
+          startSeason:     data.start_season ?? null,
+          endSeason:       data.end_season ?? null,
+          serviceTime:     data.service_time ?? null,
+          freeAgentSeason: data.free_agent_season ?? null,
+          description:     data.description ?? null,
+          years:           Array.isArray(data.years) ? (data.years as ContractYear[]) : [],
+          updatedAt:       data.updated_at ?? null,
+        }
+      } catch {
+        // A missing table (migration not run yet) must not break the player page.
+        return null
+      }
+    })()
+    contractCache.set(mlbamId, p)
+  }
+  return contractCache.get(mlbamId)!
 }
 
 // ─── Roster moves (transactions feed) ─────────────────────────────────────────

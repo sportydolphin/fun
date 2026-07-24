@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
-import { TEAM_BG, TEAM_ABBR, TEAM_DIVISION, HEADSHOT, CURRENT_SEASON } from '../constants'
+import { TEAM_BG, TEAM_ABBR, HEADSHOT, CURRENT_SEASON } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder } from '../lib/colorUtils'
 import { getHomeOverlay, setHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 import { fetchTeamSeasonStats, TEAM_STAT_DEFS, TeamSeasonStats, TeamStatValue } from '../api'
@@ -27,6 +27,7 @@ export interface FinalTeam {
 export interface FinalGameSummary {
   gamePk:     number
   state:      GameState
+  startMs:    number                 // scheduled first pitch (epoch ms) — drives chronological order
   statusText: string                 // "Final"/"Final/10", live inning ("▲ 5th"), or start time
   home:       FinalTeam
   away:       FinalTeam
@@ -179,6 +180,10 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
       }
     }
 
+    const parsedStart = game.gameDate ? new Date(game.gameDate).getTime() : NaN
+    // Games without a usable start time sink to the bottom of their group.
+    const startMs = Number.isNaN(parsedStart) ? Number.MAX_SAFE_INTEGER : parsedStart
+
     let statusText: string
     if (state === 'final') {
       // Extra innings → "Final/10". scheduledInnings defaults to 9.
@@ -208,6 +213,7 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
     out.push({
       gamePk:     game.gamePk,
       state,
+      startMs,
       statusText,
       home:       mkTeam('home'),
       away:       mkTeam('away'),
@@ -1551,38 +1557,21 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
     return () => clearTimeout(t)
   }, [games, handleStripScroll])
 
-  // Ordering (see request):
+  // Ordering:
   //   1. Followed team's game is always first, no matter what.
-  //   2. Live games come first; the division/league order applies *within* live,
-  //      then again within the non-live games.
-  //   3. Division order: followed team → its division rivals → rest of its league
-  //      → other league.
-  //   4. Final before preview as a final tiebreaker.
+  //   2. Then by state: live → final → upcoming.
+  //   3. Chronological (first pitch) within each state group.
+  // No division/league weighting — it scattered the day's slate unpredictably.
   const STATE_ORDER: Record<GameState, number> = { live: 0, final: 1, preview: 2 }
-  const myDiv    = followedTeamId != null ? TEAM_DIVISION[followedTeamId] : undefined
-  const myLeague = myDiv?.slice(0, 2)
-
-  // Relevance of a single team to the followed team: 0 division, 1 league, 2 other.
-  const teamRel = (teamId: number): number => {
-    const div = TEAM_DIVISION[teamId]
-    if (!div || !myDiv) return 2
-    if (div === myDiv) return 0
-    if (div.slice(0, 2) === myLeague) return 1
-    return 2
-  }
-  // A game ranks by its most relevant team.
-  const gameRel = (g: FinalGameSummary) => Math.min(teamRel(g.home.teamId), teamRel(g.away.teamId))
-  const isMine  = (g: FinalGameSummary) =>
+  const isMine = (g: FinalGameSummary) =>
     followedTeamId != null && (g.home.teamId === followedTeamId || g.away.teamId === followedTeamId)
 
   const sortedGames = [...games].sort((a, b) => {
     const aMine = isMine(a), bMine = isMine(b)
     if (aMine !== bMine) return aMine ? -1 : 1
-    const aLive = a.state === 'live', bLive = b.state === 'live'
-    if (aLive !== bLive) return aLive ? -1 : 1
-    const rel = gameRel(a) - gameRel(b)
-    if (rel !== 0) return rel
-    return STATE_ORDER[a.state] - STATE_ORDER[b.state]
+    const state = STATE_ORDER[a.state] - STATE_ORDER[b.state]
+    if (state !== 0) return state
+    return a.startMs - b.startMs
   })
 
   return (

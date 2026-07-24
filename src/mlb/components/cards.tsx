@@ -17,6 +17,8 @@ export interface CardInnerProps {
   pitLeaders: Map<string, number[]>
   palette: Palette
   season: number | string
+  /** Years in the majors, e.g. "1954 – 1976". Career view only; null hides the line. */
+  careerSpan?: string | null
   teamDisplay: string
   rankMode: RankMode
   showPosition: boolean
@@ -30,7 +32,7 @@ export interface CardInnerProps {
   onTogglePitStat?: (key: string) => void
 }
 
-export function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pitLeaders, palette, season, teamDisplay, rankMode, showPosition, showTeam, showAge, showNumber, large, selectedHitStats, selectedPitStats, onToggleHitStat, onTogglePitStat }: CardInnerProps) {
+export function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pitLeaders, palette, season, careerSpan, teamDisplay, rankMode, showPosition, showTeam, showAge, showNumber, large, selectedHitStats, selectedPitStats, onToggleHitStat, onTogglePitStat }: CardInnerProps) {
   const photoSize = large ? 190 : 108
   const hasHitting = hittingStats && HITTING_STAT_DEFS.some(d => selectedHitStats.includes(d.key))
 
@@ -94,6 +96,19 @@ export function CardInner({ player, hittingStats, pitchingStats, hitLeaders, pit
       }}>
         {season}
       </Typography>
+
+      {/* Career view: the seasons those totals cover. "Career" alone says nothing
+          about *whose* career era it was — this dates the numbers. */}
+      {careerSpan && (
+        <Typography sx={{
+          color: palette.sub, fontWeight: 700,
+          fontSize: large ? '0.95rem' : { xs: '0.7rem', sm: '0.78rem' },
+          letterSpacing: 0.4, lineHeight: 1, mt: large ? 0.5 : 0.35,
+          whiteSpace: 'nowrap',
+        }}>
+          {careerSpan}
+        </Typography>
+      )}
     </>
   )
 

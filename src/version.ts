@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.13.0'
+export const APP_VERSION = '1.14.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,41 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.14.0',
+    date:    '2026-07-23',
+    title:   'Contracts, doubleheaders, and better ordering',
+    changes: [
+      {
+        short: 'See contract and team control on player pages',
+        full:  'Player pages now have a Contract section with the deal, its average annual value, and a season by season timeline. The timeline runs past the guaranteed money, so even a player on the minimum salary shows their arbitration years and the season they can reach free agency.',
+      },
+      {
+        short: 'Scores are back in time order',
+        full:  'The scoreboard used to sort by division and league, which scattered the day around. Games now run in start time order, with live games first, then finals, then upcoming, and your team always first.',
+      },
+      {
+        short: 'Doubleheaders show both games',
+        full:  'The team card only ever showed one game per day, so the second game of a doubleheader vanished. Both games now sit stacked under a single date with game numbers. A live second game also used to be hidden behind a finished first game, and that is fixed.',
+      },
+      {
+        short: 'Predictions move up when you have picks left',
+        full:  'The predictions card now sits right under your team card while you still have games to call, and drops to the bottom of the feed once every pick is made. It stays put for the rest of your visit so it never moves while you are using it.',
+      },
+      {
+        short: 'Notifications take you where they mean',
+        full:  'Clicking a notification used to leave you on the home page to find the thing yourself. A prediction reminder now opens the full predictions board, and a game start reminder opens that game.',
+      },
+      {
+        short: 'All time stat sorting no longer returns nonsense',
+        full:  'The all time table would let you sort by lowest home runs or lowest batting average, which returned meaningless results because only the career leaders are loaded. Rate stats like average and ERA can now be sorted both directions against qualified career players, showing a real worst list. Counting stats no longer offer a reverse order at all.',
+      },
+      {
+        short: 'Career cards show the years played',
+        full:  'A player card in career mode now shows the seasons they played beneath the Career heading, such as 1954 to 1976, or 2011 to present for an active player.',
+      },
+    ],
+  },
   {
     version: '1.13.0',
     date:    '2026-07-22',

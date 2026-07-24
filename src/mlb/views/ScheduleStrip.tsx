@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react'
+import React, { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffect } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
 import { TEAM_ABBR, HEADSHOT, ACCENT } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 import { FinalGameSummary, GamePreviewModal, PreviewGame } from './FinalGames'
 import { GameCenterModal } from './LiveGameCenter'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
+import { useDeepLink } from '../state/deepLink'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -52,6 +53,7 @@ export interface ScheduleGame {
   teamScore:     number | null
   opponentScore: number | null
   isWin:         boolean | null
+  gameNumber:    number    // 1, or 2 for the nightcap of a doubleheader
 }
 
 export interface ProbablePitcher {
@@ -110,7 +112,7 @@ export async function fetchTeamSchedule(teamId: number): Promise<ScheduleGame[]>
   const r = await fetch(
     `https://statsapi.mlb.com/api/v1/schedule?teamId=${teamId}&sportId=1` +
     `&startDate=${toISO(start)}&endDate=${toISO(end)}&gameType=R` +
-    `&fields=dates,date,games,gamePk,gameDate,status,abstractGameState,detailedState,teams,home,away,team,id,score,isWinner`
+    `&fields=dates,date,games,gamePk,gameDate,gameNumber,status,abstractGameState,detailedState,teams,home,away,team,id,score,isWinner`
   )
   const d = await r.json()
 
@@ -140,10 +142,27 @@ export async function fetchTeamSchedule(teamId: number): Promise<ScheduleGame[]>
         teamScore:     state !== 'preview' ? Number(mine?.score ?? 0) : null,
         opponentScore: state !== 'preview' ? Number(opp?.score  ?? 0) : null,
         isWin:         state === 'final' ? Boolean(mine?.isWinner) : null,
+        gameNumber:    Number(game.gameNumber ?? 1),
       })
     }
   }
-  return games.sort((a, b) => a.date.localeCompare(b.date))
+  // Doubleheaders share a date, so game number breaks the tie — the strip and the
+  // team card both rely on this list being in true chronological order.
+  return games.sort((a, b) => a.date.localeCompare(b.date) || a.gameNumber - b.gameNumber)
+}
+
+// ─── Doubleheader helpers ─────────────────────────────────────────────────────
+// Every slot in the team card (last / today / upcoming) holds a *day*, not a
+// game, so a doubleheader shows both games instead of silently dropping one.
+
+/** All games on the same date as `date`, in game-number order. */
+function gamesOnDate(games: ScheduleGame[], date: string): ScheduleGame[] {
+  return games.filter(g => g.date === date)
+}
+
+/** "GM 1" / "GM 2" badge — only when the day actually has more than one game. */
+function gmLabel(day: ScheduleGame[], g: ScheduleGame): string | undefined {
+  return day.length > 1 ? `GM ${g.gameNumber}` : undefined
 }
 
 // ─── Game preview fetch ───────────────────────────────────────────────────────
@@ -404,7 +423,7 @@ function GameChip({ game, teamColor, highlight, isActualToday, innerRef, onClick
         color: 'text.disabled', lineHeight: 1,
         mt: highlight ? 1.4 : 0, letterSpacing: 0.3,
       }}>
-        {chipDate(game.date)}
+        {chipDate(game.date)}{game.gameNumber > 1 ? ' · G2' : ''}
       </Typography>
 
       <Typography sx={{ fontSize: '0.46rem', fontWeight: 800, color: 'text.disabled', lineHeight: 1, letterSpacing: 0.8 }}>
@@ -518,7 +537,7 @@ function GameCountdown({ iso }: { iso: string }) {
 // ─── CompactGameCard ──────────────────────────────────────────────────────────
 // Compact single-game summary (last game OR next game header)
 
-function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAction, onTeamClick, rightSlot, scoreRef, scoreMinWidth }: {
+function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAction, onTeamClick, rightSlot, scoreRef, scoreMinWidth, gmLabel, hideDate }: {
   game:         ScheduleGame
   myTeamId?:    number
   label?:       string
@@ -529,6 +548,8 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
   rightSlot?:   React.ReactNode                 // mobile-only: fills the empty space right of the score
   scoreRef?:    React.Ref<HTMLDivElement>        // measure the score/time block for cross-card alignment
   scoreMinWidth?: number                         // mobile: min width so stacked cards' rightSlots line up
+  gmLabel?:     string                           // "GM 1"/"GM 2" badge for doubleheader days
+  hideDate?:    boolean                          // 2nd+ game of a doubleheader — the date is already above
 }) {
   const isFinal = game.state === 'final'
   const isLive  = game.state === 'live'
@@ -570,10 +591,21 @@ function CompactGameCard({ game, myTeamId, label, labelColor, actionLabel, onAct
   return (
     <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: { xs: 0.35, sm: 0.75 } }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-        <Typography component="div" sx={{ lineHeight: 1 }}>
-          <Box component="span" sx={{ fontSize: '0.9rem', fontWeight: 800, color: 'text.primary' }}>
-            {relativeChipDate(game.date)}
-          </Box>
+        <Typography component="div" sx={{ lineHeight: 1, display: 'flex', alignItems: 'baseline', gap: 0.7, minWidth: 0 }}>
+          {!hideDate && (
+            <Box component="span" sx={{ fontSize: '0.9rem', fontWeight: 800, color: 'text.primary' }}>
+              {relativeChipDate(game.date)}
+            </Box>
+          )}
+          {gmLabel && (
+            <Box component="span" sx={{
+              fontSize: '0.55rem', fontWeight: 800, letterSpacing: 0.5, color: 'text.disabled',
+              px: 0.55, py: 0.2, borderRadius: 999, border: '1px solid', borderColor: 'divider',
+              whiteSpace: 'nowrap', flexShrink: 0,
+            }}>
+              {gmLabel}
+            </Box>
+          )}
         </Typography>
         {actionLabel && onAction && (
           <Box
@@ -693,7 +725,11 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
   const [canScrollLeft,  setCanScrollLeft]   = useState(false)
   const [canScrollRight, setCanScrollRight]  = useState(true)
 
-  const nextGame = games.find(g => g.date >= today) ?? games[games.length - 1]
+  // The chip to highlight: the next game still to be played. On a doubleheader day
+  // whose opener is already final, that's the nightcap — not the finished game.
+  const nextGame = games.find(g => g.date >= today && g.state !== 'final')
+    ?? games.find(g => g.date >= today)
+    ?? games[games.length - 1]
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -820,7 +856,9 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
                 const isHL = g.gamePk === nextGame.gamePk
                 return (
                   <GameChip
-                    key={g.gamePk}
+                    // A postponed game keeps its original date *and* the makeup date's
+                    // gamePk, so the pk alone isn't unique across the strip.
+                    key={`${g.date}-${g.gamePk}`}
                     game={g}
                     teamColor={teamColor}
                     highlight={isHL}
@@ -1349,9 +1387,11 @@ function gameToFinalSummary(game: ScheduleGame, myTeamId: number): FinalGameSumm
   const homeId  = game.isHome ? myTeamId        : game.opponentId
   const homeWon = game.isHome ? (game.isWin ?? false) : !(game.isWin ?? false)
   const isLive  = game.state === 'live'
+  const startMs = game.gameDateISO ? new Date(game.gameDateISO).getTime() : NaN
   return {
     gamePk:     game.gamePk,
     state:      isLive ? 'live' : 'final',
+    startMs:    Number.isNaN(startMs) ? Number.MAX_SAFE_INTEGER : startMs,
     statusText: isLive ? 'Live' : 'Final',
     away:  { teamId: awayId, abbr: TEAM_ABBR[awayId] ?? '???', name: '', runs: game.isHome ? (game.opponentScore ?? 0) : (game.teamScore ?? 0), hits: 0, errors: 0, isWinner: !homeWon },
     home:  { teamId: homeId, abbr: TEAM_ABBR[homeId] ?? '???', name: '', runs: game.isHome ? (game.teamScore ?? 0) : (game.opponentScore ?? 0), hits: 0, errors: 0, isWinner: homeWon },
@@ -1371,21 +1411,24 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
   onPlayerClick?:   (id: number) => void
   onTeamClick?:     (id: number) => void
 }) {
-  const [games,               setGames]               = useState<ScheduleGame[]>([])
-  const [loading,             setLoading]             = useState(true)
-  const [previewData,         setPreviewData]         = useState<GamePreviewData | null>(null)
-  const [loadingPreview,      setLoadingPreview]      = useState(false)
-  const [liveInfo,            setLiveInfo]            = useState<LiveGameData | null>(null)
-  const [loadingLive,         setLoadingLive]         = useState(false)
-  const [upcomingGame,        setUpcomingGame]        = useState<ScheduleGame | null>(null)
-  const [upcomingPreviewData, setUpcomingPreviewData] = useState<GamePreviewData | null>(null)
+  const [games,        setGames]        = useState<ScheduleGame[]>([])
+  const [loading,      setLoading]      = useState(true)
+  const [liveInfo,     setLiveInfo]     = useState<LiveGameData | null>(null)
+  const [loadingLive,  setLoadingLive]  = useState(false)
+  const [liveGamePk,   setLiveGamePk]   = useState<number | null>(null)
   // Modal state for tapping a game card
-  const [modalGame,           setModalGame]           = useState<ScheduleGame | null>(null)
-  const [loadingUpcoming,     setLoadingUpcoming]     = useState(false)
-  const [finalDetails,        setFinalDetails]        = useState<GameFinalDetails | null>(null)
-  const [lastFinalDetails,    setLastFinalDetails]    = useState<GameFinalDetails | null>(null)
-  const [liveGamePk,          setLiveGamePk]          = useState<number | null>(null)
-  const [boxScoreGame,        setBoxScoreGame]        = useState<FinalGameSummary | null>(null)
+  const [modalGame,    setModalGame]    = useState<ScheduleGame | null>(null)
+  const [boxScoreGame, setBoxScoreGame] = useState<FinalGameSummary | null>(null)
+
+  // Supporting detail is keyed by gamePk rather than by slot: on a doubleheader day
+  // a single slot renders two games, and each needs its own recap / probable starters.
+  const [finalDetails, setFinalDetails] = useState<Record<number, GameFinalDetails>>({})
+  const [previewData,  setPreviewData]  = useState<Record<number, GamePreviewData>>({})
+  const [pendingPks,   setPendingPks]   = useState<Record<number, boolean>>({})
+  // Every "<gamePk>:<state>" we've already kicked off a fetch for, so the effect below
+  // can re-run freely (on poll, on new schedule) without refiring requests. State is
+  // part of the key so a game flipping preview → final refetches as a recap.
+  const requestedPks = useRef<Set<string>>(new Set())
 
   // Cross-card alignment (mobile): the primary and upcoming game cards stack, and their
   // inline pitcher matchups should start at the same x. Measure both score/time blocks
@@ -1424,72 +1467,115 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
     }
   }, [])
 
+  // A "game starting soon" notification names a gamePk; open that game here.
+  // Held until the schedule has loaded, since we need the game to open it.
+  const [pendingGamePk, setPendingGamePk] = useState<number | null>(null)
+  useDeepLink('game', link => setPendingGamePk(link.gamePk))
+  useEffect(() => {
+    if (pendingGamePk === null) return
+    const g = games.find(x => x.gamePk === pendingGamePk)
+    if (!g) {
+      // Not this team's game (the user switched teams since the reminder fired) —
+      // drop it rather than leaving it queued to fire at some unrelated moment.
+      if (games.length) setPendingGamePk(null)
+      return
+    }
+    // First pitch may have arrived between the reminder and the click, so pick the
+    // modal that matches where the game actually is now.
+    if (g.state === 'preview' || g.state === 'postponed') setModalGame(g)
+    else setBoxScoreGame(gameToFinalSummary(g, teamId))
+    setPendingGamePk(null)
+  }, [pendingGamePk, games, teamId])
+
   useEffect(() => {
     setLoading(true)
-    setPreviewData(null)
+    setGames([])
     setLiveInfo(null)
     setLiveGamePk(null)
-    setUpcomingGame(null)
-    setUpcomingPreviewData(null)
-    setFinalDetails(null)
-    setLastFinalDetails(null)
-    fetchTeamSchedule(teamId).then(g => {
-      setGames(g)
-      const next = g.find(x => x.date >= today) ?? g[g.length - 1]
-      if (next) {
-        if (next.state === 'live') {
-          setLiveGamePk(next.gamePk)
-          setLoadingLive(true)
-          fetchLiveGameData(next.gamePk).then(setLiveInfo).finally(() => setLoadingLive(false))
-        } else if (next.state === 'preview') {
-          setLoadingPreview(true)
-          fetchGamePreview(next.gamePk).then(setPreviewData).finally(() => setLoadingPreview(false))
-          const lastFinal = [...g].reverse().find(x => x.state === 'final')
-          if (lastFinal) fetchGameFinalDetails(lastFinal.gamePk, teamId).then(setLastFinalDetails)
-        } else if (next.state === 'final') {
-          // Today's game ended — fetch box score for performance details
-          fetchGameFinalDetails(next.gamePk, teamId).then(setFinalDetails)
-          // Also surface the next upcoming game
-          const upcoming = g.find(x => x.state === 'preview')
-          if (upcoming) {
-            setUpcomingGame(upcoming)
-            setLoadingUpcoming(true)
-            fetchGamePreview(upcoming.gamePk)
-              .then(setUpcomingPreviewData)
-              .finally(() => setLoadingUpcoming(false))
-          }
-        } else if (next.state === 'postponed') {
-          // Game postponed — surface the next real upcoming game
-          const upcoming = g.find(x => x.state === 'preview')
-          if (upcoming) {
-            setUpcomingGame(upcoming)
-            setLoadingUpcoming(true)
-            fetchGamePreview(upcoming.gamePk)
-              .then(setUpcomingPreviewData)
-              .finally(() => setLoadingUpcoming(false))
-          }
-        }
-      }
-    }).finally(() => setLoading(false))
+    setFinalDetails({})
+    setPreviewData({})
+    setPendingPks({})
+    requestedPks.current = new Set()
+    fetchTeamSchedule(teamId)
+      .then(setGames)
+      .finally(() => setLoading(false))
   }, [teamId])
+
+  // ── Slot selection ────────────────────────────────────────────────────────
+  // Three slots, each holding a whole day so doubleheaders stay intact:
+  //   primary  — the current day (first date on/after today, else the last played)
+  //   last     — the most recent completed day before it (shown only when the
+  //              primary day still has a game to come)
+  //   upcoming — the next day with games (shown only once the primary day is done)
+  const slots = useMemo(() => {
+    const empty = { primary: [] as ScheduleGame[], last: [] as ScheduleGame[], upcoming: [] as ScheduleGame[] }
+    if (!games.length) return empty
+
+    const primaryDate = (games.find(g => g.date >= today) ?? games[games.length - 1]).date
+    const primary     = gamesOnDate(games, primaryDate)
+    // A day is "done" only when every one of its games is over — a doubleheader
+    // with the nightcap still to play keeps today as the primary focus.
+    const primaryDone = primary.every(g => g.state === 'final' || g.state === 'postponed')
+
+    if (primaryDone) {
+      const nextDate = games.find(g => g.date > primaryDate && g.state === 'preview')?.date
+      return { primary, last: [], upcoming: nextDate ? gamesOnDate(games, nextDate) : [] }
+    }
+    const lastDate = [...games].reverse().find(g => g.date < primaryDate && g.state === 'final')?.date
+    return {
+      primary,
+      last: lastDate ? gamesOnDate(games, lastDate).filter(g => g.state === 'final') : [],
+      upcoming: [],
+    }
+  }, [games, today])
+
+  const liveGame = slots.primary.find(g => g.state === 'live') ?? null
+  const isLive   = liveGame !== null
+
+  // Fetch the supporting detail (recap performers / probable starters) for every
+  // game currently on screen — both halves of a doubleheader, not just the first.
+  useEffect(() => {
+    const shown = [...slots.last, ...slots.primary, ...slots.upcoming]
+    for (const g of shown) {
+      if (g.state !== 'final' && g.state !== 'preview') continue
+      const key = `${g.gamePk}:${g.state}`
+      if (requestedPks.current.has(key)) continue
+      requestedPks.current.add(key)
+      setPendingPks(p => ({ ...p, [g.gamePk]: true }))
+      const done = () => setPendingPks(p => ({ ...p, [g.gamePk]: false }))
+      if (g.state === 'final') {
+        fetchGameFinalDetails(g.gamePk, teamId)
+          .then(d => { if (d) setFinalDetails(m => ({ ...m, [g.gamePk]: d })) })
+          .finally(done)
+      } else {
+        fetchGamePreview(g.gamePk)
+          .then(d => { if (d) setPreviewData(m => ({ ...m, [g.gamePk]: d })) })
+          .finally(done)
+      }
+    }
+  }, [slots, teamId])
+
+  // Start / stop live polling as the primary day's live game comes and goes.
+  useEffect(() => {
+    if (liveGame && liveGame.gamePk !== liveGamePk) {
+      setLiveGamePk(liveGame.gamePk)
+      setLoadingLive(true)
+      fetchLiveGameData(liveGame.gamePk).then(setLiveInfo).finally(() => setLoadingLive(false))
+    } else if (!liveGame && liveGamePk !== null) {
+      setLiveGamePk(null)
+      setLiveInfo(null)
+    }
+  }, [liveGame, liveGamePk])
 
   useEffect(() => {
     if (!liveGamePk) return
     const pollLive = setInterval(() => {
       fetchLiveGameData(liveGamePk).then(data => { if (data) setLiveInfo(data) })
     }, 10_000)
+    // Refresh the schedule too: it's what flips the live game to final (and, on a
+    // doubleheader, hands the live slot over to the nightcap).
     const pollSchedule = setInterval(() => {
-      const n = new Date()
-      const d = `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
-      fetchTeamSchedule(teamId).then(g => {
-        setGames(g)
-        const next = g.find(x => x.date >= d) ?? g[g.length - 1]
-        if (next?.state === 'live') {
-          fetchLiveGameData(next.gamePk).then(data => { if (data) setLiveInfo(data) })
-        } else {
-          setLiveGamePk(null)
-        }
-      })
+      fetchTeamSchedule(teamId).then(setGames)
     }, 90_000)
     return () => { clearInterval(pollLive); clearInterval(pollSchedule) }
   }, [liveGamePk, teamId])
@@ -1501,40 +1587,139 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
   )
   if (!games.length) return null
 
-  const lastGame    = [...games].reverse().find(g => g.state === 'final') ?? null
-  const nextGame    = games.find(g => g.date >= today) ?? games[games.length - 1]
-  const isFinal     = nextGame.state === 'final'
-  const isLive      = nextGame.state === 'live'
-  const isPreview   = nextGame.state === 'preview'
-  const isPostponed = nextGame.state === 'postponed'
-  // Only show separate "last game" when it differs from the primary card and isn't itself final/postponed today
-  const showLast  = lastGame !== null && lastGame.gamePk !== nextGame.gamePk && !isFinal && !isPostponed
+  const showLast     = slots.last.length > 0
+  const showUpcoming = slots.upcoming.length > 0
+  // The primary day is "done" whenever there's an upcoming day beside it — that's
+  // the same condition, and it drives the mobile score alignment between the two.
+  const alignScores  = showUpcoming
 
-  // Only "FINAL" (rendered beside the score, not the date). No "Today" label —
-  // relativeChipDate already prints "Today". PPD is already shown in the score row.
-  const nextLabel = isFinal ? 'FINAL' : undefined
-  const nextLabelColor = isFinal
-    ? (nextGame.isWin === true ? '#22c55e' : nextGame.isWin === false ? '#ef4444' : undefined)
-    : undefined
+  // One game inside a day column. `first` owns the date chip and the alignment ref;
+  // the rest sit under it with just a GM badge, so a doubleheader reads as one day.
+  const renderGameRow = (
+    g:    ScheduleGame,
+    day:  ScheduleGame[],
+    opts: { first: boolean; scoreRef?: React.Ref<HTMLDivElement>; scoreMinWidth?: number },
+  ) => {
+    const isFinal   = g.state === 'final'
+    const isPreview = g.state === 'preview'
+    const open      = isPreview ? () => setModalGame(g)
+                    : isFinal   ? () => setBoxScoreGame(gameToFinalSummary(g, teamId))
+                    : undefined
+    const details   = finalDetails[g.gamePk]
+    const preview   = previewData[g.gamePk]
+    const pending   = Boolean(pendingPks[g.gamePk])
+    const awayId    = preview?.away.teamId ?? (g.isHome ? g.opponentId : teamId)
+    const homeId    = preview?.home.teamId ?? (g.isHome ? teamId : g.opponentId)
 
-  const awayTeamId  = previewData?.away.teamId ?? (nextGame.isHome ? nextGame.opponentId : teamId)
-  const homeTeamId  = previewData?.home.teamId ?? (nextGame.isHome ? teamId : nextGame.opponentId)
-  const awayPitcher = previewData?.away.pitcher ?? null
-  const homePitcher = previewData?.home.pitcher ?? null
+    // Recap performers (final) or probable starters (preview). Rendered twice —
+    // inline beside the score on mobile, on its own line from sm up.
+    const detailRow = (inline: boolean) => isFinal && details ? (
+      <CompactPerformerRow
+        finalDetails={details}
+        awayTeamId={g.isHome ? g.opponentId : teamId}
+        onPlayerClick={onPlayerClick}
+        inline={inline}
+      />
+    ) : isPreview ? (
+      <CompactPitcherRow
+        awayPitcher={preview?.away.pitcher ?? null}
+        homePitcher={preview?.home.pitcher ?? null}
+        awayTeamId={awayId}
+        homeTeamId={homeId}
+        loading={pending}
+        onPlayerClick={onPlayerClick}
+        inline={inline}
+      />
+    ) : null
+    const hasDetail = (isFinal && details) || isPreview
+
+    return (
+      <Box
+        key={g.gamePk}
+        onClick={open}
+        sx={{
+          cursor: open ? 'pointer' : 'default',
+          // Hairline between the two halves of a doubleheader.
+          ...(opts.first ? {} : { mt: 0.75, pt: 0.75, borderTop: '1px solid', borderColor: 'divider' }),
+        }}
+      >
+        <CompactGameCard
+          game={g}
+          myTeamId={teamId}
+          label={isFinal ? 'FINAL' : undefined}
+          labelColor={isFinal ? (g.isWin === true ? '#22c55e' : g.isWin === false ? '#ef4444' : undefined) : undefined}
+          actionLabel={isPreview ? 'Preview →' : isFinal ? 'Recap →' : undefined}
+          onAction={open}
+          onTeamClick={onTeamClick}
+          gmLabel={gmLabel(day, g)}
+          hideDate={!opts.first}
+          rightSlot={hasDetail ? detailRow(true) : undefined}
+          scoreRef={opts.scoreRef}
+          scoreMinWidth={opts.scoreMinWidth}
+        />
+        {hasDetail && <Box sx={{ display: { xs: 'none', sm: 'block' } }}>{detailRow(false)}</Box>}
+      </Box>
+    )
+  }
+
+  // A whole day as one column: date chip once at the top, then its games stacked.
+  const renderDayColumn = (
+    day:  ScheduleGame[],
+    opts: { padLeft: boolean; padRight: boolean; scoreRef?: React.Ref<HTMLDivElement>; scoreMinWidth?: number },
+  ) => (
+    <Box sx={{
+      flex: 1, minWidth: 0,
+      pl: { xs: 2.5, sm: opts.padLeft ? 2.5 : 1.5 },
+      pr: { xs: 2.5, sm: opts.padRight ? 2.5 : 1.5 },
+      pt: { xs: 0.75, sm: 1.25 }, pb: { xs: 0.75, sm: 1.5 },
+      transition: 'background-color 0.12s',
+      // A postponed-only day has nothing to open, so it gets no hover affordance.
+      '&:hover': day.some(g => g.state === 'final' || g.state === 'preview') ? { bgcolor: 'action.hover' } : {},
+    }}>
+      {day.map((g, i) => renderGameRow(g, day, {
+        first: i === 0,
+        scoreRef: i === 0 ? opts.scoreRef : undefined,   // one row per column is enough to measure
+        scoreMinWidth: opts.scoreMinWidth,
+      }))}
+    </Box>
+  )
+
+  const columnDivider = (
+    <Box sx={{ width: { xs: 'auto', sm: '1px' }, height: { xs: '1px', sm: 'auto' }, bgcolor: 'divider', flexShrink: 0 }} />
+  )
 
   return (
     <>
       {/* ── Game section: live = full-width card; else last + next ──────── */}
-      {isLive ? (
+      {isLive && liveGame ? (
         <Box sx={{ px: 2.5, pt: 1.25, pb: 1.5 }}>
+          {/* Doubleheader: the completed opener sits above the live nightcap. */}
+          {slots.primary.filter(g => g.state === 'final').map(g => (
+            <Box
+              key={g.gamePk}
+              onClick={() => setBoxScoreGame(gameToFinalSummary(g, teamId))}
+              sx={{ cursor: 'pointer', mb: 1.25, pb: 1.25, borderBottom: '1px solid', borderColor: 'divider' }}
+            >
+              <CompactGameCard
+                game={g}
+                myTeamId={teamId}
+                label="FINAL"
+                labelColor={g.isWin === true ? '#22c55e' : g.isWin === false ? '#ef4444' : undefined}
+                actionLabel="Recap →"
+                onAction={() => setBoxScoreGame(gameToFinalSummary(g, teamId))}
+                onTeamClick={onTeamClick}
+                gmLabel={gmLabel(slots.primary, g)}
+              />
+            </Box>
+          ))}
           <LiveGameCard
-            game={nextGame}
+            game={liveGame}
             myTeamId={teamId}
             liveData={liveInfo}
             loading={loadingLive}
             onPlayerClick={onPlayerClick}
             onTeamClick={onTeamClick}
-            onOpenCenter={() => setBoxScoreGame(gameToFinalSummary(nextGame, teamId))}
+            onOpenCenter={() => setBoxScoreGame(gameToFinalSummary(liveGame, teamId))}
           />
         </Box>
       ) : (
@@ -1543,149 +1728,27 @@ export function TeamScheduleStrip({ teamId, teamColor, showSchedule, onScheduleC
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'stretch' }}>
           {showLast && (
             <>
-              {/* Last game — whole card is clickable, opens box score modal */}
-              <Box
-                onClick={() => setBoxScoreGame(gameToFinalSummary(lastGame!, teamId))}
-                sx={{ flex: 1, minWidth: 0, cursor: 'pointer', pl: 2.5, pr: { xs: 2.5, sm: 1.5 }, pt: { xs: 0.75, sm: 1.25 }, pb: { xs: 0.75, sm: 1.5 }, transition: 'background-color 0.12s', '&:hover': { bgcolor: 'action.hover' } }}
-              >
-                <CompactGameCard
-                  game={lastGame!}
-                  myTeamId={teamId}
-                  actionLabel="Recap →"
-                  onAction={() => setBoxScoreGame(gameToFinalSummary(lastGame!, teamId))}
-                  onTeamClick={onTeamClick}
-                />
-                {lastFinalDetails && (
-                  <CompactPerformerRow
-                    finalDetails={lastFinalDetails}
-                    awayTeamId={lastGame!.isHome ? lastGame!.opponentId : teamId}
-                    onPlayerClick={onPlayerClick}
-                  />
-                )}
-              </Box>
-              <Box sx={{ width: { xs: 'auto', sm: '1px' }, height: { xs: '1px', sm: 'auto' }, bgcolor: 'divider', flexShrink: 0 }} />
+              {renderDayColumn(slots.last, { padLeft: true, padRight: false })}
+              {columnDivider}
             </>
           )}
 
-          {/* Primary game column — whole card is clickable */}
-          <Box
-            onClick={() => {
-              if (isPreview) {
-                setModalGame(nextGame)
-              } else if (isFinal) {
-                setBoxScoreGame(gameToFinalSummary(nextGame, teamId))
-              }
-            }}
-            sx={{
-              flex: 1, minWidth: 0,
-              cursor: (isPreview || isFinal) ? 'pointer' : 'default',
-              pl: { xs: 2.5, sm: showLast ? 1.5 : 2.5 },
-              pr: { xs: 2.5, sm: ((isFinal || isPostponed) && upcomingGame) ? 1.5 : 2.5 },
-              pt: { xs: 0.75, sm: 1.25 }, pb: { xs: 0.75, sm: 1.5 },
-              transition: 'background-color 0.12s',
-              '&:hover': (isPreview || isFinal) ? { bgcolor: 'action.hover' } : {},
-            }}
-          >
-            <CompactGameCard
-              game={nextGame}
-              myTeamId={teamId}
-              label={nextLabel}
-              labelColor={nextLabelColor}
-              actionLabel={isPreview ? 'Preview →' : isFinal ? 'Recap →' : undefined}
-              onAction={
-                isPreview
-                  ? () => setModalGame(nextGame)
-                  : isFinal
-                  ? () => setBoxScoreGame(gameToFinalSummary(nextGame, teamId))
-                  : undefined
-              }
-              onTeamClick={onTeamClick}
-              rightSlot={
-                isFinal && finalDetails ? (
-                  <CompactPerformerRow
-                    finalDetails={finalDetails}
-                    awayTeamId={nextGame.isHome ? nextGame.opponentId : teamId}
-                    onPlayerClick={onPlayerClick}
-                    inline
-                  />
-                ) : isPreview ? (
-                  <CompactPitcherRow
-                    awayPitcher={awayPitcher}
-                    homePitcher={homePitcher}
-                    awayTeamId={awayTeamId}
-                    homeTeamId={homeTeamId}
-                    loading={loadingPreview}
-                    onPlayerClick={onPlayerClick}
-                    inline
-                  />
-                ) : undefined
-              }
-              scoreRef={primaryScoreRef}
-              scoreMinWidth={isFinal && upcomingGame ? scoreAlignW : undefined}
-            />
-            {isPreview && (
-              <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-                <CompactPitcherRow
-                  awayPitcher={awayPitcher}
-                  homePitcher={homePitcher}
-                  awayTeamId={awayTeamId}
-                  homeTeamId={homeTeamId}
-                  loading={loadingPreview}
-                  onPlayerClick={onPlayerClick}
-                />
-              </Box>
-            )}
-            {isFinal && finalDetails && (
-              <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-                <CompactPerformerRow
-                  finalDetails={finalDetails}
-                  awayTeamId={nextGame.isHome ? nextGame.opponentId : teamId}
-                  onPlayerClick={onPlayerClick}
-                />
-              </Box>
-            )}
-          </Box>
+          {renderDayColumn(slots.primary, {
+            padLeft:  !showLast,
+            padRight: !showUpcoming,
+            scoreRef: primaryScoreRef,
+            scoreMinWidth: alignScores ? scoreAlignW : undefined,
+          })}
 
-          {/* When today is done or postponed, show the next upcoming game on the right */}
-          {(isFinal || isPostponed) && upcomingGame && (
+          {/* When the current day is done, show the next day's games on the right */}
+          {showUpcoming && (
             <>
-              <Box sx={{ width: { xs: 'auto', sm: '1px' }, height: { xs: '1px', sm: 'auto' }, bgcolor: 'divider', flexShrink: 0 }} />
-              {/* Upcoming game — whole card clickable, opens game preview modal */}
-              <Box
-                onClick={() => setModalGame(upcomingGame)}
-                sx={{ flex: 1, minWidth: 0, cursor: 'pointer', pl: { xs: 2.5, sm: 1.5 }, pr: 2.5, pt: { xs: 0.75, sm: 1.25 }, pb: { xs: 0.75, sm: 1.5 }, transition: 'background-color 0.12s', '&:hover': { bgcolor: 'action.hover' } }}
-              >
-                <CompactGameCard
-                  game={upcomingGame}
-                  myTeamId={teamId}
-                  actionLabel="Preview →"
-                  onAction={() => setModalGame(upcomingGame)}
-                  onTeamClick={onTeamClick}
-                  rightSlot={
-                    <CompactPitcherRow
-                      awayPitcher={upcomingPreviewData?.away.pitcher ?? null}
-                      homePitcher={upcomingPreviewData?.home.pitcher ?? null}
-                      awayTeamId={upcomingPreviewData?.away.teamId ?? (upcomingGame.isHome ? upcomingGame.opponentId : teamId)}
-                      homeTeamId={upcomingPreviewData?.home.teamId ?? (upcomingGame.isHome ? teamId : upcomingGame.opponentId)}
-                      loading={loadingUpcoming}
-                      onPlayerClick={onPlayerClick}
-                      inline
-                    />
-                  }
-                  scoreRef={upcomingScoreRef}
-                  scoreMinWidth={scoreAlignW}
-                />
-                <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-                  <CompactPitcherRow
-                    awayPitcher={upcomingPreviewData?.away.pitcher ?? null}
-                    homePitcher={upcomingPreviewData?.home.pitcher ?? null}
-                    awayTeamId={upcomingPreviewData?.away.teamId ?? (upcomingGame.isHome ? upcomingGame.opponentId : teamId)}
-                    homeTeamId={upcomingPreviewData?.home.teamId ?? (upcomingGame.isHome ? teamId : upcomingGame.opponentId)}
-                    loading={loadingUpcoming}
-                    onPlayerClick={onPlayerClick}
-                  />
-                </Box>
-              </Box>
+              {columnDivider}
+              {renderDayColumn(slots.upcoming, {
+                padLeft: false, padRight: true,
+                scoreRef: upcomingScoreRef,
+                scoreMinWidth: scoreAlignW,
+              })}
             </>
           )}
         </Box>

@@ -19,9 +19,13 @@
 // ── Adding a new notification type ──
 //   1. Add an id to NOTIFICATION_TYPES and an entry to NOTIFICATION_META.
 //   2. Export a build<Thing>() returning a payload (id must start with the type).
-//   3. In-site: register a source in src/mlb/notifications/ that calls it.
-//   4. Push: call it from a sender script.
-// Either step 3 or 4 alone is fine — a type can be bell-only or push-only.
+//   3. Give it a click action: an `open=` query on the url, handled by a matching
+//      DeepLink kind in src/mlb/state/deepLink.ts and claimed by whichever
+//      component owns that surface. A notification the user can't act on is a
+//      dead end — every type gets one.
+//   4. In-site: register a source in src/mlb/notifications/ that calls it.
+//   5. Push: call it from a sender script.
+// Either step 4 or 5 alone is fine — a type can be bell-only or push-only.
 
 export const NOTIFICATION_TYPES = {
   PICKS_READY: 'picks-ready',
@@ -30,15 +34,26 @@ export const NOTIFICATION_TYPES = {
 
 // Per-type metadata. `label` is user-facing (settings, grouping); `defaultUrl`
 // is where a click lands unless a builder overrides it.
+//
+// Every url carries an `open=` action, because a notification that just drops you
+// on Home is a dead end — the user still has to find the thing it told them about.
+// The app turns `open=` into an "open this" intent (src/mlb/state/deepLink.ts).
+// A url is the only thing a Web Push click can carry, so putting the action there
+// makes the bell and the lock screen behave identically for free.
+//
+// New types must set one. If there's genuinely nothing to open, say so explicitly
+// with a plain '/mlb?view=home' rather than leaving it to be forgotten.
 export const NOTIFICATION_META = {
   [NOTIFICATION_TYPES.PICKS_READY]: {
     label:      'Prediction reminders',
     icon:       '⚾',
-    defaultUrl: '/mlb?view=home',
+    // Straight into the full predictions board — the picks are the whole point.
+    defaultUrl: '/mlb?view=home&open=predictor',
   },
   [NOTIFICATION_TYPES.GAME_START]: {
     label:      'Game start reminders',
     icon:       '⏰',
+    // Overridden per-game by buildGameStart; this is the no-gamePk fallback.
     defaultUrl: '/mlb?view=home',
   },
 }
@@ -97,7 +112,9 @@ export function buildGameStart({ gamePk, teamName, matchup, minutesToStart }) {
     body:  mins <= 0
       ? `${matchup} — first pitch is now.`
       : `${matchup} — first pitch in ${mins} min.`,
-    url:   meta.defaultUrl,
+    // Opens this game's matchup card (or the Game Center once it's underway)
+    // rather than dropping the user on Home to hunt for it.
+    url:   gamePk ? `/mlb?view=home&open=game&gamePk=${gamePk}` : meta.defaultUrl,
   }
 }
 

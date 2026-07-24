@@ -1,11 +1,21 @@
 #!/usr/bin/env node
 /**
- * update-payrolls.mjs — Fetches team payroll estimates from FanGraphs
- * Roster Resource and upserts them into the Supabase `team_payrolls` table.
+ * update-payrolls.mjs — Fetches team payroll estimates *and* player contracts
+ * from FanGraphs Roster Resource, upserting them into the Supabase
+ * `team_payrolls` and `player_contracts` tables.
  *
  * FanGraphs uses Next.js SSR — the full data is embedded in __NEXT_DATA__ JSON
  * in the initial HTML response, so no headless browser is needed.
  * We extract dataOverall[season].estPayroll for the current season.
+ *
+ * ── Why contracts live in this script rather than their own ──
+ * Both datasets arrive in the *same* HTTP response: `dataContract` sits right
+ * beside `dataOverall` in that blob. A separate script would double our request
+ * volume against FanGraphs for data we already have in hand — and FanGraphs
+ * answering with a 403 is this scraper's known failure mode, so halving the
+ * exposure matters more than the tidiness of one job per table.
+ *
+ * The two upserts are independent: contracts failing never blocks payrolls.
  *
  * Usage (local):
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/update-payrolls.mjs
@@ -45,7 +55,7 @@ const TEAM_SLUGS = {
 
 // ─── Fetch + parse one team page ─────────────────────────────────────────────
 
-async function fetchTeamPayroll(teamId, slug) {
+async function fetchTeamPage(teamId, slug) {
   const url = `https://www.fangraphs.com/roster-resource/payroll/${slug}`
   const res = await fetch(url, {
     headers: {
@@ -77,7 +87,83 @@ async function fetchTeamPayroll(teamId, slug) {
   const payrollM = Math.round(payrollDollars / 1_000_000 * 100) / 100
   if (payrollM < 40 || payrollM > 700) throw new Error(`Suspicious value: $${payrollM}M`)
 
-  return { teamId: Number(teamId), payroll: payrollM }
+  return {
+    teamId:    Number(teamId),
+    payroll:   payrollM,
+    // Contracts are best-effort: a parse failure here must not cost us the
+    // payroll figure we already validated above.
+    contracts: parseContracts(queryData, Number(teamId)),
+  }
+}
+
+// ─── Contracts ────────────────────────────────────────────────────────────────
+
+/**
+ * Collapse FanGraphs' free-text year label into a small enum the UI can style.
+ *
+ * The raw vocabulary is inconsistent and sometimes truncated at the source —
+ * "PRE-ARB" vs "Pre-ARB", "FREE AGENT (DISPLAYED)", "CLUB OPTION (NON-GUARANT" —
+ * so this normalises once here rather than making every consumer re-learn it.
+ * The original string is kept alongside for tooltips.
+ */
+function normaliseYearType(raw) {
+  const t = String(raw ?? '').trim().toUpperCase()
+  if (!t)                     return 'other'
+  if (t.startsWith('FREE AGENT')) return 'free-agent'
+  if (t.includes('OPT'))          return 'option'      // OPT OUT, CLUB/MUTUAL/VESTING OPTION
+  if (t.includes('PRE-ARB'))      return 'pre-arb'
+  if (t.startsWith('ARB'))        return 'arb'
+  if (t.startsWith('GUARANTEED')) return 'guaranteed'
+  return 'other'                                        // NOT 40 MAN, placeholders
+}
+
+/**
+ * Per-player contract rows out of the same payload.
+ *
+ * `contractYears` is the valuable part and runs past the guaranteed money: for a
+ * pre-arb player it still lists the ARB 1/2/3 seasons and the FREE AGENT season
+ * beyond them. That's what lets the app show team control, not just salary — the
+ * thing a fan actually wants to know about a minimum-salary player.
+ */
+function parseContracts(queryData, teamId) {
+  const out = []
+  for (const c of queryData?.dataContract ?? []) {
+    const s = c?.contractSummary
+    const mlbamId = Number(s?.MLBAMID)
+    // No MLBAM id means we could never join it to a player page — skip rather
+    // than fall back to name matching.
+    if (!mlbamId || !s?.playerName) continue
+
+    const years = (c.contractYears ?? [])
+      .map(y => ({
+        season: Number(y.Season),
+        kind:   normaliseYearType(y.Type),
+        label:  String(y.Type ?? '').trim() || 'Unknown',
+        salary: Number(y.Salary ?? 0) || 0,
+      }))
+      .filter(y => Number.isFinite(y.season) && y.season > 0)
+      .sort((a, b) => a.season - b.season)
+
+    out.push({
+      mlbam_id:          mlbamId,
+      player_name:       s.playerName,
+      team_id:           teamId,
+      contract_type:     s.ContractType ?? null,
+      years_total:       Number(s.YearsTotal) || null,
+      total_value:       Math.round(Number(s.ContractTotal) || 0) || null,
+      aav:               Number(s.AAV) > 0 ? Math.round(Number(s.AAV) * 100) / 100 : null,
+      start_season:      Number(s.startSeason) || null,
+      end_season:        Number(s.endSeason) || null,
+      service_time:      s.servicetime ?? null,
+      // Null when the deal ends on an option year — the market date then depends
+      // on whether the option is picked up, so there is no honest answer to show.
+      free_agent_season: years.find(y => y.kind === 'free-agent')?.season ?? null,
+      description:       c.description ?? null,
+      years,
+      updated_at:        new Date().toISOString(),
+    })
+  }
+  return out
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -92,17 +178,23 @@ async function main() {
 
   const rows   = []
   const failed = []
+  // Keyed by MLBAM id: a player traded mid-season is listed on both his old and
+  // new team's page, and Postgres rejects an upsert whose batch touches the same
+  // primary key twice ("cannot affect row a second time"). Later team wins, which
+  // is also the more current one.
+  const contractsById = new Map()
 
   for (const [teamId, slug] of Object.entries(TEAM_SLUGS)) {
     try {
-      const { teamId: id, payroll } = await fetchTeamPayroll(teamId, slug)
+      const { teamId: id, payroll, contracts } = await fetchTeamPage(teamId, slug)
       rows.push({
         team_id:    id,
         season:     SEASON,
         payroll_m:  payroll,
         updated_at: new Date().toISOString(),
       })
-      console.log(`  ✓  ${slug.padEnd(16)}  $${payroll}M`)
+      for (const c of contracts) contractsById.set(c.mlbam_id, c)
+      console.log(`  ✓  ${slug.padEnd(16)}  $${String(payroll).padEnd(7)}  ${contracts.length} contracts`)
     } catch (err) {
       console.warn(`  ✗  ${slug.padEnd(16)}  ${err.message}`)
       failed.push(slug)
@@ -129,11 +221,33 @@ async function main() {
     process.exit(1)
   }
 
+  console.log(`\n✅  Upserted ${rows.length} teams to team_payrolls`)
+
+  // ── Contracts ───────────────────────────────────────────────────────────────
+  // Deliberately after the payroll upsert and non-fatal: payrolls are the older,
+  // load-bearing dataset (the Home leaderboards read them), so a contracts
+  // problem must never take them down with it.
+  const contracts = [...contractsById.values()]
+  if (contracts.length < 500) {
+    // 30 teams × ~30 players ≈ 900. Well under that means the shape changed.
+    console.warn(`\n⚠️   Only ${contracts.length} contracts parsed — skipping upsert (expected ~900)`)
+  } else {
+    const { error: cErr } = await supabase
+      .from('player_contracts')
+      .upsert(contracts, { onConflict: 'mlbam_id' })
+
+    if (cErr) {
+      console.error(`\n⚠️   player_contracts upsert failed: ${cErr.message}`)
+      console.error('    Make sure you ran scripts/create_player_contracts.sql first.')
+    } else {
+      console.log(`✅  Upserted ${contracts.length} players to player_contracts`)
+    }
+  }
+
   if (failed.length > 0) {
     console.warn(`\n⚠️   Failed teams: ${failed.join(', ')}`)
   }
-
-  console.log(`\n✅  Upserted ${rows.length} teams to team_payrolls\n`)
+  console.log()
 }
 
 main().catch(err => { console.error('Fatal:', err); process.exit(1) })

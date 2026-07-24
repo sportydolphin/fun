@@ -129,7 +129,7 @@ export function LiveDramaCard({ onPlayerClick, onTeamClick }: {
       isWinner: false,
     })
     setOpenGame({
-      gamePk: e.gamePk, state: 'live',
+      gamePk: e.gamePk, state: 'live', startMs: Date.now(),
       statusText: `${e.half === 'bottom' ? '▼' : '▲'} ${ord(e.inning)}`,
       away: side('away'), home: side('home'),
       winPitcher: null, losePitcher: null, savePitcher: null,

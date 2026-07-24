@@ -15,6 +15,31 @@ export function fmtDecimal(v: any, places = 2): string {
 // Format a numeric rate (strips leading zero for values < 1, e.g. 0.285 → .285)
 export const fmtR = (v: number, d: number) => { const s = v.toFixed(d); return s.startsWith('0.') ? s.slice(1) : s }
 
+/**
+ * The years a player was in the majors, e.g. "1954 – 1976", "2011 – Present",
+ * or just "2015" for a single-season career.
+ *
+ * Derived from debut/last-played rather than from the year-by-year splits: those
+ * only cover seasons the player recorded stats in, so a year lost to injury would
+ * silently shorten the span. StatsAPI omits lastPlayedDate for active players,
+ * which is what distinguishes an open-ended career from a closed one.
+ *
+ * Returns null when the debut is unknown — better to show nothing than a
+ * half-invented range.
+ */
+export function careerSpan(player: {
+  mlbDebutDate?:  string
+  lastPlayedDate?: string
+  active?:        boolean
+}): string | null {
+  const first = player.mlbDebutDate?.slice(0, 4)
+  if (!first) return null
+  // An active player has no end yet, even if a lastPlayedDate happens to be set.
+  if (player.active || !player.lastPlayedDate) return `${first} – Present`
+  const last = player.lastPlayedDate.slice(0, 4)
+  return last === first ? first : `${first} – ${last}`
+}
+
 // Parse MLB innings-pitched string: "6.1" = 6⅓ innings, "6.2" = 6⅔ (the .N is outs, not a decimal fraction)
 export function parseIP(ip: any): number {
   const n = Number(ip)

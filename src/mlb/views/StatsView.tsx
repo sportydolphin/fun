@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 import { Box, Typography, Paper, CircularProgress } from '@mui/material'
-import { LbFullscreenState } from '../types'
+import { LbFullscreenState, LeaderboardEntry } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED } from '../constants'
 import { SegControl, pillActionSx } from '../components/ui'
 import { filterQualified } from '../lib/utils'
@@ -12,7 +12,7 @@ export interface StatsViewProps {
   setVizSeason: (s: number) => void
   allTime: boolean
   setAllTime: (b: boolean) => void
-  lbData: Array<{ playerId: number; playerName: string; teamAbbr: string; teamId: number; stat: any }> | null
+  lbData: LeaderboardEntry[] | null
   lbFullscreen: LbFullscreenState | null
   setLbFullscreen: (s: LbFullscreenState | null | ((prev: LbFullscreenState | null) => LbFullscreenState | null)) => void
   lbStatsLimit: number
@@ -58,15 +58,30 @@ export function StatsView({
   const sortAsc   = lbFullscreen?.sortAsc   ?? (statDefs.find(d => d.key === sortKey)?.lowerIsBetter ?? false)
   const activeDef = statDefs.find(d => d.key === sortKey) ?? statDefs[0]
 
+  // ── What a reversed sort means in all-time mode ───────────────────────
+  // The career pool is a union of per-stat *leaders*, not the ~22k-player
+  // population, so reversing a sort locally doesn't find the league's worst — it
+  // finds the weakest leader, which is a number about nothing.
+  //
+  // Rate stats escape this: api.ts also fetches the worst-qualified end of each
+  // one, so the ascending pool holds the players who genuinely belong there.
+  // Counting stats don't and can't — the bottom of career home runs is thousands
+  // of players tied on zero — so their sort is locked to the leaders' direction.
+  const reversible = !allTime || activeDef.isRate
+  const effectiveAsc = reversible ? sortAsc : (activeDef.lowerIsBetter ?? false)
+
   // ── Qualification filter ──────────────────────────────────────────────
   // Only meaningful for rate stats (AVG, ERA…). Counting stats (SB, HR, saves…)
   // must never be qualified — a part-time player can legitimately lead them.
   const qualifiedPool = (() => {
     const all = lbData ?? []
-    // In all-time mode the pool is already curated per stat (rate leaders come from
-    // the career Qualified pool), and filterQualified's season-based thresholds would
-    // wrongly nuke everyone against career PA/IP totals — so skip it entirely.
-    return !allTime && lbQualified && activeDef.isRate ? filterQualified(all, lbGroup) : all
+    // All-time rate stats: restrict to the career Qualified pool. Players who
+    // arrived via a counting-stat sort carry no PA/IP guarantee, and one of them
+    // slipping in would quietly corrupt both ends of the board. filterQualified
+    // can't do this job — its thresholds are season-based and would nuke everyone
+    // when measured against career totals.
+    if (allTime) return activeDef.isRate ? all.filter(e => e.qualified) : all
+    return lbQualified && activeDef.isRate ? filterQualified(all, lbGroup) : all
   })()
 
   const sortedEntries = qualifiedPool
@@ -75,7 +90,7 @@ export function StatsView({
       return { ...e, _v: v }
     })
     .filter(e => !isNaN(e._v))
-    .sort((a, b) => sortAsc ? a._v - b._v : b._v - a._v)
+    .sort((a, b) => effectiveAsc ? a._v - b._v : b._v - a._v)
     .slice(0, lbStatsLimit)
 
   const MEDALS_FS = ['🥇', '🥈', '🥉']
@@ -96,8 +111,12 @@ export function StatsView({
     const i = name.indexOf(' ')
     return i < 0 ? name : `${name[0]}. ${name.slice(i + 1)}`
   }
+  // A counting stat in all-time mode has only one honest direction, so clicking
+  // its header again re-sorts rather than flipping.
+  const canReverse = (def: any) => !allTime || def.isRate
   const handleColClick = (def: any) => {
-    const newAsc = sortKey === def.key ? !sortAsc : (def.lowerIsBetter ?? false)
+    const natural = def.lowerIsBetter ?? false
+    const newAsc = sortKey === def.key && canReverse(def) ? !sortAsc : natural
     setLbFullscreen(prev => prev
       ? { ...prev, sortKey: def.key, sortAsc: newAsc }
       : { def: activeDef, group: lbGroup, sortKey: def.key, sortAsc: newAsc, entries: [] }
@@ -180,7 +199,13 @@ export function StatsView({
               {activeDef.leaderLabel ?? activeDef.label}
             </Typography>
             <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
-              {allTime ? 'All-Time · Career' : `${vizSeason} MLB`}{activeDef.lowerIsBetter ? ' · lower = better' : ''}
+              {allTime ? 'All-Time · Career' : `${vizSeason} MLB`}
+              {/* Say which population this is: an all-time rate board is qualified
+                  players only, and reversing it shows the worst of them, not the
+                  worst of everyone who ever played. */}
+              {allTime && activeDef.isRate ? ' · Qualified' : ''}
+              {allTime && !activeDef.isRate ? ' · Leaders' : ''}
+              {activeDef.lowerIsBetter ? ' · lower = better' : ''}
             </Typography>
           </Box>
 
@@ -211,7 +236,13 @@ export function StatsView({
                     const isActive = def.key === sortKey
                     return (
                       <Box component="th" key={def.key}
-                        title={def.leaderLabel ?? def.label}
+                        title={
+                          canReverse(def)
+                            ? (def.leaderLabel ?? def.label)
+                            : `${def.leaderLabel ?? def.label} — career leaders only. ` +
+                              'The bottom of this stat is thousands of players tied on zero, ' +
+                              'so there is no meaningful reverse order.'
+                        }
                         onClick={() => handleColClick(def)}
                         sx={{
                           ...stThSx,
@@ -230,7 +261,7 @@ export function StatsView({
                           {def.label}
                           {isActive && (
                             <Box component="span" sx={{ fontSize: '0.65rem', opacity: 0.8 }}>
-                              {sortAsc ? '↑' : '↓'}
+                              {effectiveAsc ? '↑' : '↓'}
                             </Box>
                           )}
                         </Box>

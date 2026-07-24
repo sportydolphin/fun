@@ -6,8 +6,8 @@ import {
 } from '@mui/material'
 import { Search, Shuffle, FileDownload, InfoOutlined, OpenInFull, Tune, ChevronLeft, ChevronRight, MoreVert } from '@mui/icons-material'
 import html2canvas from 'html2canvas'
-import { Player, Team, Palette, RankMode, TeamPlayerStat, CareerStatSplit, RecentGameEntry, RosterEntry, StandingsDivision } from '../types'
-import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG, TEAM_ABBR, BBREF_ABBR, DEFAULT_HIT_STATS, DEFAULT_PIT_STATS, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette } from '../constants'
+import { Player, Team, Palette, RankMode, TeamPlayerStat, CareerStatSplit, RecentGameEntry, RosterEntry, StandingsDivision, PlayerContract } from '../types'
+import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG, TEAM_ABBR, BBREF_ABBR, DEFAULT_HIT_STATS, DEFAULT_PIT_STATS, DEFAULT_TEAM_HIT_STATS, DEFAULT_TEAM_PIT_STATS, randomPalette, CURRENT_SEASON } from '../constants'
 import { SegControl, PillChip, pillActionSx, linkPillSx, SectionLabel } from '../components/ui'
 import { CardInner, CardInnerProps, TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsCard } from '../components/cards'
 // ~1,000-line chart module — lazy so it only loads once a player card is open.
@@ -15,6 +15,7 @@ const PlayerTrendsChart = lazy(() => import('../components/PlayerTrendsChart').t
 import { RecentGamesTable } from '../components/RecentGamesTable'
 import { TeamRoster } from '../components/TeamRoster'
 import { CareerStatsTable } from '../components/CareerStatsTable'
+import { ContractPanel } from '../components/ContractPanel'
 import { fetchPlayerDetails } from '../api'
 
 export interface SearchViewProps {
@@ -89,6 +90,7 @@ export interface SearchViewProps {
 
   // Trends
   showTrends: boolean
+  playerContract: PlayerContract | null
   careerSplits: CareerStatSplit[] | null
   loadingCareer: boolean
   recentGames: RecentGameEntry[]
@@ -121,7 +123,7 @@ export function SearchView({
   toggleHitStat, togglePitStat, toggleTeamHitStat, toggleTeamPitStat,
   hitLeaders, pitLeaders, teamHitLeaders, teamPitLeaders,
   playerCardProps, teamCardProps,
-  showTrends, careerSplits, loadingCareer,
+  showTrends, playerContract, careerSplits, loadingCareer,
   recentGames, loadingRecent, recentGamesOpen, setRecentGamesOpen,
   highlightedGameDate, setHighlightedGameDate,
   showFeaturedRight, featuredPlayers, featuredHitLeaders, featuredPitLeaders, divisionStandings,
@@ -135,6 +137,7 @@ export function SearchView({
   const [cardOptionsAnchor, setCardOptionsAnchor] = React.useState<HTMLElement | null>(null)
   const [highlightedCareerYear, setHighlightedCareerYear] = React.useState<number | null>(null)
   const [careerTableOpen, setCareerTableOpen] = React.useState(true)
+  const [contractOpen, setContractOpen] = React.useState(true)
   const [rosterOpen, setRosterOpen] = React.useState(true)
 
   // Open a player from within a team page. Pushes a ?tid= history entry first so the
@@ -578,6 +581,32 @@ export function SearchView({
                     <Box component="a" href={`https://baseballsavant.mlb.com/team/${team.id}`} target="_blank" rel="noopener noreferrer" sx={linkPillSx}>Baseball Savant ↗</Box>
                   </>)
                 })()}
+              </Box>
+            )}
+
+            {/* Contract & team control — directly under the card it describes.
+                Absent for anyone FanGraphs doesn't list (minors, retired), and the
+                panel simply doesn't render then. */}
+            {player && playerContract && (
+              <Box sx={{ mt: 1.5 }}>
+                <Box
+                  onClick={() => setContractOpen(o => !o)}
+                  sx={{
+                    mb: contractOpen ? 1.25 : 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    cursor: 'pointer', userSelect: 'none',
+                  }}
+                >
+                  <SectionLabel strong>Contract</SectionLabel>
+                  <Box sx={{
+                    fontSize: '0.75rem', color: 'text.disabled',
+                    transition: 'transform 0.18s',
+                    transform: contractOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+                  }}>▾</Box>
+                </Box>
+                {contractOpen && (
+                  <ContractPanel contract={playerContract} currentSeason={CURRENT_SEASON} />
+                )}
               </Box>
             )}
 

@@ -3,7 +3,7 @@ import {
   Box, Typography, Paper, CircularProgress, Popover, Tooltip, Switch,
 } from '@mui/material'
 import { Tune, KeyboardArrowDown, OpenInFull } from '@mui/icons-material'
-import { StatDef, LbFullscreenState } from '../types'
+import { StatDef, LbFullscreenState, LeaderboardEntry } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED } from '../constants'
 import { SegControl, PillChip, pillActionSx } from '../components/ui'
 import { filterQualified } from '../lib/utils'
@@ -13,7 +13,7 @@ export interface LeaderboardViewProps {
   setLbGroup: (g: 'hitting' | 'pitching') => void
   vizSeason: number
   setVizSeason: (s: number) => void
-  lbData: Array<{ playerId: number; playerName: string; teamAbbr: string; teamId: number; stat: any }> | null
+  lbData: LeaderboardEntry[] | null
   loadingLb: boolean
   lbSelectedKeys: string[]
   setLbSelectedKeys: (keys: string[] | ((prev: string[]) => string[])) => void

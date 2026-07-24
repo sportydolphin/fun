@@ -6,6 +6,7 @@ import { useAuth } from '../../AuthContext'
 import { supabase } from '../../lib/supabase'
 import { PredictionStatsModal } from './PredictionStats'
 import { useDevSim } from '../dev/devSim'
+import { useDeepLink } from '../state/deepLink'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -563,7 +564,11 @@ function PredictorModal({ open, games, predictions, allVotes, onPick, onClose, i
 
 // ─── PredictorWidget ──────────────────────────────────────────────────────────
 
-export function PredictorWidget() {
+export function PredictorWidget({ onPicksSettled }: {
+  // Fires once the slate *and* the user's saved picks have both loaded, with the
+  // number of games still awaiting a pick. HomeView uses it to place this card.
+  onPicksSettled?: (remaining: number) => void
+} = {}) {
   const { user } = useAuth()
   const isDark = useIsDark()
   const now   = new Date()
@@ -576,6 +581,9 @@ export function PredictorWidget() {
   const [modalOpen,   setModalOpen]   = useState(false)
   const [statsOpen,   setStatsOpen]   = useState(false)
   const [username,    setUsername]    = useState<string | null>(null)
+  // Predictions arrive independently of the slate; both must land before the
+  // remaining-picks count means anything.
+  const [predsLoaded, setPredsLoaded] = useState(false)
 
   // Dev-only: when the simulator is enabled, drive the widget off a fabricated
   // slate instead of the real schedule (see devSim.ts). Inert in production —
@@ -622,8 +630,10 @@ export function PredictorWidget() {
           }
         })
         .catch(() => setPredictions(loadLocalPreds(today)))
+        .finally(() => setPredsLoaded(true))
     } else {
       setPredictions(loadLocalPreds(today))
+      setPredsLoaded(true)
     }
   }, [user?.id, today]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -674,6 +684,20 @@ export function PredictorWidget() {
   const allDone           = games.length > 0 && games.every(g => g.state === 'final')
   const canOpen           = !loading && games.length > 0
   const quickPicks        = previewGames.slice(0, 3)   // up to 3 open matchups to pick inline
+
+  const settled = !loading && predsLoaded
+  useEffect(() => {
+    if (settled) onPicksSettled?.(remainingCount)
+  }, [settled, remainingCount, onPicksSettled])
+
+  // Clicking a "your picks are ready" notification opens the full board here.
+  // Queued until the slate has loaded — opening onto an empty modal would look
+  // like the notification lied.
+  const [pendingOpen, setPendingOpen] = useState(false)
+  useDeepLink('predictor', () => setPendingOpen(true))
+  useEffect(() => {
+    if (pendingOpen && canOpen) { setModalOpen(true); setPendingOpen(false) }
+  }, [pendingOpen, canOpen])
 
   return (
     <>

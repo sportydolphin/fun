@@ -3,6 +3,7 @@ import { useAuth } from '../../AuthContext'
 import {
   RankMode, Player, Team, Palette, TeamSummary, CareerStatSplit,
   TeamPlayerStat, RecentGameEntry, RosterEntry, LbFullscreenState, TeamStandingInfo, StandingsDivision,
+  LeaderboardEntry, PlayerContract,
 } from '../types'
 import {
   loadPrefsFromSupabase, savePrefsToSupabase,
@@ -25,8 +26,10 @@ import {
   fetchTeamStats, fetchLeaderboardData, fetchAllTimeLeaderboardData, fetchTeamRankings,
   fetchTeamSummaryData, fetchPlayerCareerStats, fetchRecentGames, fetchCareerStats,
   fetchTeamTopPlayers, fetchTeamStanding, fetchDivisionForTeam, fetchTeamRoster,
+  fetchPlayerContract,
 } from '../api'
 import { computeSmartHitStats, computeSmartPitStats } from '../lib/smartStats'
+import { careerSpan } from '../lib/utils'
 import type { CardInnerProps } from '../components/cards'
 import type { TeamCardInnerProps } from '../components/cards'
 
@@ -227,7 +230,7 @@ export function useMlbState() {
 
   // ─── Leaderboard ─────────────────────────────────────────────────────────────
   const [lbGroup, setLbGroup] = useState<'hitting' | 'pitching'>('hitting')
-  const [lbData, setLbData] = useState<Array<{ playerId: number; playerName: string; teamAbbr: string; teamId: number; stat: any }> | null>(null)
+  const [lbData, setLbData] = useState<LeaderboardEntry[] | null>(null)
   const [loadingLb, setLoadingLb] = useState(false)
   const [lbSelectedKeys, setLbSelectedKeys] = useState<string[]>(LB_FEATURED.hitting)
   const [lbFullscreen, setLbFullscreen] = useState<LbFullscreenState | null>(null)
@@ -248,6 +251,7 @@ export function useMlbState() {
 
   // ─── Recent games ─────────────────────────────────────────────────────────────
   const [recentGames, setRecentGames] = useState<RecentGameEntry[]>([])
+  const [playerContract, setPlayerContract] = useState<PlayerContract | null>(null)
   const [highlightedGameDate, setHighlightedGameDate] = useState<string | null>(null)
   const [loadingRecent, setLoadingRecent] = useState(false)
   const [recentGamesOpen, setRecentGamesOpen] = useState(true)
@@ -604,6 +608,17 @@ export function useMlbState() {
       .finally(() => setLoadingRecent(false))
   }, [player, season])
 
+  // Contract + team control. Cached per player in api.ts, and resolves to null
+  // for anyone we have no row for (minor leaguers, retired players), so the panel
+  // simply doesn't render rather than showing an error.
+  useEffect(() => {
+    if (!player) { setPlayerContract(null); return }
+    let cancelled = false
+    setPlayerContract(null)
+    fetchPlayerContract(player.id).then(c => { if (!cancelled) setPlayerContract(c) })
+    return () => { cancelled = true }
+  }, [player?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch career stat totals when player changes
   useEffect(() => {
     if (!player) { setCareerHittingTotals(null); setCareerPitchingTotals(null); setStatsView('season'); return }
@@ -843,6 +858,8 @@ export function useMlbState() {
     hitLeaders: statsView === 'career' ? new Map<string, number[]>() : hitLeaders,
     pitLeaders: statsView === 'career' ? new Map<string, number[]>() : pitLeaders,
     palette, season: statsView === 'career' ? 'Career' : season,
+    // Only in career view — on a season card the year above already says it.
+    careerSpan: statsView === 'career' ? careerSpan(player) : null,
     teamDisplay, rankMode, showPosition, showTeam, showAge, showNumber,
     selectedHitStats, selectedPitStats,
     onToggleHitStat: (key: string) => handleStatCardClick(key, 'hitting', statsView === 'career'),
@@ -936,6 +953,7 @@ export function useMlbState() {
 
     // Recent games
     recentGames, loadingRecent, recentGamesOpen, setRecentGamesOpen,
+    playerContract,
     highlightedGameDate, setHighlightedGameDate,
 
     // Derived
