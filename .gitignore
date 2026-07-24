@@ -3,5 +3,9 @@ dist
 .vite
 .DS_Store
 .env
+# Backups and per-environment variants carry the same secrets as .env itself.
+# Keep .env.example (if one is ever added) tracked.
+.env.*
+!.env.example
 .claude/
 supabase/.temp/
