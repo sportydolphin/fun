@@ -2,7 +2,7 @@
 
 > Living document — a menu of ideas, not a contract. Reorder/drop freely.
 > Tags: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra
-> Last realigned: **July 18, 2026** (v1.9.0)
+> Last realigned: **July 26, 2026** (v1.15.0)
 
 ## Where the app stands
 
@@ -42,12 +42,12 @@
 
 ## Phase 1 — Ride the season (now → September)
 
-- **Land the streak boards + first nightly precompute** ⚙️ — Commit the streak report cards, then move `fetchStreakLeaders` into the existing Actions pipeline (nightly job → Supabase table, client reads one row). This is the template every later precompute (spotlight, odds, trivia, grid puzzles) reuses.
-- **Trade Deadline HQ** 🔬🎯 — StatsAPI `/transactions` → a Roster Moves strip on home, badges on followed players who move, and a deadline-day live view. Timely for ~2 weeks; the feed stays useful all year (injuries, call-ups, DFAs).
-- **Predictions 2.0, finish** 🎮 — Streak badges + heater banner, weekly/monthly leaderboard cuts, and one smart rival (Elo or Pythag bot) in `run-bots.mjs` so the top of the board is beatable-but-hard.
-- **Push alerts beyond the daily reminder** ⚙️🎯 — "Your team is up 2–1 in the 8th" close-game alerts, game-start nudges, followed-player milestone pings. Reuses the shipped plumbing; multiplies every other feature.
-- **Playoff odds** 🔬🎯 — Nightly Monte Carlo of the remaining schedule in an Action → Supabase; odds on team cards + a race page with magic numbers in September. August is when everyone starts checking.
-- **Milestone Watch** 🎯🔬 — Countdown cards for players approaching round numbers and records; feeds the push-alert system.
+- ✅ **Land the streak boards + first nightly precompute** ⚙️ — Shipped v1.11.1 (`update-streaks.yml` → `streak_leaders` table, client reads one row). This is the reusable template every later precompute (odds, trivia, grid puzzles) copies.
+- ✅ **Trade Deadline HQ** 🔬🎯 — Shipped: Roster Moves strip + deadline countdown (v1.11.0) and move-badges on followed players (v1.12.0). Feed stays useful all year (injuries, call-ups, DFAs). *Open (optional):* a deadline-day live view — low ROI post-Jul 31.
+- 🟡 **Predictions 2.0, finish** 🎮 — Wilson-ranked board + running record shipped (v1.9.0). Still open: streak badges + heater banner, weekly/monthly leaderboard cuts, and one smart rival (Elo or Pythag bot) in `run-bots.mjs` so the top is beatable-but-hard.
+- 🟡 **Push alerts beyond the daily reminder** ⚙️🎯 — Game-start reminders shipped (v1.13.0, `game-start-reminders.yml`). Still open: "up 2–1 in the 8th" close-game alerts, followed-player milestone pings. Reuses the shipped plumbing.
+- ⏳ **Playoff odds** 🔬🎯 — **NEXT.** Nightly Monte Carlo of the remaining schedule in an Action → Supabase; odds on team cards + a race page with magic numbers in September. August is when everyone starts checking. Second consumer of the streak-precompute template.
+- ❌ **Milestone Watch** 🎯🔬 — Countdown cards for players approaching round numbers and records; feeds the push-alert system.
 
 ## Phase 2 — Daily games (no friends required)
 
@@ -85,4 +85,4 @@ Solo-first games sharing auth + leaderboards + streak infra. Bots play these too
 
 ---
 
-**Suggested next three:** land streaks + nightly precompute → Trade Deadline HQ (timely) → Predictions 2.0 finish + close-game push alerts.
+**Suggested next three:** Playoff Odds (nightly Monte Carlo → Supabase, timely for August) → Streak Survivor (first Phase 2 daily game, pairs with shipped streak boards) → Predictions 2.0 finish + close-game push alerts.
