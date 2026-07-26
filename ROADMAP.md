@@ -2,7 +2,7 @@
 
 > Living document — a menu of ideas, not a contract. Reorder/drop freely.
 > Tags: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra
-> Last realigned: **July 26, 2026** (v1.15.0)
+> Last realigned: **July 26, 2026** (post-v1.15.0 — playoff odds shipped)
 
 ## Where the app stands
 
@@ -13,7 +13,8 @@
 - ✅ PWA + push foundation — installable, Settings toggle, daily "make your picks" reminder Action (`docs/PUSH_NOTIFICATIONS.md`)
 - ✅ Pick consensus — live vote bars with percentages on the home predictor
 - 🟡 Predictions 2.0 — confidence-ranked (Wilson) leaderboard + running record shipped; badges/weekly boards/smart bot still open
-- 🟡 Player streak report cards (🔥 hitting / 🧊 scoreless / 🥶 hitless) — built, uncommitted; needs precompute (see infra)
+- ✅ Player streak report cards (🔥 hitting / 🧊 scoreless / 🥶 hitless) — shipped with nightly precompute (`update-streaks.yml` → `streak_leaders`)
+- ✅ Playoff odds — nightly Monte Carlo (`update-playoff-odds.yml` → `playoff_odds`); Odds tab in Standings + followed-team odds strip. Second precompute customer
 
 **Deliberately dropped:**
 - ~~Friend leagues~~ — fantasy apps already own this. The social slot goes to **bot rivalry** instead: the app's personality is you vs. the bots, not you vs. your group chat.
@@ -33,7 +34,7 @@
 | Window | Moment | Roadmap payoff |
 |---|---|---|
 | **Now – Jul 31** | Trade deadline | Transactions / Roster Moves feed |
-| **August** | Races tighten | Playoff odds, Streak Survivor launch |
+| **August** | Races tighten | ✅ Playoff odds · Streak Survivor launch |
 | **September** | Magic numbers, milestones | Milestone Watch, bracket-challenge build |
 | **October** | Postseason | Bracket Challenge, Season Wrapped |
 | **November +** | Offseason | Offseason mode, trivia/history (evergreen) |
@@ -46,7 +47,7 @@
 - ✅ **Trade Deadline HQ** 🔬🎯 — Shipped: Roster Moves strip + deadline countdown (v1.11.0) and move-badges on followed players (v1.12.0). Feed stays useful all year (injuries, call-ups, DFAs). *Open (optional):* a deadline-day live view — low ROI post-Jul 31.
 - 🟡 **Predictions 2.0, finish** 🎮 — Wilson-ranked board + running record shipped (v1.9.0). Still open: streak badges + heater banner, weekly/monthly leaderboard cuts, and one smart rival (Elo or Pythag bot) in `run-bots.mjs` so the top is beatable-but-hard.
 - 🟡 **Push alerts beyond the daily reminder** ⚙️🎯 — Game-start reminders shipped (v1.13.0, `game-start-reminders.yml`). Still open: "up 2–1 in the 8th" close-game alerts, followed-player milestone pings. Reuses the shipped plumbing.
-- ⏳ **Playoff odds** 🔬🎯 — **NEXT.** Nightly Monte Carlo of the remaining schedule in an Action → Supabase; odds on team cards + a race page with magic numbers in September. August is when everyone starts checking. Second consumer of the streak-precompute template.
+- ✅ **Playoff odds** 🔬🎯 — Shipped. Nightly Monte Carlo of the remaining schedule (`update-playoff-odds.yml` → `playoff_odds`); "Odds" tab in Standings (make-playoffs / win-division % per league) + odds strip on the followed-team card. Second consumer of the streak-precompute template. *Open (September):* magic numbers + a dedicated race page as the divisions clinch.
 - ❌ **Milestone Watch** 🎯🔬 — Countdown cards for players approaching round numbers and records; feeds the push-alert system.
 
 ## Phase 2 — Daily games (no friends required)
@@ -78,11 +79,11 @@ Solo-first games sharing auth + leaderboards + streak infra. Bots play these too
 
 ## Infrastructure thread (under everything)
 
-- **Precompute nightly, serve from Supabase** ⚙️ — Streak leaders first (in flight), then report cards, spotlight, odds, trivia, grid puzzles. Client reads one row instead of fanning out to StatsAPI.
+- **Precompute nightly, serve from Supabase** ⚙️ — Streak leaders ✅ and playoff odds ✅ shipped on this template; next candidates: report cards, spotlight, trivia, grid puzzles. Client reads one row instead of fanning out to StatsAPI.
 - **Server-side leaderboard ranking** ⚙️ — Move the Wilson-score ranking from `PredictionStats.tsx` into a SQL RPC (top N + current user's row) before the table gets big.
 - **Payroll source resilience** ⚙️ — Fallback for FanGraphs 403s (Spotrac/Cot's) so payroll boards don't silently go stale.
 - **Prod error visibility** ⚙️ — No way to know today whether visitors hit errors. Even a tiny Supabase `client_errors` table fed by a `window.onerror` hook would answer "is anything broken?"
 
 ---
 
-**Suggested next three:** Playoff Odds (nightly Monte Carlo → Supabase, timely for August) → Streak Survivor (first Phase 2 daily game, pairs with shipped streak boards) → Predictions 2.0 finish + close-game push alerts.
+**Suggested next three:** Streak Survivor (first Phase 2 daily game — the calendar pins it to August, and it pairs directly with the shipped hitting-streak boards + the two nightly-precompute customers now proven out) → Milestone Watch (Phase 1 remainder, feeds September milestone content + the push-alert system) → Predictions 2.0 finish (streak badges + smart rival bot) alongside close-game push alerts.
