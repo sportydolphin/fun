@@ -1,0 +1,41 @@
+name: Resolve Streak Survivor
+
+# Grades yesterday's Streak Survivor picks (hit / miss / void) and updates each
+# player's running streak in survivor_stats. Runs after every game is final so a
+# pick is never graded off an unfinished box score — same reasoning as the streak
+# boards. One pass a day is enough: a pick's day only needs grading once it's over.
+on:
+  schedule:
+    # 06:30 UTC / 2:30am ET — every west-coast final is in. Sits just after the
+    # streak-board refresh so the two nightly jobs don't overlap their API load.
+    - cron: '30 6 * * *'
+  workflow_dispatch:   # also triggerable manually from the GitHub Actions UI
+
+# Never let two runs grade / upsert the same rows at once.
+concurrency:
+  group: resolve-survivor
+  cancel-in-progress: false
+
+jobs:
+  resolve-survivor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # resolve-survivor.mjs imports exactly two packages — no need for `npm ci`
+      # and the whole frontend toolchain.
+      - name: Install script dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Resolve survivor picks
+        run: node scripts/resolve-survivor.mjs
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

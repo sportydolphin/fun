@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.15.0'
+export const APP_VERSION = '1.16.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,25 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.16.0',
+    date:    '2026-07-26',
+    title:   'Streak Survivor and playoff odds',
+    changes: [
+      {
+        short: 'New Streak Survivor game: pick a hitter each day',
+        full:  'There is a new daily game called Streak Survivor on the home page. Pick one hitter each day, and if they get a hit your streak grows by one. A hitless day resets your streak to zero, and a day your player does not bat is skipped so the streak carries on. There is a leaderboard for the longest streaks, and you need to sign in to play.',
+      },
+      {
+        short: 'New Odds tab in the standings',
+        full:  'The standings page has a new Odds tab showing each team\'s chance of reaching the playoffs and of winning their division. The numbers come from a simulation of every remaining game that runs fresh each night.',
+      },
+      {
+        short: 'Your team\'s playoff odds on the home standings card',
+        full:  'The standings card on the home page now shows your followed team\'s chance of making the playoffs, just above the standings rows.',
+      },
+    ],
+  },
   {
     version: '1.15.0',
     date:    '2026-07-23',

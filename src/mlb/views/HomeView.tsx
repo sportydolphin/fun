@@ -18,6 +18,7 @@ import { RosterMovesCard } from './RosterMoves'
 import { LiveDramaCard } from './LiveDrama'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
+import { StreakSurvivorWidget } from './StreakSurvivor'
 import { StandingsSnapshot } from './StandingsSnapshot'
 import { FinalGamesSection } from './FinalGames'
 import { LeaderboardCard, PlayerLeaderboardCard, LbRow, PlayerLbRow } from '../components/leaderboards'
@@ -145,6 +146,7 @@ const ORDER = {
   followedPlayers: 2,
   standings:       3,
   predictorBottom: 4,
+  survivor:        5,
 } as const
 
 // ─── HomeView ─────────────────────────────────────────────────────────────────
@@ -517,6 +519,11 @@ export function HomeView({
               <Box sx={{ order: ORDER.standings, minWidth: 0 }}>
                 <StandingsSnapshot followedTeamId={followedTeamId} season={CURRENT_SEASON} onTeamClick={onTeamClick} />
               </Box>
+
+              {/* Streak Survivor — daily hitter-streak game */}
+              <Box sx={{ order: ORDER.survivor, minWidth: 0 }}>
+                <StreakSurvivorWidget />
+              </Box>
             </>
           ) : (
             /* No team followed: picker leads, so the feed always nudges the core action */
@@ -540,6 +547,11 @@ export function HomeView({
               {/* Standings snapshot — no team followed, so a rotating division */}
               <Box sx={{ order: ORDER.standings, minWidth: 0 }}>
                 <StandingsSnapshot followedTeamId={followedTeamId} season={CURRENT_SEASON} onTeamClick={onTeamClick} />
+              </Box>
+
+              {/* Streak Survivor — daily hitter-streak game */}
+              <Box sx={{ order: ORDER.survivor, minWidth: 0 }}>
+                <StreakSurvivorWidget />
               </Box>
             </>
           )}
