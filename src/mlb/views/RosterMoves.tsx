@@ -4,7 +4,7 @@ import { Close, KeyboardArrowDown } from '@mui/icons-material'
 import { fetchRosterMoves, RosterMove } from '../api'
 import { CURRENT_SEASON, ACCENT, TEAM_ABBR } from '../constants'
 import { useIsDark, defaultBorder, ringColor } from '../lib/colorUtils'
-import { TeamLogo, PlayerHeadshot } from './VizView'
+import { TeamLogo, PlayerHeadshot } from '../components/leaderboards'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 
 // ─── Roster Moves — trades, DFAs, claims, signings from the transactions feed ─

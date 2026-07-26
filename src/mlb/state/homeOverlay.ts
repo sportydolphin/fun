@@ -14,7 +14,7 @@
 //    fresh, deliberate navigation — not a Back — should never resurrect a modal)
 
 import type { FinalGameSummary } from '../views/FinalGames'
-import type { ScheduleGame } from '../views/ScheduleStrip'
+import type { ScheduleGame } from '../views/scheduleData'
 
 export type HomeOverlay =
   | { kind: 'scoreGame';   game: FinalGameSummary }   // scoreboard → Game Center / preview

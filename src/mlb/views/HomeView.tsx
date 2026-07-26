@@ -1,8 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { Box, Typography } from '@mui/material'
-import { Team, TeamSummary } from '../types'
-import { TEAM_BG, CURRENT_SEASON, TEAM_PAYROLLS_2026 } from '../constants'
-import { fetchDivisionForTeam, fetchTeamSummaryData } from '../api'
+import { Team, TeamSummary, SosEntry } from '../types'
+import { TEAM_BG, TEAM_ABBR, CURRENT_SEASON, TEAM_PAYROLLS_2026 } from '../constants'
+import {
+  fetchDivisionForTeam, fetchTeamSummaryData,
+  fetchTeamAverageAges, fetchStrengthOfSchedule,
+  fetchStreakLeaders, StreakLeaders,
+  fetchPitchesPerPa, PitchPaLeaders,
+  fetchTopSalaries, SalaryRow,
+} from '../api'
 // ~1,400-line schedule module — lazy so the League tab doesn't pull it in.
 const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
 import { SpotlightCard, HotGuyData, fetchSpotlight } from './Spotlight'
@@ -14,7 +20,11 @@ import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
 import { StandingsSnapshot } from './StandingsSnapshot'
 import { FinalGamesSection } from './FinalGames'
-import { LeaderboardCard, buildFraudRows, buildPayrollRows } from './VizView'
+import { LeaderboardCard, PlayerLeaderboardCard, LbRow, PlayerLbRow } from '../components/leaderboards'
+import {
+  AgeEntry, buildFraudRows, buildPayrollRows, buildAgeRows, buildSosRows,
+  buildStreakRows, buildPitchPaRows, buildSalaryRows,
+} from '../components/reportCardRows'
 import { getHomeOverlay, clearOverlayIf } from '../state/homeOverlay'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -155,6 +165,18 @@ export function HomeView({
   const [teamSummaries,    setTeamSummaries]    = useState<TeamSummary[]>([])
   const [loadingBoard,     setLoadingBoard]     = useState(true)
 
+  // ── Report-card datasets — fetched lazily, only when the day's pair needs one ──
+  const [ages,      setAges]      = useState<AgeEntry[]>([])
+  const [sosData,   setSosData]   = useState<SosEntry[]>([])
+  const [streaks,   setStreaks]   = useState<StreakLeaders | null>(null)
+  const [pitchPa,   setPitchPa]   = useState<PitchPaLeaders | null>(null)
+  const [salaries,  setSalaries]  = useState<SalaryRow[]>([])
+  const [loadingAges,     setLoadingAges]     = useState(false)
+  const [loadingSos,      setLoadingSos]      = useState(false)
+  const [loadingStreaks,  setLoadingStreaks]  = useState(false)
+  const [loadingPitchPa,  setLoadingPitchPa]  = useState(false)
+  const [loadingSalaries, setLoadingSalaries] = useState(false)
+
   // ── Predictor placement ──────────────────────────────────────────────────────
   // Picks still to make → the card sits right under the team card, where it gets
   // acted on. Nothing left to pick → it drops to the bottom of the feed.
@@ -217,27 +239,145 @@ export function HomeView({
   const isDark = useIsDark()
 
   // ── Daily report cards ────────────────────────────────────────────────────────
-  // Two cards, both rotating: each day picks a distinct pair from the pool via a
-  // 6-pair cycle keyed to the day, so the two are always different from each other
-  // and both change day to day. The pool includes the static payroll boards, so no
-  // extra fetches are needed.
+  // Two cards rotate daily: each day picks a distinct pair from the pool, keyed to
+  // the day, so the two always differ from each other and both change day to day.
+  // The pool is every Report Card board — team boards *and* player boards — so
+  // anything featured on the Visualize page can surface here too. Selection is
+  // deterministic, so we fetch only the data the day's two boards actually need
+  // (see the effects below) instead of loading every dataset up front.
   const nameMap = new Map(allTeams.map(t => [t.id, t.name]))
-  const boardPool = [
-    { icon: '🚨', title: 'Top Frauds',       subtitle: 'Winning more than their scoring predicts', accent: '#f97316', rows: buildFraudRows(teamSummaries, nameMap, 'fraud'),         loading: loadingBoard },
-    { icon: '💀', title: 'Most Cursed',      subtitle: 'Losing more than their scoring predicts',  accent: '#818cf8', rows: buildFraudRows(teamSummaries, nameMap, 'cursed'),        loading: loadingBoard },
-    { icon: '💰', title: 'Highest Payrolls', subtitle: '2026 estimated payroll spend',             accent: '#eab308', rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'highest'), loading: false        },
-    { icon: '🪙', title: 'Lowest Payrolls',  subtitle: '2026 estimated payroll spend',             accent: '#22c55e', rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'lowest'),  loading: false        },
+
+  type BoardKind = 'team' | 'player'
+  type DataDep = 'summaries' | 'payroll' | 'ages' | 'sos' | 'streaks' | 'pitchPa' | 'salaries'
+  interface BoardMeta {
+    id: string; kind: BoardKind; icon: string; title: string
+    subtitle: string; accent: string; dep: DataDep; tooltipText?: string
+  }
+
+  const QUALIFIED_NOTE = 'Only counts regulars with enough playing time to qualify for a league leaderboard.'
+  const BOARD_POOL: BoardMeta[] = [
+    { id: 'fraud',           kind: 'team',   icon: '🚨', title: 'Top Frauds',        subtitle: 'Winning more than their scoring predicts', accent: '#f97316', dep: 'summaries' },
+    { id: 'cursed',          kind: 'team',   icon: '💀', title: 'Most Cursed',       subtitle: 'Losing more than their scoring predicts',  accent: '#818cf8', dep: 'summaries' },
+    { id: 'highest-payroll', kind: 'team',   icon: '💰', title: 'Highest Payrolls',  subtitle: `${CURRENT_SEASON} estimated payroll spend`, accent: '#eab308', dep: 'payroll' },
+    { id: 'lowest-payroll',  kind: 'team',   icon: '🪙', title: 'Lowest Payrolls',   subtitle: `${CURRENT_SEASON} estimated payroll spend`, accent: '#22c55e', dep: 'payroll' },
+    { id: 'oldest',          kind: 'team',   icon: '👴', title: 'Oldest Rosters',    subtitle: 'Highest avg roster age',                   accent: '#f97316', dep: 'ages' },
+    { id: 'youngest',        kind: 'team',   icon: '🌱', title: 'Youngest Rosters',  subtitle: 'Lowest avg roster age',                    accent: '#22c55e', dep: 'ages' },
+    { id: 'hardest',         kind: 'team',   icon: '⚔️', title: 'Hardest Schedules', subtitle: 'Toughest remaining opponents',             accent: '#ef4444', dep: 'sos' },
+    { id: 'easiest',         kind: 'team',   icon: '🏖️', title: 'Easiest Schedules', subtitle: 'Softest remaining opponents',              accent: '#22c55e', dep: 'sos' },
+    { id: 'hit-streak',      kind: 'player', icon: '🔥', title: 'Hitting Streaks',   subtitle: 'Longest active hitting streaks',           accent: '#f97316', dep: 'streaks', tooltipText: 'Games in a row with at least one hit. A game with no official at-bat (all walks or hit by pitches) doesn\'t break the streak.' },
+    { id: 'scoreless',       kind: 'player', icon: '🧊', title: 'Scoreless Streaks', subtitle: 'Longest active scoreless-inning runs',     accent: '#38bdf8', dep: 'streaks', tooltipText: 'Innings a pitcher has thrown since the last run they gave up. Counted in whole outings, so the streak starts at their first clean appearance after it.' },
+    { id: 'hitless',         kind: 'player', icon: '🥶', title: 'Hitless Streaks',   subtitle: 'Longest active hitless droughts',          accent: '#a78bfa', dep: 'streaks', tooltipText: 'Trips to the plate a hitter has gone without a hit. The cold flip side of the hitting streaks board. Games with no official at-bat are skipped.' },
+    { id: 'games-played',    kind: 'player', icon: '🦾', title: 'Iron Men',          subtitle: 'Longest active games-played streaks',      accent: '#eab308', dep: 'streaks', tooltipText: 'Games a player has appeared in without ever sitting one out, carried across seasons. A trade doesn\'t break it. A "+" means the run reaches back further than we searched, so it\'s even longer than shown.' },
+    { id: 'pitches-most',    kind: 'player', icon: '⏳', title: 'Grinders',          subtitle: 'Most pitches seen per plate appearance',   accent: '#14b8a6', dep: 'pitchPa', tooltipText: `Pitches a hitter sees per trip to the plate. These are the guys who foul balls off and work deep counts, wearing pitchers down. ${QUALIFIED_NOTE}` },
+    { id: 'pitches-fewest',  kind: 'player', icon: '⚡', title: 'Free Swingers',     subtitle: 'Fewest pitches seen per plate appearance', accent: '#f43f5e', dep: 'pitchPa', tooltipText: `Pitches a hitter sees per trip to the plate, lowest in the league. These guys jump on an early strike instead of working the count. ${QUALIFIED_NOTE}` },
+    { id: 'top-salary',      kind: 'player', icon: '🤑', title: 'Top Earners',       subtitle: `Highest ${CURRENT_SEASON} salaries`,       accent: '#10b981', dep: 'salaries', tooltipText: `Each player's salary for the ${CURRENT_SEASON} season, straight from their contract. This is the money paid this year, so a backloaded or deferred deal can rank differently than its headline average annual value.` },
   ]
+
   const boardPairs: Array<[number, number]> = []
-  for (let i = 0; i < boardPool.length; i++)
-    for (let j = i + 1; j < boardPool.length; j++)
+  for (let i = 0; i < BOARD_POOL.length; i++)
+    for (let j = i + 1; j < BOARD_POOL.length; j++)
       boardPairs.push([i, j])
-  const dayNum        = Math.floor(Date.now() / 86400000)
-  const [aIdx, bIdx]  = boardPairs[dayNum % boardPairs.length]
+  const dayNum       = Math.floor(Date.now() / 86400000)
+  // Walk the pair list with a stride coprime to its length (105 = 3·5·7) rather
+  // than stepping +1 a day: consecutive pairs in the list share a board, so a
+  // plain step would leave the same card camped for up to a dozen days. 47 is
+  // prime and hits every pair once across the cycle.
+  const [aIdx, bIdx] = boardPairs[(dayNum * 47) % boardPairs.length]
   // Alternate which of the pair sits on top so the ordering feels fresh too.
-  const [primaryBoard, secondBoard] = dayNum % 2 === 0
-    ? [boardPool[aIdx], boardPool[bIdx]]
-    : [boardPool[bIdx], boardPool[aIdx]]
+  const selectedMetas = dayNum % 2 === 0
+    ? [BOARD_POOL[aIdx], BOARD_POOL[bIdx]]
+    : [BOARD_POOL[bIdx], BOARD_POOL[aIdx]]
+  const neededDeps = new Set<DataDep>(selectedMetas.map(m => m.dep))
+
+  // Rows + loading for one board, built from whatever dataset backs it.
+  const rowsForBoard = (m: BoardMeta): { rows: LbRow[] | PlayerLbRow[]; loading: boolean } => {
+    switch (m.id) {
+      case 'fraud':           return { rows: buildFraudRows(teamSummaries, nameMap, 'fraud'),  loading: loadingBoard }
+      case 'cursed':          return { rows: buildFraudRows(teamSummaries, nameMap, 'cursed'), loading: loadingBoard }
+      case 'highest-payroll': return { rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'highest'), loading: false }
+      case 'lowest-payroll':  return { rows: buildPayrollRows(TEAM_PAYROLLS_2026, nameMap, 'lowest'),  loading: false }
+      case 'oldest':          return { rows: buildAgeRows(ages, nameMap, 'oldest'),   loading: loadingAges }
+      case 'youngest':        return { rows: buildAgeRows(ages, nameMap, 'youngest'), loading: loadingAges }
+      case 'hardest':         return { rows: buildSosRows(sosData, 'hardest'), loading: loadingSos }
+      case 'easiest':         return { rows: buildSosRows(sosData, 'easiest'), loading: loadingSos }
+      case 'hit-streak':      return { rows: buildStreakRows(streaks?.hitting ?? [], 'hitting'),         loading: loadingStreaks }
+      case 'scoreless':       return { rows: buildStreakRows(streaks?.scoreless ?? [], 'scoreless'),     loading: loadingStreaks }
+      case 'hitless':         return { rows: buildStreakRows(streaks?.hitless ?? [], 'hitless'),         loading: loadingStreaks }
+      case 'games-played':    return { rows: buildStreakRows(streaks?.gamesPlayed ?? [], 'gamesPlayed'), loading: loadingStreaks }
+      case 'pitches-most':    return { rows: buildPitchPaRows(pitchPa, 'most'),   loading: loadingPitchPa }
+      case 'pitches-fewest':  return { rows: buildPitchPaRows(pitchPa, 'fewest'), loading: loadingPitchPa }
+      case 'top-salary':      return { rows: buildSalaryRows(salaries), loading: loadingSalaries }
+      default:                return { rows: [], loading: false }
+    }
+  }
+
+  // ── Lazy dataset fetches — each fires only on a day whose pair needs it ────────
+  const needAges     = neededDeps.has('ages')
+  const needSos      = neededDeps.has('sos')
+  const needStreaks  = neededDeps.has('streaks')
+  const needPitchPa  = neededDeps.has('pitchPa')
+  const needSalaries = neededDeps.has('salaries')
+
+  useEffect(() => {
+    if (!needAges || ages.length) return
+    let cancelled = false
+    setLoadingAges(true)
+    fetchTeamAverageAges(CURRENT_SEASON)
+      .then(map => {
+        if (cancelled) return
+        setAges(Object.entries(map)
+          .map(([id, avgAge]) => ({ teamId: Number(id), abbr: TEAM_ABBR[Number(id)] ?? '?', avgAge }))
+          .filter(e => e.abbr !== '?')
+          .sort((a, b) => b.avgAge - a.avgAge))
+      })
+      .catch(() => { if (!cancelled) setAges([]) })
+      .finally(() => { if (!cancelled) setLoadingAges(false) })
+    return () => { cancelled = true }
+  }, [needAges])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!needSos || sosData.length) return
+    let cancelled = false
+    setLoadingSos(true)
+    fetchStrengthOfSchedule(CURRENT_SEASON)
+      .then(d => { if (!cancelled) setSosData(d) })
+      .catch(() => { if (!cancelled) setSosData([]) })
+      .finally(() => { if (!cancelled) setLoadingSos(false) })
+    return () => { cancelled = true }
+  }, [needSos])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!needStreaks || streaks) return
+    let cancelled = false
+    setLoadingStreaks(true)
+    fetchStreakLeaders(CURRENT_SEASON)
+      .then(d => { if (!cancelled) setStreaks(d) })
+      .catch(() => { if (!cancelled) setStreaks(null) })
+      .finally(() => { if (!cancelled) setLoadingStreaks(false) })
+    return () => { cancelled = true }
+  }, [needStreaks])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!needPitchPa || pitchPa) return
+    let cancelled = false
+    setLoadingPitchPa(true)
+    fetchPitchesPerPa(CURRENT_SEASON)
+      .then(d => { if (!cancelled) setPitchPa(d) })
+      .catch(() => { if (!cancelled) setPitchPa(null) })
+      .finally(() => { if (!cancelled) setLoadingPitchPa(false) })
+    return () => { cancelled = true }
+  }, [needPitchPa])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!needSalaries || salaries.length) return
+    let cancelled = false
+    setLoadingSalaries(true)
+    fetchTopSalaries(CURRENT_SEASON)
+      .then(d => { if (!cancelled) setSalaries(d) })
+      .catch(() => { if (!cancelled) setSalaries([]) })
+      .finally(() => { if (!cancelled) setLoadingSalaries(false) })
+    return () => { cancelled = true }
+  }, [needSalaries])   // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Derived team info ─────────────────────────────────────────────────────────
   const followedTeam = allTeams.find(t => t.id === followedTeamId)
@@ -432,19 +572,32 @@ export function HomeView({
             </Box>
           </Box>
 
-          {/* Daily report cards — primary (fraud/cursed) plus a differing card that
-              rotates daily. Each carries its own heading. */}
-          {[primaryBoard, secondBoard].map(b => (
-            <LeaderboardCard
-              key={b.title}
-              icon={b.icon} title={b.title} subtitle={b.subtitle} accent={b.accent}
-              rows={b.rows}
-              loading={b.loading}
-              onExpand={onViz ?? (() => {})}
-              expandLabel="View All →"
-              onSelectTeam={onTeamClick}
-            />
-          ))}
+          {/* Daily report cards — two cards drawn from the full pool (team + player
+              boards), rotating day to day. Each carries its own heading. */}
+          {selectedMetas.map(m => {
+            const { rows, loading } = rowsForBoard(m)
+            return m.kind === 'player' ? (
+              <PlayerLeaderboardCard
+                key={m.id}
+                icon={m.icon} title={m.title} subtitle={m.subtitle} accent={m.accent}
+                tooltipText={m.tooltipText}
+                rows={rows as PlayerLbRow[]}
+                loading={loading}
+                onExpand={onViz ?? (() => {})}
+                onSelectPlayer={onPlayerClick}
+              />
+            ) : (
+              <LeaderboardCard
+                key={m.id}
+                icon={m.icon} title={m.title} subtitle={m.subtitle} accent={m.accent}
+                rows={rows as LbRow[]}
+                loading={loading}
+                onExpand={onViz ?? (() => {})}
+                expandLabel="View All →"
+                onSelectTeam={onTeamClick}
+              />
+            )
+          })}
         </Box>
 
       </Box>

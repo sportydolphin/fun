@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../lib/colorUtils'
+import { FinalGameSummary } from './FinalGames'
 import {
-  FinalGameSummary, BoxScore, parseBoxScoreData,
+  BoxScore, parseBoxScoreData,
   LogoBubble, LiveDot, SectionLabel, LineScoreTable, TeamBoxSection,
-} from './FinalGames'
+} from '../components/boxScore'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
