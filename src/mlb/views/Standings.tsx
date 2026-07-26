@@ -5,6 +5,7 @@ import { fmtGB, useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, hig
 import { fetchStandings } from '../api'
 import { StandingsDivision, StandingsTeamRecord } from '../types'
 import { SegControl } from '../components'
+import { PlayoffOddsBoard } from './PlayoffOddsBoard'
 
 // Dev-only icon tuner — lazy so it's stripped from production builds.
 const IconStudio = import.meta.env.DEV ? lazy(() => import('../dev/IconStudio')) : null
@@ -405,7 +406,7 @@ export function Standings({ season, onTeamClick, highlightTeamId }: {
   onTeamClick?: (teamId: number) => void
   highlightTeamId?: number | null
 }) {
-  const [mode, setMode] = useState<'divisions' | 'playoffs'>('divisions')
+  const [mode, setMode] = useState<'divisions' | 'playoffs' | 'odds'>('divisions')
   const [divisions, setDivisions] = useState<StandingsDivision[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
@@ -447,24 +448,32 @@ export function Standings({ season, onTeamClick, highlightTeamId }: {
 
       <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
         <SegControl
-          options={[{ value: 'divisions', label: 'Divisions' }, { value: 'playoffs', label: 'Playoff Picture' }]}
+          options={[{ value: 'divisions', label: 'Divisions' }, { value: 'playoffs', label: 'Playoff Picture' }, { value: 'odds', label: 'Odds' }]}
           value={mode}
-          onChange={v => setMode(v as 'divisions' | 'playoffs')}
+          onChange={v => setMode(v as 'divisions' | 'playoffs' | 'odds')}
         />
       </Box>
 
-      {loading && <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress size={36} sx={{ color: ACCENT }} /></Box>}
-      {!loading && error && <Box sx={{ textAlign: 'center', py: 8 }}><Typography sx={{ color: 'text.secondary' }}>Could not load standings. Please try again.</Typography></Box>}
+      {/* Odds mode fetches its own precomputed data, so it renders independent of
+          the live standings load/error above. */}
+      {mode === 'odds' ? (
+        <PlayoffOddsBoard season={season} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />
+      ) : (
+        <>
+          {loading && <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress size={36} sx={{ color: ACCENT }} /></Box>}
+          {!loading && error && <Box sx={{ textAlign: 'center', py: 8 }}><Typography sx={{ color: 'text.secondary' }}>Could not load standings. Please try again.</Typography></Box>}
 
-      {!loading && !error && divisions.length > 0 && (
-        mode === 'divisions' ? (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <LeagueSection label="American League" order={AL_ORDER} leagueId={103} divisions={divisions} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />
-            <LeagueSection label="National League" order={NL_ORDER} leagueId={104} divisions={divisions} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />
-          </Box>
-        ) : (
-          <PlayoffPicture divisions={divisions} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />
-        )
+          {!loading && !error && divisions.length > 0 && (
+            mode === 'divisions' ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <LeagueSection label="American League" order={AL_ORDER} leagueId={103} divisions={divisions} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />
+                <LeagueSection label="National League" order={NL_ORDER} leagueId={104} divisions={divisions} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />
+              </Box>
+            ) : (
+              <PlayoffPicture divisions={divisions} onTeamClick={onTeamClick} highlightTeamId={highlightTeamId} />
+            )
+          )}
+        </>
       )}
     </Box>
   )

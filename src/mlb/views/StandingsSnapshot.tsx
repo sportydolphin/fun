@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
-import { fetchStandings } from '../api'
+import { fetchStandings, fetchPlayoffOdds, PlayoffOddsRow } from '../api'
 import { StandingsDivision, StandingsTeamRecord } from '../types'
 import { TEAM_NICKNAME, ACCENT } from '../constants'
 import { useIsDark, highlightColor, fmtGB, defaultBorder } from '../lib/colorUtils'
@@ -17,6 +17,15 @@ function fmtWcGap(gap: number): string {
   if (gap === 0) return '-'
   const s = Math.abs(gap).toFixed(1).replace(/\.0$/, '')
   return gap > 0 ? `+${s}` : `-${s}`
+}
+
+// Playoff-odds percent for the header strip — matches the Odds board's phrasing so
+// a near-lock reads >99% and a live long shot reads <1%.
+function fmtOddsPct(p: number): string {
+  const pct = p * 100
+  if (pct >= 99.95) return '>99%'
+  if (pct > 0 && pct < 0.5) return '<1%'
+  return `${Math.round(pct)}%`
 }
 
 // ─── One standings row ──────────────────────────────────────────────────────────
@@ -159,6 +168,7 @@ export function StandingsSnapshot({ followedTeamId, season, onTeamClick }: {
 }) {
   const isDark = useIsDark()
   const [divisions, setDivisions] = useState<StandingsDivision[]>([])
+  const [myOdds, setMyOdds] = useState<PlayoffOddsRow | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -167,6 +177,18 @@ export function StandingsSnapshot({ followedTeamId, season, onTeamClick }: {
       .catch(() => {})
     return () => { cancelled = true }
   }, [season])
+
+  // Followed team's playoff odds for the header strip. Missing/stale precompute
+  // just hides the strip — no fallback, same as the Odds board.
+  useEffect(() => {
+    let cancelled = false
+    setMyOdds(null)
+    if (followedTeamId == null) return
+    fetchPlayoffOdds(season)
+      .then(rows => { if (!cancelled) setMyOdds(rows?.find(r => r.teamId === followedTeamId) ?? null) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [season, followedTeamId])
 
   const view = pickView(divisions, followedTeamId)
   if (!view) return null
@@ -203,6 +225,25 @@ export function StandingsSnapshot({ followedTeamId, season, onTeamClick }: {
           {subtitle}
         </Typography>
       </Box>
+
+      {/* Followed team's playoff odds — a one-line strip above the standings rows */}
+      {myOdds && (
+        <Box sx={{
+          px: 1.5, py: '6px', borderBottom: '1px solid', borderColor: 'divider',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
+          bgcolor: 'action.hover',
+        }}>
+          <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: 'text.secondary' }}>
+            Playoff odds
+          </Typography>
+          <Typography sx={{
+            fontSize: '0.74rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+            color: myOdds.makePlayoffs >= 0.85 ? '#22c55e' : myOdds.makePlayoffs >= 0.25 ? '#eab308' : 'text.secondary',
+          }}>
+            {fmtOddsPct(myOdds.makePlayoffs)}
+          </Typography>
+        </Box>
+      )}
 
       {/* Rows */}
       {rows.map((r, i) => (

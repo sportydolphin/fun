@@ -989,3 +989,47 @@ async function computeTeamSeasonStats(): Promise<Map<number, TeamSeasonStats>> {
   }
   return out
 }
+
+// ─── Playoff odds ─────────────────────────────────────────────────────────────
+
+// One team's row from the nightly Monte Carlo. Shape mirrors the objects written
+// by scripts/simulate-playoff-odds.mjs — keep the two in sync.
+export interface PlayoffOddsRow {
+  teamId: number
+  abbr: string
+  teamName: string
+  divisionId: number
+  divisionName: string
+  leagueId: number
+  wins: number
+  losses: number
+  remaining: number
+  strength: number
+  makePlayoffs: number   // 0–1
+  winDivision: number    // 0–1
+  projWins: number
+  projLosses: number
+}
+
+// A GitHub Action reruns the sim nightly (scripts/simulate-playoff-odds.mjs →
+// playoff_odds table, one jsonb row per season). Unlike the streak boards there's
+// no in-browser fallback — a full-schedule Monte Carlo is too heavy for the client
+// — so a missing or stale row just means "odds unavailable" and callers hide the
+// UI. The offseason sim aborts (no remaining games), leaving computed_at frozen,
+// which is exactly when we want the stale check to hide last season's numbers.
+const PLAYOFF_ODDS_STALE_MS = 72 * 3600 * 1000
+
+export async function fetchPlayoffOdds(season: number): Promise<PlayoffOddsRow[] | null> {
+  try {
+    const { data } = await supabase
+      .from('playoff_odds')
+      .select('data, computed_at')
+      .eq('season', season)
+      .limit(1)
+    const row = data?.[0]
+    if (row?.data && Date.now() - new Date(row.computed_at).getTime() < PLAYOFF_ODDS_STALE_MS) {
+      return row.data as PlayoffOddsRow[]
+    }
+  } catch { /* table missing or unreachable — treat as unavailable */ }
+  return null
+}

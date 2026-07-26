@@ -1,0 +1,44 @@
+name: Update Playoff Odds
+
+# Nightly Monte Carlo of the remaining schedule → the playoff_odds table (one
+# jsonb row per season), so every visitor gets a single Supabase read instead of
+# re-simulating in the browser. Second consumer of the streak-precompute template.
+#
+# Once a day is plenty: odds barely move between two consecutive games, and the
+# sim reads ~2 StatsAPI endpoints total (standings + full schedule), so there's no
+# politeness pressure to run it more often. The 06:00 UTC / 2am ET slot waits until
+# every west-coast game is final, so the standings feeding the sim are a fully
+# settled previous day.
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:   # also triggerable manually from the GitHub Actions UI
+
+# Never let two runs upsert the same season row at once.
+concurrency:
+  group: update-playoff-odds
+  cancel-in-progress: false
+
+jobs:
+  update-playoff-odds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # simulate-playoff-odds.mjs imports exactly two packages — no need for
+      # `npm ci` and the whole frontend toolchain.
+      - name: Install script dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Simulate playoff odds
+        run: node scripts/simulate-playoff-odds.mjs
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
