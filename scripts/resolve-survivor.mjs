@@ -183,11 +183,17 @@ async function main() {
       }))
       const s = walkStreak(rows.map(r => r.result))
 
-      // Resolve the display name from usernames, falling back to any existing
-      // stored name (bots will bring their own once they play).
-      let displayName = 'Anonymous'
+      // Resolve the display name: a chosen username wins, else keep whatever name
+      // is already stored (bots seed their own "🤖 … Bot" name when they pick, and
+      // usernames has no row for them), else Anonymous.
+      let displayName = null
       const { data: nameRow } = await supabase.from('usernames').select('username').eq('user_id', userId).maybeSingle()
-      if (nameRow?.username) displayName = nameRow.username
+      if (nameRow?.username) {
+        displayName = nameRow.username
+      } else {
+        const { data: existing } = await supabase.from('survivor_stats').select('display_name').eq('user_id', userId).maybeSingle()
+        displayName = existing?.display_name ?? 'Anonymous'
+      }
 
       const lastDate = rows.filter(r => r.result === 'hit' || r.result === 'miss').at(-1)?.game_date ?? null
 

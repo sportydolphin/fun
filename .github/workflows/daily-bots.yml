@@ -33,5 +33,14 @@ jobs:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
+      # Same slot on purpose: survivor bots must pick before first pitch, just like
+      # the prediction bots. The nightly resolver grades their picks overnight.
+      - name: Run Streak Survivor bots
+        run: node scripts/run-survivor-bots.mjs
+        continue-on-error: true
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
       # Streak leaders moved to .github/workflows/update-streaks.yml — this slot
       # runs before first pitch, which is exactly when the boards are staleest.

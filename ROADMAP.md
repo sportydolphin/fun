@@ -54,7 +54,7 @@
 
 Solo-first games sharing auth + leaderboards + streak infra. Bots play these too — beat-the-bot is the multiplayer.
 
-- **Streak Survivor** 🎮 — Pick one hitter a day to get a hit; a miss resets. Season leaderboard, bot entrants. Simple, sticky, and pairs perfectly with the new hitting-streak boards.
+- ✅ **Streak Survivor** 🎮 — Shipped. Pick one hitter a day to get a hit; a miss resets. Home card + leaderboard, nightly resolver (`resolve-survivor.mjs`), and 3 bot entrants (🤖 Streak / Chalk / Coin Flip Bot) that pick each morning. *Open (optional):* a dedicated full-screen view, and streak-milestone push alerts.
 - **Daily Trivia** 🎮🎯 — One auto-generated question/day from StatsAPI history, Wordle-style streaks. Works year-round, i.e. offseason insurance.
 - **Mystery Player** 🎮 — Guess from progressive clues (team → position → stat line → silhouette). Shareable result grid.
 - **The Grid** 🎮 — Immaculate-Grid-style 3×3 team/stat intersections; puzzles precomputed in Actions.
@@ -86,4 +86,4 @@ Solo-first games sharing auth + leaderboards + streak infra. Bots play these too
 
 ---
 
-**Suggested next three:** Streak Survivor (first Phase 2 daily game — the calendar pins it to August, and it pairs directly with the shipped hitting-streak boards + the two nightly-precompute customers now proven out) → Milestone Watch (Phase 1 remainder, feeds September milestone content + the push-alert system) → Predictions 2.0 finish (streak badges + smart rival bot) alongside close-game push alerts.
+**Suggested next three:** Milestone Watch (Phase 1 remainder, feeds September milestone content + the push-alert system) → Predictions 2.0 finish (streak badges + smart rival bot) alongside close-game push alerts → a second Phase 2 daily game (Daily Trivia is the offseason-proof pick). Streak Survivor and playoff odds shipped; next new build should be Milestone Watch as September approaches.

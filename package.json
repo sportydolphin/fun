@@ -13,6 +13,7 @@
     "reminders": "node scripts/send-reminders.mjs",
     "streaks": "node scripts/update-streaks.mjs",
     "survivor": "node scripts/resolve-survivor.mjs",
+    "survivor-bots": "node scripts/run-survivor-bots.mjs",
     "tasks": "node --env-file=.env scripts/pull-tasks.mjs"
   },
   "dependencies": {

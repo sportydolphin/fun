@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.16.0'
+export const APP_VERSION = '1.16.1'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.16.1',
+    date:    '2026-07-26',
+    title:   'Streak Survivor gets bot opponents',
+    changes: [
+      {
+        short: 'Bots now play Streak Survivor',
+        full:  'Streak Survivor now has three bot players that make a pick every day, so there are opponents on the leaderboard from the start. One goes for the hitter on the longest hitting streak, one takes the best batting average, and one picks at random.',
+      },
+    ],
+  },
   {
     version: '1.16.0',
     date:    '2026-07-26',
