@@ -1,0 +1,60 @@
+name: Pull feature requests
+
+# Refreshes docs/feature-requests.md from Google Tasks once a day and commits it
+# if anything changed, so the site's wish list stays current in the repo without a
+# manual `npm run tasks`.
+#
+# Dormant until configured: add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and
+# GOOGLE_REFRESH_TOKEN as repository secrets (see docs/GOOGLE_TASKS.md). Until then
+# every run skips cleanly instead of failing, so there are no red-X emails.
+on:
+  schedule:
+    - cron: '0 5 * * *'   # 05:00 UTC daily
+  workflow_dispatch:        # also triggerable manually from the Actions UI
+
+# The job commits the regenerated file back to the repo.
+permissions:
+  contents: write
+
+# Never let two runs push at once.
+concurrency:
+  group: pull-feature-requests
+  cancel-in-progress: false
+
+jobs:
+  pull-feature-requests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GOOGLE_CLIENT_ID:     ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Skip when not configured
+        if: env.GOOGLE_REFRESH_TOKEN == ''
+        run: echo "Google Tasks secrets not set — skipping. Add GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN to enable."
+
+      # pull-tasks.mjs uses only Node built-ins + fetch, so no dependency install
+      # is needed. It reads the Google creds straight from the env above.
+      - name: Pull tasks
+        if: env.GOOGLE_REFRESH_TOKEN != ''
+        run: node scripts/pull-tasks.mjs
+
+      - name: Commit if changed
+        if: env.GOOGLE_REFRESH_TOKEN != ''
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/feature-requests.md
+          if git diff --cached --quiet; then
+            echo "No changes to feature requests."
+          else
+            git commit -m "Update feature requests from Google Tasks"
+            git push
+          fi

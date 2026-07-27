@@ -12,7 +12,8 @@
     "payrolls": "node scripts/update-payrolls.mjs",
     "reminders": "node scripts/send-reminders.mjs",
     "streaks": "node scripts/update-streaks.mjs",
-    "survivor": "node scripts/resolve-survivor.mjs"
+    "survivor": "node scripts/resolve-survivor.mjs",
+    "tasks": "node --env-file=.env scripts/pull-tasks.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
