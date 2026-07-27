@@ -106,6 +106,11 @@ export const DEFAULT_TEAM_PIT_STATS = TEAM_PITCHING_DEFS.filter(d => d.defaultSe
 export const CURRENT_SEASON = new Date().getFullYear()
 export const TEAM_SEASONS = Array.from({ length: CURRENT_SEASON - 2000 + 1 }, (_, i) => CURRENT_SEASON - i)
 
+// Correct picks in a row before a prediction streak counts as a "heater" — the bar
+// for the 🔥 leaderboard badge and the heater banner. Shared by the stats board and
+// the home Predictor card so they agree.
+export const PREDICTION_HEATER_MIN = 3
+
 // Featured leaderboard stat keys shown by default (fewer = less overwhelming)
 export const LB_FEATURED: Record<'hitting' | 'pitching', string[]> = {
   hitting:  ['ops', 'hr', 'sb'],

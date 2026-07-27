@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
-import { TEAM_ABBR, ACCENT } from '../constants'
+import { TEAM_ABBR, ACCENT, PREDICTION_HEATER_MIN } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 import { supabase } from '../../lib/supabase'
 
@@ -33,13 +33,14 @@ interface PersonalStats {
 }
 
 interface LeaderEntry {
-  userId:      string
-  displayName: string
-  rank:        number
-  accuracy:    number
-  correct:     number
-  total:       number
-  isMe:        boolean
+  userId:        string
+  displayName:   string
+  rank:          number
+  accuracy:      number
+  correct:       number
+  total:         number
+  currentStreak: number
+  isMe:          boolean
 }
 
 // ─── Data fetching ────────────────────────────────────────────────────────────
@@ -164,14 +165,18 @@ async function fetchPersonalStats(userId: string): Promise<PersonalStats | null>
 async function upsertMyPredStats(userId: string, displayName: string, stats: PersonalStats) {
   try {
     if (stats.finalizedCount === 0) return
-    await supabase.from('prediction_stats').upsert({
+    const base = {
       user_id:             userId,
       display_name:        displayName,
       correct_predictions: stats.correctPredictions,
       total_predictions:   stats.finalizedCount,
       accuracy_pct:        stats.accuracyPct ?? 0,
       updated_at:          new Date().toISOString(),
-    }, { onConflict: 'user_id' })
+    }
+    const { error } = await supabase.from('prediction_stats')
+      .upsert({ ...base, current_streak: stats.currentStreak, best_streak: stats.bestStreak }, { onConflict: 'user_id' })
+    // Streak columns pending migration — still save the rest so stats keep updating.
+    if (error) await supabase.from('prediction_stats').upsert(base, { onConflict: 'user_id' })
   } catch { /* non-fatal — table may not exist yet */ }
 }
 
@@ -189,10 +194,14 @@ function wilsonLowerBound(correct: number, total: number): number {
 
 async function fetchLeaderboard(myUserId: string): Promise<LeaderEntry[]> {
   try {
-    const { data } = await supabase
-      .from('prediction_stats')
-      .select('user_id, display_name, correct_predictions, total_predictions, accuracy_pct')
-      .limit(500)
+    // current_streak is added by a later migration (add_prediction_streaks.sql). Select
+    // it, but fall back to the pre-streak columns if it isn't there yet, so the board
+    // never breaks on a deploy that lands before the migration is run.
+    const baseCols = 'user_id, display_name, correct_predictions, total_predictions, accuracy_pct'
+    const withStreak = await supabase.from('prediction_stats').select(`${baseCols}, current_streak`).limit(500)
+    const data: any[] | null = withStreak.error
+      ? (await supabase.from('prediction_stats').select(baseCols).limit(500)).data
+      : withStreak.data
 
     // Resolve names at read time from the `usernames` table so the board always
     // reflects each user's *current* username — the cached `display_name` on the
@@ -217,17 +226,19 @@ async function fetchLeaderboard(myUserId: string): Promise<LeaderEntry[]> {
     // — only the ordering accounts for sample size.
     const ranked: LeaderEntry[] = (data ?? [])
       .map((row: any) => ({
-        userId:      row.user_id,
-        displayName: nameByUser[row.user_id] ?? row.display_name ?? 'Anonymous',
-        accuracy:    row.accuracy_pct        ?? 0,
-        correct:     row.correct_predictions ?? 0,
-        total:       row.total_predictions   ?? 0,
-        score:       wilsonLowerBound(row.correct_predictions ?? 0, row.total_predictions ?? 0),
+        userId:        row.user_id,
+        displayName:   nameByUser[row.user_id] ?? row.display_name ?? 'Anonymous',
+        accuracy:      row.accuracy_pct        ?? 0,
+        correct:       row.correct_predictions ?? 0,
+        total:         row.total_predictions   ?? 0,
+        currentStreak: row.current_streak      ?? 0,
+        score:         wilsonLowerBound(row.correct_predictions ?? 0, row.total_predictions ?? 0),
       }))
       .sort((a, b) => b.score - a.score || b.total - a.total)
       .map((r, i) => ({
         userId: r.userId, displayName: r.displayName, rank: i + 1,
         accuracy: r.accuracy, correct: r.correct, total: r.total,
+        currentStreak: r.currentStreak,
         isMe: r.userId === myUserId,
       }))
 
@@ -387,8 +398,29 @@ function TeamPodium({ title, teams, getMain, getSub }: {
 // ─── MyStatsContent ───────────────────────────────────────────────────────────
 
 function MyStatsContent({ stats }: { stats: PersonalStats }) {
+  const onHeater = stats.currentStreak >= PREDICTION_HEATER_MIN
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+
+      {/* Heater banner — only when a streak is genuinely hot */}
+      {onHeater && (
+        <Box sx={{
+          display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1,
+          borderRadius: 2, bgcolor: '#f9731614', border: '1px solid #f9731640',
+        }}>
+          <Typography sx={{ fontSize: '1.35rem', lineHeight: 1 }}>🔥</Typography>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, color: '#f97316', lineHeight: 1.2 }}>
+              You're on a {stats.currentStreak}-game heater
+            </Typography>
+            <Typography sx={{ fontSize: '0.66rem', color: 'text.secondary', lineHeight: 1.2 }}>
+              {stats.currentStreak === stats.bestStreak
+                ? 'Your best run yet. Keep it going.'
+                : `${stats.bestStreak} is your best. Keep it going.`}
+            </Typography>
+          </Box>
+        </Box>
+      )}
 
       {/* Summary pills */}
       <Box sx={{ display: 'flex', gap: 1 }}>
@@ -479,13 +511,25 @@ function LeaderboardContent({ leaders }: { leaders: LeaderEntry[] }) {
           }}>
             {entry.rank <= 3 ? MEDALS[entry.rank - 1] : entry.rank}
           </Typography>
-          <Typography sx={{
-            fontSize: '0.78rem', fontWeight: entry.isMe ? 800 : 500, flex: 1,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            color: entry.isMe ? ACCENT : 'text.primary',
-          }}>
-            {entry.displayName}{entry.isMe ? ' (you)' : ''}
-          </Typography>
+          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography sx={{
+              fontSize: '0.78rem', fontWeight: entry.isMe ? 800 : 500,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              color: entry.isMe ? ACCENT : 'text.primary', minWidth: 0,
+            }}>
+              {entry.displayName}{entry.isMe ? ' (you)' : ''}
+            </Typography>
+            {entry.currentStreak >= PREDICTION_HEATER_MIN && (
+              <Box component="span" sx={{
+                flexShrink: 0, px: 0.5, py: '1px', borderRadius: 999,
+                bgcolor: '#f9731618', border: '1px solid #f9731655',
+                fontSize: '0.58rem', fontWeight: 800, color: '#f97316', lineHeight: 1.4,
+                whiteSpace: 'nowrap',
+              }}>
+                🔥 {entry.currentStreak}
+              </Box>
+            )}
+          </Box>
           <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', minWidth: 52, textAlign: 'right' }}>
             {entry.correct}/{entry.total}
           </Typography>

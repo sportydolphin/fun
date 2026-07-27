@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.18.1'
+export const APP_VERSION = '1.19.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.19.0',
+    date:    '2026-07-27',
+    title:   'Prediction heaters and a smarter bot',
+    changes: [
+      {
+        short: 'See who is on a hot pick streak',
+        full:  'The predictions leaderboard now shows a fire badge next to anyone on a run of correct picks, and when you are on one yourself you get a heater banner on the predictions card and in My Stats. A streak is your correct picks in a row and resets the first time you miss.',
+      },
+      {
+        short: 'A tougher new rival: the Sabermetric Bot',
+        full:  'There is a new bot to beat. The Sabermetric Bot rates each team by its runs scored and allowed rather than its raw record, so it sees through lucky and unlucky win-loss records, then factors in home-field. It is meant to be the hardest of the bots to out-pick.',
+      },
+    ],
+  },
   {
     version: '1.18.1',
     date:    '2026-07-27',

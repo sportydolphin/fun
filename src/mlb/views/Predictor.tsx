@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Box, Typography } from '@mui/material'
-import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, ACCENT } from '../constants'
+import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, ACCENT, PREDICTION_HEATER_MIN } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder } from '../lib/colorUtils'
 import { useAuth } from '../../AuthContext'
 import { supabase } from '../../lib/supabase'
@@ -595,6 +595,19 @@ export function PredictorWidget({ onPicksSettled }: {
   const [modalOpen,   setModalOpen]   = useState(false)
   const [statsOpen,   setStatsOpen]   = useState(false)
   const [username,    setUsername]    = useState<string | null>(null)
+  const [heaterStreak, setHeaterStreak] = useState(0)
+
+  // The user's current correct-pick streak, for the heater banner. Read from the
+  // leaderboard aggregate (refreshed whenever they open My Stats), so it can lag a
+  // little rather than costing a full history recompute on the home card. Re-reads
+  // when the stats modal closes, which is when a fresh streak was just written.
+  useEffect(() => {
+    if (!user) { setHeaterStreak(0); return }
+    let cancelled = false
+    supabase.from('prediction_stats').select('current_streak').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => { if (!cancelled) setHeaterStreak(Number(data?.current_streak ?? 0)) })
+    return () => { cancelled = true }
+  }, [user, statsOpen])
   // Predictions arrive independently of the slate; both must land before the
   // remaining-picks count means anything.
   const [predsLoaded, setPredsLoaded] = useState(false)
@@ -783,6 +796,19 @@ export function PredictorWidget({ onPicksSettled }: {
             </Box>
           </Box>
         </Box>
+
+        {/* Heater banner — the user is on a hot correct-pick streak */}
+        {heaterStreak >= PREDICTION_HEATER_MIN && (
+          <Box sx={{
+            display: 'flex', alignItems: 'center', gap: 0.75, px: 2.5, py: 0.9,
+            bgcolor: '#f9731612', borderBottom: '1px solid', borderColor: 'divider',
+          }}>
+            <Typography sx={{ fontSize: '0.9rem', lineHeight: 1 }}>🔥</Typography>
+            <Typography sx={{ fontSize: '0.74rem', fontWeight: 700, color: '#f97316', lineHeight: 1.2 }}>
+              You're on a {heaterStreak}-game heater, keep it rolling
+            </Typography>
+          </Box>
+        )}
 
         {/* Summary line — click to open the modal */}
         <Box

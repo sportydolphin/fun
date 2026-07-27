@@ -3,9 +3,11 @@
  * run-bots.mjs — Daily MLB prediction bot runner
  *
  * Bots:
- *   🤖 Coin Flip     — randomly picks home or away for each game
- *   🚂 Bandwagon Bot — picks the team with the better win% (home team breaks ties)
- *   🤖 Homer Bot     — always picks the home team
+ *   🤖 Coin Flip       — randomly picks home or away for each game
+ *   🚂 Bandwagon Bot   — picks the team with the better win% (home team breaks ties)
+ *   🤖 Homer Bot       — always picks the home team
+ *   🧠 Sabermetric Bot — Pythagorean expectation (runs scored/allowed) resolved by
+ *                        log5 with a home-field edge; the one that's hard to beat
  *
  * Bot users are created as real Supabase auth accounts on first run so they
  * satisfy FK constraints and appear on the leaderboard like any other user.
@@ -47,6 +49,7 @@ const BOTS = [
   { email: 'bot-coinflip@mlbpicks.internal',    displayName: '🤖 Coin Flip' },
   { email: 'bot-betterrecord@mlbpicks.internal', displayName: '🚂 Bandwagon Bot' },
   { email: 'bot-hometeam@mlbpicks.internal',    displayName: '🤖 Homer Bot' },
+  { email: 'bot-pythag@mlbpicks.internal',      displayName: '🧠 Sabermetric Bot' },
 ]
 
 // ─── Date helper ─────────────────────────────────────────────────────────────
@@ -105,11 +108,11 @@ async function fetchGamesForDate(date) {
   return games
 }
 
-/** Returns win% keyed by teamId */
+/** Per-team record + run totals, keyed by teamId: { winPct, rs, ra } */
 async function fetchStandings() {
   const res = await fetch(
     `https://statsapi.mlb.com/api/v1/standings?leagueId=103,104&season=${CURRENT_SEASON}` +
-    `&standingsTypes=regularSeason&fields=records,teamRecords,team,id,wins,losses`
+    `&standingsTypes=regularSeason&fields=records,teamRecords,team,id,wins,losses,runsScored,runsAllowed`
   )
   const d = await res.json()
   const out = {}
@@ -118,7 +121,11 @@ async function fetchStandings() {
       const id = Number(tr.team?.id ?? 0)
       const w  = tr.wins   ?? 0
       const l  = tr.losses ?? 0
-      out[id]  = w / (w + l || 1)
+      out[id]  = {
+        winPct: w / (w + l || 1),
+        rs:     Number(tr.runsScored  ?? 0),
+        ra:     Number(tr.runsAllowed ?? 0),
+      }
     }
   }
   return out
@@ -130,14 +137,36 @@ function coinFlipPick(game) {
   return Math.random() < 0.5 ? game.homeId : game.awayId
 }
 
-function betterRecordPick(game, winPct) {
-  const home = winPct[game.homeId] ?? 0
-  const away = winPct[game.awayId] ?? 0
+function betterRecordPick(game, standings) {
+  const home = standings[game.homeId]?.winPct ?? 0
+  const away = standings[game.awayId]?.winPct ?? 0
   return home >= away ? game.homeId : game.awayId   // home team breaks ties
 }
 
 function homeTeamPick(game) {
   return game.homeId   // bet on home-field advantage, every time
+}
+
+// Pythagorean win expectation — a team's "deserved" win rate from runs scored/allowed,
+// which sees through a lucky or unlucky W-L record. Exponent 1.83 is the classic MLB fit.
+function pythagExpectation(t) {
+  const rs = t?.rs ?? 0, ra = t?.ra ?? 0
+  if (rs <= 0 && ra <= 0) return 0.5
+  const rsE = Math.pow(rs, 1.83), raE = Math.pow(ra, 1.83)
+  return rsE / (rsE + raE || 1)
+}
+
+// Smart bot: rate each team by Pythagorean expectation, resolve the matchup with the
+// log5 formula, then hand the home side a small real-world edge. Because it trusts run
+// differential over a possibly-lucky record, it should sit a notch above Bandwagon.
+const HOME_EDGE = 0.04
+function pythagPick(game, standings) {
+  const pH = pythagExpectation(standings[game.homeId])
+  const pA = pythagExpectation(standings[game.awayId])
+  const denom = pH * (1 - pA) + pA * (1 - pH)          // log5 denominator
+  const neutral = denom > 0 ? (pH * (1 - pA)) / denom : 0.5
+  const homeWinProb = Math.min(1, Math.max(0, neutral + HOME_EDGE))
+  return homeWinProb >= 0.5 ? game.homeId : game.awayId
 }
 
 // ─── Stats computation ────────────────────────────────────────────────────────
@@ -179,17 +208,30 @@ async function computeAndUpsertStats(userId, displayName) {
     }
   } catch { /* best effort */ }
 
+  // Chronological order so the streaks below track the real sequence of results.
+  const sorted = [...rows].sort((a, b) =>
+    a.game_date !== b.game_date ? a.game_date.localeCompare(b.game_date) : a.game_pk - b.game_pk)
+
   let finalizedCount = 0, correctPredictions = 0
-  for (const row of rows) {
+  const finalizedResults = []
+  for (const row of sorted) {
     const game = gameMap[row.game_pk]
     if (!game || game.winnerId === null || game.winnerId === undefined) continue
     finalizedCount++
-    if (game.winnerId === Number(row.predicted_team_id)) correctPredictions++
+    const isCorrect = game.winnerId === Number(row.predicted_team_id)
+    if (isCorrect) correctPredictions++
+    finalizedResults.push(isCorrect)
   }
 
   if (finalizedCount === 0) return
 
   const accuracyPct = Math.round(correctPredictions / finalizedCount * 100)
+
+  // Current streak = trailing correct from the latest result; best streak = longest ever.
+  let currentStreak = 0
+  for (let i = finalizedResults.length - 1; i >= 0 && finalizedResults[i]; i--) currentStreak++
+  let bestStreak = 0, run = 0
+  for (const r of finalizedResults) { run = r ? run + 1 : 0; if (run > bestStreak) bestStreak = run }
 
   const { error } = await supabase.from('prediction_stats').upsert({
     user_id:             userId,
@@ -197,13 +239,16 @@ async function computeAndUpsertStats(userId, displayName) {
     correct_predictions: correctPredictions,
     total_predictions:   finalizedCount,
     accuracy_pct:        accuracyPct,
+    current_streak:      currentStreak,
+    best_streak:         bestStreak,
     updated_at:          new Date().toISOString(),
   }, { onConflict: 'user_id' })
 
   if (error) {
-    console.warn(`  ⚠️  Stats upsert skipped (${error.message}) — run the prediction_stats SQL migration first`)
+    console.warn(`  ⚠️  Stats upsert skipped (${error.message}) — run the prediction_stats SQL migrations first`)
   } else {
-    console.log(`  📊 ${displayName}: ${correctPredictions}/${finalizedCount} correct (${accuracyPct}%)`)
+    const heat = currentStreak >= 3 ? ` 🔥${currentStreak}` : ''
+    console.log(`  📊 ${displayName}: ${correctPredictions}/${finalizedCount} correct (${accuracyPct}%)${heat}`)
   }
 }
 
@@ -215,14 +260,16 @@ async function main() {
 
   // ── 1. Get or create bot auth users ────────────────────────────────────────
   console.log('👤 Resolving bot users…')
-  const [coinFlipId, betterRecordId, homerId] = await Promise.all([
+  const [coinFlipId, betterRecordId, homerId, pythagId] = await Promise.all([
     getOrCreateBotUser(BOTS[0].email, BOTS[0].displayName),
     getOrCreateBotUser(BOTS[1].email, BOTS[1].displayName),
     getOrCreateBotUser(BOTS[2].email, BOTS[2].displayName),
+    getOrCreateBotUser(BOTS[3].email, BOTS[3].displayName),
   ])
   console.log(`  🤖 Coin Flip ID:     ${coinFlipId}`)
   console.log(`  📊 Better Record ID: ${betterRecordId}`)
   console.log(`  🏠 Homer Bot ID:     ${homerId}`)
+  console.log(`  🧠 Sabermetric ID:   ${pythagId}`)
 
   // ── 2. Fetch today's games ─────────────────────────────────────────────────
   console.log(`\n📅 Fetching games for ${date}…`)
@@ -256,6 +303,13 @@ async function main() {
       predicted_team_id: homeTeamPick(g),
     }))
 
+    const pythagRows = preview.map(g => ({
+      user_id:           pythagId,
+      game_date:         date,
+      game_pk:           g.gamePk,
+      predicted_team_id: pythagPick(g, standings),
+    }))
+
     // ignoreDuplicates: true → first pick wins, don't overwrite if already set
     const { error: cfErr } = await supabase
       .from('game_predictions')
@@ -274,6 +328,12 @@ async function main() {
       .upsert(homerRows, { onConflict: 'user_id,game_pk', ignoreDuplicates: true })
     if (hmErr) console.error(`  ❌ Homer Bot insert failed: ${hmErr.message}`)
     else console.log(`  🏠 Homer Bot: ${homerRows.length} picks saved`)
+
+    const { error: pyErr } = await supabase
+      .from('game_predictions')
+      .upsert(pythagRows, { onConflict: 'user_id,game_pk', ignoreDuplicates: true })
+    if (pyErr) console.error(`  ❌ Sabermetric Bot insert failed: ${pyErr.message}`)
+    else console.log(`  🧠 Sabermetric Bot: ${pythagRows.length} picks saved`)
   } else {
     console.log('  No upcoming games — skipping picks')
   }
@@ -283,6 +343,7 @@ async function main() {
   await computeAndUpsertStats(coinFlipId,     BOTS[0].displayName)
   await computeAndUpsertStats(betterRecordId, BOTS[1].displayName)
   await computeAndUpsertStats(homerId,        BOTS[2].displayName)
+  await computeAndUpsertStats(pythagId,       BOTS[3].displayName)
 
   console.log('\n✅ Done\n')
 }
