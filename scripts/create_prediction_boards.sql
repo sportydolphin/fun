@@ -6,8 +6,10 @@
 -- tallies each user's record in the window and writes one jsonb row per window.
 -- The all-time board stays a live read of prediction_stats.
 
+-- `window` is a reserved word in Postgres (window functions), so the column is
+-- window_key.
 create table if not exists prediction_boards (
-  window      text primary key,                 -- 'week' | 'month'
+  window_key  text primary key,                 -- 'week' | 'month'
   data        jsonb not null,                    -- { entries: { userId, displayName, correct, total, accuracy }[] }
   computed_at timestamptz not null default now()
 );

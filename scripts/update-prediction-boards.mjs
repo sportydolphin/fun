@@ -180,7 +180,7 @@ async function main() {
   for (const b of boards) {
     const { error } = await supabase
       .from('prediction_boards')
-      .upsert({ window: b.key, data: { entries: b.entries }, computed_at: new Date().toISOString() }, { onConflict: 'window' })
+      .upsert({ window_key: b.key, data: { entries: b.entries }, computed_at: new Date().toISOString() }, { onConflict: 'window_key' })
     if (error) {
       console.error(`\n❌  Upsert failed for ${b.key}: ${error.message}`)
       console.error('    Make sure you ran scripts/create_prediction_boards.sql first.')

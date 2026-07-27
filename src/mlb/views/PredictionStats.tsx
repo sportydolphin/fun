@@ -262,7 +262,7 @@ async function fetchWindowBoard(window: 'week' | 'month', myUserId: string): Pro
     const { data } = await supabase
       .from('prediction_boards')
       .select('data')
-      .eq('window', window)
+      .eq('window_key', window)
       .limit(1)
     const entries = (data?.[0]?.data as { entries?: any[] } | undefined)?.entries ?? []
     const ranked: LeaderEntry[] = entries.map((e: any, i: number) => ({
