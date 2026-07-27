@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.18.0'
+export const APP_VERSION = '1.18.1'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.18.1',
+    date:    '2026-07-27',
+    title:   'Standouts have to actually stand out',
+    changes: [
+      {
+        short: 'Single-Game Standout only shows a real standout',
+        full:  'Early in the day, when only a game or two had finished, the Single-Game Standout card could feature a merely decent line just because it was the best of a tiny sample. It now requires a genuinely standout game (a multi-hit or multi-homer day, four-plus RBI, a dominant start, and the like), and falls back to the most recent day that had one when today does not yet.',
+      },
+    ],
+  },
   {
     version: '1.18.0',
     date:    '2026-07-27',

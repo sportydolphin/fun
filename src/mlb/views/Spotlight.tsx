@@ -269,6 +269,28 @@ function scoreHitterGame(stat: any): number {
   return score
 }
 
+// The bar for actually appearing as a single-game standout — distinct from the score
+// above, which only ranks the ones that clear it. Without this a thin slate (a day
+// with just a game or two final) would crown a merely-decent line as "the standout"
+// simply because it was the best of a tiny sample. A day with no standout contributes
+// nothing, so the carousel falls back to the most recent day that had one.
+function isStandoutHitterGame(stat: any): boolean {
+  const h   = Number(stat.hits        ?? 0)
+  const hr  = Number(stat.homeRuns    ?? 0)
+  const rbi = Number(stat.rbi         ?? 0)
+  const sb  = Number(stat.stolenBases ?? 0)
+  const xbh = hr + Number(stat.doubles ?? 0) + Number(stat.triples ?? 0)
+  return h >= 3 || hr >= 2 || rbi >= 4 || (hr >= 1 && rbi >= 2) || xbh >= 2 || sb >= 3
+}
+
+function isStandoutPitcherGame(stat: any): boolean {
+  const ip = parseIP(stat.inningsPitched)
+  const er = Number(stat.earnedRuns ?? 0)
+  const k  = Number(stat.strikeOuts ?? 0)
+  const sv = Number(stat.saves      ?? 0)
+  return k >= 8 || (er === 0 && ip >= 5) || (er <= 1 && ip >= 6) || (er <= 2 && ip >= 7) || (sv >= 1 && k >= 3)
+}
+
 function scorePitcherGame(stat: any): number {
   const ip = parseIP(stat.inningsPitched)
   if (ip < 3) return -1
@@ -326,7 +348,7 @@ export async function fetchRecentGamePerformers(): Promise<{ hitters: HotGuyData
         // Doubleheader: byDateRange sums both games into one line we can't split, so skip it.
         if (Number(s.stat?.gamesPlayed ?? 1) > 1) continue
         const score = scoreHitterGame(s.stat)
-        if (score <= 0) continue
+        if (score <= 0 || !isStandoutHitterGame(s.stat)) continue
         pool.push({ score, data: {
           playerId:   Number(s.player?.id),
           playerName: s.player?.fullName ?? '—',
@@ -348,7 +370,7 @@ export async function fetchRecentGamePerformers(): Promise<{ hitters: HotGuyData
         // Doubleheader: byDateRange sums both appearances into one line, so skip it.
         if (Number(s.stat?.gamesPlayed ?? 1) > 1) continue
         const score = scorePitcherGame(s.stat)
-        if (score <= 0) continue
+        if (score <= 0 || !isStandoutPitcherGame(s.stat)) continue
         const gs        = Number(s.stat.gamesStarted ?? 0)
         const isStarter = gs >= 1
         pool.push({ score, data: {
