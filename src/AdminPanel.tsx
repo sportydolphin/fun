@@ -12,6 +12,7 @@ import { isSubscribed } from './lib/push'
 interface PayrollRow { updated_at: string; season: number }
 interface StatRow    { display_name: string; accuracy_pct: number; correct_predictions: number; total_predictions: number }
 interface AppTile     { label: string; emoji: string; desc: string; path: string; color: string }
+interface UserRow    { user_id: string; username: string; created_at: string }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -205,6 +206,7 @@ export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
   const [payrolls, setPayrolls]   = useState<PayrollRow[] | null>(null)
   const [predCount, setPredCount] = useState<number | null>(null)
   const [botStats, setBotStats]   = useState<StatRow[] | null>(null)
+  const [users, setUsers]         = useState<UserRow[] | null>(null)
   const [loading, setLoading]     = useState(false)
 
   useEffect(() => {
@@ -227,10 +229,20 @@ export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
         .select('display_name, accuracy_pct, correct_predictions, total_predictions')
         .order('accuracy_pct', { ascending: false })
         .limit(10),
-    ]).then(([pr, pc, bs]) => {
+
+      // All registered users. `usernames` is public-read and every signed-up user
+      // gets a row at signup, so it's the client-visible roster (the auth.users
+      // table itself needs the service role, which the browser doesn't have).
+      // Bots have no username row, so this is real humans only.
+      supabase.from('usernames')
+        .select('user_id, username, created_at')
+        .order('created_at', { ascending: false })
+        .limit(500),
+    ]).then(([pr, pc, bs, us]) => {
       setPayrolls((pr.data ?? []) as PayrollRow[])
       setPredCount(pc.count ?? 0)
       setBotStats((bs.data ?? []) as StatRow[])
+      setUsers((us.data ?? []) as UserRow[])
     }).finally(() => setLoading(false))
   }, [open])
 
@@ -296,6 +308,35 @@ export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
                   value={<Typography sx={{ fontSize: '0.88rem', fontWeight: 700 }}>{predCount?.toLocaleString() ?? '—'}</Typography>}
                 />
               </Box>
+            </Section>
+
+            {/* ── Users ─────────────────────────────────────────────────── */}
+            <Section title={`Users${users ? ` · ${users.length}` : ''}`}>
+              {users && users.length > 0 ? (
+                <Box sx={{ maxHeight: 240, overflowY: 'auto' }}>
+                  {users.map((u, i) => (
+                    <React.Fragment key={u.user_id}>
+                      {i > 0 && <Divider />}
+                      <Box sx={{ px: 1.5 }}>
+                        <StatRow
+                          label={u.username}
+                          value={
+                            <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', whiteSpace: 'nowrap' }}>
+                              {timeAgo(u.created_at)}
+                            </Typography>
+                          }
+                        />
+                      </Box>
+                    </React.Fragment>
+                  ))}
+                </Box>
+              ) : (
+                <Box sx={{ px: 1.5, py: 1 }}>
+                  <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>
+                    No users yet.
+                  </Typography>
+                </Box>
+              )}
             </Section>
 
             {/* ── Leaderboard ───────────────────────────────────────────── */}
