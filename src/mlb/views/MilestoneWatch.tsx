@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Box, Typography, CircularProgress } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import { ACCENT, TEAM_NICKNAME } from '../constants'
 import { useIsDark, highlightColor, defaultBorder } from '../lib/colorUtils'
 import { fetchMilestoneWatch, MilestoneItem } from '../api'
@@ -130,12 +130,17 @@ export function MilestoneWatchCard({ season, onPlayerClick }: {
 }) {
   const isDark = useIsDark()
   const [items, setItems] = useState<MilestoneItem[] | null>(null)
+  const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [pendingOpen, setPendingOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    fetchMilestoneWatch(season).then(d => { if (!cancelled) setItems(d) }).catch(() => { if (!cancelled) setItems([]) })
+    setLoading(true)
+    fetchMilestoneWatch(season)
+      .then(d => { if (!cancelled) setItems(d) })
+      .catch(() => { if (!cancelled) setItems([]) })
+      .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [season])
 
@@ -146,16 +151,11 @@ export function MilestoneWatchCard({ season, onPlayerClick }: {
     if (pendingOpen && items && items.length) { setModalOpen(true); setPendingOpen(false) }
   }, [pendingOpen, items])
 
-  // Nothing to show (no data yet, or the row is missing/stale) → render nothing so
-  // the card doesn't sit empty in the feed.
-  if (items === null) {
-    return (
-      <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: defaultBorder(isDark), bgcolor: 'background.paper', display: 'flex', justifyContent: 'center', py: 3 }}>
-        <CircularProgress size={22} sx={{ color: ACCENT }} />
-      </Box>
-    )
-  }
-  if (!items.length) return null
+  // While loading, or when the row is missing/stale/empty, render nothing — the
+  // card simply isn't part of the feed rather than flashing a spinner that then
+  // vanishes. (fetchMilestoneWatch resolves to null for a missing table, so the
+  // loading flag is what distinguishes "still fetching" from "nothing to show".)
+  if (loading || !items || !items.length) return null
 
   const shown = items.slice(0, CARD_LIMIT)
 

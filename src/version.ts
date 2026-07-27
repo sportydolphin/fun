@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.17.0'
+export const APP_VERSION = '1.17.1'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.17.1',
+    date:    '2026-07-26',
+    title:   'Home page tidy-up',
+    changes: [
+      {
+        short: 'Milestone Watch no longer shows an empty card',
+        full:  'The Milestone Watch card on the home page could briefly show as an empty box before its data was ready, or when there was nothing to show. It now stays out of the feed until it has something to display.',
+      },
+    ],
+  },
   {
     version: '1.17.0',
     date:    '2026-07-26',
