@@ -7,7 +7,7 @@ import { searchPlayers } from '../api'
 import { Player } from '../types'
 import { TeamLogo } from './Standings'
 import {
-  survivorToday, fetchMyPick, fetchMyStats, fetchHotHitters, fetchPickableTeams, saveMyPick,
+  survivorToday, survivorNextDay, fetchMyPick, fetchMyStats, fetchHotHitters, fetchPickableTeams, saveMyPick,
   fetchSurvivorLeaderboard, fetchMyRecentPicks,
   SurvivorPick, SurvivorStats, HotHitter, SurvivorLeaderRow, SurvivorResult,
 } from './survivorData'
@@ -176,6 +176,12 @@ export function StreakSurvivorWidget() {
   const today = survivorToday()
   const season = new Date().getFullYear()
 
+  // The day being picked. Normally today, but once today has no team left to pick
+  // (every game started or final), it rolls to tomorrow so a pick can be made
+  // ahead. Resolved by the slate effect below, so it starts at today.
+  const [slateDate, setSlateDate]   = useState(today)
+  const isTomorrow = slateDate !== today
+
   const [myPick, setMyPick]         = useState<SurvivorPick | null>(null)
   const [stats, setStats]           = useState<SurvivorStats>(ZERO_STATS)
   const [pickable, setPickable]     = useState<Set<number>>(new Set())
@@ -188,26 +194,40 @@ export function StreakSurvivorWidget() {
   const [results, setResults]       = useState<Player[]>([])
   const [lbOpen, setLbOpen]         = useState(false)
 
-  // Slate-wide data (hot hitters + which teams are still pickable today) — no auth
-  // needed, so it loads for signed-out visitors too as a teaser.
+  // Resolve the slate: today if any team hasn't played yet, otherwise tomorrow.
+  // No auth needed, so it runs for signed-out visitors too (teaser).
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    Promise.all([fetchHotHitters(season), fetchPickableTeams(today)])
-      .then(([hh, pk]) => { if (!cancelled) { setHotHitters(hh); setPickable(pk) } })
-      .finally(() => { if (!cancelled) setLoading(false) })
+    ;(async () => {
+      const todayTeams = await fetchPickableTeams(today)
+      if (todayTeams.size > 0) {
+        if (!cancelled) { setSlateDate(today); setPickable(todayTeams) }
+      } else {
+        const tmr = survivorNextDay(today)
+        const tmrTeams = await fetchPickableTeams(tmr)
+        if (!cancelled) { setSlateDate(tmr); setPickable(tmrTeams) }
+      }
+    })().finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [today, season])
+  }, [today])
 
-  // Per-user state.
+  // Hot-hitter suggestions are season-based, independent of the slate day.
+  useEffect(() => {
+    let cancelled = false
+    fetchHotHitters(season).then(hh => { if (!cancelled) setHotHitters(hh) })
+    return () => { cancelled = true }
+  }, [season])
+
+  // Per-user state, keyed to the slate day so a rolled-forward pick loads correctly.
   useEffect(() => {
     let cancelled = false
     if (!user) { setMyPick(null); setStats(ZERO_STATS); setRecent([]); return }
-    fetchMyPick(user.id, today).then(p => { if (!cancelled) setMyPick(p) })
+    fetchMyPick(user.id, slateDate).then(p => { if (!cancelled) setMyPick(p) })
     fetchMyStats(user.id).then(s => { if (!cancelled) setStats(s) })
     fetchMyRecentPicks(user.id, 6).then(r => { if (!cancelled) setRecent(r) })
     return () => { cancelled = true }
-  }, [user?.id, today]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, slateDate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounced hitter search (hitters with a current team only).
   useEffect(() => {
@@ -229,13 +249,13 @@ export function StreakSurvivorWidget() {
     if (!user) { openAuthDialog('signin'); return }
     if (!pickable.has(p.teamId)) return
     setSaving(true)
-    const err = await saveMyPick(user.id, today, p)
+    const err = await saveMyPick(user.id, slateDate, p)
     setSaving(false)
     if (!err) {
-      setMyPick({ gameDate: today, ...p, result: 'pending' })
+      setMyPick({ gameDate: slateDate, ...p, result: 'pending' })
       setChanging(false); setQuery(''); setResults([])
     }
-  }, [user, pickable, today, openAuthDialog])
+  }, [user, pickable, slateDate, openAuthDialog])
 
   const border = defaultBorder(isDark)
   const pickLocked = myPick != null && !pickable.has(myPick.teamId)
@@ -248,7 +268,14 @@ export function StreakSurvivorWidget() {
       {/* Header */}
       <Box sx={{ px: 1.75, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
         <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontWeight: 800, fontSize: '0.9rem', lineHeight: 1.15 }}>🎯 Streak Survivor</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Typography sx={{ fontWeight: 800, fontSize: '0.9rem', lineHeight: 1.15 }}>🎯 Streak Survivor</Typography>
+            {isTomorrow && (
+              <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', border: '1px solid', borderColor: 'divider', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
+                Tomorrow
+              </Typography>
+            )}
+          </Box>
           <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled', lineHeight: 1.2 }}>Pick a hitter. Keep the streak alive.</Typography>
         </Box>
         {user && <StreakBadge current={stats.currentStreak} longest={stats.longestStreak} />}
@@ -339,7 +366,7 @@ export function StreakSurvivorWidget() {
     body = (
       <Box sx={{ px: 1.75, py: 1.5 }}>
         <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', mb: 0.75 }}>
-          Today's pick
+          {isTomorrow ? "Tomorrow's pick" : "Today's pick"}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <TeamLogo teamId={myPick.teamId} abbr={TEAM_ABBR[myPick.teamId] ?? '—'} />
@@ -370,7 +397,7 @@ export function StreakSurvivorWidget() {
     body = (
       <Box sx={{ px: 1.75, py: 1.5 }}>
         <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', mb: 0.75 }}>
-          {changing ? 'Change your pick' : "Pick today's hitter"}
+          {changing ? 'Change your pick' : isTomorrow ? "Pick tomorrow's hitter" : "Pick today's hitter"}
         </Typography>
         {suggestions}
         {changing && (

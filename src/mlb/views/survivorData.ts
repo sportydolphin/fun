@@ -51,6 +51,14 @@ export function survivorToday(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+// The day after a YYYY-MM-DD (handles month/year rollover). Used to roll the pick
+// day forward to tomorrow once today has no games left to pick.
+export function survivorNextDay(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dt = new Date(y, m - 1, d + 1)
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+}
+
 // ─── Reads ──────────────────────────────────────────────────────────────────
 
 export async function fetchMyPick(userId: string, date: string): Promise<SurvivorPick | null> {

@@ -123,6 +123,13 @@ export async function fetchVotesByGame(date: string): Promise<Record<number, Rec
 
 const predKey = (date: string) => `mlb_preds_${date}`
 
+// YYYY-MM-DD shifted by n local days (handles month/year rollover via Date math).
+export function addDays(dateStr: string, n: number): string {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const dt = new Date(y, m - 1, d + n)
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+}
+
 // Exported for the picks-ready notification source, so the bell counts picks
 // exactly the way the widget does rather than reimplementing it.
 export function loadLocalPreds(date: string): Record<number, number> {
@@ -545,7 +552,7 @@ function PredictorModal({ open, games, predictions, allVotes, onPick, onClose, i
         }}>
           {games.length === 0 ? (
             <Box sx={{ py: 5, textAlign: 'center' }}>
-              <Typography sx={{ color: 'text.disabled', fontSize: '0.85rem' }}>No games scheduled today</Typography>
+              <Typography sx={{ color: 'text.disabled', fontSize: '0.85rem' }}>No games scheduled</Typography>
             </Box>
           ) : games.map(game => (
             <PredictionCard
@@ -574,6 +581,13 @@ export function PredictorWidget({ onPicksSettled }: {
   const now   = new Date()
   const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
 
+  // The slate being shown/picked. Normally today, but once today has no games
+  // left to pick (all started or final), it rolls to tomorrow so picks can be
+  // made ahead instead of waiting for the date to change. Resolved by the games
+  // effect below, which is why it starts at `today`.
+  const [slateDate,   setSlateDate]   = useState(today)
+  const isTomorrow = slateDate !== today
+
   const [games,       setGames]       = useState<TodayGame[]>([])
   const [predictions, setPredictions] = useState<Record<number, number>>({})
   const [allVotes,    setAllVotes]    = useState<Record<number, Record<number, number>>>({})
@@ -592,17 +606,29 @@ export function PredictorWidget({ onPicksSettled }: {
   const simActive = import.meta.env.DEV && devSim.enabled
 
   useEffect(() => {
-    if (simActive) { setGames(devSim.games); setLoading(false); return }
+    if (simActive) { setSlateDate(today); setGames(devSim.games); setLoading(false); return }
     setLoading(true)
-    fetchTodayGames(today).then(setGames).finally(() => setLoading(false))
+    let cancelled = false
+    ;(async () => {
+      const todays = await fetchTodayGames(today)
+      // Still something to pick today → show today. Otherwise roll to tomorrow.
+      if (todays.some(g => g.state === 'preview')) {
+        if (!cancelled) { setSlateDate(today); setGames(todays) }
+      } else {
+        const tmr = addDays(today, 1)
+        const tmrGames = await fetchTodayGames(tmr)
+        if (!cancelled) { setSlateDate(tmr); setGames(tmrGames) }
+      }
+    })().finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
   }, [today, simActive, devSim.games])
 
   // Load crowd-vote splits up front so the inline quick picks can show
   // percentages (not just when the modal opens). Sim mode uses devSim.votes.
   useEffect(() => {
     if (simActive) return
-    fetchVotesByGame(today).then(setAllVotes)
-  }, [today, simActive])
+    fetchVotesByGame(slateDate).then(setAllVotes)
+  }, [slateDate, simActive])
 
   // Votes shown across the widget: the fabricated splits in sim mode, else real.
   const displayVotes = simActive ? devSim.votes : allVotes
@@ -617,43 +643,43 @@ export function PredictorWidget({ onPicksSettled }: {
 
   useEffect(() => {
     if (user) {
-      loadPredsFromSb(user.id, today)
+      loadPredsFromSb(user.id, slateDate)
         .then(serverPreds => {
           if (Object.keys(serverPreds).length > 0) {
             setPredictions(serverPreds)
           } else {
-            const local = loadLocalPreds(today)
+            const local = loadLocalPreds(slateDate)
             setPredictions(local)
             Object.entries(local).forEach(([pk, tid]) =>
-              savePredToSb(user.id, today, Number(pk), Number(tid))
+              savePredToSb(user.id, slateDate, Number(pk), Number(tid))
             )
           }
         })
-        .catch(() => setPredictions(loadLocalPreds(today)))
+        .catch(() => setPredictions(loadLocalPreds(slateDate)))
         .finally(() => setPredsLoaded(true))
     } else {
-      setPredictions(loadLocalPreds(today))
+      setPredictions(loadLocalPreds(slateDate))
       setPredsLoaded(true)
     }
-  }, [user?.id, today]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, slateDate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!modalOpen) return
     if (simActive) return  // don't let the real schedule/votes clobber the sim slate
     // Fetch votes immediately when modal opens
-    fetchVotesByGame(today).then(setAllVotes)
+    fetchVotesByGame(slateDate).then(setAllVotes)
     const id = setInterval(() => {
-      fetchTodayGames(today).then(updated =>
+      fetchTodayGames(slateDate).then(updated =>
         setGames(prev => updated.map(u => ({
           ...u,
           home: { ...u.home, pitcher: u.home.pitcher ?? prev.find(p => p.gamePk === u.gamePk)?.home.pitcher ?? null },
           away: { ...u.away, pitcher: u.away.pitcher ?? prev.find(p => p.gamePk === u.gamePk)?.away.pitcher ?? null },
         })))
       )
-      fetchVotesByGame(today).then(setAllVotes)
+      fetchVotesByGame(slateDate).then(setAllVotes)
     }, 3 * 60_000)
     return () => clearInterval(id)
-  }, [modalOpen, today, simActive])
+  }, [modalOpen, slateDate, simActive])
 
   const handlePick = useCallback((gamePk: number, teamId: number) => {
     const g = games.find(g => g.gamePk === gamePk)
@@ -667,9 +693,9 @@ export function PredictorWidget({ onPicksSettled }: {
       if (user) gameV[teamId] = (gameV[teamId] ?? 0) + (prevTeamId ? 0 : 1)  // only add if first pick
       return { ...prev, [gamePk]: gameV }
     })
-    saveLocalPred(today, gamePk, teamId)
-    if (user) savePredToSb(user.id, today, gamePk, teamId).then(() => fetchVotesByGame(today).then(setAllVotes))
-  }, [games, predictions, today, user])
+    saveLocalPred(slateDate, gamePk, teamId)
+    if (user) savePredToSb(user.id, slateDate, gamePk, teamId).then(() => fetchVotesByGame(slateDate).then(setAllVotes))
+  }, [games, predictions, slateDate, user])
 
   const pickedCount       = Object.keys(predictions).length
   const finalized         = games.filter(g => g.state === 'final' && predictions[g.gamePk] !== undefined)
@@ -717,6 +743,11 @@ export function PredictorWidget({ onPicksSettled }: {
             <Typography sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 1.5, color: ACCENT }}>
               🎯 Predictions
             </Typography>
+            {isTomorrow && (
+              <Typography sx={{ fontSize: '0.58rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', border: '1px solid', borderColor: 'divider', borderRadius: 999, px: 0.75, py: '1px', whiteSpace: 'nowrap' }}>
+                Tomorrow
+              </Typography>
+            )}
           </Box>
           <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
             {user && (
@@ -764,9 +795,9 @@ export function PredictorWidget({ onPicksSettled }: {
           }}
         >
           {loading ? (
-            <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>Loading today's schedule…</Typography>
+            <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>Loading the schedule…</Typography>
           ) : games.length === 0 ? (
-            <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No games today</Typography>
+            <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No upcoming games</Typography>
           ) : finalized.length > 0 && !allDone ? (
             // Results are coming in — lead with the running record + how many are left.
             <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
