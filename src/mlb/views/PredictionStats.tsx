@@ -253,6 +253,37 @@ async function fetchLeaderboard(myUserId: string): Promise<LeaderEntry[]> {
   } catch { return [] }
 }
 
+// Windowed board (last 7 / 30 days) — a precomputed jsonb row (update-prediction-boards.mjs)
+// rather than a live tally, since pick correctness is derived from StatsAPI. Entries are
+// already Wilson-ranked and cover every predictor, so the top-25 + append-you logic
+// matches the all-time board.
+async function fetchWindowBoard(window: 'week' | 'month', myUserId: string): Promise<LeaderEntry[]> {
+  try {
+    const { data } = await supabase
+      .from('prediction_boards')
+      .select('data')
+      .eq('window', window)
+      .limit(1)
+    const entries = (data?.[0]?.data as { entries?: any[] } | undefined)?.entries ?? []
+    const ranked: LeaderEntry[] = entries.map((e: any, i: number) => ({
+      userId:        e.userId,
+      displayName:   e.displayName ?? 'Anonymous',
+      rank:          i + 1,
+      accuracy:      e.accuracy ?? 0,
+      correct:       e.correct  ?? 0,
+      total:         e.total    ?? 0,
+      currentStreak: 0,                     // streaks are an all-time notion; no badge here
+      isMe:          e.userId === myUserId,
+    }))
+    const top = ranked.slice(0, 25)
+    if (!top.some(e => e.isMe)) {
+      const me = ranked.find(e => e.isMe)
+      if (me) top.push(me)
+    }
+    return top
+  } catch { return [] }
+}
+
 // ─── StatPill ─────────────────────────────────────────────────────────────────
 
 function StatPill({ label, value, accent }: { label: string; value: string | number; accent?: boolean }) {
@@ -469,7 +500,7 @@ function MyStatsContent({ stats }: { stats: PersonalStats }) {
 
 const MEDALS = ['🥇', '🥈', '🥉']
 
-function LeaderboardContent({ leaders }: { leaders: LeaderEntry[] }) {
+function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; window: 'all' | 'month' | 'week' }) {
   return (
     <Box>
       {/* Column headers */}
@@ -546,7 +577,9 @@ function LeaderboardContent({ leaders }: { leaders: LeaderEntry[] }) {
 
       {leaders.length > 0 && (
         <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', textAlign: 'center', mt: 1.5 }}>
-          Ranked by accuracy &amp; volume · Stats update when you view My Stats
+          Ranked by accuracy &amp; volume · {window === 'all'
+            ? 'Stats update when you view My Stats'
+            : `${window === 'week' ? 'Last 7 days' : 'Last 30 days'} · Updated nightly`}
         </Typography>
       )}
     </Box>
@@ -561,11 +594,12 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
   displayName: string
   onClose:     () => void
 }) {
-  const [tab,       setTab]       = useState<'my' | 'board'>('my')
-  const [stats,     setStats]     = useState<PersonalStats | null>(null)
-  const [leaders,   setLeaders]   = useState<LeaderEntry[]>([])
-  const [loading,   setLoading]   = useState(false)
-  const [lbLoading, setLbLoading] = useState(false)
+  const [tab,         setTab]         = useState<'my' | 'board'>('my')
+  const [boardWindow, setBoardWindow] = useState<'all' | 'month' | 'week'>('all')
+  const [stats,       setStats]       = useState<PersonalStats | null>(null)
+  const [leaders,     setLeaders]     = useState<LeaderEntry[]>([])
+  const [loading,     setLoading]     = useState(false)
+  const [lbLoading,   setLbLoading]   = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -587,14 +621,17 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
       .finally(() => setLoading(false))
   }, [open, userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load leaderboard when switching to that tab
+  // Load leaderboard when switching to that tab or window. All-time is a live read of
+  // prediction_stats; the windowed cuts read their precomputed board.
   useEffect(() => {
     if (!open || tab !== 'board' || !userId) return
     setLbLoading(true)
-    fetchLeaderboard(userId)
-      .then(setLeaders)
-      .finally(() => setLbLoading(false))
-  }, [open, tab, userId])
+    setLeaders([])
+    const load = boardWindow === 'all'
+      ? fetchLeaderboard(userId)
+      : fetchWindowBoard(boardWindow, userId)
+    load.then(setLeaders).finally(() => setLbLoading(false))
+  }, [open, tab, userId, boardWindow])
 
   if (!open) return null
 
@@ -688,23 +725,47 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
               <MyStatsContent stats={stats} />
             )
           ) : (
-            lbLoading ? (
-              <Typography sx={{ color: 'text.disabled', fontSize: '0.78rem' }}>
-                Loading leaderboard…
-              </Typography>
-            ) : leaders.length === 0 ? (
-              <Box sx={{ py: 5, textAlign: 'center' }}>
-                <Typography sx={{ color: 'text.disabled', fontSize: '0.85rem' }}>
-                  Leaderboard coming soon
-                </Typography>
-                <Typography sx={{ color: 'text.disabled', fontSize: '0.72rem', mt: 0.75, lineHeight: 1.4 }}>
-                  View "My Stats" first to register your score,<br />
-                  then check back after others do too.
-                </Typography>
+            <Box>
+              {/* Time-window selector */}
+              <Box sx={{ display: 'flex', gap: 0.5, mb: 1.5 }}>
+                {([['all', 'All-time'], ['month', '30 days'], ['week', '7 days']] as const).map(([w, label]) => (
+                  <Box
+                    key={w}
+                    onClick={() => setBoardWindow(w)}
+                    sx={{
+                      flex: 1, textAlign: 'center', px: 1, py: 0.5, borderRadius: 999,
+                      cursor: 'pointer', fontSize: '0.68rem', fontWeight: 700, userSelect: 'none',
+                      border: '1px solid',
+                      borderColor: boardWindow === w ? ACCENT : 'divider',
+                      bgcolor:     boardWindow === w ? `${ACCENT}14` : 'transparent',
+                      color:       boardWindow === w ? ACCENT : 'text.secondary',
+                      transition: 'all 0.12s',
+                    }}
+                  >
+                    {label}
+                  </Box>
+                ))}
               </Box>
-            ) : (
-              <LeaderboardContent leaders={leaders} />
-            )
+
+              {lbLoading ? (
+                <Typography sx={{ color: 'text.disabled', fontSize: '0.78rem' }}>
+                  Loading leaderboard…
+                </Typography>
+              ) : leaders.length === 0 ? (
+                <Box sx={{ py: 5, textAlign: 'center' }}>
+                  <Typography sx={{ color: 'text.disabled', fontSize: '0.85rem' }}>
+                    {boardWindow === 'all' ? 'Leaderboard coming soon' : 'No graded picks in this window yet'}
+                  </Typography>
+                  <Typography sx={{ color: 'text.disabled', fontSize: '0.72rem', mt: 0.75, lineHeight: 1.4 }}>
+                    {boardWindow === 'all'
+                      ? <>View "My Stats" first to register your score,<br />then check back after others do too.</>
+                      : 'The weekly and monthly boards refresh overnight.'}
+                  </Typography>
+                </Box>
+              ) : (
+                <LeaderboardContent leaders={leaders} window={boardWindow} />
+              )}
+            </Box>
           )}
         </Box>
       </Box>

@@ -1,0 +1,42 @@
+name: Update Prediction Boards
+
+# Nightly windowed prediction leaderboards (last 7 / last 30 days) → the
+# prediction_boards table (one jsonb row per window). The all-time board stays a
+# live read of prediction_stats; these windowed cuts can't be, because pick
+# correctness is derived from the StatsAPI schedule rather than stored.
+#
+# Runs at 07:30 UTC, after the bots have graded and the milestone/streak jobs, so
+# the results it reads are settled and the nightly StatsAPI load stays spread out.
+on:
+  schedule:
+    - cron: '30 7 * * *'
+  workflow_dispatch:   # also triggerable manually from the GitHub Actions UI
+
+# Never let two runs upsert the same window row at once.
+concurrency:
+  group: update-prediction-boards
+  cancel-in-progress: false
+
+jobs:
+  update-prediction-boards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # The script imports exactly two packages — no need for `npm ci` and the
+      # whole frontend toolchain.
+      - name: Install script dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Update prediction boards
+        run: node scripts/update-prediction-boards.mjs
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

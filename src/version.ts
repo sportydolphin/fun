@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.19.0'
+export const APP_VERSION = '1.20.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.20.0',
+    date:    '2026-07-27',
+    title:   'Weekly and monthly prediction boards',
+    changes: [
+      {
+        short: 'Predictions leaderboard has weekly and monthly views',
+        full:  'The predictions leaderboard now has All-time, 30 days, and 7 days views, so a hot week or month can put you near the top even if your all-time record is still catching up. The windowed boards are ranked the same way (accuracy adjusted for how many picks you have made) and refresh overnight.',
+      },
+    ],
+  },
   {
     version: '1.19.0',
     date:    '2026-07-27',
