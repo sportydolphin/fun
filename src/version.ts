@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.16.2'
+export const APP_VERSION = '1.17.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.17.0',
+    date:    '2026-07-26',
+    title:   'Milestone Watch',
+    changes: [
+      {
+        short: 'New Milestone Watch card tracks players chasing history',
+        full:  'The home page has a new Milestone Watch card under Around the League showing active players closing in on big milestones, closest first. It covers career round numbers like 500 home runs and 3,000 strikeouts, single-season marks like a 40-homer or 20-win season, and the occasional all-time record chase. Tap a player to open their card, or View all to see everyone grouped by career, season, and records.',
+      },
+      {
+        short: 'A heads-up when a followed player nears a milestone',
+        full:  'When one of your followed players is within a few of a milestone, the notification bell now gives you a heads-up so you know to tune in. It updates as they close in and clears itself once they pass it.',
+      },
+    ],
+  },
   {
     version: '1.16.2',
     date:    '2026-07-26',

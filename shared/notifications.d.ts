@@ -24,6 +24,7 @@ export interface NotificationMeta {
 export const NOTIFICATION_TYPES: {
   PICKS_READY: string
   GAME_START:  string
+  MILESTONE:   string
 }
 
 export const NOTIFICATION_META: Record<string, NotificationMeta>
@@ -43,6 +44,15 @@ export function buildGameStart(args: {
   teamName:       string
   matchup:        string
   minutesToStart: number
+}): NotificationPayload
+
+export function buildMilestoneNear(args: {
+  playerId:   number
+  playerName: string
+  statLabel:  string
+  remaining:  number
+  target:     number
+  kind:       string
 }): NotificationPayload
 
 export const SAMPLE_BUILDERS: Record<string, () => NotificationPayload>

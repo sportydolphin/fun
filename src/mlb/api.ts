@@ -1033,3 +1033,44 @@ export async function fetchPlayoffOdds(season: number): Promise<PlayoffOddsRow[]
   } catch { /* table missing or unreachable — treat as unavailable */ }
   return null
 }
+
+// ─── Milestone watch ──────────────────────────────────────────────────────────
+
+// One active player's live milestone chase. Shape mirrors the objects written by
+// scripts/update-milestones.mjs — keep the two in sync.
+export interface MilestoneItem {
+  playerId:   number
+  playerName: string
+  teamId:     number
+  teamAbbr:   string
+  group:      'hitting' | 'pitching'
+  statKey:    string
+  statLabel:  string     // noun for the card, e.g. "HR", "strikeouts"
+  current:    number
+  target:     number
+  remaining:  number
+  kind:       'career' | 'season' | 'record'
+}
+
+// A GitHub Action recomputes this nightly (scripts/update-milestones.mjs →
+// milestone_watch, one jsonb row per season). No in-browser fallback — recomputing
+// would mean fetching every active player's career stats — so a missing or stale
+// row just hides the card. Items arrive pre-sorted (records, then marquee, then by
+// closeness). The 3-day window covers the offseason, when the Action still runs
+// but totals stop moving.
+const MILESTONE_STALE_MS = 72 * 3600 * 1000
+
+export async function fetchMilestoneWatch(season: number): Promise<MilestoneItem[] | null> {
+  try {
+    const { data } = await supabase
+      .from('milestone_watch')
+      .select('data, computed_at')
+      .eq('season', season)
+      .limit(1)
+    const row = data?.[0]
+    if (row?.data && Date.now() - new Date(row.computed_at).getTime() < MILESTONE_STALE_MS) {
+      return (row.data as { items?: MilestoneItem[] }).items ?? []
+    }
+  } catch { /* table missing or unreachable — treat as unavailable */ }
+  return null
+}

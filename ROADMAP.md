@@ -48,7 +48,7 @@
 - 🟡 **Predictions 2.0, finish** 🎮 — Wilson-ranked board + running record shipped (v1.9.0). Still open: streak badges + heater banner, weekly/monthly leaderboard cuts, and one smart rival (Elo or Pythag bot) in `run-bots.mjs` so the top is beatable-but-hard.
 - 🟡 **Push alerts beyond the daily reminder** ⚙️🎯 — Game-start reminders shipped (v1.13.0, `game-start-reminders.yml`). Still open: "up 2–1 in the 8th" close-game alerts, followed-player milestone pings. Reuses the shipped plumbing.
 - ✅ **Playoff odds** 🔬🎯 — Shipped. Nightly Monte Carlo of the remaining schedule (`update-playoff-odds.yml` → `playoff_odds`); "Odds" tab in Standings (make-playoffs / win-division % per league) + odds strip on the followed-team card. Second consumer of the streak-precompute template. *Open (September):* magic numbers + a dedicated race page as the divisions clinch.
-- ❌ **Milestone Watch** 🎯🔬 — Countdown cards for players approaching round numbers and records; feeds the push-alert system.
+- ✅ **Milestone Watch** 🎯🔬 — Shipped. Home card of active players closing in on career round numbers, single-season marks, and all-time records (nightly `update-milestones.yml` → `milestone_watch`); View-all modal grouped career/season/records, and a followed-player bell alert when someone's within a few. Third precompute customer. *Open (optional):* push delivery of the milestone alerts (bell only today).
 
 ## Phase 2 — Daily games (no friends required)
 
@@ -79,11 +79,11 @@ Solo-first games sharing auth + leaderboards + streak infra. Bots play these too
 
 ## Infrastructure thread (under everything)
 
-- **Precompute nightly, serve from Supabase** ⚙️ — Streak leaders ✅ and playoff odds ✅ shipped on this template; next candidates: report cards, spotlight, trivia, grid puzzles. Client reads one row instead of fanning out to StatsAPI.
+- **Precompute nightly, serve from Supabase** ⚙️ — Streak leaders ✅, playoff odds ✅, and milestone watch ✅ shipped on this template; next candidates: report cards, spotlight, trivia, grid puzzles. Client reads one row instead of fanning out to StatsAPI.
 - **Server-side leaderboard ranking** ⚙️ — Move the Wilson-score ranking from `PredictionStats.tsx` into a SQL RPC (top N + current user's row) before the table gets big.
 - **Payroll source resilience** ⚙️ — Fallback for FanGraphs 403s (Spotrac/Cot's) so payroll boards don't silently go stale.
 - **Prod error visibility** ⚙️ — No way to know today whether visitors hit errors. Even a tiny Supabase `client_errors` table fed by a `window.onerror` hook would answer "is anything broken?"
 
 ---
 
-**Suggested next three:** Milestone Watch (Phase 1 remainder, feeds September milestone content + the push-alert system) → Predictions 2.0 finish (streak badges + smart rival bot) alongside close-game push alerts → a second Phase 2 daily game (Daily Trivia is the offseason-proof pick). Streak Survivor and playoff odds shipped; next new build should be Milestone Watch as September approaches.
+**Suggested next three:** Predictions 2.0 finish (streak badges + heater banner, weekly/monthly cuts, one smart rival bot) → close-game push alerts (reuses the shipped push plumbing + the new milestone-alert pattern) → a second Phase 2 daily game (Daily Trivia is the offseason-proof pick). Phase 1 is now fully shipped (streak boards, trade deadline HQ, playoff odds, Milestone Watch); remaining Phase 1 tails are the "finish" items on Predictions 2.0 and push alerts.

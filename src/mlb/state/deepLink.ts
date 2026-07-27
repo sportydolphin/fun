@@ -29,6 +29,7 @@ import { useEffect, useRef } from 'react'
 export type DeepLink =
   | { kind: 'predictor' }                  // open the full predictions board
   | { kind: 'game'; gamePk: number }       // open a specific game's preview / Game Center
+  | { kind: 'milestones' }                 // open the Milestone Watch board
 
 /** Query string → intent. Accepts a full url or a bare search string. */
 export function parseDeepLink(url: string): DeepLink | null {
@@ -42,6 +43,8 @@ export function parseDeepLink(url: string): DeepLink | null {
         const gamePk = Number(params.get('gamePk'))
         return Number.isFinite(gamePk) && gamePk > 0 ? { kind: 'game', gamePk } : null
       }
+      case 'milestones':
+        return { kind: 'milestones' }
       default:
         return null
     }

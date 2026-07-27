@@ -19,6 +19,7 @@ import { LiveDramaCard } from './LiveDrama'
 import { FollowedPlayersSection } from './FollowedPlayers'
 import { PredictorWidget } from './Predictor'
 import { StreakSurvivorWidget } from './StreakSurvivor'
+import { MilestoneWatchCard } from './MilestoneWatch'
 import { StandingsSnapshot } from './StandingsSnapshot'
 import { FinalGamesSection } from './FinalGames'
 import { LeaderboardCard, PlayerLeaderboardCard, LbRow, PlayerLbRow } from '../components/leaderboards'
@@ -565,6 +566,10 @@ export function HomeView({
 
           {/* Roster moves — trades, DFAs, claims, signings; deadline countdown in July */}
           <RosterMovesCard followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
+
+          {/* Milestone Watch — players closing in on career/season/record marks */}
+          <MilestoneWatchCard season={CURRENT_SEASON} onPlayerClick={onPlayerClick} />
+
 
           {/* Featured spotlight — hot / cold. No floating section title; the
               On Fire / Ice Cold cards below are self-labeling. */}

@@ -30,6 +30,7 @@
 export const NOTIFICATION_TYPES = {
   PICKS_READY: 'picks-ready',
   GAME_START:  'game-start',
+  MILESTONE:   'milestone',
 }
 
 // Per-type metadata. `label` is user-facing (settings, grouping); `defaultUrl`
@@ -55,6 +56,12 @@ export const NOTIFICATION_META = {
     icon:       '⏰',
     // Overridden per-game by buildGameStart; this is the no-gamePk fallback.
     defaultUrl: '/mlb?view=home',
+  },
+  [NOTIFICATION_TYPES.MILESTONE]: {
+    label:      'Milestone alerts',
+    icon:       '🏆',
+    // Opens the Milestone Watch board so the chase shows in context.
+    defaultUrl: '/mlb?view=home&open=milestones',
   },
 }
 
@@ -118,6 +125,32 @@ export function buildGameStart({ gamePk, teamName, matchup, minutesToStart }) {
   }
 }
 
+/**
+ * A followed player is closing in on a milestone.
+ *
+ * @param {{ playerId: number, playerName: string, statLabel: string, remaining: number, target: number, kind: string }} args
+ *   playerId  — scopes the id together with the target so each chase is distinct
+ *   statLabel — the noun, e.g. "HR", "strikeouts"
+ *   remaining — how many to go
+ *   target    — the milestone value
+ *   kind      — 'career' | 'season' | 'record' (records get louder wording)
+ */
+export function buildMilestoneNear({ playerId, playerName, statLabel, remaining, target, kind }) {
+  const meta = NOTIFICATION_META[NOTIFICATION_TYPES.MILESTONE]
+  const unit = remaining === 1 ? statLabel.replace(/s$/, '') : statLabel
+  const isRecord = kind === 'record'
+  return {
+    id:    `${NOTIFICATION_TYPES.MILESTONE}:${playerId}:${target}`,
+    type:  NOTIFICATION_TYPES.MILESTONE,
+    icon:  meta.icon,
+    title: isRecord ? `${playerName} is chasing a record` : `${playerName} is closing in`,
+    body:  isRecord
+      ? `${remaining} ${unit} from the all-time record of ${target}.`
+      : `${remaining} ${unit} from ${target}.`,
+    url:   meta.defaultUrl,
+  }
+}
+
 // ─── Sample payloads (testing) ────────────────────────────────────────────────
 //
 // One representative payload per type, so the dev notification tester and
@@ -135,6 +168,10 @@ export const SAMPLE_BUILDERS = {
   [NOTIFICATION_TYPES.GAME_START]: () => ({
     ...buildGameStart({ gamePk: 0, teamName: 'Reds', matchup: 'Cubs @ Reds', minutesToStart: 5 }),
     id: `${NOTIFICATION_TYPES.GAME_START}:sample`,
+  }),
+  [NOTIFICATION_TYPES.MILESTONE]: () => ({
+    ...buildMilestoneNear({ playerId: 0, playerName: 'Mike Trout', statLabel: 'HR', remaining: 2, target: 400, kind: 'career' }),
+    id: `${NOTIFICATION_TYPES.MILESTONE}:sample`,
   }),
 }
 

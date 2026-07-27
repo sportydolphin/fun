@@ -18,11 +18,13 @@ import {
 } from './lib/notifications'
 import { picksReadySource } from './mlb/notifications/picksReady'
 import { gameStartSource } from './mlb/notifications/gameStart'
+import { milestoneSource } from './mlb/notifications/milestones'
 import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 
 // Registered at module load so the set of sources is declared in one place.
 registerNotificationSource(picksReadySource)
 registerNotificationSource(gameStartSource)
+registerNotificationSource(milestoneSource)
 
 const REFRESH_MS = 5 * 60_000
 
