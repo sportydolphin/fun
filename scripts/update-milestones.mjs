@@ -37,6 +37,12 @@ if (!DRY_RUN && (!SUPABASE_URL || !SERVICE_KEY)) {
 const SEASON = new Date().getFullYear()
 const FETCH_CONCURRENCY = 5
 
+// How long a just-reached milestone stays in the "recently reached" list. Each run
+// snapshots totals; the next run diffs them to catch a crossing, then the item lingers
+// this many days so it's still visible for players who don't check daily.
+const RECENT_DAYS = 7
+const TODAY = new Date().toISOString().slice(0, 10)
+
 const TEAM_ABBR = {
   108: 'LAA', 109: 'ARI', 110: 'BAL', 111: 'BOS', 112: 'CHC',
   113: 'CIN', 114: 'CLE', 115: 'COL', 116: 'DET', 117: 'HOU',
@@ -197,6 +203,54 @@ function collectItems(player, playerId, stat, catalog, kind) {
   return items
 }
 
+// True if `current` sits within `window` of any threshold, on either side — the player
+// is either chasing a milestone or has just passed one. We snapshot these totals each
+// run so the next run can tell a fresh crossing from an old one, without storing a value
+// for every player (only the few in contention).
+function withinWatch(current, def) {
+  return def.thresholds.some(t => current >= t - def.window && current <= t + def.window)
+}
+
+// The highest threshold crossed since the previous snapshot (prev < t <= current). Null
+// when there's no previous value (first run) or nothing was crossed.
+function crossedThreshold(current, prev, def) {
+  if (prev == null) return null
+  let crossed = null
+  for (const t of def.thresholds) if (prev < t && current >= t) crossed = t
+  return crossed
+}
+
+// Walk a player's stats: snapshot the totals worth watching, and emit an "achieved" item
+// for any threshold crossed since prevTotals. Mirrors collectItems but for the recent side.
+function collectProgress(player, playerId, stat, catalog, kind, prevTotals) {
+  const totals = {}
+  const achieved = []
+  for (const [statKey, def] of Object.entries(catalog)) {
+    const current = statValue(stat, statKey)
+    if (current <= 0 || !withinWatch(current, def)) continue
+    const key = `${playerId}:${kind}:${statKey}`
+    totals[key] = current
+    const target = crossedThreshold(current, prevTotals[key], def)
+    if (target == null) continue
+    const isRecord = kind === 'career' && RECORDS[statKey] === target
+    achieved.push({
+      playerId,
+      playerName: player.name,
+      teamId: player.teamId,
+      teamAbbr: TEAM_ABBR[player.teamId] ?? '—',
+      group: catalog === CAREER_PITCHING || catalog === SEASON_PITCHING ? 'pitching' : 'hitting',
+      statKey,
+      statLabel: def.label,
+      current,
+      target,
+      remaining: 0,
+      kind: isRecord ? 'record' : kind,
+      achievedOn: TODAY,
+    })
+  }
+  return { totals, achieved }
+}
+
 // Records first, then marquee milestones, then everything by closeness.
 function priority(item) {
   if (item.kind === 'record') return 0
@@ -208,6 +262,25 @@ function priority(item) {
 
 async function main() {
   console.log(`\n🏆 Milestone Watch — ${SEASON}${DRY_RUN ? ' (dry run)' : ''}\n`)
+
+  // Reuse one client for the read-before / write-after. Created up front (when creds
+  // exist) so even a dry run can preview crossings against the last snapshot.
+  const supabase = (SUPABASE_URL && SERVICE_KEY)
+    ? createClient(SUPABASE_URL, SERVICE_KEY, {
+        auth: { autoRefreshToken: false, persistSession: false },
+        realtime: { transport: ws },
+      })
+    : null
+
+  let prevTotals = {}
+  let prevRecent = []
+  if (supabase) {
+    try {
+      const { data } = await supabase.from('milestone_watch').select('data').eq('season', SEASON).limit(1)
+      const pd = data?.[0]?.data
+      if (pd) { prevTotals = pd.totals ?? {}; prevRecent = pd.recent ?? [] }
+    } catch { /* first run or missing table — no previous snapshot */ }
+  }
 
   const players = await fetchActivePlayers()
   console.log(`  ${players.size} active players`)
@@ -224,40 +297,55 @@ async function main() {
   ])
 
   const items = []
+  const totals = {}          // this run's snapshot, written back for the next diff
+  const achievedNew = []     // thresholds crossed since the previous run
+  const record = ({ totals: t, achieved }) => { Object.assign(totals, t); achievedNew.push(...achieved) }
   for (const [id, player] of players) {
     if (player.isPitcher) {
-      if (pitCareer.has(id)) items.push(...collectItems(player, id, pitCareer.get(id), CAREER_PITCHING, 'career'))
-      if (pitSeason.has(id)) items.push(...collectItems(player, id, pitSeason.get(id), SEASON_PITCHING, 'season'))
+      if (pitCareer.has(id)) { const s = pitCareer.get(id); items.push(...collectItems(player, id, s, CAREER_PITCHING, 'career')); record(collectProgress(player, id, s, CAREER_PITCHING, 'career', prevTotals)) }
+      if (pitSeason.has(id)) { const s = pitSeason.get(id); items.push(...collectItems(player, id, s, SEASON_PITCHING, 'season')); record(collectProgress(player, id, s, SEASON_PITCHING, 'season', prevTotals)) }
     } else {
-      if (hitCareer.has(id)) items.push(...collectItems(player, id, hitCareer.get(id), CAREER_HITTING, 'career'))
-      if (hitSeason.has(id)) items.push(...collectItems(player, id, hitSeason.get(id), SEASON_HITTING, 'season'))
+      if (hitCareer.has(id)) { const s = hitCareer.get(id); items.push(...collectItems(player, id, s, CAREER_HITTING, 'career')); record(collectProgress(player, id, s, CAREER_HITTING, 'career', prevTotals)) }
+      if (hitSeason.has(id)) { const s = hitSeason.get(id); items.push(...collectItems(player, id, s, SEASON_HITTING, 'season')); record(collectProgress(player, id, s, SEASON_HITTING, 'season', prevTotals)) }
     }
   }
 
   items.sort((a, b) => priority(a) - priority(b) || a.remaining - b.remaining)
 
-  console.log(`  ${items.length} live milestone chases\n`)
+  // Carry forward still-recent crossings, fold in the new ones, dedupe (new wins), and
+  // keep them newest-first. A crossing is only detected once (prev < t), so the merge
+  // just extends each item's visible life to RECENT_DAYS.
+  const cutoff = Date.now() - RECENT_DAYS * 86400e3
+  const seen = new Set()
+  const recent = [...achievedNew, ...prevRecent]
+    .filter(it => { const t = new Date(it.achievedOn).getTime(); return Number.isFinite(t) && t >= cutoff })
+    .filter(it => { const k = `${it.playerId}:${it.kind}:${it.statKey}:${it.target}`; if (seen.has(k)) return false; seen.add(k); return true })
+    .sort((a, b) => (a.achievedOn < b.achievedOn ? 1 : a.achievedOn > b.achievedOn ? -1 : priority(a) - priority(b)))
+    .slice(0, 30)
+
+  console.log(`  ${items.length} live milestone chases · ${recent.length} recently reached (${achievedNew.length} new)\n`)
   for (const it of items.slice(0, 25)) {
     const tag = it.kind === 'record' ? ' (record)' : it.kind === 'season' ? ' (season)' : ''
     console.log(`    ${it.playerName.padEnd(22)} ${String(it.remaining).padStart(3)} ${it.statLabel} from ${it.target}${tag}`)
   }
+  if (recent.length) {
+    console.log('\n  Recently reached:')
+    for (const it of recent) console.log(`    ${it.playerName.padEnd(22)} reached ${it.target} ${it.statLabel} (${it.achievedOn})`)
+  }
   console.log('')
 
   if (DRY_RUN) { console.log('✅  Dry run complete — nothing written\n'); return }
+  if (!supabase) { console.error('❌  No Supabase client — set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY'); process.exit(1) }
 
-  const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-    realtime: { transport: ws },
-  })
   const { error } = await supabase
     .from('milestone_watch')
-    .upsert({ season: SEASON, data: { items }, computed_at: new Date().toISOString() }, { onConflict: 'season' })
+    .upsert({ season: SEASON, data: { items, recent, totals }, computed_at: new Date().toISOString() }, { onConflict: 'season' })
   if (error) {
     console.error(`\n❌  Supabase upsert failed: ${error.message}`)
     console.error('    Make sure you ran scripts/create_milestone_watch.sql first.')
     process.exit(1)
   }
-  console.log(`✅  Upserted ${items.length} milestone chases for ${SEASON}\n`)
+  console.log(`✅  Upserted ${items.length} chases + ${recent.length} recent for ${SEASON}\n`)
 }
 
 main().catch(err => { console.error('Fatal:', err); process.exit(1) })

@@ -1,8 +1,8 @@
 // ─── UI primitives ────────────────────────────────────────────────────────────
 
 import React, { useState } from 'react'
-import { Box, Typography, Popover } from '@mui/material'
-import { KeyboardArrowDown } from '@mui/icons-material'
+import { Box, Typography, Popover, Tooltip, ClickAwayListener } from '@mui/material'
+import { KeyboardArrowDown, InfoOutlined } from '@mui/icons-material'
 import { RankMode, Palette, StatDef } from '../types'
 import { ACCENT } from '../constants'
 import { statCols } from '../lib/utils'
@@ -315,5 +315,46 @@ export function StatGrid({ defs, stats, selected, palette, rankMode, playerId, l
         ))}
       </Box>
     </Box>
+  )
+}
+
+// Info icon whose tooltip works on touch too. A bare <Tooltip><InfoOutlined/></Tooltip>
+// only opens on desktop hover or a 700ms long-press; inside a clickable card a mobile
+// tap just bubbles up to the card. This toggles on tap, stops that bubble, and keeps
+// hover behaviour on desktop. Padded hit area (m offsets it back) makes it thumb-sized.
+export function InfoTip({ text, size = 0.88 }: { text: React.ReactNode; size?: number }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <ClickAwayListener onClickAway={() => setOpen(false)}>
+      <Tooltip
+        arrow
+        placement="top"
+        open={open}
+        disableFocusListener
+        disableHoverListener
+        disableTouchListener
+        title={
+          <Box sx={{ maxWidth: 240, py: 0.5 }}>
+            {typeof text === 'string'
+              ? <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>{text}</Typography>
+              : text}
+          </Box>
+        }
+      >
+        <Box
+          component="span"
+          onClick={e => { e.stopPropagation(); setOpen(o => !o) }}
+          onMouseEnter={() => setOpen(true)}
+          onMouseLeave={() => setOpen(false)}
+          sx={{
+            display: 'inline-flex', alignItems: 'center',
+            p: 0.75, m: -0.75, cursor: 'pointer', color: 'text.disabled',
+            '&:hover': { color: 'text.secondary' },
+          }}
+        >
+          <InfoOutlined sx={{ fontSize: `${size}rem`, color: 'inherit' }} />
+        </Box>
+      </Tooltip>
+    </ClickAwayListener>
   )
 }

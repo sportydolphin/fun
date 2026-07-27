@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.17.1'
+export const APP_VERSION = '1.18.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,29 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.18.0',
+    date:    '2026-07-27',
+    title:   'Milestones you just hit, team schedules, and mobile fixes',
+    changes: [
+      {
+        short: 'Milestone Watch now shows milestones just reached',
+        full:  'Milestone Watch used to only show players closing in on a milestone. Now it also leads with the ones just reached, marked with a green check, so you catch a 3,000th strikeout or a 40-homer season the morning after it happens. In View all you can filter the board by hitting or pitching on top of the existing career, season, and record groups.',
+      },
+      {
+        short: 'Trades show both players involved',
+        full:  'A trade on the Roster Moves card used to show only one of the players. It now shows both sides of a swap in a single trade block, with each player and the club that acquired them, and it handles bigger multi-player and multi-team deals too.',
+      },
+      {
+        short: 'Team pages now show the schedule',
+        full:  'Open a team and you now see its schedule right on the page, with today\'s game highlighted and a Full schedule button for the rest. It is the same live and upcoming game cards you get for your followed team on the home page.',
+      },
+      {
+        short: 'Mobile fixes on predictions, report cards, and player pages',
+        full:  'A few mobile annoyances are fixed: the Predictions card header no longer overlaps itself on narrow screens, the info buttons on report cards and charts now respond to a tap instead of needing a long press, and the player page reorders to card, then recent games, then the graph, then contract so the useful stuff comes first.',
+      },
+    ],
+  },
   {
     version: '1.17.1',
     date:    '2026-07-26',

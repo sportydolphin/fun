@@ -769,14 +769,18 @@ async function computeRosterMoves(): Promise<RosterMove[]> {
   )
   const d = await r.json()
   const moves: RosterMove[] = []
-  const seen = new Set<number>()
+  // A trade shares one transaction id across both sides (one row per player, from/to
+  // swapped), so dedupe on id+person — not id alone, which would drop the other player.
+  const seen = new Set<string>()
   for (const t of d.transactions ?? []) {
-    if (!NOTABLE_MOVE_TYPES.has(t.typeCode) || !t.person?.id || seen.has(t.id)) continue
+    if (!NOTABLE_MOVE_TYPES.has(t.typeCode) || !t.person?.id) continue
+    const key = `${t.id}:${t.person.id}`
+    if (seen.has(key)) continue
     const fromId = t.fromTeam?.id && TEAM_ABBR[t.fromTeam.id] ? Number(t.fromTeam.id) : null
     const toId   = t.toTeam?.id   && TEAM_ABBR[t.toTeam.id]   ? Number(t.toTeam.id)   : null
     // The feed includes minor-league paper moves — keep only moves touching an MLB club.
     if (fromId == null && toId == null) continue
-    seen.add(t.id)
+    seen.add(key)
     moves.push({
       id: t.id, playerId: Number(t.person.id), playerName: t.person.fullName ?? '?',
       fromTeamId: fromId, toTeamId: toId,
@@ -1050,6 +1054,14 @@ export interface MilestoneItem {
   target:     number
   remaining:  number
   kind:       'career' | 'season' | 'record'
+  achievedOn?: string    // YYYY-MM-DD — present only on recently-reached milestones
+}
+
+// The card reads both the upcoming chases and the milestones just reached; the nightly
+// script stores them together (plus a private totals snapshot it diffs against).
+export interface MilestoneData {
+  items:  MilestoneItem[]   // upcoming chases, closest first
+  recent: MilestoneItem[]   // reached in the last few days, newest first
 }
 
 // A GitHub Action recomputes this nightly (scripts/update-milestones.mjs →
@@ -1060,7 +1072,7 @@ export interface MilestoneItem {
 // but totals stop moving.
 const MILESTONE_STALE_MS = 72 * 3600 * 1000
 
-export async function fetchMilestoneWatch(season: number): Promise<MilestoneItem[] | null> {
+export async function fetchMilestoneData(season: number): Promise<MilestoneData | null> {
   try {
     const { data } = await supabase
       .from('milestone_watch')
@@ -1069,8 +1081,16 @@ export async function fetchMilestoneWatch(season: number): Promise<MilestoneItem
       .limit(1)
     const row = data?.[0]
     if (row?.data && Date.now() - new Date(row.computed_at).getTime() < MILESTONE_STALE_MS) {
-      return (row.data as { items?: MilestoneItem[] }).items ?? []
+      const d = row.data as { items?: MilestoneItem[]; recent?: MilestoneItem[] }
+      return { items: d.items ?? [], recent: d.recent ?? [] }
     }
   } catch { /* table missing or unreachable — treat as unavailable */ }
   return null
+}
+
+// Chases only — kept for the milestone notification source, which doesn't care about
+// the recently-reached list.
+export async function fetchMilestoneWatch(season: number): Promise<MilestoneItem[] | null> {
+  const d = await fetchMilestoneData(season)
+  return d ? d.items : null
 }

@@ -728,7 +728,7 @@ export function PredictorWidget({ onPicksSettled }: {
   return (
     <>
       <Box sx={{ borderRadius: 3, border: '1px solid', borderColor: defaultBorder(isDark), bgcolor: 'background.paper', overflow: 'hidden' }}>
-        <Box sx={{ px: 2.5, py: 1.75, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ px: 2.5, py: 1.75, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', columnGap: 1, rowGap: 0.75, borderBottom: '1px solid', borderColor: 'divider' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
             {!loading && remainingCount > 0 && (
               <Box sx={{
@@ -749,7 +749,7 @@ export function PredictorWidget({ onPicksSettled }: {
               </Typography>
             )}
           </Box>
-          <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0 }}>
+          <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexShrink: 0, ml: 'auto' }}>
             {user && (
               <Box
                 onClick={() => setStatsOpen(true)}

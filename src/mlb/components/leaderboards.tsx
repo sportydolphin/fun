@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Typography, Tooltip, CircularProgress, IconButton } from '@mui/material'
-import { InfoOutlined, OpenInFull, Close } from '@mui/icons-material'
+import { OpenInFull, Close } from '@mui/icons-material'
+import { InfoTip } from './ui'
 import { ACCENT, TEAM_BG, HEADSHOT } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder, photoBorderAlpha } from '../lib/colorUtils'
 
@@ -128,14 +129,12 @@ export function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, ro
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
             <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>{icon} {title}</Typography>
             {tooltipText && (
-              <Tooltip arrow placement="top" title={
-                <Box sx={{ maxWidth: 270, p: 0.5 }}>
+              <InfoTip text={
+                <>
                   <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
                   <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>{tooltipText}</Typography>
-                </Box>
-              }>
-                <InfoOutlined sx={{ fontSize: '0.88rem', color: 'text.disabled', cursor: 'help' }} />
-              </Tooltip>
+                </>
+              } />
             )}
           </Box>
           <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.1 }}>{subtitle}</Typography>
@@ -396,14 +395,12 @@ export function PlayerLeaderboardCard({ icon, title, subtitle, accent, tooltipTe
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
             <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>{icon} {title}</Typography>
             {tooltipText && (
-              <Tooltip arrow placement="top" title={
-                <Box sx={{ maxWidth: 270, p: 0.5 }}>
+              <InfoTip text={
+                <>
                   <Typography sx={{ fontWeight: 700, fontSize: '0.78rem', mb: 0.5 }}>What this shows</Typography>
                   <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.5 }}>{tooltipText}</Typography>
-                </Box>
-              }>
-                <InfoOutlined sx={{ fontSize: '0.88rem', color: 'text.disabled', cursor: 'help' }} />
-              </Tooltip>
+                </>
+              } />
             )}
           </Box>
           <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.1 }}>{subtitle}</Typography>

@@ -46,6 +46,53 @@ function deadlineInfo(): { label: string; hot: boolean } | null {
   return { label: days === 0 ? 'DEADLINE TODAY' : `Deadline in ${days}d`, hot: days <= 3 }
 }
 
+// ─── Trade grouping ───────────────────────────────────────────────────────────
+//
+// The transactions feed lists a trade once per player, all sharing one transaction
+// id (from/to swapped between the sides). Grouping by that id lets a swap show both
+// players — and handles multi-player and multi-team deals — instead of a lone row.
+// Everything else stays a single-player move.
+
+interface TradeGroup {
+  id:      number
+  date:    string
+  players: RosterMove[]   // one per player, each carrying its own from/to
+}
+
+type DisplayUnit =
+  | { type: 'move';  key: string; move: RosterMove }
+  | { type: 'trade'; key: string; group: TradeGroup }
+
+function groupUnits(moves: RosterMove[]): DisplayUnit[] {
+  const tradeAt = new Map<number, number>()   // trade id → index in units
+  const units: DisplayUnit[] = []
+  for (const m of moves) {
+    if (m.typeCode === 'TR') {
+      const at = tradeAt.get(m.id)
+      if (at != null && units[at].type === 'trade') { units[at].group.players.push(m); continue }
+      tradeAt.set(m.id, units.length)
+      units.push({ type: 'trade', key: `t${m.id}`, group: { id: m.id, date: m.date, players: [m] } })
+    } else {
+      units.push({ type: 'move', key: `m${m.id}-${m.playerId}`, move: m })
+    }
+  }
+  return units
+}
+
+function renderUnit(u: DisplayUnit, props: {
+  showDescription?: boolean
+  onPlayerClick?: (id: number) => void
+  onTeamClick?:   (id: number) => void
+}) {
+  // A trade with only one named player (the other side was cash or a PTBNL) reads
+  // better as an ordinary row than as a one-name trade block.
+  if (u.type === 'trade' && u.group.players.length > 1) {
+    return <TradeGroupItem key={u.key} group={u.group} {...props} />
+  }
+  const move = u.type === 'trade' ? u.group.players[0] : u.move
+  return <MoveRowItem key={u.key} move={move} {...props} />
+}
+
 // ─── Row ──────────────────────────────────────────────────────────────────────
 
 function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick }: {
@@ -115,6 +162,95 @@ function MoveRowItem({ move, showDescription, onPlayerClick, onTeamClick }: {
           </Box>
         )}
       </Box>
+    </Box>
+  )
+}
+
+// ─── Trade block — both (or all) players in one deal ──────────────────────────
+
+function TradeGroupItem({ group, showDescription, onPlayerClick, onTeamClick }: {
+  group: TradeGroup
+  showDescription?: boolean
+  onPlayerClick?: (id: number) => void
+  onTeamClick?:   (id: number) => void
+}) {
+  const style = MOVE_STYLE.TR
+  const teamClick = (id: number) => (e: React.MouseEvent) => {
+    if (!onTeamClick) return
+    e.stopPropagation()
+    onTeamClick(id)
+  }
+  // Distinct clubs in the deal, first-seen order (two for a straight swap, more for a
+  // three-team trade).
+  const teamIds: number[] = []
+  for (const p of group.players) for (const id of [p.fromTeamId, p.toTeamId]) {
+    if (id != null && !teamIds.includes(id)) teamIds.push(id)
+  }
+  // Every side carries the same trade text, so show it once.
+  const description = group.players.find(p => p.description)?.description
+
+  return (
+    <Box sx={{ py: 0.9, px: 0.75, mb: 0.25, borderRadius: 2, bgcolor: 'action.hover' }}>
+      {/* Header: TRADE badge · date · clubs involved */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mb: 0.7 }}>
+        <Box component="span" sx={{
+          px: 0.6, py: '1px', borderRadius: 999, flexShrink: 0,
+          bgcolor: `${style.color}1c`, border: `1px solid ${style.color}55`,
+          fontSize: '0.55rem', fontWeight: 800, color: style.color,
+          letterSpacing: 0.4, textTransform: 'uppercase', lineHeight: 1.4,
+        }}>
+          {style.label}
+        </Box>
+        <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', fontWeight: 600 }}>
+          {fmtMoveDate(group.date)}
+        </Typography>
+        <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.4 }}>
+          {teamIds.map((id, i) => (
+            <React.Fragment key={id}>
+              <Box onClick={teamClick(id)} sx={onTeamClick ? { cursor: 'pointer' } : undefined}>
+                <TeamLogo teamId={id} abbr="" size={22} />
+              </Box>
+              {i < teamIds.length - 1 && (
+                <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontWeight: 700, lineHeight: 1 }}>⇄</Typography>
+              )}
+            </React.Fragment>
+          ))}
+        </Box>
+      </Box>
+
+      {/* One line per player, with the club that acquired them */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {group.players.map(p => (
+          <Box
+            key={p.playerId}
+            onClick={onPlayerClick ? () => onPlayerClick(p.playerId) : undefined}
+            sx={{
+              display: 'flex', alignItems: 'center', gap: 1,
+              ...(onPlayerClick ? { cursor: 'pointer', '&:hover': { opacity: 0.75 } } : {}),
+              transition: 'opacity 0.15s',
+            }}
+          >
+            <PlayerHeadshot playerId={p.playerId} name={p.playerName} size={28} />
+            <Typography sx={{ flex: 1, minWidth: 0, fontWeight: 700, fontSize: '0.78rem', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {p.playerName}
+            </Typography>
+            {p.toTeamId != null && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.35, flexShrink: 0 }}>
+                <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', fontWeight: 700, lineHeight: 1 }}>→</Typography>
+                <Box onClick={teamClick(p.toTeamId)} sx={onTeamClick ? { cursor: 'pointer' } : undefined}>
+                  <TeamLogo teamId={p.toTeamId} abbr="" size={20} />
+                </Box>
+              </Box>
+            )}
+          </Box>
+        ))}
+      </Box>
+
+      {showDescription && description && (
+        <Typography sx={{ fontSize: '0.66rem', color: 'text.secondary', mt: 0.6, lineHeight: 1.35 }}>
+          {description}
+        </Typography>
+      )}
     </Box>
   )
 }
@@ -262,6 +398,7 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
         <Box sx={{ overflowY: 'auto', p: 1.5 }}>
           {byDay.map(group => {
             const collapsed = collapsedDays.has(group.day)
+            const units = groupUnits(group.items)
             return (
               <Box key={group.day} sx={{ mb: 1 }}>
                 <Box
@@ -286,12 +423,10 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
                     {fmtMoveDay(group.day)}
                   </Typography>
                   <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', ml: 'auto', pr: 0.5 }}>
-                    {group.items.length} {group.items.length === 1 ? 'move' : 'moves'}
+                    {units.length} {units.length === 1 ? 'move' : 'moves'}
                   </Typography>
                 </Box>
-                {!collapsed && group.items.map(m => (
-                  <MoveRowItem key={m.id} move={m} showDescription onPlayerClick={stampedPlayer} onTeamClick={stampedTeam} />
-                ))}
+                {!collapsed && units.map(u => renderUnit(u, { showDescription: true, onPlayerClick: stampedPlayer, onTeamClick: stampedTeam }))}
               </Box>
             )
           })}
@@ -329,7 +464,9 @@ export function RosterMovesCard({ followedTeamId, onPlayerClick, onTeamClick }: 
   }, [])
 
   const deadline = deadlineInfo()
-  const top = (moves ?? []).slice(0, 4)
+  // Group trades first, then take the top units, so a two-player swap counts as one
+  // entry and never gets split across the card's cutoff.
+  const top = groupUnits(moves ?? []).slice(0, 4)
 
   return (
     <Box sx={{ borderRadius: 2, border: '1px solid', borderColor: defaultBorder(isDark), bgcolor: 'background.paper', overflow: 'hidden' }}>
@@ -383,9 +520,7 @@ export function RosterMovesCard({ followedTeamId, onPlayerClick, onTeamClick }: 
             No notable moves lately.
           </Typography>
         ) : (
-          top.map(m => (
-            <MoveRowItem key={m.id} move={m} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
-          ))
+          top.map(u => renderUnit(u, { onPlayerClick, onTeamClick }))
         )}
       </Box>
 

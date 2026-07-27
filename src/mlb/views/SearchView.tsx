@@ -12,6 +12,9 @@ import { SegControl, PillChip, pillActionSx, linkPillSx, SectionLabel } from '..
 import { CardInner, CardInnerProps, TeamCardInner, TeamCardInnerProps, FeaturedMiniCard, DivisionStandingsCard } from '../components/cards'
 // ~1,000-line chart module — lazy so it only loads once a player card is open.
 const PlayerTrendsChart = lazy(() => import('../components/PlayerTrendsChart').then(m => ({ default: m.PlayerTrendsChart })))
+// Team schedule (live/next game cards + full-schedule modal, today highlighted). Lazy so
+// the ScheduleStrip module only loads when a team page is actually opened.
+const TeamScheduleStrip = lazy(() => import('./ScheduleStrip').then(m => ({ default: m.TeamScheduleStrip })))
 import { RecentGamesTable } from '../components/RecentGamesTable'
 import { TeamRoster } from '../components/TeamRoster'
 import { CareerStatsTable } from '../components/CareerStatsTable'
@@ -139,6 +142,38 @@ export function SearchView({
   const [careerTableOpen, setCareerTableOpen] = React.useState(true)
   const [contractOpen, setContractOpen] = React.useState(true)
   const [rosterOpen, setRosterOpen] = React.useState(true)
+  const [scheduleOpen, setScheduleOpen] = React.useState(true)
+  const [showFullSchedule, setShowFullSchedule] = React.useState(false)
+  // The card/trends grid stacks into one column below md (900px). When stacked, the
+  // player page reorders to card → recent games → graph → contract (see contractBlock
+  // and the `order` values on the trends column).
+  const stacked = !useMediaQuery('(min-width: 900px)')
+
+  // Contract card. Sits under the portrait on the wide two-column layout; moves to the
+  // very bottom of the page when the layout stacks, so contract reads last on mobile.
+  // Only one of the two slots renders (they're gated on !stacked / stacked).
+  const contractBlock = player && playerContract ? (
+    <Box sx={{ mt: 1.5 }}>
+      <Box
+        onClick={() => setContractOpen(o => !o)}
+        sx={{
+          mb: contractOpen ? 1.25 : 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          cursor: 'pointer', userSelect: 'none',
+        }}
+      >
+        <SectionLabel strong>Contract</SectionLabel>
+        <Box sx={{
+          fontSize: '0.75rem', color: 'text.disabled',
+          transition: 'transform 0.18s',
+          transform: contractOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+        }}>▾</Box>
+      </Box>
+      {contractOpen && (
+        <ContractPanel contract={playerContract} currentSeason={CURRENT_SEASON} />
+      )}
+    </Box>
+  ) : null
 
   // Open a player from within a team page. Pushes a ?tid= history entry first so the
   // browser Back button returns to this team (mirrors the Team Leaders cards below).
@@ -189,6 +224,9 @@ export function SearchView({
 
   // Reset career highlight when player changes
   useEffect(() => { setHighlightedCareerYear(null) }, [player?.id])
+
+  // Close the full-schedule modal when switching teams, so it doesn't linger open.
+  useEffect(() => { setShowFullSchedule(false) }, [team?.id])
 
   const handleDownload = async (mode: 'centered' | 'tiktok') => {
     if (!cardRef.current) return
@@ -584,37 +622,22 @@ export function SearchView({
               </Box>
             )}
 
-            {/* Contract & team control — directly under the card it describes.
-                Absent for anyone FanGraphs doesn't list (minors, retired), and the
-                panel simply doesn't render then. */}
-            {player && playerContract && (
-              <Box sx={{ mt: 1.5 }}>
-                <Box
-                  onClick={() => setContractOpen(o => !o)}
-                  sx={{
-                    mb: contractOpen ? 1.25 : 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    cursor: 'pointer', userSelect: 'none',
-                  }}
-                >
-                  <SectionLabel strong>Contract</SectionLabel>
-                  <Box sx={{
-                    fontSize: '0.75rem', color: 'text.disabled',
-                    transition: 'transform 0.18s',
-                    transform: contractOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-                  }}>▾</Box>
-                </Box>
-                {contractOpen && (
-                  <ContractPanel contract={playerContract} currentSeason={CURRENT_SEASON} />
-                )}
-              </Box>
-            )}
+            {/* Contract — directly under the card it describes on the wide layout.
+                Absent for anyone FanGraphs doesn't list (minors, retired). When the
+                page stacks it renders at the bottom instead (see below). */}
+            {!stacked && contractBlock}
 
           </Box>
 
           {/* Right column: Trends + Recent Games (player) OR Featured Players (team) */}
           {showTrends && (
-            <Box sx={{ mt: { xs: 2, md: 0 } }}>
+            // Flex column so the pieces can reorder when stacked: on mobile in season
+            // mode we want recent games above the graph (order below), while desktop and
+            // career mode keep graph first. `gap` replaces the old per-block `mt` so
+            // spacing stays even regardless of order.
+            <Box sx={{ mt: { xs: 2, md: 0 }, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* Trend graph */}
+              <Box sx={{ order: stacked && statsView === 'season' ? 2 : 1 }}>
               {loadingCareer ? (
                 <Box sx={{ textAlign: 'center', py: 3 }}><CircularProgress size={22} /></Box>
               ) : (
@@ -638,10 +661,11 @@ export function SearchView({
                   </Suspense>
                 </Box>
               )}
+              </Box>
 
-              {/* Career Year-by-Year — shown when in career mode */}
+              {/* Career Year-by-Year — shown when in career mode (always after the graph) */}
               {player && statsView === 'career' && (careerSplits?.length ?? 0) > 0 && (
-                <Box sx={{ mt: 2 }}>
+                <Box sx={{ order: 3 }}>
                   <Box
                     onClick={() => setCareerTableOpen(o => !o)}
                     sx={{
@@ -670,9 +694,10 @@ export function SearchView({
                 </Box>
               )}
 
-              {/* Recent Games — shown when in season mode */}
+              {/* Recent Games — shown when in season mode. order 1 when stacked lifts it
+                  above the graph on mobile; 2 on desktop keeps it below. */}
               {player && statsView === 'season' && (loadingRecent || recentGames.length > 0) && (
-                <Box sx={{ mt: 2 }}>
+                <Box sx={{ order: stacked ? 1 : 2 }}>
                   <Box
                     onClick={() => setRecentGamesOpen(o => !o)}
                     sx={{
@@ -754,6 +779,51 @@ export function SearchView({
                   </Box>
                 </Box>
               )}
+            </Box>
+          )}
+        </Box>
+      )}
+
+      {/* Team schedule — full-width, live/next game cards (today's game highlighted)
+          with a full-schedule modal. Team pages only. */}
+      {hasStats && !!team && (
+        <Box sx={{ mb: 2 }}>
+          <Box
+            onClick={() => setScheduleOpen(o => !o)}
+            sx={{
+              mb: scheduleOpen ? 1.25 : 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              cursor: 'pointer', userSelect: 'none',
+              '&:hover .sc-chevron': { color: 'text.primary' },
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <SectionLabel strong>Schedule</SectionLabel>
+              <Box
+                onClick={e => { e.stopPropagation(); setShowFullSchedule(true) }}
+                sx={{ fontSize: '0.68rem', fontWeight: 700, color: ACCENT, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+              >
+                Full schedule →
+              </Box>
+            </Box>
+            <Box className="sc-chevron" sx={{
+              fontSize: '0.75rem', color: 'text.disabled',
+              transition: 'transform 0.18s, color 0.15s',
+              transform: scheduleOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+            }}>▾</Box>
+          </Box>
+          {scheduleOpen && (
+            <Box sx={{ borderRadius: { xs: 0, sm: 3 }, border: '1px solid', borderColor: 'divider', overflow: 'hidden', mx: { xs: -2, sm: 0 } }}>
+              <Suspense fallback={<Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', px: 1.5, py: 1 }}>Loading schedule…</Typography>}>
+                <TeamScheduleStrip
+                  teamId={team.id}
+                  teamColor={TEAM_BG[team.id] ?? ACCENT}
+                  showSchedule={showFullSchedule}
+                  onScheduleClose={() => setShowFullSchedule(false)}
+                  onPlayerClick={openPlayerFromTeam}
+                  onTeamClick={onTeamClick}
+                />
+              </Suspense>
             </Box>
           )}
         </Box>
@@ -847,6 +917,13 @@ export function SearchView({
             ) : null
           )}
         </Box>
+      )}
+
+      {/* Contract — bottom slot for the stacked layout (see contractBlock). Renders here
+          instead of under the portrait so mobile reads card → recent games → graph →
+          contract. mb keeps it clear of the links below. */}
+      {hasStats && stacked && contractBlock && (
+        <Box sx={{ mb: 2 }}>{contractBlock}</Box>
       )}
 
       {/* Links — bottom of page */}
