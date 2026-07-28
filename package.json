@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
+    "preview": "npm run build && wrangler dev",
     "test": "vitest",
     "bots": "node scripts/run-bots.mjs",
     "payrolls": "node scripts/update-payrolls.mjs",
@@ -16,7 +16,8 @@
     "pred-boards": "node scripts/update-prediction-boards.mjs",
     "survivor": "node scripts/resolve-survivor.mjs",
     "survivor-bots": "node scripts/run-survivor-bots.mjs",
-    "tasks": "node --env-file=.env scripts/pull-tasks.mjs"
+    "tasks": "node --env-file=.env scripts/pull-tasks.mjs",
+    "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -30,6 +31,7 @@
     "ws": "^8.21.0"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.47.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
     "@testing-library/user-event": "^14.6.1",
@@ -40,6 +42,7 @@
     "typescript": "^5.2.2",
     "vite": "^6.4.2",
     "vitest": "^4.0.17",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "wrangler": "^4.114.0"
   }
 }
