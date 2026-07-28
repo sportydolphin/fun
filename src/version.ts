@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.20.0'
+export const APP_VERSION = '1.21.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.21.0',
+    date:    '2026-07-27',
+    title:   'A fresh coat of paint for dark mode',
+    changes: [
+      {
+        short: 'Redesigned dark mode',
+        full:  'Dark mode has a new color scheme. The background is a softer tinted charcoal instead of flat black, cards sit on a slightly lighter surface so they stand out more, and the top bar now blends into the page instead of being a separate gray strip.',
+      },
+    ],
+  },
   {
     version: '1.20.0',
     date:    '2026-07-27',
