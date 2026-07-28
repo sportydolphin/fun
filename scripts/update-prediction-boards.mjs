@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
- * update-prediction-boards.mjs — Nightly windowed prediction leaderboards.
+ * update-prediction-boards.mjs — Nightly prediction leaderboards (all-time + windows).
  *
- * The all-time board is a live read of prediction_stats. The weekly/monthly cuts
- * can't be, because correctness isn't stored per pick — it's derived from the
- * StatsAPI schedule. So this job pulls the last 30 days of picks, grades them
- * against the day's results, tallies each user's record in the 7- and 30-day
- * windows, ranks by Wilson lower bound (same as the live board), and writes one
- * jsonb row per window into prediction_boards. The client reads a single row.
+ * The board can't be a plain SQL read of prediction_stats: that table only gets a row
+ * when a user opens My Stats (or nightly for bots), so anyone who predicted but never
+ * viewed their stats is missing. And correctness isn't stored per pick anyway — it's
+ * derived from the StatsAPI schedule. So this job grades every pick against results and
+ * writes one jsonb row per window (all / week / month) covering every predictor. The
+ * client reads a single row, falling back to the live prediction_stats read only if the
+ * all-time board hasn't been computed yet.
  *
  * Usage (local):
  *   node scripts/update-prediction-boards.mjs --dry-run
@@ -29,12 +30,13 @@ if (!SUPABASE_URL || !SERVICE_KEY) {
   process.exit(1)
 }
 
-// Windows are last N calendar days ending today (inclusive), keyed by game_date.
+// Each board is the last N calendar days ending today (inclusive), keyed by game_date.
+// days === null means all-time (no cutoff).
 const WINDOWS = [
-  { key: 'week',  days: 7  },
+  { key: 'all',   days: null },
   { key: 'month', days: 30 },
+  { key: 'week',  days: 7 },
 ]
-const MAX_DAYS = Math.max(...WINDOWS.map(w => w.days))
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -42,13 +44,19 @@ function ymd(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// Wilson score lower bound (95%) — identical to the client's ranking key so the
-// windowed boards order picks the same way the all-time board does.
+// Wilson score lower bound (95%) — identical to the client's ranking key so every board
+// orders picks the same way, small samples penalised until the volume backs them up.
 function wilsonLowerBound(correct, total) {
   if (total === 0) return 0
   const z = 1.96, z2 = z * z
   const p = correct / total
   return (p + z2 / (2 * total) - z * Math.sqrt((p * (1 - p) + z2 / (4 * total)) / total)) / (1 + z2 / total)
+}
+
+function chunk(arr, n) {
+  const out = []
+  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n))
+  return out
 }
 
 async function fetchJson(url) {
@@ -57,7 +65,7 @@ async function fetchJson(url) {
   return r.json()
 }
 
-// gamePk → winnerId (finalized games only) across the whole window, one call.
+// gamePk → winnerId (finalized games only) across the whole span, one call.
 async function fetchResults(startDate, endDate) {
   const d = await fetchJson(
     `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${startDate}&endDate=${endDate}&gameType=R` +
@@ -77,16 +85,15 @@ async function fetchResults(startDate, endDate) {
   return out
 }
 
-// All picks with game_date in [since, today]. Paginated — a busy month easily
-// clears Supabase's 1000-row default, and a missed page would drop a whole user.
-async function fetchPredictionsSince(supabase, since) {
+// Every pick, all users, all time. Paginated — a season easily clears Supabase's
+// 1000-row default, and a missed page would drop a whole user from the board.
+async function fetchAllPredictions(supabase) {
   const rows = []
   const PAGE = 1000
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await supabase
       .from('game_predictions')
       .select('user_id, game_date, game_pk, predicted_team_id')
-      .gte('game_date', since)
       .range(from, from + PAGE - 1)
     if (error) throw new Error(`game_predictions read failed: ${error.message}`)
     rows.push(...(data ?? []))
@@ -95,18 +102,31 @@ async function fetchPredictionsSince(supabase, since) {
   return rows
 }
 
-// user_id → best display name: current username, else the stored stats name.
+// user_id → best display name: current username > auth display name (covers users who
+// never opened My Stats) > stored stats name > Anonymous.
 async function fetchNames(supabase, userIds) {
   const names = new Map()
   if (userIds.length === 0) return names
-  const chunk = (arr, n) => { const o = []; for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n)); return o }
+  const want = new Set(userIds)
+
+  // Auth metadata — the fallback for predictors with no stats row yet.
+  try {
+    const { data } = await supabase.auth.admin.listUsers({ perPage: 1000 })
+    for (const u of data?.users ?? []) {
+      if (!want.has(u.id)) continue
+      const nm = u.user_metadata?.display_name || (u.email ? u.email.split('@')[0] : null)
+      if (nm) names.set(u.id, nm)
+    }
+  } catch { /* admin API unavailable — fall back to db names below */ }
+
+  // Stored stats name (usually the same), then the live username, which wins.
   for (const ids of chunk(userIds, 200)) {
     const [{ data: stats }, { data: unames }] = await Promise.all([
       supabase.from('prediction_stats').select('user_id, display_name').in('user_id', ids),
       supabase.from('usernames').select('user_id, username').in('user_id', ids),
     ])
     for (const s of stats ?? []) if (s.display_name) names.set(s.user_id, s.display_name)
-    for (const u of unames ?? []) if (u.username) names.set(u.user_id, u.username)   // username wins
+    for (const u of unames ?? []) if (u.username) names.set(u.user_id, u.username)
   }
   return names
 }
@@ -123,45 +143,57 @@ async function main() {
 
   const now   = new Date()
   const today = ymd(now)
-  const since = ymd(new Date(now.getTime() - (MAX_DAYS - 1) * 86400000))
 
-  const [preds, results] = await Promise.all([
-    fetchPredictionsSince(supabase, since),
-    fetchResults(since, today),
-  ])
-  console.log(`  ${preds.length} picks since ${since} · ${results.size} finalized games`)
+  const preds = await fetchAllPredictions(supabase)
+  if (preds.length === 0) { console.log('  No predictions yet — nothing to do\n'); return }
 
-  // Per-window tally: userId → { correct, total }
-  const tallies = new Map(WINDOWS.map(w => [w.key, new Map()]))
-  const cutoffs = new Map(WINDOWS.map(w => [w.key, ymd(new Date(now.getTime() - (w.days - 1) * 86400000))]))
+  // Grade every pick, then bucket by user in chronological order (for streaks).
+  const minDate = preds.reduce((m, p) => (p.game_date < m ? p.game_date : m), preds[0].game_date)
+  const results = await fetchResults(minDate, today)
+  console.log(`  ${preds.length} picks since ${minDate} · ${results.size} finalized games`)
 
+  const byUser = new Map()   // userId → [{ date, pk, correct }]
   for (const p of preds) {
     const winnerId = results.get(Number(p.game_pk))
     if (winnerId == null) continue                       // not finalized → not scored
-    const correct = winnerId === Number(p.predicted_team_id)
-    for (const w of WINDOWS) {
-      if (p.game_date < cutoffs.get(w.key)) continue
-      const board = tallies.get(w.key)
-      const cur = board.get(p.user_id) ?? { correct: 0, total: 0 }
-      cur.total++
-      if (correct) cur.correct++
-      board.set(p.user_id, cur)
-    }
+    if (!byUser.has(p.user_id)) byUser.set(p.user_id, [])
+    byUser.get(p.user_id).push({ date: p.game_date, pk: Number(p.game_pk), correct: winnerId === Number(p.predicted_team_id) })
   }
 
-  // Names for everyone who appears in any window
-  const userIds = [...new Set(WINDOWS.flatMap(w => [...tallies.get(w.key).keys()]))]
-  const names = await fetchNames(supabase, userIds)
+  const cutoff = new Map(WINDOWS.map(w => [w.key, w.days == null ? '' : ymd(new Date(now.getTime() - (w.days - 1) * 86400000))]))
+  const names  = await fetchNames(supabase, [...byUser.keys()])
 
+  // Per user: window tallies + all-time streak, from their sorted graded picks.
+  const perUser = new Map()
+  for (const [userId, picks] of byUser) {
+    picks.sort((a, b) => (a.date !== b.date ? a.date.localeCompare(b.date) : a.pk - b.pk))
+    const tally = new Map(WINDOWS.map(w => [w.key, { correct: 0, total: 0 }]))
+    let currentStreak = 0
+    for (const g of picks) {
+      currentStreak = g.correct ? currentStreak + 1 : 0   // ends on the latest pick, so this is the current streak
+      for (const w of WINDOWS) {
+        if (w.days != null && g.date < cutoff.get(w.key)) continue
+        const t = tally.get(w.key)
+        t.total++
+        if (g.correct) t.correct++
+      }
+    }
+    perUser.set(userId, { tally, currentStreak })
+  }
+
+  // Build a Wilson-ranked entry list per window.
   const boards = WINDOWS.map(w => {
-    const entries = [...tallies.get(w.key)]
-      .map(([userId, s]) => ({
-        userId,
-        displayName: names.get(userId) ?? 'Anonymous',
-        correct:     s.correct,
-        total:       s.total,
-        accuracy:    Math.round((s.correct / s.total) * 100),
-        _score:      wilsonLowerBound(s.correct, s.total),
+    const entries = [...perUser]
+      .map(([userId, u]) => ({ userId, s: u.tally.get(w.key), currentStreak: u.currentStreak }))
+      .filter(e => e.s.total > 0)
+      .map(e => ({
+        userId:        e.userId,
+        displayName:   names.get(e.userId) ?? 'Anonymous',
+        correct:       e.s.correct,
+        total:         e.s.total,
+        accuracy:      Math.round((e.s.correct / e.s.total) * 100),
+        currentStreak: w.key === 'all' ? e.currentStreak : 0,   // streak is an all-time notion
+        _score:        wilsonLowerBound(e.s.correct, e.s.total),
       }))
       .sort((a, b) => b._score - a._score || b.total - a.total)
       .map(({ _score, ...e }) => e)
@@ -171,7 +203,8 @@ async function main() {
   for (const b of boards) {
     console.log(`\n  ${b.key} (${b.entries.length} predictors):`)
     for (const e of b.entries.slice(0, 5)) {
-      console.log(`    ${e.displayName.padEnd(20)} ${e.correct}/${e.total} (${e.accuracy}%)`)
+      const heat = e.currentStreak >= 3 ? ` 🔥${e.currentStreak}` : ''
+      console.log(`    ${e.displayName.padEnd(20)} ${e.correct}/${e.total} (${e.accuracy}%)${heat}`)
     }
   }
 
@@ -187,7 +220,7 @@ async function main() {
       process.exit(1)
     }
   }
-  console.log(`\n✅  Wrote ${boards.length} windowed boards\n`)
+  console.log(`\n✅  Wrote ${boards.length} boards (all / month / week)\n`)
 }
 
 main().catch(err => { console.error('Fatal:', err); process.exit(1) })

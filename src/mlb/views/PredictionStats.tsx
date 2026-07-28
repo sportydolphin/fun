@@ -253,11 +253,12 @@ async function fetchLeaderboard(myUserId: string): Promise<LeaderEntry[]> {
   } catch { return [] }
 }
 
-// Windowed board (last 7 / 30 days) — a precomputed jsonb row (update-prediction-boards.mjs)
-// rather than a live tally, since pick correctness is derived from StatsAPI. Entries are
-// already Wilson-ranked and cover every predictor, so the top-25 + append-you logic
-// matches the all-time board.
-async function fetchWindowBoard(window: 'week' | 'month', myUserId: string): Promise<LeaderEntry[]> {
+// A precomputed board (update-prediction-boards.mjs) rather than a live tally, since pick
+// correctness is derived from StatsAPI and the aggregate table only has users who opened
+// My Stats. Entries are already Wilson-ranked and cover every predictor, so the top-25 +
+// append-you logic matches the live board. Returns [] if the board hasn't been computed
+// yet, which the all-time caller uses to fall back to the live read.
+async function fetchWindowBoard(window: 'all' | 'week' | 'month', myUserId: string): Promise<LeaderEntry[]> {
   try {
     const { data } = await supabase
       .from('prediction_boards')
@@ -272,7 +273,7 @@ async function fetchWindowBoard(window: 'week' | 'month', myUserId: string): Pro
       accuracy:      e.accuracy ?? 0,
       correct:       e.correct  ?? 0,
       total:         e.total    ?? 0,
-      currentStreak: 0,                     // streaks are an all-time notion; no badge here
+      currentStreak: e.currentStreak ?? 0,   // only the all-time board carries a streak
       isMe:          e.userId === myUserId,
     }))
     const top = ranked.slice(0, 25)
@@ -578,7 +579,7 @@ function LeaderboardContent({ leaders, window }: { leaders: LeaderEntry[]; windo
       {leaders.length > 0 && (
         <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', textAlign: 'center', mt: 1.5 }}>
           Ranked by accuracy &amp; volume · {window === 'all'
-            ? 'Stats update when you view My Stats'
+            ? 'All-time · Updated nightly'
             : `${window === 'week' ? 'Last 7 days' : 'Last 30 days'} · Updated nightly`}
         </Typography>
       )}
@@ -627,8 +628,10 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
     if (!open || tab !== 'board' || !userId) return
     setLbLoading(true)
     setLeaders([])
+    // All-time prefers the precomputed board (covers every predictor, not just those who
+    // opened My Stats); if it hasn't been computed yet, fall back to the live read.
     const load = boardWindow === 'all'
-      ? fetchLeaderboard(userId)
+      ? fetchWindowBoard('all', userId).then(b => (b.length ? b : fetchLeaderboard(userId)))
       : fetchWindowBoard(boardWindow, userId)
     load.then(setLeaders).finally(() => setLbLoading(false))
   }, [open, tab, userId, boardWindow])
