@@ -2,10 +2,11 @@
 
 > Generated from Google Tasks by `npm run tasks` (scripts/pull-tasks.mjs). Do not
 > edit by hand — edit the tasks in Google Tasks and re-run.
-> Last pulled: 2026-07-27 17:59 UTC · 8 open items.
+> Last pulled: 2026-07-28 06:00 UTC · 9 open items.
 
 ## Site todos
 
+- [ ] Account for postponed games in scoreboard
 - [ ] Need something to indicate recent milestones
 - [ ] Sort milestones by career vs season, hitting vs pitching
 - [ ] Single game standout edge case when only one or two games have been played so far. Only show if it's an actual standout, not just the best of the day
