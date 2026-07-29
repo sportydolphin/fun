@@ -1053,6 +1053,7 @@ export interface MilestoneItem {
   current:    number
   target:     number
   remaining:  number
+  window?:    number     // watch window for this stat — how far out the chase was picked up; drives the proximity meter
   kind:       'career' | 'season' | 'record'
   achievedOn?: string    // YYYY-MM-DD — present only on recently-reached milestones
 }
@@ -1060,8 +1061,9 @@ export interface MilestoneItem {
 // The card reads both the upcoming chases and the milestones just reached; the nightly
 // script stores them together (plus a private totals snapshot it diffs against).
 export interface MilestoneData {
-  items:  MilestoneItem[]   // upcoming chases, closest first
-  recent: MilestoneItem[]   // reached in the last few days, newest first
+  items:   MilestoneItem[]   // upcoming chases, closest first
+  recent:  MilestoneItem[]   // reached in the last few days, newest first (⊂ reached)
+  reached: MilestoneItem[]   // every milestone reached this season, newest first
 }
 
 // A GitHub Action recomputes this nightly (scripts/update-milestones.mjs →
@@ -1081,8 +1083,10 @@ export async function fetchMilestoneData(season: number): Promise<MilestoneData 
       .limit(1)
     const row = data?.[0]
     if (row?.data && Date.now() - new Date(row.computed_at).getTime() < MILESTONE_STALE_MS) {
-      const d = row.data as { items?: MilestoneItem[]; recent?: MilestoneItem[] }
-      return { items: d.items ?? [], recent: d.recent ?? [] }
+      const d = row.data as { items?: MilestoneItem[]; recent?: MilestoneItem[]; reached?: MilestoneItem[] }
+      // `reached` is the season archive; fall back to `recent` for rows written before
+      // the archive existed, so an un-migrated row still shows something under Reached.
+      return { items: d.items ?? [], recent: d.recent ?? [], reached: d.reached ?? d.recent ?? [] }
     }
   } catch { /* table missing or unreachable — treat as unavailable */ }
   return null

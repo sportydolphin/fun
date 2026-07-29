@@ -197,6 +197,7 @@ function collectItems(player, playerId, stat, catalog, kind) {
       current,
       target: hit.target,
       remaining: hit.remaining,
+      window: def.window,
       kind: isRecord ? 'record' : kind,
     })
   }
@@ -251,11 +252,26 @@ function collectProgress(player, playerId, stat, catalog, kind, prevTotals) {
   return { totals, achieved }
 }
 
-// Records first, then marquee milestones, then everything by closeness.
+// Prominence tier, used to break ties in the reached (chronological) list.
 function priority(item) {
   if (item.kind === 'record') return 0
   if (item.kind === 'career' && MARQUEE[item.statKey] === item.target) return 1
   return 2
+}
+
+// Chase ranking (lower = higher on the card). Distance is normalised by the stat's
+// watch window — remaining/window ∈ (0,1], 0 at the line — so how *imminent* a chase is
+// drives the order, not raw counts: "1 hit from 1000" (accrues fast, small window)
+// outranks "12 saves from 500" (weeks away). Records and marquee milestones get a
+// multiplicative head start so they climb as the player closes in, but a far-off marquee
+// no longer sits above someone on the doorstep — it earns the top spot only near the line.
+const RANK_FACTOR = { record: 0.5, marquee: 0.7 }
+function rankScore(item) {
+  const w = item.window > 0 ? item.window : 40
+  const d = item.remaining / w
+  const isMarquee = item.kind === 'career' && MARQUEE[item.statKey] === item.target
+  const factor = item.kind === 'record' ? RANK_FACTOR.record : isMarquee ? RANK_FACTOR.marquee : 1
+  return d * factor
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -273,12 +289,14 @@ async function main() {
     : null
 
   let prevTotals = {}
-  let prevRecent = []
+  let prevReached = []
   if (supabase) {
     try {
       const { data } = await supabase.from('milestone_watch').select('data').eq('season', SEASON).limit(1)
       const pd = data?.[0]?.data
-      if (pd) { prevTotals = pd.totals ?? {}; prevRecent = pd.recent ?? [] }
+      // Seed the season archive from the old `recent` list on the first run after this
+      // change, so already-detected crossings aren't lost when we switch to `reached`.
+      if (pd) { prevTotals = pd.totals ?? {}; prevReached = pd.reached ?? pd.recent ?? [] }
     } catch { /* first run or missing table — no previous snapshot */ }
   }
 
@@ -310,20 +328,23 @@ async function main() {
     }
   }
 
-  items.sort((a, b) => priority(a) - priority(b) || a.remaining - b.remaining)
+  items.sort((a, b) => rankScore(a) - rankScore(b) || a.remaining - b.remaining)
 
-  // Carry forward still-recent crossings, fold in the new ones, dedupe (new wins), and
-  // keep them newest-first. A crossing is only detected once (prev < t), so the merge
-  // just extends each item's visible life to RECENT_DAYS.
-  const cutoff = Date.now() - RECENT_DAYS * 86400e3
+  // Season-long archive: fold new crossings into the ones already stored and dedupe.
+  // A crossing is only ever detected once (prev < t ≤ current), so this simply
+  // accumulates every milestone reached this season, newest-first — the fullscreen
+  // "Reached" list reads it whole. The 7-day `recent` slice the card leads with is
+  // just the tail end of the same archive, so the two can never disagree.
   const seen = new Set()
-  const recent = [...achievedNew, ...prevRecent]
-    .filter(it => { const t = new Date(it.achievedOn).getTime(); return Number.isFinite(t) && t >= cutoff })
+  const reached = [...achievedNew, ...prevReached]
     .filter(it => { const k = `${it.playerId}:${it.kind}:${it.statKey}:${it.target}`; if (seen.has(k)) return false; seen.add(k); return true })
     .sort((a, b) => (a.achievedOn < b.achievedOn ? 1 : a.achievedOn > b.achievedOn ? -1 : priority(a) - priority(b)))
-    .slice(0, 30)
+    .slice(0, 200)
 
-  console.log(`  ${items.length} live milestone chases · ${recent.length} recently reached (${achievedNew.length} new)\n`)
+  const cutoff = Date.now() - RECENT_DAYS * 86400e3
+  const recent = reached.filter(it => { const t = new Date(it.achievedOn).getTime(); return Number.isFinite(t) && t >= cutoff })
+
+  console.log(`  ${items.length} live milestone chases · ${recent.length} recently reached (${achievedNew.length} new) · ${reached.length} reached this season\n`)
   for (const it of items.slice(0, 25)) {
     const tag = it.kind === 'record' ? ' (record)' : it.kind === 'season' ? ' (season)' : ''
     console.log(`    ${it.playerName.padEnd(22)} ${String(it.remaining).padStart(3)} ${it.statLabel} from ${it.target}${tag}`)
@@ -339,13 +360,13 @@ async function main() {
 
   const { error } = await supabase
     .from('milestone_watch')
-    .upsert({ season: SEASON, data: { items, recent, totals }, computed_at: new Date().toISOString() }, { onConflict: 'season' })
+    .upsert({ season: SEASON, data: { items, recent, reached, totals }, computed_at: new Date().toISOString() }, { onConflict: 'season' })
   if (error) {
     console.error(`\n❌  Supabase upsert failed: ${error.message}`)
     console.error('    Make sure you ran scripts/create_milestone_watch.sql first.')
     process.exit(1)
   }
-  console.log(`✅  Upserted ${items.length} chases + ${recent.length} recent for ${SEASON}\n`)
+  console.log(`✅  Upserted ${items.length} chases + ${reached.length} reached (${recent.length} recent) for ${SEASON}\n`)
 }
 
 main().catch(err => { console.error('Fatal:', err); process.exit(1) })

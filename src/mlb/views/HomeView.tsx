@@ -568,7 +568,7 @@ export function HomeView({
           <RosterMovesCard followedTeamId={followedTeamId} onPlayerClick={onPlayerClick} onTeamClick={onTeamClick} />
 
           {/* Milestone Watch — players closing in on career/season/record marks */}
-          <MilestoneWatchCard season={CURRENT_SEASON} onPlayerClick={onPlayerClick} />
+          <MilestoneWatchCard season={CURRENT_SEASON} liveTeamIds={liveTeamIds} onPlayerClick={onPlayerClick} />
 
 
           {/* Featured spotlight — hot / cold. No floating section title; the
