@@ -206,9 +206,9 @@ export function useMlbState() {
       // URL view param takes priority
       const vp = new URLSearchParams(window.location.search).get('view')
       if (vp && ['home','search','viz','leaderboard','standings','stats'].includes(vp)) return vp as any
-      // Default to Home if a team is already followed
-      return localStorage.getItem('mlb_fav_team_id') ? 'home' : 'search'
-    } catch { return 'search' }
+      // Default to Home for everyone — a no-team visitor still gets the league feed + team picker.
+      return 'home'
+    } catch { return 'home' }
   })
   const [vizSeason, setVizSeason] = useState(CURRENT_SEASON)
   const [vizDefaultTab, setVizDefaultTab] = useState<'graphs' | 'report-card'>('report-card')
