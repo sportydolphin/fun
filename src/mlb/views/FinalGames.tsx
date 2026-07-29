@@ -6,6 +6,7 @@ import { useIsDark, defaultBorder } from '../lib/colorUtils'
 import { getHomeOverlay, setHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 import { fetchTeamSeasonStats, TEAM_STAT_DEFS, TeamSeasonStats, TeamStatValue } from '../api'
 import { LogoBubble, LiveDot } from '../components/boxScore'
+import { useScrollLock } from '../lib/useScrollLock'
 import { GamePreviewModal } from './GamePreview'
 
 // Loaded on first game click — keeps the Game Center out of the home bundle.
@@ -13,7 +14,7 @@ const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ defau
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type GameState = 'live' | 'final' | 'preview'
+type GameState = 'live' | 'final' | 'preview' | 'postponed'
 
 export interface FinalTeam {
   teamId:   number
@@ -36,6 +37,7 @@ export interface FinalGameSummary {
   winPitcher:  string | null
   losePitcher: string | null
   savePitcher: string | null
+  reason?:     string                // "Rain"/"Snow"/... — only set for postponed games
 }
 
 
@@ -82,8 +84,12 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
     if (!SCORED_GAME_TYPES.has(game.gameType)) continue
     const abs      = game.status?.abstractGameState
     const detState = game.status?.detailedState ?? ''
+    const coded    = game.status?.codedGameState
+    // Postponed games report abstractGameState "Final" (codedGameState "D") even
+    // though they never happened — check them first or they'd show as a 0-0 Final.
     // "Live" during Warmup (~20 min pre-first-pitch) isn't really live yet.
-    const state: GameState = abs === 'Final' ? 'final'
+    const state: GameState = coded === 'D' || detState === 'Postponed' ? 'postponed'
+      : abs === 'Final' ? 'final'
       : abs === 'Live' && detState !== 'Warmup' ? 'live'
       : 'preview'
     const ls    = game.linescore ?? {}
@@ -110,7 +116,9 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
     const startMs = Number.isNaN(parsedStart) ? Number.MAX_SAFE_INTEGER : parsedStart
 
     let statusText: string
-    if (state === 'final') {
+    if (state === 'postponed') {
+      statusText = 'Postponed'
+    } else if (state === 'final') {
       // Extra innings → "Final/10". scheduledInnings defaults to 9.
       const scheduled = ls.scheduledInnings ?? 9
       const played    = ls.currentInning ?? scheduled
@@ -145,6 +153,7 @@ function parseScheduleDateGames(dateObj: any): FinalGameSummary[] {
       winPitcher:  game.decisions?.winner?.fullName ?? null,
       losePitcher: game.decisions?.loser?.fullName  ?? null,
       savePitcher: game.decisions?.save?.fullName    ?? null,
+      reason:      state === 'postponed' ? (game.status?.reason || undefined) : undefined,
     })
   }
   return out
@@ -269,14 +278,16 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
   wide?:    boolean          // fill the parent (grid cell) instead of fixed strip width
   accent?:  string           // ring color to call out the followed team's game
 }) {
-  const isPreview = game.state === 'preview'
-  const isLive    = game.state === 'live'
-  const statusColor = isLive ? '#ef4444' : 'text.disabled'
+  const isPreview   = game.state === 'preview'
+  const isPostponed = game.state === 'postponed'
+  const isLive      = game.state === 'live'
+  const noScore     = isPreview || isPostponed   // postponed games never happened → no score row
+  const statusColor = isLive ? '#ef4444' : isPostponed ? '#f59e0b' : 'text.disabled'
   const isDark = useIsDark()
 
   // Which team to emphasize: winner (final) or current leader (live)
   const emphasize = (t: FinalTeam): boolean => {
-    if (isPreview) return false
+    if (noScore) return false
     if (game.state === 'final') return t.isWinner
     const other = t === game.away ? game.home : game.away
     return t.runs > other.runs
@@ -294,7 +305,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
           }}>
             {t.abbr}
           </Typography>
-          {isPreview && t.record && (
+          {noScore && t.record && (
             <Typography sx={{
               fontSize: '0.56rem', fontWeight: 500, lineHeight: 1, color: 'text.disabled',
               fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
@@ -303,7 +314,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
             </Typography>
           )}
         </Box>
-        {!isPreview && (
+        {!noScore && (
           <Typography sx={{
             fontSize: '0.9rem', fontWeight: em ? 800 : 500, lineHeight: 1,
             color: (isLive || em) ? 'text.primary' : 'text.secondary', minWidth: 16, textAlign: 'right',
@@ -343,7 +354,7 @@ function FinalGameMiniCard({ game, onClick, wide = false, accent }: {
         </Typography>
         {onClick && (
           <Typography sx={{ fontSize: '0.55rem', color: 'text.disabled', ml: 'auto', lineHeight: 1, display: 'flex', alignItems: 'center' }}>
-            {isPreview ? 'Preview →' : 'Box →'}
+            {noScore ? 'Preview →' : 'Box →'}
           </Typography>
         )}
       </Box>
@@ -457,6 +468,7 @@ function ScoreboardModal({ dateISO, onDateChange, games, loading, followedTeamId
   onClose:        () => void
   gameModalOpen:  boolean              // a game modal is stacked on top — let it own Escape
 }) {
+  useScrollLock()
   useEffect(() => {
     if (gameModalOpen) return
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -669,10 +681,10 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
 
   // Ordering:
   //   1. Followed team's game is always first, no matter what.
-  //   2. Then by state: live → final → upcoming.
+  //   2. Then by state: live → final → upcoming → postponed.
   //   3. Chronological (first pitch) within each state group.
   // No division/league weighting — it scattered the day's slate unpredictably.
-  const STATE_ORDER: Record<GameState, number> = { live: 0, final: 1, preview: 2 }
+  const STATE_ORDER: Record<GameState, number> = { live: 0, final: 1, preview: 2, postponed: 3 }
   const isMine = (g: FinalGameSummary) =>
     followedTeamId != null && (g.home.teamId === followedTeamId || g.away.teamId === followedTeamId)
 
@@ -811,8 +823,9 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
         />
       )}
 
-      {openGame && openGame.state === 'preview' ? (() => {
+      {openGame && (openGame.state === 'preview' || openGame.state === 'postponed') ? (() => {
         // ‹ › steps through the other upcoming games in the current scoreboard list.
+        // Postponed games open the matchup preview too (never a box score — there's no game).
         const previews = sortedGames.filter(g => g.state === 'preview')
         const idx = previews.findIndex(g => g.gamePk === openGame.gamePk)
         return (

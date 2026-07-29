@@ -7,6 +7,7 @@ import { Box, Typography } from '@mui/material'
 import { ChevronLeft, ChevronRight } from '@mui/icons-material'
 import { TEAM_BG, HEADSHOT, CURRENT_SEASON } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../lib/colorUtils'
+import { useScrollLock } from '../lib/useScrollLock'
 import { fetchTeamSeasonStats, TEAM_STAT_DEFS, TeamSeasonStats, TeamStatValue } from '../api'
 import { LogoBubble, SectionLabel } from '../components/boxScore'
 
@@ -37,6 +38,7 @@ interface GamePreviewData {
 export interface PreviewGame {
   gamePk:     number
   statusText: string
+  reason?:    string          // postponement reason ("Rain"/...) when statusText is "Postponed"
   away: { teamId: number; abbr: string }
   home: { teamId: number; abbr: string }
 }
@@ -298,6 +300,7 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
   onPrev?: () => void
   onNext?: () => void
 }) {
+  useScrollLock()
   // Tag the loaded data with the game it belongs to. When `game` switches (‹ › nav) the
   // tag no longer matches, so `loading` flips true immediately — the skeleton shows in the
   // very first frame instead of briefly re-showing the previous game's pitchers.
@@ -491,7 +494,9 @@ export function GamePreviewModal({ game, onClose, onPlayerClick, onTeamClick, on
             flex: 1, fontWeight: 800, fontSize: '0.72rem', color: 'text.secondary',
             textTransform: 'uppercase', letterSpacing: 1, lineHeight: 1,
           }}>
-            Preview · {game.statusText}
+            {game.statusText === 'Postponed'
+              ? (game.reason ? `Postponed · ${game.reason}` : 'Postponed')
+              : `Preview · ${game.statusText}`}
           </Typography>
           <Box
             onClick={onClose}

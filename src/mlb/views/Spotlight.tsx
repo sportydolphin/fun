@@ -320,12 +320,15 @@ export async function fetchRecentGamePerformers(): Promise<{ hitters: HotGuyData
     const lookback = localDate(new Date(now.getTime() - 7 * 86400000))
     const schedRes = await fetch(
       `https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=${lookback}&endDate=${today}&gameType=R` +
-      `&fields=dates,date,games,status,abstractGameState`
+      `&fields=dates,date,games,status,abstractGameState,detailedState`
     ).then(r => r.json()).catch(() => null)
 
     const gameDays: string[] = []
     for (const dateObj of [...(schedRes?.dates ?? [])].reverse()) {
-      const hasFinal = (dateObj.games ?? []).some((g: any) => g.status?.abstractGameState === 'Final')
+      // Postponed games carry abstractGameState "Final" but produced no stats — don't
+      // let an all-postponed day burn a lookback slot that yields no performers.
+      const hasFinal = (dateObj.games ?? []).some((g: any) =>
+        g.status?.abstractGameState === 'Final' && g.status?.detailedState !== 'Postponed')
       if (hasFinal) gameDays.push(dateObj.date as string)
       if (gameDays.length >= 3) break
     }

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, TEAM_NICKNAME, ACCENT, PREDICTION_HEATER_MIN } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder } from '../lib/colorUtils'
+import { useScrollLock } from '../lib/useScrollLock'
 import { useAuth } from '../../AuthContext'
 import { supabase } from '../../lib/supabase'
 import { PredictionStatsModal } from './PredictionStats'
@@ -21,7 +22,7 @@ interface TodayPitcher {
 export interface TodayGame {
   gamePk:   number
   gameTime: string
-  state:    'preview' | 'live' | 'final'
+  state:    'preview' | 'live' | 'final' | 'postponed'
   home: { teamId: number; abbr: string; name: string; pitcher: TodayPitcher | null }
   away: { teamId: number; abbr: string; name: string; pitcher: TodayPitcher | null }
   winnerId: number | null
@@ -45,8 +46,14 @@ export async function fetchTodayGames(dateStr: string): Promise<TodayGame[]> {
         const at      = g.teams?.away
         const rawSt   = g.status?.abstractGameState ?? 'Preview'
         const detSt   = g.status?.detailedState ?? ''
+        const coded   = g.status?.codedGameState
+        // Postponed games report abstractGameState "Final" — catch them first so they
+        // aren't scored as a real (winner-less) final that dings everyone's record.
         // Warmup reports "Live" ~20 min early — keep it pickable until first pitch.
-        const state   = rawSt === 'Final' ? 'final' : rawSt === 'Live' && detSt !== 'Warmup' ? 'live' : 'preview' as TodayGame['state']
+        const state   = coded === 'D' || detSt === 'Postponed' ? 'postponed'
+          : rawSt === 'Final' ? 'final'
+          : rawSt === 'Live' && detSt !== 'Warmup' ? 'live'
+          : 'preview' as TodayGame['state']
         const homeId  = Number(ht?.team?.id ?? 0)
         const awayId  = Number(at?.team?.id ?? 0)
         const homePId = ht?.probablePitcher?.id ? Number(ht.probablePitcher.id) : null
@@ -282,12 +289,12 @@ function PredictionCard({ game, prediction, onPick, gameVotes }: {
         )}
         <Typography sx={{
           fontSize: { xs: '0.62rem', sm: '0.74rem' }, fontWeight: 700, letterSpacing: 0.5, lineHeight: 1,
-          color: game.state === 'live' ? '#ef4444' : 'text.secondary',
+          color: game.state === 'live' ? '#ef4444' : game.state === 'postponed' ? '#f59e0b' : 'text.secondary',
           textTransform: 'uppercase',
         }}>
-          {game.state === 'live' ? 'Live' : game.state === 'final' ? 'Final' : game.gameTime}
+          {game.state === 'live' ? 'Live' : game.state === 'final' ? 'Final' : game.state === 'postponed' ? 'PPD' : game.gameTime}
         </Typography>
-        {locked && game.state !== 'preview' && game.state !== 'final' && (
+        {game.state === 'live' && (
           <Typography sx={{ fontSize: '0.56rem', color: 'text.disabled' }}>🔒</Typography>
         )}
       </Box>
@@ -489,6 +496,8 @@ function PredictorModal({ open, games, predictions, allVotes, onPick, onClose, i
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
   }, [open, onClose])
+
+  useScrollLock(open)
 
   if (!open) return null
 
