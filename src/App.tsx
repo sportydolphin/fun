@@ -16,8 +16,14 @@ import { FeedbackDialog } from './FeedbackDialog'
 import { NotificationBell } from './NotificationBell'
 import { supabase } from './lib/supabase'
 import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from './lib/usernames'
+import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
+import { DeactivatedDialog } from './DeactivatedDialog'
 import CupsGame from '../projects/cups-game/src/CupsGame'
 
+// Cosmetic gate only: decides whether the ⚡ Admin button renders. It grants NO
+// privilege — every admin action is enforced server-side by RLS (public.is_site_owner(),
+// see scripts/harden_admin_gate.sql), which reads the confirmed email from auth.users by
+// the verified auth.uid() and can't be spoofed by faking this client value.
 const ADMIN_EMAIL = 'snichols246@gmail.com'
 import TestGame from './TestGame'
 import Stopwatch from './Stopwatch'
@@ -183,6 +189,7 @@ function AppInner() {
   const [usernameOpen,     setUsernameOpen]     = useState(false)
   const [settingsOpen,     setSettingsOpen]     = useState(false)
   const [username,         setUsername]         = useState<string | null>(null)
+  const [deactivated,      setDeactivated]      = useState(false)
   const [authToast,        setAuthToast]         = useState<'in' | 'out' | 'deleted' | null>(null)
   const accountBtnRef = useRef<HTMLButtonElement>(null)
   const isAdmin = user?.email === ADMIN_EMAIL
@@ -243,9 +250,21 @@ function AppInner() {
     if (!user) { setUsername(null); return }
     let cancelled = false
 
-    supabase.from('usernames').select('username').eq('user_id', user.id).maybeSingle()
+    // select('*') (not just 'username') so this survives pre-migration too: if the
+    // is_deleted column doesn't exist yet it's simply absent/undefined here.
+    supabase.from('usernames').select('*').eq('user_id', user.id).maybeSingle()
       .then(async ({ data }) => {
         if (cancelled) return
+
+        // Owner-deactivated account: sign out and show the blocking notice. Checked
+        // before anything else so a deactivated user never gets a working session.
+        if (data?.is_deleted) {
+          setUsername(null)
+          setDeactivated(true)
+          await signOut()
+          return
+        }
+
         if (data?.username) { setUsername(data.username); return }
 
         const pendingKey = user.email ? `${PENDING_USERNAME_PREFIX}${user.email.toLowerCase()}` : null
@@ -267,6 +286,17 @@ function AppInner() {
 
     return () => { cancelled = true }
   }, [user?.id])
+
+  // Register the shared write-gate's reaction: if any DB write catches this account
+  // as deactivated mid-session, show the notice and sign out (same as the sign-in
+  // block above). Clear the active-user cache on sign-out so the next account starts
+  // clean. See src/lib/userActive.ts.
+  useEffect(() => {
+    setDeactivationHandler(() => { setDeactivated(true); void signOut() })
+    return () => setDeactivationHandler(null)
+  }, [signOut])
+  useEffect(() => { if (!user) resetActiveCache() }, [user?.id])
+
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_KEY) === '1')
   const [lockDialogOpen, setLockDialogOpen] = useState(false)
   const [pendingPath, setPendingPath] = useState<string | null>(null)
@@ -734,6 +764,8 @@ function AppInner() {
         isAppLocked={isAppLocked}
         onOpenApp={openApp}
       />
+
+      <DeactivatedDialog open={deactivated} onClose={() => setDeactivated(false)} />
 
       <Dialog open={changelogOpen} onClose={() => setChangelogOpen(false)} maxWidth="sm" fullWidth fullScreen={!isDesktop}>
         <DialogTitle sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>

@@ -131,6 +131,20 @@ async function fetchNames(supabase, userIds) {
   return names
 }
 
+// Owner-deactivated user_ids (is_deleted on usernames). Returns an empty set if the
+// column isn't migrated yet, so the script keeps working pre-migration.
+async function fetchDeactivated(supabase, userIds) {
+  const out = new Set()
+  if (userIds.length === 0) return out
+  for (const ids of chunk(userIds, 200)) {
+    const { data, error } = await supabase
+      .from('usernames').select('user_id').eq('is_deleted', true).in('user_id', ids)
+    if (error) return new Set()   // column missing / query failed → enforce nothing
+    for (const r of data ?? []) out.add(r.user_id)
+  }
+  return out
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -162,6 +176,10 @@ async function main() {
 
   const cutoff = new Map(WINDOWS.map(w => [w.key, w.days == null ? '' : ymd(new Date(now.getTime() - (w.days - 1) * 86400000))]))
   const names  = await fetchNames(supabase, [...byUser.keys()])
+
+  // Drop owner-deactivated accounts so they never make it onto a stored board.
+  const deactivated = await fetchDeactivated(supabase, [...byUser.keys()])
+  for (const id of deactivated) byUser.delete(id)
 
   // Per user: window tallies + all-time streak, from their sorted graded picks.
   const perUser = new Map()

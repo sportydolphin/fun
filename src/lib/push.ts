@@ -4,6 +4,7 @@
 // can reach the user's devices.
 
 import { supabase } from './supabase'
+import { ensureActiveUser } from './userActive'
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined
 
@@ -53,6 +54,7 @@ export async function isSubscribed(): Promise<boolean> {
 export async function enablePush(userId: string): Promise<string | null> {
   if (!pushSupported())   return 'Notifications aren’t supported on this browser.'
   if (!VAPID_PUBLIC_KEY)  return 'Push isn’t set up yet (missing VAPID key).'
+  if (!(await ensureActiveUser(userId))) return 'Your account has been deactivated.'
 
   const permission = await Notification.requestPermission()
   if (permission !== 'granted') {

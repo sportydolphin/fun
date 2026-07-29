@@ -5,6 +5,8 @@
 // history. See scripts/create_survivor_picks.sql.
 
 import { supabase } from '../../lib/supabase'
+import { fetchDeactivatedUserIds } from '../../lib/usernames'
+import { ensureActiveUser } from '../../lib/userActive'
 import { fetchStreakLeaders } from '../api'
 import { fetchTodayGames } from './Predictor'
 
@@ -118,7 +120,7 @@ export async function fetchSurvivorLeaderboard(myUserId: string | null, limit = 
     .order('longest_streak', { ascending: false })
     .order('current_streak', { ascending: false })
     .limit(limit)
-  const rows = data ?? []
+  let rows = data ?? []
   if (!rows.length) return []
 
   const ids = rows.map(r => r.user_id)
@@ -127,6 +129,10 @@ export async function fetchSurvivorLeaderboard(myUserId: string | null, limit = 
     const { data: names } = await supabase.from('usernames').select('user_id, username').in('user_id', ids)
     for (const n of names ?? []) nameByUser[n.user_id] = n.username
   } catch { /* names are best-effort */ }
+
+  // Drop owner-deactivated accounts from the public board.
+  const deactivated = await fetchDeactivatedUserIds(ids)
+  rows = rows.filter(r => !deactivated.has(r.user_id))
 
   return rows.map((r, i) => ({
     userId:        r.user_id,
@@ -175,6 +181,7 @@ export async function saveMyPick(
   date: string,
   player: { playerId: number; playerName: string; teamId: number },
 ): Promise<string | null> {
+  if (!(await ensureActiveUser(userId))) return 'Your account has been deactivated.'
   const { error } = await supabase.from('survivor_picks').upsert(
     {
       user_id:     userId,

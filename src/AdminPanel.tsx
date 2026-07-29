@@ -3,16 +3,16 @@ import {
   Dialog, DialogTitle, DialogContent, IconButton,
   Box, Typography, Divider, CircularProgress, Button,
 } from '@mui/material'
-import { Close, Lock } from '@mui/icons-material'
+import { Close, Lock, Check, Undo, DeleteOutline, MailOutline, PersonOffOutlined, RestartAlt, ContentCopy } from '@mui/icons-material'
 import { supabase } from './lib/supabase'
 import { isSubscribed } from './lib/push'
+import { fetchFeedback, setFeedbackHandled, deleteFeedback, FeedbackRow } from './lib/feedback'
+import { fetchAdminUsers, setUserDeleted, AdminUser } from './lib/adminUsers'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface PayrollRow { updated_at: string; season: number }
-interface StatRow    { display_name: string; accuracy_pct: number; correct_predictions: number; total_predictions: number }
 interface AppTile     { label: string; emoji: string; desc: string; path: string; color: string }
-interface UserRow    { user_id: string; username: string; created_at: string }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -194,6 +194,398 @@ function TestNotificationSection({ open }: { open: boolean }) {
   )
 }
 
+// ─── Feedback section ─────────────────────────────────────────────────────────
+// The owner's queue for footer "Send feedback" submissions. RLS scopes reads/edits
+// to the owner (scripts/create_feedback.sql), so this only ever shows data to them.
+
+function FeedbackRowItem({ row, busy, onToggleHandled, onDelete }: {
+  row:             FeedbackRow
+  busy:            boolean
+  onToggleHandled: () => void
+  onDelete:        () => void
+}) {
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const handled = row.handled_at != null
+
+  return (
+    <Box sx={{ px: 1.5, py: 1.1, opacity: handled ? 0.55 : 1 }}>
+      {/* Message */}
+      <Typography sx={{
+        fontSize: '0.82rem', lineHeight: 1.4, whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+        textDecoration: handled ? 'line-through' : 'none',
+      }}>
+        {row.message}
+      </Typography>
+
+      {/* Meta: when · where · who */}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, mt: 0.5 }}>
+        <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', whiteSpace: 'nowrap' }}>
+          {timeAgo(row.created_at)}
+        </Typography>
+        {row.path && (
+          <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+            {row.path}
+          </Typography>
+        )}
+        {row.email && (
+          <Box
+            component="a" href={`mailto:${row.email}?subject=${encodeURIComponent('Re: your feedback on sportydolphin.fun')}`}
+            sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3, fontSize: '0.66rem', color: 'primary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+          >
+            <MailOutline sx={{ fontSize: '0.8rem' }} />
+            {row.email}
+          </Box>
+        )}
+      </Box>
+
+      {/* Actions */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.75 }}>
+        <Button
+          size="small" variant="text" disabled={busy}
+          onClick={onToggleHandled}
+          startIcon={handled ? <Undo sx={{ fontSize: '0.9rem' }} /> : <Check sx={{ fontSize: '0.9rem' }} />}
+          sx={{ textTransform: 'none', fontSize: '0.7rem', fontWeight: 700, minWidth: 0, py: 0.2 }}
+        >
+          {handled ? 'Reopen' : 'Mark handled'}
+        </Button>
+        <Box sx={{ ml: 'auto' }}>
+          {confirmDelete ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Button size="small" variant="text" disabled={busy} onClick={onDelete}
+                sx={{ textTransform: 'none', fontSize: '0.7rem', fontWeight: 800, color: 'error.main', minWidth: 0, py: 0.2 }}>
+                Delete?
+              </Button>
+              <Button size="small" variant="text" onClick={() => setConfirmDelete(false)}
+                sx={{ textTransform: 'none', fontSize: '0.7rem', color: 'text.disabled', minWidth: 0, py: 0.2 }}>
+                Cancel
+              </Button>
+            </Box>
+          ) : (
+            <IconButton size="small" disabled={busy} onClick={() => setConfirmDelete(true)} sx={{ color: 'text.disabled' }}>
+              <DeleteOutline sx={{ fontSize: '1rem' }} />
+            </IconButton>
+          )}
+        </Box>
+      </Box>
+    </Box>
+  )
+}
+
+function FeedbackModal({ open, onClose, onChanged }: {
+  open:       boolean
+  onClose:    () => void
+  onChanged?: () => void   // fired after a mark/delete so the admin panel's count refreshes
+}) {
+  const [rows, setRows]       = useState<FeedbackRow[] | null>(null)
+  const [busyId, setBusyId]   = useState<string | null>(null)
+  const [showHandled, setShowHandled] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setRows(null)
+    setShowHandled(false)
+    fetchFeedback().then(setRows).catch(() => setRows([]))
+  }, [open])
+
+  const toggleHandled = async (row: FeedbackRow) => {
+    const next = row.handled_at == null
+    setBusyId(row.id)
+    const ok = await setFeedbackHandled(row.id, next)
+    if (ok) {
+      setRows(prev => prev?.map(r => r.id === row.id ? { ...r, handled_at: next ? new Date().toISOString() : null } : r) ?? null)
+      onChanged?.()
+    }
+    setBusyId(null)
+  }
+
+  const remove = async (row: FeedbackRow) => {
+    setBusyId(row.id)
+    const ok = await deleteFeedback(row.id)
+    if (ok) { setRows(prev => prev?.filter(r => r.id !== row.id) ?? null); onChanged?.() }
+    setBusyId(null)
+  }
+
+  const openCount    = rows?.filter(r => r.handled_at == null).length ?? 0
+  const visible      = (rows ?? []).filter(r => showHandled || r.handled_at == null)
+  const handledCount = (rows?.length ?? 0) - openCount
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth
+      PaperProps={{ sx: { borderRadius: 3 } }}>
+
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography sx={{ fontSize: '1rem', fontWeight: 800 }}>📮 Feedback</Typography>
+          {rows && openCount > 0 && (
+            <Box sx={{ px: 1, py: 0.2, borderRadius: 999, bgcolor: 'primary.main' }}>
+              <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#fff', letterSpacing: 0.5 }}>
+                {openCount} NEW
+              </Typography>
+            </Box>
+          )}
+        </Box>
+        <IconButton size="small" onClick={onClose} sx={{ color: 'text.secondary' }}>
+          <Close sx={{ fontSize: '1.1rem' }} />
+        </IconButton>
+      </DialogTitle>
+
+      <Divider />
+
+      <DialogContent sx={{ p: 0 }}>
+        {rows === null ? (
+          <Box sx={{ textAlign: 'center', py: 5 }}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : rows.length === 0 ? (
+          <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
+            <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>
+              No feedback yet.
+            </Typography>
+          </Box>
+        ) : (
+          <>
+            {visible.length === 0 ? (
+              <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
+                <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>
+                  All caught up — nothing new.
+                </Typography>
+              </Box>
+            ) : visible.map((r, i) => (
+              <React.Fragment key={r.id}>
+                {i > 0 && <Divider />}
+                <FeedbackRowItem
+                  row={r}
+                  busy={busyId === r.id}
+                  onToggleHandled={() => toggleHandled(r)}
+                  onDelete={() => remove(r)}
+                />
+              </React.Fragment>
+            ))}
+            {handledCount > 0 && (
+              <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+                <Button fullWidth size="small" variant="text" onClick={() => setShowHandled(s => !s)}
+                  sx={{ textTransform: 'none', fontSize: '0.72rem', color: 'text.disabled', py: 0.8 }}>
+                  {showHandled ? 'Hide handled' : `Show handled (${handledCount})`}
+                </Button>
+              </Box>
+            )}
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── Users section ────────────────────────────────────────────────────────────
+// Roster popup: every registered user with their client-readable details + a
+// reversible soft-delete (deactivate). RLS scopes the toggle to the owner.
+
+function UserRowItem({ u, busy, onToggleDeleted }: {
+  u:               AdminUser
+  busy:            boolean
+  onToggleDeleted: () => void
+}) {
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false)
+  const hasStats = u.predictions != null && u.predictions > 0
+
+  const copyId = () => { navigator.clipboard?.writeText(u.user_id).catch(() => {}) }
+
+  return (
+    <Box sx={{ px: 1.5, py: 1.1, opacity: u.is_deleted ? 0.55 : 1 }}>
+      {/* Name + status */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+        <Typography sx={{
+          fontSize: '0.9rem', fontWeight: 700, wordBreak: 'break-word',
+          textDecoration: u.is_deleted ? 'line-through' : 'none',
+        }}>
+          {u.username}
+        </Typography>
+        {u.is_deleted && (
+          <Box sx={{ px: 0.75, py: 0.15, borderRadius: 999, bgcolor: 'error.main', opacity: 0.85 }}>
+            <Typography sx={{ fontSize: '0.55rem', fontWeight: 800, color: '#fff', letterSpacing: 0.5 }}>
+              DEACTIVATED
+            </Typography>
+          </Box>
+        )}
+      </Box>
+
+      {/* Details */}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, mt: 0.4 }}>
+        <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', whiteSpace: 'nowrap' }}>
+          Joined {timeAgo(u.created_at)}
+        </Typography>
+        {hasStats ? (
+          <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>
+            {u.correct}/{u.predictions} picks · {u.accuracyPct}%
+          </Typography>
+        ) : (
+          <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled' }}>No predictions</Typography>
+        )}
+      </Box>
+
+      {/* User id + copy */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, mt: 0.3 }}>
+        <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+          {u.user_id}
+        </Typography>
+        <IconButton size="small" onClick={copyId} sx={{ p: 0.2, color: 'text.disabled' }}>
+          <ContentCopy sx={{ fontSize: '0.7rem' }} />
+        </IconButton>
+      </Box>
+
+      {/* Action */}
+      <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.6 }}>
+        {u.is_deleted ? (
+          <Button
+            size="small" variant="text" disabled={busy} onClick={onToggleDeleted}
+            startIcon={<RestartAlt sx={{ fontSize: '0.9rem' }} />}
+            sx={{ textTransform: 'none', fontSize: '0.7rem', fontWeight: 700, minWidth: 0, py: 0.2 }}
+          >
+            Restore
+          </Button>
+        ) : confirmDeactivate ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Button size="small" variant="text" disabled={busy}
+              onClick={() => { onToggleDeleted(); setConfirmDeactivate(false) }}
+              sx={{ textTransform: 'none', fontSize: '0.7rem', fontWeight: 800, color: 'error.main', minWidth: 0, py: 0.2 }}>
+              Deactivate?
+            </Button>
+            <Button size="small" variant="text" onClick={() => setConfirmDeactivate(false)}
+              sx={{ textTransform: 'none', fontSize: '0.7rem', color: 'text.disabled', minWidth: 0, py: 0.2 }}>
+              Cancel
+            </Button>
+          </Box>
+        ) : (
+          <Button
+            size="small" variant="text" disabled={busy} onClick={() => setConfirmDeactivate(true)}
+            startIcon={<PersonOffOutlined sx={{ fontSize: '0.9rem' }} />}
+            sx={{ textTransform: 'none', fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', minWidth: 0, py: 0.2 }}
+          >
+            Deactivate
+          </Button>
+        )}
+      </Box>
+    </Box>
+  )
+}
+
+function UserModal({ open, onClose, onChanged }: {
+  open:       boolean
+  onClose:    () => void
+  onChanged?: () => void
+}) {
+  const [users, setUsers]   = useState<AdminUser[] | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [query, setQuery]   = useState('')
+  const [showDeleted, setShowDeleted] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setUsers(null); setQuery(''); setShowDeleted(false)
+    fetchAdminUsers().then(setUsers).catch(() => setUsers([]))
+  }, [open])
+
+  const toggleDeleted = async (u: AdminUser) => {
+    const next = !u.is_deleted
+    setBusyId(u.user_id)
+    const ok = await setUserDeleted(u.user_id, next)
+    if (ok) {
+      setUsers(prev => prev?.map(x => x.user_id === u.user_id
+        ? { ...x, is_deleted: next, deleted_at: next ? new Date().toISOString() : null } : x) ?? null)
+      onChanged?.()
+    }
+    setBusyId(null)
+  }
+
+  const activeCount = users?.filter(u => !u.is_deleted).length ?? 0
+  const deletedCount = (users?.length ?? 0) - activeCount
+  const q = query.trim().toLowerCase()
+  const visible = (users ?? [])
+    .filter(u => showDeleted || !u.is_deleted)
+    .filter(u => !q || u.username.toLowerCase().includes(q) || u.user_id.toLowerCase().includes(q))
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth
+      PaperProps={{ sx: { borderRadius: 3 } }}>
+
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography sx={{ fontSize: '1rem', fontWeight: 800 }}>👥 Users</Typography>
+          {users && (
+            <Box sx={{ px: 1, py: 0.2, borderRadius: 999, bgcolor: 'action.selected' }}>
+              <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.5 }}>
+                {activeCount}
+              </Typography>
+            </Box>
+          )}
+        </Box>
+        <IconButton size="small" onClick={onClose} sx={{ color: 'text.secondary' }}>
+          <Close sx={{ fontSize: '1.1rem' }} />
+        </IconButton>
+      </DialogTitle>
+
+      <Divider />
+
+      <DialogContent sx={{ p: 0 }}>
+        {users === null ? (
+          <Box sx={{ textAlign: 'center', py: 5 }}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : users.length === 0 ? (
+          <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
+            <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>No users yet.</Typography>
+          </Box>
+        ) : (
+          <>
+            {/* Search */}
+            <Box sx={{ px: 1.5, py: 1.25, borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Box
+                component="input"
+                placeholder="Search username or id…"
+                value={query}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+                sx={{
+                  width: '100%', boxSizing: 'border-box', px: 1.25, py: 0.9,
+                  fontSize: '0.82rem', color: 'text.primary',
+                  bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider',
+                  borderRadius: 1.5, outline: 'none',
+                  '&:focus': { borderColor: 'primary.main' },
+                }}
+              />
+            </Box>
+
+            <Box sx={{ maxHeight: 380, overflowY: 'auto' }}>
+              {visible.length === 0 ? (
+                <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
+                  <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>No matches.</Typography>
+                </Box>
+              ) : visible.map((u, i) => (
+                <React.Fragment key={u.user_id}>
+                  {i > 0 && <Divider />}
+                  <UserRowItem
+                    u={u}
+                    busy={busyId === u.user_id}
+                    onToggleDeleted={() => toggleDeleted(u)}
+                  />
+                </React.Fragment>
+              ))}
+            </Box>
+
+            {deletedCount > 0 && (
+              <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+                <Button fullWidth size="small" variant="text" onClick={() => setShowDeleted(s => !s)}
+                  sx={{ textTransform: 'none', fontSize: '0.72rem', color: 'text.disabled', py: 0.8 }}>
+                  {showDeleted ? 'Hide deactivated' : `Show deactivated (${deletedCount})`}
+                </Button>
+              </Box>
+            )}
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ─── Admin Panel ──────────────────────────────────────────────────────────────
 
 export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
@@ -205,9 +597,40 @@ export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
 }) {
   const [payrolls, setPayrolls]   = useState<PayrollRow[] | null>(null)
   const [predCount, setPredCount] = useState<number | null>(null)
-  const [botStats, setBotStats]   = useState<StatRow[] | null>(null)
-  const [users, setUsers]         = useState<UserRow[] | null>(null)
+  const [userCount, setUserCount] = useState<number | null>(null)
+  const [usersOpen, setUsersOpen] = useState(false)
+  const [feedbackNew, setFeedbackNew]   = useState<number | null>(null)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
   const [loading, setLoading]     = useState(false)
+
+  // Summary counts for the panel's clickable rows. Split out so the modals can refresh
+  // just their own count after an action, without re-running the whole panel load.
+  const loadFeedbackCount = React.useCallback(() => {
+    supabase.from('feedback')
+      .select('*', { count: 'exact', head: true })
+      .is('handled_at', null)
+      .then(({ count }) => setFeedbackNew(count ?? 0))
+  }, [])
+
+  // Active (non-deactivated) users. Filters out is_deleted, falling back to a plain
+  // count if that column isn't migrated yet.
+  const loadUserCount = React.useCallback(async () => {
+    const r = await supabase.from('usernames')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_deleted', false)
+    if (r.error) {
+      const all = await supabase.from('usernames').select('*', { count: 'exact', head: true })
+      setUserCount(all.count ?? 0)
+    } else {
+      setUserCount(r.count ?? 0)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    loadFeedbackCount()
+    loadUserCount()
+  }, [open, loadFeedbackCount, loadUserCount])
 
   useEffect(() => {
     if (!open) return
@@ -223,32 +646,16 @@ export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
       // Total prediction count
       supabase.from('game_predictions')
         .select('*', { count: 'exact', head: true }),
-
-      // Bot + user leaderboard stats
-      supabase.from('prediction_stats')
-        .select('display_name, accuracy_pct, correct_predictions, total_predictions')
-        .order('accuracy_pct', { ascending: false })
-        .limit(10),
-
-      // All registered users. `usernames` is public-read and every signed-up user
-      // gets a row at signup, so it's the client-visible roster (the auth.users
-      // table itself needs the service role, which the browser doesn't have).
-      // Bots have no username row, so this is real humans only.
-      supabase.from('usernames')
-        .select('user_id, username, created_at')
-        .order('created_at', { ascending: false })
-        .limit(500),
-    ]).then(([pr, pc, bs, us]) => {
+    ]).then(([pr, pc]) => {
       setPayrolls((pr.data ?? []) as PayrollRow[])
       setPredCount(pc.count ?? 0)
-      setBotStats((bs.data ?? []) as StatRow[])
-      setUsers((us.data ?? []) as UserRow[])
     }).finally(() => setLoading(false))
   }, [open])
 
   const latestPayroll = payrolls?.[0]
 
   return (
+    <>
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth
       PaperProps={{ sx: { borderRadius: 3 } }}>
 
@@ -274,6 +681,32 @@ export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
 
         {/* ── Test notification ──────────────────────────────────────── */}
         <TestNotificationSection open={open} />
+
+        {/* ── User feedback — opens the full queue in its own popup ───── */}
+        <Section title="Feedback">
+          <Box
+            onClick={() => setFeedbackOpen(true)}
+            sx={{
+              display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: 1.1,
+              cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' },
+            }}
+          >
+            <Typography sx={{ fontSize: '1rem', lineHeight: 1 }}>📮</Typography>
+            <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: 'text.primary' }}>
+              View feedback
+            </Typography>
+            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+              {feedbackNew != null && feedbackNew > 0 && (
+                <Box sx={{ px: 1, py: 0.2, borderRadius: 999, bgcolor: 'primary.main' }}>
+                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#fff', letterSpacing: 0.5 }}>
+                    {feedbackNew} NEW
+                  </Typography>
+                </Box>
+              )}
+              <Typography sx={{ fontSize: '0.9rem', color: 'text.disabled' }}>›</Typography>
+            </Box>
+          </Box>
+        </Section>
 
         {loading ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
@@ -310,56 +743,29 @@ export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
               </Box>
             </Section>
 
-            {/* ── Users ─────────────────────────────────────────────────── */}
-            <Section title={`Users${users ? ` · ${users.length}` : ''}`}>
-              {users && users.length > 0 ? (
-                <Box sx={{ maxHeight: 240, overflowY: 'auto' }}>
-                  {users.map((u, i) => (
-                    <React.Fragment key={u.user_id}>
-                      {i > 0 && <Divider />}
-                      <Box sx={{ px: 1.5 }}>
-                        <StatRow
-                          label={u.username}
-                          value={
-                            <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', whiteSpace: 'nowrap' }}>
-                              {timeAgo(u.created_at)}
-                            </Typography>
-                          }
-                        />
-                      </Box>
-                    </React.Fragment>
-                  ))}
+            {/* ── Users — opens the full roster in its own popup ─────────── */}
+            <Section title="Users">
+              <Box
+                onClick={() => setUsersOpen(true)}
+                sx={{
+                  display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: 1.1,
+                  cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' },
+                }}
+              >
+                <Typography sx={{ fontSize: '1rem', lineHeight: 1 }}>👥</Typography>
+                <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: 'text.primary' }}>
+                  Manage users
+                </Typography>
+                <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {userCount != null && (
+                    <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: 'text.secondary' }}>
+                      {userCount}
+                    </Typography>
+                  )}
+                  <Typography sx={{ fontSize: '0.9rem', color: 'text.disabled' }}>›</Typography>
                 </Box>
-              ) : (
-                <Box sx={{ px: 1.5, py: 1 }}>
-                  <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>
-                    No users yet.
-                  </Typography>
-                </Box>
-              )}
+              </Box>
             </Section>
-
-            {/* ── Leaderboard ───────────────────────────────────────────── */}
-            {botStats && botStats.length > 0 && (
-              <Section title="Prediction Leaderboard">
-                <Box sx={{ px: 1.5 }}>
-                  {botStats.map((s, i) => (
-                    <React.Fragment key={s.display_name}>
-                      {i > 0 && <Divider />}
-                      <StatRow
-                        label={s.display_name}
-                        sub={`${s.correct_predictions}/${s.total_predictions} correct`}
-                        value={
-                          <Typography sx={{ fontSize: '0.88rem', fontWeight: 700, color: s.accuracy_pct >= 55 ? 'success.main' : 'text.primary' }}>
-                            {s.accuracy_pct}%
-                          </Typography>
-                        }
-                      />
-                    </React.Fragment>
-                  ))}
-                </Box>
-              </Section>
-            )}
 
             {/* ── Quick links ───────────────────────────────────────────── */}
             <Section title="Quick Links">
@@ -372,5 +778,18 @@ export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
         )}
       </DialogContent>
     </Dialog>
+
+    <FeedbackModal
+      open={feedbackOpen}
+      onClose={() => setFeedbackOpen(false)}
+      onChanged={loadFeedbackCount}
+    />
+
+    <UserModal
+      open={usersOpen}
+      onClose={() => setUsersOpen(false)}
+      onChanged={loadUserCount}
+    />
+    </>
   )
 }

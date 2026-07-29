@@ -738,7 +738,19 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
           open={adding && (addResults.length > 0 || addSearching || (addQuery.length < 2 && suggestions.length > 0))}
           anchorEl={headerRef.current}
           placement="bottom-start"
-          style={{ zIndex: 1500, width: headerRef.current?.offsetWidth }}
+          style={{ zIndex: 1500 }}
+          modifiers={[{
+            // Match the dropdown to the header's width. Measured by popper AFTER layout
+            // (reading offsetWidth during render returns a stale/transitional value).
+            name: 'matchWidth',
+            enabled: true,
+            phase: 'beforeWrite',
+            requires: ['computeStyles'],
+            fn: ({ state }) => { state.styles.popper.width = `${state.rects.reference.width}px` },
+            effect: ({ state }) => {
+              state.elements.popper.style.width = `${(state.elements.reference as HTMLElement).offsetWidth}px`
+            },
+          }]}
         >
           <Box ref={dropdownRef} sx={{ mt: 0.5 }}>
             {/* Search results */}
@@ -799,6 +811,7 @@ export function FollowedPlayersSection({ followedPlayerIds, onUnfollow, onPlayer
                 {suggestions.map(p => (
                   <SuggestionChip
                     key={p.id}
+                    large
                     player={p}
                     alreadyFollowed={followedPlayerIds.includes(p.id)}
                     onFollow={() => { onFollow(p.id); setAdding(false); setAddQuery(''); setAddResults([]) }}

@@ -4,6 +4,8 @@ import { TEAM_ABBR, ACCENT, PREDICTION_HEATER_MIN } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 import { useScrollLock } from '../lib/useScrollLock'
 import { supabase } from '../../lib/supabase'
+import { fetchDeactivatedUserIds } from '../../lib/usernames'
+import { ensureActiveUser } from '../../lib/userActive'
 
 // ─── Supabase table setup (run once in Supabase SQL editor) ──────────────────
 //
@@ -166,6 +168,7 @@ async function fetchPersonalStats(userId: string): Promise<PersonalStats | null>
 async function upsertMyPredStats(userId: string, displayName: string, stats: PersonalStats) {
   try {
     if (stats.finalizedCount === 0) return
+    if (!(await ensureActiveUser(userId))) return
     const base = {
       user_id:             userId,
       display_name:        displayName,
@@ -222,10 +225,14 @@ async function fetchLeaderboard(myUserId: string): Promise<LeaderEntry[]> {
       }
     }
 
+    // Drop owner-deactivated accounts from the public board.
+    const deactivated = await fetchDeactivatedUserIds(userIds)
+
     // Rank by confidence-adjusted accuracy (Wilson lower bound), tie-breaking by
     // volume. Everyone stays on the board; the raw accuracy % below is unchanged
     // — only the ordering accounts for sample size.
     const ranked: LeaderEntry[] = (data ?? [])
+      .filter((row: any) => !deactivated.has(row.user_id))
       .map((row: any) => ({
         userId:        row.user_id,
         displayName:   nameByUser[row.user_id] ?? row.display_name ?? 'Anonymous',
@@ -267,7 +274,14 @@ async function fetchWindowBoard(window: 'all' | 'week' | 'month', myUserId: stri
       .eq('window_key', window)
       .limit(1)
     const entries = (data?.[0]?.data as { entries?: any[] } | undefined)?.entries ?? []
-    const ranked: LeaderEntry[] = entries.map((e: any, i: number) => ({
+
+    // The board is precomputed nightly, so a just-deactivated user can still be in it —
+    // filter them at read time too, not only in the precompute script.
+    const deactivated = await fetchDeactivatedUserIds(entries.map((e: any) => e.userId))
+
+    const ranked: LeaderEntry[] = entries
+      .filter((e: any) => !deactivated.has(e.userId))
+      .map((e: any, i: number) => ({
       userId:        e.userId,
       displayName:   e.displayName ?? 'Anonymous',
       rank:          i + 1,

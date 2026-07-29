@@ -5,6 +5,7 @@ import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBor
 import { useScrollLock } from '../lib/useScrollLock'
 import { useAuth } from '../../AuthContext'
 import { supabase } from '../../lib/supabase'
+import { ensureActiveUser } from '../../lib/userActive'
 import { PredictionStatsModal } from './PredictionStats'
 import { useDevSim } from '../dev/devSim'
 import { useDeepLink } from '../state/deepLink'
@@ -159,6 +160,7 @@ export async function loadPredsFromSb(userId: string, date: string): Promise<Rec
 }
 
 async function savePredToSb(userId: string, date: string, gamePk: number, teamId: number) {
+  if (!(await ensureActiveUser(userId))) return
   await supabase.from('game_predictions').upsert(
     { user_id: userId, game_date: date, game_pk: gamePk, predicted_team_id: teamId },
     { onConflict: 'user_id,game_pk' }

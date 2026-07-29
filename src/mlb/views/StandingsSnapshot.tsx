@@ -19,7 +19,7 @@ function fmtWcGap(gap: number): string {
   return gap > 0 ? `+${s}` : `-${s}`
 }
 
-// Playoff-odds percent for the header strip — matches the Odds board's phrasing so
+// Playoff-odds percent shown next to each team — matches the Odds board's phrasing so
 // a near-lock reads >99% and a live long shot reads <1%.
 function fmtOddsPct(p: number): string {
   const pct = p * 100
@@ -28,12 +28,19 @@ function fmtOddsPct(p: number): string {
   return `${Math.round(pct)}%`
 }
 
+// Green when a team is close to a lock, amber for a live shot, muted otherwise.
+function oddsColor(p: number): string {
+  return p >= 0.85 ? '#22c55e' : p >= 0.25 ? '#eab308' : 'text.secondary'
+}
+
 // ─── One standings row ──────────────────────────────────────────────────────────
 
-function SnapshotRow({ team, rightLabel, rightColor, isMine, isLast, showSep, onTeamClick }: {
+function SnapshotRow({ team, rightLabel, rightColor, oddsLabel, oddsClr, isMine, isLast, showSep, onTeamClick }: {
   team:        StandingsTeamRecord
   rightLabel:  string
   rightColor:  string
+  oddsLabel?:  string   // per-team playoff odds; undefined hides the column (missing precompute)
+  oddsClr?:    string
   isMine:      boolean
   isLast:      boolean
   showSep:     boolean
@@ -74,6 +81,14 @@ function SnapshotRow({ team, rightLabel, rightColor, isMine, isLast, showSep, on
         }}>
           {rightLabel}
         </Typography>
+        {oddsLabel !== undefined && (
+          <Typography sx={{
+            fontSize: '0.76rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+            minWidth: 46, textAlign: 'right', color: oddsClr ?? 'text.secondary',
+          }}>
+            {oddsLabel}
+          </Typography>
+        )}
       </Box>
       {showSep && <Box sx={{ borderBottom: '2px dashed', borderColor: `${ACCENT}66` }} />}
     </>
@@ -168,7 +183,7 @@ export function StandingsSnapshot({ followedTeamId, season, onTeamClick }: {
 }) {
   const isDark = useIsDark()
   const [divisions, setDivisions] = useState<StandingsDivision[]>([])
-  const [myOdds, setMyOdds] = useState<PlayoffOddsRow | null>(null)
+  const [odds, setOdds] = useState<Map<number, number>>(new Map())
 
   useEffect(() => {
     let cancelled = false
@@ -178,17 +193,20 @@ export function StandingsSnapshot({ followedTeamId, season, onTeamClick }: {
     return () => { cancelled = true }
   }, [season])
 
-  // Followed team's playoff odds for the header strip. Missing/stale precompute
-  // just hides the strip — no fallback, same as the Odds board.
+  // Playoff odds for every team, keyed by id, so each row can show its own number.
+  // Missing/stale precompute just leaves the map empty and the odds column drops out —
+  // no fallback, same as the Odds board.
   useEffect(() => {
     let cancelled = false
-    setMyOdds(null)
-    if (followedTeamId == null) return
+    setOdds(new Map())
     fetchPlayoffOdds(season)
-      .then(rows => { if (!cancelled) setMyOdds(rows?.find(r => r.teamId === followedTeamId) ?? null) })
+      .then((rows: PlayoffOddsRow[] | null) => {
+        if (cancelled || !rows) return
+        setOdds(new Map(rows.map(r => [r.teamId, r.makePlayoffs])))
+      })
       .catch(() => {})
     return () => { cancelled = true }
-  }, [season, followedTeamId])
+  }, [season])
 
   const view = pickView(divisions, followedTeamId)
   if (!view) return null
@@ -200,64 +218,50 @@ export function StandingsSnapshot({ followedTeamId, season, onTeamClick }: {
 
   const leagueAbbr = (id: number) => (id === 103 ? 'AL' : 'NL')
   const title    = view.kind === 'division' ? view.division.divisionName : `${leagueAbbr(view.leagueId)} Wild Card`
-  const subtitle = 'GB'
+  const hasOdds  = odds.size > 0
+
+  const colLabel = { fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled', textAlign: 'right' } as const
 
   return (
     <Box sx={{
       borderRadius: 3, border: '1px solid', borderColor: defaultBorder(isDark),
       bgcolor: 'background.paper', overflow: 'hidden',
     }}>
-      {/* Header */}
+      {/* Header — column labels mirror the row's right-aligned cells (record is unlabeled) */}
       <Box sx={{
         px: 1.5, py: 1.1, borderBottom: '1px solid', borderColor: 'divider',
-        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1,
+        display: 'flex', alignItems: 'baseline', gap: 1,
       }}>
         <Typography sx={{
+          flex: 1, minWidth: 0,
           fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase',
           letterSpacing: 1.2, color: ACCENT,
         }}>
           {title}
         </Typography>
-        <Typography sx={{
-          fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase',
-          letterSpacing: 0.5, color: 'text.disabled',
-        }}>
-          {subtitle}
-        </Typography>
+        <Box sx={{ minWidth: 44 }} />
+        <Typography sx={{ ...colLabel, minWidth: 40 }}>GB</Typography>
+        {hasOdds && <Typography sx={{ ...colLabel, minWidth: 46 }}>Odds</Typography>}
       </Box>
 
-      {/* Followed team's playoff odds — a one-line strip above the standings rows */}
-      {myOdds && (
-        <Box sx={{
-          px: 1.5, py: '6px', borderBottom: '1px solid', borderColor: 'divider',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
-          bgcolor: 'action.hover',
-        }}>
-          <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: 'text.secondary' }}>
-            Playoff odds
-          </Typography>
-          <Typography sx={{
-            fontSize: '0.74rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
-            color: myOdds.makePlayoffs >= 0.85 ? '#22c55e' : myOdds.makePlayoffs >= 0.25 ? '#eab308' : 'text.secondary',
-          }}>
-            {fmtOddsPct(myOdds.makePlayoffs)}
-          </Typography>
-        </Box>
-      )}
-
       {/* Rows */}
-      {rows.map((r, i) => (
-        <SnapshotRow
-          key={r.team.teamId}
-          team={r.team}
-          rightLabel={r.rightLabel}
-          rightColor={r.rightColor}
-          isMine={r.isMine}
-          isLast={i === rows.length - 1}
-          showSep={r.showSep}
-          onTeamClick={onTeamClick}
-        />
-      ))}
+      {rows.map((r, i) => {
+        const p = odds.get(r.team.teamId)
+        return (
+          <SnapshotRow
+            key={r.team.teamId}
+            team={r.team}
+            rightLabel={r.rightLabel}
+            rightColor={r.rightColor}
+            oddsLabel={hasOdds ? (p != null ? fmtOddsPct(p) : '–') : undefined}
+            oddsClr={p != null ? oddsColor(p) : 'text.disabled'}
+            isMine={r.isMine}
+            isLast={i === rows.length - 1}
+            showSep={r.showSep}
+            onTeamClick={onTeamClick}
+          />
+        )
+      })}
     </Box>
   )
 }

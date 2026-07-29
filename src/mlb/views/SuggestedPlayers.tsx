@@ -72,11 +72,14 @@ export async function fetchSuggestions(teamId: number, followedIds: number[]): P
 
 // ─── SuggestionChip ───────────────────────────────────────────────────────────
 
-export function SuggestionChip({ player, alreadyFollowed, onFollow, onPlayerClick }: {
+export function SuggestionChip({ player, alreadyFollowed, onFollow, onPlayerClick, large }: {
   player:          SuggestionPlayer
   alreadyFollowed: boolean
   onFollow:        () => void
   onPlayerClick?:  (id: number) => void
+  /** Full-width list row (matches the search results in the Followed-players dropdown)
+      rather than a compact chip. Bigger avatar + readable text. */
+  large?:          boolean
 }) {
   const col      = TEAM_BG[player.teamId] ?? '#444'
   // Show last name for brevity (keeps chips narrow)
@@ -88,18 +91,18 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow, onPlayerClic
       sx={{
       flexShrink: 0,
       display: 'flex', alignItems: 'center', gap: 0.75,
-      px: 1, py: 0.75, borderRadius: 2,
+      px: 1, py: large ? 0.9 : 0.75, borderRadius: 2,
       border: '1px solid',
       borderColor: player.isTeamPlayer ? `${col}40` : 'divider',
       bgcolor:     player.isTeamPlayer ? `${col}08` : 'transparent',
-      minWidth: 138,
+      minWidth: large ? 0 : 138,
       cursor: alreadyFollowed ? 'default' : 'pointer',
       transition: 'border-color 0.15s, background-color 0.15s',
       '&:hover': alreadyFollowed ? {} : { borderColor: `${col}60`, bgcolor: `${col}10` },
     }}>
       {/* Headshot */}
       <Box sx={{
-        width: 28, height: 28, borderRadius: '50%',
+        width: large ? 32 : 28, height: large ? 32 : 28, borderRadius: '50%',
         overflow: 'hidden', bgcolor: 'action.hover',
         flexShrink: 0, border: `1.5px solid ${col}40`,
       }}>
@@ -110,12 +113,13 @@ export function SuggestionChip({ player, alreadyFollowed, onFollow, onPlayerClic
       {/* Name + meta */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{
-          fontWeight: 700, fontSize: { xs: '0.7rem', sm: '0.78rem' },
+          fontWeight: 700,
+          fontSize: large ? '0.82rem' : { xs: '0.7rem', sm: '0.78rem' },
           lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {lastName}
         </Typography>
-        <Typography sx={{ fontSize: { xs: '0.56rem', sm: '0.64rem' }, color: 'text.secondary', lineHeight: 1 }}>
+        <Typography sx={{ fontSize: large ? '0.68rem' : { xs: '0.56rem', sm: '0.64rem' }, color: 'text.secondary', lineHeight: large ? 1.3 : 1 }}>
           {player.position} · {player.teamAbbr}
           {player.isTeamPlayer && (
             <Box component="span" sx={{ color: col, fontWeight: 800 }}> ★</Box>

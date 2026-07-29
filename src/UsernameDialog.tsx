@@ -6,6 +6,7 @@ import {
 import { CheckCircle, Cancel } from '@mui/icons-material'
 import { supabase } from './lib/supabase'
 import { USERNAME_RE as VALID_RE, usernameValidationMsg as validationMsg } from './lib/usernames'
+import { ensureActiveUser } from './lib/userActive'
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -65,6 +66,8 @@ export function UsernameDialog({ open, onClose, userId, currentUsername, onSaved
     if (!VALID_RE.test(input) || status === 'taken' || status === 'checking') return
     setSaving(true)
     setSaveErr('')
+
+    if (!(await ensureActiveUser(userId))) { setSaving(false); return }
 
     const { error } = await supabase
       .from('usernames')

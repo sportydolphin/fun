@@ -17,6 +17,31 @@ export async function isUsernameTaken(username: string): Promise<boolean> {
   return !!data
 }
 
+// ─── Soft-delete enforcement ────────────────────────────────────────────────────
+// The owner can deactivate accounts from the Admin panel (an `is_deleted` flag on
+// `usernames`, see scripts/add_user_admin.sql). These helpers keep deactivated users
+// off public leaderboards and out of the app. Both degrade to "nobody is deactivated"
+// if the column hasn't been migrated yet, so nothing breaks pre-migration.
+
+// The set of deactivated user_ids, optionally narrowed to a list of ids you care about
+// (leaderboards pass the ids already on the board to keep the query small).
+export async function fetchDeactivatedUserIds(userIds?: string[]): Promise<Set<string>> {
+  if (userIds && userIds.length === 0) return new Set()
+  let q = supabase.from('usernames').select('user_id').eq('is_deleted', true)
+  if (userIds) q = q.in('user_id', userIds)
+  const { data, error } = await q
+  if (error) return new Set()   // column not migrated / query failed → enforce nothing
+  return new Set((data ?? []).map(r => r.user_id as string))
+}
+
+// Whether one specific user is deactivated — used to block them at sign-in.
+export async function isUserDeactivated(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('usernames').select('is_deleted').eq('user_id', userId).maybeSingle()
+  if (error) return false
+  return !!data?.is_deleted
+}
+
 // ─── Random baseball-themed username generator ─────────────────────────────────
 // Used when a new account doesn't pick a username — combines two baseball
 // words + a number, e.g. "SluggerRocket482".

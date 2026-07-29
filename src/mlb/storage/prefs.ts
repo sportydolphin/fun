@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase'
+import { ensureActiveUser } from '../../lib/userActive'
 import type { RecentSearchItem } from './recentSearches'
 import { DEFAULT_GAME_START_LEAD_MIN } from '../../../shared/notifications'
 
@@ -21,6 +22,7 @@ export async function savePrefsToSupabase(
   followedTeamId: number | null,
   followedPlayerIds: number[],
 ) {
+  if (!(await ensureActiveUser(userId))) return
   const { error } = await supabase
     .from('user_preferences')
     .upsert({
@@ -49,6 +51,7 @@ export async function loadRecentSearchesFromSupabase(userId: string): Promise<Re
 }
 
 export async function saveRecentSearchesToSupabase(userId: string, items: RecentSearchItem[]): Promise<void> {
+  if (!(await ensureActiveUser(userId))) return
   // Upserts only recent_searches; other columns on the row are left untouched.
   const { error } = await supabase
     .from('user_preferences')
@@ -119,6 +122,7 @@ export async function loadGameStartPrefFromSupabase(userId: string): Promise<Gam
 }
 
 export async function saveGameStartPrefToSupabase(userId: string, pref: GameStartPref): Promise<void> {
+  if (!(await ensureActiveUser(userId))) return
   // Upserts only the game-start columns; other preference columns are untouched.
   const { error } = await supabase
     .from('user_preferences')
