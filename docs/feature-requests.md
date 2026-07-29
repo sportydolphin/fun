@@ -2,16 +2,15 @@
 
 > Generated from Google Tasks by `npm run tasks` (scripts/pull-tasks.mjs). Do not
 > edit by hand — edit the tasks in Google Tasks and re-run.
-> Last pulled: 2026-07-28 06:00 UTC · 9 open items.
+> Last pulled: 2026-07-29 06:03 UTC · 8 open items.
 
 ## Site todos
 
+- [ ] Mobile team card on search page needs to be much shorter, maybe even exclude team stats so user can instantly see schedule etc
+- [ ] Can scroll background when cards are open, should never be able to do thay
+- [ ] Add donation link
+- [ ] Add info explainer next to each bot on the leaderboard so users can see how the bot makes decisions
+- [ ] Default predictions should show 0 to 0 and the color bar be 50/50 instead of blank
 - [ ] Account for postponed games in scoreboard
 - [ ] Need something to indicate recent milestones
 - [ ] Sort milestones by career vs season, hitting vs pitching
-- [ ] Single game standout edge case when only one or two games have been played so far. Only show if it's an actual standout, not just the best of the day
-- [ ] Predictions header has everything overlapping on mobile
-- [ ] On mobile player page, show recent games below card, then graph, then contract
-- [ ] On trade card, show both players if it's a trade, figure out best way to do it if there are multiple players traded, cover edge cases
-- [ ] Can't click info buttons on mobile report cards
-- [ ] Team page should show game schedule, highlight game today
