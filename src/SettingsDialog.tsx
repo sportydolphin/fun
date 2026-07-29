@@ -7,6 +7,7 @@ import {
 import { Close, ChevronRight, ExpandMore, WarningAmber } from '@mui/icons-material'
 import { Team } from './mlb/types'
 import { TEAM_BG, ACCENT } from './mlb/constants'
+import { useIsDark, teamLogoBg, teamLogoSrc, teamLogoCrop } from './mlb/lib/colorUtils'
 import { fetchAllTeams } from './mlb/api'
 import { supabase } from './lib/supabase'
 import {
@@ -175,6 +176,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
   const [playerIds, setPlayerIds] = useState<number[]>([])
   const [saving, setSaving]   = useState(false)
   const [teamPickerOpen, setTeamPickerOpen] = useState(false)
+  const isDark = useIsDark()
 
   // Load team list + current preference whenever the dialog opens
   useEffect(() => {
@@ -274,14 +276,14 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
                   {selectedTeam ? (
                     <Box sx={{
                       width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
-                      bgcolor: '#fff', border: `2px solid ${bg}`,
+                      bgcolor: teamLogoBg(selectedTeam.id, isDark), border: `2px solid ${bg}`,
                       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
                     }}>
                       <Box
                         component="img"
-                        src={`https://www.mlbstatic.com/team-logos/${selectedTeam.id}.svg`}
+                        src={teamLogoSrc(selectedTeam.id, isDark)}
                         alt={selectedTeam.abbreviation}
-                        sx={{ width: 17, height: 17, objectFit: 'contain' }}
+                        sx={{ width: 17, height: 17, objectFit: 'contain', transform: teamLogoCrop(selectedTeam.id, isDark), transformOrigin: 'center' }}
                         onError={(e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.display = 'none' }}
                       />
                     </Box>
@@ -325,14 +327,14 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
                         >
                           <Box sx={{
                             width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                            bgcolor: '#fff', border: `2px solid ${bg}`,
+                            bgcolor: teamLogoBg(t.id, isDark), border: `2px solid ${bg}`,
                             display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
                           }}>
                             <Box
                               component="img"
-                              src={`https://www.mlbstatic.com/team-logos/${t.id}.svg`}
+                              src={teamLogoSrc(t.id, isDark)}
                               alt={t.abbreviation}
-                              sx={{ width: 20, height: 20, objectFit: 'contain' }}
+                              sx={{ width: 20, height: 20, objectFit: 'contain', transform: teamLogoCrop(t.id, isDark), transformOrigin: 'center' }}
                               onError={(e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.style.display = 'none' }}
                             />
                           </Box>

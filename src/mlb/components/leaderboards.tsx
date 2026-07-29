@@ -320,6 +320,7 @@ export function PlayerHeadshot({ playerId, name, size = 36, accent, highlighted,
 export function PlayerLeaderboardRowItem({ row, rank, accent, showLabel, onSelect }: {
   row: PlayerLbRow; rank: number; accent: string; showLabel: boolean; onSelect?: (id: number) => void
 }) {
+  const isDark = useIsDark()
   return (
     <Box
       onClick={onSelect ? () => onSelect(row.playerId) : undefined}
@@ -342,12 +343,12 @@ export function PlayerLeaderboardRowItem({ row, rank, accent, showLabel, onSelec
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.15 }}>
           {row.teamId > 0 && (
-            <Box sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+            <Box sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: teamLogoBg(row.teamId, isDark), display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
               <Box
                 component="img"
-                src={`https://www.mlbstatic.com/team-logos/${row.teamId}.svg`}
+                src={teamLogoSrc(row.teamId, isDark)}
                 alt={row.teamAbbr}
-                sx={{ width: 11, height: 11, objectFit: 'contain' }}
+                sx={{ width: 11, height: 11, objectFit: 'contain', transform: teamLogoCrop(row.teamId, isDark), transformOrigin: 'center' }}
                 onError={(ev: React.SyntheticEvent<HTMLImageElement>) => { ev.currentTarget.parentElement!.style.display = 'none' }}
               />
             </Box>

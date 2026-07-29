@@ -4,7 +4,7 @@ import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { RankMode, Palette, StatDef, Player, Team, TeamPlayerStat, TeamStandingInfo, StandingsDivision } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_HITTING_DEFS, TEAM_PITCHING_DEFS, HEADSHOT, TEAM_BG } from '../constants'
-import { useIsDark, accentColor, borderAlpha, fmtGB } from '../lib/colorUtils'
+import { useIsDark, accentColor, borderAlpha, fmtGB, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 import { StatGrid } from './ui'
 
 // ─── Player card inner ────────────────────────────────────────────────────────
@@ -170,6 +170,7 @@ function ordinal(n: number): string {
 
 export function TeamCardInner({ team, hittingStats, pitchingStats, palette, season, rankMode, hitLeaders, pitLeaders, large, selectedHitStats, selectedPitStats, onToggleHitStat, onTogglePitStat, standing }: TeamCardInnerProps) {
   const logoSize = large ? 160 : 72
+  const isDark = useIsDark()
 
   const wins = pitchingStats?.wins ?? hittingStats?.wins
   const losses = pitchingStats?.losses ?? hittingStats?.losses
@@ -200,16 +201,16 @@ export function TeamCardInner({ team, hittingStats, pitchingStats, palette, seas
       borderRadius: '50%',
       border: `3px solid ${palette.text}`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      bgcolor: '#fff',
+      bgcolor: teamLogoBg(team.id, isDark),
       overflow: 'hidden',
       flexShrink: 0,
     }}>
       <Box
         component="img"
-        src={`https://www.mlbstatic.com/team-logos/${team.id}.svg`}
+        src={teamLogoSrc(team.id, isDark)}
         alt={team.abbreviation}
         crossOrigin="anonymous"
-        sx={{ width: '82%', height: '82%', objectFit: 'contain' }}
+        sx={{ width: '82%', height: '82%', objectFit: 'contain', transform: teamLogoCrop(team.id, isDark), transformOrigin: 'center' }}
       />
     </Box>
   )
@@ -518,10 +519,10 @@ export function DivisionStandingsCard({
             <Box sx={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Box
                 component="img"
-                src={`https://www.mlbstatic.com/team-logos/${t.teamId}.svg`}
+                src={teamLogoSrc(t.teamId, isDark2)}
                 alt={t.abbr}
                 crossOrigin="anonymous"
-                sx={{ width: 20, height: 20, objectFit: 'contain', opacity: isHL ? 1 : 0.7 }}
+                sx={{ width: 20, height: 20, objectFit: 'contain', opacity: isHL ? 1 : 0.7, transform: teamLogoCrop(t.teamId, isDark2), transformOrigin: 'center' }}
               />
             </Box>
             {/* Name */}

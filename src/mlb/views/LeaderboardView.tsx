@@ -7,6 +7,7 @@ import { StatDef, LbFullscreenState, LeaderboardEntry } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED } from '../constants'
 import { SegControl, PillChip, pillActionSx } from '../components/ui'
 import { filterQualified } from '../lib/utils'
+import { useIsDark, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
 
 export interface LeaderboardViewProps {
   lbGroup: 'hitting' | 'pitching'
@@ -30,6 +31,7 @@ export function LeaderboardView({
 }: LeaderboardViewProps) {
   const [lbPickerAnchor, setLbPickerAnchor] = useState<HTMLElement | null>(null)
   const [lbHoverId, setLbHoverId] = useState<number | null>(null)
+  const isDark = useIsDark()
 
   const lbAllDefs = (lbGroup === 'hitting' ? HITTING_STAT_DEFS : PITCHING_STAT_DEFS).filter(d => d.leaderCategory)
   const lbFeatured = LB_FEATURED[lbGroup]
@@ -283,15 +285,15 @@ export function LeaderboardView({
                               {e.teamId > 0 && (
                                 <Box sx={{
                                   width: 16, height: 16, borderRadius: '50%',
-                                  bgcolor: '#fff',
+                                  bgcolor: teamLogoBg(e.teamId, isDark),
                                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                                   flexShrink: 0, overflow: 'hidden',
                                 }}>
                                   <Box
                                     component="img"
-                                    src={`https://www.mlbstatic.com/team-logos/${e.teamId}.svg`}
+                                    src={teamLogoSrc(e.teamId, isDark)}
                                     alt={e.teamAbbr}
-                                    sx={{ width: 12, height: 12, objectFit: 'contain' }}
+                                    sx={{ width: 12, height: 12, objectFit: 'contain', transform: teamLogoCrop(e.teamId, isDark), transformOrigin: 'center' }}
                                     onError={(ev: React.SyntheticEvent<HTMLImageElement>) => {
                                       ev.currentTarget.parentElement!.style.display = 'none'
                                     }}
