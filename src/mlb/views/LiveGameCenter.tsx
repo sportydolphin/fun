@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_BG, TEAM_ABBR, HEADSHOT } from '../constants'
 import { useIsDark, accentColor, borderAlpha, photoBorderAlpha } from '../lib/colorUtils'
+import { useScrollLock } from '../lib/useScrollLock'
 import { FinalGameSummary } from './FinalGames'
 import {
   BoxScore, parseBoxScoreData,
@@ -636,6 +637,7 @@ export function GameCenterModal({ game, onClose, onPlayerClick, onTeamClick, ini
   onTeamClick?:   (id: number) => void
   initialTab?:    'plays' | 'box'
 }) {
+  useScrollLock()
   const [data,        setData]        = useState<GameCenterData | null>(null)
   const [wp,          setWp]          = useState<WpPoint[]>([])
   const [loading,     setLoading]     = useState(true)

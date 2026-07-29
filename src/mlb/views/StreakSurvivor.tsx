@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { ACCENT, TEAM_ABBR, TEAM_NICKNAME } from '../constants'
 import { useIsDark, highlightColor, defaultBorder } from '../lib/colorUtils'
+import { useScrollLock } from '../lib/useScrollLock'
 import { useAuth } from '../../AuthContext'
 import { searchPlayers } from '../api'
 import { Player } from '../types'
@@ -119,6 +120,7 @@ function LeaderRow({ entry }: { entry: SurvivorLeaderRow }) {
 }
 
 function SurvivorLeaderboardModal({ userId, onClose }: { userId: string | null; onClose: () => void }) {
+  useScrollLock()
   const isDark = useIsDark()
   const [rows, setRows] = useState<SurvivorLeaderRow[] | null>(null)
 

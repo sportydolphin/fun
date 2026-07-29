@@ -7,6 +7,7 @@ import { SegControl } from './index'
 import { TREND_HIT_DEFS, TREND_PIT_DEFS } from '../trendDefs'
 import { RollingWindowChart } from './RollingWindowChart'
 import { fetchLeagueStatsBySeason, tooltipAnchorSx } from './trendChartUtils'
+import { useScrollLock } from '../lib/useScrollLock'
 
 export { TREND_HIT_DEFS, TREND_PIT_DEFS } from '../trendDefs'
 
@@ -49,6 +50,7 @@ export function PlayerTrendsChart({ splits, isPitcher, isTwoWay, gameLog, season
   const [rangeStart, setRangeStart] = useState<number | null>(null)
   const [rangeEnd, setRangeEnd] = useState<number | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
+  useScrollLock(isFullscreen)   // freeze page scroll behind the fullscreen chart overlay
 
   const [leagueAvgPts, setLeagueAvgPts] = useState<Map<number, number>>(new Map())
 

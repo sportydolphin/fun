@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { Box, Typography, Tooltip, CircularProgress, IconButton } from '@mui/material'
 import { OpenInFull, Close } from '@mui/icons-material'
 import { InfoTip } from './ui'
 import { ACCENT, TEAM_BG, HEADSHOT } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBorder, photoBorderAlpha } from '../lib/colorUtils'
+import { useScrollLock } from '../lib/useScrollLock'
 
 // ─── Leaderboard row model — shared by every Report Card board ───────────────
 
@@ -192,12 +193,7 @@ export function LeaderboardModal({ open, onClose, icon, title, subtitle, accent,
   onSelectTeam?: (id: number) => void
 }) {
   // Lock background scroll while a board is fullscreened
-  useEffect(() => {
-    if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
-  }, [open])
+  useScrollLock(open)
 
   if (!open) return null
   return (
@@ -443,12 +439,7 @@ export function PlayerLeaderboardModal({ open, onClose, icon, title, subtitle, a
   rows: PlayerLbRow[]
   onSelectPlayer?: (id: number) => void
 }) {
-  useEffect(() => {
-    if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
-  }, [open])
+  useScrollLock(open)
 
   if (!open) return null
   return (

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
 import { ACCENT } from '../constants'
 import { useIsDark, highlightColor, defaultBorder } from '../lib/colorUtils'
+import { useScrollLock } from '../lib/useScrollLock'
 import { fetchMilestoneData, MilestoneItem } from '../api'
 import { useDeepLink } from '../state/deepLink'
 import { TeamLogo } from './Standings'
@@ -243,6 +244,7 @@ function MilestoneModal({ items, reached, liveTeamIds, onClose, onPlayerClick }:
   onClose: () => void
   onPlayerClick?: (id: number) => void
 }) {
+  useScrollLock()
   const isDark = useIsDark()
   // Open on whichever side has content — if there are no live chases (offseason), lead
   // with the reached archive instead of an empty Chasing tab.

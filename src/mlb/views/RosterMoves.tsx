@@ -4,6 +4,7 @@ import { Close, KeyboardArrowDown } from '@mui/icons-material'
 import { fetchRosterMoves, RosterMove } from '../api'
 import { CURRENT_SEASON, ACCENT, TEAM_ABBR } from '../constants'
 import { useIsDark, defaultBorder, ringColor } from '../lib/colorUtils'
+import { useScrollLock } from '../lib/useScrollLock'
 import { TeamLogo, PlayerHeadshot } from '../components/leaderboards'
 import { getHomeOverlay, clearOverlayIf, stampOverlay } from '../state/homeOverlay'
 
@@ -271,13 +272,8 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
   const [filterTeam, setFilterTeam]       = useState<number | null>(null)
   const [collapsedDays, setCollapsedDays] = useState<Set<string>>(new Set())
 
-  // Lock background scroll while fullscreened (same pattern as LeaderboardModal)
-  useEffect(() => {
-    if (!open) return
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = prev }
-  }, [open])
+  // Lock background scroll while fullscreened
+  useScrollLock(open)
 
   if (!open) return null
 

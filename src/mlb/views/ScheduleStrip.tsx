@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback, useLayoutEffe
 import { Box, Typography, useTheme } from '@mui/material'
 import { TEAM_ABBR, ACCENT } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
+import { useScrollLock } from '../lib/useScrollLock'
 import { FinalGameSummary } from './FinalGames'
 import { GamePreviewModal } from './GamePreview'
 import { GameCenterModal } from './LiveGameCenter'
@@ -368,6 +369,7 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
   onTeamClick?:   (id: number) => void
   onClose:        () => void
 }) {
+  useScrollLock()
   const theme   = useTheme()
   const paperBg = theme.palette.background.paper
 

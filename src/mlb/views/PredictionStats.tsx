@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
 import { TEAM_ABBR, ACCENT, PREDICTION_HEATER_MIN } from '../constants'
 import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop } from '../lib/colorUtils'
+import { useScrollLock } from '../lib/useScrollLock'
 import { supabase } from '../../lib/supabase'
 
 // ─── Supabase table setup (run once in Supabase SQL editor) ──────────────────
@@ -635,6 +636,8 @@ export function PredictionStatsModal({ open, userId, displayName, onClose }: {
       : fetchWindowBoard(boardWindow, userId)
     load.then(setLeaders).finally(() => setLbLoading(false))
   }, [open, tab, userId, boardWindow])
+
+  useScrollLock(open)
 
   if (!open) return null
 
