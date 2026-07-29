@@ -11,6 +11,8 @@ import { PENDING_USERNAME_PREFIX } from './AuthContext'
 import { AdminPanel } from './AdminPanel'
 import { UsernameDialog } from './UsernameDialog'
 import { SettingsDialog } from './SettingsDialog'
+import { SiteFooter } from './SiteFooter'
+import { FeedbackDialog } from './FeedbackDialog'
 import { NotificationBell } from './NotificationBell'
 import { supabase } from './lib/supabase'
 import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from './lib/usernames'
@@ -175,6 +177,7 @@ function AppInner() {
   })
   const [accountOpen,      setAccountOpen]      = useState(false)
   const [changelogOpen,    setChangelogOpen]    = useState(false)
+  const [feedbackOpen,     setFeedbackOpen]     = useState(false)
   const [viewAllVersion,   setViewAllVersion]   = useState<string | null>(null)
   const [adminOpen,        setAdminOpen]        = useState(false)
   const [usernameOpen,     setUsernameOpen]     = useState(false)
@@ -346,7 +349,8 @@ function AppInner() {
             </IconButton>
           )}
 
-          {/* Brand name + version badge — hidden while mobile search is expanded */}
+          {/* Brand name — hidden while mobile search is expanded. Version + What's
+              new now live in the site footer. */}
           <Box sx={{
             flex: 1, minWidth: 0, display: mobileSearchExpanded && !isDesktop ? 'none' : 'flex',
             alignItems: 'baseline', gap: 0.75,
@@ -361,21 +365,6 @@ function AppInner() {
             >
               sportydolphin.fun
             </Typography>
-            <Tooltip title="What's new">
-              <Box
-                onClick={() => setChangelogOpen(true)}
-                sx={{
-                  flexShrink: 0, cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
-                  fontSize: '0.6rem', fontWeight: 700, lineHeight: 1.4,
-                  color: 'text.disabled', border: '1px solid', borderColor: 'divider',
-                  borderRadius: 999, px: 0.65, py: '1px',
-                  transition: 'color 0.15s, border-color 0.15s',
-                  '&:hover': { color: ACCENT, borderColor: ACCENT },
-                }}
-              >
-                v{APP_VERSION}
-              </Box>
-            </Tooltip>
           </Box>
 
           {/* Toolbar search — desktop: always visible when MLB loaded; mobile: expands on tap */}
@@ -725,6 +714,18 @@ function AppInner() {
           </Suspense>
         )}
       </Box>
+
+      <SiteFooter
+        onOpenChangelog={() => setChangelogOpen(true)}
+        onOpenFeedback={() => setFeedbackOpen(true)}
+      />
+
+      <FeedbackDialog
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        userId={user?.id ?? null}
+        userEmail={user?.email ?? null}
+      />
 
       <AdminPanel
         open={adminOpen}
