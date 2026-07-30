@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react'
 import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Tooltip, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, List, ListItemButton, Divider } from '@mui/material'
-import { Brightness4, Brightness7, AccountCircle, Search, Close, Lock } from '@mui/icons-material'
+import { Brightness4, Brightness7, AccountCircle, Search, Close } from '@mui/icons-material'
 import { useSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import type { PlayerBridgeItem, TeamBridgeItem, ToolbarSuggestion, RecentSearchItem } from './mlb/state/SearchBridgeContext'
 import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT, DESKTOP_ZOOM } from './mlb/constants'
@@ -400,40 +400,32 @@ function AppInner() {
               sportydolphin.fun
             </Typography>
 
-            {/* League switcher — jumps between the two top-level sections. Admin-only:
-                WPBL is an exclusive, not-yet-public feature, so the entry point renders
-                only for the site owner. The lock badge + tooltip are the reminder that
-                it's gated (the /wpbl route itself is still reachable by direct URL). */}
-            {isAdmin && (
-              <Tooltip title="Admin-only — WPBL is exclusive to you, not public yet">
-                <Box sx={{
-                  display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0,
-                  pl: '5px', pr: '2px', py: '2px', borderRadius: 999,
-                  border: '1px solid', borderColor: `${ACCENT}55`, bgcolor: `${ACCENT}14`,
-                }}>
-                  <Lock sx={{ fontSize: '0.72rem', color: ACCENT, flexShrink: 0 }} />
-                  {[{ label: 'MLB', to: '/mlb' }, { label: 'WPBL', to: '/wpbl' }].map(seg => {
-                    const active = path === seg.to
-                    return (
-                      <Box
-                        key={seg.to}
-                        onClick={() => navigate(seg.to)}
-                        sx={{
-                          px: 1, py: '3px', borderRadius: 999, cursor: 'pointer', userSelect: 'none',
-                          fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.3, lineHeight: 1,
-                          color: active ? '#fff' : 'text.secondary',
-                          bgcolor: active ? ACCENT : 'transparent',
-                          transition: 'background-color 0.15s, color 0.15s',
-                          '&:hover': { bgcolor: active ? ACCENT : 'action.hover' },
-                        }}
-                      >
-                        {seg.label}
-                      </Box>
-                    )
-                  })}
-                </Box>
-              </Tooltip>
-            )}
+            {/* League switcher — jumps between the two top-level sections (MLB | WPBL). */}
+            <Box sx={{
+              display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0,
+              p: '2px', borderRadius: 999,
+              border: '1px solid', borderColor: `${ACCENT}55`, bgcolor: `${ACCENT}14`,
+            }}>
+              {[{ label: 'MLB', to: '/mlb' }, { label: 'WPBL', to: '/wpbl' }].map(seg => {
+                const active = path === seg.to
+                return (
+                  <Box
+                    key={seg.to}
+                    onClick={() => navigate(seg.to)}
+                    sx={{
+                      px: 1, py: '3px', borderRadius: 999, cursor: 'pointer', userSelect: 'none',
+                      fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.3, lineHeight: 1,
+                      color: active ? '#fff' : 'text.secondary',
+                      bgcolor: active ? ACCENT : 'transparent',
+                      transition: 'background-color 0.15s, color 0.15s',
+                      '&:hover': { bgcolor: active ? ACCENT : 'action.hover' },
+                    }}
+                  >
+                    {seg.label}
+                  </Box>
+                )
+              })}
+            </Box>
           </Box>
 
           {/* Toolbar search — desktop: always visible when MLB loaded; mobile: expands on tap */}
@@ -792,6 +784,7 @@ function AppInner() {
       <SiteFooter
         onOpenChangelog={() => setChangelogOpen(true)}
         onOpenFeedback={() => setFeedbackOpen(true)}
+        isWpbl={path === '/wpbl'}
       />
 
       <FeedbackDialog

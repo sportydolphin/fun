@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.22.0'
+export const APP_VERSION = '1.23.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,17 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.23.0',
+    date:    '2026-07-30',
+    title:   'The Women\'s Pro Baseball League joins the site',
+    changes: [
+      {
+        short: 'New Women\'s Pro Baseball League section',
+        full:  'There is a new section for the Women\'s Pro Baseball League, reached from the MLB and WPBL switch in the top bar. It covers the league\'s first 2026 season with the schedule, scores, standings, teams, rosters, and player pages. The first games are August 1.',
+      },
+    ],
+  },
   {
     version: '1.22.0',
     date:    '2026-07-28',

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
+import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblTeams, fetchWpblSchedule, fetchWpblRoster, computeStandings } from './api'
-import { WPBL_ACCENT, wpblColor, wpblFullName } from './constants'
+import { WPBL_ACCENT, wpblAccent, wpblFullName } from './constants'
+import { SegNav, SectionLabel, TeamBadge, useWpblDark } from './ui'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import GameEntryModal from './GameEntry'
 import GameDetailModal from './GameDetail'
@@ -21,21 +22,6 @@ const NAV: { key: WpblView; label: string }[] = [
 ]
 
 // ─── Shared bits ──────────────────────────────────────────────────────────────
-
-function TeamBadge({ team, size = 34 }: { team: WpblTeam; size?: number }) {
-  const color = wpblColor(team.id)
-  return (
-    <Box sx={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
-      bgcolor: '#fff', border: `2px solid ${color}`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-    }}>
-      {team.logo_url
-        ? <Box component="img" src={team.logo_url} alt={team.abbr} sx={{ width: '76%', height: '76%', objectFit: 'contain' }} />
-        : <Typography sx={{ fontSize: size * 0.34, fontWeight: 800, color }}>{team.abbr}</Typography>}
-    </Box>
-  )
-}
 
 function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
@@ -65,9 +51,9 @@ function ScheduleView({ teams, games, isAdmin, onEditGame, onOpenGame }: {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {[...byDate.entries()].map(([date, dayGames]) => (
         <Box key={date}>
-          <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled', mb: 0.75 }}>
+          <SectionLabel>
             {new Date(`${date}T00:00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
-          </Typography>
+          </SectionLabel>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             {dayGames.map(g => {
               const home = byId.get(g.home_team_id)
@@ -155,6 +141,7 @@ function StandingsView({ teams, games }: { teams: WpblTeam[]; games: WpblGame[] 
 }
 
 function TeamsView({ teams, onOpenPlayer }: { teams: WpblTeam[]; onOpenPlayer: (p: WpblPlayer) => void }) {
+  const isDark = useWpblDark()
   const [selected, setSelected] = useState<WpblTeam | null>(null)
   const [roster, setRoster] = useState<WpblPlayer[] | null>(null)
   const [loadingRoster, setLoadingRoster] = useState(false)
@@ -191,7 +178,7 @@ function TeamsView({ teams, onOpenPlayer }: { teams: WpblTeam[]; onOpenPlayer: (
               <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                 {roster.map(p => (
                   <Box key={p.id} onClick={() => onOpenPlayer(p)} sx={{ display: 'flex', alignItems: 'center', gap: 1.25, py: 1, cursor: 'pointer', borderBottom: '1px solid', borderColor: 'divider', '&:hover': { bgcolor: 'action.hover' } }}>
-                    <Typography sx={{ width: 40, textAlign: 'center', flexShrink: 0, fontSize: '0.74rem', fontWeight: 800, color: wpblColor(selected.id) }}>
+                    <Typography sx={{ width: 40, textAlign: 'center', flexShrink: 0, fontSize: '0.74rem', fontWeight: 800, color: wpblAccent(selected.id, isDark) }}>
                       {p.position || '—'}
                     </Typography>
                     <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -223,7 +210,7 @@ function TeamsView({ teams, onOpenPlayer }: { teams: WpblTeam[]; onOpenPlayer: (
         <Box key={t.id} onClick={() => setSelected(t)} sx={{
           display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, cursor: 'pointer',
           borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
-          transition: 'border-color 0.15s', '&:hover': { borderColor: wpblColor(t.id) },
+          transition: 'border-color 0.15s', '&:hover': { borderColor: wpblAccent(t.id, isDark) },
         }}>
           <TeamBadge team={t} size={40} />
           <Box>
@@ -251,7 +238,7 @@ function HomeView({ teams, games, onOpenGame }: {
       </Box>
 
       <Box sx={{ p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
-        <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled', mb: 1 }}>Next up</Typography>
+        <SectionLabel>Next up</SectionLabel>
         {upcoming
           ? (() => {
               const home = byId.get(upcoming.home_team_id)
@@ -276,7 +263,6 @@ function HomeView({ teams, games, onOpenGame }: {
 // ─── Section root ───────────────────────────────────────────────────────────────
 
 export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
-  const isDesktop = useMediaQuery('(min-width: 600px)')
   const [view, setView] = useState<WpblView>('home')
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [games, setGames] = useState<WpblGame[]>([])
@@ -299,25 +285,12 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
   return (
     // Cap + center on wide screens (site convention); full width on mobile.
     <Box sx={{ maxWidth: 720, mx: 'auto' }}>
-      {/* Section nav */}
-      <Box sx={{ display: 'flex', gap: 0.5, mb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-        {NAV.map(n => {
-          const active = view === n.key
-          return (
-            <Box key={n.key} onClick={() => setView(n.key)} sx={{
-              px: isDesktop ? 2 : 1.25, py: 1, cursor: 'pointer', userSelect: 'none',
-              fontSize: '0.85rem', fontWeight: 700,
-              color: active ? 'text.primary' : 'text.secondary',
-              borderBottom: '2px solid',
-              borderColor: active ? WPBL_ACCENT : 'transparent',
-              transition: 'color 0.15s, border-color 0.15s',
-              '&:hover': { color: 'text.primary' },
-            }}>
-              {n.label}
-            </Box>
-          )
-        })}
-      </Box>
+      {/* Section nav — shared SegControl pill bar, matching the MLB tab bar. */}
+      <SegNav
+        options={NAV.map(n => ({ value: n.key, label: n.label }))}
+        value={view}
+        onChange={v => setView(v as WpblView)}
+      />
 
       {loading
         ? <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>

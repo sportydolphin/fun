@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, Button, CircularProgress, Alert } from '@mui/material'
 import { fetchWpblRoster, fetchWpblGameLines, saveWpblGameResult, clearWpblGameResult } from './api'
-import { wpblColor, wpblFullName, outsToIp, ipToOuts } from './constants'
+import { wpblAccent, wpblFullName, outsToIp, ipToOuts } from './constants'
+import { ModalShell, useWpblDark } from './ui'
 import type { WpblTeam, WpblGame, WpblPlayer, WpblGameStatus, WpblBattingInput, WpblPitchingInput } from './types'
 
 // Owner-only box-score entry modal (Phase 1a). Enter a game's status, final score, and
@@ -106,6 +107,7 @@ export default function GameEntryModal({ game, teams, onClose, onSaved }: {
   onClose: () => void
   onSaved: () => void
 }) {
+  const isDark = useWpblDark()
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const home = byId.get(game.home_team_id)
   const away = byId.get(game.away_team_id)
@@ -202,29 +204,36 @@ export default function GameEntryModal({ game, teams, onClose, onSaved }: {
   const dateLabel = new Date(`${game.game_date}T00:00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
 
   return (
-    <Box
-      onClick={onClose}
-      sx={{ position: 'fixed', inset: 0, zIndex: 1500, bgcolor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', p: { xs: 1, sm: 3 }, overflowY: 'auto' }}
-    >
-      <Box
-        onClick={e => e.stopPropagation()}
-        sx={{ width: '100%', maxWidth: 860, my: 'auto', borderRadius: 2, bgcolor: 'background.default', border: '1px solid', borderColor: 'divider', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}
-      >
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Box sx={{ flex: 1 }}>
-            <Typography sx={{ fontSize: '1rem', fontWeight: 800, lineHeight: 1.2 }}>
-              {away ? wpblFullName(away) : game.away_team_id} @ {home ? wpblFullName(home) : game.home_team_id}
-            </Typography>
-            <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary' }}>{dateLabel}{game.start_time ? ` · ${game.start_time}` : ''} · Enter result</Typography>
-          </Box>
-          <Box onClick={onClose} sx={{ cursor: 'pointer', color: 'text.secondary', fontSize: '1.3rem', lineHeight: 1, px: 0.5, '&:hover': { color: 'text.primary' } }}>×</Box>
+    <ModalShell
+      eyebrow={`${dateLabel}${game.start_time ? ` · ${game.start_time}` : ''} · Enter result`}
+      onClose={onClose}
+      maxWidth={860}
+      footer={
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {hasData && !loading && (
+            <Button onClick={handleClear} disabled={clearing || saving} color="error" sx={{ textTransform: 'none' }}>
+              {clearing ? <CircularProgress size={18} color="inherit" /> : 'Clear result'}
+            </Button>
+          )}
+          <Box sx={{ flex: 1 }} />
+          <Button onClick={onClose} sx={{ textTransform: 'none' }}>Cancel</Button>
+          <Button variant="contained" onClick={handleSave} disabled={saving || clearing || loading} sx={{ textTransform: 'none', minWidth: 96 }}>
+            {saving ? <CircularProgress size={18} color="inherit" /> : 'Save result'}
+          </Button>
         </Box>
+      }
+    >
+      {/* Matchup title */}
+      <Box sx={{ px: 2, pt: 2, pb: 0.5 }}>
+        <Typography sx={{ fontSize: '1rem', fontWeight: 800, lineHeight: 1.2 }}>
+          {away ? wpblFullName(away) : game.away_team_id} @ {home ? wpblFullName(home) : game.home_team_id}
+        </Typography>
+      </Box>
 
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
-        ) : (
-          <Box sx={{ p: 2, overflowY: 'auto' }}>
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+      ) : (
+        <Box sx={{ p: 2, pt: 1 }}>
             {/* Result summary */}
             <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 2, mb: 3 }}>
               <Box>
@@ -251,7 +260,7 @@ export default function GameEntryModal({ game, teams, onClose, onSaved }: {
 
             {(['away', 'home'] as Side[]).map(side => {
               const team = side === 'home' ? home : away
-              const color = team ? wpblColor(team.id) : '#888'
+              const color = team ? wpblAccent(team.id, isDark) : '#888'
               const batRows = bat.filter(r => r.side === side)
               const pitRows = pit.filter(r => r.side === side)
               const usedBat = new Set(batRows.map(r => r.player_id).filter(Boolean))
@@ -324,22 +333,7 @@ export default function GameEntryModal({ game, teams, onClose, onSaved }: {
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           </Box>
         )}
-
-        {/* Footer */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-          {hasData && !loading && (
-            <Button onClick={handleClear} disabled={clearing || saving} color="error" sx={{ textTransform: 'none' }}>
-              {clearing ? <CircularProgress size={18} color="inherit" /> : 'Clear result'}
-            </Button>
-          )}
-          <Box sx={{ flex: 1 }} />
-          <Button onClick={onClose} sx={{ textTransform: 'none' }}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saving || clearing || loading} sx={{ textTransform: 'none', minWidth: 96 }}>
-            {saving ? <CircularProgress size={18} color="inherit" /> : 'Save result'}
-          </Button>
-        </Box>
-      </Box>
-    </Box>
+    </ModalShell>
   )
 }
 

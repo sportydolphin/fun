@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblPlayerLines } from './api'
 import { sumBatting, sumPitching, fmtRate, fmtTwo } from './stats'
-import { wpblColor, wpblFullName, outsToIp } from './constants'
+import { wpblAccent, wpblFullName, outsToIp } from './constants'
+import { ModalShell, useWpblDark } from './ui'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
 
 // Player page (Phase 1c): profile + season totals aggregated from box-score lines,
@@ -36,10 +37,11 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
   games: WpblGame[]
   onClose: () => void
 }) {
+  const isDark = useWpblDark()
   const team = useMemo(() => teams.find(t => t.id === player.team_id), [teams, player.team_id])
   const gameById = useMemo(() => new Map(games.map(g => [g.id, g])), [games])
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
-  const color = team ? wpblColor(team.id) : '#888'
+  const color = team ? wpblAccent(team.id, isDark) : '#888'
 
   const [loading, setLoading] = useState(true)
   const [batting, setBatting] = useState<WpblBattingLine[]>([])
@@ -73,29 +75,26 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
   const subParts = [player.position, [player.bats, player.throws].filter(Boolean).join('/') ? `B/T ${player.bats || '-'}/${player.throws || '-'}` : null, player.age != null ? `${player.age} yrs` : null].filter(Boolean)
 
   return (
-    <Box
-      onClick={onClose}
-      sx={{ position: 'fixed', inset: 0, zIndex: 1600, bgcolor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', p: { xs: 1, sm: 3 }, overflowY: 'auto' }}
+    <ModalShell
+      eyebrow={team ? wpblFullName(team) : 'Player'}
+      onClose={onClose}
+      maxWidth={640}
+      zIndex={1600}
     >
-      <Box
-        onClick={e => e.stopPropagation()}
-        sx={{ width: '100%', maxWidth: 640, my: 'auto', borderRadius: 2, bgcolor: 'background.default', border: '1px solid', borderColor: 'divider', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}
-      >
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Box sx={{ width: 6, alignSelf: 'stretch', borderRadius: 3, bgcolor: color, flexShrink: 0 }} />
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography sx={{ fontSize: '1.2rem', fontWeight: 800, lineHeight: 1.15 }}>{player.name}</Typography>
-            <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>
-              {team ? wpblFullName(team) : ''}{subParts.length ? ` · ${subParts.join(' · ')}` : ''}
-            </Typography>
-            {player.hometown && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>{player.hometown}{player.draft_round ? ` · Round ${player.draft_round}, Pick ${player.draft_pick}` : ''}</Typography>}
-          </Box>
-          <Box onClick={onClose} sx={{ cursor: 'pointer', color: 'text.secondary', fontSize: '1.3rem', lineHeight: 1, '&:hover': { color: 'text.primary' } }}>×</Box>
+      {/* Identity */}
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ width: 6, alignSelf: 'stretch', borderRadius: 3, bgcolor: color, flexShrink: 0 }} />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontSize: '1.2rem', fontWeight: 800, lineHeight: 1.15 }}>{player.name}</Typography>
+          {subParts.length > 0 && (
+            <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{subParts.join(' · ')}</Typography>
+          )}
+          {player.hometown && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled' }}>{player.hometown}{player.draft_round ? ` · Round ${player.draft_round}, Pick ${player.draft_pick}` : ''}</Typography>}
         </Box>
+      </Box>
 
-        <Box sx={{ p: 2, overflowY: 'auto' }}>
-          {loading ? (
+      <Box sx={{ p: 2 }}>
+        {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
           ) : !hasBatting && !hasPitching ? (
             <Box sx={{ textAlign: 'center', py: 5, color: 'text.secondary' }}>
@@ -159,8 +158,7 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
             </>
           )}
         </Box>
-      </Box>
-    </Box>
+    </ModalShell>
   )
 }
 

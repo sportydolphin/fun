@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Box, Typography, Button, CircularProgress } from '@mui/material'
+import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblRoster, fetchWpblGameLines } from './api'
-import { wpblColor, wpblFullName, outsToIp } from './constants'
+import { wpblAccent, wpblFullName, outsToIp, WPBL_ACCENT } from './constants'
+import { ModalShell, TeamBadge, useWpblDark } from './ui'
 import type { WpblTeam, WpblGame, WpblPlayer, WpblBattingLine, WpblPitchingLine } from './types'
 
 // Read-only box score / game detail (Phase 1b). Public — anyone can open a game to see
@@ -18,24 +19,14 @@ const PIT_COLS: { key: keyof WpblPitchingLine; label: string }[] = [
   { key: 'bb', label: 'BB' }, { key: 'so', label: 'SO' }, { key: 'hr', label: 'HR' },
 ]
 
-function MiniBadge({ team, size = 30 }: { team: WpblTeam; size?: number }) {
-  const color = wpblColor(team.id)
-  return (
-    <Box sx={{ width: size, height: size, borderRadius: '50%', flexShrink: 0, bgcolor: '#fff', border: `2px solid ${color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-      {team.logo_url
-        ? <Box component="img" src={team.logo_url} alt={team.abbr} sx={{ width: '76%', height: '76%', objectFit: 'contain' }} />
-        : <Typography sx={{ fontSize: size * 0.34, fontWeight: 800, color }}>{team.abbr}</Typography>}
-    </Box>
-  )
-}
-
 function TeamBox({ team, batting, pitching, names }: {
   team: WpblTeam
   batting: WpblBattingLine[]
   pitching: WpblPitchingLine[]
   names: Map<string, WpblPlayer>
 }) {
-  const color = wpblColor(team.id)
+  const isDark = useWpblDark()
+  const color = wpblAccent(team.id, isDark)
   const totals = batting.reduce((t, b) => {
     for (const c of BAT_COLS) (t as any)[c.key] = ((t as any)[c.key] ?? 0) + (b[c.key] as number)
     return t
@@ -46,7 +37,7 @@ function TeamBox({ team, batting, pitching, names }: {
   return (
     <Box sx={{ mb: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-        <MiniBadge team={team} size={24} />
+        <TeamBadge team={team} size={24} />
         <Typography sx={{ fontSize: '0.95rem', fontWeight: 800 }}>{wpblFullName(team)}</Typography>
       </Box>
 
@@ -136,61 +127,51 @@ export default function GameDetailModal({ game, teams, onClose, onEdit }: {
 
   const scoreLine = (team: WpblTeam | undefined, score: number | null, won: boolean) => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      {team && <MiniBadge team={team} size={30} />}
+      {team && <TeamBadge team={team} size={30} />}
       <Typography sx={{ flex: 1, fontSize: '1rem', fontWeight: won ? 800 : 600 }}>{team ? wpblFullName(team) : ''}</Typography>
       {final && <Typography sx={{ fontSize: '1.25rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: won ? 'text.primary' : 'text.secondary' }}>{score}</Typography>}
     </Box>
   )
 
   return (
-    <Box
-      onClick={onClose}
-      sx={{ position: 'fixed', inset: 0, zIndex: 1500, bgcolor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', p: { xs: 1, sm: 3 }, overflowY: 'auto' }}
+    <ModalShell
+      eyebrow={final ? `Final${game.innings && game.innings !== 7 ? ` / ${game.innings}` : ''}` : `${dateLabel}${game.start_time ? ` · ${game.start_time}` : ''}`}
+      onClose={onClose}
+      maxWidth={720}
+      actions={onEdit
+        ? <Box onClick={() => onEdit(game)} sx={{ cursor: 'pointer', fontSize: '0.72rem', fontWeight: 800, color: WPBL_ACCENT, mr: 0.5, '&:hover': { textDecoration: 'underline' } }}>Edit result</Box>
+        : undefined}
     >
-      <Box
-        onClick={e => e.stopPropagation()}
-        sx={{ width: '100%', maxWidth: 720, my: 'auto', borderRadius: 2, bgcolor: 'background.default', border: '1px solid', borderColor: 'divider', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}
-      >
-        {/* Header / score */}
-        <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
-            <Typography sx={{ flex: 1, fontSize: '0.75rem', fontWeight: 700, color: 'text.secondary' }}>
-              {final ? `Final${game.innings && game.innings !== 7 ? `/${game.innings}` : ''}` : `${dateLabel}${game.start_time ? ` · ${game.start_time}` : ''}`}
-            </Typography>
-            {onEdit && (
-              <Box onClick={() => onEdit(game)} sx={{ cursor: 'pointer', fontSize: '0.72rem', fontWeight: 800, color: 'primary.main', mr: 1.5, '&:hover': { textDecoration: 'underline' } }}>Edit result</Box>
-            )}
-            <Box onClick={onClose} sx={{ cursor: 'pointer', color: 'text.secondary', fontSize: '1.3rem', lineHeight: 1, '&:hover': { color: 'text.primary' } }}>×</Box>
-          </Box>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-            {scoreLine(away, game.away_score, awayWon)}
-            {scoreLine(home, game.home_score, homeWon)}
-          </Box>
-          {game.venue && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mt: 1 }}>{game.venue}</Typography>}
+      {/* Score block */}
+      <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+          {scoreLine(away, game.away_score, awayWon)}
+          {scoreLine(home, game.home_score, homeWon)}
         </Box>
-
-        {/* Body */}
-        <Box sx={{ p: 2, overflowY: 'auto' }}>
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
-          ) : hasLines ? (
-            <>
-              {away && <TeamBox team={away} batting={lines.batting.filter(b => b.team_id === away.id)} pitching={lines.pitching.filter(p => p.team_id === away.id)} names={names} />}
-              {home && <TeamBox team={home} batting={lines.batting.filter(b => b.team_id === home.id)} pitching={lines.pitching.filter(p => p.team_id === home.id)} names={names} />}
-            </>
-          ) : (
-            <Box sx={{ textAlign: 'center', py: 5, color: 'text.secondary' }}>
-              <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, mb: 0.5 }}>
-                {final ? 'Box score not entered yet' : 'This game has not been played yet'}
-              </Typography>
-              <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled' }}>
-                {final ? 'The line score will appear here once it is added.' : 'Check back after first pitch.'}
-              </Typography>
-            </Box>
-          )}
-        </Box>
+        {game.venue && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mt: 1 }}>{game.venue}</Typography>}
       </Box>
-    </Box>
+
+      {/* Box score */}
+      <Box sx={{ p: 2 }}>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
+        ) : hasLines ? (
+          <>
+            {away && <TeamBox team={away} batting={lines.batting.filter(b => b.team_id === away.id)} pitching={lines.pitching.filter(p => p.team_id === away.id)} names={names} />}
+            {home && <TeamBox team={home} batting={lines.batting.filter(b => b.team_id === home.id)} pitching={lines.pitching.filter(p => p.team_id === home.id)} names={names} />}
+          </>
+        ) : (
+          <Box sx={{ textAlign: 'center', py: 5, color: 'text.secondary' }}>
+            <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, mb: 0.5 }}>
+              {final ? 'Box score not entered yet' : 'This game has not been played yet'}
+            </Typography>
+            <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled' }}>
+              {final ? 'The line score will appear here once it is added.' : 'Check back after first pitch.'}
+            </Typography>
+          </Box>
+        )}
+      </Box>
+    </ModalShell>
   )
 }
 

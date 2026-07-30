@@ -17,9 +17,10 @@ const linkSx = {
 // Slim site-wide footer. Home for the meta bits that used to crowd the toolbar:
 // the version + "What's new" changelog, plus a feedback box and a Ko-fi support
 // link. Caps + centers on wide screens, wraps and centers on mobile.
-export function SiteFooter({ onOpenChangelog, onOpenFeedback }: {
+export function SiteFooter({ onOpenChangelog, onOpenFeedback, isWpbl = false }: {
   onOpenChangelog: () => void
   onOpenFeedback: () => void
+  isWpbl?: boolean
 }) {
   return (
     <Box
@@ -45,7 +46,11 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback }: {
         <Dot />
         <Box component="a" href={KOFI_URL} target="_blank" rel="noopener noreferrer" sx={linkSx}>Support on Ko-fi ♥</Box>
         <Dot />
-        <Box component="span">Not affiliated with MLB. Data from the MLB Stats API.</Box>
+        <Box component="span">
+          {isWpbl
+            ? 'Not affiliated with the WPBL. Stats entered manually.'
+            : 'Not affiliated with MLB. Data from the MLB Stats API.'}
+        </Box>
       </Box>
     </Box>
   )

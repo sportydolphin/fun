@@ -1,22 +1,35 @@
 import type { WpblTeam } from './types'
+import bostonLogo from './logos/boston.webp'
+import laLogo from './logos/la.webp'
+import nyLogo from './logos/ny.webp'
+import sfLogo from './logos/sf.webp'
 
-// Section accent — distinct from the MLB app's blue so the two sections read as
-// separate. Provisional; tune once the league's brand palette is settled.
-export const WPBL_ACCENT = '#d6336c'
+// Section accent — the league's brand color, distinct from the MLB app's blue so the
+// two sections read as separate. Drives the nav's active pill, links, and chips.
+export const WPBL_ACCENT = '#e32d46'
 
-// The four inaugural (2026) teams. This is a static fallback used for theming and
-// ordering before the Supabase `wpbl_teams` rows are seeded (and as the color source
-// even after, since colors live here, not in the DB read path for the UI).
-//
-// ⚠️ Colors are PROVISIONAL placeholders — the league has not published an official
-// palette we can source. Replace `color` with the real brand hex when gathering team
-// assets (see ROADMAP "WPBL" open items). Logos are hosted separately (logo_url on
-// the DB row) once we have the files.
-export const WPBL_TEAMS: Record<string, Pick<WpblTeam, 'id' | 'city' | 'name' | 'abbr' | 'color' | 'sort_order'>> = {
-  BOS: { id: 'BOS', city: 'Boston',        name: 'Hunters',   abbr: 'BOS', color: '#2e5e3a', sort_order: 1 },
-  LA:  { id: 'LA',  city: 'Los Angeles',   name: 'Queens',    abbr: 'LA',  color: '#6b2fa0', sort_order: 2 },
-  NY:  { id: 'NY',  city: 'New York',      name: 'Heights',   abbr: 'NY',  color: '#1d3461', sort_order: 3 },
-  SF:  { id: 'SF',  city: 'San Francisco', name: 'Firebells', abbr: 'SF',  color: '#c8402b', sort_order: 4 },
+// Everything visual for a team lives here — one source of truth for color + logo, so
+// setting a value once applies across the whole section (badges, accents, ordering).
+// This is also the static fallback used before the Supabase `wpbl_teams` rows load.
+//   color     — primary; badge fill + team accent
+//   secondary — accent hue; used as the badge ring so team badges stay defined even
+//               when the primary is near-black (e.g. LA) or matches the page bg
+//   logo      — bundled asset (imported → hashed URL at build)
+//   logoFill  — the logo image already includes its own background and should fill the
+//               badge edge-to-edge (Boston's is a finished green lockup); others are
+//               transparent knockouts that sit centered on the color fill
+export interface WpblTeamMeta {
+  id: string; city: string; name: string; abbr: string
+  color: string; secondary: string
+  logo: string; logoFill?: boolean
+  sort_order: number
+}
+
+export const WPBL_TEAMS: Record<string, WpblTeamMeta> = {
+  BOS: { id: 'BOS', city: 'Boston',        name: 'Hunters',   abbr: 'BOS', color: '#00281e', secondary: '#da7718', logo: bostonLogo, logoFill: true, sort_order: 1 },
+  LA:  { id: 'LA',  city: 'Los Angeles',   name: 'Queens',    abbr: 'LA',  color: '#000000', secondary: '#b58f5f', logo: laLogo,     sort_order: 2 },
+  NY:  { id: 'NY',  city: 'New York',      name: 'Heights',   abbr: 'NY',  color: '#091b47', secondary: '#b8dbf1', logo: nyLogo,     sort_order: 3 },
+  SF:  { id: 'SF',  city: 'San Francisco', name: 'Firebells', abbr: 'SF',  color: '#2d1747', secondary: '#fe2100', logo: sfLogo,     sort_order: 4 },
 }
 
 // Team color lookup, mirroring the MLB app's TEAM_BG convention. Falls back to a
@@ -24,6 +37,44 @@ export const WPBL_TEAMS: Record<string, Pick<WpblTeam, 'id' | 'city' | 'name' | 
 export function wpblColor(teamId: string | null | undefined): string {
   if (!teamId) return '#6b7280'
   return WPBL_TEAMS[teamId]?.color ?? '#6b7280'
+}
+
+// Secondary/accent hue (badge ring, highlights). Neutral gray fallback.
+export function wpblSecondary(teamId: string | null | undefined): string {
+  if (!teamId) return '#9ca3af'
+  return WPBL_TEAMS[teamId]?.secondary ?? '#9ca3af'
+}
+
+// Mix a hex toward white (mirrors the MLB app's brightColor) so a dark primary is
+// readable when used as foreground text/borders on a dark background.
+function brightenHex(hex: string, mix = 0.55): string {
+  if (!hex.startsWith('#') || hex.length < 7) return hex
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  const c = (n: number) => Math.round(n + (255 - n) * mix).toString(16).padStart(2, '0')
+  return `#${c(r)}${c(g)}${c(b)}`
+}
+
+// Team primary made safe for FOREGROUND use (text, thin borders, accent bars). The
+// primaries are dark (Boston's near-black, LA's pure black), which reads fine on a
+// light background but vanishes on a dark one — so lighten it in dark mode, matching
+// the MLB app's accentColor(). Use this for text/borders; use wpblColor() for fills.
+export function wpblAccent(teamId: string | null | undefined, isDark: boolean): string {
+  const base = wpblColor(teamId)
+  return isDark ? brightenHex(base) : base
+}
+
+// Bundled logo asset for a team, or null (badge then falls back to the abbr).
+export function wpblLogo(teamId: string | null | undefined): string | null {
+  if (!teamId) return null
+  return WPBL_TEAMS[teamId]?.logo ?? null
+}
+
+// Whether the logo image fills the badge (has its own background) vs. sits centered.
+export function wpblLogoFill(teamId: string | null | undefined): boolean {
+  if (!teamId) return false
+  return WPBL_TEAMS[teamId]?.logoFill ?? false
 }
 
 // Full display name, 'Boston Hunters'.
