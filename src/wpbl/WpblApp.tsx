@@ -7,6 +7,7 @@ import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import GameEntryModal from './GameEntry'
 import GameDetailModal from './GameDetail'
 import PlayerDetailModal from './PlayerDetail'
+import WpblHome from './Home'
 
 // Phase 0 skeleton for the WPBL section. Reads from Supabase and renders whatever is
 // there; everything shows a friendly empty state until the tables are seeded. Views
@@ -140,9 +141,11 @@ function StandingsView({ teams, games }: { teams: WpblTeam[]; games: WpblGame[] 
   )
 }
 
-function TeamsView({ teams, onOpenPlayer }: { teams: WpblTeam[]; onOpenPlayer: (p: WpblPlayer) => void }) {
+function TeamsView({ teams, selected, onSelect, onOpenPlayer }: {
+  teams: WpblTeam[]; selected: WpblTeam | null
+  onSelect: (t: WpblTeam | null) => void; onOpenPlayer: (p: WpblPlayer) => void
+}) {
   const isDark = useWpblDark()
-  const [selected, setSelected] = useState<WpblTeam | null>(null)
   const [roster, setRoster] = useState<WpblPlayer[] | null>(null)
   const [loadingRoster, setLoadingRoster] = useState(false)
 
@@ -161,7 +164,7 @@ function TeamsView({ teams, onOpenPlayer }: { teams: WpblTeam[]; onOpenPlayer: (
   if (selected) {
     return (
       <Box>
-        <Box onClick={() => setSelected(null)} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, '&:hover': { color: 'text.primary' } }}>
+        <Box onClick={() => onSelect(null)} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, '&:hover': { color: 'text.primary' } }}>
           ← All teams
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
@@ -207,7 +210,7 @@ function TeamsView({ teams, onOpenPlayer }: { teams: WpblTeam[]; onOpenPlayer: (
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
       {teams.map(t => (
-        <Box key={t.id} onClick={() => setSelected(t)} sx={{
+        <Box key={t.id} onClick={() => onSelect(t)} sx={{
           display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, cursor: 'pointer',
           borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
           transition: 'border-color 0.15s', '&:hover': { borderColor: wpblAccent(t.id, isDark) },
@@ -223,43 +226,6 @@ function TeamsView({ teams, onOpenPlayer }: { teams: WpblTeam[]; onOpenPlayer: (
   )
 }
 
-function HomeView({ teams, games, onOpenGame }: {
-  teams: WpblTeam[]; games: WpblGame[]; onOpenGame: (g: WpblGame) => void
-}) {
-  const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
-  const upcoming = games.find(g => g.status !== 'final')
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Box sx={{ p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
-        <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, mb: 0.5 }}>Women's Pro Baseball League</Typography>
-        <Typography sx={{ fontSize: '0.88rem', color: 'text.secondary' }}>
-          The inaugural 2026 season. Follow the four founding teams through the schedule, scores, and standings.
-        </Typography>
-      </Box>
-
-      <Box sx={{ p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
-        <SectionLabel>Next up</SectionLabel>
-        {upcoming
-          ? (() => {
-              const home = byId.get(upcoming.home_team_id)
-              const away = byId.get(upcoming.away_team_id)
-              return (
-                <Box onClick={() => onOpenGame(upcoming)} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }}>
-                  {away && <TeamBadge team={away} size={30} />}
-                  <Typography sx={{ fontSize: '0.9rem', fontWeight: 700 }}>{away?.abbr} @ {home?.abbr}</Typography>
-                  {home && <TeamBadge team={home} size={30} />}
-                  <Typography sx={{ ml: 'auto', fontSize: '0.8rem', fontWeight: 700, color: WPBL_ACCENT }}>
-                    {new Date(`${upcoming.game_date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })}{upcoming.start_time ? ` · ${upcoming.start_time}` : ''}
-                  </Typography>
-                </Box>
-              )
-            })()
-          : <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>No upcoming games scheduled yet.</Typography>}
-      </Box>
-    </Box>
-  )
-}
-
 // ─── Section root ───────────────────────────────────────────────────────────────
 
 export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
@@ -270,6 +236,10 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
   const [editGame, setEditGame] = useState<WpblGame | null>(null)
   const [detailGame, setDetailGame] = useState<WpblGame | null>(null)
   const [detailPlayer, setDetailPlayer] = useState<WpblPlayer | null>(null)
+  // Team detail lives in the Teams view; lifted here so Home can open a team into it.
+  const [selectedTeam, setSelectedTeam] = useState<WpblTeam | null>(null)
+
+  const openTeam = useCallback((t: WpblTeam) => { setSelectedTeam(t); setView('teams') }, [])
 
   const reload = useCallback(() => {
     let cancelled = false
@@ -296,10 +266,10 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
         ? <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
         : (
           <>
-            {view === 'home'      && <HomeView teams={teams} games={games} onOpenGame={setDetailGame} />}
+            {view === 'home'      && <WpblHome teams={teams} games={games} onOpenGame={setDetailGame} onOpenPlayer={setDetailPlayer} onOpenTeam={openTeam} />}
             {view === 'schedule'  && <ScheduleView teams={teams} games={games} isAdmin={isAdmin} onEditGame={setEditGame} onOpenGame={setDetailGame} />}
             {view === 'standings' && <StandingsView teams={teams} games={games} />}
-            {view === 'teams'     && <TeamsView teams={teams} onOpenPlayer={setDetailPlayer} />}
+            {view === 'teams'     && <TeamsView teams={teams} selected={selectedTeam} onSelect={setSelectedTeam} onOpenPlayer={setDetailPlayer} />}
           </>
         )}
 

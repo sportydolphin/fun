@@ -41,6 +41,28 @@ export function fetchWpblRoster(teamId: string): Promise<WpblPlayer[]> {
     [] as WpblPlayer[])
 }
 
+// Every player in the league (all four rosters). Used to attach names/teams to the
+// aggregated league-leader rows on the home view.
+export function fetchWpblAllPlayers(): Promise<WpblPlayer[]> {
+  return safe('fetchWpblAllPlayers', () =>
+    supabase.from('wpbl_players').select('*'),
+    [] as WpblPlayer[])
+}
+
+// Every box-score line in the league — for computing season league leaders. Cheap for
+// a four-team league; returns empty (no leaders) until games start being entered.
+export async function fetchWpblAllLines(): Promise<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }> {
+  const [batting, pitching] = await Promise.all([
+    safe('fetchWpblAllBatting', () =>
+      supabase.from('wpbl_batting_lines').select('*'),
+      [] as WpblBattingLine[]),
+    safe('fetchWpblAllPitching', () =>
+      supabase.from('wpbl_pitching_lines').select('*'),
+      [] as WpblPitchingLine[]),
+  ])
+  return { batting, pitching }
+}
+
 // Existing box-score lines for one game (for editing / display).
 export async function fetchWpblGameLines(gameId: string): Promise<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }> {
   const [batting, pitching] = await Promise.all([

@@ -4,9 +4,12 @@ import laLogo from './logos/la.webp'
 import nyLogo from './logos/ny.webp'
 import sfLogo from './logos/sf.webp'
 
-// Section accent — the league's brand color, distinct from the MLB app's blue so the
-// two sections read as separate. Drives the nav's active pill, links, and chips.
-export const WPBL_ACCENT = '#e32d46'
+// Section accent — deliberately the SAME blue as the MLB app's ACCENT (see
+// src/mlb/constants.ts; keep the two in sync). The leagues share one nav-slider / UI
+// accent rather than splitting into a gendered blue-vs-pink pairing; WPBL keeps its own
+// identity through team colors and logos, not a section-wide accent. Drives the nav's
+// active pill, links, chips, and card stripes.
+export const WPBL_ACCENT = '#60a5fa'
 
 // Everything visual for a team lives here — one source of truth for color + logo, so
 // setting a value once applies across the whole section (badges, accents, ordering).

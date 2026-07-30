@@ -87,6 +87,36 @@ export function SegNav({ options, value, onChange, accent = WPBL_ACCENT }: {
   )
 }
 
+// Bordered content card with a left accent stripe and an icon + title + subtitle
+// header, mirroring the MLB home-feed cards. `action` sits at the right of the header
+// (e.g. a "View all" link); body is the children.
+export function SectionCard({ icon, title, subtitle, accent = WPBL_ACCENT, action, children }: {
+  icon?: React.ReactNode
+  title: string
+  subtitle?: string
+  accent?: string
+  action?: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <Box sx={{
+      borderRadius: 3, overflow: 'hidden',
+      border: '1px solid', borderColor: 'divider', borderLeft: `4px solid ${accent}`,
+      bgcolor: 'background.paper',
+    }}>
+      <Box sx={{ px: 2, pt: 1.5, pb: 1.25, display: 'flex', alignItems: 'center', gap: 1 }}>
+        {icon != null && <Box sx={{ fontSize: '1.1rem', lineHeight: 1, flexShrink: 0 }}>{icon}</Box>}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, lineHeight: 1.2 }}>{title}</Typography>
+          {subtitle && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.3 }}>{subtitle}</Typography>}
+        </Box>
+        {action}
+      </Box>
+      <Box sx={{ px: 2, pb: 1.75 }}>{children}</Box>
+    </Box>
+  )
+}
+
 // Small uppercase eyebrow label. Mirrors MLB's SectionLabel.
 export function SectionLabel({ children, strong }: { children: React.ReactNode; strong?: boolean }) {
   return (

@@ -1,4 +1,4 @@
-import type { WpblBattingLine, WpblPitchingLine } from './types'
+import type { WpblPlayer, WpblBattingLine, WpblPitchingLine } from './types'
 
 // Season stat aggregation from box-score lines. Rates are null when the denominator
 // is zero (no AB / no IP) so the UI can show a dash instead of NaN.
@@ -48,3 +48,40 @@ export function sumPitching(lines: WpblPitchingLine[]): WpblPitchingTotals {
 export const fmtRate = (v: number | null): string => (v == null ? '—' : v.toFixed(3).replace(/^0(?=\.)/, ''))
 // "3.24" for ERA/WHIP; dash when null.
 export const fmtTwo = (v: number | null): string => (v == null ? '—' : v.toFixed(2))
+
+// ─── League leaders ─────────────────────────────────────────────────────────────
+// Group every box-score line by player and total it, attaching the player. One entry
+// per player who has logged at least one line; the home view ranks these per stat.
+
+export interface WpblBatSeason { player: WpblPlayer; totals: WpblBattingTotals }
+export interface WpblPitSeason { player: WpblPlayer; totals: WpblPitchingTotals }
+
+export function aggregateBatting(players: WpblPlayer[], lines: WpblBattingLine[]): WpblBatSeason[] {
+  const pmap = new Map(players.map(p => [p.id, p]))
+  const byPlayer = new Map<string, WpblBattingLine[]>()
+  for (const l of lines) {
+    const arr = byPlayer.get(l.player_id) ?? []
+    arr.push(l); byPlayer.set(l.player_id, arr)
+  }
+  const out: WpblBatSeason[] = []
+  for (const [pid, ls] of byPlayer) {
+    const player = pmap.get(pid)
+    if (player) out.push({ player, totals: sumBatting(ls) })
+  }
+  return out
+}
+
+export function aggregatePitching(players: WpblPlayer[], lines: WpblPitchingLine[]): WpblPitSeason[] {
+  const pmap = new Map(players.map(p => [p.id, p]))
+  const byPlayer = new Map<string, WpblPitchingLine[]>()
+  for (const l of lines) {
+    const arr = byPlayer.get(l.player_id) ?? []
+    arr.push(l); byPlayer.set(l.player_id, arr)
+  }
+  const out: WpblPitSeason[] = []
+  for (const [pid, ls] of byPlayer) {
+    const player = pmap.get(pid)
+    if (player) out.push({ player, totals: sumPitching(ls) })
+  }
+  return out
+}
