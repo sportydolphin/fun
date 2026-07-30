@@ -1,0 +1,312 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
+import { fetchWpblTeams, fetchWpblSchedule, fetchWpblRoster, computeStandings } from './api'
+import { WPBL_ACCENT, wpblColor, wpblFullName } from './constants'
+import type { WpblTeam, WpblPlayer, WpblGame } from './types'
+
+// Phase 0 skeleton for the WPBL section. Reads from Supabase and renders whatever is
+// there; everything shows a friendly empty state until the tables are seeded. Views
+// are intentionally lean and self-contained (no MLB/StatsAPI coupling).
+
+type WpblView = 'home' | 'schedule' | 'standings' | 'teams'
+
+const NAV: { key: WpblView; label: string }[] = [
+  { key: 'home',      label: 'Home' },
+  { key: 'schedule',  label: 'Schedule' },
+  { key: 'standings', label: 'Standings' },
+  { key: 'teams',     label: 'Teams' },
+]
+
+// ─── Shared bits ──────────────────────────────────────────────────────────────
+
+function TeamBadge({ team, size = 34 }: { team: WpblTeam; size?: number }) {
+  const color = wpblColor(team.id)
+  return (
+    <Box sx={{
+      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      bgcolor: '#fff', border: `2px solid ${color}`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+    }}>
+      {team.logo_url
+        ? <Box component="img" src={team.logo_url} alt={team.abbr} sx={{ width: '76%', height: '76%', objectFit: 'contain' }} />
+        : <Typography sx={{ fontSize: size * 0.34, fontWeight: 800, color }}>{team.abbr}</Typography>}
+    </Box>
+  )
+}
+
+function EmptyState({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <Box sx={{ textAlign: 'center', py: 6, px: 2, color: 'text.secondary' }}>
+      <Typography sx={{ fontSize: '1rem', fontWeight: 700, mb: 0.5 }}>{title}</Typography>
+      {hint && <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>{hint}</Typography>}
+    </Box>
+  )
+}
+
+// ─── Views ────────────────────────────────────────────────────────────────────
+
+function ScheduleView({ teams, games }: { teams: WpblTeam[]; games: WpblGame[] }) {
+  const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  if (games.length === 0) {
+    return <EmptyState title="No games scheduled yet" hint="The 2026 schedule loads here once it is added." />
+  }
+  const byDate = new Map<string, WpblGame[]>()
+  for (const g of games) {
+    const list = byDate.get(g.game_date) ?? []
+    list.push(g); byDate.set(g.game_date, list)
+  }
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {[...byDate.entries()].map(([date, dayGames]) => (
+        <Box key={date}>
+          <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled', mb: 0.75 }}>
+            {new Date(`${date}T00:00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {dayGames.map(g => {
+              const home = byId.get(g.home_team_id)
+              const away = byId.get(g.away_team_id)
+              const final = g.status === 'final' && g.home_score != null && g.away_score != null
+              return (
+                <Box key={g.id} sx={{
+                  display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25,
+                  borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
+                }}>
+                  <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    {[away, home].map((t, i) => t && (
+                      <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <TeamBadge team={t} size={26} />
+                        <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, flex: 1 }}>{wpblFullName(t)}</Typography>
+                        {final && (
+                          <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+                            {i === 0 ? g.away_score : g.home_score}
+                          </Typography>
+                        )}
+                      </Box>
+                    ))}
+                  </Box>
+                  <Box sx={{ textAlign: 'right', minWidth: 62 }}>
+                    <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: final ? 'text.secondary' : WPBL_ACCENT }}>
+                      {final ? `Final${g.innings && g.innings !== 7 ? `/${g.innings}` : ''}` : g.start_time || 'TBD'}
+                    </Typography>
+                  </Box>
+                </Box>
+              )
+            })}
+          </Box>
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
+function StandingsView({ teams, games }: { teams: WpblTeam[]; games: WpblGame[] }) {
+  const rows = useMemo(() => computeStandings(teams, games), [teams, games])
+  if (teams.length === 0) {
+    return <EmptyState title="No teams yet" hint="Standings appear once teams and results are added." />
+  }
+  const played = games.some(g => g.status === 'final')
+  return (
+    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+      <Box sx={{ display: 'flex', px: 1.5, py: 0.75, bgcolor: 'action.hover', fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary' }}>
+        <Box sx={{ flex: 1 }}>Team</Box>
+        <Box sx={{ width: 40, textAlign: 'right' }}>W</Box>
+        <Box sx={{ width: 40, textAlign: 'right' }}>L</Box>
+        <Box sx={{ width: 56, textAlign: 'right' }}>Diff</Box>
+      </Box>
+      {rows.map(r => {
+        const diff = r.runsFor - r.runsAgainst
+        return (
+          <Box key={r.team.id} sx={{ display: 'flex', alignItems: 'center', px: 1.5, py: 1, borderTop: '1px solid', borderColor: 'divider', fontVariantNumeric: 'tabular-nums' }}>
+            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <TeamBadge team={r.team} size={26} />
+              <Typography sx={{ fontSize: '0.88rem', fontWeight: 600 }}>{wpblFullName(r.team)}</Typography>
+            </Box>
+            <Box sx={{ width: 40, textAlign: 'right', fontWeight: 700 }}>{r.wins}</Box>
+            <Box sx={{ width: 40, textAlign: 'right', fontWeight: 700 }}>{r.losses}</Box>
+            <Box sx={{ width: 56, textAlign: 'right', color: diff > 0 ? 'success.main' : diff < 0 ? 'error.main' : 'text.secondary' }}>
+              {diff > 0 ? `+${diff}` : diff}
+            </Box>
+          </Box>
+        )
+      })}
+      {!played && (
+        <Box sx={{ px: 1.5, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No games played yet. Records update as results are added.</Typography>
+        </Box>
+      )}
+    </Box>
+  )
+}
+
+function TeamsView({ teams }: { teams: WpblTeam[] }) {
+  const [selected, setSelected] = useState<WpblTeam | null>(null)
+  const [roster, setRoster] = useState<WpblPlayer[] | null>(null)
+  const [loadingRoster, setLoadingRoster] = useState(false)
+
+  useEffect(() => {
+    if (!selected) { setRoster(null); return }
+    let cancelled = false
+    setLoadingRoster(true)
+    fetchWpblRoster(selected.id).then(r => { if (!cancelled) { setRoster(r); setLoadingRoster(false) } })
+    return () => { cancelled = true }
+  }, [selected])
+
+  if (teams.length === 0) {
+    return <EmptyState title="No teams yet" hint="The four inaugural teams appear here once added." />
+  }
+
+  if (selected) {
+    return (
+      <Box>
+        <Box onClick={() => setSelected(null)} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, '&:hover': { color: 'text.primary' } }}>
+          ← All teams
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+          <TeamBadge team={selected} size={48} />
+          <Box>
+            <Typography sx={{ fontSize: '1.2rem', fontWeight: 800, lineHeight: 1.1 }}>{wpblFullName(selected)}</Typography>
+            <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>Roster</Typography>
+          </Box>
+        </Box>
+        {loadingRoster
+          ? <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={24} /></Box>
+          : roster && roster.length > 0
+            ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                {roster.map(p => (
+                  <Box key={p.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.25, py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+                    <Typography sx={{ width: 40, textAlign: 'center', flexShrink: 0, fontSize: '0.74rem', fontWeight: 800, color: wpblColor(selected.id) }}>
+                      {p.position || '—'}
+                    </Typography>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.2 }}>{p.name}</Typography>
+                      {p.hometown && (
+                        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {p.hometown}
+                        </Typography>
+                      )}
+                    </Box>
+                    <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                      {p.age != null && <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, lineHeight: 1.2 }}>{p.age} yrs</Typography>}
+                      {(p.bats || p.throws) && (
+                        <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled' }}>B/T {p.bats || '-'}/{p.throws || '-'}</Typography>
+                      )}
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            )
+            : <EmptyState title="Roster coming soon" hint="Players appear here once the roster is added." />}
+      </Box>
+    )
+  }
+
+  return (
+    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+      {teams.map(t => (
+        <Box key={t.id} onClick={() => setSelected(t)} sx={{
+          display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, cursor: 'pointer',
+          borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
+          transition: 'border-color 0.15s', '&:hover': { borderColor: wpblColor(t.id) },
+        }}>
+          <TeamBadge team={t} size={40} />
+          <Box>
+            <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.15 }}>{wpblFullName(t)}</Typography>
+            <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>{t.abbr}</Typography>
+          </Box>
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
+function HomeView({ teams, games, onGo }: { teams: WpblTeam[]; games: WpblGame[]; onGo: (v: WpblView) => void }) {
+  const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  const upcoming = games.find(g => g.status !== 'final')
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box sx={{ p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+        <Typography sx={{ fontSize: '1.1rem', fontWeight: 800, mb: 0.5 }}>Women's Pro Baseball League</Typography>
+        <Typography sx={{ fontSize: '0.88rem', color: 'text.secondary' }}>
+          The inaugural 2026 season. Follow the four founding teams through the schedule, scores, and standings.
+        </Typography>
+      </Box>
+
+      <Box sx={{ p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+        <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled', mb: 1 }}>Next up</Typography>
+        {upcoming
+          ? (() => {
+              const home = byId.get(upcoming.home_team_id)
+              const away = byId.get(upcoming.away_team_id)
+              return (
+                <Box onClick={() => onGo('schedule')} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }}>
+                  {away && <TeamBadge team={away} size={30} />}
+                  <Typography sx={{ fontSize: '0.9rem', fontWeight: 700 }}>{away?.abbr} @ {home?.abbr}</Typography>
+                  {home && <TeamBadge team={home} size={30} />}
+                  <Typography sx={{ ml: 'auto', fontSize: '0.8rem', fontWeight: 700, color: WPBL_ACCENT }}>
+                    {new Date(`${upcoming.game_date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })}{upcoming.start_time ? ` · ${upcoming.start_time}` : ''}
+                  </Typography>
+                </Box>
+              )
+            })()
+          : <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>No upcoming games scheduled yet.</Typography>}
+      </Box>
+    </Box>
+  )
+}
+
+// ─── Section root ───────────────────────────────────────────────────────────────
+
+export default function WpblApp() {
+  const isDesktop = useMediaQuery('(min-width: 600px)')
+  const [view, setView] = useState<WpblView>('home')
+  const [teams, setTeams] = useState<WpblTeam[]>([])
+  const [games, setGames] = useState<WpblGame[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([fetchWpblTeams(), fetchWpblSchedule()]).then(([t, g]) => {
+      if (cancelled) return
+      setTeams(t); setGames(g); setLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  return (
+    // Cap + center on wide screens (site convention); full width on mobile.
+    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+      {/* Section nav */}
+      <Box sx={{ display: 'flex', gap: 0.5, mb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+        {NAV.map(n => {
+          const active = view === n.key
+          return (
+            <Box key={n.key} onClick={() => setView(n.key)} sx={{
+              px: isDesktop ? 2 : 1.25, py: 1, cursor: 'pointer', userSelect: 'none',
+              fontSize: '0.85rem', fontWeight: 700,
+              color: active ? 'text.primary' : 'text.secondary',
+              borderBottom: '2px solid',
+              borderColor: active ? WPBL_ACCENT : 'transparent',
+              transition: 'color 0.15s, border-color 0.15s',
+              '&:hover': { color: 'text.primary' },
+            }}>
+              {n.label}
+            </Box>
+          )
+        })}
+      </Box>
+
+      {loading
+        ? <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+        : (
+          <>
+            {view === 'home'      && <HomeView teams={teams} games={games} onGo={setView} />}
+            {view === 'schedule'  && <ScheduleView teams={teams} games={games} />}
+            {view === 'standings' && <StandingsView teams={teams} games={games} />}
+            {view === 'teams'     && <TeamsView teams={teams} />}
+          </>
+        )}
+    </Box>
+  )
+}

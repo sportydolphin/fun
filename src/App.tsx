@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react'
 import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Tooltip, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, List, ListItemButton, Divider } from '@mui/material'
-import { Brightness4, Brightness7, AccountCircle, Search, Close } from '@mui/icons-material'
+import { Brightness4, Brightness7, AccountCircle, Search, Close, Lock } from '@mui/icons-material'
 import { useSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import type { PlayerBridgeItem, TeamBridgeItem, ToolbarSuggestion, RecentSearchItem } from './mlb/state/SearchBridgeContext'
 import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT, DESKTOP_ZOOM } from './mlb/constants'
@@ -33,8 +33,11 @@ import PoopGame from './PoopGame'
 // The MLB feature is by far the largest part of the app — code-split it so the
 // landing page and other projects don't ship its ~entire view tree up front.
 const MlbStats = lazy(() => import('./MlbStats'))
+// WPBL — a separate top-level league section (its own data + views). Lazy so it
+// stays out of the MLB and landing bundles.
+const WpblApp = lazy(() => import('./wpbl/WpblApp'))
 
-type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame' | '/mlb'
+type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame' | '/mlb' | '/wpbl'
 
 const LOCK_PASSWORD = 'sportydolphin'
 const LOCKED_PATHS = new Set(['/cups', '/weights'])
@@ -383,7 +386,7 @@ function AppInner() {
               new now live in the site footer. */}
           <Box sx={{
             flex: 1, minWidth: 0, display: mobileSearchExpanded && !isDesktop ? 'none' : 'flex',
-            alignItems: 'baseline', gap: 0.75,
+            alignItems: 'center', gap: 0.75,
           }}>
             <Typography
               variant="h6" component="div"
@@ -391,10 +394,46 @@ function AppInner() {
               sx={{
                 minWidth: 0, fontWeight: 700, cursor: 'pointer', userSelect: 'none',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                display: { xs: 'none', sm: 'block' },
               }}
             >
               sportydolphin.fun
             </Typography>
+
+            {/* League switcher — jumps between the two top-level sections. Admin-only:
+                WPBL is an exclusive, not-yet-public feature, so the entry point renders
+                only for the site owner. The lock badge + tooltip are the reminder that
+                it's gated (the /wpbl route itself is still reachable by direct URL). */}
+            {isAdmin && (
+              <Tooltip title="Admin-only — WPBL is exclusive to you, not public yet">
+                <Box sx={{
+                  display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0,
+                  pl: '5px', pr: '2px', py: '2px', borderRadius: 999,
+                  border: '1px solid', borderColor: `${ACCENT}55`, bgcolor: `${ACCENT}14`,
+                }}>
+                  <Lock sx={{ fontSize: '0.72rem', color: ACCENT, flexShrink: 0 }} />
+                  {[{ label: 'MLB', to: '/mlb' }, { label: 'WPBL', to: '/wpbl' }].map(seg => {
+                    const active = path === seg.to
+                    return (
+                      <Box
+                        key={seg.to}
+                        onClick={() => navigate(seg.to)}
+                        sx={{
+                          px: 1, py: '3px', borderRadius: 999, cursor: 'pointer', userSelect: 'none',
+                          fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.3, lineHeight: 1,
+                          color: active ? '#fff' : 'text.secondary',
+                          bgcolor: active ? ACCENT : 'transparent',
+                          transition: 'background-color 0.15s, color 0.15s',
+                          '&:hover': { bgcolor: active ? ACCENT : 'action.hover' },
+                        }}
+                      >
+                        {seg.label}
+                      </Box>
+                    )
+                  })}
+                </Box>
+              </Tooltip>
+            )}
           </Box>
 
           {/* Toolbar search — desktop: always visible when MLB loaded; mobile: expands on tap */}
@@ -741,6 +780,11 @@ function AppInner() {
         {path === '/mlb' && (
           <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
             <MlbStats />
+          </Suspense>
+        )}
+        {path === '/wpbl' && (
+          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+            <WpblApp />
           </Suspense>
         )}
       </Box>
