@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { fetchWpblTeams, fetchWpblSchedule, fetchWpblRoster, computeStandings } from './api'
 import { WPBL_ACCENT, wpblColor, wpblFullName } from './constants'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
+import GameEntryModal from './GameEntry'
+import GameDetailModal from './GameDetail'
+import PlayerDetailModal from './PlayerDetail'
 
 // Phase 0 skeleton for the WPBL section. Reads from Supabase and renders whatever is
 // there; everything shows a friendly empty state until the tables are seeded. Views
@@ -45,7 +48,10 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
 
 // ─── Views ────────────────────────────────────────────────────────────────────
 
-function ScheduleView({ teams, games }: { teams: WpblTeam[]; games: WpblGame[] }) {
+function ScheduleView({ teams, games, isAdmin, onEditGame, onOpenGame }: {
+  teams: WpblTeam[]; games: WpblGame[]; isAdmin: boolean
+  onEditGame: (g: WpblGame) => void; onOpenGame: (g: WpblGame) => void
+}) {
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   if (games.length === 0) {
     return <EmptyState title="No games scheduled yet" hint="The 2026 schedule loads here once it is added." />
@@ -68,9 +74,10 @@ function ScheduleView({ teams, games }: { teams: WpblTeam[]; games: WpblGame[] }
               const away = byId.get(g.away_team_id)
               const final = g.status === 'final' && g.home_score != null && g.away_score != null
               return (
-                <Box key={g.id} sx={{
-                  display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25,
+                <Box key={g.id} onClick={() => onOpenGame(g)} sx={{
+                  display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, cursor: 'pointer',
                   borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
+                  transition: 'border-color 0.15s', '&:hover': { borderColor: 'text.disabled' },
                 }}>
                   <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                     {[away, home].map((t, i) => t && (
@@ -90,6 +97,14 @@ function ScheduleView({ teams, games }: { teams: WpblTeam[]; games: WpblGame[] }
                       {final ? `Final${g.innings && g.innings !== 7 ? `/${g.innings}` : ''}` : g.start_time || 'TBD'}
                     </Typography>
                   </Box>
+                  {isAdmin && (
+                    <Box
+                      onClick={(e) => { e.stopPropagation(); onEditGame(g) }}
+                      sx={{ flexShrink: 0, cursor: 'pointer', userSelect: 'none', fontSize: '0.66rem', fontWeight: 800, color: WPBL_ACCENT, border: '1px solid', borderColor: `${WPBL_ACCENT}66`, borderRadius: 999, px: 1, py: '3px', '&:hover': { bgcolor: `${WPBL_ACCENT}18` } }}
+                    >
+                      {final ? 'Edit' : 'Enter'}
+                    </Box>
+                  )}
                 </Box>
               )
             })}
@@ -139,7 +154,7 @@ function StandingsView({ teams, games }: { teams: WpblTeam[]; games: WpblGame[] 
   )
 }
 
-function TeamsView({ teams }: { teams: WpblTeam[] }) {
+function TeamsView({ teams, onOpenPlayer }: { teams: WpblTeam[]; onOpenPlayer: (p: WpblPlayer) => void }) {
   const [selected, setSelected] = useState<WpblTeam | null>(null)
   const [roster, setRoster] = useState<WpblPlayer[] | null>(null)
   const [loadingRoster, setLoadingRoster] = useState(false)
@@ -175,7 +190,7 @@ function TeamsView({ teams }: { teams: WpblTeam[] }) {
             ? (
               <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                 {roster.map(p => (
-                  <Box key={p.id} sx={{ display: 'flex', alignItems: 'center', gap: 1.25, py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+                  <Box key={p.id} onClick={() => onOpenPlayer(p)} sx={{ display: 'flex', alignItems: 'center', gap: 1.25, py: 1, cursor: 'pointer', borderBottom: '1px solid', borderColor: 'divider', '&:hover': { bgcolor: 'action.hover' } }}>
                     <Typography sx={{ width: 40, textAlign: 'center', flexShrink: 0, fontSize: '0.74rem', fontWeight: 800, color: wpblColor(selected.id) }}>
                       {p.position || '—'}
                     </Typography>
@@ -221,7 +236,9 @@ function TeamsView({ teams }: { teams: WpblTeam[] }) {
   )
 }
 
-function HomeView({ teams, games, onGo }: { teams: WpblTeam[]; games: WpblGame[]; onGo: (v: WpblView) => void }) {
+function HomeView({ teams, games, onOpenGame }: {
+  teams: WpblTeam[]; games: WpblGame[]; onOpenGame: (g: WpblGame) => void
+}) {
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const upcoming = games.find(g => g.status !== 'final')
   return (
@@ -240,7 +257,7 @@ function HomeView({ teams, games, onGo }: { teams: WpblTeam[]; games: WpblGame[]
               const home = byId.get(upcoming.home_team_id)
               const away = byId.get(upcoming.away_team_id)
               return (
-                <Box onClick={() => onGo('schedule')} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }}>
+                <Box onClick={() => onOpenGame(upcoming)} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }}>
                   {away && <TeamBadge team={away} size={30} />}
                   <Typography sx={{ fontSize: '0.9rem', fontWeight: 700 }}>{away?.abbr} @ {home?.abbr}</Typography>
                   {home && <TeamBadge team={home} size={30} />}
@@ -258,14 +275,17 @@ function HomeView({ teams, games, onGo }: { teams: WpblTeam[]; games: WpblGame[]
 
 // ─── Section root ───────────────────────────────────────────────────────────────
 
-export default function WpblApp() {
+export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
   const isDesktop = useMediaQuery('(min-width: 600px)')
   const [view, setView] = useState<WpblView>('home')
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [games, setGames] = useState<WpblGame[]>([])
   const [loading, setLoading] = useState(true)
+  const [editGame, setEditGame] = useState<WpblGame | null>(null)
+  const [detailGame, setDetailGame] = useState<WpblGame | null>(null)
+  const [detailPlayer, setDetailPlayer] = useState<WpblPlayer | null>(null)
 
-  useEffect(() => {
+  const reload = useCallback(() => {
     let cancelled = false
     Promise.all([fetchWpblTeams(), fetchWpblSchedule()]).then(([t, g]) => {
       if (cancelled) return
@@ -273,6 +293,8 @@ export default function WpblApp() {
     })
     return () => { cancelled = true }
   }, [])
+
+  useEffect(() => reload(), [reload])
 
   return (
     // Cap + center on wide screens (site convention); full width on mobile.
@@ -301,12 +323,39 @@ export default function WpblApp() {
         ? <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
         : (
           <>
-            {view === 'home'      && <HomeView teams={teams} games={games} onGo={setView} />}
-            {view === 'schedule'  && <ScheduleView teams={teams} games={games} />}
+            {view === 'home'      && <HomeView teams={teams} games={games} onOpenGame={setDetailGame} />}
+            {view === 'schedule'  && <ScheduleView teams={teams} games={games} isAdmin={isAdmin} onEditGame={setEditGame} onOpenGame={setDetailGame} />}
             {view === 'standings' && <StandingsView teams={teams} games={games} />}
-            {view === 'teams'     && <TeamsView teams={teams} />}
+            {view === 'teams'     && <TeamsView teams={teams} onOpenPlayer={setDetailPlayer} />}
           </>
         )}
+
+      {detailPlayer && (
+        <PlayerDetailModal
+          player={detailPlayer}
+          teams={teams}
+          games={games}
+          onClose={() => setDetailPlayer(null)}
+        />
+      )}
+
+      {detailGame && (
+        <GameDetailModal
+          game={detailGame}
+          teams={teams}
+          onClose={() => setDetailGame(null)}
+          onEdit={isAdmin ? (g) => { setDetailGame(null); setEditGame(g) } : undefined}
+        />
+      )}
+
+      {editGame && (
+        <GameEntryModal
+          game={editGame}
+          teams={teams}
+          onClose={() => setEditGame(null)}
+          onSaved={() => { setEditGame(null); reload() }}
+        />
+      )}
     </Box>
   )
 }

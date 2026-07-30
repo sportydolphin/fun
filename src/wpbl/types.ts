@@ -97,3 +97,8 @@ export interface WpblStandingRow {
   runsFor: number
   runsAgainst: number
 }
+
+// Insert shapes for the box-score entry form (the DB fills id/created_at; game_id is
+// supplied by the save call).
+export type WpblBattingInput = Omit<WpblBattingLine, 'id' | 'game_id' | 'created_at'>
+export type WpblPitchingInput = Omit<WpblPitchingLine, 'id' | 'game_id' | 'created_at'>

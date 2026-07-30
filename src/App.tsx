@@ -784,7 +784,7 @@ function AppInner() {
         )}
         {path === '/wpbl' && (
           <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-            <WpblApp />
+            <WpblApp isAdmin={isAdmin} />
           </Suspense>
         )}
       </Box>
