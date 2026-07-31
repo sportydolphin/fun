@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblTeams, fetchWpblSchedule, fetchWpblRoster, computeStandings } from './api'
-import { WPBL_ACCENT, wpblAccent, wpblFullName } from './constants'
-import { SegNav, SectionLabel, TeamBadge, useWpblDark } from './ui'
+import { WPBL_ACCENT, wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
+import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER } from './ui'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import GameEntryModal from './GameEntry'
 import GameDetailModal from './GameDetail'
@@ -63,7 +63,7 @@ function ScheduleView({ teams, games, isAdmin, onEditGame, onOpenGame }: {
               return (
                 <Box key={g.id} onClick={() => onOpenGame(g)} sx={{
                   display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, cursor: 'pointer',
-                  borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
+                  borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
                   transition: 'border-color 0.15s', '&:hover': { borderColor: 'text.disabled' },
                 }}>
                   <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -79,9 +79,9 @@ function ScheduleView({ teams, games, isAdmin, onEditGame, onOpenGame }: {
                       </Box>
                     ))}
                   </Box>
-                  <Box sx={{ textAlign: 'right', minWidth: 62 }}>
+                  <Box sx={{ textAlign: 'right', minWidth: 84 }}>
                     <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: final ? 'text.secondary' : WPBL_ACCENT }}>
-                      {final ? `Final${g.innings && g.innings !== 7 ? `/${g.innings}` : ''}` : g.start_time || 'TBD'}
+                      {final ? `Final${g.innings && g.innings !== 7 ? `/${g.innings}` : ''}` : formatGameTime(g.game_date, g.start_time) || 'TBD'}
                     </Typography>
                   </Box>
                   {isAdmin && (
@@ -109,7 +109,7 @@ function StandingsView({ teams, games }: { teams: WpblTeam[]; games: WpblGame[] 
   }
   const played = games.some(g => g.status === 'final')
   return (
-    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+    <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden' }}>
       <Box sx={{ display: 'flex', px: 1.5, py: 0.75, bgcolor: 'action.hover', fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary' }}>
         <Box sx={{ flex: 1 }}>Team</Box>
         <Box sx={{ width: 40, textAlign: 'right' }}>W</Box>
@@ -153,7 +153,11 @@ function TeamsView({ teams, selected, onSelect, onOpenPlayer }: {
     if (!selected) { setRoster(null); return }
     let cancelled = false
     setLoadingRoster(true)
-    fetchWpblRoster(selected.id).then(r => { if (!cancelled) { setRoster(r); setLoadingRoster(false) } })
+    fetchWpblRoster(selected.id).then(r => {
+      if (cancelled) return
+      const sorted = [...r].sort((a, b) => positionRank(a.position) - positionRank(b.position) || a.name.localeCompare(b.name))
+      setRoster(sorted); setLoadingRoster(false)
+    })
     return () => { cancelled = true }
   }, [selected])
 
@@ -212,7 +216,7 @@ function TeamsView({ teams, selected, onSelect, onOpenPlayer }: {
       {teams.map(t => (
         <Box key={t.id} onClick={() => onSelect(t)} sx={{
           display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, cursor: 'pointer',
-          borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
+          borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
           transition: 'border-color 0.15s', '&:hover': { borderColor: wpblAccent(t.id, isDark) },
         }}>
           <TeamBadge team={t} size={40} />

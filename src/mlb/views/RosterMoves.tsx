@@ -37,11 +37,11 @@ function fmtMoveDay(ymd: string): string {
   return `${weekday} · ${MONTHS[m - 1]} ${d}`
 }
 
-// Countdown chip through July: null outside the 30 days before the deadline.
+// Countdown chip: null outside the 30 days before the deadline.
 function deadlineInfo(): { label: string; hot: boolean } | null {
   const now = new Date()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const deadline = new Date(CURRENT_SEASON, 6, 31)  // Jul 31
+  const deadline = new Date(CURRENT_SEASON, 7, 3)  // Aug 3
   const days = Math.round((deadline.getTime() - today.getTime()) / 86400000)
   if (days < 0 || days > 30) return null
   return { label: days === 0 ? 'DEADLINE TODAY' : `Deadline in ${days}d`, hot: days <= 3 }

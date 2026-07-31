@@ -350,12 +350,12 @@ function AppInner() {
 
   return (
     // Desktop-only content scale (see DESKTOP_ZOOM). Applied at the app root on the
-    // /mlb route so the toolbar scales together with the MLB view; the `--app-zoom`
+    // /mlb and /wpbl routes so the toolbar scales together with the view; the `--app-zoom`
     // var inherits into the subtree for viewport-relative sizing that `zoom` can't
     // compensate. Portaled MUI Dialogs/Snackbar render outside this box (in body),
     // so they stay at native scale. Mobile (xs) and other routes stay at 1.
     <Box sx={{
-      '--app-zoom': { xs: '1', md: path === '/mlb' ? String(DESKTOP_ZOOM) : '1' },
+      '--app-zoom': { xs: '1', md: (path === '/mlb' || path === '/wpbl') ? String(DESKTOP_ZOOM) : '1' },
       zoom: 'var(--app-zoom)',
     }}>
       <AppBar

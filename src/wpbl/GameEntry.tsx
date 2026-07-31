@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, Button, CircularProgress, Alert } from '@mui/material'
 import { fetchWpblRoster, fetchWpblGameLines, saveWpblGameResult, clearWpblGameResult } from './api'
-import { wpblAccent, wpblFullName, outsToIp, ipToOuts } from './constants'
+import { wpblAccent, wpblFullName, outsToIp, ipToOuts, formatGameTime } from './constants'
 import { ModalShell, useWpblDark } from './ui'
 import type { WpblTeam, WpblGame, WpblPlayer, WpblGameStatus, WpblBattingInput, WpblPitchingInput } from './types'
 
@@ -205,7 +205,7 @@ export default function GameEntryModal({ game, teams, onClose, onSaved }: {
 
   return (
     <ModalShell
-      eyebrow={`${dateLabel}${game.start_time ? ` · ${game.start_time}` : ''} · Enter result`}
+      eyebrow={`${dateLabel}${game.start_time ? ` · ${formatGameTime(game.game_date, game.start_time)}` : ''} · Enter result`}
       onClose={onClose}
       maxWidth={860}
       footer={

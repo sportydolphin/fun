@@ -9,8 +9,14 @@
 
 import React, { useEffect } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
+import type { Theme } from '@mui/material'
 import { WPBL_ACCENT, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
 import type { WpblTeam } from './types'
+
+// Card outline color — noticeably stronger than MUI's faint `divider` so the WPBL
+// cards (and the sub-cards nested inside them) read as crisply outlined in both light
+// and dark mode. Use for card container borders; keep `divider` for thin inner row rules.
+export const CARD_BORDER = (t: Theme) => t.palette.mode === 'dark' ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.34)'
 
 // Is the app in dark mode? Used to pick foreground-safe team accents (see wpblAccent).
 export function useWpblDark(): boolean {
@@ -90,18 +96,17 @@ export function SegNav({ options, value, onChange, accent = WPBL_ACCENT }: {
 // Bordered content card with a left accent stripe and an icon + title + subtitle
 // header, mirroring the MLB home-feed cards. `action` sits at the right of the header
 // (e.g. a "View all" link); body is the children.
-export function SectionCard({ icon, title, subtitle, accent = WPBL_ACCENT, action, children }: {
+export function SectionCard({ icon, title, subtitle, action, children }: {
   icon?: React.ReactNode
   title: string
   subtitle?: string
-  accent?: string
   action?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
     <Box sx={{
       borderRadius: 3, overflow: 'hidden',
-      border: '1px solid', borderColor: 'divider', borderLeft: `4px solid ${accent}`,
+      border: '1px solid', borderColor: CARD_BORDER,
       bgcolor: 'background.paper',
     }}>
       <Box sx={{ px: 2, pt: 1.5, pb: 1.25, display: 'flex', alignItems: 'center', gap: 1 }}>

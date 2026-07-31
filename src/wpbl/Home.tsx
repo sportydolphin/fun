@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblAllPlayers, fetchWpblAllLines, computeStandings } from './api'
-import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName } from './constants'
-import { SectionCard, SectionLabel, TeamBadge, useWpblDark } from './ui'
+import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime } from './constants'
+import { SectionCard, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER } from './ui'
 import {
   aggregateBatting, aggregatePitching, fmtRate, fmtTwo,
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
@@ -48,7 +48,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
   return (
     <Box onClick={onOpen} sx={{
       flexShrink: 0, width: 132, cursor: 'pointer',
-      borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper',
+      borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
       p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
       transition: 'border-color 0.15s', '&:hover': { borderColor: 'text.disabled' },
     }}>
@@ -57,6 +57,11 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
       </Typography>
       {row(away, game.away_score, awayWon)}
       {row(home, game.home_score, homeWon)}
+      {!final && !live && game.start_time && (
+        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary', letterSpacing: 0.2 }}>
+          {formatGameTime(game.game_date, game.start_time)}
+        </Typography>
+      )}
     </Box>
   )
 }
@@ -77,8 +82,8 @@ function Scoreboard({ games, teams, onOpenGame }: {
       <SectionLabel>Scoreboard</SectionLabel>
       <Box sx={{
         display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5,
-        '&::-webkit-scrollbar': { height: 6 },
-        '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 3 },
+        '&::-webkit-scrollbar': { display: 'none' },
+        msOverflowStyle: 'none', scrollbarWidth: 'none',
       }} data-swipe-ignore="true">
         {strip.map(g => <GameChip key={g.id} game={g} teams={teams} onOpen={() => onOpenGame(g)} />)}
       </Box>
@@ -94,7 +99,7 @@ function StandingsCard({ teams, games, onOpenTeam }: {
   const rows = useMemo(() => computeStandings(teams, games), [teams, games])
   const played = games.some(g => g.status === 'final')
   return (
-    <SectionCard icon="📊" title="Standings" subtitle={played ? 'Inaugural season' : 'Season opens August 1'}>
+    <SectionCard title="Standings" subtitle={played ? 'Inaugural season' : 'Season opens August 1'}>
       <Box sx={{ display: 'flex', px: 0.5, pb: 0.5, fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled' }}>
         <Box sx={{ flex: 1 }}>Team</Box>
         <Box sx={{ width: 32, textAlign: 'right' }}>W</Box>
@@ -129,12 +134,12 @@ function StandingsCard({ teams, games, onOpenTeam }: {
 
 function TeamsCard({ teams, onOpenTeam }: { teams: WpblTeam[]; onOpenTeam: (t: WpblTeam) => void }) {
   return (
-    <SectionCard icon="⚾" title="Teams" subtitle="The four founding clubs">
+    <SectionCard title="Teams" subtitle="The four founding clubs">
       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
         {teams.map(t => (
           <Box key={t.id} onClick={() => onOpenTeam(t)} sx={{
             display: 'flex', alignItems: 'center', gap: 1, p: 1, cursor: 'pointer',
-            borderRadius: 2, border: '1px solid', borderColor: 'divider',
+            borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
             transition: 'border-color 0.15s', '&:hover': { borderColor: wpblColor(t.id) },
           }}>
             <TeamBadge team={t} size={30} />
@@ -192,13 +197,13 @@ function topPit(list: WpblPitSeason[], value: (t: WpblPitchingTotals) => number 
     .map(x => ({ player: x.player, display: display(x.totals) }))
 }
 
-function LeadersCard({ icon, title, blocks, loading, hasData, onOpenPlayer }: {
-  icon: string; title: string; blocks: { label: string; rows: LeaderRow[] }[]
+function LeadersCard({ title, blocks, loading, hasData, onOpenPlayer }: {
+  title: string; blocks: { label: string; rows: LeaderRow[] }[]
   loading: boolean; hasData: boolean; onOpenPlayer: (p: WpblPlayer) => void
 }) {
   const anyRows = blocks.some(b => b.rows.length > 0)
   return (
-    <SectionCard icon={icon} title={title} subtitle="Season leaders">
+    <SectionCard title={title} subtitle="Season leaders">
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={20} /></Box>
       ) : !hasData || !anyRows ? (
@@ -290,8 +295,8 @@ export default function WpblHome({ teams, games, onOpenGame, onOpenPlayer, onOpe
 
         {/* Around the League */}
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <LeadersCard icon="🏏" title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} onOpenPlayer={onOpenPlayer} />
-          <LeadersCard icon="🔥" title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} onOpenPlayer={onOpenPlayer} />
+          <LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} onOpenPlayer={onOpenPlayer} />
+          <LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} onOpenPlayer={onOpenPlayer} />
         </Box>
       </Box>
     </Box>

@@ -85,6 +85,39 @@ export function wpblFullName(team: Pick<WpblTeam, 'city' | 'name'>): string {
   return `${team.city} ${team.name}`
 }
 
+// Game times are stored as flat wall-clock strings ("6:30 PM") at the single hub
+// venue, which sits in U.S. Central Time. Interpret that wall clock as Central and
+// re-render it in the VIEWER's local zone, with the zone abbreviation so it's
+// unambiguous (a 5:00 PM Central game shows as "6:00 PM EDT" on the east coast).
+// Returns the original string if it isn't in the expected "H:MM AM/PM" shape.
+const WPBL_TZ = 'America/Chicago'
+export function formatGameTime(gameDate: string, startTime: string | null | undefined): string | null {
+  if (!startTime) return null
+  const m = startTime.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
+  if (!m) return startTime
+  let h = parseInt(m[1], 10) % 12
+  if (/pm/i.test(m[3])) h += 12
+  const min = parseInt(m[2], 10)
+  const [y, mo, d] = gameDate.split('-').map(Number)
+  // Treat the wall clock as UTC, then correct by Central's offset at that instant so
+  // the result is the true UTC instant of the game (DST-safe, no hardcoded offset).
+  const naive = Date.UTC(y, mo - 1, d, h, min)
+  const ref = new Date(naive)
+  const offset = new Date(ref.toLocaleString('en-US', { timeZone: 'UTC' })).getTime()
+    - new Date(ref.toLocaleString('en-US', { timeZone: WPBL_TZ })).getTime()
+  const real = new Date(naive + offset)
+  return real.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+}
+
+// Roster sort key: defensive position order (pitchers first, then around the diamond,
+// then bench/utility). Unknown or blank positions sort last. Pair with a name tiebreak.
+const POSITION_ORDER = ['P', 'SP', 'RP', 'C', '1B', '2B', '3B', 'SS', 'IF', 'LF', 'CF', 'RF', 'OF', 'DH', 'UTIL']
+export function positionRank(pos: string | null | undefined): number {
+  if (!pos) return 999
+  const i = POSITION_ORDER.indexOf(pos.trim().toUpperCase())
+  return i === -1 ? 900 : i
+}
+
 // Innings pitched (stored as outs) → the familiar "5.2" display.
 export function outsToIp(outs: number): string {
   return `${Math.floor(outs / 3)}.${outs % 3}`

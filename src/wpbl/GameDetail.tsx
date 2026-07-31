@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblRoster, fetchWpblGameLines } from './api'
-import { wpblAccent, wpblFullName, outsToIp, WPBL_ACCENT } from './constants'
+import { wpblAccent, wpblFullName, outsToIp, WPBL_ACCENT, formatGameTime } from './constants'
 import { ModalShell, TeamBadge, useWpblDark } from './ui'
 import type { WpblTeam, WpblGame, WpblPlayer, WpblBattingLine, WpblPitchingLine } from './types'
 
@@ -135,7 +135,7 @@ export default function GameDetailModal({ game, teams, onClose, onEdit }: {
 
   return (
     <ModalShell
-      eyebrow={final ? `Final${game.innings && game.innings !== 7 ? ` / ${game.innings}` : ''}` : `${dateLabel}${game.start_time ? ` · ${game.start_time}` : ''}`}
+      eyebrow={final ? `Final${game.innings && game.innings !== 7 ? ` / ${game.innings}` : ''}` : `${dateLabel}${game.start_time ? ` · ${formatGameTime(game.game_date, game.start_time)}` : ''}`}
       onClose={onClose}
       maxWidth={720}
       actions={onEdit
