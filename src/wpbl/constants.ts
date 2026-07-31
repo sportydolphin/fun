@@ -87,11 +87,11 @@ export function wpblFullName(team: Pick<WpblTeam, 'city' | 'name'>): string {
 
 // Game times are stored as flat wall-clock strings ("6:30 PM") at the single hub
 // venue, which sits in U.S. Central Time. Interpret that wall clock as Central and
-// re-render it in the VIEWER's local zone, with the zone abbreviation so it's
-// unambiguous (a 5:00 PM Central game shows as "6:00 PM EDT" on the east coast).
-// Returns the original string if it isn't in the expected "H:MM AM/PM" shape.
+// re-render it in the VIEWER's local zone (a 5:00 PM Central game shows as "6:00 PM"
+// on the east coast). Pass withZone to append the zone abbreviation ("6:00 PM EDT")
+// where it helps disambiguate. Returns the original string if it isn't "H:MM AM/PM".
 const WPBL_TZ = 'America/Chicago'
-export function formatGameTime(gameDate: string, startTime: string | null | undefined): string | null {
+export function formatGameTime(gameDate: string, startTime: string | null | undefined, withZone = false): string | null {
   if (!startTime) return null
   const m = startTime.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
   if (!m) return startTime
@@ -106,7 +106,7 @@ export function formatGameTime(gameDate: string, startTime: string | null | unde
   const offset = new Date(ref.toLocaleString('en-US', { timeZone: 'UTC' })).getTime()
     - new Date(ref.toLocaleString('en-US', { timeZone: WPBL_TZ })).getTime()
   const real = new Date(naive + offset)
-  return real.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+  return real.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', ...(withZone ? { timeZoneName: 'short' } : {}) })
 }
 
 // Roster sort key: defensive position order (pitchers first, then around the diamond,

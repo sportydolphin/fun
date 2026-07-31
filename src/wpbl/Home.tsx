@@ -28,10 +28,16 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
   const awayWon = final && (game.away_score ?? 0) > (game.home_score ?? 0)
   const homeWon = final && (game.home_score ?? 0) > (game.away_score ?? 0)
 
+  const now = new Date()
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const dateText = game.game_date === todayStr
+    ? 'Today'
+    : new Date(`${game.game_date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })
+  const timeText = formatGameTime(game.game_date, game.start_time)
   const statusText = final
     ? `Final${game.innings && game.innings !== 7 ? `/${game.innings}` : ''}`
     : live ? 'Live'
-    : new Date(`${game.game_date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })
+    : timeText ? `${dateText} · ${timeText}` : dateText
 
   const row = (t: WpblTeam | undefined, score: number | null, won: boolean) => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
@@ -57,11 +63,6 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
       </Typography>
       {row(away, game.away_score, awayWon)}
       {row(home, game.home_score, homeWon)}
-      {!final && !live && game.start_time && (
-        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary', letterSpacing: 0.2 }}>
-          {formatGameTime(game.game_date, game.start_time)}
-        </Typography>
-      )}
     </Box>
   )
 }
