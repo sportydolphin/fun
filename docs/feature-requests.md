@@ -2,7 +2,7 @@
 
 > Generated from Google Tasks by `npm run tasks` (scripts/pull-tasks.mjs). Do not
 > edit by hand — edit the tasks in Google Tasks and re-run.
-> Last pulled: 2026-07-30 17:29 UTC · 16 open items.
+> Last pulled: 2026-07-31 06:05 UTC · 16 open items.
 
 ## Site todos
 
