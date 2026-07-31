@@ -585,7 +585,9 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
   }, [])
 
   const theme = useTheme()
-  const paperBg = theme.palette.background.paper
+  // The strip sits directly on the page now (no enclosing card), so the edge-fade
+  // arrows blend to the page background rather than a paper surface.
+  const pageBg = theme.palette.background.default
   const stripRef = useRef<HTMLDivElement | null>(null)
   const [canScrollLeft,  setCanScrollLeft]  = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
@@ -698,13 +700,11 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
 
   return (
     <>
-      <Box sx={{
-        borderRadius: 3, border: '1px solid', borderColor: defaultBorder(isDark),
-        bgcolor: 'background.paper', overflow: 'hidden',
-      }}>
+      {/* Open on the page — no enclosing card. The mini-cards carry their own border. */}
+      <Box>
         {/* Header with date nav */}
         <Box sx={{
-          px: 2, py: 0.5, borderBottom: '1px solid', borderColor: 'divider',
+          px: 0.25, pb: 0.75,
           display: 'flex', alignItems: 'center', gap: 1,
         }}>
           <Typography sx={{
@@ -754,7 +754,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
                 cursor: 'pointer',
                 opacity: canScrollLeft ? 1 : 0, pointerEvents: canScrollLeft ? 'auto' : 'none',
                 transition: 'opacity 0.15s',
-                background: `linear-gradient(to right, ${paperBg} 0%, ${paperBg}cc 55%, transparent 100%)`,
+                background: `linear-gradient(to right, ${pageBg} 0%, ${pageBg}cc 55%, transparent 100%)`,
                 '&:hover .scoreArrowIcon': { color: 'text.primary', transform: 'scale(1.15)' },
               }}
             >
@@ -775,7 +775,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
                 cursor: 'pointer',
                 opacity: canScrollRight ? 1 : 0, pointerEvents: canScrollRight ? 'auto' : 'none',
                 transition: 'opacity 0.15s',
-                background: `linear-gradient(to left, ${paperBg} 0%, ${paperBg}cc 55%, transparent 100%)`,
+                background: `linear-gradient(to left, ${pageBg} 0%, ${pageBg}cc 55%, transparent 100%)`,
                 '&:hover .scoreArrowIcon': { color: 'text.primary', transform: 'scale(1.15)' },
               }}
             >
@@ -792,7 +792,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
               onScroll={handleStripScroll}
               data-swipe-ignore="true"
               sx={{
-                display: 'flex', gap: 1, p: 1.25,
+                display: 'flex', gap: 1, px: 0.25, py: 1,
                 overflowX: 'auto',
                 '&::-webkit-scrollbar': { display: 'none' },
                 msOverflowStyle: 'none', scrollbarWidth: 'none',
