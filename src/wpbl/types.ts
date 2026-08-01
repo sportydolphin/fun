@@ -33,6 +33,8 @@ export interface WpblPlayer {
   created_at: string
 }
 
+export type WpblHalf = 'top' | 'bottom'
+
 export interface WpblGame {
   id: string
   game_date: string          // 'YYYY-MM-DD'
@@ -47,6 +49,21 @@ export interface WpblGame {
   notes: string | null
   created_at: string
   updated_at: string
+  // ─── Live-situation columns (added in add_wpbl_live.sql). Present once the game
+  // has been touched by the live scorer; the DB defaults them so they are never null.
+  live_inning?: number
+  live_half?: WpblHalf
+  live_outs?: number
+  live_balls?: number
+  live_strikes?: number
+  runner_first?: string | null       // player_id on 1st (null = empty)
+  runner_second?: string | null
+  runner_third?: string | null
+  away_batting_order?: number         // next lineup slot due up for each side
+  home_batting_order?: number
+  away_pitcher_id?: string | null     // current pitcher for each side
+  home_pitcher_id?: string | null
+  last_play_at?: string | null
 }
 
 export interface WpblBattingLine {
@@ -68,6 +85,38 @@ export interface WpblBattingLine {
   hbp: number
   sb: number
   cs: number
+  sub_out?: boolean          // true = replaced in this slot; active batter is the sub_out=false row
+  created_at: string
+}
+
+// One logged play in the play-by-play (mirrors wpbl_plays). Stat fields drive the box
+// recompute; *_after fields snapshot the resulting game state for undo.
+export interface WpblPlay {
+  id: string
+  game_id: string
+  seq: number
+  inning: number
+  half: WpblHalf
+  batting_team_id: string | null
+  batter_id: string | null           // null for baserunning-only plays (SB/CS)
+  pitcher_id: string | null
+  runner_id: string | null           // subject of an SB/CS
+  outcome: string                    // scorer code — see live.ts OUTCOMES
+  rbi: number
+  runs: number
+  outs_recorded: number
+  scored_ids: string[]
+  description: string
+  away_score_after: number
+  home_score_after: number
+  inning_after: number
+  half_after: WpblHalf
+  outs_after: number
+  runner_first_after: string | null
+  runner_second_after: string | null
+  runner_third_after: string | null
+  away_order_after: number
+  home_order_after: number
   created_at: string
 }
 

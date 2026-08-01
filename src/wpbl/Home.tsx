@@ -3,6 +3,7 @@ import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblAllPlayers, fetchWpblAllLines, computeStandings } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime } from './constants'
 import { SectionCard, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER } from './ui'
+import { LiveHero } from './LiveGameCenter'
 import {
   aggregateBatting, aggregatePitching, fmtRate, fmtTwo,
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
@@ -220,10 +221,14 @@ function LeadersCard({ title, blocks, loading, hasData, onOpenPlayer }: {
 
 // ─── Home ───────────────────────────────────────────────────────────────────────
 
-export default function WpblHome({ teams, games, onOpenGame, onOpenPlayer, onOpenTeam }: {
+export default function WpblHome({ teams, games, liveGame, isAdmin, onOpenGame, onOpenCenter, onScoreLive, onOpenPlayer, onOpenTeam }: {
   teams: WpblTeam[]
   games: WpblGame[]
+  liveGame: WpblGame | null
+  isAdmin: boolean
   onOpenGame: (g: WpblGame) => void
+  onOpenCenter: (g: WpblGame) => void
+  onScoreLive: (g: WpblGame) => void
   onOpenPlayer: (p: WpblPlayer) => void
   onOpenTeam: (t: WpblTeam) => void
 }) {
@@ -278,6 +283,20 @@ export default function WpblHome({ teams, games, onOpenGame, onOpenPlayer, onOpe
           ))}
         </Box>
       </Box>
+
+      {/* Live game hero — the one in-progress game, front and center */}
+      {liveGame && (
+        <>
+          <LiveHero game={liveGame} teams={teams} onOpenCenter={() => onOpenCenter(liveGame)} />
+          {isAdmin && (
+            <Box onClick={() => onScoreLive(liveGame)} sx={{
+              display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer',
+              fontSize: '0.72rem', fontWeight: 800, color: '#ef4444', border: '1px solid', borderColor: '#ef444466',
+              borderRadius: 999, px: 1.25, py: 0.4, '&:hover': { bgcolor: '#ef444414' },
+            }}>⚡ Keep score</Box>
+          )}
+        </>
+      )}
 
       {/* Scoreboard */}
       <Scoreboard games={games} teams={teamMap} onOpenGame={onOpenGame} />
