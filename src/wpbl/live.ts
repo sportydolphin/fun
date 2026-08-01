@@ -175,6 +175,22 @@ export async function editBattingSlot(lineId: string, playerId: string, position
   } catch (e) { return fail(e) }
 }
 
+// Set a batting-order slot: update the existing line in place, or insert a zeroed one if
+// the slot is empty (lets the owner fill an unset lineup mid-game).
+export async function upsertBattingSlot(gameId: string, teamId: string, order: number, playerId: string, position: string | null, lineId: string | null): Promise<LiveResult> {
+  try {
+    if (lineId) {
+      const up = await supabase.from('wpbl_batting_lines').update({ player_id: playerId, position }).eq('id', lineId)
+      return up.error ? { ok: false, error: up.error.message } : { ok: true }
+    }
+    const ins = await supabase.from('wpbl_batting_lines').insert({
+      game_id: gameId, team_id: teamId, player_id: playerId, batting_order: order, position, sub_out: false,
+      ab: 0, r: 0, h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, bb: 0, so: 0, hbp: 0, sb: 0, cs: 0,
+    })
+    return ins.error ? { ok: false, error: ins.error.message } : { ok: true }
+  } catch (e) { return fail(e) }
+}
+
 // Correct who is pitching for a side in place (mislabeled current pitcher): reassign the
 // current pitching line's player, preserving its stats, and repoint the game. Use this for
 // corrections; use changePitcher to bring in a fresh reliever.

@@ -8,7 +8,7 @@ import {
   OUTCOMES, HIT_OUTCOMES, REACH_OUTCOMES, OUT_OUTCOMES, type Outcome, type OutcomeMeta,
   liveStateOf, proposeEffect, proposeBaserun, commit, describePlay, shortName,
   saveLineup, startLive, logPlay, undoLastPlay, patchLive, changePitcher, subBatter, finishLive,
-  editBattingSlot, editPitcher,
+  editPitcher, upsertBattingSlot,
   fetchLiveBundle, useWpblLiveGame, type NewPlay, type LineupEntry,
 } from './live'
 
@@ -345,10 +345,10 @@ export default function LiveScoring({ game, teams, onClose, onChanged }: {
     live.refresh(); onChanged()
   }
 
-  // Correct a lineup slot's player/position in place (preserves that slot's stats).
-  async function doEditSlot(lineId: string, playerId: string, position: string | null) {
+  // Set a lineup slot: edits in place if it exists, inserts if the slot was empty.
+  async function doEditSlot(teamId: string, order: number, playerId: string, position: string | null, lineId: string | null) {
     setSaving(true)
-    const res = await editBattingSlot(lineId, playerId, position)
+    const res = await upsertBattingSlot(g.id, teamId, order, playerId, position, lineId)
     setSaving(false)
     if (!res.ok) { setError(res.error ?? 'Could not update the lineup.'); return }
     live.refresh(); onChanged()
@@ -560,7 +560,7 @@ function EditLineups({ teams, rosters, batting, pitcherIds, disabled, onEditSlot
   batting: WpblBattingLine[]
   pitcherIds: { away: string; home: string }
   disabled: boolean
-  onEditSlot: (lineId: string, playerId: string, position: string | null) => void
+  onEditSlot: (teamId: string, order: number, playerId: string, position: string | null, lineId: string | null) => void
   onEditPitcher: (side: 'away' | 'home', teamId: string, playerId: string) => void
   onDone: () => void
 }) {
@@ -572,6 +572,7 @@ function EditLineups({ teams, rosters, batting, pitcherIds, disabled, onEditSlot
         const side: 'away' | 'home' = i === 0 ? 'away' : 'home'
         const roster = side === 'away' ? rosters.away : rosters.home
         const rows = batting.filter(b => b.team_id === team.id && !b.sub_out).sort((a, b) => (a.batting_order ?? 0) - (b.batting_order ?? 0))
+        const slots = Array.from({ length: 9 }, (_, k) => rows.find(r => r.batting_order === k + 1) ?? null)
         const used = new Set(rows.map(r => r.player_id))
         return (
           <Box key={team.id} sx={{ mb: 1.5 }}>
@@ -580,22 +581,26 @@ function EditLineups({ teams, rosters, batting, pitcherIds, disabled, onEditSlot
               <Typography sx={{ fontSize: '0.85rem', fontWeight: 800, flex: 1 }}>{wpblFullName(team)}</Typography>
             </Box>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              {rows.map(line => (
-                <Box key={line.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                  <Typography sx={{ width: 18, textAlign: 'right', fontSize: '0.78rem', fontWeight: 800, color: 'text.disabled' }}>{line.batting_order}</Typography>
-                  <Box component="select" value={line.player_id} disabled={disabled}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onEditSlot(line.id, e.target.value, line.position)}
-                    sx={{ ...fieldSx, flex: 1, minWidth: 0 }}>
-                    {roster.map(p => <option key={p.id} value={p.id} disabled={used.has(p.id) && p.id !== line.player_id}>{p.name}</option>)}
+              {slots.map((line, k) => {
+                const order = k + 1
+                return (
+                  <Box key={order} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                    <Typography sx={{ width: 18, textAlign: 'right', fontSize: '0.78rem', fontWeight: 800, color: 'text.disabled' }}>{order}</Typography>
+                    <Box component="select" value={line?.player_id ?? ''} disabled={disabled}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => e.target.value && onEditSlot(team.id, order, e.target.value, line?.position ?? roster.find(r => r.id === e.target.value)?.position ?? null, line?.id ?? null)}
+                      sx={{ ...fieldSx, flex: 1, minWidth: 0 }}>
+                      <option value="">Select batter…</option>
+                      {roster.map(p => <option key={p.id} value={p.id} disabled={used.has(p.id) && p.id !== line?.player_id}>{p.name}</option>)}
+                    </Box>
+                    <Box component="select" value={line?.position ?? ''} disabled={disabled || !line}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => line && onEditSlot(team.id, order, line.player_id, e.target.value || null, line.id)}
+                      sx={{ ...fieldSx, width: 66 }}>
+                      <option value="">Pos</option>
+                      {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                    </Box>
                   </Box>
-                  <Box component="select" value={line.position ?? ''} disabled={disabled}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onEditSlot(line.id, line.player_id, e.target.value || null)}
-                    sx={{ ...fieldSx, width: 66 }}>
-                    <option value="">Pos</option>
-                    {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                  </Box>
-                </Box>
-              ))}
+                )
+              })}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25 }}>
                 <Typography sx={{ width: 18, textAlign: 'right', fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', color: 'text.disabled' }}>P</Typography>
                 <Box component="select" value={pitcherIds[side]} disabled={disabled}
