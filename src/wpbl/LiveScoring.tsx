@@ -8,6 +8,7 @@ import {
   OUTCOMES, HIT_OUTCOMES, REACH_OUTCOMES, OUT_OUTCOMES, type Outcome, type OutcomeMeta,
   liveStateOf, proposeEffect, proposeBaserun, commit, describePlay, shortName,
   saveLineup, startLive, logPlay, undoLastPlay, patchLive, changePitcher, subBatter, finishLive,
+  editBattingSlot, editPitcher,
   fetchLiveBundle, useWpblLiveGame, type NewPlay, type LineupEntry,
 } from './live'
 
@@ -199,6 +200,7 @@ export default function LiveScoring({ game, teams, onClose, onChanged }: {
   const [baserunMode, setBaserunMode] = useState<'SB' | 'CS' | null>(null)
   const [subMode, setSubMode] = useState(false)
   const [pitcherMode, setPitcherMode] = useState(false)
+  const [editMode, setEditMode] = useState(false)
 
   function beginOutcome(code: Outcome) {
     if (!currentBatter) { setError('No batter is up — check the lineup.'); return }
@@ -343,6 +345,25 @@ export default function LiveScoring({ game, teams, onClose, onChanged }: {
     live.refresh(); onChanged()
   }
 
+  // Correct a lineup slot's player/position in place (preserves that slot's stats).
+  async function doEditSlot(lineId: string, playerId: string, position: string | null) {
+    setSaving(true)
+    const res = await editBattingSlot(lineId, playerId, position)
+    setSaving(false)
+    if (!res.ok) { setError(res.error ?? 'Could not update the lineup.'); return }
+    live.refresh(); onChanged()
+  }
+  // Correct who is pitching for a side in place (preserves that pitcher's stats).
+  async function doEditPitcher(side: 'away' | 'home', teamId: string, playerId: string) {
+    const curLineId = live.pitching.find(p => p.team_id === teamId && p.player_id === (side === 'away' ? g.away_pitcher_id : g.home_pitcher_id))?.id ?? null
+    setSaving(true)
+    const res = await editPitcher(g.id, side, curLineId, playerId)
+    setSaving(false)
+    if (!res.ok) { setError(res.error ?? 'Could not update the pitcher.'); return }
+    setG(gg => side === 'away' ? { ...gg, away_pitcher_id: playerId } : { ...gg, home_pitcher_id: playerId })
+    live.refresh(); onChanged()
+  }
+
   const battingColor = wpblAccent(battingTeam.id, isDark)
   const inningLabel = `${half === 'top' ? 'Top' : 'Bot'} ${g.live_inning ?? 1}`
 
@@ -449,6 +470,17 @@ export default function LiveScoring({ game, teams, onClose, onChanged }: {
             <PickPlayer title="Pinch hitter" players={bench} onPick={doSub} onCancel={() => setSubMode(false)} />
           ) : pitcherMode ? (
             <PickPlayer title="New pitcher" players={bullpen} onPick={doPitcherChange} onCancel={() => setPitcherMode(false)} />
+          ) : editMode ? (
+            <EditLineups
+              teams={[away, home]}
+              rosters={rosters}
+              batting={live.batting}
+              pitcherIds={{ away: g.away_pitcher_id ?? '', home: g.home_pitcher_id ?? '' }}
+              disabled={saving}
+              onEditSlot={doEditSlot}
+              onEditPitcher={doEditPitcher}
+              onDone={() => setEditMode(false)}
+            />
           ) : (
             <>
               {/* Outcome buttons */}
@@ -462,6 +494,7 @@ export default function LiveScoring({ game, teams, onClose, onChanged }: {
                 <Button size="small" variant="outlined" onClick={() => setBaserunMode('CS')} sx={miniSx}>Caught stealing</Button>
                 <Button size="small" variant="outlined" onClick={() => setSubMode(true)} sx={miniSx}>Pinch hit</Button>
                 <Button size="small" variant="outlined" onClick={() => setPitcherMode(true)} sx={miniSx}>Change pitcher</Button>
+                <Button size="small" variant="outlined" onClick={() => setEditMode(true)} sx={miniSx}>Edit lineups</Button>
               </Box>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 0.75, alignItems: 'center' }}>
                 <Button size="small" onClick={handleUndo} disabled={saving || live.plays.length === 0} sx={miniSx}>↶ Undo</Button>
@@ -515,6 +548,68 @@ function OutcomeRow({ label, codes, onPick, color, filled }: {
           </Box>
         ))}
       </Box>
+    </Box>
+  )
+}
+
+// In-place lineup/pitcher corrections while a game is live. Each change persists
+// immediately (preserving the slot's or pitcher's accumulated stats).
+function EditLineups({ teams, rosters, batting, pitcherIds, disabled, onEditSlot, onEditPitcher, onDone }: {
+  teams: [WpblTeam, WpblTeam]
+  rosters: { away: WpblPlayer[]; home: WpblPlayer[] }
+  batting: WpblBattingLine[]
+  pitcherIds: { away: string; home: string }
+  disabled: boolean
+  onEditSlot: (lineId: string, playerId: string, position: string | null) => void
+  onEditPitcher: (side: 'away' | 'home', teamId: string, playerId: string) => void
+  onDone: () => void
+}) {
+  return (
+    <Box sx={{ p: 1.5, mb: 1.5, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+      <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, mb: 0.5 }}>Edit lineups &amp; pitchers</Typography>
+      <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', mb: 1.5 }}>Fix a wrong player, position, or pitcher. Stats already recorded stay with the slot.</Typography>
+      {teams.map((team, i) => {
+        const side: 'away' | 'home' = i === 0 ? 'away' : 'home'
+        const roster = side === 'away' ? rosters.away : rosters.home
+        const rows = batting.filter(b => b.team_id === team.id && !b.sub_out).sort((a, b) => (a.batting_order ?? 0) - (b.batting_order ?? 0))
+        const used = new Set(rows.map(r => r.player_id))
+        return (
+          <Box key={team.id} sx={{ mb: 1.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
+              <TeamBadge team={team} size={22} />
+              <Typography sx={{ fontSize: '0.85rem', fontWeight: 800, flex: 1 }}>{wpblFullName(team)}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {rows.map(line => (
+                <Box key={line.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <Typography sx={{ width: 18, textAlign: 'right', fontSize: '0.78rem', fontWeight: 800, color: 'text.disabled' }}>{line.batting_order}</Typography>
+                  <Box component="select" value={line.player_id} disabled={disabled}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onEditSlot(line.id, e.target.value, line.position)}
+                    sx={{ ...fieldSx, flex: 1, minWidth: 0 }}>
+                    {roster.map(p => <option key={p.id} value={p.id} disabled={used.has(p.id) && p.id !== line.player_id}>{p.name}</option>)}
+                  </Box>
+                  <Box component="select" value={line.position ?? ''} disabled={disabled}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onEditSlot(line.id, line.player_id, e.target.value || null)}
+                    sx={{ ...fieldSx, width: 66 }}>
+                    <option value="">Pos</option>
+                    {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                  </Box>
+                </Box>
+              ))}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25 }}>
+                <Typography sx={{ width: 18, textAlign: 'right', fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', color: 'text.disabled' }}>P</Typography>
+                <Box component="select" value={pitcherIds[side]} disabled={disabled}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onEditPitcher(side, team.id, e.target.value)}
+                  sx={{ ...fieldSx, flex: 1, minWidth: 0 }}>
+                  <option value="">Select pitcher…</option>
+                  {roster.map(p => <option key={p.id} value={p.id}>{p.name}{p.position ? ` (${p.position})` : ''}</option>)}
+                </Box>
+              </Box>
+            </Box>
+          </Box>
+        )
+      })}
+      <Button fullWidth variant="contained" onClick={onDone} sx={{ textTransform: 'none', fontWeight: 800, mt: 0.5 }}>Done</Button>
     </Box>
   )
 }

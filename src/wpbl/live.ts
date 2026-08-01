@@ -166,6 +166,30 @@ export async function changePitcher(gameId: string, teamId: string, side: 'away'
   } catch (e) { return fail(e) }
 }
 
+// Correct a lineup slot in place (wrong player or position picked): reassign the existing
+// line's player/position, preserving whatever stats it has already accumulated.
+export async function editBattingSlot(lineId: string, playerId: string, position: string | null): Promise<LiveResult> {
+  try {
+    const up = await supabase.from('wpbl_batting_lines').update({ player_id: playerId, position }).eq('id', lineId)
+    return up.error ? { ok: false, error: up.error.message } : { ok: true }
+  } catch (e) { return fail(e) }
+}
+
+// Correct who is pitching for a side in place (mislabeled current pitcher): reassign the
+// current pitching line's player, preserving its stats, and repoint the game. Use this for
+// corrections; use changePitcher to bring in a fresh reliever.
+export async function editPitcher(gameId: string, side: 'away' | 'home', currentLineId: string | null, playerId: string): Promise<LiveResult> {
+  try {
+    if (currentLineId) {
+      const up = await supabase.from('wpbl_pitching_lines').update({ player_id: playerId }).eq('id', currentLineId)
+      if (up.error) return { ok: false, error: up.error.message }
+    }
+    const patch = side === 'away' ? { away_pitcher_id: playerId } : { home_pitcher_id: playerId }
+    const gu = await supabase.from('wpbl_games').update(patch).eq('id', gameId)
+    return gu.error ? { ok: false, error: gu.error.message } : { ok: true }
+  } catch (e) { return fail(e) }
+}
+
 // Sub a batter into a lineup slot: mark the current occupant sub_out, add the new player
 // in the same batting_order (its own zeroed line). The console then bats the new player.
 export async function subBatter(gameId: string, teamId: string, outLineId: string, inPlayerId: string, order: number, position: string | null): Promise<LiveResult> {
