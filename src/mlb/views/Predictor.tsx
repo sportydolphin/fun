@@ -904,7 +904,7 @@ export function PredictorWidget({ onPicksSettled }: {
                   '&:hover': { bgcolor: `${ACCENT}12` },
                 }}
               >
-                View all {games.length} games →
+                Make predictions →
               </Box>
             )}
           </Box>

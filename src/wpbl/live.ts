@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import type { WpblGame, WpblPlay, WpblBattingLine, WpblPitchingLine } from './types'
 import { aggregateFromPlays, zeroBat, zeroPit } from './engine'
@@ -222,6 +222,7 @@ export function useWpblLiveGame(gameId: string | null, pollMs = 5000): LiveBundl
   const [bundle, setBundle] = useState<LiveBundle>({ game: null, plays: [], batting: [], pitching: [] })
   const [loading, setLoading] = useState(true)
   const busy = useRef(false)
+  const uid = useId() // unique per hook instance so simultaneous subscribers don't collide on channel name
 
   // Dev simulator: when a fabricated live game is running (import.meta.env.DEV only), the
   // hook serves its in-memory bundle instead of Supabase, so the live views render it.
@@ -240,14 +241,14 @@ export function useWpblLiveGame(gameId: string | null, pollMs = 5000): LiveBundl
     refresh()
     const poll = setInterval(refresh, pollMs)
     const ch = supabase
-      .channel(`wpbl-live-${gameId}`)
+      .channel(`wpbl-live-${gameId}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wpbl_games', filter: `id=eq.${gameId}` }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wpbl_plays', filter: `game_id=eq.${gameId}` }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wpbl_batting_lines', filter: `game_id=eq.${gameId}` }, refresh)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wpbl_pitching_lines', filter: `game_id=eq.${gameId}` }, refresh)
       .subscribe()
     return () => { clearInterval(poll); supabase.removeChannel(ch) }
-  }, [gameId, pollMs, refresh, devActive])
+  }, [gameId, pollMs, refresh, devActive, uid])
 
   if (devActive) {
     return { game: dev.game, plays: dev.plays, batting: dev.batting, pitching: dev.pitching, loading: false, refresh: () => {} }

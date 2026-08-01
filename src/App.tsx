@@ -397,7 +397,7 @@ function AppInner() {
                 display: { xs: 'none', sm: 'block' },
               }}
             >
-              sportydolphin.fun
+              sportydolphin
             </Typography>
 
             {/* League switcher — jumps between the two top-level sections (MLB | WPBL). */}
