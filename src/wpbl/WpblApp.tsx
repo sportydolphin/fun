@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblTeams, fetchWpblSchedule, fetchWpblRoster, computeStandings } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
-import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER } from './ui'
+import { SegNav, SectionLabel, TeamBadge, PlayerPortrait, useWpblDark, CARD_BORDER } from './ui'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import GameEntryModal from './GameEntry'
 import GameDetailModal from './GameDetail'
@@ -185,9 +185,10 @@ function TeamsView({ teams, selected, onSelect, onOpenPlayer }: {
               <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                 {roster.map(p => (
                   <Box key={p.id} onClick={() => onOpenPlayer(p)} sx={{ display: 'flex', alignItems: 'center', gap: 1.25, py: 1, cursor: 'pointer', borderBottom: '1px solid', borderColor: 'divider', '&:hover': { bgcolor: 'action.hover' } }}>
-                    <Typography sx={{ width: 40, textAlign: 'center', flexShrink: 0, fontSize: '0.74rem', fontWeight: 800, color: wpblAccent(selected.id, isDark) }}>
+                    <Typography sx={{ width: 28, textAlign: 'center', flexShrink: 0, fontSize: '0.74rem', fontWeight: 800, color: wpblAccent(selected.id, isDark) }}>
                       {p.position || '—'}
                     </Typography>
+                    <PlayerPortrait name={p.name} teamId={p.team_id} size={40} />
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.2 }}>{p.name}</Typography>
                       {p.hometown && (

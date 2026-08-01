@@ -11,6 +11,7 @@ import React, { useEffect } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
 import type { Theme } from '@mui/material'
 import { WPBL_ACCENT, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
+import { wpblPortrait } from './portraits'
 import type { WpblTeam } from './types'
 
 // Card outline color — noticeably stronger than MUI's faint `divider` so the WPBL
@@ -46,6 +47,26 @@ export function TeamBadge({ team, size = 34 }: { team: Pick<WpblTeam, 'id' | 'ab
               : { width: '74%', height: '74%', objectFit: 'contain' }}
           />
         : <Typography sx={{ fontSize: size * 0.34, fontWeight: 800, color: '#fff' }}>{team.abbr}</Typography>}
+    </Box>
+  )
+}
+
+// Player portrait — circular headshot ringed in the team's secondary hue (matching the
+// TeamBadge ring so players and teams read as one set). Falls back to the player's
+// initials on the team color when no portrait is bundled (see ./portraits.ts).
+export function PlayerPortrait({ name, teamId, size = 40 }: { name: string; teamId: string | null; size?: number }) {
+  const src = wpblPortrait(name)
+  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
+  return (
+    <Box sx={{
+      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      bgcolor: wpblColor(teamId),
+      border: `2px solid ${wpblSecondary(teamId)}`,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+    }}>
+      {src
+        ? <Box component="img" src={src} alt={name} loading="lazy" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        : <Typography sx={{ fontSize: size * 0.36, fontWeight: 800, color: '#fff' }}>{initials}</Typography>}
     </Box>
   )
 }

@@ -3,7 +3,7 @@ import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblPlayerLines } from './api'
 import { sumBatting, sumPitching, fmtRate, fmtTwo } from './stats'
 import { wpblAccent, wpblFullName, outsToIp } from './constants'
-import { ModalShell, useWpblDark } from './ui'
+import { ModalShell, PlayerPortrait, useWpblDark } from './ui'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
 
 // Player page (Phase 1c): profile + season totals aggregated from box-score lines,
@@ -82,8 +82,9 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
       zIndex={1600}
     >
       {/* Identity */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Box sx={{ width: 6, alignSelf: 'stretch', borderRadius: 3, bgcolor: color, flexShrink: 0 }} />
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75, p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ width: 4, alignSelf: 'stretch', borderRadius: 3, bgcolor: color, flexShrink: 0 }} />
+        <PlayerPortrait name={player.name} teamId={player.team_id} size={72} />
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography sx={{ fontSize: '1.2rem', fontWeight: 800, lineHeight: 1.15 }}>{player.name}</Typography>
           {subParts.length > 0 && (
