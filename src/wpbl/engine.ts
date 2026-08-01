@@ -170,6 +170,20 @@ export function proposeBaserun(state: LiveState, code: 'SB' | 'CS', fromBase: 1 
   return { bases, scored: t ? [t] : [], outsAdded: 0 }
 }
 
+// Honor a scorer-overridden run count: if they logged more runs than the default
+// advancement scored, send that many additional lead runners home (third, then second,
+// then first) — removing them from the bases and crediting them in `scored`.
+export function reconcileRuns(effect: PlayEffect, runsScored: number): PlayEffect {
+  const scored = [...effect.scored]
+  const bases: Bases = { ...effect.bases }
+  let need = runsScored - scored.length
+  for (const k of ['third', 'second', 'first'] as const) {
+    if (need <= 0) break
+    if (bases[k]) { scored.push(bases[k]!); bases[k] = null; need-- }
+  }
+  return { bases, scored, outsAdded: effect.outsAdded }
+}
+
 const nextOrder = (o: number) => (o % LINEUP_SLOTS) + 1
 
 export interface CommittedPlay {

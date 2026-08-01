@@ -6,7 +6,7 @@ import { ModalShell, TeamBadge, useWpblDark } from './ui'
 import type { WpblTeam, WpblGame, WpblPlayer, WpblBattingLine, WpblHalf } from './types'
 import {
   OUTCOMES, HIT_OUTCOMES, REACH_OUTCOMES, OUT_OUTCOMES, type Outcome, type OutcomeMeta,
-  liveStateOf, proposeEffect, proposeBaserun, commit, describePlay, shortName,
+  liveStateOf, proposeEffect, proposeBaserun, reconcileRuns, commit, describePlay, shortName,
   saveLineup, startLive, logPlay, undoLastPlay, patchLive, changePitcher, subBatter, finishLive,
   editPitcher, upsertBattingSlot,
   fetchLiveBundle, useWpblLiveGame, type NewPlay, type LineupEntry,
@@ -217,7 +217,7 @@ export default function LiveScoring({ game, teams, onClose, onChanged }: {
     const prev = liveStateOf(g)
     // Re-derive the base layout from the engine, then honor the scorer's run count by
     // scoring extra lead runners (or leaving them on) to match.
-    const eff = proposeEffect(prev, meta.code, currentBatterLine.player_id)
+    const eff = reconcileRuns(proposeEffect(prev, meta.code, currentBatterLine.player_id), runs)
     const committed = commit(prev, meta, eff, runs)
     const desc = describePlay(meta, currentBatter?.name ?? '', runs)
     const play: NewPlay = {
