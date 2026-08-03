@@ -4,18 +4,13 @@ import { fetchWpblTeams, fetchWpblSchedule, fetchWpblRoster, computeStandings } 
 import { WPBL_ACCENT, wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
 import { SegNav, SectionLabel, TeamBadge, PlayerPortrait, useWpblDark, CARD_BORDER } from './ui'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
-import GameEntryModal from './GameEntry'
 import GameDetailModal from './GameDetail'
 import PlayerDetailModal from './PlayerDetail'
 import WpblHome from './Home'
-import LiveScoring from './LiveScoring'
-import { LiveGameCenter } from './LiveGameCenter'
-import { useDevLive } from './dev/devLive'
-import WpblDevMenu from './dev/WpblDevMenu'
 
-// Phase 0 skeleton for the WPBL section. Reads from Supabase and renders whatever is
-// there; everything shows a friendly empty state until the tables are seeded. Views
-// are intentionally lean and self-contained (no MLB/StatsAPI coupling).
+// WPBL section root. Reads the official-feed mirror from Supabase (games, box scores,
+// play-by-play, live state) and renders it; everything shows a friendly empty state until
+// the feed has been ingested. Self-contained (no MLB/StatsAPI coupling).
 
 type WpblView = 'home' | 'schedule' | 'standings' | 'teams'
 
@@ -39,9 +34,8 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
 
 // ─── Views ────────────────────────────────────────────────────────────────────
 
-function ScheduleView({ teams, games, isAdmin, onEditGame, onOpenGame, onScoreLive }: {
-  teams: WpblTeam[]; games: WpblGame[]; isAdmin: boolean
-  onEditGame: (g: WpblGame) => void; onOpenGame: (g: WpblGame) => void; onScoreLive: (g: WpblGame) => void
+function ScheduleView({ teams, games, onOpenGame }: {
+  teams: WpblTeam[]; games: WpblGame[]; onOpenGame: (g: WpblGame) => void
 }) {
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   if (games.length === 0) {
@@ -89,24 +83,6 @@ function ScheduleView({ teams, games, isAdmin, onEditGame, onOpenGame, onScoreLi
                       {live ? '● Live' : final ? `Final${g.innings && g.innings !== 7 ? `/${g.innings}` : ''}` : formatGameTime(g.game_date, g.start_time) || 'TBD'}
                     </Typography>
                   </Box>
-                  {isAdmin && (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4, flexShrink: 0 }}>
-                      {!final && (
-                        <Box
-                          onClick={(e) => { e.stopPropagation(); onScoreLive(g) }}
-                          sx={{ cursor: 'pointer', userSelect: 'none', fontSize: '0.66rem', fontWeight: 800, color: '#ef4444', border: '1px solid', borderColor: '#ef444466', borderRadius: 999, px: 1, py: '3px', textAlign: 'center', '&:hover': { bgcolor: '#ef444418' } }}
-                        >
-                          {live ? '⚡ Score' : '⚡ Go live'}
-                        </Box>
-                      )}
-                      <Box
-                        onClick={(e) => { e.stopPropagation(); onEditGame(g) }}
-                        sx={{ cursor: 'pointer', userSelect: 'none', fontSize: '0.66rem', fontWeight: 800, color: WPBL_ACCENT, border: '1px solid', borderColor: `${WPBL_ACCENT}66`, borderRadius: 999, px: 1, py: '3px', textAlign: 'center', '&:hover': { bgcolor: `${WPBL_ACCENT}18` } }}
-                      >
-                        {final ? 'Edit' : 'Box'}
-                      </Box>
-                    </Box>
-                  )}
                 </Box>
               )
             })}
@@ -249,34 +225,22 @@ function TeamsView({ teams, selected, onSelect, onOpenPlayer }: {
 // ─── Section root ───────────────────────────────────────────────────────────────
 
 export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
+  void isAdmin // section is fully public/read-only now (feed-driven); kept for the route's prop shape
   const [view, setView] = useState<WpblView>('home')
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [games, setGames] = useState<WpblGame[]>([])
   const [loading, setLoading] = useState(true)
-  const [editGame, setEditGame] = useState<WpblGame | null>(null)
   const [detailGame, setDetailGame] = useState<WpblGame | null>(null)
   const [detailPlayer, setDetailPlayer] = useState<WpblPlayer | null>(null)
-  const [scoringGame, setScoringGame] = useState<WpblGame | null>(null)   // admin live console
-  const [centerGame, setCenterGame] = useState<WpblGame | null>(null)     // public live game center
   // Team detail lives in the Teams view; lifted here so Home can open a team into it.
   const [selectedTeam, setSelectedTeam] = useState<WpblTeam | null>(null)
 
   const openTeam = useCallback((t: WpblTeam) => { setSelectedTeam(t); setView('teams') }, [])
 
-  // Dev-only: a fabricated live game is merged into the schedule so the hero + Game
-  // Center light up locally. Inert in production (import.meta.env.DEV is false).
-  const dev = useDevLive()
-  const displayGames = useMemo(
-    () => (import.meta.env.DEV && dev.enabled && dev.game ? [dev.game, ...games.filter(g => g.id !== dev.game!.id)] : games),
-    [dev.enabled, dev.game, games],
-  )
-
-  // The single in-progress game (there is only ever one at a time).
-  const liveGame = useMemo(() => displayGames.find(g => g.status === 'live') ?? null, [displayGames])
-  // Opening a game routes to the live Game Center while it's in progress, else the box score.
-  const openGame = useCallback((g: WpblGame) => {
-    if (g.status === 'live') setCenterGame(g); else setDetailGame(g)
-  }, [])
+  // The single in-progress game (there is only ever one at a time). The Game Center
+  // (GameDetail) handles live + final alike, so opening any game routes there.
+  const liveGame = useMemo(() => games.find(g => g.status === 'live') ?? null, [games])
+  const openGame = useCallback((g: WpblGame) => setDetailGame(g), [])
 
   const reload = useCallback(() => {
     let cancelled = false
@@ -303,9 +267,9 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
         ? <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
         : (
           <>
-            {view === 'home'      && <WpblHome teams={teams} games={displayGames} liveGame={liveGame} isAdmin={isAdmin} onOpenGame={openGame} onOpenCenter={setCenterGame} onScoreLive={setScoringGame} onOpenPlayer={setDetailPlayer} onOpenTeam={openTeam} />}
-            {view === 'schedule'  && <ScheduleView teams={teams} games={displayGames} isAdmin={isAdmin} onEditGame={setEditGame} onOpenGame={openGame} onScoreLive={setScoringGame} />}
-            {view === 'standings' && <StandingsView teams={teams} games={displayGames} />}
+            {view === 'home'      && <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={setDetailPlayer} onOpenTeam={openTeam} />}
+            {view === 'schedule'  && <ScheduleView teams={teams} games={games} onOpenGame={openGame} />}
+            {view === 'standings' && <StandingsView teams={teams} games={games} />}
             {view === 'teams'     && <TeamsView teams={teams} selected={selectedTeam} onSelect={setSelectedTeam} onOpenPlayer={setDetailPlayer} />}
           </>
         )}
@@ -324,37 +288,9 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
           game={detailGame}
           teams={teams}
           onClose={() => setDetailGame(null)}
-          onEdit={isAdmin ? (g) => { setDetailGame(null); setEditGame(g) } : undefined}
+          onOpenPlayer={setDetailPlayer}
         />
       )}
-
-      {editGame && (
-        <GameEntryModal
-          game={editGame}
-          teams={teams}
-          onClose={() => setEditGame(null)}
-          onSaved={() => { setEditGame(null); reload() }}
-        />
-      )}
-
-      {centerGame && (
-        <LiveGameCenter
-          game={centerGame}
-          teams={teams}
-          onClose={() => setCenterGame(null)}
-        />
-      )}
-
-      {scoringGame && (
-        <LiveScoring
-          game={scoringGame}
-          teams={teams}
-          onClose={() => setScoringGame(null)}
-          onChanged={reload}
-        />
-      )}
-
-      {import.meta.env.DEV && <WpblDevMenu />}
     </Box>
   )
 }

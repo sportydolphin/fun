@@ -1,0 +1,434 @@
+// wpbl-ingest — pulls the WPBL official public feed and mirrors it into Supabase.
+//
+// The league publishes a JSON API at https://stats.womensprobaseballleague.com/v1 with
+// no auth. This function reconciles it against our tables (readable team slugs + player
+// uuids, keyed to the feed by api_id) and upserts games, box-score lines, fielding,
+// play-by-play, and TrackMan pitch tracking. It is idempotent — safe to run on a cron.
+//
+// Invoke (POST, JSON body, all fields optional):
+//   { "mode": "all" | "active", "gameId": "<api id>", "force": false }
+//   • mode "all"    — (re)ingest every game's boxscore. Use for the initial backfill.
+//   • mode "active" — DEFAULT. Only fetch boxscores for games that aren't already
+//                     'final' in our DB (i.e. scheduled→live→final transitions). Cheap
+//                     enough to run every couple minutes.
+//   • gameId        — ingest just this one game (implies its boxscore, ignores mode).
+//   • force         — with mode "active", also re-fetch games already final (corrections).
+//
+// Deploy:
+//   supabase functions deploy wpbl-ingest
+// SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are injected automatically. The service role
+// bypasses RLS, so this writes freely; the public still reads through the RLS policies.
+// See scripts/add_wpbl_api_ingest.sql for the schema and scripts/wpbl_cron.sql for the
+// schedule.
+
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const FEED = 'https://stats.womensprobaseballleague.com/v1'
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } })
+
+// ─── small helpers ────────────────────────────────────────────────────────────
+const n = (v: unknown): number => {
+  const x = parseInt(String(v ?? ''), 10)
+  return Number.isFinite(x) ? x : 0
+}
+const s = (v: unknown): string => (v == null ? '' : String(v))
+// "2.2" innings → outs (2 innings + 2 outs = 8).
+const ipToOuts = (ip: unknown): number => {
+  const t = s(ip).trim()
+  if (!t) return 0
+  const [w, f] = t.split('.')
+  return (n(w)) * 3 + Math.min(n(f), 2)
+}
+// Strip accents + case/space for name matching ("Maïka Dumais" ↔ "maika dumais").
+const normName = (name: string): string =>
+  name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
+
+// Levenshtein edit distance, capped at `max` (returns max+1 once exceeded) — used for a
+// last-ditch fuzzy roster match so feed spelling variants (Villareal↔Villarreal,
+// Foxx↔Fox, Gabriella↔Gabrielle) resolve to the seeded player instead of a duplicate.
+// Nicknames (Val↔Valerie) are too far to match here and still need a manual merge.
+function editDistance(a: string, b: string, max = 1): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i)
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i]
+    let rowMin = i
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1
+      const v = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+      cur.push(v); if (v < rowMin) rowMin = v
+    }
+    if (rowMin > max) return max + 1
+    prev = cur
+  }
+  return prev[b.length]
+}
+
+// UTC instant → America/Chicago (the hub venue's zone) calendar date + wall-clock, so
+// the stored game_date / start_time match what the rest of the app assumes (Central
+// wall clock, re-rendered into each viewer's zone by formatGameTime).
+const CHI = 'America/Chicago'
+function chicagoDate(iso: string): string {
+  const d = new Date(iso)
+  const p = new Intl.DateTimeFormat('en-CA', { timeZone: CHI, year: 'numeric', month: '2-digit', day: '2-digit' })
+    .formatToParts(d)
+  const get = (t: string) => p.find(x => x.type === t)?.value ?? ''
+  return `${get('year')}-${get('month')}-${get('day')}`
+}
+function chicagoTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-US', { timeZone: CHI, hour: 'numeric', minute: '2-digit' })
+}
+
+// Feed status text → our enum. The boxscore's status.complete is authoritative when we
+// have it; the games-list status string is the fallback.
+function mapStatus(text: string, complete?: boolean): 'scheduled' | 'live' | 'final' {
+  if (complete) return 'final'
+  const t = text.toLowerCase().trim()
+  if (t.startsWith('final') || t.includes('complete') || t.includes('game over') || t.includes('walk-off')) return 'final'
+  // Positive live signals only — everything else (incl. "Not Started", "Scheduled",
+  // "TBA", "Postponed", "Cancelled", or an unknown string) is treated as scheduled, so
+  // future games never show as live by accident.
+  if (t.includes('progress') || t.includes('inning') || t.includes('delay') || /\b(top|bottom|mid|end)\b/.test(t)) return 'live'
+  return 'scheduled'
+}
+
+// ─── player reconciliation cache ──────────────────────────────────────────────
+// Resolve a feed player to our wpbl_players.id: by api_id, else by (team, name), else
+// insert a new roster row. Backfills api_id / uniform / bats / throws on the way.
+class PlayerResolver {
+  private byApi = new Map<string, string>()             // api_id → our uuid
+  private byTeamName = new Map<string, string>()        // `${teamSlug}::${normName}` → uuid
+  private byTeam = new Map<string, { id: string; norm: string }[]>()  // teamSlug → roster
+  private pendingApi = new Map<string, string>()        // uuid → api_id to backfill
+
+  constructor(private db: SupabaseClient, rows: any[]) {
+    for (const p of rows) {
+      if (p.api_id) this.byApi.set(p.api_id, p.id)
+      const nm = normName(p.name)
+      const slug = p.team_id ?? ''
+      this.byTeamName.set(`${slug}::${nm}`, p.id)
+      const list = this.byTeam.get(slug) ?? []
+      list.push({ id: p.id, norm: nm }); this.byTeam.set(slug, list)
+    }
+  }
+
+  // Unique same-team roster player within edit distance 1 (names ≥4 chars), or null if
+  // there is no match or the match is ambiguous. Guards against merging two real players.
+  private fuzzy(teamSlug: string, nm: string): string | null {
+    if (nm.length < 4) return null
+    let hit: string | null = null
+    for (const cand of this.byTeam.get(teamSlug) ?? []) {
+      if (cand.norm.length < 4) continue
+      if (editDistance(nm, cand.norm, 1) <= 1) {
+        if (hit && hit !== cand.id) return null // ambiguous — don't guess
+        hit = cand.id
+      }
+    }
+    return hit
+  }
+
+  async resolve(feed: { id?: string; name?: string; uniform?: string; bats?: string; throws?: string; position?: string }, teamSlug: string): Promise<string | null> {
+    const name = s(feed.name)
+    if (!name) return null
+    const apiId = s(feed.id)
+
+    // 1) api_id hit
+    if (apiId && this.byApi.has(apiId)) return this.byApi.get(apiId)!
+
+    // 2) (team, name) hit → backfill api_id
+    const nm = normName(name)
+    const existing = this.byTeamName.get(`${teamSlug}::${nm}`) ?? this.byTeamName.get(`::${nm}`)
+    if (existing) {
+      if (apiId) { this.byApi.set(apiId, existing); this.pendingApi.set(existing, apiId) }
+      return existing
+    }
+
+    // 3) fuzzy (spelling-variant) hit within the same team → backfill api_id
+    const fuzzy = this.fuzzy(teamSlug, nm)
+    if (fuzzy) {
+      this.byTeamName.set(`${teamSlug}::${nm}`, fuzzy)
+      if (apiId) { this.byApi.set(apiId, fuzzy); this.pendingApi.set(fuzzy, apiId) }
+      return fuzzy
+    }
+
+    // 4) insert a new feed-only player
+    const { data, error } = await this.db.from('wpbl_players').insert({
+      team_id: teamSlug || null,
+      name,
+      position: feed.position || null,
+      bats: feed.bats || null,
+      throws: feed.throws || null,
+      jersey_number: feed.uniform || null,
+      api_id: apiId || null,
+      active: true,
+    }).select('id').single()
+    if (error || !data) { console.warn('[wpbl-ingest] player insert failed', name, error?.message); return null }
+    if (apiId) this.byApi.set(apiId, data.id)
+    this.byTeamName.set(`${teamSlug}::${nm}`, data.id)
+    const list = this.byTeam.get(teamSlug) ?? []
+    list.push({ id: data.id, norm: nm }); this.byTeam.set(teamSlug, list)
+    return data.id
+  }
+
+  // Resolve a bare name (play-by-play batter/pitcher) against any team. Best-effort.
+  resolveName(name: string): string | null {
+    const nm = normName(name)
+    for (const [key, id] of this.byTeamName) if (key.endsWith(`::${nm}`)) return id
+    return null
+  }
+
+  async flushApiIds() {
+    for (const [uuid, apiId] of this.pendingApi) {
+      await this.db.from('wpbl_players').update({ api_id: apiId }).eq('id', uuid)
+    }
+    this.pendingApi.clear()
+  }
+}
+
+// ─── boxscore ingestion for one game ──────────────────────────────────────────
+async function ingestBoxscore(
+  db: SupabaseClient,
+  gameUuid: string,
+  apiGameId: string,
+  teamSlug: Map<string, string>,
+  resolver: PlayerResolver,
+): Promise<{ batting: number; pitching: number; fielding: number; plays: number; tracking: number }> {
+  const res = await fetch(`${FEED}/games/${apiGameId}/boxscore`)
+  if (!res.ok) throw new Error(`boxscore ${apiGameId} → ${res.status}`)
+  const box = (await res.json()).boxscore
+  if (!box) throw new Error(`boxscore ${apiGameId} empty`)
+
+  const slugOf = (apiTeamId: string) => teamSlug.get(apiTeamId) ?? null
+
+  const batting: any[] = []
+  const pitching: any[] = []
+  const fielding: any[] = []
+
+  // The boxscore is authoritative for status: complete → final; otherwise if it has any
+  // activity (plays logged or an inning underway) it's live; else still scheduled.
+  const st = box.status ?? {}
+  const complete = !!st.complete
+  const hasActivity = (box.plays?.length ?? 0) > 0 || n(st.inning) > 0
+  const derivedStatus: 'scheduled' | 'live' | 'final' = complete ? 'final' : hasActivity ? 'live' : 'scheduled'
+
+  // Line score + totals per side, folded back onto the game row.
+  const gamePatch: Record<string, unknown> = {
+    status: derivedStatus,
+    status_detail: s(box.game_status),
+    source_updated_at: box.source_updated_at || null,
+    live_state: derivedStatus === 'live' ? st : null,
+  }
+  // While live, the feed's running score is the freshest; final scores come from the
+  // team totals below.
+  if (derivedStatus === 'live') {
+    gamePatch.away_score = n(st.away_runs)
+    gamePatch.home_score = n(st.home_runs)
+  }
+
+  for (const team of box.teams ?? []) {
+    const slug = slugOf(s(team.id))
+    const side = s(team.side) // 'away' | 'home'
+    const tot = team.totals ?? {}
+    gamePatch[`${side}_line`] = team.line ?? []
+    gamePatch[`${side}_hits`] = n(tot.hits)
+    gamePatch[`${side}_errors`] = n(tot.errors)
+    gamePatch[`${side}_lob`] = n(tot.left_on_base)
+    if (derivedStatus === 'final') gamePatch[`${side}_score`] = n(tot.runs)
+
+    for (const pl of team.players ?? []) {
+      const playerId = await resolver.resolve(pl, slug ?? '')
+      if (!playerId) continue
+      const spot = n(pl.spot)
+      const hit = pl.hitting
+      const pit = pl.pitching
+      const fld = pl.fielding
+
+      if (hit && (spot > 0 || n(hit.ab) || n(hit.h) || n(hit.bb) || n(hit.r) || n(hit.rbi) || n(hit.hbp) || n(hit.so))) {
+        const h = n(hit.h), dbl = n(hit.double), tpl = n(hit.triple), hr = n(hit.hr)
+        const tb = (h - dbl - tpl - hr) + 2 * dbl + 3 * tpl + 4 * hr
+        batting.push({
+          game_id: gameUuid, player_id: playerId, team_id: slug,
+          batting_order: spot || null, position: pl.position || null,
+          ab: n(hit.ab), r: n(hit.r), h, doubles: dbl, triples: tpl, hr, rbi: n(hit.rbi),
+          bb: n(hit.bb), so: n(hit.so), hbp: n(hit.hbp), sb: n(hit.sb), cs: n(hit.cs),
+          sf: n(hit.sf), sh: n(hit.sh), ibb: n(hit.ibb), gdp: n(hit.gdp), tb, lob: n(hit.lob),
+        })
+      }
+
+      if (pit) {
+        let decision: string | null = null
+        if (pit.win) decision = 'W'
+        else if (pit.loss) decision = 'L'
+        else if (pit.save) decision = 'S'
+        else if (pit.hold) decision = 'H'
+        pitching.push({
+          game_id: gameUuid, player_id: playerId, team_id: slug,
+          outs: ipToOuts(pit.ip), bf: pit.bf != null ? n(pit.bf) : null,
+          h: n(pit.h), r: n(pit.r), er: n(pit.er), bb: n(pit.bb), so: n(pit.so), hr: n(pit.hr),
+          pitches: pit.pitches != null ? n(pit.pitches) : null, decision,
+          gs: n(pit.gs), hbp: n(pit.hbp), ibb: n(pit.ibb), wp: n(pit.wp), bk: n(pit.bk),
+          strikes: n(pit.strikes), doubles: n(pit.double), triples: n(pit.triple),
+        })
+      }
+
+      if (fld && (n(fld.po) || n(fld.a) || n(fld.e) || n(fld.pb) || n(fld.sba) || n(fld.ci) || n(fld.indp))) {
+        fielding.push({
+          game_id: gameUuid, player_id: playerId, team_id: slug,
+          po: n(fld.po), a: n(fld.a), e: n(fld.e), pb: n(fld.pb),
+          sba: n(fld.sba), ci: n(fld.ci), dp: n(fld.indp),
+        })
+      }
+    }
+  }
+
+  // Play-by-play — delete + reinsert (immutable per game, keeps sequence clean).
+  const plays = (box.plays ?? []).map((p: any) => ({
+    game_id: gameUuid, sequence: n(p.sequence), inning: n(p.inning),
+    half: s(p.half) === 'bottom' ? 'bottom' : 'top', team_id: slugOf(s(p.team_id)),
+    batter_name: s(p.batter_name) || null, batter_id: resolver.resolveName(s(p.batter_name)),
+    pitcher_name: s(p.pitcher_name) || null, pitcher_id: resolver.resolveName(s(p.pitcher_name)),
+    outs: n(p.outs), first_base: s(p.first_base), second_base: s(p.second_base),
+    third_base: s(p.third_base), bases_loaded: !!p.bases_loaded,
+    narrative: s(p.narrative), event_type: s(p.event_type) || null,
+    is_hit: !!p.is_hit, is_scoring_play: !!p.is_scoring_play, runs_scored: n(p.runs_scored),
+    pitch_sequence: s(p.pitch_sequence) || null, balls: n(p.balls), strikes: n(p.strikes),
+    fouls: n(p.fouls), pitch_events: p.pitch_events ?? null,
+  }))
+
+  // TrackMan — upsert on activity_id (stable per event).
+  const tracking = (box.tracking_activity ?? [])
+    .filter((t: any) => t.activity_id)
+    .map((t: any) => ({
+      activity_id: s(t.activity_id), game_id: gameUuid, play_id: s(t.play_id) || null,
+      session_id: s(t.session_id) || null, kind: s(t.kind) || null, event_type: s(t.event_type) || null,
+      sequence: t.sequence != null ? n(t.sequence) : null, occurred_at: t.occurred_at || null,
+      release_speed: t.release_speed ?? null, speed_unit: s(t.speed_unit) || null,
+      spin_rate_rpm: t.spin_rate_rpm ?? null, extension: t.extension ?? null,
+      vertical_break: t.vertical_break ?? null, horizontal_break: t.horizontal_break ?? null,
+      plate_location_height: t.plate_location_height ?? null, raw: t,
+    }))
+
+  // Write everything. Lines/fielding: clear then insert (a game is edited atomically).
+  await db.from('wpbl_games').update(gamePatch).eq('id', gameUuid)
+
+  await db.from('wpbl_batting_lines').delete().eq('game_id', gameUuid)
+  if (batting.length) await db.from('wpbl_batting_lines').insert(batting)
+
+  await db.from('wpbl_pitching_lines').delete().eq('game_id', gameUuid)
+  if (pitching.length) await db.from('wpbl_pitching_lines').insert(pitching)
+
+  await db.from('wpbl_fielding_lines').delete().eq('game_id', gameUuid)
+  if (fielding.length) await db.from('wpbl_fielding_lines').insert(fielding)
+
+  await db.from('wpbl_game_plays').delete().eq('game_id', gameUuid)
+  if (plays.length) await db.from('wpbl_game_plays').insert(plays)
+
+  if (tracking.length) await db.from('wpbl_pitch_tracking').upsert(tracking, { onConflict: 'activity_id' })
+
+  return { batting: batting.length, pitching: pitching.length, fielding: fielding.length, plays: plays.length, tracking: tracking.length }
+}
+
+// ─── handler ──────────────────────────────────────────────────────────────────
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+
+  const url = Deno.env.get('SUPABASE_URL')!
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  const db = createClient(url, key)
+
+  let mode = 'active', force = false, oneGame: string | null = null
+  try {
+    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {}
+    if (body.mode) mode = String(body.mode)
+    if (body.force) force = !!body.force
+    if (body.gameId) oneGame = String(body.gameId)
+  } catch { /* defaults */ }
+
+  try {
+    // Team api_id → slug map (and reject if the seed migration hasn't run).
+    const { data: teams } = await db.from('wpbl_teams').select('id, api_id')
+    const teamSlug = new Map<string, string>()
+    for (const t of teams ?? []) if (t.api_id) teamSlug.set(t.api_id, t.id)
+    if (teamSlug.size === 0) return json({ error: 'No wpbl_teams.api_id mappings — run scripts/add_wpbl_api_ingest.sql first' }, 400)
+
+    // Player cache for reconciliation.
+    const { data: players } = await db.from('wpbl_players').select('id, name, team_id, api_id')
+    const resolver = new PlayerResolver(db, players ?? [])
+
+    // Our current games (to decide which boxscores to (re)fetch).
+    const { data: ourGames } = await db.from('wpbl_games').select('id, api_game_id, status')
+    const byApi = new Map<string, { id: string; status: string }>()
+    for (const g of ourGames ?? []) if (g.api_game_id) byApi.set(g.api_game_id, { id: g.id, status: g.status })
+
+    // Feed schedule.
+    const listRes = await fetch(`${FEED}/games`)
+    if (!listRes.ok) return json({ error: `feed /games → ${listRes.status}` }, 502)
+    const feedGames: any[] = (await listRes.json()).games ?? []
+
+    const summary = { games: 0, boxscores: 0, errors: [] as string[] }
+
+    for (const fg of feedGames) {
+      const apiGameId = s(fg.game_id)
+      if (!apiGameId) continue
+      if (oneGame && apiGameId !== oneGame) continue
+
+      // TBD placeholder games have empty team ids — skip them silently.
+      if (!s(fg.home_team_id) || !s(fg.away_team_id)) continue
+      const homeSlug = teamSlug.get(s(fg.home_team_id))
+      const awaySlug = teamSlug.get(s(fg.away_team_id))
+      if (!homeSlug || !awaySlug) { summary.errors.push(`unmapped team in ${apiGameId}`); continue }
+
+      const status = mapStatus(s(fg.status))
+      const startIso = s(fg.scheduled_start)
+      const scoreAway = fg.presto_data?.score?.away
+      const scoreHome = fg.presto_data?.score?.home
+
+      // Upsert the game row (on api_game_id).
+      const gameRow = {
+        api_game_id: apiGameId, season_id: s(fg.season_id) || null,
+        game_date: startIso ? chicagoDate(startIso) : new Date().toISOString().slice(0, 10),
+        start_time: startIso ? chicagoTime(startIso) : null,
+        home_team_id: homeSlug, away_team_id: awaySlug,
+        venue: s(fg.venue) || null, game_type: s(fg.game_type) || null,
+        counts_in_standings: fg.counts_in_standings ?? null,
+        status, status_detail: s(fg.status),
+        home_score: scoreHome != null && scoreHome !== '' ? n(scoreHome) : null,
+        away_score: scoreAway != null && scoreAway !== '' ? n(scoreAway) : null,
+        updated_at: new Date().toISOString(),
+      }
+      const { data: up, error: upErr } = await db.from('wpbl_games')
+        .upsert(gameRow, { onConflict: 'api_game_id' }).select('id').single()
+      if (upErr || !up) { summary.errors.push(`upsert ${apiGameId}: ${upErr?.message}`); continue }
+      summary.games++
+
+      // Decide whether to pull the boxscore. Besides explicit/live cases, also fetch once
+      // a game's scheduled start has passed (its list-status may still read "Not Started"
+      // even though it's underway) — the boxscore itself then decides live vs final.
+      const prior = byApi.get(apiGameId)
+      const started = startIso ? Date.parse(startIso) <= Date.now() : false
+      const notFinalHere = !prior || prior.status !== 'final'
+      const wantBox =
+        oneGame != null ||
+        mode === 'all' ||
+        (notFinalHere && (force || status !== 'scheduled' || started))
+      if (!wantBox) continue
+
+      try {
+        await ingestBoxscore(db, up.id, apiGameId, teamSlug, resolver)
+        summary.boxscores++
+      } catch (e) {
+        summary.errors.push(`box ${apiGameId}: ${e instanceof Error ? e.message : e}`)
+      }
+    }
+
+    await resolver.flushApiIds()
+    return json({ ok: true, mode, ...summary })
+  } catch (e) {
+    return json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 500)
+  }
+})

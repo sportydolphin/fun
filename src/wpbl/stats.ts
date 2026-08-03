@@ -1,28 +1,44 @@
-import type { WpblPlayer, WpblBattingLine, WpblPitchingLine } from './types'
+import type { WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from './types'
 
 // Season stat aggregation from box-score lines. Rates are null when the denominator
 // is zero (no AB / no IP) so the UI can show a dash instead of NaN.
 
 export interface WpblBattingTotals {
   g: number; ab: number; r: number; h: number; doubles: number; triples: number; hr: number
-  rbi: number; bb: number; so: number; sb: number; hbp: number; cs: number
+  rbi: number; bb: number; so: number; sb: number; hbp: number; cs: number; sf: number; tb: number
   avg: number | null; obp: number | null; slg: number | null; ops: number | null
 }
 
 export function sumBatting(lines: WpblBattingLine[]): WpblBattingTotals {
-  const t = { g: lines.length, ab: 0, r: 0, h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, bb: 0, so: 0, sb: 0, hbp: 0, cs: 0 }
+  const t = { g: lines.length, ab: 0, r: 0, h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, bb: 0, so: 0, sb: 0, hbp: 0, cs: 0, sf: 0 }
   for (const l of lines) {
     t.ab += l.ab; t.r += l.r; t.h += l.h; t.doubles += l.doubles; t.triples += l.triples; t.hr += l.hr
-    t.rbi += l.rbi; t.bb += l.bb; t.so += l.so; t.sb += l.sb; t.hbp += l.hbp; t.cs += l.cs
+    t.rbi += l.rbi; t.bb += l.bb; t.so += l.so; t.sb += l.sb; t.hbp += l.hbp; t.cs += l.cs; t.sf += l.sf
   }
   const singles = t.h - t.doubles - t.triples - t.hr
   const tb = singles + 2 * t.doubles + 3 * t.triples + 4 * t.hr
-  const obDen = t.ab + t.bb + t.hbp // no sac flies tracked
+  const obDen = t.ab + t.bb + t.hbp + t.sf // now that the feed reports sac flies
   const avg = t.ab > 0 ? t.h / t.ab : null
   const obp = obDen > 0 ? (t.h + t.bb + t.hbp) / obDen : null
   const slg = t.ab > 0 ? tb / t.ab : null
   const ops = obp != null && slg != null ? obp + slg : null
-  return { ...t, avg, obp, slg, ops }
+  return { ...t, tb, avg, obp, slg, ops }
+}
+
+// ─── Fielding ──────────────────────────────────────────────────────────────────
+export interface WpblFieldingTotals {
+  g: number; po: number; a: number; e: number; pb: number; sba: number; dp: number
+  fpct: number | null   // fielding %: (PO + A) / (PO + A + E)
+}
+
+export function sumFielding(lines: WpblFieldingLine[]): WpblFieldingTotals {
+  const t = { g: lines.length, po: 0, a: 0, e: 0, pb: 0, sba: 0, dp: 0 }
+  for (const l of lines) {
+    t.po += l.po; t.a += l.a; t.e += l.e; t.pb += l.pb; t.sba += l.sba; t.dp += l.dp
+  }
+  const chances = t.po + t.a + t.e
+  const fpct = chances > 0 ? (t.po + t.a) / chances : null
+  return { ...t, fpct }
 }
 
 export interface WpblPitchingTotals {

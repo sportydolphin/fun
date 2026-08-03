@@ -12,6 +12,7 @@ export interface WpblTeam {
   color_secondary: string | null
   logo_url: string | null
   sort_order: number
+  api_id: string | null      // official-feed team id (reconciliation key)
   created_at: string
 }
 
@@ -30,10 +31,36 @@ export interface WpblPlayer {
   draft_pick: number | null
   bio: string | null
   active: boolean
+  api_id: string | null          // official-feed player id (reconciliation key)
   created_at: string
 }
 
 export type WpblHalf = 'top' | 'bottom'
+
+// One cell of the line score (runs in a given inning), as stored on the game row.
+export interface WpblLineScoreEntry { inning: number; runs: number }
+
+// Live game situation, mirrored verbatim from the official feed's boxscore `status`
+// object and stored on the game row (wpbl_games.live_state) while a game is in progress.
+// Null once the game is scheduled or final.
+export interface WpblLiveState {
+  complete: boolean
+  inning: number
+  half: string                // 'top' | 'bottom' | '' (when not in play)
+  batting_team_id: string     // feed team id
+  outs: number
+  balls: number
+  strikes: number
+  batter_name: string
+  pitcher_name: string
+  first_base: string          // runner name, '' when empty
+  second_base: string
+  third_base: string
+  bases_occupied: string[]
+  bases_loaded: boolean
+  away_runs: number
+  home_runs: number
+}
 
 export interface WpblGame {
   id: string
@@ -49,6 +76,23 @@ export interface WpblGame {
   notes: string | null
   created_at: string
   updated_at: string
+  // ─── Official-feed mirror fields (added in add_wpbl_api_ingest.sql). Present once
+  // the game has been ingested; older/manual rows may leave them null.
+  api_game_id?: string | null
+  season_id?: string | null
+  game_type?: string | null
+  status_detail?: string | null      // verbatim feed status ('Final - Weather Delay')
+  counts_in_standings?: boolean | null
+  home_hits?: number | null
+  away_hits?: number | null
+  home_errors?: number | null
+  away_errors?: number | null
+  home_lob?: number | null
+  away_lob?: number | null
+  home_line?: WpblLineScoreEntry[] | null
+  away_line?: WpblLineScoreEntry[] | null
+  live_state?: WpblLiveState | null   // feed situation while in progress; null otherwise
+  source_updated_at?: string | null
   // ─── Live-situation columns (added in add_wpbl_live.sql). Present once the game
   // has been touched by the live scorer; the DB defaults them so they are never null.
   live_inning?: number
@@ -85,38 +129,13 @@ export interface WpblBattingLine {
   hbp: number
   sb: number
   cs: number
+  sf: number                 // sac fly (feed)
+  sh: number                 // sac hit / bunt (feed)
+  ibb: number                // intentional walk (feed)
+  gdp: number                // grounded into DP (feed)
+  tb: number                 // total bases (feed-computed)
+  lob: number                // left on base (feed)
   sub_out?: boolean          // true = replaced in this slot; active batter is the sub_out=false row
-  created_at: string
-}
-
-// One logged play in the play-by-play (mirrors wpbl_plays). Stat fields drive the box
-// recompute; *_after fields snapshot the resulting game state for undo.
-export interface WpblPlay {
-  id: string
-  game_id: string
-  seq: number
-  inning: number
-  half: WpblHalf
-  batting_team_id: string | null
-  batter_id: string | null           // null for baserunning-only plays (SB/CS)
-  pitcher_id: string | null
-  runner_id: string | null           // subject of an SB/CS
-  outcome: string                    // scorer code — see live.ts OUTCOMES
-  rbi: number
-  runs: number
-  outs_recorded: number
-  scored_ids: string[]
-  description: string
-  away_score_after: number
-  home_score_after: number
-  inning_after: number
-  half_after: WpblHalf
-  outs_after: number
-  runner_first_after: string | null
-  runner_second_after: string | null
-  runner_third_after: string | null
-  away_order_after: number
-  home_order_after: number
   created_at: string
 }
 
@@ -135,6 +154,84 @@ export interface WpblPitchingLine {
   hr: number
   pitches: number | null
   decision: 'W' | 'L' | 'S' | 'H' | null
+  gs: number                 // 1 if this pitcher started (feed)
+  hbp: number
+  ibb: number
+  wp: number                 // wild pitches
+  bk: number                 // balks
+  strikes: number            // strikes thrown
+  doubles: number            // 2B allowed
+  triples: number            // 3B allowed
+  created_at: string
+}
+
+// One player's fielding line for a game (mirrors wpbl_fielding_lines).
+export interface WpblFieldingLine {
+  id: string
+  game_id: string
+  player_id: string
+  team_id: string | null
+  po: number                 // putouts
+  a: number                  // assists
+  e: number                  // errors
+  pb: number                 // passed balls
+  sba: number                // stolen bases allowed (catcher)
+  ci: number                 // catcher's interference
+  dp: number                 // double plays turned
+  created_at: string
+}
+
+// One pitch-by-pitch event within a play (feed shape).
+export interface WpblPitchEvent { sequence: number; code: string; type: string; description: string }
+
+// One play in the official-feed play-by-play (mirrors wpbl_game_plays).
+export interface WpblGamePlay {
+  id: string
+  game_id: string
+  sequence: number
+  inning: number
+  half: WpblHalf
+  team_id: string | null             // batting side (slug)
+  batter_name: string | null
+  batter_id: string | null           // resolved to our player, when matched
+  pitcher_name: string | null
+  pitcher_id: string | null
+  outs: number
+  first_base: string | null
+  second_base: string | null
+  third_base: string | null
+  bases_loaded: boolean
+  narrative: string
+  event_type: string | null
+  is_hit: boolean
+  is_scoring_play: boolean
+  runs_scored: number
+  pitch_sequence: string | null
+  balls: number
+  strikes: number
+  fouls: number
+  pitch_events: WpblPitchEvent[] | null
+  created_at: string
+}
+
+// One tracked pitch/hit event (TrackMan; mirrors wpbl_pitch_tracking).
+export interface WpblPitchTracking {
+  activity_id: string
+  game_id: string
+  play_id: string | null
+  session_id: string | null
+  kind: string | null
+  event_type: string | null
+  sequence: number | null
+  occurred_at: string | null
+  release_speed: number | null
+  speed_unit: string | null
+  spin_rate_rpm: number | null
+  extension: number | null
+  vertical_break: number | null
+  horizontal_break: number | null
+  plate_location_height: number | null
+  raw: unknown
   created_at: string
 }
 
@@ -148,6 +245,13 @@ export interface WpblStandingRow {
 }
 
 // Insert shapes for the box-score entry form (the DB fills id/created_at; game_id is
-// supplied by the save call).
-export type WpblBattingInput = Omit<WpblBattingLine, 'id' | 'game_id' | 'created_at'>
-export type WpblPitchingInput = Omit<WpblPitchingLine, 'id' | 'game_id' | 'created_at'>
+// supplied by the save call). The feed-only stat columns carry DB defaults, so they are
+// optional on manual inserts.
+type WpblBattingFeedOnly = 'sf' | 'sh' | 'ibb' | 'gdp' | 'tb' | 'lob'
+type WpblPitchingFeedOnly = 'gs' | 'hbp' | 'ibb' | 'wp' | 'bk' | 'strikes' | 'doubles' | 'triples'
+export type WpblBattingInput =
+  Omit<WpblBattingLine, 'id' | 'game_id' | 'created_at' | WpblBattingFeedOnly>
+  & Partial<Pick<WpblBattingLine, WpblBattingFeedOnly>>
+export type WpblPitchingInput =
+  Omit<WpblPitchingLine, 'id' | 'game_id' | 'created_at' | WpblPitchingFeedOnly>
+  & Partial<Pick<WpblPitchingLine, WpblPitchingFeedOnly>>

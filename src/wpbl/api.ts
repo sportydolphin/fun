@@ -1,7 +1,8 @@
 import { supabase } from '../lib/supabase'
 import type {
-  WpblTeam, WpblPlayer, WpblGame, WpblStandingRow, WpblGameStatus,
-  WpblBattingLine, WpblPitchingLine, WpblBattingInput, WpblPitchingInput,
+  WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
+  WpblBattingLine, WpblPitchingLine,
+  WpblFieldingLine, WpblGamePlay, WpblPitchTracking,
 } from './types'
 
 // Reads for the WPBL section. Everything degrades gracefully: if the tables don't
@@ -35,6 +36,13 @@ export function fetchWpblSchedule(): Promise<WpblGame[]> {
     [] as WpblGame[])
 }
 
+// One game's current row — used by the live views to poll fresh score + live_state.
+export async function fetchWpblGame(gameId: string): Promise<WpblGame | null> {
+  return safe('fetchWpblGame', () =>
+    supabase.from('wpbl_games').select('*').eq('id', gameId).maybeSingle(),
+    null as WpblGame | null)
+}
+
 export function fetchWpblRoster(teamId: string): Promise<WpblPlayer[]> {
   return safe('fetchWpblRoster', () =>
     supabase.from('wpbl_players').select('*').eq('team_id', teamId).order('name', { ascending: true }),
@@ -64,81 +72,49 @@ export async function fetchWpblAllLines(): Promise<{ batting: WpblBattingLine[];
 }
 
 // Existing box-score lines for one game (for editing / display).
-export async function fetchWpblGameLines(gameId: string): Promise<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }> {
-  const [batting, pitching] = await Promise.all([
+export async function fetchWpblGameLines(gameId: string): Promise<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[]; fielding: WpblFieldingLine[] }> {
+  const [batting, pitching, fielding] = await Promise.all([
     safe('fetchWpblBatting', () =>
       supabase.from('wpbl_batting_lines').select('*').eq('game_id', gameId).order('batting_order', { ascending: true }),
       [] as WpblBattingLine[]),
     safe('fetchWpblPitching', () =>
       supabase.from('wpbl_pitching_lines').select('*').eq('game_id', gameId).order('created_at', { ascending: true }),
       [] as WpblPitchingLine[]),
+    safe('fetchWpblFielding', () =>
+      supabase.from('wpbl_fielding_lines').select('*').eq('game_id', gameId),
+      [] as WpblFieldingLine[]),
   ])
-  return { batting, pitching }
+  return { batting, pitching, fielding }
 }
 
-// Owner-only write: save a game's result + box-score lines. RLS (is_site_owner) gates
-// this server-side — the signed-in owner's session must be active. Lines are replaced
-// wholesale (delete-then-insert) since a single admin edits one game at a time.
-export async function saveWpblGameResult(
-  gameId: string,
-  patch: { status: WpblGameStatus; home_score: number | null; away_score: number | null; innings: number | null },
-  batting: WpblBattingInput[],
-  pitching: WpblPitchingInput[],
-): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const gu = await supabase.from('wpbl_games')
-      .update({ ...patch, updated_at: new Date().toISOString() })
-      .eq('id', gameId)
-    if (gu.error) return { ok: false, error: gu.error.message }
+// The official-feed play-by-play for one game, in order.
+export function fetchWpblGamePlays(gameId: string): Promise<WpblGamePlay[]> {
+  return safe('fetchWpblGamePlays', () =>
+    supabase.from('wpbl_game_plays').select('*').eq('game_id', gameId).order('sequence', { ascending: true }),
+    [] as WpblGamePlay[])
+}
 
-    const db = await supabase.from('wpbl_batting_lines').delete().eq('game_id', gameId)
-    if (db.error) return { ok: false, error: db.error.message }
-    if (batting.length) {
-      const ib = await supabase.from('wpbl_batting_lines').insert(batting.map(b => ({ ...b, game_id: gameId })))
-      if (ib.error) return { ok: false, error: ib.error.message }
-    }
-
-    const dp = await supabase.from('wpbl_pitching_lines').delete().eq('game_id', gameId)
-    if (dp.error) return { ok: false, error: dp.error.message }
-    if (pitching.length) {
-      const ip = await supabase.from('wpbl_pitching_lines').insert(pitching.map(p => ({ ...p, game_id: gameId })))
-      if (ip.error) return { ok: false, error: ip.error.message }
-    }
-    return { ok: true }
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Save failed' }
-  }
+// TrackMan pitch/hit tracking for one game (chronological).
+export function fetchWpblGameTracking(gameId: string): Promise<WpblPitchTracking[]> {
+  return safe('fetchWpblGameTracking', () =>
+    supabase.from('wpbl_pitch_tracking').select('*').eq('game_id', gameId).order('occurred_at', { ascending: true }),
+    [] as WpblPitchTracking[])
 }
 
 // All of a player's box-score lines across every game (for the player page).
-export async function fetchWpblPlayerLines(playerId: string): Promise<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }> {
-  const [batting, pitching] = await Promise.all([
+export async function fetchWpblPlayerLines(playerId: string): Promise<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[]; fielding: WpblFieldingLine[] }> {
+  const [batting, pitching, fielding] = await Promise.all([
     safe('fetchWpblPlayerBatting', () =>
       supabase.from('wpbl_batting_lines').select('*').eq('player_id', playerId),
       [] as WpblBattingLine[]),
     safe('fetchWpblPlayerPitching', () =>
       supabase.from('wpbl_pitching_lines').select('*').eq('player_id', playerId),
       [] as WpblPitchingLine[]),
+    safe('fetchWpblPlayerFielding', () =>
+      supabase.from('wpbl_fielding_lines').select('*').eq('player_id', playerId),
+      [] as WpblFieldingLine[]),
   ])
-  return { batting, pitching }
-}
-
-// Owner-only: wipe a game's result — delete its lines and reset it to 'scheduled'.
-// Handy for re-testing entry. Owner RLS gates the writes.
-export async function clearWpblGameResult(gameId: string): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const db = await supabase.from('wpbl_batting_lines').delete().eq('game_id', gameId)
-    if (db.error) return { ok: false, error: db.error.message }
-    const dp = await supabase.from('wpbl_pitching_lines').delete().eq('game_id', gameId)
-    if (dp.error) return { ok: false, error: dp.error.message }
-    const gu = await supabase.from('wpbl_games')
-      .update({ status: 'scheduled', home_score: null, away_score: null, innings: null, updated_at: new Date().toISOString() })
-      .eq('id', gameId)
-    if (gu.error) return { ok: false, error: gu.error.message }
-    return { ok: true }
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Clear failed' }
-  }
+  return { batting, pitching, fielding }
 }
 
 // Standings derived from final games (not stored). A game counts only once both a

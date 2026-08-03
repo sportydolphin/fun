@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblPlayerLines } from './api'
-import { sumBatting, sumPitching, fmtRate, fmtTwo } from './stats'
+import { sumBatting, sumPitching, sumFielding, fmtRate, fmtTwo } from './stats'
 import { wpblAccent, wpblFullName, outsToIp } from './constants'
 import { ModalShell, PlayerPortrait, useWpblDark } from './ui'
-import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
+import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from './types'
 
 // Player page (Phase 1c): profile + season totals aggregated from box-score lines,
 // plus a per-game log. Public read; opened from a team's roster.
@@ -46,20 +46,23 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
   const [loading, setLoading] = useState(true)
   const [batting, setBatting] = useState<WpblBattingLine[]>([])
   const [pitching, setPitching] = useState<WpblPitchingLine[]>([])
+  const [fielding, setFielding] = useState<WpblFieldingLine[]>([])
 
   useEffect(() => {
     let cancelled = false
-    fetchWpblPlayerLines(player.id).then(({ batting, pitching }) => {
+    fetchWpblPlayerLines(player.id).then(({ batting, pitching, fielding }) => {
       if (cancelled) return
-      setBatting(batting); setPitching(pitching); setLoading(false)
+      setBatting(batting); setPitching(pitching); setFielding(fielding); setLoading(false)
     })
     return () => { cancelled = true }
   }, [player.id])
 
   const bt = useMemo(() => sumBatting(batting), [batting])
   const pt = useMemo(() => sumPitching(pitching), [pitching])
+  const ft = useMemo(() => sumFielding(fielding), [fielding])
   const hasBatting = batting.length > 0
   const hasPitching = pitching.length > 0
+  const hasFielding = fielding.some(f => f.po || f.a || f.e || f.dp || f.pb)
 
   // Opponent label for a game the player appeared in.
   const oppLabel = (gameId: string): { date: string; text: string } => {
@@ -97,7 +100,7 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
       <Box sx={{ p: 2 }}>
         {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
-          ) : !hasBatting && !hasPitching ? (
+          ) : !hasBatting && !hasPitching && !hasFielding ? (
             <Box sx={{ textAlign: 'center', py: 5, color: 'text.secondary' }}>
               <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, mb: 0.5 }}>No stats yet</Typography>
               <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled' }}>Season totals appear here once this player logs a game.</Typography>
@@ -113,7 +116,7 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
                     <StatTile label="SLG" value={fmtRate(bt.slg)} />
                     <StatTile label="OPS" value={fmtRate(bt.ops)} />
                   </Box>
-                  <DetailGrid items={[['G', bt.g], ['AB', bt.ab], ['R', bt.r], ['H', bt.h], ['2B', bt.doubles], ['3B', bt.triples], ['HR', bt.hr], ['RBI', bt.rbi], ['BB', bt.bb], ['SO', bt.so], ['SB', bt.sb]]} />
+                  <DetailGrid items={[['G', bt.g], ['AB', bt.ab], ['R', bt.r], ['H', bt.h], ['2B', bt.doubles], ['3B', bt.triples], ['HR', bt.hr], ['RBI', bt.rbi], ['BB', bt.bb], ['SO', bt.so], ['SB', bt.sb], ['TB', bt.tb]]} />
                 </Box>
               )}
 
@@ -127,6 +130,19 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
                     {pt.s > 0 && <StatTile label="SV" value={String(pt.s)} />}
                   </Box>
                   <DetailGrid items={[['G', pt.g], ['IP', outsToIp(pt.outs)], ['H', pt.h], ['R', pt.r], ['ER', pt.er], ['BB', pt.bb], ['SO', pt.so], ['HR', pt.hr]]} />
+                </Box>
+              )}
+
+              {hasFielding && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography sx={sectionSx}>Fielding</Typography>
+                  <Box sx={{ display: 'flex', gap: 2 }}>
+                    <StatTile label="FPCT" value={fmtRate(ft.fpct)} />
+                    <StatTile label="PO" value={String(ft.po)} />
+                    <StatTile label="A" value={String(ft.a)} />
+                    <StatTile label="E" value={String(ft.e)} />
+                  </Box>
+                  <DetailGrid items={[['G', ft.g], ['DP', ft.dp], ...(ft.pb ? [['PB', ft.pb] as [string, number]] : []), ...(ft.sba ? [['SBA', ft.sba] as [string, number]] : [])]} />
                 </Box>
               )}
 
