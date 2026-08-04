@@ -227,7 +227,8 @@ function TeamsView({ teams, selected, onSelect, onOpenPlayer }: {
 // ─── Section root ───────────────────────────────────────────────────────────────
 
 export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
-  void isAdmin // section is fully public/read-only now (feed-driven); kept for the route's prop shape
+  // Section is public/read-only (feed-driven); isAdmin now only gates the ingest-health
+  // freshness indicator on the home header.
   const [view, setView] = useState<WpblView>('home')
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [games, setGames] = useState<WpblGame[]>([])
@@ -288,7 +289,7 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
         ? <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
         : (
           <>
-            {view === 'home'      && <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={setDetailPlayer} onOpenTeam={openTeam} onViewStats={openStats} />}
+            {view === 'home'      && <WpblHome teams={teams} games={games} liveGame={liveGame} isAdmin={isAdmin} onOpenGame={openGame} onOpenPlayer={setDetailPlayer} onOpenTeam={openTeam} onViewStats={openStats} />}
             {view === 'schedule'  && <ScheduleView teams={teams} games={games} onOpenGame={openGame} />}
             {view === 'standings' && <StandingsView teams={teams} games={games} />}
             {view === 'stats'     && <WpblStatsView teams={teams} games={games} initialGroup={statsGroup} onOpenPlayer={setDetailPlayer} />}

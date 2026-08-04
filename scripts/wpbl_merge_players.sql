@@ -5,6 +5,13 @@
 -- api_id and cascades its stat lines), then stamp that api_id onto the seeded row. Re-run
 -- the wpbl-ingest backfill ({"mode":"all"}) afterwards so the stats reattach.
 --
+-- NOTE: the ingest now auto-resolves most variants itself — accent/case/spacing, edit-
+-- distance-1 spellings (Fox↔Foxx, Villareal↔Villarreal, Gabriella↔Gabrielle), AND prefix
+-- nickname shortenings (Val↔Valerie, Alex↔Alexandra, Sam↔Samuel). Only NON-prefix
+-- nicknames still slip through and need a manual pair here (e.g. Gabby↔Gabriella,
+-- Kate↔Katherine, Liz↔Elizabeth). The pairs below are the historical merges already
+-- applied; keep them as a record and add new non-prefix cases as they appear.
+--
 -- Find shadows to merge:
 --   select team_id, name, api_id from wpbl_players
 --   where api_id is not null and age is null and hometown is null and status is null;

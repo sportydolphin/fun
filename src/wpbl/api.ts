@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase'
 import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
-  WpblFieldingLine, WpblGamePlay, WpblPitchTracking,
+  WpblFieldingLine, WpblGamePlay, WpblPitchTracking, WpblIngestRun,
 } from './types'
 
 // Reads for the WPBL section. Everything degrades gracefully: if the tables don't
@@ -135,6 +135,14 @@ export async function fetchWpblPlayerLines(playerId: string): Promise<{ batting:
       [] as WpblFieldingLine[]),
   ])
   return { batting, pitching, fielding }
+}
+
+// The most recent ingest run (feed-mirror health). Null pre-migration or if the log is
+// empty. Used by the admin freshness indicator on the WPBL home.
+export function fetchWpblIngestHealth(): Promise<WpblIngestRun | null> {
+  return safe('fetchWpblIngestHealth', () =>
+    supabase.from('wpbl_ingest_runs').select('*').order('ran_at', { ascending: false }).limit(1).maybeSingle(),
+    null as WpblIngestRun | null)
 }
 
 // Standings derived from final games (not stored). A game counts only once both a

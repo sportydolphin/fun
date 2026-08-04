@@ -51,7 +51,9 @@ const normName = (name: string): string =>
 // Levenshtein edit distance, capped at `max` (returns max+1 once exceeded) — used for a
 // last-ditch fuzzy roster match so feed spelling variants (Villareal↔Villarreal,
 // Foxx↔Fox, Gabriella↔Gabrielle) resolve to the seeded player instead of a duplicate.
-// Nicknames (Val↔Valerie) are too far to match here and still need a manual merge.
+// Nickname SHORTENINGS (Val↔Valerie, Alex↔Alexandra) are too far for this, but the
+// prefix matcher in PlayerResolver.nickname handles the common prefix pattern; only true
+// non-prefix nicknames (Gabby↔Gabriella, Kate↔Katherine) still need a manual merge.
 function editDistance(a: string, b: string, max = 1): number {
   if (Math.abs(a.length - b.length) > max) return max + 1
   let prev = Array.from({ length: b.length + 1 }, (_, i) => i)
@@ -132,6 +134,33 @@ class PlayerResolver {
     return hit
   }
 
+  // Nickname-shortening match: same team, EXACT surname match, and one given name is a
+  // prefix of the other (Val↔Valerie, Alex↔Alexandra, Sam↔Samuel). This is where feed
+  // nicknames that editDistance can't reach actually live. Deliberately narrow: it fires
+  // ONLY on the prefix pattern, requires the surname to match exactly and both given names
+  // to be ≥3 chars, and bails on any ambiguity (two teammates sharing a surname) — so it
+  // never merges two distinct players. Non-prefix nicknames (Gabby↔Gabriella) stay manual.
+  private nickname(teamSlug: string, nm: string): string | null {
+    const parts = nm.split(' ')
+    if (parts.length < 2) return null
+    const surname = parts[parts.length - 1]
+    const given = parts[0]
+    if (surname.length < 3 || given.length < 3) return null
+    let hit: string | null = null
+    for (const cand of this.byTeam.get(teamSlug) ?? []) {
+      const cp = cand.norm.split(' ')
+      if (cp.length < 2) continue
+      if (cp[cp.length - 1] !== surname) continue         // surnames must match exactly
+      const cGiven = cp[0]
+      if (cGiven.length < 3) continue
+      const [short, long] = given.length <= cGiven.length ? [given, cGiven] : [cGiven, given]
+      if (short === long || !long.startsWith(short)) continue  // one must prefix the other
+      if (hit && hit !== cand.id) return null              // ambiguous — don't guess
+      hit = cand.id
+    }
+    return hit
+  }
+
   async resolve(feed: { id?: string; name?: string; uniform?: string; bats?: string; throws?: string; position?: string }, teamSlug: string): Promise<string | null> {
     const name = s(feed.name)
     if (!name) return null
@@ -154,6 +183,15 @@ class PlayerResolver {
       this.byTeamName.set(`${teamSlug}::${nm}`, fuzzy)
       if (apiId) { this.byApi.set(apiId, fuzzy); this.pendingApi.set(fuzzy, apiId) }
       return fuzzy
+    }
+
+    // 3.5) nickname-shortening hit within the same team → backfill api_id. Also cache the
+    // feed spelling under the team key so play-by-play resolveName() finds it too.
+    const nick = this.nickname(teamSlug, nm)
+    if (nick) {
+      this.byTeamName.set(`${teamSlug}::${nm}`, nick)
+      if (apiId) { this.byApi.set(apiId, nick); this.pendingApi.set(nick, apiId) }
+      return nick
     }
 
     // 4) insert a new feed-only player
@@ -349,12 +387,29 @@ Deno.serve(async (req) => {
     if (body.gameId) oneGame = String(body.gameId)
   } catch { /* defaults */ }
 
+  // Health log — one row per run (success or failure) so the app can show a freshness
+  // indicator. Best-effort: a logging failure must never break the ingest response.
+  const startedAt = Date.now()
+  const logRun = async (ok: boolean, games: number, boxscores: number, errors: string[]) => {
+    try {
+      await db.from('wpbl_ingest_runs').insert({
+        mode, ok, games, boxscores,
+        error_count: errors.length,
+        errors: errors.length ? errors.slice(0, 25) : null,
+        duration_ms: Date.now() - startedAt,
+      })
+    } catch (e) { console.warn('[wpbl-ingest] health log failed', e instanceof Error ? e.message : e) }
+  }
+
   try {
     // Team api_id → slug map (and reject if the seed migration hasn't run).
     const { data: teams } = await db.from('wpbl_teams').select('id, api_id')
     const teamSlug = new Map<string, string>()
     for (const t of teams ?? []) if (t.api_id) teamSlug.set(t.api_id, t.id)
-    if (teamSlug.size === 0) return json({ error: 'No wpbl_teams.api_id mappings — run scripts/add_wpbl_api_ingest.sql first' }, 400)
+    if (teamSlug.size === 0) {
+      await logRun(false, 0, 0, ['No wpbl_teams.api_id mappings — run scripts/add_wpbl_api_ingest.sql first'])
+      return json({ error: 'No wpbl_teams.api_id mappings — run scripts/add_wpbl_api_ingest.sql first' }, 400)
+    }
 
     // Player cache for reconciliation.
     const { data: players } = await db.from('wpbl_players').select('id, name, team_id, api_id')
@@ -367,7 +422,10 @@ Deno.serve(async (req) => {
 
     // Feed schedule.
     const listRes = await fetch(`${FEED}/games`)
-    if (!listRes.ok) return json({ error: `feed /games → ${listRes.status}` }, 502)
+    if (!listRes.ok) {
+      await logRun(false, 0, 0, [`feed /games → ${listRes.status}`])
+      return json({ error: `feed /games → ${listRes.status}` }, 502)
+    }
     const feedGames: any[] = (await listRes.json()).games ?? []
 
     const summary = { games: 0, boxscores: 0, errors: [] as string[] }
@@ -427,8 +485,11 @@ Deno.serve(async (req) => {
     }
 
     await resolver.flushApiIds()
+    await logRun(true, summary.games, summary.boxscores, summary.errors)
     return json({ ok: true, mode, ...summary })
   } catch (e) {
-    return json({ ok: false, error: e instanceof Error ? e.message : String(e) }, 500)
+    const msg = e instanceof Error ? e.message : String(e)
+    await logRun(false, 0, 0, [msg])
+    return json({ ok: false, error: msg }, 500)
   }
 })

@@ -235,6 +235,21 @@ export interface WpblPitchTracking {
   created_at: string
 }
 
+// One ingest run's health summary (mirrors wpbl_ingest_runs). Written by the wpbl-ingest
+// Edge Function at the end of every run; read by the admin freshness indicator.
+export interface WpblIngestRun {
+  id: string
+  ran_at: string
+  mode: string | null
+  ok: boolean
+  games: number
+  boxscores: number
+  error_count: number
+  errors: string[] | null
+  duration_ms: number | null
+  created_at: string
+}
+
 // Derived standings row (computed client-side from final games — not stored).
 export interface WpblStandingRow {
   team: WpblTeam

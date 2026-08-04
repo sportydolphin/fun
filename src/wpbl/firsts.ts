@@ -37,6 +37,21 @@ const META: Record<string, Meta> = {
 const norm = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim()
 const cleanNarrative = (s: string) => s.replace(/\s*\([^)]*\)\s*$/, '').trim() // drop trailing "(2-2 KBFB)"
 
+// "6:30 PM" wall clock → minutes since midnight, for ordering games that share a date
+// (doubleheaders). Unparseable/blank sorts first (0). Play sequence restarts per game, so
+// without this the earlier-starting game's plays could sort after the later one's.
+const startMin = (t: string | null | undefined): number => {
+  const m = /^(\d{1,2}):(\d{2})\s*(am|pm)$/i.exec((t ?? '').trim())
+  if (!m) return 0
+  let h = Number(m[1]) % 12
+  if (/pm/i.test(m[3])) h += 12
+  return h * 60 + Number(m[2])
+}
+
+// Run-scoring event types that do NOT credit the batter with an RBI (a run crossing on
+// one of these is not the batter's RBI). Everything else with runs_scored > 0 counts.
+const NON_RBI_EVENTS = new Set(['wild_pitch', 'passed_ball', 'balk', 'stolen_base'])
+
 export function computeFirsts(
   plays: WpblGamePlay[], games: WpblGame[], players: WpblPlayer[], pitching: WpblPitchingLine[],
 ): WpblFirst[] {
@@ -67,30 +82,44 @@ export function computeFirsts(
     found.set(key, { key, ...m, player: player ?? null, name, teamId, date, detail })
   }
 
-  // ── Event firsts, scanned in true chronological order (game date, then sequence) ──
+  // ── Event firsts, scanned in true chronological order (game date, start time, then
+  // sequence — start time breaks ties between two games on the same day) ──
   const ordered = plays
     .map(p => ({ p, g: gById.get(p.game_id) }))
     .filter((x): x is { p: WpblGamePlay; g: WpblGame } => !!x.g)
-    .sort((a, b) => a.g.game_date < b.g.game_date ? -1 : a.g.game_date > b.g.game_date ? 1 : a.p.sequence - b.p.sequence)
+    .sort((a, b) =>
+      a.g.game_date !== b.g.game_date ? (a.g.game_date < b.g.game_date ? -1 : 1)
+      : startMin(a.g.start_time) !== startMin(b.g.start_time) ? startMin(a.g.start_time) - startMin(b.g.start_time)
+      : a.p.sequence - b.p.sequence)
 
   for (const { p, g } of ordered) {
     const d = g.game_date
-    const bat = p.batter_id ? pById.get(p.batter_id) : undefined
-    const pit = p.pitcher_id ? pById.get(p.pitcher_id) : undefined
+    // Resolve batter/pitcher by our id first, then fall back to the play's name via the
+    // forgiving matcher — the feed play log spells variants ("Maggie Fox" vs roster
+    // "Maggie Foxx", "Val Perez" vs "Valerie Perez") that the ingest may not have linked
+    // to a batter_id. Without this fallback the genuine first (an unresolved batter) is
+    // silently skipped and the milestone is misattributed to a later player.
+    const bat = (p.batter_id ? pById.get(p.batter_id) : undefined) ?? findByName(p.batter_name ?? '')
+    const pit = (p.pitcher_id ? pById.get(p.pitcher_id) : undefined) ?? findByName(p.pitcher_name ?? '')
     const nar = cleanNarrative(p.narrative)
     const et = p.event_type
-    if (p.is_hit && bat) rec('first_hit', bat, bat.name, bat.team_id, d, nar)
-    if (bat) {
-      if (et === 'home_run') rec('first_hr', bat, bat.name, bat.team_id, d, nar)
-      if (et === 'double') rec('first_double', bat, bat.name, bat.team_id, d, nar)
-      if (et === 'triple') rec('first_triple', bat, bat.name, bat.team_id, d, nar)
-      if (et === 'walk') rec('first_walk', bat, bat.name, bat.team_id, d, nar)
-      if (et === 'hit_by_pitch') rec('first_hbp', bat, bat.name, bat.team_id, d, nar)
-      if (p.runs_scored > 0 && et !== 'wild_pitch' && et !== 'passed_ball' && et !== 'balk') {
-        rec('first_rbi', bat, bat.name, bat.team_id, d, nar)
+    // Attribute even when the player can't be resolved, using the feed name + batting-side
+    // slug, so the chronologically-first event still wins its "first".
+    const batName = (bat?.name ?? p.batter_name ?? '').trim()
+    const batTeam = bat?.team_id ?? p.team_id ?? null
+    const pitName = (pit?.name ?? p.pitcher_name ?? '').trim()
+    if (p.is_hit && batName) rec('first_hit', bat, batName, batTeam, d, nar)
+    if (batName) {
+      if (et === 'home_run') rec('first_hr', bat, batName, batTeam, d, nar)
+      if (et === 'double') rec('first_double', bat, batName, batTeam, d, nar)
+      if (et === 'triple') rec('first_triple', bat, batName, batTeam, d, nar)
+      if (et === 'walk') rec('first_walk', bat, batName, batTeam, d, nar)
+      if (et === 'hit_by_pitch') rec('first_hbp', bat, batName, batTeam, d, nar)
+      if (p.runs_scored > 0 && !NON_RBI_EVENTS.has(et ?? '')) {
+        rec('first_rbi', bat, batName, batTeam, d, nar)
       }
     }
-    if (et === 'strikeout' && pit) rec('first_so', pit, pit.name, pit.team_id, d, nar)
+    if (et === 'strikeout' && pitName) rec('first_so', pit, pitName, pit?.team_id ?? null, d, nar)
     if (et === 'stolen_base') {
       // The runner is named in the narrative ("Maggie Fox stole second"), not batter_id.
       const runnerName = (p.narrative.match(/^(.+?)\s+stole\b/i)?.[1] ?? '').trim()
@@ -103,7 +132,9 @@ export function computeFirsts(
   const finals = pitching
     .map(l => ({ l, g: gById.get(l.game_id) }))
     .filter((x): x is { l: WpblPitchingLine; g: WpblGame } => !!x.g && x.g.status === 'final')
-    .sort((a, b) => a.g.game_date < b.g.game_date ? -1 : a.g.game_date > b.g.game_date ? 1 : 0)
+    .sort((a, b) =>
+      a.g.game_date !== b.g.game_date ? (a.g.game_date < b.g.game_date ? -1 : 1)
+      : startMin(a.g.start_time) - startMin(b.g.start_time))
 
   for (const { l, g } of finals) {
     if (l.decision === 'W') {

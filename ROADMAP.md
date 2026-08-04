@@ -136,8 +136,13 @@ A parallel initiative, not part of the MLB phases above. Adds Women's Pro Baseba
 - ✅ **Hall of Firsts** (`firsts.ts`) — first HR / win / strikeout / stolen base / complete game etc. from play-by-play + box lines, featured on home with portraits + View all.
 - ✅ **Live updates** — schedule/scoreboard/standings/leaders poll (20s live / 60s idle) + refresh on tab focus; Game Center already polled the open game.
 
-- ⬜ **Next (Phase 3 — hardening → depth → engagement → postseason), in priority order:**
-  1. **Data-quality + ingest hardening** — reconcile feed name variants (e.g. "Fox"/"Foxx"), the "Unknown" pitcher gaps in TrackMan, the duplicate-game feed quirk (currently deduped client-side); consider an ingest health indicator. *Foundation first — everything downstream trusts the mirror.*
+- 🔬 **Next (Phase 3 — hardening → depth → engagement → postseason), in priority order:**
+  1. **Data-quality + ingest hardening** — *in progress:*
+     - ✅ **Name variants** — the ingest now auto-resolves prefix nickname shortenings (Val↔Valerie, Alex↔Alexandra) via a new `PlayerResolver.nickname()` matcher, on top of the existing accent/case norm + edit-distance-1 fuzzy (Fox↔Foxx). Only non-prefix nicknames (Gabby↔Gabriella) still need the manual `wpbl_merge_players.sql`.
+     - ✅ **Hall of Firsts bug fixed** — first hit / first RBI were misattributed because the feed play log spells name variants ("Maggie Fox") that the ingest's exact-only play `resolveName` left with a null `batter_id`, so `firsts.ts` silently skipped the genuine first. Now it falls back to the play's name via the forgiving matcher and attributes even unresolved players by feed name, so the chronologically-first event always wins. Also orders same-day games by start time (not just per-game sequence). Verified against the real inaugural game: first hit + first RBI → Maggie Foxx (seq 7).
+     - ✅ **Ingest health indicator** — new `wpbl_ingest_runs` log table (`scripts/add_wpbl_ingest_health.sql`); the function writes a row every run (ok/games/boxscores/errors/duration); admin-only freshness dot on the WPBL home header (green fresh / amber stale-or-errors / red failed).
+     - ⬜ **Still open:** the "Unknown" pitcher gaps in TrackMan (fundamental feed omission — deferred); the duplicate-game feed quirk (still deduped client-side — needs a look at live feed rows to find the phantom's discriminator before moving server-side).
+     - ⚠️ **DEPLOY PENDING** — the ingest + health changes need `supabase functions deploy wpbl-ingest`, and `scripts/add_wpbl_ingest_health.sql` must be run in Supabase. The Hall of Firsts fix is client-only (ships with the next build, no deploy).
   2. **Loose ends** — browser back-stack for team/player detail within /wpbl (Back returns to the prior WPBL view); confirm/swap BOS & NY secondary colors; multi-season support for future seasons.
   3. **Team pages** — team stat leaders, results, batting/pitching totals, roster with inline stats (today Teams is just a roster list).
   4. **Search integration** — wire WPBL players/teams into the toolbar search bridge.
