@@ -30,10 +30,22 @@ export function fetchWpblTeams(): Promise<WpblTeam[]> {
     [] as WpblTeam[])
 }
 
-export function fetchWpblSchedule(): Promise<WpblGame[]> {
-  return safe('fetchWpblSchedule', () =>
+// The feed occasionally emits a phantom `scheduled` duplicate of a game it already
+// reported final (same date + matchup, different api_game_id). Drop the not-yet-played
+// copy when a played one exists for the same matchup-day; genuine doubleheaders (two
+// played, or two upcoming) are left untouched.
+function dedupeSchedule(games: WpblGame[]): WpblGame[] {
+  const played = (g: WpblGame) => g.status === 'final' || g.status === 'live'
+  const hasPlayed = new Set<string>()
+  for (const g of games) if (played(g)) hasPlayed.add(`${g.game_date}|${g.away_team_id}|${g.home_team_id}`)
+  return games.filter(g => played(g) || !hasPlayed.has(`${g.game_date}|${g.away_team_id}|${g.home_team_id}`))
+}
+
+export async function fetchWpblSchedule(): Promise<WpblGame[]> {
+  const games = await safe('fetchWpblSchedule', () =>
     supabase.from('wpbl_games').select('*').order('game_date', { ascending: true }),
     [] as WpblGame[])
+  return dedupeSchedule(games)
 }
 
 // One game's current row — used by the live views to poll fresh score + live_state.

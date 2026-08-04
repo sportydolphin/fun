@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.24.1'
+export const APP_VERSION = '1.25.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,33 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.25.0',
+    date:    '2026-08-03',
+    title:   'A clearer WPBL game window',
+    changes: [
+      {
+        short: 'Box score shows one team at a time',
+        full:  'A WPBL game now shows the box score for one team at a time with a team toggle, and only hitting and pitching (the fielding table is gone). The stat columns line up and fill the width so it is easier to read.',
+      },
+      {
+        short: 'Game window keeps a steady height',
+        full:  'Switching between Box Score, Play-by-Play, and Pitch Data no longer resizes the game window. The header stays put and only the section below it scrolls.',
+      },
+      {
+        short: 'Collapse half-innings in the play log',
+        full:  'Each half-inning in the play-by-play can be collapsed or expanded, and a scoring half-inning shows how many runs it produced.',
+      },
+      {
+        short: 'Pitch data now names the pitcher',
+        full:  'The pitch data tab lists each pitcher from the box score with their innings, pitch count, and TrackMan velocity and spin, instead of an unlabeled group.',
+      },
+      {
+        short: 'Fixed a duplicate game on the schedule',
+        full:  'When the league feed listed a game twice for the same day and matchup, the schedule and scoreboard were showing both. The already-played game now shows once.',
+      },
+    ],
+  },
   {
     version: '1.24.1',
     date:    '2026-07-30',

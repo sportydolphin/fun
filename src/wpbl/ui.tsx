@@ -161,13 +161,14 @@ export function SectionLabel({ children, strong }: { children: React.ReactNode; 
 // vertically-centered card on `background.paper` with a soft shadow, Escape-to-close,
 // a sticky uppercase eyebrow header, a round ✕ close button, and an optional sticky
 // footer (e.g. the entry form's Save/Cancel).
-export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, actions, footer, children }: {
+export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, actions, footer, fillHeight, children }: {
   eyebrow: React.ReactNode
   onClose: () => void
   maxWidth?: number
   zIndex?: number
   actions?: React.ReactNode   // rendered just left of the close button
   footer?: React.ReactNode    // sticky bottom bar
+  fillHeight?: boolean        // pin the card to full height (content controls its own scroll)
   children: React.ReactNode
 }) {
   useEffect(() => {
@@ -191,7 +192,10 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
         bgcolor: 'background.paper', borderRadius: 3,
         border: '1px solid', borderColor: 'divider',
         boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
-        maxHeight: '92vh', display: 'flex', flexDirection: 'column',
+        // `100%` (of the padded fixed overlay), not `vh`: under the desktop `zoom`
+        // wrapper viewport units don't shrink, so `92vh` overflows the screen.
+        maxHeight: '100%', ...(fillHeight ? { height: '100%' } : {}),
+        display: 'flex', flexDirection: 'column',
       }}>
         {/* Sticky eyebrow header */}
         <Box sx={{
