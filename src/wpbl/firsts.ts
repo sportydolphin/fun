@@ -1,0 +1,131 @@
+import { outsToIp } from './constants'
+import type { WpblGame, WpblGamePlay, WpblPlayer, WpblPitchingLine } from './types'
+
+// "Hall of Firsts" — the players who recorded each league milestone first. Event-based
+// firsts (HR, strikeout, stolen base, …) come from the chronological play-by-play; win
+// and complete game come from the box-score pitching lines. Each first is attributed to
+// a roster player when we can resolve one, with the play narrative kept as context.
+
+export interface WpblFirst {
+  key: string
+  label: string
+  icon: string
+  player: WpblPlayer | null
+  name: string            // display name (resolved player, or the parsed runner)
+  teamId: string | null
+  date: string            // YYYY-MM-DD
+  detail: string          // narrative / context
+  featured: boolean
+  order: number
+}
+
+interface Meta { label: string; icon: string; featured: boolean; order: number }
+const META: Record<string, Meta> = {
+  first_hr:      { label: 'First home run',      icon: '💥', featured: true,  order: 1 },
+  complete_game: { label: 'First complete game', icon: '🎯', featured: true,  order: 2 },
+  first_win:     { label: 'First win',           icon: '🏆', featured: true,  order: 3 },
+  first_so:      { label: 'First strikeout',     icon: '🔥', featured: true,  order: 4 },
+  first_sb:      { label: 'First stolen base',   icon: '🏃', featured: true,  order: 5 },
+  first_hit:     { label: 'First hit',           icon: '🥎', featured: false, order: 6 },
+  first_double:  { label: 'First double',        icon: '2️⃣', featured: false, order: 7 },
+  first_triple:  { label: 'First triple',        icon: '3️⃣', featured: false, order: 8 },
+  first_rbi:     { label: 'First RBI',           icon: '💪', featured: false, order: 9 },
+  first_walk:    { label: 'First walk',          icon: '🚶', featured: false, order: 10 },
+  first_hbp:     { label: 'First hit by pitch',  icon: '🤕', featured: false, order: 11 },
+}
+
+const norm = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim()
+const cleanNarrative = (s: string) => s.replace(/\s*\([^)]*\)\s*$/, '').trim() // drop trailing "(2-2 KBFB)"
+
+export function computeFirsts(
+  plays: WpblGamePlay[], games: WpblGame[], players: WpblPlayer[], pitching: WpblPitchingLine[],
+): WpblFirst[] {
+  const gById = new Map(games.map(g => [g.id, g]))
+  const pById = new Map(players.map(p => [p.id, p]))
+  const byName = new Map(players.map(p => [norm(p.name), p]))
+  const found = new Map<string, WpblFirst>()
+
+  // Resolve a name parsed from a narrative to a roster player. Exact first, then a
+  // forgiving first-name + last-name-prefix match so feed spelling variants still link
+  // (the play log says "Maggie Fox" where the roster has "Maggie Foxx").
+  const findByName = (raw: string): WpblPlayer | undefined => {
+    const n = norm(raw)
+    if (!n) return undefined
+    const exact = byName.get(n)
+    if (exact) return exact
+    const [rf, ...rrest] = n.split(' '); const rl = rrest.join(' ')
+    if (!rf || !rl) return undefined
+    return players.find(p => {
+      const [pf, ...prest] = norm(p.name).split(' '); const pl = prest.join(' ')
+      return pf === rf && !!pl && (pl.startsWith(rl) || rl.startsWith(pl))
+    })
+  }
+
+  const rec = (key: string, player: WpblPlayer | undefined, name: string, teamId: string | null, date: string, detail: string) => {
+    if (found.has(key)) return
+    const m = META[key]; if (!m) return
+    found.set(key, { key, ...m, player: player ?? null, name, teamId, date, detail })
+  }
+
+  // ── Event firsts, scanned in true chronological order (game date, then sequence) ──
+  const ordered = plays
+    .map(p => ({ p, g: gById.get(p.game_id) }))
+    .filter((x): x is { p: WpblGamePlay; g: WpblGame } => !!x.g)
+    .sort((a, b) => a.g.game_date < b.g.game_date ? -1 : a.g.game_date > b.g.game_date ? 1 : a.p.sequence - b.p.sequence)
+
+  for (const { p, g } of ordered) {
+    const d = g.game_date
+    const bat = p.batter_id ? pById.get(p.batter_id) : undefined
+    const pit = p.pitcher_id ? pById.get(p.pitcher_id) : undefined
+    const nar = cleanNarrative(p.narrative)
+    const et = p.event_type
+    if (p.is_hit && bat) rec('first_hit', bat, bat.name, bat.team_id, d, nar)
+    if (bat) {
+      if (et === 'home_run') rec('first_hr', bat, bat.name, bat.team_id, d, nar)
+      if (et === 'double') rec('first_double', bat, bat.name, bat.team_id, d, nar)
+      if (et === 'triple') rec('first_triple', bat, bat.name, bat.team_id, d, nar)
+      if (et === 'walk') rec('first_walk', bat, bat.name, bat.team_id, d, nar)
+      if (et === 'hit_by_pitch') rec('first_hbp', bat, bat.name, bat.team_id, d, nar)
+      if (p.runs_scored > 0 && et !== 'wild_pitch' && et !== 'passed_ball' && et !== 'balk') {
+        rec('first_rbi', bat, bat.name, bat.team_id, d, nar)
+      }
+    }
+    if (et === 'strikeout' && pit) rec('first_so', pit, pit.name, pit.team_id, d, nar)
+    if (et === 'stolen_base') {
+      // The runner is named in the narrative ("Maggie Fox stole second"), not batter_id.
+      const runnerName = (p.narrative.match(/^(.+?)\s+stole\b/i)?.[1] ?? '').trim()
+      const runner = findByName(runnerName)
+      rec('first_sb', runner, runner?.name ?? (runnerName || 'Unknown'), runner?.team_id ?? null, d, nar)
+    }
+  }
+
+  // ── Box-line firsts: first win, first complete game (earliest final game) ──
+  const finals = pitching
+    .map(l => ({ l, g: gById.get(l.game_id) }))
+    .filter((x): x is { l: WpblPitchingLine; g: WpblGame } => !!x.g && x.g.status === 'final')
+    .sort((a, b) => a.g.game_date < b.g.game_date ? -1 : a.g.game_date > b.g.game_date ? 1 : 0)
+
+  for (const { l, g } of finals) {
+    if (l.decision === 'W') {
+      const p = pById.get(l.player_id)
+      rec('first_win', p, p?.name ?? '—', p?.team_id ?? l.team_id, g.game_date, `${outsToIp(l.outs)} IP, ${l.so} K`)
+      break
+    }
+  }
+  // A complete game = one pitcher recorded all of their team's outs in a final game.
+  const perTeamGame = new Map<string, number>()
+  for (const { l } of finals) {
+    const k = `${l.game_id}|${l.team_id}`
+    perTeamGame.set(k, (perTeamGame.get(k) ?? 0) + 1)
+  }
+  for (const { l, g } of finals) {
+    const k = `${l.game_id}|${l.team_id}`
+    if (perTeamGame.get(k) === 1 && l.outs >= 18) { // full ~7-inning outing, not a rain-shortened cameo
+      const p = pById.get(l.player_id)
+      rec('complete_game', p, p?.name ?? '—', p?.team_id ?? l.team_id, g.game_date, `${outsToIp(l.outs)} IP`)
+      break
+    }
+  }
+
+  return [...found.values()].sort((a, b) => a.order - b.order)
+}

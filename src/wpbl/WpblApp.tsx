@@ -258,6 +258,22 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
 
   useEffect(() => reload(), [reload])
 
+  // Keep the schedule / scoreboard / standings live as the official-feed ingest writes
+  // scores and status changes. Teams are static, so only the schedule is re-fetched.
+  // Poll faster while a game is in progress, and refresh whenever the tab regains focus.
+  useEffect(() => {
+    const refresh = () => { fetchWpblSchedule().then(setGames).catch(() => {}) }
+    const id = setInterval(refresh, liveGame ? 20000 : 60000)
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', refresh)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', refresh)
+    }
+  }, [liveGame?.id])
+
   return (
     // Cap + center on wide screens (site convention); full width on mobile.
     <Box sx={{ maxWidth: 720, mx: 'auto' }}>

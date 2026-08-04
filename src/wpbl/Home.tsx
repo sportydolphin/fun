@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
-import { fetchWpblAllPlayers, fetchWpblAllLines, computeStandings } from './api'
+import { fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, computeStandings } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs } from './constants'
-import { SectionCard, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER } from './ui'
+import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, CARD_BORDER } from './ui'
 import { LiveHero } from './Live'
 import {
   aggregateBatting, aggregatePitching, qualifiersActive, fmtRate, fmtTwo,
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
-import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
+import { computeFirsts, type WpblFirst } from './firsts'
+import type { WpblTeam, WpblPlayer, WpblGame, WpblGamePlay, WpblBattingLine, WpblPitchingLine } from './types'
 
 // WPBL home dashboard (Phase 2). Mirrors the MLB home: a full-width scoreboard strip
 // on top, then a two-column card feed (The League / Around the League) that stacks on
@@ -304,6 +305,87 @@ function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, 
   )
 }
 
+// ─── Hall of Firsts ───────────────────────────────────────────────────────────────
+
+function FirstRow({ f, teamById, onOpenPlayer, showDetail }: {
+  f: WpblFirst; teamById: Map<string, WpblTeam>; onOpenPlayer: (p: WpblPlayer) => void; showDetail?: boolean
+}) {
+  const team = f.teamId ? teamById.get(f.teamId) : undefined
+  const dateLabel = new Date(`${f.date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })
+  const clickable = !!f.player
+  return (
+    <Box
+      onClick={clickable ? () => onOpenPlayer(f.player!) : undefined}
+      sx={{
+        display: 'flex', alignItems: 'center', gap: 1.25, py: 0.85,
+        borderTop: '1px solid', borderColor: 'divider',
+        borderRadius: 1, ...(clickable ? { cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } } : {}),
+      }}
+    >
+      <PlayerPortrait name={f.name} teamId={f.teamId ?? ''} size={42} />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled' }}>
+          {f.icon} {f.label}
+        </Typography>
+        <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</Typography>
+        {showDetail && f.detail && (
+          <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.detail}</Typography>
+        )}
+      </Box>
+      <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+        {team && <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary' }}>{team.abbr}</Typography>}
+        <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled' }}>{dateLabel}</Typography>
+      </Box>
+    </Box>
+  )
+}
+
+function HallOfFirstsCard({ firsts, teamById, loading, onOpenPlayer, onViewAll }: {
+  firsts: WpblFirst[]; teamById: Map<string, WpblTeam>; loading: boolean
+  onOpenPlayer: (p: WpblPlayer) => void; onViewAll: () => void
+}) {
+  const featured = firsts.filter(f => f.featured).slice(0, 4)
+  return (
+    <SectionCard
+      title="Hall of Firsts"
+      subtitle="League milestones"
+      action={firsts.length > 0 ? (
+        <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
+          View all
+        </Typography>
+      ) : undefined}
+    >
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={20} /></Box>
+      ) : featured.length === 0 ? (
+        <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled', py: 1 }}>
+          Milestones appear as the season's firsts happen.
+        </Typography>
+      ) : (
+        featured.map(f => <FirstRow key={f.key} f={f} teamById={teamById} onOpenPlayer={onOpenPlayer} />)
+      )}
+    </SectionCard>
+  )
+}
+
+function FirstsModal({ firsts, teamById, onClose, onOpenPlayer }: {
+  firsts: WpblFirst[]; teamById: Map<string, WpblTeam>; onClose: () => void; onOpenPlayer: (p: WpblPlayer) => void
+}) {
+  return (
+    <ModalShell eyebrow="Hall of Firsts" onClose={onClose} maxWidth={520}>
+      <Box sx={{ px: 2, py: 1 }}>
+        {firsts.length === 0 ? (
+          <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 3, textAlign: 'center' }}>
+            No milestones yet. They appear as the season's firsts happen.
+          </Typography>
+        ) : (
+          firsts.map(f => <FirstRow key={f.key} f={f} teamById={teamById} onOpenPlayer={onOpenPlayer} showDetail />)
+        )}
+      </Box>
+    </ModalShell>
+  )
+}
+
 // ─── Home ───────────────────────────────────────────────────────────────────────
 
 export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPlayer, onOpenTeam, onViewStats }: {
@@ -317,19 +399,29 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
 }) {
   const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
-  // Leaders data — fetched here so only the home view pays for it.
+  // Leaders + Hall-of-Firsts data — fetched here so only the home view pays for it.
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>({ batting: [], pitching: [] })
+  const [plays, setPlays] = useState<WpblGamePlay[]>([])
   const [loadingLeaders, setLoadingLeaders] = useState(true)
+  const [firstsOpen, setFirstsOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([fetchWpblAllPlayers(), fetchWpblAllLines()]).then(([p, l]) => {
-      if (cancelled) return
-      setPlayers(p); setLines(l); setLoadingLeaders(false)
-    })
-    return () => { cancelled = true }
-  }, [])
+    const load = () => {
+      Promise.all([fetchWpblAllPlayers(), fetchWpblAllLines(), fetchWpblAllPlays()]).then(([p, l, pl]) => {
+        if (cancelled) return
+        setPlayers(p); setLines(l); setPlays(pl); setLoadingLeaders(false)
+      }).catch(() => { if (!cancelled) setLoadingLeaders(false) })
+    }
+    load()
+    // While a game is live, leaders + Hall of Firsts shift as lines/plays are ingested,
+    // so refresh them periodically too (matches the app-level schedule polling).
+    const id = liveGame ? setInterval(load, 25000) : null
+    return () => { cancelled = true; if (id) clearInterval(id) }
+  }, [liveGame?.id])
+
+  const firsts = useMemo(() => computeFirsts(plays, games, players, lines.pitching), [plays, games, players, lines.pitching])
 
   const batSeasons = useMemo(() => aggregateBatting(players, lines.batting), [players, lines.batting])
   const pitSeasons = useMemo(() => aggregatePitching(players, lines.pitching), [players, lines.pitching])
@@ -390,10 +482,15 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
 
         {/* Around the League */}
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <HallOfFirstsCard firsts={firsts} teamById={teamMap} loading={loadingLeaders} onOpenPlayer={onOpenPlayer} onViewAll={() => setFirstsOpen(true)} />
           <LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('hitting')} />
           <LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('pitching')} />
         </Box>
       </Box>
+
+      {firstsOpen && (
+        <FirstsModal firsts={firsts} teamById={teamMap} onClose={() => setFirstsOpen(false)} onOpenPlayer={onOpenPlayer} />
+      )}
     </Box>
   )
 }

@@ -69,6 +69,14 @@ export function fetchWpblAllPlayers(): Promise<WpblPlayer[]> {
     [] as WpblPlayer[])
 }
 
+// Every play-by-play row in the league — for the Hall of Firsts (first HR, first
+// strikeout, first stolen base, etc.). Small for a four-team league; empty pre-migration.
+export function fetchWpblAllPlays(): Promise<WpblGamePlay[]> {
+  return safe('fetchWpblAllPlays', () =>
+    supabase.from('wpbl_game_plays').select('*'),
+    [] as WpblGamePlay[])
+}
+
 // Every box-score line in the league — for computing season league leaders. Cheap for
 // a four-team league; returns empty (no leaders) until games start being entered.
 export async function fetchWpblAllLines(): Promise<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }> {
