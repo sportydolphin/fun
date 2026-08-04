@@ -280,6 +280,33 @@ function PlayByPlay({ plays, teams }: { plays: WpblGamePlay[]; teams: Map<string
 type BoxPitcher = { name: string; teamAbbr: string; outs: number; pitches: number | null }
 const normName = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim()
 
+// Edit distance ≤ 1 (one insert / delete / substitute). Cheap boolean, no full matrix.
+const within1 = (a: string, b: string): boolean => {
+  if (a === b) return true
+  const dl = a.length - b.length
+  if (dl > 1 || dl < -1) return false
+  let i = 0, j = 0, edits = 0
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++ }
+    else { if (++edits > 1) return false; if (a.length > b.length) i++; else if (a.length < b.length) j++; else { i++; j++ } }
+  }
+  return edits + (a.length - i) + (b.length - j) <= 1
+}
+// Tolerant same-pitcher check that bridges the box-score vs TrackMan spelling gap — the
+// box says "Maggie Fox" while TrackMan says "Foxx, Maggie". Exact normalized match, or a
+// surname within one edit plus given names that are equal / prefix / within one edit.
+// Without this the two spellings look like two pitchers, which both hides one pitcher's
+// velocity and breaks the single-candidate rescue for the genuinely-unnamed starter.
+const samePitcher = (a: string, b: string): boolean => {
+  a = normName(a); b = normName(b)
+  if (a === b) return true
+  const [af, ...ar] = a.split(' '); const al = ar.join(' ')
+  const [bf, ...br] = b.split(' '); const bl = br.join(' ')
+  if (!al || !bl) return false
+  const firstOk = af === bf || af.startsWith(bf) || bf.startsWith(af) || within1(af, bf)
+  return (al === bl || within1(al, bl)) && firstOk
+}
+
 function PitchData({ tracking, boxPitchers }: { tracking: WpblPitchTracking[]; boxPitchers: BoxPitcher[] }) {
   const pitches = useMemo(
     () => tracking.filter(t => t.release_speed != null && (t.kind == null || t.kind === 'pitch')),
@@ -329,13 +356,24 @@ function PitchData({ tracking, boxPitchers }: { tracking: WpblPitchTracking[]; b
       if (nm) { const k = normName(nm); const e = byName.get(k) ?? blank(); add(e, p); byName.set(k, e) }
       else add(unatt, p)
     }
-    const missing = boxPitchers.filter(bp => !byName.has(normName(bp.name)))
+    // Match each box pitcher to its tracking aggregate, tolerating the box↔TrackMan
+    // spelling gap (Fox/Foxx). Consume matched keys so two box pitchers can't both claim
+    // the same tracking bucket.
+    const consumed = new Set<string>()
+    const aggFor = (name: string): Agg | null => {
+      const exact = normName(name)
+      if (byName.has(exact) && !consumed.has(exact)) { consumed.add(exact); return byName.get(exact)! }
+      for (const [k, e] of byName) if (!consumed.has(k) && samePitcher(name, k)) { consumed.add(k); return e }
+      return null
+    }
+    const prelim = boxPitchers.map(bp => ({ bp, agg: aggFor(bp.name) }))
+    const missing = prelim.filter(x => x.agg == null).map(x => x.bp)
     const resolved = missing.length === 1 && unatt.count > 0 ? missing[0].name : null
 
-    const rws = boxPitchers.map(bp => {
-      const agg = byName.get(normName(bp.name)) ?? (resolved && bp.name === resolved ? unatt : null)
-      return { ...bp, agg }
-    }).sort((a, b) => a.teamAbbr === b.teamAbbr ? b.outs - a.outs : a.teamAbbr.localeCompare(b.teamAbbr))
+    const rws = prelim.map(({ bp, agg }) => ({
+      ...bp,
+      agg: agg ?? (resolved && bp.name === resolved ? unatt : null),
+    })).sort((a, b) => a.teamAbbr === b.teamAbbr ? b.outs - a.outs : a.teamAbbr.localeCompare(b.teamAbbr))
 
     const fast = [...pitches].sort((a, b) => (b.release_speed ?? 0) - (a.release_speed ?? 0)).slice(0, 8)
     return { rows: rws, resolvedName: resolved, unattributed: resolved ? 0 : unatt.count, fastest: fast }

@@ -34,6 +34,10 @@ export function fetchWpblTeams(): Promise<WpblTeam[]> {
 // reported final (same date + matchup, different api_game_id). Drop the not-yet-played
 // copy when a played one exists for the same matchup-day; genuine doubleheaders (two
 // played, or two upcoming) are left untouched.
+//
+// The wpbl-ingest function now suppresses these server-side too (deletes the phantom row
+// from the mirror), so on a healthy DB this filter is a no-op. It's kept as a cheap
+// fallback for the window before a re-ingest clears an already-stored phantom.
 function dedupeSchedule(games: WpblGame[]): WpblGame[] {
   const played = (g: WpblGame) => g.status === 'final' || g.status === 'live'
   const hasPlayed = new Set<string>()

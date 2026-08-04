@@ -428,12 +428,42 @@ Deno.serve(async (req) => {
     }
     const feedGames: any[] = (await listRes.json()).games ?? []
 
-    const summary = { games: 0, boxscores: 0, errors: [] as string[] }
+    // Phantom-duplicate suppression. The feed sometimes carries a stale, never-played copy
+    // of a game alongside the real one — same date + matchup, different game_id (e.g. a
+    // weather delay left an extra "Not Started" slot next to the completed game). Group by
+    // (Chicago date, matchup); if a group has a played copy (final/live/completed), any
+    // still-unplayed copy in that group is a phantom and is suppressed here, so the mirror
+    // is clean for EVERY consumer, not just the client schedule filter. Self-healing: if a
+    // suppressed game ever actually starts it no longer matches the rule and re-ingests.
+    const matchupKey = (fg: any) => {
+      const iso = s(fg.scheduled_start)
+      return `${iso ? chicagoDate(iso) : ''}|${s(fg.away_team_id)}|${s(fg.home_team_id)}`
+    }
+    const isPlayed = (fg: any) => !!s(fg.completed_at) || mapStatus(s(fg.status)) !== 'scheduled'
+    const playedMatchups = new Set<string>()
+    for (const fg of feedGames) if (s(fg.game_id) && isPlayed(fg)) playedMatchups.add(matchupKey(fg))
+    const phantomIds = new Set<string>()
+    for (const fg of feedGames) {
+      const id = s(fg.game_id)
+      if (id && !isPlayed(fg) && playedMatchups.has(matchupKey(fg))) phantomIds.add(id)
+    }
+
+    const summary = { games: 0, boxscores: 0, phantomsRemoved: 0, errors: [] as string[] }
 
     for (const fg of feedGames) {
       const apiGameId = s(fg.game_id)
       if (!apiGameId) continue
       if (oneGame && apiGameId !== oneGame) continue
+
+      // Phantom copy of an already-played game — skip it, and delete any row we ingested on
+      // an earlier run (cascades its lines/plays). It re-appears only if it truly starts.
+      if (phantomIds.has(apiGameId)) {
+        if (byApi.has(apiGameId)) {
+          await db.from('wpbl_games').delete().eq('api_game_id', apiGameId)
+          summary.phantomsRemoved++
+        }
+        continue
+      }
 
       // TBD placeholder games have empty team ids — skip them silently.
       if (!s(fg.home_team_id) || !s(fg.away_team_id)) continue
