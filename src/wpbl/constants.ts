@@ -29,9 +29,9 @@ export interface WpblTeamMeta {
 }
 
 export const WPBL_TEAMS: Record<string, WpblTeamMeta> = {
-  BOS: { id: 'BOS', city: 'Boston',        name: 'Hunters',   abbr: 'BOS', color: '#00281e', secondary: '#da7718', logo: bostonLogo, logoFill: true, sort_order: 1 },
+  BOS: { id: 'BOS', city: 'Boston',        name: 'Hunters',   abbr: 'BOS', color: '#00281e', secondary: '#f3801b', logo: bostonLogo, logoFill: true, sort_order: 1 },
   LA:  { id: 'LA',  city: 'Los Angeles',   name: 'Queens',    abbr: 'LA',  color: '#000000', secondary: '#b58f5f', logo: laLogo,     sort_order: 2 },
-  NY:  { id: 'NY',  city: 'New York',      name: 'Heights',   abbr: 'NY',  color: '#091b47', secondary: '#b8dbf1', logo: nyLogo,     sort_order: 3 },
+  NY:  { id: 'NY',  city: 'New York',      name: 'Heights',   abbr: 'NY',  color: '#091b47', secondary: '#67c3e9', logo: nyLogo,     sort_order: 3 },
   SF:  { id: 'SF',  city: 'San Francisco', name: 'Firebells', abbr: 'SF',  color: '#2d1747', secondary: '#fe2100', logo: sfLogo,     sort_order: 4 },
 }
 
@@ -129,7 +129,7 @@ export function gameStartMs(gameDate: string, startTime: string | null | undefin
 
 // Roster sort key: defensive position order (pitchers first, then around the diamond,
 // then bench/utility). Unknown or blank positions sort last. Pair with a name tiebreak.
-const POSITION_ORDER = ['P', 'SP', 'RP', 'C', '1B', '2B', '3B', 'SS', 'IF', 'LF', 'CF', 'RF', 'OF', 'DH', 'UTIL']
+const POSITION_ORDER = ['P', 'SP', 'RP', 'RHP', 'LHP', 'C', '1B', '2B', '3B', 'SS', 'IF', 'LF', 'CF', 'RF', 'OF', 'DH', 'UTIL']
 export function positionRank(pos: string | null | undefined): number {
   if (!pos) return 999
   const i = POSITION_ORDER.indexOf(pos.trim().toUpperCase())

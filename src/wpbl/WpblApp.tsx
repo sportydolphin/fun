@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
-import { fetchWpblTeams, fetchWpblSchedule, fetchWpblRoster, computeStandings } from './api'
-import { WPBL_ACCENT, wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
-import { SegNav, SectionLabel, TeamBadge, PlayerPortrait, useWpblDark, CARD_BORDER } from './ui'
+import { fetchWpblTeams, fetchWpblSchedule, computeStandings } from './api'
+import { WPBL_ACCENT, wpblAccent, wpblFullName, formatGameTime } from './constants'
+import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER } from './ui'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import GameDetailModal from './GameDetail'
 import PlayerDetailModal from './PlayerDetail'
 import WpblHome from './Home'
 import WpblStatsView from './StatsView'
+import TeamPage from './TeamPage'
 
 // WPBL section root. Reads the official-feed mirror from Supabase (games, box scores,
 // play-by-play, live state) and renders it; everything shows a friendly empty state until
@@ -134,74 +135,29 @@ function StandingsView({ teams, games }: { teams: WpblTeam[]; games: WpblGame[] 
   )
 }
 
-function TeamsView({ teams, selected, onSelect, onOpenPlayer }: {
-  teams: WpblTeam[]; selected: WpblTeam | null
-  onSelect: (t: WpblTeam | null) => void; onOpenPlayer: (p: WpblPlayer) => void
+function TeamsView({ teams, games, selected, onSelect, onOpenGame, onOpenPlayer }: {
+  teams: WpblTeam[]; games: WpblGame[]; selected: WpblTeam | null
+  onSelect: (t: WpblTeam | null) => void
+  onOpenGame: (g: WpblGame) => void
+  onOpenPlayer: (p: WpblPlayer) => void
 }) {
   const isDark = useWpblDark()
-  const [roster, setRoster] = useState<WpblPlayer[] | null>(null)
-  const [loadingRoster, setLoadingRoster] = useState(false)
-
-  useEffect(() => {
-    if (!selected) { setRoster(null); return }
-    let cancelled = false
-    setLoadingRoster(true)
-    fetchWpblRoster(selected.id).then(r => {
-      if (cancelled) return
-      const sorted = [...r].sort((a, b) => positionRank(a.position) - positionRank(b.position) || a.name.localeCompare(b.name))
-      setRoster(sorted); setLoadingRoster(false)
-    })
-    return () => { cancelled = true }
-  }, [selected])
 
   if (teams.length === 0) {
     return <EmptyState title="No teams yet" hint="The four inaugural teams appear here once added." />
   }
 
+  // Full team page (results, totals, leaders, roster with inline stats).
   if (selected) {
     return (
-      <Box>
-        <Box onClick={() => onSelect(null)} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, '&:hover': { color: 'text.primary' } }}>
-          ← All teams
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-          <TeamBadge team={selected} size={48} />
-          <Box>
-            <Typography sx={{ fontSize: '1.2rem', fontWeight: 800, lineHeight: 1.1 }}>{wpblFullName(selected)}</Typography>
-            <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>Roster</Typography>
-          </Box>
-        </Box>
-        {loadingRoster
-          ? <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={24} /></Box>
-          : roster && roster.length > 0
-            ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                {roster.map(p => (
-                  <Box key={p.id} onClick={() => onOpenPlayer(p)} sx={{ display: 'flex', alignItems: 'center', gap: 1.25, py: 1, cursor: 'pointer', borderBottom: '1px solid', borderColor: 'divider', '&:hover': { bgcolor: 'action.hover' } }}>
-                    <Typography sx={{ width: 28, textAlign: 'center', flexShrink: 0, fontSize: '0.74rem', fontWeight: 800, color: wpblAccent(selected.id, isDark) }}>
-                      {p.position || '—'}
-                    </Typography>
-                    <PlayerPortrait name={p.name} teamId={p.team_id} size={40} />
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.2 }}>{p.name}</Typography>
-                      {p.hometown && (
-                        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {p.hometown}
-                        </Typography>
-                      )}
-                    </Box>
-                    <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                      {p.age != null && <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, lineHeight: 1.2 }}>{p.age} yrs</Typography>}
-                      {(p.bats || p.throws) && (
-                        <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled' }}>B/T {p.bats || '-'}/{p.throws || '-'}</Typography>
-                      )}
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            )
-            : <EmptyState title="Roster coming soon" hint="Players appear here once the roster is added." />}
-      </Box>
+      <TeamPage
+        team={selected}
+        teams={teams}
+        games={games}
+        onBack={() => onSelect(null)}
+        onOpenGame={onOpenGame}
+        onOpenPlayer={onOpenPlayer}
+      />
     )
   }
 
@@ -356,7 +312,7 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
             {view === 'schedule'  && <ScheduleView teams={teams} games={games} onOpenGame={openGame} />}
             {view === 'standings' && <StandingsView teams={teams} games={games} />}
             {view === 'stats'     && <WpblStatsView teams={teams} games={games} initialGroup={statsGroup} onOpenPlayer={openPlayer} />}
-            {view === 'teams'     && <TeamsView teams={teams} selected={selectedTeam} onSelect={selectTeam} onOpenPlayer={openPlayer} />}
+            {view === 'teams'     && <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeam} onOpenGame={openGame} onOpenPlayer={openPlayer} />}
           </>
         )}
 
