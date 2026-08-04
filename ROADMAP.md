@@ -98,7 +98,7 @@ A parallel initiative, not part of the MLB phases above. Adds Women's Pro Baseba
 
 **Context (researched Jul 2026):** the WPBL's inaugural season runs Aug 1 – mid-Sept 2026: four teams (Boston Hunters, LA Queens, NY Heights, SF Firebells), a ~6-week regular season + playoffs + championship, all at one hub venue (Robin Roberts Stadium, Springfield IL). There is **no official public API or data feed** — the league site is promotional only, and third-party fan sites have no dependable machine-readable source. So the data path is **manual entry**, which is sustainable here precisely because the league is tiny (4 teams, ~1 game/day).
 
-**Architecture — inverts the MLB model.** MLB is read-only against StatsAPI with no DB for game data. WPBL makes **Supabase the source of truth**: the owner enters data through an admin UI, the public reads it. Reuses the site's existing owner-RLS pattern (`public.is_site_owner()` for writes, public read).
+**Architecture — pivoted twice.** It began owner-hand-entry (Supabase as source of truth). Then (Aug 2026) the league published a **public JSON feed** at `stats.womensprobaseballleague.com/v1`, so the model flipped again to a **feed mirror**: the `wpbl-ingest` Supabase Edge Function pulls the feed on a cron and upserts games, box-score lines, play-by-play, and TrackMan pitch tracking; the public reads the mirror (public-read RLS, service-role writes). Hand-entry (`GameEntry.tsx`) is retired. See `scripts/add_wpbl_api_ingest.sql` (schema) and `scripts/wpbl_cron.sql` (schedule).
 
 **Locked decisions:**
 - **Lean MVP** — teams, rosters, schedule, scores, standings, basic season stat totals. Box scores + leaderboards land in the season phase; the flashier stuff (streak cards, milestone watch, predictions) only after there's data history.
@@ -106,14 +106,15 @@ A parallel initiative, not part of the MLB phases above. Adds Women's Pro Baseba
 - **WPBL-native components** — build lean components for the small dataset rather than forcing WPBL data into StatsAPI-shaped types. Borrow the site's *conventions* (team-color map à la `TEAM_BG`, modal pattern, compact tabular-nums tables, responsive cap-and-center) so it still feels like the same site.
 
 **Phasing:**
-- **Phase 0** ✅ **done** — schema + owner-RLS + public-read; seed teams/rosters/schedule **via a seed script**; `/wpbl` section shell reached by a **toolbar league toggle** (MLB | WPBL); schedule and team/roster pages.
-- **Phase 1 (season)** ✅ **done — except 1d paste-parser (deferred to post-Aug 1)** — box-score entry form, scores, standings (derived), player season totals, player pages. Shipped public in **v1.23.0** with the MLB design language, real colors, and logos.
-- **Phase 2** 🔬🎮 **← next** — game logs, leaderboards, home-view polish.
-- **Phase 3+** 🎮 — port the fun MLB mechanics (streak cards, milestone watch, maybe predictions) once a season of data exists.
+- **Phase 0** ✅ **done** — schema + RLS + public-read; teams/rosters/schedule; `/wpbl` shell via the toolbar MLB | WPBL toggle.
+- **Phase 1 (season)** ✅ **done** — scores, standings, player season totals, player pages, box scores. (Shipped v1.23.0.)
+- **Feed pivot** ✅ **done** — `wpbl-ingest` Edge Function mirrors the official feed on a cron; Game Center with line score + play-by-play + TrackMan pitch data + live in-game state; hand-entry retired.
+- **Phase 2 (depth + polish)** ✅ **done** — rich home (scoreboard, standings snapshot, leaders, next-game countdown), a full sortable **Stats tab**, redesigned player pages with stat tooltips, **Hall of Firsts**, and **live-updating** schedule/scoreboard/leaders. (v1.24.0 → v1.27.0.)
+- **Phase 3 (engagement + postseason)** 🔬🎮 **← next** — see "Next" below: playoffs view, followed players/teams + notifications, team pages, search integration, and porting the fun MLB mechanics (streak cards, milestone watch, predictions/bots) now that a live feed exists.
 
 **Open items:** the box-score paste format is unknown until game one (the 1d parser waits on it). Entry UI question **resolved** — it lives as a dedicated `/wpbl` admin modal (`GameEntry.tsx`), not an AdminPanel extension.
 
-**Progress (last realigned Jul 30, 2026):**
+**Progress (last realigned Aug 4, 2026):**
 - ✅ **Schema drafted** — `scripts/create_wpbl.sql`: five tables (teams, players, games, batting_lines, pitching_lines) with public-read / owner-write RLS via `public.is_site_owner()`. Line tables included now to avoid a second hand-run migration. Text-slug team ids (e.g. `BOS`); pitching IP stored as `outs` (int) for clean season aggregation. **Not yet run in Supabase.**
 - ✅ **Frontend skeleton built** — `src/wpbl/` (`types.ts`, `constants.ts`, `api.ts`, `WpblApp.tsx`) + wired into `App.tsx` (`/wpbl` route, lazy `WpblApp`, toolbar MLB | WPBL toggle as the entry point). Views: Home / Schedule / Standings (derived) / Teams+roster, all lean and WPBL-native. Reads degrade gracefully (empty states) pre-migration; typechecks clean and renders with no console errors. ⚠️ Team colors in `constants.ts` (`WPBL_TEAMS`) are **provisional placeholders** — swap for the real palette when gathering assets. Logos not wired (fall back to abbr text until `logo_url` is seeded).
 - ✅ **`create_wpbl.sql` run** in Supabase (2026-07-29) — tables live.
@@ -126,8 +127,20 @@ A parallel initiative, not part of the MLB phases above. Adds Women's Pro Baseba
   - **Design language unified** — `src/wpbl/ui.tsx` (SegNav pill nav, SectionLabel, shared ModalShell) mirrors the MLB app; all three modals use it.
   - **Colors + logos** — single-sourced in `constants.ts` `WPBL_TEAMS` (color + secondary + bundled `src/wpbl/logos/*.webp`); shared `TeamBadge` = team-color circle ringed in secondary; `wpblAccent()` keeps dark primaries readable on dark bg. ⚠️ BOS (`#da7718`) + NY (`#b8dbf1`) secondaries flagged uncertain by owner.
   - **Public** — MLB|WPBL toggle ungated; footer shows a WPBL disclaimer on /wpbl.
-- ⬜ **Next (Phase 1 finish + Phase 2):**
-  1. **Aug 1 — enter game one for real.** First real box score validates 1b/1c end-to-end AND reveals the source format that unblocks **1d (paste-parser)** to cut ~10–20 min/game.
-  2. **1d paste-parser** — build once the real format is known.
-  3. **Phase 2 polish** — richer WPBL home (recent scores + standings snapshot + league leaders; today it's just intro + "Next up"), league leaderboards, game logs.
-  4. **Loose ends** — confirm/swap BOS & NY secondary colors; browser back-stack for team/player detail (Back should return within /wpbl).
+**Aug 4, 2026 realignment — the feed pivot + Phase 2 shipped:**
+- ✅ **Feed mirror live** — league published `stats.womensprobaseballleague.com/v1`; `wpbl-ingest` Edge Function + cron mirror games/lines/play-by-play/TrackMan into Supabase; hand-entry retired. (`add_wpbl_api_ingest.sql`, `wpbl_cron.sql`.)
+- ✅ **Game Center** (`GameDetail.tsx`) — fixed-height tabbed modal: line score, box score (one team at a time, hitting+pitching), collapsible play-by-play, TrackMan pitch data (by-pitcher, driven off the box-score names).
+- ✅ **Rich home** — scoreboard strip, standings + teams cards, batting/pitching leaders (team badges + View all), a **Next game card with countdown**.
+- ✅ **Stats tab** (`StatsView.tsx`) — full sortable hitting/pitching table, team filter, qualified toggle (auto-on once every team has 2+ games), full-bleed so all columns show.
+- ✅ **Player pages redesigned** — batting/pitching/fielding cards with a rate-stat hero + aligned stat line, game log split by type, per-stat hover tooltips, smart fielding (PB/SBA/DP only when relevant).
+- ✅ **Hall of Firsts** (`firsts.ts`) — first HR / win / strikeout / stolen base / complete game etc. from play-by-play + box lines, featured on home with portraits + View all.
+- ✅ **Live updates** — schedule/scoreboard/standings/leaders poll (20s live / 60s idle) + refresh on tab focus; Game Center already polled the open game.
+
+- ⬜ **Next (Phase 3 — engagement + postseason):**
+  1. **Playoffs & championship view** — the inaugural season ends mid-Sept with a postseason; add a bracket / clinch tracker as it approaches.
+  2. **Followed players/teams + notifications** — reuse the site notification system for WPBL: game-start reminders, final scores, and followed-player firsts/milestones (Hall of Firsts is a natural source).
+  3. **Team pages** — team stat leaders, results, batting/pitching totals, roster with inline stats (today Teams is just a roster list).
+  4. **Search integration** — wire WPBL players/teams into the toolbar search bridge.
+  5. **Port the fun MLB mechanics** — streak report cards, milestone watch, and predictions/pick'em + bots for WPBL games (the live feed now makes this viable).
+  6. **Data-quality + ingest hardening** — reconcile feed name variants (e.g. "Fox"/"Foxx"), the "Unknown" pitcher gaps in TrackMan, the duplicate-game feed quirk (currently deduped client-side); consider an ingest health indicator.
+  7. **Loose ends** — browser back-stack for team/player detail within /wpbl; confirm/swap BOS & NY secondary colors; multi-season support for future seasons.
