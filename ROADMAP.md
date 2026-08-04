@@ -110,7 +110,7 @@ A parallel initiative, not part of the MLB phases above. Adds Women's Pro Baseba
 - **Phase 1 (season)** ✅ **done** — scores, standings, player season totals, player pages, box scores. (Shipped v1.23.0.)
 - **Feed pivot** ✅ **done** — `wpbl-ingest` Edge Function mirrors the official feed on a cron; Game Center with line score + play-by-play + TrackMan pitch data + live in-game state; hand-entry retired.
 - **Phase 2 (depth + polish)** ✅ **done** — rich home (scoreboard, standings snapshot, leaders, next-game countdown), a full sortable **Stats tab**, redesigned player pages with stat tooltips, **Hall of Firsts**, and **live-updating** schedule/scoreboard/leaders. (v1.24.0 → v1.27.0.)
-- **Phase 3 (engagement + postseason)** 🔬🎮 **← next** — see "Next" below: playoffs view, followed players/teams + notifications, team pages, search integration, and porting the fun MLB mechanics (streak cards, milestone watch, predictions/bots) now that a live feed exists.
+- **Phase 3 (hardening + depth + engagement + postseason)** 🔬🎮 **← next** — see "Next" below for the prioritized list: data-quality/ingest hardening → loose ends → team pages → search integration → followed teams + notifications → playoffs, then (later) porting the fun MLB mechanics.
 
 **Open items:** the box-score paste format is unknown until game one (the 1d parser waits on it). Entry UI question **resolved** — it lives as a dedicated `/wpbl` admin modal (`GameEntry.tsx`), not an AdminPanel extension.
 
@@ -136,11 +136,11 @@ A parallel initiative, not part of the MLB phases above. Adds Women's Pro Baseba
 - ✅ **Hall of Firsts** (`firsts.ts`) — first HR / win / strikeout / stolen base / complete game etc. from play-by-play + box lines, featured on home with portraits + View all.
 - ✅ **Live updates** — schedule/scoreboard/standings/leaders poll (20s live / 60s idle) + refresh on tab focus; Game Center already polled the open game.
 
-- ⬜ **Next (Phase 3 — engagement + postseason):**
-  1. **Playoffs & championship view** — the inaugural season ends mid-Sept with a postseason; add a bracket / clinch tracker as it approaches.
-  2. **Followed players/teams + notifications** — reuse the site notification system for WPBL: game-start reminders, final scores, and followed-player firsts/milestones (Hall of Firsts is a natural source).
+- ⬜ **Next (Phase 3 — hardening → depth → engagement → postseason), in priority order:**
+  1. **Data-quality + ingest hardening** — reconcile feed name variants (e.g. "Fox"/"Foxx"), the "Unknown" pitcher gaps in TrackMan, the duplicate-game feed quirk (currently deduped client-side); consider an ingest health indicator. *Foundation first — everything downstream trusts the mirror.*
+  2. **Loose ends** — browser back-stack for team/player detail within /wpbl (Back returns to the prior WPBL view); confirm/swap BOS & NY secondary colors; multi-season support for future seasons.
   3. **Team pages** — team stat leaders, results, batting/pitching totals, roster with inline stats (today Teams is just a roster list).
   4. **Search integration** — wire WPBL players/teams into the toolbar search bridge.
-  5. **Port the fun MLB mechanics** — streak report cards, milestone watch, and predictions/pick'em + bots for WPBL games (the live feed now makes this viable).
-  6. **Data-quality + ingest hardening** — reconcile feed name variants (e.g. "Fox"/"Foxx"), the "Unknown" pitcher gaps in TrackMan, the duplicate-game feed quirk (currently deduped client-side); consider an ingest health indicator.
-  7. **Loose ends** — browser back-stack for team/player detail within /wpbl; confirm/swap BOS & NY secondary colors; multi-season support for future seasons.
+  5. **Followed teams/players + notifications** — reuse the site notification system for WPBL: game-start reminders, final scores, and followed-player firsts/milestones (Hall of Firsts is a natural source).
+  6. **Playoffs & championship view** — the inaugural season ends mid-Sept with a postseason; add a bracket / clinch tracker as it approaches.
+  7. **Later — port the fun MLB mechanics** — streak report cards, milestone watch, and predictions/pick'em + bots for WPBL games (the live feed now makes this viable).
