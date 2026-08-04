@@ -226,27 +226,90 @@ function TeamsView({ teams, selected, onSelect, onOpenPlayer }: {
 
 // ─── Section root ───────────────────────────────────────────────────────────────
 
+// A navigable WPBL location, persisted in history.state.wpbl so browser Back unwinds the
+// section one step at a time (tab → team detail → game/player modal) instead of leaping
+// straight out to /mlb. The MLB|WPBL toolbar switch pushes its own /mlb or /wpbl entry, so
+// it sits in the same back-stack for free. game/player hold the full row (plain Supabase
+// objects, structured-clonable), so a modal reopens intact on Back or refresh.
+type WpblSnap = {
+  view: WpblView
+  team: WpblTeam | null
+  game: WpblGame | null
+  player: WpblPlayer | null
+}
+const isWpblView = (v: unknown): v is WpblView => NAV.some(n => n.key === v)
+const HOME_SNAP: WpblSnap = { view: 'home', team: null, game: null, player: null }
+
 export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
   // Section is public/read-only (feed-driven); isAdmin now only gates the ingest-health
   // freshness indicator on the home header.
-  const [view, setView] = useState<WpblView>('home')
-  const [teams, setTeams] = useState<WpblTeam[]>([])
-  const [games, setGames] = useState<WpblGame[]>([])
-  const [loading, setLoading] = useState(true)
-  const [detailGame, setDetailGame] = useState<WpblGame | null>(null)
-  const [detailPlayer, setDetailPlayer] = useState<WpblPlayer | null>(null)
-  // Team detail lives in the Teams view; lifted here so Home can open a team into it.
-  const [selectedTeam, setSelectedTeam] = useState<WpblTeam | null>(null)
+
+  // Seed from the snapshot already on this history entry (Back/refresh into a deep state),
+  // then the URL's ?view=, else home. Read once per state (history.state is stable at mount).
+  const seed = (): WpblSnap => {
+    const s = (window.history.state?.wpbl ?? null) as WpblSnap | null
+    if (s) return s
+    const v = new URLSearchParams(window.location.search).get('view')
+    return isWpblView(v) ? { ...HOME_SNAP, view: v } : HOME_SNAP
+  }
+  const [view, setView] = useState<WpblView>(() => seed().view)
+  const [selectedTeam, setSelectedTeam] = useState<WpblTeam | null>(() => seed().team)
+  const [detailGame, setDetailGame] = useState<WpblGame | null>(() => seed().game)
+  const [detailPlayer, setDetailPlayer] = useState<WpblPlayer | null>(() => seed().player)
   // Which stat group the Stats view opens on (set when jumping there from Home leaders).
   const [statsGroup, setStatsGroup] = useState<'hitting' | 'pitching'>('hitting')
 
-  const openTeam = useCallback((t: WpblTeam) => { setSelectedTeam(t); setView('teams') }, [])
-  const openStats = useCallback((g: 'hitting' | 'pitching') => { setStatsGroup(g); setView('stats') }, [])
+  const [teams, setTeams] = useState<WpblTeam[]>([])
+  const [games, setGames] = useState<WpblGame[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // ── History-driven navigation ────────────────────────────────────────────────
+  const apply = useCallback((s: WpblSnap) => {
+    setView(s.view); setSelectedTeam(s.team); setDetailGame(s.game); setDetailPlayer(s.player)
+  }, [])
+  const urlFor = (s: WpblSnap) => (s.view === 'home' ? '/wpbl' : `/wpbl?view=${s.view}`)
+  // Every forward navigation = one history entry (apply state + push a matching snapshot).
+  const push = useCallback((s: WpblSnap) => {
+    apply(s)
+    window.history.pushState({ ...window.history.state, wpbl: s }, '', urlFor(s))
+  }, [apply])
+
+  // Navigation intents. Tab/team switches clear any open modal; opening a player keeps the
+  // game beneath it (so Back closes the player first, then the game).
+  const selectTab  = useCallback((v: WpblView) => push({ view: v, team: selectedTeam, game: null, player: null }), [push, selectedTeam])
+  const selectTeam = useCallback((t: WpblTeam | null) => push({ view: 'teams', team: t, game: null, player: null }), [push])
+  const openStats  = useCallback((g: 'hitting' | 'pitching') => { setStatsGroup(g); push({ view: 'stats', team: selectedTeam, game: null, player: null }) }, [push, selectedTeam])
+  const openGame   = useCallback((g: WpblGame) => push({ view, team: selectedTeam, game: g, player: null }), [push, view, selectedTeam])
+  const openPlayer = useCallback((p: WpblPlayer) => push({ view, team: selectedTeam, game: detailGame, player: p }), [push, view, selectedTeam, detailGame])
+  // Closing a modal (X or Escape) walks history back, so it and the browser Back button are
+  // the same action and never fall out of sync.
+  const closeTop   = useCallback(() => window.history.back(), [])
+
+  // Stamp the entry App created for /wpbl with the initial snapshot the first time we land,
+  // so the first Back leaves the section and a refresh restores the view. On a Back/remount
+  // the entry already carries a snapshot — leave it untouched.
+  useEffect(() => {
+    if (!window.history.state?.wpbl) {
+      const s: WpblSnap = { view, team: selectedTeam, game: detailGame, player: detailPlayer }
+      window.history.replaceState({ ...window.history.state, wpbl: s }, '', urlFor(s))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Apply snapshots as the user moves through history. Pops that land outside /wpbl are the
+  // App router swapping sections (MLB|WPBL) — ignore them here.
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      if (window.location.pathname !== '/wpbl') return
+      apply(((e.state?.wpbl ?? null) as WpblSnap | null) ?? HOME_SNAP)
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [apply])
 
   // The single in-progress game (there is only ever one at a time). The Game Center
   // (GameDetail) handles live + final alike, so opening any game routes there.
   const liveGame = useMemo(() => games.find(g => g.status === 'live') ?? null, [games])
-  const openGame = useCallback((g: WpblGame) => setDetailGame(g), [])
 
   const reload = useCallback(() => {
     let cancelled = false
@@ -282,18 +345,18 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
       <SegNav
         options={NAV.map(n => ({ value: n.key, label: n.label }))}
         value={view}
-        onChange={v => setView(v as WpblView)}
+        onChange={v => selectTab(v as WpblView)}
       />
 
       {loading
         ? <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
         : (
           <>
-            {view === 'home'      && <WpblHome teams={teams} games={games} liveGame={liveGame} isAdmin={isAdmin} onOpenGame={openGame} onOpenPlayer={setDetailPlayer} onOpenTeam={openTeam} onViewStats={openStats} />}
+            {view === 'home'      && <WpblHome teams={teams} games={games} liveGame={liveGame} isAdmin={isAdmin} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} onViewStats={openStats} />}
             {view === 'schedule'  && <ScheduleView teams={teams} games={games} onOpenGame={openGame} />}
             {view === 'standings' && <StandingsView teams={teams} games={games} />}
-            {view === 'stats'     && <WpblStatsView teams={teams} games={games} initialGroup={statsGroup} onOpenPlayer={setDetailPlayer} />}
-            {view === 'teams'     && <TeamsView teams={teams} selected={selectedTeam} onSelect={setSelectedTeam} onOpenPlayer={setDetailPlayer} />}
+            {view === 'stats'     && <WpblStatsView teams={teams} games={games} initialGroup={statsGroup} onOpenPlayer={openPlayer} />}
+            {view === 'teams'     && <TeamsView teams={teams} selected={selectedTeam} onSelect={selectTeam} onOpenPlayer={openPlayer} />}
           </>
         )}
 
@@ -302,7 +365,7 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
           player={detailPlayer}
           teams={teams}
           games={games}
-          onClose={() => setDetailPlayer(null)}
+          onClose={closeTop}
         />
       )}
 
@@ -310,8 +373,8 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
         <GameDetailModal
           game={detailGame}
           teams={teams}
-          onClose={() => setDetailGame(null)}
-          onOpenPlayer={setDetailPlayer}
+          onClose={closeTop}
+          onOpenPlayer={openPlayer}
         />
       )}
     </Box>
