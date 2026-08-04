@@ -1,4 +1,4 @@
-import type { WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from './types'
+import type { WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblGame, WpblTeam } from './types'
 
 // Season stat aggregation from box-score lines. Rates are null when the denominator
 // is zero (no AB / no IP) so the UI can show a dash instead of NaN.
@@ -58,6 +58,21 @@ export function sumPitching(lines: WpblPitchingLine[]): WpblPitchingTotals {
   const era = ip > 0 ? (t.er * 9) / ip : null
   const whip = ip > 0 ? (t.bb + t.h) / ip : null
   return { ...t, era, whip }
+}
+
+// Rate-stat qualifiers (5 AB / 3 IP) only mean something once there's a sample, so they
+// kick in only after EVERY team has played at least this many games. Before then the
+// boards show everyone so they aren't near-empty in the opening days.
+export const QUALIFY_MIN_GAMES = 2
+export function qualifiersActive(teams: WpblTeam[], games: WpblGame[]): boolean {
+  if (teams.length === 0) return false
+  const played = new Map<string, number>()
+  for (const g of games) {
+    if (g.status !== 'final') continue
+    played.set(g.home_team_id, (played.get(g.home_team_id) ?? 0) + 1)
+    played.set(g.away_team_id, (played.get(g.away_team_id) ?? 0) + 1)
+  }
+  return teams.every(t => (played.get(t.id) ?? 0) >= QUALIFY_MIN_GAMES)
 }
 
 // ".278" (leading zero stripped) for AVG/OBP/SLG/OPS; dash when null.

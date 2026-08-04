@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.25.0'
+export const APP_VERSION = '1.26.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,33 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.26.0',
+    date:    '2026-08-04',
+    title:   'A full WPBL stats section',
+    changes: [
+      {
+        short: 'New WPBL Stats tab',
+        full:  'The Women\'s Pro Baseball League section has a new Stats tab with a complete, sortable table of every hitting and pitching stat. Filter by team, tap any column to sort, and toggle a qualified-players filter.',
+      },
+      {
+        short: 'Cleaner WPBL player pages',
+        full:  'A WPBL player\'s page now groups batting, pitching, and fielding into separate cards with the key rate stats up top and a tidy stat line below, and splits the game log by type. Hover or tap any stat to see what it stands for.',
+      },
+      {
+        short: 'Home leaders show teams and link to the full table',
+        full:  'The batting and pitching leaders on the WPBL home page now show each player\'s team, and a View all link opens the full stats table. Batting average was replaced with OPS and pitching wins were dropped from the cards.',
+      },
+      {
+        short: 'Next game card with a countdown',
+        full:  'The WPBL home page now has a Next game card that counts down to first pitch of the upcoming game.',
+      },
+      {
+        short: 'Smarter stat qualifiers',
+        full:  'Rate-stat leaders (like batting average and ERA) only require a minimum of at-bats or innings once every team has played at least two games, so the boards are not empty in the opening days. Ties break toward the player with more innings or at-bats.',
+      },
+    ],
+  },
   {
     version: '1.25.0',
     date:    '2026-08-03',

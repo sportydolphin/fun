@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Box, Typography, CircularProgress } from '@mui/material'
+import { Box, Typography, CircularProgress, Tooltip } from '@mui/material'
 import { fetchWpblPlayerLines } from './api'
 import { sumBatting, sumPitching, sumFielding, fmtRate, fmtTwo } from './stats'
 import { wpblAccent, wpblFullName, outsToIp } from './constants'
@@ -9,24 +9,83 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine,
 // Player page (Phase 1c): profile + season totals aggregated from box-score lines,
 // plus a per-game log. Public read; opened from a team's roster.
 
-function StatTile({ label, value }: { label: string; value: string }) {
+// What each abbreviation stands for — surfaced on hover/tap so the stat line isn't cryptic.
+const STAT_FULL: Record<string, string> = {
+  AVG: 'Batting average', OBP: 'On-base percentage', SLG: 'Slugging percentage', OPS: 'On-base plus slugging',
+  G: 'Games', AB: 'At-bats', R: 'Runs', H: 'Hits', '2B': 'Doubles', '3B': 'Triples', HR: 'Home runs',
+  RBI: 'Runs batted in', BB: 'Walks', SO: 'Strikeouts', SB: 'Stolen bases', TB: 'Total bases',
+  ERA: 'Earned run average', WHIP: 'Walks + hits per inning pitched', 'W-L': 'Wins–Losses', SV: 'Saves',
+  IP: 'Innings pitched', ER: 'Earned runs',
+  FPCT: 'Fielding percentage', PO: 'Putouts', A: 'Assists', E: 'Errors', DP: 'Double plays',
+  PB: 'Passed balls', SBA: 'Stolen bases allowed',
+}
+const statFull = (k: string): string => STAT_FULL[k] ?? k
+// The player modal sits at zIndex 1600; MUI's tooltip defaults to 1500, so it would
+// render behind the modal. Lift the popper above it.
+const tipSlotProps = { popper: { sx: { zIndex: 1700 } } } as const
+
+// A stat section (Batting / Pitching / Fielding) as its own card with a team-color spine,
+// a prominent rate-stat hero row, and a tidy aligned stat line of counting stats.
+function StatSection({ label, color, hero, line }: {
+  label: string; color: string
+  hero: { label: string; value: string }[]
+  line?: [string, string | number][]
+}) {
   return (
-    <Box sx={{ textAlign: 'center', minWidth: 58 }}>
-      <Typography sx={{ fontSize: '1.15rem', fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled' }}>{label}</Typography>
+    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden', mb: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.75, py: 0.9, borderBottom: '1px solid', borderColor: 'divider', borderLeft: `3px solid ${color}` }}>
+        <Typography sx={{ fontSize: '0.76rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6 }}>{label}</Typography>
+      </Box>
+      <Box sx={{ px: 1.75, py: 1.5 }}>
+        {/* Hero rate stats — big, evenly spaced, divided */}
+        <Box sx={{ display: 'flex', mb: line && line.length ? 1.75 : 0 }}>
+          {hero.map((t, i) => (
+            <Tooltip key={t.label} title={statFull(t.label)} arrow enterTouchDelay={0} leaveTouchDelay={2500} slotProps={tipSlotProps}>
+              <Box sx={{ flex: 1, textAlign: 'center', cursor: 'help', borderLeft: i > 0 ? '1px solid' : 'none', borderColor: 'divider' }}>
+                <Typography sx={{ fontSize: '1.4rem', fontWeight: 800, lineHeight: 1.05, fontVariantNumeric: 'tabular-nums' }}>{t.value}</Typography>
+                <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled' }}>{t.label}</Typography>
+              </Box>
+            </Tooltip>
+          ))}
+        </Box>
+        {/* Counting stats as an aligned label-over-value line */}
+        {line && line.length > 0 && <StatLine items={line} />}
+      </Box>
     </Box>
   )
 }
 
-function DetailGrid({ items }: { items: [string, string | number][] }) {
+// Counting stats as evenly-spread columns (label over value) so everything lines up in a
+// clean row. Each column is hoverable and shows what the abbreviation stands for.
+function StatLine({ items }: { items: [string, string | number][] }) {
   return (
-    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mt: 1.5 }}>
+    <Box sx={{ display: 'flex', overflowX: 'auto', borderTop: '1px solid', borderColor: 'divider', pt: 1.25 }}>
       {items.map(([label, value]) => (
-        <Box key={label} sx={{ minWidth: 40 }}>
-          <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
-          <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.3, color: 'text.disabled' }}>{label}</Typography>
-        </Box>
+        <Tooltip key={label} title={statFull(label)} arrow enterTouchDelay={0} leaveTouchDelay={2500} slotProps={tipSlotProps}>
+          <Box sx={{ flex: '1 0 auto', minWidth: 34, textAlign: 'center', px: 0.75, cursor: 'help' }}>
+            <Typography sx={{ fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled', mb: 0.15 }}>{label}</Typography>
+            <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
+          </Box>
+        </Tooltip>
       ))}
+    </Box>
+  )
+}
+
+function GameLog({ title, rows }: { title: string; rows: { date: string; text: string; line: string }[] }) {
+  if (rows.length === 0) return null
+  return (
+    <Box sx={{ mb: 2 }}>
+      <Typography sx={sectionSx}>{title}</Typography>
+      <Box>
+        {rows.map((r, i) => (
+          <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 0.7, borderTop: '1px solid', borderColor: 'divider', fontSize: '0.82rem' }}>
+            <Box sx={{ width: 46, color: 'text.disabled', flexShrink: 0 }}>{r.date}</Box>
+            <Box sx={{ width: 50, fontWeight: 700, flexShrink: 0 }}>{r.text}</Box>
+            <Box sx={{ color: 'text.secondary', flex: 1, minWidth: 0 }}>{r.line}</Box>
+          </Box>
+        ))}
+      </Box>
     </Box>
   )
 }
@@ -108,70 +167,53 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
           ) : (
             <>
               {hasBatting && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography sx={sectionSx}>Batting</Typography>
-                  <Box sx={{ display: 'flex', gap: 2 }}>
-                    <StatTile label="AVG" value={fmtRate(bt.avg)} />
-                    <StatTile label="OBP" value={fmtRate(bt.obp)} />
-                    <StatTile label="SLG" value={fmtRate(bt.slg)} />
-                    <StatTile label="OPS" value={fmtRate(bt.ops)} />
-                  </Box>
-                  <DetailGrid items={[['G', bt.g], ['AB', bt.ab], ['R', bt.r], ['H', bt.h], ['2B', bt.doubles], ['3B', bt.triples], ['HR', bt.hr], ['RBI', bt.rbi], ['BB', bt.bb], ['SO', bt.so], ['SB', bt.sb], ['TB', bt.tb]]} />
-                </Box>
+                <StatSection
+                  label="Batting" color={color}
+                  hero={[
+                    { label: 'AVG', value: fmtRate(bt.avg) }, { label: 'OBP', value: fmtRate(bt.obp) },
+                    { label: 'SLG', value: fmtRate(bt.slg) }, { label: 'OPS', value: fmtRate(bt.ops) },
+                  ]}
+                  line={[['G', bt.g], ['AB', bt.ab], ['R', bt.r], ['H', bt.h], ['2B', bt.doubles], ['3B', bt.triples], ['HR', bt.hr], ['RBI', bt.rbi], ['BB', bt.bb], ['SO', bt.so], ['SB', bt.sb], ['TB', bt.tb]]}
+                />
               )}
 
               {hasPitching && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography sx={sectionSx}>Pitching</Typography>
-                  <Box sx={{ display: 'flex', gap: 2 }}>
-                    <StatTile label="ERA" value={fmtTwo(pt.era)} />
-                    <StatTile label="WHIP" value={fmtTwo(pt.whip)} />
-                    <StatTile label="W-L" value={`${pt.w}-${pt.l}`} />
-                    {pt.s > 0 && <StatTile label="SV" value={String(pt.s)} />}
-                  </Box>
-                  <DetailGrid items={[['G', pt.g], ['IP', outsToIp(pt.outs)], ['H', pt.h], ['R', pt.r], ['ER', pt.er], ['BB', pt.bb], ['SO', pt.so], ['HR', pt.hr]]} />
-                </Box>
+                <StatSection
+                  label="Pitching" color={color}
+                  hero={[
+                    { label: 'ERA', value: fmtTwo(pt.era) }, { label: 'WHIP', value: fmtTwo(pt.whip) },
+                    { label: 'W-L', value: `${pt.w}-${pt.l}` }, ...(pt.s > 0 ? [{ label: 'SV', value: String(pt.s) }] : []),
+                  ]}
+                  line={[['G', pt.g], ['IP', outsToIp(pt.outs)], ['H', pt.h], ['R', pt.r], ['ER', pt.er], ['BB', pt.bb], ['SO', pt.so], ['HR', pt.hr]]}
+                />
               )}
 
               {hasFielding && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography sx={sectionSx}>Fielding</Typography>
-                  <Box sx={{ display: 'flex', gap: 2 }}>
-                    <StatTile label="FPCT" value={fmtRate(ft.fpct)} />
-                    <StatTile label="PO" value={String(ft.po)} />
-                    <StatTile label="A" value={String(ft.a)} />
-                    <StatTile label="E" value={String(ft.e)} />
-                  </Box>
-                  <DetailGrid items={[['G', ft.g], ['DP', ft.dp], ...(ft.pb ? [['PB', ft.pb] as [string, number]] : []), ...(ft.sba ? [['SBA', ft.sba] as [string, number]] : [])]} />
-                </Box>
+                <StatSection
+                  label="Fielding" color={color}
+                  hero={[
+                    { label: 'FPCT', value: fmtRate(ft.fpct) }, { label: 'PO', value: String(ft.po) },
+                    { label: 'A', value: String(ft.a) }, { label: 'E', value: String(ft.e) },
+                    ...(ft.dp ? [{ label: 'DP', value: String(ft.dp) }] : []),
+                    ...(ft.pb ? [{ label: 'PB', value: String(ft.pb) }] : []),
+                    ...(ft.sba ? [{ label: 'SBA', value: String(ft.sba) }] : []),
+                  ]}
+                />
               )}
 
-              {/* Game log */}
-              <Typography sx={sectionSx}>Game log</Typography>
-              <Box sx={{ overflowX: 'auto' }}>
-                <Box sx={{ minWidth: 'max-content', fontVariantNumeric: 'tabular-nums' }}>
-                  {hasBatting && batting.map(l => {
-                    const o = oppLabel(l.game_id)
-                    return (
-                      <Box key={l.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.6, borderTop: '1px solid', borderColor: 'divider', fontSize: '0.8rem' }}>
-                        <Box sx={{ width: 52, color: 'text.disabled' }}>{o.date}</Box>
-                        <Box sx={{ width: 56, fontWeight: 600 }}>{o.text}</Box>
-                        <Box sx={{ color: 'text.secondary' }}>{l.h}-for-{l.ab}{l.hr ? `, ${l.hr} HR` : ''}{l.rbi ? `, ${l.rbi} RBI` : ''}{l.bb ? `, ${l.bb} BB` : ''}</Box>
-                      </Box>
-                    )
-                  })}
-                  {hasPitching && pitching.map(l => {
-                    const o = oppLabel(l.game_id)
-                    return (
-                      <Box key={l.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.6, borderTop: '1px solid', borderColor: 'divider', fontSize: '0.8rem' }}>
-                        <Box sx={{ width: 52, color: 'text.disabled' }}>{o.date}</Box>
-                        <Box sx={{ width: 56, fontWeight: 600 }}>{o.text}</Box>
-                        <Box sx={{ color: 'text.secondary' }}>{outsToIp(l.outs)} IP, {l.er} ER, {l.so} K, {l.bb} BB{l.decision ? ` (${l.decision})` : ''}</Box>
-                      </Box>
-                    )
-                  })}
-                </Box>
-              </Box>
+              {/* Game log — split by type so a two-way player's lines don't blur together */}
+              {hasBatting && (
+                <GameLog
+                  title={hasPitching ? 'Hitting log' : 'Game log'}
+                  rows={batting.map(l => ({ ...oppLabel(l.game_id), line: `${l.h}-for-${l.ab}${l.hr ? `, ${l.hr} HR` : ''}${l.rbi ? `, ${l.rbi} RBI` : ''}${l.bb ? `, ${l.bb} BB` : ''}` }))}
+                />
+              )}
+              {hasPitching && (
+                <GameLog
+                  title={hasBatting ? 'Pitching log' : 'Game log'}
+                  rows={pitching.map(l => ({ ...oppLabel(l.game_id), line: `${outsToIp(l.outs)} IP, ${l.er} ER, ${l.so} K, ${l.bb} BB${l.decision ? ` (${l.decision})` : ''}` }))}
+                />
+              )}
             </>
           )}
         </Box>

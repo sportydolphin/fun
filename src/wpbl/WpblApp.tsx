@@ -7,17 +7,19 @@ import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import GameDetailModal from './GameDetail'
 import PlayerDetailModal from './PlayerDetail'
 import WpblHome from './Home'
+import WpblStatsView from './StatsView'
 
 // WPBL section root. Reads the official-feed mirror from Supabase (games, box scores,
 // play-by-play, live state) and renders it; everything shows a friendly empty state until
 // the feed has been ingested. Self-contained (no MLB/StatsAPI coupling).
 
-type WpblView = 'home' | 'schedule' | 'standings' | 'teams'
+type WpblView = 'home' | 'schedule' | 'standings' | 'stats' | 'teams'
 
 const NAV: { key: WpblView; label: string }[] = [
   { key: 'home',      label: 'Home' },
   { key: 'schedule',  label: 'Schedule' },
   { key: 'standings', label: 'Standings' },
+  { key: 'stats',     label: 'Stats' },
   { key: 'teams',     label: 'Teams' },
 ]
 
@@ -234,8 +236,11 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
   const [detailPlayer, setDetailPlayer] = useState<WpblPlayer | null>(null)
   // Team detail lives in the Teams view; lifted here so Home can open a team into it.
   const [selectedTeam, setSelectedTeam] = useState<WpblTeam | null>(null)
+  // Which stat group the Stats view opens on (set when jumping there from Home leaders).
+  const [statsGroup, setStatsGroup] = useState<'hitting' | 'pitching'>('hitting')
 
   const openTeam = useCallback((t: WpblTeam) => { setSelectedTeam(t); setView('teams') }, [])
+  const openStats = useCallback((g: 'hitting' | 'pitching') => { setStatsGroup(g); setView('stats') }, [])
 
   // The single in-progress game (there is only ever one at a time). The Game Center
   // (GameDetail) handles live + final alike, so opening any game routes there.
@@ -267,9 +272,10 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
         ? <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
         : (
           <>
-            {view === 'home'      && <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={setDetailPlayer} onOpenTeam={openTeam} />}
+            {view === 'home'      && <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={setDetailPlayer} onOpenTeam={openTeam} onViewStats={openStats} />}
             {view === 'schedule'  && <ScheduleView teams={teams} games={games} onOpenGame={openGame} />}
             {view === 'standings' && <StandingsView teams={teams} games={games} />}
+            {view === 'stats'     && <WpblStatsView teams={teams} games={games} initialGroup={statsGroup} onOpenPlayer={setDetailPlayer} />}
             {view === 'teams'     && <TeamsView teams={teams} selected={selectedTeam} onSelect={setSelectedTeam} onOpenPlayer={setDetailPlayer} />}
           </>
         )}

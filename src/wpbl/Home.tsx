@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblAllPlayers, fetchWpblAllLines, computeStandings } from './api'
-import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime } from './constants'
+import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs } from './constants'
 import { SectionCard, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER } from './ui'
 import { LiveHero } from './Live'
 import {
-  aggregateBatting, aggregatePitching, fmtRate, fmtTwo,
+  aggregateBatting, aggregatePitching, qualifiersActive, fmtRate, fmtTwo,
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
@@ -93,6 +93,76 @@ function Scoreboard({ games, teams, onOpenGame }: {
   )
 }
 
+// ─── Next game + countdown ───────────────────────────────────────────────────────
+
+function Countdown({ target }: { target: number }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  const diff = target - now
+  if (diff <= 0) {
+    return <Typography sx={{ textAlign: 'center', fontSize: '0.9rem', fontWeight: 800, color: WPBL_ACCENT, mt: 1.25 }}>Starting soon</Typography>
+  }
+  const d = Math.floor(diff / 86400000)
+  const h = Math.floor((diff % 86400000) / 3600000)
+  const m = Math.floor((diff % 3600000) / 60000)
+  const s = Math.floor((diff % 60000) / 1000)
+  // Days-scale hides seconds (pointless that far out); inside a day, show the seconds tick.
+  const units: [string, number][] = d > 0 ? [['Days', d], ['Hrs', h], ['Min', m]] : [['Hrs', h], ['Min', m], ['Sec', s]]
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 1.25 }}>
+      {units.map(([label, val]) => (
+        <Box key={label} sx={{ textAlign: 'center', minWidth: 54, px: 1, py: 0.75, borderRadius: 1.5, bgcolor: 'action.hover' }}>
+          <Typography sx={{ fontSize: '1.35rem', fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{String(val).padStart(2, '0')}</Typography>
+          <Typography sx={{ fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled', mt: 0.3 }}>{label}</Typography>
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
+function NextGameCard({ games, teams, onOpenGame }: {
+  games: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
+}) {
+  const next = useMemo(() => {
+    const now = Date.now()
+    const upcoming = games
+      .filter(g => g.status !== 'final' && g.status !== 'live')
+      .map(g => ({ g, ms: gameStartMs(g.game_date, g.start_time) }))
+      .filter((x): x is { g: WpblGame; ms: number } => x.ms != null)
+      .sort((a, b) => a.ms - b.ms)
+    // The soonest game still ahead (small grace window), else the earliest upcoming.
+    return upcoming.find(x => x.ms >= now - 3 * 3600000) ?? upcoming[0] ?? null
+  }, [games])
+
+  if (!next) return null
+  const g = next.g
+  const away = teams.get(g.away_team_id)
+  const home = teams.get(g.home_team_id)
+  const dateLabel = new Date(`${g.game_date}T00:00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+  const timeLabel = formatGameTime(g.game_date, g.start_time)
+
+  const teamRow = (t: WpblTeam | undefined, side: string) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      {t && <TeamBadge team={t} size={26} />}
+      <Typography sx={{ flex: 1, fontSize: '0.9rem', fontWeight: 600 }}>{t ? wpblFullName(t) : '?'}</Typography>
+      <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: 'text.disabled' }}>{side}</Typography>
+    </Box>
+  )
+
+  return (
+    <SectionCard title="Next game" subtitle={`${dateLabel}${timeLabel ? ` · ${timeLabel}` : ''}`}>
+      <Box onClick={() => onOpenGame(g)} sx={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, p: 0.5, mx: -0.5, '&:hover': { bgcolor: 'action.hover' } }}>
+        {teamRow(away, 'AWAY')}
+        {teamRow(home, 'HOME')}
+      </Box>
+      <Countdown target={next.ms} />
+    </SectionCard>
+  )
+}
+
 // ─── Standings card ─────────────────────────────────────────────────────────────
 
 function StandingsCard({ teams, games, onOpenTeam }: {
@@ -160,24 +230,28 @@ function TeamsCard({ teams, onOpenTeam }: { teams: WpblTeam[]; onOpenTeam: (t: W
 
 interface LeaderRow { player: WpblPlayer; display: string }
 
-function StatBlock({ label, rows, onOpenPlayer }: {
-  label: string; rows: LeaderRow[]; onOpenPlayer: (p: WpblPlayer) => void
+function StatBlock({ label, rows, teamById, onOpenPlayer }: {
+  label: string; rows: LeaderRow[]; teamById: Map<string, WpblTeam>; onOpenPlayer: (p: WpblPlayer) => void
 }) {
   const isDark = useWpblDark()
   if (rows.length === 0) return null
   return (
     <Box sx={{ mb: 1.25, '&:last-of-type': { mb: 0 } }}>
       <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', mb: 0.4 }}>{label}</Typography>
-      {rows.map((r, i) => (
-        <Box key={r.player.id} onClick={() => onOpenPlayer(r.player)} sx={{
-          display: 'flex', alignItems: 'center', gap: 0.75, py: 0.4, cursor: 'pointer',
-          borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },
-        }}>
-          <Typography sx={{ width: 14, fontSize: '0.7rem', fontWeight: 800, color: i === 0 ? wpblAccent(r.player.team_id, isDark) : 'text.disabled' }}>{i + 1}</Typography>
-          <Typography sx={{ flex: 1, fontSize: '0.82rem', fontWeight: i === 0 ? 700 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.player.name}</Typography>
-          <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>{r.display}</Typography>
-        </Box>
-      ))}
+      {rows.map((r, i) => {
+        const team = teamById.get(r.player.team_id)
+        return (
+          <Box key={r.player.id} onClick={() => onOpenPlayer(r.player)} sx={{
+            display: 'flex', alignItems: 'center', gap: 0.75, py: 0.4, cursor: 'pointer',
+            borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },
+          }}>
+            <Typography sx={{ width: 14, fontSize: '0.7rem', fontWeight: 800, color: i === 0 ? wpblAccent(r.player.team_id, isDark) : 'text.disabled' }}>{i + 1}</Typography>
+            {team && <TeamBadge team={team} size={18} />}
+            <Typography sx={{ flex: 1, fontSize: '0.82rem', fontWeight: i === 0 ? 700 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.player.name}</Typography>
+            <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', minWidth: 40, textAlign: 'right' }}>{r.display}</Typography>
+          </Box>
+        )
+      })}
     </Box>
   )
 }
@@ -187,25 +261,36 @@ function StatBlock({ label, rows, onOpenPlayer }: {
 function topBat(list: WpblBatSeason[], value: (t: WpblBattingTotals) => number | null, display: (t: WpblBattingTotals) => string, qualify?: (t: WpblBattingTotals) => boolean, n = 3): LeaderRow[] {
   return list
     .filter(x => (qualify ? qualify(x.totals) : true) && value(x.totals) != null)
-    .sort((a, b) => (value(b.totals) as number) - (value(a.totals) as number))
+    // Ties break toward the bigger sample (more at-bats).
+    .sort((a, b) => (value(b.totals) as number) - (value(a.totals) as number) || b.totals.ab - a.totals.ab)
     .slice(0, n)
     .map(x => ({ player: x.player, display: display(x.totals) }))
 }
 function topPit(list: WpblPitSeason[], value: (t: WpblPitchingTotals) => number | null, display: (t: WpblPitchingTotals) => string, qualify?: (t: WpblPitchingTotals) => boolean, n = 3): LeaderRow[] {
   return list
     .filter(x => (qualify ? qualify(x.totals) : true) && value(x.totals) != null)
-    .sort((a, b) => (value(b.totals) as number) - (value(a.totals) as number))
+    // Ties (e.g. equal ERA) break toward more innings pitched.
+    .sort((a, b) => (value(b.totals) as number) - (value(a.totals) as number) || b.totals.outs - a.totals.outs)
     .slice(0, n)
     .map(x => ({ player: x.player, display: display(x.totals) }))
 }
 
-function LeadersCard({ title, blocks, loading, hasData, onOpenPlayer }: {
+function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, onViewAll }: {
   title: string; blocks: { label: string; rows: LeaderRow[] }[]
-  loading: boolean; hasData: boolean; onOpenPlayer: (p: WpblPlayer) => void
+  loading: boolean; hasData: boolean; teamById: Map<string, WpblTeam>
+  onOpenPlayer: (p: WpblPlayer) => void; onViewAll: () => void
 }) {
   const anyRows = blocks.some(b => b.rows.length > 0)
   return (
-    <SectionCard title={title} subtitle="Season leaders">
+    <SectionCard
+      title={title}
+      subtitle="Season leaders"
+      action={anyRows ? (
+        <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
+          View all
+        </Typography>
+      ) : undefined}
+    >
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={20} /></Box>
       ) : !hasData || !anyRows ? (
@@ -213,7 +298,7 @@ function LeadersCard({ title, blocks, loading, hasData, onOpenPlayer }: {
           Leaders appear once games are played.
         </Typography>
       ) : (
-        blocks.map(b => <StatBlock key={b.label} label={b.label} rows={b.rows} onOpenPlayer={onOpenPlayer} />)
+        blocks.map(b => <StatBlock key={b.label} label={b.label} rows={b.rows} teamById={teamById} onOpenPlayer={onOpenPlayer} />)
       )}
     </SectionCard>
   )
@@ -221,13 +306,14 @@ function LeadersCard({ title, blocks, loading, hasData, onOpenPlayer }: {
 
 // ─── Home ───────────────────────────────────────────────────────────────────────
 
-export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPlayer, onOpenTeam }: {
+export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPlayer, onOpenTeam, onViewStats }: {
   teams: WpblTeam[]
   games: WpblGame[]
   liveGame: WpblGame | null
   onOpenGame: (g: WpblGame) => void
   onOpenPlayer: (p: WpblPlayer) => void
   onOpenTeam: (t: WpblTeam) => void
+  onViewStats: (group: 'hitting' | 'pitching') => void
 }) {
   const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
@@ -248,17 +334,19 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   const batSeasons = useMemo(() => aggregateBatting(players, lines.batting), [players, lines.batting])
   const pitSeasons = useMemo(() => aggregatePitching(players, lines.pitching), [players, lines.pitching])
 
+  // Only enforce the 5 AB / 3 IP rate qualifier once every team has played 2+ games.
+  const qualifyOn = useMemo(() => qualifiersActive(teams, games), [teams, games])
+
   const battingBlocks = useMemo(() => [
-    { label: 'Batting average', rows: topBat(batSeasons, t => t.avg, t => fmtRate(t.avg), t => t.ab >= MIN_AB) },
+    { label: 'OPS', rows: topBat(batSeasons, t => t.ops, t => fmtRate(t.ops), t => !qualifyOn || t.ab >= MIN_AB) },
     { label: 'Home runs',       rows: topBat(batSeasons, t => t.hr,  t => String(t.hr), t => t.hr > 0) },
     { label: 'RBI',             rows: topBat(batSeasons, t => t.rbi, t => String(t.rbi), t => t.rbi > 0) },
-  ], [batSeasons])
+  ], [batSeasons, qualifyOn])
 
   const pitchingBlocks = useMemo(() => [
-    { label: 'ERA',        rows: topPit(pitSeasons, t => (t.era == null ? null : -t.era), t => fmtTwo(t.era), t => t.outs >= MIN_OUTS) },
+    { label: 'ERA',        rows: topPit(pitSeasons, t => (t.era == null ? null : -t.era), t => fmtTwo(t.era), t => !qualifyOn || t.outs >= MIN_OUTS) },
     { label: 'Strikeouts', rows: topPit(pitSeasons, t => t.so, t => String(t.so), t => t.so > 0) },
-    { label: 'Wins',       rows: topPit(pitSeasons, t => t.w,  t => String(t.w),  t => t.w > 0) },
-  ], [pitSeasons])
+  ], [pitSeasons, qualifyOn])
 
   const hasLines = lines.batting.length > 0 || lines.pitching.length > 0
 
@@ -295,14 +383,15 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
       }}>
         {/* The League */}
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <NextGameCard games={games} teams={teamMap} onOpenGame={onOpenGame} />
           <StandingsCard teams={teams} games={games} onOpenTeam={onOpenTeam} />
           <TeamsCard teams={teams} onOpenTeam={onOpenTeam} />
         </Box>
 
         {/* Around the League */}
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} onOpenPlayer={onOpenPlayer} />
-          <LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} onOpenPlayer={onOpenPlayer} />
+          <LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('hitting')} />
+          <LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('pitching')} />
         </Box>
       </Box>
     </Box>

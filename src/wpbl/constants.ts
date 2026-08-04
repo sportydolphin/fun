@@ -109,6 +109,24 @@ export function formatGameTime(gameDate: string, startTime: string | null | unde
   return real.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', ...(withZone ? { timeZoneName: 'short' } : {}) })
 }
 
+// The true UTC instant (epoch ms) of a game's first pitch, treating the stored wall
+// clock as Central (same DST-safe math as formatGameTime). Null if there's no valid
+// start time. Used for the home-page countdown.
+export function gameStartMs(gameDate: string, startTime: string | null | undefined): number | null {
+  if (!startTime) return null
+  const m = startTime.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
+  if (!m) return null
+  let h = parseInt(m[1], 10) % 12
+  if (/pm/i.test(m[3])) h += 12
+  const min = parseInt(m[2], 10)
+  const [y, mo, d] = gameDate.split('-').map(Number)
+  const naive = Date.UTC(y, mo - 1, d, h, min)
+  const ref = new Date(naive)
+  const offset = new Date(ref.toLocaleString('en-US', { timeZone: 'UTC' })).getTime()
+    - new Date(ref.toLocaleString('en-US', { timeZone: WPBL_TZ })).getTime()
+  return naive + offset
+}
+
 // Roster sort key: defensive position order (pitchers first, then around the diamond,
 // then bench/utility). Unknown or blank positions sort last. Pair with a name tiebreak.
 const POSITION_ORDER = ['P', 'SP', 'RP', 'C', '1B', '2B', '3B', 'SS', 'IF', 'LF', 'CF', 'RF', 'OF', 'DH', 'UTIL']
