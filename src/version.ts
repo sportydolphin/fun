@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.28.0'
+export const APP_VERSION = '1.29.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,33 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.29.0',
+    date:    '2026-08-05',
+    title:   'WPBL tracking highlights and site policies',
+    changes: [
+      {
+        short: 'Tracking highlights on WPBL home',
+        full:  'The WPBL home page now has a Ballpark tracking card showing the season\'s fastest pitch, hardest hit, and longest tracked hit, each with the player. A New tag appears when a record was just set on the latest game day, and you can tap through to the full Tracking page.',
+      },
+      {
+        short: 'Privacy Policy and Terms pages',
+        full:  'Added Privacy Policy and Terms of Service pages, linked from the footer, explaining what information the site collects and the terms for using it.',
+      },
+      {
+        short: 'Easier to read labels on WPBL home',
+        full:  'The small labels on the WPBL home cards, like the stat names, Hall of Firsts entries, and tracking highlights, now have more contrast so they are easier to read.',
+      },
+      {
+        short: 'Correct city on followed team card',
+        full:  'Your followed team card now shows the team\'s common name, for example Colorado Rockies, instead of the raw city from the data feed, which showed Denver.',
+      },
+      {
+        short: 'Clearer WPBL longest-hit leaderboard',
+        full:  'The WPBL longest-hit leaderboard is now labeled as radar-measured distance, making it clear that batted balls the radar did not read may not appear.',
+      },
+    ],
+  },
   {
     version: '1.28.0',
     date:    '2026-08-05',
