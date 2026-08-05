@@ -12,6 +12,7 @@ import { AdminPanel } from './AdminPanel'
 import { UsernameDialog } from './UsernameDialog'
 import { SettingsDialog } from './SettingsDialog'
 import { SiteFooter } from './SiteFooter'
+import { PrivacyPolicy, TermsOfService } from './LegalPages'
 import { FeedbackDialog } from './FeedbackDialog'
 import { NotificationBell } from './NotificationBell'
 import { supabase } from './lib/supabase'
@@ -37,7 +38,7 @@ const MlbStats = lazy(() => import('./MlbStats'))
 // stays out of the MLB and landing bundles.
 const WpblApp = lazy(() => import('./wpbl/WpblApp'))
 
-type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame' | '/mlb' | '/wpbl'
+type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame' | '/mlb' | '/wpbl' | '/privacy' | '/terms'
 
 const LOCK_PASSWORD = 'sportydolphin'
 const LOCKED_PATHS = new Set(['/cups', '/weights'])
@@ -824,11 +825,24 @@ function AppInner() {
             <WpblApp isAdmin={isAdmin} />
           </Suspense>
         )}
+        {path === '/privacy' && (
+          <Box>
+            {backBtn}
+            <PrivacyPolicy />
+          </Box>
+        )}
+        {path === '/terms' && (
+          <Box>
+            {backBtn}
+            <TermsOfService />
+          </Box>
+        )}
       </Box>
 
       <SiteFooter
         onOpenChangelog={() => setChangelogOpen(true)}
         onOpenFeedback={() => setFeedbackOpen(true)}
+        onNavigate={navigate}
         isWpbl={path === '/wpbl'}
       />
 

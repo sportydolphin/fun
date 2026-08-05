@@ -17,9 +17,10 @@ const linkSx = {
 // Slim site-wide footer. Home for the meta bits that used to crowd the toolbar:
 // the version + "What's new" changelog, plus a feedback box and a Ko-fi support
 // link. Caps + centers on wide screens, wraps and centers on mobile.
-export function SiteFooter({ onOpenChangelog, onOpenFeedback, isWpbl = false }: {
+export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl = false }: {
   onOpenChangelog: () => void
   onOpenFeedback: () => void
+  onNavigate: (path: string) => void
   isWpbl?: boolean
 }) {
   return (
@@ -45,6 +46,10 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, isWpbl = false }: 
         <Box component="span" onClick={onOpenFeedback} sx={linkSx}>Send feedback</Box>
         <Dot />
         <Box component="a" href={KOFI_URL} target="_blank" rel="noopener noreferrer" sx={linkSx}>Support on Ko-fi ♥</Box>
+        <Dot />
+        <Box component="a" href="/privacy" onClick={e => { e.preventDefault(); onNavigate('/privacy') }} sx={linkSx}>Privacy</Box>
+        <Dot />
+        <Box component="a" href="/terms" onClick={e => { e.preventDefault(); onNavigate('/terms') }} sx={linkSx}>Terms</Box>
         <Dot />
         <Box component="span">
           {isWpbl
