@@ -37,6 +37,19 @@ const META: Record<string, Meta> = {
 const norm = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim()
 const cleanNarrative = (s: string) => s.replace(/\s*\([^)]*\)\s*$/, '').trim() // drop trailing "(2-2 KBFB)"
 
+// True when `a` and `b` are within one edit (insert / delete / substitute). Cheap bounded
+// Levenshtein — lets feed spelling variants link to the roster (Villareal↔Villarreal,
+// Gabriella↔Gabrielle) without a full DP matrix.
+const within1 = (a: string, b: string): boolean => {
+  if (a === b) return true
+  const la = a.length, lb = b.length
+  if (Math.abs(la - lb) > 1) return false
+  let i = 0
+  while (i < la && i < lb && a[i] === b[i]) i++
+  if (la === lb) return a.slice(i + 1) === b.slice(i + 1)   // substitution
+  return la > lb ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1) // ins/del
+}
+
 // "6:30 PM" wall clock → minutes since midnight, for ordering games that share a date
 // (doubleheaders). Unparseable/blank sorts first (0). Play sequence restarts per game, so
 // without this the earlier-starting game's plays could sort after the later one's.
@@ -60,9 +73,12 @@ export function computeFirsts(
   const byName = new Map(players.map(p => [norm(p.name), p]))
   const found = new Map<string, WpblFirst>()
 
-  // Resolve a name parsed from a narrative to a roster player. Exact first, then a
-  // forgiving first-name + last-name-prefix match so feed spelling variants still link
-  // (the play log says "Maggie Fox" where the roster has "Maggie Foxx").
+  // Resolve a name parsed from a narrative/play to a roster player. Exact first, then a
+  // forgiving match mirroring the ingest box-score resolver so feed spelling variants still
+  // link — the play log spells "Maggie Fox"/"Val Perez"/"Gabriella Haas"/"Isabella Villareal"
+  // where the roster has "Maggie Foxx"/"Valerie Perez"/"Gabrielle Haas"/"Isabella Villarreal".
+  // Surname and given name each match when equal, one prefixes the other, or they're within
+  // one edit; only an UNAMBIGUOUS single candidate is accepted (never guess between two).
   const findByName = (raw: string): WpblPlayer | undefined => {
     const n = norm(raw)
     if (!n) return undefined
@@ -70,10 +86,12 @@ export function computeFirsts(
     if (exact) return exact
     const [rf, ...rrest] = n.split(' '); const rl = rrest.join(' ')
     if (!rf || !rl) return undefined
-    return players.find(p => {
+    const near = (a: string, b: string) => a === b || a.startsWith(b) || b.startsWith(a) || within1(a, b)
+    const cands = players.filter(p => {
       const [pf, ...prest] = norm(p.name).split(' '); const pl = prest.join(' ')
-      return pf === rf && !!pl && (pl.startsWith(rl) || rl.startsWith(pl))
+      return !!pf && !!pl && near(pl, rl) && near(pf, rf)
     })
+    return cands.length === 1 ? cands[0] : undefined
   }
 
   const rec = (key: string, player: WpblPlayer | undefined, name: string, teamId: string | null, date: string, detail: string) => {
