@@ -247,11 +247,24 @@ async function ingestBoxscore(
   const pitching: any[] = []
   const fielding: any[] = []
 
-  // The boxscore is authoritative for status: complete → final; otherwise if it has any
-  // activity (plays logged or an inning underway) it's live; else still scheduled.
+  // The boxscore is authoritative for status: complete → final; otherwise it's live only
+  // once the game has genuinely started, else still scheduled.
+  //
+  // The feed flips a game to "In Progress - Top of 1st" and stages the leadoff batter /
+  // pitcher ~20+ minutes BEFORE the actual first pitch, with inning=1, a 0-0 count, no
+  // plays, and 0-0 score. `inning > 0` is therefore always true (it defaults to 1) and is
+  // NOT evidence of live play. Require real activity instead: a logged play, a tracked
+  // pitch, any ball/strike/out, a run, or play past the top of the 1st. The only window
+  // this treats as still-scheduled is the moment before the very first pitch, which then
+  // flips to live the instant a pitch is thrown.
   const st = box.status ?? {}
   const complete = !!st.complete
-  const hasActivity = (box.plays?.length ?? 0) > 0 || n(st.inning) > 0
+  const hasPlays    = (box.plays?.length ?? 0) > 0
+  const hasTracking = (box.tracking_activity?.length ?? 0) > 0
+  const anyCount    = n(st.outs) > 0 || n(st.balls) > 0 || n(st.strikes) > 0
+  const anyRuns     = n(st.away_runs) > 0 || n(st.home_runs) > 0
+  const beyondTop1  = n(st.inning) > 1 || s(st.half) === 'bottom'
+  const hasActivity = hasPlays || hasTracking || anyCount || anyRuns || beyondTop1
   const derivedStatus: 'scheduled' | 'live' | 'final' = complete ? 'final' : hasActivity ? 'live' : 'scheduled'
 
   // Line score + totals per side, folded back onto the game row.
