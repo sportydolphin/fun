@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
-import { fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, computeStandings, fetchWpblIngestHealth } from './api'
+import { fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, computeStandings, fetchWpblIngestHealth } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs } from './constants'
 import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, CARD_BORDER } from './ui'
 import { LiveHero } from './Live'
@@ -8,8 +8,9 @@ import {
   aggregateBatting, aggregatePitching, qualifiersActive, fmtRate, fmtTwo,
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
+import { aggregateTracking, type TrackingBoard } from './tracking'
 import { computeFirsts, type WpblFirst } from './firsts'
-import type { WpblTeam, WpblPlayer, WpblGame, WpblGamePlay, WpblBattingLine, WpblPitchingLine, WpblIngestRun } from './types'
+import type { WpblTeam, WpblPlayer, WpblGame, WpblGamePlay, WpblBattingLine, WpblPitchingLine, WpblTrackRow, WpblIngestRun } from './types'
 
 // WPBL home dashboard (Phase 2). Mirrors the MLB home: a full-width scoreboard strip
 // on top, then a two-column card feed (The League / Around the League) that stacks on
@@ -60,7 +61,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
       p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
       transition: 'border-color 0.15s', '&:hover': { borderColor: 'text.disabled' },
     }}>
-      <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: live ? '#ef4444' : 'text.disabled' }}>
+      <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: live ? '#ef4444' : 'text.secondary' }}>
         {statusText}
       </Typography>
       {row(away, game.away_score, awayWon)}
@@ -117,7 +118,7 @@ function Countdown({ target }: { target: number }) {
       {units.map(([label, val]) => (
         <Box key={label} sx={{ textAlign: 'center', minWidth: 54, px: 1, py: 0.75, borderRadius: 1.5, bgcolor: 'action.hover' }}>
           <Typography sx={{ fontSize: '1.35rem', fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{String(val).padStart(2, '0')}</Typography>
-          <Typography sx={{ fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled', mt: 0.3 }}>{label}</Typography>
+          <Typography sx={{ fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', mt: 0.3 }}>{label}</Typography>
         </Box>
       ))}
     </Box>
@@ -149,7 +150,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       {t && <TeamBadge team={t} size={26} />}
       <Typography sx={{ flex: 1, fontSize: '0.9rem', fontWeight: 600 }}>{t ? wpblFullName(t) : '?'}</Typography>
-      <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: 'text.disabled' }}>{side}</Typography>
+      <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary' }}>{side}</Typography>
     </Box>
   )
 
@@ -172,7 +173,7 @@ function StandingsCard({ teams, games, onOpenTeam }: {
   const rows = useMemo(() => computeStandings(teams, games), [teams, games])
   return (
     <SectionCard title="Standings">
-      <Box sx={{ display: 'flex', px: 0.5, pb: 0.5, fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled' }}>
+      <Box sx={{ display: 'flex', px: 0.5, pb: 0.5, fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary' }}>
         <Box sx={{ flex: 1 }}>Team</Box>
         <Box sx={{ width: 32, textAlign: 'right' }}>W</Box>
         <Box sx={{ width: 32, textAlign: 'right' }}>L</Box>
@@ -237,7 +238,7 @@ function StatBlock({ label, rows, teamById, onOpenPlayer }: {
   if (rows.length === 0) return null
   return (
     <Box sx={{ mb: 1.25, '&:last-of-type': { mb: 0 } }}>
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', mb: 0.4 }}>{label}</Typography>
+      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.secondary', mb: 0.4 }}>{label}</Typography>
       {rows.map((r, i) => {
         const team = teamById.get(r.player.team_id)
         return (
@@ -293,11 +294,88 @@ function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={20} /></Box>
       ) : !hasData || !anyRows ? (
-        <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled', py: 1 }}>
+        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', py: 1 }}>
           Leaders appear once games are played.
         </Typography>
       ) : (
         blocks.map(b => <StatBlock key={b.label} label={b.label} rows={b.rows} teamById={teamById} onOpenPlayer={onOpenPlayer} />)
+      )}
+    </SectionCard>
+  )
+}
+
+// ─── Tracking teaser ──────────────────────────────────────────────────────────────
+// A three-stat teaser for the Tracking tab: the season's fastest pitch, hardest-hit
+// ball, and longest tracked hit. Radar coverage is partial, so these are "bests we
+// measured," not absolutes (the full tab carries that caveat). A stat gets a "New" pill
+// when its record was set on the most recent game day.
+
+interface TeaserTile {
+  icon: string; label: string; value: string; unit: string
+  name: string; player: WpblPlayer | null; teamId: string | null; isNew: boolean
+}
+
+function TrackingTeaserCard({ board, latestGameIds, loading, teamById, onOpenPlayer, onViewAll }: {
+  board: TrackingBoard; latestGameIds: Set<string>; loading: boolean
+  teamById: Map<string, WpblTeam>; onOpenPlayer: (p: WpblPlayer) => void; onViewAll: () => void
+}) {
+  const isDark = useWpblDark()
+  const fp = board.fastestPitches[0]
+  const hh = board.hardestHits[0]
+  const lh = board.longestHits[0]
+  const tiles: TeaserTile[] = []
+  if (fp) tiles.push({ icon: '🔥', label: 'Fastest pitch', value: fp.velo.toFixed(1), unit: 'mph', name: fp.name, player: fp.player, teamId: fp.teamId, isNew: latestGameIds.has(fp.gameId) })
+  if (hh && hh.exit != null) tiles.push({ icon: '💥', label: 'Hardest hit', value: hh.exit.toFixed(1), unit: 'mph', name: hh.name, player: hh.player, teamId: hh.teamId, isNew: latestGameIds.has(hh.gameId) })
+  if (lh && lh.distance != null) tiles.push({ icon: '🚀', label: 'Longest hit', value: String(Math.round(lh.distance)), unit: 'ft', name: lh.name, player: lh.player, teamId: lh.teamId, isNew: latestGameIds.has(lh.gameId) })
+
+  return (
+    <SectionCard
+      title="Ballpark tracking"
+      subtitle="Season bests, measured by in-park radar"
+      action={tiles.length > 0 ? (
+        <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
+          View all
+        </Typography>
+      ) : undefined}
+    >
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={20} /></Box>
+      ) : tiles.length === 0 ? (
+        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', py: 1 }}>
+          Tracking data appears once games are played.
+        </Typography>
+      ) : (
+        tiles.map(t => {
+          const team = t.teamId ? teamById.get(t.teamId) : undefined
+          const clickable = !!t.player
+          return (
+            <Box
+              key={t.label}
+              onClick={clickable ? () => onOpenPlayer(t.player!) : undefined}
+              sx={{
+                display: 'flex', alignItems: 'center', gap: 1.25, py: 0.7,
+                borderTop: '1px solid', borderColor: 'divider',
+                borderRadius: 1, ...(clickable ? { cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } } : {}),
+              }}
+            >
+              <Box sx={{ fontSize: '1.05rem', width: 24, textAlign: 'center', flexShrink: 0 }}>{t.icon}</Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary' }}>{t.label}</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
+                  {team && <TeamBadge team={team} size={18} />}
+                  <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</Typography>
+                  {t.isNew && (
+                    <Box sx={{ flexShrink: 0, px: 0.6, py: 0.1, borderRadius: 1, bgcolor: wpblAccent(t.teamId ?? '', isDark), color: '#fff', fontSize: '0.55rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 }}>New</Box>
+                  )}
+                </Box>
+              </Box>
+              <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                <Typography component="span" sx={{ fontSize: '1rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>{t.value}</Typography>
+                <Typography component="span" sx={{ fontSize: '0.66rem', fontWeight: 700, color: 'text.secondary', ml: 0.4 }}>{t.unit}</Typography>
+              </Box>
+            </Box>
+          )
+        })
       )}
     </SectionCard>
   )
@@ -322,7 +400,7 @@ function FirstRow({ f, teamById, onOpenPlayer, showDetail }: {
     >
       <PlayerPortrait name={f.name} teamId={f.teamId ?? ''} size={42} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled' }}>
+        <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary' }}>
           {f.icon} {f.label}
         </Typography>
         <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</Typography>
@@ -332,7 +410,7 @@ function FirstRow({ f, teamById, onOpenPlayer, showDetail }: {
       </Box>
       <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
         {team && <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary' }}>{team.abbr}</Typography>}
-        <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled' }}>{dateLabel}</Typography>
+        <Typography sx={{ fontSize: '0.66rem', color: 'text.secondary' }}>{dateLabel}</Typography>
       </Box>
     </Box>
   )
@@ -355,7 +433,7 @@ function HallOfFirstsCard({ firsts, teamById, loading, onOpenPlayer, onViewAll }
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={20} /></Box>
       ) : featured.length === 0 ? (
-        <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled', py: 1 }}>
+        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', py: 1 }}>
           Milestones appear as the season's firsts happen.
         </Typography>
       ) : (
@@ -372,7 +450,7 @@ function FirstsModal({ firsts, teamById, onClose, onOpenPlayer }: {
     <ModalShell eyebrow="Hall of Firsts" onClose={onClose} maxWidth={520}>
       <Box sx={{ px: 2, py: 1 }}>
         {firsts.length === 0 ? (
-          <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 3, textAlign: 'center' }}>
+          <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', py: 3, textAlign: 'center' }}>
             No milestones yet. They appear as the season's firsts happen.
           </Typography>
         ) : (
@@ -428,7 +506,7 @@ function IngestHealth() {
   )
 }
 
-export default function WpblHome({ teams, games, liveGame, isAdmin, onOpenGame, onOpenPlayer, onOpenTeam, onViewStats }: {
+export default function WpblHome({ teams, games, liveGame, isAdmin, onOpenGame, onOpenPlayer, onOpenTeam, onViewStats, onViewTracking }: {
   teams: WpblTeam[]
   games: WpblGame[]
   liveGame: WpblGame | null
@@ -437,32 +515,43 @@ export default function WpblHome({ teams, games, liveGame, isAdmin, onOpenGame, 
   onOpenPlayer: (p: WpblPlayer) => void
   onOpenTeam: (t: WpblTeam) => void
   onViewStats: (group: 'hitting' | 'pitching') => void
+  onViewTracking: () => void
 }) {
   const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
-  // Leaders + Hall-of-Firsts data — fetched here so only the home view pays for it.
+  // Leaders + Hall-of-Firsts + tracking data — fetched here so only the home view pays for it.
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>({ batting: [], pitching: [] })
   const [plays, setPlays] = useState<WpblGamePlay[]>([])
+  const [tracking, setTracking] = useState<WpblTrackRow[]>([])
   const [loadingLeaders, setLoadingLeaders] = useState(true)
   const [firstsOpen, setFirstsOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     const load = () => {
-      Promise.all([fetchWpblAllPlayers(), fetchWpblAllLines(), fetchWpblAllPlays()]).then(([p, l, pl]) => {
+      Promise.all([fetchWpblAllPlayers(), fetchWpblAllLines(), fetchWpblAllPlays(), fetchWpblAllTracking()]).then(([p, l, pl, tr]) => {
         if (cancelled) return
-        setPlayers(p); setLines(l); setPlays(pl); setLoadingLeaders(false)
+        setPlayers(p); setLines(l); setPlays(pl); setTracking(tr); setLoadingLeaders(false)
       }).catch(() => { if (!cancelled) setLoadingLeaders(false) })
     }
     load()
-    // While a game is live, leaders + Hall of Firsts shift as lines/plays are ingested,
-    // so refresh them periodically too (matches the app-level schedule polling).
+    // While a game is live, leaders + Hall of Firsts + tracking shift as lines/plays are
+    // ingested, so refresh them periodically too (matches the app-level schedule polling).
     const id = liveGame ? setInterval(load, 25000) : null
     return () => { cancelled = true; if (id) clearInterval(id) }
   }, [liveGame?.id])
 
   const firsts = useMemo(() => computeFirsts(plays, games, players, lines.pitching), [plays, games, players, lines.pitching])
+
+  const trackingBoard = useMemo(() => aggregateTracking(tracking, players, lines.pitching), [tracking, players, lines.pitching])
+  // Game ids from the most recent day that has a final — used to flag a record as "New".
+  const latestGameIds = useMemo(() => {
+    const finals = games.filter(g => g.status === 'final' && g.game_date)
+    if (finals.length === 0) return new Set<string>()
+    const maxDate = finals.reduce((m, g) => (g.game_date > m ? g.game_date : m), finals[0].game_date)
+    return new Set(finals.filter(g => g.game_date === maxDate).map(g => g.id))
+  }, [games])
 
   const batSeasons = useMemo(() => aggregateBatting(players, lines.batting), [players, lines.batting])
   const pitSeasons = useMemo(() => aggregatePitching(players, lines.pitching), [players, lines.pitching])
@@ -525,6 +614,7 @@ export default function WpblHome({ teams, games, liveGame, isAdmin, onOpenGame, 
         {/* Around the League */}
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <HallOfFirstsCard firsts={firsts} teamById={teamMap} loading={loadingLeaders} onOpenPlayer={onOpenPlayer} onViewAll={() => setFirstsOpen(true)} />
+          <TrackingTeaserCard board={trackingBoard} latestGameIds={latestGameIds} loading={loadingLeaders} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={onViewTracking} />
           <LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('hitting')} />
           <LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('pitching')} />
         </Box>

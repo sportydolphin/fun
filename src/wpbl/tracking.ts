@@ -42,8 +42,8 @@ export function prettyType(t: string | null): string | null {
 
 export interface VeloLeader { player: WpblPlayer | null; name: string; teamId: string | null; maxVelo: number; avgVelo: number; count: number }
 export interface SpinLeader { player: WpblPlayer | null; name: string; teamId: string | null; avgSpin: number; maxSpin: number; count: number }
-export interface PitchHit  { player: WpblPlayer | null; name: string; teamId: string | null; velo: number; pitchType: string | null }
-export interface BattedBall { player: WpblPlayer | null; name: string; teamId: string | null; exit: number | null; distance: number | null; launch: number | null; hitType: string | null }
+export interface PitchHit  { player: WpblPlayer | null; name: string; teamId: string | null; velo: number; pitchType: string | null; gameId: string }
+export interface BattedBall { player: WpblPlayer | null; name: string; teamId: string | null; exit: number | null; distance: number | null; launch: number | null; hitType: string | null; gameId: string }
 
 export interface TrackingBoard {
   pitchCount: number
@@ -143,7 +143,7 @@ export function aggregateTracking(rows: WpblTrackRow[], players: WpblPlayer[], p
     .slice(0, 12)
     .map(a => {
       const p = a.pid ? pById.get(a.pid) ?? null : null
-      return { player: p, name: p?.name ?? (a.row.pitcher_name ? fmtFeedName(a.row.pitcher_name) : 'Unknown'), teamId: p?.team_id ?? null, velo: a.row.release_speed!, pitchType: prettyType(a.row.pitch_type) }
+      return { player: p, name: p?.name ?? (a.row.pitcher_name ? fmtFeedName(a.row.pitcher_name) : 'Unknown'), teamId: p?.team_id ?? null, velo: a.row.release_speed!, pitchType: prettyType(a.row.pitch_type), gameId: a.row.game_id }
     })
 
   // ── Batted balls, attributed to the batter. Exit velocity and distance are independent
@@ -159,6 +159,7 @@ export function aggregateTracking(rows: WpblTrackRow[], players: WpblPlayer[], p
       name: player?.name ?? (r.batter_name ? fmtFeedName(r.batter_name) : 'Unknown'),
       teamId: player?.team_id ?? null,
       exit: r.exit_speed, distance: r.distance, launch: r.launch_angle, hitType: prettyType(r.hit_type),
+      gameId: r.game_id,
     }
   }
   const hardestHits = rows

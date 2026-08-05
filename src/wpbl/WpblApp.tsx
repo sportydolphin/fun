@@ -273,6 +273,7 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
   const selectTab  = useCallback((v: WpblView) => push({ view: v, team: selectedTeam, game: null, player: null }), [push, selectedTeam])
   const selectTeam = useCallback((t: WpblTeam | null) => push({ view: 'teams', team: t, game: null, player: null }), [push])
   const openStats  = useCallback((g: 'hitting' | 'pitching') => { setStatsGroup(g); push({ view: 'stats', team: selectedTeam, game: null, player: null }) }, [push, selectedTeam])
+  const openTracking = useCallback(() => push({ view: 'tracking', team: selectedTeam, game: null, player: null }), [push, selectedTeam])
   const openGame   = useCallback((g: WpblGame) => push({ view, team: selectedTeam, game: g, player: null }), [push, view, selectedTeam])
   const openPlayer = useCallback((p: WpblPlayer) => push({ view, team: selectedTeam, game: detailGame, player: p }), [push, view, selectedTeam, detailGame])
   // Closing a modal (X or Escape) walks history back, so it and the browser Back button are
@@ -410,7 +411,7 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
         ? <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
         : (
           <>
-            {view === 'home'      && <WpblHome teams={teams} games={games} liveGame={liveGame} isAdmin={isAdmin} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} onViewStats={openStats} />}
+            {view === 'home'      && <WpblHome teams={teams} games={games} liveGame={liveGame} isAdmin={isAdmin} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} onViewStats={openStats} onViewTracking={openTracking} />}
             {view === 'schedule'  && <ScheduleView teams={teams} games={games} onOpenGame={openGame} />}
             {view === 'standings' && <StandingsView teams={teams} games={games} onOpenTeam={selectTeam} />}
             {view === 'stats'     && <WpblStatsView teams={teams} games={games} initialGroup={statsGroup} onOpenPlayer={openPlayer} />}
