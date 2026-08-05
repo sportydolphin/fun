@@ -5,6 +5,7 @@ import { useIsDark, ringColor, teamLogoBg, teamLogoSrc, teamLogoCrop, defaultBor
 import { useScrollLock } from '../lib/useScrollLock'
 import { useAuth } from '../../AuthContext'
 import { supabase } from '../../lib/supabase'
+import { track, EVENTS } from '../../lib/analytics'
 import { ensureActiveUser } from '../../lib/userActive'
 import { PredictionStatsModal } from './PredictionStats'
 import { useDevSim } from '../dev/devSim'
@@ -494,6 +495,7 @@ function PredictorModal({ open, games, predictions, allVotes, onPick, onClose, i
 }) {
   useEffect(() => {
     if (!open) return
+    track(EVENTS.BOARD_VIEWED, { league: 'mlb' })
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
@@ -719,6 +721,10 @@ export function PredictorWidget({ onPicksSettled }: {
     })
     saveLocalPred(slateDate, gamePk, teamId)
     if (user) savePredToSb(user.id, slateDate, gamePk, teamId).then(() => fetchVotesByGame(slateDate).then(setAllVotes))
+    // Every pick (anon or signed-in) funnels through here — the one clean spot to
+    // record engagement with the predictions game. `changed` distinguishes a fresh
+    // pick from switching an existing one so both don't read as new activity.
+    track(EVENTS.PREDICTION_MADE, { league: 'mlb', gamePk, teamId, changed: prevTeamId != null }, user?.id ?? null)
   }, [games, predictions, slateDate, user])
 
   const pickedCount       = Object.keys(predictions).length

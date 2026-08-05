@@ -7,6 +7,7 @@ import { getHomeOverlay, setHomeOverlay, clearOverlayIf, stampOverlay } from '..
 import { fetchTeamSeasonStats, TEAM_STAT_DEFS, TeamSeasonStats, TeamStatValue } from '../api'
 import { LogoBubble, LiveDot } from '../components/boxScore'
 import { useScrollLock } from '../lib/useScrollLock'
+import { track, EVENTS } from '../../lib/analytics'
 import { GamePreviewModal } from './GamePreview'
 
 // Loaded on first game click — keeps the Game Center out of the home bundle.
@@ -583,6 +584,12 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
     const o = getHomeOverlay()
     if (o?.kind === 'scoreGame') setOpenGame(o.game)
   }, [])
+
+  // One spot covering every way a game center opens (strip, scoreboard, search
+  // restore): fire when the opened game changes, so switching prev/next counts too.
+  useEffect(() => {
+    if (openGame) track(EVENTS.GAME_CENTER_OPENED, { league: 'mlb', gamePk: openGame.gamePk, state: openGame.state })
+  }, [openGame?.gamePk])
 
   const theme = useTheme()
   // The strip sits directly on the page now (no enclosing card), so the edge-fade

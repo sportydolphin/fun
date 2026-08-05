@@ -16,6 +16,7 @@ import { PrivacyPolicy, TermsOfService } from './LegalPages'
 import { FeedbackDialog } from './FeedbackDialog'
 import { NotificationBell } from './NotificationBell'
 import { supabase } from './lib/supabase'
+import { track, EVENTS } from './lib/analytics'
 import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from './lib/usernames'
 import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
 import { DeactivatedDialog } from './DeactivatedDialog'
@@ -47,6 +48,18 @@ const SESSION_KEY = 'sdUnlocked'
 function navigate(to: string) {
   window.history.pushState({}, '', to)
   window.dispatchEvent(new PopStateEvent('popstate'))
+}
+
+// Every route path is lowercase and matched exactly, but inbound links (and the
+// analytics beacon) sometimes see mis-cased URLs like /WPBL. Lowercasing the
+// pathname on read means those still render the right view and stop splitting a
+// single page across two entries in Web Analytics. Search/hash are preserved.
+function readPath(): string {
+  const p = window.location.pathname.toLowerCase()
+  if (p !== window.location.pathname) {
+    window.history.replaceState({}, '', p + window.location.search + window.location.hash)
+  }
+  return p
 }
 
 // Retired players: show the years they played (e.g. "2001–2019") instead of just "Retired".
@@ -208,7 +221,7 @@ function AppInner() {
   // Root redirects straight to MLB Stats — it's the main site now. Other mini
   // apps are still reachable, just tucked behind the admin menu.
   const [path, setPath] = useState<Route | string>(() => {
-    const p = window.location.pathname
+    const p = readPath()
     if (p === '/') { window.history.replaceState({}, '', '/mlb'); return '/mlb' }
     return p as Route
   })
@@ -280,6 +293,18 @@ function AppInner() {
     if (v === 'in' || v === 'out' || v === 'deleted') {
       setAuthToast(v)
       sessionStorage.removeItem('sdAuthToast')
+      // 'in' is stashed only on a genuine signed-out → signed-in transition, and we
+      // record it here (post-reload) so the fire-and-forget insert isn't cut off by
+      // the reload AuthContext does right after sign-in. A brand-new account's
+      // created_at is seconds old on its first sign-in, which separates signup from a
+      // returning login for both email and Google without any extra bookkeeping.
+      if (v === 'in') {
+        supabase.auth.getSession().then(({ data }) => {
+          const u = data.session?.user
+          const isNew = u?.created_at != null && (Date.now() - new Date(u.created_at).getTime()) < 60_000
+          track(isNew ? EVENTS.SIGNUP : EVENTS.LOGIN, {}, u?.id ?? null)
+        }).catch(() => {})
+      }
     }
   }, [])
 
@@ -347,7 +372,7 @@ function AppInner() {
 
   useEffect(() => {
     const onPop = () => {
-      const p = window.location.pathname
+      const p = readPath()
       if (p === '/') { window.history.replaceState({}, '', '/mlb'); setPath('/mlb'); return }
       setPath(p as Route)
     }

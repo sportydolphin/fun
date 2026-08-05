@@ -9,6 +9,7 @@ import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import GameDetailModal from './GameDetail'
 import PlayerDetailModal from './PlayerDetail'
+import { track, EVENTS } from '../lib/analytics'
 import WpblHome from './Home'
 import WpblStatsView from './StatsView'
 import WpblTrackingView from './TrackingView'
@@ -246,6 +247,10 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
   const [selectedTeam, setSelectedTeam] = useState<WpblTeam | null>(() => seed().team)
   const [detailGame, setDetailGame] = useState<WpblGame | null>(() => seed().game)
   const [detailPlayer, setDetailPlayer] = useState<WpblPlayer | null>(() => seed().player)
+  // Mirror of the MLB game-center event, fired whenever the opened game changes.
+  useEffect(() => {
+    if (detailGame) track(EVENTS.GAME_CENTER_OPENED, { league: 'wpbl', gameId: detailGame.id, status: detailGame.status })
+  }, [detailGame?.id])
   // Which stat group the Stats view opens on (set when jumping there from Home leaders).
   const [statsGroup, setStatsGroup] = useState<'hitting' | 'pitching'>('hitting')
 

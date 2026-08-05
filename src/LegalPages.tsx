@@ -97,13 +97,15 @@ export function PrivacyPolicy() {
         <><b>Google</b> provides the sign-in. Your use of Google sign-in is also covered by Google's own privacy policy.</>,
         <><b>MLB Stats API and the official WPBL stats feed</b> supply the baseball data shown on the site. These are read-only sources; the site does not send your personal information to them.</>,
         <><b>Ko-fi</b> hosts the optional support link. If you follow it, any information you provide there is handled by Ko-fi under its own policy.</>,
+        <><b>Cloudflare</b> serves the site and provides privacy-friendly, cookieless traffic analytics (aggregate page views and performance). It does not use cookies, does not track you across other sites, and does not collect personal information.</>,
       ]} />
 
       <H>Cookies and local storage</H>
       <P>
         The site uses cookies and browser local storage only for essential purposes: keeping you
         signed in and remembering your preferences. It does not use advertising or cross-site
-        tracking cookies.
+        tracking cookies. The site's traffic analytics are cookieless, so they add no cookies of
+        their own.
       </P>
 
       <H>Keeping and deleting your data</H>
