@@ -25,15 +25,32 @@ interface StatsRow {
   total_predictions: number
 }
 
+// One entry from the nightly all-time prediction board (prediction_boards, window 'all').
+interface BoardEntry {
+  userId: string
+  correct: number
+  total: number
+  accuracy: number
+}
+
 // All users, newest first, merged with their prediction record. Degrades gracefully
 // if add_user_admin.sql hasn't been run yet (the is_deleted/deleted_at columns are
 // then absent) — the same fallback pattern the streak columns use.
+//
+// Prediction numbers come from the nightly all-time board (prediction_boards, window
+// 'all'), which grades every pick for every predictor — the same source the leaderboard
+// reads. prediction_stats is only written when a user opens My Stats, so it misses many
+// predictors; it's kept only as a fallback for anyone not yet on a computed board.
 export async function fetchAdminUsers(): Promise<AdminUser[]> {
-  const [uRes, sRes] = await Promise.all([
+  const [uRes, bRes, sRes] = await Promise.all([
     supabase.from('usernames')
       .select('user_id, username, created_at, is_deleted, deleted_at')
       .order('created_at', { ascending: false })
       .limit(1000),
+    supabase.from('prediction_boards')
+      .select('data')
+      .eq('window_key', 'all')
+      .maybeSingle(),
     supabase.from('prediction_stats')
       .select('user_id, accuracy_pct, correct_predictions, total_predictions')
       .limit(1000),
@@ -53,21 +70,28 @@ export async function fetchAdminUsers(): Promise<AdminUser[]> {
     usernameRows = bare.data as Array<Record<string, unknown>>
   }
 
+  // Authoritative record from the all-time board, keyed by user.
+  const boardEntries = ((bRes.data as { data?: { entries?: BoardEntry[] } } | null)?.data?.entries ?? [])
+  const board = new Map<string, BoardEntry>(boardEntries.map(e => [e.userId, e]))
+
+  // Fallback for users not on a board yet (or before the board has ever been computed).
   const stats = new Map<string, StatsRow>(
     ((sRes.data ?? []) as StatsRow[]).map(s => [s.user_id, s]),
   )
 
   return (usernameRows ?? []).map(u => {
-    const s = stats.get(u.user_id as string)
+    const id = u.user_id as string
+    const b = board.get(id)
+    const s = stats.get(id)
     return {
-      user_id:    u.user_id as string,
+      user_id:    id,
       username:   u.username as string,
       created_at: u.created_at as string,
       is_deleted: !!u.is_deleted,
       deleted_at: (u.deleted_at as string | null) ?? null,
-      predictions: s?.total_predictions ?? null,
-      correct:     s?.correct_predictions ?? null,
-      accuracyPct: s?.accuracy_pct ?? null,
+      predictions: b ? b.total   : (s?.total_predictions   ?? null),
+      correct:     b ? b.correct : (s?.correct_predictions ?? null),
+      accuracyPct: b ? b.accuracy : (s?.accuracy_pct        ?? null),
     }
   })
 }

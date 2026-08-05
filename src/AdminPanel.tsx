@@ -380,6 +380,15 @@ function FeedbackModal({ open, onClose, onChanged }: {
 // Roster popup: every registered user with their client-readable details + a
 // reversible soft-delete (deactivate). RLS scopes the toggle to the owner.
 
+// Shared table cell / header styles for the users table.
+const uCellSx = { px: 1.25, py: 0.9, borderTop: '1px solid', borderColor: 'divider', verticalAlign: 'middle' } as const
+const uHeadSx = {
+  px: 1.25, py: 0.85, fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.6,
+  textTransform: 'uppercase' as const, color: 'text.disabled', textAlign: 'left' as const,
+  whiteSpace: 'nowrap' as const, position: 'sticky' as const, top: 0, zIndex: 1,
+  bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider',
+} as const
+
 function UserRowItem({ u, busy, onToggleDeleted }: {
   u:               AdminUser
   busy:            boolean
@@ -391,50 +400,51 @@ function UserRowItem({ u, busy, onToggleDeleted }: {
   const copyId = () => { navigator.clipboard?.writeText(u.user_id).catch(() => {}) }
 
   return (
-    <Box sx={{ px: 1.5, py: 1.1, opacity: u.is_deleted ? 0.55 : 1 }}>
-      {/* Name + status */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-        <Typography sx={{
-          fontSize: '0.9rem', fontWeight: 700, wordBreak: 'break-word',
-          textDecoration: u.is_deleted ? 'line-through' : 'none',
-        }}>
-          {u.username}
-        </Typography>
-        {u.is_deleted && (
-          <Box sx={{ px: 0.75, py: 0.15, borderRadius: 999, bgcolor: 'error.main', opacity: 0.85 }}>
-            <Typography sx={{ fontSize: '0.55rem', fontWeight: 800, color: '#fff', letterSpacing: 0.5 }}>
-              DEACTIVATED
-            </Typography>
-          </Box>
-        )}
-      </Box>
-
-      {/* Details */}
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, mt: 0.4 }}>
-        <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', whiteSpace: 'nowrap' }}>
-          Joined {timeAgo(u.created_at)}
-        </Typography>
-        {hasStats ? (
-          <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>
-            {u.correct}/{u.predictions} picks · {u.accuracyPct}%
+    <Box component="tr" sx={{ opacity: u.is_deleted ? 0.55 : 1 }}>
+      {/* User: name + status, id + copy beneath */}
+      <Box component="td" sx={uCellSx}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+          <Typography sx={{
+            fontSize: '0.85rem', fontWeight: 700, wordBreak: 'break-word',
+            textDecoration: u.is_deleted ? 'line-through' : 'none',
+          }}>
+            {u.username}
           </Typography>
-        ) : (
-          <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled' }}>No predictions</Typography>
-        )}
+          {u.is_deleted && (
+            <Box sx={{ px: 0.6, py: 0.1, borderRadius: 999, bgcolor: 'error.main', opacity: 0.85, flexShrink: 0 }}>
+              <Typography sx={{ fontSize: '0.5rem', fontWeight: 800, color: '#fff', letterSpacing: 0.5 }}>
+                DEACTIVATED
+              </Typography>
+            </Box>
+          )}
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, mt: 0.2 }}>
+          <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', fontFamily: 'monospace', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {u.user_id}
+          </Typography>
+          <IconButton size="small" onClick={copyId} sx={{ p: 0.15, color: 'text.disabled' }}>
+            <ContentCopy sx={{ fontSize: '0.65rem' }} />
+          </IconButton>
+        </Box>
       </Box>
 
-      {/* User id + copy */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, mt: 0.3 }}>
-        <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-          {u.user_id}
-        </Typography>
-        <IconButton size="small" onClick={copyId} sx={{ p: 0.2, color: 'text.disabled' }}>
-          <ContentCopy sx={{ fontSize: '0.7rem' }} />
-        </IconButton>
+      {/* Joined */}
+      <Box component="td" sx={{ ...uCellSx, fontSize: '0.72rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>
+        {timeAgo(u.created_at)}
+      </Box>
+
+      {/* Picks (correct/total) */}
+      <Box component="td" sx={{ ...uCellSx, textAlign: 'center', fontSize: '0.8rem', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', color: hasStats ? 'text.primary' : 'text.disabled' }}>
+        {hasStats ? `${u.correct}/${u.predictions}` : '—'}
+      </Box>
+
+      {/* Accuracy */}
+      <Box component="td" sx={{ ...uCellSx, textAlign: 'center', fontSize: '0.8rem', fontWeight: 700, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', color: hasStats ? 'text.primary' : 'text.disabled' }}>
+        {hasStats ? `${u.accuracyPct}%` : '—'}
       </Box>
 
       {/* Action */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.6 }}>
+      <Box component="td" sx={{ ...uCellSx, textAlign: 'right', whiteSpace: 'nowrap' }}>
         {u.is_deleted ? (
           <Button
             size="small" variant="text" disabled={busy} onClick={onToggleDeleted}
@@ -444,7 +454,7 @@ function UserRowItem({ u, busy, onToggleDeleted }: {
             Restore
           </Button>
         ) : confirmDeactivate ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
             <Button size="small" variant="text" disabled={busy}
               onClick={() => { onToggleDeleted(); setConfirmDeactivate(false) }}
               sx={{ textTransform: 'none', fontSize: '0.7rem', fontWeight: 800, color: 'error.main', minWidth: 0, py: 0.2 }}>
@@ -456,13 +466,9 @@ function UserRowItem({ u, busy, onToggleDeleted }: {
             </Button>
           </Box>
         ) : (
-          <Button
-            size="small" variant="text" disabled={busy} onClick={() => setConfirmDeactivate(true)}
-            startIcon={<PersonOffOutlined sx={{ fontSize: '0.9rem' }} />}
-            sx={{ textTransform: 'none', fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', minWidth: 0, py: 0.2 }}
-          >
-            Deactivate
-          </Button>
+          <IconButton size="small" disabled={busy} onClick={() => setConfirmDeactivate(true)} title="Deactivate" sx={{ color: 'text.disabled' }}>
+            <PersonOffOutlined sx={{ fontSize: '1rem' }} />
+          </IconButton>
         )}
       </Box>
     </Box>
@@ -554,22 +560,35 @@ function UserModal({ open, onClose, onChanged }: {
               />
             </Box>
 
-            <Box sx={{ maxHeight: 380, overflowY: 'auto' }}>
-              {visible.length === 0 ? (
-                <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
-                  <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>No matches.</Typography>
+            {visible.length === 0 ? (
+              <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
+                <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>No matches.</Typography>
+              </Box>
+            ) : (
+              <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+                <Box component="table" sx={{ width: '100%', minWidth: 460, borderCollapse: 'collapse' }}>
+                  <Box component="thead">
+                    <Box component="tr">
+                      <Box component="th" sx={uHeadSx}>User</Box>
+                      <Box component="th" sx={uHeadSx}>Joined</Box>
+                      <Box component="th" sx={{ ...uHeadSx, textAlign: 'center' }}>Picks</Box>
+                      <Box component="th" sx={{ ...uHeadSx, textAlign: 'center' }}>Acc</Box>
+                      <Box component="th" sx={{ ...uHeadSx, textAlign: 'right' }} />
+                    </Box>
+                  </Box>
+                  <Box component="tbody">
+                    {visible.map(u => (
+                      <UserRowItem
+                        key={u.user_id}
+                        u={u}
+                        busy={busyId === u.user_id}
+                        onToggleDeleted={() => toggleDeleted(u)}
+                      />
+                    ))}
+                  </Box>
                 </Box>
-              ) : visible.map((u, i) => (
-                <React.Fragment key={u.user_id}>
-                  {i > 0 && <Divider />}
-                  <UserRowItem
-                    u={u}
-                    busy={busyId === u.user_id}
-                    onToggleDeleted={() => toggleDeleted(u)}
-                  />
-                </React.Fragment>
-              ))}
-            </Box>
+              </Box>
+            )}
 
             {deletedCount > 0 && (
               <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
