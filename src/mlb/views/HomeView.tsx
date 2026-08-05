@@ -386,15 +386,11 @@ export function HomeView({
   const followedTeam = allTeams.find(t => t.id === followedTeamId)
   const bg       = TEAM_BG[followedTeamId ?? 0] ?? '#1a2035'
   const abbr     = followedTeam?.abbreviation ?? '?'
-  const nickname = followedTeam?.teamName     ?? (() => { const w = (followedTeam?.name ?? '').split(' '); return w[w.length - 1] })()
-  // Derive city from the full name by stripping the nickname — `name` is
-  // authoritative ("Colorado Rockies"), whereas `locationName` is the raw city
-  // ("Denver" for the Rockies), which reads wrong next to the nickname.
-  const city     = (() => {
-    const full = followedTeam?.name ?? ''
-    if (nickname && full.endsWith(nickname)) return full.slice(0, full.length - nickname.length).trim()
-    return followedTeam?.locationName ?? ''
-  })()
+  // Use the full team name directly. `locationName` is the raw municipality
+  // (e.g. "Denver" for the Rockies, "Bronx" for the Yankees, "Arlington" for
+  // the Rangers), which reads wrong next to the common name — `name` is the
+  // authoritative "City Nickname" for all 30 teams.
+  const teamLabel = followedTeam?.name ?? followedTeam?.teamName ?? '—'
 
   const standingLine = standing ? [
     `${standing.wins}–${standing.losses}`,
@@ -451,7 +447,7 @@ export function HomeView({
                         letterSpacing: '-0.5px', lineHeight: 1.25,
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                       }}>
-                        {city ? `${city} ${nickname}` : nickname}
+                        {teamLabel}
                       </Typography>
                       {standingLine && (
                         <Typography sx={{ fontSize: { xs: '0.62rem', sm: '0.74rem' }, color: 'text.secondary', mt: 0.35, lineHeight: 1.3 }}>
