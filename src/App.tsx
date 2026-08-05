@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from 
 import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Tooltip, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, List, ListItemButton, Divider } from '@mui/material'
 import { Brightness4, Brightness7, AccountCircle, Search, Close } from '@mui/icons-material'
 import { useSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
-import type { PlayerBridgeItem, TeamBridgeItem, ToolbarSuggestion, RecentSearchItem } from './mlb/state/SearchBridgeContext'
+import type { PlayerBridgeItem, TeamBridgeItem, ToolbarSuggestion, RecentSearchItem, SearchResultRow } from './mlb/state/SearchBridgeContext'
 import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT, DESKTOP_ZOOM } from './mlb/constants'
 import { APP_VERSION, CHANGELOG } from './version'
 import { useTheme, SKIN_OPTIONS } from './ThemeContext'
@@ -162,6 +162,33 @@ function ToolbarSuggestionsDropdown({ suggestions, onSelect, recents, onSelectRe
   )
 }
 
+// Generic toolbar search result — one row of a section-agnostic dropdown (currently the
+// WPBL section). Renders purely from primitive data on the row (image URL + colors), so
+// the always-loaded toolbar never has to import a section's lazy chunk to draw its avatar.
+function ToolbarResultRow({ row, onSelect }: { row: SearchResultRow; onSelect: (r: SearchResultRow) => void }) {
+  const a = row.avatar
+  const contain = a.fit === 'contain'
+  return (
+    <ListItemButton onClick={() => onSelect(row)} sx={{ gap: 1.25, py: 0.75 }}>
+      <Box sx={{
+        width: 36, height: 36, flexShrink: 0,
+        borderRadius: a.circle ? '50%' : 1.5,
+        bgcolor: a.bg ?? 'grey.700',
+        border: a.ring ? `2px solid ${a.ring}` : undefined,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+      }}>
+        {a.imageUrl
+          ? <Box component="img" src={a.imageUrl} alt="" loading="lazy" sx={{ width: contain ? '74%' : '100%', height: contain ? '74%' : '100%', objectFit: a.fit ?? 'cover' }} />
+          : <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, color: '#fff' }}>{a.fallbackText}</Typography>}
+      </Box>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography sx={{ fontWeight: 600, fontSize: '0.85rem', lineHeight: 1.2 }}>{row.title}</Typography>
+        {row.subtitle && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{row.subtitle}</Typography>}
+      </Box>
+    </ListItemButton>
+  )
+}
+
 // ─── Changelog bullet — plain text, used for both the brief and full-detail lists ──
 
 function ChangelogBullet({ text }: { text: string }) {
@@ -204,12 +231,15 @@ function AppInner() {
   const [toolbarDropdownOpen, setToolbarDropdownOpen] = useState(false)
   const [toolbarInputFocused, setToolbarInputFocused] = useState(false)
 
+  // Results present from either the MLB player/team fields or the generic WPBL rows.
+  const hasSearchResults =
+    bridge.playerResults.length > 0 || bridge.teamResults.length > 0 || bridge.resultRows.length > 0
+
   useEffect(() => {
     setToolbarDropdownOpen(
-      bridge.query.length >= 2 &&
-      (bridge.playerResults.length > 0 || bridge.teamResults.length > 0 || bridge.searching)
+      bridge.query.length >= 2 && (hasSearchResults || bridge.searching)
     )
-  }, [bridge.query, bridge.playerResults, bridge.teamResults, bridge.searching])
+  }, [bridge.query, hasSearchResults, bridge.searching])
 
   const handleToolbarSelectPlayer = (p: PlayerBridgeItem) => {
     bridge.handleSelectPlayer?.(p)
@@ -219,6 +249,14 @@ function AppInner() {
 
   const handleToolbarSelectTeam = (t: TeamBridgeItem) => {
     bridge.handleSelectTeam?.(t)
+    setMobileSearchExpanded(false)
+    setToolbarInputFocused(false)
+  }
+
+  // Generic WPBL result row — the row carries its own onSelect (routes through WpblApp's
+  // navigation so the back-stack stays correct); the toolbar only tidies its own UI state.
+  const handleToolbarSelectRow = (row: SearchResultRow) => {
+    row.onSelect()
     setMobileSearchExpanded(false)
     setToolbarInputFocused(false)
   }
@@ -505,13 +543,20 @@ function AppInner() {
                 )}
 
                 {/* Search results dropdown */}
-                {toolbarDropdownOpen && bridge.query.length >= 2 && (bridge.playerResults.length > 0 || bridge.teamResults.length > 0) && (
+                {toolbarDropdownOpen && bridge.query.length >= 2 && hasSearchResults && (
                   <Paper elevation={8} sx={{
                     position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
                     zIndex: 1500, borderRadius: 2.5, overflow: 'hidden', minWidth: 240,
                   }}>
                     <List dense disablePadding>
-                      {bridge.playerResults.slice(0, 6).map((p, i) => {
+                      {/* WPBL owns search → render its self-describing generic rows. */}
+                      {bridge.source === 'wpbl' && bridge.resultRows.map((row, i) => (
+                        <React.Fragment key={row.key}>
+                          {i > 0 && <Divider />}
+                          <ToolbarResultRow row={row} onSelect={handleToolbarSelectRow} />
+                        </React.Fragment>
+                      ))}
+                      {bridge.source !== 'wpbl' && bridge.playerResults.slice(0, 6).map((p, i) => {
                         const pos = p.primaryPosition?.abbreviation ?? p.primaryPosition?.name ?? ''
                         const teamAbbr = p.currentTeam?.id != null ? TEAM_ABBR[p.currentTeam.id as number] : undefined
                         const sub = p.active === false

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
-import { fetchWpblTeams, fetchWpblSchedule, computeStandings } from './api'
-import { WPBL_ACCENT, wpblAccent, wpblFullName, formatGameTime } from './constants'
+import { fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings } from './api'
+import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
+import { wpblPortrait } from './portraits'
 import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER } from './ui'
+import { useSearchBridge, updateSearchBridge, setSearchQuery } from '../mlb/state/SearchBridgeContext'
+import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import GameDetailModal from './GameDetail'
 import PlayerDetailModal from './PlayerDetail'
@@ -217,7 +220,11 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
 
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [games, setGames] = useState<WpblGame[]>([])
+  const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Toolbar search bridge — WpblApp owns the shared header search while /wpbl is mounted.
+  const bridge = useSearchBridge()
 
   // ── History-driven navigation ────────────────────────────────────────────────
   const apply = useCallback((s: WpblSnap) => {
@@ -240,6 +247,70 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
   // Closing a modal (X or Escape) walks history back, so it and the browser Back button are
   // the same action and never fall out of sync.
   const closeTop   = useCallback(() => window.history.back(), [])
+
+  // ── Toolbar search ─────────────────────────────────────────────────────────────
+  // Register as the search owner for the shared header while /wpbl is mounted, and hand
+  // it back (clearing any typed query + stale rows) on unmount so switching to /mlb starts
+  // clean. The MLB section registers itself the same way from MlbStats.
+  useEffect(() => {
+    updateSearchBridge({ isRegistered: true, source: 'wpbl' })
+    return () => {
+      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], searching: false })
+      setSearchQuery('')
+    }
+  }, [])
+
+  // Full roster of every player, loaded once — the pool the header search filters over.
+  useEffect(() => { fetchWpblAllPlayers().then(setPlayers).catch(() => {}) }, [])
+
+  const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+
+  // Filter players + teams on the typed query and push self-describing rows up to the
+  // toolbar. The rows carry primitive avatar data (portrait/logo URLs + team colors) so the
+  // always-loaded toolbar renders them without importing this lazy chunk; each onSelect
+  // routes back through openPlayer/selectTeam, keeping the section's back-stack intact.
+  useEffect(() => {
+    const q = bridge.query.trim().toLowerCase()
+    if (q.length < 2) { updateSearchBridge({ resultRows: [] }); return }
+
+    const playerRows = players
+      .filter(p => p.name.toLowerCase().includes(q))
+      .slice(0, 6)
+      .map<SearchResultRow>(p => {
+        const team = p.team_id ? teamById.get(p.team_id) : undefined
+        const initials = p.name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
+        return {
+          key: `player-${p.id}`,
+          title: p.name,
+          subtitle: [p.position, team?.abbr].filter(Boolean).join(' · ') || undefined,
+          avatar: {
+            imageUrl: wpblPortrait(p.name) ?? undefined,
+            fallbackText: initials,
+            bg: wpblColor(p.team_id), ring: wpblSecondary(p.team_id),
+            fit: 'cover', circle: true,
+          },
+          onSelect: () => { setSearchQuery(''); openPlayer(p) },
+        }
+      })
+
+    const teamRows = teams
+      .filter(t => `${t.city} ${t.name} ${t.abbr}`.toLowerCase().includes(q))
+      .slice(0, 4)
+      .map<SearchResultRow>(t => ({
+        key: `team-${t.id}`,
+        title: wpblFullName(t),
+        subtitle: t.abbr,
+        avatar: {
+          imageUrl: wpblLogo(t.id) ?? undefined,
+          fallbackText: t.abbr,
+          bg: wpblColor(t.id), ring: wpblSecondary(t.id),
+          fit: wpblLogoFill(t.id) ? 'cover' : 'contain', circle: true,
+        },
+        onSelect: () => { setSearchQuery(''); selectTeam(t) },
+      }))
+
+    updateSearchBridge({ resultRows: [...playerRows, ...teamRows] })
+  }, [bridge.query, players, teams, teamById, openPlayer, selectTeam])
 
   // Stamp the entry App created for /wpbl with the initial snapshot the first time we land,
   // so the first Back leaves the section and a refresh restores the view. On a Back/remount
