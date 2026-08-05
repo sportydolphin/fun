@@ -32,6 +32,7 @@ const META: Record<string, Meta> = {
   first_rbi:     { label: 'First RBI',           icon: '💪', featured: false, order: 9 },
   first_walk:    { label: 'First walk',          icon: '🚶', featured: false, order: 10 },
   first_hbp:     { label: 'First hit by pitch',  icon: '🤕', featured: false, order: 11 },
+  first_balk:    { label: 'First balk',          icon: '🚫', featured: false, order: 12 },
 }
 
 const norm = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim()
@@ -138,6 +139,7 @@ export function computeFirsts(
       }
     }
     if (et === 'strikeout' && pitName) rec('first_so', pit, pitName, pit?.team_id ?? null, d, nar)
+    if (et === 'balk' && pitName) rec('first_balk', pit, pitName, pit?.team_id ?? null, d, nar)
     if (et === 'stolen_base') {
       // The runner is named in the narrative ("Maggie Fox stole second"), not batter_id.
       const runnerName = (p.narrative.match(/^(.+?)\s+stole\b/i)?.[1] ?? '').trim()
