@@ -11,6 +11,7 @@
 import { buildPicksReady } from '../../../shared/notifications'
 import type { NotificationPayload } from '../../../shared/notifications'
 import type { NotificationContext, NotificationSource } from '../../lib/notifications'
+import { isSubscribed } from '../../lib/push'
 
 function todayStr(): string {
   const d = new Date()
@@ -21,6 +22,13 @@ export const picksReadySource: NotificationSource = {
   id: 'picks-ready',
 
   async evaluate(ctx: NotificationContext): Promise<NotificationPayload[]> {
+    // Opt-in, exactly like the Web Push reminder it mirrors: only surface the in-site
+    // pick nudge once the user has turned on daily pick reminders (i.e. subscribed to
+    // push). Someone who never opted in — a WPBL-focused visitor, or anyone signed out —
+    // doesn't get the daily MLB prediction notification. Checked first so it also
+    // short-circuits the schedule/picks fetch below.
+    if (!(await isSubscribed())) return []
+
     // Imported dynamically: the bell lives in the always-loaded toolbar, and a
     // static import here would drag the lazy MLB bundle into the initial chunk.
     const { fetchTodayGames, loadLocalPreds, loadPredsFromSb } = await import('../views/Predictor')
