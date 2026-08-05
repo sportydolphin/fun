@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking } from './api'
@@ -522,6 +522,7 @@ export default function GameDetailModal({ game: seed, teams, onClose, onOpenPlay
   const home = byId.get(game.home_team_id)
   const away = byId.get(game.away_team_id)
 
+  const gcUid = useRef(Math.random().toString(36).slice(2)).current
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('box')
   const [boxTeam, setBoxTeam] = useState<'away' | 'home'>('away')
@@ -554,7 +555,7 @@ export default function GameDetailModal({ game: seed, teams, onClose, onOpenPlay
   useEffect(() => {
     if (game.status !== 'live') return
     const poll = setInterval(() => reload(false), 5000)
-    const ch = supabase.channel(`wpbl-gc-${seed.id}`)
+    const ch = supabase.channel(`wpbl-gc-${seed.id}-${gcUid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wpbl_game_plays', filter: `game_id=eq.${seed.id}` }, () => reload(false))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wpbl_batting_lines', filter: `game_id=eq.${seed.id}` }, () => reload(false))
       .subscribe()

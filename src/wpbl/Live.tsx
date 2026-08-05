@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { fetchWpblGame } from './api'
@@ -22,13 +22,17 @@ export const shortName = (name: string): string => {
 // fresh. Seeded by the passed-in game; returns the freshest copy.
 export function useLiveGame(seed: WpblGame): WpblGame {
   const [game, setGame] = useState(seed)
+  // Unique per hook instance: the same game can be observed by two mounted hooks at once
+  // (the home LiveHero and the Game Center opened over it). A shared channel topic would
+  // make the second `.on(...).subscribe()` throw ("callbacks after subscribe()").
+  const uid = useRef(Math.random().toString(36).slice(2)).current
   useEffect(() => { setGame(seed) }, [seed.id, seed.status, seed.updated_at])
   useEffect(() => {
     if (seed.status !== 'live') return
     let cancelled = false
     const refresh = () => fetchWpblGame(seed.id).then(g => { if (!cancelled && g) setGame(g) })
     const poll = setInterval(refresh, 5000)
-    const ch = supabase.channel(`wpbl-game-${seed.id}`)
+    const ch = supabase.channel(`wpbl-game-${seed.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wpbl_games', filter: `id=eq.${seed.id}` }, refresh)
       .subscribe()
     return () => { cancelled = true; clearInterval(poll); supabase.removeChannel(ch) }
