@@ -104,7 +104,7 @@ export default function WpblTrackingView({ onOpenPlayer }: { teams?: WpblTeam[];
     const lh = board.longestHits[0]
     const tiles: { label: string; value: string; unit: string; name: string }[] = []
     if (fp) tiles.push({ label: 'Fastest pitch', value: fp.velo.toFixed(1), unit: 'mph', name: fp.name })
-    if (hh) tiles.push({ label: 'Hardest hit', value: hh.exit.toFixed(1), unit: 'mph EV', name: hh.name })
+    if (hh && hh.exit != null) tiles.push({ label: 'Hardest hit', value: hh.exit.toFixed(1), unit: 'mph EV', name: hh.name })
     if (lh && lh.distance != null) tiles.push({ label: 'Longest hit', value: String(Math.round(lh.distance)), unit: 'ft', name: lh.name })
     return tiles
   }, [board])
@@ -160,18 +160,21 @@ export default function WpblTrackingView({ onOpenPlayer }: { teams?: WpblTeam[];
               <SectionCard title="Hardest-hit balls" subtitle="Ranked by exit velocity">
                 {board.hardestHits.slice(0, 10).map((b: BattedBall, i) => (
                   <LeaderRow key={i} rank={i + 1} player={b.player} name={b.name} teamId={b.teamId}
-                    value={b.exit.toFixed(1)} unit="mph" accent={accent} onOpen={onOpenPlayer}
+                    value={(b.exit ?? 0).toFixed(1)} unit="mph" accent={accent} onOpen={onOpenPlayer}
                     sub={[b.hitType, b.distance != null ? `${Math.round(b.distance)} ft` : null].filter(Boolean).join(' · ') || undefined} />
                 ))}
               </SectionCard>
 
               {board.longestHits.length > 0 && (
-                <SectionCard title="Longest hits" subtitle="Ranked by distance">
+                <SectionCard title="Longest tracked hits" subtitle="By radar-measured distance">
                   {board.longestHits.slice(0, 10).map((b: BattedBall, i) => (
                     <LeaderRow key={i} rank={i + 1} player={b.player} name={b.name} teamId={b.teamId}
                       value={String(Math.round(b.distance!))} unit="ft" accent={accent} onOpen={onOpenPlayer}
-                      sub={[b.hitType, `${b.exit.toFixed(1)} mph EV`].filter(Boolean).join(' · ') || undefined} />
+                      sub={[b.hitType, b.exit != null ? `${b.exit.toFixed(1)} mph EV` : null].filter(Boolean).join(' · ') || undefined} />
                   ))}
+                  <Typography sx={{ mt: 1, px: 0.5, fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.4 }}>
+                    Distances come from in-park radar, which doesn't read every ball. Some hits, including a few home runs, won't appear here.
+                  </Typography>
                 </SectionCard>
               )}
             </>

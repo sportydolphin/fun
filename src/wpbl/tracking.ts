@@ -43,7 +43,7 @@ export function prettyType(t: string | null): string | null {
 export interface VeloLeader { player: WpblPlayer | null; name: string; teamId: string | null; maxVelo: number; avgVelo: number; count: number }
 export interface SpinLeader { player: WpblPlayer | null; name: string; teamId: string | null; avgSpin: number; maxSpin: number; count: number }
 export interface PitchHit  { player: WpblPlayer | null; name: string; teamId: string | null; velo: number; pitchType: string | null }
-export interface BattedBall { player: WpblPlayer | null; name: string; teamId: string | null; exit: number; distance: number | null; launch: number | null; hitType: string | null }
+export interface BattedBall { player: WpblPlayer | null; name: string; teamId: string | null; exit: number | null; distance: number | null; launch: number | null; hitType: string | null }
 
 export interface TrackingBoard {
   pitchCount: number
@@ -146,8 +146,10 @@ export function aggregateTracking(rows: WpblTrackRow[], players: WpblPlayer[], p
       return { player: p, name: p?.name ?? (a.row.pitcher_name ? fmtFeedName(a.row.pitcher_name) : 'Unknown'), teamId: p?.team_id ?? null, velo: a.row.release_speed!, pitchType: prettyType(a.row.pitch_type) }
     })
 
-  // ── Batted balls (exit velocity / distance), attributed to the batter ──
-  const hitRows = rows.filter(r => r.exit_speed != null && r.exit_speed > 0)
+  // ── Batted balls, attributed to the batter. Exit velocity and distance are independent
+  //    feed fields — a tracked ball may carry one without the other — so the two boards are
+  //    gated separately: hardest-hit needs an exit-velo reading, longest needs a distance.
+  //    (A HR with a distance but no exit velo must still rank on the longest board.) ──
   const toBall = (r: WpblTrackRow): BattedBall => {
     let player: WpblPlayer | null = null
     if (r.batter_id && byApi.has(r.batter_id)) player = byApi.get(r.batter_id)!
@@ -156,12 +158,17 @@ export function aggregateTracking(rows: WpblTrackRow[], players: WpblPlayer[], p
       player,
       name: player?.name ?? (r.batter_name ? fmtFeedName(r.batter_name) : 'Unknown'),
       teamId: player?.team_id ?? null,
-      exit: r.exit_speed!, distance: r.distance, launch: r.launch_angle, hitType: prettyType(r.hit_type),
+      exit: r.exit_speed, distance: r.distance, launch: r.launch_angle, hitType: prettyType(r.hit_type),
     }
   }
-  const balls = hitRows.map(toBall)
-  const hardestHits = [...balls].sort((a, b) => b.exit - a.exit).slice(0, 12)
-  const longestHits = [...balls].filter(b => b.distance != null).sort((a, b) => (b.distance ?? 0) - (a.distance ?? 0)).slice(0, 12)
+  const hardestHits = rows
+    .filter(r => r.exit_speed != null && r.exit_speed > 0)
+    .map(toBall).sort((a, b) => (b.exit ?? 0) - (a.exit ?? 0)).slice(0, 12)
+  const longestHits = rows
+    .filter(r => r.distance != null && r.distance > 0)
+    .map(toBall).sort((a, b) => (b.distance ?? 0) - (a.distance ?? 0)).slice(0, 12)
+  // A batted ball is any row carrying an exit-velo or a distance reading.
+  const hitCount = rows.filter(r => (r.exit_speed != null && r.exit_speed > 0) || (r.distance != null && r.distance > 0)).length
 
-  return { pitchCount: pitchRows.length, hitCount: hitRows.length, veloLeaders, spinLeaders, fastestPitches, hardestHits, longestHits }
+  return { pitchCount: pitchRows.length, hitCount, veloLeaders, spinLeaders, fastestPitches, hardestHits, longestHits }
 }
