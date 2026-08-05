@@ -4,7 +4,8 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>sportydolphin</title>
+    <title>sportydolphin.fun — MLB & WPBL baseball stats</title>
+    <meta name="description" content="sportydolphin.fun is a free baseball stats site for Major League Baseball and the Women's Pro Baseball League. Live scores, player and team stats, standings, and a predictions game. No sign-in required to browse." />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#0f172a" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
@@ -14,7 +15,27 @@
     <meta name="apple-mobile-web-app-title" content="MLB Picks" />
   </head>
   <body>
-    <div id="app">Loading...</div>
+    <!-- Static fallback shown before the app's JavaScript loads. It gives crawlers
+         (and users on a slow connection) a real, public description of the site and
+         its name, with no login required — this is what Google's OAuth homepage
+         verification reads. React replaces this content once it mounts. -->
+    <div id="app">
+      <main style="max-width:640px;margin:72px auto;padding:0 24px;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;">
+        <h1 style="font-size:1.9rem;font-weight:800;margin:0 0 12px;color:#111;">sportydolphin.fun</h1>
+        <p style="font-size:1.05rem;line-height:1.6;color:#374151;margin:0 0 16px;">
+          A free baseball stats site for Major League Baseball and the Women's Pro Baseball
+          League. Browse live scores, player and team stats, standings, and a predictions
+          game. No sign-in is required to look around; signing in with Google is optional and
+          only used to save your predictions and preferences.
+        </p>
+        <p style="font-size:0.9rem;color:#6b7280;margin:0 0 16px;">Loading the app…</p>
+        <p style="font-size:0.9rem;margin:0;">
+          <a href="/privacy" style="color:#2563eb;text-decoration:none;">Privacy Policy</a>
+          &nbsp;·&nbsp;
+          <a href="/terms" style="color:#2563eb;text-decoration:none;">Terms of Service</a>
+        </p>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
