@@ -2,9 +2,10 @@
 // (512×512, smart-cropped) — mirroring how team logos are bundled in ./logos (see
 // constants.ts). Vite emits each as a hashed asset URL, fetched on demand.
 //
-// Files are named by a normalized slug of the player's name; we resolve a player to
-// their portrait by slugifying their DB `name` the same way. A tiny alias table
-// covers the one roster name whose DB spelling differs from the source photo.
+// Files are named by a normalized slug of the player's DB `name`; we resolve a player to
+// their portrait by slugifying that name the same way, so no per-name mapping is needed.
+// The alias table is a fallback for any future roster name whose DB spelling can't be
+// slugified to its file name (currently empty — every portrait is named by its DB slug).
 
 // eager: true resolves the URLs at build; import.meta.glob keeps this list in sync with
 // whatever files exist in the folder (no hand-maintained import list).
@@ -20,10 +21,9 @@ for (const [p, url] of Object.entries(modules)) {
   bySlug[slug] = url
 }
 
-// DB name → file slug overrides (spelling differences the normalizer can't bridge).
-const ALIASES: Record<string, string> = {
-  'estheoa-segovia': 'esthela-segovia', // DB carries the source site's typo
-}
+// DB slug → file slug overrides, for any future case where a player's DB spelling can't
+// be slugified to their bundled file name. Empty today — all portraits are named by DB slug.
+const ALIASES: Record<string, string> = {}
 
 // Strip accents, lowercase, collapse non-alphanumerics to single hyphens.
 export function slugifyName(name: string): string {
