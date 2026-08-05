@@ -170,9 +170,8 @@ function StandingsCard({ teams, games, onOpenTeam }: {
   teams: WpblTeam[]; games: WpblGame[]; onOpenTeam: (t: WpblTeam) => void
 }) {
   const rows = useMemo(() => computeStandings(teams, games), [teams, games])
-  const played = games.some(g => g.status === 'final')
   return (
-    <SectionCard title="Standings" subtitle={played ? 'Inaugural season' : 'Season opens August 1'}>
+    <SectionCard title="Standings">
       <Box sx={{ display: 'flex', px: 0.5, pb: 0.5, fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled' }}>
         <Box sx={{ flex: 1 }}>Team</Box>
         <Box sx={{ width: 32, textAlign: 'right' }}>W</Box>
@@ -285,7 +284,6 @@ function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, 
   return (
     <SectionCard
       title={title}
-      subtitle="Season leaders"
       action={anyRows ? (
         <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
           View all
@@ -348,7 +346,6 @@ function HallOfFirstsCard({ firsts, teamById, loading, onOpenPlayer, onViewAll }
   return (
     <SectionCard
       title="Hall of Firsts"
-      subtitle="League milestones"
       action={firsts.length > 0 ? (
         <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
           View all

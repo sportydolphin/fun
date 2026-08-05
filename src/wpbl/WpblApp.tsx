@@ -11,19 +11,21 @@ import GameDetailModal from './GameDetail'
 import PlayerDetailModal from './PlayerDetail'
 import WpblHome from './Home'
 import WpblStatsView from './StatsView'
+import WpblTrackingView from './TrackingView'
 import TeamPage from './TeamPage'
 
 // WPBL section root. Reads the official-feed mirror from Supabase (games, box scores,
 // play-by-play, live state) and renders it; everything shows a friendly empty state until
 // the feed has been ingested. Self-contained (no MLB/StatsAPI coupling).
 
-type WpblView = 'home' | 'schedule' | 'standings' | 'stats' | 'teams'
+type WpblView = 'home' | 'schedule' | 'standings' | 'stats' | 'tracking' | 'teams'
 
 const NAV: { key: WpblView; label: string }[] = [
   { key: 'home',      label: 'Home' },
   { key: 'schedule',  label: 'Schedule' },
   { key: 'standings', label: 'Standings' },
   { key: 'stats',     label: 'Stats' },
+  { key: 'tracking',  label: 'Tracking' },
   { key: 'teams',     label: 'Teams' },
 ]
 
@@ -99,36 +101,65 @@ function ScheduleView({ teams, games, onOpenGame }: {
   )
 }
 
-function StandingsView({ teams, games }: { teams: WpblTeam[]; games: WpblGame[] }) {
+function StandingsView({ teams, games, onOpenTeam }: {
+  teams: WpblTeam[]; games: WpblGame[]; onOpenTeam?: (t: WpblTeam) => void
+}) {
   const rows = useMemo(() => computeStandings(teams, games), [teams, games])
   if (teams.length === 0) {
     return <EmptyState title="No teams yet" hint="Standings appear once teams and results are added." />
   }
   const played = games.some(g => g.status === 'final')
+  const clickable = !!onOpenTeam
+  // .667 (drop the leading zero); em dash before a team has played.
+  const fmtPct = (pct: number, gp: number) => gp === 0 ? '—' : pct.toFixed(3).replace(/^0\./, '.')
+  const th = { py: 0.85, px: 0.4, fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 0.4, color: 'text.secondary', textAlign: 'right' as const, whiteSpace: 'nowrap' as const }
+  const td = { py: 1, px: 0.4, fontSize: '0.85rem', textAlign: 'right' as const, fontVariantNumeric: 'tabular-nums' as const, whiteSpace: 'nowrap' as const }
+  const NUM = 34, WIDE = 46
+
   return (
     <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden' }}>
-      <Box sx={{ display: 'flex', px: 1.5, py: 0.75, bgcolor: 'action.hover', fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary' }}>
-        <Box sx={{ flex: 1 }}>Team</Box>
-        <Box sx={{ width: 40, textAlign: 'right' }}>W</Box>
-        <Box sx={{ width: 40, textAlign: 'right' }}>L</Box>
-        <Box sx={{ width: 56, textAlign: 'right' }}>Diff</Box>
-      </Box>
-      {rows.map(r => {
-        const diff = r.runsFor - r.runsAgainst
-        return (
-          <Box key={r.team.id} sx={{ display: 'flex', alignItems: 'center', px: 1.5, py: 1, borderTop: '1px solid', borderColor: 'divider', fontVariantNumeric: 'tabular-nums' }}>
-            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <TeamBadge team={r.team} size={26} />
-              <Typography sx={{ fontSize: '0.88rem', fontWeight: 600 }}>{wpblFullName(r.team)}</Typography>
-            </Box>
-            <Box sx={{ width: 40, textAlign: 'right', fontWeight: 700 }}>{r.wins}</Box>
-            <Box sx={{ width: 40, textAlign: 'right', fontWeight: 700 }}>{r.losses}</Box>
-            <Box sx={{ width: 56, textAlign: 'right', color: diff > 0 ? 'success.main' : diff < 0 ? 'error.main' : 'text.secondary' }}>
-              {diff > 0 ? `+${diff}` : diff}
-            </Box>
+      <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+        <Box component="thead">
+          <Box component="tr" sx={{ bgcolor: 'action.hover' }}>
+            <Box component="th" sx={{ ...th, textAlign: 'left', pl: 1.25 }}>Team</Box>
+            <Box component="th" sx={{ ...th, width: NUM }}>W</Box>
+            <Box component="th" sx={{ ...th, width: NUM }}>L</Box>
+            <Box component="th" sx={{ ...th, width: WIDE }}>PCT</Box>
+            <Box component="th" sx={{ ...th, width: NUM }}>GB</Box>
+            <Box component="th" sx={{ ...th, width: WIDE, display: { xs: 'none', sm: 'table-cell' } }}>L10</Box>
+            <Box component="th" sx={{ ...th, width: NUM + 8, pr: 1.25 }}>STRK</Box>
           </Box>
-        )
-      })}
+        </Box>
+        <Box component="tbody">
+          {rows.map(r => {
+            const gp = r.wins + r.losses
+            const l10 = r.lastTen
+            const l10Color = l10.wins > l10.losses ? '#22c55e' : l10.wins < l10.losses ? '#ef4444' : 'text.secondary'
+            return (
+              <Box component="tr" key={r.team.id}
+                onClick={clickable ? () => onOpenTeam!(r.team) : undefined}
+                sx={{ borderTop: '1px solid', borderColor: 'divider', cursor: clickable ? 'pointer' : 'default', '&:hover': clickable ? { bgcolor: 'action.hover' } : undefined }}>
+                <Box component="td" sx={{ ...td, textAlign: 'left', pl: 1.25 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                    <TeamBadge team={r.team} size={24} />
+                    <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{wpblFullName(r.team)}</Typography>
+                  </Box>
+                </Box>
+                <Box component="td" sx={{ ...td, fontWeight: 700 }}>{r.wins}</Box>
+                <Box component="td" sx={{ ...td, fontWeight: 700 }}>{r.losses}</Box>
+                <Box component="td" sx={td}>{fmtPct(r.pct, gp)}</Box>
+                <Box component="td" sx={{ ...td, color: 'text.secondary' }}>{r.gamesBack === 0 ? '—' : r.gamesBack.toFixed(1)}</Box>
+                <Box component="td" sx={{ ...td, display: { xs: 'none', sm: 'table-cell' }, color: gp === 0 ? 'text.disabled' : l10Color, fontWeight: 600 }}>
+                  {gp === 0 ? '—' : `${l10.wins}-${l10.losses}`}
+                </Box>
+                <Box component="td" sx={{ ...td, pr: 1.25, fontWeight: 700, color: r.streak ? (r.streak.type === 'W' ? '#22c55e' : '#ef4444') : 'text.disabled' }}>
+                  {r.streak ? `${r.streak.type}${r.streak.count}` : '—'}
+                </Box>
+              </Box>
+            )
+          })}
+        </Box>
+      </Box>
       {!played && (
         <Box sx={{ px: 1.5, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
           <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No games played yet. Records update as results are added.</Typography>
@@ -381,8 +412,9 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
           <>
             {view === 'home'      && <WpblHome teams={teams} games={games} liveGame={liveGame} isAdmin={isAdmin} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} onViewStats={openStats} />}
             {view === 'schedule'  && <ScheduleView teams={teams} games={games} onOpenGame={openGame} />}
-            {view === 'standings' && <StandingsView teams={teams} games={games} />}
+            {view === 'standings' && <StandingsView teams={teams} games={games} onOpenTeam={selectTeam} />}
             {view === 'stats'     && <WpblStatsView teams={teams} games={games} initialGroup={statsGroup} onOpenPlayer={openPlayer} />}
+            {view === 'tracking'  && <WpblTrackingView teams={teams} onOpenPlayer={openPlayer} />}
             {view === 'teams'     && <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeam} onOpenGame={openGame} onOpenPlayer={openPlayer} />}
           </>
         )}

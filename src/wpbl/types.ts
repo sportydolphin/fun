@@ -235,6 +235,26 @@ export interface WpblPitchTracking {
   created_at: string
 }
 
+// Slim projection of wpbl_pitch_tracking for the season-wide velocity / tracking board.
+// Pulls the top-level numeric columns plus the raw-payload fields we need (pitcher/batter
+// identity, pitch type, batted-ball metrics), so we never ship the whole `raw` blob for
+// every pitch. `kind` is 'pitch' (not put in play) or 'hit' (batted ball, carries exit data).
+export interface WpblTrackRow {
+  game_id: string
+  kind: string | null
+  release_speed: number | null      // pitch velocity, mph
+  spin_rate_rpm: number | null
+  pitch_type: string | null         // feed label (Fastball / Slider / …), 'Undefined' when unknown
+  pitcher_id: string | null         // feed player id (= our wpbl_players.api_id)
+  pitcher_name: string | null       // "Last, First"; null on the unnamed-starter rows
+  batter_id: string | null
+  batter_name: string | null
+  exit_speed: number | null         // batted-ball exit velocity, mph
+  launch_angle: number | null       // degrees
+  distance: number | null           // feet
+  hit_type: string | null           // GroundBall / FlyBall / LineDrive / … or 'Undefined'
+}
+
 // One ingest run's health summary (mirrors wpbl_ingest_runs). Written by the wpbl-ingest
 // Edge Function at the end of every run; read by the admin freshness indicator.
 export interface WpblIngestRun {
@@ -257,6 +277,10 @@ export interface WpblStandingRow {
   losses: number
   runsFor: number
   runsAgainst: number
+  pct: number                                          // win% 0..1 (0 with no games)
+  gamesBack: number                                    // games behind the leader (0 = leading)
+  streak: { type: 'W' | 'L'; count: number } | null    // current streak, null before any game
+  lastTen: { wins: number; losses: number }            // record over the last up-to-10 games
 }
 
 // Insert shapes for the box-score entry form (the DB fills id/created_at; game_id is
