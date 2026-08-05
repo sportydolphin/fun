@@ -5,6 +5,8 @@ import { aggregateTracking } from './tracking'
 import type { TrackingBoard, VeloLeader, SpinLeader, PitchHit, BattedBall } from './tracking'
 import { WPBL_ACCENT } from './constants'
 import { SegNav, SectionCard, PlayerPortrait, TeamBadge, CARD_BORDER } from './ui'
+import { useUnits } from '../UnitsContext'
+import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import type { WpblTeam, WpblPlayer } from './types'
 
 // The section's TrackMan showcase: season-wide velocity, spin, and batted-ball leaderboards
@@ -97,17 +99,18 @@ export default function WpblTrackingView({ onOpenPlayer }: { teams?: WpblTeam[];
   }, [])
 
   const accent = WPBL_ACCENT
+  const { units } = useUnits()
   const bests = useMemo(() => {
     if (!board) return []
     const fp = board.fastestPitches[0]
     const hh = board.hardestHits[0]
     const lh = board.longestHits[0]
     const tiles: { label: string; value: string; unit: string; name: string }[] = []
-    if (fp) tiles.push({ label: 'Fastest pitch', value: fp.velo.toFixed(1), unit: 'mph', name: fp.name })
-    if (hh && hh.exit != null) tiles.push({ label: 'Hardest hit', value: hh.exit.toFixed(1), unit: 'mph EV', name: hh.name })
-    if (lh && lh.distance != null) tiles.push({ label: 'Longest hit', value: String(Math.round(lh.distance)), unit: 'ft', name: lh.name })
+    if (fp) tiles.push({ label: 'Fastest pitch', value: fmtSpeed(fp.velo, units), unit: speedUnit(units), name: fp.name })
+    if (hh && hh.exit != null) tiles.push({ label: 'Hardest hit', value: fmtSpeed(hh.exit, units), unit: `${speedUnit(units)} EV`, name: hh.name })
+    if (lh && lh.distance != null) tiles.push({ label: 'Longest hit', value: fmtDistance(lh.distance, units), unit: distanceUnit(units), name: lh.name })
     return tiles
-  }, [board])
+  }, [board, units])
 
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
@@ -138,7 +141,7 @@ export default function WpblTrackingView({ onOpenPlayer }: { teams?: WpblTeam[];
               ? <EmptyState title="No velocity data yet" />
               : board.veloLeaders.slice(0, 10).map((l: VeloLeader, i) => (
                   <LeaderRow key={l.player?.id ?? l.name} rank={i + 1} player={l.player} name={l.name} teamId={l.teamId}
-                    value={l.maxVelo.toFixed(1)} unit="mph" sub={`avg ${l.avgVelo.toFixed(1)} · ${l.count} pitches`} accent={accent} onOpen={onOpenPlayer} />
+                    value={fmtSpeed(l.maxVelo, units)} unit={speedUnit(units)} sub={`avg ${fmtSpeed(l.avgVelo, units)} · ${l.count} pitches`} accent={accent} onOpen={onOpenPlayer} />
                 ))}
           </SectionCard>
 
@@ -160,8 +163,8 @@ export default function WpblTrackingView({ onOpenPlayer }: { teams?: WpblTeam[];
               <SectionCard title="Hardest-hit balls" subtitle="Ranked by exit velocity">
                 {board.hardestHits.slice(0, 10).map((b: BattedBall, i) => (
                   <LeaderRow key={i} rank={i + 1} player={b.player} name={b.name} teamId={b.teamId}
-                    value={(b.exit ?? 0).toFixed(1)} unit="mph" accent={accent} onOpen={onOpenPlayer}
-                    sub={[b.hitType, b.distance != null ? `${Math.round(b.distance)} ft` : null].filter(Boolean).join(' · ') || undefined} />
+                    value={fmtSpeed(b.exit ?? 0, units)} unit={speedUnit(units)} accent={accent} onOpen={onOpenPlayer}
+                    sub={[b.hitType, b.distance != null ? `${fmtDistance(b.distance, units)} ${distanceUnit(units)}` : null].filter(Boolean).join(' · ') || undefined} />
                 ))}
               </SectionCard>
 
@@ -169,8 +172,8 @@ export default function WpblTrackingView({ onOpenPlayer }: { teams?: WpblTeam[];
                 <SectionCard title="Longest tracked hits" subtitle="By radar-measured distance">
                   {board.longestHits.slice(0, 10).map((b: BattedBall, i) => (
                     <LeaderRow key={i} rank={i + 1} player={b.player} name={b.name} teamId={b.teamId}
-                      value={String(Math.round(b.distance!))} unit="ft" accent={accent} onOpen={onOpenPlayer}
-                      sub={[b.hitType, b.exit != null ? `${b.exit.toFixed(1)} mph EV` : null].filter(Boolean).join(' · ') || undefined} />
+                      value={fmtDistance(b.distance!, units)} unit={distanceUnit(units)} accent={accent} onOpen={onOpenPlayer}
+                      sub={[b.hitType, b.exit != null ? `${fmtSpeed(b.exit, units)} ${speedUnit(units)} EV` : null].filter(Boolean).join(' · ') || undefined} />
                   ))}
                   <Typography sx={{ mt: 1, px: 0.5, fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.4 }}>
                     Distances come from in-park radar, which doesn't read every ball. Some hits, including a few home runs, won't appear here.

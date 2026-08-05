@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.29.0'
+export const APP_VERSION = '1.30.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,25 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.30.0',
+    date:    '2026-08-05',
+    title:   'Metric or imperial units, and Settings for everyone',
+    changes: [
+      {
+        short: 'Choose metric or imperial units',
+        full:  'Settings has a new units toggle that switches the site between imperial (mph, feet) and metric (km/h, meters). Your choice is saved on your device, with no account needed.',
+      },
+      {
+        short: 'WPBL tracking numbers convert live',
+        full:  'The WPBL tracking page, the home tracking highlights, and a game\'s pitch data now show velocities and distances in whichever unit system you pick, and they update the moment you switch it in Settings.',
+      },
+      {
+        short: 'Open Settings without signing in',
+        full:  'The profile menu at the top right is now a dropdown. When signed out it offers Sign in, Create an account, and Settings, so anyone can reach Settings and set their units without an account.',
+      },
+    ],
+  },
   {
     version: '1.29.0',
     date:    '2026-08-05',

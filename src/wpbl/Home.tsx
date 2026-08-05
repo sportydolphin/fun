@@ -9,6 +9,8 @@ import {
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import { aggregateTracking, type TrackingBoard } from './tracking'
+import { useUnits } from '../UnitsContext'
+import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import { computeFirsts, type WpblFirst } from './firsts'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblGamePlay, WpblBattingLine, WpblPitchingLine, WpblTrackRow, WpblIngestRun } from './types'
 
@@ -320,13 +322,14 @@ function TrackingTeaserCard({ board, latestGameIds, loading, teamById, onOpenPla
   teamById: Map<string, WpblTeam>; onOpenPlayer: (p: WpblPlayer) => void; onViewAll: () => void
 }) {
   const isDark = useWpblDark()
+  const { units } = useUnits()
   const fp = board.fastestPitches[0]
   const hh = board.hardestHits[0]
   const lh = board.longestHits[0]
   const tiles: TeaserTile[] = []
-  if (fp) tiles.push({ icon: '🔥', label: 'Fastest pitch', value: fp.velo.toFixed(1), unit: 'mph', name: fp.name, player: fp.player, teamId: fp.teamId, isNew: latestGameIds.has(fp.gameId) })
-  if (hh && hh.exit != null) tiles.push({ icon: '💥', label: 'Hardest hit', value: hh.exit.toFixed(1), unit: 'mph', name: hh.name, player: hh.player, teamId: hh.teamId, isNew: latestGameIds.has(hh.gameId) })
-  if (lh && lh.distance != null) tiles.push({ icon: '🚀', label: 'Longest hit', value: String(Math.round(lh.distance)), unit: 'ft', name: lh.name, player: lh.player, teamId: lh.teamId, isNew: latestGameIds.has(lh.gameId) })
+  if (fp) tiles.push({ icon: '🔥', label: 'Fastest pitch', value: fmtSpeed(fp.velo, units), unit: speedUnit(units), name: fp.name, player: fp.player, teamId: fp.teamId, isNew: latestGameIds.has(fp.gameId) })
+  if (hh && hh.exit != null) tiles.push({ icon: '💥', label: 'Hardest hit', value: fmtSpeed(hh.exit, units), unit: speedUnit(units), name: hh.name, player: hh.player, teamId: hh.teamId, isNew: latestGameIds.has(hh.gameId) })
+  if (lh && lh.distance != null) tiles.push({ icon: '🚀', label: 'Longest hit', value: fmtDistance(lh.distance, units), unit: distanceUnit(units), name: lh.name, player: lh.player, teamId: lh.teamId, isNew: latestGameIds.has(lh.gameId) })
 
   return (
     <SectionCard

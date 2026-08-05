@@ -7,6 +7,7 @@ import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT, DESKTOP_ZOOM } from './mlb/consta
 import { APP_VERSION, CHANGELOG } from './version'
 import { useTheme, SKIN_OPTIONS } from './ThemeContext'
 import { AuthProvider, useAuth } from './AuthContext'
+import { UnitsProvider } from './UnitsContext'
 import { PENDING_USERNAME_PREFIX } from './AuthContext'
 import { AdminPanel } from './AdminPanel'
 import { UsernameDialog } from './UsernameDialog'
@@ -799,11 +800,63 @@ function AppInner() {
               </Box>
             </ClickAwayListener>
           ) : (
-            <Tooltip title="Sign in to sync your followed team & players">
-              <IconButton onClick={() => openAuthDialog('signin')} size="small" sx={{ color: 'text.secondary' }}>
-                <AccountCircle />
-              </IconButton>
-            </Tooltip>
+            <ClickAwayListener onClickAway={() => setAccountOpen(false)}>
+              <Box sx={{ position: 'relative' }}>
+                <IconButton
+                  onClick={() => setAccountOpen(o => !o)}
+                  size="small"
+                  sx={{ color: 'text.secondary' }}
+                >
+                  <AccountCircle />
+                </IconButton>
+
+                {accountOpen && (
+                  <Paper elevation={8} sx={{
+                    position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 1400,
+                    borderRadius: 2.5, minWidth: 220, overflow: 'hidden',
+                    border: '1px solid', borderColor: 'divider',
+                  }}>
+                    {/* Sign in */}
+                    <Box
+                      onClick={() => { setAccountOpen(false); openAuthDialog('signin') }}
+                      sx={{
+                        px: 2, py: 1.25, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 1,
+                        borderBottom: '1px solid', borderColor: 'divider',
+                        '&:hover': { bgcolor: 'action.hover' },
+                      }}
+                    >
+                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>Sign in</Typography>
+                    </Box>
+
+                    {/* Create an account */}
+                    <Box
+                      onClick={() => { setAccountOpen(false); openAuthDialog('signup') }}
+                      sx={{
+                        px: 2, py: 1.25, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 1,
+                        borderBottom: '1px solid', borderColor: 'divider',
+                        '&:hover': { bgcolor: 'action.hover' },
+                      }}
+                    >
+                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>Create an account</Typography>
+                    </Box>
+
+                    {/* Settings — available without an account */}
+                    <Box
+                      onClick={() => { setAccountOpen(false); setSettingsOpen(true) }}
+                      sx={{
+                        px: 2, py: 1.1, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 1,
+                        '&:hover': { bgcolor: 'action.hover' },
+                      }}
+                    >
+                      <Typography sx={{ fontSize: '0.85rem', fontWeight: 600 }}>⚙️ Settings</Typography>
+                    </Box>
+                  </Paper>
+                )}
+              </Box>
+            </ClickAwayListener>
           )}
           </Box>
         </Toolbar>
@@ -984,24 +1037,25 @@ function AppInner() {
       </Dialog>
 
       {user && (
-        <>
-          <UsernameDialog
-            open={usernameOpen}
-            onClose={() => setUsernameOpen(false)}
-            userId={user.id}
-            currentUsername={username}
-            onSaved={setUsername}
-          />
-          <SettingsDialog
-            open={settingsOpen}
-            onClose={() => setSettingsOpen(false)}
-            userId={user.id}
-            email={user.email ?? ''}
-            currentUsername={username}
-            onEditUsername={() => { setSettingsOpen(false); setUsernameOpen(true) }}
-          />
-        </>
+        <UsernameDialog
+          open={usernameOpen}
+          onClose={() => setUsernameOpen(false)}
+          userId={user.id}
+          currentUsername={username}
+          onSaved={setUsername}
+        />
       )}
+
+      {/* Settings is available to everyone; account-specific sections inside only
+          render when signed in. */}
+      <SettingsDialog
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        userId={user?.id ?? null}
+        email={user?.email ?? ''}
+        currentUsername={username}
+        onEditUsername={() => { setSettingsOpen(false); setUsernameOpen(true) }}
+      />
 
       <Snackbar
         open={!!authToast}
@@ -1020,7 +1074,9 @@ function AppInner() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppInner />
+      <UnitsProvider>
+        <AppInner />
+      </UnitsProvider>
     </AuthProvider>
   )
 }

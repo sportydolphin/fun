@@ -5,6 +5,8 @@ import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameT
 import { wpblAccent, wpblFullName, outsToIp, formatGameTime } from './constants'
 import { LiveBanner, useLiveGame } from './Live'
 import { ModalShell, SegNav, TeamBadge, useWpblDark } from './ui'
+import { useUnits } from '../UnitsContext'
+import { fmtSpeed, speedUnit } from '../lib/units'
 import type {
   WpblTeam, WpblGame, WpblPlayer, WpblBattingLine, WpblPitchingLine,
   WpblGamePlay, WpblPitchTracking,
@@ -335,7 +337,8 @@ function PitchData({ tracking, boxPitchers }: { tracking: WpblPitchTracking[]; b
   }, [tracking])
 
   const avg = (a: number[]) => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : null)
-  const unit = pitches.find(p => p.speed_unit)?.speed_unit ?? 'mph'
+  const { units } = useUnits()
+  const unit = speedUnit(units)
 
   // Aggregate TrackMan velo/spin by attributed name, plus an "unattributed" bucket.
   // Then merge onto the box-score pitcher list (the authoritative who-pitched, with real
@@ -399,8 +402,8 @@ function PitchData({ tracking, boxPitchers }: { tracking: WpblPitchTracking[]; b
     <Box sx={{ p: 2 }}>
       <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5, flexWrap: 'wrap' }}>
         {tile('Pitches', String(pitches.length))}
-        {tile(`Avg ${unit}`, avg(speeds) != null ? avg(speeds)!.toFixed(1) : '—')}
-        {tile(`Top ${unit}`, speeds.length ? Math.max(...speeds).toFixed(1) : '—')}
+        {tile(`Avg ${unit}`, fmtSpeed(avg(speeds), units))}
+        {tile(`Top ${unit}`, speeds.length ? fmtSpeed(Math.max(...speeds), units) : '—')}
         {tile('Avg spin', avg(spins) != null ? `${Math.round(avg(spins)!)}` : '—')}
       </Box>
 
@@ -431,8 +434,8 @@ function PitchData({ tracking, boxPitchers }: { tracking: WpblPitchTracking[]; b
                     </Box>
                     <StatCell>{outsToIp(r.outs)}</StatCell>
                     <StatCell>{r.pitches ?? '—'}</StatCell>
-                    <StatCell>{a && avg(a.speeds) != null ? avg(a.speeds)!.toFixed(1) : '—'}</StatCell>
-                    <StatCell bold>{a && a.speeds.length ? Math.max(...a.speeds).toFixed(1) : '—'}</StatCell>
+                    <StatCell>{a && avg(a.speeds) != null ? fmtSpeed(avg(a.speeds), units) : '—'}</StatCell>
+                    <StatCell bold>{a && a.speeds.length ? fmtSpeed(Math.max(...a.speeds), units) : '—'}</StatCell>
                     <StatCell>{a && avg(a.spins) != null ? Math.round(avg(a.spins)!) : '—'}</StatCell>
                   </Box>
                 )
@@ -452,7 +455,7 @@ function PitchData({ tracking, boxPitchers }: { tracking: WpblPitchTracking[]; b
         {fastest.map((p, i) => (
           <Box key={p.activity_id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 0.55, borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'divider', fontSize: '0.82rem' }}>
             <Box sx={{ width: 18, color: 'text.disabled', fontSize: '0.72rem', flexShrink: 0 }}>{i + 1}</Box>
-            <Box sx={{ width: 52, fontWeight: 800, flexShrink: 0 }}>{p.release_speed!.toFixed(1)}</Box>
+            <Box sx={{ width: 52, fontWeight: 800, flexShrink: 0 }}>{fmtSpeed(p.release_speed, units)}</Box>
             <Box sx={{ flex: 1, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{labelFor(p)}</Box>
             <Box sx={{ color: 'text.secondary', fontSize: '0.75rem', flexShrink: 0 }}>{p.spin_rate_rpm != null ? `${Math.round(p.spin_rate_rpm)} rpm` : ''}</Box>
           </Box>

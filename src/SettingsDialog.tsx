@@ -20,14 +20,63 @@ import {
   pushSupported, pushConfigured, notificationPermission,
   isSubscribed, enablePush, disablePush,
 } from './lib/push'
+import { useUnits, type UnitSystem } from './UnitsContext'
 
 interface Props {
-  open:            boolean
-  onClose:         () => void
-  userId:          string
-  email:           string
-  currentUsername: string | null
-  onEditUsername:  () => void   // closes Settings and opens the username dialog
+  open:             boolean
+  onClose:          () => void
+  // Account fields are absent for signed-out users — the dialog then shows only the
+  // universal (account-independent) settings like units.
+  userId?:          string | null
+  email?:           string
+  currentUsername?: string | null
+  onEditUsername?:  () => void   // closes Settings and opens the username dialog
+}
+
+// ─── Units section (everyone) ───────────────────────────────────────────────
+// Imperial ↔ metric, stored locally so signed-out visitors get it too. Reads/writes
+// the shared UnitsContext; call sites convert their own values off `units`.
+function UnitsSection() {
+  const { units, setUnits } = useUnits()
+  const options: { key: UnitSystem; label: string }[] = [
+    { key: 'imperial', label: 'Imperial' },
+    { key: 'metric',   label: 'Metric' },
+  ]
+  return (
+    <>
+      <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'text.disabled', mb: 0.75 }}>
+        Units
+      </Typography>
+      <Box sx={{ mb: 2.5, borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+        <Box sx={{ px: 1.75, py: 1.1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: '0.88rem', fontWeight: 700 }}>Measurement units</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', flexShrink: 0, borderRadius: 999, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+            {options.map(o => {
+              const active = units === o.key
+              return (
+                <Box
+                  key={o.key}
+                  onClick={() => setUnits(o.key)}
+                  sx={{
+                    px: 1.5, py: 0.5, cursor: 'pointer', userSelect: 'none',
+                    fontSize: '0.75rem', fontWeight: 700,
+                    bgcolor: active ? ACCENT : 'transparent',
+                    color: active ? '#fff' : 'text.secondary',
+                    transition: 'background-color 0.15s',
+                    '&:hover': active ? {} : { bgcolor: 'action.hover' },
+                  }}
+                >
+                  {o.label}
+                </Box>
+              )
+            })}
+          </Box>
+        </Box>
+      </Box>
+    </>
+  )
 }
 
 // ─── Notifications section ──────────────────────────────────────────────────
@@ -166,6 +215,7 @@ function NotificationsSection({ open, userId }: { open: boolean; userId: string 
 }
 
 export function SettingsDialog({ open, onClose, userId, email, currentUsername, onEditUsername }: Props) {
+  const signedIn = !!userId
   const [teams, setTeams]     = useState<Team[]>([])
   const [deleteOpen,   setDeleteOpen]   = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
@@ -178,9 +228,10 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
   const [teamPickerOpen, setTeamPickerOpen] = useState(false)
   const isDark = useIsDark()
 
-  // Load team list + current preference whenever the dialog opens
+  // Load team list + current preference whenever the dialog opens. Account-scoped, so
+  // it's skipped entirely for signed-out visitors (who only see the universal settings).
   useEffect(() => {
-    if (!open) return
+    if (!open || !userId) return
     setTeamPickerOpen(false)
     setDeleteOpen(false); setDeleteConfirm(''); setDeleteErr(''); setDeleting(false)
     setLoadingTeams(true)
@@ -200,7 +251,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
     setTeamId(id)
     setLocalFollowedTeamId(id)
     setSaving(true)
-    await savePrefsToSupabase(userId, id, playerIds)
+    await savePrefsToSupabase(userId!, id, playerIds)
     setSaving(false)
   }
 
@@ -232,6 +283,11 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
       </DialogTitle>
 
       <DialogContent sx={{ pt: '8px !important' }}>
+        {/* Units — shown to everyone, signed in or not */}
+        <UnitsSection />
+
+        {signedIn && (
+        <>
         {/* Account */}
         <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'text.disabled', mb: 0.75 }}>
           Account
@@ -417,6 +473,8 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
             </Box>
           )}
         </Box>
+        </>
+        )}
       </DialogContent>
 
       <DialogActions>
