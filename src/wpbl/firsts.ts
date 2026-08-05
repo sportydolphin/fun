@@ -139,7 +139,10 @@ export function computeFirsts(
       }
     }
     if (et === 'strikeout' && pitName) rec('first_so', pit, pitName, pit?.team_id ?? null, d, nar)
-    if (et === 'balk' && pitName) rec('first_balk', pit, pitName, pit?.team_id ?? null, d, nar)
+    // Balks aren't a distinct event_type in the feed — they arrive as an 'unknown' play
+    // whose narrative reads "... on a balk." (the pitcher is named). Match the narrative,
+    // and credit the pitcher (their team, not the batting side).
+    if ((et === 'balk' || /\bbalk\b/i.test(p.narrative)) && pitName) rec('first_balk', pit, pitName, pit?.team_id ?? null, d, nar)
     if (et === 'stolen_base') {
       // The runner is named in the narrative ("Maggie Fox stole second"), not batter_id.
       const runnerName = (p.narrative.match(/^(.+?)\s+stole\b/i)?.[1] ?? '').trim()
