@@ -2,14 +2,12 @@
 
 > Generated from Google Tasks by `npm run tasks` (scripts/pull-tasks.mjs). Do not
 > edit by hand — edit the tasks in Google Tasks and re-run.
-> Last pulled: 2026-08-04 06:01 UTC · 16 open items.
+> Last pulled: 2026-08-05 05:58 UTC · 14 open items.
 
 ## Site todos
 
-- [ ] Turn on auto stats for live games
-- [ ] Hall of firsts for wpbl
+- [ ] Add win/loss streak to wpbl standings
 - [ ] On player career page, "career" text shouldn't be bigger than player name
-- [ ] Incentivize users to make predictions or streak picks with an in site currency. We can use this currency to purchase cosmetics like custom team background or site colors maybe?
 - [ ] Non signed in user should be able to click account drop-down and see a drop-down, not a popup. They should be able to access their settings from there which are just saved locally if not signed in
 - [ ] Put light and dark mode as a toggle in settings
 - [ ] Can't tell which team is the opponent for next game on mobile home page team card
