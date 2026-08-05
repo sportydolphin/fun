@@ -387,7 +387,14 @@ export function HomeView({
   const bg       = TEAM_BG[followedTeamId ?? 0] ?? '#1a2035'
   const abbr     = followedTeam?.abbreviation ?? '?'
   const nickname = followedTeam?.teamName     ?? (() => { const w = (followedTeam?.name ?? '').split(' '); return w[w.length - 1] })()
-  const city     = followedTeam?.locationName ?? (() => { const w = (followedTeam?.name ?? '').split(' '); return w.slice(0, -1).join(' ') })()
+  // Derive city from the full name by stripping the nickname — `name` is
+  // authoritative ("Colorado Rockies"), whereas `locationName` is the raw city
+  // ("Denver" for the Rockies), which reads wrong next to the nickname.
+  const city     = (() => {
+    const full = followedTeam?.name ?? ''
+    if (nickname && full.endsWith(nickname)) return full.slice(0, full.length - nickname.length).trim()
+    return followedTeam?.locationName ?? ''
+  })()
 
   const standingLine = standing ? [
     `${standing.wins}–${standing.losses}`,

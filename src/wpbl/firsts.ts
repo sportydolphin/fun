@@ -26,7 +26,7 @@ const META: Record<string, Meta> = {
   first_win:     { label: 'First win',           icon: '🏆', featured: true,  order: 3 },
   first_so:      { label: 'First strikeout',     icon: '🔥', featured: true,  order: 4 },
   first_sb:      { label: 'First stolen base',   icon: '🏃', featured: true,  order: 5 },
-  first_hit:     { label: 'First hit',           icon: '🥎', featured: false, order: 6 },
+  first_hit:     { label: 'First hit',           icon: '⚾', featured: false, order: 6 },
   first_double:  { label: 'First double',        icon: '2️⃣', featured: false, order: 7 },
   first_triple:  { label: 'First triple',        icon: '3️⃣', featured: false, order: 8 },
   first_rbi:     { label: 'First RBI',           icon: '💪', featured: false, order: 9 },
