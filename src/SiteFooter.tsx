@@ -48,7 +48,7 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, isWpbl = false }: 
         <Dot />
         <Box component="span">
           {isWpbl
-            ? 'Not affiliated with the WPBL. Stats entered manually.'
+            ? 'Not affiliated with the WPBL. Data from the official WPBL stats feed.'
             : 'Not affiliated with MLB. Data from the MLB Stats API.'}
         </Box>
       </Box>
