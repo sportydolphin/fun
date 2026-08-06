@@ -812,17 +812,18 @@ export default function GameDetailModal({ game: seed, teams, onClose, onOpenPlay
 }
 
 // ─── styles ────────────────────────────────────────────────────────────────────
-// Box tables (batting / pitching / by-pitcher): table-layout:fixed so the name column
-// takes a set width and the width-less stat columns divide the rest EVENLY — fills the
-// modal with no dead gap. minWidth (px) lets the wrapper scroll on narrow phones.
-// (Don't mix `min-width:max-content` with %/fixed cell widths — it blows the table up.)
-const tableSx = { tableLayout: 'fixed', borderCollapse: 'collapse', width: '100%', minWidth: 480, fontVariantNumeric: 'tabular-nums' } as const
-const NAME_W = 150
+// Box tables (batting / pitching / by-pitcher): table-layout:auto with a shrink-to-fit name
+// column (width:'1%' + nowrap makes it take only its content width), so the name column is
+// as narrow as the names allow and the stat columns claim the freed space — more columns fit
+// before the wrapper scrolls. maxWidth caps a very long name (inner text ellipsizes); minWidth
+// floors the table so it still scrolls on a narrow phone.
+const tableSx = { tableLayout: 'auto', borderCollapse: 'collapse', width: '100%', minWidth: 480, fontVariantNumeric: 'tabular-nums' } as const
+const NAME_W = 150 // cap for the shrink-to-fit name column (longer names ellipsize)
 // The name column is pinned (sticky-left) so scrolling right moves only the stat columns.
 // An opaque bg + right divider keep it legible over the stat cells sliding underneath.
 const stickyName = { position: 'sticky', left: 0, zIndex: 1, bgcolor: 'background.paper', borderRight: '1px solid', borderRightColor: 'divider' } as const
-const nameHeadSx = { ...stickyName, width: NAME_W, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.4, px: 0.4, py: 0.5 } as const
-const nameCellSx = { ...stickyName, width: NAME_W, maxWidth: NAME_W, textAlign: 'left', px: 0.4, py: 0.5 } as const
+const nameHeadSx = { ...stickyName, width: '1%', maxWidth: NAME_W, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.4, px: 0.4, py: 0.5 } as const
+const nameCellSx = { ...stickyName, width: '1%', maxWidth: NAME_W, whiteSpace: 'nowrap', textAlign: 'left', px: 0.4, py: 0.5 } as const
 const posSx = { fontSize: '0.6rem', color: 'text.disabled', lineHeight: 1, flexShrink: 0 } as const
 // Line score keeps MLB's auto layout (team column absorbs slack; R/H/E hug the right).
 const lineTableSx = { borderCollapse: 'collapse', width: '100%', minWidth: 'max-content', fontVariantNumeric: 'tabular-nums' } as const
