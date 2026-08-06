@@ -43,6 +43,10 @@ export const CHANGELOG: ChangelogEntry[] = [
         short: 'Pitch Data says when tracking is unavailable',
         full:  'When the league feed has not posted pitch tracking for a finished WPBL game, the Pitch Data tab now shows with a short note instead of disappearing, so it is clear the data is missing rather than the game simply having none.',
       },
+      {
+        short: 'First grand slam joins the WPBL Hall of Firsts',
+        full:  'The WPBL Hall of Firsts now tracks the league\'s first grand slam, featured on the home page next to the first home run, win, and strikeout.',
+      },
     ],
   },
   {

@@ -21,18 +21,19 @@ export interface WpblFirst {
 
 interface Meta { label: string; icon: string; featured: boolean; order: number }
 const META: Record<string, Meta> = {
-  first_hr:      { label: 'First home run',      icon: '💥', featured: true,  order: 1 },
-  complete_game: { label: 'First complete game', icon: '🎯', featured: true,  order: 2 },
-  first_win:     { label: 'First win',           icon: '🏆', featured: true,  order: 3 },
-  first_so:      { label: 'First strikeout',     icon: '🔥', featured: true,  order: 4 },
-  first_sb:      { label: 'First stolen base',   icon: '🏃', featured: true,  order: 5 },
-  first_hit:     { label: 'First hit',           icon: '⚾', featured: false, order: 6 },
-  first_double:  { label: 'First double',        icon: '2️⃣', featured: false, order: 7 },
-  first_triple:  { label: 'First triple',        icon: '3️⃣', featured: false, order: 8 },
-  first_rbi:     { label: 'First RBI',           icon: '💪', featured: false, order: 9 },
-  first_walk:    { label: 'First walk',          icon: '🚶', featured: false, order: 10 },
-  first_hbp:     { label: 'First hit by pitch',  icon: '🤕', featured: false, order: 11 },
-  first_balk:    { label: 'First balk',          icon: '🚫', featured: false, order: 12 },
+  first_hr:         { label: 'First home run',      icon: '💥', featured: true,  order: 1 },
+  first_grand_slam: { label: 'First grand slam',    icon: '💣', featured: true,  order: 2 },
+  complete_game:    { label: 'First complete game', icon: '🎯', featured: true,  order: 3 },
+  first_win:        { label: 'First win',           icon: '🏆', featured: true,  order: 4 },
+  first_so:         { label: 'First strikeout',     icon: '🔥', featured: true,  order: 5 },
+  first_sb:         { label: 'First stolen base',   icon: '🏃', featured: true,  order: 6 },
+  first_hit:        { label: 'First hit',           icon: '⚾', featured: false, order: 7 },
+  first_double:     { label: 'First double',        icon: '2️⃣', featured: false, order: 8 },
+  first_triple:     { label: 'First triple',        icon: '3️⃣', featured: false, order: 9 },
+  first_rbi:        { label: 'First RBI',           icon: '💪', featured: false, order: 10 },
+  first_walk:       { label: 'First walk',          icon: '🚶', featured: false, order: 11 },
+  first_hbp:        { label: 'First hit by pitch',  icon: '🤕', featured: false, order: 12 },
+  first_balk:       { label: 'First balk',          icon: '🚫', featured: false, order: 13 },
 }
 
 const norm = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim()
@@ -129,7 +130,13 @@ export function computeFirsts(
     const pitName = (pit?.name ?? p.pitcher_name ?? '').trim()
     if (p.is_hit && batName) rec('first_hit', bat, batName, batTeam, d, nar)
     if (batName) {
-      if (et === 'home_run') rec('first_hr', bat, batName, batTeam, d, nar)
+      if (et === 'home_run') {
+        rec('first_hr', bat, batName, batTeam, d, nar)
+        // A grand slam is a home run with the bases loaded. The feed's runs_scored counts
+        // the runners who scored, NOT the batter (a solo HR reads 0), so 3 runners scoring
+        // on a home run means the bases were full.
+        if (p.runs_scored === 3) rec('first_grand_slam', bat, batName, batTeam, d, nar)
+      }
       if (et === 'double') rec('first_double', bat, batName, batTeam, d, nar)
       if (et === 'triple') rec('first_triple', bat, batName, batTeam, d, nar)
       if (et === 'walk') rec('first_walk', bat, batName, batTeam, d, nar)
