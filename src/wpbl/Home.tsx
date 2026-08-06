@@ -530,19 +530,34 @@ export default function WpblHome({ teams, games, liveGame, isAdmin, onOpenGame, 
   const [loadingLeaders, setLoadingLeaders] = useState(true)
   const [firstsOpen, setFirstsOpen] = useState(false)
 
+  // Full load once. Players are static for the session; lines/plays/tracking seed the
+  // leaders, Hall of Firsts, and tracking teaser.
   useEffect(() => {
     let cancelled = false
-    const load = () => {
-      Promise.all([fetchWpblAllPlayers(), fetchWpblAllLines(), fetchWpblAllPlays(), fetchWpblAllTracking()]).then(([p, l, pl, tr]) => {
+    Promise.all([fetchWpblAllPlayers(), fetchWpblAllLines(), fetchWpblAllPlays(), fetchWpblAllTracking()])
+      .then(([p, l, pl, tr]) => {
         if (cancelled) return
         setPlayers(p); setLines(l); setPlays(pl); setTracking(tr); setLoadingLeaders(false)
-      }).catch(() => { if (!cancelled) setLoadingLeaders(false) })
-    }
-    load()
-    // While a game is live, leaders + Hall of Firsts + tracking shift as lines/plays are
-    // ingested, so refresh them periodically too (matches the app-level schedule polling).
-    const id = liveGame ? setInterval(load, 25000) : null
-    return () => { cancelled = true; if (id) clearInterval(id) }
+      })
+      .catch(() => { if (!cancelled) setLoadingLeaders(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  // While a game is live, refresh only the box-score lines + play-by-play (what the leaders
+  // and Hall of Firsts read), and on a gentle cadence. Deliberately NOT re-pulled on the
+  // tick: the full player roster (static) and the whole pitch_tracking table (large) — that
+  // repeated full-table scan every 25s was the main load pegging the WPBL database. The
+  // tracking teaser shows season bests, which barely move within a single game; it refreshes
+  // on the next visit.
+  useEffect(() => {
+    if (!liveGame) return
+    let cancelled = false
+    const id = setInterval(() => {
+      Promise.all([fetchWpblAllLines(), fetchWpblAllPlays()])
+        .then(([l, pl]) => { if (!cancelled) { setLines(l); setPlays(pl) } })
+        .catch(() => { /* keep last-good */ })
+    }, 60000)
+    return () => { cancelled = true; clearInterval(id) }
   }, [liveGame?.id])
 
   const firsts = useMemo(() => computeFirsts(plays, games, players, lines.pitching), [plays, games, players, lines.pitching])

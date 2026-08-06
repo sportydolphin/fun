@@ -377,11 +377,16 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
 
   const reload = useCallback(() => {
     let cancelled = false
+    // Don't spin forever if the backend is slow/overloaded: reveal the section (its views
+    // show friendly empty states) after a few seconds. The reads still resolve and populate
+    // teams/games when they land, so late data just fills in.
+    const revealTimer = setTimeout(() => { if (!cancelled) setLoading(false) }, 10000)
     Promise.all([fetchWpblTeams(), fetchWpblSchedule()]).then(([t, g]) => {
       if (cancelled) return
+      clearTimeout(revealTimer)
       setTeams(t); setGames(g); setLoading(false)
     })
-    return () => { cancelled = true }
+    return () => { cancelled = true; clearTimeout(revealTimer) }
   }, [])
 
   useEffect(() => reload(), [reload])
