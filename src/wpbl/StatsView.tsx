@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblAllPlayers, fetchWpblAllLines } from './api'
 import { WPBL_ACCENT, outsToIp } from './constants'
-import { SegNav, TeamBadge, CARD_BORDER } from './ui'
+import { TeamBadge, CARD_BORDER, useWpblName } from './ui'
 import {
   aggregateBatting, aggregatePitching, qualifiersActive, fmtRate, fmtTwo,
   type WpblBattingTotals, type WpblPitchingTotals,
@@ -83,6 +83,8 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>({ batting: [], pitching: [] })
   const [loading, setLoading] = useState(true)
+  const shortName = useWpblName()
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const [group, setGroup] = useState<Group>(initialGroup)
   const [teamId, setTeamId] = useState<string | null>(null)
@@ -140,6 +142,24 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const teamChips = [...teams].sort((a, b) => a.abbr.localeCompare(b.abbr))
 
+  // The sorted column (OPS / ERA by default) is at the far right, off-screen on a phone
+  // where the table scrolls horizontally. Bring the highlighted column into view on load and
+  // when switching Hitting/Pitching — but only if it isn't already visible, so a wide desktop
+  // table (all columns shown) or a user who's scrolled elsewhere is left alone.
+  useLayoutEffect(() => {
+    if (loading) return
+    const c = scrollRef.current
+    if (!c) return
+    const th = c.querySelector('th[data-active="true"]') as HTMLElement | null
+    if (!th) return
+    const cRect = c.getBoundingClientRect()
+    const tRect = th.getBoundingClientRect()
+    const rightInView = tRect.right - cRect.left
+    const leftInView = tRect.left - cRect.left
+    if (rightInView > c.clientWidth) c.scrollLeft += rightInView - c.clientWidth + 12
+    else if (leftInView < 0) c.scrollLeft += leftInView - 12
+  }, [loading, group, sortKey, rows.length])
+
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
   }
@@ -152,14 +172,34 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
 
   return (
     <Box>
-      <SegNav
-        options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
-        value={group}
-        onChange={v => switchGroup(v as Group)}
-      />
+      {/* Group switcher — underline tabs, deliberately distinct from the section's pill nav
+          so the two don't read as the same control stacked twice. Full-bleed so the tabs +
+          filters share the wide table's left edge instead of floating in the 720px column. */}
+      <Box sx={{ display: 'flex', gap: 2.5, borderBottom: '1px solid', borderColor: 'divider', mb: 1.5, ...fullBleedSx }}>
+        {(['hitting', 'pitching'] as Group[]).map(g => {
+          const active = group === g
+          return (
+            <Box key={g} onClick={() => switchGroup(g)} sx={{
+              pb: 1, mb: '-1px', cursor: 'pointer', userSelect: 'none',
+              borderBottom: '2px solid', borderColor: active ? WPBL_ACCENT : 'transparent',
+              color: active ? 'text.primary' : 'text.secondary',
+              fontSize: '0.98rem', fontWeight: active ? 800 : 600, transition: 'color 0.15s',
+              '&:hover': { color: 'text.primary' },
+            }}>
+              {g === 'hitting' ? 'Hitting' : 'Pitching'}
+            </Box>
+          )
+        })}
+      </Box>
 
-      {/* Team filter + qualified toggle */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', mt: 1.5, mb: 1.5 }}>
+      {/* Filters on one line (scrolls on narrow screens): team chips, then a divider, then
+          the qualified toggle — so the team "All" and the separate "Qualified" filter read
+          as two different controls rather than two competing "All"s. */}
+      <Box sx={{
+        display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5, overflowX: 'auto', pb: 0.5,
+        '&::-webkit-scrollbar': { display: 'none' }, msOverflowStyle: 'none', scrollbarWidth: 'none',
+        ...fullBleedSx,
+      }}>
         <Chip active={teamId === null} onClick={() => setTeamId(null)}>All</Chip>
         {teamChips.map(t => (
           <Chip key={t.id} active={teamId === t.id} onClick={() => setTeamId(teamId === t.id ? null : t.id)}>
@@ -167,8 +207,8 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
             <Box component="span" sx={{ ml: 0.5 }}>{t.abbr}</Box>
           </Chip>
         ))}
-        <Box sx={{ flex: 1 }} />
-        <Chip active={qualified} onClick={() => setQualified(q => !q)}>{qualified ? '✓ Qualified' : 'All players'}</Chip>
+        <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mx: 0.5, flexShrink: 0 }} />
+        <Chip active={qualified} onClick={() => setQualified(q => !q)}>{qualified ? '✓ Qualified' : 'Qualified'}</Chip>
       </Box>
 
       {rows.length === 0 ? (
@@ -180,7 +220,7 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
         </Box>
       ) : (
         <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden', ...fullBleedSx }}>
-          <Box sx={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh / var(--app-zoom, 1) - 260px)' }}>
+          <Box ref={scrollRef} sx={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh / var(--app-zoom, 1) - 260px)' }}>
             <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: '100%', fontVariantNumeric: 'tabular-nums' }}>
               <Box component="thead">
                 <Box component="tr">
@@ -191,10 +231,11 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
                     const active = c.key === sortKey
                     return (
                       <Box component="th" key={c.key} onClick={() => clickHeader(c)}
+                        data-active={active ? 'true' : undefined}
                         sx={{
                           ...thBase, textAlign: 'right', cursor: 'pointer', minWidth: 38,
                           color: active ? WPBL_ACCENT : 'text.disabled',
-                          bgcolor: active ? `${WPBL_ACCENT}14` : 'background.paper',
+                          bgcolor: active ? `${WPBL_ACCENT}24` : 'background.paper',
                           '&:hover': { color: WPBL_ACCENT },
                         }}>
                         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.2 }}>
@@ -221,7 +262,7 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
                           <Typography sx={{ width: 18, textAlign: 'right', flexShrink: 0, fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled' }}>{i + 1}</Typography>
                           {t && <TeamBadge team={t} size={20} />}
                           <Box sx={{ minWidth: 0 }}>
-                            <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.player.name}</Typography>
+                            <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shortName(r.player.name)}</Typography>
                             {r.player.position && <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1 }}>{r.player.position}</Typography>}
                           </Box>
                         </Box>
@@ -234,7 +275,7 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
                           <Box component="td" key={c.key} sx={{
                             textAlign: 'right', py: 0.5, px: 0.5, borderTop: '1px solid', borderColor: 'divider',
                             fontSize: active ? '0.84rem' : '0.8rem', fontWeight: active ? 800 : 500,
-                            color: active ? WPBL_ACCENT : 'text.primary', bgcolor: active ? `${WPBL_ACCENT}08` : undefined,
+                            color: active ? WPBL_ACCENT : 'text.primary', bgcolor: active ? `${WPBL_ACCENT}12` : undefined,
                             whiteSpace: 'nowrap',
                           }}>
                             {txt}
@@ -263,6 +304,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   return (
     <Box onClick={onClick} sx={{
       display: 'inline-flex', alignItems: 'center', cursor: 'pointer', userSelect: 'none',
+      flexShrink: 0, whiteSpace: 'nowrap',
       px: 1, py: 0.4, borderRadius: 999, fontSize: '0.74rem', fontWeight: 700,
       border: '1px solid', transition: 'all 0.15s',
       borderColor: active ? WPBL_ACCENT : CARD_BORDER,
