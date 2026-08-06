@@ -228,6 +228,31 @@ class PlayerResolver {
   }
 }
 
+// Write one game's child rows with minimal churn. The old delete-then-insert rewrote every
+// row on every ingest — brutal under the every-2-min live re-ingest, which bloats the table
+// and its indexes. Instead upsert on the natural key: rows that already exist are updated in
+// place (a HOT update, since the indexed columns game_id/player_id/sequence don't change and
+// the stat columns aren't indexed), so the indexes stay stable and dead tuples drop sharply.
+// Then prune any rows for this game the feed no longer reports — in steady state this matches
+// nothing (box scores only grow), so it deletes zero rows and costs zero churn; it only fires
+// on a genuine correction, keeping the stored set exactly equal to the feed.
+async function syncGameRows(
+  db: SupabaseClient,
+  table: string,
+  gameUuid: string,
+  rows: Record<string, unknown>[],
+  keyCol: 'player_id' | 'sequence',
+  onConflict: string,
+): Promise<void> {
+  if (rows.length === 0) {
+    await db.from(table).delete().eq('game_id', gameUuid)
+    return
+  }
+  await db.from(table).upsert(rows, { onConflict })
+  const keys = rows.map(r => r[keyCol])
+  await db.from(table).delete().eq('game_id', gameUuid).not(keyCol, 'in', `(${keys.join(',')})`)
+}
+
 // ─── boxscore ingestion for one game ──────────────────────────────────────────
 async function ingestBoxscore(
   db: SupabaseClient,
@@ -364,20 +389,14 @@ async function ingestBoxscore(
       plate_location_height: t.plate_location_height ?? null, raw: t,
     }))
 
-  // Write everything. Lines/fielding: clear then insert (a game is edited atomically).
+  // Write everything with low-churn upserts (see syncGameRows). Box-score lines and plays
+  // key on their natural unique index; tracking keys on activity_id.
   await db.from('wpbl_games').update(gamePatch).eq('id', gameUuid)
 
-  await db.from('wpbl_batting_lines').delete().eq('game_id', gameUuid)
-  if (batting.length) await db.from('wpbl_batting_lines').insert(batting)
-
-  await db.from('wpbl_pitching_lines').delete().eq('game_id', gameUuid)
-  if (pitching.length) await db.from('wpbl_pitching_lines').insert(pitching)
-
-  await db.from('wpbl_fielding_lines').delete().eq('game_id', gameUuid)
-  if (fielding.length) await db.from('wpbl_fielding_lines').insert(fielding)
-
-  await db.from('wpbl_game_plays').delete().eq('game_id', gameUuid)
-  if (plays.length) await db.from('wpbl_game_plays').insert(plays)
+  await syncGameRows(db, 'wpbl_batting_lines',  gameUuid, batting,  'player_id', 'game_id,player_id')
+  await syncGameRows(db, 'wpbl_pitching_lines', gameUuid, pitching, 'player_id', 'game_id,player_id')
+  await syncGameRows(db, 'wpbl_fielding_lines', gameUuid, fielding, 'player_id', 'game_id,player_id')
+  await syncGameRows(db, 'wpbl_game_plays',     gameUuid, plays,    'sequence',  'game_id,sequence')
 
   if (tracking.length) await db.from('wpbl_pitch_tracking').upsert(tracking, { onConflict: 'activity_id' })
 
