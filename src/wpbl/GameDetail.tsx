@@ -7,6 +7,7 @@ import { LiveBanner, useLiveGame } from './Live'
 import { ModalShell, SegNav, TeamBadge, useWpblDark } from './ui'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, speedUnit } from '../lib/units'
+import { prettyType } from './tracking'
 import type {
   WpblTeam, WpblGame, WpblPlayer, WpblBattingLine, WpblPitchingLine,
   WpblGamePlay, WpblPitchTracking,
@@ -309,7 +310,7 @@ const samePitcher = (a: string, b: string): boolean => {
   return (al === bl || within1(al, bl)) && firstOk
 }
 
-function PitchData({ tracking, boxPitchers }: { tracking: WpblPitchTracking[]; boxPitchers: BoxPitcher[] }) {
+function PitchData({ tracking, boxPitchers, live = false }: { tracking: WpblPitchTracking[]; boxPitchers: BoxPitcher[]; live?: boolean }) {
   const pitches = useMemo(
     () => tracking.filter(t => t.release_speed != null && (t.kind == null || t.kind === 'pitch')),
     [tracking],
@@ -339,6 +340,37 @@ function PitchData({ tracking, boxPitchers }: { tracking: WpblPitchTracking[]; b
   const avg = (a: number[]) => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : null)
   const { units } = useUnits()
   const unit = speedUnit(units)
+
+  // Per-pitch log: every tracked pitch that carries a velocity (including the one put in
+  // play), newest first. Ordered by the feed's sequence, falling back to occurred_at.
+  // Reads live because the tab reloads its tracking every 5s while the game is in progress,
+  // so the newest pitch stays at the top. Capped at a "recent" window; the aggregates above
+  // cover the whole game.
+  const fmtName = (n?: string | null): string | null => {
+    if (!n) return null
+    const [last, first] = n.split(',').map(s => s.trim())
+    return first ? `${first} ${last}` : n
+  }
+  const pitchLog = useMemo(() => {
+    const withVelo = tracking.filter(t => t.release_speed != null && t.release_speed > 0)
+    withVelo.sort((a, b) =>
+      a.sequence != null && b.sequence != null
+        ? b.sequence - a.sequence
+        : (b.occurred_at ?? '').localeCompare(a.occurred_at ?? ''))
+    return withVelo.slice(0, 24).map(t => {
+      const raw = t.raw as { pitch_type?: string | null; batter_name?: string | null } | null
+      return {
+        id:      t.activity_id,
+        velo:    t.release_speed!,
+        spin:    t.spin_rate_rpm,
+        type:    prettyType(raw?.pitch_type ?? null),
+        batter:  fmtName(raw?.batter_name),
+        pitcher: pitcherFor(t),
+        inPlay:  t.kind === 'hit',
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tracking, pitcherFor])
 
   // Aggregate TrackMan velo/spin by attributed name, plus an "unattributed" bucket.
   // Then merge onto the box-score pitcher list (the authoritative who-pitched, with real
@@ -406,6 +438,61 @@ function PitchData({ tracking, boxPitchers }: { tracking: WpblPitchTracking[]; b
         {tile(`Top ${unit}`, speeds.length ? fmtSpeed(Math.max(...speeds), units) : '—')}
         {tile('Avg spin', avg(spins) != null ? `${Math.round(avg(spins)!)}` : '—')}
       </Box>
+
+      {/* Per-pitch log — newest first; live during the game, browsable after. */}
+      {pitchLog.length > 0 && (
+        <Box sx={{ mb: 2.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1 }}>
+            {live && (
+              <Box sx={{
+                width: 7, height: 7, borderRadius: '50%', bgcolor: '#ef4444', flexShrink: 0,
+                animation: 'wpblpulse 1.5s ease-in-out infinite',
+                '@keyframes wpblpulse': { '0%': { opacity: 1 }, '50%': { opacity: 0.3 }, '100%': { opacity: 1 } },
+              }} />
+            )}
+            {sectionLabel(live ? 'Live pitches' : 'Recent pitches')}
+          </Box>
+          <Box>
+            {pitchLog.map((p, i) => (
+              <Box key={p.id} sx={{
+                display: 'flex', alignItems: 'center', gap: 1.25, px: 0.75, py: 0.6,
+                borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'divider',
+                borderRadius: 1, bgcolor: live && i === 0 ? 'action.hover' : 'transparent',
+              }}>
+                {/* Velocity + unit */}
+                <Box sx={{ flexShrink: 0, width: 64, fontVariantNumeric: 'tabular-nums' }}>
+                  <Typography component="span" sx={{ fontSize: '1rem', fontWeight: 800 }}>{fmtSpeed(p.velo, units)}</Typography>
+                  <Typography component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color: 'text.disabled', ml: 0.3 }}>{unit}</Typography>
+                </Box>
+                {/* Pitch type chip */}
+                <Box sx={{ flexShrink: 0, minWidth: 62 }}>
+                  {p.type && (
+                    <Box component="span" sx={{ px: 0.75, py: 0.15, borderRadius: 1, bgcolor: 'action.selected', fontSize: '0.64rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      {p.type}
+                    </Box>
+                  )}
+                </Box>
+                {/* Batter faced (+ pitcher beneath) */}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  {p.batter && (
+                    <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>vs </Box>{p.batter}
+                      {p.inPlay && <Box component="span" sx={{ ml: 0.5, fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.4 }}>in play</Box>}
+                    </Typography>
+                  )}
+                  {p.pitcher && (
+                    <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.pitcher}</Typography>
+                  )}
+                </Box>
+                {/* Spin */}
+                <Box sx={{ flexShrink: 0, color: 'text.secondary', fontSize: '0.72rem', fontVariantNumeric: 'tabular-nums' }}>
+                  {p.spin != null ? `${Math.round(p.spin)} rpm` : ''}
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      )}
 
       {rows.length > 0 && (
         <>
@@ -650,7 +737,7 @@ export default function GameDetailModal({ game: seed, teams, onClose, onOpenPlay
                 )
               })()}
               {tab === 'plays' && <PlayByPlay plays={plays} teams={byId} />}
-              {tab === 'pitch' && <PitchData tracking={tracking} boxPitchers={boxPitchers} />}
+              {tab === 'pitch' && <PitchData tracking={tracking} boxPitchers={boxPitchers} live={live} />}
             </Box>
           </>
         ) : (
