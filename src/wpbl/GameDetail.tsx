@@ -21,16 +21,25 @@ import type {
 type Tab = 'box' | 'plays' | 'pitch'
 
 // ─── Box-score column sets ─────────────────────────────────────────────────────
+// Column order is importance-first so the essentials fit a phone screen before the table
+// scrolls: the classic box line (AB R H RBI BB SO) leads, with the situational extras
+// (HR 2B SB) after — the user still scrolls right to see those.
 const BAT_COLS: { key: keyof WpblBattingLine; label: string }[] = [
   { key: 'ab', label: 'AB' }, { key: 'r', label: 'R' }, { key: 'h', label: 'H' },
-  { key: 'doubles', label: '2B' }, { key: 'hr', label: 'HR' }, { key: 'rbi', label: 'RBI' },
-  { key: 'bb', label: 'BB' }, { key: 'so', label: 'SO' }, { key: 'sb', label: 'SB' },
+  { key: 'rbi', label: 'RBI' }, { key: 'bb', label: 'BB' }, { key: 'so', label: 'SO' },
+  { key: 'hr', label: 'HR' }, { key: 'doubles', label: '2B' }, { key: 'sb', label: 'SB' },
 ]
 const PIT_COLS: { key: keyof WpblPitchingLine; label: string }[] = [
   { key: 'h', label: 'H' }, { key: 'r', label: 'R' }, { key: 'er', label: 'ER' },
   { key: 'bb', label: 'BB' }, { key: 'so', label: 'SO' }, { key: 'hr', label: 'HR' },
   { key: 'pitches', label: 'P' },
 ]
+
+// The feed spells names "Last, First"; flip to "First Last" for display.
+const fmtFeedName = (n: string): string => {
+  const [last, first] = n.split(',').map(s => s.trim())
+  return first ? `${first} ${last}` : n
+}
 
 // ─── Table primitives (real <table> = auto-aligned columns that fill the width) ──
 // Stat columns carry no fixed width, so with a shrink-to-fit name column they split
@@ -311,11 +320,29 @@ const samePitcher = (a: string, b: string): boolean => {
   return (al === bl || within1(al, bl)) && firstOk
 }
 
-function PitchData({ tracking, boxPitchers, live = false }: { tracking: WpblPitchTracking[]; boxPitchers: BoxPitcher[]; live?: boolean }) {
+type FirstHit = { batter: string | null; inning: number; half: string }
+function PitchData({ tracking, boxPitchers, firstHit = null, live = false }: { tracking: WpblPitchTracking[]; boxPitchers: BoxPitcher[]; firstHit?: FirstHit | null; live?: boolean }) {
   const pitches = useMemo(
     () => tracking.filter(t => t.release_speed != null && (t.kind == null || t.kind === 'pitch')),
     [tracking],
   )
+  // Game highlights for the standout summary strip: the single hardest pitch (attributed
+  // below via labelFor) and the hardest batted ball (exit velocity lives in `raw`).
+  const hardestPitch = useMemo(() => {
+    let best: WpblPitchTracking | null = null
+    for (const t of pitches) if (best == null || (t.release_speed ?? 0) > (best.release_speed ?? 0)) best = t
+    return best
+  }, [pitches])
+  const hardestHit = useMemo(() => {
+    let exit = 0
+    let batter: string | null = null
+    for (const t of tracking) {
+      const raw = t.raw as { exit_speed?: number | string | null; batter_name?: string | null } | null
+      const ev = raw?.exit_speed == null ? NaN : Number(raw.exit_speed)
+      if (Number.isFinite(ev) && ev > exit) { exit = ev; batter = raw?.batter_name ? fmtFeedName(raw.batter_name) : null }
+    }
+    return exit > 0 ? { exit, batter } : null
+  }, [tracking])
   // Attribution: the tracking `play_id` is the FEED's play id (not our plays row), so we
   // can't join to wpbl_game_plays. The pitcher name lives in each event's raw payload
   // ("Last, First"); reconciliation events omit it, so fill from a sibling of the same
@@ -432,8 +459,28 @@ function PitchData({ tracking, boxPitchers, live = false }: { tracking: WpblPitc
   const sectionLabel = (t: string) => (
     <Typography sx={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'text.secondary', mb: 1 }}>{t}</Typography>
   )
+  // Standout game-highlights tile for the summary strip: bigger value + who did it.
+  const hl = (emoji: string, label: string, value: string, sub: string, first: boolean) => (
+    <Box sx={{ flex: 1, minWidth: 0, textAlign: 'center', px: 0.75, ...(first ? {} : { borderLeft: '1px solid', borderColor: 'divider' }) }}>
+      <Typography sx={{ fontSize: '0.55rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled', whiteSpace: 'nowrap' }}>{emoji} {label}</Typography>
+      <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.25, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</Typography>
+      <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</Typography>
+    </Box>
+  )
+  const highlights = [
+    hardestPitch && { e: '⚡', l: 'Hardest pitch', v: `${fmtSpeed(hardestPitch.release_speed, units)} ${unit}`, s: shortName(labelFor(hardestPitch)) },
+    hardestHit   && { e: '💥', l: 'Hardest hit',   v: `${fmtSpeed(hardestHit.exit, units)} ${unit}`,          s: hardestHit.batter ? shortName(hardestHit.batter) : '—' },
+    firstHit     && { e: '🥇', l: 'First hit',      v: firstHit.batter ? shortName(firstHit.batter) : '—',     s: `${firstHit.half === 'top' ? 'Top' : 'Bot'} ${firstHit.inning}` },
+  ].filter(Boolean) as { e: string; l: string; v: string; s: string }[]
+
   return (
     <Box sx={{ p: 2 }}>
+      {/* Standout game highlights — the marquee of this game's TrackMan moments. */}
+      {highlights.length > 0 && (
+        <Box sx={{ display: 'flex', alignItems: 'stretch', mb: 2, py: 1.25, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
+          {highlights.map((h, i) => hl(h.e, h.l, h.v, h.s, i === 0))}
+        </Box>
+      )}
       <Box sx={{ display: 'flex', gap: 1.5, mb: 2.5, flexWrap: 'wrap' }}>
         {tile('Pitches', String(pitches.length))}
         {tile(`Avg ${unit}`, fmtSpeed(avg(speeds), units))}
@@ -670,7 +717,10 @@ export default function GameDetailModal({ game: seed, teams, onClose, onOpenPlay
   const tabs = [
     { value: 'box' as Tab, label: 'Box Score' },
     { value: 'plays' as Tab, label: 'Play-by-Play' },
-    ...(tracking.length > 0 ? [{ value: 'pitch' as Tab, label: 'Pitch Data' }] : []),
+    // Show Pitch Data for any played game — if the feed hasn't posted TrackMan for it, the
+    // tab shows an explicit empty state rather than silently vanishing (feed tracking often
+    // lands after a game goes final; the ingest backfills it, this surfaces the gap meanwhile).
+    ...(showScore || tracking.length > 0 ? [{ value: 'pitch' as Tab, label: 'Pitch Data' }] : []),
   ]
 
   // The authoritative pitcher list (real names + IP/P) that the Pitch Data tab merges
@@ -681,6 +731,12 @@ export default function GameDetailModal({ game: seed, teams, onClose, onOpenPlay
     outs: p.outs,
     pitches: p.pitches,
   })), [lines.pitching, names, byId])
+
+  // First hit of the game (plays are ordered by sequence) — feeds the Pitch Data highlights.
+  const firstHit = useMemo(() => {
+    const p = plays.find(pl => pl.is_hit)
+    return p ? { batter: p.batter_name, inning: p.inning, half: p.half } : null
+  }, [plays])
 
   return (
     <ModalShell
@@ -739,7 +795,7 @@ export default function GameDetailModal({ game: seed, teams, onClose, onOpenPlay
                 )
               })()}
               {tab === 'plays' && <PlayByPlay plays={plays} teams={byId} />}
-              {tab === 'pitch' && <PitchData tracking={tracking} boxPitchers={boxPitchers} live={live} />}
+              {tab === 'pitch' && <PitchData tracking={tracking} boxPitchers={boxPitchers} firstHit={firstHit} live={live} />}
             </Box>
           </>
         ) : (
@@ -762,8 +818,11 @@ export default function GameDetailModal({ game: seed, teams, onClose, onOpenPlay
 // (Don't mix `min-width:max-content` with %/fixed cell widths — it blows the table up.)
 const tableSx = { tableLayout: 'fixed', borderCollapse: 'collapse', width: '100%', minWidth: 480, fontVariantNumeric: 'tabular-nums' } as const
 const NAME_W = 150
-const nameHeadSx = { width: NAME_W, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.4, px: 0.4, py: 0.5 } as const
-const nameCellSx = { width: NAME_W, maxWidth: NAME_W, textAlign: 'left', px: 0.4, py: 0.5 } as const
+// The name column is pinned (sticky-left) so scrolling right moves only the stat columns.
+// An opaque bg + right divider keep it legible over the stat cells sliding underneath.
+const stickyName = { position: 'sticky', left: 0, zIndex: 1, bgcolor: 'background.paper', borderRight: '1px solid', borderRightColor: 'divider' } as const
+const nameHeadSx = { ...stickyName, width: NAME_W, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.4, px: 0.4, py: 0.5 } as const
+const nameCellSx = { ...stickyName, width: NAME_W, maxWidth: NAME_W, textAlign: 'left', px: 0.4, py: 0.5 } as const
 const posSx = { fontSize: '0.6rem', color: 'text.disabled', lineHeight: 1, flexShrink: 0 } as const
 // Line score keeps MLB's auto layout (team column absorbs slack; R/H/E hug the right).
 const lineTableSx = { borderCollapse: 'collapse', width: '100%', minWidth: 'max-content', fontVariantNumeric: 'tabular-nums' } as const

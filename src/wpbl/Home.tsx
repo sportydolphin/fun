@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
-import { fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, computeStandings, fetchWpblIngestHealth } from './api'
+import { fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, computeStandings } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs } from './constants'
 import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, CARD_BORDER } from './ui'
 import { LiveHero } from './Live'
@@ -12,7 +12,7 @@ import { aggregateTracking, type TrackingBoard } from './tracking'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import { computeFirsts, type WpblFirst } from './firsts'
-import type { WpblTeam, WpblPlayer, WpblGame, WpblGamePlay, WpblBattingLine, WpblPitchingLine, WpblTrackRow, WpblIngestRun } from './types'
+import type { WpblTeam, WpblPlayer, WpblGame, WpblGamePlay, WpblBattingLine, WpblPitchingLine, WpblTrackRow } from './types'
 
 // WPBL home dashboard (Phase 2). Mirrors the MLB home: a full-width scoreboard strip
 // on top, then a two-column card feed (The League / Around the League) that stacks on
@@ -470,53 +470,13 @@ function FirstsModal({ firsts, teamById, onClose, onOpenPlayer }: {
 // ─── Home ───────────────────────────────────────────────────────────────────────
 
 // ─── Ingest health (admin-only) ──────────────────────────────────────────────────
-// A small freshness dot on the league header showing when the feed mirror last synced.
-// The cron runs every 2 min, so green = fresh + clean, amber = stale or had per-game
-// errors, red = the last run failed outright. Self-contained: fetches + polls its own row.
-const relAge = (iso: string): string => {
-  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
-  if (m < 1) return 'just now'
-  if (m < 60) return `${m}m ago`
-  const h = Math.floor(m / 60)
-  return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`
-}
+// The feed-mirror ingest freshness indicator lives in the site Admin panel now
+// (consolidated with the payroll/contract freshness) — see AdminPanel's "WPBL Ingest".
 
-function IngestHealth() {
-  const [run, setRun] = useState<WpblIngestRun | null>(null)
-  const [loaded, setLoaded] = useState(false)
-  useEffect(() => {
-    let cancelled = false
-    const load = () => fetchWpblIngestHealth().then(r => { if (!cancelled) { setRun(r); setLoaded(true) } })
-    load()
-    const id = setInterval(load, 60000)
-    return () => { cancelled = true; clearInterval(id) }
-  }, [])
-  if (!loaded || !run) return null
-
-  const stale = Date.now() - new Date(run.ran_at).getTime() > 6 * 60000
-  const failed = !run.ok
-  const color = failed ? '#ef4444' : (run.error_count > 0 || stale) ? '#f59e0b' : '#22c55e'
-  const label = failed ? 'Sync failed' : stale ? `Stale · ${relAge(run.ran_at)}` : `Synced ${relAge(run.ran_at)}`
-  const detail = [
-    `Last run: ${new Date(run.ran_at).toLocaleString()}`,
-    `Mode: ${run.mode ?? '—'} · ${run.games} games, ${run.boxscores} boxscores`,
-    run.duration_ms != null ? `Took ${run.duration_ms} ms` : '',
-    run.error_count > 0 ? `${run.error_count} error(s):\n- ${(run.errors ?? []).join('\n- ')}` : 'No errors',
-  ].filter(Boolean).join('\n')
-
-  return (
-    <Box title={detail} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, mt: 0.4, cursor: 'default' }}>
-      <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />
-      <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: 'text.secondary' }}>{label}</Typography>
-    </Box>
-  )
-}
-
-export default function WpblHome({ teams, games, liveGame, isAdmin, onOpenGame, onOpenPlayer, onOpenTeam, onViewStats, onViewTracking }: {
+export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPlayer, onOpenTeam, onViewStats, onViewTracking }: {
   teams: WpblTeam[]
   games: WpblGame[]
   liveGame: WpblGame | null
-  isAdmin: boolean
   onOpenGame: (g: WpblGame) => void
   onOpenPlayer: (p: WpblPlayer) => void
   onOpenTeam: (t: WpblTeam) => void
@@ -602,7 +562,6 @@ export default function WpblHome({ teams, games, liveGame, isAdmin, onOpenGame, 
             Women's Pro Baseball League
           </Typography>
           <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Inaugural 2026 season</Typography>
-          {isAdmin && <IngestHealth />}
         </Box>
         <Box sx={{ display: 'flex', gap: 0.75 }}>
           {teams.map(t => (

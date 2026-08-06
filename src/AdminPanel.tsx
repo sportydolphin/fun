@@ -42,6 +42,36 @@ function FreshnessChip({ updatedAt }: { updatedAt: string }) {
   )
 }
 
+// Minute-precision relative time — the WPBL feed cron runs every ~2 min, so hour-grained
+// timeAgo would read "just now" almost always and hide whether the mirror is actually live.
+function timeAgoMin(iso: string): string {
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000)
+  if (m < 1)  return 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`
+}
+
+// WPBL feed-mirror ingest health, consolidated here from the WPBL home header. Cron runs
+// ~every 2 min: green = fresh + clean, amber = stale (>6 min) or per-game errors on the
+// last run, red = the last run failed outright.
+interface WpblRunRow { ran_at: string; ok: boolean; mode: string | null; games: number; boxscores: number; error_count: number }
+function WpblFreshnessChip({ run }: { run: WpblRunRow }) {
+  const stale = Date.now() - new Date(run.ran_at).getTime() > 6 * 60_000
+  const color = !run.ok ? '#ef4444' : (run.error_count > 0 || stale) ? '#f97316' : '#22c55e'
+  const text  = !run.ok ? 'Failed'  : run.error_count > 0 ? 'Errors' : stale ? 'Stale' : 'Fresh'
+  return (
+    <Box sx={{
+      display: 'inline-flex', alignItems: 'center', gap: 0.5,
+      px: 1, py: 0.25, borderRadius: 999,
+      bgcolor: `${color}18`, border: '1px solid', borderColor: `${color}40`,
+    }}>
+      <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: color }} />
+      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color }}>{text}</Typography>
+    </Box>
+  )
+}
+
 // ─── Stat row ─────────────────────────────────────────────────────────────────
 
 function StatRow({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) {
@@ -615,6 +645,7 @@ export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
   onOpenApp: (path: string) => void
 }) {
   const [payrolls, setPayrolls]   = useState<PayrollRow[] | null>(null)
+  const [wpblRun, setWpblRun]     = useState<WpblRunRow | null>(null)
   const [predCount, setPredCount] = useState<number | null>(null)
   const [userCount, setUserCount] = useState<number | null>(null)
   const [usersOpen, setUsersOpen] = useState(false)
@@ -665,9 +696,16 @@ export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
       // Total prediction count
       supabase.from('game_predictions')
         .select('*', { count: 'exact', head: true }),
-    ]).then(([pr, pc]) => {
+
+      // Most-recent WPBL feed-mirror ingest run (health/freshness)
+      supabase.from('wpbl_ingest_runs')
+        .select('ran_at, ok, mode, games, boxscores, error_count')
+        .order('ran_at', { ascending: false })
+        .limit(1),
+    ]).then(([pr, pc, wp]) => {
       setPayrolls((pr.data ?? []) as PayrollRow[])
       setPredCount(pc.count ?? 0)
+      setWpblRun((((wp.data ?? [])[0]) ?? null) as WpblRunRow | null)
     }).finally(() => setLoading(false))
   }, [open])
 
@@ -747,6 +785,25 @@ export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
                 <Box sx={{ px: 1.5, py: 1 }}>
                   <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>
                     No payroll data. Run <code>npm run payrolls</code>
+                  </Typography>
+                </Box>
+              )}
+            </Section>
+
+            {/* ── WPBL feed mirror ─────────────────────────────────────── */}
+            <Section title="WPBL Ingest">
+              {wpblRun ? (
+                <Box sx={{ px: 1.5 }}>
+                  <StatRow
+                    label="Feed mirror"
+                    sub={`${wpblRun.mode ?? '—'} · ${wpblRun.games} games, ${wpblRun.boxscores} boxscores · ${timeAgoMin(wpblRun.ran_at)}${wpblRun.error_count > 0 ? ` · ${wpblRun.error_count} error(s)` : ''}`}
+                    value={<WpblFreshnessChip run={wpblRun} />}
+                  />
+                </Box>
+              ) : (
+                <Box sx={{ px: 1.5, py: 1 }}>
+                  <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>
+                    No ingest runs logged yet.
                   </Typography>
                 </Box>
               )}

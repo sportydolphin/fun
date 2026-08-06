@@ -4,11 +4,19 @@ on:
   schedule:
     # 2:00 PM UTC = 10:00 AM ET — comfortably before the earliest day games
     - cron: '0 14 * * *'
+    # Back-up attempt 90 min later. GitHub-hosted runners are best-effort and a
+    # scheduled run is sometimes dropped or cancelled at provisioning (never runs a
+    # step). The bots are idempotent (ignoreDuplicates), so a second run is a safe
+    # retry, and 11:30 AM ET is still before most day games.
+    - cron: '30 15 * * *'
   workflow_dispatch:   # also triggerable manually from GitHub Actions UI
 
 jobs:
   run-bots:
     runs-on: ubuntu-latest
+    # Normal run is ~35s; cap it so a stalled fetch (StatsAPI/Supabase) fails fast
+    # instead of hanging. Queue/provisioning time is not counted toward this.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 

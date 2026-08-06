@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.30.0'
+export const APP_VERSION = '1.31.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,29 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.31.0',
+    date:    '2026-08-06',
+    title:   'Clearer WPBL box scores, pitch data, and rosters',
+    changes: [
+      {
+        short: 'WPBL box scores are easier to read on a phone',
+        full:  'In a WPBL game\'s box score, the batting columns now lead with the most useful stats, so you see at bats, runs, hits, RBI, walks, and strikeouts before the extras. The player names also stay in place when you scroll the stats sideways, so you can always tell whose line you are reading.',
+      },
+      {
+        short: 'Pitch Data leads with the game\'s highlights',
+        full:  'A WPBL game\'s Pitch Data tab now starts with the standout tracking moments of that game, the hardest pitch, the hardest hit, and the first hit, each with the player, above the full pitch by pitch detail.',
+      },
+      {
+        short: 'WPBL rosters show the active roster',
+        full:  'A WPBL team\'s roster now lists the players signed to the club plus anyone who has played, instead of the whole draft board, so drafted players who did not make the team no longer clutter the list.',
+      },
+      {
+        short: 'Pitch Data says when tracking is unavailable',
+        full:  'When the league feed has not posted pitch tracking for a finished WPBL game, the Pitch Data tab now shows with a short note instead of disappearing, so it is clear the data is missing rather than the game simply having none.',
+      },
+    ],
+  },
   {
     version: '1.30.0',
     date:    '2026-08-05',

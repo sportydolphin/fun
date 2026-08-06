@@ -118,6 +118,21 @@ export default function TeamPage({ team, teams, games, onBack, onOpenGame, onOpe
   const batByPid = useMemo(() => new Map(batSeasons.map(s => [s.player.id, s.totals])), [batSeasons])
   const pitByPid = useMemo(() => new Map(pitSeasons.map(s => [s.player.id, s.totals])), [pitSeasons])
 
+  // Roster seed carries the whole draft board (118 players), but ~half were drafted and
+  // never signed to an active roster. Show only signed players — plus anyone who has
+  // actually recorded a stat line (a drafted player who got into a game, or a feed-only
+  // call-up), so the override self-corrects the moment someone debuts. Hides the stale
+  // draft-board entries (status 'Drafted'/none with no stats) that clutter the roster.
+  const statPlayerIds = useMemo(() => {
+    const s = new Set<string>()
+    if (lines) { for (const b of lines.batting) s.add(b.player_id); for (const p of lines.pitching) s.add(p.player_id) }
+    return s
+  }, [lines])
+  const visibleRoster = useMemo(
+    () => (roster ?? []).filter(p => p.status === 'Signed' || statPlayerIds.has(p.id)),
+    [roster, statPlayerIds],
+  )
+
   const top = <T,>(list: { player: WpblPlayer; totals: T }[], val: (t: T) => number | null, disp: (t: T) => string, tie: (t: T) => number, n = 3) =>
     list.filter(x => val(x.totals) != null)
       .sort((a, b) => (val(b.totals) as number) - (val(a.totals) as number) || tie(b.totals) - tie(a.totals))
@@ -247,12 +262,12 @@ export default function TeamPage({ team, teams, games, onBack, onOpenGame, onOpe
           )}
 
           {/* Roster with inline stats */}
-          <SectionCard title="Roster" subtitle={`${roster!.length} players`}>
-            {roster!.length === 0 ? (
+          <SectionCard title="Roster" subtitle={`${visibleRoster.length} players`}>
+            {visibleRoster.length === 0 ? (
               <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', py: 1 }}>Roster coming soon.</Typography>
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                {roster!.map(p => {
+                {visibleRoster.map(p => {
                   const pit = pitByPid.get(p.id)
                   const bat = batByPid.get(p.id)
                   const pitcher = isPitcherPos(p.position) || (pit != null && pit.outs > 0 && (bat == null || bat.ab === 0))

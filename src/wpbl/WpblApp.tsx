@@ -231,9 +231,9 @@ type WpblSnap = {
 const isWpblView = (v: unknown): v is WpblView => NAV.some(n => n.key === v)
 const HOME_SNAP: WpblSnap = { view: 'home', team: null, game: null, player: null }
 
-export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
-  // Section is public/read-only (feed-driven); isAdmin now only gates the ingest-health
-  // freshness indicator on the home header.
+export default function WpblApp() {
+  // Section is public/read-only (feed-driven). Ingest-health freshness moved to the site
+  // Admin panel, so the section no longer needs an admin flag.
 
   // Seed from the snapshot already on this history entry (Back/refresh into a deep state),
   // then the URL's ?view=, else home. Read once per state (history.state is stable at mount).
@@ -421,7 +421,7 @@ export default function WpblApp({ isAdmin = false }: { isAdmin?: boolean }) {
         ? <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
         : (
           <>
-            {view === 'home'      && <WpblHome teams={teams} games={games} liveGame={liveGame} isAdmin={isAdmin} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} onViewStats={openStats} onViewTracking={openTracking} />}
+            {view === 'home'      && <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} onViewStats={openStats} onViewTracking={openTracking} />}
             {view === 'schedule'  && <ScheduleView teams={teams} games={games} onOpenGame={openGame} />}
             {view === 'standings' && <StandingsView teams={teams} games={games} onOpenTeam={selectTeam} />}
             {view === 'stats'     && <WpblStatsView teams={teams} games={games} initialGroup={statsGroup} onOpenPlayer={openPlayer} />}
