@@ -10,9 +10,22 @@ import type {
 // the section renders an empty shell instead of throwing. Same tolerance the rest of
 // the app uses for not-yet-migrated features.
 
+// Upper bound on any single read. If the database stalls (the failure mode behind the
+// old infinite spinner), the read resolves to its fallback instead of hanging forever;
+// the section then shows its empty state and the next poll refills it once the DB
+// recovers. Generous enough that a healthy request never trips it.
+const READ_TIMEOUT_MS = 8000
+
 async function safe<T>(label: string, run: () => PromiseLike<{ data: T | null; error: unknown }>, fallback: T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
   try {
-    const { data, error } = await run()
+    const timeout = new Promise<'timeout'>(resolve => { timer = setTimeout(() => resolve('timeout'), READ_TIMEOUT_MS) })
+    const result = await Promise.race([run(), timeout])
+    if (result === 'timeout') {
+      console.warn(`[wpbl] ${label} timed out after ${READ_TIMEOUT_MS}ms`)
+      return fallback
+    }
+    const { data, error } = result
     if (error) {
       console.warn(`[wpbl] ${label} failed:`, error)
       return fallback
@@ -21,6 +34,8 @@ async function safe<T>(label: string, run: () => PromiseLike<{ data: T | null; e
   } catch (e) {
     console.warn(`[wpbl] ${label} threw:`, e)
     return fallback
+  } finally {
+    clearTimeout(timer)
   }
 }
 
