@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking } from './api'
 import { wpblAccent, wpblFullName, outsToIp, formatGameTime } from './constants'
 import { LiveBanner, useLiveGame } from './Live'
-import { ModalShell, SegNav, TeamBadge, useWpblDark } from './ui'
+import { ModalShell, SegNav, TeamBadge, useWpblDark, useWpblName } from './ui'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, speedUnit } from '../lib/units'
 import { prettyType } from './tracking'
@@ -112,6 +112,7 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
 }) {
   const isDark = useWpblDark()
   const color = wpblAccent(team.id, isDark)
+  const shortName = useWpblName()
   const nameCell = (playerId: string, suffix?: React.ReactNode) => {
     const p = names.get(playerId)
     const clickable = p && onOpenPlayer
@@ -123,7 +124,7 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
             onClick={clickable ? () => onOpenPlayer!(p!) : undefined}
             sx={{ fontSize: '0.86rem', fontWeight: 600, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(clickable ? { cursor: 'pointer', '&:hover': { color } } : {}) }}
           >
-            {p?.name ?? '—'}
+            {p ? shortName(p.name) : '—'}
           </Typography>
           {suffix}
         </Box>
@@ -340,6 +341,7 @@ function PitchData({ tracking, boxPitchers, live = false }: { tracking: WpblPitc
   const avg = (a: number[]) => (a.length ? a.reduce((s, v) => s + v, 0) / a.length : null)
   const { units } = useUnits()
   const unit = speedUnit(units)
+  const shortName = useWpblName()
 
   // Per-pitch log: every tracked pitch that carries a velocity (including the one put in
   // play), newest first. Ordered by the feed's sequence, falling back to occurred_at.
@@ -476,12 +478,12 @@ function PitchData({ tracking, boxPitchers, live = false }: { tracking: WpblPitc
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   {p.batter && (
                     <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      <Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>vs </Box>{p.batter}
+                      <Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>vs </Box>{shortName(p.batter)}
                       {p.inPlay && <Box component="span" sx={{ ml: 0.5, fontSize: '0.58rem', fontWeight: 800, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.4 }}>in play</Box>}
                     </Typography>
                   )}
                   {p.pitcher && (
-                    <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.pitcher}</Typography>
+                    <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(p.pitcher)}</Typography>
                   )}
                 </Box>
                 {/* Spin */}
@@ -515,7 +517,7 @@ function PitchData({ tracking, boxPitchers, live = false }: { tracking: WpblPitc
                   <Box component="tr" key={`${r.teamAbbr}-${r.name}`} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
                     <Box component="td" sx={{ ...nameCellSx, overflow: 'hidden' }}>
                       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, overflow: 'hidden' }}>
-                        <Typography component="span" sx={{ fontSize: '0.86rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</Typography>
+                        <Typography component="span" sx={{ fontSize: '0.86rem', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shortName(r.name)}</Typography>
                         <Typography component="span" sx={{ ...posSx, textTransform: 'uppercase' }}>{r.teamAbbr}</Typography>
                       </Box>
                     </Box>
@@ -543,7 +545,7 @@ function PitchData({ tracking, boxPitchers, live = false }: { tracking: WpblPitc
           <Box key={p.activity_id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 0.55, borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'divider', fontSize: '0.82rem' }}>
             <Box sx={{ width: 18, color: 'text.disabled', fontSize: '0.72rem', flexShrink: 0 }}>{i + 1}</Box>
             <Box sx={{ width: 52, fontWeight: 800, flexShrink: 0 }}>{fmtSpeed(p.release_speed, units)}</Box>
-            <Box sx={{ flex: 1, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{labelFor(p)}</Box>
+            <Box sx={{ flex: 1, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shortName(labelFor(p))}</Box>
             <Box sx={{ color: 'text.secondary', fontSize: '0.75rem', flexShrink: 0 }}>{p.spin_rate_rpm != null ? `${Math.round(p.spin_rate_rpm)} rpm` : ''}</Box>
           </Box>
         ))}

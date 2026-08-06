@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, computeStandings, fetchWpblIngestHealth } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs } from './constants'
-import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, CARD_BORDER } from './ui'
+import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, CARD_BORDER } from './ui'
 import { LiveHero } from './Live'
 import {
   aggregateBatting, aggregatePitching, qualifiersActive, fmtRate, fmtTwo,
@@ -237,6 +237,7 @@ function StatBlock({ label, rows, teamById, onOpenPlayer }: {
   label: string; rows: LeaderRow[]; teamById: Map<string, WpblTeam>; onOpenPlayer: (p: WpblPlayer) => void
 }) {
   const isDark = useWpblDark()
+  const shortName = useWpblName()
   if (rows.length === 0) return null
   return (
     <Box sx={{ mb: 1.25, '&:last-of-type': { mb: 0 } }}>
@@ -250,7 +251,7 @@ function StatBlock({ label, rows, teamById, onOpenPlayer }: {
           }}>
             <Typography sx={{ width: 14, fontSize: '0.7rem', fontWeight: 800, color: i === 0 ? wpblAccent(r.player.team_id, isDark) : 'text.disabled' }}>{i + 1}</Typography>
             {team && <TeamBadge team={team} size={18} />}
-            <Typography sx={{ flex: 1, fontSize: '0.82rem', fontWeight: i === 0 ? 700 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.player.name}</Typography>
+            <Typography sx={{ flex: 1, fontSize: '0.82rem', fontWeight: i === 0 ? 700 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(r.player.name)}</Typography>
             <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', minWidth: 40, textAlign: 'right' }}>{r.display}</Typography>
           </Box>
         )
@@ -323,6 +324,7 @@ function TrackingTeaserCard({ board, latestGameIds, loading, teamById, onOpenPla
 }) {
   const isDark = useWpblDark()
   const { units } = useUnits()
+  const shortName = useWpblName()
   const fp = board.fastestPitches[0]
   const hh = board.hardestHits[0]
   const lh = board.longestHits[0]
@@ -366,7 +368,7 @@ function TrackingTeaserCard({ board, latestGameIds, loading, teamById, onOpenPla
                 <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary' }}>{t.label}</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
                   {team && <TeamBadge team={team} size={18} />}
-                  <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</Typography>
+                  <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(t.name)}</Typography>
                   {t.isNew && (
                     <Box sx={{ flexShrink: 0, px: 0.6, py: 0.1, borderRadius: 1, bgcolor: wpblAccent(t.teamId ?? '', isDark), color: '#fff', fontSize: '0.55rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 }}>New</Box>
                   )}
@@ -392,6 +394,7 @@ function FirstRow({ f, teamById, onOpenPlayer, showDetail }: {
   const team = f.teamId ? teamById.get(f.teamId) : undefined
   const dateLabel = new Date(`${f.date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })
   const clickable = !!f.player
+  const shortName = useWpblName()
   return (
     <Box
       onClick={clickable ? () => onOpenPlayer(f.player!) : undefined}
@@ -406,7 +409,7 @@ function FirstRow({ f, teamById, onOpenPlayer, showDetail }: {
         <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary' }}>
           {f.icon} {f.label}
         </Typography>
-        <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.name}</Typography>
+        <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(f.name)}</Typography>
         {showDetail && f.detail && (
           <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.detail}</Typography>
         )}

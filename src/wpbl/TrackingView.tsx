@@ -4,7 +4,7 @@ import { fetchWpblAllTracking, fetchWpblAllPlayers, fetchWpblAllLines } from './
 import { aggregateTracking } from './tracking'
 import type { TrackingBoard, VeloLeader, SpinLeader, PitchHit, BattedBall } from './tracking'
 import { WPBL_ACCENT } from './constants'
-import { SegNav, SectionCard, PlayerPortrait, TeamBadge, CARD_BORDER } from './ui'
+import { SegNav, SectionCard, PlayerPortrait, TeamBadge, CARD_BORDER, useWpblName } from './ui'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import type { WpblTeam, WpblPlayer } from './types'
@@ -26,6 +26,7 @@ function LeaderRow({ rank, player, name, teamId, value, unit, sub, accent, onOpe
   onOpen?: (p: WpblPlayer) => void
 }) {
   const clickable = !!player && !!onOpen
+  const shortName = useWpblName()
   return (
     <Box
       onClick={clickable ? () => onOpen!(player!) : undefined}
@@ -40,7 +41,7 @@ function LeaderRow({ rank, player, name, teamId, value, unit, sub, accent, onOpe
       <PlayerPortrait name={name} teamId={teamId} size={32} />
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-          <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</Typography>
+          <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(name)}</Typography>
           {teamId && <TeamBadge team={{ id: teamId, abbr: teamId }} size={16} />}
         </Box>
         {sub && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</Typography>}
@@ -57,6 +58,7 @@ function LeaderRow({ rank, player, name, teamId, value, unit, sub, accent, onOpe
 function BestTile({ label, value, unit, name, accent }: {
   label: string; value: string; unit: string; name: string; accent: string
 }) {
+  const shortName = useWpblName()
   return (
     <Box sx={{
       flex: 1, minWidth: 130, p: 1.25, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
@@ -67,7 +69,7 @@ function BestTile({ label, value, unit, name, accent }: {
         <Typography sx={{ fontSize: '1.7rem', fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: accent }}>{value}</Typography>
         <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary' }}>{unit}</Typography>
       </Box>
-      <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, mt: 0.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</Typography>
+      <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, mt: 0.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(name)}</Typography>
     </Box>
   )
 }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblRoster, fetchWpblAllLines, computeStandings } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
-import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, useWpblDark, CARD_BORDER } from './ui'
+import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, useWpblDark, useWpblName, CARD_BORDER } from './ui'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, fmtRate, fmtTwo,
   type WpblBattingTotals, type WpblPitchingTotals,
@@ -40,6 +40,7 @@ function LeaderList({ label, rows, accent, onOpenPlayer }: {
   accent: string
   onOpenPlayer: (p: WpblPlayer) => void
 }) {
+  const shortName = useWpblName()
   if (rows.length === 0) return null
   return (
     <Box sx={{ mb: 1.25, '&:last-of-type': { mb: 0 } }}>
@@ -51,7 +52,7 @@ function LeaderList({ label, rows, accent, onOpenPlayer }: {
         }}>
           <Typography sx={{ width: 14, fontSize: '0.7rem', fontWeight: 800, color: i === 0 ? accent : 'text.disabled' }}>{i + 1}</Typography>
           <PlayerPortrait name={r.player.name} teamId={r.player.team_id} size={20} />
-          <Typography sx={{ flex: 1, fontSize: '0.82rem', fontWeight: i === 0 ? 700 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.player.name}</Typography>
+          <Typography sx={{ flex: 1, fontSize: '0.82rem', fontWeight: i === 0 ? 700 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(r.player.name)}</Typography>
           <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', minWidth: 40, textAlign: 'right' }}>{r.value}</Typography>
         </Box>
       ))}
@@ -69,6 +70,7 @@ export default function TeamPage({ team, teams, games, onBack, onOpenGame, onOpe
 }) {
   const isDark = useWpblDark()
   const accent = wpblAccent(team.id, isDark)
+  const shortName = useWpblName()
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
   const [roster, setRoster] = useState<WpblPlayer[] | null>(null)
@@ -265,7 +267,7 @@ export default function TeamPage({ team, teams, games, onBack, onOpenGame, onOpe
                         {p.position || '—'}
                       </Typography>
                       <PlayerPortrait name={p.name} teamId={p.team_id} size={34} />
-                      <Typography sx={{ flex: 1, fontSize: '0.88rem', fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</Typography>
+                      <Typography sx={{ flex: 1, fontSize: '0.88rem', fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(p.name)}</Typography>
                       <Box sx={{ display: 'flex', gap: 1.5, flexShrink: 0 }}>
                         {stats.map(s => (
                           <Box key={s.label} sx={{ textAlign: 'right', minWidth: 34 }}>

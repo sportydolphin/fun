@@ -7,12 +7,34 @@
 // to WPBL_ACCENT, so the league keeps its own color while the shape stays identical.
 // If you restyle a primitive here, mirror the change in the MLB file (and vice versa).
 
-import React, { useEffect } from 'react'
-import { Box, Typography, useTheme } from '@mui/material'
+import React, { useEffect, useCallback } from 'react'
+import { Box, Typography, useTheme, useMediaQuery } from '@mui/material'
 import type { Theme } from '@mui/material'
 import { WPBL_ACCENT, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
 import { wpblPortrait } from './portraits'
 import type { WpblTeam } from './types'
+
+// ─── Name shortening ────────────────────────────────────────────────────────────
+// Compact a full name to "F. Last" once it's long enough to crowd a tight WPBL layout
+// (stat tables, leader rows, box scores). Names within `maxLen` pass through untouched,
+// and a single-token name is never abbreviated. Most callers should use useWpblName()
+// for the viewport-aware default rather than calling this with a fixed length.
+export function wpblShortName(name: string, maxLen = 16): string {
+  const full = (name ?? '').trim()
+  if (full.length <= maxLen) return full
+  const parts = full.split(/\s+/)
+  if (parts.length < 2 || !parts[0]) return full
+  return `${parts[0][0]}. ${parts.slice(1).join(' ')}`
+}
+
+// Viewport-aware name shortener to drop into any WPBL list/table/tile. Horizontal space is
+// scarcest on phones, so names abbreviate to "F. Last" past a short length there, and only
+// for genuinely long names on wider screens. Returns a stable formatter.
+export function useWpblName(): (name: string) => string {
+  const isMobile = useMediaQuery('(max-width:600px)')
+  const maxLen = isMobile ? 12 : 20
+  return useCallback((name: string) => wpblShortName(name, maxLen), [maxLen])
+}
 
 // Card outline color — noticeably stronger than MUI's faint `divider` so the WPBL
 // cards (and the sub-cards nested inside them) read as crisply outlined in both light
