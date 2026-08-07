@@ -76,9 +76,13 @@ export function aggregateTracking(rows: WpblTrackRow[], players: WpblPlayer[], p
     return cands.length === 1 ? cands[0] : null
   }
 
-  // ── Pitch attribution: id → name → (per-game rescue below). Every row with a velocity
-  //    is a pitch (kind 'hit' rows are pitches that were put in play, so include them). ──
-  const pitchRows = rows.filter(r => r.release_speed != null && r.release_speed > 0)
+  // ── Pitch attribution: id → name → (per-game rescue below). Every row with a velocity is
+  //    a pitch (kind 'hit' rows are pitches put in play, so include them) EXCEPT the feed's
+  //    "rest_reconciliation" warmup/bullpen rows, which carry no batter / pitcher / inning.
+  //    Those are not game pitches: they must not count toward velo leaders or be rescued onto
+  //    a real pitcher (they were being dumped on the game's one un-tracked box pitcher). A
+  //    genuine pitch is thrown to a batter, so require a batter name. ──
+  const pitchRows = rows.filter(r => r.release_speed != null && r.release_speed > 0 && r.batter_name != null)
   const pitchAtt = pitchRows.map(r => {
     let player: WpblPlayer | null = null
     if (r.pitcher_id && byApi.has(r.pitcher_id)) player = byApi.get(r.pitcher_id)!

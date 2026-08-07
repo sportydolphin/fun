@@ -322,8 +322,14 @@ const samePitcher = (a: string, b: string): boolean => {
 
 type FirstHit = { batter: string | null; inning: number; half: string }
 function PitchData({ tracking, boxPitchers, firstHit = null, live = false }: { tracking: WpblPitchTracking[]; boxPitchers: BoxPitcher[]; firstHit?: FirstHit | null; live?: boolean }) {
+  // Real game pitches only. The feed's "rest_reconciliation" warmup/bullpen rows carry a
+  // velocity but no batter (nor pitcher / inning); they are not game pitches and must not
+  // count toward the velo stats or be rescued onto a real pitcher. A pitch thrown to a
+  // batter always names the batter, so require one.
   const pitches = useMemo(
-    () => tracking.filter(t => t.release_speed != null && (t.kind == null || t.kind === 'pitch')),
+    () => tracking.filter(t =>
+      t.release_speed != null && (t.kind == null || t.kind === 'pitch') &&
+      !!(t.raw as { batter_name?: string | null } | null)?.batter_name),
     [tracking],
   )
   // Game highlights for the standout summary strip: the single hardest pitch (attributed
@@ -381,7 +387,8 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false }: { t
     return first ? `${first} ${last}` : n
   }
   const pitchLog = useMemo(() => {
-    const withVelo = tracking.filter(t => t.release_speed != null && t.release_speed > 0)
+    const withVelo = tracking.filter(t => t.release_speed != null && t.release_speed > 0 &&
+      !!(t.raw as { batter_name?: string | null } | null)?.batter_name) // exclude warmup rows
     withVelo.sort((a, b) =>
       a.sequence != null && b.sequence != null
         ? b.sequence - a.sequence
