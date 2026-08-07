@@ -86,6 +86,16 @@ function chicagoTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-US', { timeZone: CHI, hour: 'numeric', minute: '2-digit' })
 }
 
+// The feed publishes scheduled_start exactly one hour early: it encodes the venue's Central
+// wall clock with an Eastern offset, so every game reads an hour before its true first pitch
+// (verified against the league's official schedule — games are 6:30 PM CT, the feed says
+// 5:30 PM; the Aug 8 matinee is 1:00 PM CT, the feed says 12:00). The entire 2026 season is
+// in CDT (no DST change), so a flat +1h correction is exact. Remove if the feed is fixed.
+const FEED_START_FIX_MS = 60 * 60 * 1000
+function correctedStart(iso: string): string {
+  return iso ? new Date(Date.parse(iso) + FEED_START_FIX_MS).toISOString() : ''
+}
+
 // Feed status text → our enum. The boxscore's status.complete is authoritative when we
 // have it; the games-list status string is the fallback.
 function mapStatus(text: string, complete?: boolean): 'scheduled' | 'live' | 'final' {
@@ -522,7 +532,7 @@ Deno.serve(async (req) => {
       if (!homeSlug || !awaySlug) { summary.errors.push(`unmapped team in ${apiGameId}`); continue }
 
       const status = mapStatus(s(fg.status))
-      const startIso = s(fg.scheduled_start)
+      const startIso = correctedStart(s(fg.scheduled_start)) // +1h feed correction (see correctedStart)
       const scoreAway = fg.presto_data?.score?.away
       const scoreHome = fg.presto_data?.score?.home
 
