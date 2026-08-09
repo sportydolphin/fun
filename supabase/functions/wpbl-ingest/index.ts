@@ -263,6 +263,38 @@ async function syncGameRows(
   await db.from(table).delete().eq('game_id', gameUuid).not(keyCol, 'in', `(${keys.join(',')})`)
 }
 
+// ─── tracking (TrackMan) source ───────────────────────────────────────────────
+// The boxscore embeds `tracking_activity`, but it's server-capped at 200 events — a
+// full game is ~380. The dedicated /games/{id}/activity endpoint is the uncapped,
+// paginated source (and adds `distance` on hit events), so we page through it and
+// merge over whatever the boxscore carried, keyed by activity_id. Merging (rather than
+// replacing) means we never lose the boxscore's set if /activity ever regresses, and
+// the endpoint's richer copy wins on overlap. Games the league hasn't published
+// tracking for return an empty page — nothing to do, and they light up automatically
+// once it appears. (Complements the late-backfill gate below, which re-fetches recent
+// finals whose tracking posts after the game goes Final.)
+async function fetchTracking(apiGameId: string, fromBox: any[]): Promise<any[]> {
+  const merged = new Map<string, any>()
+  for (const t of fromBox) if (t?.activity_id) merged.set(s(t.activity_id), t)
+
+  const LIMIT = 1000
+  try {
+    for (let offset = 0, page = LIMIT; page === LIMIT; offset += LIMIT) {
+      const res = await fetch(`${FEED}/games/${apiGameId}/activity?limit=${LIMIT}&offset=${offset}`)
+      if (!res.ok) { // fall back to whatever the boxscore gave us
+        if (offset === 0) console.warn(`[wpbl-ingest] activity ${apiGameId} → ${res.status}, using boxscore tracking`)
+        break
+      }
+      const items: any[] = (await res.json()).activity ?? []
+      for (const t of items) if (t?.activity_id) merged.set(s(t.activity_id), t)
+      page = items.length
+    }
+  } catch (e) {
+    console.warn(`[wpbl-ingest] activity ${apiGameId} fetch failed, using boxscore tracking:`, e instanceof Error ? e.message : e)
+  }
+  return [...merged.values()]
+}
+
 // ─── boxscore ingestion for one game ──────────────────────────────────────────
 async function ingestBoxscore(
   db: SupabaseClient,
@@ -386,8 +418,9 @@ async function ingestBoxscore(
     fouls: n(p.fouls), pitch_events: p.pitch_events ?? null,
   }))
 
-  // TrackMan — upsert on activity_id (stable per event).
-  const tracking = (box.tracking_activity ?? [])
+  // TrackMan — sourced from the uncapped /activity endpoint (merged over the boxscore's
+  // capped copy), upsert on activity_id (stable per event).
+  const tracking = (await fetchTracking(apiGameId, box.tracking_activity ?? []))
     .filter((t: any) => t.activity_id)
     .map((t: any) => ({
       activity_id: s(t.activity_id), game_id: gameUuid, play_id: s(t.play_id) || null,
@@ -563,7 +596,8 @@ Deno.serve(async (req) => {
       const wantBox =
         oneGame != null ||
         mode === 'all' ||
-        (notFinalHere && (force || status !== 'scheduled' || started)) ||
+        (force && (started || prior?.status === 'final')) || // corrections: re-fetch finals/started games
+        (notFinalHere && (status !== 'scheduled' || started)) ||
         (prior != null && missingTracking.has(prior.id)) // late-TrackMan backfill for recent finals
       if (!wantBox) continue
 
