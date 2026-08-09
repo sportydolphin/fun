@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, computeStandings } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs } from './constants'
@@ -58,7 +58,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
 
   return (
     <Box onClick={onOpen} sx={{
-      flexShrink: 0, width: 132, cursor: 'pointer',
+      flexShrink: 0, width: 132, cursor: 'pointer', scrollSnapAlign: 'start',
       borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
       p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
       transition: 'border-color 0.15s', '&:hover': { borderColor: 'text.disabled' },
@@ -75,19 +75,33 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
 function Scoreboard({ games, teams, onOpenGame }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
 }) {
-  // Keep the strip relevant: the last few finals, then everything still to come.
-  const strip = useMemo(() => {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  // Keep the strip relevant: the last few finals, then everything still to come. Anchor on
+  // the most recent final so the strip opens scrolled to the "now" boundary — previous game
+  // at the left edge, the next/live game right beside it — rather than the oldest final.
+  const { strip, anchorIndex } = useMemo(() => {
     const played = games.filter(g => g.status === 'final')
     const rest = games.filter(g => g.status !== 'final')
-    return [...played.slice(-3), ...rest.slice(0, 7)]
+    const head = played.slice(-3)
+    return { strip: [...head, ...rest.slice(0, 7)], anchorIndex: head.length > 0 ? head.length - 1 : 0 }
   }, [games])
+
+  // Position the anchor chip at the container's left edge. Measures the real DOM node
+  // (robust to chip width / gap changes) and moves only the strip's own scroll, not the page.
+  useEffect(() => {
+    const c = scrollRef.current
+    const anchor = c?.children[anchorIndex] as HTMLElement | undefined
+    if (!c || !anchor) return
+    c.scrollLeft += anchor.getBoundingClientRect().left - c.getBoundingClientRect().left
+  }, [strip, anchorIndex])
 
   if (strip.length === 0) return null
   return (
     <Box sx={{ mb: 2 }}>
       <SectionLabel>Scoreboard</SectionLabel>
-      <Box sx={{
+      <Box ref={scrollRef} sx={{
         display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5,
+        scrollSnapType: 'x proximity',
         '&::-webkit-scrollbar': { display: 'none' },
         msOverflowStyle: 'none', scrollbarWidth: 'none',
       }} data-swipe-ignore="true">
@@ -467,6 +481,89 @@ function FirstsModal({ firsts, teamById, onClose, onOpenPlayer }: {
   )
 }
 
+// ─── New-tracking banner ──────────────────────────────────────────────────────────
+// The league publishes TrackMan tracking in batches that land days after a game, often in
+// bulk for several games at once (see wpbl-ingest's late-backfill note). When the set of
+// games that carry tracking grows beyond what this browser last saw, surface a dismissible
+// banner pointing to the Ballpark Tracking section. First-ever visit seeds silently (no
+// nag); the "new" state clears once the user views or dismisses it.
+
+const TRACK_SEEN_KEY = 'wpbl:trackingSeenGames'
+
+function readSeen(): string[] {
+  try { const v = JSON.parse(localStorage.getItem(TRACK_SEEN_KEY) ?? '[]'); return Array.isArray(v) ? v : [] }
+  catch { return [] }
+}
+function writeSeen(ids: Iterable<string>) {
+  try { localStorage.setItem(TRACK_SEEN_KEY, JSON.stringify([...ids])) } catch { /* private mode / quota — non-fatal */ }
+}
+
+// Returns how many newly-tracked games appeared since this browser last acknowledged, and
+// an ack() that marks the current tracked set as seen. Waits for tracking to load before
+// judging (size 0 = not loaded yet), and seeds silently on a first visit.
+function useNewTrackingBatch(tracking: WpblTrackRow[]): { newCount: number; ack: () => void } {
+  const trackedIds = useMemo(() => {
+    const set = new Set<string>()
+    for (const t of tracking) if (t.game_id) set.add(t.game_id)
+    return set
+  }, [tracking])
+  const [newCount, setNewCount] = useState(0)
+
+  useEffect(() => {
+    if (trackedIds.size === 0) return // tracking not loaded yet — don't seed on an empty set
+    const seen = readSeen()
+    if (seen.length === 0) { writeSeen(trackedIds); setNewCount(0); return } // first visit: seed, no banner
+    const seenSet = new Set(seen)
+    let added = 0
+    for (const id of trackedIds) if (!seenSet.has(id)) added++
+    setNewCount(added)
+  }, [trackedIds])
+
+  const ack = () => { writeSeen(trackedIds); setNewCount(0) }
+  return { newCount, ack }
+}
+
+function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView: () => void; onDismiss: () => void }) {
+  return (
+    <Box
+      onClick={onView}
+      role="button"
+      sx={{
+        mb: 2, display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, cursor: 'pointer',
+        borderRadius: 2, border: '1.5px solid', borderColor: WPBL_ACCENT,
+        bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.015)',
+        transition: 'background-color 0.15s',
+        '&:hover': { bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)' },
+      }}
+    >
+      <Box sx={{ fontSize: '1.35rem', lineHeight: 1, flexShrink: 0 }}>📡</Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, lineHeight: 1.2 }}>
+          New pitch-tracking data just landed
+        </Typography>
+        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 0.2 }}>
+          Velocity, spin &amp; exit velo for {count} new game{count === 1 ? '' : 's'} — tap to explore Ballpark Tracking.
+        </Typography>
+      </Box>
+      <Typography sx={{ fontSize: '0.75rem', fontWeight: 800, color: WPBL_ACCENT, flexShrink: 0, whiteSpace: 'nowrap' }}>
+        View →
+      </Typography>
+      <Box
+        onClick={e => { e.stopPropagation(); onDismiss() }}
+        role="button"
+        aria-label="Dismiss"
+        sx={{
+          flexShrink: 0, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: '50%', color: 'text.secondary', fontSize: '0.85rem', lineHeight: 1,
+          '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+        }}
+      >
+        ✕
+      </Box>
+    </Box>
+  )
+}
+
 // ─── Home ───────────────────────────────────────────────────────────────────────
 
 // ─── Ingest health (admin-only) ──────────────────────────────────────────────────
@@ -553,6 +650,10 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
 
   const hasLines = lines.batting.length > 0 || lines.pitching.length > 0
 
+  // New-tracking batch banner: fires when the set of tracked games grows since last seen.
+  const { newCount: newTrackingCount, ack: ackTracking } = useNewTrackingBatch(tracking)
+  const viewTracking = () => { ackTracking(); onViewTracking() }
+
   return (
     <Box>
       {/* Slim league header */}
@@ -571,6 +672,11 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
           ))}
         </Box>
       </Box>
+
+      {/* New pitch-tracking batch just published — point folks to the Tracking section */}
+      {newTrackingCount > 0 && (
+        <NewTrackingBanner count={newTrackingCount} onView={viewTracking} onDismiss={ackTracking} />
+      )}
 
       {/* Live game hero — the one in-progress game, front and center */}
       {liveGame && <LiveHero game={liveGame} teams={teams} onOpen={() => onOpenGame(liveGame)} />}
@@ -594,7 +700,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
         {/* Around the League */}
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <HallOfFirstsCard firsts={firsts} teamById={teamMap} loading={loadingLeaders} onOpenPlayer={onOpenPlayer} onViewAll={() => setFirstsOpen(true)} />
-          <TrackingTeaserCard board={trackingBoard} latestGameIds={latestGameIds} loading={loadingLeaders} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={onViewTracking} />
+          <TrackingTeaserCard board={trackingBoard} latestGameIds={latestGameIds} loading={loadingLeaders} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={viewTracking} />
           <LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('hitting')} />
           <LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('pitching')} />
         </Box>

@@ -495,13 +495,17 @@ Deno.serve(async (req) => {
     const byApi = new Map<string, { id: string; status: string }>()
     for (const g of ourGames ?? []) if (g.api_game_id) byApi.set(g.api_game_id, { id: g.id, status: g.status })
 
-    // Late TrackMan backfill. The feed frequently publishes a game's tracking_activity
-    // AFTER it flips to Final, but the "active" gate below skips games already stored final
-    // — so late tracking would be lost forever. Re-fetch recently-final games that still
-    // have zero tracking rows; once the feed posts the data (or the window lapses) this
-    // stops. Bounded to a few days so we don't re-hammer old finals that were simply never
-    // tracked. Empty set on the initial `all` backfill (which fetches everything anyway).
-    const BACKFILL_DAYS = 3
+    // Late TrackMan backfill. The league reconciles tracking (event_type
+    // 'rest_reconciliation') in batches that land DAYS after a game goes Final — the two
+    // Aug 1–2 games were both published in a single batch on Aug 3, and later games can lag
+    // further and arrive in bulk. The "active" gate below skips games already stored final,
+    // so without this those late batches would be lost forever. Re-fetch recently-final
+    // games that still have zero tracking rows; once the feed posts the data (or the window
+    // lapses) this stops. The window must comfortably exceed the observed publish lag, so it
+    // is generous — the cost is only a boxscore+activity fetch per still-untracked final,
+    // and the set shrinks to nothing as games fill in. Empty on the initial `all` backfill
+    // (which fetches everything anyway).
+    const BACKFILL_DAYS = 21
     const dayAge = (d: string | null) => d ? (Date.now() - Date.parse(`${d}T00:00:00Z`)) / 86_400_000 : Infinity
     const recentFinalIds = (ourGames ?? [])
       .filter(g => g.status === 'final' && dayAge(g.game_date) <= BACKFILL_DAYS)
