@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
@@ -266,7 +266,17 @@ export default function WpblApp() {
   const apply = useCallback((s: WpblSnap) => {
     setView(s.view); setSelectedTeam(s.team); setDetailGame(s.game); setDetailPlayer(s.player)
   }, [])
-  const urlFor = (s: WpblSnap) => (s.view === 'home' ? '/wpbl' : `/wpbl?view=${s.view}`)
+  const urlFor = (s: WpblSnap) => {
+    const q = new URLSearchParams()
+    if (s.view !== 'home') q.set('view', s.view)
+    if (s.player) q.set('player', s.player.id) // deep-linkable player page
+    const str = q.toString()
+    return str ? `/wpbl?${str}` : '/wpbl'
+  }
+  // A ?player=<id> from a pasted/shared link, resolved to the player once the roster loads.
+  const pendingPlayerId = useRef<string | null>(
+    window.history.state?.wpbl ? null : new URLSearchParams(window.location.search).get('player'),
+  )
   // Every forward navigation = one history entry (apply state + push a matching snapshot).
   const push = useCallback((s: WpblSnap) => {
     apply(s)
@@ -299,6 +309,18 @@ export default function WpblApp() {
 
   // Full roster of every player, loaded once — the pool the header search filters over.
   useEffect(() => { fetchWpblAllPlayers().then(setPlayers).catch(() => {}) }, [])
+
+  // Open the player named in a shared ?player=<id> link, once the roster is available.
+  useEffect(() => {
+    const id = pendingPlayerId.current
+    if (!id || detailPlayer || players.length === 0) return
+    pendingPlayerId.current = null
+    const p = players.find(pl => pl.id === id)
+    if (!p) return
+    setDetailPlayer(p)
+    const s: WpblSnap = { view, team: selectedTeam, game: detailGame, player: p }
+    window.history.replaceState({ ...window.history.state, wpbl: s }, '', urlFor(s))
+  }, [players, detailPlayer, view, selectedTeam, detailGame])
 
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 

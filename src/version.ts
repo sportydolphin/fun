@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.31.0'
+export const APP_VERSION = '1.32.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,29 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.32.0',
+    date:    '2026-08-09',
+    title:   'Pitch location maps, and a smarter home page',
+    changes: [
+      {
+        short: 'See where a WPBL pitcher put every pitch',
+        full:  'A WPBL pitcher\'s page now maps where their tracked pitches crossed the plate, on a strike zone colored by pitch type — plus a separate mini map for each pitch, fastball, slider, curveball, and so on, with how many they threw and its average velocity.',
+      },
+      {
+        short: 'The home page flags new pitch-tracking data',
+        full:  'When the league posts a fresh batch of pitch tracking, the WPBL home page now shows a banner pointing you to the tracking section, so you know the moment new velocity, spin, and exit-velocity data has landed.',
+      },
+      {
+        short: 'The home scoreboard opens at the latest games',
+        full:  'The scoreboard strip on the WPBL home page now opens scrolled to the most recent and upcoming games, instead of starting at the oldest final, so the games that matter now are front and center.',
+      },
+      {
+        short: 'Clearer note on what pitch tracking is missing',
+        full:  'The WPBL tracking section now explains up front that the in-park radar cannot fully track balls hit out of the field, so home runs — often the hardest, longest hits — are usually missing from the leaderboards rather than being an error.',
+      },
+    ],
+  },
   {
     version: '1.31.0',
     date:    '2026-08-06',

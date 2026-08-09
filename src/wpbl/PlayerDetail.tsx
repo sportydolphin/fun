@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress, Tooltip } from '@mui/material'
-import { fetchWpblPlayerLines } from './api'
+import { fetchWpblPlayerLines, fetchWpblPitcherLocations, type WpblPitchLoc } from './api'
 import { sumBatting, sumPitching, sumFielding, fmtRate, fmtTwo } from './stats'
 import { wpblAccent, wpblFullName, outsToIp } from './constants'
 import { ModalShell, PlayerPortrait, useWpblDark } from './ui'
+import { PitchLocationCard } from './PitchLocation'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from './types'
 
 // Player page (Phase 1c): profile + season totals aggregated from box-score lines,
@@ -106,6 +107,7 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
   const [batting, setBatting] = useState<WpblBattingLine[]>([])
   const [pitching, setPitching] = useState<WpblPitchingLine[]>([])
   const [fielding, setFielding] = useState<WpblFieldingLine[]>([])
+  const [pitchLocs, setPitchLocs] = useState<WpblPitchLoc[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -113,8 +115,11 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
       if (cancelled) return
       setBatting(batting); setPitching(pitching); setFielding(fielding); setLoading(false)
     })
+    // Pitch-location tracking keys on the feed id; empty for non-pitchers / unmapped players.
+    setPitchLocs([])
+    fetchWpblPitcherLocations(player.api_id).then(locs => { if (!cancelled) setPitchLocs(locs) })
     return () => { cancelled = true }
-  }, [player.id])
+  }, [player.id, player.api_id])
 
   const bt = useMemo(() => sumBatting(batting), [batting])
   const pt = useMemo(() => sumPitching(pitching), [pitching])
@@ -187,6 +192,8 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
                   line={[['G', pt.g], ['IP', outsToIp(pt.outs)], ['H', pt.h], ['R', pt.r], ['ER', pt.er], ['BB', pt.bb], ['SO', pt.so], ['HR', pt.hr]]}
                 />
               )}
+
+              {pitchLocs.length > 0 && <PitchLocationCard rows={pitchLocs} accent={color} />}
 
               {hasFielding && (
                 <StatSection

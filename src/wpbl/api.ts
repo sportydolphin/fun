@@ -201,6 +201,45 @@ export async function fetchWpblPlayerLines(playerId: string): Promise<{ batting:
   return { batting, pitching, fielding }
 }
 
+// One tracked pitch's plate location + label, for a pitcher's location map. Coordinates
+// are in feet from the plate: `side` 0 = center (catcher's view, + toward the plot's
+// right), `height` 0 = ground. Both are present for 100% of tracked pitches.
+export interface WpblPitchLoc {
+  game_id: string
+  pitch_type: string | null
+  release_speed: number | null
+  side: number | null
+  height: number | null
+}
+
+// Every tracked pitch thrown by one pitcher (keyed by the feed id = wpbl_players.api_id),
+// projected out of the raw payload. Empty for non-pitchers / players with no api_id.
+// Paginated past PostgREST's 1000-row default so it holds up as the season fills in.
+export async function fetchWpblPitcherLocations(apiId: string | null): Promise<WpblPitchLoc[]> {
+  if (!apiId) return []
+  const SELECT = 'game_id,release_speed,pitch_type:raw->>pitch_type,' +
+    'side:raw->>plate_location_side,height:raw->>plate_location_height'
+  const PAGE = 1000
+  const out: WpblPitchLoc[] = []
+  for (let from = 0; ; from += PAGE) {
+    const page = await safe<Record<string, unknown>[]>('fetchWpblPitcherLocations', () =>
+      supabase.from('wpbl_pitch_tracking').select(SELECT)
+        .eq('kind', 'pitch').eq('raw->>pitcher_id', apiId)
+        .range(from, from + PAGE - 1) as unknown as
+        PromiseLike<{ data: Record<string, unknown>[] | null; error: unknown }>,
+      [])
+    for (const d of page) out.push({
+      game_id: String(d.game_id),
+      pitch_type: (d.pitch_type as string) ?? null,
+      release_speed: numOrNull(d.release_speed),
+      side: numOrNull(d.side),
+      height: numOrNull(d.height),
+    })
+    if (page.length < PAGE) break
+  }
+  return out
+}
+
 // Standings derived from final games (not stored). A game counts only once both a
 // status of 'final' and both scores are present.
 // "6:30 PM" wall clock → minutes since midnight (blank/unparseable sorts first), so

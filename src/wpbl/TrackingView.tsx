@@ -135,7 +135,7 @@ export default function WpblTrackingView({ onOpenPlayer }: { teams?: WpblTeam[];
             Partial tracking data
           </Typography>
           <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', lineHeight: 1.45, mt: 0.25 }}>
-            We only have tracking data from the first {board.gameCount} {board.gameCount === 1 ? 'game' : 'games'} of the season — and it's incomplete even for those. The in-park radar can't fully track balls hit out of the field, so home runs — often the hardest-hit and longest balls of all — are usually missing or mis-measured and won't top these boards. Leaderboards update as more games are tracked.
+            We only have tracking data for the first {board.gameCount} {board.gameCount === 1 ? 'game' : 'games'} of the season, and even those are incomplete. The in-park radar can't reliably track balls hit out of the field, so home runs often show up with no distance or exit velocity and won't rank on these boards. We'll add more as the league posts it.
           </Typography>
         </Box>
       </Box>
@@ -195,7 +195,7 @@ export default function WpblTrackingView({ onOpenPlayer }: { teams?: WpblTeam[];
                       sub={[b.hitType, b.exit != null ? `${fmtSpeed(b.exit, units)} ${speedUnit(units)} EV` : null].filter(Boolean).join(' · ') || undefined} />
                   ))}
                   <Typography sx={{ mt: 1, px: 0.5, fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.4 }}>
-                    Distances come from in-park radar, which loses balls that leave the field. So home runs — often the longest hits of all — usually carry no tracked distance and won't appear here.
+                    Distances come from in-park radar, which can't follow balls once they leave the field. Home runs, usually the longest hits, often have no measured distance and won't appear here.
                   </Typography>
                 </SectionCard>
               )}
