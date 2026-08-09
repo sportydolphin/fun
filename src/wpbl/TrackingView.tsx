@@ -123,6 +123,23 @@ export default function WpblTrackingView({ onOpenPlayer }: { teams?: WpblTeam[];
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* Coverage disclaimer — pinned to the top, restated whenever the tracked-game count changes */}
+      <Box sx={{
+        display: 'flex', alignItems: 'flex-start', gap: 1.25, p: 1.5, borderRadius: 2,
+        border: '1px solid', borderColor: `${accent}80`,
+        background: `linear-gradient(135deg, ${accent}26 0%, ${accent}0d 70%)`,
+      }}>
+        <Box sx={{ fontSize: '1.2rem', lineHeight: 1, flexShrink: 0, mt: '1px' }}>⚠️</Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: accent }}>
+            Partial tracking data
+          </Typography>
+          <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', lineHeight: 1.45, mt: 0.25 }}>
+            We only have tracking data from the first {board.gameCount} {board.gameCount === 1 ? 'game' : 'games'} of the season. These leaderboards will update as more games are tracked.
+          </Typography>
+        </Box>
+      </Box>
+
       {/* League bests */}
       {bests.length > 0 && (
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>

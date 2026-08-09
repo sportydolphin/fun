@@ -48,6 +48,7 @@ export interface BattedBall { player: WpblPlayer | null; name: string; teamId: s
 export interface TrackingBoard {
   pitchCount: number
   hitCount: number
+  gameCount: number              // distinct games with any tracking data (drives the coverage note)
   veloLeaders: VeloLeader[]      // pitchers ranked by their hardest pitch
   spinLeaders: SpinLeader[]      // pitchers ranked by average spin
   fastestPitches: PitchHit[]     // the single fastest pitches in the league
@@ -55,7 +56,7 @@ export interface TrackingBoard {
   longestHits: BattedBall[]      // batted balls ranked by distance
 }
 
-const EMPTY: TrackingBoard = { pitchCount: 0, hitCount: 0, veloLeaders: [], spinLeaders: [], fastestPitches: [], hardestHits: [], longestHits: [] }
+const EMPTY: TrackingBoard = { pitchCount: 0, hitCount: 0, gameCount: 0, veloLeaders: [], spinLeaders: [], fastestPitches: [], hardestHits: [], longestHits: [] }
 
 export function aggregateTracking(rows: WpblTrackRow[], players: WpblPlayer[], pitching: WpblPitchingLine[]): TrackingBoard {
   if (rows.length === 0) return EMPTY
@@ -175,5 +176,9 @@ export function aggregateTracking(rows: WpblTrackRow[], players: WpblPlayer[], p
   // A batted ball is any row carrying an exit-velo or a distance reading.
   const hitCount = rows.filter(r => (r.exit_speed != null && r.exit_speed > 0) || (r.distance != null && r.distance > 0)).length
 
-  return { pitchCount: pitchRows.length, hitCount, veloLeaders, spinLeaders, fastestPitches, hardestHits, longestHits }
+  // Distinct games represented across the tracked pitches and batted balls — the coverage
+  // note counts these so it stays honest as the feed adds games.
+  const gameCount = new Set([...pitchRows, ...hardestHits, ...longestHits].map(r => 'gameId' in r ? r.gameId : r.game_id)).size
+
+  return { pitchCount: pitchRows.length, hitCount, gameCount, veloLeaders, spinLeaders, fastestPitches, hardestHits, longestHits }
 }
