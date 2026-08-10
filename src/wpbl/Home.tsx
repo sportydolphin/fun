@@ -567,7 +567,7 @@ function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView
 // Community invite — links out to the WPBL fan Discord. Styled in Discord's blurple
 // so it reads as "join the chat" at a glance, but kept to one slim row so it sits
 // under the scoreboard without crowding the actual content.
-const DISCORD_INVITE = 'https://discord.gg/ayNcVAAPW'
+const DISCORD_INVITE = 'https://discord.gg/qG2e4grnG'
 const DISCORD_BLURPLE = '#5865F2'
 const DISCORD_DISMISS_KEY = 'wpbl_discord_dismissed'
 
