@@ -69,6 +69,21 @@ function ScheduleView({ teams, games, onOpenGame }: {
   teams: WpblTeam[]; games: WpblGame[]; onOpenGame: (g: WpblGame) => void
 }) {
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  // Snap the schedule to the current point in the season when it opens: the next live or
+  // upcoming game lands at the top, with the just-played games directly above it, instead
+  // of starting on the season opener. Games are date-ascending, so the first non-final one
+  // is the next game; once the season is over, fall back to the last game.
+  const anchorDate = useMemo(() => {
+    const next = games.find(g => g.status !== 'final')
+    return next?.game_date ?? games[games.length - 1]?.game_date ?? null
+  }, [games])
+  const anchorRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!anchorRef.current) return
+    const id = requestAnimationFrame(() => anchorRef.current?.scrollIntoView({ block: 'start' }))
+    return () => cancelAnimationFrame(id)
+  }, [anchorDate])
+
   if (games.length === 0) {
     return <EmptyState title="No games scheduled yet" hint="The 2026 schedule loads here once it is added." />
   }
@@ -80,7 +95,7 @@ function ScheduleView({ teams, games, onOpenGame }: {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {[...byDate.entries()].map(([date, dayGames]) => (
-        <Box key={date}>
+        <Box key={date} ref={date === anchorDate ? anchorRef : undefined} sx={{ scrollMarginTop: 72 }}>
           <SectionLabel>
             {new Date(`${date}T00:00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
           </SectionLabel>
@@ -149,6 +164,7 @@ function StandingsView({ teams, games, onOpenTeam }: {
             <Box component="th" sx={{ ...th, width: NUM }}>L</Box>
             <Box component="th" sx={{ ...th, width: WIDE }}>PCT</Box>
             <Box component="th" sx={{ ...th, width: NUM }}>GB</Box>
+            <Box component="th" sx={{ ...th, width: WIDE }}>DIFF</Box>
             <Box component="th" sx={{ ...th, width: WIDE, display: { xs: 'none', sm: 'table-cell' } }}>L10</Box>
             <Box component="th" sx={{ ...th, width: NUM + 8, pr: 1.25 }}>STRK</Box>
           </Box>
@@ -172,6 +188,11 @@ function StandingsView({ teams, games, onOpenTeam }: {
                 <Box component="td" sx={{ ...td, fontWeight: 700 }}>{r.losses}</Box>
                 <Box component="td" sx={td}>{fmtPct(r.pct, gp)}</Box>
                 <Box component="td" sx={{ ...td, color: 'text.secondary' }}>{r.gamesBack === 0 ? '—' : r.gamesBack.toFixed(1)}</Box>
+                {(() => {
+                  const diff = r.runsFor - r.runsAgainst
+                  const diffColor = gp === 0 ? 'text.disabled' : diff > 0 ? '#22c55e' : diff < 0 ? '#ef4444' : 'text.secondary'
+                  return <Box component="td" sx={{ ...td, color: diffColor, fontWeight: 600 }}>{gp === 0 ? '—' : diff > 0 ? `+${diff}` : diff}</Box>
+                })()}
                 <Box component="td" sx={{ ...td, display: { xs: 'none', sm: 'table-cell' }, color: gp === 0 ? 'text.disabled' : l10Color, fontWeight: 600 }}>
                   {gp === 0 ? '—' : `${l10.wins}-${l10.losses}`}
                 </Box>
