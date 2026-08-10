@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblAllPlayers, fetchWpblAllLines } from './api'
-import { WPBL_ACCENT, outsToIp } from './constants'
+import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
 import { TeamBadge, CARD_BORDER, useWpblName } from './ui'
 import {
-  aggregateBatting, aggregatePitching, qualifiersActive, fmtRate, fmtTwo,
+  aggregateBatting, aggregatePitching, sumBatting, sumPitching, qualifiersActive, fmtRate, fmtTwo,
   type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
@@ -17,6 +17,7 @@ const MIN_AB = 5    // rate-stat qualifiers for the short (~6 week) inaugural se
 const MIN_OUTS = 9  // 3 IP
 
 type Group = 'hitting' | 'pitching'
+type Mode = 'players' | 'teams'
 
 interface Col<T> {
   key: string
@@ -61,7 +62,16 @@ const PIT_COLS: Col<WpblPitchingTotals>[] = [
   { key: 'whip', label: 'WHIP', value: t => t.whip, display: t => fmtTwo(t.whip), rate: true, lowerBetter: true },
 ]
 
-interface Row { player: WpblPlayer; totals: WpblBattingTotals | WpblPitchingTotals; qualified: boolean }
+// One table row — normalized so the same table renders a player or a whole team.
+interface Row {
+  key: string
+  team: WpblTeam | undefined       // for the badge (a player's club, or the team itself)
+  label: string                    // player short name, or full team name
+  sublabel?: string                // player position (players only)
+  totals: WpblBattingTotals | WpblPitchingTotals
+  qualified: boolean
+  onClick?: () => void
+}
 
 // Break the table out of the 720px page column so every stat column is visible. The page
 // is horizontally centered, so centering a viewport-wide box on it reads as full-bleed.
@@ -74,11 +84,12 @@ const fullBleedSx = {
   transform: 'translateX(-50%)',
 } as const
 
-export default function WpblStatsView({ teams, games, initialGroup = 'hitting', onOpenPlayer }: {
+export default function WpblStatsView({ teams, games, initialGroup = 'hitting', onOpenPlayer, onOpenTeam }: {
   teams: WpblTeam[]
   games: WpblGame[]
   initialGroup?: Group
   onOpenPlayer: (p: WpblPlayer) => void
+  onOpenTeam?: (t: WpblTeam) => void
 }) {
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>({ batting: [], pitching: [] })
@@ -87,6 +98,7 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const [group, setGroup] = useState<Group>(initialGroup)
+  const [mode, setMode] = useState<Mode>('players')
   const [teamId, setTeamId] = useState<string | null>(null)
   // The 5 AB / 3 IP qualifier only defaults on once every team has played 2+ games;
   // before that it would hide nearly everyone, so the complete table shows by default.
@@ -105,6 +117,7 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
 
   const cols = (group === 'hitting' ? HIT_COLS : PIT_COLS) as Col<WpblBattingTotals | WpblPitchingTotals>[]
   const activeCol = cols.find(c => c.key === sortKey) ?? cols[0]
+  const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
   // Switch the default sort/qualifier sensibly when flipping between hitting and pitching.
   const switchGroup = (g: Group) => {
@@ -118,18 +131,42 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
   }
 
   const rows = useMemo<Row[]>(() => {
-    const seasons = group === 'hitting'
-      ? aggregateBatting(players, lines.batting).map(s => ({ player: s.player, totals: s.totals, qualified: s.totals.ab >= MIN_AB }))
-      : aggregatePitching(players, lines.pitching).map(s => ({ player: s.player, totals: s.totals, qualified: s.totals.outs >= MIN_OUTS }))
-    let list = seasons as Row[]
-    if (teamId) list = list.filter(r => r.player.team_id === teamId)
-    if (qualified && activeCol.rate) list = list.filter(r => r.qualified)
+    let built: Row[]
+    if (mode === 'teams') {
+      // One row per team (only four). Team G is the team's games played — the count of
+      // distinct game_ids — not the number of player lines that sumBatting/sumPitching add up.
+      built = teams.map(team => {
+        const src = group === 'hitting'
+          ? lines.batting.filter(l => l.team_id === team.id)
+          : lines.pitching.filter(l => l.team_id === team.id)
+        const totals = group === 'hitting' ? sumBatting(src as WpblBattingLine[]) : sumPitching(src as WpblPitchingLine[])
+        totals.g = new Set(src.map(l => l.game_id)).size
+        return {
+          key: team.id, team, label: wpblFullName(team),
+          totals, qualified: true,
+          onClick: onOpenTeam ? () => onOpenTeam(team) : undefined,
+        }
+      })
+    } else {
+      const seasons = group === 'hitting'
+        ? aggregateBatting(players, lines.batting).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.ab >= MIN_AB }))
+        : aggregatePitching(players, lines.pitching).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.outs >= MIN_OUTS }))
+      let list = seasons
+      if (teamId) list = list.filter(s => s.player.team_id === teamId)
+      if (qualified && activeCol.rate) list = list.filter(s => s.qualified)
+      built = list.map(s => ({
+        key: s.player.id, team: teamById.get(s.player.team_id),
+        label: shortName(s.player.name), sublabel: s.player.position ?? undefined,
+        totals: s.totals, qualified: s.qualified,
+        onClick: () => onOpenPlayer(s.player),
+      }))
+    }
 
     const val = (r: Row) => activeCol.value(r.totals)
     // Ties break toward the bigger sample — innings pitched (outs) for pitching, at-bats
     // for hitting — regardless of sort direction (more is always the better tiebreak).
     const sample = (r: Row) => group === 'pitching' ? (r.totals as WpblPitchingTotals).outs : (r.totals as WpblBattingTotals).ab
-    return [...list].sort((a, b) => {
+    return built.sort((a, b) => {
       const av = val(a), bv = val(b)
       if (av == null && bv == null) return sample(b) - sample(a)
       if (av == null) return 1          // nulls always sink
@@ -137,9 +174,8 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
       if (av !== bv) return sortAsc ? av - bv : bv - av
       return sample(b) - sample(a)
     })
-  }, [group, players, lines, teamId, qualified, activeCol, sortAsc])
+  }, [mode, group, players, lines, teams, teamById, teamId, qualified, activeCol, sortAsc, onOpenPlayer, onOpenTeam, shortName])
 
-  const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const teamChips = [...teams].sort((a, b) => a.abbr.localeCompare(b.abbr))
 
   // The sorted column (OPS / ERA by default) is at the far right, off-screen on a phone
@@ -175,41 +211,53 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
       {/* Group switcher — underline tabs, deliberately distinct from the section's pill nav
           so the two don't read as the same control stacked twice. Full-bleed so the tabs +
           filters share the wide table's left edge instead of floating in the 720px column. */}
-      <Box sx={{ display: 'flex', gap: 2.5, borderBottom: '1px solid', borderColor: 'divider', mb: 1.5, ...fullBleedSx }}>
-        {(['hitting', 'pitching'] as Group[]).map(g => {
-          const active = group === g
-          return (
-            <Box key={g} onClick={() => switchGroup(g)} sx={{
-              pb: 1, mb: '-1px', cursor: 'pointer', userSelect: 'none',
-              borderBottom: '2px solid', borderColor: active ? WPBL_ACCENT : 'transparent',
-              color: active ? 'text.primary' : 'text.secondary',
-              fontSize: '0.98rem', fontWeight: active ? 800 : 600, transition: 'color 0.15s',
-              '&:hover': { color: 'text.primary' },
-            }}>
-              {g === 'hitting' ? 'Hitting' : 'Pitching'}
-            </Box>
-          )
-        })}
+      <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, borderBottom: '1px solid', borderColor: 'divider', mb: 1.5, ...fullBleedSx }}>
+        <Box sx={{ display: 'flex', gap: 2.5 }}>
+          {(['hitting', 'pitching'] as Group[]).map(g => {
+            const active = group === g
+            return (
+              <Box key={g} onClick={() => switchGroup(g)} sx={{
+                pb: 1, mb: '-1px', cursor: 'pointer', userSelect: 'none',
+                borderBottom: '2px solid', borderColor: active ? WPBL_ACCENT : 'transparent',
+                color: active ? 'text.primary' : 'text.secondary',
+                fontSize: '0.98rem', fontWeight: active ? 800 : 600, transition: 'color 0.15s',
+                '&:hover': { color: 'text.primary' },
+              }}>
+                {g === 'hitting' ? 'Hitting' : 'Pitching'}
+              </Box>
+            )
+          })}
+        </Box>
+
+        {/* Players ⇆ Teams — the entity the table ranks. Distinct from Hitting/Pitching
+            (the stat group). In Teams mode the per-player filters below don't apply. */}
+        <Box sx={{ display: 'flex', gap: 0.5, pb: 0.75, flexShrink: 0 }}>
+          <Chip active={mode === 'players'} onClick={() => setMode('players')}>Players</Chip>
+          <Chip active={mode === 'teams'} onClick={() => setMode('teams')}>Teams</Chip>
+        </Box>
       </Box>
 
       {/* Filters on one line (scrolls on narrow screens): team chips, then a divider, then
           the qualified toggle — so the team "All" and the separate "Qualified" filter read
-          as two different controls rather than two competing "All"s. */}
-      <Box sx={{
-        display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5, overflowX: 'auto', pb: 0.5,
-        '&::-webkit-scrollbar': { display: 'none' }, msOverflowStyle: 'none', scrollbarWidth: 'none',
-        ...fullBleedSx,
-      }}>
-        <Chip active={teamId === null} onClick={() => setTeamId(null)}>All</Chip>
-        {teamChips.map(t => (
-          <Chip key={t.id} active={teamId === t.id} onClick={() => setTeamId(teamId === t.id ? null : t.id)}>
-            <TeamBadge team={t} size={16} />
-            <Box component="span" sx={{ ml: 0.5 }}>{t.abbr}</Box>
-          </Chip>
-        ))}
-        <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mx: 0.5, flexShrink: 0 }} />
-        <Chip active={qualified} onClick={() => setQualified(q => !q)}>{qualified ? '✓ Qualified' : 'Qualified'}</Chip>
-      </Box>
+          as two different controls rather than two competing "All"s. Players mode only —
+          in Teams mode the table already is the four teams, so neither filter applies. */}
+      {mode === 'players' && (
+        <Box sx={{
+          display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5, overflowX: 'auto', pb: 0.5,
+          '&::-webkit-scrollbar': { display: 'none' }, msOverflowStyle: 'none', scrollbarWidth: 'none',
+          ...fullBleedSx,
+        }}>
+          <Chip active={teamId === null} onClick={() => setTeamId(null)}>All</Chip>
+          {teamChips.map(t => (
+            <Chip key={t.id} active={teamId === t.id} onClick={() => setTeamId(teamId === t.id ? null : t.id)}>
+              <TeamBadge team={t} size={16} />
+              <Box component="span" sx={{ ml: 0.5 }}>{t.abbr}</Box>
+            </Chip>
+          ))}
+          <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mx: 0.5, flexShrink: 0 }} />
+          <Chip active={qualified} onClick={() => setQualified(q => !q)}>{qualified ? '✓ Qualified' : 'Qualified'}</Chip>
+        </Box>
+      )}
 
       {rows.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
@@ -225,7 +273,7 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
               <Box component="thead">
                 <Box component="tr">
                   <Box component="th" sx={{ ...thBase, left: 0, zIndex: 4, textAlign: 'left', minWidth: 150, borderRight: '1px solid', borderColor: 'divider', pl: 1 }}>
-                    Player
+                    {mode === 'teams' ? 'Team' : 'Player'}
                   </Box>
                   {cols.map(c => {
                     const active = c.key === sortKey
@@ -249,10 +297,9 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
               </Box>
               <Box component="tbody">
                 {rows.map((r, i) => {
-                  const t = teamById.get(r.player.team_id)
                   return (
-                    <Box component="tr" key={r.player.id} onClick={() => onOpenPlayer(r.player)}
-                      sx={{ cursor: 'pointer', '&:hover > td, &:hover > th': { bgcolor: `${WPBL_ACCENT}0e` } }}>
+                    <Box component="tr" key={r.key} onClick={r.onClick}
+                      sx={{ cursor: r.onClick ? 'pointer' : 'default', '&:hover > td, &:hover > th': r.onClick ? { bgcolor: `${WPBL_ACCENT}0e` } : undefined }}>
                       <Box component="th" sx={{
                         position: 'sticky', left: 0, zIndex: 2, bgcolor: 'background.paper',
                         textAlign: 'left', fontWeight: 400, py: 0.5, px: 1,
@@ -260,10 +307,10 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
                       }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                           <Typography sx={{ width: 18, textAlign: 'right', flexShrink: 0, fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled' }}>{i + 1}</Typography>
-                          {t && <TeamBadge team={t} size={20} />}
+                          {r.team && <TeamBadge team={r.team} size={20} />}
                           <Box sx={{ minWidth: 0 }}>
-                            <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shortName(r.player.name)}</Typography>
-                            {r.player.position && <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1 }}>{r.player.position}</Typography>}
+                            <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label}</Typography>
+                            {r.sublabel && <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1 }}>{r.sublabel}</Typography>}
                           </Box>
                         </Box>
                       </Box>
@@ -290,7 +337,7 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
           </Box>
           <Box sx={{ px: 1.5, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
             <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', fontWeight: 600 }}>
-              {rows.length} {rows.length === 1 ? 'player' : 'players'} · 2026 season · tap a column to sort
+              {rows.length} {mode === 'teams' ? (rows.length === 1 ? 'team' : 'teams') : (rows.length === 1 ? 'player' : 'players')} · 2026 season · tap a column to sort
             </Typography>
           </Box>
         </Box>

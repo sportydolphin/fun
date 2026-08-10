@@ -446,7 +446,7 @@ export default function WpblApp() {
             {view === 'home'      && <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} onViewStats={openStats} onViewTracking={openTracking} />}
             {view === 'schedule'  && <ScheduleView teams={teams} games={games} onOpenGame={openGame} />}
             {view === 'standings' && <StandingsView teams={teams} games={games} onOpenTeam={selectTeam} />}
-            {view === 'stats'     && <WpblStatsView teams={teams} games={games} initialGroup={statsGroup} onOpenPlayer={openPlayer} />}
+            {view === 'stats'     && <WpblStatsView teams={teams} games={games} initialGroup={statsGroup} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} />}
             {view === 'tracking'  && <WpblTrackingView teams={teams} onOpenPlayer={openPlayer} />}
             {view === 'teams'     && <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeam} onOpenGame={openGame} onOpenPlayer={openPlayer} />}
           </>
