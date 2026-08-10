@@ -425,14 +425,10 @@ function AppInner() {
       zoom: 'var(--app-zoom)',
     }}>
       <AppBar
-        // On mobile the top bar scrolls away (relative, in-flow) rather than sticking — the
-        // MLB/WPBL toggle + search are rarely needed mid-scroll, and a single sticky bar (the
-        // WPBL tab menu, pinned below) avoids the two-bar gap collapsing as you scroll.
-        // `relative` (not `static`) so MUI's zIndex:appBar takes effect: integrated-header skins
-        // add backdrop-filter, which makes the AppBar a stacking context — under `static` that
-        // context paints at z-auto, letting page content (e.g. the sticky tab bar, z-index 3)
-        // cover the account dropdown inside it. `relative` lifts the whole header above the page.
-        position={!isDesktop ? 'relative' : integratedHeader ? 'sticky' : 'static'}
+        // On mobile the top bar scrolls away (static) rather than sticking — the MLB/WPBL
+        // toggle + search are rarely needed mid-scroll, and a single sticky bar (the WPBL
+        // tab menu, pinned below) avoids the two-bar gap collapsing as you scroll.
+        position={!isDesktop ? 'static' : integratedHeader ? 'sticky' : 'static'}
         color="default"
         elevation={integratedHeader ? 0 : 1}
         sx={integratedHeader ? {
@@ -441,8 +437,12 @@ function AppInner() {
           top: 0,
           bgcolor: skinConfig.headerBg,
           backgroundImage: 'none',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
+          // Blur only on desktop, where the header is sticky and content actually passes
+          // under it. On mobile the bar scrolls away with the page, so the blur is purely
+          // decorative — and backdrop-filter makes the AppBar a stacking context that traps
+          // the account dropdown (z-index 1400) below page content like the sticky tab bar
+          // (z-index 3). Dropping it on mobile lets the dropdown render in front of the page.
+          ...(isDesktop && { backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }),
           borderBottom: '1px solid',
           borderColor: 'divider',
         } : undefined}
