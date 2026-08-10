@@ -143,6 +143,10 @@ const createAppTheme = (mode: ThemeMode, skin: ThemeSkin): Theme => {
       },
     },
     typography: {
+      // Self-hosted Inter (see @font-face in styles.css) leads the stack so headings get a
+      // real 900 weight everywhere, not the Arial faux-bold fallback. System fonts follow
+      // in case the woff2 hasn't loaded yet.
+      fontFamily: '"Inter", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
       h4: {
         fontWeight: 700,
       },

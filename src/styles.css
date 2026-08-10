@@ -1,3 +1,15 @@
+/* Self-hosted Inter (variable, weights 100–900) so every visitor gets the same rendering
+   regardless of what fonts their browser/profile happens to have. Without this the app
+   fell back to Arial, which has no 900 weight, so headings rendered lighter in incognito
+   / for other users than in a profile that happened to have Roboto. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900; /* variable range */
+  font-display: swap;
+  src: url('/fonts/InterVariable.woff2') format('woff2');
+}
+
 /* These defaults are what the page shows BEFORE React mounts and pushes the active
    skin's colors into --bg-color/--card-bg. Kept in sync with the shipped default skin
    (charcoal, see ThemeContext SKINS) so a hard refresh doesn't flash a different shade

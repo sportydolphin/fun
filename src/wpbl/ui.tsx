@@ -177,7 +177,7 @@ export function SectionCard({ icon, title, subtitle, action, children }: {
       <Box sx={{ px: 2, pt: 1.25, pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
         {icon != null && <Box sx={{ fontSize: '1.1rem', lineHeight: 1, flexShrink: 0 }}>{icon}</Box>}
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, lineHeight: 1.2 }}>{title}</Typography>
+          <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>{title}</Typography>
           {subtitle && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.3 }}>{subtitle}</Typography>}
         </Box>
         {action}

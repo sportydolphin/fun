@@ -129,7 +129,7 @@ function Scoreboard({ games, teams, onOpenGame }: {
     <Box sx={{ mb: 1.5 }}>
       {/* Match the card-title treatment (Next game / Standings / Teams) so every section
           on the feed announces itself the same way, instead of a lone tiny eyebrow. */}
-      <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, lineHeight: 1.2, mb: 1 }}>Scoreboard</Typography>
+      <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2, mb: 1 }}>Scoreboard</Typography>
       <Box sx={{ position: 'relative' }}>
         <Box ref={scrollRef} onScroll={syncEdges} sx={{
           display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5,
@@ -992,7 +992,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
         alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 }, mb: 1.5,
       }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontSize: '1.05rem', fontWeight: 900, letterSpacing: '-0.3px', lineHeight: 1.15 }}>
+          <Typography sx={{ fontSize: '1.05rem', fontWeight: 600, letterSpacing: '-0.3px', lineHeight: 1.15 }}>
             Women's Pro Baseball League
           </Typography>
           <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Inaugural 2026 season</Typography>
