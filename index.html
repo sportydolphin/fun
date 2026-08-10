@@ -23,6 +23,16 @@
         } catch (e) { /* storage off — fall through to CSS defaults */ }
       })();
     </script>
+    <style>
+      /* The static #app fallback below exists for crawlers, Google's OAuth homepage
+         verification, and no-JS / slow loads. On a normal load React mounts within a
+         beat and replaces it, so keep it invisible at first to avoid a flash of this
+         text, then fade it in only if it is somehow still on screen after ~1.2s (JS
+         slow, failed, or disabled). The text is in the DOM from the first byte, so
+         verification and crawlers still read it regardless of this opacity. */
+      #app > main { opacity: 0; animation: sd-fallback-in 0.25s ease-out 1.2s forwards; }
+      @keyframes sd-fallback-in { to { opacity: 1; } }
+    </style>
     <title>sportydolphin.fun — MLB & WPBL baseball stats</title>
     <meta name="description" content="sportydolphin.fun is a free baseball stats site for Major League Baseball and the Women's Pro Baseball League. Live scores, player and team stats, standings, and a predictions game. No sign-in required to browse." />
     <link rel="manifest" href="/manifest.webmanifest" />
