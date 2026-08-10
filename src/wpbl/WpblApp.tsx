@@ -66,9 +66,9 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
 
 // ─── Views ────────────────────────────────────────────────────────────────────
 
-function ScheduleView({ teams, games, onOpenGame, active = true }: {
+function ScheduleView({ teams, games, onOpenGame }: {
   teams: WpblTeam[]; games: WpblGame[]; onOpenGame: (g: WpblGame) => void
-  active?: boolean // false while mounted off-screen as a swipe neighbour — don't auto-scroll then
+  active?: boolean // accepted (call site passes it) but unused now that ordering replaced auto-scroll
 }) {
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   // Snap the schedule to the current point in the season when it opens: the next live or
@@ -79,18 +79,6 @@ function ScheduleView({ teams, games, onOpenGame, active = true }: {
     const next = games.find(g => g.status !== 'final')
     return next?.game_date ?? games[games.length - 1]?.game_date ?? null
   }, [games])
-  const anchorRef = useRef<HTMLDivElement | null>(null)
-  // Skip the auto-scroll on mobile: with the sticky tab bar it would slide the top margin
-  // under the pills (a jarring shift), and the swipe already lands you on the tab.
-  const isMobile = useMediaQuery('(max-width:600px)')
-  useEffect(() => {
-    if (!active || isMobile || !anchorRef.current) return
-    // `nearest`: scroll the minimum to reveal the next game — nothing if it's already in
-    // view — so we don't snap the anchor to the top and scroll the pill nav off-screen.
-    const id = requestAnimationFrame(() => anchorRef.current?.scrollIntoView({ block: 'nearest' }))
-    return () => cancelAnimationFrame(id)
-  }, [anchorDate, active, isMobile])
-
   if (games.length === 0) {
     return <EmptyState title="No games scheduled yet" hint="The 2026 schedule loads here once it is added." />
   }
@@ -99,49 +87,64 @@ function ScheduleView({ teams, games, onOpenGame, active = true }: {
     const list = byDate.get(g.game_date) ?? []
     list.push(g); byDate.set(g.game_date, list)
   }
+
+  // Open on the current point in the season by *ordering*, not scrolling: the previous
+  // game's date leads, then the next/live game and everything upcoming; earlier completed
+  // games follow under an "Earlier" divider. Nothing moves the window, so the top pill nav
+  // stays put when switching tabs (it isn't sticky on desktop).
+  const dates = [...byDate.keys()] // date-ascending
+  const anchorIdx = anchorDate ? Math.max(0, dates.indexOf(anchorDate)) : 0
+  const start = Math.max(0, anchorIdx - 1) // include the previous game's date
+  const lead = dates.slice(start)
+  const earlier = dates.slice(0, start)
+
+  const renderDate = (date: string) => (
+    <Box key={date}>
+      <SectionLabel>
+        {new Date(`${date}T00:00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
+      </SectionLabel>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {byDate.get(date)!.map(g => {
+          const home = byId.get(g.home_team_id)
+          const away = byId.get(g.away_team_id)
+          const final = g.status === 'final' && g.home_score != null && g.away_score != null
+          const live = g.status === 'live'
+          return (
+            <Box key={g.id} onClick={() => onOpenGame(g)} sx={{
+              display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, cursor: 'pointer',
+              borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
+              transition: 'border-color 0.15s', '&:hover': { borderColor: 'text.disabled' },
+            }}>
+              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                {[away, home].map((t, i) => t && (
+                  <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <TeamBadge team={t} size={26} />
+                    <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, flex: 1 }}>{wpblFullName(t)}</Typography>
+                    {(final || live) && (
+                      <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
+                        {i === 0 ? g.away_score ?? 0 : g.home_score ?? 0}
+                      </Typography>
+                    )}
+                  </Box>
+                ))}
+              </Box>
+              <Box sx={{ textAlign: 'right', minWidth: 84 }}>
+                <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: live ? '#ef4444' : final ? 'text.secondary' : WPBL_ACCENT }}>
+                  {live ? '● Live' : final ? `Final${g.innings && g.innings !== 7 ? `/${g.innings}` : ''}` : formatGameTime(g.game_date, g.start_time) || 'TBD'}
+                </Typography>
+              </Box>
+            </Box>
+          )
+        })}
+      </Box>
+    </Box>
+  )
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      {[...byDate.entries()].map(([date, dayGames]) => (
-        <Box key={date} ref={date === anchorDate ? anchorRef : undefined} sx={{ scrollMarginTop: 72 }}>
-          <SectionLabel>
-            {new Date(`${date}T00:00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
-          </SectionLabel>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {dayGames.map(g => {
-              const home = byId.get(g.home_team_id)
-              const away = byId.get(g.away_team_id)
-              const final = g.status === 'final' && g.home_score != null && g.away_score != null
-              const live = g.status === 'live'
-              return (
-                <Box key={g.id} onClick={() => onOpenGame(g)} sx={{
-                  display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, cursor: 'pointer',
-                  borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
-                  transition: 'border-color 0.15s', '&:hover': { borderColor: 'text.disabled' },
-                }}>
-                  <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                    {[away, home].map((t, i) => t && (
-                      <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <TeamBadge team={t} size={26} />
-                        <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, flex: 1 }}>{wpblFullName(t)}</Typography>
-                        {(final || live) && (
-                          <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
-                            {i === 0 ? g.away_score ?? 0 : g.home_score ?? 0}
-                          </Typography>
-                        )}
-                      </Box>
-                    ))}
-                  </Box>
-                  <Box sx={{ textAlign: 'right', minWidth: 84 }}>
-                    <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: live ? '#ef4444' : final ? 'text.secondary' : WPBL_ACCENT }}>
-                      {live ? '● Live' : final ? `Final${g.innings && g.innings !== 7 ? `/${g.innings}` : ''}` : formatGameTime(g.game_date, g.start_time) || 'TBD'}
-                    </Typography>
-                  </Box>
-                </Box>
-              )
-            })}
-          </Box>
-        </Box>
-      ))}
+      {lead.map(renderDate)}
+      {earlier.length > 0 && <SectionLabel>Earlier</SectionLabel>}
+      {earlier.map(renderDate)}
     </Box>
   )
 }
