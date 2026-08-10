@@ -739,6 +739,24 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
     return new Set(finals.filter(g => g.game_date === maxDate).map(g => g.id))
   }, [games])
 
+  // Hide the tracking teaser once the league's radar publish falls materially behind the
+  // schedule. Tracking is a manual league batch that has stalled for stretches (see
+  // wpbl-ingest's late-backfill note), and showing 8-day-old "season bests" as if current
+  // is worse than showing nothing. The card returns on its own when a fresh batch lands —
+  // ingest backfills automatically. Grace of 3 days absorbs the normal next-day publish lag.
+  // Pre-season (no finals yet) is NOT stale: the card keeps its friendly "coming soon" state.
+  const trackingStale = useMemo(() => {
+    const finals = games.filter(g => g.status === 'final' && g.game_date)
+    if (finals.length === 0) return false
+    const latestFinal = finals.reduce((m, g) => (g.game_date > m ? g.game_date : m), finals[0].game_date)
+    const trackedIds = new Set(tracking.map(t => t.game_id))
+    const trackedDates = games.filter(g => trackedIds.has(g.id) && g.game_date).map(g => g.game_date)
+    if (trackedDates.length === 0) return true // finals exist but nothing is tracked yet
+    const latestTracked = trackedDates.reduce((m, d) => (d > m ? d : m), trackedDates[0])
+    const lagDays = (Date.parse(`${latestFinal}T00:00:00Z`) - Date.parse(`${latestTracked}T00:00:00Z`)) / 86_400_000
+    return lagDays > 3
+  }, [games, tracking])
+
   const batSeasons = useMemo(() => aggregateBatting(players, lines.batting), [players, lines.batting])
   const pitSeasons = useMemo(() => aggregatePitching(players, lines.pitching), [players, lines.pitching])
 
@@ -810,7 +828,9 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
         {/* Around the League */}
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <HallOfFirstsCard firsts={firsts} teamById={teamMap} loading={loadingLeaders} onOpenPlayer={onOpenPlayer} onViewAll={() => setFirstsOpen(true)} />
-          <TrackingTeaserCard board={trackingBoard} latestGameIds={latestGameIds} loading={loadingLeaders} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={viewTracking} />
+          {(loadingLeaders || !trackingStale) && (
+            <TrackingTeaserCard board={trackingBoard} latestGameIds={latestGameIds} loading={loadingLeaders} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={viewTracking} />
+          )}
           <LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('hitting')} />
           <LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('pitching')} />
         </Box>
