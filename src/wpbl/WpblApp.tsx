@@ -85,7 +85,9 @@ function ScheduleView({ teams, games, onOpenGame, active = true }: {
   const isMobile = useMediaQuery('(max-width:600px)')
   useEffect(() => {
     if (!active || isMobile || !anchorRef.current) return
-    const id = requestAnimationFrame(() => anchorRef.current?.scrollIntoView({ block: 'start' }))
+    // `nearest`: scroll the minimum to reveal the next game — nothing if it's already in
+    // view — so we don't snap the anchor to the top and scroll the pill nav off-screen.
+    const id = requestAnimationFrame(() => anchorRef.current?.scrollIntoView({ block: 'nearest' }))
     return () => cancelAnimationFrame(id)
   }, [anchorDate, active, isMobile])
 
