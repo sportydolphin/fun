@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, Skeleton } from '@mui/material'
+import { Box, Typography, Skeleton, useMediaQuery } from '@mui/material'
 import { fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
 import { wpblPortrait } from './portraits'
@@ -80,11 +80,14 @@ function ScheduleView({ teams, games, onOpenGame, active = true }: {
     return next?.game_date ?? games[games.length - 1]?.game_date ?? null
   }, [games])
   const anchorRef = useRef<HTMLDivElement | null>(null)
+  // Skip the auto-scroll on mobile: with the sticky tab bar it would slide the top margin
+  // under the pills (a jarring shift), and the swipe already lands you on the tab.
+  const isMobile = useMediaQuery('(max-width:600px)')
   useEffect(() => {
-    if (!active || !anchorRef.current) return
+    if (!active || isMobile || !anchorRef.current) return
     const id = requestAnimationFrame(() => anchorRef.current?.scrollIntoView({ block: 'start' }))
     return () => cancelAnimationFrame(id)
-  }, [anchorDate, active])
+  }, [anchorDate, active, isMobile])
 
   if (games.length === 0) {
     return <EmptyState title="No games scheduled yet" hint="The 2026 schedule loads here once it is added." />
