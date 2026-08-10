@@ -309,6 +309,17 @@ export default function WpblApp() {
   const isMobileView = useMediaQuery('(max-width:600px)')
   const navRef = useRef<HTMLDivElement>(null)
 
+  // Mobile: once the page scrolls and the sticky pill bar pins to the top, give it a
+  // hairline + soft shadow so content reads as sliding *under* a bar rather than under a
+  // dead grey band. Cheap window-scroll listener, passive.
+  const [navStuck, setNavStuck] = useState(false)
+  useEffect(() => {
+    const onScroll = () => setNavStuck(window.scrollY > 4)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   // Toolbar search bridge — WpblApp owns the shared header search while /wpbl is mounted.
   const bridge = useSearchBridge()
 
@@ -487,7 +498,17 @@ export default function WpblApp() {
           when swiping to a tab or when the schedule snaps to the next game. */}
       <Box ref={navRef} sx={{
         position: { xs: 'sticky', sm: 'static' }, top: { xs: 0, sm: 'auto' }, zIndex: 3,
-        bgcolor: 'background.default', py: { xs: 1, sm: 0 },
+        bgcolor: 'background.default',
+        // Tight opaque bar that hugs the pills; the breathing gap below is transparent
+        // margin (not painted), so content scrolls right up under the pills with no slab.
+        py: { xs: 0.75, sm: 0 }, mb: { xs: 2, sm: 0 },
+        // Full-bleed the bar (bg + hairline) to the screen edge on mobile; SegNav sits
+        // flush inside and supplies its own resting inset via scroll padding.
+        mx: { xs: -2, sm: 0 },
+        transition: 'box-shadow 0.2s, border-color 0.2s',
+        borderBottom: '1px solid',
+        borderColor: navStuck ? 'divider' : 'transparent',
+        boxShadow: navStuck ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
       }}>
         <SegNav
           options={NAV.map(n => ({ value: n.key, label: n.label }))}

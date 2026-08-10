@@ -117,12 +117,15 @@ export function SegNav({ options, value, onChange, accent = WPBL_ACCENT }: {
 
   return (
     <Box ref={scrollRef} sx={{
-      display: 'flex', justifyContent: { xs: 'flex-start', sm: 'center' }, mb: 3,
+      display: 'flex', justifyContent: { xs: 'flex-start', sm: 'center' },
+      // Desktop keeps its gap before content; on mobile the breathing gap lives on the
+      // sticky wrapper (as transparent margin) so this strip hugs the bar's hairline.
+      mb: { xs: 0, sm: 3 },
       overflowX: 'auto',
-      // Full-bleed on mobile: cancel the app's p:2 page gutter (mx:-2) so the strip
-      // reaches the physical screen edge, and re-add it as scroll padding (px:2) so the
-      // resting position still looks inset while overflow content runs right to the edge.
-      mx: { xs: -2, sm: 0 }, px: { xs: 2, sm: 0 },
+      // The sticky wrapper full-bleeds to the screen edge; this scroll strip sits flush
+      // and re-adds the resting inset as scroll padding (px:2), so overflow content runs
+      // right to the edge while the first pill still looks inset at rest.
+      px: { xs: 2, sm: 0 },
       '&::-webkit-scrollbar': { display: 'none' },
       msOverflowStyle: 'none', scrollbarWidth: 'none',
     }}>
