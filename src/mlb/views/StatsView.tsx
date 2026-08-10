@@ -343,8 +343,12 @@ export function StatsView({
                             fontSize: isActive || isFocused ? '0.88rem' : '0.78rem',
                             fontWeight: isActive || isFocused ? 800 : 400,
                             color: isFocused ? ACCENT : isActive ? ACCENT : 'text.primary',
-                            outline: isFocused ? `2px solid ${ACCENT}60` : undefined,
-                            outlineOffset: '-2px',
+                            // Inset ring (not `outline`): an outline paints in a late phase and
+                            // escapes this border-collapse table's stacking, so it bled over the
+                            // sticky player-name column when the row scrolled under it. An inset
+                            // box-shadow is clipped to the cell and paints at the cell's stacking
+                            // level, so the sticky name (z-index 2) stays in front.
+                            boxShadow: isFocused ? `inset 0 0 0 2px ${ACCENT}60` : undefined,
                           }}>
                             {val}
                           </Box>

@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react'
-import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Tooltip, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, List, ListItemButton, Divider } from '@mui/material'
+import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, List, ListItemButton, Divider } from '@mui/material'
 import { Brightness4, Brightness7, AccountCircle, Search, Close } from '@mui/icons-material'
 import { useSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import type { PlayerBridgeItem, TeamBridgeItem, ToolbarSuggestion, RecentSearchItem, SearchResultRow } from './mlb/state/SearchBridgeContext'
 import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT, DESKTOP_ZOOM } from './mlb/constants'
 import { APP_VERSION, CHANGELOG } from './version'
-import { useTheme, SKIN_OPTIONS } from './ThemeContext'
+import { useTheme } from './ThemeContext'
+import { DevSettings, MobilePreviewHost } from './dev/DevSettings'
+import { isInsideDeviceFrame } from './mlb/dev/devDevice'
 import { AuthProvider, useAuth } from './AuthContext'
 import { UnitsProvider } from './UnitsContext'
 import { PENDING_USERNAME_PREFIX } from './AuthContext'
@@ -215,15 +217,14 @@ function ChangelogBullet({ text }: { text: string }) {
 }
 
 function AppInner() {
-  const { mode, toggleTheme, skin, setSkin, skinConfig } = useTheme()
+  const { mode, toggleTheme, skinConfig } = useTheme()
   const integratedHeader = skinConfig.integratedHeader
-  const [skinMenuOpen, setSkinMenuOpen] = useState(false)
   const { user, signOut, openAuthDialog } = useAuth()
-  // Root redirects straight to MLB Stats — it's the main site now. Other mini
-  // apps are still reachable, just tucked behind the admin menu.
+  // Root redirects straight to WPBL — it's the default section now. MLB and the
+  // other mini apps are still reachable (the MLB | WPBL toggle, admin menu).
   const [path, setPath] = useState<Route | string>(() => {
     const p = readPath()
-    if (p === '/') { window.history.replaceState({}, '', '/mlb'); return '/mlb' }
+    if (p === '/') { window.history.replaceState({}, '', '/wpbl'); return '/wpbl' }
     return p as Route
   })
   const [accountOpen,      setAccountOpen]      = useState(false)
@@ -374,7 +375,7 @@ function AppInner() {
   useEffect(() => {
     const onPop = () => {
       const p = readPath()
-      if (p === '/') { window.history.replaceState({}, '', '/mlb'); setPath('/mlb'); return }
+      if (p === '/') { window.history.replaceState({}, '', '/wpbl'); setPath('/wpbl'); return }
       setPath(p as Route)
     }
     window.addEventListener('popstate', onPop)
@@ -642,60 +643,11 @@ function AppInner() {
 
             <NotificationBell onNavigate={navigate} />
 
-            {/* Dev-only skin picker — pick a palette to A/B locally (incl. on a phone)
-                without shipping the control. Never rendered in a production build. */}
-            {import.meta.env.DEV && (
-              <ClickAwayListener onClickAway={() => setSkinMenuOpen(false)}>
-                <Box sx={{ position: 'relative', flexShrink: 0, mr: 0.25 }}>
-                  <Tooltip title="Skin (dev only)">
-                    <Box
-                      onClick={() => setSkinMenuOpen(o => !o)}
-                      sx={{
-                        display: 'flex', alignItems: 'center', gap: 0.4,
-                        cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
-                        fontSize: '0.6rem', fontWeight: 800, lineHeight: 1.4, letterSpacing: 0.3,
-                        borderRadius: 999, px: 0.8, py: '2px',
-                        border: '1px solid',
-                        color: ACCENT, borderColor: ACCENT, bgcolor: `${ACCENT}18`,
-                        transition: 'all 0.15s',
-                        '&:hover': { bgcolor: `${ACCENT}28` },
-                      }}
-                    >
-                      {skinConfig.label}
-                      <Box component="span" sx={{ fontSize: '0.5rem', opacity: 0.8 }}>▾</Box>
-                    </Box>
-                  </Tooltip>
-                  {skinMenuOpen && (
-                    <Paper
-                      elevation={6}
-                      sx={{
-                        position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 1500,
-                        borderRadius: 2, overflow: 'hidden', minWidth: 150,
-                        border: '1px solid', borderColor: 'divider',
-                      }}
-                    >
-                      {SKIN_OPTIONS.map(o => (
-                        <Box
-                          key={o.key}
-                          onClick={() => { setSkin(o.key); setSkinMenuOpen(false) }}
-                          sx={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
-                            px: 1.5, py: 0.85, cursor: 'pointer',
-                            fontSize: '0.74rem', fontWeight: 700,
-                            color: skin === o.key ? ACCENT : 'text.primary',
-                            bgcolor: skin === o.key ? `${ACCENT}14` : 'transparent',
-                            '&:hover': { bgcolor: 'action.hover' },
-                          }}
-                        >
-                          {o.label}
-                          {skin === o.key && <Box component="span" sx={{ fontSize: '0.7rem' }}>✓</Box>}
-                        </Box>
-                      ))}
-                    </Paper>
-                  )}
-                </Box>
-              </ClickAwayListener>
-            )}
+            {/* Consolidated dev gear (local only) — skin picker, device/mobile
+                simulation, notification tester, simulated login, and (on /mlb) the
+                MLB simulators. Renders on every section, so the mobile toggle works
+                in WPBL too. See src/dev/DevSettings.tsx. Never in a production build. */}
+            {import.meta.env.DEV && <DevSettings showMlbTools={path === '/mlb'} />}
 
             <IconButton onClick={toggleTheme} size="small" sx={{ color: mode === 'dark' ? '#fbbf24' : 'text.primary' }}>
               {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
@@ -861,6 +813,10 @@ function AppInner() {
           </Box>
         </Toolbar>
       </AppBar>
+
+      {/* Dev-only: re-render the whole app inside a simulated phone viewport. At the
+          app root (not inside a section) so the device toggle covers MLB and WPBL. */}
+      {import.meta.env.DEV && !isInsideDeviceFrame && <MobilePreviewHost />}
 
       <Box sx={{ p: 2 }}>
         {path === '/cups' && (

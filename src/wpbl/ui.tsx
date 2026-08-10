@@ -183,6 +183,38 @@ export function SectionLabel({ children, strong }: { children: React.ReactNode; 
 // vertically-centered card on `background.paper` with a soft shadow, Escape-to-close,
 // a sticky uppercase eyebrow header, a round ✕ close button, and an optional sticky
 // footer (e.g. the entry form's Save/Cancel).
+// Ref-counted body scroll lock: while any ModalShell is open, the page behind it
+// must not scroll. Counted so stacked modals (e.g. a game → a player) only release
+// the lock when the last one closes. Compensates for the removed scrollbar width so
+// locking doesn't shift the page sideways. Mirrors what MUI's Dialog does on the MLB
+// side (which WPBL's custom shell doesn't get for free).
+let scrollLockCount = 0
+const savedScroll = { htmlOverflow: '', bodyOverflow: '', bodyPaddingRight: '' }
+
+function lockBodyScroll() {
+  if (scrollLockCount++ === 0) {
+    // The viewport scroller is <html> here (not <body>), so lock both to cover
+    // whichever element actually scrolls. Compensate the removed scrollbar width
+    // on <body> so the page doesn't jump sideways when the bar disappears.
+    const gap = window.innerWidth - document.documentElement.clientWidth
+    savedScroll.htmlOverflow = document.documentElement.style.overflow
+    savedScroll.bodyOverflow = document.body.style.overflow
+    savedScroll.bodyPaddingRight = document.body.style.paddingRight
+    document.documentElement.style.overflow = 'hidden'
+    document.body.style.overflow = 'hidden'
+    if (gap > 0) document.body.style.paddingRight = `${gap}px`
+  }
+}
+
+function unlockBodyScroll() {
+  if (--scrollLockCount <= 0) {
+    scrollLockCount = 0
+    document.documentElement.style.overflow = savedScroll.htmlOverflow
+    document.body.style.overflow = savedScroll.bodyOverflow
+    document.body.style.paddingRight = savedScroll.bodyPaddingRight
+  }
+}
+
 export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, actions, footer, fillHeight, children }: {
   eyebrow: React.ReactNode
   onClose: () => void
@@ -198,6 +230,9 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  // Freeze the page behind the modal for as long as it's open.
+  useEffect(() => { lockBodyScroll(); return unlockBodyScroll }, [])
 
   return (
     <Box

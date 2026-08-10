@@ -1,9 +1,9 @@
 {
-  "name": "SportyDolphin — MLB Stats",
-  "short_name": "MLB Picks",
-  "description": "Live scores, box scores, and daily pick'em for Major League Baseball.",
+  "name": "sportydolphin",
+  "short_name": "sportydolphin",
+  "description": "Live scores, box scores, and stats for the Women's Pro Baseball League and Major League Baseball.",
   "id": "/mlb",
-  "start_url": "/mlb?view=home",
+  "start_url": "/wpbl",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0f172a",

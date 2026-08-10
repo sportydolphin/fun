@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useAuth } from '../../AuthContext'
+import { useDevSeasonSelector, setSeasonSelectorStyle } from '../dev/devSeasonSelector'
 import {
   RankMode, Player, Team, Palette, TeamSummary, CareerStatSplit,
   TeamPlayerStat, RecentGameEntry, RosterEntry, LbFullscreenState, TeamStandingInfo, StandingsDivision,
@@ -215,13 +216,10 @@ export function useMlbState() {
 
   // ─── Local-dev-only settings ────────────────────────────────────────────────
   // Player-card season selector style: 'dropdown' (default) or 'buttons' (year pills).
-  // Toggled from the dev settings menu (rendered only when import.meta.env.DEV).
-  const [seasonSelectorStyle, setSeasonSelectorStyle] = useState<'dropdown' | 'buttons'>(() => {
-    try { return (localStorage.getItem('mlb_dev_season_selector') as 'dropdown' | 'buttons') || 'dropdown' } catch { return 'dropdown' }
-  })
-  useEffect(() => {
-    try { localStorage.setItem('mlb_dev_season_selector', seasonSelectorStyle) } catch {}
-  }, [seasonSelectorStyle])
+  // Toggled from the consolidated dev gear (import.meta.env.DEV only). Lives in a
+  // module singleton (devSeasonSelector) so the gear — now rendered app-wide — and
+  // this MLB state stay in sync; setSeasonSelectorStyle re-exported for the menu.
+  const seasonSelectorStyle = useDevSeasonSelector()
   const [teamSummaries, setTeamSummaries] = useState<TeamSummary[]>([])
   const [loadingViz, setLoadingViz] = useState(false)
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, computeStandings } from './api'
-import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs } from './constants'
+import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp } from './constants'
 import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, CARD_BORDER } from './ui'
 import { LiveHero } from './Live'
 import {
@@ -646,6 +646,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   const pitchingBlocks = useMemo(() => [
     { label: 'ERA',        rows: topPit(pitSeasons, t => (t.era == null ? null : -t.era), t => fmtTwo(t.era), t => !qualifyOn || t.outs >= MIN_OUTS) },
     { label: 'Strikeouts', rows: topPit(pitSeasons, t => t.so, t => String(t.so), t => t.so > 0) },
+    { label: 'Innings',    rows: topPit(pitSeasons, t => t.outs, t => outsToIp(t.outs), t => t.outs > 0) },
   ], [pitSeasons, qualifyOn])
 
   const hasLines = lines.batting.length > 0 || lines.pitching.length > 0

@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.32.0'
+export const APP_VERSION = '1.33.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,33 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.33.0',
+    date:    '2026-08-09',
+    title:   'WPBL by default, plus stats and box-score fixes',
+    changes: [
+      {
+        short: 'The site now opens on the WPBL section',
+        full:  'Loading sportydolphin.fun without a specific section now takes you to the Women\'s Pro Baseball League instead of MLB. MLB is still one tap away with the MLB | WPBL toggle at the top.',
+      },
+      {
+        short: 'Add to your home screen as "sportydolphin"',
+        full:  'When you save the site to your phone\'s home screen, the app is now named "sportydolphin" instead of "MLB Picks".',
+      },
+      {
+        short: 'Innings pitched added to WPBL pitching leaders',
+        full:  'The Pitching Leaders card on the WPBL home page now includes an Innings leader, alongside ERA and strikeouts, ranked by most innings pitched.',
+      },
+      {
+        short: 'The page no longer scrolls behind a WPBL box score',
+        full:  'While a WPBL box score, game center, or player page is open, the page behind it now stays put instead of scrolling, so scrolling moves the open card and not the background.',
+      },
+      {
+        short: 'Highlighted stat no longer overlaps the player name',
+        full:  'On the MLB stats table, when a player and stat are highlighted, the highlight ring now stays behind the sticky player-name column instead of showing over the name when the table is scrolled sideways.',
+      },
+    ],
+  },
   {
     version: '1.32.0',
     date:    '2026-08-09',
