@@ -425,7 +425,10 @@ function AppInner() {
       zoom: 'var(--app-zoom)',
     }}>
       <AppBar
-        position={integratedHeader ? 'sticky' : 'static'}
+        // On mobile the top bar scrolls away (static) rather than sticking — the MLB/WPBL
+        // toggle + search are rarely needed mid-scroll, and a single sticky bar (the WPBL
+        // tab menu, pinned below) avoids the two-bar gap collapsing as you scroll.
+        position={!isDesktop ? 'static' : integratedHeader ? 'sticky' : 'static'}
         color="default"
         elevation={integratedHeader ? 0 : 1}
         sx={integratedHeader ? {
