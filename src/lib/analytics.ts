@@ -13,6 +13,9 @@ export const EVENTS = {
   PREDICTION_MADE:    'prediction_made',     // picked a winner for a game (anon or signed-in)
   BOARD_VIEWED:       'board_viewed',        // opened the full predictions board
   GAME_CENTER_OPENED: 'game_center_opened',  // opened a game's detail/box score
+  DISCORD_SHOWN:      'discord_shown',       // Discord invite card was rendered (impression)
+  DISCORD_JOINED:     'discord_joined',      // clicked "Join" on the Discord invite card
+  DISCORD_DISMISSED:  'discord_dismissed',   // clicked the ✕ to dismiss the Discord invite card
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the

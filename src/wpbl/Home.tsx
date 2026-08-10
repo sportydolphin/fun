@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, CircularProgress } from '@mui/material'
+import { Box, Typography, Skeleton } from '@mui/material'
 import { fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, computeStandings } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp } from './constants'
 import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, CARD_BORDER } from './ui'
@@ -11,6 +11,7 @@ import {
 import { aggregateTracking, type TrackingBoard } from './tracking'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
+import { track, EVENTS } from '../lib/analytics'
 import { computeFirsts, type WpblFirst } from './firsts'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblGamePlay, WpblBattingLine, WpblPitchingLine, WpblTrackRow } from './types'
 
@@ -293,6 +294,43 @@ function topPit(list: WpblPitSeason[], value: (t: WpblPitchingTotals) => number 
     .map(x => ({ player: x.player, display: display(x.totals) }))
 }
 
+// ─── Loading placeholders ─────────────────────────────────────────────────────────
+// Skeletons shaped like the real rows, so a card reserves its final height while its
+// data loads and doesn't grow/jump when the data lands. Replaces the old centered
+// spinner (which was much shorter than the loaded card, causing the page to shift).
+
+// One StatBlock's worth: a label + three ranked rows. LeadersCard shows three of these.
+function LeaderStatSkeleton() {
+  return (
+    <Box sx={{ mb: 1.25, '&:last-of-type': { mb: 0 } }}>
+      <Skeleton variant="text" width={60} sx={{ fontSize: '0.6rem', mb: 0.4 }} />
+      {[0, 1, 2].map(i => (
+        <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, py: 0.4 }}>
+          <Skeleton variant="text" width={10} sx={{ fontSize: '0.82rem' }} />
+          <Skeleton variant="circular" width={18} height={18} />
+          <Skeleton variant="text" sx={{ flex: 1, fontSize: '0.82rem' }} />
+          <Skeleton variant="text" width={32} sx={{ fontSize: '0.82rem' }} />
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
+// A left-icon / two-line / right-value row, used for both the tracking teaser (icon
+// tile) and Hall of Firsts (portrait). `size` is the leading circle's diameter.
+function TeaserRowSkeleton({ size, py }: { size: number; py: number }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, py, borderTop: '1px solid', borderColor: 'divider' }}>
+      <Skeleton variant="circular" width={size} height={size} sx={{ flexShrink: 0 }} />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Skeleton variant="text" width={84} sx={{ fontSize: '0.6rem' }} />
+        <Skeleton variant="text" width="55%" sx={{ fontSize: '0.9rem' }} />
+      </Box>
+      <Skeleton variant="text" width={36} sx={{ fontSize: '1rem' }} />
+    </Box>
+  )
+}
+
 function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, onViewAll }: {
   title: string; blocks: { label: string; rows: LeaderRow[] }[]
   loading: boolean; hasData: boolean; teamById: Map<string, WpblTeam>
@@ -309,7 +347,7 @@ function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, 
       ) : undefined}
     >
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={20} /></Box>
+        <>{[0, 1, 2].map(i => <LeaderStatSkeleton key={i} />)}</>
       ) : !hasData || !anyRows ? (
         <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', py: 1 }}>
           Leaders appear once games are played.
@@ -358,7 +396,7 @@ function TrackingTeaserCard({ board, latestGameIds, loading, teamById, onOpenPla
       ) : undefined}
     >
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={20} /></Box>
+        <>{[0, 1, 2].map(i => <TeaserRowSkeleton key={i} size={22} py={0.7} />)}</>
       ) : tiles.length === 0 ? (
         <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', py: 1 }}>
           Tracking data appears once games are played.
@@ -451,7 +489,7 @@ function HallOfFirstsCard({ firsts, teamById, loading, onOpenPlayer, onViewAll }
       ) : undefined}
     >
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={20} /></Box>
+        <>{[0, 1, 2, 3].map(i => <TeaserRowSkeleton key={i} size={42} py={0.85} />)}</>
       ) : featured.length === 0 ? (
         <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', py: 1 }}>
           Milestones appear as the season's firsts happen.
@@ -577,8 +615,12 @@ function DiscordCard() {
   const [dismissed, setDismissed] = useState(() => {
     try { return localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { return false }
   })
+  // Count one impression per mount for users who actually see the card (not those
+  // who already dismissed it), so join/dismiss can be read as a rate of shows.
+  useEffect(() => { if (!dismissed) track(EVENTS.DISCORD_SHOWN) }, [])
   if (dismissed) return null
   const dismiss = () => {
+    track(EVENTS.DISCORD_DISMISSED)
     try { localStorage.setItem(DISCORD_DISMISS_KEY, '1') } catch { /* private mode / quota — non-fatal */ }
     setDismissed(true)
   }
@@ -588,6 +630,7 @@ function DiscordCard() {
       href={DISCORD_INVITE}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={() => track(EVENTS.DISCORD_JOINED)}
       sx={{
         display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25,
         textDecoration: 'none', cursor: 'pointer',

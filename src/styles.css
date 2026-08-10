@@ -1,5 +1,10 @@
+/* These defaults are what the page shows BEFORE React mounts and pushes the active
+   skin's colors into --bg-color/--card-bg. Kept in sync with the shipped default skin
+   (charcoal, see ThemeContext SKINS) so a hard refresh doesn't flash a different shade
+   before hydration. The index.html head script sets [data-theme] pre-paint. */
 :root {
-  --bg-color: #f8fafc;
+  color-scheme: light;
+  --bg-color: #f6f7f9;
   --text-color: #111;
   --link-color: #0066cc;
   --card-bg: #fff;
@@ -15,10 +20,11 @@
 }
 
 [data-theme="dark"] {
-  --bg-color: #121212;
+  color-scheme: dark;
+  --bg-color: #0f1115;
   --text-color: #ffffff;
   --link-color: #90caf9;
-  --card-bg: #1e1e1e;
+  --card-bg: #181b22;
   --card-bg-gradient: linear-gradient(180deg,#1e1e1e,#2a2a2a);
   --border-color: #424242;
   --newsletter-bg: linear-gradient(180deg,#1e1e1e,#2a2a2a);

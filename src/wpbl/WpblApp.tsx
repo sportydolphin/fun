@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, CircularProgress } from '@mui/material'
+import { Box, Typography, Skeleton } from '@mui/material'
 import { fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
 import { wpblPortrait } from './portraits'
@@ -31,6 +31,28 @@ const NAV: { key: WpblView; label: string }[] = [
 ]
 
 // ─── Shared bits ──────────────────────────────────────────────────────────────
+
+// Shown while the first teams/schedule read is in flight. Roughly mirrors the Home
+// layout (header strip, scoreboard, two-column card stack) so the initial render
+// approximates the final page instead of a centered spinner popping into a full page.
+function ViewSkeleton() {
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+      <Skeleton variant="rounded" height={40} />
+      <Skeleton variant="rounded" height={112} />
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.4fr 1fr' }, columnGap: 2.5, rowGap: 2 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Skeleton variant="rounded" height={64} />
+          <Skeleton variant="rounded" height={220} />
+        </Box>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Skeleton variant="rounded" height={200} />
+          <Skeleton variant="rounded" height={160} />
+        </Box>
+      </Box>
+    </Box>
+  )
+}
 
 function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
@@ -440,7 +462,7 @@ export default function WpblApp() {
       />
 
       {loading
-        ? <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+        ? <ViewSkeleton />
         : (
           <>
             {view === 'home'      && <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} onViewStats={openStats} onViewTracking={openTracking} />}

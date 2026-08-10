@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.34.0'
+export const APP_VERSION = '1.35.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.35.0',
+    date:    '2026-08-10',
+    title:   'Smoother loading, and no dark-mode flash',
+    changes: [
+      {
+        short: 'Dark mode no longer flashes light when the page loads',
+        full:  'If you use dark mode, the page now opens straight into dark instead of showing a flash of the light theme for a moment while the app starts up.',
+      },
+      {
+        short: 'Placeholders while the WPBL home page loads',
+        full:  'The WPBL section now shows placeholder blocks shaped like the real content while the scores, standings, leaders, and tracking data load, so the page no longer jumps around as each piece fills in.',
+      },
+    ],
+  },
   {
     version: '1.34.0',
     date:    '2026-08-09',
