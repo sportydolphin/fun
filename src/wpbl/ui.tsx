@@ -152,7 +152,7 @@ export function SectionCard({ icon, title, subtitle, action, children }: {
       border: '1px solid', borderColor: CARD_BORDER,
       bgcolor: 'background.paper',
     }}>
-      <Box sx={{ px: 2, pt: 1.5, pb: 1.25, display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Box sx={{ px: 2, pt: 1.25, pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
         {icon != null && <Box sx={{ fontSize: '1.1rem', lineHeight: 1, flexShrink: 0 }}>{icon}</Box>}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, lineHeight: 1.2 }}>{title}</Typography>
@@ -160,7 +160,7 @@ export function SectionCard({ icon, title, subtitle, action, children }: {
         </Box>
         {action}
       </Box>
-      <Box sx={{ px: 2, pb: 1.75 }}>{children}</Box>
+      <Box sx={{ px: 2, pb: 1.5 }}>{children}</Box>
     </Box>
   )
 }

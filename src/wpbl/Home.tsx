@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, computeStandings } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp } from './constants'
-import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, CARD_BORDER } from './ui'
+import { SectionCard, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, CARD_BORDER } from './ui'
 import { LiveHero } from './Live'
 import {
   aggregateBatting, aggregatePitching, qualifiersActive, fmtRate, fmtTwo,
@@ -46,11 +46,22 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
     : timeText ? `${dateText} · ${timeText}` : dateText
 
   const row = (t: WpblTeam | undefined, score: number | null, won: boolean) => (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+      {/* Winner caret — only on finals, where a fixed-width slot keeps both rows' badges aligned.
+          Upcoming/live games omit the slot entirely so the badge sits flush left. */}
+      {final && (
+        <Box sx={{ width: 7, flexShrink: 0, fontSize: '0.6rem', lineHeight: 1, color: wpblColor(t?.id) }}>{won ? '▸' : ''}</Box>
+      )}
       {t && <TeamBadge team={t} size={20} />}
-      <Typography sx={{ flex: 1, fontSize: '0.8rem', fontWeight: won ? 800 : 600 }}>{t?.abbr ?? '?'}</Typography>
+      <Typography sx={{
+        flex: 1, fontSize: '0.8rem', fontWeight: won ? 800 : 600,
+        color: won ? 'text.primary' : final ? 'text.secondary' : 'text.primary',
+      }}>{t?.abbr ?? '?'}</Typography>
       {(final || live) && (
-        <Typography sx={{ fontSize: '0.85rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: won ? 'text.primary' : 'text.secondary' }}>
+        <Typography sx={{
+          fontSize: '1.05rem', fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+          color: won ? 'text.primary' : final ? 'text.disabled' : 'text.primary',
+        }}>
           {score ?? '—'}
         </Typography>
       )}
@@ -87,26 +98,54 @@ function Scoreboard({ games, teams, onOpenGame }: {
     return { strip: [...head, ...rest.slice(0, 7)], anchorIndex: head.length > 0 ? head.length - 1 : 0 }
   }, [games])
 
+  // Edge-fade cues: show a soft mask on whichever side has more chips off-screen, so the
+  // cut-off card reads as "swipe for more" rather than a clipped card.
+  const [atStart, setAtStart] = useState(true)
+  const [atEnd, setAtEnd] = useState(true)
+  const syncEdges = useCallback(() => {
+    const c = scrollRef.current
+    if (!c) return
+    setAtStart(c.scrollLeft <= 1)
+    setAtEnd(c.scrollLeft + c.clientWidth >= c.scrollWidth - 1)
+  }, [])
+
   // Position the anchor chip at the container's left edge. Measures the real DOM node
   // (robust to chip width / gap changes) and moves only the strip's own scroll, not the page.
   useEffect(() => {
     const c = scrollRef.current
     const anchor = c?.children[anchorIndex] as HTMLElement | undefined
     if (!c || !anchor) return
-    c.scrollLeft += anchor.getBoundingClientRect().left - c.getBoundingClientRect().left
-  }, [strip, anchorIndex])
+    // Inset the previous game (anchor) from the left edge rather than flush against it, so the
+    // edge-fade lands on the older game peeking behind it — the previous game stays fully in
+    // view. No inset when it's already the first chip (nothing to its left to peek).
+    const inset = anchorIndex > 0 ? 32 : 0
+    c.scrollLeft += anchor.getBoundingClientRect().left - c.getBoundingClientRect().left - inset
+    syncEdges()
+  }, [strip, anchorIndex, syncEdges])
 
   if (strip.length === 0) return null
   return (
-    <Box sx={{ mb: 2 }}>
-      <SectionLabel>Scoreboard</SectionLabel>
-      <Box ref={scrollRef} sx={{
-        display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5,
-        scrollSnapType: 'x proximity',
-        '&::-webkit-scrollbar': { display: 'none' },
-        msOverflowStyle: 'none', scrollbarWidth: 'none',
-      }} data-swipe-ignore="true">
-        {strip.map(g => <GameChip key={g.id} game={g} teams={teams} onOpen={() => onOpenGame(g)} />)}
+    <Box sx={{ mb: 1.5 }}>
+      {/* Match the card-title treatment (Next game / Standings / Teams) so every section
+          on the feed announces itself the same way, instead of a lone tiny eyebrow. */}
+      <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, lineHeight: 1.2, mb: 1 }}>Scoreboard</Typography>
+      <Box sx={{ position: 'relative' }}>
+        <Box ref={scrollRef} onScroll={syncEdges} sx={{
+          display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5,
+          // Snap chips to a 32px-inset start (matching the anchor inset below) so the previous
+          // game rests clear of the left fade rather than snapping flush against it.
+          scrollSnapType: 'x proximity', scrollPaddingLeft: '32px',
+          '&::-webkit-scrollbar': { display: 'none' },
+          msOverflowStyle: 'none', scrollbarWidth: 'none',
+        }} data-swipe-ignore="true">
+          {strip.map(g => <GameChip key={g.id} game={g} teams={teams} onOpen={() => onOpenGame(g)} />)}
+        </Box>
+        {!atStart && (
+          <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 6, width: 24, pointerEvents: 'none', background: t => `linear-gradient(to right, ${t.palette.background.default}, transparent)` }} />
+        )}
+        {!atEnd && (
+          <Box sx={{ position: 'absolute', right: 0, top: 0, bottom: 6, width: 24, pointerEvents: 'none', background: t => `linear-gradient(to left, ${t.palette.background.default}, transparent)` }} />
+        )}
       </Box>
     </Box>
   )
@@ -783,18 +822,23 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
 
   return (
     <Box>
-      {/* Slim league header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
+      {/* Slim league header. On mobile the title wraps two lines, so the club badges drop to
+          their own strip below (a deliberate row) instead of floating centred beside it; on
+          wider screens there's room to sit them inline to the right. */}
+      <Box sx={{
+        display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
+        alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 }, mb: 1.5,
+      }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography sx={{ fontSize: '1.05rem', fontWeight: 900, letterSpacing: '-0.3px', lineHeight: 1.15 }}>
             Women's Pro Baseball League
           </Typography>
           <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Inaugural 2026 season</Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 0.75 }}>
+        <Box sx={{ display: 'flex', gap: { xs: 1.25, sm: 0.75 }, flexShrink: 0 }}>
           {teams.map(t => (
             <Box key={t.id} onClick={() => onOpenTeam(t)} sx={{ cursor: 'pointer', transition: 'transform 0.12s', '&:hover': { transform: 'scale(1.08)' } }}>
-              <TeamBadge team={t} size={30} />
+              <TeamBadge team={t} size={32} />
             </Box>
           ))}
         </Box>
@@ -815,10 +859,10 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
       <Box sx={{
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', md: '1.4fr 1fr' },
-        columnGap: 2.5, rowGap: 2, alignItems: 'start',
+        columnGap: 2.5, rowGap: 1.5, alignItems: 'start',
       }}>
         {/* The League */}
-        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           <DiscordCard />
           <NextGameCard games={games} teams={teamMap} onOpenGame={onOpenGame} />
           <StandingsCard teams={teams} games={games} onOpenTeam={onOpenTeam} />
@@ -826,7 +870,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
         </Box>
 
         {/* Around the League */}
-        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           <HallOfFirstsCard firsts={firsts} teamById={teamMap} loading={loadingLeaders} onOpenPlayer={onOpenPlayer} onViewAll={() => setFirstsOpen(true)} />
           {(loadingLeaders || !trackingStale) && (
             <TrackingTeaserCard board={trackingBoard} latestGameIds={latestGameIds} loading={loadingLeaders} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={viewTracking} />

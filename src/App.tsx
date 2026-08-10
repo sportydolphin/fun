@@ -644,7 +644,7 @@ function AppInner() {
             {/* Mobile: search icon when not expanded */}
             {bridge.isRegistered && !isDesktop && !mobileSearchExpanded && (
               <IconButton size="small" onClick={() => setMobileSearchExpanded(true)} sx={{ color: 'text.secondary', mr: 0.25 }}>
-                <Search fontSize="small" />
+                <Search />
               </IconButton>
             )}
 
@@ -656,7 +656,7 @@ function AppInner() {
                 in WPBL too. See src/dev/DevSettings.tsx. Never in a production build. */}
             {import.meta.env.DEV && <DevSettings showMlbTools={path === '/mlb'} />}
 
-            <IconButton onClick={toggleTheme} size="small" sx={{ color: mode === 'dark' ? '#fbbf24' : 'text.primary' }}>
+            <IconButton onClick={toggleTheme} size="small" sx={{ color: mode === 'dark' ? '#fbbf24' : 'text.secondary' }}>
               {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
             </IconButton>
           {user ? (
@@ -672,7 +672,13 @@ function AppInner() {
                 >
                   {isDesktop && (username || user.user_metadata?.full_name) && (
                     <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                      {username ? `@${username}` : user.user_metadata.full_name}
+                      {username ? (
+                        // The Roboto/Arial "@" dips toward the baseline and reads as sitting
+                        // low next to the lowercase handle — nudge it up a hair to optically center.
+                        <>
+                          <Box component="span" sx={{ position: 'relative', top: '-0.01em' }}>@</Box>{username}
+                        </>
+                      ) : user.user_metadata.full_name}
                     </Typography>
                   )}
                   <IconButton

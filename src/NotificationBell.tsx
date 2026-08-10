@@ -106,7 +106,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
               max={9}
               sx={{ '& .MuiBadge-badge': { bgcolor: '#ef4444', color: '#fff', fontSize: '0.6rem', minWidth: 15, height: 15 } }}
             >
-              <Notifications fontSize="small" />
+              <Notifications />
             </Badge>
           </IconButton>
         </Tooltip>

@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.36.0'
+export const APP_VERSION = '1.37.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,37 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.37.0',
+    date:    '2026-08-10',
+    title:   'A corrected ERA and a WPBL home refresh',
+    changes: [
+      {
+        short: 'WPBL ERA is now figured over seven innings',
+        full:  'A WPBL pitcher\'s ERA is now calculated over seven innings, to match the league\'s seven-inning games, instead of the nine used in the major leagues. This lowers the ERA figures shown across the WPBL stats, leaders, and player pages.',
+      },
+      {
+        short: 'Clearer scoreboard on the WPBL home page',
+        full:  'The scoreboard strip on the WPBL home page now shows bigger, bolder scores with the winning team marked, opens with the most recent final in full view, and softly fades its edges to show there are more games to swipe through.',
+      },
+      {
+        short: 'Ballpark tracking hides when its data falls behind',
+        full:  'The Ballpark tracking card on the WPBL home page now hides itself when the league has not posted radar data for the more recent games, instead of showing stale season bests. It returns on its own once fresh tracking data lands.',
+      },
+      {
+        short: 'Tidier WPBL home page layout',
+        full:  'The WPBL home page got a light tidy-up: the section headings now share one style, the cards sit a little closer together, and the league name and team badges lay out more cleanly on a phone.',
+      },
+      {
+        short: 'Account menu opens in front on mobile',
+        full:  'On a phone, the account menu in the top right now opens in front of the page instead of slipping behind the content below it.',
+      },
+      {
+        short: 'Matching toolbar icons',
+        full:  'The icons in the top bar, like the notification bell and the light and dark mode toggle, now match each other in size and weight instead of looking slightly mismatched.',
+      },
+    ],
+  },
   {
     version: '1.36.0',
     date:    '2026-08-10',
