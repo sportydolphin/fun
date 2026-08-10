@@ -564,6 +564,75 @@ function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView
   )
 }
 
+// Community invite — links out to the WPBL fan Discord. Styled in Discord's blurple
+// so it reads as "join the chat" at a glance, but kept to one slim row so it sits
+// under the scoreboard without crowding the actual content.
+const DISCORD_INVITE = 'https://discord.gg/ayNcVAAPW'
+const DISCORD_BLURPLE = '#5865F2'
+const DISCORD_DISMISS_KEY = 'wpbl_discord_dismissed'
+
+function DiscordCard() {
+  // Dismissable + remembered: once closed it stays gone (so fans already in the
+  // server, or who don't care, don't keep paying the vertical space for it).
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { return false }
+  })
+  if (dismissed) return null
+  const dismiss = () => {
+    try { localStorage.setItem(DISCORD_DISMISS_KEY, '1') } catch { /* private mode / quota — non-fatal */ }
+    setDismissed(true)
+  }
+  return (
+    <Box
+      component="a"
+      href={DISCORD_INVITE}
+      target="_blank"
+      rel="noopener noreferrer"
+      sx={{
+        display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25,
+        textDecoration: 'none', cursor: 'pointer',
+        borderRadius: 2, border: '1.5px solid', borderColor: `${DISCORD_BLURPLE}66`,
+        bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(88,101,242,0.09)' : 'rgba(88,101,242,0.06)',
+        transition: 'background-color 0.15s, border-color 0.15s',
+        '&:hover': {
+          bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(88,101,242,0.18)' : 'rgba(88,101,242,0.12)',
+          borderColor: DISCORD_BLURPLE,
+        },
+      }}
+    >
+      <Box sx={{ width: 34, height: 34, borderRadius: '50%', bgcolor: DISCORD_BLURPLE, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Box component="svg" viewBox="0 0 24 24" aria-hidden="true" sx={{ width: 19, height: 19 }}>
+          <path fill="#fff" d="M20.317 4.3698a19.7913 19.7913 0 0 0-4.8851-1.5152.0741.0741 0 0 0-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 0 0-.0785-.037 19.7363 19.7363 0 0 0-4.8852 1.515.0699.0699 0 0 0-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 0 0 .0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 0 0 .0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 0 0-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 0 1-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 0 1 .0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 0 1 .0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 0 1-.0066.1276 12.2986 12.2986 0 0 1-1.873.8914.0766.0766 0 0 0-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 0 0 .0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 0 0 .0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 0 0-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z" />
+        </Box>
+      </Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, lineHeight: 1.2, color: 'text.primary' }}>
+          Join the WPBL fan Discord
+        </Typography>
+        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 0.2 }}>
+          Live game chats and more.
+        </Typography>
+      </Box>
+      <Box sx={{ flexShrink: 0, px: 1.5, py: 0.6, borderRadius: 999, bgcolor: DISCORD_BLURPLE, color: '#fff', fontSize: '0.75rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+        Join
+      </Box>
+      <Box
+        onClick={e => { e.preventDefault(); e.stopPropagation(); dismiss() }}
+        role="button"
+        aria-label="Dismiss Discord invite"
+        sx={{
+          flexShrink: 0, width: 22, height: 22, ml: 0.25,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: '50%', color: 'text.disabled', fontSize: '0.8rem', lineHeight: 1,
+          '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+        }}
+      >
+        ✕
+      </Box>
+    </Box>
+  )
+}
+
 // ─── Home ───────────────────────────────────────────────────────────────────────
 
 // ─── Ingest health (admin-only) ──────────────────────────────────────────────────
@@ -693,6 +762,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
       }}>
         {/* The League */}
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <DiscordCard />
           <NextGameCard games={games} teams={teamMap} onOpenGame={onOpenGame} />
           <StandingsCard teams={teams} games={games} onOpenTeam={onOpenTeam} />
           <TeamsCard teams={teams} onOpenTeam={onOpenTeam} />

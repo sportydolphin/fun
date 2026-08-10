@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, CircularProgress } from '@mui/material'
+import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking } from './api'
 import { wpblAccent, wpblFullName, outsToIp, formatGameTime } from './constants'
@@ -21,13 +21,15 @@ import type {
 type Tab = 'box' | 'plays' | 'pitch'
 
 // ─── Box-score column sets ─────────────────────────────────────────────────────
-// Column order is importance-first so the essentials fit a phone screen before the table
-// scrolls: the classic box line (AB R H RBI BB SO) leads, with the situational extras
-// (HR 2B SB) after — the user still scrolls right to see those.
-const BAT_COLS: { key: keyof WpblBattingLine; label: string }[] = [
+// Column order is importance-first: the classic box line (AB R H RBI BB SO) leads,
+// then HR, then the situational extras (2B SB). On a phone the `xsHide` columns drop
+// out so the batting line fits the width instead of scrolling off-screen; desktop
+// shows the full set. See BAT_COLS filtering in TeamBox.
+const BAT_COLS: { key: keyof WpblBattingLine; label: string; xsHide?: boolean }[] = [
   { key: 'ab', label: 'AB' }, { key: 'r', label: 'R' }, { key: 'h', label: 'H' },
   { key: 'rbi', label: 'RBI' }, { key: 'bb', label: 'BB' }, { key: 'so', label: 'SO' },
-  { key: 'hr', label: 'HR' }, { key: 'doubles', label: '2B' }, { key: 'sb', label: 'SB' },
+  { key: 'hr', label: 'HR' },
+  { key: 'doubles', label: '2B', xsHide: true }, { key: 'sb', label: 'SB', xsHide: true },
 ]
 const PIT_COLS: { key: keyof WpblPitchingLine; label: string }[] = [
   { key: 'h', label: 'H' }, { key: 'r', label: 'R' }, { key: 'er', label: 'ER' },
@@ -120,8 +122,12 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
   const isDark = useWpblDark()
+  const isMobile = useMediaQuery('(max-width:600px)')
   const color = wpblAccent(team.id, isDark)
   const shortName = useWpblName()
+  // On a phone, drop the situational extras (2B/SB) so the box line fits without a
+  // sideways scroll; desktop keeps the full column set.
+  const batCols = isMobile ? BAT_COLS.filter(c => !c.xsHide) : BAT_COLS
   const nameCell = (playerId: string, suffix?: React.ReactNode) => {
     const p = names.get(playerId)
     const clickable = p && onOpenPlayer
@@ -141,7 +147,7 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
     )
   }
   const batTotals = batting.reduce((t, b) => {
-    for (const c of BAT_COLS) (t as any)[c.key] = ((t as any)[c.key] ?? 0) + (Number(b[c.key]) || 0)
+    for (const c of batCols) (t as any)[c.key] = ((t as any)[c.key] ?? 0) + (Number(b[c.key]) || 0)
     return t
   }, {} as Record<string, number>)
 
@@ -155,19 +161,19 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
             <Box component="thead">
               <Box component="tr">
                 <Box component="th" sx={nameHeadSx}>Batting</Box>
-                {BAT_COLS.map(c => <StatHead key={c.key as string}>{c.label}</StatHead>)}
+                {batCols.map(c => <StatHead key={c.key as string}>{c.label}</StatHead>)}
               </Box>
             </Box>
             <Box component="tbody">
               {batting.map(b => (
                 <Box component="tr" key={b.id} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
                   {nameCell(b.player_id, b.position ? <Typography component="span" sx={posSx}>{b.position}</Typography> : null)}
-                  {BAT_COLS.map(c => <StatCell key={c.key as string} bold={c.key === 'h'}>{Number(b[c.key]) || 0}</StatCell>)}
+                  {batCols.map(c => <StatCell key={c.key as string} bold={c.key === 'h'}>{Number(b[c.key]) || 0}</StatCell>)}
                 </Box>
               ))}
               <Box component="tr" sx={{ borderTop: '2px solid', borderColor: color }}>
                 <Box component="td" sx={{ ...nameHeadSx, color: 'text.secondary', fontSize: '0.8rem', fontWeight: 800, textTransform: 'none', letterSpacing: 0 }}>Totals</Box>
-                {BAT_COLS.map(c => <StatCell key={c.key as string} bold>{batTotals[c.key as string] ?? 0}</StatCell>)}
+                {batCols.map(c => <StatCell key={c.key as string} bold>{batTotals[c.key as string] ?? 0}</StatCell>)}
               </Box>
             </Box>
           </Box>
@@ -626,6 +632,7 @@ function TeamSwitch({ away, home, value, onChange }: {
   value: 'away' | 'home'; onChange: (v: 'away' | 'home') => void
 }) {
   const isDark = useWpblDark()
+  const isMobile = useMediaQuery('(max-width:600px)')
   const tab = (side: 'away' | 'home', team: WpblTeam) => {
     const active = value === side
     const color = wpblAccent(team.id, isDark)
@@ -640,13 +647,17 @@ function TeamSwitch({ away, home, value, onChange }: {
           '&:hover': { opacity: active ? 1 : 0.8 },
         }}
       >
-        <TeamBadge team={team} size={26} />
-        <Typography sx={{ fontSize: '1rem', fontWeight: active ? 800 : 600 }}>{wpblFullName(team)}</Typography>
+        <TeamBadge team={team} size={isMobile ? 22 : 26} />
+        {/* Nickname only on a phone (e.g. "Heights") so the two tabs sit on one line
+            instead of wrapping "New York / Heights"; full "City Nickname" on desktop. */}
+        <Typography sx={{ fontSize: isMobile ? '0.9rem' : '1rem', fontWeight: active ? 800 : 600, whiteSpace: 'nowrap' }}>
+          {isMobile ? team.name : wpblFullName(team)}
+        </Typography>
       </Box>
     )
   }
   return (
-    <Box sx={{ display: 'flex', gap: 3, borderBottom: '1px solid', borderColor: 'divider', mb: 1.5 }}>
+    <Box sx={{ display: 'flex', gap: { xs: 2.5, sm: 3 }, borderBottom: '1px solid', borderColor: 'divider', mb: 1.5 }}>
       {tab('away', away)}
       {tab('home', home)}
     </Box>
@@ -824,7 +835,7 @@ export default function GameDetailModal({ game: seed, teams, onClose, onOpenPlay
 // as narrow as the names allow and the stat columns claim the freed space — more columns fit
 // before the wrapper scrolls. maxWidth caps a very long name (inner text ellipsizes); minWidth
 // floors the table so it still scrolls on a narrow phone.
-const tableSx = { tableLayout: 'auto', borderCollapse: 'collapse', width: '100%', minWidth: 480, fontVariantNumeric: 'tabular-nums' } as const
+const tableSx = { tableLayout: 'auto', borderCollapse: 'collapse', width: '100%', minWidth: 0, fontVariantNumeric: 'tabular-nums' } as const
 const NAME_W = 150 // cap for the shrink-to-fit name column (longer names ellipsize)
 // The name column is pinned (sticky-left) so scrolling right moves only the stat columns.
 // An opaque bg + right divider keep it legible over the stat cells sliding underneath.

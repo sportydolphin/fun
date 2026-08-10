@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.33.0'
+export const APP_VERSION = '1.34.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,25 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.34.0',
+    date:    '2026-08-09',
+    title:   'WPBL fan Discord, and cleaner box scores on mobile',
+    changes: [
+      {
+        short: 'Join the WPBL fan Discord from the home page',
+        full:  'The WPBL home page now has an invite to the WPBL fan Discord for live game chats and more. It sits above the next-game card, and you can dismiss it with the X if you are not interested, in which case it stays hidden.',
+      },
+      {
+        short: 'WPBL box scores fit the screen on a phone',
+        full:  'A WPBL game\'s box score no longer runs off the side of a phone screen. The batting table now shows the key columns (at bats, runs, hits, RBI, walks, strikeouts, home runs) without a sideways scroll, and the full set including doubles and steals still shows on a wider screen.',
+      },
+      {
+        short: 'Team switcher no longer wraps in a box score',
+        full:  'In a WPBL box score, the button to switch between the two teams now shows the team nickname on a phone so the two teams sit on one line instead of wrapping, with the full city and name kept on desktop.',
+      },
+    ],
+  },
   {
     version: '1.33.0',
     date:    '2026-08-09',
