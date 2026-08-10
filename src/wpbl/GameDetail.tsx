@@ -37,6 +37,42 @@ const PIT_COLS: { key: keyof WpblPitchingLine; label: string }[] = [
   { key: 'pitches', label: 'P' },
 ]
 
+// ─── Batting-line helpers (filter non-hitting pitchers, flag substitutes) ───────
+// Positions arrive lowercase from the feed. A pure pitcher never bats in this league's
+// DH games, so an all-zero "p" row is just clutter — drop it. Two-way players carry a
+// combo position ("lf/p", "p/cf") and DID bat, so they are not pure pitchers and stay.
+const PURE_PITCHER = new Set(['p', 'sp', 'rp', 'lhp', 'rhp'])
+const isPurePitcher = (pos: string | null): boolean => !!pos && PURE_PITCHER.has(pos.toLowerCase())
+const isPinchRole = (pos: string | null): boolean => { const p = pos?.toLowerCase(); return p === 'ph' || p === 'pr' }
+const plateApps = (b: WpblBattingLine): number => b.ab + b.bb + b.hbp + b.sf + b.sh
+// Did this batter come to the plate or reach the bases at all? A pinch runner who scored
+// has no plate appearance but does have a run, so check baserunning too — otherwise we'd
+// wrongly drop them.
+const cameToBat = (b: WpblBattingLine): boolean => plateApps(b) > 0 || b.r > 0 || b.rbi > 0 || b.sb > 0 || b.cs > 0
+
+// The batting rows to show, non-hitting pitchers removed, ordered by lineup slot with each
+// slot's starter first and its substitutes (pinch hitters/runners, defensive replacements
+// sharing the slot) following, flagged so the table can indent and mark them.
+function buildBattingRows(batting: WpblBattingLine[]): { b: WpblBattingLine; isSub: boolean }[] {
+  const shown = batting.filter(b => cameToBat(b) || !isPurePitcher(b.position))
+  const bySlot = new Map<number, WpblBattingLine[]>()
+  const noSlot: WpblBattingLine[] = []
+  for (const b of shown) {
+    if (b.batting_order == null) noSlot.push(b)
+    else { const a = bySlot.get(b.batting_order) ?? []; a.push(b); bySlot.set(b.batting_order, a) }
+  }
+  const out: { b: WpblBattingLine; isSub: boolean }[] = []
+  for (const slot of [...bySlot.keys()].sort((a, b) => a - b)) {
+    // Starter leads the slot: a non-pinch role with the most plate appearances; the rest
+    // (and any pinch role) are substitutes.
+    const arr = bySlot.get(slot)!.slice().sort((x, y) =>
+      Number(isPinchRole(x.position)) - Number(isPinchRole(y.position)) || plateApps(y) - plateApps(x))
+    arr.forEach((b, i) => out.push({ b, isSub: i > 0 || isPinchRole(b.position) }))
+  }
+  for (const b of noSlot) out.push({ b, isSub: isPinchRole(b.position) })
+  return out
+}
+
 // The feed spells names "Last, First"; flip to "First Last" for display.
 const fmtFeedName = (n: string): string => {
   const [last, first] = n.split(',').map(s => s.trim())
@@ -128,12 +164,14 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
   // On a phone, drop the situational extras (2B/SB) so the box line fits without a
   // sideways scroll; desktop keeps the full column set.
   const batCols = isMobile ? BAT_COLS.filter(c => !c.xsHide) : BAT_COLS
-  const nameCell = (playerId: string, suffix?: React.ReactNode) => {
+  // A substitute's name is indented under its starter and led by a ↳ marker.
+  const nameCell = (playerId: string, suffix?: React.ReactNode, isSub = false) => {
     const p = names.get(playerId)
     const clickable = p && onOpenPlayer
     return (
-      <Box component="td" sx={nameCellSx}>
+      <Box component="td" sx={{ ...nameCellSx, pl: isSub ? 1.75 : 0.4 }}>
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, overflow: 'hidden' }}>
+          {isSub && <Box component="span" aria-hidden sx={{ color: 'text.disabled', fontSize: '0.72rem', flexShrink: 0, lineHeight: 1 }}>↳</Box>}
           <Typography
             component="span"
             onClick={clickable ? () => onOpenPlayer!(p!) : undefined}
@@ -146,16 +184,18 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
       </Box>
     )
   }
-  const batTotals = batting.reduce((t, b) => {
+  // Non-hitting pitchers dropped, subs ordered under their starter (see buildBattingRows).
+  const battingRows = buildBattingRows(batting)
+  const batTotals = battingRows.reduce((t, { b }) => {
     for (const c of batCols) (t as any)[c.key] = ((t as any)[c.key] ?? 0) + (Number(b[c.key]) || 0)
     return t
   }, {} as Record<string, number>)
 
-  if (batting.length === 0 && pitching.length === 0) return null
+  if (battingRows.length === 0 && pitching.length === 0) return null
 
   return (
     <Box>
-      {batting.length > 0 && (
+      {battingRows.length > 0 && (
         <Box sx={{ overflowX: 'auto', mb: 1.5 }}>
           <Box component="table" sx={tableSx}>
             <Box component="thead">
@@ -165,9 +205,9 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
               </Box>
             </Box>
             <Box component="tbody">
-              {batting.map(b => (
+              {battingRows.map(({ b, isSub }) => (
                 <Box component="tr" key={b.id} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-                  {nameCell(b.player_id, b.position ? <Typography component="span" sx={posSx}>{b.position}</Typography> : null)}
+                  {nameCell(b.player_id, b.position ? <Typography component="span" sx={{ ...posSx, textTransform: 'uppercase' }}>{b.position}</Typography> : null, isSub)}
                   {batCols.map(c => <StatCell key={c.key as string} bold={c.key === 'h'}>{Number(b[c.key]) || 0}</StatCell>)}
                 </Box>
               ))}
