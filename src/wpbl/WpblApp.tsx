@@ -478,12 +478,22 @@ export default function WpblApp() {
     // Cap + center on wide screens (site convention); full width on mobile.
     <Box sx={{ maxWidth: 720, mx: 'auto' }}>
       {/* Section nav — shared SegControl pill bar, matching the MLB tab bar. */}
-      <SegNav
-        options={NAV.map(n => ({ value: n.key, label: n.label }))}
-        value={view}
-        onChange={v => selectTab(v as WpblView)}
-      />
+      {/* Tab bar stays put on mobile (sticky under the toolbar) so it doesn't scroll away
+          when swiping to a tab or when the schedule snaps to the next game. */}
+      <Box sx={{
+        position: { xs: 'sticky', sm: 'static' }, top: { xs: 48, sm: 'auto' }, zIndex: 3,
+        bgcolor: 'background.default', mx: { xs: -2, sm: 0 }, px: { xs: 2, sm: 0 }, py: { xs: 1, sm: 0 },
+      }}>
+        <SegNav
+          options={NAV.map(n => ({ value: n.key, label: n.label }))}
+          value={view}
+          onChange={v => selectTab(v as WpblView)}
+        />
+      </Box>
 
+      {/* Floor the view height on mobile so short tabs (e.g. Standings) still scroll a little
+          and the footer doesn't jam against the content. */}
+      <Box sx={{ minHeight: { xs: 'calc(100dvh - 128px)', sm: 'auto' } }}>
       {loading
         ? <ViewSkeleton />
         : (
@@ -506,6 +516,7 @@ export default function WpblApp() {
             })}
           />
         )}
+      </Box>
 
       {detailPlayer && (
         <PlayerDetailModal
