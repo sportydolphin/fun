@@ -99,12 +99,6 @@ export default function MobilePreview() {
           border: '1px solid #2c313c', boxShadow: '0 24px 70px rgba(0,0,0,0.6)',
           position: 'relative', flexShrink: 0,
         }}>
-          {/* Notch */}
-          <Box sx={{
-            position: 'absolute', top: BEZEL + 6, left: '50%', transform: 'translateX(-50%)',
-            width: 92, height: 20, borderRadius: 10, bgcolor: '#111318', zIndex: 1, pointerEvents: 'none',
-            display: device.landscape ? 'none' : 'block',
-          }} />
           <Box
             component="iframe"
             key={reloadKey}
@@ -116,7 +110,7 @@ export default function MobilePreview() {
       </Box>
 
       <Typography sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.45)', textAlign: 'center', px: 2 }}>
-        {preset.label} · {w}×{h}{scale < 1 ? ` · shown at ${Math.round(scale * 100)}%` : ''}. Real viewport, so breakpoints match a phone. Pointer is still a mouse, so `(hover: hover)` stays true.
+        {preset.label} · {w}×{h}{scale < 1 ? ` · shown at ${Math.round(scale * 100)}%` : ''}. Real viewport, so breakpoints match a phone. Click-drag inside acts as a finger, so swipes work.
       </Typography>
     </Box>,
     document.body,

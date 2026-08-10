@@ -487,7 +487,7 @@ export default function WpblApp() {
           when swiping to a tab or when the schedule snaps to the next game. */}
       <Box ref={navRef} sx={{
         position: { xs: 'sticky', sm: 'static' }, top: { xs: 0, sm: 'auto' }, zIndex: 3,
-        bgcolor: 'background.default', mx: { xs: -2, sm: 0 }, px: { xs: 2, sm: 0 }, py: { xs: 1, sm: 0 },
+        bgcolor: 'background.default', py: { xs: 1, sm: 0 },
       }}>
         <SegNav
           options={NAV.map(n => ({ value: n.key, label: n.label }))}

@@ -242,7 +242,10 @@ function StandingsCard({ teams, games, onOpenTeam }: {
           }}>
             <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
               <TeamBadge team={r.team} size={24} />
-              <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{wpblFullName(r.team)}</Typography>
+              {/* Nickname only ("Queens", "Firebells") — the badge already carries the
+                  city, and the full "Los Angeles Queens" overflows the narrow column on
+                  mobile, truncating to the least-useful half ("Los Ang…"). */}
+              <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.team.name}</Typography>
             </Box>
             <Box sx={{ width: 32, textAlign: 'right', fontWeight: 700, fontSize: '0.85rem' }}>{r.wins}</Box>
             <Box sx={{ width: 32, textAlign: 'right', fontWeight: 700, fontSize: '0.85rem' }}>{r.losses}</Box>
@@ -284,26 +287,49 @@ function TeamsCard({ teams, onOpenTeam }: { teams: WpblTeam[]; onOpenTeam: (t: W
 
 interface LeaderRow { player: WpblPlayer; display: string }
 
-function StatBlock({ label, rows, teamById, onOpenPlayer }: {
+// Medal tints for the rank number — gold / silver / bronze, chosen to stay legible in
+// both light and dark mode. Ranks past 3rd fall back to the disabled grey.
+const RANK_MEDAL = ['#e0a100', '#9aa0a8', '#c17d3f']
+
+function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
   label: string; rows: LeaderRow[]; teamById: Map<string, WpblTeam>; onOpenPlayer: (p: WpblPlayer) => void
+  hideLabel?: boolean
 }) {
-  const isDark = useWpblDark()
   const shortName = useWpblName()
   if (rows.length === 0) return null
   return (
     <Box sx={{ mb: 1.25, '&:last-of-type': { mb: 0 } }}>
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.secondary', mb: 0.4 }}>{label}</Typography>
+      {!hideLabel && <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.secondary', mb: 0.4 }}>{label}</Typography>}
       {rows.map((r, i) => {
         const team = teamById.get(r.player.team_id)
+        // The #1 leader is the hero: a real headshot, larger name with the full team on a
+        // second line, and a bigger value. #2/#3 stay compact — small badge, one line, with
+        // the team abbreviation tucked into what was dead space beside the value.
+        const isTop = i === 0
         return (
           <Box key={r.player.id} onClick={() => onOpenPlayer(r.player)} sx={{
-            display: 'flex', alignItems: 'center', gap: 0.75, py: 0.4, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: isTop ? 1 : 0.75,
+            py: isTop ? 0.55 : 0.4, cursor: 'pointer',
             borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },
           }}>
-            <Typography sx={{ width: 14, fontSize: '0.7rem', fontWeight: 800, color: i === 0 ? wpblAccent(r.player.team_id, isDark) : 'text.disabled' }}>{i + 1}</Typography>
-            {team && <TeamBadge team={team} size={18} />}
-            <Typography sx={{ flex: 1, fontSize: '0.82rem', fontWeight: i === 0 ? 700 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(r.player.name)}</Typography>
-            <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', minWidth: 40, textAlign: 'right' }}>{r.display}</Typography>
+            <Typography sx={{ width: 14, flexShrink: 0, textAlign: 'center', fontSize: isTop ? '0.8rem' : '0.7rem', fontWeight: 800, color: RANK_MEDAL[i] ?? 'text.disabled' }}>{i + 1}</Typography>
+            {isTop
+              ? <PlayerPortrait name={r.player.name} teamId={r.player.team_id} size={38} />
+              : (team && <TeamBadge team={team} size={18} />)}
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography sx={{ fontSize: isTop ? '0.95rem' : '0.82rem', fontWeight: isTop ? 800 : 600, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {shortName(r.player.name)}
+              </Typography>
+              {isTop && team && (
+                <Typography sx={{ fontSize: '0.66rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {wpblFullName(team)}
+                </Typography>
+              )}
+            </Box>
+            {!isTop && team && (
+              <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled', letterSpacing: 0.3, flexShrink: 0 }}>{team.abbr}</Typography>
+            )}
+            <Typography sx={{ fontSize: isTop ? '1.05rem' : '0.82rem', fontWeight: isTop ? 900 : 800, fontVariantNumeric: 'tabular-nums', minWidth: 40, textAlign: 'right', flexShrink: 0 }}>{r.display}</Typography>
           </Box>
         )
       })}
@@ -335,16 +361,33 @@ function topPit(list: WpblPitSeason[], value: (t: WpblPitchingTotals) => number 
 // data loads and doesn't grow/jump when the data lands. Replaces the old centered
 // spinner (which was much shorter than the loaded card, causing the page to shift).
 
-// One StatBlock's worth: a label + three ranked rows. LeadersCard shows three of these.
+// Shaped like the loaded LeadersCard — a chip row, then a tall #1 hero (portrait + two
+// text lines) over two compact rows — so the card reserves its final height and doesn't
+// jump when data lands.
 function LeaderStatSkeleton() {
   return (
-    <Box sx={{ mb: 1.25, '&:last-of-type': { mb: 0 } }}>
-      <Skeleton variant="text" width={60} sx={{ fontSize: '0.6rem', mb: 0.4 }} />
-      {[0, 1, 2].map(i => (
+    <Box>
+      {/* Chip row */}
+      <Box sx={{ display: 'flex', gap: 0.75, mb: 1.25 }}>
+        {[36, 30, 34].map((w, i) => <Skeleton key={i} variant="rounded" width={w} height={22} sx={{ borderRadius: 999 }} />)}
+      </Box>
+      {/* #1 hero */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.55 }}>
+        <Skeleton variant="text" width={10} sx={{ fontSize: '0.8rem' }} />
+        <Skeleton variant="circular" width={38} height={38} />
+        <Box sx={{ flex: 1 }}>
+          <Skeleton variant="text" width="55%" sx={{ fontSize: '0.95rem' }} />
+          <Skeleton variant="text" width="40%" sx={{ fontSize: '0.66rem' }} />
+        </Box>
+        <Skeleton variant="text" width={40} sx={{ fontSize: '1.05rem' }} />
+      </Box>
+      {/* #2 / #3 compact rows */}
+      {[1, 2].map(i => (
         <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, py: 0.4 }}>
-          <Skeleton variant="text" width={10} sx={{ fontSize: '0.82rem' }} />
+          <Skeleton variant="text" width={10} sx={{ fontSize: '0.7rem' }} />
           <Skeleton variant="circular" width={18} height={18} />
           <Skeleton variant="text" sx={{ flex: 1, fontSize: '0.82rem' }} />
+          <Skeleton variant="text" width={24} sx={{ fontSize: '0.68rem' }} />
           <Skeleton variant="text" width={32} sx={{ fontSize: '0.82rem' }} />
         </Box>
       ))}
@@ -367,29 +410,78 @@ function TeaserRowSkeleton({ size, py }: { size: number; py: number }) {
   )
 }
 
+// One leaderboard at a time (OPS, then HR, RBI…) instead of all three stacked — cuts the
+// card's height ~3× on mobile. A chip row selects the category; a horizontal swipe on the
+// rows steps between neighbours. Only categories that have data get a chip (an empty HR
+// board early in the season simply doesn't appear), mirroring the old stacked behaviour.
 function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, onViewAll }: {
-  title: string; blocks: { label: string; rows: LeaderRow[] }[]
+  title: string; blocks: { label: string; short: string; rows: LeaderRow[] }[]
   loading: boolean; hasData: boolean; teamById: Map<string, WpblTeam>
   onOpenPlayer: (p: WpblPlayer) => void; onViewAll: () => void
 }) {
-  const anyRows = blocks.some(b => b.rows.length > 0)
+  const shown = blocks.filter(b => b.rows.length > 0)
+  const [active, setActive] = useState(0)
+  const idx = Math.min(active, Math.max(0, shown.length - 1)) // clamp as data loads/changes
+  const swipe = useRef({ x: 0, y: 0 })
+
+  const step = (d: number) => setActive(() => Math.max(0, Math.min(shown.length - 1, idx + d)))
+
+  // Reserve the tallest board's height so stepping between a 3-row and a 2-row category
+  // doesn't jolt the card. The #1 row is a taller hero (~48px); each of the rest ~26px.
+  const maxRows = shown.length ? Math.max(...shown.map(b => b.rows.length)) : 3
+  const reservePx = 48 + Math.max(0, maxRows - 1) * 26
+
   return (
     <SectionCard
       title={title}
-      action={anyRows ? (
+      action={shown.length ? (
         <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
           View all
         </Typography>
       ) : undefined}
     >
       {loading ? (
-        <>{[0, 1, 2].map(i => <LeaderStatSkeleton key={i} />)}</>
-      ) : !hasData || !anyRows ? (
+        <LeaderStatSkeleton />
+      ) : !hasData || shown.length === 0 ? (
         <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', py: 1 }}>
           Leaders appear once games are played.
         </Typography>
       ) : (
-        blocks.map(b => <StatBlock key={b.label} label={b.label} rows={b.rows} teamById={teamById} onOpenPlayer={onOpenPlayer} />)
+        <>
+          {/* Category chips — the selector doubles as the block's label. */}
+          <Box sx={{ display: 'inline-flex', bgcolor: 'action.hover', borderRadius: 999, p: '3px', mb: 1.25 }}>
+            {shown.map((b, i) => (
+              <Box
+                key={b.label}
+                onClick={() => setActive(i)}
+                sx={{
+                  px: 1.5, py: 0.4, borderRadius: 999, cursor: 'pointer',
+                  fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.3,
+                  whiteSpace: 'nowrap', userSelect: 'none', transition: 'all 0.15s',
+                  bgcolor: i === idx ? WPBL_ACCENT : 'transparent',
+                  color: i === idx ? '#fff' : 'text.secondary',
+                  '&:hover': i !== idx ? { color: 'text.primary' } : {},
+                }}
+              >
+                {b.short}
+              </Box>
+            ))}
+          </Box>
+
+          {/* Swipe the rows left/right to change category (commit on release, so vertical
+              page scroll is never captured). */}
+          <Box
+            onTouchStart={e => { swipe.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }}
+            onTouchEnd={e => {
+              const dx = e.changedTouches[0].clientX - swipe.current.x
+              const dy = e.changedTouches[0].clientY - swipe.current.y
+              if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) step(dx < 0 ? 1 : -1)
+            }}
+            sx={{ minHeight: `${reservePx}px` }}
+          >
+            <StatBlock key={shown[idx].label} label={shown[idx].label} rows={shown[idx].rows} teamById={teamById} onOpenPlayer={onOpenPlayer} hideLabel />
+          </Box>
+        </>
       )}
     </SectionCard>
   )
@@ -873,15 +965,15 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   const qualifyOn = useMemo(() => qualifiersActive(teams, games), [teams, games])
 
   const battingBlocks = useMemo(() => [
-    { label: 'OPS', rows: topBat(batSeasons, t => t.ops, t => fmtRate(t.ops), t => !qualifyOn || t.ab >= MIN_AB) },
-    { label: 'Home runs',       rows: topBat(batSeasons, t => t.hr,  t => String(t.hr), t => t.hr > 0) },
-    { label: 'RBI',             rows: topBat(batSeasons, t => t.rbi, t => String(t.rbi), t => t.rbi > 0) },
+    { label: 'OPS',       short: 'OPS', rows: topBat(batSeasons, t => t.ops, t => fmtRate(t.ops), t => !qualifyOn || t.ab >= MIN_AB) },
+    { label: 'Home runs', short: 'HR',  rows: topBat(batSeasons, t => t.hr,  t => String(t.hr), t => t.hr > 0) },
+    { label: 'RBI',       short: 'RBI', rows: topBat(batSeasons, t => t.rbi, t => String(t.rbi), t => t.rbi > 0) },
   ], [batSeasons, qualifyOn])
 
   const pitchingBlocks = useMemo(() => [
-    { label: 'ERA',        rows: topPit(pitSeasons, t => (t.era == null ? null : -t.era), t => fmtTwo(t.era), t => !qualifyOn || t.outs >= MIN_OUTS) },
-    { label: 'Strikeouts', rows: topPit(pitSeasons, t => t.so, t => String(t.so), t => t.so > 0) },
-    { label: 'Innings',    rows: topPit(pitSeasons, t => t.outs, t => outsToIp(t.outs), t => t.outs > 0) },
+    { label: 'ERA',        short: 'ERA', rows: topPit(pitSeasons, t => (t.era == null ? null : -t.era), t => fmtTwo(t.era), t => !qualifyOn || t.outs >= MIN_OUTS) },
+    { label: 'Strikeouts', short: 'K',   rows: topPit(pitSeasons, t => t.so, t => String(t.so), t => t.so > 0) },
+    { label: 'Innings',    short: 'IP',  rows: topPit(pitSeasons, t => t.outs, t => outsToIp(t.outs), t => t.outs > 0) },
   ], [pitSeasons, qualifyOn])
 
   const hasLines = lines.batting.length > 0 || lines.pitching.length > 0

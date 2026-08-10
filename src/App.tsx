@@ -366,6 +366,15 @@ function AppInner() {
   }, [signOut])
   useEffect(() => { if (!user) resetActiveCache() }, [user?.id])
 
+  // Dev mobile sim: inside the phone frame, translate mouse click-drag into touch
+  // events so finger-driven swipes (tab pager, leaders category swipe) are testable.
+  useEffect(() => {
+    if (!import.meta.env.DEV || !isInsideDeviceFrame) return
+    let cleanup: (() => void) | undefined
+    void import('./mlb/dev/mouseTouchBridge').then(m => { cleanup = m.installMouseTouchBridge() })
+    return () => cleanup?.()
+  }, [])
+
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_KEY) === '1')
   const [lockDialogOpen, setLockDialogOpen] = useState(false)
   const [pendingPath, setPendingPath] = useState<string | null>(null)

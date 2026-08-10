@@ -7,7 +7,7 @@
 // to WPBL_ACCENT, so the league keeps its own color while the shape stays identical.
 // If you restyle a primitive here, mirror the change in the MLB file (and vice versa).
 
-import React, { useEffect, useCallback } from 'react'
+import React, { useEffect, useCallback, useRef } from 'react'
 import { Box, Typography, useTheme, useMediaQuery } from '@mui/material'
 import type { Theme } from '@mui/material'
 import { WPBL_ACCENT, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
@@ -101,10 +101,28 @@ export function SegNav({ options, value, onChange, accent = WPBL_ACCENT }: {
   onChange: (v: string) => void
   accent?: string
 }) {
+  // When the strip is wider than the screen (many tabs on mobile), keep the selected
+  // pill in view: on every selection change — a tap or a swipe between tabs — scroll it
+  // to the container's centre (clamped at the ends). We nudge only the strip's own
+  // scrollLeft, never the page, so a swipe can't jog the vertical scroll.
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const activeRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const c = scrollRef.current, a = activeRef.current
+    if (!c || !a || c.scrollWidth <= c.clientWidth) return
+    const cRect = c.getBoundingClientRect(), aRect = a.getBoundingClientRect()
+    const delta = (aRect.left - cRect.left) - (c.clientWidth - aRect.width) / 2
+    c.scrollTo({ left: c.scrollLeft + delta, behavior: 'smooth' })
+  }, [value])
+
   return (
-    <Box sx={{
+    <Box ref={scrollRef} sx={{
       display: 'flex', justifyContent: { xs: 'flex-start', sm: 'center' }, mb: 3,
       overflowX: 'auto',
+      // Full-bleed on mobile: cancel the app's p:2 page gutter (mx:-2) so the strip
+      // reaches the physical screen edge, and re-add it as scroll padding (px:2) so the
+      // resting position still looks inset while overflow content runs right to the edge.
+      mx: { xs: -2, sm: 0 }, px: { xs: 2, sm: 0 },
       '&::-webkit-scrollbar': { display: 'none' },
       msOverflowStyle: 'none', scrollbarWidth: 'none',
     }}>
@@ -112,6 +130,7 @@ export function SegNav({ options, value, onChange, accent = WPBL_ACCENT }: {
         {options.map(opt => (
           <Box
             key={opt.value}
+            ref={value === opt.value ? activeRef : undefined}
             onClick={() => onChange(opt.value)}
             sx={{
               px: 1.75, py: 0.5,
