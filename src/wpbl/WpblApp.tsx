@@ -306,6 +306,7 @@ export default function WpblApp() {
   const [games, setGames] = useState<WpblGame[]>([])
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [loading, setLoading] = useState(true)
+  const isMobileView = useMediaQuery('(max-width:600px)')
 
   // Toolbar search bridge — WpblApp owns the shared header search while /wpbl is mounted.
   const bridge = useSearchBridge()
@@ -507,6 +508,7 @@ export default function WpblApp() {
           <SwipeableViews
             index={NAV.findIndex(n => n.key === view)}
             onIndexChange={i => selectTab(NAV[i].key)}
+            minHeight={isMobileView ? 'calc(100dvh - 128px)' : undefined}
             panels={NAV.map(n => {
               switch (n.key) {
                 case 'home':      return <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} onViewStats={openStats} onViewTracking={openTracking} />

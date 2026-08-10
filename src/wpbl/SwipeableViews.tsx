@@ -21,6 +21,7 @@ const LOCK_PX = 10          // movement before we decide horizontal-swipe vs ver
 const COMMIT_FRACTION = 0.28 // fraction of the width a drag must pass to switch tabs
 const ANIM_MS = 260
 const RESIST = 0.3          // rubber-band factor when dragging past the first/last tab
+const GAP = 16              // gutter shown between panes while swiping, so they aren't cramped
 
 // Does the touch start inside something that scrolls horizontally on its own (the home
 // scoreboard strip, a wide table) and can still scroll that way? If so, leave the gesture
@@ -43,9 +44,10 @@ interface Props {
   index: number
   panels: ReactNode[]
   onIndexChange: (i: number) => void
+  minHeight?: string // floors the container so short tabs stay swipeable in their empty space
 }
 
-export default function SwipeableViews({ index, panels, onIndexChange }: Props) {
+export default function SwipeableViews({ index, panels, onIndexChange, minHeight }: Props) {
   const isMobile = useMediaQuery('(max-width:600px)')
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -117,7 +119,7 @@ export default function SwipeableViews({ index, panels, onIndexChange }: Props) 
       const commit = !s.boundary && Math.abs(s.curOffset) > s.width * COMMIT_FRACTION
       const d = s.dir
       setAnim(true)
-      setOffset(commit ? -d * s.width : 0)
+      setOffset(commit ? -d * (s.width + GAP) : 0)
       window.setTimeout(() => {
         if (commit) {
           latest.current.onIndexChange(latest.current.index + d)
@@ -156,6 +158,7 @@ export default function SwipeableViews({ index, panels, onIndexChange }: Props) 
         // `hidden` would (which would break the page's window scroll). Only while swiping.
         overflow: engaged ? 'clip' : 'visible',
         touchAction: 'pan-y',
+        minHeight,
       }}
     >
       <div
@@ -172,7 +175,7 @@ export default function SwipeableViews({ index, panels, onIndexChange }: Props) 
         {showNeighbor && (
           <div
             key={neighborIndex}
-            style={{ position: 'absolute', top: pinTop, left: 0, width: '100%', transform: `translateX(${dir * 100}%)` }}
+            style={{ position: 'absolute', top: pinTop, left: 0, width: '100%', transform: `translateX(calc(${dir * 100}% + ${dir * GAP}px))` }}
           >
             {panels[neighborIndex]}
           </div>
