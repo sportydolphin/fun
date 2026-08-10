@@ -55,7 +55,8 @@ export function sumPitching(lines: WpblPitchingLine[]): WpblPitchingTotals {
     else if (l.decision === 'S') t.s++
   }
   const ip = t.outs / 3
-  const era = ip > 0 ? (t.er * 9) / ip : null
+  // WPBL games are 7 innings, so ERA is earned runs per 7 IP (not the 9 of MLB).
+  const era = ip > 0 ? (t.er * 7) / ip : null
   const whip = ip > 0 ? (t.bb + t.h) / ip : null
   return { ...t, era, whip }
 }

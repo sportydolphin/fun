@@ -425,10 +425,14 @@ function AppInner() {
       zoom: 'var(--app-zoom)',
     }}>
       <AppBar
-        // On mobile the top bar scrolls away (static) rather than sticking — the MLB/WPBL
-        // toggle + search are rarely needed mid-scroll, and a single sticky bar (the WPBL
-        // tab menu, pinned below) avoids the two-bar gap collapsing as you scroll.
-        position={!isDesktop ? 'static' : integratedHeader ? 'sticky' : 'static'}
+        // On mobile the top bar scrolls away (relative, in-flow) rather than sticking — the
+        // MLB/WPBL toggle + search are rarely needed mid-scroll, and a single sticky bar (the
+        // WPBL tab menu, pinned below) avoids the two-bar gap collapsing as you scroll.
+        // `relative` (not `static`) so MUI's zIndex:appBar takes effect: integrated-header skins
+        // add backdrop-filter, which makes the AppBar a stacking context — under `static` that
+        // context paints at z-auto, letting page content (e.g. the sticky tab bar, z-index 3)
+        // cover the account dropdown inside it. `relative` lifts the whole header above the page.
+        position={!isDesktop ? 'relative' : integratedHeader ? 'sticky' : 'static'}
         color="default"
         elevation={integratedHeader ? 0 : 1}
         sx={integratedHeader ? {
