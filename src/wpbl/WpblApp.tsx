@@ -14,6 +14,7 @@ import WpblHome from './Home'
 import WpblStatsView from './StatsView'
 import WpblTrackingView from './TrackingView'
 import TeamPage from './TeamPage'
+import SwipeableViews from './SwipeableViews'
 
 // WPBL section root. Reads the official-feed mirror from Supabase (games, box scores,
 // play-by-play, live state) and renders it; everything shows a friendly empty state until
@@ -65,8 +66,9 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
 
 // ─── Views ────────────────────────────────────────────────────────────────────
 
-function ScheduleView({ teams, games, onOpenGame }: {
+function ScheduleView({ teams, games, onOpenGame, active = true }: {
   teams: WpblTeam[]; games: WpblGame[]; onOpenGame: (g: WpblGame) => void
+  active?: boolean // false while mounted off-screen as a swipe neighbour — don't auto-scroll then
 }) {
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   // Snap the schedule to the current point in the season when it opens: the next live or
@@ -79,10 +81,10 @@ function ScheduleView({ teams, games, onOpenGame }: {
   }, [games])
   const anchorRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
-    if (!anchorRef.current) return
+    if (!active || !anchorRef.current) return
     const id = requestAnimationFrame(() => anchorRef.current?.scrollIntoView({ block: 'start' }))
     return () => cancelAnimationFrame(id)
-  }, [anchorDate])
+  }, [anchorDate, active])
 
   if (games.length === 0) {
     return <EmptyState title="No games scheduled yet" hint="The 2026 schedule loads here once it is added." />
@@ -485,14 +487,24 @@ export default function WpblApp() {
       {loading
         ? <ViewSkeleton />
         : (
-          <>
-            {view === 'home'      && <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} onViewStats={openStats} onViewTracking={openTracking} />}
-            {view === 'schedule'  && <ScheduleView teams={teams} games={games} onOpenGame={openGame} />}
-            {view === 'standings' && <StandingsView teams={teams} games={games} onOpenTeam={selectTeam} />}
-            {view === 'stats'     && <WpblStatsView teams={teams} games={games} initialGroup={statsGroup} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} />}
-            {view === 'tracking'  && <WpblTrackingView teams={teams} onOpenPlayer={openPlayer} />}
-            {view === 'teams'     && <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeam} onOpenGame={openGame} onOpenPlayer={openPlayer} />}
-          </>
+          // One panel per nav tab, in NAV order, so mobile can swipe between them (the
+          // active one — and, mid-swipe, its neighbour — are the only ones mounted). The
+          // `active` flag lets a view react to becoming current after a swipe reuses its
+          // already-mounted node (e.g. Schedule re-snapping to the next game).
+          <SwipeableViews
+            index={NAV.findIndex(n => n.key === view)}
+            onIndexChange={i => selectTab(NAV[i].key)}
+            panels={NAV.map(n => {
+              switch (n.key) {
+                case 'home':      return <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} onViewStats={openStats} onViewTracking={openTracking} />
+                case 'schedule':  return <ScheduleView teams={teams} games={games} onOpenGame={openGame} active={view === 'schedule'} />
+                case 'standings': return <StandingsView teams={teams} games={games} onOpenTeam={selectTeam} />
+                case 'stats':     return <WpblStatsView teams={teams} games={games} initialGroup={statsGroup} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} />
+                case 'tracking':  return <WpblTrackingView teams={teams} onOpenPlayer={openPlayer} />
+                case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeam} onOpenGame={openGame} onOpenPlayer={openPlayer} />
+              }
+            })}
+          />
         )}
 
       {detailPlayer && (

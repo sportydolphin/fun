@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.35.0'
+export const APP_VERSION = '1.36.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,37 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.36.0',
+    date:    '2026-08-10',
+    title:   'Swipe between WPBL tabs, and box-score cleanups',
+    changes: [
+      {
+        short: 'Swipe left and right between WPBL tabs on a phone',
+        full:  'On a phone you can now swipe left and right to move between the WPBL tabs (Home, Schedule, Standings, and so on). The view follows your finger as you drag, and settles onto the next or previous tab when you let go.',
+      },
+      {
+        short: 'Box scores drop pitchers who did not bat',
+        full:  'A WPBL box score no longer lists pitchers who never came to bat as empty all-zero rows. Pitchers who did bat, and two-way players, still appear.',
+      },
+      {
+        short: 'Substitutes are marked in the box score',
+        full:  'Pinch hitters, pinch runners, and other substitutes in a WPBL box score are now indented under the starter they replaced and marked, so it is clear who came off the bench.',
+      },
+      {
+        short: 'Run differential in the standings',
+        full:  'The WPBL standings now include a run differential (DIFF) column, the runs a team has scored minus the runs it has allowed.',
+      },
+      {
+        short: 'Schedule opens at the next game',
+        full:  'Opening the WPBL Schedule tab now jumps to the next upcoming game, with the just-played games right above it, instead of starting at the season opener.',
+      },
+      {
+        short: 'Smaller next-game countdown',
+        full:  'The countdown to the next WPBL game now sits compactly in the top corner of the Next game card instead of a tall block of digits, so the card takes less space.',
+      },
+    ],
+  },
   {
     version: '1.35.0',
     date:    '2026-08-10',

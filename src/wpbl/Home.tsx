@@ -121,23 +121,20 @@ function Countdown({ target }: { target: number }) {
     return () => clearInterval(id)
   }, [])
   const diff = target - now
-  if (diff <= 0) {
-    return <Typography sx={{ textAlign: 'center', fontSize: '0.9rem', fontWeight: 800, color: WPBL_ACCENT, mt: 1.25 }}>Starting soon</Typography>
-  }
-  const d = Math.floor(diff / 86400000)
-  const h = Math.floor((diff % 86400000) / 3600000)
-  const m = Math.floor((diff % 3600000) / 60000)
-  const s = Math.floor((diff % 60000) / 1000)
-  // Days-scale hides seconds (pointless that far out); inside a day, show the seconds tick.
-  const units: [string, number][] = d > 0 ? [['Days', d], ['Hrs', h], ['Min', m]] : [['Hrs', h], ['Min', m], ['Sec', s]]
+  // Compact single-line countdown so it can sit in the card header's top-right instead
+  // of a tall block of digit tiles below the matchup. Seconds only tick inside a day.
+  const label = (() => {
+    if (diff <= 0) return 'Starting soon'
+    const d = Math.floor(diff / 86400000)
+    const h = Math.floor((diff % 86400000) / 3600000)
+    const m = Math.floor((diff % 3600000) / 60000)
+    const s = Math.floor((diff % 60000) / 1000)
+    const p = (n: number) => String(n).padStart(2, '0')
+    return d > 0 ? `${d}d ${p(h)}h ${p(m)}m` : `${p(h)}h ${p(m)}m ${p(s)}s`
+  })()
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mt: 1.25 }}>
-      {units.map(([label, val]) => (
-        <Box key={label} sx={{ textAlign: 'center', minWidth: 54, px: 1, py: 0.75, borderRadius: 1.5, bgcolor: 'action.hover' }}>
-          <Typography sx={{ fontSize: '1.35rem', fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{String(val).padStart(2, '0')}</Typography>
-          <Typography sx={{ fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary', mt: 0.3 }}>{label}</Typography>
-        </Box>
-      ))}
+    <Box sx={{ flexShrink: 0, px: 1, py: 0.4, borderRadius: 999, bgcolor: 'action.hover' }}>
+      <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, color: WPBL_ACCENT, lineHeight: 1, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{label}</Typography>
     </Box>
   )
 }
@@ -172,12 +169,11 @@ function NextGameCard({ games, teams, onOpenGame }: {
   )
 
   return (
-    <SectionCard title="Next game" subtitle={`${dateLabel}${timeLabel ? ` · ${timeLabel}` : ''}`}>
+    <SectionCard title="Next game" subtitle={`${dateLabel}${timeLabel ? ` · ${timeLabel}` : ''}`} action={<Countdown target={next.ms} />}>
       <Box onClick={() => onOpenGame(g)} sx={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, p: 0.5, mx: -0.5, '&:hover': { bgcolor: 'action.hover' } }}>
         {teamRow(away, 'AWAY')}
         {teamRow(home, 'HOME')}
       </Box>
-      <Countdown target={next.ms} />
     </SectionCard>
   )
 }
