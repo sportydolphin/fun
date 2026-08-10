@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, CircularProgress } from '@mui/material'
+import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { fetchWpblAllPlayers, fetchWpblAllLines } from './api'
 import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
 import { TeamBadge, CARD_BORDER, useWpblName } from './ui'
@@ -28,38 +29,42 @@ interface Col<T> {
   lowerBetter?: boolean               // ERA/WHIP sort ascending by default
 }
 
+// Columns are ordered headline → secondary (not raw box-score order), so the stats a fan
+// actually scans sit up front. With the sort column pinned on mobile, this is also the
+// left-to-right scroll order right after it: slash line, then power/production, then the
+// peripheral/volume tail (AB, G) last.
 const HIT_COLS: Col<WpblBattingTotals>[] = [
-  { key: 'g',   label: 'G',   value: t => t.g },
-  { key: 'ab',  label: 'AB',  value: t => t.ab },
-  { key: 'r',   label: 'R',   value: t => t.r },
-  { key: 'h',   label: 'H',   value: t => t.h },
-  { key: '2b',  label: '2B',  value: t => t.doubles },
-  { key: '3b',  label: '3B',  value: t => t.triples },
-  { key: 'hr',  label: 'HR',  value: t => t.hr },
-  { key: 'rbi', label: 'RBI', value: t => t.rbi },
-  { key: 'bb',  label: 'BB',  value: t => t.bb },
-  { key: 'so',  label: 'SO',  value: t => t.so },
-  { key: 'sb',  label: 'SB',  value: t => t.sb },
   { key: 'avg', label: 'AVG', value: t => t.avg, display: t => fmtRate(t.avg), rate: true },
   { key: 'obp', label: 'OBP', value: t => t.obp, display: t => fmtRate(t.obp), rate: true },
   { key: 'slg', label: 'SLG', value: t => t.slg, display: t => fmtRate(t.slg), rate: true },
   { key: 'ops', label: 'OPS', value: t => t.ops, display: t => fmtRate(t.ops), rate: true },
+  { key: 'hr',  label: 'HR',  value: t => t.hr },
+  { key: 'rbi', label: 'RBI', value: t => t.rbi },
+  { key: 'r',   label: 'R',   value: t => t.r },
+  { key: 'h',   label: 'H',   value: t => t.h },
+  { key: 'sb',  label: 'SB',  value: t => t.sb },
+  { key: '2b',  label: '2B',  value: t => t.doubles },
+  { key: '3b',  label: '3B',  value: t => t.triples },
+  { key: 'bb',  label: 'BB',  value: t => t.bb },
+  { key: 'so',  label: 'SO',  value: t => t.so },
+  { key: 'ab',  label: 'AB',  value: t => t.ab },
+  { key: 'g',   label: 'G',   value: t => t.g },
 ]
 
 const PIT_COLS: Col<WpblPitchingTotals>[] = [
-  { key: 'g',    label: 'G',    value: t => t.g },
-  { key: 'ip',   label: 'IP',   value: t => t.outs, display: t => outsToIp(t.outs) },
+  { key: 'era',  label: 'ERA',  value: t => t.era,  display: t => fmtTwo(t.era),  rate: true, lowerBetter: true },
+  { key: 'whip', label: 'WHIP', value: t => t.whip, display: t => fmtTwo(t.whip), rate: true, lowerBetter: true },
   { key: 'w',    label: 'W',    value: t => t.w },
   { key: 'l',    label: 'L',    value: t => t.l },
   { key: 'sv',   label: 'SV',   value: t => t.s },
+  { key: 'so',   label: 'SO',   value: t => t.so },
+  { key: 'ip',   label: 'IP',   value: t => t.outs, display: t => outsToIp(t.outs) },
   { key: 'h',    label: 'H',    value: t => t.h },
   { key: 'r',    label: 'R',    value: t => t.r },
   { key: 'er',   label: 'ER',   value: t => t.er },
   { key: 'bb',   label: 'BB',   value: t => t.bb },
-  { key: 'so',   label: 'SO',   value: t => t.so },
   { key: 'hr',   label: 'HR',   value: t => t.hr },
-  { key: 'era',  label: 'ERA',  value: t => t.era,  display: t => fmtTwo(t.era),  rate: true, lowerBetter: true },
-  { key: 'whip', label: 'WHIP', value: t => t.whip, display: t => fmtTwo(t.whip), rate: true, lowerBetter: true },
+  { key: 'g',    label: 'G',    value: t => t.g },
 ]
 
 // One table row — normalized so the same table renders a player or a whole team.
@@ -84,6 +89,17 @@ const fullBleedSx = {
   transform: 'translateX(-50%)',
 } as const
 
+// Shadow the frozen columns cast rightward onto the scrolling stats once you've scrolled
+// off the left edge — the "these columns float over the rest" cue. The divider border
+// carries the separation in dark mode where the shadow is faint.
+const FROZEN_SHADOW = '6px 0 6px -4px rgba(0,0,0,0.25)'
+
+// Fixed width of the frozen Player column on mobile, so the pinned sort-value column can
+// sit flush against it with a constant `left` — no measurement to drift and let the two
+// frozen columns overlap the name when scrolled. Names ellipsize within it.
+const NAME_W = 150
+const NAME_INNER_MAX = 84 // NAME_W minus rank + badge + gaps + padding, so the column can't grow past NAME_W
+
 export default function WpblStatsView({ teams, games, initialGroup = 'hitting', onOpenPlayer, onOpenTeam }: {
   teams: WpblTeam[]
   games: WpblGame[]
@@ -95,7 +111,11 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>({ batting: [], pitching: [] })
   const [loading, setLoading] = useState(true)
   const shortName = useWpblName()
+  const isNarrow = useMediaQuery('(max-width:600px)')
   const scrollRef = useRef<HTMLDivElement>(null)
+  // Horizontal-scroll edges — drive the frozen-column shadow (not at start) and the
+  // right-edge fade (not at end), so it's obvious the table scrolls sideways.
+  const [scrollX, setScrollX] = useState({ atStart: true, atEnd: true })
 
   const [group, setGroup] = useState<Group>(initialGroup)
   const [mode, setMode] = useState<Mode>('players')
@@ -118,6 +138,12 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
   const cols = (group === 'hitting' ? HIT_COLS : PIT_COLS) as Col<WpblBattingTotals | WpblPitchingTotals>[]
   const activeCol = cols.find(c => c.key === sortKey) ?? cols[0]
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+
+  // On phones the sorted column is pinned right after the name (a second frozen column) so
+  // rank → name → its ranking value are always adjacent and the table can rest at its
+  // natural left (G, AB, R, H…). Wide screens keep the plain single-scroll table.
+  const pinActive = isNarrow
+  const scrollCols = pinActive ? cols.filter(c => c.key !== activeCol.key) : cols
 
   // Switch the default sort/qualifier sensibly when flipping between hitting and pitching.
   const switchGroup = (g: Group) => {
@@ -153,7 +179,10 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
         : aggregatePitching(players, lines.pitching).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.outs >= MIN_OUTS }))
       let list = seasons
       if (teamId) list = list.filter(s => s.player.team_id === teamId)
-      if (qualified && activeCol.rate) list = list.filter(s => s.qualified)
+      // The qualifier applies to every sort, counting stats included — a 1-for-1 HR leader
+      // shouldn't top the board over a full-season slugger. (Was rate-columns only, which
+      // made the lit "✓ Qualified" chip silently do nothing on counting stats.)
+      if (qualified) list = list.filter(s => s.qualified)
       built = list.map(s => ({
         key: s.player.id, team: teamById.get(s.player.team_id),
         label: shortName(s.player.name), sublabel: s.player.position ?? undefined,
@@ -183,7 +212,7 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
   // when switching Hitting/Pitching — but only if it isn't already visible, so a wide desktop
   // table (all columns shown) or a user who's scrolled elsewhere is left alone.
   useLayoutEffect(() => {
-    if (loading) return
+    if (loading || pinActive) return // pinned: the sorted column is always in view (frozen)
     const c = scrollRef.current
     if (!c) return
     const th = c.querySelector('th[data-active="true"]') as HTMLElement | null
@@ -194,7 +223,22 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
     const leftInView = tRect.left - cRect.left
     if (rightInView > c.clientWidth) c.scrollLeft += rightInView - c.clientWidth + 12
     else if (leftInView < 0) c.scrollLeft += leftInView - 12
-  }, [loading, group, sortKey, rows.length])
+  }, [loading, group, sortKey, rows.length, pinActive])
+
+  // Track horizontal scroll position to toggle the edge affordances.
+  useEffect(() => {
+    const c = scrollRef.current
+    if (!c) return
+    const update = () => {
+      const max = c.scrollWidth - c.clientWidth
+      setScrollX({ atStart: c.scrollLeft <= 1, atEnd: max <= 1 || c.scrollLeft >= max - 1 })
+    }
+    update()
+    c.addEventListener('scroll', update, { passive: true })
+    const ro = new ResizeObserver(update)
+    ro.observe(c)
+    return () => { c.removeEventListener('scroll', update); ro.disconnect() }
+  }, [loading, group, mode, rows.length, pinActive])
 
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
@@ -268,20 +312,43 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
         </Box>
       ) : (
         <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden', ...fullBleedSx }}>
-          <Box ref={scrollRef} sx={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh / var(--app-zoom, 1) - 260px)' }}>
+          <Box sx={{ position: 'relative' }}>
+          {/* Capped inner scroll so the column headers stay sticky (top:0) as you scroll the
+              rows. `overscroll-behavior: contain` stops the scroll from chaining out to the
+              page at the ends, so it reads as one list rather than a scroll-box fighting the
+              page. `dvh` tracks the mobile browser chrome so the cap doesn't overshoot. */}
+          <Box ref={scrollRef} sx={{
+            overflowX: 'auto', overflowY: 'auto', overscrollBehavior: 'contain',
+            maxHeight: 'calc(100dvh / var(--app-zoom, 1) - 260px)',
+          }}>
             <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: '100%', fontVariantNumeric: 'tabular-nums' }}>
               <Box component="thead">
                 <Box component="tr">
-                  <Box component="th" sx={{ ...thBase, left: 0, zIndex: 4, textAlign: 'left', minWidth: 150, borderRight: '1px solid', borderColor: 'divider', pl: 1 }}>
+                  <Box component="th" sx={{ ...thBase, left: 0, zIndex: 4, textAlign: 'left', width: pinActive ? NAME_W : undefined, minWidth: NAME_W, maxWidth: pinActive ? NAME_W : undefined, borderRight: '1px solid', borderColor: 'divider', pl: 1 }}>
                     {mode === 'teams' ? 'Team' : 'Player'}
                   </Box>
-                  {cols.map(c => {
+                  {pinActive && (
+                    <Box component="th" onClick={() => clickHeader(activeCol)} sx={{
+                      ...thBase, position: 'sticky', left: NAME_W - 2, zIndex: 5,
+                      textAlign: 'center', cursor: 'pointer', minWidth: 50, px: 0.5,
+                      color: WPBL_ACCENT,
+                      backgroundImage: `linear-gradient(${WPBL_ACCENT}24, ${WPBL_ACCENT}24)`,
+                      borderRight: '1px solid', borderColor: 'divider',
+                      boxShadow: scrollX.atStart ? 'none' : FROZEN_SHADOW,
+                    }}>
+                      <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.2 }}>
+                        {activeCol.label}
+                        <Box component="span" sx={{ fontSize: '0.62rem' }}>{sortAsc ? '↑' : '↓'}</Box>
+                      </Box>
+                    </Box>
+                  )}
+                  {scrollCols.map(c => {
                     const active = c.key === sortKey
                     return (
                       <Box component="th" key={c.key} onClick={() => clickHeader(c)}
                         data-active={active ? 'true' : undefined}
                         sx={{
-                          ...thBase, textAlign: 'right', cursor: 'pointer', minWidth: 38,
+                          ...thBase, textAlign: 'center', cursor: 'pointer', minWidth: 38,
                           color: active ? WPBL_ACCENT : 'text.disabled',
                           bgcolor: active ? `${WPBL_ACCENT}24` : 'background.paper',
                           '&:hover': { color: WPBL_ACCENT },
@@ -299,28 +366,43 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
                 {rows.map((r, i) => {
                   return (
                     <Box component="tr" key={r.key} onClick={r.onClick}
-                      sx={{ cursor: r.onClick ? 'pointer' : 'default', '&:hover > td, &:hover > th': r.onClick ? { bgcolor: `${WPBL_ACCENT}0e` } : undefined }}>
+                      sx={{ cursor: r.onClick ? 'pointer' : 'default', userSelect: 'none', WebkitTapHighlightColor: 'transparent', '@media (hover: hover)': { '&:hover > td, &:hover > th': r.onClick ? { bgcolor: `${WPBL_ACCENT}0e` } : undefined } }}>
                       <Box component="th" sx={{
                         position: 'sticky', left: 0, zIndex: 2, bgcolor: 'background.paper',
                         textAlign: 'left', fontWeight: 400, py: 0.5, px: 1,
+                        width: pinActive ? NAME_W : undefined, minWidth: NAME_W, maxWidth: pinActive ? NAME_W : undefined,
                         borderTop: '1px solid', borderRight: '1px solid', borderColor: 'divider',
                       }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                           <Typography sx={{ width: 18, textAlign: 'right', flexShrink: 0, fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled' }}>{i + 1}</Typography>
                           {r.team && <TeamBadge team={r.team} size={20} />}
-                          <Box sx={{ minWidth: 0 }}>
+                          <Box sx={{ minWidth: 0, maxWidth: pinActive ? NAME_INNER_MAX : undefined }}>
                             <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label}</Typography>
                             {r.sublabel && <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1 }}>{r.sublabel}</Typography>}
                           </Box>
                         </Box>
                       </Box>
-                      {cols.map(c => {
+                      {pinActive && (
+                        <Box component="td" onClick={e => { e.stopPropagation(); clickHeader(activeCol) }} sx={{
+                          position: 'sticky', left: NAME_W - 2, zIndex: 3,
+                          textAlign: 'center', py: 0.5, px: 0.5,
+                          borderTop: '1px solid', borderRight: '1px solid', borderColor: 'divider',
+                          fontSize: '0.84rem', fontWeight: 800, color: WPBL_ACCENT,
+                          backgroundColor: 'background.paper',
+                          backgroundImage: `linear-gradient(${WPBL_ACCENT}12, ${WPBL_ACCENT}12)`,
+                          boxShadow: scrollX.atStart ? 'none' : FROZEN_SHADOW,
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {activeCol.display ? activeCol.display(r.totals) : (activeCol.rate ? fmtRate(activeCol.value(r.totals)) : String(activeCol.value(r.totals) ?? 0))}
+                        </Box>
+                      )}
+                      {scrollCols.map(c => {
                         const active = c.key === sortKey
                         const v = c.value(r.totals)
                         const txt = c.display ? c.display(r.totals) : (c.rate ? fmtRate(v) : String(v ?? 0))
                         return (
-                          <Box component="td" key={c.key} sx={{
-                            textAlign: 'right', py: 0.5, px: 0.5, borderTop: '1px solid', borderColor: 'divider',
+                          <Box component="td" key={c.key} onClick={e => { e.stopPropagation(); clickHeader(c) }} sx={{
+                            textAlign: 'center', py: 0.5, px: 0.5, borderTop: '1px solid', borderColor: 'divider',
                             fontSize: active ? '0.84rem' : '0.8rem', fontWeight: active ? 800 : 500,
                             color: active ? WPBL_ACCENT : 'text.primary', bgcolor: active ? `${WPBL_ACCENT}12` : undefined,
                             whiteSpace: 'nowrap',
@@ -334,6 +416,13 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
                 })}
               </Box>
             </Box>
+          </Box>
+          {/* Right-edge fade — "more stats this way" — hidden once you've scrolled to the end. */}
+          <Box aria-hidden sx={theme => ({
+            position: 'absolute', top: 0, right: 0, bottom: 0, width: 28, pointerEvents: 'none', zIndex: 6,
+            background: `linear-gradient(to right, ${alpha(theme.palette.background.paper, 0)}, ${theme.palette.background.paper})`,
+            opacity: scrollX.atEnd ? 0 : 1, transition: 'opacity 0.2s',
+          })} />
           </Box>
           <Box sx={{ px: 1.5, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
             <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', fontWeight: 600 }}>

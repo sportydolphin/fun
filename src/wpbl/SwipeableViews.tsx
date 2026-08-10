@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode, RefObject } from 'react'
 import { useMediaQuery } from '@mui/material'
 
@@ -12,10 +12,11 @@ import { useMediaQuery } from '@mui/material'
 // simply switches from "neighbour" to "active" — React reuses its DOM, so it is never
 // remounted and never refetches mid-swipe.
 //
-// Scroll model: the app scrolls the window (no inner scroll container), so a neighbour is
-// pinned to the current viewport during the drag (`pinTop`) rather than the container's
-// far-off top. On commit we jump the window back to the top so the freshly-selected tab
-// reads from its start, matching how tapping a tab behaves.
+// Scroll model: the app scrolls the window (no inner scroll container). Each tab keeps its
+// own scroll position — entering a tab (tap or swipe) restores where you last left it, and
+// leaving records the spot. During a drag the incoming pane is pinned (`pinTop`) to the
+// exact position the tab will land at, so committing is jump-free: no reset, no jitter. A
+// first-visit tab lands at its top, tucked just under the pinned nav (see `freshTarget`).
 
 const LOCK_PX = 10          // movement before we decide horizontal-swipe vs vertical-scroll
 const COMMIT_FRACTION = 0.28 // fraction of the width a drag must pass to switch tabs
@@ -51,6 +52,35 @@ interface Props {
 export default function SwipeableViews({ index, panels, onIndexChange, minHeight, stickyNavRef }: Props) {
   const isMobile = useMediaQuery('(max-width:600px)')
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Per-tab scroll memory (window scrollY, keyed by panel index) + the last index we were
+  // on, so an index change can tell where we came from and where we're going.
+  const scrollByIndex = useRef<Map<number, number>>(new Map())
+  const prevIndex = useRef(index)
+
+  // Where a freshly-entered (never-scrolled) tab should land: stay put if we're near the
+  // top, otherwise snap up to just below the pinned nav so the tab reads from its start
+  // with the app toolbar tucked away. Mirrors the old commit-time reset.
+  const freshTarget = (curY: number) => {
+    const el = containerRef.current
+    if (!el) return curY
+    const contentTop = el.getBoundingClientRect().top + window.scrollY
+    const stickyOffset = stickyNavRef?.current?.offsetHeight ?? 0
+    return Math.min(curY, Math.max(0, contentTop - stickyOffset))
+  }
+  const targetFor = (i: number, curY: number) => scrollByIndex.current.get(i) ?? freshTarget(curY)
+
+  // Restore on enter, record on leave — for both taps (index prop changes) and swipe
+  // commits (onEnd flips the index). The incoming pane was pinned to exactly `targetFor`,
+  // so scrolling here produces no visible jump.
+  useLayoutEffect(() => {
+    if (prevIndex.current === index) return
+    if (!isMobile) { prevIndex.current = index; return }
+    scrollByIndex.current.set(prevIndex.current, window.scrollY)
+    const target = targetFor(index, window.scrollY)
+    prevIndex.current = index
+    window.scrollTo(0, target)
+  }, [index, isMobile])
 
   const [engaged, setEngaged] = useState(false) // a horizontal drag/animation is in progress
   const [offset, setOffset] = useState(0)        // px the track is translated by
@@ -100,7 +130,10 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
         s.dir = d
         const { index: idx, count } = latest.current
         s.boundary = (d > 0 && idx >= count - 1) || (d < 0 && idx <= 0)
-        setPinTop(Math.max(0, -el.getBoundingClientRect().top))
+        // Pin the incoming pane so its remembered scroll shows at the current viewport —
+        // curY - target — so the layout-effect scroll on commit lands with no jump.
+        const curY = window.scrollY
+        setPinTop(curY - targetFor(idx + d, curY))
         setDir(d)
         setAnim(false)
         setEngaged(true)
@@ -122,16 +155,9 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       setAnim(true)
       setOffset(commit ? -d * (s.width + GAP) : 0)
       window.setTimeout(() => {
-        if (commit) {
-          latest.current.onIndexChange(latest.current.index + d)
-          // Show the new tab from its top, but only scroll up as far as just below the pinned
-          // menu — not the page top — so a swipe while scrolled keeps the top bar hidden and
-          // the menu pinned (no gap reset). If already at/near the top, leave scroll alone.
-          const stickyOffset = stickyNavRef?.current?.offsetHeight ?? 0
-          const contentTop = el.getBoundingClientRect().top + window.scrollY
-          const target = Math.max(0, contentTop - stickyOffset)
-          if (window.scrollY > target) window.scrollTo(0, target)
-        }
+        // Committing flips the index; the layout effect above restores that tab's
+        // remembered scroll, matching the pinned pane's position (jump-free).
+        if (commit) latest.current.onIndexChange(latest.current.index + d)
         setEngaged(false)
         setAnim(false)
         setOffset(0)
