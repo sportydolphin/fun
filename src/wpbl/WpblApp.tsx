@@ -307,6 +307,7 @@ export default function WpblApp() {
   const [players, setPlayers] = useState<WpblPlayer[]>([])
   const [loading, setLoading] = useState(true)
   const isMobileView = useMediaQuery('(max-width:600px)')
+  const navRef = useRef<HTMLDivElement>(null)
 
   // Toolbar search bridge — WpblApp owns the shared header search while /wpbl is mounted.
   const bridge = useSearchBridge()
@@ -484,7 +485,7 @@ export default function WpblApp() {
       {/* Section nav — shared SegControl pill bar, matching the MLB tab bar. */}
       {/* Tab bar stays put on mobile (sticky under the toolbar) so it doesn't scroll away
           when swiping to a tab or when the schedule snaps to the next game. */}
-      <Box sx={{
+      <Box ref={navRef} sx={{
         position: { xs: 'sticky', sm: 'static' }, top: { xs: 0, sm: 'auto' }, zIndex: 3,
         bgcolor: 'background.default', mx: { xs: -2, sm: 0 }, px: { xs: 2, sm: 0 }, py: { xs: 1, sm: 0 },
       }}>
@@ -509,6 +510,7 @@ export default function WpblApp() {
             index={NAV.findIndex(n => n.key === view)}
             onIndexChange={i => selectTab(NAV[i].key)}
             minHeight={isMobileView ? 'calc(100dvh - 128px)' : undefined}
+            stickyNavRef={navRef}
             panels={NAV.map(n => {
               switch (n.key) {
                 case 'home':      return <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} onViewStats={openStats} onViewTracking={openTracking} />

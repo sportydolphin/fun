@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import { useMediaQuery } from '@mui/material'
 
 // Finger-tracking tab pager for touch devices. The active view and, during a drag, the
@@ -45,9 +45,10 @@ interface Props {
   panels: ReactNode[]
   onIndexChange: (i: number) => void
   minHeight?: string // floors the container so short tabs stay swipeable in their empty space
+  stickyNavRef?: RefObject<HTMLElement | null> // the pinned tab menu, to land the new tab just under it
 }
 
-export default function SwipeableViews({ index, panels, onIndexChange, minHeight }: Props) {
+export default function SwipeableViews({ index, panels, onIndexChange, minHeight, stickyNavRef }: Props) {
   const isMobile = useMediaQuery('(max-width:600px)')
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -123,7 +124,13 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       window.setTimeout(() => {
         if (commit) {
           latest.current.onIndexChange(latest.current.index + d)
-          if (window.scrollY > 0) window.scrollTo(0, 0)
+          // Show the new tab from its top, but only scroll up as far as just below the pinned
+          // menu — not the page top — so a swipe while scrolled keeps the top bar hidden and
+          // the menu pinned (no gap reset). If already at/near the top, leave scroll alone.
+          const stickyOffset = stickyNavRef?.current?.offsetHeight ?? 0
+          const contentTop = el.getBoundingClientRect().top + window.scrollY
+          const target = Math.max(0, contentTop - stickyOffset)
+          if (window.scrollY > target) window.scrollTo(0, target)
         }
         setEngaged(false)
         setAnim(false)
