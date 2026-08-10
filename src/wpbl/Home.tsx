@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, Skeleton } from '@mui/material'
 import { fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, computeStandings } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp } from './constants'
@@ -45,12 +45,13 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
     : live ? 'Live'
     : timeText ? `${dateText} · ${timeText}` : dateText
 
+  const isDark = useWpblDark()
   const row = (t: WpblTeam | undefined, score: number | null, won: boolean) => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
       {/* Winner caret — only on finals, where a fixed-width slot keeps both rows' badges aligned.
           Upcoming/live games omit the slot entirely so the badge sits flush left. */}
       {final && (
-        <Box sx={{ width: 7, flexShrink: 0, fontSize: '0.6rem', lineHeight: 1, color: wpblColor(t?.id) }}>{won ? '▸' : ''}</Box>
+        <Box sx={{ width: 10, flexShrink: 0, fontSize: '0.85rem', lineHeight: 1, color: wpblAccent(t?.id, isDark) }}>{won ? '▸' : ''}</Box>
       )}
       {t && <TeamBadge team={t} size={20} />}
       <Typography sx={{
@@ -509,15 +510,72 @@ function FirstRow({ f, teamById, onOpenPlayer, showDetail }: {
   )
 }
 
+// The home card rotates through EVERY first (not just the featured handful): every ~30s the
+// top row slides up and out, the rest shift up, and the next first enters at the bottom, so the
+// card always feels fresh. It shows a 4-row window; the full static list lives behind "View all".
+const FIRSTS_WINDOW = 4
+const FIRSTS_INTERVAL = 30000
+
 function HallOfFirstsCard({ firsts, teamById, loading, onOpenPlayer, onViewAll }: {
   firsts: WpblFirst[]; teamById: Map<string, WpblTeam>; loading: boolean
   onOpenPlayer: (p: WpblPlayer) => void; onViewAll: () => void
 }) {
-  const featured = firsts.filter(f => f.featured).slice(0, 4)
+  // Lead with the featured firsts, then the rest, so the card opens on the marquee milestones
+  // and rotates through everything else from there.
+  const pool = useMemo(
+    () => [...firsts].sort((a, b) => Number(b.featured) - Number(a.featured) || a.order - b.order),
+    [firsts],
+  )
+  const n = pool.length
+  const rotates = n > FIRSTS_WINDOW
+
+  const [start, setStart] = useState(0)
+  const [sliding, setSliding] = useState(false)
+  const listRef = useRef<HTMLDivElement>(null)
+  const [rowH, setRowH] = useState(0)
+
+  // Measure a row so the window can be height-clamped and the slide distance is exact.
+  useLayoutEffect(() => {
+    const first = listRef.current?.children[0] as HTMLElement | undefined
+    if (first) setRowH(first.offsetHeight)
+  }, [pool])
+
+  // Seed a random starting first once the pool loads, so the card opens on a different one
+  // each visit instead of always the featured lead.
+  const seeded = useRef(false)
+  useEffect(() => {
+    if (start >= n && n > 0) setStart(0)
+    if (!seeded.current && n > 0) { seeded.current = true; setStart(Math.floor(Math.random() * n)) }
+  }, [n, start])
+
+  // Every interval, slide the window up one row, then commit the advance a beat after the
+  // animation ends. The commit is timer-driven (not animationend-driven) on purpose: it stays
+  // reliable when the tab is backgrounded or the user prefers reduced motion, cases where the
+  // animation may not run or fire its end event. The reset is seamless — a window slid up by
+  // one row looks identical to the next window at rest.
+  const SLIDE_MS = 550
+  useEffect(() => {
+    if (!rotates || rowH === 0) return
+    let commitTimer: ReturnType<typeof setTimeout>
+    const id = setInterval(() => {
+      setSliding(true)
+      commitTimer = setTimeout(() => {
+        setSliding(false)
+        setStart(s => (s + 1) % n)
+      }, SLIDE_MS + 20)
+    }, FIRSTS_INTERVAL)
+    return () => { clearInterval(id); clearTimeout(commitTimer) }
+  }, [rotates, rowH, n])
+
+  // When rotating, render one extra row below the fold — it's what slides into view.
+  const rows = rotates
+    ? Array.from({ length: FIRSTS_WINDOW + 1 }, (_, i) => pool[(start + i) % n])
+    : pool.slice(0, FIRSTS_WINDOW)
+
   return (
     <SectionCard
       title="Hall of Firsts"
-      action={firsts.length > 0 ? (
+      action={n > 0 ? (
         <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
           View all
         </Typography>
@@ -525,12 +583,24 @@ function HallOfFirstsCard({ firsts, teamById, loading, onOpenPlayer, onViewAll }
     >
       {loading ? (
         <>{[0, 1, 2, 3].map(i => <TeaserRowSkeleton key={i} size={42} py={0.85} />)}</>
-      ) : featured.length === 0 ? (
+      ) : n === 0 ? (
         <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', py: 1 }}>
           Milestones appear as the season's firsts happen.
         </Typography>
       ) : (
-        featured.map(f => <FirstRow key={f.key} f={f} teamById={teamById} onOpenPlayer={onOpenPlayer} />)
+        <Box sx={{ overflow: 'hidden', height: rotates && rowH ? FIRSTS_WINDOW * rowH : 'auto' }}>
+          <Box
+            ref={listRef}
+            sx={{
+              '--hof-row': rowH ? `-${rowH}px` : '0px',
+              '@keyframes hofSlideUp': { to: { transform: 'translateY(var(--hof-row))' } },
+              animation: sliding && rowH ? `hofSlideUp ${SLIDE_MS}ms ease forwards` : 'none',
+            }}
+          >
+            {/* Keyed by slot index so DOM nodes are reused across the seamless reset. */}
+            {rows.map((f, i) => <FirstRow key={i} f={f} teamById={teamById} onOpenPlayer={onOpenPlayer} />)}
+          </Box>
+        </Box>
       )}
     </SectionCard>
   )

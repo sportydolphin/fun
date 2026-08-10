@@ -26,14 +26,15 @@ const META: Record<string, Meta> = {
   complete_game:    { label: 'First complete game', icon: '🎯', featured: true,  order: 3 },
   first_win:        { label: 'First win',           icon: '🏆', featured: true,  order: 4 },
   first_so:         { label: 'First strikeout',     icon: '🔥', featured: true,  order: 5 },
-  first_sb:         { label: 'First stolen base',   icon: '🏃', featured: true,  order: 6 },
-  first_hit:        { label: 'First hit',           icon: '⚾', featured: false, order: 7 },
-  first_double:     { label: 'First double',        icon: '2️⃣', featured: false, order: 8 },
-  first_triple:     { label: 'First triple',        icon: '3️⃣', featured: false, order: 9 },
-  first_rbi:        { label: 'First RBI',           icon: '💪', featured: false, order: 10 },
-  first_walk:       { label: 'First walk',          icon: '🚶', featured: false, order: 11 },
-  first_hbp:        { label: 'First hit by pitch',  icon: '🤕', featured: false, order: 12 },
-  first_balk:       { label: 'First balk',          icon: '🚫', featured: false, order: 13 },
+  first_save:       { label: 'First save',          icon: '🧤', featured: false, order: 6 },
+  first_sb:         { label: 'First stolen base',   icon: '🏃', featured: true,  order: 7 },
+  first_hit:        { label: 'First hit',           icon: '⚾', featured: false, order: 8 },
+  first_double:     { label: 'First double',        icon: '2️⃣', featured: false, order: 9 },
+  first_triple:     { label: 'First triple',        icon: '3️⃣', featured: false, order: 10 },
+  first_rbi:        { label: 'First RBI',           icon: '💪', featured: false, order: 11 },
+  first_walk:       { label: 'First walk',          icon: '🚶', featured: false, order: 12 },
+  first_hbp:        { label: 'First hit by pitch',  icon: '🤕', featured: false, order: 13 },
+  first_balk:       { label: 'First balk',          icon: '🚫', featured: false, order: 14 },
 }
 
 const norm = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim()
@@ -170,6 +171,13 @@ export function computeFirsts(
     if (l.decision === 'W') {
       const p = pById.get(l.player_id)
       rec('first_win', p, p?.name ?? '—', p?.team_id ?? l.team_id, g.game_date, `${outsToIp(l.outs)} IP, ${l.so} K`)
+      break
+    }
+  }
+  for (const { l, g } of finals) {
+    if (l.decision === 'S') {
+      const p = pById.get(l.player_id)
+      rec('first_save', p, p?.name ?? '—', p?.team_id ?? l.team_id, g.game_date, `${outsToIp(l.outs)} IP, ${l.so} K`)
       break
     }
   }
