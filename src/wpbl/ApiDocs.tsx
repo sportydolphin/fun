@@ -145,10 +145,16 @@ export default function WpblApiDocs() {
         endpoint is the uncapped, paginated source, and it adds hit distance the box score copy
         leaves out. Read from there and page until a request returns fewer rows than your limit.
       </Note>
-      <Note title="Tracking arrives late, in batches">
-        TrackMan data is reconciled after a game, sometimes days later, and several games can land at
-        once. A finished game with no tracking today may fill in next week, so re-check recent finals
-        rather than assuming what you got on game day is final.
+      <Note title="Tracking data is very limited so far">
+        As of this writing, TrackMan tracking (pitch velocity, spin, hit distance) exists for only the
+        first two games of the season, and it is unclear whether any more is coming. Later games may
+        never get it. Build so that a game with no tracking is the normal case, not an error, and
+        don't count on the pitch/hit data being there for most of the schedule.
+      </Note>
+      <Note title="When it does arrive, it's late and in batches">
+        The tracking that does exist was reconciled after the game, sometimes days later, and several
+        games can land at once. So if more tracking ever comes, a finished game with no tracking today
+        might fill in later — re-check recent finals rather than assuming game-day data is final.
       </Note>
       <Note title="Watch for phantom duplicate games">
         The schedule sometimes lists a stale, never-played copy of a game next to the real one: same
