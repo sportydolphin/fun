@@ -1210,28 +1210,41 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
       {/* Scoreboard */}
       <Scoreboard games={games} teams={teamMap} onOpenGame={onOpenGame} />
 
-      {/* Two-column feed */}
+      {/* Two-column feed. On desktop the two columns render as written (The League |
+          Around the League). On mobile there's one column, so the two wrappers collapse to
+          `display: contents` and every card becomes a direct grid item — then CSS `order`
+          sets the single-column sequence independently of which desktop column a card lives
+          in. That lets Hall of Firsts drop below the season leaders and Teams sit dead last
+          on mobile, while desktop keeps Hall of Firsts atop the right column and Teams in the
+          left. `order` resets to 0 at md so the desktop layout is untouched. */}
       <Box sx={{
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', md: '1.4fr 1fr' },
         columnGap: 2.5, rowGap: 1.5, alignItems: 'start',
       }}>
         {/* The League */}
-        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          <DiscordCard />
-          <NextGameCard games={games} teams={teamMap} onOpenGame={onOpenGame} />
-          <StandingsCard teams={teams} games={games} onOpenTeam={onOpenTeam} />
-          <TeamsCard teams={teams} onOpenTeam={onOpenTeam} />
+        <Box sx={{ minWidth: 0, display: { xs: 'contents', md: 'flex' }, flexDirection: 'column', gap: 1.5 }}>
+          <Box sx={{ minWidth: 0, order: { xs: 1, md: 0 } }}><DiscordCard /></Box>
+          <Box sx={{ minWidth: 0, order: { xs: 2, md: 0 } }}><NextGameCard games={games} teams={teamMap} onOpenGame={onOpenGame} /></Box>
+          <Box sx={{ minWidth: 0, order: { xs: 3, md: 0 } }}><StandingsCard teams={teams} games={games} onOpenTeam={onOpenTeam} /></Box>
+          {/* Mobile: last card in the whole feed. */}
+          <Box sx={{ minWidth: 0, order: { xs: 8, md: 0 } }}><TeamsCard teams={teams} onOpenTeam={onOpenTeam} /></Box>
         </Box>
 
         {/* Around the League */}
-        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          <HallOfFirstsCard firsts={firsts} teamById={teamMap} loading={loadingLeaders} onOpenPlayer={onOpenPlayer} onViewAll={() => setFirstsOpen(true)} />
-          {(loadingLeaders || !trackingStale) && (
-            <TrackingTeaserCard board={trackingBoard} latestGameIds={latestGameIds} loading={loadingLeaders} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={viewTracking} />
+        <Box sx={{ minWidth: 0, display: { xs: 'contents', md: 'flex' }, flexDirection: 'column', gap: 1.5 }}>
+          {/* Mobile: below the season leaders (orders 5–6), above only Teams. */}
+          <Box sx={{ minWidth: 0, order: { xs: 7, md: 0 } }}><HallOfFirstsCard firsts={firsts} teamById={teamMap} loading={loadingLeaders} onOpenPlayer={onOpenPlayer} onViewAll={() => setFirstsOpen(true)} /></Box>
+          {/* Only reserve the tracking slot (skeleton included) when tracking will actually
+              show. Gating on the loading flag too would flash a skeleton on cold load and then
+              yank the card once it resolves stale — which it now essentially always is, since
+              tracking data exists for only the first couple games. Its loading placeholder
+              stays accurate by not appearing at all when there's nothing to place. */}
+          {!trackingStale && (
+            <Box sx={{ minWidth: 0, order: { xs: 4, md: 0 } }}><TrackingTeaserCard board={trackingBoard} latestGameIds={latestGameIds} loading={loadingLeaders} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={viewTracking} /></Box>
           )}
-          <LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('hitting')} />
-          <LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('pitching')} />
+          <Box sx={{ minWidth: 0, order: { xs: 5, md: 0 } }}><LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('hitting')} /></Box>
+          <Box sx={{ minWidth: 0, order: { xs: 6, md: 0 } }}><LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('pitching')} /></Box>
         </Box>
       </Box>
 
