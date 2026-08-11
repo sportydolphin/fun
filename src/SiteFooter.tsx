@@ -51,6 +51,12 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
         <Dot />
         <Box component="a" href="/terms" onClick={e => { e.preventDefault(); onNavigate('/terms') }} sx={linkSx}>Terms</Box>
         <Dot />
+        {isWpbl && (
+          <>
+            <Box component="a" href="/wpbl/api" onClick={e => { e.preventDefault(); onNavigate('/wpbl/api') }} sx={linkSx}>API for developers</Box>
+            <Dot />
+          </>
+        )}
         <Box component="span">
           {isWpbl
             ? 'Not affiliated with the WPBL. Data from the official WPBL stats feed.'

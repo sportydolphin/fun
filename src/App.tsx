@@ -41,8 +41,9 @@ const MlbStats = lazy(() => import('./MlbStats'))
 // WPBL — a separate top-level league section (its own data + views). Lazy so it
 // stays out of the MLB and landing bundles.
 const WpblApp = lazy(() => import('./wpbl/WpblApp'))
+const WpblApiDocs = lazy(() => import('./wpbl/ApiDocs'))
 
-type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame' | '/mlb' | '/wpbl' | '/privacy' | '/terms'
+type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame' | '/mlb' | '/wpbl' | '/wpbl/api' | '/privacy' | '/terms'
 
 const LOCK_PASSWORD = 'sportydolphin'
 const LOCKED_PATHS = new Set(['/cups', '/weights'])
@@ -881,6 +882,14 @@ function AppInner() {
             <WpblApp />
           </Suspense>
         )}
+        {path === '/wpbl/api' && (
+          <Box>
+            <Box onClick={() => navigate('/wpbl')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← WPBL</Box>
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <WpblApiDocs />
+            </Suspense>
+          </Box>
+        )}
         {path === '/privacy' && (
           <Box>
             {backBtn}
@@ -899,7 +908,7 @@ function AppInner() {
         onOpenChangelog={() => setChangelogOpen(true)}
         onOpenFeedback={() => setFeedbackOpen(true)}
         onNavigate={navigate}
-        isWpbl={path === '/wpbl'}
+        isWpbl={path.startsWith('/wpbl')}
       />
 
       <FeedbackDialog
