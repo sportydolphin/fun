@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase'
 import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
-  WpblFieldingLine, WpblGamePlay, WpblPitchTracking, WpblTrackRow,
+  WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblPitchTracking, WpblTrackRow,
 } from './types'
 
 // Reads for the WPBL section. Everything degrades gracefully: if the tables don't
@@ -90,12 +90,12 @@ export type WpblLinesResult = { batting: WpblBattingLine[]; pitching: WpblPitchi
 let allPlayersCache:  { data: WpblPlayer[]; at: number } | null = null
 let allLinesCache:    { data: WpblLinesResult; at: number } | null = null
 let allTrackingCache: { data: WpblTrackRow[]; at: number } | null = null
-let allPlaysCache:    { data: WpblGamePlay[]; at: number } | null = null
+let allPlaysCache:    { data: WpblFirstsPlay[]; at: number } | null = null
 
 export function getCachedWpblAllPlayers(): WpblPlayer[] | null { return allPlayersCache?.data ?? null }
 export function getCachedWpblAllLines(): WpblLinesResult | null { return allLinesCache?.data ?? null }
 export function getCachedWpblAllTracking(): WpblTrackRow[] | null { return allTrackingCache?.data ?? null }
-export function getCachedWpblAllPlays(): WpblGamePlay[] | null { return allPlaysCache?.data ?? null }
+export function getCachedWpblAllPlays(): WpblFirstsPlay[] | null { return allPlaysCache?.data ?? null }
 
 /** Age (ms) of the cached players+lines pair; Infinity until both are seeded. */
 export function wpblStatsCacheAgeMs(): number {
@@ -127,14 +127,22 @@ export async function fetchWpblAllPlayers(): Promise<WpblPlayer[]> {
   return data
 }
 
+// Only the play columns the Hall of Firsts reads (see WpblFirstsPlay). Deliberately omits
+// `pitch_events` (a JSON array of every pitch in the play) and the base/count fields, which
+// dominate the row size but the firsts computation never uses — so this scans the whole
+// season's plays at a fraction of the transfer of select('*').
+const FIRSTS_PLAY_SELECT =
+  'game_id,sequence,team_id,batter_id,batter_name,pitcher_id,pitcher_name,narrative,event_type,is_hit,runs_scored'
+
 // Every play-by-play row in the league — for the Hall of Firsts (first HR, first
 // strikeout, first stolen base, etc.). The heaviest WPBL read (one row per play, all
-// season), so caching last-good lets the Home tab repaint on a swipe-back without
-// re-pulling it. Empty pre-migration.
-export async function fetchWpblAllPlays(): Promise<WpblGamePlay[]> {
-  const data = await safe('fetchWpblAllPlays', () =>
-    supabase.from('wpbl_game_plays').select('*'),
-    [] as WpblGamePlay[])
+// season), so it's both column-projected and cached last-good, letting the Home tab
+// repaint on a swipe-back without re-pulling it. Empty pre-migration.
+export async function fetchWpblAllPlays(): Promise<WpblFirstsPlay[]> {
+  const data = await safe<WpblFirstsPlay[]>('fetchWpblAllPlays', () =>
+    supabase.from('wpbl_game_plays').select(FIRSTS_PLAY_SELECT) as unknown as
+      PromiseLike<{ data: WpblFirstsPlay[] | null; error: unknown }>,
+    [])
   if (data.length > 0 || allPlaysCache == null) allPlaysCache = { data, at: Date.now() }
   return data
 }

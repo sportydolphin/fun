@@ -20,7 +20,7 @@ import { useUnits } from '../UnitsContext'
 import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import { track, EVENTS } from '../lib/analytics'
 import { computeFirsts, type WpblFirst } from './firsts'
-import type { WpblTeam, WpblPlayer, WpblGame, WpblGamePlay, WpblBattingLine, WpblPitchingLine, WpblTrackRow } from './types'
+import type { WpblTeam, WpblPlayer, WpblGame, WpblFirstsPlay, WpblBattingLine, WpblPitchingLine, WpblTrackRow } from './types'
 
 // WPBL home dashboard (Phase 2). Mirrors the MLB home: a full-width scoreboard strip
 // on top, then a two-column card feed (The League / Around the League) that stacks on
@@ -1011,7 +1011,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
-  const [plays, setPlays] = useState<WpblGamePlay[]>(() => getCachedWpblAllPlays() ?? [])
+  const [plays, setPlays] = useState<WpblFirstsPlay[]>(() => getCachedWpblAllPlays() ?? [])
   const [tracking, setTracking] = useState<WpblTrackRow[]>(() => getCachedWpblAllTracking() ?? [])
   const [loadingLeaders, setLoadingLeaders] = useState(() => wpblHomeCacheAgeMs() === Infinity)
   const [firstsOpen, setFirstsOpen] = useState(false)

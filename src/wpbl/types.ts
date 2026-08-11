@@ -214,6 +214,17 @@ export interface WpblGamePlay {
   created_at: string
 }
 
+// The slim projection of a play the Hall of Firsts (computeFirsts) actually reads. The
+// league-wide play fetch on Home uses this instead of select('*') so it never ships the
+// heavy per-play columns — notably `pitch_events` (a JSON array of every pitch) plus the
+// base/count fields — none of which the firsts computation touches. The full-fat
+// WpblGamePlay is still used for a single game's play-by-play (fetchWpblGamePlays).
+export type WpblFirstsPlay = Pick<WpblGamePlay,
+  | 'game_id' | 'sequence' | 'team_id'
+  | 'batter_id' | 'batter_name' | 'pitcher_id' | 'pitcher_name'
+  | 'narrative' | 'event_type' | 'is_hit' | 'runs_scored'
+>
+
 // One tracked pitch/hit event (TrackMan; mirrors wpbl_pitch_tracking).
 export interface WpblPitchTracking {
   activity_id: string

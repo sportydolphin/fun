@@ -1,5 +1,5 @@
 import { outsToIp } from './constants'
-import type { WpblGame, WpblGamePlay, WpblPlayer, WpblPitchingLine } from './types'
+import type { WpblGame, WpblFirstsPlay, WpblPlayer, WpblPitchingLine } from './types'
 
 // "Hall of Firsts" — the players who recorded each league milestone first. Event-based
 // firsts (HR, strikeout, stolen base, …) come from the chronological play-by-play; win
@@ -69,7 +69,7 @@ const startMin = (t: string | null | undefined): number => {
 const NON_RBI_EVENTS = new Set(['wild_pitch', 'passed_ball', 'balk', 'stolen_base'])
 
 export function computeFirsts(
-  plays: WpblGamePlay[], games: WpblGame[], players: WpblPlayer[], pitching: WpblPitchingLine[],
+  plays: WpblFirstsPlay[], games: WpblGame[], players: WpblPlayer[], pitching: WpblPitchingLine[],
 ): WpblFirst[] {
   const gById = new Map(games.map(g => [g.id, g]))
   const pById = new Map(players.map(p => [p.id, p]))
@@ -107,7 +107,7 @@ export function computeFirsts(
   // sequence — start time breaks ties between two games on the same day) ──
   const ordered = plays
     .map(p => ({ p, g: gById.get(p.game_id) }))
-    .filter((x): x is { p: WpblGamePlay; g: WpblGame } => !!x.g)
+    .filter((x): x is { p: WpblFirstsPlay; g: WpblGame } => !!x.g)
     .sort((a, b) =>
       a.g.game_date !== b.g.game_date ? (a.g.game_date < b.g.game_date ? -1 : 1)
       : startMin(a.g.start_time) !== startMin(b.g.start_time) ? startMin(a.g.start_time) - startMin(b.g.start_time)
