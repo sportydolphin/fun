@@ -90,10 +90,12 @@ export type WpblLinesResult = { batting: WpblBattingLine[]; pitching: WpblPitchi
 let allPlayersCache:  { data: WpblPlayer[]; at: number } | null = null
 let allLinesCache:    { data: WpblLinesResult; at: number } | null = null
 let allTrackingCache: { data: WpblTrackRow[]; at: number } | null = null
+let allPlaysCache:    { data: WpblGamePlay[]; at: number } | null = null
 
 export function getCachedWpblAllPlayers(): WpblPlayer[] | null { return allPlayersCache?.data ?? null }
 export function getCachedWpblAllLines(): WpblLinesResult | null { return allLinesCache?.data ?? null }
 export function getCachedWpblAllTracking(): WpblTrackRow[] | null { return allTrackingCache?.data ?? null }
+export function getCachedWpblAllPlays(): WpblGamePlay[] | null { return allPlaysCache?.data ?? null }
 
 /** Age (ms) of the cached players+lines pair; Infinity until both are seeded. */
 export function wpblStatsCacheAgeMs(): number {
@@ -105,6 +107,12 @@ export function wpblStatsCacheAgeMs(): number {
 export function wpblTrackingCacheAgeMs(): number {
   if (!allPlayersCache || !allLinesCache || !allTrackingCache) return Infinity
   return Date.now() - Math.min(allPlayersCache.at, allLinesCache.at, allTrackingCache.at)
+}
+
+/** Age (ms) of the full set the Home tab reads (players+lines+plays+tracking); Infinity until all seeded. */
+export function wpblHomeCacheAgeMs(): number {
+  if (!allPlayersCache || !allLinesCache || !allTrackingCache || !allPlaysCache) return Infinity
+  return Date.now() - Math.min(allPlayersCache.at, allLinesCache.at, allTrackingCache.at, allPlaysCache.at)
 }
 
 // Every player in the league (all four rosters). Used to attach names/teams to the
@@ -120,11 +128,15 @@ export async function fetchWpblAllPlayers(): Promise<WpblPlayer[]> {
 }
 
 // Every play-by-play row in the league — for the Hall of Firsts (first HR, first
-// strikeout, first stolen base, etc.). Small for a four-team league; empty pre-migration.
-export function fetchWpblAllPlays(): Promise<WpblGamePlay[]> {
-  return safe('fetchWpblAllPlays', () =>
+// strikeout, first stolen base, etc.). The heaviest WPBL read (one row per play, all
+// season), so caching last-good lets the Home tab repaint on a swipe-back without
+// re-pulling it. Empty pre-migration.
+export async function fetchWpblAllPlays(): Promise<WpblGamePlay[]> {
+  const data = await safe('fetchWpblAllPlays', () =>
     supabase.from('wpbl_game_plays').select('*'),
     [] as WpblGamePlay[])
+  if (data.length > 0 || allPlaysCache == null) allPlaysCache = { data, at: Date.now() }
+  return data
 }
 
 // Every box-score line in the league — for computing season league leaders. Cheap for

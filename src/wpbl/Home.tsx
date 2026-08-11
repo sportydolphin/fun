@@ -4,7 +4,10 @@ import { NotificationsActiveOutlined, NotificationsNoneOutlined } from '@mui/ico
 import { useAuth } from '../AuthContext'
 import { pushSupported, pushConfigured, notificationPermission } from '../lib/push'
 import { addGameReminder, removeGameReminder, fetchGameReminderIds, getCachedGameReminderIds } from './reminders'
-import { fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, computeStandings } from './api'
+import {
+  fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, computeStandings,
+  getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblAllPlays, getCachedWpblAllTracking, wpblHomeCacheAgeMs,
+} from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp } from './constants'
 import { SectionCard, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, CARD_BORDER } from './ui'
 import { LiveHero } from './Live'
@@ -1001,17 +1004,23 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
 }) {
   const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
-  // Leaders + Hall-of-Firsts + tracking data — fetched here so only the home view pays for it.
-  const [players, setPlayers] = useState<WpblPlayer[]>([])
-  const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>({ batting: [], pitching: [] })
-  const [plays, setPlays] = useState<WpblGamePlay[]>([])
-  const [tracking, setTracking] = useState<WpblTrackRow[]>([])
-  const [loadingLeaders, setLoadingLeaders] = useState(true)
+  // Leaders + Hall-of-Firsts + tracking data — fetched here so only the home view pays for
+  // it. Seeded from the shared session cache so swiping back to Home (the default tab, so
+  // the most re-entered) repaints instantly instead of flashing every card's skeleton and
+  // re-pulling all four datasets — including the heavy play-by-play read.
+  const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
+  const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
+    () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
+  const [plays, setPlays] = useState<WpblGamePlay[]>(() => getCachedWpblAllPlays() ?? [])
+  const [tracking, setTracking] = useState<WpblTrackRow[]>(() => getCachedWpblAllTracking() ?? [])
+  const [loadingLeaders, setLoadingLeaders] = useState(() => wpblHomeCacheAgeMs() === Infinity)
   const [firstsOpen, setFirstsOpen] = useState(false)
 
-  // Full load once. Players are static for the session; lines/plays/tracking seed the
-  // leaders, Hall of Firsts, and tracking teaser.
+  // Full load once, then revalidate on later mounts only when the cache is cold or stale —
+  // a quick swipe back to a warm Home is instant and silent. Players are static for the
+  // session; lines/plays/tracking seed the leaders, Hall of Firsts, and tracking teaser.
   useEffect(() => {
+    if (wpblHomeCacheAgeMs() < 30_000) return
     let cancelled = false
     Promise.all([fetchWpblAllPlayers(), fetchWpblAllLines(), fetchWpblAllPlays(), fetchWpblAllTracking()])
       .then(([p, l, pl, tr]) => {
