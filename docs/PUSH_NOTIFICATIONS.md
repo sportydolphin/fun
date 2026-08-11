@@ -124,3 +124,30 @@ Other ways to test the real reminder:
   gone (HTTP 404/410) automatically.
 - This is the foundation. Next candidates that reuse all of the above: "your
   team's game starting," live score/milestone alerts, offline score caching.
+
+## WPBL game reminders
+
+A second reminder, reusing the same subscription plumbing: the **bell on the WPBL
+Home next-game card** ("Remind me before this game"). It's a per-game opt-in rather
+than a standing preference.
+
+| Piece | File | Role |
+|-------|------|------|
+| Toggle UI | `src/wpbl/Home.tsx` (`GameReminderRow`) | Bell + switch under the matchup |
+| Client helpers | `src/wpbl/reminders.ts` | Ensures a push sub, then adds/removes the opt-in row |
+| Catalog | `shared/notifications.js` (`buildWpblGameStart`) | Push content |
+| Tables | `scripts/create_wpbl_game_reminders.sql` | `wpbl_game_reminders` (opt-ins) + `wpbl_game_start_sent` (once-only log) |
+| Sender | `scripts/send-wpbl-game-start.mjs` | Cron push; fires 30 min before first pitch |
+| Schedule | `.github/workflows/wpbl-game-start-reminders.yml` | Runs the sender every 10 min during game hours |
+
+- **Opt-in record = metric:** each opt-in is a `wpbl_game_reminders` row, so
+  counting rows (or distinct `user_id`s) tells you how many fans turned reminders
+  on. The client *also* fires `wpbl_game_reminder_on` / `_off` analytics events for
+  the action-level funnel.
+- **Sign-in required:** Web Push is user-scoped, so the toggle prompts sign-in when
+  signed out (there's no anonymous reminder to store).
+- **Scheduling:** `.github/workflows/wpbl-game-start-reminders.yml` runs the sender
+  every 10 min during game hours. It reuses the same `SUPABASE_*` / `VAPID_*` repo
+  secrets as the MLB jobs — no new secrets needed. Trigger a one-off test from the
+  Actions UI (*WPBL Game Start Reminders → Run workflow*, `test_user` = your email)
+  or locally with `node scripts/send-wpbl-game-start.mjs --test <email>`.

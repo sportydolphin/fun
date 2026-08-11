@@ -16,6 +16,8 @@ export const EVENTS = {
   DISCORD_SHOWN:      'discord_shown',       // Discord invite card was rendered (impression)
   DISCORD_JOINED:     'discord_joined',      // clicked "Join" on the Discord invite card
   DISCORD_DISMISSED:  'discord_dismissed',   // clicked the ✕ to dismiss the Discord invite card
+  WPBL_GAME_REMINDER_ON:  'wpbl_game_reminder_on',  // opted into a pre-game push for a WPBL game
+  WPBL_GAME_REMINDER_OFF: 'wpbl_game_reminder_off', // turned a WPBL game reminder back off
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the

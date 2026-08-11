@@ -22,9 +22,10 @@ export interface NotificationMeta {
 }
 
 export const NOTIFICATION_TYPES: {
-  PICKS_READY: string
-  GAME_START:  string
-  MILESTONE:   string
+  PICKS_READY:     string
+  GAME_START:      string
+  MILESTONE:       string
+  WPBL_GAME_START: string
 }
 
 export const NOTIFICATION_META: Record<string, NotificationMeta>
@@ -42,6 +43,12 @@ export function buildPicksReady(args: {
 export function buildGameStart(args: {
   gamePk:         number
   teamName:       string
+  matchup:        string
+  minutesToStart: number
+}): NotificationPayload
+
+export function buildWpblGameStart(args: {
+  gameId:         string
   matchup:        string
   minutesToStart: number
 }): NotificationPayload

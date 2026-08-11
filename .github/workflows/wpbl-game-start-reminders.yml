@@ -1,0 +1,67 @@
+name: WPBL Game Start Reminders
+
+on:
+  schedule:
+    # Every 10 minutes during the hours a WPBL game can start. The league plays at
+    # a single Central-time hub, so nothing starts overnight Central — restricting
+    # the hours cuts the run count sharply versus a blanket */10.
+    #
+    #   hours 15-23,0-2 UTC — ~10am Central (early day games) through late-evening
+    #                         first pitches (~9pm Central = 02:00 UTC next day),
+    #                         with margin for the 30-min pre-game window and DST.
+    #
+    # Months are left unrestricted on purpose: the inaugural season's exact window
+    # can shift, and the sender exits immediately when nothing is opted in, so
+    # off-season passes are cheap. Tighten `* 6-9 *` (or similar) once the schedule
+    # is fixed if you want to trim runs further.
+    #
+    # The 10-min interval stays well under the fixed 30-min lead time, so a game
+    # can't slip between passes; wpbl_game_start_sent keeps each reminder to a
+    # single send. Note: GitHub's scheduler is best-effort and can lag under load.
+    - cron: '*/10 15-23,0-2 * * *'
+  workflow_dispatch:   # also triggerable manually from the GitHub Actions UI
+    inputs:
+      test_user:
+        description: 'Optional: send a one-off TEST WPBL game-start push to this user (id or email), ignoring timing. Leave blank for a normal run.'
+        required: false
+        default: ''
+
+# If a run overruns the tick, skip rather than stack a second copy.
+concurrency:
+  group: wpbl-game-start-reminders
+  cancel-in-progress: false
+
+jobs:
+  send-wpbl-game-start:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5   # a hung fetch shouldn't tie up a runner for six hours
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # `npm ci` would install the whole frontend toolchain (React, MUI, Vite,
+      # Vitest) that this script never imports. The sender needs exactly three
+      # packages, so install just those — versions are read out of package.json
+      # so there's still a single source of truth.
+      - name: Install sender dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','web-push','ws'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Send WPBL game-start reminders
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VAPID_PUBLIC_KEY:          ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY:         ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_SUBJECT:             ${{ secrets.VAPID_SUBJECT }}
+          TEST_USER:                 ${{ inputs.test_user }}
+        run: |
+          if [ -n "$TEST_USER" ]; then
+            node scripts/send-wpbl-game-start.mjs --test "$TEST_USER"
+          else
+            node scripts/send-wpbl-game-start.mjs
+          fi

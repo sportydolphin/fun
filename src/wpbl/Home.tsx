@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, Skeleton } from '@mui/material'
+import { Box, Typography, Skeleton, Switch } from '@mui/material'
+import { NotificationsActiveOutlined, NotificationsNoneOutlined } from '@mui/icons-material'
+import { useAuth } from '../AuthContext'
+import { pushSupported, pushConfigured, notificationPermission } from '../lib/push'
+import { addGameReminder, removeGameReminder, fetchGameReminderIds } from './reminders'
 import { fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, computeStandings } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp } from './constants'
 import { SectionCard, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, CARD_BORDER } from './ui'
@@ -179,6 +183,104 @@ function Countdown({ target }: { target: number }) {
   )
 }
 
+// Opt-in row under the matchup: a Web Push reminder before this specific game's
+// first pitch, mirroring the MLB game-start reminder. The row IS the opt-in record
+// (a wpbl_game_reminders row); a server cron (scripts/send-wpbl-game-start.mjs)
+// fires the actual push. Signed out, the whole row prompts sign-in — Web Push is
+// user-scoped, so there's no anonymous reminder to store.
+function GameReminderRow({ game }: { game: WpblGame }) {
+  const { user, openAuthDialog } = useAuth()
+  const supported  = pushSupported()
+  const configured = pushConfigured()
+
+  const [on,   setOn]   = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [ready, setReady] = useState(false)   // initial "do we already have one?" check done
+  const [perm, setPerm] = useState<ReturnType<typeof notificationPermission>>('default')
+  const [err,  setErr]  = useState('')
+
+  // Reflect the stored opt-in for this game whenever the game or signed-in user changes.
+  useEffect(() => {
+    setErr(''); setPerm(notificationPermission())
+    if (!user) { setOn(false); setReady(true); return }
+    let cancelled = false
+    setReady(false)
+    fetchGameReminderIds(user.id)
+      .then(ids => { if (!cancelled) { setOn(ids.has(game.id)); setReady(true) } })
+      .catch(() => { if (!cancelled) setReady(true) })
+    return () => { cancelled = true }
+  }, [user?.id, game.id])
+
+  const handleToggle = async (next: boolean) => {
+    if (!user) { openAuthDialog('signin'); return }
+    if (busy) return
+    setBusy(true); setErr('')
+    if (next) {
+      const error = await addGameReminder(user.id, game)
+      if (error) {
+        setErr(error)
+        setOn(false)
+      } else {
+        setOn(true)
+        track(EVENTS.WPBL_GAME_REMINDER_ON, { gameId: game.id, gameDate: game.game_date }, user.id)
+      }
+    } else {
+      const error = await removeGameReminder(user.id, game.id)
+      if (error) {
+        setErr(error)
+      } else {
+        setOn(false)
+        track(EVENTS.WPBL_GAME_REMINDER_OFF, { gameId: game.id, gameDate: game.game_date }, user.id)
+      }
+    }
+    setPerm(notificationPermission())
+    setBusy(false)
+  }
+
+  // When signed in, the switch is the control; when signed out, the whole row taps
+  // through to sign-in (a switch has nothing to toggle yet).
+  const blocked = !!user && (!supported || !configured || perm === 'denied')
+
+  let hint: string
+  if (!supported)            hint = 'This browser can’t do notifications.'
+  else if (!configured)      hint = 'Notifications aren’t set up on this deployment yet.'
+  else if (perm === 'denied') hint = 'Blocked. Turn notifications on for this site in your browser settings.'
+  else if (!user)            hint = 'Sign in to get a heads-up before first pitch.'
+  else if (busy)             hint = 'Working…'
+  else if (on)               hint = 'On · we’ll ping you 30 min before first pitch.'
+  else                       hint = 'Get a push before first pitch.'
+
+  const Icon = on ? NotificationsActiveOutlined : NotificationsNoneOutlined
+
+  return (
+    <Box
+      onClick={!user ? () => openAuthDialog('signin') : undefined}
+      sx={{
+        mt: 0.75, pt: 1, borderTop: '1px solid', borderColor: 'divider',
+        display: 'flex', alignItems: 'center', gap: 1,
+        ...(!user ? { cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } } : {}),
+      }}
+    >
+      <Icon sx={{ fontSize: '1.15rem', flexShrink: 0, color: on ? WPBL_ACCENT : 'text.disabled' }} />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.2 }}>Remind me before this game</Typography>
+        <Typography sx={{ fontSize: '0.7rem', color: err ? 'error.main' : 'text.secondary', mt: 0.15, lineHeight: 1.35 }}>
+          {err || hint}
+        </Typography>
+      </Box>
+      {user && (
+        <Switch
+          size="small"
+          checked={on}
+          disabled={busy || blocked || !ready}
+          onChange={e => handleToggle(e.target.checked)}
+          sx={{ flexShrink: 0 }}
+        />
+      )}
+    </Box>
+  )
+}
+
 function NextGameCard({ games, teams, onOpenGame }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
 }) {
@@ -214,6 +316,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
         {teamRow(away, 'AWAY')}
         {teamRow(home, 'HOME')}
       </Box>
+      <GameReminderRow game={g} />
     </SectionCard>
   )
 }

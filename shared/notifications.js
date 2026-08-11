@@ -28,9 +28,10 @@
 // Either step 4 or 5 alone is fine — a type can be bell-only or push-only.
 
 export const NOTIFICATION_TYPES = {
-  PICKS_READY: 'picks-ready',
-  GAME_START:  'game-start',
-  MILESTONE:   'milestone',
+  PICKS_READY:     'picks-ready',
+  GAME_START:      'game-start',
+  MILESTONE:       'milestone',
+  WPBL_GAME_START: 'wpbl-game-start',
 }
 
 // Per-type metadata. `label` is user-facing (settings, grouping); `defaultUrl`
@@ -62,6 +63,13 @@ export const NOTIFICATION_META = {
     icon:       '🏆',
     // Opens the Milestone Watch board so the chase shows in context.
     defaultUrl: '/mlb?view=home&open=milestones',
+  },
+  [NOTIFICATION_TYPES.WPBL_GAME_START]: {
+    label:      'WPBL game reminders',
+    icon:       '🥎',
+    // The WPBL section isn't wired into the MLB deep-link router, so a click lands
+    // on the WPBL home where the next game is featured up top — the honest fallback.
+    defaultUrl: '/wpbl?view=home',
   },
 }
 
@@ -126,6 +134,32 @@ export function buildGameStart({ gamePk, teamName, matchup, minutesToStart }) {
 }
 
 /**
+ * A WPBL game the fan opted into is about to start.
+ *
+ * Push-only (no in-site bell source): the WPBL section runs outside the MLB
+ * notification store, so this is delivered purely by scripts/send-wpbl-game-start.mjs.
+ *
+ * @param {{ gameId: string, matchup: string, minutesToStart: number }} args
+ *   gameId         — WPBL game uuid; scopes the id so each game gets its own notification
+ *   matchup        — display line, e.g. "Boston Hunters @ New York Heights"
+ *   minutesToStart — whole minutes until first pitch (0/negative → "now")
+ */
+export function buildWpblGameStart({ gameId, matchup, minutesToStart }) {
+  const meta = NOTIFICATION_META[NOTIFICATION_TYPES.WPBL_GAME_START]
+  const mins = Math.max(0, Math.round(minutesToStart))
+  return {
+    id:    `${NOTIFICATION_TYPES.WPBL_GAME_START}:${gameId}`,
+    type:  NOTIFICATION_TYPES.WPBL_GAME_START,
+    icon:  meta.icon,
+    title: 'WPBL game starting soon',
+    body:  mins <= 0
+      ? `${matchup}. First pitch is now.`
+      : `${matchup}. First pitch in ${mins} min.`,
+    url:   meta.defaultUrl,
+  }
+}
+
+/**
  * A followed player is closing in on a milestone.
  *
  * @param {{ playerId: number, playerName: string, statLabel: string, remaining: number, target: number, kind: string }} args
@@ -172,6 +206,10 @@ export const SAMPLE_BUILDERS = {
   [NOTIFICATION_TYPES.MILESTONE]: () => ({
     ...buildMilestoneNear({ playerId: 0, playerName: 'Mike Trout', statLabel: 'HR', remaining: 2, target: 400, kind: 'career' }),
     id: `${NOTIFICATION_TYPES.MILESTONE}:sample`,
+  }),
+  [NOTIFICATION_TYPES.WPBL_GAME_START]: () => ({
+    ...buildWpblGameStart({ gameId: '0', matchup: 'Boston Hunters @ New York Heights', minutesToStart: 5 }),
+    id: `${NOTIFICATION_TYPES.WPBL_GAME_START}:sample`,
   }),
 }
 
