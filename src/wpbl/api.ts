@@ -87,16 +87,24 @@ export function fetchWpblRoster(teamId: string): Promise<WpblPlayer[]> {
 // the last successful result so a remount repaints instantly, with a timestamp so a
 // caller can still revalidate once it's stale (box scores change as games are played).
 export type WpblLinesResult = { batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }
-let allPlayersCache: { data: WpblPlayer[]; at: number } | null = null
-let allLinesCache:   { data: WpblLinesResult; at: number } | null = null
+let allPlayersCache:  { data: WpblPlayer[]; at: number } | null = null
+let allLinesCache:    { data: WpblLinesResult; at: number } | null = null
+let allTrackingCache: { data: WpblTrackRow[]; at: number } | null = null
 
 export function getCachedWpblAllPlayers(): WpblPlayer[] | null { return allPlayersCache?.data ?? null }
 export function getCachedWpblAllLines(): WpblLinesResult | null { return allLinesCache?.data ?? null }
+export function getCachedWpblAllTracking(): WpblTrackRow[] | null { return allTrackingCache?.data ?? null }
 
 /** Age (ms) of the cached players+lines pair; Infinity until both are seeded. */
 export function wpblStatsCacheAgeMs(): number {
   if (!allPlayersCache || !allLinesCache) return Infinity
   return Date.now() - Math.min(allPlayersCache.at, allLinesCache.at)
+}
+
+/** Age (ms) of the players+lines+tracking trio the Tracking tab reads; Infinity until all seeded. */
+export function wpblTrackingCacheAgeMs(): number {
+  if (!allPlayersCache || !allLinesCache || !allTrackingCache) return Infinity
+  return Date.now() - Math.min(allPlayersCache.at, allLinesCache.at, allTrackingCache.at)
 }
 
 // Every player in the league (all four rosters). Used to attach names/teams to the
@@ -180,6 +188,10 @@ export async function fetchWpblAllTracking(): Promise<WpblTrackRow[]> {
     })
     if (page.length < PAGE) break
   }
+  // Cache last-good so the Tracking tab can repaint from it on a swipe-back without
+  // re-running this paginated scan (see the cache block above). A transient empty
+  // doesn't clobber a previously good result.
+  if (out.length > 0 || allTrackingCache == null) allTrackingCache = { data: out, at: Date.now() }
   return out
 }
 

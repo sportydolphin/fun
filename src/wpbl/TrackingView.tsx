@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
-import { fetchWpblAllTracking, fetchWpblAllPlayers, fetchWpblAllLines } from './api'
+import {
+  fetchWpblAllTracking, fetchWpblAllPlayers, fetchWpblAllLines,
+  getCachedWpblAllTracking, getCachedWpblAllPlayers, getCachedWpblAllLines, wpblTrackingCacheAgeMs,
+} from './api'
 import { aggregateTracking } from './tracking'
 import type { TrackingBoard, VeloLeader, SpinLeader, PitchHit, BattedBall } from './tracking'
 import { WPBL_ACCENT } from './constants'
@@ -84,11 +87,23 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
 }
 
 export default function WpblTrackingView({ onOpenPlayer }: { teams?: WpblTeam[]; onOpenPlayer: (p: WpblPlayer) => void }) {
-  const [board, setBoard] = useState<TrackingBoard | null>(null)
-  const [loading, setLoading] = useState(true)
+  // Seed from the shared session cache so swiping back to this tab (SwipeableViews
+  // unmounts it on the way out) repaints instantly instead of re-running the whole
+  // fetch — including the paginated tracking scan — behind the spinner.
+  const [board, setBoard] = useState<TrackingBoard | null>(() => {
+    const tr = getCachedWpblAllTracking(), pl = getCachedWpblAllPlayers(), ln = getCachedWpblAllLines()
+    return tr && pl && ln ? aggregateTracking(tr, pl, ln.pitching) : null
+  })
+  const [loading, setLoading] = useState(
+    () => !(getCachedWpblAllTracking() && getCachedWpblAllPlayers() && getCachedWpblAllLines()))
   const [mode, setMode] = useState<'pitching' | 'hitting'>('pitching')
 
+  // Revalidate on mount, but skip the round trip when the cache is still fresh. Tracking
+  // is a slow, manually-published league batch (it barely moves within a session), so a
+  // generous stale window keeps rapid swipes instant while still picking up new batches.
   useEffect(() => {
+    const TRACK_STALE_MS = 60_000
+    if (wpblTrackingCacheAgeMs() < TRACK_STALE_MS) return
     let cancelled = false
     Promise.all([fetchWpblAllTracking(), fetchWpblAllPlayers(), fetchWpblAllLines()])
       .then(([track, players, lines]) => {
