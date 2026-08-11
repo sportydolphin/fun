@@ -80,12 +80,35 @@ export function fetchWpblRoster(teamId: string): Promise<WpblPlayer[]> {
     [] as WpblPlayer[])
 }
 
+// ─── Session cache for the shared bulk reads ────────────────────────────────────
+// The Stats and Home tabs both pull the full player roster and box-score lines, and
+// SwipeableViews unmounts a tab when you swipe away — so without a cache each return
+// re-queried the DB and flashed the tab's loading spinner (the "full reload"). Keep
+// the last successful result so a remount repaints instantly, with a timestamp so a
+// caller can still revalidate once it's stale (box scores change as games are played).
+export type WpblLinesResult = { batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }
+let allPlayersCache: { data: WpblPlayer[]; at: number } | null = null
+let allLinesCache:   { data: WpblLinesResult; at: number } | null = null
+
+export function getCachedWpblAllPlayers(): WpblPlayer[] | null { return allPlayersCache?.data ?? null }
+export function getCachedWpblAllLines(): WpblLinesResult | null { return allLinesCache?.data ?? null }
+
+/** Age (ms) of the cached players+lines pair; Infinity until both are seeded. */
+export function wpblStatsCacheAgeMs(): number {
+  if (!allPlayersCache || !allLinesCache) return Infinity
+  return Date.now() - Math.min(allPlayersCache.at, allLinesCache.at)
+}
+
 // Every player in the league (all four rosters). Used to attach names/teams to the
 // aggregated league-leader rows on the home view.
-export function fetchWpblAllPlayers(): Promise<WpblPlayer[]> {
-  return safe('fetchWpblAllPlayers', () =>
+export async function fetchWpblAllPlayers(): Promise<WpblPlayer[]> {
+  const data = await safe('fetchWpblAllPlayers', () =>
     supabase.from('wpbl_players').select('*'),
     [] as WpblPlayer[])
+  // Don't clobber a good cache with an empty error/timeout fallback; a genuinely
+  // empty first load (pre-migration) still seeds so callers stop showing a spinner.
+  if (data.length > 0 || allPlayersCache == null) allPlayersCache = { data, at: Date.now() }
+  return data
 }
 
 // Every play-by-play row in the league — for the Hall of Firsts (first HR, first
@@ -98,7 +121,7 @@ export function fetchWpblAllPlays(): Promise<WpblGamePlay[]> {
 
 // Every box-score line in the league — for computing season league leaders. Cheap for
 // a four-team league; returns empty (no leaders) until games start being entered.
-export async function fetchWpblAllLines(): Promise<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }> {
+export async function fetchWpblAllLines(): Promise<WpblLinesResult> {
   const [batting, pitching] = await Promise.all([
     safe('fetchWpblAllBatting', () =>
       supabase.from('wpbl_batting_lines').select('*'),
@@ -107,7 +130,12 @@ export async function fetchWpblAllLines(): Promise<{ batting: WpblBattingLine[];
       supabase.from('wpbl_pitching_lines').select('*'),
       [] as WpblPitchingLine[]),
   ])
-  return { batting, pitching }
+  const result = { batting, pitching }
+  // Keep last-good on a transient empty (see fetchWpblAllPlayers).
+  if (batting.length > 0 || pitching.length > 0 || allLinesCache == null) {
+    allLinesCache = { data: result, at: Date.now() }
+  }
+  return result
 }
 
 // Every TrackMan tracking row in the league, slimmed to the fields the velocity board

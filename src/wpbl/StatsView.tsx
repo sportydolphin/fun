@@ -1,7 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { alpha } from '@mui/material/styles'
-import { fetchWpblAllPlayers, fetchWpblAllLines } from './api'
+import {
+  fetchWpblAllPlayers, fetchWpblAllLines,
+  getCachedWpblAllPlayers, getCachedWpblAllLines, wpblStatsCacheAgeMs,
+} from './api'
 import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
 import { TeamBadge, CARD_BORDER, useWpblName } from './ui'
 import {
@@ -107,9 +110,12 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
   onOpenPlayer: (p: WpblPlayer) => void
   onOpenTeam?: (t: WpblTeam) => void
 }) {
-  const [players, setPlayers] = useState<WpblPlayer[]>([])
-  const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>({ batting: [], pitching: [] })
-  const [loading, setLoading] = useState(true)
+  // Seed from the shared session cache so swiping back to this tab (SwipeableViews
+  // unmounts it on the way out) repaints instantly instead of flashing the spinner.
+  const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
+  const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
+    () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
+  const [loading, setLoading] = useState(() => getCachedWpblAllPlayers() == null || getCachedWpblAllLines() == null)
   const shortName = useWpblName()
   const isNarrow = useMediaQuery('(max-width:600px)')
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -126,7 +132,13 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
   const [sortKey, setSortKey] = useState(initialGroup === 'pitching' ? 'era' : 'ops')
   const [sortAsc, setSortAsc] = useState(initialGroup === 'pitching')
 
+  // Revalidate on mount, but skip the DB round trip entirely when the shared cache is
+  // still fresh — so a quick swipe out and back is instant and silent. Box scores move
+  // as games are played, so a stale cache (or a live game) still refreshes in the
+  // background without gating the already-painted table behind the spinner.
   useEffect(() => {
+    const STATS_STALE_MS = 30_000
+    if (wpblStatsCacheAgeMs() < STATS_STALE_MS) return
     let cancelled = false
     Promise.all([fetchWpblAllPlayers(), fetchWpblAllLines()]).then(([p, l]) => {
       if (cancelled) return
