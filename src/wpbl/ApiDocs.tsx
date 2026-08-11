@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { WPBL_ACCENT } from './constants'
 
 // A plain-language reference for the WPBL's public stats feed: where it lives, what each
-// endpoint returns, and the quirks worth knowing before you pull from it. Written up as
+// endpoint returns, and the things worth knowing before you pull from it. Written up as
 // findings for other developers, not as a how-to for cloning this site. This is the same
 // feed this site reads from (see supabase/functions/wpbl-ingest), but it does not touch or
 // expose this site's own database. Linked from the WPBL footer and reachable at /wpbl/api.
@@ -65,7 +65,22 @@ function EndpointCard({ path, purpose, returns }: { path: string; purpose: strin
         </Box>
       </Box>
       <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mt: 0.4, lineHeight: 1.5 }}>{purpose}</Typography>
-      <Typography sx={{ fontSize: '0.74rem', color: 'text.disabled', mt: 0.5, lineHeight: 1.5 }}>Returns: {returns}</Typography>
+      <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'text.disabled', mt: 1, mb: 0.5 }}>Returns</Typography>
+      {/* Pre-formatted so the shape reads top-to-bottom instead of wrapping into a wall;
+          horizontal scroll keeps a wide line from breaking the layout on narrow screens. */}
+      <Box
+        component="pre"
+        sx={{
+          m: 0, p: 1.25, borderRadius: 1.5,
+          bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+          border: '1px solid', borderColor: 'divider',
+          overflowX: 'auto', fontSize: '0.72rem', lineHeight: 1.6,
+          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+          color: 'text.secondary', whiteSpace: 'pre',
+        }}
+      >
+        {returns}
+      </Box>
     </Box>
   )
 }
@@ -91,7 +106,7 @@ export default function WpblApiDocs() {
       <Typography sx={{ fontSize: '0.95rem', color: 'text.secondary', lineHeight: 1.6, mb: 1 }}>
         The Women's Pro Baseball League publishes a free public JSON feed with the schedule, box
         scores, play-by-play, and TrackMan pitch tracking. This is a reference for reading it: where
-        it lives, what comes back, and the quirks I found along the way.
+        it lives, what comes back, and the things I learned along the way.
       </Typography>
       <Box sx={{ p: 1.5, borderRadius: 2, border: '1px dashed', borderColor: 'divider', bgcolor: 'action.hover', mb: 1 }}>
         <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', lineHeight: 1.55 }}>
@@ -110,17 +125,44 @@ export default function WpblApiDocs() {
       <EndpointCard
         path="/games"
         purpose="The whole schedule with results. Each game carries its id, teams, venue, start time, status, and score."
-        returns={`{ "games": [ { "game_id", "season_id", "scheduled_start", "home_team_id", "away_team_id", "venue", "status", "completed_at", "presto_data": { "score": { "home", "away" } } } ] }`}
+        returns={`{
+  "games": [
+    {
+      "game_id", "season_id", "scheduled_start",
+      "home_team_id", "away_team_id", "venue",
+      "status", "completed_at",
+      "presto_data": { "score": { "home", "away" } }
+    }
+  ]
+}`}
       />
       <EndpointCard
         path="/games/{id}/boxscore"
         purpose="One game in full: status, per-side totals, the line score, every player's hitting/pitching/fielding line, and the play-by-play."
-        returns={`{ "boxscore": { "status", "teams": [ { "side", "totals", "line", "players": [ { "hitting", "pitching", "fielding" } ] } ], "plays": [ ... ] } }`}
+        returns={`{
+  "boxscore": {
+    "status",
+    "teams": [
+      {
+        "side", "totals", "line",
+        "players": [ { "hitting", "pitching", "fielding" } ]
+      }
+    ],
+    "plays": [ ... ]
+  }
+}`}
       />
       <EndpointCard
         path="/games/{id}/activity"
         purpose="TrackMan tracking for a game (pitch velocity, spin, and hit distance). Paginated with limit and offset."
-        returns={`{ "activity": [ { "activity_id", "kind", "release_speed", "spin_rate_rpm", "plate_location_height", ... } ] }`}
+        returns={`{
+  "activity": [
+    {
+      "activity_id", "kind", "release_speed",
+      "spin_rate_rpm", "plate_location_height", ...
+    }
+  ]
+}`}
       />
 
       <H2>Try it</H2>
@@ -170,7 +212,7 @@ export default function WpblApiDocs() {
 
       <H2>Questions</H2>
       <P>
-        Pulling from the feed and something here doesn't match what you see, or a quirk has changed?
+        Pulling from the feed and something here doesn't match what you see, or something has changed?
         Use the Send feedback link in the site footer.
       </P>
     </Box>
