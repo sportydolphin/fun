@@ -90,9 +90,8 @@ export default function WpblApiDocs() {
       </Typography>
       <Typography sx={{ fontSize: '0.95rem', color: 'text.secondary', lineHeight: 1.6, mb: 1 }}>
         The Women's Pro Baseball League publishes a free public JSON feed with the schedule, box
-        scores, play-by-play, and TrackMan pitch tracking. This page is a reference for reading it:
-        where it lives, what comes back, and the quirks I found along the way, so you can pull league
-        data without scraping anything or rediscovering the same gotchas.
+        scores, play-by-play, and TrackMan pitch tracking. This is a reference for reading it: where
+        it lives, what comes back, and the quirks I found along the way.
       </Typography>
       <Box sx={{ p: 1.5, borderRadius: 2, border: '1px dashed', borderColor: 'divider', bgcolor: 'action.hover', mb: 1 }}>
         <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', lineHeight: 1.55 }}>
@@ -133,7 +132,6 @@ export default function WpblApiDocs() {
       <CodeBlock>{`curl "${FEED}/games/<GAME_ID>/activity?limit=1000&offset=0"`}</CodeBlock>
 
       <H2>Things worth knowing</H2>
-      <P>These are the rough edges I hit while pulling from the feed. Knowing them up front will save you a few hours.</P>
       <Note title="Start times read one hour early">
         For the 2026 season, <Code>scheduled_start</Code> comes back one hour before the real first
         pitch. A 6:30 PM Central game shows as 5:30. Add an hour to get the true start. The whole
@@ -152,11 +150,6 @@ export default function WpblApiDocs() {
         never get it. Treat a game with no tracking as the normal case, not an error, and don't count
         on the pitch/hit data being there for most of the schedule.
       </Note>
-      <Note title="When it does arrive, it's late and in batches">
-        The tracking that does exist was reconciled after the game, sometimes days later, and several
-        games can land at once. So if more tracking ever comes, a finished game with no tracking today
-        might fill in later — re-check recent finals rather than assuming game-day data is final.
-      </Note>
       <Note title="Watch for phantom duplicate games">
         The schedule sometimes lists a stale, never-played copy of a game next to the real one: same
         date and matchup, different <Code>game_id</Code>, stuck on a not-started status. If you see
@@ -168,16 +161,11 @@ export default function WpblApiDocs() {
         reliable signal that a game is actually over. For live vs scheduled, look for real activity
         (a logged play, any ball or strike or out, a run) rather than the status text alone.
       </Note>
-      <Note title="Ids are the feed's own">
-        Team and player ids in the feed are the league's ids, not anything from this site. If you
-        want stable slugs like BOS or LA, map them yourself from the team list.
-      </Note>
 
       <H2>Calling it from a browser</H2>
       <P>
-        The feed is easiest to read from a server, a script, or a serverless function. A direct
-        <Code>fetch</Code> from a web page may be blocked by CORS depending on the league's headers,
-        so from a browser, proxy the request through your own backend.
+        Read it from a server, a script, or a serverless function. A direct <Code>fetch</Code> from a
+        web page can trip CORS, so from a browser, route the request through your own backend.
       </P>
 
       <H2>Questions</H2>
