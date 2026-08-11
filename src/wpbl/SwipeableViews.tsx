@@ -47,11 +47,20 @@ interface Props {
   onIndexChange: (i: number) => void
   minHeight?: string // floors the container so short tabs stay swipeable in their empty space
   stickyNavRef?: RefObject<HTMLElement | null> // the pinned tab menu, to land the new tab just under it
+  padX?: number // horizontal inset (px) applied *inside* each pane, so the container can run
+                // full-bleed to the screen edge while content keeps its gutter — a pane then
+                // slides all the way off-screen instead of clipping at a padded barrier.
 }
 
-export default function SwipeableViews({ index, panels, onIndexChange, minHeight, stickyNavRef }: Props) {
+export default function SwipeableViews({ index, panels, onIndexChange, minHeight, stickyNavRef, padX = 0 }: Props) {
   const isMobile = useMediaQuery('(max-width:600px)')
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Keep-alive set: every tab index that has ever been shown (active or swiped-to). Those
+  // stay mounted-but-hidden so returning to one is a repaint of already-computed content,
+  // not a fresh mount that re-runs the tab's heavy data-shaping mid-swipe (the swipe
+  // stutter, worst on the Stats tab). First visit still mounts once; repeat visits don't.
+  const visited = useRef<Set<number>>(new Set())
 
   // Per-tab scroll memory (window scrollY, keyed by panel index) + the last index we were
   // on, so an index change can tell where we came from and where we're going.
@@ -196,6 +205,13 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   const neighborIndex = dir === 0 ? -1 : index + dir
   const showNeighbor = engaged && neighborIndex >= 0 && neighborIndex < panels.length
 
+  // Record every tab we render so it stays in the keep-alive set (done in render so a
+  // freshly-active tab is remembered immediately, with no one-frame lag).
+  visited.current.add(index)
+  if (showNeighbor) visited.current.add(neighborIndex)
+
+  const paneInset = { boxSizing: 'border-box' as const, paddingLeft: padX, paddingRight: padX }
+
   return (
     <div
       ref={containerRef}
@@ -216,17 +232,30 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
           willChange: engaged ? 'transform' : undefined,
         }}
       >
-        {/* Active view: in normal flow so it drives the container's height. */}
-        <div key={index} style={{ position: 'relative', width: '100%' }}>{panels[index]}</div>
-        {/* Incoming neighbour: absolutely placed one screen over, pinned to the viewport. */}
-        {showNeighbor && (
-          <div
-            key={neighborIndex}
-            style={{ position: 'absolute', top: pinTop, left: 0, width: '100%', transform: `translateX(calc(${dir * 100}% + ${dir * GAP}px))` }}
-          >
-            {panels[neighborIndex]}
-          </div>
-        )}
+        {panels.map((panel, i) => {
+          // Active view: in normal flow so it drives the container's height. `padX` keeps the
+          // content inset while the pane itself spans the full (full-bleed) container width.
+          if (i === index) {
+            return <div key={i} style={{ position: 'relative', width: '100%', ...paneInset }}>{panel}</div>
+          }
+          // Incoming neighbour: absolutely placed one screen over, pinned to the viewport.
+          if (showNeighbor && i === neighborIndex) {
+            return (
+              <div
+                key={i}
+                style={{ position: 'absolute', top: pinTop, left: 0, width: '100%', ...paneInset, transform: `translateX(calc(${dir * 100}% + ${dir * GAP}px))` }}
+              >
+                {panel}
+              </div>
+            )
+          }
+          // Everything else already visited: kept mounted but hidden (no layout, no repaint),
+          // so swiping back to it doesn't remount and re-shape its data.
+          if (visited.current.has(i)) {
+            return <div key={i} style={{ display: 'none' }} aria-hidden>{panel}</div>
+          }
+          return null
+        })}
       </div>
     </div>
   )

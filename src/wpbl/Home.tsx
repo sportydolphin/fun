@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, Skeleton, Switch } from '@mui/material'
-import { NotificationsActiveOutlined, NotificationsNoneOutlined } from '@mui/icons-material'
+import { NotificationsActiveOutlined, NotificationsNoneOutlined, EventAvailableOutlined } from '@mui/icons-material'
 import { useAuth } from '../AuthContext'
 import { pushSupported, pushConfigured, notificationPermission } from '../lib/push'
 import { addGameReminder, removeGameReminder, fetchGameReminderIds, getCachedGameReminderIds } from './reminders'
@@ -186,12 +186,45 @@ function Countdown({ target }: { target: number }) {
   )
 }
 
+// Build a downloadable .ics so anyone can get a calendar reminder even where Web Push
+// isn't available (most mobile browsers) — no account needed. Mirrors the push timing
+// with a 30-min-before alarm. Timed event when we know first pitch, else an all-day event.
+function makeGameIcs(game: WpblGame, title: string, startMs: number | null): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const utc = (d: Date) =>
+    `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}Z`
+  const lines = [
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//sportydolphin//WPBL//EN', 'BEGIN:VEVENT',
+    `UID:wpbl-${game.id}@sportydolphin`, `DTSTAMP:${utc(new Date())}`,
+  ]
+  if (startMs != null) {
+    lines.push(`DTSTART:${utc(new Date(startMs))}`, `DTEND:${utc(new Date(startMs + 3 * 3600000))}`)
+  } else {
+    lines.push(`DTSTART;VALUE=DATE:${game.game_date.replace(/-/g, '')}`)
+  }
+  lines.push(`SUMMARY:${title}`)
+  if (startMs != null) lines.push('BEGIN:VALARM', 'TRIGGER:-PT30M', 'ACTION:DISPLAY', `DESCRIPTION:${title}`, 'END:VALARM')
+  lines.push('END:VEVENT', 'END:VCALENDAR')
+  return lines.join('\r\n')
+}
+
+function downloadIcs(filename: string, ics: string) {
+  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename
+  document.body.appendChild(a); a.click(); a.remove()
+  URL.revokeObjectURL(url)
+}
+
 // Opt-in row under the matchup: a Web Push reminder before this specific game's
 // first pitch, mirroring the MLB game-start reminder. The row IS the opt-in record
 // (a wpbl_game_reminders row); a server cron (scripts/send-wpbl-game-start.mjs)
 // fires the actual push. Signed out, the whole row prompts sign-in — Web Push is
 // user-scoped, so there's no anonymous reminder to store.
-function GameReminderRow({ game }: { game: WpblGame }) {
+function GameReminderRow({ game, away, home, startMs }: {
+  game: WpblGame; away?: WpblTeam; home?: WpblTeam; startMs: number | null
+}) {
   const { user, openAuthDialog } = useAuth()
   const supported  = pushSupported()
   const configured = pushConfigured()
@@ -245,6 +278,31 @@ function GameReminderRow({ game }: { game: WpblGame }) {
     }
     setPerm(notificationPermission())
     setBusy(false)
+  }
+
+  // Where Web Push can't work at all (most mobile browsers, or an unconfigured deploy),
+  // don't dead-end on "this browser can't do notifications" — offer a calendar download
+  // instead. It needs no account and works everywhere, with the same 30-min heads-up.
+  if (!supported || !configured) {
+    const title = `${away ? wpblFullName(away) : 'Away'} @ ${home ? wpblFullName(home) : 'Home'} · WPBL`
+    return (
+      <Box
+        onClick={() => downloadIcs(`wpbl-${game.id}.ics`, makeGameIcs(game, title, startMs))}
+        sx={{
+          mt: 0.75, pt: 1, borderTop: '1px solid', borderColor: 'divider',
+          display: 'flex', alignItems: 'center', gap: 1,
+          cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },
+        }}
+      >
+        <EventAvailableOutlined sx={{ fontSize: '1.15rem', flexShrink: 0, color: WPBL_ACCENT }} />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.2 }}>Add to calendar</Typography>
+          <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', mt: 0.15, lineHeight: 1.35 }}>
+            Saves the game with a 30-min heads-up before first pitch.
+          </Typography>
+        </Box>
+      </Box>
+    )
   }
 
   // When signed in, the switch is the control; when signed out, the whole row taps
@@ -326,7 +384,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
         {teamRow(away, 'AWAY')}
         {teamRow(home, 'HOME')}
       </Box>
-      <GameReminderRow game={g} />
+      <GameReminderRow game={g} away={away} home={home} startMs={next.ms} />
     </SectionCard>
   )
 }
@@ -915,7 +973,7 @@ function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView
 // Community invite — links out to the WPBL fan Discord. Styled in Discord's blurple
 // so it reads as "join the chat" at a glance, but kept to one slim row so it sits
 // under the scoreboard without crowding the actual content.
-const DISCORD_INVITE = 'https://discord.gg/qG2e4grnG'
+const DISCORD_INVITE = 'https://discord.gg/hTaZKFzk6H'
 const DISCORD_BLURPLE = '#5865F2'
 const DISCORD_DISMISS_KEY = 'wpbl_discord_dismissed'
 
@@ -1103,7 +1161,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
 
   return (
     <Box>
-      {/* Slim league header. On mobile the title wraps two lines, so the club badges drop to
+      {/* Slim league header. On mobile the title wraps two lines, so the club chips drop to
           their own strip below (a deliberate row) instead of floating centred beside it; on
           wider screens there's room to sit them inline to the right. */}
       <Box sx={{
@@ -1116,10 +1174,26 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
           </Typography>
           <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Inaugural 2026 season</Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: { xs: 1.25, sm: 0.75 }, flexShrink: 0 }}>
+        {/* Team chips: badge + abbreviation in a tappable pill so they read as controls (not
+            decoration) on touch, where there's no hover. Ring adopts the club colour on hover,
+            and a press-scale gives tactile feedback. Each jumps to that team's page. */}
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
           {teams.map(t => (
-            <Box key={t.id} onClick={() => onOpenTeam(t)} sx={{ cursor: 'pointer', transition: 'transform 0.12s', '&:hover': { transform: 'scale(1.08)' } }}>
-              <TeamBadge team={t} size={32} />
+            <Box
+              key={t.id}
+              onClick={() => onOpenTeam(t)}
+              sx={{
+                display: 'flex', alignItems: 'center', gap: 0.6,
+                pl: '3px', pr: 0.9, py: '3px', borderRadius: 999,
+                cursor: 'pointer', userSelect: 'none',
+                border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
+                transition: 'border-color 0.15s, transform 0.1s',
+                '&:hover': { borderColor: wpblColor(t.id) },
+                '&:active': { transform: 'scale(0.94)' },
+              }}
+            >
+              <TeamBadge team={t} size={24} />
+              <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: 0.3 }}>{t.abbr}</Typography>
             </Box>
           ))}
         </Box>

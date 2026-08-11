@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Box, Typography, Skeleton, useMediaQuery } from '@mui/material'
 import { fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
@@ -281,7 +281,9 @@ function TeamsView({ teams, games, selected, onSelect, onOpenGame, onOpenPlayer 
         team={selected}
         teams={teams}
         games={games}
-        onBack={() => onSelect(null)}
+        // Walk history back to wherever the team page was opened from (Home chips, the
+        // Teams grid, a schedule link…) rather than always landing on the Teams grid.
+        onBack={() => window.history.back()}
         onOpenGame={onOpenGame}
         onOpenPlayer={onOpenPlayer}
       />
@@ -323,7 +325,7 @@ type WpblSnap = {
 const isWpblView = (v: unknown): v is WpblView => NAV.some(n => n.key === v)
 const HOME_SNAP: WpblSnap = { view: 'home', team: null, game: null, player: null }
 
-export default function WpblApp() {
+export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // Section is public/read-only (feed-driven). Ingest-health freshness moved to the site
   // Admin panel, so the section no longer needs an admin flag.
 
@@ -571,22 +573,42 @@ export default function WpblApp() {
           // active one — and, mid-swipe, its neighbour — are the only ones mounted). The
           // `active` flag lets a view react to becoming current after a swipe reuses its
           // already-mounted node (e.g. Schedule re-snapping to the next game).
+          // Full-bleed the swipe track to the screen edge on mobile (cancel the app's p:2
+          // gutter), then hand that 16px back to each pane via `padX` — so a swiped pane
+          // slides fully off-screen instead of disappearing under a padded barrier.
+          <Box sx={{ mx: { xs: -2, sm: 0 } }}>
           <SwipeableViews
             index={NAV.findIndex(n => n.key === view)}
             onIndexChange={i => selectTab(NAV[i].key)}
             minHeight={isMobileView ? 'calc(100dvh - 128px)' : undefined}
             stickyNavRef={navRef}
+            padX={isMobileView ? 16 : 0}
             panels={NAV.map(n => {
-              switch (n.key) {
-                case 'home':      return <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} onViewStats={openStats} onViewTracking={openTracking} />
-                case 'schedule':  return <ScheduleView teams={teams} games={games} onOpenGame={openGame} active={view === 'schedule'} />
-                case 'standings': return <StandingsView teams={teams} games={games} onOpenTeam={selectTeam} />
-                case 'stats':     return <WpblStatsView teams={teams} games={games} initialGroup={statsGroup} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} />
-                case 'tracking':  return <WpblTrackingView teams={teams} onOpenPlayer={openPlayer} />
-                case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeam} onOpenGame={openGame} onOpenPlayer={openPlayer} />
-              }
+              const content = (() => {
+                switch (n.key) {
+                  case 'home':      return <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} onViewStats={openStats} onViewTracking={openTracking} />
+                  case 'schedule':  return <ScheduleView teams={teams} games={games} onOpenGame={openGame} active={view === 'schedule'} />
+                  case 'standings': return <StandingsView teams={teams} games={games} onOpenTeam={selectTeam} />
+                  case 'stats':     return <WpblStatsView teams={teams} games={games} initialGroup={statsGroup} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} />
+                  case 'tracking':  return <WpblTrackingView teams={teams} onOpenPlayer={openPlayer} />
+                  case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeam} onOpenGame={openGame} onOpenPlayer={openPlayer} />
+                }
+              })()
+              // On mobile the footer lives at the bottom of each tab pane rather than as one
+              // shared element below the swipe area — so it slides with its page. Swiping lands
+              // on the new tab's top (its footer off-screen) and a partial swipe that springs
+              // back moves nothing; no shared footer reflows/pops mid-swipe. `mt: auto` pins it
+              // to the bottom of the floored pane on short tabs, right after content on tall ones.
+              if (!isMobileView || !renderFooter) return content
+              return (
+                <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100dvh - 128px)' }}>
+                  {content}
+                  <Box sx={{ mt: 'auto' }}>{renderFooter()}</Box>
+                </Box>
+              )
             })}
           />
+          </Box>
         )}
       </Box>
 

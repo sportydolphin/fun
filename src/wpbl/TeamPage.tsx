@@ -159,7 +159,7 @@ export default function TeamPage({ team, teams, games, onBack, onOpenGame, onOpe
     <Box>
       {/* Header */}
       <Box onClick={onBack} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, '&:hover': { color: 'text.primary' } }}>
-        ← All teams
+        ← Back
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
         <TeamBadge team={team} size={52} />

@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useCallback, useRef, lazy, Suspense } from 'react'
+import React, { useEffect, useState, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
+import { createPortal } from 'react-dom'
 import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, List, ListItemButton, Divider } from '@mui/material'
 import { Brightness4, Brightness7, AccountCircle, Search, Close } from '@mui/icons-material'
 import { useSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
@@ -52,6 +53,62 @@ const SESSION_KEY = 'sdUnlocked'
 function navigate(to: string) {
   window.history.pushState({}, '', to)
   window.dispatchEvent(new PopStateEvent('popstate'))
+}
+
+// A one-shot confetti pop, fired when you flip the league switch to WPBL — a small nod to
+// the section's playful side. Purely cosmetic: self-contained CSS, no library, `pointer-
+// events: none` so it never blocks a tap, and it unmounts itself once the animation ends.
+// Re-triggered by remounting with a fresh `key`, which reseeds the random spread.
+//
+// Portaled to <body> at fixed viewport coords (x/y = the WPBL segment's centre): the AppBar
+// is `position: static` on mobile, so confetti left inside it renders *under* the section's
+// sticky tab nav. A body-level portal with a very high z-index floats it above everything.
+const CONFETTI_COLORS = ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#007aff', '#5856d6', '#af52de']
+function ConfettiBurst({ x, y, onDone }: { x: number; y: number; onDone: () => void }) {
+  const pieces = useMemo(() => Array.from({ length: 16 }, (_, i) => {
+    // Fan downward-and-out: the switch sits at the very top of the page, so an upward
+    // burst would fly off the top edge of the viewport. Down has the whole page below.
+    const angle = Math.PI * (0.15 + Math.random() * 0.7)
+    const dist = 26 + Math.random() * 34
+    return {
+      id: i,
+      tx: Math.cos(angle) * dist * (Math.random() < 0.5 ? -1 : 1),
+      ty: Math.sin(angle) * dist + (4 + Math.random() * 8),
+      rot: (Math.random() * 2 - 1) * 220,
+      delay: Math.random() * 60,
+      color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+      size: 4 + Math.random() * 3,
+      round: Math.random() < 0.4,
+    }
+  }), [])
+  useEffect(() => {
+    const t = window.setTimeout(onDone, 850)
+    return () => window.clearTimeout(t)
+  }, [onDone])
+  return createPortal(
+    <Box sx={{ position: 'fixed', left: x, top: y, width: 0, height: 0, pointerEvents: 'none', zIndex: 20000, '@keyframes confettiFly': {
+      '0%':   { transform: 'translate(-50%, -50%) rotate(0deg)', opacity: 1 },
+      '100%': { transform: 'translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) rotate(var(--rot))', opacity: 0 },
+    } }}>
+      {pieces.map(p => (
+        <Box
+          key={p.id}
+          style={{
+            '--tx': `${p.tx}px`,
+            '--ty': `${p.ty}px`,
+            '--rot': `${p.rot}deg`,
+            width: p.size,
+            height: p.size,
+            background: p.color,
+            borderRadius: p.round ? '50%' : '1px',
+            animationDelay: `${p.delay}ms`,
+          } as React.CSSProperties}
+          sx={{ position: 'absolute', left: 0, top: 0, animation: 'confettiFly 0.75s cubic-bezier(0.2, 0.6, 0.35, 1) forwards' }}
+        />
+      ))}
+    </Box>,
+    document.body,
+  )
 }
 
 // Every route path is lowercase and matched exactly, but inbound links (and the
@@ -239,6 +296,11 @@ function AppInner() {
   const [deactivated,      setDeactivated]      = useState(false)
   const [authToast,        setAuthToast]         = useState<'in' | 'out' | 'deleted' | null>(null)
   const accountBtnRef = useRef<HTMLButtonElement>(null)
+  const leagueSwitchRef = useRef<HTMLDivElement>(null)
+  const confettiTimer = useRef<number | undefined>(undefined)
+  // Set (with a fresh key + the WPBL segment's screen coords) each time the switch flips to
+  // WPBL, to fire the confetti pop from there; null once it finishes.
+  const [confetti, setConfetti] = useState<{ key: number; x: number; y: number } | null>(null)
   const isAdmin = user?.email === ADMIN_EMAIL
   const isDesktop = useMediaQuery('(min-width: 600px)')
 
@@ -483,31 +545,81 @@ function AppInner() {
               sportydolphin
             </Typography>
 
-            {/* League switcher — jumps between the two top-level sections (MLB | WPBL). */}
-            <Box sx={{
-              display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0,
-              p: '2px', borderRadius: 999,
+            {/* League switcher — slides between the two top-level sections (MLB | WPBL).
+                A single absolutely-positioned thumb translates between the two equal-
+                width segments so the fill glides instead of jumping; it goes rainbow
+                on the WPBL side, plain accent on MLB. Acts as one switch: a click
+                anywhere on it flips to the other league. */}
+            <Box
+              ref={leagueSwitchRef}
+              onClick={() => {
+                const target = path === '/wpbl' ? '/mlb' : '/wpbl'
+                if (target === '/wpbl') {
+                  // Pop confetti from the bottom edge of the WPBL segment (right half of the
+                  // control), held until the thumb finishes sliding across (matches the 0.28s slide).
+                  const r = leagueSwitchRef.current?.getBoundingClientRect()
+                  if (r) {
+                    window.clearTimeout(confettiTimer.current)
+                    confettiTimer.current = window.setTimeout(() => {
+                      setConfetti(c => ({ key: (c?.key ?? 0) + 1, x: r.left + r.width * 0.75, y: r.bottom }))
+                    }, 280)
+                  }
+                }
+                navigate(target)
+              }}
+              sx={{
+              // Equal-width columns (grid, not flex) so both segments are the same
+              // width regardless of label length — otherwise MLB would be narrower
+              // than WPBL and the 50% thumb wouldn't line up with either segment.
+              position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', flexShrink: 0,
+              p: '2px', borderRadius: 999, cursor: 'pointer',
               border: '1px solid', borderColor: `${ACCENT}55`, bgcolor: `${ACCENT}14`,
             }}>
+              {(path === '/mlb' || path === '/wpbl') && (() => {
+                const wpblActive = path === '/wpbl'
+                return (
+                  <Box sx={{
+                    position: 'absolute', top: '2px', bottom: '2px', left: '2px',
+                    width: 'calc(50% - 2px)', borderRadius: 999,
+                    transform: wpblActive ? 'translateX(100%)' : 'translateX(0)',
+                    transition: 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
+                    // WPBL side: the rainbow gently pans (repeat the first stop at the end so
+                    // the 200%-wide fill loops seamlessly). MLB stays a plain accent fill.
+                    ...(wpblActive
+                      ? {
+                          background: 'linear-gradient(90deg, #ff3b30, #ff9500, #ffcc00, #34c759, #007aff, #5856d6, #af52de, #ff3b30)',
+                          backgroundSize: '200% 100%',
+                          animation: 'wpblShimmer 4s linear infinite',
+                          '@keyframes wpblShimmer': {
+                            '0%':   { backgroundPosition: '0% 50%' },
+                            '100%': { backgroundPosition: '200% 50%' },
+                          },
+                        }
+                      : { background: ACCENT }),
+                  }} />
+                )
+              })()}
               {[{ label: 'MLB', to: '/mlb' }, { label: 'WPBL', to: '/wpbl' }].map(seg => {
                 const active = path === seg.to
+                const rainbow = active && seg.to === '/wpbl'
                 return (
                   <Box
                     key={seg.to}
-                    onClick={() => navigate(seg.to)}
                     sx={{
-                      px: 1, py: '3px', borderRadius: 999, cursor: 'pointer', userSelect: 'none',
+                      position: 'relative', zIndex: 1, textAlign: 'center',
+                      px: 1, py: '3px', borderRadius: 999, userSelect: 'none',
                       fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.3, lineHeight: 1,
                       color: active ? '#fff' : 'text.secondary',
-                      bgcolor: active ? ACCENT : 'transparent',
-                      transition: 'background-color 0.15s, color 0.15s',
-                      '&:hover': { bgcolor: active ? ACCENT : 'action.hover' },
+                      textShadow: rainbow ? '0 1px 1px rgba(0,0,0,0.35)' : 'none',
+                      transition: 'color 0.2s',
+                      '&:hover': { color: active ? '#fff' : 'text.primary' },
                     }}
                   >
                     {seg.label}
                   </Box>
                 )
               })}
+              {confetti && <ConfettiBurst key={confetti.key} x={confetti.x} y={confetti.y} onDone={() => setConfetti(null)} />}
             </Box>
           </Box>
 
@@ -879,7 +991,17 @@ function AppInner() {
         )}
         {path === '/wpbl' && (
           <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-            <WpblApp />
+            {/* On mobile the WPBL tabs swipe, so the footer rides inside each tab pane (see
+                WpblApp) instead of sitting shared below them — the shared one is suppressed
+                just below. Desktop keeps the app-level footer. */}
+            <WpblApp renderFooter={() => (
+              <SiteFooter
+                onOpenChangelog={() => setChangelogOpen(true)}
+                onOpenFeedback={() => setFeedbackOpen(true)}
+                onNavigate={navigate}
+                isWpbl
+              />
+            )} />
           </Suspense>
         )}
         {path === '/wpbl/api' && (
@@ -904,12 +1026,17 @@ function AppInner() {
         )}
       </Box>
 
-      <SiteFooter
-        onOpenChangelog={() => setChangelogOpen(true)}
-        onOpenFeedback={() => setFeedbackOpen(true)}
-        onNavigate={navigate}
-        isWpbl={path.startsWith('/wpbl')}
-      />
+      {/* On mobile WPBL the footer rides inside each swipeable tab pane (WpblApp's
+          renderFooter) so it doesn't reflow when tabs of different heights swap — so skip
+          the shared one there. Everywhere else (incl. desktop WPBL) it renders here. */}
+      {!(path === '/wpbl' && !isDesktop) && (
+        <SiteFooter
+          onOpenChangelog={() => setChangelogOpen(true)}
+          onOpenFeedback={() => setFeedbackOpen(true)}
+          onNavigate={navigate}
+          isWpbl={path.startsWith('/wpbl')}
+        />
+      )}
 
       <FeedbackDialog
         open={feedbackOpen}
