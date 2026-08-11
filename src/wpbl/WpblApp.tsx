@@ -603,6 +603,7 @@ export default function WpblApp() {
         <GameDetailModal
           game={detailGame}
           teams={teams}
+          games={games}
           onClose={closeTop}
           onOpenPlayer={openPlayer}
         />

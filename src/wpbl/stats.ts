@@ -117,3 +117,129 @@ export function aggregatePitching(players: WpblPlayer[], lines: WpblPitchingLine
   }
   return out
 }
+
+// ─── Team season comparison (game-preview matchup bars) ──────────────────────────
+// The WPBL analogue of the MLB app's fetchTeamSeasonStats: each team's season totals,
+// ranked against the rest of the league so the game-preview card can draw a diverging
+// bar per stat (bar length = position in the league range, always growing toward
+// "better" — including ERA/WHIP where the lower number wins). Computed client-side from
+// the same box-score lines the leaders read, so it needs no extra fetch beyond what Home
+// already caches.
+
+export type WpblTeamStatKey = 'avg' | 'obp' | 'slg' | 'ops' | 'rpg' | 'hr' | 'era' | 'whip' | 'k7'
+
+export interface WpblTeamStatValue {
+  display: string
+  rank: number          // 1 = best in the league; ties share the better rank
+  pct: number           // 0 = worst, 1 = best (already direction-aware)
+}
+
+export type WpblTeamSeasonStats = Partial<Record<WpblTeamStatKey, WpblTeamStatValue>>
+
+export interface WpblTeamStatDef {
+  key: WpblTeamStatKey
+  label: string
+  group: 'hitting' | 'pitching'
+  better: 'high' | 'low'
+}
+
+// Render order for the comparison table. K/7 (not K/9) because WPBL games are 7 innings.
+export const WPBL_TEAM_STAT_DEFS: WpblTeamStatDef[] = [
+  { key: 'avg',  label: 'AVG',  group: 'hitting',  better: 'high' },
+  { key: 'obp',  label: 'OBP',  group: 'hitting',  better: 'high' },
+  { key: 'slg',  label: 'SLG',  group: 'hitting',  better: 'high' },
+  { key: 'ops',  label: 'OPS',  group: 'hitting',  better: 'high' },
+  { key: 'hr',   label: 'HR',   group: 'hitting',  better: 'high' },
+  { key: 'rpg',  label: 'R/G',  group: 'hitting',  better: 'high' },
+  { key: 'era',  label: 'ERA',  group: 'pitching', better: 'low'  },
+  { key: 'whip', label: 'WHIP', group: 'pitching', better: 'low'  },
+  { key: 'k7',   label: 'K/7',  group: 'pitching', better: 'high' },
+]
+
+// Per-team, per-stat ranked values for every team that has logged box-score lines. A team
+// with no lines yet (opening days) simply isn't in the map, so the preview shows a dash on
+// that side. Ranks and bar scales are over the teams that HAVE played, so early in the
+// season the comparison is still meaningful between two clubs that have both taken the field.
+export function computeWpblTeamStats(
+  teams: WpblTeam[],
+  games: WpblGame[],
+  batting: WpblBattingLine[],
+  pitching: WpblPitchingLine[],
+): Map<string, WpblTeamSeasonStats> {
+  // Final games each team has played — the denominator for R/G.
+  const gamesPlayed = new Map<string, number>()
+  for (const g of games) {
+    if (g.status !== 'final') continue
+    gamesPlayed.set(g.away_team_id, (gamesPlayed.get(g.away_team_id) ?? 0) + 1)
+    gamesPlayed.set(g.home_team_id, (gamesPlayed.get(g.home_team_id) ?? 0) + 1)
+  }
+
+  const batByTeam = new Map<string, WpblBattingLine[]>()
+  for (const l of batting) {
+    if (!l.team_id) continue
+    const a = batByTeam.get(l.team_id) ?? []; a.push(l); batByTeam.set(l.team_id, a)
+  }
+  const pitByTeam = new Map<string, WpblPitchingLine[]>()
+  for (const l of pitching) {
+    if (!l.team_id) continue
+    const a = pitByTeam.get(l.team_id) ?? []; a.push(l); pitByTeam.set(l.team_id, a)
+  }
+
+  // Raw numeric value per stat per team; null values are simply left out (dash in the UI).
+  const raw = new Map<WpblTeamStatKey, Map<string, number>>()
+  const put = (key: WpblTeamStatKey, teamId: string, value: number | null) => {
+    if (value == null || !Number.isFinite(value)) return
+    if (!raw.has(key)) raw.set(key, new Map())
+    raw.get(key)!.set(teamId, value)
+  }
+
+  for (const t of teams) {
+    const bt = sumBatting(batByTeam.get(t.id) ?? [])
+    put('avg', t.id, bt.avg)
+    put('obp', t.id, bt.obp)
+    put('slg', t.id, bt.slg)
+    put('ops', t.id, bt.ops)
+    if (bt.ab > 0 || bt.h > 0) put('hr', t.id, bt.hr)
+    const gp = gamesPlayed.get(t.id) ?? 0
+    if (gp > 0) put('rpg', t.id, bt.r / gp)
+
+    const pt = sumPitching(pitByTeam.get(t.id) ?? [])
+    put('era', t.id, pt.era)
+    put('whip', t.id, pt.whip)
+    // K/7 — strikeouts per 7 innings (a full WPBL game), from innings-in-outs.
+    if (pt.outs > 0) put('k7', t.id, (pt.so * 21) / pt.outs)
+  }
+
+  const fmt: Record<WpblTeamStatKey, (n: number) => string> = {
+    avg: fmtRate, obp: fmtRate, slg: fmtRate, ops: fmtRate,
+    rpg: n => n.toFixed(1),
+    hr: n => String(Math.round(n)),
+    era: n => n.toFixed(2),
+    whip: n => n.toFixed(2),
+    k7: n => n.toFixed(1),
+  }
+
+  const out = new Map<string, WpblTeamSeasonStats>()
+  for (const def of WPBL_TEAM_STAT_DEFS) {
+    const values = raw.get(def.key)
+    if (!values) continue
+    const sorted = [...values].sort((a, b) => def.better === 'high' ? b[1] - a[1] : a[1] - b[1])
+    const best = sorted[0][1]
+    const worst = sorted[sorted.length - 1][1]
+    const span = Math.abs(best - worst)
+    let rank = 0
+    let prev: number | null = null
+    sorted.forEach(([teamId, value], i) => {
+      if (prev === null || value !== prev) rank = i + 1
+      prev = value
+      const entry = out.get(teamId) ?? {}
+      entry[def.key] = {
+        display: fmt[def.key](value),
+        rank,
+        pct: span === 0 ? 1 : Math.abs(value - worst) / span,
+      }
+      out.set(teamId, entry)
+    })
+  }
+  return out
+}

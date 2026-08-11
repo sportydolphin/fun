@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking } from './api'
 import { wpblAccent, wpblFullName, outsToIp, formatGameTime } from './constants'
 import { LiveBanner, useLiveGame } from './Live'
+import { WpblGamePreview } from './GamePreview'
 import { ModalShell, SegNav, TeamBadge, useWpblDark, useWpblName } from './ui'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, speedUnit } from '../lib/units'
@@ -705,9 +706,10 @@ function TeamSwitch({ away, home, value, onChange }: {
 }
 
 // ─── Modal root ────────────────────────────────────────────────────────────────
-export default function GameDetailModal({ game: seed, teams, onClose, onOpenPlayer }: {
+export default function GameDetailModal({ game: seed, teams, games = [], onClose, onOpenPlayer }: {
   game: WpblGame
   teams: WpblTeam[]
+  games?: WpblGame[]
   onClose: () => void
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
@@ -856,12 +858,22 @@ export default function GameDetailModal({ game: seed, teams, onClose, onOpenPlay
               {tab === 'pitch' && <PitchData tracking={tracking} boxPitchers={boxPitchers} firstHit={firstHit} live={live} />}
             </Box>
           </>
-        ) : (
+        ) : final ? (
           <Box sx={{ flex: 1, p: 2 }}>
             <EmptyBody
-              title={final ? 'Box score not available yet' : 'This game has not been played yet'}
-              hint={final ? 'The feed has not posted a box score for this game.' : 'Check back after first pitch.'}
+              title="Box score not available yet"
+              hint="The feed has not posted a box score for this game."
             />
+          </Box>
+        ) : away && home ? (
+          // Unplayed game: a pre-game matchup card comparing the two clubs' season stats,
+          // in place of a bare "not played yet" message (mirrors the MLB game preview).
+          <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+            <WpblGamePreview away={away} home={home} teams={teams} games={games} />
+          </Box>
+        ) : (
+          <Box sx={{ flex: 1, p: 2 }}>
+            <EmptyBody title="This game has not been played yet" hint="Check back after first pitch." />
           </Box>
         )}
       </Box>
