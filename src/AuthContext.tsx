@@ -13,6 +13,41 @@ import { usernameValidationMsg, isUsernameTaken } from './lib/usernames'
 // up by App.tsx's username-assignment effect once the user is actually signed in.
 export const PENDING_USERNAME_PREFIX = 'sdPendingUsername:'
 
+// ─── Post-auth return location ──────────────────────────────────────────────────
+// Where to land the user after they sign in / create an account: the page they were
+// on when they started, not a hardcoded home. Sign-in triggers a reload (to a clean
+// URL), and Google OAuth navigates away and back, so we stash the intended return
+// path in sessionStorage (survives both) and restore it once SIGNED_IN fires.
+const AUTH_RETURN_KEY = 'sdAuthReturn'
+
+// Current path + query with any auth-callback params stripped, so we never store or
+// replace to a URL that would re-trigger Supabase's code exchange on the next load.
+function cleanPathAndQuery(href: string): string {
+  try {
+    const url = new URL(href)
+    for (const p of [
+      'code', 'access_token', 'refresh_token', 'provider_token', 'provider_refresh_token',
+      'expires_in', 'expires_at', 'token_type', 'type', 'error', 'error_code', 'error_description',
+    ]) url.searchParams.delete(p)
+    return `${url.pathname}${url.search}`
+  } catch {
+    return window.location.pathname
+  }
+}
+
+function stashAuthReturn(): void {
+  try { sessionStorage.setItem(AUTH_RETURN_KEY, cleanPathAndQuery(window.location.href)) } catch { /* storage off — fall back to pathname */ }
+}
+
+// Read-and-clear the stashed return path (one-shot, so a later reload doesn't reuse it).
+function takeAuthReturn(): string | null {
+  try {
+    const v = sessionStorage.getItem(AUTH_RETURN_KEY)
+    if (v) sessionStorage.removeItem(AUTH_RETURN_KEY)
+    return v
+  } catch { return null }
+}
+
 // ─── Dev-only "simulate login" ──────────────────────────────────────────────────
 // Lets local development pretend a random user is signed in, so logged-in UI and
 // flows can be exercised without real Supabase credentials. Persisted in
@@ -68,7 +103,7 @@ export function simulateDevLogin(): void {
   if (!import.meta.env.DEV) return
   localStorage.setItem(SIMULATED_USER_KEY, JSON.stringify(randomSimUser()))
   sessionStorage.setItem('sdAuthToast', 'in')
-  window.location.replace(window.location.pathname)
+  window.location.replace(cleanPathAndQuery(window.location.href))
 }
 
 // ─── Error messages ───────────────────────────────────────────────────────────
@@ -175,9 +210,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (wasSignedOut) {
           // Genuine transition from signed-out → signed-in. Reload to a clean URL
           // so any OAuth callback params (?code= / #access_token=) are stripped and
-          // won't cause Supabase to re-fire SIGNED_IN on the next load.
+          // won't cause Supabase to re-fire SIGNED_IN on the next load — landing back
+          // on the page the user started from (stashed pre-auth), not a hardcoded home.
           sessionStorage.setItem('sdAuthToast', 'in')
-          window.location.replace(window.location.pathname)
+          window.location.replace(takeAuthReturn() ?? cleanPathAndQuery(window.location.href))
         }
         // else: prevUserId was a UUID (token refresh) or undefined (too early) → skip
       } else if (event === 'SIGNED_OUT') {
@@ -193,12 +229,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ── Auth callbacks ─────────────────────────────────────────────────────────
   const signIn = useCallback(async (em: string, pw: string): Promise<string | null> => {
+    stashAuthReturn()  // remember where we are, so the post-sign-in reload returns here
     const { error } = await supabase.auth.signInWithPassword({ email: em, password: pw })
     return error ? friendlyError(error.message) : null
   }, [])
 
   const signUp = useCallback(async (em: string, pw: string): Promise<string | null> => {
-    const { error } = await supabase.auth.signUp({ email: em, password: pw })
+    stashAuthReturn()
+    const { error } = await supabase.auth.signUp({
+      email: em,
+      password: pw,
+      // If confirmation is required, the emailed link returns to this same page.
+      options: { emailRedirectTo: `${window.location.origin}${cleanPathAndQuery(window.location.href)}` },
+    })
     return error ? friendlyError(error.message) : null
   }, [])
 
@@ -214,11 +257,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signInWithGoogle = useCallback(async () => {
+    // Return to the page the user was on, not a hardcoded /mlb. We stash it (survives
+    // the round trip to Google) and also pass it as redirectTo; the SIGNED_IN handler
+    // strips the ?code= Supabase appends. Stash is the source of truth on the way back.
+    stashAuthReturn()
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      // Use origin + /mlb so it always lands on the right page regardless
-      // of what path the user was on when they clicked the button
-      options: { redirectTo: `${window.location.origin}/mlb` },
+      options: { redirectTo: `${window.location.origin}${cleanPathAndQuery(window.location.href)}` },
     })
     // Page will redirect to Google — nothing to handle here
   }, [])
@@ -271,7 +316,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (err) setError(err)
       // success: onAuthStateChange fires → reload + toast
     } else {
-      const { data, error: sbErr } = await supabase.auth.signUp({ email: em, password })
+      stashAuthReturn()  // return to this page after confirmation / auto-confirm reload
+      const { data, error: sbErr } = await supabase.auth.signUp({
+        email: em,
+        password,
+        options: { emailRedirectTo: `${window.location.origin}${cleanPathAndQuery(window.location.href)}` },
+      })
       setBusy(false)
       if (sbErr) {
         setError(friendlyError(sbErr.message))
