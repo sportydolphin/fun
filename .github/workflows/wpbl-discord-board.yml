@@ -1,0 +1,43 @@
+name: WPBL Discord Board
+
+on:
+  schedule:
+    # Every 15 minutes during WPBL waking hours (Central-time hub — see the reminder
+    # workflow for the same reasoning). The board only needs refreshing often enough
+    # that the live countdown and "in progress" flip stay roughly current; the actual
+    # <t:...> timestamps count down on their own between runs, so this cadence is plenty.
+    - cron: '*/15 14-23,0-3 * * *'
+  workflow_dispatch:   # run on demand from the Actions tab (use this for the first, creating run)
+
+# One board writer at a time; skip a tick rather than racing two edits.
+concurrency:
+  group: wpbl-discord-board
+  cancel-in-progress: false
+
+jobs:
+  update-board:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Same trick as the reminder workflow: install only the two packages this script
+      # imports, at the versions pinned in package.json, instead of the whole frontend.
+      - name: Install dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Update WPBL Discord board
+        env:
+          SUPABASE_URL:               ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY:  ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DISCORD_BOARD_WEBHOOK_URL:  ${{ secrets.DISCORD_BOARD_WEBHOOK_URL }}
+          DISCORD_BOARD_MESSAGE_ID:   ${{ vars.DISCORD_BOARD_MESSAGE_ID }}
+          DISCORD_WATCH_PARTY_VC_URL: ${{ vars.DISCORD_WATCH_PARTY_VC_URL }}
+          DISCORD_EVENTS_URL:         ${{ vars.DISCORD_EVENTS_URL }}
+        run: node scripts/update-wpbl-discord-board.mjs
