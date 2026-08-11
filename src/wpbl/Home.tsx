@@ -51,7 +51,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
       {/* Winner caret — only on finals, where a fixed-width slot keeps both rows' badges aligned.
           Upcoming/live games omit the slot entirely so the badge sits flush left. */}
       {final && (
-        <Box sx={{ width: 10, flexShrink: 0, fontSize: '0.85rem', lineHeight: 1, color: wpblAccent(t?.id, isDark) }}>{won ? '▸' : ''}</Box>
+        <Box sx={{ width: 7, flexShrink: 0, mx: -0.45, textAlign: 'center', fontSize: '0.85rem', lineHeight: 1, color: wpblAccent(t?.id, isDark) }}>{won ? '▸' : ''}</Box>
       )}
       {t && <TeamBadge team={t} size={20} />}
       <Typography sx={{

@@ -71,6 +71,13 @@ function ScheduleView({ teams, games, onOpenGame }: {
   active?: boolean // accepted (call site passes it) but unused now that ordering replaced auto-scroll
 }) {
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  const isDark = useWpblDark()
+  // Season-to-date record per team, so upcoming games can show each side's W-L.
+  const recordById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of computeStandings(teams, games)) m.set(r.team.id, `${r.wins}-${r.losses}`)
+    return m
+  }, [teams, games])
   // Snap the schedule to the current point in the season when it opens: the next live or
   // upcoming game lands at the top, with the just-played games directly above it, instead
   // of starting on the season opener. Games are date-ascending, so the first non-final one
@@ -98,11 +105,20 @@ function ScheduleView({ teams, games, onOpenGame }: {
   const lead = dates.slice(start)
   const earlier = dates.slice(0, start)
 
+  // "Today" / "Tomorrow" / "Yesterday" for the nearby days (with the date kept alongside so the
+  // label stays informative), otherwise the weekday + date.
+  const dateLabel = (date: string) => {
+    const d = new Date(`${date}T00:00:00`)
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
+    const rel = diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : diff === -1 ? 'Yesterday' : null
+    const md = d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+    return rel ? `${rel} · ${md}` : d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+  }
+
   const renderDate = (date: string) => (
     <Box key={date}>
-      <SectionLabel>
-        {new Date(`${date}T00:00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}
-      </SectionLabel>
+      <SectionLabel>{dateLabel(date)}</SectionLabel>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {byDate.get(date)!.map(g => {
           const home = byId.get(g.home_team_id)
@@ -111,24 +127,44 @@ function ScheduleView({ teams, games, onOpenGame }: {
           const live = g.status === 'live'
           return (
             <Box key={g.id} onClick={() => onOpenGame(g)} sx={{
-              display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, cursor: 'pointer',
-              borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
+              display: 'flex', alignItems: 'center', gap: 1, p: 1.25, cursor: 'pointer',
+              // Completed games get a muted fill so past reads as visually settled vs. crisp upcoming cards.
+              // action.hover is too faint against the dark paper, so use a stronger explicit tint there.
+              borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
+              bgcolor: final ? (isDark ? 'rgba(255,255,255,0.09)' : 'action.hover') : 'background.paper',
               transition: 'border-color 0.15s', '&:hover': { borderColor: 'text.disabled' },
             }}>
-              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                {[away, home].map((t, i) => t && (
-                  <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                {[away, home].map((t, i) => {
+                  const score = i === 0 ? g.away_score ?? 0 : g.home_score ?? 0
+                  const other = i === 0 ? g.home_score ?? 0 : g.away_score ?? 0
+                  const won = final && score > other
+                  return t && (
+                  <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+                    {/* Winner caret on finals — fixed-width slot keeps both rows' badges aligned. */}
+                    {final && (
+                      <Box sx={{ width: 7, flexShrink: 0, mx: -0.5, textAlign: 'center', fontSize: '0.8rem', lineHeight: 1, color: wpblAccent(t.id, isDark) }}>{won ? '▸' : ''}</Box>
+                    )}
                     <TeamBadge team={t} size={26} />
-                    <Typography sx={{ fontSize: '0.9rem', fontWeight: 600, flex: 1 }}>{wpblFullName(t)}</Typography>
-                    {(final || live) && (
-                      <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>
-                        {i === 0 ? g.away_score ?? 0 : g.home_score ?? 0}
+                    {/* Away is the top row, home the bottom — a muted "@" prefix on the home team
+                        reads as "away @ home" without a reserved gutter throwing off the spacing. */}
+                    <Typography noWrap sx={{ fontSize: '0.9rem', fontWeight: won ? 800 : 600, flex: 1, minWidth: 0, color: final && !won ? 'text.secondary' : 'text.primary' }}>
+                      {i === 1 && <Box component="span" sx={{ color: 'text.disabled', fontWeight: 600, mr: 0.5 }}>@</Box>}
+                      {wpblFullName(t)}
+                    </Typography>
+                    {(final || live) ? (
+                      <Typography sx={{ flexShrink: 0, minWidth: 18, textAlign: 'right', fontSize: '0.95rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: final && !won ? 'text.disabled' : 'text.primary' }}>
+                        {score}
+                      </Typography>
+                    ) : recordById.get(t.id) && (
+                      <Typography sx={{ flexShrink: 0, textAlign: 'right', fontSize: '0.72rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.disabled' }}>
+                        {recordById.get(t.id)}
                       </Typography>
                     )}
                   </Box>
-                ))}
+                )})}
               </Box>
-              <Box sx={{ textAlign: 'right', minWidth: 84 }}>
+              <Box sx={{ flexShrink: 0, textAlign: 'right', minWidth: 58, whiteSpace: 'nowrap' }}>
                 <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: live ? '#ef4444' : final ? 'text.secondary' : WPBL_ACCENT }}>
                   {live ? '● Live' : final ? `Final${g.innings && g.innings !== 7 ? `/${g.innings}` : ''}` : formatGameTime(g.game_date, g.start_time) || 'TBD'}
                 </Typography>
@@ -141,7 +177,7 @@ function ScheduleView({ teams, games, onOpenGame }: {
   )
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
       {lead.map(renderDate)}
       {earlier.length > 0 && <SectionLabel>Earlier</SectionLabel>}
       {earlier.map(renderDate)}
@@ -191,7 +227,10 @@ function StandingsView({ teams, games, onOpenTeam }: {
                 <Box component="td" sx={{ ...td, textAlign: 'left', pl: 1.25 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
                     <TeamBadge team={r.team} size={24} />
-                    <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{wpblFullName(r.team)}</Typography>
+                    {/* Full name would truncate on mobile once the numeric columns claim their
+                        fixed widths — fall back to the nickname there (the badge carries the city). */}
+                    <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: { xs: 'none', sm: 'block' } }}>{wpblFullName(r.team)}</Typography>
+                    <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: { xs: 'block', sm: 'none' } }}>{r.team.name}</Typography>
                   </Box>
                 </Box>
                 <Box component="td" sx={{ ...td, fontWeight: 700 }}>{r.wins}</Box>

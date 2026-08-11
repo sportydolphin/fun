@@ -68,7 +68,21 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     const stickyOffset = stickyNavRef?.current?.offsetHeight ?? 0
     return Math.min(curY, Math.max(0, contentTop - stickyOffset))
   }
-  const targetFor = (i: number, curY: number) => scrollByIndex.current.get(i) ?? freshTarget(curY)
+  // Split scroll into two parts so the pill nav never jumps vertically when swiping tabs:
+  //   • chrome offset — how far the app toolbar has scrolled away, 0…T (T = the "tucked" line
+  //     where the nav is fully pinned). This governs the nav's on-screen position.
+  //   • content offset — scroll past T, i.e. how deep into the tab's own content you are.
+  // Switching tabs keeps the CURRENT chrome offset (so the nav stays exactly where it is) and
+  // applies only the destination tab's remembered content offset beneath it. A tab last left
+  // scrolled deep restores that depth; one left at its top lands at its top — but in both
+  // cases the nav bar holds still.
+  const targetFor = (i: number, curY: number) => {
+    const T = freshTarget(Number.POSITIVE_INFINITY) // tucked line (nav pinned, toolbar off)
+    const chrome = Math.min(curY, T)                // preserve current toolbar-reveal state
+    const remembered = scrollByIndex.current.get(i)
+    const content = remembered == null ? 0 : Math.max(0, remembered - T) // that tab's depth past T
+    return chrome + content
+  }
 
   // Restore on enter, record on leave — for both taps (index prop changes) and swipe
   // commits (onEnd flips the index). The incoming pane was pinned to exactly `targetFor`,

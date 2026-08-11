@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.37.0'
+export const APP_VERSION = '1.37.1'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,37 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.37.1',
+    date:    '2026-08-10',
+    title:   'WPBL schedule polish',
+    changes: [
+      {
+        short: 'The WPBL schedule marks the winner',
+        full:  'A finished game on the WPBL Schedule tab now marks the winning team with an arrow in the team color, keeps the winner\'s name and score bold, and softens the loser\'s, so you can read the result at a glance.',
+      },
+      {
+        short: 'Home and away shown on the WPBL schedule',
+        full:  'Each game on the WPBL Schedule tab now marks the home team with an "@" in front of its name, so it is clear which side is home and which is away.',
+      },
+      {
+        short: 'Records on upcoming WPBL games',
+        full:  'An upcoming game on the WPBL Schedule tab now shows each team\'s season record next to its name, in place of the score that a finished game would show.',
+      },
+      {
+        short: 'Today and Tomorrow on the WPBL schedule',
+        full:  'The date headings on the WPBL Schedule tab now read Today, Tomorrow, or Yesterday for the nearby days, with the date kept alongside, and finished games sit on a slightly muted card so past and upcoming read apart.',
+      },
+      {
+        short: 'Full team names in the WPBL standings on a phone',
+        full:  'The team names in the WPBL Standings tab no longer get cut off on a phone. The full name shows where there is room, and the shorter nickname shows when the stat columns need the space.',
+      },
+      {
+        short: 'Steadier tab bar when swiping WPBL tabs',
+        full:  'The tab bar at the top of the WPBL section no longer jumps up and down when you swipe between tabs that are scrolled to different spots. It now holds still while each tab keeps its own place.',
+      },
+    ],
+  },
   {
     version: '1.37.0',
     date:    '2026-08-10',
