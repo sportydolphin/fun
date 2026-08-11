@@ -493,7 +493,7 @@ function AppInner() {
     // compensate. Portaled MUI Dialogs/Snackbar render outside this box (in body),
     // so they stay at native scale. Mobile (xs) and other routes stay at 1.
     <Box sx={{
-      '--app-zoom': { xs: '1', md: (path === '/mlb' || path === '/wpbl') ? String(DESKTOP_ZOOM) : '1' },
+      '--app-zoom': { xs: '1', md: (path === '/mlb' || path === '/wpbl' || path === '/wpbl/api') ? String(DESKTOP_ZOOM) : '1' },
       zoom: 'var(--app-zoom)',
     }}>
       <AppBar
@@ -553,7 +553,8 @@ function AppInner() {
             <Box
               ref={leagueSwitchRef}
               onClick={() => {
-                const target = path === '/wpbl' ? '/mlb' : '/wpbl'
+                // /wpbl/api counts as the WPBL side, so flipping from the API docs goes to MLB.
+                const target = (path === '/wpbl' || path === '/wpbl/api') ? '/mlb' : '/wpbl'
                 if (target === '/wpbl') {
                   // Pop confetti from the bottom edge of the WPBL segment (right half of the
                   // control), held until the thumb finishes sliding across (matches the 0.28s slide).
@@ -575,8 +576,8 @@ function AppInner() {
               p: '2px', borderRadius: 999, cursor: 'pointer',
               border: '1px solid', borderColor: `${ACCENT}55`, bgcolor: `${ACCENT}14`,
             }}>
-              {(path === '/mlb' || path === '/wpbl') && (() => {
-                const wpblActive = path === '/wpbl'
+              {(path === '/mlb' || path === '/wpbl' || path === '/wpbl/api') && (() => {
+                const wpblActive = path === '/wpbl' || path === '/wpbl/api'
                 return (
                   <Box sx={{
                     position: 'absolute', top: '2px', bottom: '2px', left: '2px',
@@ -600,7 +601,8 @@ function AppInner() {
                 )
               })()}
               {[{ label: 'MLB', to: '/mlb' }, { label: 'WPBL', to: '/wpbl' }].map(seg => {
-                const active = path === seg.to
+                // /wpbl/api lights the WPBL segment too, so the switch stays "on WPBL" in the docs.
+                const active = path === seg.to || (seg.to === '/wpbl' && path === '/wpbl/api')
                 const rainbow = active && seg.to === '/wpbl'
                 return (
                   <Box
@@ -1006,7 +1008,11 @@ function AppInner() {
         )}
         {path === '/wpbl/api' && (
           <Box>
-            <Box onClick={() => navigate('/wpbl')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← WPBL</Box>
+            {/* Align the back control to the docs column (same maxWidth/px as WpblApiDocs)
+                so on desktop it sits by the content, not stranded at the far-left page edge. */}
+            <Box sx={{ maxWidth: 760, mx: 'auto', px: { xs: 2, sm: 3 }, mb: 2 }}>
+              <Box onClick={() => navigate('/wpbl')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
+            </Box>
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               <WpblApiDocs />
             </Suspense>
