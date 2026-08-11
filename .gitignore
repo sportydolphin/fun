@@ -9,3 +9,8 @@ dist
 !.env.example
 .claude/
 supabase/.temp/
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
