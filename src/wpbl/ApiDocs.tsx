@@ -2,10 +2,11 @@ import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { WPBL_ACCENT } from './constants'
 
-// A plain-language guide to the WPBL's public stats feed, for other developers who want to
-// build their own thing on league data. This is the same feed this site reads from (see
-// supabase/functions/wpbl-ingest). It does not touch or expose this site's own database.
-// Linked from the WPBL footer and reachable at /wpbl/api.
+// A plain-language reference for the WPBL's public stats feed: where it lives, what each
+// endpoint returns, and the quirks worth knowing before you pull from it. Written up as
+// findings for other developers, not as a how-to for cloning this site. This is the same
+// feed this site reads from (see supabase/functions/wpbl-ingest), but it does not touch or
+// expose this site's own database. Linked from the WPBL footer and reachable at /wpbl/api.
 
 const FEED = 'https://stats.womensprobaseballleague.com/v1'
 
@@ -89,9 +90,9 @@ export default function WpblApiDocs() {
       </Typography>
       <Typography sx={{ fontSize: '0.95rem', color: 'text.secondary', lineHeight: 1.6, mb: 1 }}>
         The Women's Pro Baseball League publishes a free public JSON feed with the schedule, box
-        scores, play-by-play, and TrackMan pitch tracking. This page shows where it lives and how to
-        read it, so you can build your own tool without scraping anything. It is the same feed this
-        site runs on.
+        scores, play-by-play, and TrackMan pitch tracking. This page is a reference for reading it:
+        where it lives, what comes back, and the quirks I found along the way, so you can pull league
+        data without scraping anything or rediscovering the same gotchas.
       </Typography>
       <Box sx={{ p: 1.5, borderRadius: 2, border: '1px dashed', borderColor: 'divider', bgcolor: 'action.hover', mb: 1 }}>
         <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', lineHeight: 1.55 }}>
@@ -132,7 +133,7 @@ export default function WpblApiDocs() {
       <CodeBlock>{`curl "${FEED}/games/<GAME_ID>/activity?limit=1000&offset=0"`}</CodeBlock>
 
       <H2>Things worth knowing</H2>
-      <P>These are the rough edges I ran into building on the feed. Knowing them up front will save you a few hours.</P>
+      <P>These are the rough edges I hit while pulling from the feed. Knowing them up front will save you a few hours.</P>
       <Note title="Start times read one hour early">
         For the 2026 season, <Code>scheduled_start</Code> comes back one hour before the real first
         pitch. A 6:30 PM Central game shows as 5:30. Add an hour to get the true start. The whole
@@ -148,8 +149,8 @@ export default function WpblApiDocs() {
       <Note title="Tracking data is very limited so far">
         As of this writing, TrackMan tracking (pitch velocity, spin, hit distance) exists for only the
         first two games of the season, and it is unclear whether any more is coming. Later games may
-        never get it. Build so that a game with no tracking is the normal case, not an error, and
-        don't count on the pitch/hit data being there for most of the schedule.
+        never get it. Treat a game with no tracking as the normal case, not an error, and don't count
+        on the pitch/hit data being there for most of the schedule.
       </Note>
       <Note title="When it does arrive, it's late and in batches">
         The tracking that does exist was reconciled after the game, sometimes days later, and several
@@ -174,15 +175,15 @@ export default function WpblApiDocs() {
 
       <H2>Calling it from a browser</H2>
       <P>
-        The feed is easiest to use from a server, a script, or a serverless function. A direct
+        The feed is easiest to read from a server, a script, or a serverless function. A direct
         <Code>fetch</Code> from a web page may be blocked by CORS depending on the league's headers,
-        so if you are building a front end, proxy the request through your own backend.
+        so from a browser, proxy the request through your own backend.
       </P>
 
       <H2>Questions</H2>
       <P>
-        Building something with this and want a hand, or spot something that has changed? Use the
-        Send feedback link in the site footer.
+        Pulling from the feed and something here doesn't match what you see, or a quirk has changed?
+        Use the Send feedback link in the site footer.
       </P>
     </Box>
   )
