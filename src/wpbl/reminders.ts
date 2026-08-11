@@ -17,6 +17,18 @@ import type { WpblGame } from './types'
 
 const DEFAULT_LEAD_MIN = 30
 
+// Session cache of the user's opted-in game ids. The Home next-game card unmounts and
+// remounts as the user swipes between tabs; without this, every remount reset the
+// switch to "off" and re-queried the DB, so an opted-in reminder visibly unchecked and
+// rechecked. Populated on first fetch and kept in sync by add/remove, so a remount can
+// render the right state synchronously with no DB round trip.
+let cache: { userId: string; ids: Set<string> } | null = null
+
+/** Cached opt-in set for `userId` if we've fetched it this session, else null. */
+export function getCachedGameReminderIds(userId: string): Set<string> | null {
+  return cache && cache.userId === userId ? cache.ids : null
+}
+
 /** The set of game ids this user has an active reminder for. Empty on any error. */
 export async function fetchGameReminderIds(userId: string): Promise<Set<string>> {
   const { data, error } = await supabase
@@ -25,9 +37,12 @@ export async function fetchGameReminderIds(userId: string): Promise<Set<string>>
     .eq('user_id', userId)
   if (error) {
     console.warn('[wpbl] fetchGameReminderIds failed:', error.message)
-    return new Set()
+    // Keep any cache we already have rather than reporting a spurious "none".
+    return getCachedGameReminderIds(userId) ?? new Set()
   }
-  return new Set((data ?? []).map(r => r.game_id as string))
+  const ids = new Set((data ?? []).map(r => r.game_id as string))
+  cache = { userId, ids }
+  return ids
 }
 
 /**
@@ -57,6 +72,7 @@ export async function addGameReminder(userId: string, game: WpblGame): Promise<s
     console.warn('[wpbl] addGameReminder failed:', error.message)
     return 'Couldn’t save your reminder. Please try again.'
   }
+  if (cache?.userId === userId) cache.ids.add(game.id)
   return null
 }
 
@@ -75,5 +91,6 @@ export async function removeGameReminder(userId: string, gameId: string): Promis
     console.warn('[wpbl] removeGameReminder failed:', error.message)
     return 'Couldn’t remove your reminder. Please try again.'
   }
+  if (cache?.userId === userId) cache.ids.delete(gameId)
   return null
 }

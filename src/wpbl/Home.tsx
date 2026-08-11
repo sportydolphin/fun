@@ -3,7 +3,7 @@ import { Box, Typography, Skeleton, Switch } from '@mui/material'
 import { NotificationsActiveOutlined, NotificationsNoneOutlined } from '@mui/icons-material'
 import { useAuth } from '../AuthContext'
 import { pushSupported, pushConfigured, notificationPermission } from '../lib/push'
-import { addGameReminder, removeGameReminder, fetchGameReminderIds } from './reminders'
+import { addGameReminder, removeGameReminder, fetchGameReminderIds, getCachedGameReminderIds } from './reminders'
 import { fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, computeStandings } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp } from './constants'
 import { SectionCard, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, CARD_BORDER } from './ui'
@@ -193,16 +193,23 @@ function GameReminderRow({ game }: { game: WpblGame }) {
   const supported  = pushSupported()
   const configured = pushConfigured()
 
-  const [on,   setOn]   = useState(false)
+  // Seed from the session cache so a remount (swiping tabs unmounts Home) shows the
+  // right switch state on the first frame — no off→on flicker, no per-swipe refetch.
+  const cached = user ? getCachedGameReminderIds(user.id) : null
+  const [on,   setOn]   = useState(() => (cached ? cached.has(game.id) : false))
   const [busy, setBusy] = useState(false)
-  const [ready, setReady] = useState(false)   // initial "do we already have one?" check done
+  const [ready, setReady] = useState(() => cached != null || !user)
   const [perm, setPerm] = useState<ReturnType<typeof notificationPermission>>('default')
   const [err,  setErr]  = useState('')
 
   // Reflect the stored opt-in for this game whenever the game or signed-in user changes.
+  // The cache makes the common case (already fetched this session) synchronous; only a
+  // cold cache pays a DB read.
   useEffect(() => {
     setErr(''); setPerm(notificationPermission())
     if (!user) { setOn(false); setReady(true); return }
+    const have = getCachedGameReminderIds(user.id)
+    if (have) { setOn(have.has(game.id)); setReady(true); return }
     let cancelled = false
     setReady(false)
     fetchGameReminderIds(user.id)
