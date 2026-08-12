@@ -86,14 +86,31 @@ function chicagoTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-US', { timeZone: CHI, hour: 'numeric', minute: '2-digit' })
 }
 
-// The feed publishes scheduled_start exactly one hour early: it encodes the venue's Central
-// wall clock with an Eastern offset, so every game reads an hour before its true first pitch
-// (verified against the league's official schedule — games are 6:30 PM CT, the feed says
-// 5:30 PM; the Aug 8 matinee is 1:00 PM CT, the feed says 12:00). The entire 2026 season is
-// in CDT (no DST change), so a flat +1h correction is exact. Remove if the feed is fixed.
-const FEED_START_FIX_MS = 60 * 60 * 1000
-function correctedStart(iso: string): string {
-  return iso ? new Date(Date.parse(iso) + FEED_START_FIX_MS).toISOString() : ''
+// The feed appends a literal "Z" to a naive wall-clock string (presto_data.startDateTime)
+// that actually belongs to the zone in presto_data.timeZone — so scheduled_start is wrong
+// by that zone's UTC offset. Every WPBL game runs on Central time, so we re-home each game
+// from its tagged zone onto Central: shift the instant by (taggedZoneOffset − centralOffset).
+//   • Eastern-tagged rows (the legacy encoding: feed said 5:30 PM, true pitch 6:30 PM CT) get
+//     +1h — matching the old flat fix.
+//   • Central-tagged rows (a newer encoding the feed now also emits for the same games) are
+//     already the true instant and get +0. The old flat +1h pushed THESE an hour late, which
+//     is the bug this replaces.
+// Offsets are read at each game's own date, so it stays correct across any DST boundary.
+// Verified exact against the full feed: every game lands on its official CT first pitch
+// (1:00 PM matinees, 5:00/6:30 PM games). See map-wpbl-discord-events + the board script.
+// ms to add to a UTC instant to reach the given zone's wall clock (negative in the Americas).
+function zoneOffsetMs(iso: string, timeZone: string): number {
+  const d = new Date(iso)
+  return new Date(d.toLocaleString('en-US', { timeZone })).getTime()
+    - new Date(d.toLocaleString('en-US', { timeZone: 'UTC' })).getTime()
+}
+function correctedStart(iso: string, feedZone: string): string {
+  if (!iso) return ''
+  // Missing tag → assume the legacy Eastern encoding (what every historical row was), so an
+  // untagged feed row still gets the established +1h rather than silently landing an hour early.
+  const zone = feedZone || 'America/New_York'
+  const shiftMs = zoneOffsetMs(iso, zone) - zoneOffsetMs(iso, CHI)
+  return new Date(Date.parse(iso) + shiftMs).toISOString()
 }
 
 // Feed status text → our enum. The boxscore's status.complete is authoritative when we
@@ -525,24 +542,56 @@ Deno.serve(async (req) => {
     }
     const feedGames: any[] = (await listRes.json()).games ?? []
 
-    // Phantom-duplicate suppression. The feed sometimes carries a stale, never-played copy
-    // of a game alongside the real one — same date + matchup, different game_id (e.g. a
-    // weather delay left an extra "Not Started" slot next to the completed game). Group by
-    // (Chicago date, matchup); if a group has a played copy (final/live/completed), any
-    // still-unplayed copy in that group is a phantom and is suppressed here, so the mirror
-    // is clean for EVERY consumer, not just the client schedule filter. Self-healing: if a
-    // suppressed game ever actually starts it no longer matches the rule and re-ingests.
+    // Phantom-duplicate suppression. The feed carries the same game more than once, and both
+    // grouping keys below use the CORRECTED first pitch (correctedStart) so the timezone-tag
+    // twins collapse onto one instant before we compare. Two shapes of duplicate:
+    //
+    //   (A) A stale, never-played copy beside the real one — same date + matchup, different
+    //       game_id (e.g. a weather delay left an extra "Not Started" slot next to a completed
+    //       game). Group by (Chicago date, matchup) ignoring time; if the group has a played
+    //       copy (final/live/completed), any still-unplayed copy is a phantom.
+    //   (B) The feed emits each upcoming game two-or-three times — once tagged Central, once
+    //       tagged Eastern — for the SAME date, matchup, and (after correction) first pitch.
+    //       Collapse each (date, matchup, corrected pitch) bucket to a single best copy,
+    //       keeping whichever is most real: played over scheduled, has team ids over blank,
+    //       then lowest game_id for stability. Including the time preserves real doubleheaders.
+    //
+    // Suppressed copies are skipped and any row we already ingested for them is deleted, so the
+    // mirror is clean for EVERY consumer. Self-healing: if a suppressed game truly starts it
+    // stops matching (its status flips, or it becomes the played copy) and re-ingests.
+    const zoneOf = (fg: any) => s(fg.presto_data?.timeZone)
+    const correctedIso = (fg: any) => correctedStart(s(fg.scheduled_start), zoneOf(fg))
     const matchupKey = (fg: any) => {
-      const iso = s(fg.scheduled_start)
+      const iso = correctedIso(fg)
       return `${iso ? chicagoDate(iso) : ''}|${s(fg.away_team_id)}|${s(fg.home_team_id)}`
     }
     const isPlayed = (fg: any) => !!s(fg.completed_at) || mapStatus(s(fg.status)) !== 'scheduled'
+    const phantomIds = new Set<string>()
+
+    // (A) unplayed copies of an already-played matchup.
     const playedMatchups = new Set<string>()
     for (const fg of feedGames) if (s(fg.game_id) && isPlayed(fg)) playedMatchups.add(matchupKey(fg))
-    const phantomIds = new Set<string>()
     for (const fg of feedGames) {
       const id = s(fg.game_id)
       if (id && !isPlayed(fg) && playedMatchups.has(matchupKey(fg))) phantomIds.add(id)
+    }
+
+    // (B) timezone-tag twins: same matchup at the same corrected first pitch. Keep the best.
+    const rank = (fg: any) =>
+      (isPlayed(fg) ? 2 : 0) + (s(fg.home_team_id) && s(fg.away_team_id) ? 1 : 0)
+    const buckets = new Map<string, any[]>()
+    for (const fg of feedGames) {
+      const id = s(fg.game_id)
+      if (!id || phantomIds.has(id)) continue
+      const iso = correctedIso(fg)
+      if (!iso) continue
+      const key = `${matchupKey(fg)}|${Date.parse(iso)}`
+      ;(buckets.get(key) ?? buckets.set(key, []).get(key)!).push(fg)
+    }
+    for (const group of buckets.values()) {
+      if (group.length < 2) continue
+      group.sort((a, b) => rank(b) - rank(a) || s(a.game_id).localeCompare(s(b.game_id)))
+      for (let i = 1; i < group.length; i++) phantomIds.add(s(group[i].game_id))
     }
 
     const summary = { games: 0, boxscores: 0, phantomsRemoved: 0, errors: [] as string[] }
@@ -569,7 +618,7 @@ Deno.serve(async (req) => {
       if (!homeSlug || !awaySlug) { summary.errors.push(`unmapped team in ${apiGameId}`); continue }
 
       const status = mapStatus(s(fg.status))
-      const startIso = correctedStart(s(fg.scheduled_start)) // +1h feed correction (see correctedStart)
+      const startIso = correctedStart(s(fg.scheduled_start), zoneOf(fg)) // tz-tag correction (see correctedStart)
       const scoreAway = fg.presto_data?.score?.away
       const scoreHome = fg.presto_data?.score?.home
 
