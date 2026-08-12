@@ -38,4 +38,8 @@ jobs:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           WPBL_YT_CHANNEL_ID:        ${{ vars.WPBL_YT_CHANNEL_ID }}
+          # Optional: a YouTube Data API v3 key. When set, it's the primary (reliable-from-CI)
+          # source; without it the script falls back to the public RSS feed, which YouTube
+          # 404s intermittently from GitHub's datacenter IPs.
+          YOUTUBE_API_KEY:           ${{ secrets.YOUTUBE_API_KEY }}
         run: node scripts/sync-wpbl-youtube.mjs

@@ -24,8 +24,13 @@
  * Usage (local):
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/sync-wpbl-youtube.mjs
  *
+ * Source: prefers the YouTube Data API v3 when YOUTUBE_API_KEY is set (reliable from CI
+ * datacenter IPs), otherwise falls back to the public RSS feed (keyless, but YouTube
+ * 404s it intermittently from GitHub runners — hence the API-key path and RSS retries).
+ *
  * Required env: SUPABASE_URL (or VITE_SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY.
- * Optional env: WPBL_YT_CHANNEL_ID (defaults to the official channel).
+ * Optional env: YOUTUBE_API_KEY (preferred source), WPBL_YT_CHANNEL_ID (defaults to
+ *               the official channel).
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -37,6 +42,17 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 // Official WPBL channel (youtube.com/@wpbl_official). Overridable for testing.
 const CHANNEL_ID = process.env.WPBL_YT_CHANNEL_ID ?? 'UCtd3k09dk2H6UjU7skfmemQ'
 const FEED_URL = `https://www.youtube.com/feeds/videos.xml?channel_id=${CHANNEL_ID}`
+// Optional YouTube Data API key. When set, it's the primary source: the Data API is
+// authenticated and serves datacenter IPs reliably, whereas the public RSS feed is
+// gated by IP/UA reputation and 404s intermittently from CI runners (which is what
+// bit the first GitHub Actions run). A channel's uploads playlist id is always its
+// channel id with the "UC" prefix swapped for "UU", so no extra channels.list call.
+const YT_API_KEY = process.env.YOUTUBE_API_KEY ?? ''
+const UPLOADS_PLAYLIST = 'UU' + CHANNEL_ID.slice(2)
+// A realistic browser UA + Accept header materially improves the odds the RSS feed
+// returns 200 rather than YouTube's bot-gate 404 for a bare programmatic request.
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('❌  Set SUPABASE_URL (or VITE_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY before running')
@@ -147,18 +163,73 @@ function parseMatchup(title, resolveTeam) {
   }
 }
 
+// ─── Upload sources ─────────────────────────────────────────────────────────
+// Both sources return the same normalised entry shape: { videoId, title, published,
+// thumbnail }. The Data API is preferred when a key is present (reliable from CI); the
+// RSS feed is the keyless fallback.
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms))
+
+// Latest uploads via the YouTube Data API (playlistItems on the channel's uploads list).
+async function fetchViaApi() {
+  const url = 'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet' +
+    `&maxResults=25&playlistId=${UPLOADS_PLAYLIST}&key=${YT_API_KEY}`
+  const res = await fetch(url)
+  const json = await res.json().catch(() => null)
+  if (!res.ok) {
+    const reason = json?.error?.message ?? `${res.status} ${res.statusText}`
+    throw new Error(`Data API failed: ${reason}`)
+  }
+  return (json?.items ?? []).map(it => {
+    const s = it.snippet ?? {}
+    const thumb = s.thumbnails?.maxres?.url ?? s.thumbnails?.high?.url ?? s.thumbnails?.medium?.url
+    const vid = s.resourceId?.videoId
+    return {
+      videoId: vid,
+      title: s.title ?? '',
+      published: s.publishedAt ?? new Date().toISOString(),
+      thumbnail: thumb ?? (vid ? `https://i.ytimg.com/vi/${vid}/hqdefault.jpg` : null),
+    }
+  }).filter(e => e.videoId && e.title)
+}
+
+// Latest uploads via the public RSS feed. Retried a few times because CI runners hit
+// intermittent bot-gate 404/5xx responses that a moment later succeed.
+async function fetchViaRss() {
+  const headers = { 'user-agent': BROWSER_UA, accept: 'application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.8' }
+  let last = ''
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    const res = await fetch(FEED_URL, { headers, redirect: 'follow' })
+    if (res.ok) return parseEntries(await res.text())
+    last = `${res.status} ${res.statusText}`
+    console.warn(`   RSS attempt ${attempt}/4 → ${last}${attempt < 4 ? ', retrying…' : ''}`)
+    if (attempt < 4) await sleep(1500 * attempt)
+  }
+  throw new Error(`RSS feed failed after retries: ${last}`)
+}
+
+// Pick a source: Data API when a key exists (falling back to RSS if the key call fails),
+// otherwise RSS alone.
+async function fetchEntries() {
+  if (YT_API_KEY) {
+    try {
+      const e = await fetchViaApi()
+      console.log(`📺  ${e.length} videos via Data API`)
+      return e
+    } catch (err) {
+      console.warn(`⚠️   ${err.message} — falling back to RSS`)
+    }
+  }
+  const e = await fetchViaRss()
+  console.log(`📺  ${e.length} videos via RSS`)
+  return e
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 async function main() {
-  const res = await fetch(FEED_URL, { headers: { 'user-agent': 'wpbl-youtube-sync/1.0' } })
-  if (!res.ok) {
-    console.error(`❌  Feed fetch failed: ${res.status} ${res.statusText}`)
-    process.exit(1)
-  }
-  const xml = await res.text()
-  const entries = parseEntries(xml)
-  console.log(`📺  ${entries.length} videos in feed`)
-  if (entries.length === 0) return
+  const entries = await fetchEntries()
+  if (entries.length === 0) { console.log('Nothing to upsert.'); return }
 
   const { data: teams, error: teamErr } = await supabase.from('wpbl_teams').select('id, city, name, abbr')
   if (teamErr) throw new Error(`Loading teams failed: ${teamErr.message}`)
