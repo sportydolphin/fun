@@ -12,8 +12,12 @@
  * to keep running. The schedule it renders comes from our own Supabase mirror (wpbl_games
  * + wpbl_teams), the same source scripts/send-wpbl-game-start.mjs reads.
  *
- * First run (no DISCORD_BOARD_MESSAGE_ID set): CREATES the message and prints its id.
- * Save that id as the DISCORD_BOARD_MESSAGE_ID secret/variable; every run after edits it.
+ * Message-id persistence: the id of the message we own lives in Supabase
+ * (wpbl_discord_board_state, see scripts/create_wpbl_discord_board_state.sql), NOT in a
+ * hand-copied env var. First run creates the message and stores its id; every run after
+ * reads that id and edits in place; if the message is ever deleted it recreates + restores.
+ * DISCORD_BOARD_MESSAGE_ID is now only an optional one-time seed: if the DB has no id yet
+ * but that env var is set, the existing message is adopted so no duplicate is posted.
  *
  * Usage (local):
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
@@ -24,7 +28,8 @@
  *   node scripts/update-wpbl-discord-board.mjs
  *
  * Required env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DISCORD_BOARD_WEBHOOK_URL.
- * Optional env: DISCORD_BOARD_MESSAGE_ID (edit vs create), DISCORD_WATCH_PARTY_VC_URL,
+ * Optional env: DISCORD_BOARD_MESSAGE_ID (one-time seed only — see above),
+ *               DISCORD_WATCH_PARTY_VC_URL,
  *               DISCORD_EVENTS_URL (fallback link when a game has no mapped event URL).
  */
 
@@ -169,14 +174,40 @@ async function createMessage(payload) {
   return res.json()
 }
 
+// Returns { gone: true } if Discord no longer has the message (deleted by hand, or the
+// stored id is stale) so the caller can transparently recreate it. Other failures throw.
 async function editMessage(id, payload) {
   const res = await fetch(`${WEBHOOK_URL}/messages/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
+  if (res.status === 404) return { gone: true }
   if (!res.ok) throw new Error(`Edit failed (${res.status}): ${await res.text()}`)
-  return res.json()
+  return { gone: false }
+}
+
+// ─── Message-id persistence (Supabase) ──────────────────────────────────────
+// The board owns exactly one Discord message; its id lives in wpbl_discord_board_state
+// so every run edits that message instead of posting a new one. Read/written with the
+// service role in CI (bypasses RLS). Read/write failures degrade gracefully — worst case
+// the board posts a fresh message — rather than aborting the run.
+
+async function loadStoredMessageId() {
+  const { data, error } = await supabase
+    .from('wpbl_discord_board_state')
+    .select('message_id')
+    .eq('id', 'board')
+    .maybeSingle()
+  if (error) { console.warn(`⚠️  Could not read stored board id: ${error.message}`); return '' }
+  return data?.message_id ?? ''
+}
+
+async function storeMessageId(id) {
+  const { error } = await supabase
+    .from('wpbl_discord_board_state')
+    .upsert({ id: 'board', message_id: id, updated_at: new Date().toISOString() })
+  if (error) console.warn(`⚠️  Could not persist board id ${id}: ${error.message}`)
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -215,14 +246,26 @@ async function main() {
       : `## ⚾ WPBL Watch Parties\nNo games scheduled right now — check back soon! ⚾\n📅 Full schedule: [womensprobaseballleague.com/schedule](${SCHEDULE_URL})`,
   }
 
-  if (MESSAGE_ID) {
-    await editMessage(MESSAGE_ID, payload)
-    console.log(`✅ Edited board message ${MESSAGE_ID} — showing ${upcoming.length} game(s).`)
-  } else {
-    const msg = await createMessage(payload)
-    console.log(`✅ Created board message ${msg.id} — showing ${upcoming.length} game(s).`)
-    console.log(`\n➡️  Save this as the DISCORD_BOARD_MESSAGE_ID secret so future runs EDIT it:\n    ${msg.id}\n`)
+  // Source of truth for which message to edit is the DB. DISCORD_BOARD_MESSAGE_ID is now
+  // only a one-time seed: if the DB has no id yet but the old repo variable is still set,
+  // adopt that existing message (and persist it) so this migration doesn't post a duplicate.
+  let messageId = await loadStoredMessageId()
+  let adopting = false
+  if (!messageId && MESSAGE_ID) { messageId = MESSAGE_ID; adopting = true }
+
+  if (messageId) {
+    const { gone } = await editMessage(messageId, payload)
+    if (!gone) {
+      if (adopting) await storeMessageId(messageId)   // adopt the seeded id into the DB
+      console.log(`✅ Edited board message ${messageId} — showing ${upcoming.length} game(s).`)
+      return
+    }
+    console.warn(`⚠️  Board message ${messageId} no longer exists — creating a fresh one.`)
   }
+
+  const msg = await createMessage(payload)
+  await storeMessageId(msg.id)
+  console.log(`✅ Created board message ${msg.id} — showing ${upcoming.length} game(s). Persisted for future edits.`)
 }
 
 main().catch(err => { console.error('Fatal:', err); process.exit(1) })
