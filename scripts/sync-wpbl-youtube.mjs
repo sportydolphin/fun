@@ -47,7 +47,9 @@ const FEED_URL = `https://www.youtube.com/feeds/videos.xml?channel_id=${CHANNEL_
 // gated by IP/UA reputation and 404s intermittently from CI runners (which is what
 // bit the first GitHub Actions run). A channel's uploads playlist id is always its
 // channel id with the "UC" prefix swapped for "UU", so no extra channels.list call.
-const YT_API_KEY = process.env.YOUTUBE_API_KEY ?? ''
+// Trim + strip stray wrapping quotes: pasting a secret into GitHub commonly leaves a
+// trailing newline/space (or quotes), which YouTube rejects as "API key not valid" (400).
+const YT_API_KEY = (process.env.YOUTUBE_API_KEY ?? '').trim().replace(/^["']|["']$/g, '')
 const UPLOADS_PLAYLIST = 'UU' + CHANNEL_ID.slice(2)
 // A realistic browser UA + Accept header materially improves the odds the RSS feed
 // returns 200 rather than YouTube's bot-gate 404 for a bare programmatic request.
@@ -172,6 +174,14 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
 // Latest uploads via the YouTube Data API (playlistItems on the channel's uploads list).
 async function fetchViaApi() {
+  // A real API key is ~39 chars and starts with "AIza". If it doesn't, the most likely
+  // mistake is pasting an OAuth client ID / client secret (or a truncated value) instead
+  // of an API key — flag that up front rather than letting YouTube's terse 400 mislead.
+  if (!/^AIza[\w-]{35}$/.test(YT_API_KEY)) {
+    console.warn(`⚠️   YOUTUBE_API_KEY doesn't look like an API key (got ${YT_API_KEY.length} chars, ` +
+      `starts "${YT_API_KEY.slice(0, 4)}"). It should be ~39 chars starting "AIza". ` +
+      `Create one under APIs & Services → Credentials → Create credentials → API key.`)
+  }
   const url = 'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet' +
     `&maxResults=25&playlistId=${UPLOADS_PLAYLIST}&key=${YT_API_KEY}`
   const res = await fetch(url)
