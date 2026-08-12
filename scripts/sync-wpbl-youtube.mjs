@@ -39,8 +39,10 @@ import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
-// Official WPBL channel (youtube.com/@wpbl_official). Overridable for testing.
-const CHANNEL_ID = process.env.WPBL_YT_CHANNEL_ID ?? 'UCtd3k09dk2H6UjU7skfmemQ'
+// Official WPBL channel (youtube.com/@wpbl_official). Overridable via the WPBL_YT_CHANNEL_ID
+// repo variable. NOTE: GitHub passes an *unset* `vars.X` as an empty string (""), and `??`
+// only falls back on null/undefined — so use `|| default` (and trim) to treat "" as unset.
+const CHANNEL_ID = (process.env.WPBL_YT_CHANNEL_ID || '').trim() || 'UCtd3k09dk2H6UjU7skfmemQ'
 const FEED_URL = `https://www.youtube.com/feeds/videos.xml?channel_id=${CHANNEL_ID}`
 // Optional YouTube Data API key. When set, it's the primary source: the Data API is
 // authenticated and serves datacenter IPs reliably, whereas the public RSS feed is
@@ -188,6 +190,14 @@ async function fetchViaApi() {
   const k = YT_API_KEY
   console.log(`🔑  key fingerprint: len=${k.length} prefix="${k.slice(0, 6)}" suffix="${k.slice(-4)}" ` +
     `looksValid=${/^AIza[\w-]{35}$/.test(k)}`)
+
+  // A real channel id is "UC" + 22 chars; the uploads playlist is the same with "UU".
+  // Guard so a misconfigured/empty channel id fails loudly instead of sending "UU".
+  if (!/^UC[\w-]{22}$/.test(CHANNEL_ID)) {
+    throw new Error(`Bad channel id "${CHANNEL_ID}" → playlist "${UPLOADS_PLAYLIST}". ` +
+      `Unset the WPBL_YT_CHANNEL_ID repo variable (or set it to a UC… id).`)
+  }
+  console.log(`📼  playlistId=${UPLOADS_PLAYLIST} (channel ${CHANNEL_ID})`)
 
   const url = 'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet' +
     `&maxResults=25&playlistId=${UPLOADS_PLAYLIST}&key=${encodeURIComponent(YT_API_KEY)}`
