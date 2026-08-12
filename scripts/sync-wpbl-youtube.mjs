@@ -182,17 +182,26 @@ async function fetchViaApi() {
       `starts "${YT_API_KEY.slice(0, 4)}"). It should be ~39 chars starting "AIza". ` +
       `Create one under APIs & Services → Credentials → Create credentials → API key.`)
   }
+  // Redacted fingerprint of the key the runner actually received — enough to spot a
+  // truncated/padded/whitespaced secret without exposing the key (and it's the user's
+  // own private log). If len != 39 or the prefix isn't "AIzaSy", the secret value is wrong.
+  const k = YT_API_KEY
+  console.log(`🔑  key fingerprint: len=${k.length} prefix="${k.slice(0, 6)}" suffix="${k.slice(-4)}" ` +
+    `looksValid=${/^AIza[\w-]{35}$/.test(k)}`)
+
   const url = 'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet' +
-    `&maxResults=25&playlistId=${UPLOADS_PLAYLIST}&key=${YT_API_KEY}`
+    `&maxResults=25&playlistId=${UPLOADS_PLAYLIST}&key=${encodeURIComponent(YT_API_KEY)}`
   const res = await fetch(url)
   const json = await res.json().catch(() => null)
   if (!res.ok) {
-    const reason = json?.error?.message ?? `${res.status} ${res.statusText}`
-    // Surface the actionable cases verbatim — these are the real reasons a key "fails":
-    //   403 accessNotConfigured → enable "YouTube Data API v3" in the key's GCP project
-    //   400 API key not valid    → wrong/absent key
-    //   403 quotaExceeded        → daily quota used up
-    throw new Error(`Data API HTTP ${res.status}: ${reason}`)
+    const err = json?.error?.errors?.[0] ?? {}
+    // Full raw error so the precise reason/location is unambiguous. Common cases:
+    //   400 badRequest "API key not valid" → wrong/typo'd key, or wrong GCP project
+    //   403 accessNotConfigured            → enable "YouTube Data API v3" in that project
+    //   403 quotaExceeded                  → daily quota used up
+    console.error(`❌  Data API raw error: ${JSON.stringify(json?.error ?? { status: res.status })}`)
+    throw new Error(`Data API HTTP ${res.status}: ${json?.error?.message ?? res.statusText}` +
+      `${err.reason ? ` (${err.reason}${err.location ? ` @ ${err.location}` : ''})` : ''}`)
   }
   return (json?.items ?? []).map(it => {
     const s = it.snippet ?? {}
