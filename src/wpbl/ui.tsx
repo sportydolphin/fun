@@ -95,11 +95,12 @@ export function PlayerPortrait({ name, teamId, size = 40 }: { name: string; team
 
 // Pill segmented control — the section nav "menu". Mirrors MLB's SegControl, wrapped
 // in the same centered / mobile-horizontal-scroll container MlbStats uses for its tabs.
-export function SegNav({ options, value, onChange, accent = WPBL_ACCENT }: {
+export function SegNav({ options, value, onChange, accent = WPBL_ACCENT, mb = { xs: 0, sm: 3 } }: {
   options: { value: string; label: string }[]
   value: string
   onChange: (v: string) => void
   accent?: string
+  mb?: number | { xs?: number; sm?: number }
 }) {
   // When the strip is wider than the screen (many tabs on mobile), keep the selected
   // pill in view: on every selection change — a tap or a swipe between tabs — scroll it
@@ -120,7 +121,8 @@ export function SegNav({ options, value, onChange, accent = WPBL_ACCENT }: {
       display: 'flex', justifyContent: { xs: 'flex-start', sm: 'center' },
       // Desktop keeps its gap before content; on mobile the breathing gap lives on the
       // sticky wrapper (as transparent margin) so this strip hugs the bar's hairline.
-      mb: { xs: 0, sm: 3 },
+      // Callers can override (e.g. the game-center tabs want it flush to the team switch).
+      mb,
       overflowX: 'auto',
       // The sticky wrapper full-bleeds to the screen edge; this scroll strip sits flush
       // and re-adds the resting inset as scroll padding (px:2), so overflow content runs

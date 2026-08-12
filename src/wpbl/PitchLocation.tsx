@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, speedUnit } from '../lib/units'
@@ -70,7 +70,12 @@ function Zone({ points, size }: { points: Pt[]; size: number }) {
   )
 }
 
-export function PitchLocationCard({ rows, accent }: { rows: WpblPitchLoc[]; accent: string }) {
+// `gamesPitched` (the pitcher's season game count) lets the card show tracking coverage —
+// e.g. "2 of 6 games". Tracking is a stalled batch publish that only reached the first
+// couple of games, so for most pitchers this plot is a partial, early-season sample. The
+// card therefore stays COLLAPSED by default (it's big, and honest brevity beats a stale
+// wall of dots), auto-expanding only when tracking covers every game the pitcher has thrown.
+export function PitchLocationCard({ rows, accent, gamesPitched }: { rows: WpblPitchLoc[]; accent: string; gamesPitched?: number }) {
   const { units } = useUnits()
 
   // Group located pitches by type, in the fixed display order.
@@ -89,7 +94,18 @@ export function PitchLocationCard({ rows, accent }: { rows: WpblPitchLoc[]; acce
   }, [rows])
 
   const total = groups.reduce((n, [, ps]) => n + ps.length, 0)
+  const trackedGames = useMemo(() => new Set(rows.map(r => r.game_id)).size, [rows])
+  // Complete = tracking reaches every game the pitcher has appeared in (the up-to-date,
+  // genuinely useful case). Those open by default; partial/stale samples start collapsed.
+  const complete = gamesPitched != null && gamesPitched > 0 && trackedGames >= gamesPitched
+  const [open, setOpen] = useState(complete)
+
   if (total === 0) return null
+
+  const coverage = gamesPitched != null && gamesPitched > 0
+    ? `${trackedGames} of ${gamesPitched} game${gamesPitched === 1 ? '' : 's'}`
+    : `${trackedGames} game${trackedGames === 1 ? '' : 's'}`
+  const summary = `${total} pitch${total === 1 ? '' : 'es'} · ${coverage}`
 
   const ptsOf = (ps: WpblPitchLoc[], color: string): Pt[] => ps.map(p => ({ side: p.side!, height: p.height!, color }))
   const allPoints = groups.flatMap(([t, ps]) => ptsOf(ps, colorOf(t)))
@@ -100,12 +116,32 @@ export function PitchLocationCard({ rows, accent }: { rows: WpblPitchLoc[]; acce
 
   return (
     <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden', mb: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.75, py: 0.9, borderBottom: '1px solid', borderColor: 'divider', borderLeft: `3px solid ${accent}` }}>
-        <Typography sx={{ fontSize: '0.76rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6 }}>Pitch locations</Typography>
-        <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', ml: 'auto' }}>Catcher&apos;s view · {total} tracked pitch{total === 1 ? '' : 'es'}</Typography>
+      {/* Tappable header toggles the plot. Collapsed by default so it never dominates the
+          page; the summary (pitch count + game coverage) carries the gist without expanding. */}
+      <Box
+        onClick={() => setOpen(o => !o)}
+        role="button"
+        aria-expanded={open}
+        aria-label={`Pitch locations — ${summary}. ${open ? 'Collapse' : 'Expand'}.`}
+        sx={{
+          display: 'flex', alignItems: 'center', gap: 1, px: 1.75, py: 0.9, cursor: 'pointer',
+          borderBottom: open ? '1px solid' : 'none', borderColor: 'divider', borderLeft: `3px solid ${accent}`,
+          '&:hover': { bgcolor: 'action.hover' },
+        }}
+      >
+        <Typography sx={{ fontSize: '0.76rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, flexShrink: 0 }}>Pitch locations</Typography>
+        <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', ml: 'auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{summary}</Typography>
+        {/* Chevron: points down when collapsed, flips up when open. */}
+        <Box sx={{
+          flexShrink: 0, width: 0, height: 0, ml: 0.25,
+          borderStyle: 'solid', borderWidth: '5px 4px 0 4px',
+          borderColor: 'currentColor transparent transparent transparent', color: 'text.disabled',
+          transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s',
+        }} />
       </Box>
 
-      <Box sx={{ px: 1.75, py: 1.5 }}>
+      {open && <Box sx={{ px: 1.75, py: 1.5 }}>
+        <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mb: 1 }}>Catcher&apos;s view</Typography>
         {/* Combined zone, all pitches colored by type */}
         <Box sx={{ maxWidth: 210, mx: 'auto' }}>
           <Zone points={allPoints} size={200} />
@@ -141,7 +177,7 @@ export function PitchLocationCard({ rows, accent }: { rows: WpblPitchLoc[]; acce
             })}
           </Box>
         )}
-      </Box>
+      </Box>}
     </Box>
   )
 }

@@ -147,7 +147,52 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
     return () => { cancelled = true }
   }, [])
 
-  const cols = (group === 'hitting' ? HIT_COLS : PIT_COLS) as Col<WpblBattingTotals | WpblPitchingTotals>[]
+  // OPS+ normalizes a hitter's OBP+SLG to the league (100 = league average, 150 = 50%
+  // better). It needs league-wide rate context, so build the hitting columns in-component
+  // with the league OBP/SLG closed over — computed from every batting line regardless of the
+  // team/qualified filters, since the baseline is the whole league. No park factors: the
+  // classic formula includes them, but this league's single-season, unmeasured parks give no
+  // reliable adjustment, so we omit it (implicitly 1.0). Sits right after OPS.
+  const hitCols = useMemo<Col<WpblBattingTotals>[]>(() => {
+    const lg = sumBatting(lines.batting)
+    const lgObp = lg.obp, lgSlg = lg.slg
+    const opsPlus = (t: WpblBattingTotals): number | null =>
+      t.obp != null && t.slg != null && lgObp != null && lgObp > 0 && lgSlg != null && lgSlg > 0
+        ? 100 * (t.obp / lgObp + t.slg / lgSlg - 1)
+        : null
+    const cols = [...HIT_COLS]
+    const opsIdx = cols.findIndex(c => c.key === 'ops')
+    cols.splice(opsIdx + 1, 0, {
+      key: 'opsPlus', label: 'OPS+',
+      value: opsPlus,
+      display: t => { const v = opsPlus(t); return v == null ? '—' : String(Math.round(v)) },
+      rate: true,
+    })
+    return cols
+  }, [lines.batting])
+
+  // ERA+ mirrors OPS+ for pitchers: league ERA over the pitcher's ERA, ×100 (100 = league
+  // average, higher is better — note it inverts ERA, so unlike ERA it sorts descending). No
+  // park factor, same reasoning as OPS+. A 0.00 ERA has no finite ratio, so it reads "∞" and
+  // sorts to the top rather than dashing to the bottom. Sits right after ERA.
+  const pitCols = useMemo<Col<WpblPitchingTotals>[]>(() => {
+    const lgEra = sumPitching(lines.pitching).era
+    const eraPlus = (t: WpblPitchingTotals): number | null => {
+      if (t.era == null || lgEra == null || lgEra <= 0) return null
+      return t.era === 0 ? Infinity : 100 * lgEra / t.era
+    }
+    const cols = [...PIT_COLS]
+    const eraIdx = cols.findIndex(c => c.key === 'era')
+    cols.splice(eraIdx + 1, 0, {
+      key: 'eraPlus', label: 'ERA+',
+      value: eraPlus,
+      display: t => { const v = eraPlus(t); return v == null ? '—' : !isFinite(v) ? '∞' : String(Math.round(v)) },
+      rate: true,
+    })
+    return cols
+  }, [lines.pitching])
+
+  const cols = (group === 'hitting' ? hitCols : pitCols) as Col<WpblBattingTotals | WpblPitchingTotals>[]
   const activeCol = cols.find(c => c.key === sortKey) ?? cols[0]
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 

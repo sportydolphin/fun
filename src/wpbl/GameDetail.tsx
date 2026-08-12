@@ -90,7 +90,7 @@ function StatHead({ children, w = 30 }: { children: React.ReactNode; w?: number 
     <Box component="th" sx={{
       fontSize: '0.64rem', fontWeight: 700, color: 'text.disabled',
       textTransform: 'uppercase', letterSpacing: 0.4,
-      textAlign: 'center', px: 0.4, py: 0.5, minWidth: w,
+      textAlign: 'center', px: 0.4, py: 0.4, minWidth: w,
     }}>
       {children}
     </Box>
@@ -100,45 +100,56 @@ function StatCell({ children, bold = false }: { children: React.ReactNode; bold?
   return (
     <Box component="td" sx={{
       fontSize: '0.9rem', fontWeight: bold ? 800 : 600, color: 'text.primary',
-      textAlign: 'center', px: 0.4, py: 0.5, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums',
+      textAlign: 'center', px: 0.4, py: 0.45, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums',
     }}>
       {children}
     </Box>
   )
 }
 
-// ─── Line score ────────────────────────────────────────────────────────────────
-function LineScore({ away, home, game }: { away: WpblTeam; home: WpblTeam; game: WpblGame }) {
+// ─── Scoreboard (team headline + line score in one) ─────────────────────────────
+// One compact block instead of a tall full-name score header stacked on a separate line
+// score that repeated the same teams and totals. The team name/logo lead each row; the R
+// column IS the final/running score (large + winner-emphasised), so no vertical space is
+// spent restating it. Team column shows the full "City Nickname" on desktop, the nickname
+// alone on a phone, and the innings + R/H/E scroll horizontally if they overrun the width.
+function Scoreboard({ away, home, game, awayWon, homeWon }: {
+  away: WpblTeam; home: WpblTeam; game: WpblGame; awayWon: boolean; homeWon: boolean
+}) {
+  const isMobile = useMediaQuery('(max-width:600px)')
+  const decided = awayWon || homeWon
   const innings = Math.max(game.away_line?.length ?? 0, game.home_line?.length ?? 0, 7)
   const cols = Array.from({ length: innings }, (_, i) => i + 1)
   const runsByInning = (line: WpblGame['away_line'], n: number) =>
     line?.find(c => c.inning === n)?.runs
   const row = (team: WpblTeam, line: WpblGame['away_line'], runs: number | null, hits: number | null | undefined, errs: number | null | undefined, won: boolean) => (
     <Box component="tr" sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-      <Box component="td" sx={{ py: 0.45 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-          <TeamBadge team={team} size={18} />
-          <Typography sx={{ fontSize: '0.72rem', fontWeight: won ? 800 : 600, lineHeight: 1 }}>{team.abbr}</Typography>
+      <Box component="td" sx={{ py: 0.5, pr: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+          <TeamBadge team={team} size={24} />
+          <Typography sx={{ fontSize: isMobile ? '0.86rem' : '0.95rem', fontWeight: won ? 800 : 600, lineHeight: 1.15, whiteSpace: 'nowrap' }}>
+            {isMobile ? team.name : wpblFullName(team)}
+          </Typography>
         </Box>
       </Box>
       {cols.map(n => { const r = runsByInning(line, n); return <StatCell key={n}>{r == null ? '' : r}</StatCell> })}
       <Box component="td" sx={{ width: 8 }} />
-      <StatCell bold>{runs ?? 0}</StatCell>
+      <Box component="td" sx={{ textAlign: 'center', px: 0.4, py: 0.5 }}>
+        <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: won || !decided ? 'text.primary' : 'text.secondary' }}>{runs ?? 0}</Typography>
+      </Box>
       <StatCell>{hits ?? 0}</StatCell>
       <StatCell>{errs ?? 0}</StatCell>
     </Box>
   )
-  const awayWon = (game.away_score ?? 0) > (game.home_score ?? 0)
-  const homeWon = (game.home_score ?? 0) > (game.away_score ?? 0)
   return (
-    <Box sx={{ overflowX: 'auto', px: 2, pb: 1.5 }}>
-      <Box component="table" sx={lineTableSx}>
+    <Box sx={{ overflowX: 'auto', px: 2, pt: 1 }}>
+      <Box component="table" sx={scoreTableSx}>
         <Box component="thead">
           <Box component="tr">
-            <Box component="th" sx={{ minWidth: 44 }} />
+            <Box component="th" />
             {cols.map(n => <StatHead key={n} w={18}>{n}</StatHead>)}
             <Box component="th" sx={{ width: 8 }} />
-            <StatHead w={22}>R</StatHead>
+            <StatHead w={24}>R</StatHead>
             <StatHead w={22}>H</StatHead>
             <StatHead w={22}>E</StatHead>
           </Box>
@@ -684,23 +695,23 @@ function TeamSwitch({ away, home, value, onChange }: {
         onClick={() => onChange(side)}
         sx={{
           display: 'flex', alignItems: 'center', gap: 0.75, cursor: 'pointer',
-          px: 0.25, pb: 1, mb: '-1px', borderBottom: '2px solid',
+          px: 0.25, pb: 0.75, mb: '-1px', borderBottom: '2px solid',
           borderColor: active ? color : 'transparent',
           opacity: active ? 1 : 0.5, transition: 'opacity 0.15s',
           '&:hover': { opacity: active ? 1 : 0.8 },
         }}
       >
-        <TeamBadge team={team} size={isMobile ? 22 : 26} />
+        <TeamBadge team={team} size={isMobile ? 22 : 24} />
         {/* Nickname only on a phone (e.g. "Heights") so the two tabs sit on one line
             instead of wrapping "New York / Heights"; full "City Nickname" on desktop. */}
-        <Typography sx={{ fontSize: isMobile ? '0.9rem' : '1rem', fontWeight: active ? 800 : 600, whiteSpace: 'nowrap' }}>
+        <Typography sx={{ fontSize: isMobile ? '0.9rem' : '0.94rem', fontWeight: active ? 800 : 600, whiteSpace: 'nowrap' }}>
           {isMobile ? team.name : wpblFullName(team)}
         </Typography>
       </Box>
     )
   }
   return (
-    <Box sx={{ display: 'flex', gap: { xs: 2.5, sm: 3 }, borderBottom: '1px solid', borderColor: 'divider', mb: 1.5 }}>
+    <Box sx={{ display: 'flex', gap: { xs: 2.5, sm: 3 }, borderBottom: '1px solid', borderColor: 'divider', mb: 0.75 }}>
       {tab('away', away)}
       {tab('home', home)}
     </Box>
@@ -826,18 +837,23 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
       {/* Full-height flex column: everything above the panel is fixed; only the tab
           panel scrolls, so the modal height stays constant when switching tabs. */}
       <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-        {/* Score block */}
-        <Box sx={{ flexShrink: 0, p: 2, pb: showScore ? 1.5 : 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-            {scoreLine(away, game.away_score, awayWon)}
-            {scoreLine(home, game.home_score, homeWon)}
-          </Box>
-          {game.venue && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mt: 1 }}>{game.venue}</Typography>}
+        {/* Score header — one combined scoreboard for a played game (teams + line + R/H/E),
+            or a plain name matchup for an unplayed one. */}
+        <Box sx={{ flexShrink: 0, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+          {showScore && away && home ? (
+            <Scoreboard away={away} home={home} game={game} awayWon={awayWon} homeWon={homeWon} />
+          ) : (
+            <Box sx={{ px: 2, pt: 2, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+              {scoreLine(away, game.away_score, awayWon)}
+              {scoreLine(home, game.home_score, homeWon)}
+            </Box>
+          )}
+          {game.venue && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', px: 2, mt: 1 }}>{game.venue}</Typography>}
 
           {/* Recap highlight — admin-only during soft launch; shown only for a finished
               game the league has posted video for. */}
           {isAdmin && final && video && (
-            <Box sx={{ mt: 1.5 }}><GameHighlightCard video={video} /></Box>
+            <Box sx={{ px: 2, mt: 1.5 }}><GameHighlightCard video={video} /></Box>
           )}
         </Box>
 
@@ -850,15 +866,8 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress /></Box>
         ) : hasLines ? (
           <>
-            {/* Line score always shows above the tabs for a played game. */}
-            {showScore && away && home && (
-              <Box sx={{ flexShrink: 0, borderBottom: '1px solid', borderColor: 'divider', pt: 1.5 }}>
-                <LineScore away={away} home={home} game={game} />
-              </Box>
-            )}
-
-            <Box sx={{ flexShrink: 0, pt: 1.25 }}>
-              <SegNav options={tabs} value={tab} onChange={v => setTab(v as Tab)} />
+            <Box sx={{ flexShrink: 0, pt: 0.75 }}>
+              <SegNav options={tabs} value={tab} onChange={v => setTab(v as Tab)} mb={0} />
             </Box>
 
             {/* Scroll region — fixed height, one per tab. */}
@@ -866,7 +875,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
               {tab === 'box' && away && home && (() => {
                 const shown = boxTeam === 'home' ? home : away
                 return (
-                  <Box sx={{ px: 2, pb: 2, pt: 1.25 }}>
+                  <Box sx={{ px: 2, pb: 2, pt: 0 }}>
                     <TeamSwitch away={away} home={home} value={boxTeam} onChange={setBoxTeam} />
                     <TeamBox
                       team={shown}
@@ -916,8 +925,9 @@ const NAME_W = 150 // cap for the shrink-to-fit name column (longer names ellips
 // The name column is pinned (sticky-left) so scrolling right moves only the stat columns.
 // An opaque bg + right divider keep it legible over the stat cells sliding underneath.
 const stickyName = { position: 'sticky', left: 0, zIndex: 1, bgcolor: 'background.paper', borderRight: '1px solid', borderRightColor: 'divider' } as const
-const nameHeadSx = { ...stickyName, width: '1%', maxWidth: NAME_W, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.4, px: 0.4, py: 0.5 } as const
-const nameCellSx = { ...stickyName, width: '1%', maxWidth: NAME_W, whiteSpace: 'nowrap', textAlign: 'left', px: 0.4, py: 0.5 } as const
+const nameHeadSx = { ...stickyName, width: '1%', maxWidth: NAME_W, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: 0.4, px: 0.4, py: 0.4 } as const
+const nameCellSx = { ...stickyName, width: '1%', maxWidth: NAME_W, whiteSpace: 'nowrap', textAlign: 'left', px: 0.4, py: 0.45 } as const
 const posSx = { fontSize: '0.6rem', color: 'text.disabled', lineHeight: 1, flexShrink: 0 } as const
-// Line score keeps MLB's auto layout (team column absorbs slack; R/H/E hug the right).
-const lineTableSx = { borderCollapse: 'collapse', width: '100%', minWidth: 'max-content', fontVariantNumeric: 'tabular-nums' } as const
+// Scoreboard: team name column absorbs slack; innings + R/H/E hug the right and scroll if
+// they overrun. minWidth:max-content floors it so a phone scrolls rather than crushing.
+const scoreTableSx = { borderCollapse: 'collapse', width: '100%', minWidth: 'max-content', fontVariantNumeric: 'tabular-nums' } as const
