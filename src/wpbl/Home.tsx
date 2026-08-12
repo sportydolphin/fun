@@ -447,7 +447,7 @@ function TeamsCard({ teams, onOpenTeam }: { teams: WpblTeam[]; onOpenTeam: (t: W
             <TeamBadge team={t} size={30} />
             <Box sx={{ minWidth: 0 }}>
               <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</Typography>
-              <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary' }}>{t.city}</Typography>
+              <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.city}</Typography>
             </Box>
           </Box>
         ))}
@@ -1222,21 +1222,13 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
       {/* Scoreboard */}
       <Scoreboard games={games} teams={teamMap} onOpenGame={onOpenGame} />
 
-      {/* Highlights rail — full-width media strip under the scoreboard. Self-hides when the
-          feed is empty (pre-migration / no uploads), so it costs no vertical space then. */}
-      {videos.length > 0 && (
-        <Box sx={{ mb: 1.5 }}>
-          <HighlightsRail videos={videos} teams={teams} />
-        </Box>
-      )}
-
       {/* Two-column feed. On desktop the two columns render as written (The League |
           Around the League). On mobile there's one column, so the two wrappers collapse to
           `display: contents` and every card becomes a direct grid item — then CSS `order`
           sets the single-column sequence independently of which desktop column a card lives
           in. That lets Hall of Firsts drop below the season leaders and Teams sit dead last
-          on mobile, while desktop keeps Hall of Firsts below the leaders in the right column
-          and Teams in the left. */}
+          on mobile, while desktop keeps Hall of Firsts and Teams below the leaders in the
+          right column. */}
       <Box sx={{
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', md: '1.4fr 1fr' },
@@ -1246,26 +1238,34 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
         <Box sx={{ minWidth: 0, display: { xs: 'contents', md: 'flex' }, flexDirection: 'column', gap: 1.5 }}>
           <Box sx={{ minWidth: 0, order: { xs: 1, md: 0 } }}><DiscordCard /></Box>
           <Box sx={{ minWidth: 0, order: { xs: 2, md: 0 } }}><NextGameCard games={games} teams={teamMap} onOpenGame={onOpenGame} /></Box>
-          <Box sx={{ minWidth: 0, order: { xs: 3, md: 0 } }}><StandingsCard teams={teams} games={games} onOpenTeam={onOpenTeam} /></Box>
-          {/* Mobile: last card in the whole feed. */}
-          <Box sx={{ minWidth: 0, order: { xs: 8, md: 0 } }}><TeamsCard teams={teams} onOpenTeam={onOpenTeam} /></Box>
+          {/* Highlights rail — sits under the Next game card in the left column on desktop,
+              and directly below it in the mobile stack. Self-hides when the feed is empty
+              (pre-migration / no uploads), so it never leaves an empty slot or gap. */}
+          {videos.length > 0 && (
+            <Box sx={{ minWidth: 0, order: { xs: 3, md: 0 } }}><HighlightsRail videos={videos} teams={teams} /></Box>
+          )}
+          <Box sx={{ minWidth: 0, order: { xs: 4, md: 0 } }}><StandingsCard teams={teams} games={games} onOpenTeam={onOpenTeam} /></Box>
         </Box>
 
         {/* Around the League */}
         <Box sx={{ minWidth: 0, display: { xs: 'contents', md: 'flex' }, flexDirection: 'column', gap: 1.5 }}>
           {/* Mobile: below the season leaders (orders 5–6), above only Teams.
               Desktop: md order 1 drops it below the leaders (md 0) in this column. */}
-          <Box sx={{ minWidth: 0, order: { xs: 7, md: 1 } }}><HallOfFirstsCard firsts={firsts} teamById={teamMap} loading={loadingLeaders} onOpenPlayer={onOpenPlayer} onViewAll={() => setFirstsOpen(true)} /></Box>
+          <Box sx={{ minWidth: 0, order: { xs: 8, md: 1 } }}><HallOfFirstsCard firsts={firsts} teamById={teamMap} loading={loadingLeaders} onOpenPlayer={onOpenPlayer} onViewAll={() => setFirstsOpen(true)} /></Box>
           {/* Only reserve the tracking slot (skeleton included) when tracking will actually
               show. Gating on the loading flag too would flash a skeleton on cold load and then
               yank the card once it resolves stale — which it now essentially always is, since
               tracking data exists for only the first couple games. Its loading placeholder
               stays accurate by not appearing at all when there's nothing to place. */}
           {!trackingStale && (
-            <Box sx={{ minWidth: 0, order: { xs: 4, md: 0 } }}><TrackingTeaserCard board={trackingBoard} latestGameIds={latestGameIds} loading={loadingLeaders} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={viewTracking} /></Box>
+            <Box sx={{ minWidth: 0, order: { xs: 5, md: 0 } }}><TrackingTeaserCard board={trackingBoard} latestGameIds={latestGameIds} loading={loadingLeaders} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={viewTracking} /></Box>
           )}
-          <Box sx={{ minWidth: 0, order: { xs: 5, md: 0 } }}><LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('hitting')} /></Box>
-          <Box sx={{ minWidth: 0, order: { xs: 6, md: 0 } }}><LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('pitching')} /></Box>
+          <Box sx={{ minWidth: 0, order: { xs: 6, md: 0 } }}><LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('hitting')} /></Box>
+          <Box sx={{ minWidth: 0, order: { xs: 7, md: 0 } }}><LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('pitching')} /></Box>
+          {/* Teams sits at the bottom of the right column on desktop (md order 2, under the
+              leaders and Hall of Firsts) — it doesn't need the wide left column. Mobile keeps
+              it as the last card in the whole feed. */}
+          <Box sx={{ minWidth: 0, order: { xs: 9, md: 2 } }}><TeamsCard teams={teams} onOpenTeam={onOpenTeam} /></Box>
         </Box>
       </Box>
 
