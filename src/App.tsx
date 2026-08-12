@@ -20,6 +20,7 @@ import { PrivacyPolicy, TermsOfService } from './LegalPages'
 import { FeedbackDialog } from './FeedbackDialog'
 import { NotificationBell } from './NotificationBell'
 import { supabase } from './lib/supabase'
+import { useSeo } from './seo'
 import { track, EVENTS } from './lib/analytics'
 import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from './lib/usernames'
 import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
@@ -285,6 +286,8 @@ function AppInner() {
     if (p === '/') { window.history.replaceState({}, '', '/wpbl'); return '/wpbl' }
     return p as Route
   })
+  // Keep <title>, meta description, canonical, and OG tags in sync with the route.
+  useSeo(path)
   const [accountOpen,      setAccountOpen]      = useState(false)
   const [changelogOpen,    setChangelogOpen]    = useState(false)
   const [feedbackOpen,     setFeedbackOpen]     = useState(false)

@@ -1,6 +1,6 @@
 <!-- index.html -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -35,6 +35,49 @@
     </style>
     <title>sportydolphin.fun — MLB & WPBL baseball stats</title>
     <meta name="description" content="sportydolphin.fun is a free baseball stats site for Major League Baseball and the Women's Pro Baseball League. Live scores, player and team stats, standings, and a predictions game. No sign-in required to browse." />
+    <link rel="canonical" href="https://sportydolphin.fun/wpbl" />
+
+    <!-- Open Graph / Twitter defaults. src/seo.ts overrides og:title/description/url per
+         route once React mounts; these are what social unfurlers and non-JS crawlers see.
+         To add a preview thumbnail, drop a 1200x630 PNG at /og-cover.png and uncomment the
+         og:image / twitter:image lines below (and switch twitter:card to summary_large_image). -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="sportydolphin.fun" />
+    <meta property="og:title" content="sportydolphin.fun — MLB & WPBL baseball stats" />
+    <meta property="og:description" content="Free MLB and Women's Pro Baseball League (WPBL) stats: live scores, player and team stats, standings, and a predictions game." />
+    <meta property="og:url" content="https://sportydolphin.fun/wpbl" />
+    <!-- <meta property="og:image" content="https://sportydolphin.fun/og-cover.png" /> -->
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="sportydolphin.fun — MLB & WPBL baseball stats" />
+    <meta name="twitter:description" content="Free MLB and Women's Pro Baseball League (WPBL) stats: live scores, standings, and player stats." />
+    <!-- <meta name="twitter:image" content="https://sportydolphin.fun/og-cover.png" /> -->
+
+    <!-- Structured data: ties the domain to the brand name "sportydolphin" and describes
+         the site, helping branded queries resolve here and enabling richer results. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://sportydolphin.fun/#website",
+          "url": "https://sportydolphin.fun/",
+          "name": "sportydolphin.fun",
+          "alternateName": "sportydolphin",
+          "description": "Free MLB and Women's Pro Baseball League (WPBL) stats: live scores, player and team stats, standings, and a predictions game.",
+          "inLanguage": "en"
+        },
+        {
+          "@type": "Organization",
+          "@id": "https://sportydolphin.fun/#org",
+          "name": "sportydolphin.fun",
+          "url": "https://sportydolphin.fun/",
+          "logo": "https://sportydolphin.fun/icon.svg"
+        }
+      ]
+    }
+    </script>
+
     <link rel="preload" href="/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#0f172a" />
