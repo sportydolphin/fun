@@ -30,8 +30,9 @@ import CupsGame from '../projects/cups-game/src/CupsGame'
 // Cosmetic gate only: decides whether the ⚡ Admin button renders. It grants NO
 // privilege — every admin action is enforced server-side by RLS (public.is_site_owner(),
 // see scripts/harden_admin_gate.sql), which reads the confirmed email from auth.users by
-// the verified auth.uid() and can't be spoofed by faking this client value.
-const ADMIN_EMAIL = 'snichols246@gmail.com'
+// the verified auth.uid() and can't be spoofed by faking this client value. Shared with
+// the WPBL feature-flagged sections via src/lib/admin.ts.
+import { ADMIN_EMAIL } from './lib/admin'
 import TestGame from './TestGame'
 import Stopwatch from './Stopwatch'
 import WeightGame from './WeightGame'

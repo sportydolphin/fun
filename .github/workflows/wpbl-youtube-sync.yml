@@ -1,0 +1,41 @@
+name: WPBL YouTube Sync
+
+on:
+  schedule:
+    # Twice an hour during WPBL waking hours (Central-time hub — see the reminder/board
+    # workflows for the same window). Highlights land within an hour or two of a game
+    # going final, so this cadence surfaces a fresh recap promptly without hammering the
+    # feed. The feed itself only carries the latest ~15 uploads, so there's nothing to
+    # gain from running more often.
+    - cron: '0,30 14-23,0-3 * * *'
+  workflow_dispatch:   # run on demand from the Actions tab (use for the first, seeding run)
+
+# One writer at a time; skip a tick rather than racing two upserts.
+concurrency:
+  group: wpbl-youtube-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Same install trick as the sibling WPBL workflows: pull only the one package this
+      # script imports, at the version pinned in package.json, not the whole frontend.
+      - name: Install dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Sync WPBL YouTube highlights
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          WPBL_YT_CHANNEL_ID:        ${{ vars.WPBL_YT_CHANNEL_ID }}
+        run: node scripts/sync-wpbl-youtube.mjs

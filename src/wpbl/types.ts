@@ -110,6 +110,21 @@ export interface WpblGame {
   last_play_at?: string | null
 }
 
+// A mirror of one WPBL official-YouTube upload (see scripts/sync-wpbl-youtube.mjs and
+// create_wpbl_videos.sql). `game_id` is set for a highlight whose title parsed to a known
+// game; null for podcasts, league features, or an unmatched matchup.
+export interface WpblVideo {
+  video_id: string           // YouTube 11-char id (watch?v=…)
+  title: string
+  published_at: string       // ISO timestamp
+  thumbnail_url: string | null
+  kind: 'highlight' | 'podcast' | 'other'
+  game_id: string | null
+  away_hint?: string | null
+  home_hint?: string | null
+  game_date_hint?: string | null
+}
+
 export interface WpblBattingLine {
   id: string
   game_id: string

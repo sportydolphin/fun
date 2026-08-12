@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { supabase } from '../lib/supabase'
-import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking } from './api'
+import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblVideos, getCachedWpblVideos } from './api'
 import { wpblAccent, wpblFullName, outsToIp, formatGameTime } from './constants'
 import { LiveBanner, useLiveGame } from './Live'
 import { WpblGamePreview } from './GamePreview'
+import { GameHighlightCard } from './Highlights'
+import { useIsAdmin } from '../lib/admin'
 import { ModalShell, SegNav, TeamBadge, useWpblDark, useWpblName } from './ui'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, speedUnit } from '../lib/units'
 import { prettyType } from './tracking'
 import type {
   WpblTeam, WpblGame, WpblPlayer, WpblBattingLine, WpblPitchingLine,
-  WpblGamePlay, WpblPitchTracking,
+  WpblGamePlay, WpblPitchTracking, WpblVideo,
 } from './types'
 
 // Read-only game center. Fed entirely by the official-feed mirror (see wpbl-ingest):
@@ -714,6 +716,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
   const game = useLiveGame(seed)  // fresh score + live_state while the game is live
+  const isAdmin = useIsAdmin()    // highlights recap is admin-only during soft launch
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const home = byId.get(game.home_team_id)
   const away = byId.get(game.away_team_id)
@@ -726,6 +729,10 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   const [plays, setPlays] = useState<WpblGamePlay[]>([])
   const [tracking, setTracking] = useState<WpblPitchTracking[]>([])
   const [names, setNames] = useState<Map<string, WpblPlayer>>(new Map())
+  // The recap video for this game, if the league has published one. Read from the shared
+  // wpbl_videos cache (a tiny table, fetched once app-wide), matched on game_id.
+  const [video, setVideo] = useState<WpblVideo | null>(() =>
+    getCachedWpblVideos()?.find(v => v.game_id === seed.id) ?? null)
 
   const reload = useCallback((withSpinner = false) => {
     if (withSpinner) setLoading(true)
@@ -746,6 +753,17 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   }, [seed.id, away?.id, home?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => reload(true), [reload])
+
+  // Resolve this game's recap video. Cheap shared read (deduped + cached by the api layer);
+  // revalidates in the background so a recap that lands after the game repaints on next open.
+  useEffect(() => {
+    if (!isAdmin) return
+    let cancelled = false
+    fetchWpblVideos()
+      .then(vs => { if (!cancelled) setVideo(vs.find(v => v.game_id === seed.id) ?? null) })
+      .catch(() => { /* keep last-good */ })
+    return () => { cancelled = true }
+  }, [seed.id, isAdmin])
 
   // While the game is live, keep the box score + play-by-play fresh (poll + realtime).
   useEffect(() => {
@@ -815,6 +833,12 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
             {scoreLine(home, game.home_score, homeWon)}
           </Box>
           {game.venue && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mt: 1 }}>{game.venue}</Typography>}
+
+          {/* Recap highlight — admin-only during soft launch; shown only for a finished
+              game the league has posted video for. */}
+          {isAdmin && final && video && (
+            <Box sx={{ mt: 1.5 }}><GameHighlightCard video={video} /></Box>
+          )}
         </Box>
 
         {/* Live situation banner (inning / count / bases / matchup) */}

@@ -7,6 +7,7 @@ import { addGameReminder, removeGameReminder, fetchGameReminderIds, getCachedGam
 import {
   fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, computeStandings,
   getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblAllPlays, getCachedWpblAllTracking, wpblHomeCacheAgeMs,
+  fetchWpblVideos, getCachedWpblVideos,
 } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp } from './constants'
 import { SectionCard, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, CARD_BORDER } from './ui'
@@ -20,7 +21,9 @@ import { useUnits } from '../UnitsContext'
 import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import { track, EVENTS } from '../lib/analytics'
 import { computeFirsts, type WpblFirst } from './firsts'
-import type { WpblTeam, WpblPlayer, WpblGame, WpblFirstsPlay, WpblBattingLine, WpblPitchingLine, WpblTrackRow } from './types'
+import { useIsAdmin } from '../lib/admin'
+import { HighlightsRail } from './Highlights'
+import type { WpblTeam, WpblPlayer, WpblGame, WpblFirstsPlay, WpblBattingLine, WpblPitchingLine, WpblTrackRow, WpblVideo } from './types'
 
 // WPBL home dashboard (Phase 2). Mirrors the MLB home: a full-width scoreboard strip
 // on top, then a two-column card feed (The League / Around the League) that stacks on
@@ -1061,6 +1064,9 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   onViewTracking: () => void
 }) {
   const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  // Highlights are behind an admin-only flag while the feature is in soft launch — only the
+  // owner sees the rail (and only the owner's client fetches the wpbl_videos mirror).
+  const isAdmin = useIsAdmin()
 
   // Leaders + Hall-of-Firsts + tracking data — fetched here so only the home view pays for
   // it. Seeded from the shared session cache so swiping back to Home (the default tab, so
@@ -1071,6 +1077,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
     () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
   const [plays, setPlays] = useState<WpblFirstsPlay[]>(() => getCachedWpblAllPlays() ?? [])
   const [tracking, setTracking] = useState<WpblTrackRow[]>(() => getCachedWpblAllTracking() ?? [])
+  const [videos, setVideos] = useState<WpblVideo[]>(() => getCachedWpblVideos() ?? [])
   const [loadingLeaders, setLoadingLeaders] = useState(() => wpblHomeCacheAgeMs() === Infinity)
   const [firstsOpen, setFirstsOpen] = useState(false)
 
@@ -1088,6 +1095,16 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
       .catch(() => { if (!cancelled) setLoadingLeaders(false) })
     return () => { cancelled = true }
   }, [])
+
+  // Highlights are their own small read (the wpbl_videos mirror), deduped + cached by the
+  // api layer, so a swipe-back repaints from cache and this just revalidates in the
+  // background. Kept separate from the leaders load so it can't gate or flash those cards.
+  useEffect(() => {
+    if (!isAdmin) return
+    let cancelled = false
+    fetchWpblVideos().then(v => { if (!cancelled) setVideos(v) }).catch(() => { /* keep last-good */ })
+    return () => { cancelled = true }
+  }, [isAdmin])
 
   // While a game is live, refresh only the box-score lines + play-by-play (what the leaders
   // and Hall of Firsts read), and on a gentle cadence. Deliberately NOT re-pulled on the
@@ -1209,6 +1226,15 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
 
       {/* Scoreboard */}
       <Scoreboard games={games} teams={teamMap} onOpenGame={onOpenGame} />
+
+      {/* Highlights rail — full-width media strip under the scoreboard. Admin-only for now
+          (soft launch); also self-hides when the feed is empty (pre-migration / no uploads),
+          so it costs no vertical space then. */}
+      {isAdmin && videos.length > 0 && (
+        <Box sx={{ mb: 1.5 }}>
+          <HighlightsRail videos={videos} teams={teams} />
+        </Box>
+      )}
 
       {/* Two-column feed. On desktop the two columns render as written (The League |
           Around the League). On mobile there's one column, so the two wrappers collapse to

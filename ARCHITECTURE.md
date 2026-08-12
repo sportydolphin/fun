@@ -38,6 +38,7 @@ flowchart TB
         mlbcdn["mlbstatic.com<br/>logos + player photos"]
         fangraphs["FanGraphs<br/>payrolls"]
         wpblfeed["WPBL Official Feed<br/>stats.womensprobaseballleague.com/v1"]
+        wpblyt["WPBL YouTube<br/>channel RSS feed"]
         discord["Discord webhooks<br/>WPBL board + events"]
         gtasks["Google Tasks API<br/>feature requests"]
         push["Web Push (VAPID)"]
@@ -60,13 +61,14 @@ flowchart TB
     scripts --> mlbapi
     scripts --> fangraphs
     scripts -->|"POST self-editing message"| discord
+    scripts -->|"pull uploads (RSS)"| wpblyt
     scripts -->|"pull tasks"| gtasks
     scripts -->|"send"| push
     push --> user
 
     classDef ext fill:#fff3e0,stroke:#e08a00,color:#663d00;
     classDef sb fill:#e7f7ee,stroke:#1a9c5b,color:#0b4a2b;
-    class mlbapi,mlbcdn,fangraphs,wpblfeed,discord,gtasks,push ext;
+    class mlbapi,mlbcdn,fangraphs,wpblfeed,wpblyt,discord,gtasks,push ext;
     class auth,db,edge,pgcron sb;
 ```
 
@@ -140,6 +142,7 @@ flowchart TB
         t_runs["wpbl_ingest_runs<br/>(ingest health)"]
         t_rem["wpbl_game_reminders"]
         t_wsent["wpbl_game_start_sent"]
+        t_vid["wpbl_videos<br/>(YouTube highlights)"]
     end
 
     subgraph MLB["MLB predictions / survivor / stats (written by GH Action scripts)"]
@@ -213,6 +216,7 @@ sequenceDiagram
 | `game-start-reminders` | `*/5 15-23,0-4 * 3-10` | `send-game-start` | Push: MLB game starting soon (in-season, active hours) |
 | `wpbl-game-start-reminders` | `*/10 15-23,0-2` | `send-wpbl-game-start` | Push: WPBL game starting soon |
 | `wpbl-discord-board` | `*/15 14-23,0-3` | `update-wpbl-discord-board` | Self-editing WPBL "next games" Discord message |
+| `wpbl-youtube-sync` | `0,30 14-23,0-3` | `sync-wpbl-youtube` | Mirror WPBL YouTube uploads → `wpbl_videos` (highlights rail + game recaps) |
 | `resolve-survivor` | `30 6` | `resolve-survivor` | Grade survivor picks overnight |
 | `update-playoff-odds` | `0 6` | `simulate-playoff-odds` | Monte-Carlo playoff odds |
 | `update-streaks` | `0 6` + `0 23` + `0 3` (in-season) | `update-streaks` | Streak leaderboards |
@@ -264,6 +268,7 @@ Setup walkthrough: [`docs/PUSH_NOTIFICATIONS.md`](docs/PUSH_NOTIFICATIONS.md).
 | **mlbstatic.com** | SPA | Team logos + player photos |
 | **FanGraphs** | `update-payrolls` | Team payroll data |
 | **WPBL Official Feed** (`stats.womensprobaseballleague.com/v1`) | `wpbl-ingest` | Games, box scores, play-by-play, TrackMan |
+| **WPBL YouTube** (channel RSS `feeds/videos.xml`) | `sync-wpbl-youtube` | Highlight/recap videos → `wpbl_videos`; SPA embeds via youtube-nocookie on click |
 | **Discord webhooks** | `update-wpbl-discord-board` | Self-editing WPBL board + events/watch-party links |
 | **Google Tasks API** | `pull-tasks` | Ingest feature requests |
 | **Web Push (VAPID)** | reminder scripts + `send-test-push` | Browser notifications |

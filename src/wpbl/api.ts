@@ -3,6 +3,7 @@ import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
   WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblPitchTracking, WpblTrackRow,
+  WpblVideo,
 } from './types'
 
 // Reads for the WPBL section. Everything degrades gracefully: if the tables don't
@@ -108,11 +109,13 @@ let allPlayersCache:  { data: WpblPlayer[]; at: number } | null = null
 let allLinesCache:    { data: WpblLinesResult; at: number } | null = null
 let allTrackingCache: { data: WpblTrackRow[]; at: number } | null = null
 let allPlaysCache:    { data: WpblFirstsPlay[]; at: number } | null = null
+let allVideosCache:   { data: WpblVideo[]; at: number } | null = null
 
 export function getCachedWpblAllPlayers(): WpblPlayer[] | null { return allPlayersCache?.data ?? null }
 export function getCachedWpblAllLines(): WpblLinesResult | null { return allLinesCache?.data ?? null }
 export function getCachedWpblAllTracking(): WpblTrackRow[] | null { return allTrackingCache?.data ?? null }
 export function getCachedWpblAllPlays(): WpblFirstsPlay[] | null { return allPlaysCache?.data ?? null }
+export function getCachedWpblVideos(): WpblVideo[] | null { return allVideosCache?.data ?? null }
 
 /** Age (ms) of the cached players+lines pair; Infinity until both are seeded. */
 export function wpblStatsCacheAgeMs(): number {
@@ -237,6 +240,23 @@ export function fetchWpblAllTracking(): Promise<WpblTrackRow[]> {
   // doesn't clobber a previously good result.
   if (out.length > 0 || allTrackingCache == null) allTrackingCache = { data: out, at: Date.now() }
   return out
+  })
+}
+
+// The league's mirrored YouTube uploads, newest first — for the Home highlights rail and
+// the per-game recap card. Small table (the feed carries ~15 uploads), so this is one cheap
+// read cached last-good: the rail repaints on a swipe-back without re-querying, and the
+// GameDetail recap reads the same cache instead of its own request. Empty pre-migration.
+export function fetchWpblVideos(): Promise<WpblVideo[]> {
+  return once('allVideos', async () => {
+    const data = await safe<WpblVideo[]>('fetchWpblVideos', () =>
+      supabase.from('wpbl_videos')
+        .select('video_id,title,published_at,thumbnail_url,kind,game_id,away_hint,home_hint,game_date_hint')
+        .order('published_at', { ascending: false }) as unknown as
+        PromiseLike<{ data: WpblVideo[] | null; error: unknown }>,
+      [])
+    if (data.length > 0 || allVideosCache == null) allVideosCache = { data, at: Date.now() }
+    return data
   })
 }
 
