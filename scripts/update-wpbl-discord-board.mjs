@@ -193,21 +193,25 @@ async function editMessage(id, payload) {
 // service role in CI (bypasses RLS). Read/write failures degrade gracefully — worst case
 // the board posts a fresh message — rather than aborting the run.
 
+// Returns { ok, id }: ok=false means the store is unreadable (e.g. the table hasn't been
+// created), which the caller treats as "persistence is broken" and refuses to create a new
+// message — otherwise it would post an un-rememberable board on every 15-minute run.
 async function loadStoredMessageId() {
   const { data, error } = await supabase
     .from('wpbl_discord_board_state')
     .select('message_id')
     .eq('id', 'board')
     .maybeSingle()
-  if (error) { console.warn(`⚠️  Could not read stored board id: ${error.message}`); return '' }
-  return data?.message_id ?? ''
+  if (error) { console.warn(`⚠️  Could not read stored board id: ${error.message}`); return { ok: false, id: '' } }
+  return { ok: true, id: data?.message_id ?? '' }
 }
 
 async function storeMessageId(id) {
   const { error } = await supabase
     .from('wpbl_discord_board_state')
     .upsert({ id: 'board', message_id: id, updated_at: new Date().toISOString() })
-  if (error) console.warn(`⚠️  Could not persist board id ${id}: ${error.message}`)
+  if (error) { console.error(`⚠️  Could not persist board id ${id}: ${error.message}`); return false }
+  return true
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -249,7 +253,8 @@ async function main() {
   // Source of truth for which message to edit is the DB. DISCORD_BOARD_MESSAGE_ID is now
   // only a one-time seed: if the DB has no id yet but the old repo variable is still set,
   // adopt that existing message (and persist it) so this migration doesn't post a duplicate.
-  let messageId = await loadStoredMessageId()
+  const stored = await loadStoredMessageId()
+  let messageId = stored.id
   let adopting = false
   if (!messageId && MESSAGE_ID) { messageId = MESSAGE_ID; adopting = true }
 
@@ -263,8 +268,20 @@ async function main() {
     console.warn(`⚠️  Board message ${messageId} no longer exists — creating a fresh one.`)
   }
 
+  // Guard: never post a message we can't remember. If the store is unreadable (missing
+  // table, bad creds), creating here would spawn a brand-new board on every 15-minute run —
+  // exactly the duplicate-spam this persistence was added to stop. Fail loudly instead so
+  // the workflow goes red and nothing is posted until wpbl_discord_board_state exists.
+  if (!stored.ok) {
+    throw new Error(
+      'wpbl_discord_board_state is unreadable (has scripts/create_wpbl_discord_board_state.sql been run?) — ' +
+      'refusing to CREATE a board we cannot persist, which would duplicate every run.'
+    )
+  }
+
   const msg = await createMessage(payload)
-  await storeMessageId(msg.id)
+  const persisted = await storeMessageId(msg.id)
+  if (!persisted) throw new Error(`Created board message ${msg.id} but FAILED to persist its id — aborting so the next run doesn't duplicate. Fix wpbl_discord_board_state writes.`)
   console.log(`✅ Created board message ${msg.id} — showing ${upcoming.length} game(s). Persisted for future edits.`)
 }
 
