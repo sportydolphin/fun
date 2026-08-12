@@ -1215,8 +1215,8 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
           `display: contents` and every card becomes a direct grid item — then CSS `order`
           sets the single-column sequence independently of which desktop column a card lives
           in. That lets Hall of Firsts drop below the season leaders and Teams sit dead last
-          on mobile, while desktop keeps Hall of Firsts atop the right column and Teams in the
-          left. `order` resets to 0 at md so the desktop layout is untouched. */}
+          on mobile, while desktop keeps Hall of Firsts below the leaders in the right column
+          and Teams in the left. */}
       <Box sx={{
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', md: '1.4fr 1fr' },
@@ -1233,8 +1233,9 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
 
         {/* Around the League */}
         <Box sx={{ minWidth: 0, display: { xs: 'contents', md: 'flex' }, flexDirection: 'column', gap: 1.5 }}>
-          {/* Mobile: below the season leaders (orders 5–6), above only Teams. */}
-          <Box sx={{ minWidth: 0, order: { xs: 7, md: 0 } }}><HallOfFirstsCard firsts={firsts} teamById={teamMap} loading={loadingLeaders} onOpenPlayer={onOpenPlayer} onViewAll={() => setFirstsOpen(true)} /></Box>
+          {/* Mobile: below the season leaders (orders 5–6), above only Teams.
+              Desktop: md order 1 drops it below the leaders (md 0) in this column. */}
+          <Box sx={{ minWidth: 0, order: { xs: 7, md: 1 } }}><HallOfFirstsCard firsts={firsts} teamById={teamMap} loading={loadingLeaders} onOpenPlayer={onOpenPlayer} onViewAll={() => setFirstsOpen(true)} /></Box>
           {/* Only reserve the tracking slot (skeleton included) when tracking will actually
               show. Gating on the loading flag too would flash a skeleton on cold load and then
               yank the card once it resolves stale — which it now essentially always is, since

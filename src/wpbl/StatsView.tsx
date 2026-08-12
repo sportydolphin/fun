@@ -336,12 +336,12 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
             <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: '100%', fontVariantNumeric: 'tabular-nums' }}>
               <Box component="thead">
                 <Box component="tr">
-                  <Box component="th" sx={{ ...thBase, left: 0, zIndex: 4, textAlign: 'left', width: pinActive ? NAME_W : undefined, minWidth: NAME_W, maxWidth: pinActive ? NAME_W : undefined, borderRight: '1px solid', borderColor: 'divider', pl: 1 }}>
+                  <Box component="th" data-swipe-handle="" sx={{ ...thBase, left: 0, zIndex: 4, textAlign: 'left', width: pinActive ? NAME_W : undefined, minWidth: NAME_W, maxWidth: pinActive ? NAME_W : undefined, borderRight: '1px solid', borderColor: 'divider', pl: 1, touchAction: pinActive ? 'pan-y' : undefined }}>
                     {mode === 'teams' ? 'Team' : 'Player'}
                   </Box>
                   {pinActive && (
-                    <Box component="th" onClick={() => clickHeader(activeCol)} sx={{
-                      ...thBase, position: 'sticky', left: NAME_W - 2, zIndex: 5,
+                    <Box component="th" data-swipe-handle="" onClick={() => clickHeader(activeCol)} sx={{
+                      ...thBase, position: 'sticky', left: NAME_W - 2, zIndex: 5, touchAction: 'pan-y',
                       textAlign: 'center', cursor: 'pointer', minWidth: 50, px: 0.5,
                       color: WPBL_ACCENT,
                       backgroundImage: `linear-gradient(${WPBL_ACCENT}24, ${WPBL_ACCENT}24)`,
@@ -379,11 +379,12 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
                   return (
                     <Box component="tr" key={r.key} onClick={r.onClick}
                       sx={{ cursor: r.onClick ? 'pointer' : 'default', userSelect: 'none', WebkitTapHighlightColor: 'transparent', '@media (hover: hover)': { '&:hover > td, &:hover > th': r.onClick ? { bgcolor: `${WPBL_ACCENT}0e` } : undefined } }}>
-                      <Box component="th" sx={{
+                      <Box component="th" data-swipe-handle="" sx={{
                         position: 'sticky', left: 0, zIndex: 2, bgcolor: 'background.paper',
                         textAlign: 'left', fontWeight: 400, py: 0.5, px: 1,
                         width: pinActive ? NAME_W : undefined, minWidth: NAME_W, maxWidth: pinActive ? NAME_W : undefined,
                         borderTop: '1px solid', borderRight: '1px solid', borderColor: 'divider',
+                        touchAction: pinActive ? 'pan-y' : undefined,
                       }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                           <Typography sx={{ width: 18, textAlign: 'right', flexShrink: 0, fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled' }}>{i + 1}</Typography>
@@ -395,8 +396,8 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
                         </Box>
                       </Box>
                       {pinActive && (
-                        <Box component="td" onClick={e => { e.stopPropagation(); clickHeader(activeCol) }} sx={{
-                          position: 'sticky', left: NAME_W - 2, zIndex: 3,
+                        <Box component="td" data-swipe-handle="" onClick={e => { e.stopPropagation(); clickHeader(activeCol) }} sx={{
+                          position: 'sticky', left: NAME_W - 2, zIndex: 3, touchAction: 'pan-y',
                           textAlign: 'center', py: 0.5, px: 0.5,
                           borderTop: '1px solid', borderRight: '1px solid', borderColor: 'divider',
                           fontSize: '0.84rem', fontWeight: 800, color: WPBL_ACCENT,

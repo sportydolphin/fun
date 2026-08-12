@@ -39,10 +39,25 @@ async function safe<T>(label: string, run: () => PromiseLike<{ data: T | null; e
   }
 }
 
+// Collapse concurrent duplicate reads. On a cold load several views mount at once and ask
+// for the same bulk dataset (WpblApp's search pool and Home both pull the full roster; the
+// schedule poll can overlap a focus-refresh) — without this each fires its own DB query.
+// Keyed by dataset, the in-flight promise is shared until it settles, then cleared: this
+// only dedupes genuine overlap and never hands a later, deliberately-fresh call stale data
+// (the result caches + per-caller staleness gating handle revalidation separately).
+const inflight = new Map<string, Promise<unknown>>()
+function once<T>(key: string, run: () => Promise<T>): Promise<T> {
+  const pending = inflight.get(key) as Promise<T> | undefined
+  if (pending) return pending
+  const p = run().finally(() => inflight.delete(key))
+  inflight.set(key, p)
+  return p
+}
+
 export function fetchWpblTeams(): Promise<WpblTeam[]> {
-  return safe('fetchWpblTeams', () =>
+  return once('teams', () => safe('fetchWpblTeams', () =>
     supabase.from('wpbl_teams').select('*').order('sort_order', { ascending: true }),
-    [] as WpblTeam[])
+    [] as WpblTeam[]))
 }
 
 // The feed occasionally emits a phantom `scheduled` duplicate of a game it already
@@ -60,11 +75,13 @@ function dedupeSchedule(games: WpblGame[]): WpblGame[] {
   return games.filter(g => played(g) || !hasPlayed.has(`${g.game_date}|${g.away_team_id}|${g.home_team_id}`))
 }
 
-export async function fetchWpblSchedule(): Promise<WpblGame[]> {
-  const games = await safe('fetchWpblSchedule', () =>
-    supabase.from('wpbl_games').select('*').order('game_date', { ascending: true }),
-    [] as WpblGame[])
-  return dedupeSchedule(games)
+export function fetchWpblSchedule(): Promise<WpblGame[]> {
+  return once('schedule', async () => {
+    const games = await safe('fetchWpblSchedule', () =>
+      supabase.from('wpbl_games').select('*').order('game_date', { ascending: true }),
+      [] as WpblGame[])
+    return dedupeSchedule(games)
+  })
 }
 
 // One game's current row — used by the live views to poll fresh score + live_state.
@@ -117,14 +134,16 @@ export function wpblHomeCacheAgeMs(): number {
 
 // Every player in the league (all four rosters). Used to attach names/teams to the
 // aggregated league-leader rows on the home view.
-export async function fetchWpblAllPlayers(): Promise<WpblPlayer[]> {
-  const data = await safe('fetchWpblAllPlayers', () =>
-    supabase.from('wpbl_players').select('*'),
-    [] as WpblPlayer[])
-  // Don't clobber a good cache with an empty error/timeout fallback; a genuinely
-  // empty first load (pre-migration) still seeds so callers stop showing a spinner.
-  if (data.length > 0 || allPlayersCache == null) allPlayersCache = { data, at: Date.now() }
-  return data
+export function fetchWpblAllPlayers(): Promise<WpblPlayer[]> {
+  return once('allPlayers', async () => {
+    const data = await safe('fetchWpblAllPlayers', () =>
+      supabase.from('wpbl_players').select('*'),
+      [] as WpblPlayer[])
+    // Don't clobber a good cache with an empty error/timeout fallback; a genuinely
+    // empty first load (pre-migration) still seeds so callers stop showing a spinner.
+    if (data.length > 0 || allPlayersCache == null) allPlayersCache = { data, at: Date.now() }
+    return data
+  })
 }
 
 // Only the play columns the Hall of Firsts reads (see WpblFirstsPlay). Deliberately omits
@@ -138,32 +157,36 @@ const FIRSTS_PLAY_SELECT =
 // strikeout, first stolen base, etc.). The heaviest WPBL read (one row per play, all
 // season), so it's both column-projected and cached last-good, letting the Home tab
 // repaint on a swipe-back without re-pulling it. Empty pre-migration.
-export async function fetchWpblAllPlays(): Promise<WpblFirstsPlay[]> {
-  const data = await safe<WpblFirstsPlay[]>('fetchWpblAllPlays', () =>
-    supabase.from('wpbl_game_plays').select(FIRSTS_PLAY_SELECT) as unknown as
-      PromiseLike<{ data: WpblFirstsPlay[] | null; error: unknown }>,
-    [])
-  if (data.length > 0 || allPlaysCache == null) allPlaysCache = { data, at: Date.now() }
-  return data
+export function fetchWpblAllPlays(): Promise<WpblFirstsPlay[]> {
+  return once('allPlays', async () => {
+    const data = await safe<WpblFirstsPlay[]>('fetchWpblAllPlays', () =>
+      supabase.from('wpbl_game_plays').select(FIRSTS_PLAY_SELECT) as unknown as
+        PromiseLike<{ data: WpblFirstsPlay[] | null; error: unknown }>,
+      [])
+    if (data.length > 0 || allPlaysCache == null) allPlaysCache = { data, at: Date.now() }
+    return data
+  })
 }
 
 // Every box-score line in the league — for computing season league leaders. Cheap for
 // a four-team league; returns empty (no leaders) until games start being entered.
-export async function fetchWpblAllLines(): Promise<WpblLinesResult> {
-  const [batting, pitching] = await Promise.all([
-    safe('fetchWpblAllBatting', () =>
-      supabase.from('wpbl_batting_lines').select('*'),
-      [] as WpblBattingLine[]),
-    safe('fetchWpblAllPitching', () =>
-      supabase.from('wpbl_pitching_lines').select('*'),
-      [] as WpblPitchingLine[]),
-  ])
-  const result = { batting, pitching }
-  // Keep last-good on a transient empty (see fetchWpblAllPlayers).
-  if (batting.length > 0 || pitching.length > 0 || allLinesCache == null) {
-    allLinesCache = { data: result, at: Date.now() }
-  }
-  return result
+export function fetchWpblAllLines(): Promise<WpblLinesResult> {
+  return once('allLines', async () => {
+    const [batting, pitching] = await Promise.all([
+      safe('fetchWpblAllBatting', () =>
+        supabase.from('wpbl_batting_lines').select('*'),
+        [] as WpblBattingLine[]),
+      safe('fetchWpblAllPitching', () =>
+        supabase.from('wpbl_pitching_lines').select('*'),
+        [] as WpblPitchingLine[]),
+    ])
+    const result = { batting, pitching }
+    // Keep last-good on a transient empty (see fetchWpblAllPlayers).
+    if (batting.length > 0 || pitching.length > 0 || allLinesCache == null) {
+      allLinesCache = { data: result, at: Date.now() }
+    }
+    return result
+  })
 }
 
 // Every TrackMan tracking row in the league, slimmed to the fields the velocity board
@@ -182,7 +205,8 @@ const numOrNull = (v: unknown): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
-export async function fetchWpblAllTracking(): Promise<WpblTrackRow[]> {
+export function fetchWpblAllTracking(): Promise<WpblTrackRow[]> {
+  return once('allTracking', async () => {
   const PAGE = 1000
   const out: WpblTrackRow[] = []
   for (let from = 0; ; from += PAGE) {
@@ -213,6 +237,7 @@ export async function fetchWpblAllTracking(): Promise<WpblTrackRow[]> {
   // doesn't clobber a previously good result.
   if (out.length > 0 || allTrackingCache == null) allTrackingCache = { data: out, at: Date.now() }
   return out
+  })
 }
 
 // Existing box-score lines for one game (for editing / display).

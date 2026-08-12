@@ -25,17 +25,23 @@ const RESIST = 0.3          // rubber-band factor when dragging past the first/l
 const GAP = 16              // gutter shown between panes while swiping, so they aren't cramped
 
 // Does the touch start inside something that scrolls horizontally on its own (the home
-// scoreboard strip, a wide table) and can still scroll that way? If so, leave the gesture
-// to it instead of stealing it for a tab swipe.
-function ownsHorizontalScroll(from: EventTarget | null, stop: HTMLElement, dir: number): boolean {
+// scoreboard strip, the wide stats table)? If so, that inner scroller owns the gesture —
+// leave it be instead of stealing it for a tab swipe. We claim it whenever the element
+// *can* scroll sideways at all, NOT just when it has room left in the drag direction: a
+// scroller sitting at its edge should stay put under the finger (as any scroll container
+// does), never hand the flick off to the pager and yank you to the next tab mid-read.
+// Tab-switching stays available everywhere outside such scrollers (and via the nav).
+//
+// Exception: an element flagged `data-swipe-handle` is a frozen part of a scroller that
+// stays put while the rest scrolls under it (the stats table's pinned name/sort columns).
+// A horizontal drag there is meant to page tabs, not scroll the table, so we bow out —
+// the scroller keeps only its actually-scrolling cells, giving the pager a grab handle.
+function ownsHorizontalScroll(from: EventTarget | null, stop: HTMLElement): boolean {
   let el = from instanceof HTMLElement ? from : null
+  if (el?.closest('[data-swipe-handle]')) return false
   while (el && el !== stop) {
     const ox = getComputedStyle(el).overflowX
-    if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 1) {
-      const maxLeft = el.scrollWidth - el.clientWidth
-      if (dir > 0 && el.scrollLeft < maxLeft - 1) return true // room to reveal content on the right
-      if (dir < 0 && el.scrollLeft > 1) return true           // room to reveal content on the left
-    }
+    if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 1) return true
     el = el.parentElement
   }
   return false
@@ -110,6 +116,28 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   const [anim, setAnim] = useState(false)        // animate the transform (release) vs track the finger
   const [dir, setDir] = useState<-1 | 0 | 1>(0)  // which neighbour is live (-1 prev, 1 next)
   const [pinTop, setPinTop] = useState(0)        // neighbour's top, aligned to the current viewport
+  const [, bumpWarm] = useState(0)               // re-render trigger when a neighbour is pre-warmed
+
+  // Pre-warm the immediate neighbours during idle time once the active tab settles: add them
+  // to the keep-alive set so they mount hidden now, paying a heavy tab's one-time data-shaping
+  // useMemo off-gesture instead of synchronously in the first frame of a swipe (the mid-drag
+  // stutter, worst on Stats/Tracking). When a drag then starts, the neighbour is already
+  // mounted, so it's revealed via its stable key — never remounted mid-swipe. Cheap on the
+  // network too: Home preloads the shared caches every tab reads, so a warmed tab's
+  // fetch-on-mount finds a fresh cache and no-ops. Only ever grows `visited`.
+  useEffect(() => {
+    if (!isMobile) return
+    const warm = () => {
+      let added = false
+      for (const j of [index - 1, index + 1]) {
+        if (j >= 0 && j < panels.length && !visited.current.has(j)) { visited.current.add(j); added = true }
+      }
+      if (added) bumpWarm(n => n + 1)
+    }
+    const hasRIC = typeof window.requestIdleCallback === 'function'
+    const id = hasRIC ? window.requestIdleCallback(warm, { timeout: 1500 }) : window.setTimeout(warm, 500)
+    return () => { if (hasRIC) window.cancelIdleCallback(id as number); else window.clearTimeout(id as number) }
+  }, [index, isMobile, panels.length])
 
   // Mirrors for the native (non-React) touch handlers, which close over stale state otherwise.
   const animRef = useRef(false); animRef.current = anim
@@ -148,7 +176,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
         if (Math.abs(dx) < LOCK_PX && Math.abs(dy) < LOCK_PX) return
         if (Math.abs(dy) >= Math.abs(dx)) { s.lock = 'v'; s.tracking = false; return } // vertical → let it scroll
         const d: 1 | -1 = dx < 0 ? 1 : -1
-        if (ownsHorizontalScroll(s.target, el, d)) { s.lock = 'v'; s.tracking = false; return }
+        if (ownsHorizontalScroll(s.target, el)) { s.lock = 'v'; s.tracking = false; return }
         s.lock = 'h'
         s.dir = d
         const { index: idx, count } = latest.current

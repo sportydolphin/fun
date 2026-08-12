@@ -9,6 +9,8 @@ Both sections share one shell: auth, header search, notifications/Web Push, unit
 
 **Stack:** React 18 + TypeScript + Vite + MUI, Supabase (Postgres + Auth + Edge Functions) for data and accounts, and GitHub Actions for the nightly/periodic precompute and push-sender jobs. Installable PWA.
 
+📐 **[ARCHITECTURE.md](ARCHITECTURE.md)** — full system diagram: frontend routes, database tables, edge functions, the WPBL ingest pipeline, every cron job, and external integrations.
+
 ## Quick start
 
 ```bash
