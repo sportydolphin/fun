@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { ModalShell, SectionCard, TeamBadge, CARD_BORDER } from './ui'
 import type { WpblVideo, WpblTeam } from './types'
@@ -18,7 +18,8 @@ function videoDateLabel(v: WpblVideo): string {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
-// Play-button overlay shared by every thumbnail facade.
+// Play-button overlay shared by every thumbnail facade. The `.play-disc` class lets a
+// parent card scale the disc on hover (the transition below is otherwise idle).
 function PlayBadge({ size = 44 }: { size?: number }) {
   return (
     <Box sx={{
@@ -27,7 +28,7 @@ function PlayBadge({ size = 44 }: { size?: number }) {
       background: 'linear-gradient(180deg, rgba(0,0,0,0.05), rgba(0,0,0,0.35))',
       transition: 'background 0.15s',
     }}>
-      <Box sx={{
+      <Box className="play-disc" sx={{
         width: size, height: size, borderRadius: '50%', flexShrink: 0,
         bgcolor: 'rgba(0,0,0,0.55)', border: '2px solid rgba(255,255,255,0.9)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -90,13 +91,19 @@ function RailCard({ video, teamById, onPlay }: {
   return (
     <Box
       onClick={onPlay}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPlay() } }}
+      role="button"
+      tabIndex={0}
+      aria-label={`Play highlights: ${video.title}`}
       sx={{
         flexShrink: 0, width: { xs: 232, sm: 248 }, cursor: 'pointer', scrollSnapAlign: 'start',
         borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: CARD_BORDER,
         bgcolor: 'background.paper', transition: 'transform 0.1s, border-color 0.15s',
         '&:hover': { borderColor: 'text.disabled' },
         '&:hover .play-badge': { background: 'linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.45))' },
+        '&:hover .play-disc': { transform: 'scale(1.08)' },
         '&:active': { transform: 'scale(0.985)' },
+        '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
       }}
     >
       <Box sx={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', bgcolor: 'action.hover' }}>
@@ -129,6 +136,41 @@ function RailCard({ video, teamById, onPlay }: {
   )
 }
 
+// Desktop-only paging arrow. Touch users swipe the rail; a mouse user has no visible
+// scrollbar (it's hidden) and no drag affordance, so on fine-pointer/hover devices we
+// float a chevron over each edge that pages the scroller. Hidden on touch (via the
+// media query) and faded out at whichever end of the rail it can't move toward.
+function RailArrow({ dir, show, onClick }: { dir: 'left' | 'right'; show: boolean; onClick: () => void }) {
+  return (
+    <Box
+      onClick={onClick}
+      aria-label={dir === 'left' ? 'Previous highlights' : 'More highlights'}
+      role="button"
+      tabIndex={-1}
+      sx={{
+        position: 'absolute', top: '34%', [dir]: -4, transform: 'translateY(-50%)', zIndex: 2,
+        width: 34, height: 34, borderRadius: '50%',
+        display: 'none', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+        bgcolor: 'background.paper', border: '1px solid', borderColor: CARD_BORDER,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.28)', color: 'text.primary',
+        opacity: show ? 1 : 0, pointerEvents: show ? 'auto' : 'none',
+        transition: 'opacity 0.15s, background 0.15s',
+        '&:hover': { bgcolor: 'action.hover' },
+        // Only devices with a precise, hover-capable pointer (i.e. a desktop mouse/trackpad)
+        // get the arrows; touch devices keep the clean swipe surface.
+        '@media (hover: hover) and (pointer: fine)': { display: 'flex' },
+      }}
+    >
+      <Box sx={{
+        width: 0, height: 0, borderStyle: 'solid',
+        ...(dir === 'left'
+          ? { borderWidth: '6px 8px 6px 0', borderColor: 'transparent currentColor transparent transparent', mr: '2px' }
+          : { borderWidth: '6px 0 6px 8px', borderColor: 'transparent transparent transparent currentColor', ml: '2px' }),
+      }} />
+    </Box>
+  )
+}
+
 // The Home "Highlights" rail — a horizontal scroller of the most recent uploads. Renders
 // nothing when there are no videos (pre-migration / empty feed), so it never shows an empty
 // shell. Highlights (matched to a game) lead; the tail keeps whatever else the feed carried.
@@ -144,19 +186,38 @@ export function HighlightsRail({ videos, teams }: { videos: WpblVideo[]; teams: 
     return [...videos].sort((a, b) => rank(a) - rank(b)).slice(0, 12)
   }, [videos])
 
-  const [atStart, setAtStart] = useState(true)
-  const [atEnd, setAtEnd] = useState(true)
+  // Which paging arrows can do anything: hidden at the ends so a desktop user isn't offered
+  // a dead control. Re-checked on scroll, on content change, and on resize (the reachable
+  // scroll distance shifts as the strip's width changes).
+  const [canPrev, setCanPrev] = useState(false)
+  const [canNext, setCanNext] = useState(false)
   const syncEdges = useCallback(() => {
     const c = scrollRef.current
     if (!c) return
-    setAtStart(c.scrollLeft <= 1)
-    setAtEnd(c.scrollLeft + c.clientWidth >= c.scrollWidth - 1)
+    const max = c.scrollWidth - c.clientWidth
+    setCanPrev(c.scrollLeft > 1)
+    setCanNext(c.scrollLeft < max - 1)
   }, [])
   useEffect(() => { syncEdges() }, [shown, syncEdges])
+  useEffect(() => {
+    window.addEventListener('resize', syncEdges)
+    return () => window.removeEventListener('resize', syncEdges)
+  }, [syncEdges])
+
+  // Page by most of the visible width, leaving a card of overlap so nothing is skipped.
+  const page = (dir: 1 | -1) => {
+    const c = scrollRef.current
+    if (!c) return
+    c.scrollBy({ left: dir * Math.max(c.clientWidth * 0.8, 200), behavior: 'smooth' })
+  }
 
   if (shown.length === 0) return null
+  // No edge-fade overlay here (unlike the small scoreboard chips): over a full-size video
+  // card the gradient sat on top of the very card the user just snapped into focus, reading
+  // as "this one is faded/disabled." A half-peeking neighbour card is the "swipe for more"
+  // cue on touch; on desktop the floating arrows (RailArrow) do the paging instead.
   return (
-    <SectionCard title="Highlights" subtitle="Game recaps from the WPBL channel" icon="▶️">
+    <SectionCard title="Highlights" subtitle="Game recaps from the WPBL channel">
       <Box sx={{ position: 'relative' }}>
         <Box ref={scrollRef} onScroll={syncEdges} data-swipe-ignore="true" sx={{
           display: 'flex', gap: 1.25, overflowX: 'auto', pb: 0.5,
@@ -166,12 +227,8 @@ export function HighlightsRail({ videos, teams }: { videos: WpblVideo[]; teams: 
         }}>
           {shown.map(v => <RailCard key={v.video_id} video={v} teamById={teamById} onPlay={() => setActive(v)} />)}
         </Box>
-        {!atStart && (
-          <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 6, width: 24, pointerEvents: 'none', background: t => `linear-gradient(to right, ${t.palette.background.paper}, transparent)` }} />
-        )}
-        {!atEnd && (
-          <Box sx={{ position: 'absolute', right: 0, top: 0, bottom: 6, width: 24, pointerEvents: 'none', background: t => `linear-gradient(to left, ${t.palette.background.paper}, transparent)` }} />
-        )}
+        <RailArrow dir="left" show={canPrev} onClick={() => page(-1)} />
+        <RailArrow dir="right" show={canNext} onClick={() => page(1)} />
       </Box>
       {active && <HighlightLightbox video={active} onClose={() => setActive(null)} />}
     </SectionCard>
@@ -186,13 +243,19 @@ export function GameHighlightCard({ video }: { video: WpblVideo }) {
     <>
       <Box
         onClick={() => setOpen(true)}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true) } }}
+        role="button"
+        tabIndex={0}
+        aria-label={`Watch highlights: ${video.title}`}
         sx={{
           display: 'flex', alignItems: 'center', gap: 1.25, cursor: 'pointer',
           p: 1, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
           transition: 'border-color 0.15s, background 0.15s',
           '&:hover': { borderColor: 'text.disabled', bgcolor: 'action.hover' },
           '&:hover .play-badge': { background: 'linear-gradient(180deg, rgba(0,0,0,0.1), rgba(0,0,0,0.45))' },
+          '&:hover .play-disc': { transform: 'scale(1.08)' },
           '&:active': { transform: 'scale(0.99)' },
+          '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
         }}
       >
         <Box sx={{ position: 'relative', width: 108, flexShrink: 0, aspectRatio: '16 / 9', borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover' }}>
