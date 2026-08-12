@@ -178,7 +178,11 @@ async function fetchViaApi() {
   const json = await res.json().catch(() => null)
   if (!res.ok) {
     const reason = json?.error?.message ?? `${res.status} ${res.statusText}`
-    throw new Error(`Data API failed: ${reason}`)
+    // Surface the actionable cases verbatim — these are the real reasons a key "fails":
+    //   403 accessNotConfigured → enable "YouTube Data API v3" in the key's GCP project
+    //   400 API key not valid    → wrong/absent key
+    //   403 quotaExceeded        → daily quota used up
+    throw new Error(`Data API HTTP ${res.status}: ${reason}`)
   }
   return (json?.items ?? []).map(it => {
     const s = it.snippet ?? {}
@@ -208,18 +212,17 @@ async function fetchViaRss() {
   throw new Error(`RSS feed failed after retries: ${last}`)
 }
 
-// Pick a source: Data API when a key exists (falling back to RSS if the key call fails),
-// otherwise RSS alone.
+// Pick a source. When a key is set the Data API is authoritative: we do NOT silently fall
+// back to RSS on failure, because that masks the real (fixable) API error behind RSS's own
+// unreliable 404. Only when there is no key do we use RSS (YouTube's abandoned, flaky feed).
 async function fetchEntries() {
   if (YT_API_KEY) {
-    try {
-      const e = await fetchViaApi()
-      console.log(`📺  ${e.length} videos via Data API`)
-      return e
-    } catch (err) {
-      console.warn(`⚠️   ${err.message} — falling back to RSS`)
-    }
+    const e = await fetchViaApi()
+    console.log(`📺  ${e.length} videos via Data API`)
+    return e
   }
+  console.warn('⚠️   No YOUTUBE_API_KEY set — trying the public RSS feed, which YouTube 404s ' +
+    'intermittently from CI. Set YOUTUBE_API_KEY for a reliable source.')
   const e = await fetchViaRss()
   console.log(`📺  ${e.length} videos via RSS`)
   return e
