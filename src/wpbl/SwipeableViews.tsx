@@ -24,6 +24,10 @@ const FLICK_VELOCITY = 0.3  // px/ms — a release faster than this commits the 
                             // never crossed COMMIT_FRACTION, so a quick little flick pages the tab
 const FLICK_MIN_PX = 12     // but the flick must have travelled at least this far, so a stationary
                             // finger-jitter on release is never mistaken for a flick
+const SCROLLER_FLICK_VELOCITY = 0.5 // px/ms — a horizontal flick faster than this pages the tab even
+                            // when it starts inside a sideways scroller (the stats table): a hard
+                            // flick reads as tab intent, since nobody flicks fast just to nudge a
+                            // table over. Slower drags still scroll the table as before.
 const ANIM_MS = 260
 const RESIST = 0.3          // rubber-band factor when dragging past the first/last tab
 const GAP = 16              // gutter shown between panes while swiping, so they aren't cramped
@@ -163,8 +167,8 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     startX: 0, startY: 0, width: 0, dir: 0 as -1 | 0 | 1, boundary: false,
     target: null as EventTarget | null, curOffset: 0,
     // Release-velocity tracking for flick-to-commit: a smoothed px/ms speed plus the last
-    // sample it was measured from.
-    vel: 0, lastX: 0, lastT: 0,
+    // sample it was measured from. startT anchors the lock-time flick-speed estimate.
+    vel: 0, lastX: 0, lastT: 0, startT: 0,
   })
 
   useEffect(() => {
@@ -177,7 +181,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       g.current = {
         tracking: true, lock: null, startX: t.clientX, startY: t.clientY,
         width: el.clientWidth, dir: 0, boundary: false, target: e.target, curOffset: 0,
-        vel: 0, lastX: t.clientX, lastT: e.timeStamp,
+        vel: 0, lastX: t.clientX, lastT: e.timeStamp, startT: e.timeStamp,
       }
     }
 
@@ -192,7 +196,14 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
         if (Math.abs(dx) < LOCK_PX && Math.abs(dy) < LOCK_PX) return
         if (Math.abs(dy) >= Math.abs(dx)) { s.lock = 'v'; s.tracking = false; return } // vertical → let it scroll
         const d: 1 | -1 = dx < 0 ? 1 : -1
-        if (ownsHorizontalScroll(s.target, el, d)) { s.lock = 'v'; s.tracking = false; return }
+        // Estimate the flick speed over the drag so far. A fast horizontal flick is a
+        // tab-page intent even inside a sideways scroller, so only defer to the scroller for
+        // an ordinary, slower drag — a hard flick falls through to the pager below.
+        const dt = e.timeStamp - s.startT
+        const flickV = dt > 0 ? Math.abs(dx) / dt : 0
+        if (flickV < SCROLLER_FLICK_VELOCITY && ownsHorizontalScroll(s.target, el, d)) {
+          s.lock = 'v'; s.tracking = false; return
+        }
         s.lock = 'h'
         s.dir = d
         const { index: idx, count } = latest.current
