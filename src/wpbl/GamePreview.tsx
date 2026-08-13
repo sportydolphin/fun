@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { fetchWpblAllLines, getCachedWpblAllLines } from './api'
 import { TeamBadge, useWpblDark } from './ui'
+import { wpblAccent } from './constants'
 import {
   computeWpblTeamStats, WPBL_TEAM_STAT_DEFS,
   type WpblTeamStatValue,
@@ -23,26 +24,9 @@ function ordinal(n: number): string {
   return `${n}${suffix}`
 }
 
-// Curated per-team bar colors — vivid, identity-tied, and chosen so ANY two of the four
-// clubs are clearly distinguishable. We can't lean on the raw team colors here: LA's primary
-// is pure black and three of the four secondaries are warm hues (BOS orange, LA gold, SF red)
-// that blur into each other. So Boston takes its Hunters *green* instead of its orange accent,
-// which breaks the warm cluster and leaves four distinct hues — green / gold / blue / red.
-// Each has a light- and dark-mode variant so the color reads well as both a bar fill and as
-// text (legend abbr, winning value) on either background. Unknown ids fall back to neutral.
-const WPBL_BAR_COLOR: Record<string, { light: string; dark: string }> = {
-  BOS: { light: '#1f8a4c', dark: '#37b06d' }, // Hunters green
-  LA:  { light: '#a9781f', dark: '#d9ad4a' }, // Queens gold
-  NY:  { light: '#1f7fc0', dark: '#5bb2ec' }, // Heights blue
-  SF:  { light: '#d1332f', dark: '#f05a5a' }, // Firebells red
-}
-const NEUTRAL_BAR = { light: '#6b7280', dark: '#9ca3af' }
-
-function barColor(teamId: string, isDark: boolean): string {
-  const c = WPBL_BAR_COLOR[teamId] ?? NEUTRAL_BAR
-  return isDark ? c.dark : c.light
-}
-
+// Bar colors come from the shared team accent palette (constants.ts `wpblAccent`), which
+// exists for exactly this reason: the raw primaries are all near-black and unusable as
+// foreground. Keeping one source means a palette tweak lands everywhere at once.
 export function WpblGamePreview({ away, home, teams, games }: {
   away: WpblTeam
   home: WpblTeam
@@ -84,8 +68,8 @@ export function WpblGamePreview({ away, home, teams, games }: {
     )
   }
 
-  const awayColor = barColor(away.id, isDark)
-  const homeColor = barColor(home.id, isDark)
+  const awayColor = wpblAccent(away.id, isDark)
+  const homeColor = wpblAccent(home.id, isDark)
   const trackBg = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)'
 
   const shimmer = {

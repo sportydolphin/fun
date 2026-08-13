@@ -48,24 +48,35 @@ export function wpblSecondary(teamId: string | null | undefined): string {
   return WPBL_TEAMS[teamId]?.secondary ?? '#9ca3af'
 }
 
-// Mix a hex toward white (mirrors the MLB app's brightColor) so a dark primary is
-// readable when used as foreground text/borders on a dark background.
-function brightenHex(hex: string, mix = 0.55): string {
-  if (!hex.startsWith('#') || hex.length < 7) return hex
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  const c = (n: number) => Math.round(n + (255 - n) * mix).toString(16).padStart(2, '0')
-  return `#${c(r)}${c(g)}${c(b)}`
+// Curated per-team FOREGROUND colors — vivid, identity-tied, and chosen so any two of the
+// four clubs are clearly distinguishable in both themes.
+//
+// We deliberately do NOT derive these from the raw team colors. Every WPBL primary is
+// near-black (BOS #00281e, LA #000000, NY #091b47, SF #2d1747), so the old approach —
+// mixing the primary 55% toward white for dark mode — collapsed all four to low-chroma
+// greys (LA's became literally #8c8c8c). That inverted the visual hierarchy in places
+// that use the accent to mark the *winner*: a winning SF's score rendered a washed
+// lavender against the loser's near-white, so the loser read as more important.
+//
+// Nor can we just use `secondary`: three of the four are warm hues (BOS orange, LA gold,
+// SF red) that blur into each other. So Boston takes its Hunters *green* instead of its
+// orange accent, which breaks the warm cluster and leaves four distinct hues —
+// green / gold / blue / red. Each has a light- and dark-mode variant tuned to read as
+// both text and a bar fill on that background.
+const WPBL_ACCENTS: Record<string, { light: string; dark: string }> = {
+  BOS: { light: '#1f8a4c', dark: '#37b06d' }, // Hunters green
+  LA:  { light: '#a9781f', dark: '#d9ad4a' }, // Queens gold
+  NY:  { light: '#1f7fc0', dark: '#5bb2ec' }, // Heights blue
+  SF:  { light: '#d1332f', dark: '#f05a5a' }, // Firebells red
 }
+const NEUTRAL_ACCENT = { light: '#6b7280', dark: '#9ca3af' }
 
-// Team primary made safe for FOREGROUND use (text, thin borders, accent bars). The
-// primaries are dark (Boston's near-black, LA's pure black), which reads fine on a
-// light background but vanishes on a dark one — so lighten it in dark mode, matching
-// the MLB app's accentColor(). Use this for text/borders; use wpblColor() for fills.
+// Team color made safe for FOREGROUND use (text, thin borders, accent bars, chart fills).
+// Use this for anything that has to be *read*; use wpblColor() for large fills where the
+// dark primary is the point (badge backgrounds, headers).
 export function wpblAccent(teamId: string | null | undefined, isDark: boolean): string {
-  const base = wpblColor(teamId)
-  return isDark ? brightenHex(base) : base
+  const c = (teamId && WPBL_ACCENTS[teamId]) || NEUTRAL_ACCENT
+  return isDark ? c.dark : c.light
 }
 
 // Bundled logo asset for a team, or null (badge then falls back to the abbr).
