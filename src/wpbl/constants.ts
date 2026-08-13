@@ -109,6 +109,19 @@ export function formatGameTime(gameDate: string, startTime: string | null | unde
   return real.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', ...(withZone ? { timeZoneName: 'short' } : {}) })
 }
 
+// A game day's label relative to today: "Today" / "Tomorrow" / "Yesterday" for the
+// nearby days, otherwise the weekday + date ("Wed, Aug 20"). Compared on the local
+// calendar day (gameDate is a Central wall date, close enough for a day-granularity label).
+export function relativeDayLabel(gameDate: string): string {
+  const d = new Date(`${gameDate}T00:00:00`)
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
+  if (diff === 0) return 'Today'
+  if (diff === 1) return 'Tomorrow'
+  if (diff === -1) return 'Yesterday'
+  return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
 // The true UTC instant (epoch ms) of a game's first pitch, treating the stored wall
 // clock as Central (same DST-safe math as formatGameTime). Null if there's no valid
 // start time. Used for the home-page countdown.

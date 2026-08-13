@@ -4,7 +4,7 @@ import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine,
 import { buildRecap, leagueRecapContext, type GameRecap, type RecapStar } from './derive/recap'
 import { fetchWpblGameLines, fetchWpblGamePlays } from './api'
 import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER } from './ui'
-import { WPBL_ACCENT } from './constants'
+import { WPBL_ACCENT, relativeDayLabel } from './constants'
 
 const MEDAL = ['🥇', '🥈', '🥉']
 
@@ -138,7 +138,7 @@ export function LastGameCard({ games, teams, players, onOpenGame }: {
 
   if (!game || !recap) return null
   const away = teams.get(game.away_team_id), home = teams.get(game.home_team_id)
-  const dateLabel = new Date(`${game.game_date}T00:00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+  const dateLabel = relativeDayLabel(game.game_date)
 
   const scoreRow = (team: WpblTeam | undefined, score: number | null, won: boolean) => team && (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

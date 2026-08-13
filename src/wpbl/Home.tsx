@@ -9,7 +9,7 @@ import {
   getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblAllPlays, getCachedWpblAllTracking, wpblHomeCacheAgeMs,
   fetchWpblVideos, getCachedWpblVideos,
 } from './api'
-import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp } from './constants'
+import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp, relativeDayLabel } from './constants'
 import { SectionCard, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, CARD_BORDER } from './ui'
 import { LiveHero } from './Live'
 import {
@@ -411,7 +411,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
   const g = next.g
   const away = teams.get(g.away_team_id)
   const home = teams.get(g.home_team_id)
-  const dateLabel = new Date(`${g.game_date}T00:00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+  const dateLabel = relativeDayLabel(g.game_date)
   const timeLabel = formatGameTime(g.game_date, g.start_time)
 
   const teamRow = (t: WpblTeam | undefined, side: string) => (
