@@ -66,11 +66,11 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
       {recap.stars.length > 0 && (
         <Box>
           <Typography sx={{ fontSize: '0.63rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.25 }}>Stars of the game</Typography>
-          {/* One row of three, sized to content: each star takes only the width its name/stats
-              need, so a short name gives its slack to a longer one instead of every cell being a
-              rigid third. nowrap keeps them on a single line; minWidth 0 on each lets a cell
-              ellipsize only as a last resort if the three together overrun the width. */}
-          <Box sx={{ display: 'flex', flexWrap: 'nowrap', gap: 2.5 }}>
+          {/* Mobile: stack the three stars, each on its own full-width row so the name and
+              statline show in full instead of all three cramming one line and truncating.
+              Desktop has room for one content-sized row — each star takes only the width its
+              name/stats need, ellipsizing only as a last resort if the three overrun. */}
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, flexWrap: 'nowrap', gap: { xs: 0, sm: 2.5 } }}>
             {recap.stars.map((s, i) => {
               const p = names.get(s.playerId)
               return (
