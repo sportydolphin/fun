@@ -14,6 +14,8 @@ import WpblHome from './Home'
 import WpblStatsView, { type WpblStatsFocus } from './StatsView'
 import TeamPage from './TeamPage'
 import SwipeableViews from './SwipeableViews'
+import WpblBottomNav, { BOTTOM_NAV_SPACE } from './BottomNav'
+import { useExperiments } from '../ExperimentsContext'
 
 // WPBL section root. Reads the official-feed mirror from Supabase (games, box scores,
 // play-by-play, live state) and renders it; everything shows a friendly empty state until
@@ -407,6 +409,13 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const [loading, setLoading] = useState(true)
   const isMobileView = useMediaQuery('(max-width:600px)')
   const navRef = useRef<HTMLDivElement>(null)
+  // Experimental bottom tab bar — phones only, opt-in from Settings. While it's on it
+  // REPLACES the sticky top pills rather than sitting alongside them: two navs for the same
+  // five destinations would be worse than either alone, and the point is to feel the bottom
+  // bar as it would actually ship. Desktop keeps the pills regardless — a bottom bar is
+  // wrong at 1280px.
+  const experiments = useExperiments()
+  const bottomNav = experiments && isMobileView
 
   // Mobile: once the page scrolls and the sticky pill bar pins to the top, give it a
   // hairline + soft shadow so content reads as sliding *under* a bar rather than under a
@@ -618,6 +627,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
       {/* Tab bar stays put on mobile (sticky under the toolbar) so it doesn't scroll away
           when swiping to a tab or when the schedule snaps to the next game. */}
       <Box ref={navRef} sx={{
+        display: bottomNav ? { xs: 'none', sm: 'block' } : 'block',
         position: { xs: 'sticky', sm: 'static' }, top: { xs: 0, sm: 'auto' }, zIndex: 3,
         bgcolor: 'background.default',
         // Tight opaque bar that hugs the pills; the breathing gap below is transparent
@@ -643,7 +653,12 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
           scroll the app toolbar fully off — leaving room for roughly the sticky pill nav's
           height means the page can still scroll the toolbar away and keep it hidden (matching
           the tucked state the tab pager restores), instead of springing the toolbar back. */}
-      <Box sx={{ minHeight: { xs: 'calc(100dvh - 24px)', sm: 'auto' } }}>
+      <Box sx={{
+        minHeight: { xs: 'calc(100dvh - 24px)', sm: 'auto' },
+        // Scroll room under the floating bar, plus the device's own safe-area inset, so the
+        // last card in a tab can always be scrolled clear of it.
+        pb: bottomNav ? `calc(${BOTTOM_NAV_SPACE}px + env(safe-area-inset-bottom, 0px))` : 0,
+      }}>
       {loading
         ? <ViewSkeleton />
         : (
@@ -688,6 +703,14 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
           </Box>
         )}
       </Box>
+
+      {bottomNav && (
+        <WpblBottomNav
+          items={NAV.map(n => ({ key: n.key, label: n.label }))}
+          value={view}
+          onChange={k => selectTab(k as WpblView, 'pill')}
+        />
+      )}
 
       {detailPlayer && (
         <PlayerDetailModal

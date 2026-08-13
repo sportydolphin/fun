@@ -11,6 +11,7 @@ import { DevSettings, MobilePreviewHost } from './dev/DevSettings'
 import { isInsideDeviceFrame } from './mlb/dev/devDevice'
 import { AuthProvider, useAuth } from './AuthContext'
 import { UnitsProvider } from './UnitsContext'
+import { ExperimentsProvider } from './ExperimentsContext'
 import { PENDING_USERNAME_PREFIX } from './AuthContext'
 import { AdminPanel } from './AdminPanel'
 import { UsernameDialog } from './UsernameDialog'
@@ -1199,7 +1200,9 @@ export default function App() {
   return (
     <AuthProvider>
       <UnitsProvider>
-        <AppInner />
+        <ExperimentsProvider>
+          <AppInner />
+        </ExperimentsProvider>
       </UnitsProvider>
     </AuthProvider>
   )

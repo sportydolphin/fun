@@ -21,6 +21,7 @@ import {
   isSubscribed, enablePush, disablePush,
 } from './lib/push'
 import { useUnits, type UnitSystem } from './UnitsContext'
+import { useExperimentsSetting } from './ExperimentsContext'
 
 interface Props {
   open:             boolean
@@ -73,6 +74,33 @@ function UnitsSection() {
               )
             })}
           </Box>
+        </Box>
+      </Box>
+    </>
+  )
+}
+
+function ExperimentsSection() {
+  const { experiments, setExperiments } = useExperimentsSetting()
+  return (
+    <>
+      <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'text.disabled', mb: 0.75 }}>
+        Experimental
+      </Typography>
+      <Box sx={{ mb: 2.5, borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+        <Box sx={{ px: 1.75, py: 1.1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: '0.88rem', fontWeight: 700 }}>Experimental features</Typography>
+            <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', lineHeight: 1.35 }}>
+              Try designs that are still being worked on. They may be rough, change without
+              warning, or disappear. Nothing here affects your data.
+            </Typography>
+          </Box>
+          <Switch
+            checked={experiments}
+            onChange={e => setExperiments(e.target.checked)}
+            inputProps={{ 'aria-label': 'Enable experimental features' }}
+          />
         </Box>
       </Box>
     </>
@@ -285,6 +313,8 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
       <DialogContent sx={{ pt: '8px !important' }}>
         {/* Units — shown to everyone, signed in or not */}
         <UnitsSection />
+
+        <ExperimentsSection />
 
         {signedIn && (
         <>
