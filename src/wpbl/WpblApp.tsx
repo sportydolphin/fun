@@ -693,7 +693,13 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
               // to the bottom of the floored pane on short tabs, right after content on tall ones.
               if (!isMobileView || !renderFooter) return content
               return (
-                <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100dvh - 24px)' }}>
+                // Short tabs (Standings) don't scroll, so the footer pinned to the bottom of this
+                // floored column landed underneath the floating bar. Shorten the floor by the
+                // bar's height when it's on, so the footer comes to rest just above it.
+                <Box sx={{ display: 'flex', flexDirection: 'column',
+                  minHeight: bottomNav
+                    ? `calc(100dvh - 24px - ${BOTTOM_NAV_SPACE}px - env(safe-area-inset-bottom, 0px))`
+                    : 'calc(100dvh - 24px)' }}>
                   {content}
                   <Box sx={{ mt: 'auto' }}>{renderFooter()}</Box>
                 </Box>
