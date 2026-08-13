@@ -15,5 +15,11 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
+    // Vitest's default excludes don't cover `.claude/worktrees/`, where agent tooling leaves
+    // full checkouts of the repo — each with its OWN node_modules. Without this, the runner
+    // globs those copies' test files and loads a second React alongside ours, so every hook
+    // blows up with "Cannot read properties of null (reading 'useState')". Spread the
+    // defaults rather than replacing them: setting `exclude` overrides the built-in list.
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.claude/**'],
   },
 })

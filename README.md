@@ -28,9 +28,15 @@ Client env vars (a `.env` with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, an
 npm run dev      # Vite dev server
 npm run build    # production build (vite build)
 npm run preview  # serve the production build locally
-npm run test     # Vitest
+npm run test     # Vitest (jsdom pinned to 26.x — see note below)
 npm run migrate  # apply pending DB migrations (scripts/migrations/; needs SUPABASE_DB_URL)
 ```
+
+**jsdom is pinned to `^26.1.0` on purpose.** jsdom 27 pulls in `html-encoding-sniffer@6`,
+which is CommonJS but `require()`s the ESM-only `@exodus/bytes` — that only works on a Node
+with `require(esm)` support (**22.12+**, or **20.19+**), and throws `ERR_REQUIRE_ESM`
+everywhere else. jsdom 26 avoids that chain entirely and runs on any Node. Safe to un-pin
+once every environment is on a supported Node (check `node -p process.features.require_module`).
 
 Schema changes go through the migration runner — see
 [scripts/migrations/README.md](scripts/migrations/README.md). The legacy `scripts/*.sql`
