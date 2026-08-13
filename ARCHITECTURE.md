@@ -124,9 +124,11 @@ flowchart LR
 
 ## 3. Database (Supabase Postgres)
 
-Tables grouped by domain. Schema lives in [`scripts/*.sql`](scripts) (run manually in the
-Supabase SQL editor — there is no migrations folder). Public reads go through **RLS**;
-service-role actors bypass it to write.
+Tables grouped by domain. The pre-runner **baseline** schema is the legacy
+[`scripts/*.sql`](scripts) files (`create_*`, `add_*`, `seed_*`), applied once by hand;
+**new** schema changes go through the migration runner
+([`scripts/migrations/`](scripts/migrations) + `npm run migrate`, see §10). Public reads go
+through **RLS**; service-role actors bypass it to write.
 
 ```mermaid
 flowchart TB
@@ -294,6 +296,7 @@ via `supabase secrets set`. Walkthrough: [`supabase/functions/README.md`](supaba
 | Scope | Vars | Where |
 |---|---|---|
 | **Client (build-time)** | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Cloudflare Pages env + `.env` |
+| **Migration runner** | `SUPABASE_DB_URL` (direct Postgres connection string) | `.env` (+ GitHub Actions secret if run in CI) |
 | **Edge functions** | `SUPABASE_URL`*, `SUPABASE_SERVICE_ROLE_KEY`*, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Supabase (*auto-injected) |
 | **pg_cron** | service-role key | Supabase **Vault** (`wpbl_service_role_key`) |
 | **GitHub Actions** | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VAPID_*`, `DISCORD_BOARD_WEBHOOK_URL`, `DISCORD_BOARD_MESSAGE_ID`, `DISCORD_EVENTS_URL`, `DISCORD_WATCH_PARTY_VC_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_TASKS_LIST` | Repo **Actions secrets** |
@@ -305,8 +308,9 @@ via `supabase secrets set`. Walkthrough: [`supabase/functions/README.md`](supaba
 - **Frontend:** `vite build` → **Cloudflare Pages** (`sportydolphin.fun`), deployed on push
   to `main`.
 - **Edge functions:** `supabase functions deploy <name>` (manual).
-- **DB schema:** run the relevant `scripts/*.sql` in the Supabase SQL editor (manual — no
-  migration runner).
+- **DB schema:** `npm run migrate` applies pending [`scripts/migrations/*.sql`](scripts/migrations)
+  (tracked in a `schema_migrations` table; needs `SUPABASE_DB_URL`). The legacy
+  `scripts/*.sql` baseline was applied by hand and is not re-run.
 - **pg_cron:** `scripts/wpbl_cron.sql` once, after deploying `wpbl-ingest`.
 - **Cron scripts:** run automatically by GitHub Actions (Node 20/22 runners) using repo
   secrets.
@@ -317,7 +321,7 @@ via `supabase secrets set`. Walkthrough: [`supabase/functions/README.md`](supaba
 - Routing/shell → [`src/App.tsx`](src/App.tsx)
 - WPBL section → [`src/wpbl/`](src/wpbl) (`WpblApp.tsx`, `api.ts`, `SwipeableViews.tsx`)
 - MLB section → [`src/MlbStats.tsx`](src/MlbStats.tsx), [`src/mlb/`](src/mlb)
-- DB schema → [`scripts/*.sql`](scripts)
+- DB schema → baseline [`scripts/*.sql`](scripts) · new changes [`scripts/migrations/`](scripts/migrations) via [`scripts/migrate.mjs`](scripts/migrate.mjs)
 - Cron → [`.github/workflows/`](.github/workflows) + [`scripts/wpbl_cron.sql`](scripts/wpbl_cron.sql)
 - Edge functions → [`supabase/functions/`](supabase/functions)
 - Cron script logic → [`scripts/*.mjs`](scripts)

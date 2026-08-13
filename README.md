@@ -29,7 +29,12 @@ npm run dev      # Vite dev server
 npm run build    # production build (vite build)
 npm run preview  # serve the production build locally
 npm run test     # Vitest
+npm run migrate  # apply pending DB migrations (scripts/migrations/; needs SUPABASE_DB_URL)
 ```
+
+Schema changes go through the migration runner — see
+[scripts/migrations/README.md](scripts/migrations/README.md). The legacy `scripts/*.sql`
+files are the already-applied baseline.
 
 `package.json` also holds the Node jobs that GitHub Actions runs on a schedule (predictions bots, payroll updates, streak/milestone/playoff-odds precompute, survivor resolver, and the Web Push senders — MLB `send-game-start.mjs` and WPBL `send-wpbl-game-start.mjs`).
 

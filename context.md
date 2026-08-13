@@ -45,9 +45,12 @@ constraints:
 - **`main` is the deploy branch.** Cloudflare Pages deploys on every push to `main`. Work on
   a feature branch, then push it to `main` — e.g. `git push origin <branch>:main`. Only
   commit/push when asked.
-- **No DB migration runner.** Schema lives in [`scripts/*.sql`](scripts/) and is applied
-  **by hand** in the Supabase SQL editor. Adding a table = write a `create_*`/`add_*` SQL
-  file *and* run it manually; there's no automation that picks it up.
+- **Schema changes go through the migration runner.** New schema lives in
+  [`scripts/migrations/`](scripts/migrations/) and is applied with `npm run migrate` (see
+  [scripts/migrations/README.md](scripts/migrations/README.md)). Scaffold one with
+  `npm run migrate -- new "add foo table"`. The 33 legacy `scripts/*.sql` files are the
+  pre-runner **baseline** — already applied by hand, left in place, not re-run. The runner
+  needs a `SUPABASE_DB_URL` (direct Postgres connection string) in `.env`.
 - **Two write paths to the DB, and only two:** (1) the browser writes user rows through RLS
   (events, feedback, picks); (2) everything ingested or derived is written by service-role
   actors — the `wpbl-ingest` edge function and the GitHub Actions `scripts/*.mjs` jobs. The

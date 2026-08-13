@@ -16,7 +16,8 @@
     "pred-boards": "node scripts/update-prediction-boards.mjs",
     "survivor": "node scripts/resolve-survivor.mjs",
     "survivor-bots": "node scripts/run-survivor-bots.mjs",
-    "tasks": "node --env-file=.env scripts/pull-tasks.mjs"
+    "tasks": "node --env-file=.env scripts/pull-tasks.mjs",
+    "migrate": "node --env-file=.env scripts/migrate.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -25,6 +26,7 @@
     "@mui/material": "^7.3.7",
     "@supabase/supabase-js": "^2.106.2",
     "html2canvas": "^1.4.1",
+    "pg": "^8.23.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "ws": "^8.21.0"
