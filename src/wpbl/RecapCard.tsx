@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblGamePlay, WpblVideo } from './types'
+import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblGamePlay } from './types'
 import { buildRecap, leagueRecapContext, type GameRecap, type RecapStar } from './derive/recap'
 import { fetchWpblGameLines, fetchWpblGamePlays } from './api'
 import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER } from './ui'
-import { GameHighlightCard } from './Highlights'
 import { WPBL_ACCENT } from './constants'
 
 const MEDAL = ['🥇', '🥈', '🥉']
@@ -32,7 +31,7 @@ function StarRow({ star, medal, name, displayName, teamId, portraitSize = 30, me
 
 // ── Full recap (GameDetail "Recap" tab) ──────────────────────────────────────────
 
-export function GameRecapView({ game, teams, batting, pitching, plays, names, games = [], video, onOpenPlayer }: {
+export function GameRecapView({ game, teams, batting, pitching, plays, names, games = [], onOpenPlayer }: {
   game: WpblGame
   teams: Map<string, WpblTeam>
   batting: WpblBattingLine[]
@@ -40,7 +39,6 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
   plays: WpblGamePlay[]
   names: Map<string, WpblPlayer>
   games?: WpblGame[]   // full schedule, so the recap verbs calibrate to the league's run environment
-  video?: WpblVideo | null   // the league's matched YouTube highlight for this game, if published
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
   const nameOf = useMemo(() => (id: string) => names.get(id)?.name ?? '—', [names])
@@ -98,8 +96,6 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
         </Box>
       )}
 
-      {/* League's YouTube highlight for this game, when one has been published. */}
-      {video && <GameHighlightCard video={video} />}
     </Box>
   )
 }

@@ -895,7 +895,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
             {/* Scroll region — fixed height, one per tab. */}
             <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
               {tab === 'recap' && away && home && (
-                <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} video={video} onOpenPlayer={onOpenPlayer} />
+                <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} onOpenPlayer={onOpenPlayer} />
               )}
               {tab === 'box' && away && home && (() => {
                 const shown = boxTeam === 'home' ? home : away
