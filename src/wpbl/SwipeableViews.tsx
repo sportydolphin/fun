@@ -30,22 +30,30 @@ const GAP = 16              // gutter shown between panes while swiping, so they
 
 // Does the touch start inside something that scrolls horizontally on its own (the home
 // scoreboard strip, the wide stats table)? If so, that inner scroller owns the gesture —
-// leave it be instead of stealing it for a tab swipe. We claim it whenever the element
-// *can* scroll sideways at all, NOT just when it has room left in the drag direction: a
-// scroller sitting at its edge should stay put under the finger (as any scroll container
-// does), never hand the flick off to the pager and yank you to the next tab mid-read.
-// Tab-switching stays available everywhere outside such scrollers (and via the nav).
+// leave it be instead of stealing it for a tab swipe — but only while it still has room to
+// scroll in the drag's direction (`dir`: 1 = finger moving left toward the next tab, -1 =
+// finger moving right toward the previous tab). Once the scroller is pinned against that
+// edge, the drag falls through to the tab pager, so an extra flick at the end of the table
+// pages on to the next/previous tab. Tab-switching stays available everywhere outside such
+// scrollers (and via the nav).
 //
 // Exception: an element flagged `data-swipe-handle` is a frozen part of a scroller that
 // stays put while the rest scrolls under it (the stats table's pinned name/sort columns).
 // A horizontal drag there is meant to page tabs, not scroll the table, so we bow out —
 // the scroller keeps only its actually-scrolling cells, giving the pager a grab handle.
-function ownsHorizontalScroll(from: EventTarget | null, stop: HTMLElement): boolean {
+function ownsHorizontalScroll(from: EventTarget | null, stop: HTMLElement, dir: -1 | 1): boolean {
   let el = from instanceof HTMLElement ? from : null
   if (el?.closest('[data-swipe-handle]')) return false
   while (el && el !== stop) {
     const ox = getComputedStyle(el).overflowX
-    if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 1) return true
+    if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 1) {
+      // dir 1 reveals content to the right (scrollLeft grows toward its max); dir -1 reveals
+      // content to the left (scrollLeft shrinks toward 0). The scroller keeps the gesture only
+      // if it can still move that way; at the edge it lets go so the pager can take over.
+      const max = el.scrollWidth - el.clientWidth
+      const hasRoom = dir > 0 ? el.scrollLeft < max - 1 : el.scrollLeft > 1
+      if (hasRoom) return true
+    }
     el = el.parentElement
   }
   return false
@@ -184,7 +192,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
         if (Math.abs(dx) < LOCK_PX && Math.abs(dy) < LOCK_PX) return
         if (Math.abs(dy) >= Math.abs(dx)) { s.lock = 'v'; s.tracking = false; return } // vertical → let it scroll
         const d: 1 | -1 = dx < 0 ? 1 : -1
-        if (ownsHorizontalScroll(s.target, el)) { s.lock = 'v'; s.tracking = false; return }
+        if (ownsHorizontalScroll(s.target, el, d)) { s.lock = 'v'; s.tracking = false; return }
         s.lock = 'h'
         s.dir = d
         const { index: idx, count } = latest.current
