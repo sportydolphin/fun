@@ -582,10 +582,8 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         bgcolor: 'background.default',
         // Tight opaque bar that hugs the pills; the breathing gap below is transparent
         // margin (not painted), so content scrolls right up under the pills with no slab.
-        // No top padding on mobile: pinned at the viewport edge, a top gap reads as an awkward
-        // "forehead" above the pills (the bottom is already capped tight by the hairline), so
-        // the pills sit flush to the top and keep only the small pad before the hairline below.
-        pt: { xs: 0, sm: 0 }, pb: { xs: 0.75, sm: 0 }, mb: { xs: 2, sm: 0 },
+        // Equal padding above and below the pills so the bar sits symmetric around them.
+        pt: { xs: 0.75, sm: 0 }, pb: { xs: 0.75, sm: 0 }, mb: { xs: 2, sm: 0 },
         // Full-bleed the bar (bg + hairline) to the screen edge on mobile; SegNav sits
         // flush inside and supplies its own resting inset via scroll padding.
         mx: { xs: -2, sm: 0 },
@@ -601,9 +599,11 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         />
       </Box>
 
-      {/* Floor the view height on mobile so short tabs (e.g. Standings) still scroll a little
-          and the footer doesn't jam against the content. */}
-      <Box sx={{ minHeight: { xs: 'calc(100dvh - 128px)', sm: 'auto' } }}>
+      {/* Floor the view height on mobile so even a short tab (e.g. Standings) is tall enough to
+          scroll the app toolbar fully off — leaving room for roughly the sticky pill nav's
+          height means the page can still scroll the toolbar away and keep it hidden (matching
+          the tucked state the tab pager restores), instead of springing the toolbar back. */}
+      <Box sx={{ minHeight: { xs: 'calc(100dvh - 24px)', sm: 'auto' } }}>
       {loading
         ? <ViewSkeleton />
         : (
@@ -618,7 +618,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
           <SwipeableViews
             index={NAV.findIndex(n => n.key === view)}
             onIndexChange={i => selectTab(NAV[i].key)}
-            minHeight={isMobileView ? 'calc(100dvh - 128px)' : undefined}
+            minHeight={isMobileView ? 'calc(100dvh - 24px)' : undefined}
             stickyNavRef={navRef}
             padX={isMobileView ? 16 : 0}
             panels={NAV.map(n => {
@@ -639,7 +639,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
               // to the bottom of the floored pane on short tabs, right after content on tall ones.
               if (!isMobileView || !renderFooter) return content
               return (
-                <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100dvh - 128px)' }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 'calc(100dvh - 24px)' }}>
                   {content}
                   <Box sx={{ mt: 'auto' }}>{renderFooter()}</Box>
                 </Box>
