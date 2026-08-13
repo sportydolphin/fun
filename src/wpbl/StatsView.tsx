@@ -12,6 +12,7 @@ import {
   type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
+import WpblTrackingView from './TrackingView'
 
 // Complete season stat table for the WPBL — a sortable board of every hitting and
 // pitching stat aggregated from box-score lines, mirroring the MLB Stats view. Fetches
@@ -20,7 +21,10 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine 
 // Rate-stat qualifiers come from stats.ts (`wpblQualifiers`) and scale with the season —
 // single-sourced with the Home leader boards so the two can't drift apart.
 
-type Group = 'hitting' | 'pitching'
+// 'tracking' is a stat group, not a separate destination: it's another cut of the same
+// season data (TrackMan velocity / exit velo) and it renders its own boards rather than the
+// shared table. It lived as its own top-level tab until the nav outgrew six items.
+type Group = 'hitting' | 'pitching' | 'tracking'
 type Mode = 'players' | 'teams'
 
 interface Col<T> {
@@ -75,6 +79,8 @@ const PIT_COLS: Col<WpblPitchingTotals>[] = [
 // a leader card only has to name a column and never a direction. An unknown or absent key
 // falls back to the group's headline column — the first in each list.
 function defaultSort(group: Group, key?: string): { key: string; asc: boolean } {
+  // Tracking renders its own boards and never reads this; fall through to the hitting
+  // default so the table has a valid column waiting when the reader switches back.
   const cols: Col<never>[] = (group === 'pitching' ? PIT_COLS : HIT_COLS) as unknown as Col<never>[]
   const col = (key ? cols.find(c => c.key === key) : undefined) ?? cols[0]
   return { key: col.key, asc: !!col.lowerBetter }
@@ -159,8 +165,9 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
   const requested = focus?.token ?? 0
   useEffect(() => {
     if (!focus || requested === 0) return
-    const next = defaultSort(focus.group, focus.sortKey)
     setGroup(focus.group)
+    if (focus.group === 'tracking') return // no table to sort
+    const next = defaultSort(focus.group, focus.sortKey)
     setSortKey(next.key)
     setSortAsc(next.asc)
   }, [requested])
@@ -238,6 +245,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
   // Switch the default sort/qualifier sensibly when flipping between hitting and pitching.
   const switchGroup = (g: Group) => {
     setGroup(g)
+    if (g === 'tracking') return // tracking has no sortable table of its own
     if (g === 'hitting') { setSortKey('ops'); setSortAsc(false) }
     else { setSortKey('era'); setSortAsc(true) }
   }
@@ -347,7 +355,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
           filters share the wide table's left edge instead of floating in the 720px column. */}
       <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, borderBottom: '1px solid', borderColor: 'divider', mb: 1.5, ...fullBleedSx }}>
         <Box sx={{ display: 'flex', gap: 2.5 }}>
-          {(['hitting', 'pitching'] as Group[]).map(g => {
+          {(['hitting', 'pitching', 'tracking'] as Group[]).map(g => {
             const active = group === g
             return (
               <Box key={g} onClick={() => switchGroup(g)} sx={{
@@ -357,7 +365,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
                 fontSize: '0.98rem', fontWeight: active ? 800 : 600, transition: 'color 0.15s',
                 '&:hover': { color: 'text.primary' },
               }}>
-                {g === 'hitting' ? 'Hitting' : 'Pitching'}
+                {g === 'hitting' ? 'Hitting' : g === 'pitching' ? 'Pitching' : 'Tracking'}
               </Box>
             )
           })}
@@ -365,17 +373,19 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
 
         {/* Players ⇆ Teams — the entity the table ranks. Distinct from Hitting/Pitching
             (the stat group). In Teams mode the per-player filters below don't apply. */}
-        <Box sx={{ display: 'flex', gap: 0.5, pb: 0.75, flexShrink: 0 }}>
-          <Chip active={mode === 'players'} onClick={() => setMode('players')}>Players</Chip>
-          <Chip active={mode === 'teams'} onClick={() => setMode('teams')}>Teams</Chip>
-        </Box>
+        {group !== 'tracking' && (
+          <Box sx={{ display: 'flex', gap: 0.5, pb: 0.75, flexShrink: 0 }}>
+            <Chip active={mode === 'players'} onClick={() => setMode('players')}>Players</Chip>
+            <Chip active={mode === 'teams'} onClick={() => setMode('teams')}>Teams</Chip>
+          </Box>
+        )}
       </Box>
 
       {/* Filters on one line (scrolls on narrow screens): team chips, then a divider, then
           the qualified toggle — so the team "All" and the separate "Qualified" filter read
           as two different controls rather than two competing "All"s. Players mode only —
           in Teams mode the table already is the four teams, so neither filter applies. */}
-      {mode === 'players' && (
+      {group !== 'tracking' && mode === 'players' && (
         <Box sx={{
           display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5, overflowX: 'auto', pb: 0.5,
           '&::-webkit-scrollbar': { display: 'none' }, msOverflowStyle: 'none', scrollbarWidth: 'none',
@@ -393,7 +403,11 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
         </Box>
       )}
 
-      {rows.length === 0 ? (
+      {/* Tracking renders its own boards (league-best tiles + velocity / exit-velo leaders)
+          rather than the shared table — it's a different shape of data, not more columns. */}
+      {group === 'tracking' ? (
+        <WpblTrackingView onOpenPlayer={onOpenPlayer} />
+      ) : rows.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
           <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, mb: 0.5 }}>No stats yet</Typography>
           <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled' }}>

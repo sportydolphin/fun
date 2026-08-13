@@ -12,7 +12,6 @@ import PlayerDetailModal from './PlayerDetail'
 import { track, EVENTS } from '../lib/analytics'
 import WpblHome from './Home'
 import WpblStatsView, { type WpblStatsFocus } from './StatsView'
-import WpblTrackingView from './TrackingView'
 import TeamPage from './TeamPage'
 import SwipeableViews from './SwipeableViews'
 
@@ -20,14 +19,13 @@ import SwipeableViews from './SwipeableViews'
 // play-by-play, live state) and renders it; everything shows a friendly empty state until
 // the feed has been ingested. Self-contained (no MLB/StatsAPI coupling).
 
-type WpblView = 'home' | 'schedule' | 'standings' | 'stats' | 'tracking' | 'teams'
+type WpblView = 'home' | 'schedule' | 'standings' | 'stats' | 'teams'
 
 const NAV: { key: WpblView; label: string }[] = [
   { key: 'home',      label: 'Home' },
   { key: 'schedule',  label: 'Schedule' },
   { key: 'standings', label: 'Standings' },
   { key: 'stats',     label: 'Stats' },
-  { key: 'tracking',  label: 'Tracking' },
   { key: 'teams',     label: 'Teams' },
 ]
 
@@ -358,6 +356,15 @@ type WpblSnap = {
   player: WpblPlayer | null
 }
 const isWpblView = (v: unknown): v is WpblView => NAV.some(n => n.key === v)
+
+// Tracking used to be its own tab; it's now a stat group inside Stats. Any old bookmark,
+// shared link, or restored history snapshot still naming it lands on Stats instead of
+// falling back to Home. `wasTracking` tells the caller to open Stats *on* that group.
+const LEGACY_TRACKING = 'tracking'
+function normalizeView(v: unknown): { view: WpblView; wasTracking: boolean } {
+  if (v === LEGACY_TRACKING) return { view: 'stats', wasTracking: true }
+  return { view: isWpblView(v) ? v : 'home', wasTracking: false }
+}
 const HOME_SNAP: WpblSnap = { view: 'home', team: null, game: null, player: null }
 
 export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
@@ -368,10 +375,14 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // then the URL's ?view=, else home. Read once per state (history.state is stable at mount).
   const seed = (): WpblSnap => {
     const s = (window.history.state?.wpbl ?? null) as WpblSnap | null
-    if (s) return s
+    if (s) return { ...s, view: normalizeView(s.view).view }
     const v = new URLSearchParams(window.location.search).get('view')
-    return isWpblView(v) ? { ...HOME_SNAP, view: v } : HOME_SNAP
+    return v == null ? HOME_SNAP : { ...HOME_SNAP, view: normalizeView(v).view }
   }
+  // A legacy ?view=tracking (or a restored snapshot) should open Stats already on the
+  // tracking group — token 1 so the panel treats it as a real request on first mount.
+  const seedTracking = () =>
+    normalizeView(window.history.state?.wpbl?.view ?? new URLSearchParams(window.location.search).get('view')).wasTracking
   const [view, setView] = useState<WpblView>(() => seed().view)
   const [selectedTeam, setSelectedTeam] = useState<WpblTeam | null>(() => seed().team)
   const [detailGame, setDetailGame] = useState<WpblGame | null>(() => seed().game)
@@ -387,7 +398,8 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // this, a second "View all" from the other card silently left the table on its first target.
   // Bumping the token on every jump gives the panel an unambiguous "re-focus now" signal, and
   // leaves it alone when the reader reaches Stats by tapping the tab or swiping.
-  const [statsFocus, setStatsFocus] = useState<WpblStatsFocus>({ group: 'hitting', token: 0 })
+  const [statsFocus, setStatsFocus] = useState<WpblStatsFocus>(
+    () => (seedTracking() ? { group: 'tracking', token: 1 } : { group: 'hitting', token: 0 }))
 
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [games, setGames] = useState<WpblGame[]>([])
@@ -412,7 +424,11 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
 
   // ── History-driven navigation ────────────────────────────────────────────────
   const apply = useCallback((s: WpblSnap) => {
-    setView(s.view); setSelectedTeam(s.team); setDetailGame(s.game); setDetailPlayer(s.player)
+    // Normalise on the way in too: history entries pushed before Tracking folded into Stats
+    // are still in the reader's back stack, and Back must not land on a tab that's gone.
+    const { view: v, wasTracking } = normalizeView(s.view)
+    if (wasTracking) setStatsFocus(f => ({ group: 'tracking', token: f.token + 1 }))
+    setView(v); setSelectedTeam(s.team); setDetailGame(s.game); setDetailPlayer(s.player)
   }, [])
   const urlFor = (s: WpblSnap) => {
     const q = new URLSearchParams()
@@ -444,11 +460,12 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     push({ view: v, team: selectedTeam, game: null, player: null })
   }, [push, selectedTeam, view])
   const selectTeam = useCallback((t: WpblTeam | null) => push({ view: 'teams', team: t, game: null, player: null }), [push])
-  const openStats  = useCallback((g: 'hitting' | 'pitching', sortKey?: string) => {
+  const openStats  = useCallback((g: WpblStatsFocus['group'], sortKey?: string) => {
     setStatsFocus(f => ({ group: g, sortKey, token: f.token + 1 }))
     selectTab('stats', 'link')
   }, [selectTab])
-  const openTracking = useCallback(() => selectTab('tracking', 'link'), [selectTab])
+  // Tracking is a Stats group now, so "view the tracking boards" means "open Stats on it".
+  const openTracking = useCallback(() => openStats('tracking'), [openStats])
   const openGame   = useCallback((g: WpblGame) => push({ view, team: selectedTeam, game: g, player: null }), [push, view, selectedTeam])
   const openPlayer = useCallback((p: WpblPlayer) => {
     track(EVENTS.WPBL_PLAYER_OPENED, { playerId: p.id, teamId: p.team_id, from: detailGame ? 'game' : view })
@@ -651,7 +668,6 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
                   case 'schedule':  return <ScheduleView teams={teams} games={games} onOpenGame={openGame} active={view === 'schedule'} />
                   case 'standings': return <StandingsView teams={teams} games={games} onOpenTeam={selectTeam} />
                   case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} />
-                  case 'tracking':  return <WpblTrackingView teams={teams} onOpenPlayer={openPlayer} />
                   case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeam} onOpenGame={openGame} onOpenPlayer={openPlayer} />
                 }
               })()
