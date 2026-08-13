@@ -103,9 +103,8 @@ function Scoreboard({ games, teams, onOpenGame }: {
   // the most recent final so the strip opens scrolled to the "now" boundary — previous game
   // at the left edge, the next/live game right beside it — rather than the oldest final.
   const { strip, anchorIndex } = useMemo(() => {
-    const played = games.filter(g => g.status === 'final')
+    const head = games.filter(g => g.status === 'final')
     const rest = games.filter(g => g.status !== 'final')
-    const head = played.slice(-3)
     return { strip: [...head, ...rest.slice(0, 7)], anchorIndex: head.length > 0 ? head.length - 1 : 0 }
   }, [games])
 
