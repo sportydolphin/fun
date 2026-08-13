@@ -1,0 +1,194 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Box, Typography } from '@mui/material'
+import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblGamePlay } from './types'
+import { buildRecap, type GameRecap, type RecapStar } from './derive/recap'
+import { fetchWpblGameLines, fetchWpblGamePlays } from './api'
+import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER } from './ui'
+import { WPBL_ACCENT, wpblColor } from './constants'
+
+const MEDAL = ['🥇', '🥈', '🥉']
+
+// ── Shared bits ─────────────────────────────────────────────────────────────────
+
+function StarRow({ star, medal, name, teamId, onClick }: {
+  star: RecapStar; medal: string; name: string; teamId: string | null; onClick?: () => void
+}) {
+  return (
+    <Box onClick={onClick}
+      sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.6, cursor: onClick ? 'pointer' : 'default',
+        '&:hover': onClick ? { '& .starname': { textDecoration: 'underline' } } : undefined }}>
+      <Box sx={{ fontSize: '1rem', width: 20, textAlign: 'center', flexShrink: 0 }}>{medal}</Box>
+      <PlayerPortrait name={name} teamId={teamId} size={30} />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography className="starname" noWrap sx={{ fontSize: '0.85rem', fontWeight: 700 }}>{name}</Typography>
+        <Typography noWrap sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{star.statline}</Typography>
+      </Box>
+      <Box sx={{ width: 3, alignSelf: 'stretch', borderRadius: 2, bgcolor: wpblColor(teamId), flexShrink: 0 }} />
+    </Box>
+  )
+}
+
+function HRELine({ recap, teams }: { recap: GameRecap; teams: Map<string, WpblTeam> }) {
+  const cell = { px: 0.6, py: 0.3, fontSize: '0.78rem', textAlign: 'right' as const, fontVariantNumeric: 'tabular-nums' as const }
+  return (
+    <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse' }}>
+      <Box component="thead">
+        <Box component="tr" sx={{ '& th': { fontSize: '0.6rem', fontWeight: 800, color: 'text.secondary', px: 0.6, textAlign: 'right' } }}>
+          <Box component="th" sx={{ textAlign: 'left !important' }} />
+          <Box component="th">R</Box><Box component="th">H</Box><Box component="th">E</Box>
+        </Box>
+      </Box>
+      <Box component="tbody">
+        {recap.teamLine.map(t => {
+          const won = t.teamId === recap.winner.id
+          const team = teams.get(t.teamId)
+          return (
+            <Box component="tr" key={t.teamId} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+              <Box component="td" sx={{ ...cell, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 0.75, py: 0.4 }}>
+                {team && <TeamBadge team={team} size={18} />}
+                <Typography sx={{ fontSize: '0.78rem', fontWeight: won ? 800 : 500 }}>{t.name}</Typography>
+              </Box>
+              <Box component="td" sx={{ ...cell, fontWeight: won ? 800 : 600 }}>{t.r}</Box>
+              <Box component="td" sx={cell}>{t.h}</Box>
+              <Box component="td" sx={cell}>{t.e}</Box>
+            </Box>
+          )
+        })}
+      </Box>
+    </Box>
+  )
+}
+
+// ── Full recap (GameDetail "Recap" tab) ──────────────────────────────────────────
+
+export function GameRecapView({ game, teams, batting, pitching, plays, names, onOpenPlayer }: {
+  game: WpblGame
+  teams: Map<string, WpblTeam>
+  batting: WpblBattingLine[]
+  pitching: WpblPitchingLine[]
+  plays: WpblGamePlay[]
+  names: Map<string, WpblPlayer>
+  onOpenPlayer?: (p: WpblPlayer) => void
+}) {
+  const nameOf = useMemo(() => (id: string) => names.get(id)?.name ?? '—', [names])
+  const recap = useMemo(() => buildRecap(game, teams, batting, pitching, plays, nameOf),
+    [game, teams, batting, pitching, plays, nameOf])
+  if (!recap) return null
+
+  return (
+    <Box sx={{ px: 2, pb: 2, pt: 0.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Box>
+        <Typography sx={{ fontSize: '1.15rem', fontWeight: 800, lineHeight: 1.2 }}>{recap.headline}</Typography>
+        <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary', mt: 0.75, lineHeight: 1.5 }}>{recap.blurb}</Typography>
+      </Box>
+
+      {recap.feats.length > 0 && (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+          {recap.feats.map((f, i) => (
+            <Box key={i} sx={{ px: 1, py: 0.4, borderRadius: 999, border: '1px solid', borderColor: CARD_BORDER,
+              fontSize: '0.72rem', fontWeight: 600, bgcolor: 'action.hover' }}>{f}</Box>
+          ))}
+        </Box>
+      )}
+
+      {recap.stars.length > 0 && (
+        <Box>
+          <Typography sx={{ fontSize: '0.63rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.25 }}>Stars of the game</Typography>
+          {recap.stars.map((s, i) => {
+            const p = names.get(s.playerId)
+            return <StarRow key={s.playerId} star={s} medal={MEDAL[i] ?? '⭐'} name={s.name} teamId={s.teamId}
+              onClick={p && onOpenPlayer ? () => onOpenPlayer(p) : undefined} />
+          })}
+        </Box>
+      )}
+
+      {recap.decisions.length > 0 && (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+          {recap.decisions.map(d => (
+            <Box key={d.key}>
+              <Typography component="span" sx={{ fontSize: '0.72rem', fontWeight: 800, color: d.key === 'L' ? 'text.disabled' : WPBL_ACCENT }}>{d.key}</Typography>
+              <Typography component="span" sx={{ fontSize: '0.78rem', fontWeight: 600, ml: 0.5 }}>{d.name}</Typography>
+              <Typography component="span" sx={{ fontSize: '0.72rem', color: 'text.secondary', ml: 0.5 }}>{d.statline}</Typography>
+            </Box>
+          ))}
+        </Box>
+      )}
+
+      <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, p: 1 }}>
+        <HRELine recap={recap} teams={teams} />
+      </Box>
+    </Box>
+  )
+}
+
+// ── Compact last-game card (Home) — self-fetches the latest final's box + plays ────
+
+function latestFinal(games: WpblGame[]): WpblGame | null {
+  const finals = games.filter(g => g.status === 'final' && g.home_score != null && g.away_score != null && g.home_score !== g.away_score)
+  if (finals.length === 0) return null
+  return finals.sort((a, b) => a.game_date !== b.game_date ? (a.game_date < b.game_date ? 1 : -1)
+    : (b.start_time ?? '').localeCompare(a.start_time ?? ''))[0]
+}
+
+export function LastGameCard({ games, teams, players, onOpenGame }: {
+  games: WpblGame[]
+  teams: Map<string, WpblTeam>
+  players: WpblPlayer[]
+  onOpenGame: (g: WpblGame) => void
+}) {
+  const game = useMemo(() => latestFinal(games), [games])
+  const [data, setData] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[]; plays: WpblGamePlay[] } | null>(null)
+
+  useEffect(() => {
+    if (!game) { setData(null); return }
+    let cancelled = false
+    Promise.all([fetchWpblGameLines(game.id), fetchWpblGamePlays(game.id)])
+      .then(([l, pl]) => { if (!cancelled) setData({ batting: l.batting, pitching: l.pitching, plays: pl }) })
+      .catch(() => { /* keep last-good; card falls back to line-score-only recap */ })
+    return () => { cancelled = true }
+  }, [game?.id])
+
+  const nameOf = useMemo(() => {
+    const byId = new Map(players.map(p => [p.id, p.name]))
+    return (id: string) => byId.get(id) ?? '—'
+  }, [players])
+
+  const recap = useMemo(() => game ? buildRecap(game, teams, data?.batting ?? [], data?.pitching ?? [], data?.plays ?? [], nameOf) : null,
+    [game, teams, data, nameOf])
+
+  if (!game || !recap) return null
+  const away = teams.get(game.away_team_id), home = teams.get(game.home_team_id)
+  const dateLabel = new Date(`${game.game_date}T00:00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+
+  const scoreRow = (team: WpblTeam | undefined, score: number | null, won: boolean) => team && (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <TeamBadge team={team} size={26} />
+      <Typography sx={{ flex: 1, fontSize: '0.9rem', fontWeight: won ? 800 : 600, color: won ? 'text.primary' : 'text.secondary' }}>{team.name}</Typography>
+      <Typography sx={{ fontSize: '1rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: won ? 'text.primary' : 'text.secondary' }}>{score}</Typography>
+    </Box>
+  )
+
+  return (
+    <SectionCard
+      title="Last Game"
+      subtitle={dateLabel}
+      action={
+        <Typography onClick={() => onOpenGame(game)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
+          Full recap
+        </Typography>
+      }
+    >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1 }}>
+        {scoreRow(away, game.away_score, recap.winner.id === away?.id)}
+        {scoreRow(home, game.home_score, recap.winner.id === home?.id)}
+      </Box>
+      <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, lineHeight: 1.25 }}>{recap.headline}</Typography>
+      <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mt: 0.5, lineHeight: 1.45 }}>{recap.blurb}</Typography>
+      {recap.stars[0] && (
+        <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+          <StarRow star={recap.stars[0]} medal="🥇" name={recap.stars[0].name} teamId={recap.stars[0].teamId} onClick={() => onOpenGame(game)} />
+        </Box>
+      )}
+    </SectionCard>
+  )
+}

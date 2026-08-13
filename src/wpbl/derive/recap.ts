@@ -1,0 +1,212 @@
+import type { WpblGame, WpblTeam, WpblBattingLine, WpblPitchingLine, WpblGamePlay } from '../types'
+import { outsToIp } from '../constants'
+import { classifyPa } from './matchups'
+
+// Auto game-recap engine. Pure: a game + its box lines + play-by-play in, a structured recap
+// out (no supabase / React), so GameDetail renders the full version, Home renders a compact
+// one, and a future Discord post can read the same object. Everything is derived from what we
+// already store — final score, per-inning line score, box lines (with W/L/S decisions), and
+// the feed's play narratives — so no new columns or feed calls are needed.
+
+export interface RecapStar {
+  playerId: string
+  name: string
+  teamId: string | null
+  kind: 'bat' | 'pitch'
+  statline: string          // "3-4, 3 HR, 6 RBI" or "6.0 IP, 9 K"
+  score: number             // internal ranking weight
+}
+
+export interface RecapDecision { key: 'W' | 'L' | 'S'; name: string; teamId: string | null; statline: string }
+export interface RecapTeamLine { teamId: string; name: string; r: number; h: number; e: number }
+
+export interface GameRecap {
+  winner: WpblTeam; loser: WpblTeam
+  winnerScore: number; loserScore: number
+  margin: number; innings: number
+  headline: string          // "Firebells rout Queens"
+  blurb: string             // 2–3 sentence narrative
+  stars: RecapStar[]        // up to 3, most impactful first
+  decisions: RecapDecision[]
+  teamLine: [RecapTeamLine, RecapTeamLine]  // [away, home]
+  feats: string[]           // auto-detected highlights (multi-HR, no-hitter, cycle, …)
+  flags: { shutout: boolean; blowout: boolean; oneRun: boolean; walkOff: boolean; comeback: boolean; extras: boolean }
+}
+
+const ORD = ['0th', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th']
+const ord = (n: number) => ORD[n] ?? `${n}th`
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+const nick = (t: WpblTeam) => `the ${t.name}`
+
+const runsByInning = (line: WpblGame['away_line'], n: number): number[] => {
+  const out = Array(n).fill(0)
+  for (const e of line ?? []) if (e.inning >= 1 && e.inning <= n) out[e.inning - 1] = e.runs
+  return out
+}
+
+function battingStatline(b: WpblBattingLine): string {
+  const parts = [`${b.h}-${b.ab}`]
+  if (b.hr) parts.push(`${b.hr} HR`)
+  if (b.rbi) parts.push(`${b.rbi} RBI`)
+  if (!b.hr && b.doubles) parts.push(`${b.doubles} 2B`)
+  if (!b.hr && !b.rbi && !b.doubles && b.r) parts.push(`${b.r} R`)
+  if (b.sb) parts.push(`${b.sb} SB`)
+  return parts.slice(0, 3).join(', ')
+}
+
+function pitchingStatline(p: WpblPitchingLine): string {
+  const parts = [`${outsToIp(p.outs)} IP`, `${p.so} K`]
+  parts.push(`${p.er} ER`)
+  return parts.join(', ')
+}
+
+// A batter's two consecutive plate appearances both homering — reuses the shared PA rule so
+// steals/pickoffs between swings don't count as "in between". Returns the inning, or null.
+function backToBackHR(plays: WpblGamePlay[]): number | null {
+  const lastPaEvent = new Map<string, string>()
+  for (const p of plays) {
+    if (!p.team_id) continue
+    if (!classifyPa(p)) continue
+    if (lastPaEvent.get(p.team_id) === 'home_run' && p.event_type === 'home_run') return p.inning
+    lastPaEvent.set(p.team_id, p.event_type ?? '')
+  }
+  return null
+}
+
+export function buildRecap(
+  game: WpblGame,
+  teams: Map<string, WpblTeam>,
+  batting: WpblBattingLine[],
+  pitching: WpblPitchingLine[],
+  plays: WpblGamePlay[],
+  nameOf: (playerId: string) => string,
+): GameRecap | null {
+  if (game.status !== 'final' || game.home_score == null || game.away_score == null || game.home_score === game.away_score) return null
+  const away = teams.get(game.away_team_id), home = teams.get(game.home_team_id)
+  if (!away || !home) return null
+
+  const homeWon = game.home_score > game.away_score
+  const winner = homeWon ? home : away
+  const loser = homeWon ? away : home
+  const winnerScore = homeWon ? game.home_score : game.away_score
+  const loserScore = homeWon ? game.away_score : game.home_score
+  const margin = winnerScore - loserScore
+  const innings = game.innings ?? 7
+
+  // ── Walk the line score for first blood, the winner's deepest hole (comeback), and a
+  // bottom-of-the-last walk-off; the winner's own biggest inning is the decisive swing. ──
+  const aRuns = runsByInning(game.away_line, innings)
+  const hRuns = runsByInning(game.home_line, innings)
+  const winnerRuns = homeWon ? hRuns : aRuns
+  let a = 0, h = 0, winnerDeficit = 0, walkOff = false
+  let firstBlood: { team: WpblTeam; inning: number; runs: number } | null = null
+  const winLead = () => (homeWon ? h - a : a - h)
+  for (let i = 1; i <= innings; i++) {
+    if (aRuns[i - 1] > 0 && !firstBlood) firstBlood = { team: away, inning: i, runs: aRuns[i - 1] }
+    a += aRuns[i - 1]
+    if (winLead() < 0) winnerDeficit = Math.max(winnerDeficit, -winLead())
+    const preH = h
+    if (hRuns[i - 1] > 0 && !firstBlood) firstBlood = { team: home, inning: i, runs: hRuns[i - 1] }
+    h += hRuns[i - 1]
+    if (winLead() < 0) winnerDeficit = Math.max(winnerDeficit, -winLead())
+    if (homeWon && i === innings && hRuns[i - 1] > 0 && preH <= a && h > a) walkOff = true
+  }
+  let winnerBig = { inning: 0, runs: 0 }
+  for (let i = 0; i < innings; i++) if (winnerRuns[i] > winnerBig.runs) winnerBig = { inning: i + 1, runs: winnerRuns[i] }
+
+  const flags = {
+    shutout: loserScore === 0,
+    blowout: margin >= 6 || (loserScore > 0 && winnerScore >= loserScore * 3 && margin >= 4),
+    oneRun: margin === 1,
+    walkOff,
+    comeback: winnerDeficit >= 3,
+    extras: innings > 7,
+  }
+
+  // ── Headline (present tense, news-style; score shown separately by the UI). ────────────
+  const slugfest = !flags.blowout && !flags.shutout && winnerScore >= 8 && loserScore >= 7
+  const verb = flags.walkOff ? 'walk off'
+    : flags.shutout ? 'shut out'
+    : flags.blowout ? 'rout'
+    : flags.comeback ? 'rally past'
+    : slugfest ? 'outslug'
+    : flags.oneRun ? 'edge'
+    : 'top'
+  const headline = `${winner.name} ${verb} ${loser.name}`
+
+  // ── Stars: rank hitters (total bases + RBI + runs) and pitchers together; a pitcher earns
+  // a spot only with a real, clean outing on the winning side (or a save), so a cameo reliever
+  // or a shelled losing arm can't sneak in. ──────────────────────────────────────────────
+  const batStars: RecapStar[] = batting
+    .filter(b => b.h > 0 || b.rbi > 0 || b.r > 0)
+    .map(b => ({ playerId: b.player_id, name: nameOf(b.player_id), teamId: b.team_id, kind: 'bat' as const,
+      statline: battingStatline(b), score: b.tb + b.rbi + b.r + b.sb + b.bb * 0.5 }))
+  const pitchStars: RecapStar[] = pitching
+    .filter(p => p.er <= 3 && (p.outs >= 9 || p.decision === 'S') && (p.team_id === winner.id || p.decision === 'S'))
+    .map(p => ({ playerId: p.player_id, name: nameOf(p.player_id), teamId: p.team_id, kind: 'pitch' as const,
+      statline: pitchingStatline(p),
+      score: p.outs + p.so * 1.2 - p.er * 2 - p.h * 0.4 - p.bb * 0.4 + (p.decision === 'W' ? 2 : 0) + (p.decision === 'S' ? 3 : 0) }))
+    .filter(s => s.score >= 8)
+  const seen = new Set<string>()
+  const stars = [...batStars, ...pitchStars]
+    .sort((x, y) => y.score - x.score)
+    .filter(s => (seen.has(s.playerId) ? false : (seen.add(s.playerId), true)))
+    .slice(0, 3)
+
+  // ── Narrative blurb: how it unfolded (the decisive swing is always the winner's), then the
+  // day's biggest bat or arm. ─────────────────────────────────────────────────────────────
+  const struckElsewhere = !!firstBlood && firstBlood.team.id !== winner.id
+  let flow: string
+  if (flags.walkOff) {
+    flow = `${cap(nick(winner))} walked it off in the ${ord(innings)}${flags.extras ? ` after ${innings} innings` : ''}.`
+  } else if (flags.comeback) {
+    flow = `${cap(nick(winner))} rallied from ${winnerDeficit} down${winnerBig.runs >= 3 ? `, breaking through with a ${winnerBig.runs}-run ${ord(winnerBig.inning)}` : ''} for the win.`
+  } else if (winnerBig.runs >= 3 && struckElsewhere && firstBlood) {
+    flow = `${cap(nick(firstBlood.team))} struck first${firstBlood.runs > 1 ? ` with ${firstBlood.runs} in the ${ord(firstBlood.inning)}` : ''}, but ${nick(winner)} answered with a ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
+  } else if (winnerBig.runs >= 3) {
+    const openedEarlier = firstBlood && firstBlood.inning !== winnerBig.inning
+    flow = openedEarlier
+      ? `${cap(nick(winner))} struck first${firstBlood!.runs > 1 ? ` with ${firstBlood!.runs} in the ${ord(firstBlood!.inning)}` : ''} and broke it open with a ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
+      : `${cap(nick(winner))} broke it open with a ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
+  } else if (margin <= 2) {
+    flow = `A tight one — ${nick(winner)} held on for the ${winnerScore}-${loserScore} win.`
+  } else {
+    flow = `${cap(nick(winner))} pulled away for the ${winnerScore}-${loserScore} win.`
+  }
+  const top = stars[0]
+  const starLine = top ? ` ${top.name} ${top.kind === 'bat' ? 'led the way, going' : 'dealt'} ${top.statline}.` : ''
+  const blurb = flow + starLine
+
+  // ── Decisions (W / L / S) with their lines. ────────────────────────────────────────────
+  const decisions: RecapDecision[] = []
+  for (const key of ['W', 'L', 'S'] as const) {
+    const p = pitching.find(pp => pp.decision === key)
+    if (p) decisions.push({ key, name: nameOf(p.player_id), teamId: p.team_id, statline: pitchingStatline(p) })
+  }
+
+  // ── H-R-E line for each team. ──────────────────────────────────────────────────────────
+  const teamLine: [RecapTeamLine, RecapTeamLine] = [
+    { teamId: away.id, name: `${away.city} ${away.name}`, r: game.away_score, h: game.away_hits ?? 0, e: game.away_errors ?? 0 },
+    { teamId: home.id, name: `${home.city} ${home.name}`, r: game.home_score, h: game.home_hits ?? 0, e: game.home_errors ?? 0 },
+  ]
+
+  // ── Auto-detected feats. ───────────────────────────────────────────────────────────────
+  const feats: string[] = []
+  const loserHits = homeWon ? (game.away_hits ?? null) : (game.home_hits ?? null)
+  if (loserHits === 0) feats.push(`${winner.name} no-hit ${loser.name}!`)
+  else if (flags.shutout) feats.push(`${winner.name} shutout`)
+  for (const b of batting) {
+    const singles = b.h - b.doubles - b.triples - b.hr
+    if (singles >= 1 && b.doubles >= 1 && b.triples >= 1 && b.hr >= 1) feats.push(`${nameOf(b.player_id)} hit for the cycle!`)
+    else if (b.hr >= 2) feats.push(`${nameOf(b.player_id)}: ${b.hr} HR${b.rbi ? `, ${b.rbi} RBI` : ''}`)
+    else if (b.rbi >= 4) feats.push(`${nameOf(b.player_id)}: ${b.rbi} RBI`)
+  }
+  const b2b = backToBackHR(plays)
+  if (b2b) feats.push(`Back-to-back homers in the ${ord(b2b)}`)
+  for (const p of pitching) {
+    if (p.so >= 8) feats.push(`${nameOf(p.player_id)}: ${p.so} K`)
+    else if (p.gs === 1 && p.outs >= innings * 3 && pitching.filter(pp => pp.team_id === p.team_id).length === 1) feats.push(`${nameOf(p.player_id)}: complete game`)
+  }
+
+  return { winner, loser, winnerScore, loserScore, margin, innings, headline, blurb, stars, decisions, teamLine, feats: feats.slice(0, 5), flags }
+}

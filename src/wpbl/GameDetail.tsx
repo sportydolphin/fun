@@ -6,6 +6,7 @@ import { wpblAccent, wpblFullName, outsToIp, formatGameTime } from './constants'
 import { LiveBanner, useLiveGame } from './Live'
 import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
+import { GameRecapView } from './RecapCard'
 import { useIsAdmin } from '../lib/admin'
 import { ModalShell, SegNav, TeamBadge, useWpblDark, useWpblName } from './ui'
 import { useUnits } from '../UnitsContext'
@@ -21,7 +22,7 @@ import type {
 // play-by-play, and TrackMan pitch tracking. Player names open the player page. For an
 // unplayed game it shows the matchup + first-pitch time.
 
-type Tab = 'box' | 'plays' | 'pitch'
+type Tab = 'recap' | 'box' | 'plays' | 'pitch'
 
 // ─── Box-score column sets ─────────────────────────────────────────────────────
 // Column order is importance-first: the classic box line (AB R H RBI BB SO) leads,
@@ -734,7 +735,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
 
   const gcUid = useRef(Math.random().toString(36).slice(2)).current
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<Tab>('box')
+  const [tab, setTab] = useState<Tab>(() => seed.status === 'final' ? 'recap' : 'box')
   const [boxTeam, setBoxTeam] = useState<'away' | 'home'>('away')
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>({ batting: [], pitching: [] })
   const [plays, setPlays] = useState<WpblGamePlay[]>([])
@@ -804,6 +805,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   )
 
   const tabs = [
+    ...(final ? [{ value: 'recap' as Tab, label: 'Recap' }] : []),
     { value: 'box' as Tab, label: 'Box Score' },
     { value: 'plays' as Tab, label: 'Play-by-Play' },
     // Show Pitch Data for any played game — if the feed hasn't posted TrackMan for it, the
@@ -872,6 +874,9 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
 
             {/* Scroll region — fixed height, one per tab. */}
             <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+              {tab === 'recap' && away && home && (
+                <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} onOpenPlayer={onOpenPlayer} />
+              )}
               {tab === 'box' && away && home && (() => {
                 const shown = boxTeam === 'home' ? home : away
                 return (

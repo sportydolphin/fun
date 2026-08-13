@@ -21,6 +21,7 @@ import { useUnits } from '../UnitsContext'
 import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import { track, EVENTS } from '../lib/analytics'
 import { computeFirsts, type WpblFirst } from './firsts'
+import { LastGameCard } from './RecapCard'
 import { HighlightsRail } from './Highlights'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblFirstsPlay, WpblBattingLine, WpblPitchingLine, WpblTrackRow, WpblVideo } from './types'
 
@@ -1238,6 +1239,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
         <Box sx={{ minWidth: 0, display: { xs: 'contents', md: 'flex' }, flexDirection: 'column', gap: 1.5 }}>
           <Box sx={{ minWidth: 0, order: { xs: 1, md: 0 } }}><DiscordCard /></Box>
           <Box sx={{ minWidth: 0, order: { xs: 2, md: 0 } }}><NextGameCard games={games} teams={teamMap} onOpenGame={onOpenGame} /></Box>
+          <Box sx={{ minWidth: 0, order: { xs: 3, md: 0 } }}><LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} /></Box>
           {/* Highlights rail — sits under the Next game card in the left column on desktop,
               and directly below it in the mobile stack. Self-hides when the feed is empty
               (pre-migration / no uploads), so it never leaves an empty slot or gap. */}
