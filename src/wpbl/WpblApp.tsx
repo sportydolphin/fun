@@ -99,7 +99,23 @@ function ScheduleView({ teams, games, onOpenGame }: {
   // game's date leads, then the next/live game and everything upcoming; earlier completed
   // games follow under an "Earlier" divider. Nothing moves the window, so the top pill nav
   // stays put when switching tabs (it isn't sticky on desktop).
-  const dates = [...byDate.keys()] // date-ascending
+  //
+  // Fill the calendar gaps between the first and last game so off-days show up as a slim
+  // "no games" marker — it reads as a continuous run of days, making the rhythm of when
+  // games land easy to see. Nothing is added after the final game.
+  const gameDates = [...byDate.keys()] // date-ascending
+  const dates: string[] = []
+  {
+    const cursor = new Date(`${gameDates[0]}T00:00:00`)
+    const end = new Date(`${gameDates[gameDates.length - 1]}T00:00:00`)
+    while (cursor <= end) {
+      const y = cursor.getFullYear()
+      const m = String(cursor.getMonth() + 1).padStart(2, '0')
+      const d = String(cursor.getDate()).padStart(2, '0')
+      dates.push(`${y}-${m}-${d}`)
+      cursor.setDate(cursor.getDate() + 1)
+    }
+  }
   const anchorIdx = anchorDate ? Math.max(0, dates.indexOf(anchorDate)) : 0
   const start = Math.max(0, anchorIdx - 1) // include the previous game's date
   const lead = dates.slice(start)
@@ -116,11 +132,29 @@ function ScheduleView({ teams, games, onOpenGame }: {
     return rel ? `${rel} · ${md}` : d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
   }
 
-  const renderDate = (date: string) => (
+  const renderDate = (date: string) => {
+    const dayGames = byDate.get(date)
+    // Off-day: a slim dashed marker instead of game cards, so gaps between game days are visible.
+    if (!dayGames) {
+      return (
+        <Box key={date}>
+          <SectionLabel>{dateLabel(date)}</SectionLabel>
+          <Box sx={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.75,
+            px: 1.25, py: 0.6, borderRadius: 2, border: '1px dashed', borderColor: CARD_BORDER,
+          }}>
+            <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.disabled', letterSpacing: 0.2 }}>
+              No games
+            </Typography>
+          </Box>
+        </Box>
+      )
+    }
+    return (
     <Box key={date}>
       <SectionLabel>{dateLabel(date)}</SectionLabel>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {byDate.get(date)!.map(g => {
+        {dayGames.map(g => {
           const home = byId.get(g.home_team_id)
           const away = byId.get(g.away_team_id)
           const final = g.status === 'final' && g.home_score != null && g.away_score != null
@@ -174,7 +208,8 @@ function ScheduleView({ teams, games, onOpenGame }: {
         })}
       </Box>
     </Box>
-  )
+    )
+  }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
