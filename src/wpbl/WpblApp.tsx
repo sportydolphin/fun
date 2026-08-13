@@ -582,7 +582,10 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         bgcolor: 'background.default',
         // Tight opaque bar that hugs the pills; the breathing gap below is transparent
         // margin (not painted), so content scrolls right up under the pills with no slab.
-        py: { xs: 0.75, sm: 0 }, mb: { xs: 2, sm: 0 },
+        // No top padding on mobile: pinned at the viewport edge, a top gap reads as an awkward
+        // "forehead" above the pills (the bottom is already capped tight by the hairline), so
+        // the pills sit flush to the top and keep only the small pad before the hairline below.
+        pt: { xs: 0, sm: 0 }, pb: { xs: 0.75, sm: 0 }, mb: { xs: 2, sm: 0 },
         // Full-bleed the bar (bg + hairline) to the screen edge on mobile; SegNav sits
         // flush inside and supplies its own resting inset via scroll padding.
         mx: { xs: -2, sm: 0 },
