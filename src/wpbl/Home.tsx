@@ -81,7 +81,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
 
   return (
     <Box onClick={onOpen} sx={{
-      flexShrink: 0, width: 132, cursor: 'pointer', scrollSnapAlign: 'start',
+      flexShrink: 0, width: 132, cursor: 'pointer',
       borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
       p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
       transition: 'border-color 0.15s', '&:hover': { borderColor: 'text.disabled' },
@@ -126,16 +126,9 @@ function Scoreboard({ games, teams, onOpenGame }: {
   const rafRef = useRef<number | null>(null)
   const stopAutoScroll = useCallback(() => {
     if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
-    // Restore CSS scroll-snapping (clearing the inline override reverts to the sx value).
-    const c = scrollRef.current
-    if (c) c.style.scrollSnapType = ''
   }, [])
   const startAutoScroll = useCallback((dir: -1 | 1) => {
     stopAutoScroll()
-    const c0 = scrollRef.current
-    // Suspend proximity snap while we drive scrollLeft frame-by-frame; otherwise the browser
-    // re-snaps to the same chip after each write and nothing appears to move.
-    if (c0) c0.style.scrollSnapType = 'none'
     const step = () => {
       const c = scrollRef.current
       if (!c) return
@@ -149,17 +142,25 @@ function Scoreboard({ games, teams, onOpenGame }: {
   }, [stopAutoScroll, syncEdges])
   useEffect(() => stopAutoScroll, [stopAutoScroll])
 
-  // Position the anchor chip at the container's left edge. Measures the real DOM node
-  // (robust to chip width / gap changes) and moves only the strip's own scroll, not the page.
+  // Position the anchor chip at the container's left edge — but only once per mount. After the
+  // first placement we leave the strip wherever the user scrolled it, so a later data refresh
+  // (which rebuilds `strip`) doesn't yank it back and cause a jump. A remount (e.g. swiping back
+  // to Home) re-anchors, so the initial-load position is preserved. Fades still resync each time.
+  const anchoredRef = useRef(false)
   useEffect(() => {
     const c = scrollRef.current
-    const anchor = c?.children[anchorIndex] as HTMLElement | undefined
-    if (!c || !anchor) return
-    // Inset the previous game (anchor) from the left edge rather than flush against it, so the
-    // edge-fade lands on the older game peeking behind it — the previous game stays fully in
-    // view. No inset when it's already the first chip (nothing to its left to peek).
-    const inset = anchorIndex > 0 ? 32 : 0
-    c.scrollLeft += anchor.getBoundingClientRect().left - c.getBoundingClientRect().left - inset
+    if (!c) return
+    if (!anchoredRef.current && strip.length > 0) {
+      const anchor = c.children[anchorIndex] as HTMLElement | undefined
+      if (anchor) {
+        // Inset the previous game (anchor) from the left edge rather than flush against it, so the
+        // edge-fade lands on the older game peeking behind it — the previous game stays fully in
+        // view. No inset when it's already the first chip (nothing to its left to peek).
+        const inset = anchorIndex > 0 ? 32 : 0
+        c.scrollLeft += anchor.getBoundingClientRect().left - c.getBoundingClientRect().left - inset
+        anchoredRef.current = true
+      }
+    }
     syncEdges()
   }, [strip, anchorIndex, syncEdges])
 
@@ -172,9 +173,9 @@ function Scoreboard({ games, teams, onOpenGame }: {
       <Box sx={{ position: 'relative' }}>
         <Box ref={scrollRef} onScroll={syncEdges} sx={{
           display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5,
-          // Snap chips to a 32px-inset start (matching the anchor inset below) so the previous
-          // game rests clear of the left fade rather than snapping flush against it.
-          scrollSnapType: 'x proximity', scrollPaddingLeft: '32px',
+          // No scroll-snap: the strip stays wherever it's left rather than locking to a chip when
+          // scrolling settles (or when desktop hover-scroll ends). Initial placement is done by
+          // scrollLeft in the anchor effect, so it doesn't need snapping.
           '&::-webkit-scrollbar': { display: 'none' },
           msOverflowStyle: 'none', scrollbarWidth: 'none',
         }} data-swipe-ignore="true">
@@ -531,7 +532,7 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
               ? <PlayerPortrait name={r.player.name} teamId={r.player.team_id} size={38} />
               : (team && <TeamBadge team={team} size={18} />)}
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography sx={{ fontSize: isTop ? '0.95rem' : '0.82rem', fontWeight: isTop ? 800 : 600, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <Typography sx={{ fontSize: isTop ? '0.95rem' : '0.82rem', fontWeight: isTop ? 800 : 700, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {shortName(r.player.name)}
               </Typography>
               {isTop && team && (

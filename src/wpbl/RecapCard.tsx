@@ -11,8 +11,8 @@ const MEDAL = ['🥇', '🥈', '🥉']
 
 // ── Shared bits ─────────────────────────────────────────────────────────────────
 
-function StarRow({ star, medal, name, displayName, teamId, portraitSize = 30, onClick }: {
-  star: RecapStar; medal: string; name: string; displayName?: string; teamId: string | null; portraitSize?: number; onClick?: () => void
+function StarRow({ star, medal, name, displayName, teamId, portraitSize = 30, medalSize = 20, onClick }: {
+  star: RecapStar; medal: string; name: string; displayName?: string; teamId: string | null; portraitSize?: number; medalSize?: number; onClick?: () => void
 }) {
   // `name` is always the full name (the portrait headshot is keyed on it); `displayName`
   // is the optional label to show, e.g. an abbreviated "F. Last" for a narrow column.
@@ -20,7 +20,7 @@ function StarRow({ star, medal, name, displayName, teamId, portraitSize = 30, on
     <Box onClick={onClick}
       sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.6, cursor: onClick ? 'pointer' : 'default',
         '&:hover': onClick ? { '& .starname': { textDecoration: 'underline' } } : undefined }}>
-      <Box sx={{ fontSize: '1rem', width: 20, textAlign: 'center', flexShrink: 0 }}>{medal}</Box>
+      <Box sx={{ fontSize: medalSize * 0.05 + 'rem', width: medalSize, textAlign: 'center', flexShrink: 0 }}>{medal}</Box>
       <PlayerPortrait name={name} teamId={teamId} size={portraitSize} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography className="starname" noWrap sx={{ fontSize: '0.85rem', fontWeight: 700 }}>{displayName ?? name}</Typography>
@@ -170,7 +170,7 @@ export function LastGameCard({ games, teams, players, onOpenGame }: {
       <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: 0.5, lineHeight: 1.35 }}>{recap.blurb}</Typography>
       {recap.stars[0] && (
         <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-          <StarRow star={recap.stars[0]} medal="🥇" name={recap.stars[0].name} teamId={recap.stars[0].teamId} portraitSize={44} onClick={() => onOpenGame(game)} />
+          <StarRow star={recap.stars[0]} medal="🥇" name={recap.stars[0].name} teamId={recap.stars[0].teamId} portraitSize={44} medalSize={30} onClick={() => onOpenGame(game)} />
         </Box>
       )}
     </SectionCard>
