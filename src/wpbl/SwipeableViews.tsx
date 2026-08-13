@@ -88,6 +88,12 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   // on, so an index change can tell where we came from and where we're going.
   const scrollByIndex = useRef<Map<number, number>>(new Map())
   const prevIndex = useRef(index)
+  // Scroll depth captured the instant a swipe commits, before React swaps in the new (often
+  // shorter) pane. Reading window.scrollY in the restore effect below would be too late: a
+  // shorter incoming pane lets the browser clamp scrollY upward first, which pops the
+  // scrolled-away app toolbar back into view. The effect restores from this pre-commit value
+  // instead, keeping the toolbar tucked exactly as it was.
+  const commitScrollY = useRef<number | null>(null)
 
   // Where a freshly-entered (never-scrolled) tab should land: stay put if we're near the
   // top, otherwise snap up to just below the pinned nav so the tab reads from its start
@@ -121,8 +127,13 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   useLayoutEffect(() => {
     if (prevIndex.current === index) return
     if (!isMobile) { prevIndex.current = index; return }
-    scrollByIndex.current.set(prevIndex.current, window.scrollY)
-    const target = targetFor(index, window.scrollY)
+    // Prefer the depth captured at commit time (see commitScrollY): window.scrollY here is
+    // post-clamp on a swipe into a shorter pane, which would lose the toolbar-hidden state.
+    // A tap (no capture) falls back to the live scroll position.
+    const fromY = commitScrollY.current ?? window.scrollY
+    commitScrollY.current = null
+    scrollByIndex.current.set(prevIndex.current, fromY)
+    const target = targetFor(index, fromY)
     prevIndex.current = index
     window.scrollTo(0, target)
   }, [index, isMobile])
@@ -250,8 +261,13 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       setOffset(commit ? -d * (s.width + GAP) : 0)
       window.setTimeout(() => {
         // Committing flips the index; the layout effect above restores that tab's
-        // remembered scroll, matching the pinned pane's position (jump-free).
-        if (commit) latest.current.onIndexChange(latest.current.index + d)
+        // remembered scroll, matching the pinned pane's position (jump-free). Snapshot the
+        // current (pre-swap) scroll depth first, so the restore keeps the toolbar-hidden state
+        // even when the incoming pane is shorter and the browser would otherwise clamp upward.
+        if (commit) {
+          commitScrollY.current = window.scrollY
+          latest.current.onIndexChange(latest.current.index + d)
+        }
         setEngaged(false)
         setAnim(false)
         setOffset(0)
