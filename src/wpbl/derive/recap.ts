@@ -76,6 +76,12 @@ export function leagueRecapContext(games: WpblGame[]): RecapLeagueContext {
   }
 }
 
+// "a" vs "an" for a number that's read aloud: eight, eleven, eighteen and the eighties all
+// take "an" ("an 8-2 win", "an 11-run 4th"). Everything else in a baseball score takes "a".
+// Only the leading number matters — "an 8-2 win" is governed by the 8, not the 2.
+const article = (n: number): 'a' | 'an' =>
+  (n === 8 || n === 11 || n === 18 || (n >= 80 && n <= 89)) ? 'an' : 'a'
+
 const ORD = ['0th', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th']
 const ord = (n: number) => ORD[n] ?? `${n}th`
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
@@ -204,18 +210,18 @@ export function buildRecap(
   if (flags.walkOff) {
     flow = `${cap(nick(winner))} won it in the bottom of the ${ord(innings)}${flags.extras ? `, after ${innings} innings` : ''}.`
   } else if (flags.comeback) {
-    flow = `${cap(nick(winner))} came back from ${winnerDeficit} runs down${winnerBig.runs >= ctx.closeMargin ? ` on a ${winnerBig.runs}-run ${ord(winnerBig.inning)}` : ''} to take it.`
+    flow = `${cap(nick(winner))} came back from ${winnerDeficit} runs down${winnerBig.runs >= ctx.closeMargin ? ` on ${article(winnerBig.runs)} ${winnerBig.runs}-run ${ord(winnerBig.inning)}` : ''} to take it.`
   } else if (winnerBig.runs >= ctx.closeMargin && struckElsewhere && firstBlood) {
-    flow = `${cap(nick(firstBlood.team))} scored first${firstBlood.runs > 1 ? `, putting up ${firstBlood.runs} in the ${ord(firstBlood.inning)}` : ''}, but ${nick(winner)} put up a ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
+    flow = `${cap(nick(firstBlood.team))} scored first${firstBlood.runs > 1 ? `, putting up ${firstBlood.runs} in the ${ord(firstBlood.inning)}` : ''}, but ${nick(winner)} put up ${article(winnerBig.runs)} ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
   } else if (winnerBig.runs >= ctx.closeMargin) {
     const openedEarlier = firstBlood && firstBlood.inning !== winnerBig.inning
     flow = openedEarlier
-      ? `${cap(nick(winner))} scored first${firstBlood!.runs > 1 ? ` with ${firstBlood!.runs} in the ${ord(firstBlood!.inning)}` : ''} and pulled ahead with a ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
-      : `${cap(nick(winner))} pulled ahead with a ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
+      ? `${cap(nick(winner))} scored first${firstBlood!.runs > 1 ? ` with ${firstBlood!.runs} in the ${ord(firstBlood!.inning)}` : ''} and pulled ahead with ${article(winnerBig.runs)} ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
+      : `${cap(nick(winner))} pulled ahead with ${article(winnerBig.runs)} ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
   } else if (margin <= ctx.closeMargin) {
-    flow = `${cap(nick(winner))} held on for a ${winnerScore}-${loserScore} win.`
+    flow = `${cap(nick(winner))} held on for ${article(winnerScore)} ${winnerScore}-${loserScore} win.`
   } else {
-    flow = `${cap(nick(winner))} pulled away for a ${winnerScore}-${loserScore} win.`
+    flow = `${cap(nick(winner))} pulled away for ${article(winnerScore)} ${winnerScore}-${loserScore} win.`
   }
   const top = stars[0]
   const starLine = top ? ` ${top.name} ${top.kind === 'bat' ? 'went' : 'threw'} ${top.statline}.` : ''
