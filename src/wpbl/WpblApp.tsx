@@ -573,7 +573,9 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
 
   return (
     // Cap + center on wide screens (site convention); full width on mobile.
-    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+    // On mobile, pull up to trim most of the app's top gutter (p:2) above the pill nav — the
+    // toolbar already sits right above it, so the extra gap just reads as dead space at rest.
+    <Box sx={{ maxWidth: 720, mx: 'auto', mt: { xs: -1.5, sm: 0 } }}>
       {/* Section nav — shared SegControl pill bar, matching the MLB tab bar. */}
       {/* Tab bar stays put on mobile (sticky under the toolbar) so it doesn't scroll away
           when swiping to a tab or when the schedule snaps to the next game. */}
@@ -583,7 +585,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         // Tight opaque bar that hugs the pills; the breathing gap below is transparent
         // margin (not painted), so content scrolls right up under the pills with no slab.
         // Equal padding above and below the pills so the bar sits symmetric around them.
-        pt: { xs: 0.75, sm: 0 }, pb: { xs: 0.75, sm: 0 }, mb: { xs: 2, sm: 0 },
+        pt: { xs: 0.75, sm: 0 }, pb: { xs: 0.75, sm: 0 }, mb: { xs: 0.75, sm: 0 },
         // Full-bleed the bar (bg + hairline) to the screen edge on mobile; SegNav sits
         // flush inside and supplies its own resting inset via scroll padding.
         mx: { xs: -2, sm: 0 },

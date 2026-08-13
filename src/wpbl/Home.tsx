@@ -1216,9 +1216,8 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
 
   return (
     <Box>
-      {/* Slim league header. On mobile the title wraps two lines, so the club chips drop to
-          their own strip below (a deliberate row) instead of floating centred beside it; on
-          wider screens there's room to sit them inline to the right. */}
+      {/* Slim league header. On mobile it's just the title; on wider screens the club chips
+          sit inline to the right. */}
       <Box sx={{
         display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
         alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 }, mb: 1.5,
@@ -1227,12 +1226,12 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
           <Typography sx={{ fontSize: '1.05rem', fontWeight: 600, letterSpacing: '-0.3px', lineHeight: 1.15 }}>
             Women's Pro Baseball League
           </Typography>
-          <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>Inaugural 2026 season</Typography>
         </Box>
         {/* Team chips: badge + abbreviation in a tappable pill so they read as controls (not
             decoration) on touch, where there's no hover. Ring adopts the club colour on hover,
-            and a press-scale gives tactile feedback. Each jumps to that team's page. */}
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
+            and a press-scale gives tactile feedback. Each jumps to that team's page. Hidden on
+            mobile — the chips are redundant there with the full Teams tab a swipe away. */}
+        <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
           {teams.map(t => (
             <Box
               key={t.id}
