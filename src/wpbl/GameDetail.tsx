@@ -7,7 +7,6 @@ import { LiveBanner, useLiveGame } from './Live'
 import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
 import { GameRecapView } from './RecapCard'
-import { useIsAdmin } from '../lib/admin'
 import { ModalShell, SegNav, TeamBadge, useWpblDark, useWpblName } from './ui'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, speedUnit } from '../lib/units'
@@ -98,9 +97,13 @@ function StatHead({ children, w = 30 }: { children: React.ReactNode; w?: number 
   )
 }
 function StatCell({ children, bold = false }: { children: React.ReactNode; bold?: boolean }) {
+  // A box score is mostly zeros; muting them (and dropping the bold on a 0) lets the real
+  // numbers carry the eye instead of a wall of even-weight digits.
+  const isZero = children === 0 || children === '0'
   return (
     <Box component="td" sx={{
-      fontSize: '0.9rem', fontWeight: bold ? 800 : 600, color: 'text.primary',
+      fontSize: '0.9rem', fontWeight: isZero ? 500 : bold ? 800 : 600,
+      color: isZero ? 'text.disabled' : 'text.primary',
       textAlign: 'center', px: 0.4, py: 0.45, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums',
     }}>
       {children}
@@ -118,30 +121,47 @@ function Scoreboard({ away, home, game, awayWon, homeWon }: {
   away: WpblTeam; home: WpblTeam; game: WpblGame; awayWon: boolean; homeWon: boolean
 }) {
   const isMobile = useMediaQuery('(max-width:600px)')
+  const isDark = useWpblDark()
   const decided = awayWon || homeWon
   const innings = Math.max(game.away_line?.length ?? 0, game.home_line?.length ?? 0, 7)
   const cols = Array.from({ length: innings }, (_, i) => i + 1)
   const runsByInning = (line: WpblGame['away_line'], n: number) =>
     line?.find(c => c.inning === n)?.runs
-  const row = (team: WpblTeam, line: WpblGame['away_line'], runs: number | null, hits: number | null | undefined, errs: number | null | undefined, won: boolean) => (
-    <Box component="tr" sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-      <Box component="td" sx={{ py: 0.5, pr: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-          <TeamBadge team={team} size={24} />
-          <Typography sx={{ fontSize: isMobile ? '0.86rem' : '0.95rem', fontWeight: won ? 800 : 600, lineHeight: 1.15, whiteSpace: 'nowrap' }}>
-            {isMobile ? team.name : wpblFullName(team)}
-          </Typography>
+  const row = (team: WpblTeam, line: WpblGame['away_line'], runs: number | null, hits: number | null | undefined, errs: number | null | undefined, won: boolean) => {
+    const accent = wpblAccent(team.id, isDark)
+    return (
+      <Box component="tr" sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+        {/* Thin team-color stripe on the winning row; a transparent one on the loser keeps
+            both rows aligned. */}
+        <Box component="td" sx={{ py: 0.5, pr: 1.5, pl: 1, borderLeft: '3px solid', borderColor: won ? accent : 'transparent' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+            <TeamBadge team={team} size={24} />
+            <Typography sx={{ fontSize: isMobile ? '0.86rem' : '0.95rem', fontWeight: won ? 800 : 600, lineHeight: 1.15, whiteSpace: 'nowrap', color: won || !decided ? 'text.primary' : 'text.secondary' }}>
+              {isMobile ? team.name : wpblFullName(team)}
+            </Typography>
+          </Box>
         </Box>
+        {/* Empty/scoreless innings sit muted so the innings that actually scored stand out. */}
+        {cols.map(n => {
+          const r = runsByInning(line, n)
+          return (
+            <Box component="td" key={n} sx={{
+              fontSize: '0.9rem', fontWeight: r ? 800 : 500, lineHeight: 1.2,
+              color: r ? 'text.primary' : 'text.disabled',
+              textAlign: 'center', px: 0.4, py: 0.45, fontVariantNumeric: 'tabular-nums',
+            }}>{r == null ? '' : r}</Box>
+          )
+        })}
+        <Box component="td" sx={{ width: 8 }} />
+        {/* The final (R) carries the winner's team color for a pop that reinforces the result. */}
+        <Box component="td" sx={{ textAlign: 'center', px: 0.4, py: 0.5 }}>
+          <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: won ? accent : !decided ? 'text.primary' : 'text.secondary' }}>{runs ?? 0}</Typography>
+        </Box>
+        <StatCell>{hits ?? 0}</StatCell>
+        <StatCell>{errs ?? 0}</StatCell>
       </Box>
-      {cols.map(n => { const r = runsByInning(line, n); return <StatCell key={n}>{r == null ? '' : r}</StatCell> })}
-      <Box component="td" sx={{ width: 8 }} />
-      <Box component="td" sx={{ textAlign: 'center', px: 0.4, py: 0.5 }}>
-        <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: won || !decided ? 'text.primary' : 'text.secondary' }}>{runs ?? 0}</Typography>
-      </Box>
-      <StatCell>{hits ?? 0}</StatCell>
-      <StatCell>{errs ?? 0}</StatCell>
-    </Box>
-  )
+    )
+  }
   return (
     <Box sx={{ overflowX: 'auto', px: 2, pt: 1 }}>
       <Box component="table" sx={scoreTableSx}>
@@ -731,7 +751,6 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
   const game = useLiveGame(seed)  // fresh score + live_state while the game is live
-  const isAdmin = useIsAdmin()    // highlights recap is admin-only during soft launch
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const home = byId.get(game.home_team_id)
   const away = byId.get(game.away_team_id)
@@ -772,13 +791,12 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   // Resolve this game's recap video. Cheap shared read (deduped + cached by the api layer);
   // revalidates in the background so a recap that lands after the game repaints on next open.
   useEffect(() => {
-    if (!isAdmin) return
     let cancelled = false
     fetchWpblVideos()
       .then(vs => { if (!cancelled) setVideo(vs.find(v => v.game_id === seed.id) ?? null) })
       .catch(() => { /* keep last-good */ })
     return () => { cancelled = true }
-  }, [seed.id, isAdmin])
+  }, [seed.id])
 
   // While the game is live, keep the box score + play-by-play fresh (poll + realtime).
   useEffect(() => {
@@ -855,9 +873,8 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
           )}
           {game.venue && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', px: 2, mt: 1 }}>{game.venue}</Typography>}
 
-          {/* Recap highlight — admin-only during soft launch; shown only for a finished
-              game the league has posted video for. */}
-          {isAdmin && final && video && (
+          {/* Recap highlight — shown for a finished game the league has posted video for. */}
+          {final && video && (
             <Box sx={{ px: 2, mt: 1.5 }}><GameHighlightCard video={video} /></Box>
           )}
         </Box>
@@ -878,7 +895,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
             {/* Scroll region — fixed height, one per tab. */}
             <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
               {tab === 'recap' && away && home && (
-                <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} onOpenPlayer={onOpenPlayer} />
+                <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} video={video} onOpenPlayer={onOpenPlayer} />
               )}
               {tab === 'box' && away && home && (() => {
                 const shown = boxTeam === 'home' ? home : away

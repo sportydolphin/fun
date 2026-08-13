@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblGamePlay } from './types'
+import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblGamePlay, WpblVideo } from './types'
 import { buildRecap, leagueRecapContext, type GameRecap, type RecapStar } from './derive/recap'
 import { fetchWpblGameLines, fetchWpblGamePlays } from './api'
-import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, wpblShortName } from './ui'
-import { WPBL_ACCENT, wpblColor } from './constants'
+import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER } from './ui'
+import { GameHighlightCard } from './Highlights'
+import { WPBL_ACCENT } from './constants'
 
 const MEDAL = ['🥇', '🥈', '🥉']
 
 // ── Shared bits ─────────────────────────────────────────────────────────────────
 
-function StarRow({ star, medal, name, displayName, teamId, onClick }: {
-  star: RecapStar; medal: string; name: string; displayName?: string; teamId: string | null; onClick?: () => void
+function StarRow({ star, medal, name, displayName, teamId, portraitSize = 30, onClick }: {
+  star: RecapStar; medal: string; name: string; displayName?: string; teamId: string | null; portraitSize?: number; onClick?: () => void
 }) {
   // `name` is always the full name (the portrait headshot is keyed on it); `displayName`
   // is the optional label to show, e.g. an abbreviated "F. Last" for a narrow column.
@@ -20,42 +21,10 @@ function StarRow({ star, medal, name, displayName, teamId, onClick }: {
       sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.6, cursor: onClick ? 'pointer' : 'default',
         '&:hover': onClick ? { '& .starname': { textDecoration: 'underline' } } : undefined }}>
       <Box sx={{ fontSize: '1rem', width: 20, textAlign: 'center', flexShrink: 0 }}>{medal}</Box>
-      <PlayerPortrait name={name} teamId={teamId} size={30} />
+      <PlayerPortrait name={name} teamId={teamId} size={portraitSize} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography className="starname" noWrap sx={{ fontSize: '0.85rem', fontWeight: 700 }}>{displayName ?? name}</Typography>
         <Typography noWrap sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{star.statline}</Typography>
-      </Box>
-      <Box sx={{ width: 3, alignSelf: 'stretch', borderRadius: 2, bgcolor: wpblColor(teamId), flexShrink: 0 }} />
-    </Box>
-  )
-}
-
-function HRELine({ recap, teams }: { recap: GameRecap; teams: Map<string, WpblTeam> }) {
-  const cell = { px: 0.6, py: 0.3, fontSize: '0.78rem', textAlign: 'right' as const, fontVariantNumeric: 'tabular-nums' as const }
-  return (
-    <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse' }}>
-      <Box component="thead">
-        <Box component="tr" sx={{ '& th': { fontSize: '0.6rem', fontWeight: 800, color: 'text.secondary', px: 0.6, textAlign: 'right' } }}>
-          <Box component="th" sx={{ textAlign: 'left !important' }} />
-          <Box component="th">R</Box><Box component="th">H</Box><Box component="th">E</Box>
-        </Box>
-      </Box>
-      <Box component="tbody">
-        {recap.teamLine.map(t => {
-          const won = t.teamId === recap.winner.id
-          const team = teams.get(t.teamId)
-          return (
-            <Box component="tr" key={t.teamId} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-              <Box component="td" sx={{ ...cell, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 0.75, py: 0.4 }}>
-                {team && <TeamBadge team={team} size={18} />}
-                <Typography sx={{ fontSize: '0.78rem', fontWeight: won ? 800 : 500 }}>{t.name}</Typography>
-              </Box>
-              <Box component="td" sx={{ ...cell, fontWeight: won ? 800 : 600 }}>{t.r}</Box>
-              <Box component="td" sx={cell}>{t.h}</Box>
-              <Box component="td" sx={cell}>{t.e}</Box>
-            </Box>
-          )
-        })}
       </Box>
     </Box>
   )
@@ -63,7 +32,7 @@ function HRELine({ recap, teams }: { recap: GameRecap; teams: Map<string, WpblTe
 
 // ── Full recap (GameDetail "Recap" tab) ──────────────────────────────────────────
 
-export function GameRecapView({ game, teams, batting, pitching, plays, names, games = [], onOpenPlayer }: {
+export function GameRecapView({ game, teams, batting, pitching, plays, names, games = [], video, onOpenPlayer }: {
   game: WpblGame
   teams: Map<string, WpblTeam>
   batting: WpblBattingLine[]
@@ -71,6 +40,7 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
   plays: WpblGamePlay[]
   names: Map<string, WpblPlayer>
   games?: WpblGame[]   // full schedule, so the recap verbs calibrate to the league's run environment
+  video?: WpblVideo | null   // the league's matched YouTube highlight for this game, if published
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
   const nameOf = useMemo(() => (id: string) => names.get(id)?.name ?? '—', [names])
@@ -98,15 +68,19 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
       {recap.stars.length > 0 && (
         <Box>
           <Typography sx={{ fontSize: '0.63rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.25 }}>Stars of the game</Typography>
-          {/* Two columns of stars on desktop so they fill the modal width (and the team-color
-              bars sit beside each line, not floated to the far edge); one column on mobile. */}
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, columnGap: 1.5 }}>
+          {/* One row of three, sized to content: each star takes only the width its name/stats
+              need, so a short name gives its slack to a longer one instead of every cell being a
+              rigid third. nowrap keeps them on a single line; minWidth 0 on each lets a cell
+              ellipsize only as a last resort if the three together overrun the width. */}
+          <Box sx={{ display: 'flex', flexWrap: 'nowrap', gap: 2.5 }}>
             {recap.stars.map((s, i) => {
               const p = names.get(s.playerId)
-              // Abbreviate to "F. Last" so the last name stays whole in the narrow star column,
-              // rather than the full name truncating mid-surname. Portrait still uses the full name.
-              return <StarRow key={s.playerId} star={s} medal={MEDAL[i] ?? '⭐'} name={s.name} displayName={wpblShortName(s.name, 0)} teamId={s.teamId}
-                onClick={p && onOpenPlayer ? () => onOpenPlayer(p) : undefined} />
+              return (
+                <Box key={s.playerId} sx={{ minWidth: 0 }}>
+                  <StarRow star={s} medal={MEDAL[i] ?? '⭐'} name={s.name} teamId={s.teamId}
+                    onClick={p && onOpenPlayer ? () => onOpenPlayer(p) : undefined} />
+                </Box>
+              )
             })}
           </Box>
         </Box>
@@ -124,9 +98,8 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
         </Box>
       )}
 
-      <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, p: 1 }}>
-        <HRELine recap={recap} teams={teams} />
-      </Box>
+      {/* League's YouTube highlight for this game, when one has been published. */}
+      {video && <GameHighlightCard video={video} />}
     </Box>
   )
 }
@@ -197,7 +170,7 @@ export function LastGameCard({ games, teams, players, onOpenGame }: {
       <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: 0.5, lineHeight: 1.35 }}>{recap.blurb}</Typography>
       {recap.stars[0] && (
         <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-          <StarRow star={recap.stars[0]} medal="🥇" name={recap.stars[0].name} teamId={recap.stars[0].teamId} onClick={() => onOpenGame(game)} />
+          <StarRow star={recap.stars[0]} medal="🥇" name={recap.stars[0].name} teamId={recap.stars[0].teamId} portraitSize={44} onClick={() => onOpenGame(game)} />
         </Box>
       )}
     </SectionCard>

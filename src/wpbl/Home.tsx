@@ -120,6 +120,36 @@ function Scoreboard({ games, teams, onOpenGame }: {
     setAtEnd(c.scrollLeft + c.clientWidth >= c.scrollWidth - 1)
   }, [])
 
+  // Desktop hover-to-scroll: parking the cursor over either edge glides the strip that way,
+  // an alternative to swiping for mouse users who have no visible scrollbar. Runs a rAF loop
+  // while hovered and stops itself at whichever end it reaches. Touch devices never trigger
+  // this (the zones are hover/fine-pointer only) and keep their swipe.
+  const rafRef = useRef<number | null>(null)
+  const stopAutoScroll = useCallback(() => {
+    if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
+    // Restore CSS scroll-snapping (clearing the inline override reverts to the sx value).
+    const c = scrollRef.current
+    if (c) c.style.scrollSnapType = ''
+  }, [])
+  const startAutoScroll = useCallback((dir: -1 | 1) => {
+    stopAutoScroll()
+    const c0 = scrollRef.current
+    // Suspend proximity snap while we drive scrollLeft frame-by-frame; otherwise the browser
+    // re-snaps to the same chip after each write and nothing appears to move.
+    if (c0) c0.style.scrollSnapType = 'none'
+    const step = () => {
+      const c = scrollRef.current
+      if (!c) return
+      const atEdge = dir < 0 ? c.scrollLeft <= 0 : c.scrollLeft + c.clientWidth >= c.scrollWidth - 1
+      if (atEdge) { stopAutoScroll(); syncEdges(); return }
+      c.scrollLeft += dir * 8
+      syncEdges()
+      rafRef.current = requestAnimationFrame(step)
+    }
+    rafRef.current = requestAnimationFrame(step)
+  }, [stopAutoScroll, syncEdges])
+  useEffect(() => stopAutoScroll, [stopAutoScroll])
+
   // Position the anchor chip at the container's left edge. Measures the real DOM node
   // (robust to chip width / gap changes) and moves only the strip's own scroll, not the page.
   useEffect(() => {
@@ -156,6 +186,17 @@ function Scoreboard({ games, teams, onOpenGame }: {
         )}
         {!atEnd && (
           <Box sx={{ position: 'absolute', right: 0, top: 0, bottom: 6, width: 24, pointerEvents: 'none', background: t => `linear-gradient(to left, ${t.palette.background.default}, transparent)` }} />
+        )}
+        {/* Hover-to-scroll zones over each edge (desktop only; touch keeps swipe). */}
+        {!atStart && (
+          <Box onMouseEnter={() => startAutoScroll(-1)} onMouseLeave={stopAutoScroll}
+            sx={{ position: 'absolute', left: 0, top: 0, bottom: 6, width: 40, zIndex: 2, cursor: 'w-resize',
+              display: 'none', '@media (hover: hover) and (pointer: fine)': { display: 'block' } }} />
+        )}
+        {!atEnd && (
+          <Box onMouseEnter={() => startAutoScroll(1)} onMouseLeave={stopAutoScroll}
+            sx={{ position: 'absolute', right: 0, top: 0, bottom: 6, width: 40, zIndex: 2, cursor: 'e-resize',
+              display: 'none', '@media (hover: hover) and (pointer: fine)': { display: 'block' } }} />
         )}
       </Box>
     </Box>
@@ -980,20 +1021,15 @@ const DISCORD_INVITE = 'https://discord.gg/hTaZKFzk6H'
 const DISCORD_BLURPLE = '#5865F2'
 const DISCORD_DISMISS_KEY = 'wpbl_discord_dismissed'
 
-function DiscordCard() {
-  // Dismissable + remembered: once closed it stays gone (so fans already in the
-  // server, or who don't care, don't keep paying the vertical space for it).
-  const [dismissed, setDismissed] = useState(() => {
-    try { return localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { return false }
-  })
-  // Count one impression per mount for users who actually see the card (not those
-  // who already dismissed it), so join/dismiss can be read as a rate of shows.
-  useEffect(() => { if (!dismissed) track(EVENTS.DISCORD_SHOWN) }, [])
-  if (dismissed) return null
+function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
+  // Dismissal is remembered (localStorage) and owned by the parent, which only mounts this card
+  // when it hasn't been dismissed — so once closed it stays gone and leaves no empty slot behind.
+  // Count one impression per mount, i.e. only for users who actually see the card.
+  useEffect(() => { track(EVENTS.DISCORD_SHOWN) }, [])
   const dismiss = () => {
     track(EVENTS.DISCORD_DISMISSED)
     try { localStorage.setItem(DISCORD_DISMISS_KEY, '1') } catch { /* private mode / quota — non-fatal */ }
-    setDismissed(true)
+    onDismiss()
   }
   return (
     <Box
@@ -1077,6 +1113,12 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   const [videos, setVideos] = useState<WpblVideo[]>(() => getCachedWpblVideos() ?? [])
   const [loadingLeaders, setLoadingLeaders] = useState(() => wpblHomeCacheAgeMs() === Infinity)
   const [firstsOpen, setFirstsOpen] = useState(false)
+  // Discord dismissal is tracked here (not inside DiscordCard) so a dismissed invite leaves no
+  // empty wrapper in the left column — otherwise the column's row-gap would keep pushing the
+  // Next game card down, out of line with the top of the right column (Batting Leaders).
+  const [discordDismissed, setDiscordDismissed] = useState(() => {
+    try { return localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { return false }
+  })
 
   // Full load once, then revalidate on later mounts only when the cache is cold or stale —
   // a quick swipe back to a warm Home is instant and silent. Players are static for the
@@ -1237,7 +1279,9 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
       }}>
         {/* The League */}
         <Box sx={{ minWidth: 0, display: { xs: 'contents', md: 'flex' }, flexDirection: 'column', gap: 1.5 }}>
-          <Box sx={{ minWidth: 0, order: { xs: 1, md: 0 } }}><DiscordCard /></Box>
+          {!discordDismissed && (
+            <Box sx={{ minWidth: 0, order: { xs: 1, md: 0 } }}><DiscordCard onDismiss={() => setDiscordDismissed(true)} /></Box>
+          )}
           <Box sx={{ minWidth: 0, order: { xs: 2, md: 0 } }}><NextGameCard games={games} teams={teamMap} onOpenGame={onOpenGame} /></Box>
           <Box sx={{ minWidth: 0, order: { xs: 3, md: 0 } }}><LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} /></Box>
           {/* Highlights rail — sits under the Next game card in the left column on desktop,

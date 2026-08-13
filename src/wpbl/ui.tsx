@@ -142,13 +142,18 @@ export function SegNav({ options, value, onChange, accent = WPBL_ACCENT, mb = { 
               borderRadius: 999,
               cursor: 'pointer',
               fontSize: '0.75rem',
-              fontWeight: 600,
               lineHeight: 1.4,
               whiteSpace: 'nowrap',
               transition: 'all 0.15s',
               userSelect: 'none',
-              bgcolor: value === opt.value ? accent : 'transparent',
-              color: value === opt.value ? '#fff' : 'text.secondary',
+              // Raised neutral pill (iOS-style): the active tab is a surface-colored chip with
+              // a soft shadow and accent-colored text, rather than a solid accent fill. Reads as
+              // part of the page in both themes (the chip follows the surface color) and sits
+              // more quietly next to the rest of the UI than a bold color block.
+              bgcolor: value === opt.value ? 'background.paper' : 'transparent',
+              color: value === opt.value ? accent : 'text.secondary',
+              fontWeight: value === opt.value ? 700 : 600,
+              boxShadow: value === opt.value ? '0 1px 3px rgba(0,0,0,0.20)' : 'none',
               '&:hover': value !== opt.value ? { color: 'text.primary' } : {},
             }}
           >
