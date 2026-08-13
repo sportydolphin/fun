@@ -391,7 +391,8 @@ async function ingestBoxscore(
           batting_order: spot || null, position: pl.position || null,
           ab: n(hit.ab), r: n(hit.r), h, doubles: dbl, triples: tpl, hr, rbi: n(hit.rbi),
           bb: n(hit.bb), so: n(hit.so), hbp: n(hit.hbp), sb: n(hit.sb), cs: n(hit.cs),
-          sf: n(hit.sf), sh: n(hit.sh), ibb: n(hit.ibb), gdp: n(hit.gdp), tb, lob: n(hit.lob),
+          // GIDP is the feed's `hitdp` ("hit into DP"); its `gdp` field is present but always 0.
+          sf: n(hit.sf), sh: n(hit.sh), ibb: n(hit.ibb), gdp: n(hit.hitdp), tb, lob: n(hit.lob),
         })
       }
 
