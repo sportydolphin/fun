@@ -19,7 +19,11 @@ import { useMediaQuery } from '@mui/material'
 // first-visit tab lands at its top, tucked just under the pinned nav (see `freshTarget`).
 
 const LOCK_PX = 10          // movement before we decide horizontal-swipe vs vertical-scroll
-const COMMIT_FRACTION = 0.28 // fraction of the width a drag must pass to switch tabs
+const COMMIT_FRACTION = 0.28 // fraction of the width a slow drag must pass to switch tabs
+const FLICK_VELOCITY = 0.3  // px/ms — a release faster than this commits the swipe even when it
+                            // never crossed COMMIT_FRACTION, so a quick little flick pages the tab
+const FLICK_MIN_PX = 12     // but the flick must have travelled at least this far, so a stationary
+                            // finger-jitter on release is never mistaken for a flick
 const ANIM_MS = 260
 const RESIST = 0.3          // rubber-band factor when dragging past the first/last tab
 const GAP = 16              // gutter shown between panes while swiping, so they aren't cramped
@@ -150,6 +154,9 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     tracking: false, lock: null as null | 'h' | 'v',
     startX: 0, startY: 0, width: 0, dir: 0 as -1 | 0 | 1, boundary: false,
     target: null as EventTarget | null, curOffset: 0,
+    // Release-velocity tracking for flick-to-commit: a smoothed px/ms speed plus the last
+    // sample it was measured from.
+    vel: 0, lastX: 0, lastT: 0,
   })
 
   useEffect(() => {
@@ -162,6 +169,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       g.current = {
         tracking: true, lock: null, startX: t.clientX, startY: t.clientY,
         width: el.clientWidth, dir: 0, boundary: false, target: e.target, curOffset: 0,
+        vel: 0, lastX: t.clientX, lastT: e.timeStamp,
       }
     }
 
@@ -192,6 +200,15 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
 
       if (s.lock !== 'h') return
       e.preventDefault() // we own this gesture now — stop the page from also scrolling
+      // Smooth the finger's px/ms speed so onEnd knows how hard the release was flicked.
+      // Weighted toward the newest sample so a late burst of speed (the flick) dominates.
+      const dt = e.timeStamp - s.lastT
+      if (dt > 0) {
+        const instV = (t.clientX - s.lastX) / dt
+        s.vel = s.vel * 0.6 + instV * 0.4
+        s.lastX = t.clientX
+        s.lastT = e.timeStamp
+      }
       s.curOffset = s.boundary ? dx * RESIST : dx
       setOffset(s.curOffset)
     }
@@ -201,8 +218,15 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       if (!s.tracking && s.lock !== 'h') return
       s.tracking = false
       if (s.lock !== 'h') return
-      const commit = !s.boundary && Math.abs(s.curOffset) > s.width * COMMIT_FRACTION
+      // Commit on either a long-enough drag OR a fast flick in the drag's direction. The flick
+      // path lets a small, quick swipe page the tab without dragging most of the screen across —
+      // vel is signed (left = negative → next tab, right = positive → prev tab), so it must match
+      // the drag direction (sign(vel) === -dir) and clear a tiny minimum travel.
       const d = s.dir
+      const flick = Math.abs(s.vel) > FLICK_VELOCITY
+        && Math.abs(s.curOffset) > FLICK_MIN_PX
+        && Math.sign(s.vel) === -d
+      const commit = !s.boundary && (Math.abs(s.curOffset) > s.width * COMMIT_FRACTION || flick)
       setAnim(true)
       setOffset(commit ? -d * (s.width + GAP) : 0)
       window.setTimeout(() => {
