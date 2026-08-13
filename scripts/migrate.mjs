@@ -9,9 +9,12 @@
 // now on goes in scripts/migrations/ and flows through here.
 //
 // Connection: reads SUPABASE_DB_URL (a postgres://... string). Get it from Supabase →
-// Project Settings → Database → Connection string. Use the DIRECT connection (port
-// 5432), not the transaction pooler — migrations need session-level DDL. Keep it in
-// .env locally and in GitHub Actions secrets for CI.
+// Connect → Connection string → *Session pooler* (port 5432). Prefer the session pooler
+// over "Direct connection" — direct is IPv6-only unless you buy the IPv4 add-on, so it
+// won't reach from most home networks or GitHub Actions. Avoid the *transaction* pooler
+// (6543); it lacks the session-level support migrations need. Keep the string in .env
+// locally and in GitHub Actions secrets for CI. The password is the database password
+// (not the anon/service-role key).
 //
 // Usage:
 //   npm run migrate                 # apply all pending migrations (alias: `up`)

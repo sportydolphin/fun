@@ -19,10 +19,13 @@ npm run migrate -- up --dry-run        # preview what would run
 npm run migrate -- new "add foo table" # scaffold a timestamped migration file
 ```
 
-The runner reads **`SUPABASE_DB_URL`** — the direct Postgres connection string (Supabase →
-Project Settings → Database → Connection string → *Direct connection*, port 5432; **not**
-the transaction pooler). Put it in `.env` locally and in GitHub Actions secrets for CI.
-The service-role key alone can't run DDL — this needs a real Postgres connection.
+The runner reads **`SUPABASE_DB_URL`** — a Postgres connection string. In Supabase click
+**Connect → Connection string → *Session pooler*** (port 5432). Use the session pooler, not
+"Direct connection" (IPv6-only without the paid IPv4 add-on, so it won't reach from most
+home networks or GitHub Actions) and not the *transaction* pooler (6543, no session-level
+support). The password in the string is the **database password** (Settings → Database →
+Reset database password if unknown) — not the anon/service-role key. Put it in `.env`
+locally and in GitHub Actions secrets for CI.
 
 ## Conventions
 
