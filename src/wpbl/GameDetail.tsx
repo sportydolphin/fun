@@ -278,8 +278,11 @@ function PlayByPlay({ plays, teams }: { plays: WpblGamePlay[]; teams: Map<string
     return gs
   }, [plays])
 
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  const toggle = (key: string) => setCollapsed(prev => {
+  // Innings start collapsed so the tab opens compact (and the modal can size down to it); the
+  // reader expands the half-innings they care about. Tracking what's OPEN — not what's closed —
+  // means innings that arrive later on a live game default closed too, without extra bookkeeping.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const toggle = (key: string) => setExpanded(prev => {
     const next = new Set(prev)
     next.has(key) ? next.delete(key) : next.add(key)
     return next
@@ -292,7 +295,7 @@ function PlayByPlay({ plays, teams }: { plays: WpblGamePlay[]; teams: Map<string
     <Box sx={{ p: 2 }}>
       {groups.map(g => {
         const team = g.teamId ? teams.get(g.teamId) : undefined
-        const open = !collapsed.has(g.key)
+        const open = expanded.has(g.key)
         return (
           <Box key={g.key} sx={{ mb: 1.25 }}>
             <Box
@@ -712,7 +715,7 @@ function TeamSwitch({ away, home, value, onChange }: {
     )
   }
   return (
-    <Box sx={{ display: 'flex', gap: { xs: 2.5, sm: 3 }, borderBottom: '1px solid', borderColor: 'divider', mb: 0.75 }}>
+    <Box sx={{ display: 'flex', justifyContent: 'center', gap: { xs: 2.5, sm: 3 }, borderBottom: '1px solid', borderColor: 'divider', mb: 0.75 }}>
       {tab('away', away)}
       {tab('home', home)}
     </Box>
@@ -833,12 +836,12 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
     <ModalShell
       eyebrow={final ? `Final${game.innings && game.innings !== 7 ? ` / ${game.innings}` : ''}` : live ? '● Live' : `${dateLabel}${game.start_time ? ` · ${formatGameTime(game.game_date, game.start_time)}` : ''}`}
       onClose={onClose}
-      maxWidth={720}
-      fillHeight={showScore}
+      maxWidth={520}
     >
-      {/* Full-height flex column: everything above the panel is fixed; only the tab
-          panel scrolls, so the modal height stays constant when switching tabs. */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      {/* Content-height flex column, capped at the viewport: a short tab (recap, a collapsed
+          play-by-play) sizes the modal down instead of forcing full height; a tall tab grows
+          to the cap, where the score header stays fixed and only the tab panel below scrolls. */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', maxHeight: '100%', minHeight: 0 }}>
         {/* Score header — one combined scoreboard for a played game (teams + line + R/H/E),
             or a plain name matchup for an unplayed one. */}
         <Box sx={{ flexShrink: 0, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
@@ -868,14 +871,14 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress /></Box>
         ) : hasLines ? (
           <>
-            <Box sx={{ flexShrink: 0, pt: 0.75 }}>
+            <Box sx={{ flexShrink: 0, pt: 0.75, pb: 1 }}>
               <SegNav options={tabs} value={tab} onChange={v => setTab(v as Tab)} mb={0} />
             </Box>
 
             {/* Scroll region — fixed height, one per tab. */}
             <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
               {tab === 'recap' && away && home && (
-                <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} onOpenPlayer={onOpenPlayer} />
+                <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} onOpenPlayer={onOpenPlayer} />
               )}
               {tab === 'box' && away && home && (() => {
                 const shown = boxTeam === 'home' ? home : away

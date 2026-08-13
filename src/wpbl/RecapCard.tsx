@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblGamePlay } from './types'
-import { buildRecap, type GameRecap, type RecapStar } from './derive/recap'
+import { buildRecap, leagueRecapContext, type GameRecap, type RecapStar } from './derive/recap'
 import { fetchWpblGameLines, fetchWpblGamePlays } from './api'
-import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER } from './ui'
+import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, wpblShortName } from './ui'
 import { WPBL_ACCENT, wpblColor } from './constants'
 
 const MEDAL = ['🥇', '🥈', '🥉']
 
 // ── Shared bits ─────────────────────────────────────────────────────────────────
 
-function StarRow({ star, medal, name, teamId, onClick }: {
-  star: RecapStar; medal: string; name: string; teamId: string | null; onClick?: () => void
+function StarRow({ star, medal, name, displayName, teamId, onClick }: {
+  star: RecapStar; medal: string; name: string; displayName?: string; teamId: string | null; onClick?: () => void
 }) {
+  // `name` is always the full name (the portrait headshot is keyed on it); `displayName`
+  // is the optional label to show, e.g. an abbreviated "F. Last" for a narrow column.
   return (
     <Box onClick={onClick}
       sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.6, cursor: onClick ? 'pointer' : 'default',
@@ -20,7 +22,7 @@ function StarRow({ star, medal, name, teamId, onClick }: {
       <Box sx={{ fontSize: '1rem', width: 20, textAlign: 'center', flexShrink: 0 }}>{medal}</Box>
       <PlayerPortrait name={name} teamId={teamId} size={30} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography className="starname" noWrap sx={{ fontSize: '0.85rem', fontWeight: 700 }}>{name}</Typography>
+        <Typography className="starname" noWrap sx={{ fontSize: '0.85rem', fontWeight: 700 }}>{displayName ?? name}</Typography>
         <Typography noWrap sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{star.statline}</Typography>
       </Box>
       <Box sx={{ width: 3, alignSelf: 'stretch', borderRadius: 2, bgcolor: wpblColor(teamId), flexShrink: 0 }} />
@@ -61,25 +63,27 @@ function HRELine({ recap, teams }: { recap: GameRecap; teams: Map<string, WpblTe
 
 // ── Full recap (GameDetail "Recap" tab) ──────────────────────────────────────────
 
-export function GameRecapView({ game, teams, batting, pitching, plays, names, onOpenPlayer }: {
+export function GameRecapView({ game, teams, batting, pitching, plays, names, games = [], onOpenPlayer }: {
   game: WpblGame
   teams: Map<string, WpblTeam>
   batting: WpblBattingLine[]
   pitching: WpblPitchingLine[]
   plays: WpblGamePlay[]
   names: Map<string, WpblPlayer>
+  games?: WpblGame[]   // full schedule, so the recap verbs calibrate to the league's run environment
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
   const nameOf = useMemo(() => (id: string) => names.get(id)?.name ?? '—', [names])
-  const recap = useMemo(() => buildRecap(game, teams, batting, pitching, plays, nameOf),
-    [game, teams, batting, pitching, plays, nameOf])
+  const ctx = useMemo(() => leagueRecapContext(games), [games])
+  const recap = useMemo(() => buildRecap(game, teams, batting, pitching, plays, nameOf, ctx),
+    [game, teams, batting, pitching, plays, nameOf, ctx])
   if (!recap) return null
 
   return (
     <Box sx={{ px: 2, pb: 2, pt: 0.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box>
-        <Typography sx={{ fontSize: '1.15rem', fontWeight: 800, lineHeight: 1.2 }}>{recap.headline}</Typography>
-        <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary', mt: 0.75, lineHeight: 1.5 }}>{recap.blurb}</Typography>
+        <Typography sx={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.2 }}>{recap.headline}</Typography>
+        <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary', mt: 0.75, lineHeight: 1.35 }}>{recap.blurb}</Typography>
       </Box>
 
       {recap.feats.length > 0 && (
@@ -94,11 +98,17 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, on
       {recap.stars.length > 0 && (
         <Box>
           <Typography sx={{ fontSize: '0.63rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.25 }}>Stars of the game</Typography>
-          {recap.stars.map((s, i) => {
-            const p = names.get(s.playerId)
-            return <StarRow key={s.playerId} star={s} medal={MEDAL[i] ?? '⭐'} name={s.name} teamId={s.teamId}
-              onClick={p && onOpenPlayer ? () => onOpenPlayer(p) : undefined} />
-          })}
+          {/* Two columns of stars on desktop so they fill the modal width (and the team-color
+              bars sit beside each line, not floated to the far edge); one column on mobile. */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, columnGap: 1.5 }}>
+            {recap.stars.map((s, i) => {
+              const p = names.get(s.playerId)
+              // Abbreviate to "F. Last" so the last name stays whole in the narrow star column,
+              // rather than the full name truncating mid-surname. Portrait still uses the full name.
+              return <StarRow key={s.playerId} star={s} medal={MEDAL[i] ?? '⭐'} name={s.name} displayName={wpblShortName(s.name, 0)} teamId={s.teamId}
+                onClick={p && onOpenPlayer ? () => onOpenPlayer(p) : undefined} />
+            })}
+          </Box>
         </Box>
       )}
 
@@ -153,8 +163,9 @@ export function LastGameCard({ games, teams, players, onOpenGame }: {
     return (id: string) => byId.get(id) ?? '—'
   }, [players])
 
-  const recap = useMemo(() => game ? buildRecap(game, teams, data?.batting ?? [], data?.pitching ?? [], data?.plays ?? [], nameOf) : null,
-    [game, teams, data, nameOf])
+  const ctx = useMemo(() => leagueRecapContext(games), [games])
+  const recap = useMemo(() => game ? buildRecap(game, teams, data?.batting ?? [], data?.pitching ?? [], data?.plays ?? [], nameOf, ctx) : null,
+    [game, teams, data, nameOf, ctx])
 
   if (!game || !recap) return null
   const away = teams.get(game.away_team_id), home = teams.get(game.home_team_id)
@@ -182,8 +193,8 @@ export function LastGameCard({ games, teams, players, onOpenGame }: {
         {scoreRow(away, game.away_score, recap.winner.id === away?.id)}
         {scoreRow(home, game.home_score, recap.winner.id === home?.id)}
       </Box>
-      <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, lineHeight: 1.25 }}>{recap.headline}</Typography>
-      <Typography sx={{ fontSize: '0.82rem', color: 'text.secondary', mt: 0.5, lineHeight: 1.45 }}>{recap.blurb}</Typography>
+      <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>{recap.headline}</Typography>
+      <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: 0.5, lineHeight: 1.35 }}>{recap.blurb}</Typography>
       {recap.stars[0] && (
         <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
           <StarRow star={recap.stars[0]} medal="🥇" name={recap.stars[0].name} teamId={recap.stars[0].teamId} onClick={() => onOpenGame(game)} />

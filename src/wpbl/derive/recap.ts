@@ -33,6 +33,49 @@ export interface GameRecap {
   flags: { shutout: boolean; blowout: boolean; oneRun: boolean; walkOff: boolean; comeback: boolean; extras: boolean }
 }
 
+// ── League context ────────────────────────────────────────────────────────────────────────
+// The verbs (rout / tight / slugfest / comeback) shouldn't be pinned to MLB's run environment:
+// WPBL scores, margins, and offense differ, and the season is short, so a "rout" here is defined
+// relative to how THIS league is actually playing. We profile every decided final and set each
+// cutoff off the league's own margin/scoring distribution (mean ± ~1 SD), with floors so a tiny
+// early-season sample can't produce silly thresholds. Recompute as games land and the words retune.
+export interface RecapLeagueContext {
+  blowoutMargin: number    // margin at/above → "rout" / "shut out"
+  closeMargin: number      // margin at/below → "tight" flow; also the decisive-inning size
+  slugfestRuns: number     // combined runs at/above → "outslug" (with both sides productive)
+  slugfestSide: number     // losing side's runs at/above, so a blowout can't read as a slugfest
+  comebackDeficit: number  // deficit erased at/above → "rally past"
+}
+
+// Season-neutral defaults, used until enough finals (<4) define a league profile.
+export const DEFAULT_RECAP_CONTEXT: RecapLeagueContext = {
+  blowoutMargin: 6, closeMargin: 2, slugfestRuns: 15, slugfestSide: 7, comebackDeficit: 3,
+}
+
+const mean = (a: number[]) => a.reduce((s, x) => s + x, 0) / a.length
+const stdev = (a: number[], m: number) => Math.sqrt(mean(a.map(x => (x - m) ** 2)))
+
+export function leagueRecapContext(games: WpblGame[]): RecapLeagueContext {
+  const finals = games.filter(g => g.status === 'final' && g.home_score != null && g.away_score != null && g.home_score !== g.away_score)
+  if (finals.length < 4) return DEFAULT_RECAP_CONTEXT
+  const margins: number[] = [], totals: number[] = [], sides: number[] = []
+  for (const g of finals) {
+    const hi = Math.max(g.home_score!, g.away_score!), lo = Math.min(g.home_score!, g.away_score!)
+    margins.push(hi - lo); totals.push(hi + lo); sides.push(lo)
+  }
+  const mMar = mean(margins), sMar = stdev(margins, mMar)
+  const mTot = mean(totals), sTot = stdev(totals, mTot)
+  const mSide = mean(sides)
+  const r = Math.round
+  return {
+    blowoutMargin: Math.max(4, r(mMar + sMar)),   // ~1 SD above the league's typical margin
+    closeMargin: Math.max(2, r(mMar)),            // at/below the league's typical margin
+    slugfestRuns: Math.max(12, r(mTot + sTot)),   // ~1 SD above the league's typical run total
+    slugfestSide: Math.max(6, r(mSide + 1)),      // loser still productive, not just outscored
+    comebackDeficit: Math.max(2, r(mMar)),        // a hole around a typical winning margin
+  }
+}
+
 const ORD = ['0th', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th']
 const ord = (n: number) => ORD[n] ?? `${n}th`
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
@@ -80,6 +123,7 @@ export function buildRecap(
   pitching: WpblPitchingLine[],
   plays: WpblGamePlay[],
   nameOf: (playerId: string) => string,
+  ctx: RecapLeagueContext = DEFAULT_RECAP_CONTEXT,
 ): GameRecap | null {
   if (game.status !== 'final' || game.home_score == null || game.away_score == null || game.home_score === game.away_score) return null
   const away = teams.get(game.away_team_id), home = teams.get(game.home_team_id)
@@ -116,15 +160,15 @@ export function buildRecap(
 
   const flags = {
     shutout: loserScore === 0,
-    blowout: margin >= 6 || (loserScore > 0 && winnerScore >= loserScore * 3 && margin >= 4),
+    blowout: margin >= ctx.blowoutMargin,
     oneRun: margin === 1,
     walkOff,
-    comeback: winnerDeficit >= 3,
+    comeback: winnerDeficit >= ctx.comebackDeficit,
     extras: innings > 7,
   }
 
   // ── Headline (present tense, news-style; score shown separately by the UI). ────────────
-  const slugfest = !flags.blowout && !flags.shutout && winnerScore >= 8 && loserScore >= 7
+  const slugfest = !flags.blowout && !flags.shutout && winnerScore + loserScore >= ctx.slugfestRuns && loserScore >= ctx.slugfestSide
   const verb = flags.walkOff ? 'walk off'
     : flags.shutout ? 'shut out'
     : flags.blowout ? 'rout'
@@ -158,23 +202,23 @@ export function buildRecap(
   const struckElsewhere = !!firstBlood && firstBlood.team.id !== winner.id
   let flow: string
   if (flags.walkOff) {
-    flow = `${cap(nick(winner))} walked it off in the ${ord(innings)}${flags.extras ? ` after ${innings} innings` : ''}.`
+    flow = `${cap(nick(winner))} won it in the bottom of the ${ord(innings)}${flags.extras ? `, after ${innings} innings` : ''}.`
   } else if (flags.comeback) {
-    flow = `${cap(nick(winner))} rallied from ${winnerDeficit} down${winnerBig.runs >= 3 ? `, breaking through with a ${winnerBig.runs}-run ${ord(winnerBig.inning)}` : ''} for the win.`
-  } else if (winnerBig.runs >= 3 && struckElsewhere && firstBlood) {
-    flow = `${cap(nick(firstBlood.team))} struck first${firstBlood.runs > 1 ? ` with ${firstBlood.runs} in the ${ord(firstBlood.inning)}` : ''}, but ${nick(winner)} answered with a ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
-  } else if (winnerBig.runs >= 3) {
+    flow = `${cap(nick(winner))} came back from ${winnerDeficit} runs down${winnerBig.runs >= ctx.closeMargin ? ` on a ${winnerBig.runs}-run ${ord(winnerBig.inning)}` : ''} to take it.`
+  } else if (winnerBig.runs >= ctx.closeMargin && struckElsewhere && firstBlood) {
+    flow = `${cap(nick(firstBlood.team))} scored first${firstBlood.runs > 1 ? `, putting up ${firstBlood.runs} in the ${ord(firstBlood.inning)}` : ''}, but ${nick(winner)} put up a ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
+  } else if (winnerBig.runs >= ctx.closeMargin) {
     const openedEarlier = firstBlood && firstBlood.inning !== winnerBig.inning
     flow = openedEarlier
-      ? `${cap(nick(winner))} struck first${firstBlood!.runs > 1 ? ` with ${firstBlood!.runs} in the ${ord(firstBlood!.inning)}` : ''} and broke it open with a ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
-      : `${cap(nick(winner))} broke it open with a ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
-  } else if (margin <= 2) {
-    flow = `A tight one — ${nick(winner)} held on for the ${winnerScore}-${loserScore} win.`
+      ? `${cap(nick(winner))} scored first${firstBlood!.runs > 1 ? ` with ${firstBlood!.runs} in the ${ord(firstBlood!.inning)}` : ''} and pulled ahead with a ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
+      : `${cap(nick(winner))} pulled ahead with a ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
+  } else if (margin <= ctx.closeMargin) {
+    flow = `${cap(nick(winner))} held on for a ${winnerScore}-${loserScore} win.`
   } else {
-    flow = `${cap(nick(winner))} pulled away for the ${winnerScore}-${loserScore} win.`
+    flow = `${cap(nick(winner))} pulled away for a ${winnerScore}-${loserScore} win.`
   }
   const top = stars[0]
-  const starLine = top ? ` ${top.name} ${top.kind === 'bat' ? 'led the way, going' : 'dealt'} ${top.statline}.` : ''
+  const starLine = top ? ` ${top.name} ${top.kind === 'bat' ? 'went' : 'threw'} ${top.statline}.` : ''
   const blurb = flow + starLine
 
   // ── Decisions (W / L / S) with their lines. ────────────────────────────────────────────

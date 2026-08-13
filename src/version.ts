@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.37.1'
+export const APP_VERSION = '1.38.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,29 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.38.0',
+    date:    '2026-08-12',
+    title:   'WPBL game recaps',
+    changes: [
+      {
+        short: 'Every finished WPBL game now has a recap',
+        full:  'Opening a finished WPBL game now leads with a Recap tab: a headline, a short account of how the game unfolded, the standout hitters and pitchers, the winning, losing, and save decisions, and the runs-hits-errors line, all built from the box score and play log.',
+      },
+      {
+        short: 'Recap wording fits how the WPBL is scoring',
+        full:  'The words a recap uses, like a rout, a tight game, or a slugfest, are set from how the WPBL itself has been scoring rather than fixed major-league thresholds, so they stay accurate for the league as the short season fills in.',
+      },
+      {
+        short: 'Last Game card on the WPBL home page',
+        full:  'The WPBL home page now has a Last Game card with the final score, the recap headline and summary, and the game\'s top player, with a link to the full recap.',
+      },
+      {
+        short: 'Play-by-play innings start collapsed',
+        full:  'A WPBL game\'s Play-by-Play tab now opens with every half-inning collapsed, so you can scan the innings and open just the ones you want. The game window also sizes down to fit a shorter tab instead of always filling the height of the screen.',
+      },
+    ],
+  },
   {
     version: '1.37.1',
     date:    '2026-08-10',
