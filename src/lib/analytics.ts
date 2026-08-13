@@ -6,6 +6,9 @@ import { supabase } from './supabase'
 // "how much traffic, to which pages" (cookielessly, at the edge); these events
 // answer "what did people actually do" — made a pick, signed in — joined to our own
 // user ids. Page views are already covered by Cloudflare, so DON'T log them here.
+// (`wpbl_tab_viewed` is not an exception: it records HOW a tab was reached — pill tap
+// vs. swipe vs. card link — which is a user action Cloudflare's path counts can't
+// distinguish. Don't add a plain view counter beside it.)
 
 export const EVENTS = {
   LOGIN:              'login',               // returning user signed in
@@ -18,6 +21,8 @@ export const EVENTS = {
   DISCORD_DISMISSED:  'discord_dismissed',   // clicked the ✕ to dismiss the Discord invite card
   WPBL_GAME_REMINDER_ON:  'wpbl_game_reminder_on',  // opted into a pre-game push for a WPBL game
   WPBL_GAME_REMINDER_OFF: 'wpbl_game_reminder_off', // turned a WPBL game reminder back off
+  WPBL_TAB_VIEWED:        'wpbl_tab_viewed',        // switched WPBL tab — props carry {view, via, from}
+  WPBL_PLAYER_OPENED:     'wpbl_player_opened',     // opened a WPBL player page
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the

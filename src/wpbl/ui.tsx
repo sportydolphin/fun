@@ -27,6 +27,46 @@ export function wpblShortName(name: string, maxLen = 16): string {
   return `${parts[0][0]}. ${parts.slice(1).join(' ')}`
 }
 
+// Surname particles that belong to the name that follows them. "Rosi del Castillo" must
+// never shorten to "R. Castillo" — the particle is part of the surname, not a separate word.
+// Lowercased for comparison; a capitalised "Del" is matched too.
+const NAME_PARTICLES = new Set([
+  'de', 'del', 'de la', 'della', 'di', 'da', 'das', 'dos', 'do',
+  'la', 'le', 'los', 'san', 'santa', 'van', 'von', 'der', 'den', 'ter', 'bin', 'ibn', 'al', 'mc', 'mac', "o'",
+])
+
+/** The trailing surname of a full name, keeping any particles attached ("del Castillo"). */
+function surnameOf(parts: string[]): string {
+  let i = parts.length - 1
+  while (i > 1 && NAME_PARTICLES.has(parts[i - 1].toLowerCase())) i--
+  return parts.slice(i).join(' ')
+}
+
+// Name formatter for the FEATURED rows — the stat-leader cards and Hall of Firsts — where a
+// name gets a line to itself and should read in full. Degrades in stages rather than being
+// ellipsed mid-word, because a cut-off name is worse than an abbreviated one:
+//
+//   1. "Kelsie Whitmore"            — fits, untouched (the case for every current player)
+//   2. "F. Elena Valerio Montoya"   — first initial, rest intact
+//   3. "F. Montoya"                 — first initial + surname only, the last resort
+//
+// Stage 3 exists for a future signing whose name is longer than anyone's on the roster today,
+// so the layout can't break on a name we haven't seen. Single-token names ("Ichiro") are never
+// abbreviated — there's nothing to abbreviate to — and the caller's CSS ellipsis stays as the
+// final net for that case. `maxLen` is a character budget, a deliberate proxy for width: it's
+// deterministic and costs no layout measurement, and callers size it from a measured box with
+// headroom to spare (see FEATURE_NAME_MAX in Home.tsx).
+export function wpblFeatureName(name: string, maxLen: number): string {
+  const full = (name ?? '').trim()
+  if (full.length <= maxLen) return full
+  const parts = full.split(/\s+/).filter(Boolean)
+  if (parts.length < 2) return full
+  const initial = `${parts[0][0]}.`
+  const withRest = `${initial} ${parts.slice(1).join(' ')}`
+  if (withRest.length <= maxLen) return withRest
+  return `${initial} ${surnameOf(parts)}`
+}
+
 // Viewport-aware name shortener to drop into any WPBL list/table/tile. Horizontal space is
 // scarcest on phones, so names abbreviate to "F. Last" past a short length there, and only
 // for genuinely long names on wider screens. Returns a stable formatter.
@@ -168,28 +208,69 @@ export function SegNav({ options, value, onChange, accent = WPBL_ACCENT, mb = { 
 // Bordered content card with a left accent stripe and an icon + title + subtitle
 // header, mirroring the MLB home-feed cards. `action` sits at the right of the header
 // (e.g. a "View all" link); body is the children.
-export function SectionCard({ icon, title, subtitle, action, children }: {
+export function SectionCard({ icon, title, subtitle, action, collapsed, onToggleCollapse, children }: {
   icon?: React.ReactNode
   title: string
   subtitle?: string
   action?: React.ReactNode
+  /** Pass with `onToggleCollapse` to make the card collapsible. Owned by the caller, so it
+   *  can persist the choice; the card itself stays presentational. */
+  collapsed?: boolean
+  onToggleCollapse?: () => void
   children: React.ReactNode
 }) {
+  const collapsible = !!onToggleCollapse
   return (
     <Box sx={{
       borderRadius: 3, overflow: 'hidden',
       border: '1px solid', borderColor: CARD_BORDER,
       bgcolor: 'background.paper',
     }}>
-      <Box sx={{ px: 2, pt: 1.25, pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+      {/* The whole header toggles — a thumb-sized target rather than a small chevron hitbox.
+          `action` keeps its own click (e.g. "View all"), so it stops the event bubbling. */}
+      <Box
+        onClick={collapsible ? onToggleCollapse : undefined}
+        role={collapsible ? 'button' : undefined}
+        tabIndex={collapsible ? 0 : undefined}
+        aria-expanded={collapsible ? !collapsed : undefined}
+        onKeyDown={collapsible ? (e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggleCollapse!() }
+        }) : undefined}
+        sx={{
+          px: 2, pt: 1.25, pb: collapsed ? 1.25 : 1, display: 'flex', alignItems: 'center', gap: 1,
+          ...(collapsible ? { cursor: 'pointer', userSelect: 'none', '&:hover': { bgcolor: 'action.hover' } } : {}),
+        }}
+      >
         {icon != null && <Box sx={{ fontSize: '1.1rem', lineHeight: 1, flexShrink: 0 }}>{icon}</Box>}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>{title}</Typography>
           {subtitle && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.3 }}>{subtitle}</Typography>}
         </Box>
-        {action}
+        {action != null && <Box onClick={e => e.stopPropagation()} sx={{ display: 'flex', flexShrink: 0 }}>{action}</Box>}
+        {collapsible && <Chevron open={!collapsed} />}
       </Box>
-      <Box sx={{ px: 2, pb: 1.5 }}>{children}</Box>
+      {!collapsed && <Box sx={{ px: 2, pb: 1.5 }}>{children}</Box>}
+    </Box>
+  )
+}
+
+// Disclosure chevron, drawn from a rotated border corner rather than pulled from an icon
+// font — the same approach as the highlights play triangle, and it animates for free.
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <Box sx={{
+      width: 22, height: 22, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: 'text.secondary',
+    }}>
+      <Box sx={{
+        width: 7, height: 7,
+        borderRight: '2px solid currentColor', borderBottom: '2px solid currentColor',
+        // Down-chevron when open (press to close), right-chevron when collapsed. The nudge is
+        // listed BEFORE the rotation so it shifts along the box's own axes — putting it after
+        // moves along the rotated frame and skews the glyph (the closed one read as a tick).
+        transform: open ? 'translateY(-2px) rotate(45deg)' : 'translateX(-2px) rotate(-45deg)',
+        transition: 'transform 0.18s ease',
+      }} />
     </Box>
   )
 }

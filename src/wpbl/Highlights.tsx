@@ -174,10 +174,31 @@ function RailArrow({ dir, show, onClick }: { dir: 'left' | 'right'; show: boolea
 // The Home "Highlights" rail — a horizontal scroller of the most recent uploads. Renders
 // nothing when there are no videos (pre-migration / empty feed), so it never shows an empty
 // shell. Highlights (matched to a game) lead; the tail keeps whatever else the feed carried.
+// Collapsed state is remembered per browser, mirroring how the Discord invite remembers a
+// dismissal (`wpbl_discord_dismissed` in Home.tsx). Deliberately localStorage and not an
+// account preference: it's a per-device layout choice, it must be known on the very first
+// paint (a signed-in round trip would flash the rail open before collapsing it), and the
+// section is usable signed-out. Reads/writes are wrapped because storage throws in private
+// mode and inside some in-app browsers — a failure there just means the choice isn't kept.
+const COLLAPSE_KEY = 'wpbl_highlights_collapsed'
+
+function readCollapsed(): boolean {
+  try { return localStorage.getItem(COLLAPSE_KEY) === '1' } catch { return false }
+}
+
 export function HighlightsRail({ videos, teams }: { videos: WpblVideo[]; teams: WpblTeam[] }) {
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const [active, setActive] = useState<WpblVideo | null>(null)
+  const [collapsed, setCollapsed] = useState(readCollapsed)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed(prev => {
+      const next = !prev
+      try { localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0') } catch { /* choice just isn't remembered */ }
+      return next
+    })
+  }, [])
 
   // Newest first (the query already orders this way), highlights ahead of podcasts/features
   // so the rail leads with game recaps. Cap the rail so it stays a glanceable strip.
@@ -217,7 +238,12 @@ export function HighlightsRail({ videos, teams }: { videos: WpblVideo[]; teams: 
   // as "this one is faded/disabled." A half-peeking neighbour card is the "swipe for more"
   // cue on touch; on desktop the floating arrows (RailArrow) do the paging instead.
   return (
-    <SectionCard title="Highlights" subtitle="Game recaps from the WPBL channel">
+    <SectionCard
+      title="Highlights"
+      subtitle="Game recaps from the WPBL channel"
+      collapsed={collapsed}
+      onToggleCollapse={toggleCollapsed}
+    >
       <Box sx={{ position: 'relative' }}>
         <Box ref={scrollRef} onScroll={syncEdges} data-swipe-ignore="true" sx={{
           display: 'flex', gap: 1.25, overflowX: 'auto', pb: 0.5,

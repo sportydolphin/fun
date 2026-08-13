@@ -11,7 +11,7 @@ import GameDetailModal from './GameDetail'
 import PlayerDetailModal from './PlayerDetail'
 import { track, EVENTS } from '../lib/analytics'
 import WpblHome from './Home'
-import WpblStatsView from './StatsView'
+import WpblStatsView, { type WpblStatsFocus } from './StatsView'
 import WpblTrackingView from './TrackingView'
 import TeamPage from './TeamPage'
 import SwipeableViews from './SwipeableViews'
@@ -381,7 +381,13 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     if (detailGame) track(EVENTS.GAME_CENTER_OPENED, { league: 'wpbl', gameId: detailGame.id, status: detailGame.status })
   }, [detailGame?.id])
   // Which stat group the Stats view opens on (set when jumping there from Home leaders).
-  const [statsGroup, setStatsGroup] = useState<'hitting' | 'pitching'>('hitting')
+  // What the Stats tab should be showing when it's opened from a Home leader card. `token`
+  // is the part that matters: the Stats panel stays MOUNTED once visited (SwipeableViews keeps
+  // visited tabs alive), so a plain prop can't re-seed its state on a second visit — before
+  // this, a second "View all" from the other card silently left the table on its first target.
+  // Bumping the token on every jump gives the panel an unambiguous "re-focus now" signal, and
+  // leaves it alone when the reader reaches Stats by tapping the tab or swiping.
+  const [statsFocus, setStatsFocus] = useState<WpblStatsFocus>({ group: 'hitting', token: 0 })
 
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [games, setGames] = useState<WpblGame[]>([])
@@ -427,12 +433,27 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
 
   // Navigation intents. Tab/team switches clear any open modal; opening a player keeps the
   // game beneath it (so Back closes the player first, then the game).
-  const selectTab  = useCallback((v: WpblView) => push({ view: v, team: selectedTeam, game: null, player: null }), [push, selectedTeam])
+  // Tab switches carry HOW the reader got there. Cloudflare already counts the ?view= paths,
+  // so this deliberately isn't a page-view log (see analytics.ts) — the part Cloudflare can't
+  // answer is the `via`: a pill tap is a deliberate choice, a swipe often just passes through
+  // on the way somewhere else, and a card link is the Home feed doing its job. That's what
+  // tells us whether the six-tab nav is actually working on a phone, where the last tab sits
+  // off-screen. Back/forward navigations go through popstate, not here, and aren't counted.
+  const selectTab = useCallback((v: WpblView, via: 'pill' | 'swipe' | 'link' = 'pill') => {
+    if (v !== view) track(EVENTS.WPBL_TAB_VIEWED, { view: v, via, from: view })
+    push({ view: v, team: selectedTeam, game: null, player: null })
+  }, [push, selectedTeam, view])
   const selectTeam = useCallback((t: WpblTeam | null) => push({ view: 'teams', team: t, game: null, player: null }), [push])
-  const openStats  = useCallback((g: 'hitting' | 'pitching') => { setStatsGroup(g); push({ view: 'stats', team: selectedTeam, game: null, player: null }) }, [push, selectedTeam])
-  const openTracking = useCallback(() => push({ view: 'tracking', team: selectedTeam, game: null, player: null }), [push, selectedTeam])
+  const openStats  = useCallback((g: 'hitting' | 'pitching', sortKey?: string) => {
+    setStatsFocus(f => ({ group: g, sortKey, token: f.token + 1 }))
+    selectTab('stats', 'link')
+  }, [selectTab])
+  const openTracking = useCallback(() => selectTab('tracking', 'link'), [selectTab])
   const openGame   = useCallback((g: WpblGame) => push({ view, team: selectedTeam, game: g, player: null }), [push, view, selectedTeam])
-  const openPlayer = useCallback((p: WpblPlayer) => push({ view, team: selectedTeam, game: detailGame, player: p }), [push, view, selectedTeam, detailGame])
+  const openPlayer = useCallback((p: WpblPlayer) => {
+    track(EVENTS.WPBL_PLAYER_OPENED, { playerId: p.id, teamId: p.team_id, from: detailGame ? 'game' : view })
+    push({ view, team: selectedTeam, game: detailGame, player: p })
+  }, [push, view, selectedTeam, detailGame])
   // Closing a modal (X or Escape) walks history back, so it and the browser Back button are
   // the same action and never fall out of sync.
   const closeTop   = useCallback(() => window.history.back(), [])
@@ -597,7 +618,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         <SegNav
           options={NAV.map(n => ({ value: n.key, label: n.label }))}
           value={view}
-          onChange={v => selectTab(v as WpblView)}
+          onChange={v => selectTab(v as WpblView, 'pill')}
         />
       </Box>
 
@@ -619,7 +640,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
           <Box sx={{ mx: { xs: -2, sm: 0 } }}>
           <SwipeableViews
             index={NAV.findIndex(n => n.key === view)}
-            onIndexChange={i => selectTab(NAV[i].key)}
+            onIndexChange={i => selectTab(NAV[i].key, 'swipe')}
             minHeight={isMobileView ? 'calc(100dvh - 24px)' : undefined}
             stickyNavRef={navRef}
             padX={isMobileView ? 16 : 0}
@@ -629,7 +650,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
                   case 'home':      return <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} onViewStats={openStats} onViewTracking={openTracking} />
                   case 'schedule':  return <ScheduleView teams={teams} games={games} onOpenGame={openGame} active={view === 'schedule'} />
                   case 'standings': return <StandingsView teams={teams} games={games} onOpenTeam={selectTeam} />
-                  case 'stats':     return <WpblStatsView teams={teams} games={games} initialGroup={statsGroup} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} />
+                  case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} />
                   case 'tracking':  return <WpblTrackingView teams={teams} onOpenPlayer={openPlayer} />
                   case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeam} onOpenGame={openGame} onOpenPlayer={openPlayer} />
                 }

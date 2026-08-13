@@ -61,19 +61,58 @@ export function sumPitching(lines: WpblPitchingLine[]): WpblPitchingTotals {
   return { ...t, era, whip }
 }
 
-// Rate-stat qualifiers (5 AB / 3 IP) only mean something once there's a sample, so they
-// kick in only after EVERY team has played at least this many games. Before then the
-// boards show everyone so they aren't near-empty in the opening days.
-export const QUALIFY_MIN_GAMES = 2
-export function qualifiersActive(teams: WpblTeam[], games: WpblGame[]): boolean {
-  if (teams.length === 0) return false
+// ─── Rate-stat qualifiers ──────────────────────────────────────────────────────
+// A fixed threshold (the old flat 5 AB / 3 IP) stops meaning anything the moment the
+// season moves past its first week: five games in, 5 AB is one game's work, so the OPS
+// board fills with 4-for-5 cameos and the ERA board with three relievers tied at 0.00.
+// So the bar SCALES with how far the season has actually gone, the way a real rate title
+// does — MLB requires 3.1 PA per team game and 1 IP per team game.
+//
+// Ours are deliberately gentler than MLB's: it's a ~6-week inaugural season with 7-inning
+// games and short outings, and an over-strict bar leaves the boards empty. The floors keep
+// the opening days sane, and we scale off the LEAST-played team so a club with a game in
+// hand can't push its own players below the line.
+export const QUALIFY_MIN_GAMES = 2      // every team must have played this many before the bar applies
+export const QUALIFY_AB_PER_GAME = 2.0  // ~a regular's at-bats in a 7-inning game
+export const QUALIFY_OUTS_PER_GAME = 2.4 // 0.8 IP per team game (MLB's 1.0, scaled to 7 innings)
+export const QUALIFY_FLOOR_AB = 5
+export const QUALIFY_FLOOR_OUTS = 9     // 3 IP
+
+export interface WpblQualifiers {
+  active: boolean    // whether to apply the bar at all
+  teamGames: number  // games played by the least-played team
+  minAb: number      // at-bats needed for a batting rate title
+  minOuts: number    // outs recorded needed for a pitching rate title
+}
+
+/** Games played (finals only) per team id. */
+function gamesPlayed(games: WpblGame[]): Map<string, number> {
   const played = new Map<string, number>()
   for (const g of games) {
     if (g.status !== 'final') continue
     played.set(g.home_team_id, (played.get(g.home_team_id) ?? 0) + 1)
     played.set(g.away_team_id, (played.get(g.away_team_id) ?? 0) + 1)
   }
-  return teams.every(t => (played.get(t.id) ?? 0) >= QUALIFY_MIN_GAMES)
+  return played
+}
+
+export function wpblQualifiers(teams: WpblTeam[], games: WpblGame[]): WpblQualifiers {
+  const inactive = { active: false, teamGames: 0, minAb: 0, minOuts: 0 }
+  if (teams.length === 0) return inactive
+  const played = gamesPlayed(games)
+  const teamGames = Math.min(...teams.map(t => played.get(t.id) ?? 0))
+  if (teamGames < QUALIFY_MIN_GAMES) return inactive
+  return {
+    active: true,
+    teamGames,
+    minAb: Math.max(QUALIFY_FLOOR_AB, Math.round(QUALIFY_AB_PER_GAME * teamGames)),
+    minOuts: Math.max(QUALIFY_FLOOR_OUTS, Math.round(QUALIFY_OUTS_PER_GAME * teamGames)),
+  }
+}
+
+/** Back-compat shorthand for callers that only need the on/off flag. */
+export function qualifiersActive(teams: WpblTeam[], games: WpblGame[]): boolean {
+  return wpblQualifiers(teams, games).active
 }
 
 // ".278" (leading zero stripped) for AVG/OBP/SLG/OPS; dash when null.

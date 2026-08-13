@@ -4,7 +4,7 @@ import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine,
 import { buildRecap, leagueRecapContext, type GameRecap, type RecapStar } from './derive/recap'
 import { fetchWpblGameLines, fetchWpblGamePlays } from './api'
 import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER } from './ui'
-import { WPBL_ACCENT, relativeDayLabel } from './constants'
+import { WPBL_ACCENT, relativeDayLabel, wpblFullName } from './constants'
 
 const MEDAL = ['🥇', '🥈', '🥉']
 
@@ -143,7 +143,7 @@ export function LastGameCard({ games, teams, players, onOpenGame }: {
   const scoreRow = (team: WpblTeam | undefined, score: number | null, won: boolean) => team && (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       <TeamBadge team={team} size={26} />
-      <Typography sx={{ flex: 1, fontSize: '0.9rem', fontWeight: won ? 800 : 600, color: won ? 'text.primary' : 'text.secondary' }}>{team.name}</Typography>
+      <Typography sx={{ flex: 1, fontSize: '0.9rem', fontWeight: won ? 800 : 600, color: won ? 'text.primary' : 'text.secondary' }}>{wpblFullName(team)}</Typography>
       <Typography sx={{ fontSize: '1rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: won ? 'text.primary' : 'text.secondary' }}>{score}</Typography>
     </Box>
   )

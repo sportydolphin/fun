@@ -8,7 +8,7 @@ import {
 import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
 import { TeamBadge, CARD_BORDER, useWpblName } from './ui'
 import {
-  aggregateBatting, aggregatePitching, sumBatting, sumPitching, qualifiersActive, fmtRate, fmtTwo,
+  aggregateBatting, aggregatePitching, sumBatting, sumPitching, wpblQualifiers, fmtRate, fmtTwo,
   type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
@@ -17,8 +17,8 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine 
 // pitching stat aggregated from box-score lines, mirroring the MLB Stats view. Fetches
 // its own data so only this tab pays for it. Self-contained (no MLB coupling).
 
-const MIN_AB = 5    // rate-stat qualifiers for the short (~6 week) inaugural season
-const MIN_OUTS = 9  // 3 IP
+// Rate-stat qualifiers come from stats.ts (`wpblQualifiers`) and scale with the season —
+// single-sourced with the Home leader boards so the two can't drift apart.
 
 type Group = 'hitting' | 'pitching'
 type Mode = 'players' | 'teams'
@@ -70,6 +70,16 @@ const PIT_COLS: Col<WpblPitchingTotals>[] = [
   { key: 'g',    label: 'G',    value: t => t.g },
 ]
 
+// Resolve a requested column into the sort state the table should adopt. Direction comes from
+// the column itself (`lowerBetter` → ascending, so ERA/WHIP lead with the best), which is why
+// a leader card only has to name a column and never a direction. An unknown or absent key
+// falls back to the group's headline column — the first in each list.
+function defaultSort(group: Group, key?: string): { key: string; asc: boolean } {
+  const cols: Col<never>[] = (group === 'pitching' ? PIT_COLS : HIT_COLS) as unknown as Col<never>[]
+  const col = (key ? cols.find(c => c.key === key) : undefined) ?? cols[0]
+  return { key: col.key, asc: !!col.lowerBetter }
+}
+
 // One table row — normalized so the same table renders a player or a whole team.
 interface Row {
   key: string
@@ -103,10 +113,18 @@ const FROZEN_SHADOW = '6px 0 6px -4px rgba(0,0,0,0.25)'
 const NAME_W = 150
 const NAME_INNER_MAX = 84 // NAME_W minus rank + badge + gaps + padding, so the column can't grow past NAME_W
 
-export default function WpblStatsView({ teams, games, initialGroup = 'hitting', onOpenPlayer, onOpenTeam }: {
+/** What the table should be showing, when it's opened from somewhere else (a Home leader
+ *  card's "View all"). `token` increments on every such jump — see the effect below. */
+export interface WpblStatsFocus {
+  group: Group
+  sortKey?: string  // a HIT_COLS / PIT_COLS key; falls back to the group's default column
+  token: number     // 0 = nothing requested yet
+}
+
+export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpenTeam }: {
   teams: WpblTeam[]
   games: WpblGame[]
-  initialGroup?: Group
+  focus?: WpblStatsFocus
   onOpenPlayer: (p: WpblPlayer) => void
   onOpenTeam?: (t: WpblTeam) => void
 }) {
@@ -123,14 +141,29 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
   // right-edge fade (not at end), so it's obvious the table scrolls sideways.
   const [scrollX, setScrollX] = useState({ atStart: true, atEnd: true })
 
-  const [group, setGroup] = useState<Group>(initialGroup)
+  const [group, setGroup] = useState<Group>(focus?.group ?? 'hitting')
   const [mode, setMode] = useState<Mode>('players')
   const [teamId, setTeamId] = useState<string | null>(null)
   // The 5 AB / 3 IP qualifier only defaults on once every team has played 2+ games;
   // before that it would hide nearly everyone, so the complete table shows by default.
-  const [qualified, setQualified] = useState(() => qualifiersActive(teams, games))
-  const [sortKey, setSortKey] = useState(initialGroup === 'pitching' ? 'era' : 'ops')
-  const [sortAsc, setSortAsc] = useState(initialGroup === 'pitching')
+  const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])
+  const [qualified, setQualified] = useState(() => qual.active)
+  const [sortKey, setSortKey] = useState(() => defaultSort(focus?.group ?? 'hitting', focus?.sortKey).key)
+  const [sortAsc, setSortAsc] = useState(() => defaultSort(focus?.group ?? 'hitting', focus?.sortKey).asc)
+
+  // Re-focus the table whenever a leader card sends us here. Keyed on `token`, NOT on the
+  // group/column values: this panel stays mounted once visited, so seeding state at mount is
+  // not enough (a second "View all" used to be a no-op), while reacting to the values alone
+  // would fight the reader's own sorting on every unrelated re-render. A token bump means
+  // "the reader just asked for this view" and nothing else does.
+  const requested = focus?.token ?? 0
+  useEffect(() => {
+    if (!focus || requested === 0) return
+    const next = defaultSort(focus.group, focus.sortKey)
+    setGroup(focus.group)
+    setSortKey(next.key)
+    setSortAsc(next.asc)
+  }, [requested])
 
   // Revalidate on mount, but skip the DB round trip entirely when the shared cache is
   // still fresh — so a quick swipe out and back is instant and silent. Box scores move
@@ -232,8 +265,8 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
       })
     } else {
       const seasons = group === 'hitting'
-        ? aggregateBatting(players, lines.batting).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.ab >= MIN_AB }))
-        : aggregatePitching(players, lines.pitching).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.outs >= MIN_OUTS }))
+        ? aggregateBatting(players, lines.batting).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.ab >= qual.minAb }))
+        : aggregatePitching(players, lines.pitching).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.outs >= qual.minOuts }))
       let list = seasons
       if (teamId) list = list.filter(s => s.player.team_id === teamId)
       // The qualifier applies to every sort, counting stats included — a 1-for-1 HR leader
@@ -260,7 +293,7 @@ export default function WpblStatsView({ teams, games, initialGroup = 'hitting', 
       if (av !== bv) return sortAsc ? av - bv : bv - av
       return sample(b) - sample(a)
     })
-  }, [mode, group, players, lines, teams, teamById, teamId, qualified, activeCol, sortAsc, onOpenPlayer, onOpenTeam, shortName])
+  }, [mode, group, players, lines, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, shortName])
 
   const teamChips = [...teams].sort((a, b) => a.abbr.localeCompare(b.abbr))
 

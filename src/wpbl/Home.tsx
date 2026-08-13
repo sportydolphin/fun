@@ -10,10 +10,10 @@ import {
   fetchWpblVideos, getCachedWpblVideos,
 } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp, relativeDayLabel } from './constants'
-import { SectionCard, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, CARD_BORDER } from './ui'
+import { SectionCard, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, wpblFeatureName, CARD_BORDER } from './ui'
 import { LiveHero } from './Live'
 import {
-  aggregateBatting, aggregatePitching, qualifiersActive, fmtRate, fmtTwo,
+  aggregateBatting, aggregatePitching, wpblQualifiers, fmtRate, fmtTwo,
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import { aggregateTracking, type TrackingBoard } from './tracking'
@@ -30,9 +30,8 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblFirstsPlay, WpblBattingLine, W
 // mobile. All content is built from existing WPBL data — schedule, standings, and
 // season totals aggregated from box-score lines.
 
-// Qualifiers for rate leaders early in a short (~6 week) season.
-const MIN_AB = 5
-const MIN_OUTS = 9 // 3 IP
+// Rate-leader qualifiers live in stats.ts (`wpblQualifiers`) and scale with the season, so
+// the OPS and ERA boards can't fill up with one-game cameos as the schedule goes on.
 
 // ─── Scoreboard ─────────────────────────────────────────────────────────────────
 
@@ -500,23 +499,51 @@ function TeamsCard({ teams, onOpenTeam }: { teams: WpblTeam[]; onOpenTeam: (t: W
 
 // ─── Leaders ────────────────────────────────────────────────────────────────────
 
-interface LeaderRow { player: WpblPlayer; display: string }
+interface LeaderRow {
+  player: WpblPlayer
+  display: string
+  /** Sample size behind a rate stat ("24 AB", "12.1 IP") — shown so a leaderboard
+      topped by a small sample is self-evident rather than misleading. */
+  meta?: string
+}
 
 // Medal tints for the rank number — gold / silver / bronze, chosen to stay legible in
 // both light and dark mode. Ranks past 3rd fall back to the disabled grey.
 const RANK_MEDAL = ['#e0a100', '#9aa0a8', '#c17d3f']
 
+// Character budget for the featured rows — every stat-leader rank and every Hall of Firsts
+// row. These get a name to themselves, with the team conveyed by the badge/portrait rather
+// than by text, so they show names in FULL; the shared useWpblName() cap (12 on a phone) is
+// tuned for dense tables and would abbreviate here for no reason.
+//
+// Sized from the measured boxes, taking the tightest: the leader hero is 220px on mobile and
+// 210px on desktop at 14.4px type; ranks 2–3 are 219px at 13.12px. The longest name on any
+// roster ("Flor Elena Valerio Montoya", 26 chars) needs 187px / 199px / 170px respectively —
+// so 26 clears every current name in every slot, with the desktop hero the binding case.
+// Past that, wpblFeatureName() degrades to "F. Rest" and then "F. Surname" instead of
+// letting a name be ellipsed mid-word.
+const FEATURE_NAME_MAX = 26
+
 function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
   label: string; rows: LeaderRow[]; teamById: Map<string, WpblTeam>; onOpenPlayer: (p: WpblPlayer) => void
   hideLabel?: boolean
 }) {
-  const shortName = useWpblName()
   if (rows.length === 0) return null
   return (
     <Box sx={{ mb: 1.25, '&:last-of-type': { mb: 0 } }}>
       {!hideLabel && <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.secondary', mb: 0.4 }}>{label}</Typography>}
       {rows.map((r, i) => {
         const team = teamById.get(r.player.team_id)
+        // Rank by the number the reader can actually SEE. Ties on a counting board (two players
+        // at 7 RBI, three pitchers at 0.00) used to be ordered by an invisible tiebreak — for
+        // hitters, whoever had MORE at-bats, so the player who needed more tries for the same
+        // total ranked higher, which reads backwards. Rather than invert that (which would make
+        // a counting board assert an efficiency judgement it isn't measuring), tied rows are
+        // simply shown as tied: same rank number, same medal. Comparing the formatted display
+        // string — not the raw value — is deliberate, so two rows both reading "1.056" are never
+        // presented in an order the reader has no way to account for. Sort order within a tie
+        // still comes from topBat/topPit and only decides which one is listed first.
+        const rank = rows.findIndex(x => x.display === r.display) + 1
         // The #1 leader is the hero: a real headshot, larger name with the full team on a
         // second line, and a bigger value. #2/#3 stay compact — small badge, one line, with
         // the team abbreviation tucked into what was dead space beside the value.
@@ -527,23 +554,42 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
             py: isTop ? 0.55 : 0.4, cursor: 'pointer',
             borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },
           }}>
-            <Typography sx={{ width: 14, flexShrink: 0, textAlign: 'center', fontSize: isTop ? '0.8rem' : '0.7rem', fontWeight: 800, color: RANK_MEDAL[i] ?? 'text.disabled' }}>{i + 1}</Typography>
+            <Typography sx={{ width: 14, flexShrink: 0, textAlign: 'center', fontSize: isTop ? '0.8rem' : '0.7rem', fontWeight: 800, color: RANK_MEDAL[rank - 1] ?? 'text.disabled' }}>{rank}</Typography>
             {isTop
               ? <PlayerPortrait name={r.player.name} teamId={r.player.team_id} size={38} />
               : (team && <TeamBadge team={team} size={18} />)}
-            <Box sx={{ flex: 1, minWidth: 0 }}>
+            {/* Name and sample share one baseline-aligned row so the sample sits directly
+                after the name, near where the hero's own "· 6.0 IP" falls on its second line.
+                Parked at the far right (beside the value) it read as a stray column: three
+                samples of different widths, right-aligned, with a ragged gap between each name
+                and its own number. The name is the only part allowed to shrink. */}
+            <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 0.6 }}>
+              <Box sx={{ minWidth: 0 }}>
               <Typography sx={{ fontSize: isTop ? '0.95rem' : '0.82rem', fontWeight: isTop ? 800 : 700, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {shortName(r.player.name)}
+                {wpblFeatureName(r.player.name, FEATURE_NAME_MAX)}
               </Typography>
               {isTop && team && (
                 <Typography sx={{ fontSize: '0.66rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {wpblFullName(team)}
+                  {/* "San Francisco Firebells · 6.0 IP" overruns this line on desktop, so when
+                      a sample is present the club drops its city — the portrait's team ring and
+                      the roster context already carry that, and the sample is the new information. */}
+                  {r.meta ? `${team.name} · ${r.meta}` : wpblFullName(team)}
+                </Typography>
+              )}
+              </Box>
+              {/* Ranks 2–3 only. No team abbreviation here — the badge to the left already says
+                  which club — so this carries just the rate-stat sample (AB / IP), and is absent
+                  entirely for counting stats like HR, giving those blocks the widest names.
+                  Styled to MATCH the hero's sub-line above: same size, weight, and colour, since
+                  it's the same information doing the same job a few pixels away. The bumped
+                  weight and letter-spacing this slot used to carry were for the team abbreviation
+                  it once held ("LA", "BOS") — devices for uppercase labels, wrong for numerals. */}
+              {!isTop && r.meta && (
+                <Typography sx={{ fontSize: '0.66rem', fontWeight: 600, color: 'text.secondary', flexShrink: 0 }}>
+                  {r.meta}
                 </Typography>
               )}
             </Box>
-            {!isTop && team && (
-              <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled', letterSpacing: 0.3, flexShrink: 0 }}>{team.abbr}</Typography>
-            )}
             <Typography sx={{ fontSize: isTop ? '1.05rem' : '0.82rem', fontWeight: isTop ? 900 : 800, fontVariantNumeric: 'tabular-nums', minWidth: 40, textAlign: 'right', flexShrink: 0 }}>{r.display}</Typography>
           </Box>
         )
@@ -554,21 +600,21 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
 
 // Pick the top `n` by `value` (higher is better; negate inside for ascending stats),
 // after an optional qualifier filter.
-function topBat(list: WpblBatSeason[], value: (t: WpblBattingTotals) => number | null, display: (t: WpblBattingTotals) => string, qualify?: (t: WpblBattingTotals) => boolean, n = 3): LeaderRow[] {
+function topBat(list: WpblBatSeason[], value: (t: WpblBattingTotals) => number | null, display: (t: WpblBattingTotals) => string, qualify?: (t: WpblBattingTotals) => boolean, n = 3, meta?: (t: WpblBattingTotals) => string): LeaderRow[] {
   return list
     .filter(x => (qualify ? qualify(x.totals) : true) && value(x.totals) != null)
     // Ties break toward the bigger sample (more at-bats).
     .sort((a, b) => (value(b.totals) as number) - (value(a.totals) as number) || b.totals.ab - a.totals.ab)
     .slice(0, n)
-    .map(x => ({ player: x.player, display: display(x.totals) }))
+    .map(x => ({ player: x.player, display: display(x.totals), meta: meta?.(x.totals) }))
 }
-function topPit(list: WpblPitSeason[], value: (t: WpblPitchingTotals) => number | null, display: (t: WpblPitchingTotals) => string, qualify?: (t: WpblPitchingTotals) => boolean, n = 3): LeaderRow[] {
+function topPit(list: WpblPitSeason[], value: (t: WpblPitchingTotals) => number | null, display: (t: WpblPitchingTotals) => string, qualify?: (t: WpblPitchingTotals) => boolean, n = 3, meta?: (t: WpblPitchingTotals) => string): LeaderRow[] {
   return list
     .filter(x => (qualify ? qualify(x.totals) : true) && value(x.totals) != null)
     // Ties (e.g. equal ERA) break toward more innings pitched.
     .sort((a, b) => (value(b.totals) as number) - (value(a.totals) as number) || b.totals.outs - a.totals.outs)
     .slice(0, n)
-    .map(x => ({ player: x.player, display: display(x.totals) }))
+    .map(x => ({ player: x.player, display: display(x.totals), meta: meta?.(x.totals) }))
 }
 
 // ─── Loading placeholders ─────────────────────────────────────────────────────────
@@ -630,9 +676,9 @@ function TeaserRowSkeleton({ size, py }: { size: number; py: number }) {
 // rows steps between neighbours. Only categories that have data get a chip (an empty HR
 // board early in the season simply doesn't appear), mirroring the old stacked behaviour.
 function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, onViewAll }: {
-  title: string; blocks: { label: string; short: string; rows: LeaderRow[] }[]
+  title: string; blocks: { label: string; short: string; sortKey: string; rows: LeaderRow[] }[]
   loading: boolean; hasData: boolean; teamById: Map<string, WpblTeam>
-  onOpenPlayer: (p: WpblPlayer) => void; onViewAll: () => void
+  onOpenPlayer: (p: WpblPlayer) => void; onViewAll: (sortKey?: string) => void
 }) {
   const shown = blocks.filter(b => b.rows.length > 0)
   const [active, setActive] = useState(0)
@@ -649,8 +695,10 @@ function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, 
   return (
     <SectionCard
       title={title}
+      // Carry the board you're actually looking at into the full table — tapping "View all"
+      // under the HR board should land on the table sorted by HR, not its default column.
       action={shown.length ? (
-        <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
+        <Typography onClick={() => onViewAll(shown[idx]?.sortKey)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
           View all
         </Typography>
       ) : undefined}
@@ -789,7 +837,6 @@ function FirstRow({ f, teamById, onOpenPlayer, showDetail }: {
   const team = f.teamId ? teamById.get(f.teamId) : undefined
   const dateLabel = new Date(`${f.date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })
   const clickable = !!f.player
-  const shortName = useWpblName()
   return (
     <Box
       onClick={clickable ? () => onOpenPlayer(f.player!) : undefined}
@@ -804,7 +851,7 @@ function FirstRow({ f, teamById, onOpenPlayer, showDetail }: {
         <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary' }}>
           {f.icon} {f.label}
         </Typography>
-        <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(f.name)}</Typography>
+        <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{wpblFeatureName(f.name, FEATURE_NAME_MAX)}</Typography>
         {showDetail && f.detail && (
           <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.detail}</Typography>
         )}
@@ -1096,7 +1143,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   onOpenGame: (g: WpblGame) => void
   onOpenPlayer: (p: WpblPlayer) => void
   onOpenTeam: (t: WpblTeam) => void
-  onViewStats: (group: 'hitting' | 'pitching') => void
+  onViewStats: (group: 'hitting' | 'pitching', sortKey?: string) => void
   onViewTracking: () => void
 }) {
   const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
@@ -1194,19 +1241,19 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   const pitSeasons = useMemo(() => aggregatePitching(players, lines.pitching), [players, lines.pitching])
 
   // Only enforce the 5 AB / 3 IP rate qualifier once every team has played 2+ games.
-  const qualifyOn = useMemo(() => qualifiersActive(teams, games), [teams, games])
+  const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])
 
   const battingBlocks = useMemo(() => [
-    { label: 'OPS',       short: 'OPS', rows: topBat(batSeasons, t => t.ops, t => fmtRate(t.ops), t => !qualifyOn || t.ab >= MIN_AB) },
-    { label: 'Home runs', short: 'HR',  rows: topBat(batSeasons, t => t.hr,  t => String(t.hr), t => t.hr > 0) },
-    { label: 'RBI',       short: 'RBI', rows: topBat(batSeasons, t => t.rbi, t => String(t.rbi), t => t.rbi > 0) },
-  ], [batSeasons, qualifyOn])
+    { label: 'OPS',       short: 'OPS', sortKey: 'ops', rows: topBat(batSeasons, t => t.ops, t => fmtRate(t.ops), t => !qual.active || t.ab >= qual.minAb, 3, t => `${t.ab} AB`) },
+    { label: 'Home runs', short: 'HR',  sortKey: 'hr',  rows: topBat(batSeasons, t => t.hr,  t => String(t.hr), t => t.hr > 0) },
+    { label: 'RBI',       short: 'RBI', sortKey: 'rbi', rows: topBat(batSeasons, t => t.rbi, t => String(t.rbi), t => t.rbi > 0) },
+  ], [batSeasons, qual])
 
   const pitchingBlocks = useMemo(() => [
-    { label: 'ERA',        short: 'ERA', rows: topPit(pitSeasons, t => (t.era == null ? null : -t.era), t => fmtTwo(t.era), t => !qualifyOn || t.outs >= MIN_OUTS) },
-    { label: 'Strikeouts', short: 'K',   rows: topPit(pitSeasons, t => t.so, t => String(t.so), t => t.so > 0) },
-    { label: 'Innings',    short: 'IP',  rows: topPit(pitSeasons, t => t.outs, t => outsToIp(t.outs), t => t.outs > 0) },
-  ], [pitSeasons, qualifyOn])
+    { label: 'ERA',        short: 'ERA', sortKey: 'era', rows: topPit(pitSeasons, t => (t.era == null ? null : -t.era), t => fmtTwo(t.era), t => !qual.active || t.outs >= qual.minOuts, 3, t => `${outsToIp(t.outs)} IP`) },
+    { label: 'Strikeouts', short: 'K',   sortKey: 'so',  rows: topPit(pitSeasons, t => t.so, t => String(t.so), t => t.so > 0, 3, t => `${outsToIp(t.outs)} IP`) },
+    { label: 'Innings',    short: 'IP',  sortKey: 'ip',  rows: topPit(pitSeasons, t => t.outs, t => outsToIp(t.outs), t => t.outs > 0) },
+  ], [pitSeasons, qual])
 
   const hasLines = lines.batting.length > 0 || lines.pitching.length > 0
 
@@ -1305,8 +1352,8 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
           {!trackingStale && (
             <Box sx={{ minWidth: 0, order: { xs: 5, md: 0 } }}><TrackingTeaserCard board={trackingBoard} latestGameIds={latestGameIds} loading={loadingLeaders} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={viewTracking} /></Box>
           )}
-          <Box sx={{ minWidth: 0, order: { xs: 6, md: 0 } }}><LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('hitting')} /></Box>
-          <Box sx={{ minWidth: 0, order: { xs: 7, md: 0 } }}><LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={() => onViewStats('pitching')} /></Box>
+          <Box sx={{ minWidth: 0, order: { xs: 6, md: 0 } }}><LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={sortKey => onViewStats('hitting', sortKey)} /></Box>
+          <Box sx={{ minWidth: 0, order: { xs: 7, md: 0 } }}><LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={sortKey => onViewStats('pitching', sortKey)} /></Box>
           {/* Teams sits at the bottom of the right column on desktop (md order 2, under the
               leaders and Hall of Firsts) — it doesn't need the wide left column. Mobile keeps
               it as the last card in the whole feed. */}
