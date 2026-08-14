@@ -13,6 +13,7 @@ import {
 } from './stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
 import WpblTrackingView from './TrackingView'
+import WpblDraftValue from './DraftValue'
 
 // Complete season stat table for the WPBL — a sortable board of every hitting and
 // pitching stat aggregated from box-score lines, mirroring the MLB Stats view. Fetches
@@ -24,7 +25,14 @@ import WpblTrackingView from './TrackingView'
 // 'tracking' is a stat group, not a separate destination: it's another cut of the same
 // season data (TrackMan velocity / exit velo) and it renders its own boards rather than the
 // shared table. It lived as its own top-level tab until the nav outgrew six items.
-type Group = 'hitting' | 'pitching' | 'tracking'
+// 'draft' is the same idea — the season's numbers plotted against where each player was
+// taken, rather than ranked in a table.
+type Group = 'hitting' | 'pitching' | 'tracking' | 'draft'
+
+// The groups that render the shared sortable table. The other two bring their own view, so
+// the table's sort state, mode switch and filters don't apply to them.
+const TABLE_GROUPS: Group[] = ['hitting', 'pitching']
+const hasTable = (g: Group): boolean => TABLE_GROUPS.includes(g)
 type Mode = 'players' | 'teams'
 
 interface Col<T> {
@@ -166,7 +174,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
   useEffect(() => {
     if (!focus || requested === 0) return
     setGroup(focus.group)
-    if (focus.group === 'tracking') return // no table to sort
+    if (!hasTable(focus.group)) return // no table to sort
     const next = defaultSort(focus.group, focus.sortKey)
     setSortKey(next.key)
     setSortAsc(next.asc)
@@ -245,7 +253,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
   // Switch the default sort/qualifier sensibly when flipping between hitting and pitching.
   const switchGroup = (g: Group) => {
     setGroup(g)
-    if (g === 'tracking') return // tracking has no sortable table of its own
+    if (!hasTable(g)) return // tracking and draft bring their own view, with nothing to sort
     if (g === 'hitting') { setSortKey('ops'); setSortAsc(false) }
     else { setSortKey('era'); setSortAsc(true) }
   }
@@ -355,7 +363,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
           filters share the wide table's left edge instead of floating in the 720px column. */}
       <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, borderBottom: '1px solid', borderColor: 'divider', mb: 1.5, ...fullBleedSx }}>
         <Box sx={{ display: 'flex', gap: 2.5 }}>
-          {(['hitting', 'pitching', 'tracking'] as Group[]).map(g => {
+          {(['hitting', 'pitching', 'tracking', 'draft'] as Group[]).map(g => {
             const active = group === g
             return (
               <Box key={g} onClick={() => switchGroup(g)} sx={{
@@ -365,7 +373,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
                 fontSize: '0.98rem', fontWeight: active ? 800 : 600, transition: 'color 0.15s',
                 '&:hover': { color: 'text.primary' },
               }}>
-                {g === 'hitting' ? 'Hitting' : g === 'pitching' ? 'Pitching' : 'Tracking'}
+                {g === 'hitting' ? 'Hitting' : g === 'pitching' ? 'Pitching' : g === 'tracking' ? 'Tracking' : 'Draft'}
               </Box>
             )
           })}
@@ -373,7 +381,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
 
         {/* Players ⇆ Teams — the entity the table ranks. Distinct from Hitting/Pitching
             (the stat group). In Teams mode the per-player filters below don't apply. */}
-        {group !== 'tracking' && (
+        {hasTable(group) && (
           <Box sx={{ display: 'flex', gap: 0.5, pb: 0.75, flexShrink: 0 }}>
             <Chip active={mode === 'players'} onClick={() => setMode('players')}>Players</Chip>
             <Chip active={mode === 'teams'} onClick={() => setMode('teams')}>Teams</Chip>
@@ -385,7 +393,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
           the qualified toggle — so the team "All" and the separate "Qualified" filter read
           as two different controls rather than two competing "All"s. Players mode only —
           in Teams mode the table already is the four teams, so neither filter applies. */}
-      {group !== 'tracking' && mode === 'players' && (
+      {hasTable(group) && mode === 'players' && (
         <Box sx={{
           display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5, overflowX: 'auto', pb: 0.5,
           '&::-webkit-scrollbar': { display: 'none' }, msOverflowStyle: 'none', scrollbarWidth: 'none',
@@ -407,6 +415,9 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
           rather than the shared table — it's a different shape of data, not more columns. */}
       {group === 'tracking' ? (
         <WpblTrackingView onOpenPlayer={onOpenPlayer} />
+      ) : group === 'draft' ? (
+        <WpblDraftValue players={players} batting={lines.batting} pitching={lines.pitching}
+          onOpenPlayer={onOpenPlayer} />
       ) : rows.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
           <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, mb: 0.5 }}>No stats yet</Typography>
