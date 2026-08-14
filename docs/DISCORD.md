@@ -53,12 +53,13 @@ One message per video, keyed by YouTube id in `wpbl_discord_highlight_posts`, po
 There is no edit pass and no content hash, unlike the box scores — a highlight message is a
 link, and the league doesn't revise an upload the way it revises a box score.
 
-The message is a bare YouTube URL on its own line, because that is what Discord unfurls
-into an inline player. The link back to the site is deliberately markdown (`[Box score &
-recap](…)`), since markdown links don't unfurl — a second auto-embed would push the video
-player down the message. The **final score is deliberately not in the message**: the recap
-channel already carries box scores, and a scoreline above the player spoils the video for
-anyone who came to watch. Change that in `buildMessage` if you'd rather have it.
+The message is a title line and a bare YouTube URL, nothing else. The bare URL on its own
+line is what Discord unfurls into an inline player, which is the whole point of the
+channel. **Don't add a second link.** It draws its own embed card, which lands beside the
+YouTube player and competes with it — that link back to the site was in the first version
+and had to come out. The **final score is also deliberately absent**: the recap channel
+already carries box scores, and a scoreline above the player spoils the video for anyone
+who came to watch. Both are one edit away in `buildMessage` if you disagree.
 
 **It doesn't backfill** either: the first run against an empty table posts only the newest
 reel and records the rest as handled.

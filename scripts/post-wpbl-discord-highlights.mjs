@@ -19,10 +19,10 @@
  * message is a line of text and a URL — there is nothing to share, so there is nothing to
  * bundle.
  *
- * The message is deliberately a bare YouTube URL on its own line: Discord unfurls that
- * into a playable inline player, which is the entire point of a highlights channel. The
- * link back to the site is markdown, because markdown links do NOT unfurl — a second
- * auto-embed would push the video player down the message.
+ * The message is deliberately just a title line and a bare YouTube URL: Discord unfurls
+ * that URL into a playable inline player, which is the entire point of a highlights
+ * channel. Nothing else links out, because a second link draws its own embed card and the
+ * two cards compete for the reader's attention.
  *
  * It never backfills. The first run against an empty posts table posts only the newest
  * reel and quietly records every older one as handled, so switching the job on puts one
@@ -52,7 +52,6 @@ const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 const SUPABASE_KEY = SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''
 const WEBHOOK_URL = (process.env.DISCORD_HIGHLIGHTS_WEBHOOK_URL ?? '').trim()
-const SITE = 'https://sportydolphin.fun'
 
 const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
@@ -143,14 +142,18 @@ function headline(video, game, teams) {
 }
 
 /**
- * What lands in the channel. Note what is deliberately absent: the final score. The recap
- * channel already posts box scores; someone opening the highlights channel is here to
- * watch the game, and a scoreline above the player spoils it. The box score is one
- * markdown click away for anyone who wants it.
+ * What lands in the channel: a title line, then the video URL. Nothing else.
+ *
+ * There is deliberately no link back to the site. A second link in the message gets its
+ * own embed card, which lands next to the YouTube player and fights it for space, and the
+ * player is the only thing anyone opens this channel for. Anyone who wants the box score
+ * has the recap channel.
+ *
+ * The final score stays out for the same kind of reason: a scoreline above the player
+ * spoils the video for someone who came to watch it.
  */
 function buildMessage(video, game, teams) {
   const lines = [`🎬 **Highlights — ${headline(video, game, teams)}**`]
-  if (game) lines.push(`[Box score & recap](${SITE}/wpbl?game=${game.id})`)
   // Bare URL, last, on its own line: this is the one Discord expands into the player.
   lines.push(`https://www.youtube.com/watch?v=${video.video_id}`)
   return {
