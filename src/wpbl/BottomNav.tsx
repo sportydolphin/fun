@@ -36,10 +36,29 @@ const ICONS: Record<string, { on: typeof Home; off: typeof HomeOutlined }> = {
   teams:     { on: Groups,              off: GroupsOutlined },
 }
 
+// The bar's vertical geometry, in px and in one place, because the pieces have to agree:
+// the selection bubble is centred on the icon, and the label has to clear the bubble's
+// bottom edge. Deriving the bubble's offset from these (rather than hand-tuning each) is
+// what stops the three from drifting apart the next time one of them is nudged.
+const TAB_PAD_Y = 7        // breathing room above the icon and below the label
+const ICON_PX = 22         // the icon's box; both icons are drawn to fill it
+const BUBBLE_W = 44        // wide enough to read as a pill, narrow enough to belong to the icon
+const BUBBLE_H = 28        // 3px of air above and below a 22px icon
+const ICON_LABEL_GAP = 5   // ≥ the bubble's overhang, so the pill never touches the label
+const LABEL_REM = 0.62
+// Descenders live below the baseline, and the label clips its own overflow to ellipsise a
+// long name — at line-height 1 that clipping cut the tail off the "g" in "Standings".
+const LABEL_LINE_HEIGHT = 1.3
+const FLOAT_GAP = 10       // how far the bar hovers above the bottom edge
+
+// What the bar actually measures, from the pieces above plus its 1px border top and bottom.
+const BAR_H = TAB_PAD_Y * 2 + ICON_PX + ICON_LABEL_GAP + Math.round(LABEL_REM * 16 * LABEL_LINE_HEIGHT) + 2
+
 /** Height of the bar plus its float gap — callers reserve this much scroll room beneath the
  *  content so the last card isn't parked under the bar. Excludes the safe-area inset, which
- *  is added on top in the padding below. */
-export const BOTTOM_NAV_SPACE = 76
+ *  is added on top in the padding below. Derived, so that changing the bar's proportions
+ *  can't quietly leave the last card parked underneath it. */
+export const BOTTOM_NAV_SPACE = BAR_H + FLOAT_GAP + 10
 
 export default function WpblBottomNav({ items, value, onChange }: {
   items: BottomNavItem[]
@@ -73,11 +92,16 @@ export default function WpblBottomNav({ items, value, onChange }: {
         left: 0, right: 0,
         // Sit above the home-indicator / gesture bar on iOS, and clear of Safari's bottom
         // URL bar. Falls back to a plain gap where env() is unsupported.
-        bottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
+        bottom: `calc(${FLOAT_GAP}px + env(safe-area-inset-bottom, 0px))`,
         display: 'flex', justifyContent: 'center',
         px: 1.5,
         // Under modals (Game Center / player pages open above it) but over page content.
         zIndex: 1100,
+        // Keep the bar on its own compositor layer. A fixed element over a long scrolling
+        // list is re-rastered as the page moves under it, and on Android that shows up as
+        // the icons flickering while you scroll — this hands the bar to the compositor so
+        // scrolling never repaints it.
+        willChange: 'transform',
         pointerEvents: 'none', // the strip is a positioning shell; only the pill takes taps
       }}
     >
@@ -103,7 +127,8 @@ export default function WpblBottomNav({ items, value, onChange }: {
           position: 'absolute', top: 0, bottom: 0, left: 0,
           width: `${100 / count}%`,
           display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
-          pt: '3px',
+          // Centred on the icon: start at the icon's top, then lift by the bubble's overhang.
+          pt: `${TAB_PAD_Y - (BUBBLE_H - ICON_PX) / 2}px`,
           transform: `translateX(${index * 100}%)`,
           transition: 'transform 340ms cubic-bezier(0.32, 0.72, 0, 1)',
           pointerEvents: 'none',
@@ -114,7 +139,7 @@ export default function WpblBottomNav({ items, value, onChange }: {
               width out of the equation entirely — the labels now sit below it, free to be as
               long as they like — and it's the same active-indicator shape Material uses. */}
           <Box sx={{
-            width: 46, height: 30, borderRadius: 999,
+            width: BUBBLE_W, height: BUBBLE_H, borderRadius: 999,
             bgcolor: 'action.selected',
           }} />
         </Box>
@@ -133,27 +158,34 @@ export default function WpblBottomNav({ items, value, onChange }: {
                 position: 'relative', // above the sliding indicator
                 flex: 1, minWidth: 0,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                gap: '2px', py: 0.85,
+                gap: `${ICON_LABEL_GAP}px`, py: `${TAB_PAD_Y}px`,
                 cursor: 'pointer', userSelect: 'none',
                 WebkitTapHighlightColor: 'transparent',
                 color: active ? WPBL_ACCENT : 'text.secondary',
                 transition: 'color 200ms ease',
               }}
             >
-              {/* Both icons are mounted and cross-faded. Swapping the component on selection
-                  unmounted one SVG and mounted the other, which read as a dark flash on the
-                  tab you just pressed — there was nothing to paint for a frame. */}
-              <Box sx={{ position: 'relative', width: '1.35rem', height: '1.35rem', flexShrink: 0 }}>
+              {/* Both icons are mounted and swapped by opacity. Swapping the COMPONENT on
+                  selection unmounted one SVG and mounted the other, which read as a dark
+                  flash on the tab you just pressed — there was nothing to paint for a frame.
+
+                  The two fades are staggered rather than simultaneous: outlined and filled
+                  are the same glyph, so a plain cross-fade holds both at half opacity in the
+                  middle, and the overlapping strokes make the icon swell and darken before
+                  settling. That is the pulse you see on the tab you land on. Handing over in
+                  sequence — old one out, then new one in — means only ever one glyph is
+                  drawn. There is no scale on the swap either, for the same reason: a tab bar
+                  changes tabs often enough that a zoom on every change is noise. */}
+              <Box sx={{ position: 'relative', width: ICON_PX, height: ICON_PX, flexShrink: 0 }}>
                 {set && ([['off', set.off] as const, ['on', set.on] as const]).map(([kind, Icon]) => {
                   const visible = kind === 'on' ? active : !active
                   return (
                     <Icon key={kind} sx={{
-                      position: 'absolute', inset: 0, fontSize: '1.35rem',
+                      position: 'absolute', inset: 0, fontSize: `${ICON_PX}px`,
                       opacity: visible ? 1 : 0,
-                      // The filled icon settles in from slightly small, so selecting has a
-                      // little weight to it without moving anything around it.
-                      transform: kind === 'on' && !active ? 'scale(0.82)' : 'scale(1)',
-                      transition: 'opacity 200ms ease, transform 260ms cubic-bezier(0.32, 0.72, 0, 1)',
+                      transition: visible
+                        ? 'opacity 110ms ease-in 90ms'   // arriving: wait for the other to clear
+                        : 'opacity 90ms ease-out',        // leaving: go first, quickly
                     }} />
                   )
                 })}
@@ -162,9 +194,9 @@ export default function WpblBottomNav({ items, value, onChange }: {
                   width and nudged the row, which is the jolt that made the change feel janky;
                   colour alone carries the state and costs no layout. */}
               <Typography sx={{
-                fontSize: '0.62rem',
+                fontSize: `${LABEL_REM}rem`,
                 fontWeight: 700,
-                lineHeight: 1,
+                lineHeight: LABEL_LINE_HEIGHT,
                 letterSpacing: 0.1,
                 maxWidth: '100%',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
