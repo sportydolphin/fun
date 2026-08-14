@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
+import { Box, Typography, CircularProgress, Tooltip, useMediaQuery } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblVideos, getCachedWpblVideos } from './api'
 import { wpblAccent, wpblFullName, outsToIp, formatGameTime } from './constants'
@@ -282,6 +282,57 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
 }
 
 // ─── Play-by-play ──────────────────────────────────────────────────────────────
+// The feed logs each plate appearance as a terse pitch string like "BBFBP" — one letter
+// per pitch. The letters are cryptic on their own (and the feed's own `type`/`description`
+// are unreliable: it tags 'K' as "Unknown pitch code" and 'P' as "Pitchout"), so we decode
+// them ourselves: color each pip and spell the full sequence out in a hover tooltip.
+const PITCH_CODES: Record<string, { label: string; color: string }> = {
+  B: { label: 'Ball',            color: '#16a34a' }, // green
+  K: { label: 'Called strike',   color: '#dc2626' }, // red
+  S: { label: 'Swinging strike', color: '#dc2626' }, // red
+  F: { label: 'Foul',            color: '#d97706' }, // amber
+  H: { label: 'Hit by pitch',    color: '#9333ea' }, // purple
+  P: { label: 'In play',         color: '#2563eb' }, // blue
+}
+
+// The feed embeds the raw pitch string inside the narrative's count, e.g. "walked (3-1 BKBBB)".
+// Now that we render those pitches as their own decoded pips, drop the letters from the prose
+// but keep the count itself: "(3-1 BKBBB)" → "(3-1)".
+const stripPitchCodes = (narrative: string) =>
+  narrative.replace(/(\(\d-\d)\s+[BKSFHP]+\)/g, '$1)')
+
+function PitchSequence({ seq }: { seq: string }) {
+  const pitches = [...seq].map((code, i) => ({
+    code, i, ...(PITCH_CODES[code] ?? { label: code, color: 'inherit' }),
+  }))
+  const tip = (
+    <Box sx={{ py: 0.25 }}>
+      {pitches.map(p => (
+        <Box key={p.i} sx={{ fontSize: '0.72rem', lineHeight: 1.5, whiteSpace: 'nowrap' }}>
+          <Box component="span" sx={{ color: 'text.disabled', mr: 0.75 }}>{p.i + 1}.</Box>
+          <Box component="span" sx={{ color: p.color, fontWeight: 700 }}>{p.label}</Box>
+        </Box>
+      ))}
+    </Box>
+  )
+  return (
+    <Tooltip title={tip} arrow enterTouchDelay={0} leaveTouchDelay={4000}>
+      <Box sx={{
+        display: 'flex', gap: '2px', flexShrink: 0, mt: '2px', cursor: 'help',
+        fontFamily: 'monospace', fontSize: '0.66rem', fontWeight: 700,
+      }}>
+        {pitches.map(p => (
+          // A called strike (looking) gets the scorekeeper's backwards K, mirrored via CSS.
+          <Box key={p.i} component="span" sx={{
+            color: p.color,
+            ...(p.code === 'K' && { display: 'inline-block', transform: 'scaleX(-1)' }),
+          }}>{p.code}</Box>
+        ))}
+      </Box>
+    </Tooltip>
+  )
+}
+
 function PlayByPlay({ plays, teams }: { plays: WpblGamePlay[]; teams: Map<string, WpblTeam> }) {
   // Group consecutive plays into half-innings, in order.
   const groups = useMemo(() => {
@@ -350,18 +401,14 @@ function PlayByPlay({ plays, teams }: { plays: WpblGamePlay[]; teams: Map<string
                     bgcolor: p.is_scoring_play ? 'rgba(34,197,94,0.06)' : 'transparent',
                   }}>
                     <Typography sx={{ flex: 1, fontSize: '0.82rem', lineHeight: 1.35 }}>
-                      {p.narrative}
+                      {stripPitchCodes(p.narrative)}
                       {p.runs_scored > 0 && (
                         <Box component="span" sx={{ ml: 0.5, fontSize: '0.66rem', fontWeight: 800, color: '#16a34a' }}>
                           +{p.runs_scored}
                         </Box>
                       )}
                     </Typography>
-                    {p.pitch_sequence && (
-                      <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', fontFamily: 'monospace', flexShrink: 0, mt: '2px' }}>
-                        {p.pitch_sequence}
-                      </Typography>
-                    )}
+                    {p.pitch_sequence && <PitchSequence seq={p.pitch_sequence} />}
                   </Box>
                 ))}
               </Box>
