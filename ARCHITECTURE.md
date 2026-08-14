@@ -307,6 +307,15 @@ via `supabase secrets set`. Walkthrough: [`supabase/functions/README.md`](supaba
 
 - **Frontend:** `vite build` → **Cloudflare Pages** (`sportydolphin.fun`), deployed on push
   to `main`.
+- **Link previews:** [`functions/wpbl/index.ts`](functions/wpbl/index.ts) is a Pages
+  Function that rewrites the Open Graph tags of `/wpbl?player=<id>` at the edge, so a
+  shared player link unfurls with that player's name, club, and season line instead of the
+  site's generic card (unfurlers don't run JS, so `src/seo.ts` can't reach them). Wording
+  lives in [`src/wpbl/ogCard.ts`](src/wpbl/ogCard.ts); `public/_routes.json` keeps every
+  other path on the plain asset path, with no function invoked. Headshots are republished
+  at `/portraits/<slug>.webp` by
+  [`scripts/vite-plugin-wpbl-portraits.mjs`](scripts/vite-plugin-wpbl-portraits.mjs), since
+  the edge has no copy of the build's hashed-asset map.
 - **Edge functions:** `supabase functions deploy <name>` (manual).
 - **DB schema:** `npm run migrate` applies pending [`scripts/migrations/*.sql`](scripts/migrations)
   (tracked in a `schema_migrations` table; needs `SUPABASE_DB_URL`). The legacy
@@ -323,7 +332,7 @@ via `supabase secrets set`. Walkthrough: [`supabase/functions/README.md`](supaba
 - MLB section → [`src/MlbStats.tsx`](src/MlbStats.tsx), [`src/mlb/`](src/mlb)
 - DB schema → baseline [`scripts/*.sql`](scripts) · new changes [`scripts/migrations/`](scripts/migrations) via [`scripts/migrate.mjs`](scripts/migrate.mjs)
 - Cron → [`.github/workflows/`](.github/workflows) + [`scripts/wpbl_cron.sql`](scripts/wpbl_cron.sql)
-- Edge functions → [`supabase/functions/`](supabase/functions)
+- Edge functions → [`supabase/functions/`](supabase/functions) · Cloudflare Pages functions → [`functions/`](functions)
 - Cron script logic → [`scripts/*.mjs`](scripts)
 </content>
 </invoke>

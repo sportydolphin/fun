@@ -7,6 +7,8 @@
 // The alias table is a fallback for any future roster name whose DB spelling can't be
 // slugified to its file name (currently empty — every portrait is named by its DB slug).
 
+import { slugifyName } from './slug'
+
 // eager: true resolves the URLs at build; import.meta.glob keeps this list in sync with
 // whatever files exist in the folder (no hand-maintained import list).
 const modules = import.meta.glob('./portraits/*.webp', {
@@ -25,16 +27,6 @@ for (const [p, url] of Object.entries(modules)) {
 // be slugified to their bundled file name. Empty today — all portraits are named by DB slug.
 const ALIASES: Record<string, string> = {}
 
-// Strip accents, lowercase, collapse non-alphanumerics to single hyphens.
-export function slugifyName(name: string): string {
-  return name
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '') // combining diacritical marks
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
 // Portrait URL for a player name, or null if we don't have one bundled.
 export function wpblPortrait(name: string | null | undefined): string | null {
   if (!name) return null
@@ -42,3 +34,5 @@ export function wpblPortrait(name: string | null | undefined): string | null {
   slug = ALIASES[slug] ?? slug
   return bySlug[slug] ?? null
 }
+
+export { slugifyName }
