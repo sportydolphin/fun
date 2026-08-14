@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { wpblFeatureName } from '../ui'
+import { wpblFeatureName, wpblNameStages } from '../ui'
 
 // The featured-row name rule (stat-leader cards + Hall of Firsts). Its interesting behaviour
 // is the part that CAN'T be seen on the site today: every current WPBL name fits inside the
@@ -96,5 +96,30 @@ describe('wpblFeatureName', () => {
     it('always returns something at or under the budget for a normal two-part name', () => {
       expect(wpblFeatureName('Bartholomew Featherstonehaugh', MAX).length).toBeLessThanOrEqual(MAX)
     })
+  })
+})
+
+// The same three stages as a list, for callers that pick by measured width instead of a
+// character budget (the recap's stars row). wpblFeatureName is built on top of this, so
+// these two can't disagree about what "shortened" means.
+describe('wpblNameStages', () => {
+  it('goes full, first initial, then surname only', () => {
+    expect(wpblNameStages('Flor Elena Valerio Montoya')).toEqual([
+      'Flor Elena Valerio Montoya',
+      'F. Elena Valerio Montoya',
+      'F. Montoya',
+    ])
+  })
+
+  it('collapses to two stages when the initial already leaves only the surname', () => {
+    expect(wpblNameStages('Kelsie Whitmore')).toEqual(['Kelsie Whitmore', 'K. Whitmore'])
+  })
+
+  it('keeps a surname particle attached', () => {
+    expect(wpblNameStages('Rosi del Castillo')).toEqual(['Rosi del Castillo', 'R. del Castillo'])
+  })
+
+  it('offers nothing to shorten for a single-token name', () => {
+    expect(wpblNameStages('Ichiro')).toEqual(['Ichiro'])
   })
 })

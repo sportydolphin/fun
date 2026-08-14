@@ -57,14 +57,22 @@ function surnameOf(parts: string[]): string {
 // deterministic and costs no layout measurement, and callers size it from a measured box with
 // headroom to spare (see FEATURE_NAME_MAX in Home.tsx).
 export function wpblFeatureName(name: string, maxLen: number): string {
+  const stages = wpblNameStages(name)
+  return stages.find(stage => stage.length <= maxLen) ?? stages[stages.length - 1]
+}
+
+// The same three stages as a list, longest first, for callers that pick by MEASURED width
+// rather than a character budget — the recap's stars row renders each one and keeps the
+// longest that isn't truncated (see FittedName in RecapCard). Two-part names collapse
+// stages 2 and 3 into one entry, since "K. Whitmore" is both.
+export function wpblNameStages(name: string): string[] {
   const full = (name ?? '').trim()
-  if (full.length <= maxLen) return full
   const parts = full.split(/\s+/).filter(Boolean)
-  if (parts.length < 2) return full
+  if (parts.length < 2) return [full]   // nothing to abbreviate ("Ichiro")
   const initial = `${parts[0][0]}.`
   const withRest = `${initial} ${parts.slice(1).join(' ')}`
-  if (withRest.length <= maxLen) return withRest
-  return `${initial} ${surnameOf(parts)}`
+  const surnameOnly = `${initial} ${surnameOf(parts)}`
+  return withRest === surnameOnly ? [full, surnameOnly] : [full, withRest, surnameOnly]
 }
 
 // Viewport-aware name shortener to drop into any WPBL list/table/tile. Horizontal space is
