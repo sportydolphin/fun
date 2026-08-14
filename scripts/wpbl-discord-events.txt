@@ -2,25 +2,25 @@
 # Blank lines and lines starting with # are ignored.
 # scripts/map-wpbl-discord-events.mjs reads this, looks up each event's start time,
 # matches it to a wpbl_games row, and writes scripts/wpbl-event-urls.json.
-https://discord.gg/ayNcVAAPW?event=1535824892879052852
-https://discord.gg/ayNcVAAPW?event=1535825000576188506
-https://discord.gg/ayNcVAAPW?event=1535825180562030743
-https://discord.gg/ayNcVAAPW?event=1536790151626363002
-https://discord.gg/ayNcVAAPW?event=1535825283515424769
-https://discord.gg/qyQjy667?event=1536790343113117857
-https://discord.gg/qyQjy667?event=1536790429607923732
-https://discord.gg/qyQjy667?event=1536790509845217380
-https://discord.gg/qyQjy667?event=1536791085236625572
-https://discord.gg/qyQjy667?event=1536791171169521684
-https://discord.gg/qyQjy667?event=1536791240324948089
-https://discord.gg/qyQjy667?event=1536791333002281111
-https://discord.gg/qyQjy667?event=1536791426413756496
-https://discord.gg/qyQjy667?event=1536791555006791690
-https://discord.gg/qyQjy667?event=1536791636690993173
-https://discord.gg/qyQjy667?event=1536791729829843014
-https://discord.gg/qyQjy667?event=1536791792194818078
-https://discord.gg/qyQjy667?event=1536791868262580315
-https://discord.gg/qyQjy667?event=1536791935300407306
-https://discord.gg/qyQjy667?event=1536792003415638257
-https://discord.gg/qyQjy667?event=1536792127298871366
-https://discord.gg/qyQjy667?event=1536792197377040445
+https://discord.gg/uJ5CAxtdPF?event=1535824892879052852
+https://discord.gg/uJ5CAxtdPF?event=1535825000576188506
+https://discord.gg/uJ5CAxtdPF?event=1535825180562030743
+https://discord.gg/uJ5CAxtdPF?event=1536790151626363002
+https://discord.gg/uJ5CAxtdPF?event=1535825283515424769
+https://discord.gg/uJ5CAxtdPF?event=1536790343113117857
+https://discord.gg/uJ5CAxtdPF?event=1536790429607923732
+https://discord.gg/uJ5CAxtdPF?event=1536790509845217380
+https://discord.gg/uJ5CAxtdPF?event=1536791085236625572
+https://discord.gg/uJ5CAxtdPF?event=1536791171169521684
+https://discord.gg/uJ5CAxtdPF?event=1536791240324948089
+https://discord.gg/uJ5CAxtdPF?event=1536791333002281111
+https://discord.gg/uJ5CAxtdPF?event=1536791426413756496
+https://discord.gg/uJ5CAxtdPF?event=1536791555006791690
+https://discord.gg/uJ5CAxtdPF?event=1536791636690993173
+https://discord.gg/uJ5CAxtdPF?event=1536791729829843014
+https://discord.gg/uJ5CAxtdPF?event=1536791792194818078
+https://discord.gg/uJ5CAxtdPF?event=1536791868262580315
+https://discord.gg/uJ5CAxtdPF?event=1536791935300407306
+https://discord.gg/uJ5CAxtdPF?event=1536792003415638257
+https://discord.gg/uJ5CAxtdPF?event=1536792127298871366
+https://discord.gg/uJ5CAxtdPF?event=1536792197377040445
