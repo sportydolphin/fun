@@ -28,7 +28,9 @@ one shell (auth, search, notifications, theme, units):
    config/secrets reference. Keep it current when you add a table, workflow, or integration.
 3. **[ROADMAP.md](ROADMAP.md)** — living plan for both leagues; dated realignment log at the
    end of the WPBL section tells you what shipped recently and what's next.
-4. **[docs/](docs/)** — `PUSH_NOTIFICATIONS.md`, `GOOGLE_TASKS.md`, `feature-requests.md`.
+4. **[docs/](docs/)** — `DISCORD.md` (the fan-server board + the box score posted when a
+   game goes final, and which of the two secret stores each writer reads),
+   `PUSH_NOTIFICATIONS.md`, `GOOGLE_TASKS.md`, `feature-requests.md`.
 
 Source-of-truth index is at the bottom of ARCHITECTURE.md.
 
@@ -51,6 +53,16 @@ constraints:
   `npm run migrate -- new "add foo table"`. The 33 legacy `scripts/*.sql` files are the
   pre-runner **baseline** — already applied by hand, left in place, not re-run. The runner
   needs a `SUPABASE_DB_URL` (direct Postgres connection string) in `.env`.
+- **Modules shared with Deno carry `.ts` on their imports.** The WPBL recap engine
+  ([`src/wpbl/derive/recap.ts`](src/wpbl/derive/recap.ts) and
+  [`discordRecap.ts`](src/wpbl/derive/discordRecap.ts)) is loaded by three different
+  builds: Vite, the esbuild bundle behind `npm run discord-recaps`, and **Deno** inside
+  `wpbl-ingest`. Deno resolves local specifiers literally, so any *runtime* import those
+  files add needs an explicit `.ts` extension (type-only imports are erased and stay
+  extensionless; `allowImportingTsExtensions` in tsconfig is what lets `tsc` accept them).
+  For the same reason they must never import [`constants.ts`](src/wpbl/constants.ts) — it
+  pulls the team logos in as Vite assets, which is why `outsToIp` lives in
+  [`innings.ts`](src/wpbl/innings.ts).
 - **Two write paths to the DB, and only two:** (1) the browser writes user rows through RLS
   (events, feedback, picks); (2) everything ingested or derived is written by service-role
   actors — the `wpbl-ingest` edge function and the GitHub Actions `scripts/*.mjs` jobs. The
@@ -83,8 +95,11 @@ constraints:
 - [`shared/notifications.js`](shared/notifications.js) — one notification catalog shared by
   the in-site bell and the push senders.
 - [`scripts/`](scripts/) — SQL schema files + the Node cron jobs.
-- [`supabase/functions/`](supabase/functions/) — `wpbl-ingest`, `delete-account`,
-  `send-test-push`.
+- [`supabase/functions/`](supabase/functions/) — Supabase (Deno) edge functions:
+  `wpbl-ingest`, `delete-account`, `send-test-push`.
+- [`functions/`](functions/) — **Cloudflare Pages** Functions, a different thing in a
+  confusingly similar place: `wpbl/index.ts` rewrites Open Graph tags at the edge so a
+  shared `/wpbl?player=<id>` link unfurls as that player.
 - `projects/`, `public/projects/`, and routes like `/cups`, `/stopwatch`, `/poop` — small
   standalone tools/games bolted onto the same shell.
 
@@ -92,5 +107,9 @@ constraints:
 
 - Hosted as a Vite SPA on **Cloudflare Pages** at `sportydolphin.fun`.
 - SEO plumbing exists: `robots.txt`, `sitemap.xml`, per-route meta + JSON-LD via
-  [`src/seo.ts`](src/seo.ts). (Google Search Console verification was still a TODO as of
+  [`src/seo.ts`](src/seo.ts). Note `seo.ts` runs *after* React mounts, so social unfurlers
+  never see it — a shared player link gets its card from the Cloudflare Pages Function in
+  [`functions/wpbl/`](functions/wpbl/), which rewrites the tags before the HTML leaves the
+  edge. Headshots are republished at a stable `/portraits/<slug>.webp` for it by a Vite
+  plugin, since the edge has no copy of the build's hashed-asset map. (Google Search Console verification was still a TODO as of
   the last update — check whether it's done before assuming.)

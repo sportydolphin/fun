@@ -2,16 +2,22 @@ name: WPBL Discord Recaps
 
 on:
   schedule:
-    # Every 15 minutes across the window a WPBL game can finish, plus a tail for late
-    # corrections. The league plays at a single Central-time hub with first pitches from
-    # ~11am to ~4:30pm Central, and a seven-inning game runs ~2.5h, so finals land roughly
-    # 18:00–00:00 UTC. The tail hours matter as much as the rest: the feed revises box
-    # scores after the fact, and a later pass is what edits the posted message to match.
+    # Hourly across the window a WPBL game can finish and be corrected in. It used to run
+    # every 15 minutes, back when this job was how a final reached Discord at all —
+    # wpbl-ingest announces that itself now, within its own pass, so what is left here is
+    # the backstop (a final the ingest didn't witness, e.g. because the webhook was
+    # unreachable) and the corrections pass. Neither is urgent: a box-score revision that
+    # lands at 9pm is just as useful posted at 10pm, and hourly costs a quarter of the
+    # runner minutes.
+    #
+    # The window itself: the league plays at a single Central-time hub with first pitches
+    # from ~11am to ~4:30pm Central, and a seven-inning game runs ~2.5h, so finals land
+    # roughly 18:00–00:00 UTC, with the tail hours there for late corrections.
     #
     # Runs are cheap when nothing has changed — the job re-renders the last few days of
     # finals, compares a hash of each rendered message, and calls Discord only on a real
     # difference.
-    - cron: '*/15 18-23,0-4 * * *'
+    - cron: '0 18-23,0-4 * * *'
   workflow_dispatch:
     inputs:
       mode:

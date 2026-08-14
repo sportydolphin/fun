@@ -1,8 +1,8 @@
 // Posts a game's box score to Discord the moment the ingest sees it go final.
 //
-// The scheduled job (scripts/post-wpbl-discord-recaps.ts) already posts finals and keeps
-// them current, but it runs every 15 minutes; this closes the gap to the ingest's own
-// 2-minute pass, so a game that ends is in the channel while people are still watching.
+// The scheduled job (scripts/post-wpbl-discord-recaps.ts) can post finals too, but it runs
+// hourly — it is the backstop and the corrections pass. This is the fast path: a game that
+// ends is in the channel on the ingest's own next pass, while people are still watching.
 // Both write the same row in wpbl_discord_recap_posts and render through the same module,
 // so whichever gets there first owns the message and the other leaves it alone — the hash
 // they store is identical by construction (see recapMessageHash).

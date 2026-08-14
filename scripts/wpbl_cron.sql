@@ -37,6 +37,22 @@ select cron.schedule(
   $$
 );
 
+-- ─── Check what is ACTUALLY scheduled ─────────────────────────────────────────
+-- Worth doing occasionally: what this file schedules and what the database is running can
+-- drift (a hand-edited schedule, or a second job scheduled under another name during
+-- debugging). As of Aug 2026 wpbl_ingest_runs showed a pass roughly every 30 SECONDS, i.e.
+-- about 4x what the line above asks for — harmless, but four times the edge-function
+-- invocations and four times the pulls from the league's feed for no extra freshness.
+--
+--   select jobid, jobname, schedule, active from cron.job;                    -- what runs
+--   select count(*) from wpbl_ingest_runs where created_at > now() - '10 min'::interval;
+--     -- ~5 over ten minutes is the every-2-minutes this file intends; ~20 is every 30s
+--
+-- To put it back to every two minutes (unschedule the stray job first, if there is one):
+--   select cron.unschedule('<jobname>');
+--   select cron.alter_job((select jobid from cron.job where jobname = 'wpbl-ingest-active'),
+--                         schedule := '*/2 * * * *');
+
 -- ─── Handy management commands (for reference) ────────────────────────────────
 -- Inspect the job:            select * from cron.job where jobname = 'wpbl-ingest-active';
 -- See recent runs:            select * from cron.job_run_details order by start_time desc limit 20;

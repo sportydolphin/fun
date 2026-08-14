@@ -6,7 +6,7 @@ import type { WpblGame, WpblTeam } from '../types'
 // What the Discord recap job posts to a public channel, and — through the fingerprint —
 // when it decides an already-posted message needs editing. Both are worth pinning: nobody
 // sees this output in the app, and getting the second one wrong means either a stale box
-// score sitting in the channel or the bot re-editing the same message every 15 minutes.
+// score sitting in the channel or the job re-editing the same message on every pass.
 
 const team = (id: string, city: string, name: string, abbr: string, color: string | null): WpblTeam => ({
   id, city, name, abbr, color, color_secondary: null, logo_url: null, sort_order: 0, api_id: null,

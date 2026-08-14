@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.38.0'
+export const APP_VERSION = '1.39.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,29 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.39.0',
+    date:    '2026-08-13',
+    title:   'Shareable WPBL links and Discord box scores',
+    changes: [
+      {
+        short: 'Sharing a WPBL player link now shows who it is',
+        full:  'Pasting a link to a WPBL player into a chat app now previews their name, position, club, season line, and headshot, instead of a card for the site in general. The preview is built when the link is opened, so it stays current as the season goes on.',
+      },
+      {
+        short: 'Box scores post to the WPBL fan Discord',
+        full:  'When a WPBL game goes final, its box score is posted to the fan Discord on its own: the headline, a short account of the game, the line score, the winning and losing pitchers, and the three standout players. If the league corrects the stats afterwards, the post is updated in place.',
+      },
+      {
+        short: 'Every WPBL game has its own link',
+        full:  'Opening a WPBL game now puts that game in the address bar, so the link can be copied and sent to someone. A finished game opens straight on its recap.',
+      },
+      {
+        short: 'Longer names fit in a game recap',
+        full:  'The three stars of the game in a WPBL recap no longer have their names cut off. A name that will not fit is shortened to a first initial and surname, and each name gets as much of the room as the other two leave it.',
+      },
+    ],
+  },
   {
     version: '1.38.0',
     date:    '2026-08-12',

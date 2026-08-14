@@ -20,6 +20,7 @@ flowchart TB
 
     subgraph CF["☁️ Cloudflare Pages — sportydolphin.fun"]
         spa["Vite React SPA<br/>(App.tsx router)"]
+        pagefn["Pages Function /wpbl<br/>rewrites OG tags for ?player= links"]
     end
 
     subgraph SB["🟢 Supabase project"]
@@ -39,12 +40,13 @@ flowchart TB
         fangraphs["FanGraphs<br/>payrolls"]
         wpblfeed["WPBL Official Feed<br/>stats.womensprobaseballleague.com/v1"]
         wpblyt["WPBL YouTube<br/>channel RSS feed"]
-        discord["Discord webhooks<br/>WPBL board + events"]
+        discord["Discord webhooks<br/>WPBL board · events · box scores"]
         gtasks["Google Tasks API<br/>feature requests"]
         push["Web Push (VAPID)"]
     end
 
-    user -->|HTTPS| spa
+    user -->|HTTPS| pagefn
+    pagefn --> spa
     spa -->|"anon key (VITE_*)"| auth
     spa -->|"read via RLS, write events/feedback/picks"| db
     spa -->|"invoke"| edge
@@ -56,6 +58,8 @@ flowchart TB
     pgcron -->|"POST {mode:active}"| edge
     edge -->|"pull + upsert (service role)"| wpblfeed
     edge --> db
+    edge -->|"box score on a game going final"| discord
+    pagefn -->|"player + season line (anon key)"| db
 
     scripts -->|"service-role key"| db
     scripts --> mlbapi
@@ -145,6 +149,8 @@ flowchart TB
         t_rem["wpbl_game_reminders"]
         t_wsent["wpbl_game_start_sent"]
         t_vid["wpbl_videos<br/>(YouTube highlights)"]
+        t_board["wpbl_discord_board_state<br/>(the board's message id)"]
+        t_recap["wpbl_discord_recap_posts<br/>(posted box scores + hash)"]
     end
 
     subgraph MLB["MLB predictions / survivor / stats (written by GH Action scripts)"]
@@ -218,7 +224,7 @@ sequenceDiagram
 | `game-start-reminders` | `*/5 15-23,0-4 * 3-10` | `send-game-start` | Push: MLB game starting soon (in-season, active hours) |
 | `wpbl-game-start-reminders` | `*/10 15-23,0-2` | `send-wpbl-game-start` | Push: WPBL game starting soon |
 | `wpbl-discord-board` | `*/15 14-23,0-3` | `update-wpbl-discord-board` | Self-editing WPBL "next games" Discord message |
-| `wpbl-discord-recaps` | `*/15 18-23,0-4` | `post-wpbl-discord-recaps` | Box score to Discord for a final the ingest didn't already announce; edits any posted recap whose stats were later corrected |
+| `wpbl-discord-recaps` | `0 18-23,0-4` (hourly) | `post-wpbl-discord-recaps` | Backstop + corrections for the Discord recaps `wpbl-ingest` posts (a final it missed; a box score revised afterwards) |
 | `wpbl-youtube-sync` | `0,30 14-23,0-3` | `sync-wpbl-youtube` | Mirror WPBL YouTube uploads → `wpbl_videos` (highlights rail + game recaps) |
 | `resolve-survivor` | `30 6` | `resolve-survivor` | Grade survivor picks overnight |
 | `update-playoff-odds` | `0 6` | `simulate-playoff-odds` | Monte-Carlo playoff odds |
@@ -272,7 +278,7 @@ Setup walkthrough: [`docs/PUSH_NOTIFICATIONS.md`](docs/PUSH_NOTIFICATIONS.md).
 | **FanGraphs** | `update-payrolls` | Team payroll data |
 | **WPBL Official Feed** (`stats.womensprobaseballleague.com/v1`) | `wpbl-ingest` | Games, box scores, play-by-play, TrackMan |
 | **WPBL YouTube** (channel RSS `feeds/videos.xml`) | `sync-wpbl-youtube` | Highlight/recap videos → `wpbl_videos`; SPA embeds via youtube-nocookie on click |
-| **Discord webhooks** | `update-wpbl-discord-board`, `post-wpbl-discord-recaps` | Self-editing WPBL board + events/watch-party links; per-game box scores, edited in place on a correction |
+| **Discord webhooks** | `update-wpbl-discord-board`, `wpbl-ingest`, `post-wpbl-discord-recaps` | Self-editing WPBL board + events/watch-party links; per-game box scores posted as a game goes final and edited in place on a correction |
 | **Google Tasks API** | `pull-tasks` | Ingest feature requests |
 | **Web Push (VAPID)** | reminder scripts + `send-test-push` | Browser notifications |
 | **Google OAuth** | `AuthContext` via Supabase Auth | Sign-in |
@@ -283,12 +289,13 @@ Setup walkthrough: [`docs/PUSH_NOTIFICATIONS.md`](docs/PUSH_NOTIFICATIONS.md).
 
 | Function | Trigger | Purpose |
 |---|---|---|
-| `wpbl-ingest` | pg_cron (every 2m) + manual | Mirror the WPBL official feed into Postgres (idempotent) |
+| `wpbl-ingest` | pg_cron (every 2m) + manual | Mirror the WPBL official feed into Postgres (idempotent); posts a game's box score to Discord on a not-final → final transition ([`announce-final.ts`](supabase/functions/wpbl-ingest/announce-final.ts)) |
 | `delete-account` | SPA (authed user) | Delete the calling user's auth record + app rows |
 | `send-test-push` | SPA (Admin panel) | One-off Web Push to the caller's own devices |
 
-`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are injected automatically; VAPID secrets set
-via `supabase secrets set`. Walkthrough: [`supabase/functions/README.md`](supabase/functions/README.md).
+`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are injected automatically; VAPID secrets and
+`DISCORD_RECAP_WEBHOOK_URL` are set via `supabase secrets set` (the recap webhook is
+optional — without it `wpbl-ingest` skips the Discord post and the hourly job covers it). Walkthrough: [`supabase/functions/README.md`](supabase/functions/README.md).
 
 ---
 
@@ -297,10 +304,11 @@ via `supabase secrets set`. Walkthrough: [`supabase/functions/README.md`](supaba
 | Scope | Vars | Where |
 |---|---|---|
 | **Client (build-time)** | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Cloudflare Pages env + `.env` |
+| **Pages Function** (`functions/wpbl`) | the same `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | Cloudflare Pages env (available to functions at runtime) |
 | **Migration runner** | `SUPABASE_DB_URL` (Postgres connection string — Supabase *session pooler*, port 5432) | `.env` locally + repo **Actions secret** |
-| **Edge functions** | `SUPABASE_URL`*, `SUPABASE_SERVICE_ROLE_KEY`*, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Supabase (*auto-injected) |
+| **Edge functions** | `SUPABASE_URL`*, `SUPABASE_SERVICE_ROLE_KEY`*, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `DISCORD_RECAP_WEBHOOK_URL` | Supabase (*auto-injected) |
 | **pg_cron** | service-role key | Supabase **Vault** (`wpbl_service_role_key`) |
-| **GitHub Actions** | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`, `VAPID_*`, `DISCORD_BOARD_WEBHOOK_URL`, `DISCORD_BOARD_MESSAGE_ID`, `DISCORD_EVENTS_URL`, `DISCORD_WATCH_PARTY_VC_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_TASKS_LIST` | Repo **Actions secrets** |
+| **GitHub Actions** | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`, `VAPID_*`, `DISCORD_BOARD_WEBHOOK_URL`, `DISCORD_BOARD_MESSAGE_ID`, `DISCORD_EVENTS_URL`, `DISCORD_WATCH_PARTY_VC_URL`, `DISCORD_RECAP_WEBHOOK_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_TASKS_LIST` | Repo **Actions secrets** |
 
 ---
 
@@ -339,6 +347,7 @@ via `supabase secrets set`. Walkthrough: [`supabase/functions/README.md`](supaba
 - MLB section → [`src/MlbStats.tsx`](src/MlbStats.tsx), [`src/mlb/`](src/mlb)
 - DB schema → baseline [`scripts/*.sql`](scripts) · new changes [`scripts/migrations/`](scripts/migrations) via [`scripts/migrate.mjs`](scripts/migrate.mjs)
 - Cron → [`.github/workflows/`](.github/workflows) + [`scripts/wpbl_cron.sql`](scripts/wpbl_cron.sql)
+- Discord (board + box scores) → [`docs/DISCORD.md`](docs/DISCORD.md)
 - Edge functions → [`supabase/functions/`](supabase/functions) · Cloudflare Pages functions → [`functions/`](functions)
 - Cron script logic → [`scripts/*.mjs`](scripts) · the Discord recap poster is TS
   ([`scripts/post-wpbl-discord-recaps.ts`](scripts/post-wpbl-discord-recaps.ts)), bundled at CI
