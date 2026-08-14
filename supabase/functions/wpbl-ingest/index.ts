@@ -23,6 +23,7 @@
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { normName, editDistance, isDamaged, replacementMatch } from './names.ts'
+import { announceFinal } from './announce-final.ts'
 
 const FEED = 'https://stats.womensprobaseballleague.com/v1'
 const CORS = {
@@ -338,7 +339,7 @@ async function ingestBoxscore(
   apiGameId: string,
   teamSlug: Map<string, string>,
   resolver: PlayerResolver,
-): Promise<{ batting: number; pitching: number; fielding: number; plays: number; tracking: number }> {
+): Promise<{ status: 'scheduled' | 'live' | 'final'; batting: number; pitching: number; fielding: number; plays: number; tracking: number }> {
   const res = await fetch(`${FEED}/games/${apiGameId}/boxscore`)
   if (!res.ok) throw new Error(`boxscore ${apiGameId} → ${res.status}`)
   const box = (await res.json()).boxscore
@@ -480,7 +481,7 @@ async function ingestBoxscore(
 
   if (tracking.length) await db.from('wpbl_pitch_tracking').upsert(tracking, { onConflict: 'activity_id' })
 
-  return { batting: batting.length, pitching: pitching.length, fielding: fielding.length, plays: plays.length, tracking: tracking.length }
+  return { status: derivedStatus, batting: batting.length, pitching: pitching.length, fielding: fielding.length, plays: plays.length, tracking: tracking.length }
 }
 
 // ─── handler ──────────────────────────────────────────────────────────────────
@@ -675,8 +676,16 @@ Deno.serve(async (req) => {
       if (!wantBox) continue
 
       try {
-        await ingestBoxscore(db, up.id, apiGameId, teamSlug, resolver)
+        const box = await ingestBoxscore(db, up.id, apiGameId, teamSlug, resolver)
         summary.boxscores++
+        // A game we were already tracking has just finished — announce it to Discord now,
+        // rather than leaving it for the scheduled poster's next quarter-hour. Deliberately
+        // requires a `prior` row: a game first SEEN as final (a backfill, `mode: "all"`, a
+        // season imported at once) was never watched finishing here and stays quiet.
+        // announceFinal owns its own errors; the box score is already written either way.
+        if (box.status === 'final' && prior != null && prior.status !== 'final') {
+          await announceFinal(db, up.id)
+        }
       } catch (e) {
         summary.errors.push(`box ${apiGameId}: ${e instanceof Error ? e.message : e}`)
       }

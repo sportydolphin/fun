@@ -17,7 +17,8 @@
     "survivor": "node scripts/resolve-survivor.mjs",
     "survivor-bots": "node scripts/run-survivor-bots.mjs",
     "tasks": "node --env-file=.env scripts/pull-tasks.mjs",
-    "migrate": "node --env-file=.env scripts/migrate.mjs"
+    "migrate": "node --env-file=.env scripts/migrate.mjs",
+    "discord-recaps": "esbuild scripts/post-wpbl-discord-recaps.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-discord-recaps.mjs && node node_modules/.cache/wpbl-discord-recaps.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -38,6 +39,7 @@
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.2.7",
     "@vitejs/plugin-react": "^4.7.0",
+    "esbuild": "^0.25.12",
     "jsdom": "^26.1.0",
     "typescript": "^5.2.2",
     "vite": "^6.4.2",

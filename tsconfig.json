@@ -2,8 +2,13 @@
   "compilerOptions": {
     "target": "ES2021",
     "useDefineForClassFields": true,
-    "lib": ["DOM", "ES2021"],
-    "types": ["vitest/globals"],
+    "lib": [
+      "DOM",
+      "ES2021"
+    ],
+    "types": [
+      "vitest/globals"
+    ],
     "skipLibCheck": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -13,7 +18,11 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "strict": false
+    "strict": false,
+    "allowImportingTsExtensions": true
   },
-  "include": ["src", "projects/**/*"]
+  "include": [
+    "src",
+    "projects/**/*"
+  ]
 }

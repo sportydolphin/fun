@@ -1,0 +1,60 @@
+name: WPBL Discord Recaps
+
+on:
+  schedule:
+    # Every 15 minutes across the window a WPBL game can finish, plus a tail for late
+    # corrections. The league plays at a single Central-time hub with first pitches from
+    # ~11am to ~4:30pm Central, and a seven-inning game runs ~2.5h, so finals land roughly
+    # 18:00–00:00 UTC. The tail hours matter as much as the rest: the feed revises box
+    # scores after the fact, and a later pass is what edits the posted message to match.
+    #
+    # Runs are cheap when nothing has changed — the job re-renders the last few days of
+    # finals, compares a hash of each rendered message, and calls Discord only on a real
+    # difference.
+    - cron: '*/15 18-23,0-4 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'How to run. "dry-run" prints what it would send. "post" is the normal run — the first one posts only the most recent final. "seed" is an escape hatch that records every final as handled without posting any.'
+        required: true
+        default: 'dry-run'
+        type: choice
+        options: [dry-run, post, seed]
+
+# One poster at a time; a second copy could double-post a game the first hasn't recorded yet.
+concurrency:
+  group: wpbl-discord-recaps
+  cancel-in-progress: false
+
+jobs:
+  post-recaps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Same trick as the board/reminder workflows: install only what this script needs, at
+      # the versions pinned in package.json, rather than the whole frontend toolchain.
+      # esbuild is one of them here — the script is TypeScript so that it can share the
+      # site's recap engine (src/wpbl/derive/recap.ts) instead of restating it.
+      - name: Install dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws','esbuild'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Post WPBL Discord recaps
+        env:
+          SUPABASE_URL:               ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY:  ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DISCORD_RECAP_WEBHOOK_URL:  ${{ secrets.DISCORD_RECAP_WEBHOOK_URL }}
+          MODE:                       ${{ inputs.mode }}
+        run: |
+          case "$MODE" in
+            seed)     npm run discord-recaps -- --seed ;;
+            dry-run)  npm run discord-recaps -- --dry-run ;;
+            *)        npm run discord-recaps ;;
+          esac

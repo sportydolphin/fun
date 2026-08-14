@@ -1,6 +1,10 @@
 import type { WpblGame, WpblTeam, WpblBattingLine, WpblPitchingLine, WpblGamePlay } from '../types'
-import { outsToIp } from '../constants'
-import { classifyPa } from './matchups'
+// The two runtime imports below carry explicit .ts extensions because this module is also
+// loaded by Deno (supabase/functions/wpbl-ingest announces a final straight to Discord),
+// and Deno resolves local specifiers literally. Type-only imports are erased before
+// resolution, so they stay extensionless like the rest of the app.
+import { outsToIp } from '../innings.ts'
+import { classifyPa } from './matchups.ts'
 
 // Auto game-recap engine. Pure: a game + its box lines + play-by-play in, a structured recap
 // out (no supabase / React), so GameDetail renders the full version, Home renders a compact
