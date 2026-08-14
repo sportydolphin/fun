@@ -83,6 +83,11 @@ describe('buildRecapMessage', () => {
     expect(e.description.startsWith('The Hunters held on for a 6-1 win.\n```')).toBe(true)
   })
 
+  it('links at the game, not the section — the Recap tab opens straight from Discord', () => {
+    expect(buildRecapMessage(game(), recap(), TEAMS).embeds[0].url)
+      .toBe('https://sportydolphin.fun/wpbl?game=g1')
+  })
+
   it('takes its accent colour from the winner', () => {
     expect(buildRecapMessage(game(), recap(), TEAMS).embeds[0].color).toBe(0x2e5f3a)
   })

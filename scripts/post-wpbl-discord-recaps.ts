@@ -29,9 +29,11 @@
  *   npm run discord-recaps                   # post the newest unposted final, update the rest
  *   npm run discord-recaps -- --seed         # record every final as handled, post nothing
  *
- * Required env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (anon works — all reads are public,
- * but the posts table is service-role only), DISCORD_RECAP_WEBHOOK_URL (not needed by
- * --dry-run).
+ * Required env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DISCORD_RECAP_WEBHOOK_URL. The
+ * service-role key is required to post: the box scores it reads are public, but
+ * wpbl_discord_recap_posts is service-role only, and any other key reads it as empty —
+ * which this job would take to mean "nothing posted yet". --dry-run sends nothing, so it
+ * runs on the anon key and says what it cannot see.
  */
 import { createClient } from '@supabase/supabase-js'
 // @ts-expect-error — no types installed for `ws`; it is only handed to supabase-js below.
@@ -43,8 +45,8 @@ import type { WpblGame, WpblTeam, WpblBattingLine, WpblPitchingLine, WpblGamePla
 // ─── Config ─────────────────────────────────────────────────────────────────
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-  ?? process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? ''
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
+const SUPABASE_KEY = SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || ''
 const WEBHOOK_URL = process.env.DISCORD_RECAP_WEBHOOK_URL ?? ''
 const SITE = 'https://sportydolphin.fun'
 
@@ -68,6 +70,18 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 if (!WEBHOOK_URL && !DRY_RUN && !SEED) {
   console.error('❌  Set DISCORD_RECAP_WEBHOOK_URL (the full https://discord.com/api/webhooks/<id>/<token>)')
   process.exit(1)
+}
+// The posts table has RLS on and no policies, so the anon key doesn't get an error from it
+// — it gets an empty result, which is indistinguishable from "nothing has been posted yet".
+// A real run on that reading would repost every game it has already posted, so posting
+// requires the service role outright. A dry run is welcome to the anon key; it just has to
+// say what it can't see.
+if (!SERVICE_KEY && !DRY_RUN) {
+  console.error('❌  Posting needs SUPABASE_SERVICE_ROLE_KEY: wpbl_discord_recap_posts is service-role only, and with any other key this job cannot tell what it has already posted.')
+  process.exit(1)
+}
+if (!SERVICE_KEY) {
+  console.warn('⚠️  No service-role key — wpbl_discord_recap_posts is invisible to this key, so every game below will read as new regardless of what has actually been posted.')
 }
 
 // Matches the other Discord/reminder scripts: no session handling in CI, and `ws` for

@@ -93,7 +93,7 @@ export function buildRecapMessage(game: WpblGame, recap: GameRecap, teams: Map<s
     allowed_mentions: { parse: [] },
     embeds: [{
       title: recap.headline,
-      url: `${SITE}/wpbl`,
+      url: `${SITE}/wpbl?game=${game.id}`,   // opens the game center, on its Recap tab
       color: embedColor(teams.get(recap.winner.id)),
       description: `${recap.blurb}\n${lineScoreBlock(game, recap, teams)}`,
       fields,

@@ -442,14 +442,18 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const urlFor = (s: WpblSnap) => {
     const q = new URLSearchParams()
     if (s.view !== 'home') q.set('view', s.view)
+    if (s.game) q.set('game', s.game.id)       // deep-linkable game center
     if (s.player) q.set('player', s.player.id) // deep-linkable player page
     const str = q.toString()
     return str ? `/wpbl?${str}` : '/wpbl'
   }
-  // A ?player=<id> from a pasted/shared link, resolved to the player once the roster loads.
-  const pendingPlayerId = useRef<string | null>(
-    window.history.state?.wpbl ? null : new URLSearchParams(window.location.search).get('player'),
-  )
+  // A ?player=<id> / ?game=<id> from a pasted or shared link, resolved once the data they
+  // name has loaded. Both are read at mount only: a restored history snapshot already
+  // carries the real objects, so the query string is the cold-start path.
+  const pendingParam = (key: string) =>
+    window.history.state?.wpbl ? null : new URLSearchParams(window.location.search).get(key)
+  const pendingPlayerId = useRef<string | null>(pendingParam('player'))
+  const pendingGameId = useRef<string | null>(pendingParam('game'))
   // Every forward navigation = one history entry (apply state + push a matching snapshot).
   const push = useCallback((s: WpblSnap) => {
     apply(s)
@@ -498,6 +502,20 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
 
   // Full roster of every player, loaded once — the pool the header search filters over.
   useEffect(() => { fetchWpblAllPlayers().then(setPlayers).catch(() => {}) }, [])
+
+  // Open the game named in a shared ?game=<id> link, once the schedule is available. A
+  // final opens on its Recap tab by itself (see GameDetailModal), which is what the Discord
+  // recap link is pointing at.
+  useEffect(() => {
+    const id = pendingGameId.current
+    if (!id || detailGame || games.length === 0) return
+    pendingGameId.current = null
+    const g = games.find(gm => gm.id === id)
+    if (!g) return
+    setDetailGame(g)
+    const s: WpblSnap = { view, team: selectedTeam, game: g, player: detailPlayer }
+    window.history.replaceState({ ...window.history.state, wpbl: s }, '', urlFor(s))
+  }, [games, detailGame, view, selectedTeam, detailPlayer])
 
   // Open the player named in a shared ?player=<id> link, once the roster is available.
   useEffect(() => {
