@@ -22,6 +22,7 @@
 // schedule.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { normName, editDistance, isDamaged, replacementMatch } from './names.ts'
 
 const FEED = 'https://stats.womensprobaseballleague.com/v1'
 const CORS = {
@@ -44,33 +45,6 @@ const ipToOuts = (ip: unknown): number => {
   const [w, f] = t.split('.')
   return (n(w)) * 3 + Math.min(n(f), 2)
 }
-// Strip accents + case/space for name matching ("Maïka Dumais" ↔ "maika dumais").
-const normName = (name: string): string =>
-  name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
-
-// Levenshtein edit distance, capped at `max` (returns max+1 once exceeded) — used for a
-// last-ditch fuzzy roster match so feed spelling variants (Villareal↔Villarreal,
-// Foxx↔Fox, Gabriella↔Gabrielle) resolve to the seeded player instead of a duplicate.
-// Nickname SHORTENINGS (Val↔Valerie, Alex↔Alexandra) are too far for this, but the
-// prefix matcher in PlayerResolver.nickname handles the common prefix pattern; only true
-// non-prefix nicknames (Gabby↔Gabriella, Kate↔Katherine) still need a manual merge.
-function editDistance(a: string, b: string, max = 1): number {
-  if (Math.abs(a.length - b.length) > max) return max + 1
-  let prev = Array.from({ length: b.length + 1 }, (_, i) => i)
-  for (let i = 1; i <= a.length; i++) {
-    const cur = [i]
-    let rowMin = i
-    for (let j = 1; j <= b.length; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1
-      const v = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
-      cur.push(v); if (v < rowMin) rowMin = v
-    }
-    if (rowMin > max) return max + 1
-    prev = cur
-  }
-  return prev[b.length]
-}
-
 // UTC instant → America/Chicago (the hub venue's zone) calendar date + wall-clock, so
 // the stored game_date / start_time match what the rest of the app assumes (Central
 // wall clock, re-rendered into each viewer's zone by formatGameTime).
@@ -161,6 +135,22 @@ class PlayerResolver {
     return hit
   }
 
+  // Same-team player whose name matches apart from characters the feed lost to a bad
+  // decode ("ma<?>ka dumais" → "maika dumais"), or null if nothing or more than one
+  // matches. This is what stops a transient encoding fault upstream from forking a second
+  // roster row: it already happened twice in August 2026, leaving stat-less duplicates of
+  // the only two players on any roster with an accent in their name.
+  private damaged(teamSlug: string, nm: string): string | null {
+    if (!isDamaged(nm)) return null
+    let hit: string | null = null
+    for (const cand of this.byTeam.get(teamSlug) ?? []) {
+      if (!replacementMatch(nm, cand.norm)) continue
+      if (hit && hit !== cand.id) return null // ambiguous — don't guess
+      hit = cand.id
+    }
+    return hit
+  }
+
   // Nickname-shortening match: same team, EXACT surname match, and one given name is a
   // prefix of the other (Val↔Valerie, Alex↔Alexandra, Sam↔Samuel). This is where feed
   // nicknames that editDistance can't reach actually live. Deliberately narrow: it fires
@@ -204,6 +194,16 @@ class PlayerResolver {
       return existing
     }
 
+    // 2.5) damaged-name hit within the same team → backfill api_id. Ahead of the fuzzy
+    // pass because it is the stricter test: it only forgives characters the decoder
+    // actually flagged as lost.
+    const damaged = this.damaged(teamSlug, nm)
+    if (damaged) {
+      this.byTeamName.set(`${teamSlug}::${nm}`, damaged)
+      if (apiId) { this.byApi.set(apiId, damaged); this.pendingApi.set(damaged, apiId) }
+      return damaged
+    }
+
     // 3) fuzzy (spelling-variant) hit within the same team → backfill api_id
     const fuzzy = this.fuzzy(teamSlug, nm)
     if (fuzzy) {
@@ -221,7 +221,15 @@ class PlayerResolver {
       return nick
     }
 
-    // 4) insert a new feed-only player
+    // 4) insert a new feed-only player — but never under a name we know is damaged. An
+    // unmatched damaged name is either a roster player this run couldn't recognise or a
+    // genuinely new one whose name we can't spell; inserting it is wrong in both cases and
+    // permanent, while skipping costs only this player's lines for this run. The ingest is
+    // idempotent and re-runs every couple of minutes, so a clean payload backfills them.
+    if (isDamaged(nm)) {
+      console.warn('[wpbl-ingest] skipping player with a damaged name (bad decode upstream):', JSON.stringify(name))
+      return null
+    }
     const { data, error } = await this.db.from('wpbl_players').insert({
       team_id: teamSlug || null,
       name,
@@ -244,6 +252,17 @@ class PlayerResolver {
   resolveName(name: string): string | null {
     const nm = normName(name)
     for (const [key, id] of this.byTeamName) if (key.endsWith(`::${nm}`)) return id
+    // Same damaged-name recovery as resolve(), so a play keeps its batter/pitcher link
+    // instead of going unattributed. Any ambiguity leaves it unattributed, as before.
+    if (isDamaged(nm)) {
+      let hit: string | null = null
+      for (const [key, id] of this.byTeamName) {
+        if (!replacementMatch(nm, key.slice(key.indexOf('::') + 2))) continue
+        if (hit && hit !== id) return null
+        hit = id
+      }
+      return hit
+    }
     return null
   }
 
