@@ -102,9 +102,15 @@ function parseEntries(xml) {
 
 // ─── Title classification + matchup parsing ────────────────────────────────────
 
+// The matchup separator the league actually uses varies: mostly "@", but some uploads say
+// "vs." ("WPBL Highlights: Boston Hunters vs. New York Heights | August 9, 2026"). Accept
+// both, matching what parseMatchup already splits on — otherwise a "vs." reel lands as
+// 'other', drops out of the rail, and never reaches the Discord highlights channel.
+const MATCHUP_SEP = /\s@\s|\svs\.?\s/
+
 function classify(title) {
   const t = title.toLowerCase()
-  if (/\bhighlights?\b/.test(t) && t.includes('@')) return 'highlight'
+  if (/\bhighlights?\b/.test(t) && MATCHUP_SEP.test(t)) return 'highlight'
   if (/\bpodcast\b|\bepisode\b|\bep\.?\s*\d|dialogues?\b/.test(t)) return 'podcast'
   return 'other'
 }

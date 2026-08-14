@@ -18,7 +18,8 @@
     "survivor-bots": "node scripts/run-survivor-bots.mjs",
     "tasks": "node --env-file=.env scripts/pull-tasks.mjs",
     "migrate": "node --env-file=.env scripts/migrate.mjs",
-    "discord-recaps": "esbuild scripts/post-wpbl-discord-recaps.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-discord-recaps.mjs && node node_modules/.cache/wpbl-discord-recaps.mjs"
+    "discord-recaps": "esbuild scripts/post-wpbl-discord-recaps.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-discord-recaps.mjs && node node_modules/.cache/wpbl-discord-recaps.mjs",
+    "discord-highlights": "node scripts/post-wpbl-discord-highlights.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

@@ -9,6 +9,13 @@ on:
     # gain from running more often.
     - cron: '0,30 14-23,0-3 * * *'
   workflow_dispatch:   # run on demand from the Actions tab (use for the first, seeding run)
+    inputs:
+      highlights_mode:
+        description: 'What the Discord highlights step does. "post" is the normal run — the first one posts only the newest reel. "dry-run" prints what it would send. "seed" records every reel as handled without posting any. "skip" syncs only.'
+        required: true
+        default: 'dry-run'
+        type: choice
+        options: [dry-run, post, seed, skip]
 
 # One writer at a time; skip a tick rather than racing two upserts.
 concurrency:
@@ -26,12 +33,12 @@ jobs:
         with:
           node-version: '22'
 
-      # Same install trick as the sibling WPBL workflows: pull only the one package this
-      # script imports, at the version pinned in package.json, not the whole frontend.
+      # Same install trick as the sibling WPBL workflows: pull only the packages these
+      # scripts import, at the versions pinned in package.json, not the whole frontend.
       - name: Install dependencies
         run: |
           npm install --no-save --no-audit --no-fund --loglevel=error \
-            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js'].map(k=>k+'@'+d[k]).join(' ')")
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws'].map(k=>k+'@'+d[k]).join(' ')")
 
       - name: Sync WPBL YouTube highlights
         env:
@@ -43,3 +50,29 @@ jobs:
           # 404s intermittently from GitHub's datacenter IPs.
           YOUTUBE_API_KEY:           ${{ secrets.YOUTUBE_API_KEY }}
         run: node scripts/sync-wpbl-youtube.mjs
+
+      # Straight after the sync, in the same pass, so a reel reaches the Discord highlights
+      # channel the moment we learn about it rather than waiting on a second schedule.
+      # This posts to its own channel via DISCORD_HIGHLIGHTS_WEBHOOK_URL — not the recap
+      # channel's webhook. Without that secret set the step no-ops rather than failing, so
+      # the sync above keeps working whether or not the Discord side is configured.
+      #
+      # A scheduled run has no `inputs`, so MODE is empty there and falls through to the
+      # normal post. The first manual run should be dry-run, then seed or post.
+      - name: Post new highlights to Discord
+        if: ${{ inputs.highlights_mode != 'skip' }}
+        env:
+          SUPABASE_URL:                   ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY:      ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DISCORD_HIGHLIGHTS_WEBHOOK_URL: ${{ secrets.DISCORD_HIGHLIGHTS_WEBHOOK_URL }}
+          MODE:                           ${{ inputs.highlights_mode }}
+        run: |
+          if [ -z "$DISCORD_HIGHLIGHTS_WEBHOOK_URL" ]; then
+            echo "DISCORD_HIGHLIGHTS_WEBHOOK_URL not set — skipping the Discord post."
+            exit 0
+          fi
+          case "$MODE" in
+            seed)     npm run discord-highlights -- --seed ;;
+            dry-run)  npm run discord-highlights -- --dry-run ;;
+            *)        npm run discord-highlights ;;
+          esac
