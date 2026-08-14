@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.39.0'
+export const APP_VERSION = '1.40.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,37 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.40.0',
+    date:    '2026-08-14',
+    title:   'A WPBL draft tab, shareable player cards, and a fuller scoreboard',
+    changes: [
+      {
+        short: 'See whether early draft picks are actually doing better',
+        full:  'A new Draft tab under WPBL stats plots every drafted player\'s season against where she was taken, with each round\'s average drawn over the top. So far there is no real pattern either way. Each round average is labelled with how many players it covers, because the later rounds rest on one or two players and move a long way on a single good night.',
+      },
+      {
+        short: 'Copy a link to a WPBL player',
+        full:  'A player page now has a copy link button in its header, so a player card can be shared without fishing the address out of the address bar. The link previews as that player when it is pasted into a chat app.',
+      },
+      {
+        short: 'Game highlights post to the WPBL fan Discord',
+        full:  'When the league puts a game\'s highlight reel on YouTube, it is posted to the highlights channel in the fan Discord as a playable video. Each reel is posted once.',
+      },
+      {
+        short: 'The scoreboard carries the whole season',
+        full:  'The scoreboard strip on the WPBL home page used to stop seven games ahead. It now runs to the end of the season, and still opens on the boundary between the last game played and the next one up, without the jump it used to make while the page was loading.',
+      },
+      {
+        short: 'A player\'s game log is in date order',
+        full:  'The per-game log on a WPBL player page was listing games in whatever order they came back from the league feed. It now reads oldest game first.',
+      },
+      {
+        short: 'Watch party links in Discord work again',
+        full:  'The links from the WPBL watch party board in the fan Discord had stopped working, because the invite they were built on expired. They have been rebuilt on an invite that does not expire.',
+      },
+    ],
+  },
   {
     version: '1.39.0',
     date:    '2026-08-13',

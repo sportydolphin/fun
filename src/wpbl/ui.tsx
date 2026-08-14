@@ -7,7 +7,7 @@
 // to WPBL_ACCENT, so the league keeps its own color while the shape stays identical.
 // If you restyle a primitive here, mirror the change in the MLB file (and vice versa).
 
-import React, { useEffect, useCallback, useRef } from 'react'
+import React, { useEffect, useCallback, useRef, useState } from 'react'
 import { Box, Typography, useTheme, useMediaQuery } from '@mui/material'
 import type { Theme } from '@mui/material'
 import { WPBL_ACCENT, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
@@ -331,6 +331,74 @@ function unlockBodyScroll() {
     document.body.style.overflow = savedScroll.bodyOverflow
     document.body.style.paddingRight = savedScroll.bodyPaddingRight
   }
+}
+
+// A share affordance for the modal header's `actions` slot: copies a link to whatever the
+// modal is showing, and says so. Deliberately reports failure rather than swallowing it —
+// the whole point of the control is that the reader walks away holding a URL, so a silent
+// no-op is the one outcome that must never look like success.
+//
+// The clipboard API needs a secure context. https and localhost both qualify, so the only
+// realistic gap is a plain-http host on a LAN, which is why the execCommand path is still
+// here as a fallback rather than being retired as legacy.
+export function CopyLinkButton({ url, title = 'Copy link' }: { url: string; title?: string }) {
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
+
+  const copy = useCallback(async () => {
+    const ok = await writeClipboard(url)
+    setState(ok ? 'copied' : 'failed')
+    setTimeout(() => setState('idle'), ok ? 1600 : 2400)
+  }, [url])
+
+  const label = state === 'copied' ? 'Copied' : state === 'failed' ? "Couldn't copy" : 'Copy link'
+  return (
+    <Box
+      onClick={copy}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); copy() } }}
+      title={title}
+      aria-label={label}
+      sx={{
+        flexShrink: 0, display: 'flex', alignItems: 'center', gap: 0.5,
+        height: 26, px: 0.9, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
+        // Confirmation is the accent, failure is the theme's error colour, and idle recedes
+        // to match the close button beside it.
+        color: state === 'copied' ? WPBL_ACCENT : state === 'failed' ? 'error.main' : 'text.disabled',
+        '&:hover': { bgcolor: 'action.hover', color: state === 'idle' ? 'text.primary' : undefined },
+        transition: 'color 0.15s',
+      }}
+    >
+      <Typography sx={{ fontSize: '0.72rem', lineHeight: 1 }} aria-hidden>
+        {state === 'copied' ? '✓' : state === 'failed' ? '!' : '🔗'}
+      </Typography>
+      <Typography sx={{
+        fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6,
+        lineHeight: 1, whiteSpace: 'nowrap',
+      }}>
+        {label}
+      </Typography>
+    </Box>
+  )
+}
+
+/** Clipboard write with the pre-secure-context fallback. Resolves false if both routes fail. */
+async function writeClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); return true }
+  } catch { /* fall through to the textarea route */ }
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = text
+    // Keep it off-screen and non-focusable-looking so the page doesn't visibly jump.
+    ta.setAttribute('readonly', '')
+    ta.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0'
+    document.body.appendChild(ta)
+    ta.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    return ok
+  } catch { return false }
 }
 
 export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, actions, footer, fillHeight, children }: {

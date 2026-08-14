@@ -98,13 +98,14 @@ function Scoreboard({ games, teams, onOpenGame }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  // Keep the strip relevant: the last few finals, then everything still to come. Anchor on
-  // the most recent final so the strip opens scrolled to the "now" boundary — previous game
-  // at the left edge, the next/live game right beside it — rather than the oldest final.
+  // The whole season, played games then everything still to come. It's a scroll strip, so
+  // length costs nothing and a reader who wants to look ahead to September can. Anchor on
+  // the most recent final so it still OPENS at the "now" boundary — previous game at the
+  // left edge, the next/live game right beside it — rather than at either end.
   const { strip, anchorIndex } = useMemo(() => {
     const head = games.filter(g => g.status === 'final')
     const rest = games.filter(g => g.status !== 'final')
-    return { strip: [...head, ...rest.slice(0, 7)], anchorIndex: head.length > 0 ? head.length - 1 : 0 }
+    return { strip: [...head, ...rest], anchorIndex: head.length > 0 ? head.length - 1 : 0 }
   }, [games])
 
   // Edge-fade cues: show a soft mask on whichever side has more chips off-screen, so the
@@ -118,6 +119,11 @@ function Scoreboard({ games, teams, onOpenGame }: {
     setAtEnd(c.scrollLeft + c.clientWidth >= c.scrollWidth - 1)
   }, [])
 
+  // The reader taking the strip over. Set from real input only, never from onScroll — that
+  // fires for our own placement too, which would cancel the anchoring on the first frame.
+  const takenOverRef = useRef(false)
+  const takeOver = useCallback(() => { takenOverRef.current = true }, [])
+
   // Desktop hover-to-scroll: parking the cursor over either edge glides the strip that way,
   // an alternative to swiping for mouse users who have no visible scrollbar. Runs a rAF loop
   // while hovered and stops itself at whichever end it reaches. Touch devices never trigger
@@ -127,6 +133,7 @@ function Scoreboard({ games, teams, onOpenGame }: {
     if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null }
   }, [])
   const startAutoScroll = useCallback((dir: -1 | 1) => {
+    takeOver()   // hovering an edge zone to glide the strip is the reader driving it too
     stopAutoScroll()
     const step = () => {
       const c = scrollRef.current
@@ -138,29 +145,52 @@ function Scoreboard({ games, teams, onOpenGame }: {
       rafRef.current = requestAnimationFrame(step)
     }
     rafRef.current = requestAnimationFrame(step)
-  }, [stopAutoScroll, syncEdges])
+  }, [stopAutoScroll, syncEdges, takeOver])
   useEffect(() => stopAutoScroll, [stopAutoScroll])
 
-  // Position the anchor chip at the container's left edge — but only once per mount. After the
-  // first placement we leave the strip wherever the user scrolled it, so a later data refresh
-  // (which rebuilds `strip`) doesn't yank it back and cause a jump. A remount (e.g. swiping back
-  // to Home) re-anchors, so the initial-load position is preserved. Fades still resync each time.
-  const anchoredRef = useRef(false)
-  useEffect(() => {
+  // Put the anchor chip at the container's left edge, and keep putting it there until either
+  // the layout stops moving or the reader scrolls.
+  //
+  // One placement is not enough, however late it is deferred: the chips keep resizing after
+  // first paint as their team logos decode and the webfont swaps in, so whatever we measure
+  // is a snapshot of a strip that is still growing. That is why the landing spot came out a
+  // little different on every reload — it depended on which of those had finished. Instead of
+  // guessing a settling time, re-run the placement on each layout change the strip reports.
+  // The math is a delta from where the anchor currently sits, so re-running is idempotent:
+  // once it is in place the delta is zero and every later call is a no-op.
+  //
+  // Layout effect, not a plain one, and that matters twice on a reload. A useEffect runs
+  // AFTER the browser paints, so the reader got one frame of the strip sitting at scrollLeft
+  // 0 — the oldest finals — before it jumped to the anchor, which is the flash of a
+  // different running order. It also meant the first syncEdges landed after that paint, so
+  // the edge fades popped in a frame late over chips that had already drawn. Running before
+  // paint does the placement and the fade state in the same pass, and the reader only ever
+  // sees the settled strip. ResizeObserver callbacks are delivered pre-paint too, so the
+  // later corrections are invisible the same way.
+  useLayoutEffect(() => {
     const c = scrollRef.current
-    if (!c) return
-    if (!anchoredRef.current && strip.length > 0) {
-      const anchor = c.children[anchorIndex] as HTMLElement | undefined
-      if (anchor) {
-        // Inset the previous game (anchor) from the left edge rather than flush against it, so the
-        // edge-fade lands on the older game peeking behind it — the previous game stays fully in
-        // view. No inset when it's already the first chip (nothing to its left to peek).
-        const inset = anchorIndex > 0 ? 32 : 0
-        c.scrollLeft += anchor.getBoundingClientRect().left - c.getBoundingClientRect().left - inset
-        anchoredRef.current = true
-      }
+    if (!c || strip.length === 0) return
+
+    const place = () => {
+      const el = scrollRef.current
+      const anchor = el?.children[anchorIndex] as HTMLElement | undefined
+      if (!el || !anchor || takenOverRef.current) return
+      // Inset the previous game (anchor) from the left edge rather than flush against it, so the
+      // edge-fade lands on the older game peeking behind it — the previous game stays fully in
+      // view. No inset when it's already the first chip (nothing to its left to peek).
+      const inset = anchorIndex > 0 ? 32 : 0
+      const delta = anchor.getBoundingClientRect().left - el.getBoundingClientRect().left - inset
+      if (Math.abs(delta) > 0.5) el.scrollLeft += delta
+      syncEdges()
     }
-    syncEdges()
+
+    place()
+    // Watching the chips as well as the container is the point: a logo decoding changes a
+    // chip's width without changing the container's.
+    const ro = new ResizeObserver(place)
+    ro.observe(c)
+    for (const chip of Array.from(c.children)) ro.observe(chip)
+    return () => ro.disconnect()
   }, [strip, anchorIndex, syncEdges])
 
   if (strip.length === 0) return null
@@ -170,7 +200,8 @@ function Scoreboard({ games, teams, onOpenGame }: {
           on the feed announces itself the same way, instead of a lone tiny eyebrow. */}
       <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2, mb: 1 }}>Scoreboard</Typography>
       <Box sx={{ position: 'relative' }}>
-        <Box ref={scrollRef} onScroll={syncEdges} sx={{
+        <Box ref={scrollRef} onScroll={syncEdges}
+          onPointerDown={takeOver} onWheel={takeOver} onKeyDown={takeOver} sx={{
           display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5,
           // No scroll-snap: the strip stays wherever it's left rather than locking to a chip when
           // scrolling settles (or when desktop hover-scroll ends). Initial placement is done by

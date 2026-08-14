@@ -3,7 +3,7 @@ import { Box, Typography, CircularProgress, Tooltip } from '@mui/material'
 import { fetchWpblPlayerLines, fetchWpblPitcherLocations, type WpblPitchLoc } from './api'
 import { sumBatting, sumPitching, sumFielding, fmtRate, fmtTwo } from './stats'
 import { wpblAccent, wpblFullName, outsToIp } from './constants'
-import { ModalShell, PlayerPortrait, useWpblDark } from './ui'
+import { ModalShell, PlayerPortrait, CopyLinkButton, useWpblDark } from './ui'
 import { PitchLocationCard } from './PitchLocation'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from './types'
 
@@ -148,6 +148,15 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
 }) {
   const isDark = useWpblDark()
   const team = useMemo(() => teams.find(t => t.id === player.team_id), [teams, player.team_id])
+
+  // The same URL the section already writes to the address bar when a player page is open
+  // (WpblApp's `q.set('player', …)`), so a copied link is the canonical one and the OG card
+  // in ogCard.ts unfurls it as the player rather than the league. Built from the current
+  // origin rather than a hardcoded host, so a link copied out of a local or preview build
+  // points back at that build instead of sending the reader to production.
+  const shareUrl = useMemo(
+    () => `${window.location.origin}/wpbl?player=${encodeURIComponent(player.id)}`,
+    [player.id])
   const gameById = useMemo(() => new Map(games.map(g => [g.id, g])), [games])
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const color = team ? wpblAccent(team.id, isDark) : '#888'
@@ -210,6 +219,19 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
     return { date, text: `${isHome ? 'vs' : '@'} ${opp?.abbr ?? oppId}` }
   }
 
+  // Box-score lines come back in whatever order the API returns them, which is not
+  // chronological, so a game log rendered straight off them reads as shuffled. Sort on the
+  // game's real ISO date — not the "Aug 13" label the row displays, which would sort
+  // alphabetically and put August after April. Oldest first, so the log reads down the
+  // season the way it was played. Sort is stable, so two games sharing a date keep their
+  // relative order.
+  const byGameDate = <T extends { game_id: string }>(lines: T[]): T[] =>
+    [...lines].sort((a, b) => {
+      const da = gameById.get(a.game_id)?.game_date ?? ''
+      const db = gameById.get(b.game_id)?.game_date ?? ''
+      return da.localeCompare(db)
+    })
+
   const subParts = [player.position, [player.bats, player.throws].filter(Boolean).join('/') ? `B/T ${player.bats || '-'}/${player.throws || '-'}` : null, player.age != null ? `${player.age} yrs` : null].filter(Boolean)
 
   // Stat sections as elements so the body can order them by the player's primary role. A
@@ -248,14 +270,14 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
     <GameLogTable
       title={hasPitching ? 'Hitting log' : 'Game log'}
       statHeaders={['AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'BB', 'SO', 'SB', 'TB']}
-      rows={battingReal.map(l => { const o = oppLabel(l.game_id); return { date: o.date, opp: o.text, cells: [l.ab, l.r, l.h, l.doubles, l.triples, l.hr, l.rbi, l.bb, l.so, l.sb, l.tb] } })}
+      rows={byGameDate(battingReal).map(l => { const o = oppLabel(l.game_id); return { date: o.date, opp: o.text, cells: [l.ab, l.r, l.h, l.doubles, l.triples, l.hr, l.rbi, l.bb, l.so, l.sb, l.tb] } })}
     />
   )
   const pitchingLogEl = !hasPitching ? null : (
     <GameLogTable
       title={hasBatting ? 'Pitching log' : 'Game log'}
       statHeaders={['DEC', 'IP', 'H', 'R', 'ER', 'BB', 'SO', 'HR', 'P']}
-      rows={pitching.map(l => { const o = oppLabel(l.game_id); return { date: o.date, opp: o.text, cells: [l.decision ?? '—', outsToIp(l.outs), l.h, l.r, l.er, l.bb, l.so, l.hr, l.pitches ?? '—'] } })}
+      rows={byGameDate(pitching).map(l => { const o = oppLabel(l.game_id); return { date: o.date, opp: o.text, cells: [l.decision ?? '—', outsToIp(l.outs), l.h, l.r, l.er, l.bb, l.so, l.hr, l.pitches ?? '—'] } })}
     />
   )
 
@@ -284,6 +306,7 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
       onClose={onClose}
       maxWidth={640}
       zIndex={1600}
+      actions={<CopyLinkButton url={shareUrl} title={`Copy a link to ${player.name}`} />}
     >
       {/* Identity */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75, p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
