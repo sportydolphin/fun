@@ -29,7 +29,13 @@ interface Env {
   SUPABASE_ANON_KEY?: string
 }
 
-interface Ctx { request: Request; env: Env }
+interface Ctx {
+  request: Request
+  env: Env
+  // Pages hands this to a function so work can outlive the response. Used below to write
+  // the roster cache without making the reader wait for it.
+  waitUntil?: (promise: Promise<unknown>) => void
+}
 
 // Discord's own budget is three seconds, after which it shows the reader "the application
 // did not respond" no matter what we send. Coming in under that with room to spare means an
@@ -58,7 +64,7 @@ const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
 export async function onRequestPost(context: Ctx): Promise<Response> {
-  const { request, env } = context
+  const { request, env, waitUntil } = context
   const signature = request.headers.get('x-signature-ed25519')
   const timestamp = request.headers.get('x-signature-timestamp')
   const body = await request.text()
@@ -76,12 +82,12 @@ export async function onRequestPost(context: Ctx): Promise<Response> {
   if (interaction.type === PING) return json({ type: PONG })
 
   if (interaction.type === AUTOCOMPLETE) {
-    const choices = await autocomplete(typed(interaction), env)
+    const choices = await autocomplete(typed(interaction), env, waitUntil)
     return json({ type: AUTOCOMPLETE_RESULT, data: { choices } })
   }
 
   if (interaction.type === APPLICATION_COMMAND) {
-    const reply = await lookup(typed(interaction), env)
+    const reply = await lookup(typed(interaction), env, waitUntil)
     return json({ type: CHANNEL_MESSAGE, data: reply })
   }
 
@@ -106,10 +112,14 @@ function typed(interaction: Interaction): string {
 
 // ─── Signature ────────────────────────────────────────────────────────────────
 
-function hexToBytes(hex: string): Uint8Array {
+// Allocated through an explicit ArrayBuffer rather than `new Uint8Array(n)`. Both are the
+// same at runtime, but TypeScript types the shorthand as Uint8Array<ArrayBufferLike>, and
+// WebCrypto's BufferSource will only accept a view backed by a plain ArrayBuffer — a
+// SharedArrayBuffer-backed view is not transferable to it.
+function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
   const clean = hex.trim()
-  if (clean.length % 2 !== 0 || /[^0-9a-f]/i.test(clean)) return new Uint8Array(0)
-  const out = new Uint8Array(clean.length / 2)
+  if (clean.length % 2 !== 0 || /[^0-9a-f]/i.test(clean)) return new Uint8Array(new ArrayBuffer(0))
+  const out = new Uint8Array(new ArrayBuffer(clean.length / 2))
   for (let i = 0; i < out.length; i++) out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16)
   return out
 }
@@ -126,7 +136,12 @@ async function verify(body: string, signature: string, timestamp: string, public
   const sig = hexToBytes(signature)
   const key = hexToBytes(publicKey)
   if (sig.length === 0 || key.length === 0) return false
-  const message = new TextEncoder().encode(timestamp + body)
+  // Same BufferSource requirement as above. TextEncoder always allocates a plain
+  // ArrayBuffer, so copying into one we typed ourselves costs a few hundred bytes and keeps
+  // the call honest rather than casting the guarantee away.
+  const encoded = new TextEncoder().encode(timestamp + body)
+  const message = new Uint8Array(new ArrayBuffer(encoded.length))
+  message.set(encoded)
 
   for (const algorithm of [{ name: 'Ed25519' }, { name: 'NODE-ED25519', namedCurve: 'NODE-ED25519' }]) {
     try {
@@ -155,14 +170,90 @@ function reader(env: Env, signal: AbortSignal) {
   }
 }
 
+// ─── Roster cache ─────────────────────────────────────────────────────────────
+//
+// Autocomplete is what makes this worth having. Discord fires an autocomplete interaction
+// as the reader types, several per search, and each one needs the whole roster to match
+// against — so the uncached version re-read all ~120 players and every team for each
+// keystroke, to answer from data that changes when someone is signed or traded.
+//
+// Two layers, because they fail differently. The module-scope memo is free and instant but
+// lives only as long as this isolate, which covers the burst within one search and not much
+// else. The Cache API is shared across isolates in the same colo and survives one being
+// recycled, so it covers the gap between searches. A miss on both is the only path that
+// touches the database.
+//
+// Only public roster data is held here, which is what makes a cache shared across every
+// reader of the isolate safe. Nothing interaction-specific goes in.
+//
+// Box-score lines are deliberately NOT cached: they change while a game is being played,
+// they're small, and they're fetched for one player at a time. Serving a five-minute-old
+// batting line during a live game is the one staleness anyone would actually notice.
+const ROSTER_TTL_S = 300
+
+interface Roster { players: RosterPlayer[]; teams: WpblTeam[] }
+
+let memo: { at: number; data: Roster } | null = null
+
+/** Test seam: drops the in-isolate memo so a test can observe a cold load. */
+export function __resetRosterCache(): void { memo = null }
+
+export async function loadRoster(
+  env: Env,
+  signal: AbortSignal,
+  waitUntil?: (p: Promise<unknown>) => void,
+): Promise<Roster | null> {
+  const now = Date.now()
+  if (memo && now - memo.at < ROSTER_TTL_S * 1000) return memo.data
+
+  const cache = (globalThis as { caches?: { default?: Cache } }).caches?.default
+  // A synthetic key on a hostname that resolves to nothing: the Cache API keys on a Request,
+  // and this entry is written and read only by us, never fetched.
+  const key = new Request('https://wpbl-bot.invalid/roster-v1')
+
+  if (cache) {
+    try {
+      const hit = await cache.match(key)
+      if (hit) {
+        const data = await hit.json() as Roster
+        memo = { at: now, data }
+        return data
+      }
+    } catch { /* a cache miss must never be fatal — fall through to the database */ }
+  }
+
+  const read = reader(env, signal)
+  if (!read) return null
+  const [players, teams] = await Promise.all([
+    read<RosterPlayer>('wpbl_players?select=id,name,position,team_id&order=name'),
+    read<WpblTeam>('wpbl_teams?select=*'),
+  ])
+  const data: Roster = { players, teams }
+  memo = { at: now, data }
+
+  if (cache) {
+    const stored = new Response(JSON.stringify(data), {
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${ROSTER_TTL_S}` },
+    })
+    // Writing the cache is not something the reader should wait on.
+    const put = cache.put(key, stored).catch(() => {})
+    if (waitUntil) waitUntil(put)
+  }
+  return data
+}
+
 /** Suggestions while the reader is still typing. Discord allows at most 25. */
-async function autocomplete(query: string, env: Env): Promise<{ name: string; value: string }[]> {
+async function autocomplete(
+  query: string,
+  env: Env,
+  waitUntil?: (p: Promise<unknown>) => void,
+): Promise<{ name: string; value: string }[]> {
   const abort = new AbortController()
   const timer = setTimeout(() => abort.abort(), DATA_TIMEOUT_MS)
   try {
-    const read = reader(env, abort.signal)
-    if (!read) return []
-    const players = await read<RosterPlayer>('wpbl_players?select=id,name,position,team_id&order=name')
+    const roster = await loadRoster(env, abort.signal, waitUntil)
+    if (!roster) return []
+    const players = roster.players
     // An empty box should still offer something rather than sitting blank.
     const hits = query ? searchPlayers(query, players).slice(0, 25) : players.slice(0, 25).map(p => ({ player: p }))
     return hits.map(h => ({
@@ -179,19 +270,19 @@ async function autocomplete(query: string, env: Env): Promise<{ name: string; va
 }
 
 /** Resolve a name and build the reply. Never throws: every failure becomes a message. */
-async function lookup(query: string, env: Env): Promise<DiscordReply> {
+async function lookup(
+  query: string,
+  env: Env,
+  waitUntil?: (p: Promise<unknown>) => void,
+): Promise<DiscordReply> {
   if (!query) return buildNoMatchReply('', [])
 
   const abort = new AbortController()
   const timer = setTimeout(() => abort.abort(), DATA_TIMEOUT_MS)
   try {
-    const read = reader(env, abort.signal)
-    if (!read) return errorReply('The stats database is not configured for this bot yet.')
-
-    const [players, teams] = await Promise.all([
-      read<RosterPlayer>('wpbl_players?select=id,name,position,team_id'),
-      read<WpblTeam>('wpbl_teams?select=*'),
-    ])
+    const roster = await loadRoster(env, abort.signal, waitUntil)
+    if (!roster) return errorReply('The stats database is not configured for this bot yet.')
+    const { players, teams } = roster
 
     const hits = searchPlayers(query, players)
     if (hits.length === 0) return buildNoMatchReply(query, [])
@@ -206,6 +297,9 @@ async function lookup(query: string, env: Env): Promise<DiscordReply> {
     const tied = hits.filter(h => h.score === best.score)
     if (tied.length > 1) return buildAmbiguousReply(query, tied.map(h => h.player.name))
 
+    // Uncached, and per player: these move during a live game.
+    const read = reader(env, abort.signal)
+    if (!read) return errorReply('The stats database is not configured for this bot yet.')
     const [batting, pitching] = await Promise.all([
       read<WpblBattingLine>(`wpbl_batting_lines?select=*&player_id=eq.${best.player.id}`),
       read<WpblPitchingLine>(`wpbl_pitching_lines?select=*&player_id=eq.${best.player.id}`),

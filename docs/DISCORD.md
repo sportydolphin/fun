@@ -90,6 +90,15 @@ ingest's [`names.ts`](../supabase/functions/wpbl-ingest/names.ts) on purpose: th
 reconciles feed records and must be strict, because a wrong match forks a player's season
 across two rows. A wrong match here just shows a "did you mean".
 
+The roster is cached, which matters more than it sounds. Discord fires an autocomplete
+interaction as the reader types, several per search, and each needs the whole roster to
+match against — so the first version re-read every player and every team per keystroke. It
+now goes through a memo in the isolate (free, instant, covers the burst within one search)
+backed by the Cache API (shared across isolates in a colo, covers the gap between searches),
+on a five-minute TTL. Box-score lines are deliberately left uncached: they move during a
+live game, they're per player, and a stale batting line is the one thing anyone would
+notice.
+
 The reply is public so lookups can be shared. A miss, an ambiguous name, or a failure is
 **ephemeral** (only the person who ran it sees it), so a channel doesn't fill up with other
 people's typos. Both are built in
