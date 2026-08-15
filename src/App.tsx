@@ -5,7 +5,7 @@ import { Brightness4, Brightness7, AccountCircle, Search, Close } from '@mui/ico
 import { useSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import type { PlayerBridgeItem, TeamBridgeItem, ToolbarSuggestion, RecentSearchItem, SearchResultRow } from './mlb/state/SearchBridgeContext'
 import { HEADSHOT, TEAM_BG, TEAM_ABBR, ACCENT, DESKTOP_ZOOM } from './mlb/constants'
-import { APP_VERSION, CHANGELOG } from './version'
+import { APP_VERSION } from './version'
 import { useTheme } from './ThemeContext'
 import { DevSettings, MobilePreviewHost } from './dev/DevSettings'
 import { isInsideDeviceFrame } from './mlb/dev/devDevice'
@@ -13,20 +13,13 @@ import { AuthProvider, useAuth } from './AuthContext'
 import { UnitsProvider } from './UnitsContext'
 import { ExperimentsProvider } from './ExperimentsContext'
 import { PENDING_USERNAME_PREFIX } from './AuthContext'
-import { AdminPanel } from './AdminPanel'
-import { UsernameDialog } from './UsernameDialog'
-import { SettingsDialog } from './SettingsDialog'
 import { SiteFooter } from './SiteFooter'
-import { PrivacyPolicy, TermsOfService } from './LegalPages'
-import { FeedbackDialog } from './FeedbackDialog'
 import { NotificationBell } from './NotificationBell'
 import { supabase } from './lib/supabase'
 import { useSeo } from './seo'
 import { track, EVENTS } from './lib/analytics'
 import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from './lib/usernames'
 import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
-import { DeactivatedDialog } from './DeactivatedDialog'
-import CupsGame from '../projects/cups-game/src/CupsGame'
 
 // Cosmetic gate only: decides whether the ⚡ Admin button renders. It grants NO
 // privilege — every admin action is enforced server-side by RLS (public.is_site_owner(),
@@ -34,10 +27,6 @@ import CupsGame from '../projects/cups-game/src/CupsGame'
 // the verified auth.uid() and can't be spoofed by faking this client value. Shared with
 // the WPBL feature-flagged sections via src/lib/admin.ts.
 import { ADMIN_EMAIL } from './lib/admin'
-import TestGame from './TestGame'
-import Stopwatch from './Stopwatch'
-import WeightGame from './WeightGame'
-import PoopGame from './PoopGame'
 
 // The MLB feature is by far the largest part of the app — code-split it so the
 // landing page and other projects don't ship its ~entire view tree up front.
@@ -46,6 +35,46 @@ const MlbStats = lazy(() => import('./MlbStats'))
 // stays out of the MLB and landing bundles.
 const WpblApp = lazy(() => import('./wpbl/WpblApp'))
 const WpblApiDocs = lazy(() => import('./wpbl/ApiDocs'))
+
+// The mini-apps: each is a whole game or tool reachable only from its own route, and none
+// of them has anything to do with the two league sections that carry the traffic. Eagerly
+// imported they were ~120 KB of the entry chunk that a /wpbl reader downloaded and never
+// ran. TestGame alone is 47 KB of source.
+const CupsGame = lazy(() => import('../projects/cups-game/src/CupsGame'))
+const TestGame = lazy(() => import('./TestGame'))
+const Stopwatch = lazy(() => import('./Stopwatch'))
+const WeightGame = lazy(() => import('./WeightGame'))
+const PoopGame = lazy(() => import('./PoopGame'))
+// Both legal pages come from one module, so these two share a chunk.
+const PrivacyPolicy = lazy(() => import('./LegalPages').then(m => ({ default: m.PrivacyPolicy })))
+const TermsOfService = lazy(() => import('./LegalPages').then(m => ({ default: m.TermsOfService })))
+
+// Dialogs. Each is mounted only after it has been opened once (see `useOpenedOnce`), so its
+// chunk is fetched on the click that needs it. SettingsDialog is the expensive one: it pulls
+// in MLB's api + constants + colour utilities, ~90 KB of source that has no business loading
+// for someone reading WPBL box scores. AdminPanel is 36 KB that only the owner can use.
+const AdminPanel = lazy(() => import('./AdminPanel').then(m => ({ default: m.AdminPanel })))
+const SettingsDialog = lazy(() => import('./SettingsDialog').then(m => ({ default: m.SettingsDialog })))
+const FeedbackDialog = lazy(() => import('./FeedbackDialog').then(m => ({ default: m.FeedbackDialog })))
+const UsernameDialog = lazy(() => import('./UsernameDialog').then(m => ({ default: m.UsernameDialog })))
+const DeactivatedDialog = lazy(() => import('./DeactivatedDialog').then(m => ({ default: m.DeactivatedDialog })))
+const ChangelogDialogs = lazy(() => import('./ChangelogDialogs'))
+
+// Latch a dialog's "has ever been open" flag.
+//
+// Gating a lazy dialog on `open` alone would unmount it the instant it closes, which throws
+// away MUI's close transition — the panel would vanish instead of fading. Latching means the
+// chunk still isn't fetched until the first open, and after that the dialog stays mounted and
+// animates normally.
+function useOpenedOnce(open: boolean): boolean {
+  const [opened, setOpened] = useState(false)
+  if (open && !opened) setOpened(true)
+  return opened || open
+}
+
+// Dialogs render above the page, so a spinner in their place would be a stray box floating
+// over the app; the brief gap before the chunk lands reads as the click taking a moment.
+const DIALOG_FALLBACK = null
 
 type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame' | '/mlb' | '/wpbl' | '/wpbl/api' | '/privacy' | '/terms'
 
@@ -267,16 +296,6 @@ function ToolbarResultRow({ row, onSelect }: { row: SearchResultRow; onSelect: (
   )
 }
 
-// ─── Changelog bullet — plain text, used for both the brief and full-detail lists ──
-
-function ChangelogBullet({ text }: { text: string }) {
-  return (
-    <Typography component="li" sx={{ fontSize: '0.86rem', color: 'text.secondary', mb: 0.6, lineHeight: 1.45 }}>
-      {text}
-    </Typography>
-  )
-}
-
 function AppInner() {
   const { mode, toggleTheme, skinConfig } = useTheme()
   const integratedHeader = skinConfig.integratedHeader
@@ -293,12 +312,20 @@ function AppInner() {
   const [accountOpen,      setAccountOpen]      = useState(false)
   const [changelogOpen,    setChangelogOpen]    = useState(false)
   const [feedbackOpen,     setFeedbackOpen]     = useState(false)
-  const [viewAllVersion,   setViewAllVersion]   = useState<string | null>(null)
   const [adminOpen,        setAdminOpen]        = useState(false)
   const [usernameOpen,     setUsernameOpen]     = useState(false)
   const [settingsOpen,     setSettingsOpen]     = useState(false)
   const [username,         setUsername]         = useState<string | null>(null)
   const [deactivated,      setDeactivated]      = useState(false)
+
+  // Lazy dialogs mount on first open and stay mounted (see useOpenedOnce), so their chunks
+  // are fetched by the click that needs them rather than on every page load.
+  const feedbackMounted    = useOpenedOnce(feedbackOpen)
+  const adminMounted       = useOpenedOnce(adminOpen)
+  const deactivatedMounted = useOpenedOnce(deactivated)
+  const usernameMounted    = useOpenedOnce(usernameOpen)
+  const settingsMounted    = useOpenedOnce(settingsOpen)
+  const changelogMounted   = useOpenedOnce(changelogOpen)
   const [authToast,        setAuthToast]         = useState<'in' | 'out' | 'deleted' | null>(null)
   const accountBtnRef = useRef<HTMLButtonElement>(null)
   const leagueSwitchRef = useRef<HTMLDivElement>(null)
@@ -964,31 +991,41 @@ function AppInner() {
         {path === '/cups' && (
           <Box>
             {backBtn}
-            <CupsGame />
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <CupsGame />
+            </Suspense>
           </Box>
         )}
         {path === '/stopwatch' && (
           <Box>
             {backBtn}
-            <Stopwatch />
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <Stopwatch />
+            </Suspense>
           </Box>
         )}
         {path === '/weights' && (
           <Box>
             {backBtn}
-            <WeightGame />
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <WeightGame />
+            </Suspense>
           </Box>
         )}
         {path === '/poop' && (
           <Box>
             {backBtn}
-            <PoopGame />
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <PoopGame />
+            </Suspense>
           </Box>
         )}
         {path === '/testgame' && (
           <Box>
             {backBtn}
-            <TestGame />
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <TestGame />
+            </Suspense>
           </Box>
         )}
         {path === '/mlb' && (
@@ -1026,13 +1063,17 @@ function AppInner() {
         {path === '/privacy' && (
           <Box>
             {backBtn}
-            <PrivacyPolicy />
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <PrivacyPolicy />
+            </Suspense>
           </Box>
         )}
         {path === '/terms' && (
           <Box>
             {backBtn}
-            <TermsOfService />
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <TermsOfService />
+            </Suspense>
           </Box>
         )}
       </Box>
@@ -1049,95 +1090,40 @@ function AppInner() {
         />
       )}
 
-      <FeedbackDialog
-        open={feedbackOpen}
-        onClose={() => setFeedbackOpen(false)}
-        userId={user?.id ?? null}
-        userEmail={user?.email ?? null}
-      />
+      {feedbackMounted && (
+        <Suspense fallback={DIALOG_FALLBACK}>
+          <FeedbackDialog
+            open={feedbackOpen}
+            onClose={() => setFeedbackOpen(false)}
+            userId={user?.id ?? null}
+            userEmail={user?.email ?? null}
+          />
+        </Suspense>
+      )}
 
-      <AdminPanel
-        open={adminOpen}
-        onClose={() => setAdminOpen(false)}
-        apps={otherApps}
-        isAppLocked={isAppLocked}
-        onOpenApp={openApp}
-      />
+      {adminMounted && (
+        <Suspense fallback={DIALOG_FALLBACK}>
+          <AdminPanel
+            open={adminOpen}
+            onClose={() => setAdminOpen(false)}
+            apps={otherApps}
+            isAppLocked={isAppLocked}
+            onOpenApp={openApp}
+          />
+        </Suspense>
+      )}
 
-      <DeactivatedDialog open={deactivated} onClose={() => setDeactivated(false)} />
+      {deactivatedMounted && (
+        <Suspense fallback={DIALOG_FALLBACK}>
+          <DeactivatedDialog open={deactivated} onClose={() => setDeactivated(false)} />
+        </Suspense>
+      )}
 
-      <Dialog open={changelogOpen} onClose={() => setChangelogOpen(false)} maxWidth="sm" fullWidth fullScreen={!isDesktop}>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
-          What's New
-          <Typography component="span" sx={{ fontSize: '0.8rem', color: 'text.disabled', fontWeight: 600 }}>
-            · currently v{APP_VERSION}
-          </Typography>
-        </DialogTitle>
-        <DialogContent dividers>
-          {CHANGELOG.map((entry, idx) => (
-            <Box key={entry.version} sx={{ mb: idx === CHANGELOG.length - 1 ? 0 : 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-                <Typography sx={{ fontWeight: 800, fontSize: '1rem', lineHeight: 1 }}>v{entry.version}</Typography>
-                {entry.title && (
-                  <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1 }}>
-                    {entry.title}
-                  </Typography>
-                )}
-                <Typography sx={{ ml: 'auto', fontSize: '0.72rem', color: 'text.disabled', lineHeight: 1 }}>
-                  {new Date(`${entry.date}T00:00:00`).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })}
-                </Typography>
-              </Box>
-              <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-                {entry.changes.slice(0, 4).map((c, i) => (
-                  <ChangelogBullet key={i} text={c.short} />
-                ))}
-              </Box>
-              <Box
-                onClick={() => setViewAllVersion(entry.version)}
-                sx={{
-                  display: 'inline-block', mt: 0.75, cursor: 'pointer',
-                  fontSize: '0.72rem', fontWeight: 700, color: ACCENT,
-                  '&:hover': { textDecoration: 'underline' },
-                }}
-              >
-                View all changes
-              </Box>
-            </Box>
-          ))}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setChangelogOpen(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={viewAllVersion !== null} onClose={() => setViewAllVersion(null)} maxWidth="sm" fullWidth fullScreen={!isDesktop}>
-        {(() => {
-          const entry = CHANGELOG.find(e => e.version === viewAllVersion)
-          if (!entry) return null
-          return (
-            <>
-              <DialogTitle sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
-                v{entry.version}
-                {entry.title && (
-                  <Typography component="span" sx={{ fontSize: '0.8rem', color: 'text.disabled', fontWeight: 600 }}>
-                    {entry.title}
-                  </Typography>
-                )}
-              </DialogTitle>
-              <DialogContent dividers>
-                <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
-                  {entry.changes.map((c, i) => (
-                    <ChangelogBullet key={i} text={c.full} />
-                  ))}
-                </Box>
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={() => setViewAllVersion(null)}>Close</Button>
-              </DialogActions>
-            </>
-          )
-        })()}
-      </Dialog>
+      {changelogMounted && (
+        <Suspense fallback={DIALOG_FALLBACK}>
+          <ChangelogDialogs open={changelogOpen} onClose={() => setChangelogOpen(false)} />
+        </Suspense>
+      )}
 
       <Dialog open={lockDialogOpen} onClose={() => setLockDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>🔒 Password required</DialogTitle>
@@ -1161,26 +1147,32 @@ function AppInner() {
         </DialogActions>
       </Dialog>
 
-      {user && (
-        <UsernameDialog
-          open={usernameOpen}
-          onClose={() => setUsernameOpen(false)}
-          userId={user.id}
-          currentUsername={username}
-          onSaved={setUsername}
-        />
+      {user && usernameMounted && (
+        <Suspense fallback={DIALOG_FALLBACK}>
+          <UsernameDialog
+            open={usernameOpen}
+            onClose={() => setUsernameOpen(false)}
+            userId={user.id}
+            currentUsername={username}
+            onSaved={setUsername}
+          />
+        </Suspense>
       )}
 
       {/* Settings is available to everyone; account-specific sections inside only
           render when signed in. */}
-      <SettingsDialog
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        userId={user?.id ?? null}
-        email={user?.email ?? ''}
-        currentUsername={username}
-        onEditUsername={() => { setSettingsOpen(false); setUsernameOpen(true) }}
-      />
+      {settingsMounted && (
+        <Suspense fallback={DIALOG_FALLBACK}>
+          <SettingsDialog
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            userId={user?.id ?? null}
+            email={user?.email ?? ''}
+            currentUsername={username}
+            onEditUsername={() => { setSettingsOpen(false); setUsernameOpen(true) }}
+          />
+        </Suspense>
+      )}
 
       <Snackbar
         open={!!authToast}

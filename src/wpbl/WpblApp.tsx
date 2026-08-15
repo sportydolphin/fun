@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Box, Typography, Skeleton, useMediaQuery } from '@mui/material'
-import { fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings } from './api'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Box, Typography, Skeleton, CircularProgress, useMediaQuery } from '@mui/material'
+import {
+  fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings,
+  fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, fetchWpblVideos,
+} from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
 import { wpblPortrait } from './portraits'
 import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER } from './ui'
 import { useSearchBridge, updateSearchBridge, setSearchQuery } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
-import GameDetailModal from './GameDetail'
-import PlayerDetailModal from './PlayerDetail'
 import { track, EVENTS } from '../lib/analytics'
 import WpblHome from './Home'
 import WpblStatsView, { type WpblStatsFocus } from './StatsView'
@@ -16,6 +17,30 @@ import TeamPage from './TeamPage'
 import SwipeableViews from './SwipeableViews'
 import WpblBottomNav, { BOTTOM_NAV_SPACE } from './BottomNav'
 import { useExperiments } from '../ExperimentsContext'
+
+// The two detail modals, split out of the section's chunk.
+//
+// Neither is on screen when /wpbl loads — both open on a tap — but together they were about
+// a third of what the landing view had to download and parse. GameDetail is the biggest
+// single file in the section (line score, box score, play-by-play, pitch data, recap tab) and
+// it drags Highlights, GamePreview and the live poller along with it.
+const GameDetailModal = lazy(() => import('./GameDetail'))
+const PlayerDetailModal = lazy(() => import('./PlayerDetail'))
+
+// Shown while a modal's chunk loads. A tap should visibly do something immediately, so this
+// paints the scrim the modal itself is about to paint — the panel then fills in over it,
+// rather than the tap appearing to have missed.
+function ModalChunkFallback() {
+  return (
+    <Box sx={{
+      position: 'fixed', inset: 0, zIndex: 1300,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      bgcolor: 'rgba(0,0,0,0.5)',
+    }}>
+      <CircularProgress size={28} sx={{ color: WPBL_ACCENT }} />
+    </Box>
+  )
+}
 
 // WPBL section root. Reads the official-feed mirror from Supabase (games, box scores,
 // play-by-play, live state) and renders it; everything shows a friendly empty state until
@@ -503,6 +528,35 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // Full roster of every player, loaded once — the pool the header search filters over.
   useEffect(() => { fetchWpblAllPlayers().then(setPlayers).catch(() => {}) }, [])
 
+  // Warm the datasets the landing view will ask for, in parallel with the teams/schedule
+  // read above rather than after it.
+  //
+  // Home owns these reads, but Home cannot mount until `loading` clears, and `loading`
+  // clears only when teams+schedule resolve — so they used to queue behind that round trip.
+  // On production the first three requests went out at 444 ms and the remaining ones did not
+  // start until 1454 ms: a full second of serialized latency that bought nothing, since none
+  // of these reads depend on teams or games. Firing them here overlaps the two waves.
+  //
+  // This is a warm-up, not a load: the results land in the api layer's session cache and the
+  // rest is unchanged. Home still owns the fetching, still renders from the same cache
+  // getters, and still revalidates on its own schedule. If Home mounts while these are in
+  // flight, `once()` hands it the same promises instead of issuing a second set; if they have
+  // already settled, Home seeds straight from cache and skips the round trip entirely.
+  //
+  // Deliberately scoped to a Home landing. Deep links (a shared ?game=, or ?view=stats) open
+  // a view that wants a different, smaller slice, and the whole-season play-by-play read is
+  // the most expensive one on the section — it should not be speculative.
+  const landsOnHome = useRef(view === 'home')
+  useEffect(() => {
+    if (!landsOnHome.current) return
+    void Promise.all([
+      fetchWpblAllLines(),
+      fetchWpblAllPlays(),
+      fetchWpblAllTracking(),
+      fetchWpblVideos(),
+    ]).catch(() => { /* Home's own effect surfaces failures; this is only a head start */ })
+  }, [])
+
   // Open the game named in a shared ?game=<id> link, once the schedule is available. A
   // final opens on its Recap tab by itself (see GameDetailModal), which is what the Discord
   // recap link is pointing at.
@@ -623,14 +677,29 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // Keep the schedule / scoreboard / standings live as the official-feed ingest writes
   // scores and status changes. Teams are static, so only the schedule is re-fetched.
   // Poll faster while a game is in progress, and refresh whenever the tab regains focus.
+  // Stop the timer outright while the tab is hidden, rather than letting it tick against a
+  // page nobody is looking at. A backgrounded phone browser throttles timers but does not
+  // stop them, so this was still waking the radio to re-pull the schedule — on cellular, for
+  // a screen that is off. Becoming visible refreshes immediately and restarts the interval,
+  // so the reader still sees current scores the moment they come back; they just do not pay
+  // for the gap. Same reason `focus` refreshes without starting a second timer.
   useEffect(() => {
+    let id: ReturnType<typeof setInterval> | undefined
     const refresh = () => { fetchWpblSchedule().then(setGames).catch(() => {}) }
-    const id = setInterval(refresh, liveGame ? 20000 : 60000)
-    const onVisible = () => { if (document.visibilityState === 'visible') refresh() }
+    const stop = () => { if (id !== undefined) { clearInterval(id); id = undefined } }
+    const start = () => {
+      stop()
+      if (document.visibilityState === 'visible') id = setInterval(refresh, liveGame ? 20000 : 60000)
+    }
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh()
+      start()
+    }
+    start()
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('focus', refresh)
     return () => {
-      clearInterval(id)
+      stop()
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', refresh)
     }
@@ -737,22 +806,26 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
       )}
 
       {detailPlayer && (
-        <PlayerDetailModal
-          player={detailPlayer}
-          teams={teams}
-          games={games}
-          onClose={closeTop}
-        />
+        <Suspense fallback={<ModalChunkFallback />}>
+          <PlayerDetailModal
+            player={detailPlayer}
+            teams={teams}
+            games={games}
+            onClose={closeTop}
+          />
+        </Suspense>
       )}
 
       {detailGame && (
-        <GameDetailModal
-          game={detailGame}
-          teams={teams}
-          games={games}
-          onClose={closeTop}
-          onOpenPlayer={openPlayer}
-        />
+        <Suspense fallback={<ModalChunkFallback />}>
+          <GameDetailModal
+            game={detailGame}
+            teams={teams}
+            games={games}
+            onClose={closeTop}
+            onOpenPlayer={openPlayer}
+          />
+        </Suspense>
       )}
     </Box>
   )

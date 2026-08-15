@@ -1,0 +1,46 @@
+# Cloudflare Pages response headers.
+#
+# Pages' default for every file is `public, max-age=14400, must-revalidate` — four hours,
+# applied even to files whose names already contain a content hash. Past that window a
+# returning visitor revalidates the entry chunk, the WPBL chunk, the font and every
+# portrait: a round trip each, on a connection where round trips are the expensive part.
+# Three quarters of the traffic here is mobile, so that default was the wrong trade.
+#
+# The rules below split the tree by whether a URL's content can ever change.
+
+# Vite stamps a content hash into every filename under /assets/, so a given URL is
+# immutable by construction — a changed file gets a different name. Cache it for a year
+# and never revalidate.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Same deal for the font: one file, replaced only by a deploy that also changes the CSS
+# that references it.
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# The stable-path portrait mirror (see scripts/vite-plugin-wpbl-portraits.mjs). These
+# URLs are NOT hashed — the Pages function that writes a shared player's og:image has to
+# predict them from the player's name — so they can be overwritten in place by a later
+# deploy. Cache them hard but not immutably: a week, then a revalidation that is almost
+# always a cheap 304.
+/portraits/*
+  Cache-Control: public, max-age=604800
+
+# The app shell must not be cached: it is what points at the current hashed asset names,
+# so a stale copy pins a returning visitor to a previous deploy's chunks.
+/
+  Cache-Control: public, max-age=0, must-revalidate
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Both league sections are the same shell, served by the SPA fallback.
+/wpbl
+  Cache-Control: public, max-age=0, must-revalidate
+/mlb
+  Cache-Control: public, max-age=0, must-revalidate
+
+# The service worker: browsers already bypass the HTTP cache for this on update checks,
+# but an explicit no-cache keeps an intermediary from pinning an old worker.
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate

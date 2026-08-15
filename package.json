@@ -21,7 +21,8 @@
     "discord-recaps": "esbuild scripts/post-wpbl-discord-recaps.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-discord-recaps.mjs && node node_modules/.cache/wpbl-discord-recaps.mjs",
     "discord-highlights": "node scripts/post-wpbl-discord-highlights.mjs",
     "discord-commands": "node --env-file=.env scripts/register-wpbl-discord-commands.mjs",
-    "check-functions": "esbuild functions/*/*.ts --bundle --format=esm --platform=neutral --outdir=node_modules/.cache/functions-check"
+    "check-functions": "esbuild functions/*/*.ts --bundle --format=esm --platform=neutral --outdir=node_modules/.cache/functions-check",
+    "subset-font": "node scripts/subset-inter.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -44,6 +45,7 @@
     "@vitejs/plugin-react": "^4.7.0",
     "esbuild": "^0.25.12",
     "jsdom": "^26.1.0",
+    "subset-font": "^2.5.0",
     "typescript": "^5.2.2",
     "vite": "^6.4.2",
     "vitest": "^4.0.17",

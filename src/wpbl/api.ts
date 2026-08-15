@@ -1,8 +1,9 @@
 import { supabase } from '../lib/supabase'
+import { FIRSTS_EVENT_TYPES } from './firsts'
 import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
-  WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblPitchTracking, WpblTrackRow,
+  WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchTracking, WpblTrackRow,
   WpblVideo,
 } from './types'
 
@@ -44,8 +45,8 @@ async function safe<T>(label: string, run: () => PromiseLike<{ data: T | null; e
 // for the same bulk dataset (WpblApp's search pool and Home both pull the full roster; the
 // schedule poll can overlap a focus-refresh) — without this each fires its own DB query.
 // Keyed by dataset, the in-flight promise is shared until it settles, then cleared: this
-// only dedupes genuine overlap and never hands a later, deliberately-fresh call stale data
-// (the result caches + per-caller staleness gating handle revalidation separately).
+// only dedupes genuine overlap. Reads that land near each other but don't actually overlap
+// are handled a layer up, by the BULK_FRESH_MS window on the cached bulk fetchers below.
 const inflight = new Map<string, Promise<unknown>>()
 function once<T>(key: string, run: () => Promise<T>): Promise<T> {
   const pending = inflight.get(key) as Promise<T> | undefined
@@ -111,6 +112,23 @@ let allTrackingCache: { data: WpblTrackRow[]; at: number } | null = null
 let allPlaysCache:    { data: WpblFirstsPlay[]; at: number } | null = null
 let allVideosCache:   { data: WpblVideo[]; at: number } | null = null
 
+// How long a bulk result is served straight from the cache without re-querying.
+//
+// `once()` above collapses reads that overlap in time; this collapses reads that merely
+// land close together, which on a cold load is most of them. Five components ask for these
+// same league-wide datasets independently — Home's leaders, GamePreview's "next game" card,
+// StatsView, TeamPage, TrackingView — and only some of them gated on their own staleness
+// helper, so a single load re-pulled the full roster and every box-score line two or three
+// times, hundreds of milliseconds apart. That is what a session cache is for; the callers
+// should not each have to remember to check it.
+//
+// Kept comfortably below the 30s window Home's own gate uses, so nothing that revalidates
+// on a schedule (the live-game poll runs at 60s) gets held back — this only absorbs the
+// fan-out within one page load or one quick tab switch.
+const BULK_FRESH_MS = 20_000
+
+const isFresh = (c: { at: number } | null): boolean => !!c && Date.now() - c.at < BULK_FRESH_MS
+
 export function getCachedWpblAllPlayers(): WpblPlayer[] | null { return allPlayersCache?.data ?? null }
 export function getCachedWpblAllLines(): WpblLinesResult | null { return allLinesCache?.data ?? null }
 export function getCachedWpblAllTracking(): WpblTrackRow[] | null { return allTrackingCache?.data ?? null }
@@ -138,6 +156,7 @@ export function wpblHomeCacheAgeMs(): number {
 // Every player in the league (all four rosters). Used to attach names/teams to the
 // aggregated league-leader rows on the home view.
 export function fetchWpblAllPlayers(): Promise<WpblPlayer[]> {
+  if (isFresh(allPlayersCache)) return Promise.resolve(allPlayersCache!.data)
   return once('allPlayers', async () => {
     const data = await safe('fetchWpblAllPlayers', () =>
       supabase.from('wpbl_players').select('*'),
@@ -156,24 +175,55 @@ export function fetchWpblAllPlayers(): Promise<WpblPlayer[]> {
 const FIRSTS_PLAY_SELECT =
   'game_id,sequence,team_id,batter_id,batter_name,pitcher_id,pitcher_name,narrative,event_type,is_hit,runs_scored'
 
-// Every play-by-play row in the league — for the Hall of Firsts (first HR, first
-// strikeout, first stolen base, etc.). The heaviest WPBL read (one row per play, all
-// season), so it's both column-projected and cached last-good, letting the Home tab
-// repaint on a swipe-back without re-pulling it. Empty pre-migration.
+// Only the plays that could ever set a milestone (see playCanSetFirst). Routine outs are
+// most of the play log and none of them can produce a first, so they are dropped at the
+// database rather than transferred and skipped on the phone.
+const FIRSTS_PLAY_FILTER = [
+  'is_hit.is.true',
+  `event_type.in.(${FIRSTS_EVENT_TYPES.join(',')})`,
+  'runs_scored.gt.0',
+  'narrative.ilike.*balk*',
+].join(',')
+
+// Every play-by-play row in the league that could set a Hall of Firsts milestone (first HR,
+// first strikeout, first stolen base, …). The heaviest WPBL read — one row per play for the
+// whole season — so it is column-projected, filtered server-side, and cached last-good so
+// the Home tab repaints on a swipe-back without re-pulling it. Empty pre-migration.
+//
+// Paginated, and this is not optional. PostgREST caps an unbounded select at 1000 rows and
+// returns them in no defined order, so before this the season scan silently stopped at that
+// cap — `wpbl_game_plays` passed it mid-season — and the rows that came back were an
+// arbitrary slice. computeFirsts sorts what it is handed and takes the earliest match, so a
+// dropped opening-day play did not just omit a milestone, it reassigned it to whoever did it
+// next. The explicit order also makes the paging deterministic: without it, PostgREST can
+// return the same row on two pages and miss another entirely.
 export function fetchWpblAllPlays(): Promise<WpblFirstsPlay[]> {
+  if (isFresh(allPlaysCache)) return Promise.resolve(allPlaysCache!.data)
   return once('allPlays', async () => {
-    const data = await safe<WpblFirstsPlay[]>('fetchWpblAllPlays', () =>
-      supabase.from('wpbl_game_plays').select(FIRSTS_PLAY_SELECT) as unknown as
-        PromiseLike<{ data: WpblFirstsPlay[] | null; error: unknown }>,
-      [])
-    if (data.length > 0 || allPlaysCache == null) allPlaysCache = { data, at: Date.now() }
-    return data
+    const PAGE = 1000
+    const out: WpblFirstsPlay[] = []
+    for (let from = 0; ; from += PAGE) {
+      const page = await safe<WpblFirstsPlay[]>('fetchWpblAllPlays', () =>
+        supabase.from('wpbl_game_plays')
+          .select(FIRSTS_PLAY_SELECT)
+          .or(FIRSTS_PLAY_FILTER)
+          .order('game_id', { ascending: true })
+          .order('sequence', { ascending: true })
+          .range(from, from + PAGE - 1) as unknown as
+          PromiseLike<{ data: WpblFirstsPlay[] | null; error: unknown }>,
+        [])
+      out.push(...page)
+      if (page.length < PAGE) break
+    }
+    if (out.length > 0 || allPlaysCache == null) allPlaysCache = { data: out, at: Date.now() }
+    return out
   })
 }
 
 // Every box-score line in the league — for computing season league leaders. Cheap for
 // a four-team league; returns empty (no leaders) until games start being entered.
 export function fetchWpblAllLines(): Promise<WpblLinesResult> {
+  if (isFresh(allLinesCache)) return Promise.resolve(allLinesCache!.data)
   return once('allLines', async () => {
     const [batting, pitching] = await Promise.all([
       safe('fetchWpblAllBatting', () =>
@@ -209,6 +259,7 @@ const numOrNull = (v: unknown): number | null => {
 }
 
 export function fetchWpblAllTracking(): Promise<WpblTrackRow[]> {
+  if (isFresh(allTrackingCache)) return Promise.resolve(allTrackingCache!.data)
   return once('allTracking', async () => {
   const PAGE = 1000
   const out: WpblTrackRow[] = []
@@ -248,6 +299,7 @@ export function fetchWpblAllTracking(): Promise<WpblTrackRow[]> {
 // read cached last-good: the rail repaints on a swipe-back without re-querying, and the
 // GameDetail recap reads the same cache instead of its own request. Empty pre-migration.
 export function fetchWpblVideos(): Promise<WpblVideo[]> {
+  if (isFresh(allVideosCache)) return Promise.resolve(allVideosCache!.data)
   return once('allVideos', async () => {
     const data = await safe<WpblVideo[]>('fetchWpblVideos', () =>
       supabase.from('wpbl_videos')
@@ -276,11 +328,27 @@ export async function fetchWpblGameLines(gameId: string): Promise<{ batting: Wpb
   return { batting, pitching, fielding }
 }
 
-// The official-feed play-by-play for one game, in order.
+// The official-feed play-by-play for one game, in order. Full rows — the Game Center renders
+// every pitch of every at-bat, so it genuinely needs `pitch_events`.
 export function fetchWpblGamePlays(gameId: string): Promise<WpblGamePlay[]> {
   return safe('fetchWpblGamePlays', () =>
     supabase.from('wpbl_game_plays').select('*').eq('game_id', gameId).order('sequence', { ascending: true }),
     [] as WpblGamePlay[])
+}
+
+// The same game's plays, projected to what buildRecap reads (see WpblRecapPlay).
+//
+// Home's "Last Game" card was calling fetchWpblGamePlays for this: ~80 KB of pitch-by-pitch
+// JSON, on the landing view, to answer whether anyone hit back-to-back home runs. The Game
+// Center still takes the full rows when a reader actually opens a game.
+export function fetchWpblGameRecapPlays(gameId: string): Promise<WpblRecapPlay[]> {
+  return safe<WpblRecapPlay[]>('fetchWpblGameRecapPlays', () =>
+    supabase.from('wpbl_game_plays')
+      .select('sequence,inning,team_id,event_type,narrative')
+      .eq('game_id', gameId)
+      .order('sequence', { ascending: true }) as unknown as
+      PromiseLike<{ data: WpblRecapPlay[] | null; error: unknown }>,
+    [])
 }
 
 // TrackMan pitch/hit tracking for one game (chronological).

@@ -1,4 +1,4 @@
-import type { WpblGame, WpblTeam, WpblBattingLine, WpblPitchingLine, WpblGamePlay } from '../types'
+import type { WpblGame, WpblTeam, WpblBattingLine, WpblPitchingLine, WpblRecapPlay } from '../types'
 // The two runtime imports below carry explicit .ts extensions because this module is also
 // loaded by Deno (supabase/functions/wpbl-ingest announces a final straight to Discord),
 // and Deno resolves local specifiers literally. Type-only imports are erased before
@@ -115,7 +115,7 @@ function pitchingStatline(p: WpblPitchingLine): string {
 
 // A batter's two consecutive plate appearances both homering — reuses the shared PA rule so
 // steals/pickoffs between swings don't count as "in between". Returns the inning, or null.
-function backToBackHR(plays: WpblGamePlay[]): number | null {
+function backToBackHR(plays: WpblRecapPlay[]): number | null {
   const lastPaEvent = new Map<string, string>()
   for (const p of plays) {
     if (!p.team_id) continue
@@ -131,7 +131,7 @@ export function buildRecap(
   teams: Map<string, WpblTeam>,
   batting: WpblBattingLine[],
   pitching: WpblPitchingLine[],
-  plays: WpblGamePlay[],
+  plays: WpblRecapPlay[],
   nameOf: (playerId: string) => string,
   ctx: RecapLeagueContext = DEFAULT_RECAP_CONTEXT,
 ): GameRecap | null {

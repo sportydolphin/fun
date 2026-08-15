@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblGamePlay } from './types'
+import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblGamePlay, WpblRecapPlay } from './types'
 import { buildRecap, leagueRecapContext, type GameRecap, type RecapStar } from './derive/recap'
-import { fetchWpblGameLines, fetchWpblGamePlays } from './api'
+import { fetchWpblGameLines, fetchWpblGameRecapPlays } from './api'
 import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, wpblNameStages } from './ui'
 import { WPBL_ACCENT, relativeDayLabel, wpblFullName } from './constants'
 
@@ -233,12 +233,12 @@ export function LastGameCard({ games, teams, players, onOpenGame }: {
   onOpenGame: (g: WpblGame) => void
 }) {
   const game = useMemo(() => latestFinal(games), [games])
-  const [data, setData] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[]; plays: WpblGamePlay[] } | null>(null)
+  const [data, setData] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[]; plays: WpblRecapPlay[] } | null>(null)
 
   useEffect(() => {
     if (!game) { setData(null); return }
     let cancelled = false
-    Promise.all([fetchWpblGameLines(game.id), fetchWpblGamePlays(game.id)])
+    Promise.all([fetchWpblGameLines(game.id), fetchWpblGameRecapPlays(game.id)])
       .then(([l, pl]) => { if (!cancelled) setData({ batting: l.batting, pitching: l.pitching, plays: pl }) })
       .catch(() => { /* keep last-good; card falls back to line-score-only recap */ })
     return () => { cancelled = true }

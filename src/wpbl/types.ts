@@ -234,6 +234,15 @@ export interface WpblGamePlay {
 // heavy per-play columns — notably `pitch_events` (a JSON array of every pitch) plus the
 // base/count fields — none of which the firsts computation touches. The full-fat
 // WpblGamePlay is still used for a single game's play-by-play (fetchWpblGamePlays).
+// The slim projection the game recap reads. buildRecap touches the play log for exactly one
+// question — were there back-to-back home runs — which needs the batting side, the event, the
+// narrative (for classifyPa's reached-on-error case) and the inning to report. Fetching a
+// finished game's full play rows for that shipped every pitch of every at-bat: about 80 KB
+// for a question answered by four columns.
+export type WpblRecapPlay = Pick<WpblGamePlay,
+  'sequence' | 'inning' | 'team_id' | 'event_type' | 'narrative'
+>
+
 export type WpblFirstsPlay = Pick<WpblGamePlay,
   | 'game_id' | 'sequence' | 'team_id'
   | 'batter_id' | 'batter_name' | 'pitcher_id' | 'pitcher_name'

@@ -68,6 +68,29 @@ const startMin = (t: string | null | undefined): number => {
 // one of these is not the batter's RBI). Everything else with runs_scored > 0 counts.
 const NON_RBI_EVENTS = new Set(['wild_pitch', 'passed_ball', 'balk', 'stolen_base'])
 
+// ─── Which plays this file can possibly care about ──────────────────────────────
+// The event types that name a milestone directly, and the predicate for "could this row
+// ever set a first?". `fetchWpblAllPlays` turns these into a server-side filter so the
+// season scan transfers only candidate rows — a little over half the play log today, and
+// a falling share as the season fills with routine outs.
+//
+// This lives here, next to the loop that consumes it, because the two must agree: a play
+// the filter drops can never set a first, and the failure mode of getting that wrong is
+// silent (a milestone quietly attributed to the second player to do it). `playCanSetFirst`
+// is the single definition of that boundary, and __tests__/firsts.test.ts pins the
+// invariant — computeFirsts over the filtered plays must equal computeFirsts over all of
+// them. Adding a new milestone to META means widening this too, and the test will say so.
+export const FIRSTS_EVENT_TYPES = [
+  'home_run', 'double', 'triple', 'walk', 'hit_by_pitch', 'strikeout', 'stolen_base', 'balk',
+] as const
+
+export function playCanSetFirst(p: Pick<WpblFirstsPlay, 'event_type' | 'is_hit' | 'runs_scored' | 'narrative'>): boolean {
+  if (p.is_hit) return true                                                    // first_hit
+  if (FIRSTS_EVENT_TYPES.includes(p.event_type as typeof FIRSTS_EVENT_TYPES[number])) return true
+  if ((p.runs_scored ?? 0) > 0) return true                                    // first_rbi (filtered again below)
+  return /\bbalk\b/i.test(p.narrative ?? '')                                   // balks arrive as 'unknown'
+}
+
 export function computeFirsts(
   plays: WpblFirstsPlay[], games: WpblGame[], players: WpblPlayer[], pitching: WpblPitchingLine[],
 ): WpblFirst[] {
