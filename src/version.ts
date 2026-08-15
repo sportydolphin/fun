@@ -7,7 +7,7 @@
 // for every change when the reader clicks "View all changes"). Write plainly,
 // no em dashes and no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.40.0'
+export const APP_VERSION = '1.41.0'
 
 export interface ChangelogChange {
   short: string
@@ -22,6 +22,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.41.0',
+    date:    '2026-08-15',
+    title:   'Look up a player from Discord, and a box score that fits a phone',
+    changes: [
+      {
+        short: 'Ask the WPBL fan Discord for any player\'s stats',
+        full:  'Typing /player in the fan Discord, followed by a name, replies with that player\'s season. It suggests names as you type, and it is forgiving about how you type them: part of a name, either name on its own, an initial and a surname, or a misspelling all find the right player, and accents can be left off.',
+      },
+      {
+        short: 'The whole box score fits on a phone',
+        full:  'A WPBL box score on a phone used to hide doubles and stolen bases from the batting line, and the pitching line could only be read by scrolling sideways. Both now show every column on the screen at once. Names are shortened to fit rather than being cut off mid-word.',
+      },
+    ],
+  },
   {
     version: '1.40.0',
     date:    '2026-08-14',

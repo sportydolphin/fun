@@ -226,9 +226,22 @@ https://sportydolphin.fun/discord/wpbl
 
 Discord validates it on save by sending requests with deliberately **invalid** signatures
 and requiring a `401` back. The function does that, so a green save means signature
-verification is working end to end. If it refuses to save, the endpoint is either not
-deployed yet (a `POST` to it answers `405` rather than `401` until the function ships) or
-`PUBLIC_KEY` does not belong to this application.
+verification is working end to end.
+
+Check the endpoint yourself before pasting it in — one line tells you everything:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://sportydolphin.fun/discord/wpbl -d '{"type":1}'
+```
+
+| Response | Meaning |
+|---|---|
+| `401` | Live and verifying. This is the one Discord wants. |
+| `405` | The function is not being invoked. **Almost always `_routes.json`** — see the traps below. It also looks exactly like this when the function failed to build, or before it has deployed at all. |
+| `503` | Older builds only, when `DISCORD_PUBLIC_KEY` was an environment variable. The key is committed now, so this should not happen. |
+
+A `405` cost real time during setup and the build log gives nothing away, so start at
+`_routes.json` rather than at the function.
 
 ## Two traps worth knowing about
 
@@ -260,7 +273,12 @@ site down, it just leaves the previous deployment serving. The symptom is the ne
 answering `405` forever while everything else looks healthy.
 
 `outsToIp` is the one people reach for: import it from `./innings`, not from the
-`./constants` re-export. Before pushing a change to anything under `functions/`:
+`./constants` re-export.
+
+`functions/` was outside `tsconfig.json`'s `include` until this bot was built, so neither
+Pages function was type-checked at all — the same blind spot that let the `.webp` import
+through. It is in the include list now, so `npx tsc --noEmit` covers them. Bundling is a
+separate check, because a type error and an unbundleable import are different failures:
 
 ```bash
 npm run check-functions

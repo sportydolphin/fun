@@ -28,8 +28,9 @@ one shell (auth, search, notifications, theme, units):
    config/secrets reference. Keep it current when you add a table, workflow, or integration.
 3. **[ROADMAP.md](ROADMAP.md)** — living plan for both leagues; dated realignment log at the
    end of the WPBL section tells you what shipped recently and what's next.
-4. **[docs/](docs/)** — `DISCORD.md` (the fan-server board + the box score posted when a
-   game goes final, and which of the two secret stores each writer reads),
+4. **[docs/](docs/)** — `DISCORD.md` (the fan-server board, the box score posted when a
+   game goes final, the YouTube highlight reels, the `/player` slash-command bot, and which
+   of the secret stores each writer reads),
    `PUSH_NOTIFICATIONS.md`, `GOOGLE_TASKS.md`, `feature-requests.md`.
 
 Source-of-truth index is at the bottom of ARCHITECTURE.md.

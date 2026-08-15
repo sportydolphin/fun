@@ -40,7 +40,7 @@ flowchart TB
         fangraphs["FanGraphs<br/>payrolls"]
         wpblfeed["WPBL Official Feed<br/>stats.womensprobaseballleague.com/v1"]
         wpblyt["WPBL YouTube<br/>channel RSS feed"]
-        discord["Discord webhooks<br/>WPBL board · events · box scores"]
+        discord["Discord<br/>webhooks: board · box scores · highlights<br/>bot: /player interactions"]
         gtasks["Google Tasks API<br/>feature requests"]
         push["Web Push (VAPID)"]
     end
@@ -225,7 +225,7 @@ sequenceDiagram
 | `wpbl-game-start-reminders` | `*/10 15-23,0-2` | `send-wpbl-game-start` | Push: WPBL game starting soon |
 | `wpbl-discord-board` | `*/15 14-23,0-3` | `update-wpbl-discord-board` | Self-editing WPBL "next games" Discord message |
 | `wpbl-discord-recaps` | `0 18-23,0-4` (hourly) | `post-wpbl-discord-recaps` | Backstop + corrections for the Discord recaps `wpbl-ingest` posts (a final it missed; a box score revised afterwards) |
-| `wpbl-youtube-sync` | `0,30 14-23,0-3` | `sync-wpbl-youtube` | Mirror WPBL YouTube uploads → `wpbl_videos` (highlights rail + game recaps) |
+| `wpbl-youtube-sync` | `0,30 14-23,0-3` | `sync-wpbl-youtube`, `post-wpbl-discord-highlights` | Mirror WPBL YouTube uploads → `wpbl_videos` (highlights rail + game recaps), then post any new highlight reel to the Discord highlights channel in the same pass |
 | `resolve-survivor` | `30 6` | `resolve-survivor` | Grade survivor picks overnight |
 | `update-playoff-odds` | `0 6` | `simulate-playoff-odds` | Monte-Carlo playoff odds |
 | `update-streaks` | `0 6` + `0 23` + `0 3` (in-season) | `update-streaks` | Streak leaderboards |
@@ -278,7 +278,8 @@ Setup walkthrough: [`docs/PUSH_NOTIFICATIONS.md`](docs/PUSH_NOTIFICATIONS.md).
 | **FanGraphs** | `update-payrolls` | Team payroll data |
 | **WPBL Official Feed** (`stats.womensprobaseballleague.com/v1`) | `wpbl-ingest` | Games, box scores, play-by-play, TrackMan |
 | **WPBL YouTube** (channel RSS `feeds/videos.xml`) | `sync-wpbl-youtube` | Highlight/recap videos → `wpbl_videos`; SPA embeds via youtube-nocookie on click |
-| **Discord webhooks** | `update-wpbl-discord-board`, `wpbl-ingest`, `post-wpbl-discord-recaps` | Self-editing WPBL board + events/watch-party links; per-game box scores posted as a game goes final and edited in place on a correction |
+| **Discord webhooks** (send-only) | `update-wpbl-discord-board`, `wpbl-ingest`, `post-wpbl-discord-recaps`, `post-wpbl-discord-highlights` | Self-editing WPBL board + events/watch-party links; per-game box scores posted as a game goes final and edited in place on a correction; new YouTube highlight reels posted once each |
+| **Discord interactions** (inbound) | [`functions/discord/wpbl.ts`](functions/discord/wpbl.ts) | The `/player` slash command: an HTTP interactions endpoint (no gateway bot, nothing long-running), answering with a player's season and serving name autocomplete |
 | **Google Tasks API** | `pull-tasks` | Ingest feature requests |
 | **Web Push (VAPID)** | reminder scripts + `send-test-push` | Browser notifications |
 | **Google OAuth** | `AuthContext` via Supabase Auth | Sign-in |
@@ -304,11 +305,11 @@ optional — without it `wpbl-ingest` skips the Discord post and the hourly job 
 | Scope | Vars | Where |
 |---|---|---|
 | **Client (build-time)** | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Cloudflare Pages env + `.env` |
-| **Pages Function** (`functions/wpbl`) | the same `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | Cloudflare Pages env (available to functions at runtime) |
+| **Pages Functions** (`functions/wpbl`, `functions/discord/wpbl`) | the same `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | Cloudflare Pages env (available to functions at runtime). The Discord app's Ed25519 public key is committed in the function rather than held here — it verifies Discord's signatures and grants nothing, so it survives redeploys with nothing to re-enter |
 | **Migration runner** | `SUPABASE_DB_URL` (Postgres connection string — Supabase *session pooler*, port 5432) | `.env` locally + repo **Actions secret** |
 | **Edge functions** | `SUPABASE_URL`*, `SUPABASE_SERVICE_ROLE_KEY`*, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `DISCORD_RECAP_WEBHOOK_URL` | Supabase (*auto-injected) |
 | **pg_cron** | service-role key | Supabase **Vault** (`wpbl_service_role_key`) |
-| **GitHub Actions** | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`, `VAPID_*`, `DISCORD_BOARD_WEBHOOK_URL`, `DISCORD_BOARD_MESSAGE_ID`, `DISCORD_EVENTS_URL`, `DISCORD_WATCH_PARTY_VC_URL`, `DISCORD_RECAP_WEBHOOK_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_TASKS_LIST` | Repo **Actions secrets** |
+| **GitHub Actions** | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`, `VAPID_*`, `DISCORD_BOARD_WEBHOOK_URL`, `DISCORD_BOARD_MESSAGE_ID`, `DISCORD_EVENTS_URL`, `DISCORD_WATCH_PARTY_VC_URL`, `DISCORD_RECAP_WEBHOOK_URL`, `DISCORD_HIGHLIGHTS_WEBHOOK_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_TASKS_LIST` | Repo **Actions secrets** |
 
 ---
 
@@ -320,11 +321,24 @@ optional — without it `wpbl-ingest` skips the Discord post and the hourly job 
   Function that rewrites the Open Graph tags of `/wpbl?player=<id>` at the edge, so a
   shared player link unfurls with that player's name, club, and season line instead of the
   site's generic card (unfurlers don't run JS, so `src/seo.ts` can't reach them). Wording
-  lives in [`src/wpbl/ogCard.ts`](src/wpbl/ogCard.ts); `public/_routes.json` keeps every
-  other path on the plain asset path, with no function invoked. Headshots are republished
+  lives in [`src/wpbl/ogCard.ts`](src/wpbl/ogCard.ts). Headshots are republished
   at `/portraits/<slug>.webp` by
   [`scripts/vite-plugin-wpbl-portraits.mjs`](scripts/vite-plugin-wpbl-portraits.mjs), since
   the edge has no copy of the build's hashed-asset map.
+- **Discord bot:** [`functions/discord/wpbl.ts`](functions/discord/wpbl.ts) is a second
+  Pages Function, serving the `/player` slash command as an HTTP interactions endpoint —
+  Discord POSTs the command and takes the reply from the response body, so there is no
+  gateway websocket and no process to keep running. Verifies Discord's Ed25519 signature,
+  resolves the typed name against the roster
+  ([`src/wpbl/playerSearch.ts`](src/wpbl/playerSearch.ts)), and answers from the same
+  `stats.ts` aggregation the site uses. Setup: [`docs/DISCORD.md`](docs/DISCORD.md).
+- **`public/_routes.json` is an allow-list**, and it gates both of the above: only the paths
+  named in `include` invoke the Functions worker, everything else is served as a plain
+  asset with no function run. **Adding a function under `functions/` is not enough — its
+  route has to be added here too**, or it compiles, uploads, deploys and is then never
+  called. `npm run check-functions` bundles the functions the way Cloudflare will, since a
+  failed functions build leaves the previous deployment serving rather than failing the
+  deploy.
 - **Edge functions:** `supabase functions deploy <name>` (manual). `wpbl-ingest` also
   announces a game to Discord the moment it sees it go final
   ([`announce-final.ts`](supabase/functions/wpbl-ingest/announce-final.ts)) — the
