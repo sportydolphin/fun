@@ -1,6 +1,6 @@
 # Discord integrations (WPBL)
 
-Three things post to the WPBL fan server, all through **webhooks** — send-only HTTP, no bot
+Three things **post** to the WPBL fan server, all through **webhooks** — send-only HTTP, no bot
 token, no gateway, nothing to keep running:
 
 | What | Channel | Written by | Behaviour |
@@ -10,6 +10,12 @@ token, no gateway, nothing to keep running:
 | **Highlight reels** | the highlights channel | [`scripts/post-wpbl-discord-highlights.mjs`](../scripts/post-wpbl-discord-highlights.mjs) | One message per YouTube highlight reel, posted once and never touched again. |
 
 A webhook is bound to one channel, so each of these needs its **own** webhook URL.
+
+There is also one thing that **answers** in the server, which webhooks cannot do:
+
+| What | Written by | Behaviour |
+|---|---|---|
+| **`/player` slash command** | [`functions/discord/wpbl.ts`](../functions/discord/wpbl.ts) | Looks up any WPBL player by name and replies with their season. Suggests names as you type. |
 
 ## How it fits together
 
@@ -63,6 +69,31 @@ who came to watch. Both are one edit away in `buildMessage` if you disagree.
 
 **It doesn't backfill** either: the first run against an empty table posts only the newest
 reel and records the rest as handled.
+
+### The `/player` command
+
+The only piece here that is a real bot rather than a webhook, because it has to receive
+something rather than just send.
+
+Discord runs bots two ways. A **gateway** bot holds a websocket open and needs a process
+running somewhere permanently, which this project has nowhere to put. An **HTTP
+interactions endpoint** instead receives each slash command as an ordinary POST and replies
+in the response body. That is what this is: a Cloudflare Pages function at
+`/discord/wpbl`, deployed with the site, costing nothing when nobody is asking and with no
+bot process to keep alive or restart.
+
+Name matching is deliberately loose, in [`src/wpbl/playerSearch.ts`](../src/wpbl/playerSearch.ts).
+It takes the full name, either name alone, both in either order, an initial plus a surname,
+a prefix of anything (`whit`, `kels`), and ordinary misspellings by edit distance. Accents
+are folded, so `maika dumais` finds Maïka Dumais. This is a separate module from the
+ingest's [`names.ts`](../supabase/functions/wpbl-ingest/names.ts) on purpose: that one
+reconciles feed records and must be strict, because a wrong match forks a player's season
+across two rows. A wrong match here just shows a "did you mean".
+
+The reply is public so lookups can be shared. A miss, an ambiguous name, or a failure is
+**ephemeral** (only the person who ran it sees it), so a channel doesn't fill up with other
+people's typos. Both are built in
+[`src/wpbl/discordPlayerCard.ts`](../src/wpbl/discordPlayerCard.ts) and unit tested.
 
 ## One-time setup
 
@@ -136,6 +167,54 @@ service-role only, and any other key reads it as *empty* rather than erroring �
 job would take to mean "nothing posted yet" and repost everything. It refuses to start
 without it; `--dry-run` will run on the anon key and warn about what it cannot see.
 
+## Setting up the `/player` command
+
+Separate from the webhooks above, and needs an actual Discord **application**.
+
+### 1. Create the app and invite it
+
+Discord Developer Portal → **New Application**. Under **Bot**, create the bot. Under
+**OAuth2 → URL Generator**, tick the `applications.commands` scope and open the generated
+URL to add it to the server. The bot needs no message permissions and never reads chat: it
+only receives the interactions Discord forwards.
+
+### 2. Register the command
+
+```bash
+DISCORD_APP_ID=... DISCORD_BOT_TOKEN=... DISCORD_GUILD_ID=... npm run discord-commands
+```
+
+`DISCORD_GUILD_ID` registers to that one server and appears **immediately**, which is what
+you want while setting up. Leave it unset to register globally, which Discord can take an
+hour to roll out. The script `PUT`s the whole command set, so re-running it replaces rather
+than duplicates. `--list` shows what is registered and `--clear` removes everything.
+
+The **bot token is a real credential** (unlike the webhook URLs, and unlike the public key
+below). It is only ever needed by this script. The endpoint itself never calls Discord's
+API and never sees it.
+
+### 3. Give Cloudflare the public key
+
+Developer Portal → your app → **General Information** → *Public Key*. Add it as
+`DISCORD_PUBLIC_KEY` in Cloudflare Pages → your project → Settings → Environment variables,
+then redeploy so the function picks it up.
+
+This key only *verifies* that a request genuinely came from Discord. It grants nothing and
+is not a secret in the way the bot token is.
+
+### 4. Point Discord at the endpoint
+
+Developer Portal → General Information → **Interactions Endpoint URL**:
+
+```
+https://sportydolphin.fun/discord/wpbl
+```
+
+Discord validates it on save by sending requests with deliberately **invalid** signatures
+and requiring a `401` back. The function does that, so if saving fails the usual cause is
+`DISCORD_PUBLIC_KEY` being unset or stale in Cloudflare, which makes the function answer
+`503` instead.
+
 ## Notes & limitations
 
 - **Deleting a post in Discord** is not permanent: the next pass sees the 404 and reposts.
@@ -149,7 +228,16 @@ without it; `--dry-run` will run on the anon key and warn about what it cannot s
   the same engine behind the Recap tab. Change it there and both follow. See
   [context.md](../context.md) for the `.ts`-extension rule that keeps that module loadable
   by Deno.
-- **Nothing here pings anyone**: every payload sets `allowed_mentions: { parse: [] }`.
+- **Nothing here pings anyone**: every payload sets `allowed_mentions: { parse: [] }`. The
+  `/player` reply also strips markdown characters out of whatever was typed before echoing
+  it back, so a search string can't carry formatting into a channel message.
+- **The `/player` command answers within 3 seconds or Discord gives up** and shows "the
+  application did not respond". The function holds itself to a 2.2s budget so a slow or
+  unreachable database produces a real message instead of that. If it ever does start
+  timing out, the fix is to defer (respond type 5, then PATCH the followup) rather than to
+  raise the budget.
+- **The bot reads nothing.** It has no message permissions and only ever sees the
+  interactions Discord forwards to it.
 - **A deleted highlight post stays deleted.** Unlike the box scores, this poster never
   re-checks Discord — the row in `wpbl_discord_highlight_posts` is the whole memory. Delete
   that row to make it post again.
