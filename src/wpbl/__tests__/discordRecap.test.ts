@@ -67,6 +67,30 @@ describe('lineScoreBlock', () => {
     expect(lines[2]).toContain(' 0  0  0  0  0  0  0  0  2')
   })
 
+  // A home team that's already ahead never bats in the bottom of the last inning. The feed
+  // reports 0 for that half anyway, and printing the 0 invents a frame that was never played.
+  it('scores the final inning X when the home team never had to bat', () => {
+    const homeWin = game({
+      home_score: 10, away_score: 3,
+      away_line: [1, 2, 3, 4, 5, 6, 7].map(i => ({ inning: i, runs: [0, 0, 2, 0, 0, 0, 1][i - 1] })),
+      home_line: [1, 2, 3, 4, 5, 6, 7].map(i => ({ inning: i, runs: [2, 0, 0, 7, 1, 0, 0][i - 1] })),
+    })
+    const lines = lineScoreBlock(homeWin, recap(), TEAMS).split('\n')
+    expect(lines[2]).toContain(' 0  0  2  0  0  0  1 │')   // away batted the 7th
+    expect(lines[3]).toContain(' 2  0  0  7  1  0  X │')   // home never did
+  })
+
+  it('keeps the home runs on a walk-off, where the home team did bat', () => {
+    const walkOff = game({
+      home_score: 2, away_score: 1,
+      away_line: [1, 2, 3, 4, 5, 6, 7].map(i => ({ inning: i, runs: [0, 0, 0, 0, 0, 0, 1][i - 1] })),
+      home_line: [1, 2, 3, 4, 5, 6, 7].map(i => ({ inning: i, runs: [0, 0, 0, 0, 0, 0, 2][i - 1] })),
+    })
+    const lines = lineScoreBlock(walkOff, recap(), TEAMS).split('\n')
+    expect(lines[3]).toContain(' 0  0  0  0  0  0  2 │')
+    expect(lines[3]).not.toContain('X')
+  })
+
   it('falls back to the club name when a team is missing from the map', () => {
     expect(lineScoreBlock(game(), recap(), new Map())).toContain('Boston Hunters')
   })

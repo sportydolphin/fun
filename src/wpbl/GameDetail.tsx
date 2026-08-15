@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, Tooltip, useMediaQuery } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblVideos, getCachedWpblVideos } from './api'
-import { wpblAccent, wpblFullName, outsToIp, formatGameTime } from './constants'
+import { wpblAccent, wpblFullName, outsToIp, playedInnings, formatGameTime } from './constants'
 import { LiveBanner, useLiveGame } from './Live'
 import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
@@ -131,11 +131,25 @@ function Scoreboard({ away, home, game, awayWon, homeWon }: {
   const isMobile = useMediaQuery('(max-width:600px)')
   const isDark = useWpblDark()
   const decided = awayWon || homeWon
-  const innings = Math.max(game.away_line?.length ?? 0, game.home_line?.length ?? 0, 7)
+  // playedInnings drops the feed's phantom trailing inning (see innings.ts); the 7-column
+  // floor is only about how wide the grid draws for a short or in-progress game.
+  const lastInning = playedInnings(game.away_line, game.home_line)
+  const innings = Math.max(lastInning, 7)
   const cols = Array.from({ length: innings }, (_, i) => i + 1)
   const runsByInning = (line: WpblGame['away_line'], n: number) =>
     line?.find(c => c.inning === n)?.runs
-  const row = (team: WpblTeam, line: WpblGame['away_line'], runs: number | null, hits: number | null | undefined, errs: number | null | undefined, won: boolean) => {
+  // A home team that's already ahead never bats in the bottom of the final inning — the game
+  // just ends. The feed still emits a {runs: 0} entry for that half, which would print as a
+  // real "0" and imply a scoreless frame that was never played (the away staff's 6.0 IP in a
+  // 7-inning game is the giveaway). Print the X a scorebook would. A walk-off takes the other
+  // branch: the home team was tied or trailing going in, so it did bat, and its runs stand.
+  // `lastInning` above is the inning that actually ended the game, not the 7-column floor,
+  // so a shortened game still puts the X in the right column.
+  const runsThrough = (line: WpblGame['away_line'], n: number) =>
+    (line ?? []).reduce((t, c) => (c.inning <= n ? t + c.runs : t), 0)
+  const homeDidNotBatLast = game.status === 'final' && lastInning > 0
+    && runsThrough(game.home_line, lastInning - 1) > runsThrough(game.away_line, lastInning)
+  const row = (team: WpblTeam, line: WpblGame['away_line'], runs: number | null, hits: number | null | undefined, errs: number | null | undefined, won: boolean, isHome = false) => {
     const accent = wpblAccent(team.id, isDark)
     return (
       <Box component="tr" sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
@@ -151,13 +165,14 @@ function Scoreboard({ away, home, game, awayWon, homeWon }: {
         </Box>
         {/* Empty/scoreless innings sit muted so the innings that actually scored stand out. */}
         {cols.map(n => {
-          const r = runsByInning(line, n)
+          const skipped = isHome && homeDidNotBatLast && n === lastInning
+          const r = skipped ? undefined : runsByInning(line, n)
           return (
             <Box component="td" key={n} sx={{
               fontSize: '0.9rem', fontWeight: r ? 800 : 500, lineHeight: 1.2,
               color: r ? 'text.primary' : 'text.disabled',
               textAlign: 'center', px: 0.4, py: 0.45, fontVariantNumeric: 'tabular-nums',
-            }}>{r == null ? '' : r}</Box>
+            }}>{skipped ? 'X' : r == null ? '' : r}</Box>
           )
         })}
         <Box component="td" sx={{ width: 8 }} />
@@ -185,7 +200,7 @@ function Scoreboard({ away, home, game, awayWon, homeWon }: {
         </Box>
         <Box component="tbody">
           {row(away, game.away_line, game.away_score, game.away_hits, game.away_errors, awayWon)}
-          {row(home, game.home_line, game.home_score, game.home_hits, game.home_errors, homeWon)}
+          {row(home, game.home_line, game.home_score, game.home_hits, game.home_errors, homeWon, true)}
         </Box>
       </Box>
     </Box>
@@ -345,21 +360,36 @@ function PitchSequence({ seq }: { seq: string }) {
   )
 }
 
-function PlayByPlay({ plays, teams }: { plays: WpblGamePlay[]; teams: Map<string, WpblTeam> }) {
+function PlayByPlay({ plays, teams, game }: { plays: WpblGamePlay[]; teams: Map<string, WpblTeam>; game: WpblGame }) {
   // Group consecutive plays into half-innings, in order.
+  //
+  // The half-inning's run count comes from the line score, not from summing the plays. The
+  // feed leaves runs_scored at 0 on a good number of the plays that actually pushed a runner
+  // home — a wild pitch, an error, a fielder's choice — so about one half-inning in nine
+  // would otherwise announce fewer runs than the same box score's line score shows directly
+  // above it. The per-play +N badges still come from the feed: they're only claimed where the
+  // feed does attribute a run, so they under-report rather than mislabel which play scored.
   const groups = useMemo(() => {
+    const scored = (inning: number, half: string) =>
+      (half === 'top' ? game.away_line : game.home_line)?.find(c => c.inning === inning)?.runs ?? 0
+    // Drop the same phantom inning the line score drops, so the two tabs of one box score
+    // can't disagree about how long the game was. Only for a finished game, and only when
+    // there's a line score to trust: a live game's plays can legitimately run ahead of it.
+    const played = playedInnings(game.away_line, game.home_line)
+    const inGame = (p: WpblGamePlay) => game.status !== 'final' || played === 0 || p.inning <= played
     const gs: { key: string; label: string; teamId: string | null; runs: number; plays: WpblGamePlay[] }[] = []
     for (const p of plays) {
+      if (!inGame(p)) continue
       const key = `${p.inning}-${p.half}`
       const last = gs[gs.length - 1]
       if (!last || last.key !== key) {
         const half = p.half === 'top' ? 'Top' : 'Bottom'
         const ord = p.inning === 1 ? '1st' : p.inning === 2 ? '2nd' : p.inning === 3 ? '3rd' : `${p.inning}th`
-        gs.push({ key, label: `${half} ${ord}`, teamId: p.team_id, runs: p.runs_scored, plays: [p] })
-      } else { last.plays.push(p); last.runs += p.runs_scored }
+        gs.push({ key, label: `${half} ${ord}`, teamId: p.team_id, runs: scored(p.inning, p.half), plays: [p] })
+      } else { last.plays.push(p) }
     }
     return gs
-  }, [plays])
+  }, [plays, game.away_line, game.home_line, game.status])
 
   // Innings start collapsed so the tab opens compact (and the modal can size down to it); the
   // reader expands the half-innings they care about. Tracking what's OPEN — not what's closed —
@@ -971,7 +1001,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
                   </Box>
                 )
               })()}
-              {tab === 'plays' && <PlayByPlay plays={plays} teams={byId} />}
+              {tab === 'plays' && <PlayByPlay plays={plays} teams={byId} game={game} />}
               {tab === 'pitch' && <PitchData tracking={tracking} boxPitchers={boxPitchers} firstHit={firstHit} live={live} />}
             </Box>
           </>

@@ -3,7 +3,7 @@ import type { WpblGame, WpblTeam, WpblBattingLine, WpblPitchingLine, WpblGamePla
 // loaded by Deno (supabase/functions/wpbl-ingest announces a final straight to Discord),
 // and Deno resolves local specifiers literally. Type-only imports are erased before
 // resolution, so they stay extensionless like the rest of the app.
-import { outsToIp } from '../innings.ts'
+import { outsToIp, playedInnings } from '../innings.ts'
 import { classifyPa } from './matchups.ts'
 
 // Auto game-recap engine. Pure: a game + its box lines + play-by-play in, a structured recap
@@ -145,7 +145,11 @@ export function buildRecap(
   const winnerScore = homeWon ? game.home_score : game.away_score
   const loserScore = homeWon ? game.away_score : game.home_score
   const margin = winnerScore - loserScore
-  const innings = game.innings ?? 7
+  // The line score is the truth about how long the game ran: `innings` on the row is not
+  // populated, and the feed's own count includes the phantom inning playedInnings strips.
+  // Getting this right is what lets an actual extra-inning game's last frame reach the
+  // walk-off / comeback walk below, instead of being cut off at regulation.
+  const innings = Math.max(playedInnings(game.away_line, game.home_line), game.innings ?? 7)
 
   // ── Walk the line score for first blood, the winner's deepest hole (comeback), and a
   // bottom-of-the-last walk-off; the winner's own biggest inning is the decisive swing. ──
