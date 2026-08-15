@@ -7,7 +7,7 @@ import { LiveBanner, useLiveGame } from './Live'
 import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
 import { GameRecapView } from './RecapCard'
-import { ModalShell, SegNav, TeamBadge, useWpblDark, useWpblName } from './ui'
+import { ModalShell, SegNav, TeamBadge, useWpblDark, useWpblName, wpblFeatureName } from './ui'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, speedUnit } from '../lib/units'
 import { prettyType } from './tracking'
@@ -25,14 +25,18 @@ type Tab = 'recap' | 'box' | 'plays' | 'pitch'
 
 // ─── Box-score column sets ─────────────────────────────────────────────────────
 // Column order is importance-first: the classic box line (AB R H RBI BB SO) leads,
-// then HR, then the situational extras (2B SB). On a phone the `xsHide` columns drop
-// out so the batting line fits the width instead of scrolling off-screen; desktop
-// shows the full set. See BAT_COLS filtering in TeamBox.
-const BAT_COLS: { key: keyof WpblBattingLine; label: string; xsHide?: boolean }[] = [
+// then HR, then the situational extras (2B SB).
+//
+// Every column shows on every screen. A phone used to drop 2B and SB and let the pitching
+// line scroll sideways, which meant the two things a reader most often reaches a box score
+// for on a phone — did she double, did she steal — were the two the phone hid, and the
+// pitching line could only be read by swiping. The width is solved by density instead (see
+// denseTableSx), so nothing has to be dropped.
+const BAT_COLS: { key: keyof WpblBattingLine; label: string }[] = [
   { key: 'ab', label: 'AB' }, { key: 'r', label: 'R' }, { key: 'h', label: 'H' },
   { key: 'rbi', label: 'RBI' }, { key: 'bb', label: 'BB' }, { key: 'so', label: 'SO' },
   { key: 'hr', label: 'HR' },
-  { key: 'doubles', label: '2B', xsHide: true }, { key: 'sb', label: 'SB', xsHide: true },
+  { key: 'doubles', label: '2B' }, { key: 'sb', label: 'SB' },
 ]
 const PIT_COLS: { key: keyof WpblPitchingLine; label: string }[] = [
   { key: 'h', label: 'H' }, { key: 'r', label: 'R' }, { key: 'er', label: 'ER' },
@@ -85,26 +89,30 @@ const fmtFeedName = (n: string): string => {
 // ─── Table primitives (real <table> = auto-aligned columns that fill the width) ──
 // Stat columns carry no fixed width, so with a shrink-to-fit name column they split
 // the remaining width evenly and spread across the middle instead of hugging the edge.
-function StatHead({ children, w = 30 }: { children: React.ReactNode; w?: number }) {
+function StatHead({ children, w = 30, dense = false }: { children: React.ReactNode; w?: number; dense?: boolean }) {
   return (
     <Box component="th" sx={{
-      fontSize: '0.64rem', fontWeight: 700, color: 'text.disabled',
-      textTransform: 'uppercase', letterSpacing: 0.4,
-      textAlign: 'center', px: 0.4, py: 0.4, minWidth: w,
+      fontSize: dense ? '0.55rem' : '0.64rem', fontWeight: 700, color: 'text.disabled',
+      textTransform: 'uppercase', letterSpacing: dense ? 0.1 : 0.4,
+      textAlign: 'center', px: dense ? 0.1 : 0.4, py: 0.4,
+      // No width floor in dense mode: fixed layout is doing the dividing, and a minWidth
+      // would let the columns add up to more than the table is allowed to be.
+      minWidth: dense ? 0 : w,
     }}>
       {children}
     </Box>
   )
 }
-function StatCell({ children, bold = false }: { children: React.ReactNode; bold?: boolean }) {
+function StatCell({ children, bold = false, dense = false }: { children: React.ReactNode; bold?: boolean; dense?: boolean }) {
   // A box score is mostly zeros; muting them (and dropping the bold on a 0) lets the real
   // numbers carry the eye instead of a wall of even-weight digits.
   const isZero = children === 0 || children === '0'
   return (
     <Box component="td" sx={{
-      fontSize: '0.9rem', fontWeight: isZero ? 500 : bold ? 800 : 600,
+      fontSize: dense ? '0.76rem' : '0.9rem', fontWeight: isZero ? 500 : bold ? 800 : 600,
       color: isZero ? 'text.disabled' : 'text.primary',
-      textAlign: 'center', px: 0.4, py: 0.45, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums',
+      textAlign: 'center', px: dense ? 0.1 : 0.4, py: dense ? 0.4 : 0.45,
+      lineHeight: 1.2, fontVariantNumeric: 'tabular-nums',
     }}>
       {children}
     </Box>
@@ -196,23 +204,27 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
   const isMobile = useMediaQuery('(max-width:600px)')
   const color = wpblAccent(team.id, isDark)
   const shortName = useWpblName()
-  // On a phone, drop the situational extras (2B/SB) so the box line fits without a
-  // sideways scroll; desktop keeps the full column set.
-  const batCols = isMobile ? BAT_COLS.filter(c => !c.xsHide) : BAT_COLS
+  const batCols = BAT_COLS
+  // Desktop keeps the shared viewport cap; the phone uses the tighter box budget.
+  const boxName = (n: string) => (isMobile ? wpblFeatureName(n, BOX_NAME_MAX) : shortName(n))
   // A substitute's name is indented under its starter and led by a ↳ marker.
   const nameCell = (playerId: string, suffix?: React.ReactNode, isSub = false) => {
     const p = names.get(playerId)
     const clickable = p && onOpenPlayer
     return (
-      <Box component="td" sx={{ ...nameCellSx, pl: isSub ? 1.75 : 0.4 }}>
+      <Box component="td" sx={{ ...nameCellSx, ...(isMobile ? denseNameSx : {}), pl: isSub ? (isMobile ? 1.1 : 1.75) : (isMobile ? 0.3 : 0.4) }}>
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.5, overflow: 'hidden' }}>
-          {isSub && <Box component="span" aria-hidden sx={{ color: 'text.disabled', fontSize: '0.72rem', flexShrink: 0, lineHeight: 1 }}>↳</Box>}
+          {/* The ↳ marker is desktop-only. On a phone it and its gap cost about fourteen
+              pixels of a hundred-pixel column, which is the difference between reading
+              "S. Robinson" and reading "S. Robi…". The indent alone still reads as a
+              substitute, the way a printed box score has always done it. */}
+          {isSub && !isMobile && <Box component="span" aria-hidden sx={{ color: 'text.disabled', fontSize: '0.72rem', flexShrink: 0, lineHeight: 1 }}>↳</Box>}
           <Typography
             component="span"
             onClick={clickable ? () => onOpenPlayer!(p!) : undefined}
-            sx={{ fontSize: '0.86rem', fontWeight: 600, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(clickable ? { cursor: 'pointer', '&:hover': { color } } : {}) }}
+            sx={{ fontSize: isMobile ? '0.74rem' : '0.86rem', fontWeight: 600, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(clickable ? { cursor: 'pointer', '&:hover': { color } } : {}) }}
           >
-            {p ? shortName(p.name) : '—'}
+            {p ? boxName(p.name) : '—'}
           </Typography>
           {suffix}
         </Box>
@@ -232,23 +244,23 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
     <Box>
       {battingRows.length > 0 && (
         <Box sx={{ overflowX: 'auto', mb: 1.5 }}>
-          <Box component="table" sx={tableSx}>
+          <Box component="table" sx={isMobile ? denseTableSx : tableSx}>
             <Box component="thead">
               <Box component="tr">
-                <Box component="th" sx={nameHeadSx}>Batting</Box>
-                {batCols.map(c => <StatHead key={c.key as string}>{c.label}</StatHead>)}
+                <Box component="th" sx={{ ...nameHeadSx, ...(isMobile ? denseNameSx : {}) }}>Batting</Box>
+                {batCols.map(c => <StatHead key={c.key as string} dense={isMobile}>{c.label}</StatHead>)}
               </Box>
             </Box>
             <Box component="tbody">
               {battingRows.map(({ b, isSub }) => (
                 <Box component="tr" key={b.id} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
                   {nameCell(b.player_id, b.position ? <Typography component="span" sx={{ ...posSx, textTransform: 'uppercase' }}>{b.position}</Typography> : null, isSub)}
-                  {batCols.map(c => <StatCell key={c.key as string} bold={c.key === 'h'}>{Number(b[c.key]) || 0}</StatCell>)}
+                  {batCols.map(c => <StatCell key={c.key as string} dense={isMobile} bold={c.key === 'h'}>{Number(b[c.key]) || 0}</StatCell>)}
                 </Box>
               ))}
               <Box component="tr" sx={{ borderTop: '2px solid', borderColor: color }}>
-                <Box component="td" sx={{ ...nameHeadSx, color: 'text.secondary', fontSize: '0.8rem', fontWeight: 800, textTransform: 'none', letterSpacing: 0 }}>Totals</Box>
-                {batCols.map(c => <StatCell key={c.key as string} bold>{batTotals[c.key as string] ?? 0}</StatCell>)}
+                <Box component="td" sx={{ ...nameHeadSx, ...(isMobile ? denseNameSx : {}), color: 'text.secondary', fontSize: isMobile ? '0.72rem' : '0.8rem', fontWeight: 800, textTransform: 'none', letterSpacing: 0 }}>Totals</Box>
+                {batCols.map(c => <StatCell key={c.key as string} dense={isMobile} bold>{batTotals[c.key as string] ?? 0}</StatCell>)}
               </Box>
             </Box>
           </Box>
@@ -257,20 +269,20 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
 
       {pitching.length > 0 && (
         <Box sx={{ overflowX: 'auto' }}>
-          <Box component="table" sx={tableSx}>
+          <Box component="table" sx={isMobile ? denseTableSx : tableSx}>
             <Box component="thead">
               <Box component="tr">
-                <Box component="th" sx={nameHeadSx}>Pitching</Box>
-                <StatHead w={32}>IP</StatHead>
-                {PIT_COLS.map(c => <StatHead key={c.key as string}>{c.label}</StatHead>)}
+                <Box component="th" sx={{ ...nameHeadSx, ...(isMobile ? denseNameSx : {}) }}>Pitching</Box>
+                <StatHead w={32} dense={isMobile}>IP</StatHead>
+                {PIT_COLS.map(c => <StatHead key={c.key as string} dense={isMobile}>{c.label}</StatHead>)}
               </Box>
             </Box>
             <Box component="tbody">
               {pitching.map(p => (
                 <Box component="tr" key={p.id} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
                   {nameCell(p.player_id, p.decision ? <Typography component="span" sx={{ fontSize: '0.56rem', fontWeight: 800, color, lineHeight: 1 }}>({p.decision})</Typography> : null)}
-                  <StatCell bold>{outsToIp(p.outs)}</StatCell>
-                  {PIT_COLS.map(c => <StatCell key={c.key as string}>{p[c.key] == null ? '—' : Number(p[c.key])}</StatCell>)}
+                  <StatCell dense={isMobile} bold>{outsToIp(p.outs)}</StatCell>
+                  {PIT_COLS.map(c => <StatCell key={c.key as string} dense={isMobile}>{p[c.key] == null ? '—' : Number(p[c.key])}</StatCell>)}
                 </Box>
               ))}
             </Box>
@@ -993,6 +1005,35 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
 // before the wrapper scrolls. maxWidth caps a very long name (inner text ellipsizes); minWidth
 // floors the table so it still scrolls on a narrow phone.
 const tableSx = { tableLayout: 'auto', borderCollapse: 'collapse', width: '100%', minWidth: 0, fontVariantNumeric: 'tabular-nums' } as const
+// The phone box score. Nine batting columns and eight pitching columns will not fit a phone
+// at auto layout, and the honest fix is density rather than hiding stats or scrolling.
+//
+// `table-layout: fixed` is what makes this structural instead of a tuned guess: the name
+// column takes a declared share and the stat columns split what is left equally, so the
+// table can never be wider than the space it is given, whatever the names in it are. A long
+// name ellipsizes rather than shoving columns off the screen, which is the failure mode
+// every width-by-content table eventually hits.
+const denseTableSx = { ...tableSx, tableLayout: 'fixed' } as const
+// Sized against the longest name on the roster once abbreviated ("T. Geldenhuis"), plus the
+// position badge; the rest goes to the stats. BOX_NAME_MAX below is the matching character
+// budget, so the two are set together — widen one and the other has to move with it.
+const denseNameSx = { width: '35%', maxWidth: 'none', px: 0.3 } as const
+// What fits that column at the dense font. wpblFeatureName degrades in stages to hit it
+// ("Ticara Geldenhuis" → "T. Geldenhuis"), which beats the CSS ellipsis: the shared 12-char
+// cap left names truncated mid-word as "M. Paddis…" and "Hyeonah K…", losing the surname,
+// which is the one part of a box-score name a reader actually needs.
+//
+// Set to 11 by measurement, not arithmetic. A character count is a proxy for width and the
+// proxy is loose: at 13 the column held "T. Geldenhuis" but clipped "Denver Bryant", which
+// is the same length in characters and wider in pixels.
+//
+// Checked against the whole roster, not just one game. 113 of 118 names reach a form the
+// column holds. The five that don't are the ones whose SHORTEST possible form is still too
+// long — "R. del Castillo", "N. Rivera-Moats", "B. Espinoza-Molina" — because a particle or
+// a hyphenated surname can't be abbreviated further without destroying the name. Those
+// ellipsize, which is what wpblFeatureName documents as the final net, and they keep the
+// start of the surname, which is the part that identifies the player.
+const BOX_NAME_MAX = 11
 const NAME_W = 150 // cap for the shrink-to-fit name column (longer names ellipsize)
 // The name column is pinned (sticky-left) so scrolling right moves only the stat columns.
 // An opaque bg + right divider keep it legible over the stat cells sliding underneath.
