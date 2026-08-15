@@ -1,5 +1,5 @@
 {
   "version": 1,
-  "include": ["/wpbl"],
+  "include": ["/wpbl", "/discord/wpbl"],
   "exclude": []
 }

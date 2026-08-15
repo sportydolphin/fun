@@ -221,7 +221,27 @@ verification is working end to end. If it refuses to save, the endpoint is eithe
 deployed yet (a `POST` to it answers `405` rather than `401` until the function ships) or
 `PUBLIC_KEY` does not belong to this application.
 
-## A trap worth knowing about
+## Two traps worth knowing about
+
+### A new function route needs adding to `_routes.json`
+
+`public/_routes.json` lists the paths that invoke the Functions worker, and it is an
+allow-list:
+
+```json
+{ "version": 1, "include": ["/wpbl", "/discord/wpbl"], "exclude": [] }
+```
+
+Anything not listed is served as a static asset, so a new function under `functions/` will
+compile, upload, deploy, and then never run. The build log says `Compiled Worker
+successfully` either way, which makes this a genuinely quiet failure: the symptom is the new
+route answering `405` to a POST and serving the SPA's HTML to a GET, indistinguishable from
+a path that does not exist. Add the route here when you add the function.
+
+The narrow list is deliberate, not an oversight — it keeps the worker off the path for every
+static asset request. Widen it one route at a time rather than switching to `/*`.
+
+### Functions can't import anything Vite-only
 
 Cloudflare bundles `functions/` with esbuild, which has no Vite plugins. Anything a function
 imports, however far down the chain, has to be plain TypeScript. `src/wpbl/constants.ts`
