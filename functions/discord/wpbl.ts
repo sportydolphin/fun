@@ -18,8 +18,8 @@ import { buildPlayerReply, buildNoMatchReply, buildAmbiguousReply, type DiscordR
 import type { WpblPlayer, WpblTeam, WpblBattingLine, WpblPitchingLine } from '../../src/wpbl/types'
 
 interface Env {
-  // From the Discord developer portal, General Information. It is a verification key, not a
-  // credential: it proves a request came from Discord and grants nothing if it leaks.
+  // Optional override for the committed key below. Set it if the app is ever rotated or
+  // replaced without a deploy.
   DISCORD_PUBLIC_KEY?: string
   // The same public reads the site itself makes. The anon key already ships in the client
   // bundle, so reading with it here grants nothing new.
@@ -41,6 +41,19 @@ const DATA_TIMEOUT_MS = 2200
 const PING = 1, APPLICATION_COMMAND = 2, AUTOCOMPLETE = 4
 const PONG = 1, CHANNEL_MESSAGE = 4, AUTOCOMPLETE_RESULT = 8
 
+// The Discord application's Ed25519 public key, from the developer portal's General
+// Information page.
+//
+// Committed rather than held as an environment variable, and safe to be: this is a PUBLIC
+// key in the literal sense. It only verifies that a request was signed by Discord. Forging
+// a signature needs the matching private key, which Discord holds and never discloses, so
+// publishing this grants an attacker nothing. Discord prints it openly in the portal.
+//
+// Keeping it here rather than in Cloudflare's environment also means the endpoint keeps
+// working across redeploys and dashboard changes with nothing to re-enter. `env` still wins
+// when set, so a rotated app can be pointed at a new key without a code change.
+const PUBLIC_KEY = 'c3deb21bd78c665a6d1a19b295569fb0688544c801b9ddef4e686f2303fa9e3c'
+
 const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
@@ -50,10 +63,10 @@ export async function onRequestPost(context: Ctx): Promise<Response> {
   const timestamp = request.headers.get('x-signature-timestamp')
   const body = await request.text()
 
-  if (!env.DISCORD_PUBLIC_KEY) return new Response('not configured', { status: 503 })
+  const publicKey = (env.DISCORD_PUBLIC_KEY || '').trim() || PUBLIC_KEY
   // Discord validates the endpoint by sending deliberately BAD signatures and requiring a
   // 401. Returning anything else here fails setup, so this is not just a guard.
-  if (!signature || !timestamp || !(await verify(body, signature, timestamp, env.DISCORD_PUBLIC_KEY))) {
+  if (!signature || !timestamp || !(await verify(body, signature, timestamp, publicKey))) {
     return new Response('bad signature', { status: 401 })
   }
 

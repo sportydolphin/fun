@@ -193,14 +193,19 @@ The **bot token is a real credential** (unlike the webhook URLs, and unlike the 
 below). It is only ever needed by this script. The endpoint itself never calls Discord's
 API and never sees it.
 
-### 3. Give Cloudflare the public key
+### 3. The public key
 
-Developer Portal → your app → **General Information** → *Public Key*. Add it as
-`DISCORD_PUBLIC_KEY` in Cloudflare Pages → your project → Settings → Environment variables,
-then redeploy so the function picks it up.
+Already committed, in `functions/discord/wpbl.ts` as `PUBLIC_KEY`. Nothing to do here
+unless you replace the Discord application.
 
-This key only *verifies* that a request genuinely came from Discord. It grants nothing and
-is not a secret in the way the bot token is.
+It is checked in deliberately. This is a public key in the literal sense: it verifies that
+a request was signed by Discord, and forging a signature needs the matching private key,
+which Discord holds and never discloses. Publishing it grants nobody anything, and Discord
+prints it openly in the portal. Keeping it in the repo means the endpoint survives
+redeploys and Cloudflare dashboard changes with nothing to re-enter.
+
+If the app is ever rotated, either edit that constant or set `DISCORD_PUBLIC_KEY` in the
+Cloudflare environment, which takes precedence when present.
 
 ### 4. Point Discord at the endpoint
 
@@ -211,9 +216,10 @@ https://sportydolphin.fun/discord/wpbl
 ```
 
 Discord validates it on save by sending requests with deliberately **invalid** signatures
-and requiring a `401` back. The function does that, so if saving fails the usual cause is
-`DISCORD_PUBLIC_KEY` being unset or stale in Cloudflare, which makes the function answer
-`503` instead.
+and requiring a `401` back. The function does that, so a green save means signature
+verification is working end to end. If it refuses to save, the endpoint is either not
+deployed yet (a `POST` to it answers `405` rather than `401` until the function ships) or
+`PUBLIC_KEY` does not belong to this application.
 
 ## Notes & limitations
 
