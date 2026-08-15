@@ -19,6 +19,10 @@ import type { WpblTeam } from './types'
 // (stat tables, leader rows, box scores). Names within `maxLen` pass through untouched,
 // and a single-token name is never abbreviated. Most callers should use useWpblName()
 // for the viewport-aware default rather than calling this with a fixed length.
+//
+// `maxLen` is a character count, which only approximates what fits: pass 0 to abbreviate
+// unconditionally. A fixed-width column wants that, because characters don't predict pixels
+// — "Jamie Mackay" and "Alexia Jorge" are both 12 long and only one of them overflows.
 export function wpblShortName(name: string, maxLen = 16): string {
   const full = (name ?? '').trim()
   if (full.length <= maxLen) return full
@@ -78,9 +82,11 @@ export function wpblNameStages(name: string): string[] {
 // Viewport-aware name shortener to drop into any WPBL list/table/tile. Horizontal space is
 // scarcest on phones, so names abbreviate to "F. Last" past a short length there, and only
 // for genuinely long names on wider screens. Returns a stable formatter.
-export function useWpblName(): (name: string) => string {
+// `mobileMaxLen` is the phone-width threshold; 0 means always abbreviate there. Desktop has
+// room for the whole name either way, so it keeps its own limit regardless.
+export function useWpblName(mobileMaxLen = 12): (name: string) => string {
   const isMobile = useMediaQuery('(max-width:600px)')
-  const maxLen = isMobile ? 12 : 20
+  const maxLen = isMobile ? mobileMaxLen : 20
   return useCallback((name: string) => wpblShortName(name, maxLen), [maxLen])
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import {
@@ -12,8 +12,11 @@ import {
   type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
-import WpblTrackingView from './TrackingView'
-import WpblDraftValue from './DraftValue'
+// Two of the five Stats groups, behind their own chunks. Hitting and Pitching are what the
+// tab opens on; Tracking (the TrackMan boards) and Draft (the draft-value model) are each a
+// separate sub-tab with its own layout and neither is reachable without a deliberate tap.
+const WpblTrackingView = lazy(() => import('./TrackingView'))
+const WpblDraftValue = lazy(() => import('./DraftValue'))
 
 // Complete season stat table for the WPBL — a sortable board of every hitting and
 // pitching stat aggregated from box-score lines, mirroring the MLB Stats view. Fetches
@@ -22,18 +25,33 @@ import WpblDraftValue from './DraftValue'
 // Rate-stat qualifiers come from stats.ts (`wpblQualifiers`) and scale with the season —
 // single-sourced with the Home leader boards so the two can't drift apart.
 
-// 'tracking' is a stat group, not a separate destination: it's another cut of the same
-// season data (TrackMan velocity / exit velo) and it renders its own boards rather than the
-// shared table. It lived as its own top-level tab until the nav outgrew six items.
-// 'draft' is the same idea — the season's numbers plotted against where each player was
-// taken, rather than ranked in a table.
+// This tab has two independent axes, not one list of four tabs.
+//
+// `side` is which half of the game you're looking at. It's the reader's main choice and it
+// outlives everything else: the season table splits on it, and so do the tracked boards.
+// TrackingView used to carry its own Hitting/Pitching switch, which meant the same question
+// was being asked twice one level apart — the clearest sign these were never four peers.
+//
+// `source` is where the numbers come from — the box scores we aggregate all season, or the
+// feed's TrackMan radar. Switching it keeps your side, so "Pitching → Tracked" reads as the
+// same subject measured another way rather than a jump somewhere else.
+//
+// 'draft' sits on neither axis on purpose: it's a one-off analysis of the draft class that
+// spans both sides at once, so it's reached from a card under the table instead.
+type Side = 'hitting' | 'pitching'
+type Source = 'season' | 'tracked' | 'draft'
+type Mode = 'players' | 'teams'
+
+// The deep-link contract, unchanged — Home's leader cards ask for 'hitting'/'pitching' with a
+// column, and a legacy ?view=tracking URL asks for 'tracking'. Resolved onto the axes above.
 type Group = 'hitting' | 'pitching' | 'tracking' | 'draft'
 
-// The groups that render the shared sortable table. The other two bring their own view, so
-// the table's sort state, mode switch and filters don't apply to them.
-const TABLE_GROUPS: Group[] = ['hitting', 'pitching']
-const hasTable = (g: Group): boolean => TABLE_GROUPS.includes(g)
-type Mode = 'players' | 'teams'
+// A tracking link names no side, so it lands on whichever one the reader already had open.
+function axesOf(g: Group): { side?: Side; source: Source } {
+  if (g === 'tracking') return { source: 'tracked' }
+  if (g === 'draft') return { source: 'draft' }
+  return { side: g, source: 'season' }
+}
 
 interface Col<T> {
   key: string
@@ -86,10 +104,8 @@ const PIT_COLS: Col<WpblPitchingTotals>[] = [
 // the column itself (`lowerBetter` → ascending, so ERA/WHIP lead with the best), which is why
 // a leader card only has to name a column and never a direction. An unknown or absent key
 // falls back to the group's headline column — the first in each list.
-function defaultSort(group: Group, key?: string): { key: string; asc: boolean } {
-  // Tracking renders its own boards and never reads this; fall through to the hitting
-  // default so the table has a valid column waiting when the reader switches back.
-  const cols: Col<never>[] = (group === 'pitching' ? PIT_COLS : HIT_COLS) as unknown as Col<never>[]
+function defaultSort(side: Side, key?: string): { key: string; asc: boolean } {
+  const cols: Col<never>[] = (side === 'pitching' ? PIT_COLS : HIT_COLS) as unknown as Col<never>[]
   const col = (key ? cols.find(c => c.key === key) : undefined) ?? cols[0]
   return { key: col.key, asc: !!col.lowerBetter }
 }
@@ -135,6 +151,17 @@ export interface WpblStatsFocus {
   token: number     // 0 = nothing requested yet
 }
 
+// Placeholder while a sub-tab's chunk arrives. These views render in place under the group
+// bar, so a centred spinner in the content area is what the reader already sees while their
+// data loads — the switch reads as slow rather than broken.
+function SubViewFallback() {
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+      <CircularProgress size={26} sx={{ color: WPBL_ACCENT }} />
+    </Box>
+  )
+}
+
 export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpenTeam }: {
   teams: WpblTeam[]
   games: WpblGame[]
@@ -148,22 +175,31 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
   const [loading, setLoading] = useState(() => getCachedWpblAllPlayers() == null || getCachedWpblAllLines() == null)
-  const shortName = useWpblName()
+  // The name column is a fixed 84px, so the default character threshold is the wrong test —
+  // it let a 12-character "Jamie Mackay" through whole to be cut to "Jamie Mac…" while a
+  // 13-character "Denae Benites" became "D. Benites". 0 abbreviates every phone row alike.
+  const shortName = useWpblName(0)
   const isNarrow = useMediaQuery('(max-width:600px)')
   const scrollRef = useRef<HTMLDivElement>(null)
   // Horizontal-scroll edges — drive the frozen-column shadow (not at start) and the
   // right-edge fade (not at end), so it's obvious the table scrolls sideways.
   const [scrollX, setScrollX] = useState({ atStart: true, atEnd: true })
 
-  const [group, setGroup] = useState<Group>(focus?.group ?? 'hitting')
+  // A deep link picks the starting axes; everything else defaults to the season hitting table.
+  const seedAxes = axesOf(focus?.group ?? 'hitting')
+  // A tracking link names no side, so in-session it keeps whichever one the reader had. On a
+  // cold load there's nothing to keep, and an old ?view=tracking bookmark used to open on the
+  // velocity boards — so seed those rather than dropping it somewhere it has never been.
+  const [side, setSide] = useState<Side>(seedAxes.side ?? (seedAxes.source === 'tracked' ? 'pitching' : 'hitting'))
+  const [source, setSource] = useState<Source>(seedAxes.source)
   const [mode, setMode] = useState<Mode>('players')
   const [teamId, setTeamId] = useState<string | null>(null)
   // The 5 AB / 3 IP qualifier only defaults on once every team has played 2+ games;
   // before that it would hide nearly everyone, so the complete table shows by default.
   const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])
   const [qualified, setQualified] = useState(() => qual.active)
-  const [sortKey, setSortKey] = useState(() => defaultSort(focus?.group ?? 'hitting', focus?.sortKey).key)
-  const [sortAsc, setSortAsc] = useState(() => defaultSort(focus?.group ?? 'hitting', focus?.sortKey).asc)
+  const [sortKey, setSortKey] = useState(() => defaultSort(seedAxes.side ?? 'hitting', focus?.sortKey).key)
+  const [sortAsc, setSortAsc] = useState(() => defaultSort(seedAxes.side ?? 'hitting', focus?.sortKey).asc)
 
   // Re-focus the table whenever a leader card sends us here. Keyed on `token`, NOT on the
   // group/column values: this panel stays mounted once visited, so seeding state at mount is
@@ -173,9 +209,11 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
   const requested = focus?.token ?? 0
   useEffect(() => {
     if (!focus || requested === 0) return
-    setGroup(focus.group)
-    if (!hasTable(focus.group)) return // no table to sort
-    const next = defaultSort(focus.group, focus.sortKey)
+    const axes = axesOf(focus.group)
+    if (axes.side) setSide(axes.side)
+    setSource(axes.source)
+    if (axes.source !== 'season') return // the tracked boards and draft have nothing to sort
+    const next = defaultSort(axes.side ?? 'hitting', focus.sortKey)
     setSortKey(next.key)
     setSortAsc(next.asc)
   }, [requested])
@@ -240,7 +278,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
     return cols
   }, [lines.pitching])
 
-  const cols = (group === 'hitting' ? hitCols : pitCols) as Col<WpblBattingTotals | WpblPitchingTotals>[]
+  const cols = (side === 'hitting' ? hitCols : pitCols) as Col<WpblBattingTotals | WpblPitchingTotals>[]
   const activeCol = cols.find(c => c.key === sortKey) ?? cols[0]
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
@@ -250,11 +288,11 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
   const pinActive = isNarrow
   const scrollCols = pinActive ? cols.filter(c => c.key !== activeCol.key) : cols
 
-  // Switch the default sort/qualifier sensibly when flipping between hitting and pitching.
-  const switchGroup = (g: Group) => {
-    setGroup(g)
-    if (!hasTable(g)) return // tracking and draft bring their own view, with nothing to sort
-    if (g === 'hitting') { setSortKey('ops'); setSortAsc(false) }
+  // Flipping sides re-sorts on that side's headline stat. Safe to do even while the tracked
+  // boards are showing: it leaves the table sorted sensibly for when the reader switches back.
+  const switchSide = (s: Side) => {
+    setSide(s)
+    if (s === 'hitting') { setSortKey('ops'); setSortAsc(false) }
     else { setSortKey('era'); setSortAsc(true) }
   }
   const clickHeader = (c: Col<WpblBattingTotals | WpblPitchingTotals>) => {
@@ -268,10 +306,10 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
       // One row per team (only four). Team G is the team's games played — the count of
       // distinct game_ids — not the number of player lines that sumBatting/sumPitching add up.
       built = teams.map(team => {
-        const src = group === 'hitting'
+        const src = side === 'hitting'
           ? lines.batting.filter(l => l.team_id === team.id)
           : lines.pitching.filter(l => l.team_id === team.id)
-        const totals = group === 'hitting' ? sumBatting(src as WpblBattingLine[]) : sumPitching(src as WpblPitchingLine[])
+        const totals = side === 'hitting' ? sumBatting(src as WpblBattingLine[]) : sumPitching(src as WpblPitchingLine[])
         totals.g = new Set(src.map(l => l.game_id)).size
         return {
           key: team.id, team, label: wpblFullName(team),
@@ -280,7 +318,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
         }
       })
     } else {
-      const seasons = group === 'hitting'
+      const seasons = side === 'hitting'
         ? aggregateBatting(players, lines.batting).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.ab >= qual.minAb }))
         : aggregatePitching(players, lines.pitching).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.outs >= qual.minOuts }))
       let list = seasons
@@ -300,7 +338,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
     const val = (r: Row) => activeCol.value(r.totals)
     // Ties break toward the bigger sample — innings pitched (outs) for pitching, at-bats
     // for hitting — regardless of sort direction (more is always the better tiebreak).
-    const sample = (r: Row) => group === 'pitching' ? (r.totals as WpblPitchingTotals).outs : (r.totals as WpblBattingTotals).ab
+    const sample = (r: Row) => side === 'pitching' ? (r.totals as WpblPitchingTotals).outs : (r.totals as WpblBattingTotals).ab
     return built.sort((a, b) => {
       const av = val(a), bv = val(b)
       if (av == null && bv == null) return sample(b) - sample(a)
@@ -309,13 +347,13 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
       if (av !== bv) return sortAsc ? av - bv : bv - av
       return sample(b) - sample(a)
     })
-  }, [mode, group, players, lines, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, shortName])
+  }, [mode, side, players, lines, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, shortName])
 
   const teamChips = [...teams].sort((a, b) => a.abbr.localeCompare(b.abbr))
 
   // The sorted column (OPS / ERA by default) is at the far right, off-screen on a phone
   // where the table scrolls horizontally. Bring the highlighted column into view on load and
-  // when switching Hitting/Pitching — but only if it isn't already visible, so a wide desktop
+  // when switching sides — but only if it isn't already visible, so a wide desktop
   // table (all columns shown) or a user who's scrolled elsewhere is left alone.
   useLayoutEffect(() => {
     if (loading || pinActive) return // pinned: the sorted column is always in view (frozen)
@@ -329,7 +367,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
     const leftInView = tRect.left - cRect.left
     if (rightInView > c.clientWidth) c.scrollLeft += rightInView - c.clientWidth + 12
     else if (leftInView < 0) c.scrollLeft += leftInView - 12
-  }, [loading, group, sortKey, rows.length, pinActive])
+  }, [loading, side, sortKey, rows.length, pinActive])
 
   // Track horizontal scroll position to toggle the edge affordances.
   useEffect(() => {
@@ -344,10 +382,31 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
     const ro = new ResizeObserver(update)
     ro.observe(c)
     return () => { c.removeEventListener('scroll', update); ro.disconnect() }
-  }, [loading, group, mode, rows.length, pinActive])
+  }, [loading, side, mode, rows.length, pinActive])
 
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+  }
+
+  // Draft takes the whole panel rather than sitting in a bar as a fourth tab. It's one
+  // analysis covering hitters and pitchers at once, so a side switch above it would be inert
+  // and a source switch meaningless — every control would be a control that does nothing.
+  if (source === 'draft') {
+    return (
+      <Box>
+        <Box onClick={() => setSource('season')} sx={{
+          display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 1.75, cursor: 'pointer',
+          userSelect: 'none', color: 'text.secondary', fontSize: '0.82rem', fontWeight: 700,
+          '&:hover': { color: 'text.primary' },
+        }}>
+          <Box component="span" sx={{ fontSize: '0.95rem', lineHeight: 1 }}>←</Box> Stats
+        </Box>
+        <Suspense fallback={<SubViewFallback />}>
+          <WpblDraftValue players={players} batting={lines.batting} pitching={lines.pitching}
+            onOpenPlayer={onOpenPlayer} />
+        </Suspense>
+      </Box>
+    )
   }
 
   const thBase = {
@@ -358,30 +417,33 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
 
   return (
     <Box>
-      {/* Group switcher — underline tabs, deliberately distinct from the section's pill nav
-          so the two don't read as the same control stacked twice. Full-bleed so the tabs +
-          filters share the wide table's left edge instead of floating in the 720px column. */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, borderBottom: '1px solid', borderColor: 'divider', mb: 1.5, ...fullBleedSx }}>
+      {/* Side of the ball — underline tabs, deliberately distinct from the section's pill nav
+          so the two don't read as the same control stacked twice. Two items now instead of
+          four, which is what lets Players ⇆ Teams share this row and still fit a phone: it
+          used to be shoved off the right edge by the tab set and was invisible until you
+          swiped a nav bar sideways. Full-bleed so the bars share the wide table's left edge
+          instead of floating in the 720px column. */}
+      <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, borderBottom: '1px solid', borderColor: 'divider', mb: 1.25, ...fullBleedSx }}>
         <Box sx={{ display: 'flex', gap: 2.5 }}>
-          {(['hitting', 'pitching', 'tracking', 'draft'] as Group[]).map(g => {
-            const active = group === g
+          {(['hitting', 'pitching'] as Side[]).map(sd => {
+            const active = side === sd
             return (
-              <Box key={g} onClick={() => switchGroup(g)} sx={{
+              <Box key={sd} onClick={() => switchSide(sd)} sx={{
                 pb: 1, mb: '-1px', cursor: 'pointer', userSelect: 'none',
                 borderBottom: '2px solid', borderColor: active ? WPBL_ACCENT : 'transparent',
                 color: active ? 'text.primary' : 'text.secondary',
                 fontSize: '0.98rem', fontWeight: active ? 800 : 600, transition: 'color 0.15s',
                 '&:hover': { color: 'text.primary' },
               }}>
-                {g === 'hitting' ? 'Hitting' : g === 'pitching' ? 'Pitching' : g === 'tracking' ? 'Tracking' : 'Draft'}
+                {sd === 'hitting' ? 'Hitting' : 'Pitching'}
               </Box>
             )
           })}
         </Box>
 
-        {/* Players ⇆ Teams — the entity the table ranks. Distinct from Hitting/Pitching
-            (the stat group). In Teams mode the per-player filters below don't apply. */}
-        {hasTable(group) && (
+        {/* Players ⇆ Teams — the entity the table ranks, not a stat group. Season only: the
+            tracked boards rank individual players and have no team cut. */}
+        {source === 'season' && (
           <Box sx={{ display: 'flex', gap: 0.5, pb: 0.75, flexShrink: 0 }}>
             <Chip active={mode === 'players'} onClick={() => setMode('players')}>Players</Chip>
             <Chip active={mode === 'teams'} onClick={() => setMode('teams')}>Teams</Chip>
@@ -389,11 +451,26 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
         )}
       </Box>
 
-      {/* Filters on one line (scrolls on narrow screens): team chips, then a divider, then
-          the qualified toggle — so the team "All" and the separate "Qualified" filter read
-          as two different controls rather than two competing "All"s. Players mode only —
-          in Teams mode the table already is the four teams, so neither filter applies. */}
-      {hasTable(group) && mode === 'players' && (
+      {/* Where the numbers come from, for the side chosen above. Season is every box score
+          we've aggregated; Tracked is the feed's TrackMan radar, which covers only part of
+          the schedule and answers a different question about the same players. Qualified
+          rides on the right — it's the one filter that changes what the table *is* rather
+          than which team it shows, and moving it off the chip row below is what lets both
+          lines fit a 375px phone without scrolling sideways. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1.25, ...fullBleedSx }}>
+        <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+          <Chip active={source === 'season'} onClick={() => setSource('season')}>Season</Chip>
+          <Chip active={source === 'tracked'} onClick={() => setSource('tracked')}>Tracked</Chip>
+        </Box>
+        {source === 'season' && mode === 'players' && (
+          <Chip active={qualified} onClick={() => setQualified(q => !q)}>{qualified ? '✓ Qualified' : 'Qualified'}</Chip>
+        )}
+      </Box>
+
+      {/* The team filter, alone on its line so All + four badges fit without the sideways
+          scroll they had when the qualified toggle shared the row. Players mode only — in
+          Teams mode the table already is the four teams. */}
+      {source === 'season' && mode === 'players' && (
         <Box sx={{
           display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5, overflowX: 'auto', pb: 0.5,
           '&::-webkit-scrollbar': { display: 'none' }, msOverflowStyle: 'none', scrollbarWidth: 'none',
@@ -406,18 +483,17 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
               <Box component="span" sx={{ ml: 0.5 }}>{t.abbr}</Box>
             </Chip>
           ))}
-          <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mx: 0.5, flexShrink: 0 }} />
-          <Chip active={qualified} onClick={() => setQualified(q => !q)}>{qualified ? '✓ Qualified' : 'Qualified'}</Chip>
         </Box>
       )}
 
-      {/* Tracking renders its own boards (league-best tiles + velocity / exit-velo leaders)
-          rather than the shared table — it's a different shape of data, not more columns. */}
-      {group === 'tracking' ? (
-        <WpblTrackingView onOpenPlayer={onOpenPlayer} />
-      ) : group === 'draft' ? (
-        <WpblDraftValue players={players} batting={lines.batting} pitching={lines.pitching}
-          onOpenPlayer={onOpenPlayer} />
+      {/* Tracked renders its own boards (league-best tiles + velocity / exit-velo leaders)
+          rather than the shared table — a different shape of data, not more columns — but it
+          reads the same `side` as the table, so switching Hitting/Pitching above carries
+          straight through instead of being asked again inside it. */}
+      {source === 'tracked' ? (
+        <Suspense fallback={<SubViewFallback />}>
+          <WpblTrackingView side={side} onOpenPlayer={onOpenPlayer} />
+        </Suspense>
       ) : rows.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
           <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, mb: 0.5 }}>No stats yet</Typography>
@@ -465,7 +541,12 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
                         sx={{
                           ...thBase, textAlign: 'center', cursor: 'pointer', minWidth: 38,
                           color: active ? WPBL_ACCENT : 'text.disabled',
-                          bgcolor: active ? `${WPBL_ACCENT}24` : 'background.paper',
+                          // The sorted column's tint rides on backgroundImage over the opaque
+                          // paper thBase already sets. As a bgcolor it *replaced* that paper
+                          // with a 14%-alpha accent, so this one header cell went see-through
+                          // and the rows scrolling under the sticky header showed through it.
+                          // Same layering the frozen column beside it already uses.
+                          backgroundImage: active ? `linear-gradient(${WPBL_ACCENT}24, ${WPBL_ACCENT}24)` : undefined,
                           '&:hover': { color: WPBL_ACCENT },
                         }}>
                         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.2 }}>
@@ -481,7 +562,20 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
                 {rows.map((r, i) => {
                   return (
                     <Box component="tr" key={r.key} onClick={r.onClick}
-                      sx={{ cursor: r.onClick ? 'pointer' : 'default', userSelect: 'none', WebkitTapHighlightColor: 'transparent', '@media (hover: hover)': { '&:hover > td, &:hover > th': r.onClick ? { bgcolor: `${WPBL_ACCENT}0e` } : undefined } }}>
+                      sx={{
+                        cursor: r.onClick ? 'pointer' : 'default', userSelect: 'none',
+                        WebkitTapHighlightColor: 'transparent',
+                        // Hover tints via backgroundImage for the same reason as the header:
+                        // the row's frozen name cell — and, on a phone, its pinned sort cell —
+                        // are sticky and rely on an opaque backgroundColor. Overwriting that
+                        // made the hovered row's name cell transparent, so the stat columns
+                        // scrolling beneath it showed through.
+                        '@media (hover: hover)': {
+                          '&:hover > td, &:hover > th': r.onClick
+                            ? { backgroundImage: `linear-gradient(${WPBL_ACCENT}0e, ${WPBL_ACCENT}0e)` }
+                            : undefined,
+                        },
+                      }}>
                       <Box component="th" data-swipe-handle="" sx={{
                         position: 'sticky', left: 0, zIndex: 2, bgcolor: 'background.paper',
                         textAlign: 'left', fontWeight: 400, py: 0.5, px: 1,
@@ -520,7 +614,10 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
                           <Box component="td" key={c.key} onClick={e => { e.stopPropagation(); clickHeader(c) }} sx={{
                             textAlign: 'center', py: 0.5, px: 0.5, borderTop: '1px solid', borderColor: 'divider',
                             fontSize: active ? '0.84rem' : '0.8rem', fontWeight: active ? 800 : 500,
-                            color: active ? WPBL_ACCENT : 'text.primary', bgcolor: active ? `${WPBL_ACCENT}12` : undefined,
+                            color: active ? WPBL_ACCENT : 'text.primary',
+                            // Layered like the header, so a hovered row and the sorted column
+                            // compose instead of one of them winning outright.
+                            backgroundImage: active ? `linear-gradient(${WPBL_ACCENT}12, ${WPBL_ACCENT}12)` : undefined,
                             whiteSpace: 'nowrap',
                           }}>
                             {txt}
@@ -545,6 +642,29 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
               {rows.length} {mode === 'teams' ? (rows.length === 1 ? 'team' : 'teams') : (rows.length === 1 ? 'player' : 'players')} · 2026 season · tap a column to sort
             </Typography>
           </Box>
+        </Box>
+      )}
+
+      {/* Draft value — still inside Stats, but under the table rather than beside Hitting and
+          Pitching in the bar. It's an analysis a reader takes in once, not a board they check
+          weekly, and it spans both sides of the ball so it belongs on neither axis. The table
+          above is a fixed-height scroller, so this sits on screen rather than below the fold. */}
+      {source === 'season' && (
+        <Box onClick={() => setSource('draft')} sx={{
+          display: 'flex', alignItems: 'center', gap: 1.25, mt: 1.5, px: 1.5, py: 1.25,
+          border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2,
+          cursor: 'pointer', userSelect: 'none', transition: 'border-color 0.15s, background-color 0.15s',
+          '&:hover': { borderColor: WPBL_ACCENT, bgcolor: `${WPBL_ACCENT}0a` },
+          ...fullBleedSx,
+        }}>
+          <Box sx={{ fontSize: '1.1rem', lineHeight: 1, flexShrink: 0 }}>📈</Box>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: '0.85rem', fontWeight: 800, lineHeight: 1.2 }}>Draft value</Typography>
+            <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', lineHeight: 1.3 }}>
+              Do earlier picks produce better players?
+            </Typography>
+          </Box>
+          <Box sx={{ ml: 'auto', flexShrink: 0, color: 'text.disabled', fontSize: '0.9rem' }}>→</Box>
         </Box>
       )}
     </Box>

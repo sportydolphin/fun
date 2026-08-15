@@ -7,7 +7,7 @@ import {
 import { aggregateTracking } from './tracking'
 import type { TrackingBoard, VeloLeader, SpinLeader, PitchHit, BattedBall } from './tracking'
 import { WPBL_ACCENT } from './constants'
-import { SegNav, SectionCard, PlayerPortrait, TeamBadge, CARD_BORDER, useWpblName } from './ui'
+import { SectionCard, PlayerPortrait, TeamBadge, CARD_BORDER, useWpblName } from './ui'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import type { WpblTeam, WpblPlayer } from './types'
@@ -86,7 +86,14 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
   )
 }
 
-export default function WpblTrackingView({ onOpenPlayer }: { teams?: WpblTeam[]; onOpenPlayer: (p: WpblPlayer) => void }) {
+export default function WpblTrackingView({ side, onOpenPlayer }: {
+  teams?: WpblTeam[]
+  // Which half of the game to show. Owned by the Stats bar above, not by this view: it used
+  // to keep its own Hitting/Pitching SegNav, so a reader who had already chosen a side one
+  // level up was asked the same question again the moment they got here.
+  side: 'hitting' | 'pitching'
+  onOpenPlayer: (p: WpblPlayer) => void
+}) {
   // Seed from the shared session cache so swiping back to this tab (SwipeableViews
   // unmounts it on the way out) repaints instantly instead of re-running the whole
   // fetch — including the paginated tracking scan — behind the spinner.
@@ -96,7 +103,6 @@ export default function WpblTrackingView({ onOpenPlayer }: { teams?: WpblTeam[];
   })
   const [loading, setLoading] = useState(
     () => !(getCachedWpblAllTracking() && getCachedWpblAllPlayers() && getCachedWpblAllLines()))
-  const [mode, setMode] = useState<'pitching' | 'hitting'>('pitching')
 
   // Revalidate on mount, but skip the round trip when the cache is still fresh. Tracking
   // is a slow, manually-published league batch (it barely moves within a session), so a
@@ -123,11 +129,14 @@ export default function WpblTrackingView({ onOpenPlayer }: { teams?: WpblTeam[];
     const hh = board.hardestHits[0]
     const lh = board.longestHits[0]
     const tiles: { label: string; value: string; unit: string; name: string }[] = []
-    if (fp) tiles.push({ label: 'Fastest pitch', value: fmtSpeed(fp.velo, units), unit: speedUnit(units), name: fp.name })
-    if (hh && hh.exit != null) tiles.push({ label: 'Hardest hit', value: fmtSpeed(hh.exit, units), unit: `${speedUnit(units)} EV`, name: hh.name })
-    if (lh && lh.distance != null) tiles.push({ label: 'Longest hit', value: fmtDistance(lh.distance, units), unit: distanceUnit(units), name: lh.name })
+    if (side === 'pitching') {
+      if (fp) tiles.push({ label: 'Fastest pitch', value: fmtSpeed(fp.velo, units), unit: speedUnit(units), name: fp.name })
+    } else {
+      if (hh && hh.exit != null) tiles.push({ label: 'Hardest hit', value: fmtSpeed(hh.exit, units), unit: `${speedUnit(units)} EV`, name: hh.name })
+      if (lh && lh.distance != null) tiles.push({ label: 'Longest hit', value: fmtDistance(lh.distance, units), unit: distanceUnit(units), name: lh.name })
+    }
     return tiles
-  }, [board, units])
+  }, [board, units, side])
 
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
@@ -162,13 +171,7 @@ export default function WpblTrackingView({ onOpenPlayer }: { teams?: WpblTeam[];
         </Box>
       )}
 
-      <SegNav
-        options={[{ value: 'pitching', label: 'Pitching' }, { value: 'hitting', label: 'Hitting' }]}
-        value={mode}
-        onChange={v => setMode(v as 'pitching' | 'hitting')}
-      />
-
-      {mode === 'pitching' ? (
+      {side === 'pitching' ? (
         <>
           <SectionCard title="Fastest pitchers" subtitle="Each pitcher's hardest pitch, with their season average">
             {board.veloLeaders.length === 0
