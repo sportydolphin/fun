@@ -221,6 +221,24 @@ verification is working end to end. If it refuses to save, the endpoint is eithe
 deployed yet (a `POST` to it answers `405` rather than `401` until the function ships) or
 `PUBLIC_KEY` does not belong to this application.
 
+## A trap worth knowing about
+
+Cloudflare bundles `functions/` with esbuild, which has no Vite plugins. Anything a function
+imports, however far down the chain, has to be plain TypeScript. `src/wpbl/constants.ts`
+imports the team logos as `.webp`, so importing it from a function fails the build with
+`No loader is configured for ".webp" files` — and a failed functions build does not take the
+site down, it just leaves the previous deployment serving. The symptom is the new route
+answering `405` forever while everything else looks healthy.
+
+`outsToIp` is the one people reach for: import it from `./innings`, not from the
+`./constants` re-export. Before pushing a change to anything under `functions/`:
+
+```bash
+npm run check-functions
+```
+
+which bundles each function exactly as Cloudflare will and fails loudly instead of silently.
+
 ## Notes & limitations
 
 - **Deleting a post in Discord** is not permanent: the next pass sees the 404 and reposts.

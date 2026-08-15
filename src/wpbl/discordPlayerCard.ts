@@ -8,7 +8,12 @@
 // The stat lines come from stats.ts, the same aggregation the player page and the season
 // leaderboards use, so a number here can never disagree with the number on the site.
 import { sumBatting, sumPitching, fmtRate, fmtTwo } from './stats'
-import { outsToIp } from './constants'
+// From innings.ts directly, NOT via the constants.ts re-export. constants.ts imports the
+// team logos as .webp assets, which Vite resolves and the Cloudflare Functions bundler does
+// not — pulling it in here fails the whole functions build, which silently leaves the last
+// good deployment serving and the endpoint 405ing. Everything this module reaches for has
+// to stay asset-free for the same reason.
+import { outsToIp } from './innings'
 import type { WpblPlayer, WpblTeam, WpblBattingLine, WpblPitchingLine } from './types'
 
 const SITE = 'https://sportydolphin.fun'
