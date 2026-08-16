@@ -125,11 +125,21 @@ interface Row {
 // is horizontally centered, so centering a viewport-wide box on it reads as full-bleed.
 // Zoom-aware: inside the desktop `zoom` wrapper vw units aren't shrunk, so divide by
 // --app-zoom (defaults to 1 off desktop). Capped so it doesn't sprawl on huge monitors.
+const FULL_BLEED_W = 'min(1100px, calc(100vw / var(--app-zoom, 1) - 24px))'
 const fullBleedSx = {
-  width: 'min(1100px, calc(100vw / var(--app-zoom, 1) - 24px))',
+  width: FULL_BLEED_W,
   position: 'relative',
   left: '50%',
   transform: 'translateX(-50%)',
+} as const
+
+// The same width, centred with a margin rather than left + transform. The control bar is the
+// one full-bleed block here that also has to stick, and those two can't share a box: sticky
+// spends `left` on its own threshold, and a transformed ancestor becomes the containing block
+// for anything positioned inside it.
+const fullBleedStickySx = {
+  width: FULL_BLEED_W,
+  marginLeft: `calc(50% - (${FULL_BLEED_W}) / 2)`,
 } as const
 
 // Shadow the frozen columns cast rightward onto the scrolling stats once you've scrolled
@@ -417,13 +427,27 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
 
   return (
     <Box>
+      {/* The control bar, pinned. A 36-row table used to scroll every control off the top,
+          leaving no way to change side, source or filter without scrolling back up. It offsets
+          by --app-header-h + --wpbl-nav-h: exactly one of those is non-zero at a time (the
+          toolbar is sticky only on desktop, the section nav only on mobile), so the sum lands
+          it just below the chrome on both without either breakpoint being special-cased here.
+          Above the table's own sticky header, which pins inside the scroll box below it. */}
+      <Box sx={{
+        position: 'sticky',
+        top: 'calc(var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px))',
+        zIndex: 6,
+        bgcolor: 'background.default',
+        pt: 1,
+        ...fullBleedStickySx,
+      }}>
       {/* Side of the ball — underline tabs, deliberately distinct from the section's pill nav
           so the two don't read as the same control stacked twice. Two items now instead of
           four, which is what lets Players ⇆ Teams share this row and still fit a phone: it
           used to be shoved off the right edge by the tab set and was invisible until you
           swiped a nav bar sideways. Full-bleed so the bars share the wide table's left edge
           instead of floating in the 720px column. */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, borderBottom: '1px solid', borderColor: 'divider', mb: 1.25, ...fullBleedSx }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, borderBottom: '1px solid', borderColor: 'divider', mb: 1.25 }}>
         <Box sx={{ display: 'flex', gap: 2.5 }}>
           {(['hitting', 'pitching'] as Side[]).map(sd => {
             const active = side === sd
@@ -451,40 +475,45 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
         )}
       </Box>
 
-      {/* Where the numbers come from, for the side chosen above. Season is every box score
-          we've aggregated; Tracked is the feed's TrackMan radar, which covers only part of
-          the schedule and answers a different question about the same players. Qualified
-          rides on the right — it's the one filter that changes what the table *is* rather
-          than which team it shows, and moving it off the chip row below is what lets both
-          lines fit a 375px phone without scrolling sideways. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1.25, ...fullBleedSx }}>
-        <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+      {/* Source, team filter and Qualified share one wrapping row, reordered by width rather
+          than duplicated per breakpoint. A phone puts the team chips on their own line below
+          (flex-basis 100%) with Qualified pulled right beside the source toggle, which is what
+          lets each line fit 375px without scrolling sideways. Desktop has room for all three
+          at once, so the chips ride up onto the same line and the bar costs two rows instead
+          of three. `order` is what swaps them; the markup stays single-source. */}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, rowGap: 1, pb: 1.5 }}>
+        <Box sx={{ order: 1, display: 'flex', gap: 0.5, flexShrink: 0 }}>
           <Chip active={source === 'season'} onClick={() => setSource('season')}>Season</Chip>
           <Chip active={source === 'tracked'} onClick={() => setSource('tracked')}>Tracked</Chip>
         </Box>
+
+        {/* Players mode only — in Teams mode the table already is the four teams. */}
         {source === 'season' && mode === 'players' && (
-          <Chip active={qualified} onClick={() => setQualified(q => !q)}>{qualified ? '✓ Qualified' : 'Qualified'}</Chip>
+          <Box sx={{
+            order: { xs: 3, sm: 2 }, flexBasis: { xs: '100%', sm: 'auto' }, minWidth: 0,
+            display: 'flex', alignItems: 'center', gap: 0.75, overflowX: 'auto',
+            '&::-webkit-scrollbar': { display: 'none' }, msOverflowStyle: 'none', scrollbarWidth: 'none',
+          }}>
+            {/* Separates the filter from the source toggle once they share a line. */}
+            <Box sx={{ display: { xs: 'none', sm: 'block' }, width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mr: 0.25, flexShrink: 0 }} />
+            <Chip active={teamId === null} onClick={() => setTeamId(null)}>All</Chip>
+            {teamChips.map(t => (
+              <Chip key={t.id} active={teamId === t.id} onClick={() => setTeamId(teamId === t.id ? null : t.id)}>
+                <TeamBadge team={t} size={16} />
+                <Box component="span" sx={{ ml: 0.5 }}>{t.abbr}</Box>
+              </Chip>
+            ))}
+          </Box>
+        )}
+
+        {/* The one filter that changes what the table *is* rather than which team it shows. */}
+        {source === 'season' && mode === 'players' && (
+          <Box sx={{ order: { xs: 2, sm: 3 }, ml: 'auto', flexShrink: 0 }}>
+            <Chip active={qualified} onClick={() => setQualified(q => !q)}>{qualified ? '✓ Qualified' : 'Qualified'}</Chip>
+          </Box>
         )}
       </Box>
-
-      {/* The team filter, alone on its line so All + four badges fit without the sideways
-          scroll they had when the qualified toggle shared the row. Players mode only — in
-          Teams mode the table already is the four teams. */}
-      {source === 'season' && mode === 'players' && (
-        <Box sx={{
-          display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5, overflowX: 'auto', pb: 0.5,
-          '&::-webkit-scrollbar': { display: 'none' }, msOverflowStyle: 'none', scrollbarWidth: 'none',
-          ...fullBleedSx,
-        }}>
-          <Chip active={teamId === null} onClick={() => setTeamId(null)}>All</Chip>
-          {teamChips.map(t => (
-            <Chip key={t.id} active={teamId === t.id} onClick={() => setTeamId(teamId === t.id ? null : t.id)}>
-              <TeamBadge team={t} size={16} />
-              <Box component="span" sx={{ ml: 0.5 }}>{t.abbr}</Box>
-            </Chip>
-          ))}
-        </Box>
-      )}
+      </Box>
 
       {/* Tracked renders its own boards (league-best tiles + velocity / exit-velo leaders)
           rather than the shared table — a different shape of data, not more columns — but it

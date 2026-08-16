@@ -446,6 +446,27 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // hairline + soft shadow so content reads as sliding *under* a bar rather than under a
   // dead grey band. Cheap window-scroll listener, passive.
   const [navStuck, setNavStuck] = useState(false)
+
+  // Publish this bar's pinned height as --wpbl-nav-h, the mobile counterpart to the
+  // toolbar's --app-header-h. Exactly one of the two is sticky at a time — the toolbar on
+  // desktop, this bar on mobile — so a view that wants to pin something of its own below
+  // the chrome can offset by the sum and be right on both. Keyed off the computed position
+  // (and re-measured on resize) so the static desktop case reports 0 rather than a height
+  // nothing is actually holding, and so the bottom-nav experiment, which hides this bar
+  // entirely, collapses to 0 on its own.
+  useEffect(() => {
+    const el = navRef.current
+    const publish = () => {
+      const pinned = el && getComputedStyle(el).position === 'sticky'
+      document.documentElement.style.setProperty('--wpbl-nav-h', pinned ? `${el!.offsetHeight}px` : '0px')
+    }
+    publish()
+    const ro = new ResizeObserver(publish)
+    if (el) ro.observe(el)
+    window.addEventListener('resize', publish)
+    return () => { ro.disconnect(); window.removeEventListener('resize', publish) }
+  }, [bottomNav, isMobileView])
+
   useEffect(() => {
     const onScroll = () => setNavStuck(window.scrollY > 4)
     onScroll()

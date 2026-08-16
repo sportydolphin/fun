@@ -336,6 +336,26 @@ function AppInner() {
   const isAdmin = user?.email === ADMIN_EMAIL
   const isDesktop = useMediaQuery('(min-width: 600px)')
 
+  // Publish the toolbar's pinned height as --app-header-h, so anything further down the page
+  // that wants to stick can sit below it without hard-coding a number that would drift.
+  // Reads the computed position rather than the breakpoint: the bar is only sticky on
+  // desktop, and a static bar scrolls away, contributing nothing to pin beneath. Measured
+  // with offsetHeight — unzoomed layout pixels, the same space a sticky `top` threshold is
+  // resolved in inside the --app-zoom wrapper this bar lives in.
+  const headerRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const el = headerRef.current
+    const publish = () => {
+      const pinned = el && getComputedStyle(el).position === 'sticky'
+      document.documentElement.style.setProperty('--app-header-h', pinned ? `${el!.offsetHeight}px` : '0px')
+    }
+    publish()
+    const ro = new ResizeObserver(publish)
+    if (el) ro.observe(el)
+    window.addEventListener('resize', publish)
+    return () => { ro.disconnect(); window.removeEventListener('resize', publish) }
+  }, [isDesktop, integratedHeader])
+
   // ── Toolbar search bridge ─────────────────────────────────────────────────
   const bridge = useSearchBridge()
   const [mobileSearchExpanded, setMobileSearchExpanded] = useState(false)
@@ -529,6 +549,7 @@ function AppInner() {
       zoom: 'var(--app-zoom)',
     }}>
       <AppBar
+        ref={headerRef}
         // On mobile the top bar scrolls away (static) rather than sticking — the MLB/WPBL
         // toggle + search are rarely needed mid-scroll, and a single sticky bar (the WPBL
         // tab menu, pinned below) avoids the two-bar gap collapsing as you scroll.
