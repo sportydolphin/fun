@@ -25,6 +25,11 @@ const MEDAL = ['🥇', '🥈', '🥉']
 // has taken what it needs. Read straight from the DOM at measure time rather than held in
 // state, so it is never a frame stale — a name is only allowed to grow back into space
 // that is genuinely free right now.
+//
+// Usually ~0 since the columns gained flex-grow and now share the surplus out among
+// themselves. That didn't make the grow-back below redundant, it moved where the room shows
+// up: the space this used to report as unclaimed is now inside the column's own clientWidth,
+// which is the other half of that comparison.
 function rowSlack(el: HTMLElement): number {
   const col = el.closest('[data-star-col]')
   const row = col?.parentElement
@@ -102,10 +107,17 @@ function StarRow({ star, medal, name, teamId, portraitSize = 30, medalSize = 20,
             three columns are sized by their NAMES and a wordy stat line can't take room
             from a neighbour's name. A percentage min-width is ignored while the browser
             measures max-content, so this contributes 0 there and still fills the column
-            once the width is settled; the statline ellipsizes on its own when it is the
-            longer of the two. */}
+            once the width is settled. */}
         <Box sx={{ width: 0, minWidth: '100%' }}>
-          <Typography noWrap sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>{star.statline}</Typography>
+          {/* Never truncated. The stat line is the thing a reader opened the card for — a
+              name cut short is still recognisable, "3-for-4, 2B, 2 R" is just wrong. It
+              wraps to a second line instead, which costs a few pixels of height in a card
+              that has them to spare. Widening the column instead wouldn't work: the modal
+              is capped at 520px and the row doesn't wrap, so three columns competing for
+              statline width would only shrink each other back to truncating. */}
+          <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.35 }}>
+            {star.statline}
+          </Typography>
         </Box>
       </Box>
     </Box>
@@ -183,15 +195,16 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
           <Typography sx={{ fontSize: '0.63rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.25 }}>Stars of the game</Typography>
           {/* Mobile: stack the three stars, each on its own full-width row so the name and
               statline show in full instead of all three cramming one line and truncating.
-              Desktop has room for one content-sized row — each star takes only the width its
-              name/stats need, so a short name leaves the room it doesn't use to the other
-              two. When that still isn't enough, the names abbreviate (see FittedName)
-              instead of being cut off; the ellipsis stays as the last resort. */}
+              Desktop lays them in one row, each star starting from the width its own name
+              needs — so a short name still leaves room to the other two — and then every
+              column grows to share out whatever the row has left over. Without that grow the
+              columns stopped at their content width and any surplus stayed blank, which is
+              how a statline could end up truncated with empty space sitting beside it. */}
           <Box ref={starsRef} sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, flexWrap: 'nowrap', gap: { xs: 0, sm: 2.5 } }}>
             {recap.stars.map((s, i) => {
               const p = names.get(s.playerId)
               return (
-                <Box key={s.playerId} data-star-col="" sx={{ minWidth: 0 }}>
+                <Box key={s.playerId} data-star-col="" sx={{ minWidth: 0, flex: { xs: '0 1 auto', sm: '1 1 auto' } }}>
                   <StarRow star={s} medal={MEDAL[i] ?? '⭐'} name={s.name} teamId={s.teamId} fitKey={starsWidth}
                     onClick={p && onOpenPlayer ? () => onOpenPlayer(p) : undefined} />
                 </Box>
