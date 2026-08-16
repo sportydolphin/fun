@@ -4,7 +4,7 @@
 // The two live in SEPARATE modules on purpose. APP_VERSION is a string rendered in the
 // toolbar and the footer on every page; CHANGELOG is ~59 KB of prose behind a dialog that
 // most readers never open. Rollup splits by module, not by export, so while they shared a
-// file every visitor downloaded the entire changelog in the entry chunk to render "v1.41.0".
+// file every visitor downloaded the entire changelog in the entry chunk to render "v1.42.0".
 // The prose now lives in ./changelog.ts, which is loaded on demand by ChangelogDialogs.
 //
 // When shipping a notable change, bump APP_VERSION here and add a new entry at the TOP
@@ -13,7 +13,7 @@
 // every change when the reader clicks "View all changes"). Write plainly, no em dashes and
 // no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.41.0'
+export const APP_VERSION = '1.42.0'
 
 export interface ChangelogChange {
   short: string

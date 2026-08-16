@@ -4,6 +4,45 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.42.0',
+    date:    '2026-08-16',
+    title:   'Lineup and pitching history for every WPBL team, and a fix to who gets notified',
+    changes: [
+      {
+        short: 'See how a manager has been filling out the lineup card',
+        full:  'A WPBL team page now shows the last six lineups as a grid: one row per player, one column per game, each cell giving her position and where she hit. Every column is headed by the pitcher who started for the other side and whether she throws left or right, which is usually the reason a lineup changed shape. Substitutes are shown in italics so a regular starter is easy to pick out.',
+      },
+      {
+        short: 'See who has been pitching, and who should be rested',
+        full:  'Alongside the lineup grid, a pitching usage grid shows every appearance over the last six games with the pitch count and innings for each, and the total each pitcher has thrown across the window. Anyone who came back on one day of rest or less is flagged, because that is the thing a season ERA cannot tell you.',
+      },
+      {
+        short: 'Pick reminders now only go to people who asked for them',
+        full:  'The daily reminder to make your MLB picks was going to everyone who had ever turned on notifications, including WPBL fans who only wanted a heads up before a game. It is now a separate setting that is off unless you turn it on, and switching it off no longer cancels your other reminders.',
+      },
+      {
+        short: 'A team page tells you more, in less space',
+        full:  'The results card shows the last few games and the next couple rather than the whole season, with the full schedule one tap away in a popup. Under the record there is now each opponent and your record against them. Team stats gained innings pitched, strikeouts per seven innings and a strikeout to walk ratio in place of the win and loss counts, which only repeated the record above.',
+      },
+      {
+        short: 'Jump from a team straight to the stat tables',
+        full:  'A team page can now open the stats tab on the four team comparison, or on the full player table already narrowed to that team.',
+      },
+      {
+        short: 'Getting back to all four teams actually works',
+        full:  'Opening a team from the stats table used to leave no way back to the list of all four teams. There is now an All teams link on every team page, and tapping the Teams tab when you are already on it returns to the list.',
+      },
+      {
+        short: 'The team stats table fits a phone',
+        full:  'Comparing the four teams on a phone used to cut their names off after a few letters. It now shows each nickname in full and two more stat columns at once.',
+      },
+      {
+        short: 'The site can be used without a mouse',
+        full:  'Rows, filters and links across the WPBL section can now be reached with the tab key and activated with enter or space, and show a focus outline while you move through them.',
+      },
+    ],
+  },
+  {
     version: '1.41.0',
     date:    '2026-08-15',
     title:   'Look up a player from Discord, and a box score that fits a phone',
