@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
 import { SectionCard, useWpblName } from './ui'
-import GameGrid, { formatGameColumnShort } from './GameGrid'
+import GameGrid, { formatGameColumn, GRID_GAMES, GRID_FLAG } from './GameGrid'
 import { buildUsageGrid, outsToIpShort } from './derive/pitchingUsage'
 import type { WpblPitchingUsageRow, WpblPlayer } from './types'
 
@@ -19,8 +19,6 @@ import type { WpblPitchingUsageRow, WpblPlayer } from './types'
  * genuinely can't do twice more without consequence.
  */
 
-const MAX_GAMES = 6
-
 export default function PitchingUsage({
   rows, roster, accent, onOpenPlayer,
 }: {
@@ -32,11 +30,11 @@ export default function PitchingUsage({
   const shortName = useWpblName()
   const playerById = useMemo(() => new Map(roster.map(p => [p.id, p])), [roster])
   const { games, pitchers, cells, windowPitches } = useMemo(
-    () => buildUsageGrid(rows, MAX_GAMES), [rows])
+    () => buildUsageGrid(rows, GRID_GAMES), [rows])
 
   if (!games.length) {
     return (
-      <SectionCard title="Pitching usage" subtitle="Last 6 games">
+      <SectionCard title="Pitching usage" subtitle={`Last ${GRID_GAMES} games`}>
         <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', py: 1 }}>
           No pitching recorded yet.
         </Typography>
@@ -52,19 +50,19 @@ export default function PitchingUsage({
       subtitle={`Last ${games.length} games · pitches (IP)`}
     >
       <GameGrid
-        // The widest thing in a column here is 3 digits and an asterisk ("102*", 29px), so
-        // most of the old 66px was air. The one thing forcing it wide was the weekday in the
-        // header, at 40px against 21px for the date alone — so the weekday goes and the
-        // column drops to 38. On a 375px screen that is about five games visible rather than
-        // under three. The lineup grid keeps its weekday, where the column is already wide
-        // enough for it at no cost.
-        colWidth={38}
+        // The widest thing in a column here is 3 digits and an asterisk ("102*", 28px), so
+        // most of the original 66px was air. What sets the width is the header: a two-letter
+        // weekday and date is 32–38px across the week ("Mo"/"We" being the wide ones), and 44
+        // leaves a 6px gutter so adjacent headers don't run together. That shows ~4.4 games on
+        // a 375px screen. The column was 38 while this grid dropped the weekday to save the
+        // room; carrying the same date label as the lineup grid is worth the half-column.
+        colWidth={44}
         // 116 = widest abbreviated name (84) + the workload total (19) + gaps. At 112 the
         // longest names clipped to "Jamie Mack…"; the extra 4px costs no column.
         nameWidth={116}
         columns={games.map(g => ({
           id: g.id,
-          title: formatGameColumnShort(g.date),
+          title: formatGameColumn(g.date),
           sub: g.opp ? `vs ${g.opp}` : undefined,
         }))}
         rows={pitchers.map(pid => {
@@ -94,7 +92,7 @@ export default function PitchingUsage({
               }}>
                 {c.pitches ?? '?'}
                 {backToBack && (
-                  <Box component="span" sx={{ color: '#c2410c', fontWeight: 900 }}>*</Box>
+                  <Box component="span" sx={{ color: GRID_FLAG, fontWeight: 900 }}>*</Box>
                 )}
               </Typography>
               <Typography sx={{
@@ -110,7 +108,7 @@ export default function PitchingUsage({
       <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', pt: 1, lineHeight: 1.5 }}>
         Pitches thrown over innings pitched, newest first. The number beside each name is their
         total across these {games.length} games ({totalPitches} staff-wide). <b>Bold</b> started;
-        <Box component="span" sx={{ color: '#c2410c', fontWeight: 900 }}> *</Box> came back on
+        <Box component="span" sx={{ color: GRID_FLAG, fontWeight: 900 }}> *</Box> came back on
         one day of rest or less.
       </Typography>
     </SectionCard>

@@ -39,6 +39,13 @@ export function rankPitcher(cells: UsageCell[], gameOrder: string[], gameOf: Map
     : { group: 1, key: 0, pitches }
 }
 
+// Newest first. Two games can share a date (a doubleheader), and the view carries no start
+// time or game number to separate them, so the id breaks the tie: an arbitrary order, but a
+// STABLE one, and — more to the point — the same one in both grids. Without it the two cards
+// on a team page could show the same doubleheader's columns in opposite orders.
+const byGameDesc = (a: { date: string; id: string }, b: { date: string; id: string }) =>
+  b.date.localeCompare(a.date) || a.id.localeCompare(b.id)
+
 export function buildUsageGrid(rows: WpblPitchingUsageRow[], maxGames: number): UsageGrid {
   const meta = new Map<string, { id: string; date: string; opp: string | null }>()
   for (const r of rows) {
@@ -46,7 +53,7 @@ export function buildUsageGrid(rows: WpblPitchingUsageRow[], maxGames: number): 
       meta.set(r.game_id, { id: r.game_id, date: r.game_date, opp: r.opponent_team_id })
     }
   }
-  const games = [...meta.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, maxGames)
+  const games = [...meta.values()].sort(byGameDesc).slice(0, maxGames)
   const order = games.map(g => g.id)
   const keep = new Set(order)
 

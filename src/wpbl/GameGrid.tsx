@@ -10,14 +10,24 @@ import { pressable, FOCUS_RING } from './ui'
  * two non-obvious traps that are easy to reintroduce (both flagged inline).
  */
 
+/** How many games either grid shows. Fangraphs shows six on a depth chart, and six fits a
+ *  phone with a sticky name column. Shared so the two cards always cover the same window —
+ *  reading one against the other is most of the point of having both on the page. */
+export const GRID_GAMES = 6
+
+/** The one colour either grid uses to flag something the reader should not skim past: a
+ *  left-handed start in the lineup grid, an outing on short rest in the pitching grid.
+ *  Shared so a flag always looks like a flag, and so nothing else in these cards is orange. */
+export const GRID_FLAG = '#c2410c'
+
 export interface GameGridColumn {
   id: string
-  /** Top line of the header, e.g. "Sat 8/15". */
+  /** Top line of the header, e.g. "Sa 8/15" — always from formatGameColumn. */
   title: string
-  /** Second line, e.g. a pitcher's name or "vs SF". */
+  /** Second line: who they played, "vs SF". Both grids put the opponent here. */
   sub?: string
   subColor?: string
-  /** Optional third line, e.g. "LHP". */
+  /** Optional third line, e.g. the opposing starter and hand, "Castillo L". */
   sub2?: string
   sub2Color?: string
 }
@@ -87,6 +97,9 @@ export default function GameGrid({ columns, rows, renderCell, colWidth, nameWidt
                   fontSize: '0.5rem', fontWeight: 800, lineHeight: 1.3,
                   letterSpacing: 0.2,
                   color: c.sub2Color ?? 'text.disabled',
+                  // sub2 carries a pitcher's surname in the lineup grid, not just "LHP",
+                  // so it can overrun the column the same way sub can.
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 }}>
                   {c.sub2}
                 </Typography>
@@ -156,19 +169,20 @@ export default function GameGrid({ columns, rows, renderCell, colWidth, nameWidt
   )
 }
 
-/** "2026-08-15" → "Sat 8/15". Parsed as parts, not `new Date(str)`, which would shift the
- *  date backwards for anyone west of UTC. */
+/** "2026-08-15" → "Sa 8/15".
+ *
+ *  Both grids use this one function, so a column is labelled the same way wherever you meet
+ *  it. The weekday is two letters rather than three because of the pitching grid: measured
+ *  at 16px Inter, "Wed 8/15" is 44px against a 38px column, so three letters simply did not
+ *  fit and that grid used to drop the weekday altogether. Two letters is 32–38px across the
+ *  whole week, which does fit — the weekday survives in both grids for the price of six
+ *  pixels of column width, instead of being dropped from one of them.
+ *
+ *  Parsed as parts, not `new Date(str)`, which would shift the date backwards for anyone
+ *  west of UTC. */
 export function formatGameColumn(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number)
   const dt = new Date(y, m - 1, d)
-  const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dt.getDay()]
+  const day = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'][dt.getDay()]
   return `${day} ${m}/${d}`
-}
-
-/** "2026-08-15" → "8/15". Same parsing as above, without the weekday: in the pitching grid
- *  the weekday is the single widest thing in the column and dropping it is worth roughly two
- *  extra games on screen. */
-export function formatGameColumnShort(iso: string): string {
-  const [, m, d] = iso.split('-').map(Number)
-  return `${m}/${d}`
 }

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
 import { SectionCard, useWpblName } from './ui'
-import GameGrid, { formatGameColumn } from './GameGrid'
+import GameGrid, { formatGameColumn, GRID_GAMES, GRID_FLAG } from './GameGrid'
 import { buildLineupGrid } from './derive/lineupGrid'
 import type { WpblLineupHistoryRow, WpblPlayer } from './types'
 
@@ -14,11 +14,10 @@ import type { WpblLineupHistoryRow, WpblPlayer } from './types'
  * row and you get how a manager actually feels about a player — which is the thing a
  * season-totals table can never show.
  *
- * Each column is labelled with the opposing starter's hand, because that's usually the
- * reason a lineup changed shape. Without it the grid looks like random shuffling.
+ * Column headers match the pitching-usage grid line for line — date, then opponent — with a
+ * third line here for the opposing starter and their throwing hand, because that's usually
+ * the reason a lineup changed shape. Without it the grid looks like random shuffling.
  */
-
-const MAX_GAMES = 6      // Fangraphs shows six; it fits a phone with a sticky name column.
 
 export default function LineupHistory({
   rows, roster, accent, onOpenPlayer,
@@ -30,11 +29,11 @@ export default function LineupHistory({
 }) {
   const shortName = useWpblName()
   const playerById = useMemo(() => new Map(roster.map(p => [p.id, p])), [roster])
-  const { games, players, cells } = useMemo(() => buildLineupGrid(rows, MAX_GAMES), [rows])
+  const { games, players, cells } = useMemo(() => buildLineupGrid(rows, GRID_GAMES), [rows])
 
   if (!games.length) {
     return (
-      <SectionCard title="Lineup history" subtitle="Last 6 games">
+      <SectionCard title="Lineup history" subtitle={`Last ${GRID_GAMES} games`}>
         <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', py: 1 }}>
           No lineups recorded yet.
         </Typography>
@@ -53,13 +52,19 @@ export default function LineupHistory({
         columns={games.map(g => ({
           id: g.id,
           title: formatGameColumn(g.date),
-          // The starter by name. A bare "vs L" reads as if it might describe the whole
-          // staff; a name can only be one person, which is the whole point of the column.
-          sub: g.starter ? lastName(g.starter) : g.opp ? `vs ${g.opp}` : undefined,
-          sub2: g.hand ? `${g.hand}HP` : undefined,
+          // Line 2 is the opponent in both grids, so the same slot always answers the same
+          // question. It used to hold the pitcher here, which meant this card was the one
+          // place on the team page that never told you who they played.
+          sub: g.opp ? `vs ${g.opp}` : undefined,
+          // The starter, by name and hand together on one line — a bare "vs L" reads as if
+          // it might describe the whole staff, and a name can only be one person, which is
+          // the whole point of the column.
+          sub2: g.starter
+            ? `${lastName(g.starter)}${g.hand ? ` ${g.hand}` : ''}`
+            : g.hand ? `${g.hand}HP` : undefined,
           // A lefty start is the usual reason a card looks different, so it's the one
           // header worth colouring.
-          sub2Color: g.hand === 'L' ? '#c2410c' : undefined,
+          sub2Color: g.hand === 'L' ? GRID_FLAG : undefined,
         }))}
         rows={players.map(pid => {
           const player = playerById.get(pid)
@@ -90,15 +95,16 @@ export default function LineupHistory({
       />
       <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', pt: 1, lineHeight: 1.5 }}>
         Position and lineup spot per game, newest first. <b>Bold</b> started; <i>italic</i> entered
-        as a substitute. Each column is headed by the pitcher who <i>started</i> for the other
-        side and their throwing hand &mdash; relievers who followed them aren't shown here.
+        as a substitute. Under each date is the opponent, then the pitcher who <i>started</i> for
+        them and their throwing hand &mdash; relievers who followed aren't shown here.
       </Typography>
     </SectionCard>
   )
 }
 
-/** "Rosi del Castillo" → "Castillo". Header columns are 66px, so the surname alone is all
- *  that fits; every starter so far is 8 characters or fewer. */
+/** "Rosi del Castillo" → "Castillo". The column is 58px and the surname shares its line with
+ *  the throwing hand, so the surname alone is all that fits; "Castillo L" measures 38px at the
+ *  header's 8px type, and anything longer ellipsises rather than pushing the column wider. */
 function lastName(full: string): string {
   return full.trim().split(/\s+/).slice(-1)[0]
 }
