@@ -62,7 +62,8 @@ files are the already-applied baseline.
 
 ## Docs
 
-- [ROADMAP.md](ROADMAP.md) — living plan for both leagues (dated realignment log at the end of the WPBL section)
+- [ROADMAP-WPBL.md](ROADMAP-WPBL.md) — the WPBL plan (season clock, prioritized next list, dated realignment log)
+- [ROADMAP.md](ROADMAP.md) — the MLB plan
 - [docs/PUSH_NOTIFICATIONS.md](docs/PUSH_NOTIFICATIONS.md) — Web Push setup + the MLB and WPBL reminder senders
 - [docs/DISCORD.md](docs/DISCORD.md) — the WPBL fan-server integrations: the watch-party board, the box score posted when a game goes final, the highlight reels, and the `/player` bot
 - [docs/GOOGLE_TASKS.md](docs/GOOGLE_TASKS.md), [docs/feature-requests.md](docs/feature-requests.md)

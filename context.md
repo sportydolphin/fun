@@ -26,8 +26,11 @@ one shell (auth, search, notifications, theme, units):
 2. **[ARCHITECTURE.md](ARCHITECTURE.md)** — the real map: system diagram, routes, DB tables,
    the WPBL ingest pipeline, every cron job, edge functions, external integrations, and the
    config/secrets reference. Keep it current when you add a table, workflow, or integration.
-3. **[ROADMAP.md](ROADMAP.md)** — living plan for both leagues; dated realignment log at the
-   end of the WPBL section tells you what shipped recently and what's next.
+3. **[ROADMAP-WPBL.md](ROADMAP-WPBL.md)** — the WPBL plan. Start here if you're touching
+   `/wpbl`: it opens with the season clock (the feed stops Sep 6, 2026), then the
+   prioritized next list, with a dated realignment log at the end for what shipped when.
+   **[ROADMAP.md](ROADMAP.md)** is the MLB section's own plan. The two were one file until
+   Aug 16, 2026.
 4. **[docs/](docs/)** — `DISCORD.md` (the fan-server board, the box score posted when a
    game goes final, the YouTube highlight reels, the `/player` slash-command bot, and which
    of the secret stores each writer reads),
