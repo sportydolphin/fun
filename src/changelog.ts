@@ -4,6 +4,33 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.44.0',
+    date:    '2026-08-16',
+    title:   'Swipe through a game, and cards that use the whole screen',
+    changes: [
+      {
+        short: 'Swipe between the tabs of a WPBL game',
+        full:  'Opening a WPBL game and moving between its Recap, Box Score, Play-by-Play and Pitch Data used to mean tapping the tab you wanted. On a phone you can now swipe left and right between them, the same way you already move between the tabs of the section itself. Each tab keeps its own scroll position, so going back to the play log returns you to the inning you were reading rather than the top.',
+      },
+      {
+        short: 'The lineup and pitching history cards fill the screen on a desktop',
+        full:  'Both cards on a team page were laid out for a phone and kept that narrow shape on a big screen, leaving half the card empty. They now spread across the whole width, and show up to twelve games instead of six as the season gives them more to show.',
+      },
+      {
+        short: 'Long names in those cards are shortened, not cut off',
+        full:  'A name too long for the column was being cut mid-word, so "Suzuka Yamamoto" read as "Suzuka Yam". Names now shorten to a first initial and surname, and only when the column really cannot hold the whole thing.',
+      },
+      {
+        short: 'The scoreboard says when a finished game was played',
+        full:  'A finished game on the home scoreboard said only "Final", so a strip covering the whole season gave no clue which day you were looking at. It now reads Final followed by the day, as Today, Yesterday, or the date.',
+      },
+      {
+        short: 'Stars of the game keep their full stat line',
+        full:  'In a game recap, the stat line under each of the three standout players could be cut short even when there was unused space beside it. The three now share the full width of the card between them, and a line that still will not fit runs onto a second line rather than being cut.',
+      },
+    ],
+  },
+  {
     version: '1.43.0',
     date:    '2026-08-16',
     title:   'A play-by-play you can actually skim',
@@ -19,55 +46,33 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
-    version: '1.42.3',
-    date:    '2026-08-16',
-    changes: [
-      {
-        short: 'The notifications panel fits the screen on a phone',
-        full:  'Opening the bell on a phone put the panel partly off the left of the screen, so its heading read "FICATIONS" and the text ran off the edge. It is now a panel that fits the width of the screen with an even margin each side. The dismiss cross is a proper size to tap, and dismissing one no longer opens it by mistake.',
-      },
-    ],
-  },
-  {
-    version: '1.42.2',
-    date:    '2026-08-16',
-    changes: [
-      {
-        short: 'More games on screen in the lineup and pitching grids',
-        full:  'On a phone the pitching usage grid showed under three games before you had to scroll sideways, and now shows five. The lineup grid went from under three to four. The pitching columns are narrower because a pitch count needs far less room than a position, and the widest thing in those headers, the weekday, has been dropped there.',
-      },
-      {
-        short: 'Wording no longer assumes a player\u2019s pronouns',
-        full:  'Text across the site referred to players as she or her. It now says they or their throughout.',
-      },
-    ],
-  },
-  {
-    version: '1.42.1',
-    date:    '2026-08-16',
-    changes: [
-      {
-        short: 'One switch for reminders before every WPBL game',
-        full:  'The reminder switch on the next game card used to cover only that one game, so getting a heads-up before the next one meant coming back and turning it on again. It is now a standing setting: turn it on once and you get a push 30 minutes before every WPBL game. Reminders anyone had already set for a specific game still arrive.',
-      },
-    ],
-  },
-  {
     version: '1.42.0',
     date:    '2026-08-16',
     title:   'Lineup and pitching history for every WPBL team, and a fix to who gets notified',
     changes: [
       {
         short: 'See how a manager has been filling out the lineup card',
-        full:  'A WPBL team page now shows the last six lineups as a grid: one row per player, one column per game, each cell giving their position and where they hit. Every column is headed by the pitcher who started for the other side and whether they throw left or right, which is usually the reason a lineup changed shape. Substitutes are shown in italics so a regular starter is easy to pick out.',
+        full:  'A WPBL team page now shows the last six lineups as a grid: one row per player, one column per game, each cell giving their position and where they hit. Every column is headed by the pitcher who started for the other side and whether they throw left or right, which is usually the reason a lineup changed shape. Substitutes are shown in italics so a regular starter is easy to pick out. On a phone the pitching grid shows five games before you have to scroll sideways and the lineup grid four, up from under three each.',
       },
       {
         short: 'See who has been pitching, and who should be rested',
         full:  'Alongside the lineup grid, a pitching usage grid shows every appearance over the last six games with the pitch count and innings for each, and the total each pitcher has thrown across the window. Anyone who came back on one day of rest or less is flagged, because that is the thing a season ERA cannot tell you.',
       },
       {
+        short: 'One switch for reminders before every WPBL game',
+        full:  'The reminder switch on the next game card used to cover only that one game, so getting a heads-up before the next one meant coming back and turning it on again. It is now a standing setting: turn it on once and you get a push 30 minutes before every WPBL game. Reminders anyone had already set for a specific game still arrive.',
+      },
+      {
         short: 'Pick reminders now only go to people who asked for them',
         full:  'The daily reminder to make your MLB picks was going to everyone who had ever turned on notifications, including WPBL fans who only wanted a heads up before a game. It is now a separate setting that is off unless you turn it on, and switching it off no longer cancels your other reminders.',
+      },
+      {
+        short: 'Wording no longer assumes a player\u2019s pronouns',
+        full:  'Text across the site referred to players as she or her. It now says they or their throughout.',
+      },
+      {
+        short: 'The notifications panel fits the screen on a phone',
+        full:  'Opening the bell on a phone put the panel partly off the left of the screen, so its heading read "FICATIONS" and the text ran off the edge. It is now a panel that fits the width of the screen with an even margin each side. The dismiss cross is a proper size to tap, and dismissing one no longer opens it by mistake.',
       },
       {
         short: 'A team page tells you more, in less space',
