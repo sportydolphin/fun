@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
-import { SectionCard, useWpblName } from './ui'
-import GameGrid, { formatGameColumn, GRID_GAMES, GRID_FLAG } from './GameGrid'
+import { SectionCard } from './ui'
+import GameGrid, { formatGameColumn, useGridGames, GRID_FLAG } from './GameGrid'
 import { buildLineupGrid } from './derive/lineupGrid'
 import type { WpblLineupHistoryRow, WpblPlayer } from './types'
 
@@ -27,13 +27,13 @@ export default function LineupHistory({
   accent: string
   onOpenPlayer: (p: WpblPlayer) => void
 }) {
-  const shortName = useWpblName()
+  const gridGames = useGridGames()
   const playerById = useMemo(() => new Map(roster.map(p => [p.id, p])), [roster])
-  const { games, players, cells } = useMemo(() => buildLineupGrid(rows, GRID_GAMES), [rows])
+  const { games, players, cells } = useMemo(() => buildLineupGrid(rows, gridGames), [rows, gridGames])
 
   if (!games.length) {
     return (
-      <SectionCard title="Lineup history" subtitle={`Last ${GRID_GAMES} games`}>
+      <SectionCard title="Lineup history" subtitle={`Last ${gridGames} games`}>
         <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', py: 1 }}>
           No lineups recorded yet.
         </Typography>
@@ -48,7 +48,9 @@ export default function LineupHistory({
         // (a pitcher surname) 43px, so 58 clears both. The name column holds an abbreviated
         // name at 84px. Together that shows ~4 games before scrolling instead of ~3.
         colWidth={58}
-        nameWidth={92}
+        // Desktop gets 180: enough for "Gabrielle Haas" or "Suzuka Yamamoto" in full, which is
+        // most of the roster, so the fitter only has to abbreviate the genuine outliers.
+        nameWidth={{ xs: 92, sm: 180 }}
         columns={games.map(g => ({
           id: g.id,
           title: formatGameColumn(g.date),
@@ -70,7 +72,8 @@ export default function LineupHistory({
           const player = playerById.get(pid)
           return {
             id: pid,
-            label: player ? shortName(player.name) : '—',
+            // Full name — GameGrid fits it to the column itself (see GridName).
+            label: player ? player.name : '—',
             onClick: player ? () => onOpenPlayer(player) : undefined,
           }
         })}

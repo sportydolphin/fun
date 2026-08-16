@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
-import { SectionCard, useWpblName } from './ui'
-import GameGrid, { formatGameColumn, GRID_GAMES, GRID_FLAG } from './GameGrid'
+import { SectionCard } from './ui'
+import GameGrid, { formatGameColumn, useGridGames, GRID_FLAG } from './GameGrid'
 import { buildUsageGrid, outsToIpShort } from './derive/pitchingUsage'
 import type { WpblPitchingUsageRow, WpblPlayer } from './types'
 
@@ -27,14 +27,14 @@ export default function PitchingUsage({
   accent: string
   onOpenPlayer: (p: WpblPlayer) => void
 }) {
-  const shortName = useWpblName()
+  const gridGames = useGridGames()
   const playerById = useMemo(() => new Map(roster.map(p => [p.id, p])), [roster])
   const { games, pitchers, cells, windowPitches } = useMemo(
-    () => buildUsageGrid(rows, GRID_GAMES), [rows])
+    () => buildUsageGrid(rows, gridGames), [rows, gridGames])
 
   if (!games.length) {
     return (
-      <SectionCard title="Pitching usage" subtitle={`Last ${GRID_GAMES} games`}>
+      <SectionCard title="Pitching usage" subtitle={`Last ${gridGames} games`}>
         <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', py: 1 }}>
           No pitching recorded yet.
         </Typography>
@@ -58,8 +58,9 @@ export default function PitchingUsage({
         // room; carrying the same date label as the lineup grid is worth the half-column.
         colWidth={44}
         // 116 = widest abbreviated name (84) + the workload total (19) + gaps. At 112 the
-        // longest names clipped to "Jamie Mack…"; the extra 4px costs no column.
-        nameWidth={116}
+        // longest names clipped to "Jamie Mack…"; the extra 4px costs no column. Desktop gets
+        // 200 — 180 for a full name, matching the lineup grid, plus the workload total's slot.
+        nameWidth={{ xs: 116, sm: 200 }}
         columns={games.map(g => ({
           id: g.id,
           title: formatGameColumn(g.date),
@@ -70,7 +71,8 @@ export default function PitchingUsage({
           const total = windowPitches.get(pid) ?? 0
           return {
             id: pid,
-            label: player ? shortName(player.name) : '—',
+            // Full name — GameGrid fits it to the column itself (see GridName).
+            label: player ? player.name : '—',
             // Her total across the window, pinned beside the name so it stays visible while
             // the game columns scroll.
             meta: String(total),
