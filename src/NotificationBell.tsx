@@ -4,13 +4,14 @@
 // re-evaluates the registered sources. Adding a notification type never means
 // touching this file — register a source and it shows up here.
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Badge, Box, ClickAwayListener, IconButton, Paper, Tooltip, Typography } from '@mui/material'
 // Filled variant, matching the rest of the toolbar (Brightness4/7, Search,
 // Close, AccountCircle). The `…None`/`…Outlined` glyphs are a lighter stroke
 // weight and read as a different icon set sitting next to them.
 import { Notifications, Close } from '@mui/icons-material'
 import { useAuth } from './AuthContext'
+import { pressable, FOCUS_RING } from './wpbl/ui'
 import {
   useNotifications, refreshNotifications, registerNotificationSource,
   markAllRead, markRead, dismissNotification, addEventNotification,
@@ -41,6 +42,18 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
   const { user } = useAuth()
   const { items, unread } = useNotifications()
   const [open, setOpen] = useState(false)
+
+  // Where the panel hangs from on a phone. The dropdown is anchored to the bell, which sits
+  // in the middle of the toolbar — fine on desktop, but a fixed 300px panel whose right edge
+  // is the bell's right edge starts 39px off the left of a 375px screen, which is why the
+  // header used to read "FICATIONS". On a phone it becomes a viewport-width sheet instead,
+  // and a fixed sheet needs a real y in viewport coordinates. Measured rather than hardcoded
+  // so it keeps working if the toolbar's height ever changes.
+  const anchorRef = useRef<HTMLDivElement>(null)
+  const [anchorBottom, setAnchorBottom] = useState(0)
+  useLayoutEffect(() => {
+    if (open && anchorRef.current) setAnchorBottom(anchorRef.current.getBoundingClientRect().bottom)
+  }, [open])
 
   // Re-evaluate sources on mount, when the signed-in user changes, on a timer,
   // and whenever the tab regains focus (the slate may have moved on since).
@@ -90,7 +103,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
 
   return (
     <ClickAwayListener onClickAway={() => setOpen(false)}>
-      <Box sx={{ position: 'relative' }}>
+      <Box ref={anchorRef} sx={{ position: 'relative' }}>
         <Tooltip title="Notifications">
           <IconButton
             size="small"
@@ -113,9 +126,15 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
 
         {open && (
           <Paper elevation={8} sx={{
-            position: 'absolute', top: 'calc(100% + 6px)', right: 0,
             zIndex: 1500, borderRadius: 2.5, overflow: 'hidden',
-            width: 300,
+            // Phone: a sheet pinned to the viewport with an even margin each side, so it
+            // can't run off an edge whatever the bell's position in the toolbar.
+            // Tablet up: the original dropdown, anchored under the bell.
+            position: { xs: 'fixed', sm: 'absolute' },
+            top: { xs: anchorBottom + 8, sm: 'calc(100% + 6px)' },
+            left: { xs: 8, sm: 'auto' },
+            right: { xs: 8, sm: 0 },
+            width: { xs: 'auto', sm: 300 },
             // Divide by --app-zoom so the panel stays on-screen under the
             // desktop `zoom` wrapper, which doesn't shrink viewport units.
             maxHeight: 'calc(70vh / var(--app-zoom, 1))', overflowY: 'auto',
@@ -146,14 +165,15 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
               items.map(n => (
                 <Box
                   key={n.id}
-                  onClick={() => handleClick(n)}
+                  {...pressable(() => handleClick(n))}
                   sx={{
                     display: 'flex', alignItems: 'flex-start', gap: 1.25,
-                    px: 1.5, py: 1.25, cursor: 'pointer',
+                    px: 1.5, py: 1.4, cursor: 'pointer',
                     borderBottom: '1px solid', borderColor: 'divider',
                     bgcolor: n.read ? 'transparent' : 'action.hover',
                     '&:hover': { bgcolor: 'action.selected' },
                     '&:last-of-type': { borderBottom: 'none' },
+                    ...FOCUS_RING,
                   }}
                 >
                   <Typography sx={{ fontSize: '1rem', lineHeight: 1.2, flexShrink: 0 }}>{n.icon}</Typography>
@@ -168,14 +188,34 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
                       {timeAgo(n.createdAt)}
                     </Typography>
                   </Box>
+                  {/* A 0.8rem glyph with 2px of padding was a ~16px target — half the 32px
+                      a thumb needs, sitting right beside the row's own tap area, so dismissing
+                      one reliably opened it instead. Now 32px square, with the icon still
+                      small so the row doesn't look heavier. */}
+                  {/* Hand-rolled rather than pressable(): this control is nested inside a
+                      clickable row, so both the click and the Enter/Space keydown have to stop
+                      propagating or dismissing would also open the notification. pressable()
+                      does not hand back the event, and stopping it in a capture handler would
+                      fire before this element's own onClick and swallow the dismiss entirely. */}
                   <Box
+                    role="button"
+                    tabIndex={0}
                     onClick={e => { e.stopPropagation(); dismissNotification(n.id) }}
+                    onKeyDown={e => {
+                      if (e.key !== 'Enter' && e.key !== ' ') return
+                      e.preventDefault(); e.stopPropagation()
+                      dismissNotification(n.id)
+                    }}
+                    aria-label="Dismiss notification"
                     sx={{
-                      flexShrink: 0, display: 'flex', color: 'text.disabled', p: 0.25,
-                      borderRadius: 1, '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
+                      flexShrink: 0, width: 32, height: 32, mt: -0.25, mr: -0.75,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: 'text.disabled', borderRadius: '50%',
+                      '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
+                      ...FOCUS_RING,
                     }}
                   >
-                    <Close sx={{ fontSize: '0.8rem' }} />
+                    <Close sx={{ fontSize: '0.9rem' }} />
                   </Box>
                 </Box>
               ))

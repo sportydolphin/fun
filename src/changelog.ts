@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.42.3',
+    date:    '2026-08-16',
+    changes: [
+      {
+        short: 'The notifications panel fits the screen on a phone',
+        full:  'Opening the bell on a phone put the panel partly off the left of the screen, so its heading read "FICATIONS" and the text ran off the edge. It is now a panel that fits the width of the screen with an even margin each side. The dismiss cross is a proper size to tap, and dismissing one no longer opens it by mistake.',
+      },
+    ],
+  },
+  {
     version: '1.42.2',
     date:    '2026-08-16',
     changes: [
