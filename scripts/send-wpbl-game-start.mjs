@@ -3,6 +3,11 @@
  * send-wpbl-game-start.mjs — "the WPBL game you flagged is about to start" Web Push.
  *
  * The push side of the reminder bell on the WPBL Home next-game card
+ * Two ways to opt in, both honoured here: a standing
+ * user_preferences.notify_wpbl_all_games ("before every game"), and legacy per-game
+ * wpbl_game_reminders rows. The standing opt-in is expanded into one reminder per scheduled
+ * game for today, so everything downstream treats them identically.
+ *
  * (src/wpbl/Home.tsx → src/wpbl/reminders.ts). For every wpbl_game_reminders opt-in
  * whose game's first pitch is now within the user's lead window, it sends one push.
  * A row in wpbl_game_start_sent keeps each reminder to exactly one delivery, so this
@@ -187,17 +192,54 @@ async function main() {
     console.error('  ❌  Could not read wpbl_game_reminders — run scripts/create_wpbl_game_reminders.sql first.')
     throw new Error(remErr.message)
   }
-  if (!reminders || reminders.length === 0) { console.log('  No reminders opted in — exiting.'); return }
+  // 1b. Standing opt-ins: users who asked for a reminder before EVERY game rather than
+  //     picking them off one at a time. Expanded below into one virtual reminder per
+  //     scheduled game, so the rest of this script does not need to know the difference.
+  const { data: allGamesRows, error: allErr } = await supabase
+    .from('user_preferences')
+    .select('user_id, notify_wpbl_all_games')
+    .eq('notify_wpbl_all_games', true)
+  if (allErr) throw new Error(`Loading WPBL notification preferences failed: ${allErr.message}`)
+  const allGamesUsers = (allGamesRows ?? []).map(r => r.user_id)
 
-  // 2. The games those reminders point at (only the scheduled ones can still fire a
-  //    pre-game push; live/final have already started).
+  if ((!reminders || reminders.length === 0) && allGamesUsers.length === 0) {
+    console.log('  No reminders opted in — exiting.')
+    return
+  }
+
+  // 2. The games in play: the ones per-game reminders point at, plus today's scheduled
+  //    games for anyone on the standing opt-in. Only scheduled games can still fire a
+  //    pre-game push; live/final have already started.
+  const { data: todayRows, error: todayErr } = await supabase
+    .from('wpbl_games')
+    .select('id, game_date, start_time, status, home_team_id, away_team_id')
+    .eq('game_date', date)
+  if (todayErr) throw new Error(`Loading today's games failed: ${todayErr.message}`)
+  const todayGames = todayRows ?? []
+
   const gameIds = [...new Set(reminders.map(r => r.game_id))]
   const { data: gameRows, error: gameErr } = await supabase
     .from('wpbl_games')
     .select('id, game_date, start_time, status, home_team_id, away_team_id')
-    .in('id', gameIds)
+    .in('id', gameIds.length ? gameIds : ['00000000-0000-0000-0000-000000000000'])
   if (gameErr) throw new Error(`Loading games failed: ${gameErr.message}`)
-  const gameById = new Map((gameRows ?? []).map(g => [g.id, g]))
+  const gameById = new Map([...(gameRows ?? []), ...todayGames].map(g => [g.id, g]))
+
+  // Fold the standing opt-ins in as ordinary reminders, skipping any (user, game) that
+  // already has a real row so a user can't be queued twice for the same game.
+  const seen = new Set(reminders.map(r => `${r.user_id}:${r.game_id}`))
+  for (const userId of allGamesUsers) {
+    for (const g of todayGames) {
+      const key = `${userId}:${g.id}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      reminders.push({ user_id: userId, game_id: g.id, lead_min: DEFAULT_LEAD_MIN })
+    }
+  }
+  if (allGamesUsers.length) {
+    console.log(`  ${allGamesUsers.length} user(s) on the every-game opt-in`)
+  }
+  if (reminders.length === 0) { console.log('  Nothing to send today — exiting.'); return }
 
   // 3. Which reminders already went out, so we send each exactly once.
   const { data: sentRows, error: sentErr } = await supabase

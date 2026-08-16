@@ -1,96 +1,71 @@
-// ─── WPBL game-start reminder opt-ins ─────────────────────────────────────────
+// ─── WPBL game-start reminder opt-in ──────────────────────────────────────────
 //
-// The client side of the "notify me before this game" bell on the WPBL Home
-// next-game card. An opt-in is one row in wpbl_game_reminders (see
-// scripts/create_wpbl_game_reminders.sql); the server sender
-// (scripts/send-wpbl-game-start.mjs) reads those rows and fires the push.
+// The client side of the reminder switch on the WPBL Home next-game card. It is a single
+// standing preference — "before every game" — rather than a row per game, which is what it
+// used to be; see the note on the pref below.
 //
-// Reminders are user-scoped because Web Push subscriptions are (push_subscriptions
-// keys off user_id), so turning one on requires a signed-in account. Enabling a
-// reminder also ensures this browser actually has a push subscription — reusing the
-// exact same enablePush() flow the MLB Settings toggle uses — so opting in on a
-// device that never granted notification permission prompts for it here too.
+// The per-game helpers that wrote wpbl_game_reminders rows are gone with that change.
+// Nothing creates new rows now, but scripts/send-wpbl-game-start.mjs still reads the table
+// so anyone who opted into a specific game before this still gets that reminder.
+//
+// Reminders are user-scoped because Web Push subscriptions are (push_subscriptions keys off
+// user_id), so turning one on requires a signed-in account.
 
 import { supabase } from '../lib/supabase'
 import { enablePush, isSubscribed } from '../lib/push'
-import type { WpblGame } from './types'
 
-const DEFAULT_LEAD_MIN = 30
+// ─── Standing "every game" opt-in ─────────────────────────────────────────────
+//
+// One preference instead of a row per game. Lives on user_preferences so the server sender
+// can read it (scripts/send-wpbl-game-start.mjs unions it with any per-game rows), and is
+// mirrored to localStorage so the switch renders correctly on the first frame rather than
+// flicking on after a round trip.
+//
+// Sending still needs a push subscription, so turning this on runs the same enablePush()
+// flow the per-game bell used to — that is what prompts for permission on a device that has
+// never granted it.
 
-// Session cache of the user's opted-in game ids. The Home next-game card unmounts and
-// remounts as the user swipes between tabs; without this, every remount reset the
-// switch to "off" and re-queried the DB, so an opted-in reminder visibly unchecked and
-// rechecked. Populated on first fetch and kept in sync by add/remove, so a remount can
-// render the right state synchronously with no DB round trip.
-let cache: { userId: string; ids: Set<string> } | null = null
+const ALL_GAMES_KEY = 'wpbl_notify_all_games'
 
-/** Cached opt-in set for `userId` if we've fetched it this session, else null. */
-export function getCachedGameReminderIds(userId: string): Set<string> | null {
-  return cache && cache.userId === userId ? cache.ids : null
+export function getCachedAllGamesPref(): boolean {
+  try { return localStorage.getItem(ALL_GAMES_KEY) === '1' } catch { return false }
 }
 
-/** The set of game ids this user has an active reminder for. Empty on any error. */
-export async function fetchGameReminderIds(userId: string): Promise<Set<string>> {
+function setCachedAllGamesPref(on: boolean) {
+  try { localStorage.setItem(ALL_GAMES_KEY, on ? '1' : '0') } catch {}
+}
+
+/** null when the column isn't there yet, so the caller keeps whatever it had. */
+export async function fetchAllGamesPref(userId: string): Promise<boolean | null> {
   const { data, error } = await supabase
-    .from('wpbl_game_reminders')
-    .select('game_id')
+    .from('user_preferences')
+    .select('notify_wpbl_all_games')
     .eq('user_id', userId)
-  if (error) {
-    console.warn('[wpbl] fetchGameReminderIds failed:', error.message)
-    // Keep any cache we already have rather than reporting a spurious "none".
-    return getCachedGameReminderIds(userId) ?? new Set()
-  }
-  const ids = new Set((data ?? []).map(r => r.game_id as string))
-  cache = { userId, ids }
-  return ids
+    .maybeSingle()
+  if (error || !data) return null
+  const on = !!(data as { notify_wpbl_all_games?: boolean }).notify_wpbl_all_games
+  setCachedAllGamesPref(on)
+  return on
 }
 
-/**
- * Opt the user into a pre-game push for `game`. Ensures a live push subscription
- * first (requesting notification permission if needed), then records the opt-in.
- * Returns null on success or a user-facing error string — the same contract as
- * enablePush(), so the caller can surface it inline.
- */
-export async function addGameReminder(userId: string, game: WpblGame): Promise<string | null> {
-  // Make sure this browser can actually receive the push. If a subscription
-  // already exists we skip the permission prompt; otherwise enablePush requests it.
-  if (!(await isSubscribed())) {
-    const err = await enablePush(userId)
+/** Returns an error string for the caller to show inline, or null on success. */
+export async function setAllGamesPref(userId: string, on: boolean): Promise<string | null> {
+  if (on) {
+    // No point recording the wish if nothing can deliver it.
+    const err = (await isSubscribed()) ? null : await enablePush(userId)
     if (err) return err
   }
-
   const { error } = await supabase
-    .from('wpbl_game_reminders')
+    .from('user_preferences')
     .upsert({
-      user_id:   userId,
-      game_id:   game.id,
-      game_date: game.game_date,
-      lead_min:  DEFAULT_LEAD_MIN,
-    }, { onConflict: 'user_id,game_id' })
-
+      user_id:               userId,
+      notify_wpbl_all_games: on,
+      updated_at:            new Date().toISOString(),
+    }, { onConflict: 'user_id' })
   if (error) {
-    console.warn('[wpbl] addGameReminder failed:', error.message)
-    return 'Couldn’t save your reminder. Please try again.'
+    console.warn('[wpbl] setAllGamesPref failed:', error.message)
+    return 'Couldn\u2019t save that. Please try again.'
   }
-  if (cache?.userId === userId) cache.ids.add(game.id)
-  return null
-}
-
-/**
- * Turn a reminder back off. Leaves the push subscription in place (the user may
- * have other reminders, in this league or MLB, riding on it).
- */
-export async function removeGameReminder(userId: string, gameId: string): Promise<string | null> {
-  const { error } = await supabase
-    .from('wpbl_game_reminders')
-    .delete()
-    .eq('user_id', userId)
-    .eq('game_id', gameId)
-
-  if (error) {
-    console.warn('[wpbl] removeGameReminder failed:', error.message)
-    return 'Couldn’t remove your reminder. Please try again.'
-  }
-  if (cache?.userId === userId) cache.ids.delete(gameId)
+  setCachedAllGamesPref(on)
   return null
 }

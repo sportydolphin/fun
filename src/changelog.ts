@@ -4,6 +4,16 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.42.1',
+    date:    '2026-08-16',
+    changes: [
+      {
+        short: 'One switch for reminders before every WPBL game',
+        full:  'The reminder switch on the next game card used to cover only that one game, so getting a heads-up before the next one meant coming back and turning it on again. It is now a standing setting: turn it on once and you get a push 30 minutes before every WPBL game. Reminders anyone had already set for a specific game still arrive.',
+      },
+    ],
+  },
+  {
     version: '1.42.0',
     date:    '2026-08-16',
     title:   'Lineup and pitching history for every WPBL team, and a fix to who gets notified',

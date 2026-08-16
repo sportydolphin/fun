@@ -3,7 +3,7 @@ import { Box, Typography, Skeleton, Switch } from '@mui/material'
 import { NotificationsActiveOutlined, NotificationsNoneOutlined, EventAvailableOutlined } from '@mui/icons-material'
 import { useAuth } from '../AuthContext'
 import { pushSupported, pushConfigured, notificationPermission } from '../lib/push'
-import { addGameReminder, removeGameReminder, fetchGameReminderIds, getCachedGameReminderIds } from './reminders'
+import { getCachedAllGamesPref, fetchAllGamesPref, setAllGamesPref } from './reminders'
 import {
   fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, computeStandings,
   getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblAllPlays, getCachedWpblAllTracking, wpblHomeCacheAgeMs,
@@ -291,11 +291,16 @@ function downloadIcs(filename: string, ics: string) {
   URL.revokeObjectURL(url)
 }
 
-// Opt-in row under the matchup: a Web Push reminder before this specific game's
-// first pitch, mirroring the MLB game-start reminder. The row IS the opt-in record
-// (a wpbl_game_reminders row); a server cron (scripts/send-wpbl-game-start.mjs)
-// fires the actual push. Signed out, the whole row prompts sign-in — Web Push is
-// user-scoped, so there's no anonymous reminder to store.
+// Opt-in row under the matchup: a Web Push reminder before every WPBL game's first pitch.
+//
+// It used to opt into THIS game only, one wpbl_game_reminders row at a time, which meant
+// coming back to tap it again after every game and no way to say "all of them". It is now a
+// standing preference (user_preferences.notify_wpbl_all_games) that the server cron
+// (scripts/send-wpbl-game-start.mjs) expands into a reminder for each scheduled game. Old
+// per-game rows are still honoured by that sender, so nobody lost one.
+//
+// Signed out, the whole row prompts sign-in — Web Push is user-scoped, so there's no
+// anonymous reminder to store.
 function GameReminderRow({ game, away, home, startMs }: {
   game: WpblGame; away?: WpblTeam; home?: WpblTeam; startMs: number | null
 }) {
@@ -305,50 +310,39 @@ function GameReminderRow({ game, away, home, startMs }: {
 
   // Seed from the session cache so a remount (swiping tabs unmounts Home) shows the
   // right switch state on the first frame — no off→on flicker, no per-swipe refetch.
-  const cached = user ? getCachedGameReminderIds(user.id) : null
-  const [on,   setOn]   = useState(() => (cached ? cached.has(game.id) : false))
+  const [on,   setOn]   = useState(() => (user ? getCachedAllGamesPref() : false))
   const [busy, setBusy] = useState(false)
-  const [ready, setReady] = useState(() => cached != null || !user)
+  const [ready, setReady] = useState(() => !user)
   const [perm, setPerm] = useState<ReturnType<typeof notificationPermission>>('default')
   const [err,  setErr]  = useState('')
 
-  // Reflect the stored opt-in for this game whenever the game or signed-in user changes.
-  // The cache makes the common case (already fetched this session) synchronous; only a
-  // cold cache pays a DB read.
+  // localStorage paints the right state on the first frame (Home unmounts on every tab
+  // swipe), then the account value confirms or corrects it.
   useEffect(() => {
     setErr(''); setPerm(notificationPermission())
     if (!user) { setOn(false); setReady(true); return }
-    const have = getCachedGameReminderIds(user.id)
-    if (have) { setOn(have.has(game.id)); setReady(true); return }
+    setOn(getCachedAllGamesPref())
     let cancelled = false
-    setReady(false)
-    fetchGameReminderIds(user.id)
-      .then(ids => { if (!cancelled) { setOn(ids.has(game.id)); setReady(true) } })
-      .catch(() => { if (!cancelled) setReady(true) })
+    fetchAllGamesPref(user.id)
+      .then(pref => { if (!cancelled && pref !== null) setOn(pref) })
+      .finally(() => { if (!cancelled) setReady(true) })
     return () => { cancelled = true }
-  }, [user?.id, game.id])
+  }, [user?.id])
 
   const handleToggle = async (next: boolean) => {
     if (!user) { openAuthDialog('signin'); return }
     if (busy) return
     setBusy(true); setErr('')
-    if (next) {
-      const error = await addGameReminder(user.id, game)
-      if (error) {
-        setErr(error)
-        setOn(false)
-      } else {
-        setOn(true)
-        track(EVENTS.WPBL_GAME_REMINDER_ON, { gameId: game.id, gameDate: game.game_date }, user.id)
-      }
+    const error = await setAllGamesPref(user.id, next)
+    if (error) {
+      setErr(error)
+      // Leave the switch where it was: claiming "on" while nothing can deliver is worse
+      // than showing it failed.
+      setOn(!next)
     } else {
-      const error = await removeGameReminder(user.id, game.id)
-      if (error) {
-        setErr(error)
-      } else {
-        setOn(false)
-        track(EVENTS.WPBL_GAME_REMINDER_OFF, { gameId: game.id, gameDate: game.game_date }, user.id)
-      }
+      setOn(next)
+      track(next ? EVENTS.WPBL_GAME_REMINDER_ON : EVENTS.WPBL_GAME_REMINDER_OFF,
+        { scope: 'all' }, user.id)
     }
     setPerm(notificationPermission())
     setBusy(false)
@@ -387,10 +381,12 @@ function GameReminderRow({ game, away, home, startMs }: {
   if (!supported)            hint = 'This browser can’t do notifications.'
   else if (!configured)      hint = 'Notifications aren’t set up on this deployment yet.'
   else if (perm === 'denied') hint = 'Blocked. Turn notifications on for this site in your browser settings.'
-  else if (!user)            hint = 'Sign in to get a heads-up before first pitch.'
+  // Kept short on purpose: at 320px the switch leaves about 182px for this line, and a
+  // two-line hint under a two-line title makes the row lurch every time it changes.
+  else if (!user)            hint = 'Sign in to get a heads-up.'
   else if (busy)             hint = 'Working…'
-  else if (on)               hint = 'On · we’ll ping you 30 min before first pitch.'
-  else                       hint = 'Get a push before first pitch.'
+  else if (on)               hint = 'On · 30 min before each game.'
+  else                       hint = 'A push before every WPBL game.'
 
   const Icon = on ? NotificationsActiveOutlined : NotificationsNoneOutlined
 
@@ -405,7 +401,7 @@ function GameReminderRow({ game, away, home, startMs }: {
     >
       <Icon sx={{ fontSize: '1.15rem', flexShrink: 0, color: on ? WPBL_ACCENT : 'text.disabled' }} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.2 }}>Remind me before this game</Typography>
+        <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.2 }}>Reminders for every game</Typography>
         <Typography sx={{ fontSize: '0.7rem', color: err ? 'error.main' : 'text.secondary', mt: 0.15, lineHeight: 1.35 }}>
           {err || hint}
         </Typography>
