@@ -111,6 +111,10 @@ flowchart LR
         terms["/terms"]
     end
 
+    subgraph Owner["Owner only"]
+        adm["/admin<br/>AdminPage.tsx"]
+    end
+
     root["/"] -->|redirect| wpbl
     wpbl --> wtabs["Tabs (SwipeableViews):<br/>Home · Schedule · Standings ·<br/>Stats · Tracking · Teams"]
     mlb --> mtabs["Stat-card maker · predictions ·<br/>survivor · standings · playoff odds ·<br/>streaks · milestones"]
@@ -124,9 +128,14 @@ flowchart LR
   tab keeps its own `window.scrollY` and lands under the pinned nav) and `pane` for the
   Game Center's Recap / Box Score / Play-by-Play / Pitch Data tabs, which sit in a modal
   with the body locked, so each pane scrolls itself instead.
+- **`/admin`** — the owner's analytics dashboard plus the operational admin tools (they
+  used to be a dialog off the account menu; there is deliberately one surface now). Reads
+  the `events` table through owner-guarded `security definer` RPCs — see
+  [`docs/ADMIN_ANALYTICS.md`](docs/ADMIN_ANALYTICS.md), whose security section is
+  load-bearing. The route gate is cosmetic; the RPC guards are the boundary.
 - **Client libs** ([`src/lib/`](src/lib)): `supabase` (anon client), `analytics`
-  (→ `events` table), `push`, `notifications`, `adminUsers`, `feedback`, `userActive`,
-  `usernames`, `units`.
+  (→ `events` table), `analyticsAdmin` (owner-only reads of it), `push`, `notifications`,
+  `adminUsers`, `feedback`, `userActive`, `usernames`, `units`.
 
 ---
 
@@ -366,6 +375,7 @@ optional — without it `wpbl-ingest` skips the Discord post and the hourly job 
 - DB schema → baseline [`scripts/*.sql`](scripts) · new changes [`scripts/migrations/`](scripts/migrations) via [`scripts/migrate.mjs`](scripts/migrate.mjs)
 - Cron → [`.github/workflows/`](.github/workflows) + [`scripts/wpbl_cron.sql`](scripts/wpbl_cron.sql)
 - Discord (board + box scores) → [`docs/DISCORD.md`](docs/DISCORD.md)
+- Owner analytics (`/admin`, the `admin_*` RPCs) → [`docs/ADMIN_ANALYTICS.md`](docs/ADMIN_ANALYTICS.md)
 - Edge functions → [`supabase/functions/`](supabase/functions) · Cloudflare Pages functions → [`functions/`](functions)
 - Cron script logic → [`scripts/*.mjs`](scripts) · the Discord recap poster is TS
   ([`scripts/post-wpbl-discord-recaps.ts`](scripts/post-wpbl-discord-recaps.ts)), bundled at CI

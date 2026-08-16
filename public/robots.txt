@@ -2,4 +2,9 @@
 User-agent: *
 Allow: /
 
+# Owner-only dashboard. Nothing here is a security boundary — the data behind it is gated
+# server-side by RLS and the is_site_owner() checks in the admin RPCs — this just keeps a
+# sign-in wall out of the index.
+Disallow: /admin
+
 Sitemap: https://sportydolphin.fun/sitemap.xml

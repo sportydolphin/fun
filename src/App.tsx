@@ -35,6 +35,9 @@ const MlbStats = lazy(() => import('./MlbStats'))
 // stays out of the MLB and landing bundles.
 const WpblApp = lazy(() => import('./wpbl/WpblApp'))
 const WpblApiDocs = lazy(() => import('./wpbl/ApiDocs'))
+// The owner's dashboard. Its own route rather than a dialog: charts and tables need the
+// room, and it pulls in the analytics RPC layer that nobody else should ever download.
+const AdminPage = lazy(() => import('./AdminPage'))
 
 // The mini-apps: each is a whole game or tool reachable only from its own route, and none
 // of them has anything to do with the two league sections that carry the traffic. Eagerly
@@ -52,8 +55,7 @@ const TermsOfService = lazy(() => import('./LegalPages').then(m => ({ default: m
 // Dialogs. Each is mounted only after it has been opened once (see `useOpenedOnce`), so its
 // chunk is fetched on the click that needs it. SettingsDialog is the expensive one: it pulls
 // in MLB's api + constants + colour utilities, ~90 KB of source that has no business loading
-// for someone reading WPBL box scores. AdminPanel is 36 KB that only the owner can use.
-const AdminPanel = lazy(() => import('./AdminPanel').then(m => ({ default: m.AdminPanel })))
+// for someone reading WPBL box scores.
 const SettingsDialog = lazy(() => import('./SettingsDialog').then(m => ({ default: m.SettingsDialog })))
 const FeedbackDialog = lazy(() => import('./FeedbackDialog').then(m => ({ default: m.FeedbackDialog })))
 const UsernameDialog = lazy(() => import('./UsernameDialog').then(m => ({ default: m.UsernameDialog })))
@@ -76,7 +78,7 @@ function useOpenedOnce(open: boolean): boolean {
 // over the app; the brief gap before the chunk lands reads as the click taking a moment.
 const DIALOG_FALLBACK = null
 
-type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame' | '/mlb' | '/wpbl' | '/wpbl/api' | '/privacy' | '/terms'
+type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame' | '/mlb' | '/wpbl' | '/wpbl/api' | '/privacy' | '/terms' | '/admin'
 
 const LOCK_PASSWORD = 'sportydolphin'
 const LOCKED_PATHS = new Set(['/cups', '/weights'])
@@ -299,7 +301,7 @@ function ToolbarResultRow({ row, onSelect }: { row: SearchResultRow; onSelect: (
 function AppInner() {
   const { mode, toggleTheme, skinConfig } = useTheme()
   const integratedHeader = skinConfig.integratedHeader
-  const { user, signOut, openAuthDialog } = useAuth()
+  const { user, loading: authLoading, signOut, openAuthDialog } = useAuth()
   // Root redirects straight to WPBL — it's the default section now. MLB and the
   // other mini apps are still reachable (the MLB | WPBL toggle, admin menu).
   const [path, setPath] = useState<Route | string>(() => {
@@ -312,7 +314,6 @@ function AppInner() {
   const [accountOpen,      setAccountOpen]      = useState(false)
   const [changelogOpen,    setChangelogOpen]    = useState(false)
   const [feedbackOpen,     setFeedbackOpen]     = useState(false)
-  const [adminOpen,        setAdminOpen]        = useState(false)
   const [usernameOpen,     setUsernameOpen]     = useState(false)
   const [settingsOpen,     setSettingsOpen]     = useState(false)
   const [username,         setUsername]         = useState<string | null>(null)
@@ -321,7 +322,6 @@ function AppInner() {
   // Lazy dialogs mount on first open and stay mounted (see useOpenedOnce), so their chunks
   // are fetched by the click that needs them rather than on every page load.
   const feedbackMounted    = useOpenedOnce(feedbackOpen)
-  const adminMounted       = useOpenedOnce(adminOpen)
   const deactivatedMounted = useOpenedOnce(deactivated)
   const usernameMounted    = useOpenedOnce(usernameOpen)
   const settingsMounted    = useOpenedOnce(settingsOpen)
@@ -506,6 +506,15 @@ function AppInner() {
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
+  // Bounce everyone but the owner off /admin. Gated on auth having RESOLVED, not merely on
+  // `user` being absent: a hard refresh restores the session asynchronously, so redirecting
+  // on the first render would eject the owner from their own dashboard before they arrived.
+  // Cosmetic, like every other isAdmin check — the analytics RPCs behind the page reject a
+  // non-owner on the server whether or not this runs.
+  useEffect(() => {
+    if (path === '/admin' && !authLoading && !isAdmin) navigate('/wpbl')
+  }, [path, authLoading, isAdmin])
+
   const handleTileClick = useCallback((p: { path: string }) => {
     if (LOCKED_PATHS.has(p.path) && !unlocked) {
       setPendingPath(p.path)
@@ -536,7 +545,7 @@ function AppInner() {
   // that the site lands on /mlb directly.
   const otherApps = PROJECTS.filter(p => p.path !== '/mlb')
   const isAppLocked = useCallback((path: string) => LOCKED_PATHS.has(path) && !unlocked, [unlocked])
-  const openApp = useCallback((path: string) => { setAdminOpen(false); handleTileClick({ path }) }, [handleTileClick])
+  const openApp = useCallback((path: string) => handleTileClick({ path }), [handleTileClick])
 
   return (
     // Desktop-only content scale (see DESKTOP_ZOOM). Applied at the app root on the
@@ -912,7 +921,7 @@ function AppInner() {
                     {/* Admin — only shown to the site owner */}
                     {isAdmin && (
                       <Box
-                        onClick={() => { setAccountOpen(false); setAdminOpen(true) }}
+                        onClick={() => { setAccountOpen(false); navigate('/admin') }}
                         sx={{
                           px: 2, py: 1.1, cursor: 'pointer',
                           display: 'flex', alignItems: 'center', gap: 1,
@@ -1081,6 +1090,19 @@ function AppInner() {
             </Suspense>
           </Box>
         )}
+        {path === '/admin' && authLoading && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+        )}
+        {path === '/admin' && !authLoading && isAdmin && (
+          <Box>
+            <Box sx={{ maxWidth: 860, mx: 'auto', px: { xs: 1.5, sm: 3 }, mb: 2 }}>
+              <Box onClick={() => navigate('/wpbl')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
+            </Box>
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <AdminPage apps={otherApps} isAppLocked={isAppLocked} onOpenApp={openApp} />
+            </Suspense>
+          </Box>
+        )}
         {path === '/privacy' && (
           <Box>
             {backBtn}
@@ -1118,18 +1140,6 @@ function AppInner() {
             onClose={() => setFeedbackOpen(false)}
             userId={user?.id ?? null}
             userEmail={user?.email ?? null}
-          />
-        </Suspense>
-      )}
-
-      {adminMounted && (
-        <Suspense fallback={DIALOG_FALLBACK}>
-          <AdminPanel
-            open={adminOpen}
-            onClose={() => setAdminOpen(false)}
-            apps={otherApps}
-            isAppLocked={isAppLocked}
-            onOpenApp={openApp}
           />
         </Suspense>
       )}

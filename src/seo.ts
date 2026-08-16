@@ -9,7 +9,12 @@ import { useEffect } from 'react'
 
 const SITE = 'https://sportydolphin.fun'
 
-interface Seo { title: string; description: string }
+interface Seo {
+  title: string
+  description: string
+  /** Keep this route out of search results. See the `robots` note in `useSeo`. */
+  noindex?: boolean
+}
 
 const DEFAULT: Seo = {
   title: 'sportydolphin.fun — MLB & WPBL baseball stats',
@@ -34,6 +39,14 @@ const ROUTES: Record<string, Seo> = {
     title: 'MLB Stats — Live scores, player & team stats | sportydolphin.fun',
     description:
       'Free MLB stats: live scores, player and team statistics, standings, and a daily predictions game. No sign-in required to browse.',
+  },
+  // Owner-only. `noindex` is belt to robots.txt's braces: robots.txt asks a crawler not to
+  // fetch the URL, this tells one that fetched it anyway not to index it. Neither is a
+  // security control — the RPC guards are (see docs/ADMIN_ANALYTICS.md).
+  '/admin': {
+    title: 'Admin — sportydolphin.fun',
+    description: 'Site analytics and admin tools.',
+    noindex: true,
   },
   '/privacy': {
     title: 'Privacy Policy | sportydolphin.fun',
@@ -75,6 +88,11 @@ export function useSeo(path: string) {
     document.title = seo.title
     upsertMeta('name', 'description', seo.description)
     upsertLink('canonical', url)
+
+    // Written on EVERY route change, never only when noindex is set. The app is a SPA, so
+    // a tag left behind by a previous route persists in <head>: set this conditionally and
+    // one visit to /admin would deindex whatever public page the user navigated to next.
+    upsertMeta('name', 'robots', seo.noindex ? 'noindex, nofollow' : 'index, follow')
 
     upsertMeta('property', 'og:title', seo.title)
     upsertMeta('property', 'og:description', seo.description)

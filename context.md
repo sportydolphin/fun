@@ -35,8 +35,9 @@ one shell (auth, search, notifications, theme, units):
    game goes final, the YouTube highlight reels, the `/player` slash-command bot, and which
    of the secret stores each writer reads),
    `PUSH_NOTIFICATIONS.md`, `GOOGLE_TASKS.md`, `feature-requests.md`, and
-   `ADMIN_ANALYTICS_PLAN.md` (the not-yet-built owner analytics view at `/admin` — a
-   self-contained build plan, read it before touching the `events` table).
+   `ADMIN_ANALYTICS.md` (the owner dashboard at `/admin` — read it before touching the
+   `events` table or the `admin_*` RPCs; its security section is the only thing keeping
+   site analytics from being readable by every signed-in user).
 
 Source-of-truth index is at the bottom of ARCHITECTURE.md.
 

@@ -74,7 +74,7 @@ function WpblFreshnessChip({ run }: { run: WpblRunRow }) {
 
 // ─── Stat row ─────────────────────────────────────────────────────────────────
 
-function StatRow({ label, value, sub }: { label: string; value: React.ReactNode; sub?: string }) {
+export function StatRow({ label, value, sub }: { label: React.ReactNode; value: React.ReactNode; sub?: React.ReactNode }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 0.9 }}>
       <Box>
@@ -88,7 +88,7 @@ function StatRow({ label, value, sub }: { label: string; value: React.ReactNode;
 
 // ─── Section header ───────────────────────────────────────────────────────────
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <Box sx={{ mb: 2.5 }}>
       <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: 'text.disabled', mb: 1 }}>
@@ -164,16 +164,14 @@ function AppGrid({ apps, isAppLocked, onOpenApp }: {
 // Fires the send-test-push edge function, which pushes a test notification to
 // the current user's own devices regardless of whether there are games today.
 
-function TestNotificationSection({ open }: { open: boolean }) {
+function TestNotificationSection() {
   const [subscribedHere, setSubscribedHere] = useState<boolean | null>(null)
   const [status, setStatus] = useState<'idle' | 'sending' | 'done' | 'error'>('idle')
   const [msg, setMsg]       = useState('')
 
   useEffect(() => {
-    if (!open) return
-    setStatus('idle'); setMsg('')
     isSubscribed().then(setSubscribedHere).catch(() => setSubscribedHere(false))
-  }, [open])
+  }, [])
 
   const sendTest = async () => {
     setStatus('sending'); setMsg('')
@@ -637,9 +635,12 @@ function UserModal({ open, onClose, onChanged }: {
 
 // ─── Admin Panel ──────────────────────────────────────────────────────────────
 
-export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
-  open: boolean
-  onClose: () => void
+// The operational half of /admin: the things the owner *does* (run an app, fire a test
+// push, work the feedback queue) and the freshness reads that say whether the pipelines
+// ran. This used to be a maxWidth="xs" dialog off the account menu; it renders inline on
+// the page now so there is exactly one admin surface to keep current. Feedback and Users
+// stay modals — they're drill-downs opened FROM the page, not competing with it.
+export function AdminTools({ apps, isAppLocked, onOpenApp }: {
   apps: AppTile[]
   isAppLocked: (path: string) => boolean
   onOpenApp: (path: string) => void
@@ -677,13 +678,11 @@ export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
   }, [])
 
   useEffect(() => {
-    if (!open) return
     loadFeedbackCount()
     loadUserCount()
-  }, [open, loadFeedbackCount, loadUserCount])
+  }, [loadFeedbackCount, loadUserCount])
 
   useEffect(() => {
-    if (!open) return
     setLoading(true)
 
     Promise.all([
@@ -707,37 +706,20 @@ export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
       setPredCount(pc.count ?? 0)
       setWpblRun((((wp.data ?? [])[0]) ?? null) as WpblRunRow | null)
     }).finally(() => setLoading(false))
-  }, [open])
+  }, [])
 
   const latestPayroll = payrolls?.[0]
 
   return (
     <>
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth
-      PaperProps={{ sx: { borderRadius: 3 } }}>
-
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography sx={{ fontSize: '1rem', fontWeight: 800 }}>⚡ Admin</Typography>
-          <Box sx={{ px: 1, py: 0.2, borderRadius: 999, bgcolor: 'warning.main', opacity: 0.9 }}>
-            <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#000', letterSpacing: 0.5 }}>OWNER</Typography>
-          </Box>
-        </Box>
-        <IconButton size="small" onClick={onClose} sx={{ color: 'text.secondary' }}>
-          <Close sx={{ fontSize: '1.1rem' }} />
-        </IconButton>
-      </DialogTitle>
-
-      <Divider />
-
-      <DialogContent sx={{ pt: 2.5 }}>
+      <Box>
         {/* ── Other apps ─────────────────────────────────────────────── */}
         <Section title="Other Apps">
           <AppGrid apps={apps} isAppLocked={isAppLocked} onOpenApp={onOpenApp} />
         </Section>
 
         {/* ── Test notification ──────────────────────────────────────── */}
-        <TestNotificationSection open={open} />
+        <TestNotificationSection />
 
         {/* ── User feedback — opens the full queue in its own popup ───── */}
         <Section title="Feedback">
@@ -852,8 +834,7 @@ export function AdminPanel({ open, onClose, apps, isAppLocked, onOpenApp }: {
             </Section>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+      </Box>
 
     <FeedbackModal
       open={feedbackOpen}
