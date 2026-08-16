@@ -356,7 +356,7 @@ export interface WpblLineupHistoryRow {
 }
 
 /** One pitcher's appearance in one game, from the wpbl_pitching_usage view.
- *  `days_rest` is the gap since that pitcher's PREVIOUS outing — null on her first. */
+ *  `days_rest` is the gap since that pitcher's PREVIOUS outing — null on their first. */
 export interface WpblPitchingUsageRow {
   game_id: string
   team_id: string | null

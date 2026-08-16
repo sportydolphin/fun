@@ -4,7 +4,7 @@ import type { WpblTrackRow, WpblPlayer, WpblPitchingLine } from './types'
 // batted-ball leaderboards. Attribution mirrors the Game Center Pitch Data logic (see
 // GameDetail.tsx): each row's pitcher/batter is resolved by the feed id (= our api_id)
 // first, then by a forgiving name match, and the per-game "unnamed starter" pitches are
-// rescued when exactly one box pitcher in that game has no tracking of her own.
+// rescued when exactly one box pitcher in that game has no tracking of their own.
 
 // ── name helpers (local copies, same shape as GameDetail / firsts — kept inline so this
 //    stays a self-contained WPBL module) ──
@@ -92,8 +92,8 @@ export function aggregateTracking(rows: WpblTrackRow[], players: WpblPlayer[], p
   })
 
   // Per-game single-candidate rescue for the unnamed-starter rows: if exactly one box
-  // pitcher in the game has no tracking attributed to her, the game's unnamed pitches are
-  // provably hers.
+  // pitcher in the game has no tracking attributed to them, the game's unnamed pitches are
+  // provably theirs.
   const attributedByGame = new Map<string, Set<string>>()
   for (const a of pitchAtt) if (a.pid) {
     const s = attributedByGame.get(a.row.game_id) ?? new Set<string>()

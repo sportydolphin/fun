@@ -26,7 +26,7 @@ export interface UsageGrid {
 
 /**
  * Where a pitcher sorts. A usage chart is read top-down as "rotation, then bullpen", so
- * anyone who has started inside the window comes first, ordered by her most recent start
+ * anyone who has started inside the window comes first, ordered by their most recent start
  * — which puts whoever pitched last night at the top and, by extension, shows the rotation
  * in turn order. Relievers follow, heaviest workload first, because the whole question the
  * chart answers is who has been leaned on.

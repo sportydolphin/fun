@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
 import { SectionCard, useWpblName } from './ui'
-import GameGrid, { formatGameColumn } from './GameGrid'
+import GameGrid, { formatGameColumnShort } from './GameGrid'
 import { buildUsageGrid, outsToIpShort } from './derive/pitchingUsage'
 import type { WpblPitchingUsageRow, WpblPlayer } from './types'
 
@@ -11,7 +11,7 @@ import type { WpblPitchingUsageRow, WpblPlayer } from './types'
  * The companion to the lineup grid. One row per pitcher, one column per game, each cell
  * showing the pitch count over the innings thrown. Pitches rather than innings is the
  * headline number on purpose: a one-inning outing can be twelve pitches or thirty-five,
- * and it's the pitch count that decides whether she can go again tomorrow.
+ * and it's the pitch count that decides whether they can go again tomorrow.
  *
  * Rows read rotation-first, then bullpen by workload — see rankPitcher.
  *
@@ -52,9 +52,19 @@ export default function PitchingUsage({
       subtitle={`Last ${games.length} games · pitches (IP)`}
     >
       <GameGrid
+        // The widest thing in a column here is 3 digits and an asterisk ("102*", 29px), so
+        // most of the old 66px was air. The one thing forcing it wide was the weekday in the
+        // header, at 40px against 21px for the date alone — so the weekday goes and the
+        // column drops to 38. On a 375px screen that is about five games visible rather than
+        // under three. The lineup grid keeps its weekday, where the column is already wide
+        // enough for it at no cost.
+        colWidth={38}
+        // 116 = widest abbreviated name (84) + the workload total (19) + gaps. At 112 the
+        // longest names clipped to "Jamie Mack…"; the extra 4px costs no column.
+        nameWidth={116}
         columns={games.map(g => ({
           id: g.id,
-          title: formatGameColumn(g.date),
+          title: formatGameColumnShort(g.date),
           sub: g.opp ? `vs ${g.opp}` : undefined,
         }))}
         rows={pitchers.map(pid => {
@@ -98,7 +108,7 @@ export default function PitchingUsage({
         }}
       />
       <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', pt: 1, lineHeight: 1.5 }}>
-        Pitches thrown over innings pitched, newest first. The number beside each name is her
+        Pitches thrown over innings pitched, newest first. The number beside each name is their
         total across these {games.length} games ({totalPitches} staff-wide). <b>Bold</b> started;
         <Box component="span" sx={{ color: '#c2410c', fontWeight: 900 }}> *</Box> came back on
         one day of rest or less.

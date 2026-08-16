@@ -336,7 +336,7 @@ export default function WpblDraftValue({ players, batting, pitching, onOpenPlaye
   return (
     <Box>
       <Typography sx={{ fontSize: '0.84rem', color: 'text.secondary', mb: 1.5 }}>
-        Where a player went in the draft, against how she has hit or pitched since.
+        Where a player went in the draft, against how they have hit or pitched since.
         {' '}{drafted} players over {roundCount} rounds of {roundSize}. The line is each
         round's average.
       </Typography>

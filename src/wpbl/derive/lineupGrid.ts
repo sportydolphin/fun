@@ -23,7 +23,7 @@ export interface LineupGrid {
  *
  * `key` is the slot a player most often starts in — modal, not mean, because an average is
  * meaningless for someone who hits 2nd against righties and 7th against lefties (it would
- * invent a 4.5 she has never occupied). Ties go to the earlier slot.
+ * invent a 4.5 they have never occupied). Ties go to the earlier slot.
  *
  * Players who have only ever come off the bench have no usual slot at all, so they sort to
  * the bottom as a group rather than being interleaved on the strength of one appearance.
@@ -61,7 +61,7 @@ export function buildLineupGrid(rows: WpblLineupHistoryRow[], maxGames: number):
     let m = cells.get(r.player_id)
     if (!m) { m = new Map(); cells.set(r.player_id, m) }
     const existing = m.get(r.game_id)
-    // A player can hold two rows in one game (she moved slots). The start is the headline
+    // A player can hold two rows in one game (they moved slots). The start is the headline
     // fact, so it wins; otherwise first row seen stays.
     if (!existing || (r.started && !existing.started)) {
       m.set(r.game_id, { position: r.position, spot: r.lineup_spot, started: r.started })

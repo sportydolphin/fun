@@ -19,8 +19,8 @@ describe('rankPlayer', () => {
   })
 
   it('uses the modal slot, not the mean, so it never invents a slot never occupied', () => {
-    // 2nd against righties, 8th against lefties. The mean would be 5 — a slot she has
-    // never hit in, and one that would sort her between two genuine #5 hitters.
+    // 2nd against righties, 8th against lefties. The mean would be 5 — a slot they have
+    // never hit in, and one that would sort them between two genuine #5 hitters.
     const r = rankPlayer([
       { position: 'lf', spot: 2, started: true },
       { position: 'lf', spot: 2, started: true },
@@ -47,7 +47,7 @@ describe('rankPlayer', () => {
     expect(r.starts).toBe(1)
   })
 
-  it('sorts a bench-only player to the bottom rather than by her one appearance', () => {
+  it('sorts a bench-only player to the bottom rather than by their one appearance', () => {
     const bench = rankPlayer([{ position: 'ph', spot: 1, started: false }])
     const leadoff = rankPlayer([{ position: 'cf', spot: 1, started: true }])
     expect(bench.key).toBeGreaterThan(leadoff.key)
@@ -71,7 +71,7 @@ describe('buildLineupGrid', () => {
   it('keeps only the most recent N games and drops cells outside them', () => {
     const g = buildLineupGrid(rows, 2)
     expect(g.games.map(x => x.id)).toEqual(['g3', 'g2'])
-    // 'c' only played in g1, which fell outside the window, so she has no row at all.
+    // 'c' only played in g1, which fell outside the window, so they have no row at all.
     expect(g.players).not.toContain('c')
   })
 

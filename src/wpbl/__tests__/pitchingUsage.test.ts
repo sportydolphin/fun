@@ -51,7 +51,7 @@ describe('buildUsageGrid', () => {
 
   it('totals only the pitches inside the window', () => {
     expect(buildUsageGrid(rows, 6).windowPitches.get('pen-a')).toBe(82)
-    // Narrow the window past g1 and her earlier outing stops counting.
+    // Narrow the window past g1 and their earlier outing stops counting.
     expect(buildUsageGrid(rows, 2).windowPitches.get('pen-a')).toBe(62)
   })
 

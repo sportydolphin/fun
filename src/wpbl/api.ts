@@ -330,7 +330,7 @@ export async function fetchWpblGameLines(gameId: string): Promise<{ batting: Wpb
 
 // Lineup history for one team — which slot and position each player filled, game by game.
 //
-// Reads the wpbl_lineup_history view rather than wpbl_batting_lines, because "did she start
+// Reads the wpbl_lineup_history view rather than wpbl_batting_lines, because "did they start
 // or come in later?" can only be answered by cross-referencing play sequence, and that join
 // belongs in the database next to the rule it implements (see the view's migration).
 //
@@ -349,7 +349,7 @@ export function fetchWpblLineupHistory(teamId: string): Promise<WpblLineupHistor
 // Pitcher usage for one team — every appearance, with rest days already computed.
 //
 // days_rest comes from the view rather than being derived here: the gap that matters is
-// between a pitcher's own consecutive outings, which is a window function over her whole
+// between a pitcher's own consecutive outings, which is a window function over their whole
 // appearance history, not something the client can see from one team's recent games.
 export function fetchWpblPitchingUsage(teamId: string): Promise<WpblPitchingUsageRow[]> {
   return safe('fetchWpblPitchingUsage', () =>

@@ -29,7 +29,7 @@ type Tab = 'recap' | 'box' | 'plays' | 'pitch'
 //
 // Every column shows on every screen. A phone used to drop 2B and SB and let the pitching
 // line scroll sideways, which meant the two things a reader most often reaches a box score
-// for on a phone — did she double, did she steal — were the two the phone hid, and the
+// for on a phone — did they double, did they steal — were the two the phone hid, and the
 // pitching line could only be read by swiping. The width is solved by density instead (see
 // denseTableSx), so nothing has to be dropped.
 const BAT_COLS: { key: keyof WpblBattingLine; label: string }[] = [

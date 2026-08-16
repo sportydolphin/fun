@@ -35,7 +35,7 @@ describe('replacementMatch', () => {
   })
 
   it('will not match two different players', () => {
-    // Same team, same first letter, one damaged character — still clearly not her.
+    // Same team, same first letter, one damaged character — still clearly not them.
     expect(replacementMatch(normName(damage('Maïka Dumais', 'ï')), normName('Maika Dumont'))).toBe(false)
     expect(replacementMatch('ka�e blunt', 'kate bluntson')).toBe(false)
   })

@@ -4,6 +4,20 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.42.2',
+    date:    '2026-08-16',
+    changes: [
+      {
+        short: 'More games on screen in the lineup and pitching grids',
+        full:  'On a phone the pitching usage grid showed under three games before you had to scroll sideways, and now shows five. The lineup grid went from under three to four. The pitching columns are narrower because a pitch count needs far less room than a position, and the widest thing in those headers, the weekday, has been dropped there.',
+      },
+      {
+        short: 'Wording no longer assumes a player\u2019s pronouns',
+        full:  'Text across the site referred to players as she or her. It now says they or their throughout.',
+      },
+    ],
+  },
+  {
     version: '1.42.1',
     date:    '2026-08-16',
     changes: [
@@ -20,7 +34,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'See how a manager has been filling out the lineup card',
-        full:  'A WPBL team page now shows the last six lineups as a grid: one row per player, one column per game, each cell giving her position and where she hit. Every column is headed by the pitcher who started for the other side and whether she throws left or right, which is usually the reason a lineup changed shape. Substitutes are shown in italics so a regular starter is easy to pick out.',
+        full:  'A WPBL team page now shows the last six lineups as a grid: one row per player, one column per game, each cell giving their position and where they hit. Every column is headed by the pitcher who started for the other side and whether they throw left or right, which is usually the reason a lineup changed shape. Substitutes are shown in italics so a regular starter is easy to pick out.',
       },
       {
         short: 'See who has been pitching, and who should be rested',
@@ -74,7 +88,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'See whether early draft picks are actually doing better',
-        full:  'A new Draft tab under WPBL stats plots every drafted player\'s season against where she was taken, with each round\'s average drawn over the top. So far there is no real pattern either way. Each round average is labelled with how many players it covers, because the later rounds rest on one or two players and move a long way on a single good night.',
+        full:  'A new Draft tab under WPBL stats plots every drafted player\'s season against where they were taken, with each round\'s average drawn over the top. So far there is no real pattern either way. Each round average is labelled with how many players it covers, because the later rounds rest on one or two players and move a long way on a single good night.',
       },
       {
         short: 'Copy a link to a WPBL player',

@@ -167,7 +167,7 @@ async function main() {
 
     console.log(`\n  matched ${parsed.length - unmatched.length}/${parsed.length} to wpbl_players`)
     if (unmatched.length) {
-      // Not fatal: the sheet can list a player before the roster feed carries her.
+      // Not fatal: the sheet can list a player before the roster feed carries them.
       console.log(`  ⚠️  no roster row for: ${unmatched.join(', ')}`)
     }
     if (!updates.length) { console.log('\n✅  Every birth date already matches. Nothing to do.\n'); return }

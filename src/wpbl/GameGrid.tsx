@@ -32,15 +32,24 @@ export interface GameGridRow {
   onClick?: () => void
 }
 
-const NAME_W = 128
-const COL_W = 66
+// Defaults suit the lineup grid; the pitching grid overrides both, because its cells hold a
+// pitch count rather than a position-and-slot string and it can therefore be much tighter.
+// Sized from measured text at 375px, not guessed: see each caller.
+const DEFAULT_NAME_W = 128
+const DEFAULT_COL_W = 66
 
-export default function GameGrid({ columns, rows, renderCell }: {
+export default function GameGrid({ columns, rows, renderCell, colWidth, nameWidth }: {
   columns: GameGridColumn[]
   rows: GameGridRow[]
   /** Return null for "did not appear" — the grid draws the placeholder dash itself. */
   renderCell: (rowId: string, columnId: string) => React.ReactNode
+  /** Per-game column width. Narrower fits more games on a phone before scrolling. */
+  colWidth?: number
+  /** Pinned name column width. */
+  nameWidth?: number
 }) {
+  const NAME_W = nameWidth ?? DEFAULT_NAME_W
+  const COL_W = colWidth ?? DEFAULT_COL_W
   return (
     // The grid is wider than a phone, so it scrolls sideways while the name column stays
     // pinned — otherwise you lose track of whose row you're reading.
@@ -154,4 +163,12 @@ export function formatGameColumn(iso: string): string {
   const dt = new Date(y, m - 1, d)
   const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dt.getDay()]
   return `${day} ${m}/${d}`
+}
+
+/** "2026-08-15" → "8/15". Same parsing as above, without the weekday: in the pitching grid
+ *  the weekday is the single widest thing in the column and dropping it is worth roughly two
+ *  extra games on screen. */
+export function formatGameColumnShort(iso: string): string {
+  const [, m, d] = iso.split('-').map(Number)
+  return `${m}/${d}`
 }

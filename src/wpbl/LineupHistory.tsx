@@ -45,6 +45,11 @@ export default function LineupHistory({
   return (
     <SectionCard title="Lineup history" subtitle={`Last ${games.length} games · position (spot)`}>
       <GameGrid
+        // Measured at 375px: widest cell "DH/LF (8)" is 51px and the widest header line
+        // (a pitcher surname) 43px, so 58 clears both. The name column holds an abbreviated
+        // name at 84px. Together that shows ~4 games before scrolling instead of ~3.
+        colWidth={58}
+        nameWidth={92}
         columns={games.map(g => ({
           id: g.id,
           title: formatGameColumn(g.date),
@@ -86,7 +91,7 @@ export default function LineupHistory({
       <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', pt: 1, lineHeight: 1.5 }}>
         Position and lineup spot per game, newest first. <b>Bold</b> started; <i>italic</i> entered
         as a substitute. Each column is headed by the pitcher who <i>started</i> for the other
-        side and her throwing hand &mdash; relievers who followed her aren't shown here.
+        side and their throwing hand &mdash; relievers who followed them aren't shown here.
       </Typography>
     </SectionCard>
   )

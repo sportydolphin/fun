@@ -63,7 +63,7 @@ export function sumPitching(lines: WpblPitchingLine[]): WpblPitchingTotals {
   const era = ip > 0 ? (t.er * 7) / ip : null
   const whip = ip > 0 ? (t.bb + t.h) / ip : null
   // Per 7 for the same reason ERA is: a per-9 rate would overstate every WPBL pitcher by
-  // about a third, because she is never pitching those last two innings.
+  // about a third, because they are never pitching those last two innings.
   const k7 = ip > 0 ? (t.so * 7) / ip : null
   // Null, not Infinity, on a staff that hasn't issued a walk — the ratio genuinely doesn't
   // exist, and fmtTwo renders null as an em dash rather than a nonsense number.
