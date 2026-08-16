@@ -8,6 +8,7 @@ import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
 import { GameRecapView } from './RecapCard'
 import { ModalShell, SegNav, TeamBadge, useWpblDark, useWpblName, wpblFeatureName } from './ui'
+import SwipeableViews from './SwipeableViews'
 import { parsePlay } from './derive/playByPlay'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, speedUnit } from '../lib/units'
@@ -975,6 +976,13 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
     ...(showScore || tracking.length > 0 ? [{ value: 'pitch' as Tab, label: 'Pitch Data' }] : []),
   ]
 
+  // The tab list is dynamic — 'recap' only once the game is final, 'pitch' only once it has
+  // been played — so the pager's index is derived from the active tab each render rather than
+  // stored. That keeps it correct when a live game finishes with the modal open and 'recap'
+  // appears at the front, shifting every other tab along. Clamped, since a tab can also stop
+  // being offered underneath us.
+  const tabIndex = Math.max(0, tabs.findIndex(t => t.value === tab))
+
   // The authoritative pitcher list (real names + IP/P) that the Pitch Data tab merges
   // TrackMan velo/spin onto — see PitchData.
   const boxPitchers = useMemo(() => lines.pitching.map(p => ({
@@ -1033,28 +1041,37 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
             </Box>
 
             {/* Scroll region — fixed height, one per tab. */}
-            <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-              {tab === 'recap' && away && home && (
-                <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} onOpenPlayer={onOpenPlayer} />
-              )}
-              {tab === 'box' && away && home && (() => {
-                const shown = boxTeam === 'home' ? home : away
-                return (
-                  <Box sx={{ px: 2, pb: 2, pt: 0 }}>
-                    <TeamSwitch away={away} home={home} value={boxTeam} onChange={setBoxTeam} />
-                    <TeamBox
-                      team={shown}
-                      batting={lines.batting.filter(b => b.team_id === shown.id)}
-                      pitching={lines.pitching.filter(p => p.team_id === shown.id)}
-                      names={names}
-                      onOpenPlayer={onOpenPlayer}
-                    />
-                  </Box>
-                )
-              })()}
-              {tab === 'plays' && <PlayByPlay plays={plays} teams={byId} game={game} />}
-              {tab === 'pitch' && <PitchData tracking={tracking} boxPitchers={boxPitchers} firstHit={firstHit} live={live} />}
-            </Box>
+            {/* Scroll region — one scroller per tab, paged by the same swipe as the home tabs
+                (`mode="pane"`, since this is a modal with a locked body and an inner scroller
+                rather than the window-scrolled page the pager was first built for). */}
+            <SwipeableViews
+              mode="pane"
+              index={tabIndex}
+              onIndexChange={i => setTab(tabs[i].value)}
+              panels={tabs.map(t => (
+                t.value === 'recap' && away && home ? (
+                  <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} onOpenPlayer={onOpenPlayer} />
+                ) : t.value === 'box' && away && home ? (() => {
+                  const shown = boxTeam === 'home' ? home : away
+                  return (
+                    <Box sx={{ px: 2, pb: 2, pt: 0 }}>
+                      <TeamSwitch away={away} home={home} value={boxTeam} onChange={setBoxTeam} />
+                      <TeamBox
+                        team={shown}
+                        batting={lines.batting.filter(b => b.team_id === shown.id)}
+                        pitching={lines.pitching.filter(p => p.team_id === shown.id)}
+                        names={names}
+                        onOpenPlayer={onOpenPlayer}
+                      />
+                    </Box>
+                  )
+                })() : t.value === 'plays' ? (
+                  <PlayByPlay plays={plays} teams={byId} game={game} />
+                ) : t.value === 'pitch' ? (
+                  <PitchData tracking={tracking} boxPitchers={boxPitchers} firstHit={firstHit} live={live} />
+                ) : null
+              ))}
+            />
           </>
         ) : final ? (
           <Box sx={{ flex: 1, p: 2 }}>

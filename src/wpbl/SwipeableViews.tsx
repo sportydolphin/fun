@@ -72,9 +72,20 @@ interface Props {
   padX?: number // horizontal inset (px) applied *inside* each pane, so the container can run
                 // full-bleed to the screen edge while content keeps its gutter — a pane then
                 // slides all the way off-screen instead of clipping at a padded barrier.
+  // Which scroll model the pager sits in:
+  //   'window' (default) — the page itself scrolls, one shared viewport, per-tab scroll memory
+  //     against window.scrollY. The home tabs.
+  //   'pane' — the pager fills a fixed-height flex slot and EACH PANE scrolls itself. For the
+  //     Game Center, which is a modal: the body is scroll-locked while it's open, so all the
+  //     window bookkeeping above (scroll memory, nav pinning, toolbar-clamp guard) is not just
+  //     unnecessary but actively wrong. Each pane keeping its own scroller also means a tab
+  //     remembers its own depth for free, instead of the single shared scroller carrying a deep
+  //     play-by-play's position over onto a short recap.
+  mode?: 'window' | 'pane'
 }
 
-export default function SwipeableViews({ index, panels, onIndexChange, minHeight, stickyNavRef, padX = 0 }: Props) {
+export default function SwipeableViews({ index, panels, onIndexChange, minHeight, stickyNavRef, padX = 0, mode = 'window' }: Props) {
+  const paneMode = mode === 'pane'
   const isMobile = useMediaQuery('(max-width:600px)')
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -126,7 +137,9 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   // so scrolling here produces no visible jump.
   useLayoutEffect(() => {
     if (prevIndex.current === index) return
-    if (!isMobile) { prevIndex.current = index; return }
+    // Pane mode owns no window scroll — each pane has its own scroller, and the modal above it
+    // has the body locked, so there is nothing to save or restore here.
+    if (!isMobile || paneMode) { prevIndex.current = index; return }
     // Prefer the depth captured at commit time (see commitScrollY): window.scrollY here is
     // post-clamp on a swipe into a shorter pane, which would lose the toolbar-hidden state.
     // A tap (no capture) falls back to the live scroll position.
@@ -220,9 +233,13 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
         const { index: idx, count } = latest.current
         s.boundary = (d > 0 && idx >= count - 1) || (d < 0 && idx <= 0)
         // Pin the incoming pane so its remembered scroll shows at the current viewport —
-        // curY - target — so the layout-effect scroll on commit lands with no jump.
-        const curY = window.scrollY
-        setPinTop(curY - targetFor(idx + d, curY))
+        // curY - target — so the layout-effect scroll on commit lands with no jump. In pane
+        // mode the panes are stacked to the container's own box, so there is nothing to pin.
+        if (paneMode) setPinTop(0)
+        else {
+          const curY = window.scrollY
+          setPinTop(curY - targetFor(idx + d, curY))
+        }
         setDir(d)
         setAnim(false)
         setEngaged(true)
@@ -285,9 +302,31 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       el.removeEventListener('touchend', onEnd)
       el.removeEventListener('touchcancel', onEnd)
     }
-  }, [isMobile])
+  }, [isMobile, paneMode])
 
-  if (!isMobile) return <>{panels[index]}</>
+  // A pane owns its own vertical scroll in pane mode (in window mode the page scrolls, so the
+  // pane must not become a scroll container).
+  //
+  // `scrollbarGutter: stable` is load-bearing, not polish. The panes differ in height — a
+  // recap fits, a box score doesn't — so without it the taller pane grows a scrollbar the
+  // shorter one lacks, its content box narrows by the scrollbar's width, and the whole pane
+  // visibly jerks sideways as the swipe commits. Reserving the gutter on every pane makes
+  // them all the same width whether or not they end up scrolling. (No-op where scrollbars
+  // are overlaid, as on most phones; it matters wherever they take real layout space.)
+  const paneScroll = paneMode
+    ? {
+      height: '100%', overflowY: 'auto' as const,
+      scrollbarGutter: 'stable' as const,
+      WebkitOverflowScrolling: 'touch' as const,
+    }
+    : {}
+
+  // Desktop: no pager, but pane mode still has to supply the scroller the modal relies on.
+  if (!isMobile) {
+    return paneMode
+      ? <div style={{ flex: 1, minHeight: 0, ...paneScroll }}>{panels[index]}</div>
+      : <>{panels[index]}</>
+  }
 
   const neighborIndex = dir === 0 ? -1 : index + dir
   const showNeighbor = engaged && neighborIndex >= 0 && neighborIndex < panels.length
@@ -306,9 +345,14 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
         position: 'relative',
         // `clip` hides the off-screen neighbour without becoming a scroll container the way
         // `hidden` would (which would break the page's window scroll). Only while swiping.
-        overflow: engaged ? 'clip' : 'visible',
+        // Pane mode clips always: the panes scroll themselves, so nothing should ever spill
+        // out of the fixed-height slot the pager occupies.
+        overflow: paneMode || engaged ? 'clip' : 'visible',
         touchAction: 'pan-y',
         minHeight,
+        // Fill the modal's flex slot. This is the one definite height in the chain below —
+        // the track and the panes both inherit from it so `height: 100%` resolves.
+        ...(paneMode ? { flex: 1, minHeight: 0 } : {}),
       }}
     >
       <div
@@ -317,20 +361,21 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
           transform: engaged ? `translateX(${offset}px)` : undefined,
           transition: anim ? `transform ${ANIM_MS}ms cubic-bezier(0.25, 0.8, 0.4, 1)` : 'none',
           willChange: engaged ? 'transform' : undefined,
+          ...(paneMode ? { height: '100%' } : {}),
         }}
       >
         {panels.map((panel, i) => {
           // Active view: in normal flow so it drives the container's height. `padX` keeps the
           // content inset while the pane itself spans the full (full-bleed) container width.
           if (i === index) {
-            return <div key={i} style={{ position: 'relative', width: '100%', ...paneInset }}>{panel}</div>
+            return <div key={i} style={{ position: 'relative', width: '100%', ...paneInset, ...paneScroll }}>{panel}</div>
           }
           // Incoming neighbour: absolutely placed one screen over, pinned to the viewport.
           if (showNeighbor && i === neighborIndex) {
             return (
               <div
                 key={i}
-                style={{ position: 'absolute', top: pinTop, left: 0, width: '100%', ...paneInset, transform: `translateX(calc(${dir * 100}% + ${dir * GAP}px))` }}
+                style={{ position: 'absolute', top: pinTop, left: 0, width: '100%', ...paneInset, ...paneScroll, transform: `translateX(calc(${dir * 100}% + ${dir * GAP}px))` }}
               >
                 {panel}
               </div>

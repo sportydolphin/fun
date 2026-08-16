@@ -119,7 +119,11 @@ flowchart LR
 - **Shared shell:** toolbar with search bridge, theme (`ThemeContext`), units
   (`UnitsContext`), auth (`AuthContext`), MLB⇆WPBL switch, `--app-zoom` desktop scaling.
 - **WPBL tab pager:** [`src/wpbl/SwipeableViews.tsx`](src/wpbl/SwipeableViews.tsx) —
-  finger-tracking mobile swipe with keep-alive + idle neighbor pre-warming.
+  finger-tracking mobile swipe with keep-alive + idle neighbor pre-warming. Two scroll
+  models via its `mode` prop: `window` for the section's own tabs (the page scrolls; each
+  tab keeps its own `window.scrollY` and lands under the pinned nav) and `pane` for the
+  Game Center's Recap / Box Score / Play-by-Play / Pitch Data tabs, which sit in a modal
+  with the body locked, so each pane scrolls itself instead.
 - **Client libs** ([`src/lib/`](src/lib)): `supabase` (anon client), `analytics`
   (→ `events` table), `push`, `notifications`, `adminUsers`, `feedback`, `userActive`,
   `usernames`, `units`.
