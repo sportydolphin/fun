@@ -190,8 +190,10 @@ export function SegNav({ options, value, onChange, accent = WPBL_ACCENT, mb = { 
           <Box
             key={opt.value}
             ref={value === opt.value ? activeRef : undefined}
-            onClick={() => onChange(opt.value)}
+            {...pressable(() => onChange(opt.value))}
+            aria-pressed={value === opt.value}
             sx={{
+              ...FOCUS_RING,
               px: 1.75, py: 0.5,
               borderRadius: 999,
               cursor: 'pointer',
@@ -222,6 +224,43 @@ export function SegNav({ options, value, onChange, accent = WPBL_ACCENT, mb = { 
 // Bordered content card with a left accent stripe and an icon + title + subtitle
 // header, mirroring the MLB home-feed cards. `action` sits at the right of the header
 // (e.g. a "View all" link); body is the children.
+/**
+ * Makes a non-semantic element (a clickable `Box`, a `Typography` acting as a link) behave
+ * like a button for anyone not using a mouse: focusable in tab order, activated by Enter or
+ * Space, and announced as a control rather than as text.
+ *
+ * Most of this section's rows are clickable `Box`es rather than real `<button>`s — a button
+ * would fight the layout (default padding, font inheritance, no nested interactive content).
+ * This is the compensation for that choice, and it belongs in one place so a new clickable
+ * row can't quietly ship without it.
+ *
+ * Pass an undefined handler and you get nothing back: a row that isn't clickable shouldn't
+ * land in the tab order announcing itself as a button.
+ */
+export function pressable(onClick: (() => void) | undefined) {
+  if (!onClick) return {}
+  return {
+    onClick,
+    role: 'button',
+    tabIndex: 0,
+    onKeyDown: (e: React.KeyboardEvent) => {
+      // Space scrolls the page by default, so it has to be swallowed; Enter does not, but is
+      // handled here too so both keys behave the same as a real button.
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() }
+    },
+  } as const
+}
+
+/** Focus ring for `pressable` targets — merge into the element's own sx. `:focus-visible`
+ *  rather than `:focus` so a mouse click doesn't leave a ring behind. */
+export const FOCUS_RING = {
+  '&:focus-visible': {
+    outline: '2px solid',
+    outlineColor: 'primary.main',
+    outlineOffset: '2px',
+  },
+} as const
+
 export function SectionCard({ icon, title, subtitle, action, collapsed, onToggleCollapse, children }: {
   icon?: React.ReactNode
   title: string
@@ -460,12 +499,14 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
           </Typography>
           {actions}
           <Box
-            onClick={onClose}
+            {...pressable(onClose)}
+            aria-label="Close"
             sx={{
               flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', color: 'text.disabled',
               '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+              ...FOCUS_RING,
             }}
           >
             <Typography sx={{ fontSize: '0.75rem', lineHeight: 1 }}>✕</Typography>

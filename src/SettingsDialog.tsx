@@ -14,12 +14,15 @@ import {
   loadPrefsFromSupabase, savePrefsToSupabase,
   getLocalFollowedTeamId, setLocalFollowedTeamId, getLocalFollowedPlayerIds,
   getLocalGameStartPref, setLocalGameStartPref,
+  getLocalPickReminderPref, setLocalPickReminderPref,
+  loadPickReminderPrefFromSupabase, savePickReminderPrefToSupabase,
   loadGameStartPrefFromSupabase, saveGameStartPrefToSupabase,
 } from './mlb/storage/prefs'
 import {
   pushSupported, pushConfigured, notificationPermission,
   isSubscribed, enablePush, disablePush,
 } from './lib/push'
+import { pressable, FOCUS_RING } from './wpbl/ui'
 import { useUnits, type UnitSystem } from './UnitsContext'
 import { useExperimentsSetting } from './ExperimentsContext'
 
@@ -114,7 +117,12 @@ function ExperimentsSection() {
 function NotificationsSection({ open, userId }: { open: boolean; userId: string }) {
   const supported  = pushSupported()
   const configured = pushConfigured()
-  const [enabled, setEnabled] = useState(false)
+  // `enabled` is the preference — does this user want daily pick reminders. `subscribed` is
+  // whether this device can receive any push at all. They used to be the same flag, which is
+  // what let the WPBL bell turn pick reminders on and what made switching them off delete the
+  // subscription other reminders depend on.
+  const [enabled, setEnabled] = useState(getLocalPickReminderPref())
+  const [subscribed, setSubscribed] = useState(false)
   const [busy,    setBusy]    = useState(false)
   const [perm,    setPerm]    = useState<ReturnType<typeof notificationPermission>>('default')
   const [err,     setErr]     = useState('')
@@ -129,8 +137,11 @@ function NotificationsSection({ open, userId }: { open: boolean; userId: string 
     if (!open) return
     setErr('')
     setPerm(notificationPermission())
-    if (supported) isSubscribed().then(setEnabled).catch(() => setEnabled(false))
-  }, [open, supported])
+    if (supported) isSubscribed().then(setSubscribed).catch(() => setSubscribed(false))
+    const local = getLocalPickReminderPref()
+    setEnabled(local)
+    loadPickReminderPrefFromSupabase(userId).then(row => { if (row !== null) setEnabled(row) })
+  }, [open, supported, userId])
 
   // Load the game-start preference: localStorage first (instant), then let the
   // synced account value win if it differs.
@@ -154,12 +165,27 @@ function NotificationsSection({ open, userId }: { open: boolean; userId: string 
   const handleToggle = async (next: boolean) => {
     if (busy) return
     setBusy(true); setErr('')
-    const error = next ? await enablePush(userId) : await disablePush(userId)
-    if (error) {
-      setErr(error)
-      setEnabled(await isSubscribed().catch(() => false))
+    if (next) {
+      // Turning it on still needs a delivery channel, so make sure this device is subscribed
+      // — the same thing the WPBL bell does. Only record the preference if that succeeded,
+      // otherwise the switch would claim to be on while nothing could reach the user.
+      const error = await enablePush(userId)
+      if (error) {
+        setErr(error)
+        setSubscribed(await isSubscribed().catch(() => false))
+      } else {
+        setSubscribed(true)
+        setEnabled(true)
+        setLocalPickReminderPref(true)
+        await savePickReminderPrefToSupabase(userId, true)
+      }
     } else {
-      setEnabled(next)
+      // Turning it off clears the preference and NOTHING else. It deliberately does not
+      // unsubscribe: the same subscription carries game-start and WPBL reminders, and
+      // deleting it here silently switched those off too.
+      setEnabled(false)
+      setLocalPickReminderPref(false)
+      await savePickReminderPrefToSupabase(userId, false)
     }
     setPerm(notificationPermission())
     setBusy(false)
@@ -205,7 +231,33 @@ function NotificationsSection({ open, userId }: { open: boolean; userId: string 
                   ? 'On. We’ll ping you before your team’s next game.'
                   : 'Get a heads-up before your followed team’s game starts.'}
               </Typography>
-            </Box>
+      
+        {/* Device-level, below the per-type switches. Turning a single reminder off must not
+            unsubscribe the browser — the same subscription delivers game-start and WPBL
+            reminders — so the way to stop push entirely gets its own control rather than
+            riding on whichever toggle happened to be last. */}
+        {subscribed && (
+          <Box sx={{ borderTop: '1px solid', borderColor: 'divider', px: 1.75, py: 1.1 }}>
+            <Typography
+              {...pressable(busy ? undefined : async () => {
+                setBusy(true)
+                await disablePush(userId)
+                setSubscribed(false)
+                // The per-type preferences stay as they are: this device simply stops
+                // receiving. Re-enabling any reminder subscribes it again.
+                setBusy(false)
+              })}
+              sx={{
+                fontSize: '0.78rem', fontWeight: 700, color: 'text.secondary',
+                cursor: 'pointer', display: 'inline-block', borderRadius: 1,
+                '&:hover': { color: 'error.main' }, ...FOCUS_RING,
+              }}
+            >
+              Stop all push on this device
+            </Typography>
+          </Box>
+        )}
+      </Box>
             <Switch
               checked={gsEnabled}
               disabled={!supported || !configured}

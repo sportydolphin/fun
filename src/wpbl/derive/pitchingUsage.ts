@@ -1,0 +1,92 @@
+import type { WpblPitchingUsageRow } from '../types'
+
+/**
+ * Shapes wpbl_pitching_usage rows into the bullpen-usage grid: games across the top
+ * (newest first), pitchers down the side, pitch count in each cell.
+ *
+ * Pure and separate from the component so the ordering rule — the part with judgement in
+ * it — can be tested.
+ */
+
+export type UsageCell = {
+  started: boolean
+  outs: number
+  pitches: number | null
+  daysRest: number | null
+}
+
+export interface UsageGrid {
+  games: { id: string; date: string; opp: string | null }[]
+  /** Pitcher ids, in render order. */
+  pitchers: string[]
+  cells: Map<string, Map<string, UsageCell>>
+  /** Total pitches thrown inside the window, per pitcher. */
+  windowPitches: Map<string, number>
+}
+
+/**
+ * Where a pitcher sorts. A usage chart is read top-down as "rotation, then bullpen", so
+ * anyone who has started inside the window comes first, ordered by her most recent start
+ * — which puts whoever pitched last night at the top and, by extension, shows the rotation
+ * in turn order. Relievers follow, heaviest workload first, because the whole question the
+ * chart answers is who has been leaned on.
+ */
+export function rankPitcher(cells: UsageCell[], gameOrder: string[], gameOf: Map<UsageCell, string>) {
+  const startedAt = cells.filter(c => c.started).map(c => gameOrder.indexOf(gameOf.get(c)!))
+  const pitches = cells.reduce((s, c) => s + (c.pitches ?? 0), 0)
+  return startedAt.length
+    ? { group: 0, key: Math.min(...startedAt), pitches }   // games are newest-first, so min = latest start
+    : { group: 1, key: 0, pitches }
+}
+
+export function buildUsageGrid(rows: WpblPitchingUsageRow[], maxGames: number): UsageGrid {
+  const meta = new Map<string, { id: string; date: string; opp: string | null }>()
+  for (const r of rows) {
+    if (!meta.has(r.game_id)) {
+      meta.set(r.game_id, { id: r.game_id, date: r.game_date, opp: r.opponent_team_id })
+    }
+  }
+  const games = [...meta.values()].sort((a, b) => b.date.localeCompare(a.date)).slice(0, maxGames)
+  const order = games.map(g => g.id)
+  const keep = new Set(order)
+
+  const cells = new Map<string, Map<string, UsageCell>>()
+  const gameOf = new Map<UsageCell, string>()
+  for (const r of rows) {
+    if (!keep.has(r.game_id)) continue
+    let m = cells.get(r.player_id)
+    if (!m) { m = new Map(); cells.set(r.player_id, m) }
+    const existing = m.get(r.game_id)
+    const cell: UsageCell = {
+      started: r.started, outs: r.outs, pitches: r.pitches, daysRest: r.days_rest,
+    }
+    // Two outings in one game shouldn't happen, but if the feed ever emits them, add the
+    // work together rather than letting one silently replace the other.
+    if (existing) {
+      existing.outs += r.outs
+      existing.pitches = (existing.pitches ?? 0) + (r.pitches ?? 0)
+      existing.started = existing.started || r.started
+    } else {
+      m.set(r.game_id, cell)
+      gameOf.set(cell, r.game_id)
+    }
+  }
+
+  const windowPitches = new Map<string, number>()
+  for (const [pid, m] of cells) {
+    windowPitches.set(pid, [...m.values()].reduce((s, c) => s + (c.pitches ?? 0), 0))
+  }
+
+  const pitchers = [...cells.keys()].sort((a, b) => {
+    const ra = rankPitcher([...cells.get(a)!.values()], order, gameOf)
+    const rb = rankPitcher([...cells.get(b)!.values()], order, gameOf)
+    return ra.group - rb.group || ra.key - rb.key || rb.pitches - ra.pitches
+  })
+
+  return { games, pitchers, cells, windowPitches }
+}
+
+/** Outs → the "4.2" innings-pitched convention (whole innings, then outs after the dot). */
+export function outsToIpShort(outs: number): string {
+  return `${Math.floor(outs / 3)}.${outs % 3}`
+}

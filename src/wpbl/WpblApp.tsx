@@ -6,7 +6,7 @@ import {
 } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
 import { wpblPortrait } from './portraits'
-import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER } from './ui'
+import { SegNav, SectionLabel, TeamBadge, pressable, FOCUS_RING, useWpblDark, CARD_BORDER } from './ui'
 import { useSearchBridge, updateSearchBridge, setSearchQuery } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
@@ -322,11 +322,13 @@ function StandingsView({ teams, games, onOpenTeam }: {
   )
 }
 
-function TeamsView({ teams, games, selected, onSelect, onOpenGame, onOpenPlayer }: {
+function TeamsView({ teams, games, selected, onSelect, onOpenGame, onOpenPlayer, onOpenStats }: {
   teams: WpblTeam[]; games: WpblGame[]; selected: WpblTeam | null
   onSelect: (t: WpblTeam | null) => void
   onOpenGame: (g: WpblGame) => void
   onOpenPlayer: (p: WpblPlayer) => void
+  onOpenStats: (g: 'hitting' | 'pitching', sortKey?: string,
+                opts?: Pick<WpblStatsFocus, 'mode' | 'teamId'>) => void
 }) {
   const isDark = useWpblDark()
 
@@ -344,8 +346,12 @@ function TeamsView({ teams, games, selected, onSelect, onOpenGame, onOpenPlayer 
         // Walk history back to wherever the team page was opened from (Home chips, the
         // Teams grid, a schedule link…) rather than always landing on the Teams grid.
         onBack={() => window.history.back()}
+        // Up to the grid, as distinct from Back. Back returns you to wherever you opened the
+        // team from (Stats, a Home chip, a schedule link); this always goes to all four.
+        onAllTeams={() => onSelect(null)}
         onOpenGame={onOpenGame}
         onOpenPlayer={onOpenPlayer}
+        onOpenStats={onOpenStats}
       />
     )
   }
@@ -353,7 +359,8 @@ function TeamsView({ teams, games, selected, onSelect, onOpenGame, onOpenPlayer 
   return (
     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
       {teams.map(t => (
-        <Box key={t.id} onClick={() => onSelect(t)} sx={{
+        <Box key={t.id} {...pressable(() => onSelect(t))} sx={{
+          ...FOCUS_RING,
           display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, cursor: 'pointer',
           borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
           transition: 'border-color 0.15s', '&:hover': { borderColor: wpblAccent(t.id, isDark) },
@@ -516,11 +523,25 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // off-screen. Back/forward navigations go through popstate, not here, and aren't counted.
   const selectTab = useCallback((v: WpblView, via: 'pill' | 'swipe' | 'link' = 'pill') => {
     if (v !== view) track(EVENTS.WPBL_TAB_VIEWED, { view: v, via, from: view })
-    push({ view: v, team: selectedTeam, game: null, player: null })
+    // Tapping the tab you are already on returns it to its root. This matters for Teams and
+    // nowhere else: `selectedTeam` rides along through every tab switch (so swiping out to
+    // Stats and back keeps the team page you were reading), but nothing ever cleared it — so
+    // once any team page had been opened, the four-team grid became unreachable. A team
+    // opened from the Stats table was especially stuck: Back went to Stats, and the Teams
+    // pill just re-opened the same team.
+    const backToRoot = v === view && via === 'pill'
+    push({ view: v, team: backToRoot ? null : selectedTeam, game: null, player: null })
   }, [push, selectedTeam, view])
   const selectTeam = useCallback((t: WpblTeam | null) => push({ view: 'teams', team: t, game: null, player: null }), [push])
-  const openStats  = useCallback((g: WpblStatsFocus['group'], sortKey?: string) => {
-    setStatsFocus(f => ({ group: g, sortKey, token: f.token + 1 }))
+  // `opts` is how the team page asks for a specific board: the four-team comparison, or the
+  // player table already filtered to one club. Omitted by every other caller, which keeps
+  // the leader-card jumps behaving exactly as they did.
+  const openStats  = useCallback((
+    g: WpblStatsFocus['group'],
+    sortKey?: string,
+    opts?: Pick<WpblStatsFocus, 'mode' | 'teamId'>,
+  ) => {
+    setStatsFocus(f => ({ group: g, sortKey, ...opts, token: f.token + 1 }))
     selectTab('stats', 'link')
   }, [selectTab])
   // Tracking is a Stats group now, so "view the tracking boards" means "open Stats on it".
@@ -791,7 +812,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
                   case 'schedule':  return <ScheduleView teams={teams} games={games} onOpenGame={openGame} active={view === 'schedule'} />
                   case 'standings': return <StandingsView teams={teams} games={games} onOpenTeam={selectTeam} />
                   case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} />
-                  case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeam} onOpenGame={openGame} onOpenPlayer={openPlayer} />
+                  case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeam} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenStats={openStats} />
                 }
               })()
               // On mobile the footer lives at the bottom of each tab pane rather than as one

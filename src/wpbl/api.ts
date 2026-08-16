@@ -4,7 +4,7 @@ import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
   WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchTracking, WpblTrackRow,
-  WpblVideo,
+  WpblVideo, WpblLineupHistoryRow, WpblPitchingUsageRow,
 } from './types'
 
 // Reads for the WPBL section. Everything degrades gracefully: if the tables don't
@@ -326,6 +326,38 @@ export async function fetchWpblGameLines(gameId: string): Promise<{ batting: Wpb
       [] as WpblFieldingLine[]),
   ])
   return { batting, pitching, fielding }
+}
+
+// Lineup history for one team — which slot and position each player filled, game by game.
+//
+// Reads the wpbl_lineup_history view rather than wpbl_batting_lines, because "did she start
+// or come in later?" can only be answered by cross-referencing play sequence, and that join
+// belongs in the database next to the rule it implements (see the view's migration).
+//
+// Deliberately narrow: the grid needs slot, position and started — not the stat line — so
+// the columns are listed rather than select('*'). One team's season is a few hundred rows.
+export function fetchWpblLineupHistory(teamId: string): Promise<WpblLineupHistoryRow[]> {
+  return safe('fetchWpblLineupHistory', () =>
+    supabase.from('wpbl_lineup_history')
+      .select('game_id,team_id,player_id,game_date,game_status,opponent_team_id,opp_starter_name,opp_starter_throws,lineup_spot,position,started,slot_shared')
+      .eq('team_id', teamId)
+      .order('game_date', { ascending: false })
+      .order('lineup_spot', { ascending: true }),
+    [] as WpblLineupHistoryRow[])
+}
+
+// Pitcher usage for one team — every appearance, with rest days already computed.
+//
+// days_rest comes from the view rather than being derived here: the gap that matters is
+// between a pitcher's own consecutive outings, which is a window function over her whole
+// appearance history, not something the client can see from one team's recent games.
+export function fetchWpblPitchingUsage(teamId: string): Promise<WpblPitchingUsageRow[]> {
+  return safe('fetchWpblPitchingUsage', () =>
+    supabase.from('wpbl_pitching_usage')
+      .select('game_id,team_id,player_id,game_date,game_status,opponent_team_id,started,outs,pitches,bf,er,so,bb,decision,days_rest')
+      .eq('team_id', teamId)
+      .order('game_date', { ascending: false }),
+    [] as WpblPitchingUsageRow[])
 }
 
 // The official-feed play-by-play for one game, in order. Full rows — the Game Center renders

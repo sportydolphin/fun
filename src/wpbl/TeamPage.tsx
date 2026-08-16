@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
-import { fetchWpblRoster, fetchWpblAllLines, computeStandings } from './api'
+import { fetchWpblRoster, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, computeStandings } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
-import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, useWpblDark, useWpblName, CARD_BORDER } from './ui'
+import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, pressable, FOCUS_RING, useWpblDark, useWpblName, CARD_BORDER } from './ui'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, fmtRate, fmtTwo,
   type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import { outsToIp } from './constants'
-import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
+import LineupHistory from './LineupHistory'
+import PitchingUsage from './PitchingUsage'
+import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblLineupHistoryRow, WpblPitchingUsageRow } from './types'
 
 // A team's page: header + record, results, season batting/pitching totals, top hitters /
 // pitchers, and a roster with inline stats. Replaces the plain roster list the Teams tab
@@ -19,16 +21,103 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine 
 // position ends in "P", so a trailing P is a reliable pitcher marker.
 const isPitcherPos = (pos: string | null | undefined) => /P$/i.test((pos ?? '').trim())
 
-// A compact row of centered stat tiles (value over a small caps label).
+// Width of the result/kickoff column in the Results card. One number so the W/L letter, the
+// score and the scheduled time all land on the same axis.
+const SCORE_COL_W = 72
+
+// A block of centered stat tiles (value over a small caps label), laid out on a fixed
+// four-column grid.
+//
+// It used to be a wrapping flex row of `flex: 1 1 0` tiles. That looks fine while everything
+// fits on one line, but the moment it wraps the trailing tiles each take an equal share of
+// the LAST row's width instead of sitting under the columns above — so eight stats rendered
+// as five across the top and three floating at different offsets beneath. A grid pins the
+// columns, so every tile lines up with the one above it however many there are.
+//
+// Four columns is also the honest grouping for these stats: the four slash-line rates read
+// as one row, the four counting stats as another.
 function StatTiles({ items }: { items: { label: string; value: string }[] }) {
   return (
-    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+    <Box sx={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+      columnGap: 1,
+      rowGap: 1.5,
+    }}>
       {items.map(it => (
-        <Box key={it.label} sx={{ flex: '1 1 0', minWidth: 54, textAlign: 'center' }}>
+        <Box key={it.label} sx={{ textAlign: 'center', minWidth: 0 }}>
           <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{it.value}</Typography>
           <Typography sx={{ fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>{it.label}</Typography>
         </Box>
       ))}
+    </Box>
+  )
+}
+
+// A header link in a card's action slot. Same affordance as Results' "All 15".
+function CardLink({ label, accent, onClick }: { label: string; accent: string; onClick: () => void }) {
+  return (
+    <Typography
+      {...pressable(onClick)}
+      sx={{
+        fontSize: '0.72rem', fontWeight: 700, color: accent, cursor: 'pointer',
+        py: 0.5, px: 0.5, whiteSpace: 'nowrap', borderRadius: 1,
+        '&:hover': { textDecoration: 'underline' },
+        ...FOCUS_RING,
+      }}
+    >
+      {label}
+    </Typography>
+  )
+}
+
+// One game in the Results card — and in the full-schedule modal, which is why it lives out
+// here rather than inline: the two must not drift apart.
+function ScheduleRow({ game, teamId, teamById, onOpenGame }: {
+  game: WpblGame
+  teamId: string
+  teamById: Map<string, WpblTeam>
+  onOpenGame: (g: WpblGame) => void
+}) {
+  const home = game.home_team_id === teamId
+  const opp = teamById.get(home ? game.away_team_id : game.home_team_id)
+  const us = home ? game.home_score : game.away_score
+  const them = home ? game.away_score : game.home_score
+  const final = game.status === 'final' && us != null && them != null
+  const live = game.status === 'live'
+  const win = final && (us as number) > (them as number)
+  const loss = final && (us as number) < (them as number)
+  return (
+    <Box {...pressable(() => onOpenGame(game))} sx={{
+      display: 'flex', alignItems: 'center', gap: 1, py: 0.85, cursor: 'pointer',
+      borderTop: '1px solid', borderColor: 'divider', '&:first-of-type': { borderTop: 'none' },
+      borderRadius: 1, '&:hover': { bgcolor: 'action.hover' }, ...FOCUS_RING,
+    }}>
+      <Typography sx={{ width: 46, fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled', flexShrink: 0 }}>
+        {new Date(`${game.game_date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+      </Typography>
+      <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', width: 16, flexShrink: 0 }}>{home ? 'vs' : '@'}</Typography>
+      {opp && <TeamBadge team={opp} size={22} />}
+      <Typography sx={{ flex: 1, minWidth: 0, fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {opp ? opp.name : '—'}
+      </Typography>
+      {/* Fixed widths, not intrinsic ones. The score column varies between three and five
+          characters ("1–6" vs "6–11"), and with the group simply right-aligned that difference
+          pushed the W/L letter left on every wider score — so the column of W's and L's
+          wobbled down the card. Pinning the box keeps that letter on one axis, and the same
+          total width on scheduled rows lines the kickoff times up with the scores above. */}
+      {final ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0, width: SCORE_COL_W }}>
+          <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, width: 14, textAlign: 'center', flexShrink: 0, color: win ? 'success.main' : loss ? 'error.main' : 'text.secondary' }}>
+            {win ? 'W' : loss ? 'L' : 'T'}
+          </Typography>
+          <Typography sx={{ flex: 1, fontSize: '0.85rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{us}–{them}</Typography>
+        </Box>
+      ) : (
+        <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: live ? '#ef4444' : 'text.secondary', flexShrink: 0, width: SCORE_COL_W, textAlign: 'right' }}>
+          {live ? '● Live' : formatGameTime(game.game_date, game.start_time) || 'TBD'}
+        </Typography>
+      )}
     </Box>
   )
 }
@@ -46,9 +135,9 @@ function LeaderList({ label, rows, accent, onOpenPlayer }: {
     <Box sx={{ mb: 1.25, '&:last-of-type': { mb: 0 } }}>
       <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', mb: 0.4 }}>{label}</Typography>
       {rows.map((r, i) => (
-        <Box key={r.player.id} onClick={() => onOpenPlayer(r.player)} sx={{
+        <Box key={r.player.id} {...pressable(() => onOpenPlayer(r.player))} sx={{
           display: 'flex', alignItems: 'center', gap: 0.75, py: 0.4, cursor: 'pointer',
-          borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },
+          borderRadius: 1, '&:hover': { bgcolor: 'action.hover' }, ...FOCUS_RING,
         }}>
           <Typography sx={{ width: 14, fontSize: '0.7rem', fontWeight: 800, color: i === 0 ? accent : 'text.disabled' }}>{i + 1}</Typography>
           <PlayerPortrait name={r.player.name} teamId={r.player.team_id} size={20} />
@@ -60,13 +149,20 @@ function LeaderList({ label, rows, accent, onOpenPlayer }: {
   )
 }
 
-export default function TeamPage({ team, teams, games, onBack, onOpenGame, onOpenPlayer }: {
+export default function TeamPage({ team, teams, games, onBack, onAllTeams, onOpenGame, onOpenPlayer, onOpenStats }: {
   team: WpblTeam
   teams: WpblTeam[]
   games: WpblGame[]
   onBack: () => void
+  /** Up to the four-team grid. Distinct from `onBack`, which returns to wherever this page
+   *  was opened from — often the Stats table, which is not "up". */
+  onAllTeams?: () => void
   onOpenGame: (g: WpblGame) => void
   onOpenPlayer: (p: WpblPlayer) => void
+  /** Jump to the Stats tab on a particular board. Optional so the page still renders
+   *  standalone; the two links simply don't appear without it. */
+  onOpenStats?: (group: 'hitting' | 'pitching', sortKey?: string,
+                 opts?: { mode?: 'players' | 'teams'; teamId?: string | null }) => void
 }) {
   const isDark = useWpblDark()
   const accent = wpblAccent(team.id, isDark)
@@ -75,12 +171,20 @@ export default function TeamPage({ team, teams, games, onBack, onOpenGame, onOpe
 
   const [roster, setRoster] = useState<WpblPlayer[] | null>(null)
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] } | null>(null)
+  const [lineups, setLineups] = useState<WpblLineupHistoryRow[]>([])
+  const [usage, setUsage] = useState<WpblPitchingUsageRow[]>([])
+  const [scheduleOpen, setScheduleOpen] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     setRoster(null); setLines(null)
-    Promise.all([fetchWpblRoster(team.id), fetchWpblAllLines()]).then(([r, l]) => {
+    setLineups([]); setUsage([])
+    Promise.all([
+      fetchWpblRoster(team.id), fetchWpblAllLines(),
+      fetchWpblLineupHistory(team.id), fetchWpblPitchingUsage(team.id),
+    ]).then(([r, l, lh, pu]) => {
       if (cancelled) return
+      setLineups(lh); setUsage(pu)
       setRoster([...r].sort((a, b) => positionRank(a.position) - positionRank(b.position) || a.name.localeCompare(b.name)))
       setLines({
         batting: l.batting.filter(x => x.team_id === team.id),
@@ -144,10 +248,54 @@ export default function TeamPage({ team, teams, games, onBack, onOpenGame, onOpe
     { label: 'Home runs', rows: top(batSeasons, t => t.hr > 0 ? t.hr : null, t => String(t.hr), t => t.ab) },
     { label: 'RBI', rows: top(batSeasons, t => t.rbi > 0 ? t.rbi : null, t => String(t.rbi), t => t.ab) },
   ], [batSeasons])
+  // Three lists, matching the hitting card. Two against three left the pitching card short
+  // and the row ragged — and innings is a leaderboard worth having on its own merits: it's
+  // the workload number, and nothing else on the page says who is carrying the staff.
   const pitLeaders = useMemo(() => [
     { label: 'ERA', rows: top(pitSeasons, t => t.era != null && t.outs > 0 ? -t.era : null, t => fmtTwo(t.era), t => t.outs) },
     { label: 'Strikeouts', rows: top(pitSeasons, t => t.so > 0 ? t.so : null, t => String(t.so), t => t.outs) },
+    { label: 'Innings', rows: top(pitSeasons, t => t.outs > 0 ? t.outs : null, t => outsToIp(t.outs), t => t.so) },
   ], [pitSeasons])
+
+  // Head-to-head. In a four-team league every club plays every other constantly, so a bare
+  // "4–3 · 2nd" hides the shape of the record: a team can be unbeaten against two opponents
+  // and swept by the third, and that is the thing worth knowing before the next meeting.
+  // Derived from the `games` already passed in — no extra read.
+  const headToHead = useMemo(() => {
+    const rec = new Map<string, { w: number; l: number; t: number }>()
+    for (const g of games) {
+      if (g.status !== 'final' || g.home_score == null || g.away_score == null) continue
+      const home = g.home_team_id === team.id
+      if (!home && g.away_team_id !== team.id) continue
+      const oppId = home ? g.away_team_id : g.home_team_id
+      const us = home ? g.home_score : g.away_score
+      const them = home ? g.away_score : g.home_score
+      const r = rec.get(oppId) ?? { w: 0, l: 0, t: 0 }
+      if (us > them) r.w++; else if (us < them) r.l++; else r.t++
+      rec.set(oppId, r)
+    }
+    return [...rec.entries()]
+      .map(([id, r]) => ({ opp: teamById.get(id), ...r }))
+      .filter(x => x.opp)
+      // Worst matchup first: the opponent a team can't beat is the interesting one.
+      .sort((a, b) => (a.w - a.l) - (b.w - b.l))
+  }, [games, team.id, teamById])
+
+  // The full schedule is 15 rows and grows all season — as the top card on a phone that is
+  // most of a screenful before you reach anything else. Default to a window around now: the
+  // last few results and the next couple of games, which is what anyone opening a team page
+  // actually wants. The rest is one tap away.
+  const RECENT_DONE = 4
+  const NEXT_UP = 2
+  const { played: playedGames, upcoming: upcomingGames } = useMemo(() => ({
+    played: schedule.filter(g => g.status !== 'scheduled'),
+    upcoming: schedule.filter(g => g.status === 'scheduled'),
+  }), [schedule])
+  // Chronological still, just trimmed at both ends.
+  const visibleSchedule = useMemo(
+    () => [...playedGames.slice(-RECENT_DONE), ...upcomingGames.slice(0, NEXT_UP)],
+    [playedGames, upcomingGames])
+  const hiddenCount = schedule.length - visibleSchedule.length
 
   const loading = roster == null || lines == null
   const played = schedule.some(g => g.status === 'final')
@@ -158,8 +306,18 @@ export default function TeamPage({ team, teams, games, onBack, onOpenGame, onOpe
   return (
     <Box>
       {/* Header */}
-      <Box onClick={onBack} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, '&:hover': { color: 'text.primary' } }}>
-        ← Back
+      {/* Back and up are different journeys: Back retraces how you got here, "All teams" goes
+          to this page's parent. Both are needed — arriving from the Stats table, Back is the
+          stats board and the grid is otherwise unreachable. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 2 }}>
+        <Box {...pressable(onBack)} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, borderRadius: 1, '&:hover': { color: 'text.primary' }, ...FOCUS_RING }}>
+          ← Back
+        </Box>
+        {onAllTeams && (
+          <Box {...pressable(onAllTeams)} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.8rem', fontWeight: 600, borderRadius: 1, px: 0.5, '&:hover': { color: 'text.primary' }, ...FOCUS_RING }}>
+            All teams
+          </Box>
+        )}
       </Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
         <TeamBadge team={team} size={52} />
@@ -169,57 +327,84 @@ export default function TeamPage({ team, teams, games, onBack, onOpenGame, onOpe
         </Box>
       </Box>
 
+      {headToHead.length > 0 && (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
+          {headToHead.map(h => {
+            const better = h.w > h.l
+            const worse = h.w < h.l
+            return (
+              <Box
+                key={h.opp!.id}
+                sx={{
+                  display: 'flex', alignItems: 'center', gap: 0.6,
+                  px: 0.9, py: 0.4, borderRadius: 999,
+                  border: '1px solid', borderColor: CARD_BORDER,
+                  bgcolor: 'background.paper',
+                }}
+              >
+                <TeamBadge team={h.opp!} size={16} />
+                <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.secondary' }}>
+                  {h.opp!.abbr}
+                </Typography>
+                <Typography sx={{
+                  fontSize: '0.72rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+                  color: better ? 'success.main' : worse ? 'error.main' : 'text.secondary',
+                }}>
+                  {h.w}–{h.l}{h.t ? `–${h.t}` : ''}
+                </Typography>
+              </Box>
+            )
+          })}
+        </Box>
+      )}
+
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {/* Results, team totals and leaders are all narrow-content cards: on a phone they
+              stack, but on a wide screen a single 720px column leaves each one mostly empty
+              space with a very tall list down the left. Auto-flow into two columns instead.
+              `alignItems: start` stops a short card stretching to match a tall neighbour. */}
+          <Box sx={{
+            display: 'grid', gap: 2,
+            gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+            // Cards stretch to their row's height rather than each ending wherever its
+            // content does. Ragged bottoms are what made this read as four loose boxes
+            // instead of a grid; the two cards in a row now share a baseline.
+            alignItems: 'stretch',
+          }}>
           {/* Results */}
-          <SectionCard title="Results" subtitle={`${schedule.length} games`}>
+          <SectionCard
+            title="Results"
+            subtitle={`Last ${Math.min(RECENT_DONE, playedGames.length)} · next ${Math.min(NEXT_UP, upcomingGames.length)}`}
+            action={hiddenCount > 0 ? (
+              // Opens the full season in a modal. Expanding in place pushed everything below
+              // it down by nine rows, so the card you were reading jumped out from under you
+              // and you had to find your way back up to collapse it again.
+              <CardLink label={`All ${schedule.length}`} accent={accent}
+                onClick={() => setScheduleOpen(true)} />
+            ) : undefined}
+          >
             <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-              {schedule.map(g => {
-                const home = g.home_team_id === team.id
-                const opp = teamById.get(home ? g.away_team_id : g.home_team_id)
-                const us = home ? g.home_score : g.away_score
-                const them = home ? g.away_score : g.home_score
-                const final = g.status === 'final' && us != null && them != null
-                const live = g.status === 'live'
-                const win = final && (us as number) > (them as number)
-                const loss = final && (us as number) < (them as number)
-                return (
-                  <Box key={g.id} onClick={() => onOpenGame(g)} sx={{
-                    display: 'flex', alignItems: 'center', gap: 1, py: 0.85, cursor: 'pointer',
-                    borderTop: '1px solid', borderColor: 'divider', '&:first-of-type': { borderTop: 'none' },
-                    borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },
-                  }}>
-                    <Typography sx={{ width: 46, fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled', flexShrink: 0 }}>
-                      {new Date(`${g.game_date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                    </Typography>
-                    <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', width: 16, flexShrink: 0 }}>{home ? 'vs' : '@'}</Typography>
-                    {opp && <TeamBadge team={opp} size={22} />}
-                    <Typography sx={{ flex: 1, fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {opp ? opp.name : '—'}
-                    </Typography>
-                    {final ? (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
-                        <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, width: 14, textAlign: 'center', color: win ? 'success.main' : loss ? 'error.main' : 'text.secondary' }}>
-                          {win ? 'W' : loss ? 'L' : 'T'}
-                        </Typography>
-                        <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{us}–{them}</Typography>
-                      </Box>
-                    ) : (
-                      <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: live ? '#ef4444' : 'text.secondary', flexShrink: 0 }}>
-                        {live ? '● Live' : formatGameTime(g.game_date, g.start_time) || 'TBD'}
-                      </Typography>
-                    )}
-                  </Box>
-                )
-              })}
-              {schedule.length === 0 && <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', py: 1 }}>No games scheduled.</Typography>}
+              {visibleSchedule.map(g => (
+                <ScheduleRow key={g.id} game={g} teamId={team.id} teamById={teamById} onOpenGame={onOpenGame} />
+              ))}
+              {visibleSchedule.length === 0 && <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', py: 1 }}>No games scheduled.</Typography>}
             </Box>
           </SectionCard>
 
           {/* Team season totals */}
-          <SectionCard title="Team stats" subtitle="Season totals">
+          <SectionCard
+            title="Team stats"
+            subtitle="Season totals"
+            action={onOpenStats ? (
+              // Lands on the Teams board, which is where these totals become meaningful —
+              // a .355 team average says nothing until you can see the other three.
+              <CardLink label="Compare teams" accent={accent}
+                onClick={() => onOpenStats('hitting', undefined, { mode: 'teams' })} />
+            ) : undefined}
+          >
             {teamBat && teamBat.g > 0 ? (
               <>
                 <SectionLabel>Batting</SectionLabel>
@@ -236,11 +421,17 @@ export default function TeamPage({ team, teams, games, onBack, onOpenGame, onOpe
                 {teamPit && teamPit.g > 0 && (
                   <Box sx={{ mt: 1.75 }}>
                     <SectionLabel>Pitching</SectionLabel>
+                    {/* Mirrors the batting block: four rates on top, four counting stats
+                        below. No W–L here — that is the record, and the record is already
+                        the first thing on the page, under the team name. K/7 and K/BB earn
+                        those slots instead: this league walks a great many batters, so
+                        command is the thing the raw totals hide. */}
                     <StatTiles items={[
                       { label: 'ERA', value: fmtTwo(teamPit.era) },
                       { label: 'WHIP', value: fmtTwo(teamPit.whip) },
-                      { label: 'W', value: String(teamPit.w) },
-                      { label: 'L', value: String(teamPit.l) },
+                      { label: 'K/7', value: fmtTwo(teamPit.k7) },
+                      { label: 'K/BB', value: fmtTwo(teamPit.kbb) },
+                      { label: 'IP', value: outsToIp(teamPit.outs) },
                       { label: 'SO', value: String(teamPit.so) },
                       { label: 'BB', value: String(teamPit.bb) },
                       { label: 'HR', value: String(teamPit.hr) },
@@ -253,30 +444,99 @@ export default function TeamPage({ team, teams, games, onBack, onOpenGame, onOpe
             )}
           </SectionCard>
 
-          {/* Leaders */}
-          {(hitLeaders.some(b => b.rows.length) || pitLeaders.some(b => b.rows.length)) && (
-            <SectionCard title="Team leaders" subtitle="Season leaders">
+          </Box>
+
+          {/* Full-width next, because they scroll sideways. These two are also the most
+              distinctive thing on the page — season leaders are the most replaceable — so
+              they come before the leader cards rather than three scrolls below them. */}
+
+          {/* How the manager has actually been filling out the card */}
+          {roster && lineups.length > 0 && (
+            <LineupHistory rows={lineups} roster={roster} accent={accent} onOpenPlayer={onOpenPlayer} />
+          )}
+
+          {/* Who's been worked, and who's available */}
+          {roster && usage.length > 0 && (
+            <PitchingUsage rows={usage} roster={roster} accent={accent} onOpenPlayer={onOpenPlayer} />
+          )}
+
+          {/* Leaders, back in a two-column grid of their own. */}
+          <Box sx={{
+            display: 'grid', gap: 2, alignItems: 'stretch',
+            gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+            mb: 0,
+          }}>
+          {/* Leaders, split by side of the ball. One combined card stacked five lists into a
+              single very tall column — awkward on a phone, and on a wide screen it sat alone
+              in one grid column with the other left empty. Two cards fill the row and read
+              better besides: nobody scans hitting and pitching leaders in one pass. */}
+          {hitLeaders.some(b => b.rows.length) && (
+            <SectionCard title="Hitting leaders" subtitle="Season">
               {hitLeaders.map(b => <LeaderList key={b.label} label={b.label} rows={b.rows} accent={accent} onOpenPlayer={onOpenPlayer} />)}
+            </SectionCard>
+          )}
+          {pitLeaders.some(b => b.rows.length) && (
+            <SectionCard title="Pitching leaders" subtitle="Season">
               {pitLeaders.map(b => <LeaderList key={b.label} label={b.label} rows={b.rows} accent={accent} onOpenPlayer={onOpenPlayer} />)}
             </SectionCard>
           )}
 
+          </Box>
+
           {/* Roster with inline stats */}
-          <SectionCard title="Roster" subtitle={`${visibleRoster.length} players`}>
+          <SectionCard
+            title="Roster"
+            subtitle={`${visibleRoster.length} players`}
+            action={onOpenStats ? (
+              // The roster row shows three stats; this is the door to all of them, with the
+              // team filter chip already set so you don't land in the whole league.
+              <CardLink label="Full stats" accent={accent}
+                onClick={() => onOpenStats('hitting', undefined, { mode: 'players', teamId: team.id })} />
+            ) : undefined}
+          >
             {visibleRoster.length === 0 ? (
               <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', py: 1 }}>Roster coming soon.</Typography>
             ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+              // Two columns on a wide screen. A roster row is a position, a face, a name and
+              // three numbers — across a full-width card that leaves most of the row empty
+              // while the card runs well over a thousand pixels tall. The nth-of-type rule
+              // clears the top border on the first row of the SECOND column too; without it
+              // that row gets a stray rule above it.
+              <Box sx={{
+                display: 'grid',
+                // Without an explicit width the grid sizes to its content and leaves the
+                // right of the card empty instead of splitting it in two.
+                width: '100%',
+                gridTemplateColumns: '1fr',
+                columnGap: 2.5,
+                // Grid items default to min-width:auto, so a row refuses to shrink below its
+                // content and overflows its track — the name's own minWidth:0 doesn't help,
+                // because the constraint is on the row, not on the text inside it.
+                '& > *': { minWidth: 0 },
+                '& > :first-of-type': { borderTop: 'none' },
+                // Both the column count and the second column's border reset live in ONE
+                // media block on purpose. Writing `gridTemplateColumns: { xs, md }` next to a
+                // literal '@media (min-width:900px)' key silently drops the md value: MUI
+                // expands the responsive object into a media block with the same key, the two
+                // collide on merge, and the literal one wins — leaving a one-column grid with
+                // no error anywhere.
+                '@media (min-width:900px)': {
+                  // minmax(0, 1fr), not 1fr: a bare 1fr floors at the track's min-content
+                  // width, so a long name widens its own column and the two end up uneven.
+                  gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
+                  '& > :nth-of-type(2)': { borderTop: 'none' },
+                },
+              }}>
                 {visibleRoster.map(p => {
                   const pit = pitByPid.get(p.id)
                   const bat = batByPid.get(p.id)
                   const pitcher = isPitcherPos(p.position) || (pit != null && pit.outs > 0 && (bat == null || bat.ab === 0))
                   const stats = pitcher ? pitcherStats(pit) : batterStats(bat)
                   return (
-                    <Box key={p.id} onClick={() => onOpenPlayer(p)} sx={{
+                    <Box key={p.id} {...pressable(() => onOpenPlayer(p))} sx={{
                       display: 'flex', alignItems: 'center', gap: 1.25, py: 0.9, cursor: 'pointer',
-                      borderTop: '1px solid', borderColor: 'divider', '&:first-of-type': { borderTop: 'none' },
-                      borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },
+                      borderTop: '1px solid', borderColor: 'divider',
+                      borderRadius: 1, '&:hover': { bgcolor: 'action.hover' }, ...FOCUS_RING,
                     }}>
                       <Typography sx={{ width: 26, textAlign: 'center', flexShrink: 0, fontSize: '0.72rem', fontWeight: 800, color: accent }}>
                         {p.position || '—'}
@@ -298,6 +558,44 @@ export default function TeamPage({ team, teams, games, onBack, onOpenGame, onOpe
             )}
           </SectionCard>
         </Box>
+      )}
+
+      {/* Full season, in a modal rather than an in-place expansion. Split into what has been
+          played and what is still to come — a flat run of fifteen rows makes you hunt for the
+          boundary, and it is the one thing a schedule is actually asked. */}
+      {scheduleOpen && (
+        <ModalShell
+          eyebrow={`${wpblFullName(team)} · ${schedule.length} games`}
+          onClose={() => setScheduleOpen(false)}
+          maxWidth={560}
+        >
+          <Box sx={{ px: 2, pb: 2 }}>
+            {playedGames.length > 0 && (
+              <Box sx={{ pt: 1.5 }}>
+                <SectionLabel>{`Played · ${playedGames.length}`}</SectionLabel>
+                {playedGames.map(g => (
+                  <ScheduleRow
+                    key={g.id} game={g} teamId={team.id} teamById={teamById}
+                    // Close first: leaving the modal stacked over the game centre would
+                    // trap the reader behind two layers of back.
+                    onOpenGame={g2 => { setScheduleOpen(false); onOpenGame(g2) }}
+                  />
+                ))}
+              </Box>
+            )}
+            {upcomingGames.length > 0 && (
+              <Box sx={{ pt: playedGames.length > 0 ? 2.5 : 1.5 }}>
+                <SectionLabel>{`Upcoming · ${upcomingGames.length}`}</SectionLabel>
+                {upcomingGames.map(g => (
+                  <ScheduleRow
+                    key={g.id} game={g} teamId={team.id} teamById={teamById}
+                    onOpenGame={g2 => { setScheduleOpen(false); onOpenGame(g2) }}
+                  />
+                ))}
+              </Box>
+            )}
+          </Box>
+        </ModalShell>
       )}
     </Box>
   )

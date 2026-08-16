@@ -44,6 +44,10 @@ export function sumFielding(lines: WpblFieldingLine[]): WpblFieldingTotals {
 export interface WpblPitchingTotals {
   g: number; outs: number; h: number; r: number; er: number; bb: number; so: number; hr: number
   w: number; l: number; s: number; era: number | null; whip: number | null
+  /** Strikeouts per 7 innings — the league's game length, same basis as `era`. */
+  k7: number | null
+  /** Strikeout-to-walk ratio. Null when nobody has walked, since the ratio has no value. */
+  kbb: number | null
 }
 
 export function sumPitching(lines: WpblPitchingLine[]): WpblPitchingTotals {
@@ -58,7 +62,13 @@ export function sumPitching(lines: WpblPitchingLine[]): WpblPitchingTotals {
   // WPBL games are 7 innings, so ERA is earned runs per 7 IP (not the 9 of MLB).
   const era = ip > 0 ? (t.er * 7) / ip : null
   const whip = ip > 0 ? (t.bb + t.h) / ip : null
-  return { ...t, era, whip }
+  // Per 7 for the same reason ERA is: a per-9 rate would overstate every WPBL pitcher by
+  // about a third, because she is never pitching those last two innings.
+  const k7 = ip > 0 ? (t.so * 7) / ip : null
+  // Null, not Infinity, on a staff that hasn't issued a walk — the ratio genuinely doesn't
+  // exist, and fmtTwo renders null as an em dash rather than a nonsense number.
+  const kbb = t.bb > 0 ? t.so / t.bb : null
+  return { ...t, era, whip, k7, kbb }
 }
 
 // ─── Rate-stat qualifiers ──────────────────────────────────────────────────────

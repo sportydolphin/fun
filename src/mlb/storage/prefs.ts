@@ -77,6 +77,49 @@ export function getLocalFollowedPlayerIds(): number[] {
   } catch { return [] }
 }
 
+// ─── Daily pick-reminder preference ───────────────────────────────────────────
+// Explicit opt-in for the daily "make your picks" push (scripts/send-reminders.mjs).
+//
+// This exists because the Settings switch used to toggle the push SUBSCRIPTION itself, which
+// conflated two different things: whether this device can receive pushes at all, and whether
+// the user wants this particular notification. Every other feature that needs to send a push
+// creates a subscription too — the WPBL game-start bell most of all — so subscribing for one
+// silently enrolled you in the other. Worse, switching it off deleted the subscription and
+// took the user's WPBL and game-start reminders down with it.
+
+const PICK_REMINDERS_KEY = 'mlb_notify_pick_reminders'
+
+export function getLocalPickReminderPref(): boolean {
+  try { return localStorage.getItem(PICK_REMINDERS_KEY) === '1' } catch { return false }
+}
+
+export function setLocalPickReminderPref(enabled: boolean) {
+  try { localStorage.setItem(PICK_REMINDERS_KEY, enabled ? '1' : '0') } catch {}
+}
+
+/** null when the column isn't there yet — the caller keeps whatever localStorage said. */
+export async function loadPickReminderPrefFromSupabase(userId: string): Promise<boolean | null> {
+  const { data, error } = await supabase
+    .from('user_preferences')
+    .select('notify_pick_reminders')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error || !data) return null
+  return !!(data as any).notify_pick_reminders
+}
+
+export async function savePickReminderPrefToSupabase(userId: string, enabled: boolean): Promise<void> {
+  if (!(await ensureActiveUser(userId))) return
+  const { error } = await supabase
+    .from('user_preferences')
+    .upsert({
+      user_id:               userId,
+      notify_pick_reminders: enabled,
+      updated_at:            new Date().toISOString(),
+    }, { onConflict: 'user_id' })
+  if (error) { /* column may not exist yet — localStorage still holds it */ }
+}
+
 // ─── Game-start reminder preference ───────────────────────────────────────────
 // Per-type opt-in for "your team's game is about to start" notifications, plus
 // how many minutes before first pitch to fire. Mirrored to localStorage so the

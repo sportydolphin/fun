@@ -2,8 +2,14 @@
 /**
  * send-reminders.mjs — Daily "make your picks" Web Push reminder.
  *
- * Finds users who have opted into push (rows in push_subscriptions) but haven't
- * finished predicting today's games, and sends each of their devices a nudge.
+ * Finds users who have EXPLICITLY opted into pick reminders
+ * (user_preferences.notify_pick_reminders) and haven't finished predicting today's games,
+ * and sends each of their devices a nudge.
+ *
+ * The opt-in is a preference, never the mere existence of a push_subscriptions row: a
+ * subscription is a device registration that anything needing to send a push will create —
+ * including the WPBL game-start bell — so treating it as consent signed WPBL fans up for
+ * daily MLB predictions prompts they never asked for.
  * Meant to run once a day from a GitHub Action, comfortably before first pitch.
  *
  * Usage (local):
@@ -185,6 +191,26 @@ async function main() {
     subsByUser.get(row.user_id).push(row)
   }
   console.log(`  ${subsByUser.size} subscribed user(s), ${subsRows.length} device(s)`)
+
+  // 2b. Consent. A push subscription is a device registration, not a request to hear about
+  // predictions — anything that needs to deliver a push creates one, including the WPBL
+  // game-start bell, which is how fans who have never made a pick ended up being nudged
+  // daily to make them. Only users who explicitly turned pick reminders on are eligible.
+  const { data: prefRows, error: prefErr } = await supabase
+    .from('user_preferences')
+    .select('user_id, notify_pick_reminders')
+    .in('user_id', [...subsByUser.keys()])
+  if (prefErr) throw new Error(`Loading notification preferences failed: ${prefErr.message}`)
+  const optedIn = new Set((prefRows ?? []).filter(p => p.notify_pick_reminders).map(p => p.user_id))
+  // Absent row = never opted in. Default off, deliberately: silence is not consent.
+  for (const userId of [...subsByUser.keys()]) {
+    if (!optedIn.has(userId)) subsByUser.delete(userId)
+  }
+  console.log(`  ${subsByUser.size} opted into pick reminders`)
+  if (subsByUser.size === 0) {
+    console.log('  Nobody opted in — exiting.')
+    return
+  }
 
   // 3. Today's picks for exactly those users, so we can compute who's behind.
   const userIds = [...subsByUser.keys()]

@@ -6,7 +6,7 @@ import {
   getCachedWpblAllPlayers, getCachedWpblAllLines, wpblStatsCacheAgeMs,
 } from './api'
 import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
-import { TeamBadge, CARD_BORDER, useWpblName } from './ui'
+import { TeamBadge, CARD_BORDER, pressable, FOCUS_RING, useWpblName } from './ui'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, wpblQualifiers, fmtRate, fmtTwo,
   type WpblBattingTotals, type WpblPitchingTotals,
@@ -115,6 +115,7 @@ interface Row {
   key: string
   team: WpblTeam | undefined       // for the badge (a player's club, or the team itself)
   label: string                    // player short name, or full team name
+  shortLabel?: string              // teams mode on a phone: the nickname alone ('Firebells')
   sublabel?: string                // player position (players only)
   totals: WpblBattingTotals | WpblPitchingTotals
   qualified: boolean
@@ -152,12 +153,22 @@ const FROZEN_SHADOW = '6px 0 6px -4px rgba(0,0,0,0.25)'
 // frozen columns overlap the name when scrolled. Names ellipsize within it.
 const NAME_W = 150
 const NAME_INNER_MAX = 84 // NAME_W minus rank + badge + gaps + padding, so the column can't grow past NAME_W
+// Teams mode gets a narrower frozen column. There are only four rows, each with a distinct
+// badge, and the nickname alone identifies them — so the width a player's full name needs is
+// dead space here, and every pixel of it is a stat column pushed off a phone screen.
+// No rank number in this mode (see the row), so the budget is padding + badge + gap + label.
+const TEAM_NAME_W = 104
+const TEAM_NAME_INNER_MAX = 62
 
 /** What the table should be showing, when it's opened from somewhere else (a Home leader
  *  card's "View all"). `token` increments on every such jump — see the effect below. */
 export interface WpblStatsFocus {
   group: Group
   sortKey?: string  // a HIT_COLS / PIT_COLS key; falls back to the group's default column
+  /** 'teams' opens the four-team comparison instead of the player board. */
+  mode?: Mode
+  /** Pre-select the team filter chip (players mode only). null clears it. */
+  teamId?: string | null
   token: number     // 0 = nothing requested yet
 }
 
@@ -222,6 +233,11 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
     const axes = axesOf(focus.group)
     if (axes.side) setSide(axes.side)
     setSource(axes.source)
+    // A link can also ask for the teams board, or for the player board already narrowed to
+    // one club — the two states the team page links into. Both are left alone when the link
+    // doesn't mention them, so an ordinary leader-card jump behaves exactly as before.
+    if (focus.mode) setMode(focus.mode)
+    if (focus.teamId !== undefined) setTeamId(focus.teamId)
     if (axes.source !== 'season') return // the tracked boards and draft have nothing to sort
     const next = defaultSort(axes.side ?? 'hitting', focus.sortKey)
     setSortKey(next.key)
@@ -296,6 +312,10 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
   // rank → name → its ranking value are always adjacent and the table can rest at its
   // natural left (G, AB, R, H…). Wide screens keep the plain single-scroll table.
   const pinActive = isNarrow
+  // Teams mode only narrows on a phone; a wide screen has room for the full club name.
+  const teamsNarrow = pinActive && mode === 'teams'
+  const nameW = teamsNarrow ? TEAM_NAME_W : NAME_W
+  const nameInnerMax = teamsNarrow ? TEAM_NAME_INNER_MAX : NAME_INNER_MAX
   const scrollCols = pinActive ? cols.filter(c => c.key !== activeCol.key) : cols
 
   // Flipping sides re-sorts on that side's headline stat. Safe to do even while the tracked
@@ -322,7 +342,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
         const totals = side === 'hitting' ? sumBatting(src as WpblBattingLine[]) : sumPitching(src as WpblPitchingLine[])
         totals.g = new Set(src.map(l => l.game_id)).size
         return {
-          key: team.id, team, label: wpblFullName(team),
+          key: team.id, team, label: wpblFullName(team), shortLabel: team.name,
           totals, qualified: true,
           onClick: onOpenTeam ? () => onOpenTeam(team) : undefined,
         }
@@ -544,12 +564,12 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
             <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: '100%', fontVariantNumeric: 'tabular-nums' }}>
               <Box component="thead">
                 <Box component="tr">
-                  <Box component="th" data-swipe-handle="" sx={{ ...thBase, left: 0, zIndex: 4, textAlign: 'left', width: pinActive ? NAME_W : undefined, minWidth: NAME_W, maxWidth: pinActive ? NAME_W : undefined, borderRight: '1px solid', borderColor: 'divider', pl: 1, touchAction: pinActive ? 'pan-y' : undefined }}>
+                  <Box component="th" data-swipe-handle="" sx={{ ...thBase, left: 0, zIndex: 4, textAlign: 'left', width: pinActive ? nameW : undefined, minWidth: nameW, maxWidth: pinActive ? nameW : undefined, borderRight: '1px solid', borderColor: 'divider', pl: 1, touchAction: pinActive ? 'pan-y' : undefined }}>
                     {mode === 'teams' ? 'Team' : 'Player'}
                   </Box>
                   {pinActive && (
                     <Box component="th" data-swipe-handle="" onClick={() => clickHeader(activeCol)} sx={{
-                      ...thBase, position: 'sticky', left: NAME_W - 2, zIndex: 5, touchAction: 'pan-y',
+                      ...thBase, position: 'sticky', left: nameW - 2, zIndex: 5, touchAction: 'pan-y',
                       textAlign: 'center', cursor: 'pointer', minWidth: 50, px: 0.5,
                       color: WPBL_ACCENT,
                       backgroundImage: `linear-gradient(${WPBL_ACCENT}24, ${WPBL_ACCENT}24)`,
@@ -608,22 +628,29 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
                       <Box component="th" data-swipe-handle="" sx={{
                         position: 'sticky', left: 0, zIndex: 2, bgcolor: 'background.paper',
                         textAlign: 'left', fontWeight: 400, py: 0.5, px: 1,
-                        width: pinActive ? NAME_W : undefined, minWidth: NAME_W, maxWidth: pinActive ? NAME_W : undefined,
+                        width: pinActive ? nameW : undefined, minWidth: nameW, maxWidth: pinActive ? nameW : undefined,
                         borderTop: '1px solid', borderRight: '1px solid', borderColor: 'divider',
                         touchAction: pinActive ? 'pan-y' : undefined,
                       }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                          <Typography sx={{ width: 18, textAlign: 'right', flexShrink: 0, fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled' }}>{i + 1}</Typography>
+                          {/* Four rows, already in sorted order, with the sorted column
+                              arrowed in the header — the rank digit restates all of that and
+                              costs 24px that a nickname needs to render whole. */}
+                          {!teamsNarrow && (
+                            <Typography sx={{ width: 18, textAlign: 'right', flexShrink: 0, fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled' }}>{i + 1}</Typography>
+                          )}
                           {r.team && <TeamBadge team={r.team} size={20} />}
-                          <Box sx={{ minWidth: 0, maxWidth: pinActive ? NAME_INNER_MAX : undefined }}>
-                            <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label}</Typography>
+                          <Box sx={{ minWidth: 0, maxWidth: pinActive ? nameInnerMax : undefined }}>
+                            <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {teamsNarrow && r.shortLabel ? r.shortLabel : r.label}
+                            </Typography>
                             {r.sublabel && <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1 }}>{r.sublabel}</Typography>}
                           </Box>
                         </Box>
                       </Box>
                       {pinActive && (
                         <Box component="td" data-swipe-handle="" onClick={e => { e.stopPropagation(); clickHeader(activeCol) }} sx={{
-                          position: 'sticky', left: NAME_W - 2, zIndex: 3, touchAction: 'pan-y',
+                          position: 'sticky', left: nameW - 2, zIndex: 3, touchAction: 'pan-y',
                           textAlign: 'center', py: 0.5, px: 0.5,
                           borderTop: '1px solid', borderRight: '1px solid', borderColor: 'divider',
                           fontSize: '0.84rem', fontWeight: 800, color: WPBL_ACCENT,
@@ -703,7 +730,8 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
 // Small pill used for the team filter + qualified toggle.
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <Box onClick={onClick} sx={{
+    <Box {...pressable(onClick)} aria-pressed={active} sx={{
+      ...FOCUS_RING,
       display: 'inline-flex', alignItems: 'center', cursor: 'pointer', userSelect: 'none',
       flexShrink: 0, whiteSpace: 'nowrap',
       px: 1, py: 0.4, borderRadius: 999, fontSize: '0.74rem', fontWeight: 700,

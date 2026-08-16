@@ -30,6 +30,11 @@ export interface WpblPlayer {
   draft_round: number | null
   draft_pick: number | null
   bio: string | null
+  /** From the community BDay sheet (scripts/ingest-wpbl-birthdays.mjs). Null for roughly
+   *  half the league — the sheet doesn't cover everyone, and that gap is expected. */
+  birth_date: string | null
+  /** Generated in the database from birth_date; null when the date is unknown. */
+  zodiac_sign: string | null
   active: boolean
   api_id: string | null          // official-feed player id (reconciliation key)
   created_at: string
@@ -329,3 +334,43 @@ export type WpblBattingInput =
 export type WpblPitchingInput =
   Omit<WpblPitchingLine, 'id' | 'game_id' | 'created_at' | WpblPitchingFeedOnly>
   & Partial<Pick<WpblPitchingLine, WpblPitchingFeedOnly>>
+
+/** One player's slot + position in one game, from the wpbl_lineup_history view.
+ *  `started` is resolved by play sequence when several players share a lineup slot —
+ *  see the view's migration for why the box score alone can't answer it. */
+export interface WpblLineupHistoryRow {
+  game_id: string
+  team_id: string | null
+  player_id: string
+  game_date: string
+  game_status: string
+  opponent_team_id: string | null
+  /** The opposing starter — named, not just handed, because "vs L" alone reads as if it
+   *  might describe a whole staff rather than the one pitcher the card was written for. */
+  opp_starter_name: string | null
+  opp_starter_throws: string | null
+  lineup_spot: number
+  position: string | null
+  started: boolean
+  slot_shared: boolean
+}
+
+/** One pitcher's appearance in one game, from the wpbl_pitching_usage view.
+ *  `days_rest` is the gap since that pitcher's PREVIOUS outing — null on her first. */
+export interface WpblPitchingUsageRow {
+  game_id: string
+  team_id: string | null
+  player_id: string
+  game_date: string
+  game_status: string
+  opponent_team_id: string | null
+  started: boolean
+  outs: number
+  pitches: number | null
+  bf: number | null
+  er: number
+  so: number
+  bb: number
+  decision: string | null
+  days_rest: number | null
+}

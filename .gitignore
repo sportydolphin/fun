@@ -9,3 +9,6 @@ dist
 !.env.example
 .claude/
 supabase/.temp/
+
+# Giveaway entry lists: real usernames + user ids, never in a public repo.
+giveaway-data/
