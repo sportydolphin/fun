@@ -8,6 +8,7 @@ import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
 import { GameRecapView } from './RecapCard'
 import { ModalShell, SegNav, TeamBadge, useWpblDark, useWpblName, wpblFeatureName } from './ui'
+import { parsePlay } from './derive/playByPlay'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, speedUnit } from '../lib/units'
 import { prettyType } from './tracking'
@@ -322,12 +323,6 @@ const PITCH_CODES: Record<string, { label: string; color: string }> = {
   P: { label: 'In play',         color: '#2563eb' }, // blue
 }
 
-// The feed embeds the raw pitch string inside the narrative's count, e.g. "walked (3-1 BKBBB)".
-// Now that we render those pitches as their own decoded pips, drop the letters from the prose
-// but keep the count itself: "(3-1 BKBBB)" → "(3-1)".
-const stripPitchCodes = (narrative: string) =>
-  narrative.replace(/(\(\d-\d)\s+[BKSFHP]+\)/g, '$1)')
-
 function PitchSequence({ seq }: { seq: string }) {
   const pitches = [...seq].map((code, i) => ({
     code, i, ...(PITCH_CODES[code] ?? { label: code, color: 'inherit' }),
@@ -361,6 +356,17 @@ function PitchSequence({ seq }: { seq: string }) {
 }
 
 function PlayByPlay({ plays, teams, game }: { plays: WpblGamePlay[]; teams: Map<string, WpblTeam>; game: WpblGame }) {
+  const shortName = useWpblName()
+  // Every name the feed uses in this game, longest first so "Elodie Ciamarro" is replaced
+  // before a bare "Ciamarro" could match part of it. Built from the plays themselves rather
+  // than the roster, so a name only shortens when it is genuinely a player in this game.
+  const shortenNames = useMemo(() => {
+    const names = [...new Set(plays.flatMap(p => [p.batter_name, p.pitcher_name]).filter(Boolean) as string[])]
+      .sort((a, b) => b.length - a.length)
+    if (!names.length) return (t: string) => t
+    const re = new RegExp(names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g')
+    return (t: string) => t.replace(re, m => shortName(m))
+  }, [plays, shortName])
   // Group consecutive plays into half-innings, in order.
   //
   // The half-inning's run count comes from the line score, not from summing the plays. The
@@ -436,23 +442,68 @@ function PlayByPlay({ plays, teams, game }: { plays: WpblGamePlay[]; teams: Map<
             </Box>
             {open && (
               <Box sx={{ mt: 0.75 }}>
-                {g.plays.map((p, i) => (
-                  <Box key={i} sx={{
-                    display: 'flex', gap: 1, py: 0.5, pl: 1, borderLeft: '2px solid',
-                    borderColor: p.is_scoring_play ? '#22c55e' : 'divider',
-                    bgcolor: p.is_scoring_play ? 'rgba(34,197,94,0.06)' : 'transparent',
-                  }}>
-                    <Typography sx={{ flex: 1, fontSize: '0.82rem', lineHeight: 1.35 }}>
-                      {stripPitchCodes(p.narrative)}
-                      {p.runs_scored > 0 && (
-                        <Box component="span" sx={{ ml: 0.5, fontSize: '0.66rem', fontWeight: 800, color: '#16a34a' }}>
-                          +{p.runs_scored}
-                        </Box>
-                      )}
-                    </Typography>
-                    {p.pitch_sequence && <PitchSequence seq={p.pitch_sequence} />}
-                  </Box>
-                ))}
+                {g.plays.map((p, i) => {
+                  const parsed = parsePlay(p.narrative, p.batter_name, shortenNames)
+                  // A substitution is roster bookkeeping between at-bats. Given the same
+                  // weight as a play it reads like one, so it gets its own quieter line.
+                  if (parsed.kind === 'substitution') {
+                    return (
+                      <Box key={i} sx={{
+                        py: 0.4, pl: 1, borderLeft: '2px solid', borderColor: 'divider',
+                      }}>
+                        <Typography sx={{
+                          fontSize: '0.72rem', fontStyle: 'italic', color: 'text.disabled', lineHeight: 1.35,
+                        }}>
+                          {parsed.what}
+                        </Typography>
+                      </Box>
+                    )
+                  }
+                  return (
+                    <Box key={i} sx={{
+                      display: 'flex', gap: 1, py: 0.6, pl: 1, borderLeft: '2px solid',
+                      borderColor: p.is_scoring_play ? '#22c55e' : 'divider',
+                      bgcolor: p.is_scoring_play ? 'rgba(34,197,94,0.06)' : 'transparent',
+                    }}>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        {/* Who did what, on one line. The batter is the thing being scanned
+                            for down the column, so it carries the weight; the outcome sits in
+                            normal text beside it rather than as one undifferentiated sentence. */}
+                        <Typography sx={{ fontSize: '0.82rem', lineHeight: 1.35 }}>
+                          {parsed.who && (
+                            <Box component="span" sx={{ fontWeight: 700 }}>{shortName(parsed.who)} </Box>
+                          )}
+                          {parsed.what}
+                          {p.runs_scored > 0 && (
+                            <Box component="span" sx={{ ml: 0.5, fontSize: '0.66rem', fontWeight: 800, color: '#16a34a' }}>
+                              +{p.runs_scored}
+                            </Box>
+                          )}
+                        </Typography>
+                        {/* Runners, quieter and condensed. Same information, roughly half the
+                            words, and no longer competing with the batter for attention. */}
+                        {parsed.detail && (
+                          <Typography sx={{ fontSize: '0.72rem', lineHeight: 1.35, color: 'text.secondary', mt: 0.15 }}>
+                            {parsed.detail}
+                          </Typography>
+                        )}
+                      </Box>
+                      {/* The count used to sit mid-sentence, so it landed in a different place
+                          on every row. Pulled out to the pitch column, where it lines up. */}
+                      <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+                        {parsed.count && (
+                          <Typography sx={{
+                            fontSize: '0.66rem', fontWeight: 700, color: 'text.disabled',
+                            fontVariantNumeric: 'tabular-nums', lineHeight: 1.6,
+                          }}>
+                            {parsed.count}
+                          </Typography>
+                        )}
+                        {p.pitch_sequence && <PitchSequence seq={p.pitch_sequence} />}
+                      </Box>
+                    </Box>
+                  )
+                })}
               </Box>
             )}
           </Box>

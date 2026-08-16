@@ -4,6 +4,21 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.43.0',
+    date:    '2026-08-16',
+    title:   'A play-by-play you can actually skim',
+    changes: [
+      {
+        short: 'Play-by-play is shorter and reads the same way every time',
+        full:  'Each play used to be printed as the feed sends it: one long sentence with the batter, the count and every runner\u2019s movement run together, so the thing you wanted was buried in the middle of it. The batter and what they did are now the line, with the runners on a quieter second line beneath and the count moved over beside the pitches where it lines up. Fielding detail that the box score already carries has been dropped, so a play takes about a quarter less reading.',
+      },
+      {
+        short: 'Substitutions no longer look like plays',
+        full:  'A player coming into the game is a roster change, not something that happened at the plate, and now reads as its own quiet line rather than sitting in the list with the same weight as a hit.',
+      },
+    ],
+  },
+  {
     version: '1.42.3',
     date:    '2026-08-16',
     changes: [
