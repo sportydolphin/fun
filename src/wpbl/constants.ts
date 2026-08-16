@@ -120,17 +120,37 @@ export function formatGameTime(gameDate: string, startTime: string | null | unde
   return real.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', ...(withZone ? { timeZoneName: 'short' } : {}) })
 }
 
-// A game day's label relative to today: "Today" / "Tomorrow" / "Yesterday" for the
-// nearby days, otherwise the weekday + date ("Wed, Aug 20"). Compared on the local
-// calendar day (gameDate is a Central wall date, close enough for a day-granularity label).
-export function relativeDayLabel(gameDate: string): string {
+// Whole days from today to a game's date — negative in the past, 0 today. Compared on the
+// local calendar day (gameDate is a Central wall date, close enough for a day-granularity
+// label). Shared so every relative date label in the section agrees on where the day breaks.
+function dayOffset(gameDate: string): { diff: number; date: Date } {
   const d = new Date(`${gameDate}T00:00:00`)
   const today = new Date(); today.setHours(0, 0, 0, 0)
-  const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
+  return { diff: Math.round((d.getTime() - today.getTime()) / 86400000), date: d }
+}
+
+// A game day's label relative to today: "Today" / "Tomorrow" / "Yesterday" for the
+// nearby days, otherwise the weekday + date ("Wed, Aug 20").
+export function relativeDayLabel(gameDate: string): string {
+  const { diff, date } = dayOffset(gameDate)
   if (diff === 0) return 'Today'
   if (diff === 1) return 'Tomorrow'
   if (diff === -1) return 'Yesterday'
-  return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+  return date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+/** The same label with the weekday dropped ("Aug 20"), for places measured in single digits of
+ *  pixels — the home scoreboard chip, whose whole eyebrow is about 120px wide.
+ *
+ *  Deliberately has no "Tomorrow": it sits beside a start time there ("Tomorrow · 7:05 PM"),
+ *  which made it the widest string the chip had to hold, and it bought nothing a bare date
+ *  doesn't already say. Today and Yesterday earn their room because they're the two days a
+ *  reader is actually orienting around. */
+export function relativeDayShort(gameDate: string): string {
+  const { diff, date } = dayOffset(gameDate)
+  if (diff === 0) return 'Today'
+  if (diff === -1) return 'Yesterday'
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
 // The true UTC instant (epoch ms) of a game's first pitch, treating the stored wall

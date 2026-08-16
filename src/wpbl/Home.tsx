@@ -9,7 +9,7 @@ import {
   getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblAllPlays, getCachedWpblAllTracking, wpblHomeCacheAgeMs,
   fetchWpblVideos, getCachedWpblVideos,
 } from './api'
-import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp, relativeDayLabel } from './constants'
+import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
 import { SectionCard, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, wpblFeatureName, CARD_BORDER } from './ui'
 import { LiveHero } from './Live'
 import {
@@ -43,14 +43,17 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
   const awayWon = final && (game.away_score ?? 0) > (game.home_score ?? 0)
   const homeWon = final && (game.home_score ?? 0) > (game.away_score ?? 0)
 
-  const now = new Date()
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-  const dateText = game.game_date === todayStr
-    ? 'Today'
-    : new Date(`${game.game_date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })
+  // "Today" / "Yesterday", else "Aug 15" — shared with the schedule's labels so a date reads
+  // the same wherever you meet it (relativeDayShort drops the weekday, and Tomorrow, neither
+  // of which this chip has room for).
+  const dateText = relativeDayShort(game.game_date)
   const timeText = formatGameTime(game.game_date, game.start_time)
+  // A final now carries WHEN it was played. The status leads and the date follows, the reverse
+  // of an upcoming game, because each puts its own headline first — and because if the line
+  // ever has to ellipsise it should lose the date rather than the result. A live game is by
+  // definition today, so a date there would be noise.
   const statusText = final
-    ? `Final${game.innings && game.innings !== 7 ? `/${game.innings}` : ''}`
+    ? `Final${game.innings && game.innings !== 7 ? `/${game.innings}` : ''} · ${dateText}`
     : live ? 'Live'
     : timeText ? `${dateText} · ${timeText}` : dateText
 
@@ -80,12 +83,22 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
 
   return (
     <Box onClick={onOpen} sx={{
-      flexShrink: 0, width: 132, cursor: 'pointer',
+      // 136, up 4 from the pre-date 132. The eyebrow's longest string went from
+      // "Aug 15 · 7:05 PM" to "Final · Yesterday" — one character more, and uppercase letters
+      // where the old one had narrow digits — so it needs a little more room than before and
+      // nowhere near as much as it first looked like it did.
+      flexShrink: 0, width: 136, cursor: 'pointer',
       borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
       p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
       transition: 'border-color 0.15s', '&:hover': { borderColor: 'text.disabled' },
     }}>
-      <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: live ? '#ef4444' : 'text.secondary' }}>
+      <Typography sx={{
+        fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5,
+        color: live ? '#ef4444' : 'text.secondary',
+        // Never wrap: a second line here would make finals taller than upcoming chips and
+        // break the strip's alignment. Ellipsis is the backstop for an unforeseen long label.
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>
         {statusText}
       </Typography>
       {row(away, game.away_score, awayWon)}
