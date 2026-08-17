@@ -70,6 +70,13 @@ constraints:
   For the same reason they must never import [`constants.ts`](src/wpbl/constants.ts) — it
   pulls the team logos in as Vite assets, which is why `outsToIp` lives in
   [`innings.ts`](src/wpbl/innings.ts).
+- **"Read every row" needs explicit paging.** PostgREST silently caps a bare
+  `.select()` at **1000 rows** — no error, just a short array — so any fetch that means
+  "all of them" must page with `.range()` *and* carry a deterministic `.order()`, or
+  Postgres can return the same row on two pages and skip another. Getting this wrong
+  doesn't fail loudly; it quietly makes league-wide aggregates (OPS+ and ERA+ derive their
+  baseline from `fetchWpblAllLines`) wrong by a silent prefix. See `fetchAllPaged` in
+  [`src/wpbl/api.ts`](src/wpbl/api.ts).
 - **Two write paths to the DB, and only two:** (1) the browser writes user rows through RLS
   (events, feedback, picks); (2) everything ingested or derived is written by service-role
   actors — the `wpbl-ingest` edge function and the GitHub Actions `scripts/*.mjs` jobs. The

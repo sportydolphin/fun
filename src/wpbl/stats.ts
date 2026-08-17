@@ -7,6 +7,11 @@ export interface WpblBattingTotals {
   g: number; ab: number; r: number; h: number; doubles: number; triples: number; hr: number
   rbi: number; bb: number; so: number; sb: number; hbp: number; cs: number; sf: number; tb: number
   avg: number | null; obp: number | null; slg: number | null; ops: number | null
+  /**
+   * Runners left on base — **team rows only**, filled in by the caller from the game row.
+   * Always null here; see the note in `sumBatting`.
+   */
+  lob: number | null
 }
 
 export function sumBatting(lines: WpblBattingLine[]): WpblBattingTotals {
@@ -22,7 +27,12 @@ export function sumBatting(lines: WpblBattingLine[]): WpblBattingTotals {
   const obp = obDen > 0 ? (t.h + t.bb + t.hbp) / obDen : null
   const slg = t.ab > 0 ? tb / t.ab : null
   const ops = obp != null && slg != null ? obp + slg : null
-  return { ...t, tb, avg, obp, slg, ops }
+  // LOB is deliberately null and never summed from the lines. Two reasons: the feed sends a
+  // per-player `lob` but has never populated it (every row in the table is 0), and even a
+  // populated one wouldn't add up to the team's LOB — individual LOB charges the same
+  // stranded runner to every batter who came up while he was aboard, so the sum overcounts.
+  // The team number lives on wpbl_games (home_lob/away_lob); StatsView fills it in there.
+  return { ...t, tb, avg, obp, slg, ops, lob: null }
 }
 
 // ─── Fielding ──────────────────────────────────────────────────────────────────

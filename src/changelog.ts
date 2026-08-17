@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.44.1',
+    date:    '2026-08-17',
+    title:   'Left on base, on the team stats table',
+    changes: [
+      {
+        short: 'Team stats show runners left on base',
+        full:  'The team hitting table has a Left On Base column. It uses the league\u2019s own per-game totals rather than adding up the individual batting lines, because a batter\u2019s left-on-base counts every runner who happened to be aboard when she came up \u2014 add those together and the same stranded runner gets counted several times over. Worth reading alongside the rest of the row rather than on its own: a club that puts fewer runners on base has fewer runners to leave there, so a low number is not automatically a good one.',
+      },
+    ],
+  },
+  {
     version: '1.44.0',
     date:    '2026-08-16',
     title:   'Swipe through a game, and cards that use the whole screen',

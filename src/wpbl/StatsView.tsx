@@ -273,6 +273,17 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
         ? 100 * (t.obp / lgObp + t.slg / lgSlg - 1)
         : null
     const cols = [...HIT_COLS]
+    // Team rows only. Player LOB isn't reported by the feed, so on the player board this
+    // column would be a solid stripe of dashes pretending to be a stat.
+    if (mode === 'teams') {
+      cols.splice(cols.findIndex(c => c.key === 'g'), 0, {
+        key: 'lob', label: 'LOB',
+        value: t => t.lob,
+        // Never the default `String(v ?? 0)` — an unreported LOB must read as "unknown",
+        // not as "nobody was left on".
+        display: t => (t.lob == null ? '—' : String(t.lob)),
+      })
+    }
     const opsIdx = cols.findIndex(c => c.key === 'ops')
     cols.splice(opsIdx + 1, 0, {
       key: 'opsPlus', label: 'OPS+',
@@ -281,7 +292,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
       rate: true,
     })
     return cols
-  }, [lines.batting])
+  }, [lines.batting, mode])
 
   // ERA+ mirrors OPS+ for pitchers: league ERA over the pitcher's ERA, ×100 (100 = league
   // average, higher is better — note it inverts ERA, so unlike ERA it sorts descending). No
@@ -330,6 +341,18 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
     else { setSortKey(c.key); setSortAsc(c.lowerBetter ?? false) }
   }
 
+  // Team LOB, keyed `${gameId}|${teamId}`. It has to come off the game row: the feed sends a
+  // per-player `lob` but never fills it in, and summing the players wouldn't give the team
+  // total anyway (see the note in sumBatting).
+  const lobByGameTeam = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const g of games) {
+      if (g.home_lob != null) m.set(`${g.id}|${g.home_team_id}`, g.home_lob)
+      if (g.away_lob != null) m.set(`${g.id}|${g.away_team_id}`, g.away_lob)
+    }
+    return m
+  }, [games])
+
   const rows = useMemo<Row[]>(() => {
     let built: Row[]
     if (mode === 'teams') {
@@ -340,7 +363,20 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
           ? lines.batting.filter(l => l.team_id === team.id)
           : lines.pitching.filter(l => l.team_id === team.id)
         const totals = side === 'hitting' ? sumBatting(src as WpblBattingLine[]) : sumPitching(src as WpblPitchingLine[])
-        totals.g = new Set(src.map(l => l.game_id)).size
+        const gameIds = new Set(src.map(l => l.game_id))
+        totals.g = gameIds.size
+        if (side === 'hitting') {
+          // Summed over exactly the games this team has box-score lines for, so LOB covers
+          // the same games as the rest of the row rather than drifting ahead of it when a
+          // game's score lands before its boxscore does. Left null when none of them
+          // reported one, so the cell dashes instead of claiming a tidy zero.
+          let lob = 0, any = false
+          for (const gid of gameIds) {
+            const v = lobByGameTeam.get(`${gid}|${team.id}`)
+            if (v != null) { lob += v; any = true }
+          }
+          ;(totals as WpblBattingTotals).lob = any ? lob : null
+        }
         return {
           key: team.id, team, label: wpblFullName(team), shortLabel: team.name,
           totals, qualified: true,
@@ -377,7 +413,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
       if (av !== bv) return sortAsc ? av - bv : bv - av
       return sample(b) - sample(a)
     })
-  }, [mode, side, players, lines, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, shortName])
+  }, [mode, side, players, lines, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, shortName, lobByGameTeam])
 
   const teamChips = [...teams].sort((a, b) => a.abbr.localeCompare(b.abbr))
 

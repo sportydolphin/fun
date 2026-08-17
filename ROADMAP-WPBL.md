@@ -4,7 +4,8 @@
 > Companion doc: **[ROADMAP.md](ROADMAP.md)** — the MLB section, which runs on its own
 > calendar and its own priorities. Nothing here blocks anything there.
 > Tags: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra
-> Last realigned: **Aug 16, 2026** — split out of `ROADMAP.md` and reprioritized around
+> Last realigned: **Aug 17, 2026** — favourite-team + theming built and parked (see
+> "Parked, with reasons"); before that, split out of `ROADMAP.md` and reprioritized around
 > the season clock (see the realignment log at the end).
 
 ---
@@ -182,6 +183,26 @@ MLB section).
   rather than being its own project.
 - **Followed players / teams + notifications** — dropped as low-value for a four-team
   league. The per-game and all-games push reminders already cover the real need.
+- **Favourite team + team colour theming** ⚙️🎯 — *built Aug 17, 2026, parked the same day
+  on branch `wpbl-favourite-team`.* Working end to end, not shipped: the theming isn't
+  settled. What's on the branch — a one-shot Home prompt that never shares a screen with
+  the Discord card, a ★ toggle on each team page, "no favourite" as a real answer that
+  never re-prompts, and a section that takes the team's colour (solid nav chip, radial
+  masthead, ~4% card wash, tinted card hairline, and `theme-color` for the phone's browser
+  chrome). Contrast is measured per team rather than assumed — a fixed white nav label
+  fails WCAG AA on **seven of the eight** team/theme pairs.
+  **Why it's parked, and the thing to solve first:** in a 30-game season, anything that
+  prioritises your club takes more away than it gives — every game is a big slice of the
+  whole — which is why the pick only ever *adds* colour and never hides, reorders, or
+  demotes the other three. That constraint leaves colour doing all the work, and colour
+  alone didn't feel like enough to justify the ask. Two concrete problems to fix before
+  unparking: **Heights blue (`#5bb2ec`) is nearly the league default (`#60a5fa`)**, so a
+  quarter of the audience picks a team and sees almost nothing change; and a team page
+  still shows its *own* club's colours in the body while only the chrome follows your
+  favourite, which is defensible but was never actually decided.
+  The DB column (`user_preferences.wpbl_favorite_team_id`) **is already on main and applied
+  to production** — it shipped alone because it had been applied before the feature was
+  parked. It is nullable and nothing reads it.
 - **Ingest play-level `batter_id` / `pitcher_id` backfill** — the play log's `resolveName`
   is still exact-only, so name variants leave these null. Nothing reads them today (Hall of
   Firsts resolves by name instead). Would need a redeploy + `mode=all` re-ingest. Unpark

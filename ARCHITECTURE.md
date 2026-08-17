@@ -193,6 +193,12 @@ Feed identity is reconciled by `api_id` (games) and fuzzy roster matching in the
 function, so our readable team slugs / player UUIDs stay stable across feed spelling
 variants.
 
+**Reserved, unread column:** `user_preferences.wpbl_favorite_team_id` (text) exists in
+production but nothing reads it — the favourite-team feature it belongs to is parked on the
+`wpbl-favourite-team` branch (see ROADMAP-WPBL.md, "Parked, with reasons"). It shipped
+ahead of its feature only because it had already been applied when the work was parked, and
+omitting the file made the migration runner report a missing-file warning on every machine.
+
 ---
 
 ## 4. WPBL ingest pipeline
