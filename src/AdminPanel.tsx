@@ -72,6 +72,29 @@ function WpblFreshnessChip({ run }: { run: WpblRunRow }) {
   )
 }
 
+// Nightly play-by-play validation health. The counts matter less than the freshness: the job
+// deliberately never fails on findings (most are known and are not going anywhere), so the
+// only thing that needs attention here is the run going missing.
+//
+// Stale at 26h rather than 24: the schedule is daily and GitHub's cron is best-effort, so a
+// run that slips an hour under load is not worth an amber chip.
+export interface WpblValidationRow { ran_at: string; ok: boolean; new_findings: number; total_findings: number }
+export function WpblValidationChip({ run }: { run: WpblValidationRow }) {
+  const stale = Date.now() - new Date(run.ran_at).getTime() > 26 * 60 * 60_000
+  const color = !run.ok ? '#ef4444' : (stale || run.new_findings > 0) ? '#f97316' : '#22c55e'
+  const text = !run.ok ? 'Failed' : stale ? 'Stale' : run.new_findings > 0 ? `${run.new_findings} new` : 'Clean'
+  return (
+    <Box sx={{
+      display: 'inline-flex', alignItems: 'center', gap: 0.5,
+      px: 1, py: 0.25, borderRadius: 999,
+      bgcolor: `${color}18`, border: '1px solid', borderColor: `${color}40`,
+    }}>
+      <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: color }} />
+      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color }}>{text}</Typography>
+    </Box>
+  )
+}
+
 // ─── Stat row ─────────────────────────────────────────────────────────────────
 
 export function StatRow({ label, value, sub }: { label: React.ReactNode; value: React.ReactNode; sub?: React.ReactNode }) {
@@ -647,6 +670,7 @@ export function AdminTools({ apps, isAppLocked, onOpenApp }: {
 }) {
   const [payrolls, setPayrolls]   = useState<PayrollRow[] | null>(null)
   const [wpblRun, setWpblRun]     = useState<WpblRunRow | null>(null)
+  const [wpblCheck, setWpblCheck] = useState<WpblValidationRow | null>(null)
   const [predCount, setPredCount] = useState<number | null>(null)
   const [userCount, setUserCount] = useState<number | null>(null)
   const [usersOpen, setUsersOpen] = useState(false)
@@ -701,10 +725,17 @@ export function AdminTools({ apps, isAppLocked, onOpenApp }: {
         .select('ran_at, ok, mode, games, boxscores, error_count')
         .order('ran_at', { ascending: false })
         .limit(1),
-    ]).then(([pr, pc, wp]) => {
+
+      // Most-recent play-by-play validation pass
+      supabase.from('wpbl_pbp_validation_runs')
+        .select('ran_at, ok, new_findings, total_findings')
+        .order('ran_at', { ascending: false })
+        .limit(1),
+    ]).then(([pr, pc, wp, wv]) => {
       setPayrolls((pr.data ?? []) as PayrollRow[])
       setPredCount(pc.count ?? 0)
       setWpblRun((((wp.data ?? [])[0]) ?? null) as WpblRunRow | null)
+      setWpblCheck((((wv.data ?? [])[0]) ?? null) as WpblValidationRow | null)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -789,6 +820,29 @@ export function AdminTools({ apps, isAppLocked, onOpenApp }: {
                   </Typography>
                 </Box>
               )}
+            </Section>
+
+            {/* ── Play-by-play validation ───────────────────────────────── */}
+            <Section title="WPBL Scoring Check">
+              <Box sx={{ px: 1.5 }}>
+                {wpblCheck ? (
+                  <StatRow
+                    label="Play-by-play validation"
+                    sub={`${wpblCheck.total_findings} open · ${timeAgoMin(wpblCheck.ran_at)}`}
+                    value={<WpblValidationChip run={wpblCheck} />}
+                  />
+                ) : (
+                  <StatRow
+                    label="Play-by-play validation"
+                    sub="Nightly at 08:00 UTC. Nothing recorded yet."
+                    value={
+                      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled' }}>
+                        Not yet run
+                      </Typography>
+                    }
+                  />
+                )}
+              </Box>
             </Section>
 
             {/* ── Prediction activity ───────────────────────────────────── */}

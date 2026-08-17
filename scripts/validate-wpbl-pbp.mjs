@@ -45,9 +45,15 @@
  *   node --env-file=.env scripts/validate-wpbl-pbp.mjs --json > report.json
  *   node --env-file=.env scripts/validate-wpbl-pbp.mjs --baseline scripts/wpbl-pbp-baseline.json
  *   node --env-file=.env scripts/validate-wpbl-pbp.mjs --baseline <file> --update-baseline
+ *   node --env-file=.env scripts/validate-wpbl-pbp.mjs --baseline <file> --record
  *
  * Needs SUPABASE_DB_URL (the same connection string the migration runner uses).
  * Exits 1 when anything is flagged, or with a baseline, when anything NEW is.
+ *
+ * --record writes the run to wpbl_pbp_validation_runs and ALWAYS exits 0. That is what the
+ * nightly job uses. A job that fails whenever the validator finds something fails every night,
+ * because most findings are already known and are not going anywhere; the admin panel shows
+ * the state instead, and the thing worth watching there is whether the run is recent at all.
  *
  * npm script: npm run validate-pbp
  */
@@ -57,6 +63,7 @@ import fs from 'node:fs'
 
 const JSON_OUT = process.argv.includes('--json')
 const UPDATE_BASELINE = process.argv.includes('--update-baseline')
+const RECORD = process.argv.includes('--record')
 const baseArgIx = process.argv.indexOf('--baseline')
 const BASELINE = baseArgIx > -1 ? process.argv[baseArgIx + 1] : null
 const gameArgIx = process.argv.indexOf('--game')
@@ -320,7 +327,33 @@ async function main() {
         : `\nBaseline file ${BASELINE} is empty or missing; everything counts as new.`)
     }
   }
+  if (RECORD) {
+    await recordRun(url, { newCount, results })
+    // Always 0. See the note at the top: the row IS the signal, and a red X on a nightly job
+    // that is working exactly as intended teaches everyone to ignore the job.
+    process.exit(0)
+  }
   process.exit(newCount > 0 ? 1 : 0)
+}
+
+/** Write the run to wpbl_pbp_validation_runs for the admin panel's freshness indicator. Uses
+ *  its own short-lived connection so a failure here cannot take the report down with it. */
+async function recordRun(url, { newCount, results }) {
+  const byCheck = Object.fromEntries(Object.entries(results).map(([k, v]) => [k, v.length]))
+  const total = Object.values(results).reduce((n, r) => n + r.length, 0)
+  const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } })
+  try {
+    await client.connect()
+    await client.query(
+      `insert into wpbl_pbp_validation_runs (ok, new_findings, total_findings, by_check)
+       values (true, $1, $2, $3)`,
+      [newCount, total, JSON.stringify(byCheck)])
+    console.log(`\nRecorded: ${newCount} new, ${total} total.`)
+  } catch (err) {
+    console.error('Could not record the run:', err.message)
+  } finally {
+    await client.end().catch(() => {})
+  }
 }
 
 function report(results) {
@@ -344,7 +377,21 @@ function report(results) {
     : `${total} things to look at. These are candidates, not confirmed errors: check the video before correcting anything.`)
 }
 
-main().catch(err => { console.error(err); process.exit(2) })
+main().catch(async err => {
+  console.error(err)
+  // A run that dies still has something to say: without this the admin panel would show the
+  // last GOOD run and look healthy while the job had been broken for a week.
+  if (RECORD && process.env.SUPABASE_DB_URL) {
+    const client = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } })
+    try {
+      await client.connect()
+      await client.query(`insert into wpbl_pbp_validation_runs (ok, error) values (false, $1)`,
+        [String(err?.message ?? err).slice(0, 500)])
+    } catch { /* nothing more we can do */ } finally { await client.end().catch(() => {}) }
+    process.exit(0)
+  }
+  process.exit(2)
+})
 
 // ─── The gap this leaves ──────────────────────────────────────────────────────
 //
