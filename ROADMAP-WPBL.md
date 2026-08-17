@@ -184,7 +184,7 @@ MLB section).
 - **Followed players / teams + notifications** — dropped as low-value for a four-team
   league. The per-game and all-games push reminders already cover the real need.
 - **Favourite team + team colour theming** ⚙️🎯 — *built Aug 17, 2026, parked the same day
-  on branch `wpbl-favourite-team`.* Working end to end, not shipped: the theming isn't
+  on branch `wpbl-favorite-team`.* Working end to end, not shipped: the theming isn't
   settled. What's on the branch — a one-shot Home prompt that never shares a screen with
   the Discord card, a ★ toggle on each team page, "no favourite" as a real answer that
   never re-prompts, and a section that takes the team's colour (solid nav chip, radial

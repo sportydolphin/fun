@@ -1,7 +1,7 @@
 -- A WPBL favourite team on user_preferences.
 --
 -- RESERVED, NOT YET READ BY ANYTHING. The feature that uses it (a favourite-team picker and
--- team colour theming) is parked on the `wpbl-favourite-team` branch — see ROADMAP-WPBL.md.
+-- team colour theming) is parked on the `wpbl-favorite-team` branch — see ROADMAP-WPBL.md.
 -- The migration ships on its own because it had already been applied to the production
 -- database when the feature was parked, and leaving the file out made `npm run migrate --
 -- status` report "recorded as applied but no file present" on every machine. The column is

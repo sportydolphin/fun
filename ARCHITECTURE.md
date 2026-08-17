@@ -195,7 +195,7 @@ variants.
 
 **Reserved, unread column:** `user_preferences.wpbl_favorite_team_id` (text) exists in
 production but nothing reads it — the favourite-team feature it belongs to is parked on the
-`wpbl-favourite-team` branch (see ROADMAP-WPBL.md, "Parked, with reasons"). It shipped
+`wpbl-favorite-team` branch (see ROADMAP-WPBL.md, "Parked, with reasons"). It shipped
 ahead of its feature only because it had already been applied when the work was parked, and
 omitting the file made the migration runner report a missing-file warning on every machine.
 
