@@ -35,6 +35,7 @@ npm run discord-highlights -- --dry-run # render the YouTube highlight posts thi
 npm run discord-commands -- --list    # show the Discord slash commands currently registered
 npm run check-functions               # bundle the Cloudflare Pages functions as CI will
 npm run validate-pbp -- --baseline scripts/wpbl-pbp-baseline.json  # WPBL scoring check (needs SUPABASE_DB_URL)
+npm run restock-watch -- --status     # what the shop restock watcher is watching, and what it last saw
 ```
 
 **jsdom is pinned to `^26.1.0` on purpose.** jsdom 27 pulls in `html-encoding-sniffer@6`,

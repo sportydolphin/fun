@@ -40,6 +40,7 @@ flowchart TB
         fangraphs["FanGraphs<br/>payrolls"]
         wpblfeed["WPBL Official Feed<br/>stats.womensprobaseballleague.com/v1"]
         wpblyt["WPBL YouTube<br/>channel RSS feed"]
+        wpblshop["WPBL Shop (Shopify)<br/>/products/&lt;handle&gt;.js stock"]
         discord["Discord<br/>webhooks: board · box scores · highlights<br/>bot: /player interactions"]
         gtasks["Google Tasks API<br/>feature requests"]
         push["Web Push (VAPID)"]
@@ -66,13 +67,14 @@ flowchart TB
     scripts --> fangraphs
     scripts -->|"POST self-editing message"| discord
     scripts -->|"pull uploads (RSS)"| wpblyt
+    scripts -->|"poll stock (read-only, never buys)"| wpblshop
     scripts -->|"pull tasks"| gtasks
     scripts -->|"send"| push
     push --> user
 
     classDef ext fill:#fff3e0,stroke:#e08a00,color:#663d00;
     classDef sb fill:#e7f7ee,stroke:#1a9c5b,color:#0b4a2b;
-    class mlbapi,mlbcdn,fangraphs,wpblfeed,wpblyt,discord,gtasks,push ext;
+    class mlbapi,mlbcdn,fangraphs,wpblfeed,wpblyt,wpblshop,discord,gtasks,push ext;
     class auth,db,edge,pgcron sb;
 ```
 
@@ -178,6 +180,7 @@ flowchart TB
         t_board["wpbl_discord_board_state<br/>(the board's message id)"]
         t_recap["wpbl_discord_recap_posts<br/>(posted box scores + hash)"]
         t_corr["wpbl_play_corrections<br/>(OUR fixes, not the feed's)"]
+        t_restock["wpbl_restock_watch<br/>(shop items to watch)"]
     end
 
     subgraph MLB["MLB predictions / survivor / stats (written by GH Action scripts)"]
@@ -272,6 +275,7 @@ sequenceDiagram
 | `update-milestones` | `0 7` | `update-milestones` | Milestone watch |
 | `update-prediction-boards` | `30 7` | `update-prediction-boards` | Prediction leaderboards |
 | `pull-feature-requests` | `0 5` | `pull-tasks` | Google Tasks → `docs/feature-requests.md` / feedback |
+| `wpbl-restock-watch` | `*/10 * * * *` | `watch-wpbl-restock` | Ask the league's Shopify store whether a watched item is back in stock; post to Discord on the edge. Notifies only, never buys (see [`docs/DISCORD.md`](docs/DISCORD.md)) |
 | `wpbl-pbp-validation` | `0 8` | `validate-wpbl-pbp` | Check the league's play-by-play against the rules of baseball; records health to `wpbl_pbp_validation_runs`. **Never fails on findings** (see [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md)) |
 
 > Ordering is intentional (see each workflow's header comment): bots/survivor pick *before*
@@ -319,7 +323,8 @@ Setup walkthrough: [`docs/PUSH_NOTIFICATIONS.md`](docs/PUSH_NOTIFICATIONS.md).
 | **FanGraphs** | `update-payrolls` | Team payroll data |
 | **WPBL Official Feed** (`stats.womensprobaseballleague.com/v1`) | `wpbl-ingest` | Games, box scores, play-by-play, TrackMan |
 | **WPBL YouTube** (channel RSS `feeds/videos.xml`) | `sync-wpbl-youtube` | Highlight/recap videos → `wpbl_videos`; SPA embeds via youtube-nocookie on click |
-| **Discord webhooks** (send-only) | `update-wpbl-discord-board`, `wpbl-ingest`, `post-wpbl-discord-recaps`, `post-wpbl-discord-highlights` | Self-editing WPBL board + events/watch-party links; per-game box scores posted as a game goes final and edited in place on a correction; new YouTube highlight reels posted once each |
+| **WPBL Shop** (`shop.womensprobaseballleague.com`, Shopify) | `watch-wpbl-restock` | Stock for watched products via `/products/<handle>.js`. **Read-only, and it stays that way**: the job announces a restock and never carts or checks out |
+| **Discord webhooks** (send-only) | `update-wpbl-discord-board`, `wpbl-ingest`, `post-wpbl-discord-recaps`, `post-wpbl-discord-highlights`, `watch-wpbl-restock` | Self-editing WPBL board + events/watch-party links; per-game box scores posted as a game goes final and edited in place on a correction; new YouTube highlight reels posted once each; shop restock alerts |
 | **Discord interactions** (inbound) | [`functions/discord/wpbl.ts`](functions/discord/wpbl.ts) | The `/player` slash command: an HTTP interactions endpoint (no gateway bot, nothing long-running), answering with a player's season and serving name autocomplete |
 | **Google Tasks API** | `pull-tasks` | Ingest feature requests |
 | **Web Push (VAPID)** | reminder scripts + `send-test-push` | Browser notifications |
@@ -350,7 +355,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 | **Migration runner** | `SUPABASE_DB_URL` (Postgres connection string, Supabase *session pooler*, port 5432) | `.env` locally + repo **Actions secret** |
 | **Edge functions** | `SUPABASE_URL`*, `SUPABASE_SERVICE_ROLE_KEY`*, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `DISCORD_RECAP_WEBHOOK_URL` | Supabase (*auto-injected) |
 | **pg_cron** | service-role key | Supabase **Vault** (`wpbl_service_role_key`) |
-| **GitHub Actions** | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`, `VAPID_*`, `DISCORD_BOARD_WEBHOOK_URL`, `DISCORD_BOARD_MESSAGE_ID`, `DISCORD_EVENTS_URL`, `DISCORD_WATCH_PARTY_VC_URL`, `DISCORD_RECAP_WEBHOOK_URL`, `DISCORD_HIGHLIGHTS_WEBHOOK_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_TASKS_LIST` | Repo **Actions secrets** |
+| **GitHub Actions** | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`, `VAPID_*`, `DISCORD_BOARD_WEBHOOK_URL`, `DISCORD_BOARD_MESSAGE_ID`, `DISCORD_EVENTS_URL`, `DISCORD_WATCH_PARTY_VC_URL`, `DISCORD_RECAP_WEBHOOK_URL`, `DISCORD_HIGHLIGHTS_WEBHOOK_URL`, `DISCORD_RESTOCK_WEBHOOK_URL`, `DISCORD_RESTOCK_MENTION` (optional), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_TASKS_LIST` | Repo **Actions secrets** |
 
 ---
 

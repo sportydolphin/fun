@@ -1,0 +1,66 @@
+name: WPBL Shop Restock Watch
+
+# Announces in Discord when a sold-out item on the league's shop comes back.
+#
+# The giveaway winner picked a cap that is out of stock, and the shop has no back-in-stock
+# notification of its own. What is watched lives in `wpbl_restock_watch` rather than here, so
+# adding an item is an insert and does not need a commit.
+#
+# It notifies a human and stops there. It never carts and never checks out: the store's own
+# robots.txt asks that checkout stay human, and this would be the wrong thing to automate on
+# someone's behalf regardless.
+#
+# EVERY 10 MINUTES, WITH EYES OPEN. GitHub's cron is best-effort and slips under load, so the
+# real cadence is "about every 10 minutes, sometimes 25". That is fine for this: the job
+# announces a change rather than racing anyone to a checkout. Note that scheduled workflows
+# are disabled automatically after 60 days without repository activity, which for a watch
+# that may run for weeks is the likeliest way it dies. The job's own outage notice does NOT
+# cover that case, because a job that never starts cannot report on itself.
+#
+# The job does not fail on a store outage. A 503 or a network wobble is retried by the next
+# run ten minutes later, and a red X every time the shop hiccups is a job nobody reads. If it
+# stays blind for six hours the script says so in the same Discord channel, once. It fails
+# only on things a human must fix: missing secrets, or a variant id that no longer exists.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      test_post:
+        description: 'Post a test message to prove the webhook works, then stop'
+        type: boolean
+        default: false
+
+concurrency:
+  group: wpbl-restock-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Only the two packages this script imports. `npm ci` would pull the whole frontend
+      # toolchain it never touches; versions still come from package.json, so there is one
+      # source of truth. Same approach as the other cron workflows.
+      - name: Install watcher dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Check stock
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          # wpbl_restock_watch is RLS'd with no policies, so only the service role can see it.
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DISCORD_RESTOCK_WEBHOOK_URL: ${{ secrets.DISCORD_RESTOCK_WEBHOOK_URL }}
+          # Optional. A user or role mention, e.g. "<@123456789012345678>", so the alert
+          # reaches a phone instead of waiting to be noticed.
+          DISCORD_RESTOCK_MENTION: ${{ secrets.DISCORD_RESTOCK_MENTION }}
+        run: node scripts/watch-wpbl-restock.mjs ${{ inputs.test_post && '--test-post' || '' }}
