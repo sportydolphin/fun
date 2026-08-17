@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.45.2',
+    date:    '2026-08-17',
+    title:   'Head to head, on the Standings tab',
+    changes: [
+      {
+        short: 'The head to head grid is on Standings too',
+        full:  'The table tells you who is ahead. The grid underneath it now tells you of whom. It is the same four clubs in the same order, so you can carry a row straight down from one to the other, and in a four team league that is usually the thing worth knowing: a club can be unbeaten against two opponents and swept by the third, and a bare 4-3 hides all of it. On a wide screen each row spells the club out to match the table above; on a phone it stays initials so all four columns fit without scrolling sideways.',
+      },
+    ],
+  },
+  {
     version: '1.45.1',
     date:    '2026-08-17',
     title:   'A quiet dot on the Teams tab',

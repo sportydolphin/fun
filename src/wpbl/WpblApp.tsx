@@ -17,6 +17,7 @@ import WpblHome from './Home'
 import WpblStatsView, { type WpblStatsFocus } from './StatsView'
 import TeamPage from './TeamPage'
 import TeamsGrid from './TeamsGrid'
+import HeadToHead from './HeadToHead'
 import SwipeableViews from './SwipeableViews'
 import WpblBottomNav, { BOTTOM_NAV_SPACE } from './BottomNav'
 import { useExperiments } from '../ExperimentsContext'
@@ -264,6 +265,7 @@ function StandingsView({ teams, games, onOpenTeam }: {
   const NUM = 34, WIDE = 46
 
   return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
     <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden' }}>
       <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
         <Box component="thead">
@@ -321,6 +323,11 @@ function StandingsView({ teams, games, onOpenTeam }: {
           <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No games played yet. Records update as results are added.</Typography>
         </Box>
       )}
+    </Box>
+      {/* The table answers "who is ahead"; this answers "of whom". They are the same four
+          clubs in the same order, so the eye can carry a row straight down from one to the
+          other. Only once there is a result to show: before that it is sixteen dots. */}
+      {played && onOpenTeam && <HeadToHead rows={rows} games={games} onSelect={onOpenTeam} />}
     </Box>
   )
 }
