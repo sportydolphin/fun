@@ -35,8 +35,9 @@
  *   npm run restock-watch -- --test-post  # post a sample message, to prove the webhook works
  *
  * Required env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DISCORD_RESTOCK_WEBHOOK_URL.
- * Optional: DISCORD_RESTOCK_MENTION (e.g. "<@1234567890>"), prepended so it pings a phone
- * rather than waiting to be noticed.
+ * Optional: DISCORD_RESTOCK_MENTION. The restock alert pings @everyone by default, which in a
+ * private channel is the people who can see it; set this to a user ("<@123>") or role
+ * ("<@&456>") to narrow it. The outage notice never defaults to @everyone.
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -56,7 +57,16 @@ const IS_ENTRYPOINT = process.argv[1] != null
 const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 const WEBHOOK_URL = (process.env.DISCORD_RESTOCK_WEBHOOK_URL ?? '').trim()
-const MENTION = (process.env.DISCORD_RESTOCK_MENTION ?? '').trim()
+// Who the restock alert notifies. Defaults to @everyone: in a private channel that is exactly
+// the people who can see it, which is the point of putting it in a private channel. Set
+// DISCORD_RESTOCK_MENTION to a user (`<@123>`) or role (`<@&456>`) to narrow it, or to an
+// empty-but-present value to ping nobody.
+const MENTION = (process.env.DISCORD_RESTOCK_MENTION ?? '@everyone').trim()
+
+// The outage notice does NOT default to @everyone. A restock is news for the whole channel;
+// "the watcher has been blind for six hours" is an operational problem for whoever maintains
+// it, and blasting the channel about it once a day is how a useful warning becomes noise.
+const OUTAGE_MENTION = (process.env.DISCORD_RESTOCK_MENTION ?? '').trim()
 
 const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
@@ -181,28 +191,43 @@ export async function checkStock({ shop_domain, product_handle, variant_id }) {
 
 // ─── Discord ────────────────────────────────────────────────────────────────
 
-async function post(content) {
+/**
+ * Which mention categories Discord may act on, worked out from the mention WE prepended and
+ * nothing else.
+ *
+ * Discord ignores an @everyone in a message body unless allowed_mentions says otherwise, so
+ * this is the switch that decides whether the alert actually notifies anyone. Deriving it from
+ * our own configured string rather than scanning the content keeps the store's text out of the
+ * decision: a product could be renamed to "<@&123>" and it still would not reach a role we
+ * were not already pinging.
+ */
+export function mentionParse(mention) {
+  const m = (mention ?? '').trim()
+  if (!m) return []
+  if (/@everyone|@here/.test(m)) return ['everyone']
+  if (/<@&\d+>/.test(m)) return ['roles']
+  if (/<@!?\d+>/.test(m)) return ['users']
+  return []
+}
+
+async function post(content, mention = MENTION) {
   if (DRY_RUN) {
     console.log('\n─── would post ───────────────────────────────────────────')
     console.log(content)
+    console.log(`(allowed_mentions: ${JSON.stringify(mentionParse(mention))})`)
     console.log('──────────────────────────────────────────────────────────\n')
     return
   }
   const res = await fetch(WEBHOOK_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    // allowed_mentions is explicit so a stray "@everyone" in a product title can never ping
-    // the server. Only the id we were configured with is allowed to notify anyone.
-    body: JSON.stringify({
-      content,
-      allowed_mentions: MENTION ? { parse: ['users', 'roles'] } : { parse: [] },
-    }),
+    body: JSON.stringify({ content, allowed_mentions: { parse: mentionParse(mention) } }),
   })
   if (res.status === 429) {
     const retryMs = Math.min(10_000, Number((await res.clone().json().catch(() => ({}))).retry_after ?? 1) * 1000)
     console.warn(`⚠️   Rate limited, waiting ${retryMs}ms`)
     await sleep(retryMs)
-    return post(content)
+    return post(content, mention)
   }
   if (!res.ok) throw new Error(`Discord post failed (${res.status}): ${await res.text()}`)
 }
@@ -219,13 +244,12 @@ export function restockMessage(row, stock) {
   if (facts) lines.push(facts)
   if (row.note) lines.push(`_${row.note}_`)
   lines.push(stock.productUrl)
-  lines.push('Grab it quickly, and check out yourself: this bot only watches, it never buys.')
   return lines.join('\n')
 }
 
 function outageMessage(row, hours, error) {
   return [
-    MENTION,
+    OUTAGE_MENTION,
     `⚠️  **Restock watcher is blind.** No successful check of ${row.label ?? row.product_handle} for ${Math.floor(hours)}h.`,
     `Last error: \`${String(error).slice(0, 300)}\``,
     'It will keep trying and will say nothing more until it recovers. Worth a look, since a restock could pass unnoticed while this is broken.',
@@ -236,7 +260,8 @@ function outageMessage(row, hours, error) {
 
 async function main() {
   if (TEST_POST) {
-    await post([MENTION, '🧢 **Test message** from the WPBL restock watcher. If you can read this, the webhook works.'].filter(Boolean).join('\n'))
+    // Uses the real mention, so the test proves the notification works and not merely the URL.
+    await post([MENTION, '🧢 **Test message** from the WPBL restock watcher. If this pinged you, the alert will too.'].filter(Boolean).join('\n'))
     console.log(DRY_RUN ? 'Dry run: nothing sent.' : '✅  Test message sent.')
     return
   }
@@ -277,7 +302,7 @@ async function main() {
       const shouldWarn = shouldWarnOutage(row)
       if (shouldWarn) {
         try {
-          await post(outageMessage(row, blindFor, message))
+          await post(outageMessage(row, blindFor, message), OUTAGE_MENTION)
           console.log(`   Posted an outage notice (blind for ${Math.floor(blindFor)}h).`)
         } catch (postErr) {
           console.error(`   Could not post the outage notice either: ${postErr.message}`)

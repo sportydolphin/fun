@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 // because the decisions below ARE the job: a copy living in the test would pass happily
 // while the script it mirrors drifted.
 import {
-  shouldAnnounceRestock, shouldWarnOutage, restockMessage, checkStock, hoursSince,
+  shouldAnnounceRestock, shouldWarnOutage, restockMessage, checkStock, hoursSince, mentionParse,
 } from '../../scripts/watch-wpbl-restock.mjs'
 
 // The restock watcher runs every 10 minutes and has two ways to be useless: announce on every
@@ -107,8 +107,10 @@ describe('restockMessage', () => {
     expect(out.match(/https?:\/\//g)).toHaveLength(1)
   })
 
-  it('says the bot does not buy, because it does not', () => {
-    expect(restockMessage(row(), stock).toLowerCase()).toContain('never buys')
+  it('leads with @everyone so the channel is actually notified', () => {
+    // A message nobody sees until they next open Discord is not much better than no message.
+    // In a private channel @everyone reaches exactly the people with access to it.
+    expect(restockMessage(row(), stock).split('\n')[0]).toBe('@everyone')
   })
 
   it('lists sizes only when the watch covers more than one', () => {
@@ -168,5 +170,34 @@ describe('checkStock', () => {
       .headers['User-Agent']
     expect(ua).toContain('sportydolphin.fun')
     expect(ua).not.toMatch(/Mozilla/)
+  })
+})
+
+describe('mentionParse', () => {
+  // Discord ignores an @everyone in the body unless allowed_mentions permits it, so this is
+  // the switch that decides whether the alert notifies anyone at all.
+  it('permits everyone for @everyone and @here', () => {
+    expect(mentionParse('@everyone')).toEqual(['everyone'])
+    expect(mentionParse('@here')).toEqual(['everyone'])
+  })
+
+  it('permits only the narrower category when the mention is narrower', () => {
+    expect(mentionParse('<@&456>')).toEqual(['roles'])
+    expect(mentionParse('<@123>')).toEqual(['users'])
+    expect(mentionParse('<@!123>')).toEqual(['users'])
+  })
+
+  it('permits nothing when there is no mention, so the post is silent', () => {
+    expect(mentionParse('')).toEqual([])
+    expect(mentionParse(null)).toEqual([])
+    expect(mentionParse(undefined)).toEqual([])
+  })
+
+  it('permits nothing for a string that is not a real mention', () => {
+    // Derived from our own configured value, never from the store's text: a product renamed
+    // to "@everyone" cannot widen what Discord is allowed to act on, because the product
+    // title is not what gets passed here.
+    expect(mentionParse('everyone')).toEqual([])
+    expect(mentionParse('notify the team please')).toEqual([])
   })
 })

@@ -95,6 +95,12 @@ rendered page, which is bigger, slower, and moves whenever the theme does. The w
 an honest `User-Agent` naming the site rather than impersonating a browser, so the store can
 identify and block it if they would rather it stopped.
 
+**The restock alert pings `@everyone`; the outage notice does not.** A restock is news for
+everyone in the channel. "The watcher has been blind for six hours" is an operational problem
+for whoever maintains it, and blasting the channel about it once a day is how a useful warning
+becomes noise. Setting `DISCORD_RESTOCK_MENTION` narrows the first and is the only thing that
+gives the second a mention at all.
+
 **The failure that matters is silence**, because a watcher with nothing to say looks exactly
 like a watcher that has died. If the store stops answering for six hours the job says so in
 the same channel, once a day, until it recovers. That does not cover the job never starting
@@ -203,9 +209,11 @@ It is independent of everything above: its own channel, its own webhook, its own
    regardless of who can read the channel, so a private channel changes nothing about the job.
 2. **Channel Settings → Integrations → Webhooks → New Webhook**, copy the URL.
 3. Settings → Secrets and variables → Actions → `DISCORD_RESTOCK_WEBHOOK_URL`.
-4. Optionally add `DISCORD_RESTOCK_MENTION`, a user or role mention like
-   `<@123456789012345678>`, so the alert reaches a phone instead of waiting to be noticed.
-   Get the id with Developer Mode on, then right-click yourself → *Copy User ID*.
+4. The restock alert pings **`@everyone`** by default, so the channel is actually notified
+   rather than the message waiting to be noticed. In a private channel that reaches exactly
+   the people who can see it. To narrow it, set `DISCORD_RESTOCK_MENTION` to a user
+   (`<@123456789012345678>`) or a role (`<@&123456789012345678>`); set it to an empty value
+   to ping nobody. Get an id with Developer Mode on, then right-click → *Copy ID*.
 5. Prove the webhook resolves in CI before trusting it: run **WPBL Shop Restock Watch**
    manually with **test_post** ticked. That posts one sample message and checks nothing.
 
@@ -369,11 +377,15 @@ which bundles each function exactly as Cloudflare will and fails loudly instead 
   the same engine behind the Recap tab. Change it there and both follow. See
   [context.md](../context.md) for the `.ts`-extension rule that keeps that module loadable
   by Deno.
-- **Nothing here pings anyone, with one deliberate exception.** Every payload sets
-  `allowed_mentions: { parse: [] }`. The restock watcher is the exception: it is the one
-  integration whose entire value is reaching a person quickly, so it allows mentions when
-  `DISCORD_RESTOCK_MENTION` is set, and only then. Even so it never parses mentions out of
-  text it did not write, so a product renamed to `@everyone` cannot ping the server. The
+- **Nothing here pings anyone, with one deliberate exception.** The board, box scores,
+  highlights and `/player` all set `allowed_mentions: { parse: [] }`. The restock watcher is
+  the exception and pings `@everyone` by default, because it is the one integration whose
+  entire value is reaching people before the item sells out again. What Discord is allowed to
+  act on is derived from the mention the job was **configured** with, never from the message
+  text, so a product renamed to `<@&some-role>` cannot ping a role the job was not already
+  pinging. That protection does not extend to `@everyone` itself while `@everyone` is the
+  configured mention, which is a distinction without a difference: the message is pinging
+  everyone either way. The
   `/player` reply also strips markdown characters out of whatever was typed before echoing
   it back, so a search string can't carry formatting into a channel message.
 - **The `/player` command answers within 3 seconds or Discord gives up** and shows "the
