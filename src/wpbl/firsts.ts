@@ -1,4 +1,5 @@
 import { outsToIp } from './constants'
+import { runsOnPlay } from './derive/playByPlay'
 import type { WpblGame, WpblFirstsPlay, WpblPlayer, WpblPitchingLine } from './types'
 
 // "Hall of Firsts" — the players who recorded each league milestone first. Event-based
@@ -65,7 +66,12 @@ const startMin = (t: string | null | undefined): number => {
 }
 
 // Run-scoring event types that do NOT credit the batter with an RBI (a run crossing on
-// one of these is not the batter's RBI). Everything else with runs_scored > 0 counts.
+// one of these is not the batter's RBI). Everything else that put a run on the board counts.
+//
+// "Put a run on the board" is runsOnPlay(), not the raw runs_scored: the feed counts the
+// runners who crossed and never the batter, so a solo home run reads 0 while crediting its
+// batter an RBI. Reading the raw field here dated Claire O'Sullivan's first RBI to a
+// sacrifice the following day, when the feed's own narrative on the home run says "RBI".
 const NON_RBI_EVENTS = new Set(['wild_pitch', 'passed_ball', 'balk', 'stolen_base'])
 
 // ─── Which plays this file can possibly care about ──────────────────────────────
@@ -87,7 +93,7 @@ export const FIRSTS_EVENT_TYPES = [
 export function playCanSetFirst(p: Pick<WpblFirstsPlay, 'event_type' | 'is_hit' | 'runs_scored' | 'narrative'>): boolean {
   if (p.is_hit) return true                                                    // first_hit
   if (FIRSTS_EVENT_TYPES.includes(p.event_type as typeof FIRSTS_EVENT_TYPES[number])) return true
-  if ((p.runs_scored ?? 0) > 0) return true                                    // first_rbi (filtered again below)
+  if (runsOnPlay(p) > 0) return true                                           // first_rbi (filtered again below)
   return /\bbalk\b/i.test(p.narrative ?? '')                                   // balks arrive as 'unknown'
 }
 
@@ -156,16 +162,15 @@ export function computeFirsts(
     if (batName) {
       if (et === 'home_run') {
         rec('first_hr', bat, batName, batTeam, d, nar)
-        // A grand slam is a home run with the bases loaded. The feed's runs_scored counts
-        // the runners who scored, NOT the batter (a solo HR reads 0), so 3 runners scoring
-        // on a home run means the bases were full.
-        if (p.runs_scored === 3) rec('first_grand_slam', bat, batName, batTeam, d, nar)
+        // A grand slam is a home run with the bases loaded, so four runs score on it.
+        // runsOnPlay() adds the batter back; the feed's raw runs_scored would read 3.
+        if (runsOnPlay(p) === 4) rec('first_grand_slam', bat, batName, batTeam, d, nar)
       }
       if (et === 'double') rec('first_double', bat, batName, batTeam, d, nar)
       if (et === 'triple') rec('first_triple', bat, batName, batTeam, d, nar)
       if (et === 'walk') rec('first_walk', bat, batName, batTeam, d, nar)
       if (et === 'hit_by_pitch') rec('first_hbp', bat, batName, batTeam, d, nar)
-      if (p.runs_scored > 0 && !NON_RBI_EVENTS.has(et ?? '')) {
+      if (runsOnPlay(p) > 0 && !NON_RBI_EVENTS.has(et ?? '')) {
         rec('first_rbi', bat, batName, batTeam, d, nar)
       }
     }

@@ -95,11 +95,14 @@ function condense(clause: string, shorten: (name: string) => string): string {
  * consistent rule and not corruption: measured over 1,352 plays, `runs_scored` equals the
  * number of "X scored" clauses in the narrative on every single row.
  *
- * It is also a trap, and it has caught three separate readers of this data. `firsts.ts` gets
- * it right, and says so in a comment nobody else could see; the play-by-play badge in
- * GameDetail showed nothing on a solo home run; and a validation script written against the
- * feed flagged 15 of 28 team-games as having lost runs. Crediting the batter on a home run
- * took that to 1. Hence one exported function rather than a fourth private rediscovery.
+ * It is also a trap, and it has caught every reader of this data so far. The play-by-play
+ * badge in GameDetail showed nothing on a solo home run; a validation script written against
+ * the feed flagged 15 of 28 team-games as having lost runs, and crediting the batter took
+ * that to 1; and `firsts.ts` read the raw field for "first RBI", which dated one player's to
+ * a sacrifice the next day when the solo home run the day before says "RBI" in the feed's own
+ * narrative. That last one is the argument for this function: firsts.ts had the rule written
+ * out correctly in a comment on the grand-slam branch, twelve lines above the RBI check that
+ * got it wrong. Knowing the rule is not enough; it has to be callable.
  *
  * Nothing else needs adjusting. Wild pitches, errors and fielder's choices all carry their
  * runs correctly, because in those cases the run belongs to a runner and the feed counts it.

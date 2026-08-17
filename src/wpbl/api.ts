@@ -215,8 +215,14 @@ export function fetchWpblAllPlays(): Promise<WpblFirstsPlay[]> {
       out.push(...page)
       if (page.length < PAGE) break
     }
-    if (out.length > 0 || allPlaysCache == null) allPlaysCache = { data: out, at: Date.now() }
-    return out
+    // Corrections matter more here than anywhere else in the app. A first is awarded once and
+    // then reads as settled league history, so a play credited to the wrong batter does not
+    // just mislabel one row, it hands somebody else's milestone to them permanently. The
+    // corrections table is tiny, so this is one extra request on a read that already made
+    // several.
+    const corrected = applyPlayCorrections(out, await fetchAllPlayCorrections())
+    if (corrected.length > 0 || allPlaysCache == null) allPlaysCache = { data: corrected, at: Date.now() }
+    return corrected
   })
 }
 
@@ -387,8 +393,6 @@ export function fetchWpblPitchingUsage(teamId: string): Promise<WpblPitchingUsag
     [] as WpblPitchingUsageRow[])
 }
 
-// The official-feed play-by-play for one game, in order. Full rows — the Game Center renders
-// every pitch of every at-bat, so it genuinely needs `pitch_events`.
 // ─── Play corrections ─────────────────────────────────────────────────────────
 //
 // The league's scoring has errors: batters credited to the wrong player, plate appearances
@@ -411,21 +415,28 @@ function castCorrection(field: string, value: string | null): unknown {
   return value
 }
 
-interface WpblPlayCorrection { sequence: number; field: string; new_value: string | null }
+interface WpblPlayCorrection { game_id: string; sequence: number; field: string; new_value: string | null }
 
-/** Overlay corrections onto plays, matched on the feed's own sequence number. The play uuid is
- *  regenerated on every reinsert and so identifies a row only for minutes. */
-export function applyPlayCorrections<T extends { sequence: number }>(
+/** Overlay corrections onto plays, matched on (game_id, sequence), which is the feed's own
+ *  identifier for a play. Never the play's uuid, which wpbl-ingest regenerates on every
+ *  reinsert and so identifies a row only for minutes.
+ *
+ *  `sequence` restarts at 1 in every game, so game_id is load-bearing and not belt-and-braces:
+ *  the Hall of Firsts hands this the whole season at once, and on a sequence-only match one
+ *  game's correction would rewrite the same-numbered play in all 28 of them. */
+export function applyPlayCorrections<T extends { game_id: string; sequence: number }>(
   plays: T[], corrections: WpblPlayCorrection[],
 ): T[] {
   if (corrections.length === 0) return plays
-  const bySeq = new Map<number, WpblPlayCorrection[]>()
+  const key = (gameId: string, sequence: number) => `${gameId}:${sequence}`
+  const byPlay = new Map<string, WpblPlayCorrection[]>()
   for (const c of corrections) {
-    const list = bySeq.get(c.sequence)
-    if (list) list.push(c); else bySeq.set(c.sequence, [c])
+    const k = key(c.game_id, c.sequence)
+    const list = byPlay.get(k)
+    if (list) list.push(c); else byPlay.set(k, [c])
   }
   return plays.map(play => {
-    const fixes = bySeq.get(play.sequence)
+    const fixes = byPlay.get(key(play.game_id, play.sequence))
     if (!fixes) return play
     const next = { ...play } as Record<string, unknown>
     for (const f of fixes) next[f.field] = castCorrection(f.field, f.new_value)
@@ -433,12 +444,25 @@ export function applyPlayCorrections<T extends { sequence: number }>(
   })
 }
 
+const CORRECTION_SELECT = 'game_id,sequence,field,new_value'
+
 function fetchPlayCorrections(gameId: string): Promise<WpblPlayCorrection[]> {
   return safe('fetchPlayCorrections', () =>
-    supabase.from('wpbl_play_corrections').select('sequence,field,new_value').eq('game_id', gameId),
+    supabase.from('wpbl_play_corrections').select(CORRECTION_SELECT).eq('game_id', gameId),
     [] as WpblPlayCorrection[])
 }
 
+/** Every correction in the league. The table holds one row per corrected field and is expected
+ *  to stay in the dozens, so the season-wide reads take the lot rather than paging it. */
+function fetchAllPlayCorrections(): Promise<WpblPlayCorrection[]> {
+  return safe('fetchAllPlayCorrections', () =>
+    supabase.from('wpbl_play_corrections').select(CORRECTION_SELECT),
+    [] as WpblPlayCorrection[])
+}
+
+// The official-feed play-by-play for one game, in order, with our corrections laid over it.
+// Full rows, because the Game Center renders every pitch of every at-bat and so genuinely
+// needs `pitch_events`.
 export async function fetchWpblGamePlays(gameId: string): Promise<WpblGamePlay[]> {
   // Both reads go out together: the corrections table is tiny and usually empty, so making it
   // wait on the plays would add a round trip to every game anyone opens.
@@ -456,14 +480,18 @@ export async function fetchWpblGamePlays(gameId: string): Promise<WpblGamePlay[]
 // Home's "Last Game" card was calling fetchWpblGamePlays for this: ~80 KB of pitch-by-pitch
 // JSON, on the landing view, to answer whether anyone hit back-to-back home runs. The Game
 // Center still takes the full rows when a reader actually opens a game.
-export function fetchWpblGameRecapPlays(gameId: string): Promise<WpblRecapPlay[]> {
-  return safe<WpblRecapPlay[]>('fetchWpblGameRecapPlays', () =>
-    supabase.from('wpbl_game_plays')
-      .select('sequence,inning,team_id,event_type,narrative')
-      .eq('game_id', gameId)
-      .order('sequence', { ascending: true }) as unknown as
-      PromiseLike<{ data: WpblRecapPlay[] | null; error: unknown }>,
-    [])
+export async function fetchWpblGameRecapPlays(gameId: string): Promise<WpblRecapPlay[]> {
+  const [plays, corrections] = await Promise.all([
+    safe<WpblRecapPlay[]>('fetchWpblGameRecapPlays', () =>
+      supabase.from('wpbl_game_plays')
+        .select('game_id,sequence,inning,team_id,event_type,narrative')
+        .eq('game_id', gameId)
+        .order('sequence', { ascending: true }) as unknown as
+        PromiseLike<{ data: WpblRecapPlay[] | null; error: unknown }>,
+      []),
+    fetchPlayCorrections(gameId),
+  ])
+  return applyPlayCorrections(plays, corrections)
 }
 
 // TrackMan pitch/hit tracking for one game (chronological).

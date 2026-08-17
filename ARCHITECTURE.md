@@ -31,7 +31,7 @@ flowchart TB
     end
 
     subgraph GHA["🔧 GitHub Actions (cron + manual)"]
-        scripts["scripts/*.mjs<br/>bots · reminders · boards · odds · streaks · ingest triggers"]
+        scripts["scripts/*.mjs<br/>bots · reminders · boards · odds · streaks<br/>scoring checks · ingest triggers"]
     end
 
     subgraph EXT["🌐 External services"]
@@ -171,11 +171,13 @@ flowchart TB
         t_plays["wpbl_game_plays<br/>(play-by-play)"]
         t_track["wpbl_pitch_tracking<br/>(TrackMan)"]
         t_runs["wpbl_ingest_runs<br/>(ingest health)"]
+        t_pbpval["wpbl_pbp_validation_runs<br/>(scoring-check health)"]
         t_rem["wpbl_game_reminders"]
         t_wsent["wpbl_game_start_sent"]
         t_vid["wpbl_videos<br/>(YouTube highlights)"]
         t_board["wpbl_discord_board_state<br/>(the board's message id)"]
         t_recap["wpbl_discord_recap_posts<br/>(posted box scores + hash)"]
+        t_corr["wpbl_play_corrections<br/>(OUR fixes, not the feed's)"]
     end
 
     subgraph MLB["MLB predictions / survivor / stats (written by GH Action scripts)"]
@@ -199,11 +201,18 @@ flowchart TB
 
     t_teams --- t_players
     t_games --- t_bat & t_pit & t_field & t_plays & t_track
+    t_plays -.->|read-time overlay| t_corr
 ```
 
 Feed identity is reconciled by `api_id` (games) and fuzzy roster matching in the ingest
 function, so our readable team slugs / player UUIDs stay stable across feed spelling
 variants.
+
+**`wpbl_play_corrections` is the one WPBL table the feed does not write.** It holds our own
+fixes to the league's scoring and is applied as a read-time overlay, because `wpbl_game_plays`
+is a mirror that `wpbl-ingest` deletes and reinserts wholesale on every pass, so an edit made
+in place would vanish at the next cron tick. See
+[`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md).
 
 **Reserved, unread column:** `user_preferences.wpbl_favorite_team_id` (text) exists in
 production but nothing reads it, because the favourite-team feature it belongs to is parked on the
@@ -263,6 +272,7 @@ sequenceDiagram
 | `update-milestones` | `0 7` | `update-milestones` | Milestone watch |
 | `update-prediction-boards` | `30 7` | `update-prediction-boards` | Prediction leaderboards |
 | `pull-feature-requests` | `0 5` | `pull-tasks` | Google Tasks → `docs/feature-requests.md` / feedback |
+| `wpbl-pbp-validation` | `0 8` | `validate-wpbl-pbp` | Check the league's play-by-play against the rules of baseball; records health to `wpbl_pbp_validation_runs`. **Never fails on findings** (see [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md)) |
 
 > Ordering is intentional (see each workflow's header comment): bots/survivor pick *before*
 > first pitch (14:00); grading + boards run overnight after west-coast finals (06:00–07:30).
@@ -394,6 +404,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - Cron → [`.github/workflows/`](.github/workflows) + [`scripts/wpbl_cron.sql`](scripts/wpbl_cron.sql)
 - Discord (board + box scores) → [`docs/DISCORD.md`](docs/DISCORD.md)
 - Owner analytics (`/admin`, the `admin_*` RPCs) → [`docs/ADMIN_ANALYTICS.md`](docs/ADMIN_ANALYTICS.md)
+- Scoring validation + our play corrections → [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md)
 - Edge functions → [`supabase/functions/`](supabase/functions) · Cloudflare Pages functions → [`functions/`](functions)
 - Cron script logic → [`scripts/*.mjs`](scripts) · the Discord recap poster is TS
   ([`scripts/post-wpbl-discord-recaps.ts`](scripts/post-wpbl-discord-recaps.ts)), bundled at CI

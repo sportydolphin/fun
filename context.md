@@ -34,10 +34,12 @@ one shell (auth, search, notifications, theme, units):
 4. **[docs/](docs/)**: `DISCORD.md` (the fan-server board, the box score posted when a
    game goes final, the YouTube highlight reels, the `/player` slash-command bot, and which
    of the secret stores each writer reads),
-   `PUSH_NOTIFICATIONS.md`, `GOOGLE_TASKS.md`, `feature-requests.md`, and
+   `PUSH_NOTIFICATIONS.md`, `GOOGLE_TASKS.md`, `feature-requests.md`,
    `ADMIN_ANALYTICS.md` (the owner dashboard at `/admin`: read it before touching the
    `events` table or the `admin_*` RPCs; its security section is the only thing keeping
-   site analytics from being readable by every signed-in user).
+   site analytics from being readable by every signed-in user), and
+   `PLAY_VALIDATION.md` (how the league's scoring errors are found, and how our corrections
+   are applied without being eaten by the ingest).
 
 Source-of-truth index is at the bottom of ARCHITECTURE.md.
 
@@ -83,6 +85,18 @@ constraints:
   doesn't fail loudly; it quietly makes league-wide aggregates (OPS+ and ERA+ derive their
   baseline from `fetchWpblAllLines`) wrong by a silent prefix. See `fetchAllPaged` in
   [`src/wpbl/api.ts`](src/wpbl/api.ts).
+- **Never fix a scoring error by editing `wpbl_game_plays`.** That table is a *mirror*, and
+  `wpbl-ingest` deletes and reinserts every play for a game on each pass. An edit made there
+  survives until the next cron tick (two minutes) and then vanishes, silently, with no trace
+  it existed. Corrections go in `wpbl_play_corrections` and are applied as a read-time
+  overlay keyed on `(game_id, sequence)`, never the play's uuid, which is regenerated on every
+  reinsert. Same reasoning applies to any other mirrored WPBL table. See
+  [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md).
+- **The feed's `runs_scored` does not count the batter.** It counts the runners who crossed,
+  so a solo home run reads 0, a two-run homer 1, a grand slam 3. This has caught every reader
+  of the field so far, including a validator, a Game Center badge and the Hall of Firsts. Call
+  `runsOnPlay()` in [`src/wpbl/derive/playByPlay.ts`](src/wpbl/derive/playByPlay.ts) rather
+  than reading the column.
 - **Two write paths to the DB, and only two:** (1) the browser writes user rows through RLS
   (events, feedback, picks); (2) everything ingested or derived is written by service-role
   actors: the `wpbl-ingest` edge function and the GitHub Actions `scripts/*.mjs` jobs. The

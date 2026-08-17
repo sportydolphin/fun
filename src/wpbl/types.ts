@@ -245,7 +245,10 @@ export interface WpblGamePlay {
 // finished game's full play rows for that shipped every pitch of every at-bat: about 80 KB
 // for a question answered by four columns.
 export type WpblRecapPlay = Pick<WpblGamePlay,
-  'sequence' | 'inning' | 'team_id' | 'event_type' | 'narrative'
+  // `game_id` is not read by buildRecap. It is here so the correction overlay can match on
+  // (game_id, sequence), which is the feed's identifier for a play; one uuid per row is
+  // nothing beside the narrative text this projection already carries.
+  'game_id' | 'sequence' | 'inning' | 'team_id' | 'event_type' | 'narrative'
 >
 
 export type WpblFirstsPlay = Pick<WpblGamePlay,

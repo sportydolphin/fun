@@ -46,7 +46,10 @@ draw).
 (`stats.womensprobaseballleague.com/v1`) into Supabase on a 2-minute cron: games,
 box-score lines, play-by-play, TrackMan pitch tracking, ingest-health rows. Public-read
 RLS, service-role writes. Birth dates come from a community sheet
-(`scripts/ingest-wpbl-birthdays.mjs`), not the feed.
+(`scripts/ingest-wpbl-birthdays.mjs`), not the feed. The league's scoring has errors in it and
+the league is not reachable to fix them at source, so a nightly job checks the play-by-play
+against the rules of baseball and our own corrections are applied as a read-time overlay
+(`wpbl_play_corrections`), never written into the mirror.
 
 **What it does NOT have:** predictions/pick'em, win probability, daily standouts, a league
 primer or stat glossary, any postseason handling, and anything at all that survives Sep 6.
@@ -226,6 +229,12 @@ MLB section).
   page showing a real player's name wrong.
 - **Portrait rights.** Ask the league for permission to republish player headshots. Open
   since the portrait work, and more pressing now that shared player links unfurl with them.
+- **Triage the nightly scoring check.** `wpbl-pbp-validation` runs at 08:00 UTC and records
+  its health to `/admin` (Clean / N new / Stale / Failed). It deliberately never fails the
+  job, so nothing shouts: the state to act on is **Stale**, meaning the run went missing.
+  New findings get either a correction in `wpbl_play_corrections` or a baseline update.
+  57 findings are currently accepted as known. See
+  [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md).
 - **Periodic dupe / orphan audit** of players and games; the ingest has produced duplicate
   roster rows before (bad decode, tz-twin games) and each was caught by hand.
 - **Birth dates: 65 of 118 players.** The community sheet does not cover everyone.
@@ -385,6 +394,42 @@ v1.45.0.
   whose light variants were documented as tuned for text and were not. Semantic tokens now
   live in `styles.css` (`--wpbl-pos`, `--wpbl-neg`, `--wpbl-medal-*`, `--wpbl-accent-fg`,
   `--wpbl-accent-solid`).
+
+### Aug 17, 2026: finding the league's scoring errors mechanically
+
+- ✅ **A play-by-play validator**
+  ([`scripts/validate-wpbl-pbp.mjs`](scripts/validate-wpbl-pbp.mjs), `npm run validate-pbp`).
+  The obvious design was tried and abandoned: diffing the box score against the play log finds
+  almost nothing, because both views are generated from the same scoring input and inherit the
+  same mistakes. Of 291 player-games in both, only 5 disagree. What works is baseball's own
+  rules, which hold whatever the scorer typed. Seven checks, each pointing at one game,
+  half-inning and lineup slot, which is what turns "watch fourteen games" into "check about
+  thirty moments". First run found 5 batters with box-score plate appearances and no plays at
+  all, worth 16 at-bats and 6 hits, plus 6 team-games missing a whole lineup slot.
+- ✅ **The runs semantics written down once**, as `runsOnPlay()` in
+  [`derive/playByPlay.ts`](src/wpbl/derive/playByPlay.ts) with a test. `runs_scored` counts the
+  runners who crossed and never the batter, so a solo home run reads 0 by design. Every reader
+  of that field had got it wrong: the validator flagged 15 of 28 team-games as having lost runs
+  (fixing it left 1, a real lead), Game Center's badge showed nothing on a solo homer, and the
+  Hall of Firsts dated one player's first RBI to a sacrifice the following day. `firsts.ts` had
+  the rule stated correctly in a comment twelve lines above the check that broke it, which is
+  the whole argument for one callable function.
+- ✅ **A nightly Action with a baseline.** Unattended the validator reports 57 things and would
+  report 57 tomorrow, so a job wired to fail on findings fails every night and is ignored inside
+  a week. It compares against a committed baseline, reports only what is new, and always exits
+  0. Health goes to `wpbl_pbp_validation_runs` and shows at `/admin` as Clean / N new / Stale /
+  Failed, modelled on the existing freshness chip. **Stale is the state that matters**: findings
+  are expected, a missing run is not.
+- ✅ **`wpbl_play_corrections`, applied as a read-time overlay.** Corrections cannot live in
+  `wpbl_game_plays`: `wpbl-ingest` deletes and reinserts every play for a game on each pass, so
+  an edit written there survives until the next cron tick and then vanishes without trace. Keyed
+  on `(game_id, sequence)` rather than the play uuid, which is regenerated on every reinsert.
+  Applied to Game Center, the Hall of Firsts and the recap card alike, since a mis-attributed
+  batter matters most exactly where a milestone gets awarded once and then reads as history.
+- 📄 Written up in [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md), including what this
+  design **cannot** catch: two players swapped consistently through a game keeps the order
+  legal and the outs adding up. That needs an independent transcription, and the one that
+  exists carries no licence.
 
 ---
 

@@ -93,6 +93,38 @@ describe('computeFirsts is unchanged by the server-side filter', () => {
     expect(hr?.name).toBe('Ada Batter')
   })
 
+  it('counts a solo home run as an RBI, which the raw feed field does not', () => {
+    // The feed's runs_scored counts the RUNNERS who crossed and never the batter, so a solo
+    // home run reads 0 while crediting its batter an RBI. Reading the field raw dated one
+    // real player's first RBI to a sacrifice the following day. See runsOnPlay().
+    const solo = play({ event_type: 'home_run', is_hit: true, runs_scored: 0,
+                        narrative: 'Ada Batter homered to left field, RBI.' })
+    const rbi = computeFirsts([solo], GAMES, PLAYERS, PITCHING).find(f => f.key === 'first_rbi')
+    expect(rbi?.name).toBe('Ada Batter')
+    // And the filter has to carry that play through, or the milestone lands on whoever is next.
+    expect(playCanSetFirst(solo)).toBe(true)
+  })
+
+  it('does not let a later run-scoring play steal a first RBI from a solo home run', () => {
+    const solo = { ...play({ event_type: 'home_run', is_hit: true, runs_scored: 0,
+                             narrative: 'Ada Batter homered to left field, RBI.' }), game_id: 'g1' }
+    const laterSac = { ...play({ event_type: 'sacrifice', runs_scored: 1,
+                                 narrative: 'Ada Batter hit a sacrifice fly, RBI.' }), game_id: 'g2' }
+    const rbi = computeFirsts([laterSac, solo], GAMES, PLAYERS, PITCHING).find(f => f.key === 'first_rbi')
+    expect(rbi?.date).toBe('2026-05-01')   // g1, the home run, not g2's sacrifice
+  })
+
+  it('still reads a grand slam off the feed, where three runners means four runs', () => {
+    const slam = play({ event_type: 'home_run', is_hit: true, runs_scored: 3,
+                        narrative: 'Ada Batter hit a grand slam.' })
+    const out = computeFirsts([slam], GAMES, PLAYERS, PITCHING).map(f => f.key)
+    expect(out).toContain('first_grand_slam')
+    // A two-run homer is three runs short of a slam and must not be mistaken for one.
+    const twoRun = play({ event_type: 'home_run', is_hit: true, runs_scored: 1,
+                          narrative: 'Ada Batter homered, two runs.' })
+    expect(computeFirsts([twoRun], GAMES, PLAYERS, PITCHING).map(f => f.key)).not.toContain('first_grand_slam')
+  })
+
   it('credits the earliest game, not the earliest row, when the log arrives out of order', () => {
     // Pagination returns rows ordered by game_id, which is not chronological order —
     // computeFirsts has to re-sort by game date. g2 sorts first by id here on purpose.

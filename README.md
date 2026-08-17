@@ -34,6 +34,7 @@ npm run discord-recaps -- --dry-run   # render the WPBL box scores this would po
 npm run discord-highlights -- --dry-run # render the YouTube highlight posts this would send
 npm run discord-commands -- --list    # show the Discord slash commands currently registered
 npm run check-functions               # bundle the Cloudflare Pages functions as CI will
+npm run validate-pbp -- --baseline scripts/wpbl-pbp-baseline.json  # WPBL scoring check (needs SUPABASE_DB_URL)
 ```
 
 **jsdom is pinned to `^26.1.0` on purpose.** jsdom 27 pulls in `html-encoding-sniffer@6`,
@@ -66,4 +67,6 @@ files are the already-applied baseline.
 - [ROADMAP.md](ROADMAP.md): the MLB plan
 - [docs/PUSH_NOTIFICATIONS.md](docs/PUSH_NOTIFICATIONS.md): Web Push setup + the MLB and WPBL reminder senders
 - [docs/DISCORD.md](docs/DISCORD.md): the WPBL fan-server integrations: the watch-party board, the box score posted when a game goes final, the highlight reels, and the `/player` bot
+- [docs/PLAY_VALIDATION.md](docs/PLAY_VALIDATION.md): finding the league's scoring errors against the rules of baseball, the nightly check, and our read-time play corrections
+- [docs/ADMIN_ANALYTICS.md](docs/ADMIN_ANALYTICS.md): the owner dashboard at `/admin`
 - [docs/GOOGLE_TASKS.md](docs/GOOGLE_TASKS.md), [docs/feature-requests.md](docs/feature-requests.md)
