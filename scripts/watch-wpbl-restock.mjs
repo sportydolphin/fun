@@ -405,9 +405,13 @@ async function lastGoodRun() {
 
 async function main() {
   if (TEST_POST) {
-    await post(RESTOCK_WEBHOOK, [MENTION, '🧢 **Test message** from the WPBL shop watcher. If this pinged you, the restock alert will too.'].filter(Boolean).join('\n'), MENTION)
+    // Plain text, no markdown, no mention. It exists to prove a webhook URL reaches a channel,
+    // and anything beyond that is decoration on a message nobody wants to read twice. Note it
+    // therefore does NOT exercise the ping: a real shortlist alert prepends @everyone, this
+    // does not, so a channel that blocks webhook mentions still looks fine here.
+    await post(RESTOCK_WEBHOOK, 'merch bot restock test')
     if (SHOP_WEBHOOK && SHOP_WEBHOOK !== RESTOCK_WEBHOOK) {
-      await post(SHOP_WEBHOOK, '🛍️ **Test message** from the WPBL shop watcher. New merch and restocks will appear here, quietly.', SHOP_MENTION)
+      await post(SHOP_WEBHOOK, 'merch bot shop feed test')
     }
     console.log(DRY_RUN ? 'Dry run: nothing sent.' : '✅  Test message(s) sent.')
     return

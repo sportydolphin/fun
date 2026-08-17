@@ -232,8 +232,10 @@ It is independent of everything above: its own channel, its own webhook, its own
    (`<@123456789012345678>`) or a role (`<@&123456789012345678>`); set it to an empty value
    to ping nobody. Get an id with Developer Mode on, then right-click → *Copy ID*.
 5. Prove the webhooks resolve in CI before trusting them: run **WPBL Shop Restock Watch**
-   manually with **test_post** ticked. That posts a sample to each configured channel and
-   checks no stock.
+   manually with **test_post** ticked. It posts the plain line `merch bot restock test` to the
+   private channel and `merch bot shop feed test` to the shop channel, and checks no stock.
+   It carries **no mention**, so it proves the URL reaches the channel but not that a ping
+   gets through; a channel that blocks webhook mentions still looks fine here.
 6. Then let it run once normally. That first real run **seeds** the catalogue and announces
    nothing; changes are announced from the run after.
 
