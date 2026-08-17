@@ -24,7 +24,8 @@
     "giveaway": "node --env-file=.env scripts/draw-discord-giveaway.mjs",
     "birthdays": "node --env-file=.env scripts/ingest-wpbl-birthdays.mjs",
     "check-functions": "esbuild functions/*/*.ts --bundle --format=esm --platform=neutral --outdir=node_modules/.cache/functions-check",
-    "subset-font": "node scripts/subset-inter.mjs"
+    "subset-font": "node scripts/subset-inter.mjs",
+    "validate-pbp": "node --env-file=.env scripts/validate-wpbl-pbp.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
