@@ -1,6 +1,6 @@
 # Discord integrations (WPBL)
 
-Three things **post** to the WPBL fan server, all through **webhooks** — send-only HTTP, no bot
+Three things **post** to the WPBL fan server, all through **webhooks**: send-only HTTP, no bot
 token, no gateway, nothing to keep running:
 
 | What | Channel | Written by | Behaviour |
@@ -30,7 +30,7 @@ not in an env var, so it survives a deleted message (it recreates and re-records
 A finished game is posted by whichever of two writers gets there first:
 
 - **`wpbl-ingest`** (the edge function, on its own pg_cron pass) posts the moment it sees a
-  game flip from not-final to final. This is the fast path — seconds to a couple of minutes.
+  game flip from not-final to final. This is the fast path, seconds to a couple of minutes.
 - **`wpbl-discord-recaps`** (the hourly GitHub Action) is the backstop and the corrections
   pass: it posts anything the ingest missed, and re-renders recent finals to edit a message
   whose stats have since changed.
@@ -38,7 +38,7 @@ A finished game is posted by whichever of two writers gets there first:
 They can't double-post. Each claims a game by primary key in `wpbl_discord_recap_posts`, so
 the second writer's insert conflicts and it backs off. Both render through
 [`src/wpbl/derive/discordRecap.ts`](../src/wpbl/derive/discordRecap.ts) and store the same
-hash of the rendered message, so neither "corrects" the other's work — an unchanged game
+hash of the rendered message, so neither "corrects" the other's work: an unchanged game
 produces an unchanged hash and no Discord call at all.
 
 **Neither backfills.** The ingest only announces a genuine transition, so re-ingesting a
@@ -49,20 +49,20 @@ as handled. Switching this on puts one game in the channel, not a season.
 ### The highlight reels
 
 The league uploads a highlights reel per game to YouTube. `wpbl-youtube-sync` already
-mirrors that channel into `wpbl_videos` twice an hour — classifying each upload and
-resolving a highlight's title to the game it recaps — so the poster never touches YouTube
+mirrors that channel into `wpbl_videos` twice an hour, classifying each upload and
+resolving a highlight's title to the game it recaps, so the poster never touches YouTube
 itself. It runs as the **step straight after the sync in that same workflow**, which is why
 there is no separate schedule for it: a reel reaches Discord in the same pass that
 discovers it.
 
 One message per video, keyed by YouTube id in `wpbl_discord_highlight_posts`, posted once.
-There is no edit pass and no content hash, unlike the box scores — a highlight message is a
+There is no edit pass and no content hash, unlike the box scores. A highlight message is a
 link, and the league doesn't revise an upload the way it revises a box score.
 
 The message is a title line and a bare YouTube URL, nothing else. The bare URL on its own
 line is what Discord unfurls into an inline player, which is the whole point of the
 channel. **Don't add a second link.** It draws its own embed card, which lands beside the
-YouTube player and competes with it — that link back to the site was in the first version
+YouTube player and competes with it. That link back to the site was in the first version
 and had to come out. The **final score is also deliberately absent**: the recap channel
 already carries box scores, and a scoreline above the player spoils the video for anyone
 who came to watch. Both are one edit away in `buildMessage` if you disagree.
@@ -92,7 +92,7 @@ across two rows. A wrong match here just shows a "did you mean".
 
 The roster is cached, which matters more than it sounds. Discord fires an autocomplete
 interaction as the reader types, several per search, and each needs the whole roster to
-match against — so the first version re-read every player and every team per keystroke. It
+match against, so the first version re-read every player and every team per keystroke. It
 now goes through a memo in the isolate (free, instant, covers the burst within one search)
 backed by the Cache API (shared across isolates in a colo, covers the gap between searches),
 on a five-minute TTL. Box-score lines are deliberately left uncached: they move during a
@@ -110,7 +110,7 @@ people's typos. Both are built in
 
 In Discord: **Channel Settings → Integrations → Webhooks → New Webhook**, then *Copy
 Webhook URL*. It looks like `https://discord.com/api/webhooks/<id>/<token>`. Treat it as a
-secret — anyone holding it can post to that channel.
+secret: anyone holding it can post to that channel.
 
 ### 2. Create the table
 
@@ -131,13 +131,13 @@ They are separate systems and neither can see the other's:
 | **GitHub repo secrets** | the hourly `wpbl-discord-recaps` workflow | Settings → Secrets and variables → Actions → `DISCORD_RECAP_WEBHOOK_URL` |
 | **Supabase function secrets** | `wpbl-ingest`'s immediate post | `supabase secrets set DISCORD_RECAP_WEBHOOK_URL='https://…'` |
 
-The highlights poster needs only the GitHub one, under its own name — a different webhook,
+The highlights poster needs only the GitHub one, under its own name, a different webhook,
 for the highlights channel: Settings → Secrets and variables → Actions →
 `DISCORD_HIGHLIGHTS_WEBHOOK_URL`. Until it is set, the step in `wpbl-youtube-sync` prints a
 line saying so and exits 0, so the video sync itself keeps working either way.
 
 The Supabase one is optional. Without it `announceFinal` returns on its first line and the
-hourly job remains the only poster — which is a good way to deploy the function and confirm
+hourly job remains the only poster, which is a good way to deploy the function and confirm
 ingestion is healthy before turning the posting on. Setting a secret needs no redeploy; the
 next invocation picks it up.
 
@@ -172,7 +172,7 @@ post path.
 
 Posting needs `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `DISCORD_RECAP_WEBHOOK_URL`.
 **The service-role key is not optional for a real run**: `wpbl_discord_recap_posts` is
-service-role only, and any other key reads it as *empty* rather than erroring — which the
+service-role only, and any other key reads it as *empty* rather than erroring, which the
 job would take to mean "nothing posted yet" and repost everything. It refuses to start
 without it; `--dry-run` will run on the anon key and warn about what it cannot see.
 
@@ -228,7 +228,7 @@ Discord validates it on save by sending requests with deliberately **invalid** s
 and requiring a `401` back. The function does that, so a green save means signature
 verification is working end to end.
 
-Check the endpoint yourself before pasting it in — one line tells you everything:
+Check the endpoint yourself before pasting it in. One line tells you everything:
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' -X POST https://sportydolphin.fun/discord/wpbl -d '{"type":1}'
@@ -237,7 +237,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST https://sportydolphin.fun/disco
 | Response | Meaning |
 |---|---|
 | `401` | Live and verifying. This is the one Discord wants. |
-| `405` | The function is not being invoked. **Almost always `_routes.json`** — see the traps below. It also looks exactly like this when the function failed to build, or before it has deployed at all. |
+| `405` | The function is not being invoked. **Almost always `_routes.json`**: see the traps below. It also looks exactly like this when the function failed to build, or before it has deployed at all. |
 | `503` | Older builds only, when `DISCORD_PUBLIC_KEY` was an environment variable. The key is committed now, so this should not happen. |
 
 A `405` cost real time during setup and the build log gives nothing away, so start at
@@ -260,7 +260,7 @@ successfully` either way, which makes this a genuinely quiet failure: the sympto
 route answering `405` to a POST and serving the SPA's HTML to a GET, indistinguishable from
 a path that does not exist. Add the route here when you add the function.
 
-The narrow list is deliberate, not an oversight — it keeps the worker off the path for every
+The narrow list is deliberate, not an oversight: it keeps the worker off the path for every
 static asset request. Widen it one route at a time rather than switching to `/*`.
 
 ### Functions can't import anything Vite-only
@@ -268,7 +268,7 @@ static asset request. Widen it one route at a time rather than switching to `/*`
 Cloudflare bundles `functions/` with esbuild, which has no Vite plugins. Anything a function
 imports, however far down the chain, has to be plain TypeScript. `src/wpbl/constants.ts`
 imports the team logos as `.webp`, so importing it from a function fails the build with
-`No loader is configured for ".webp" files` — and a failed functions build does not take the
+`No loader is configured for ".webp" files`: and a failed functions build does not take the
 site down, it just leaves the previous deployment serving. The symptom is the new route
 answering `405` forever while everything else looks healthy.
 
@@ -276,7 +276,7 @@ answering `405` forever while everything else looks healthy.
 `./constants` re-export.
 
 `functions/` was outside `tsconfig.json`'s `include` until this bot was built, so neither
-Pages function was type-checked at all — the same blind spot that let the `.webp` import
+Pages function was type-checked at all, the same blind spot that let the `.webp` import
 through. It is in the include list now, so `npx tsc --noEmit` covers them. Bundling is a
 separate check, because a type error and an unbundleable import are different failures:
 
@@ -290,12 +290,12 @@ which bundles each function exactly as Cloudflare will and fails loudly instead 
 
 - **Deleting a post in Discord** is not permanent: the next pass sees the 404 and reposts.
   To retire a game for good, leave its row in `wpbl_discord_recap_posts` with a non-empty
-  `content_hash` and `message_id` set to null — that is the "handled, never post" marker.
+  `content_hash` and `message_id` set to null, which is the "handled, never post" marker.
 - **A message with `message_id` null and an empty `content_hash`** is a claim the edge
   function staked and never completed. The scheduled job treats that as its own to finish.
 - **Corrections stop after three days** (`WINDOW_DAYS` in the poster). A revision landing
   later than that won't be picked up; the site still shows it.
-- **The recap wording is the site's**, from [`src/wpbl/derive/recap.ts`](../src/wpbl/derive/recap.ts) —
+- **The recap wording is the site's**, from [`src/wpbl/derive/recap.ts`](../src/wpbl/derive/recap.ts),
   the same engine behind the Recap tab. Change it there and both follow. See
   [context.md](../context.md) for the `.ts`-extension rule that keeps that module loadable
   by Deno.
@@ -310,7 +310,7 @@ which bundles each function exactly as Cloudflare will and fails loudly instead 
 - **The bot reads nothing.** It has no message permissions and only ever sees the
   interactions Discord forwards to it.
 - **A deleted highlight post stays deleted.** Unlike the box scores, this poster never
-  re-checks Discord — the row in `wpbl_discord_highlight_posts` is the whole memory. Delete
+  re-checks Discord. The row in `wpbl_discord_highlight_posts` is the whole memory. Delete
   that row to make it post again.
 - **A reel only posts within four days of upload** (`WINDOW_DAYS` in the poster), so one
   that slips through can't surface a fortnight later looking like news. `--seed` ignores

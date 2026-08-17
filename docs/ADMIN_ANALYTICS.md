@@ -1,4 +1,4 @@
-# Admin analytics — `/admin`
+# Admin analytics: `/admin`
 
 The owner's dashboard for what people actually do on the site: what got clicked, by how
 many browsers, trending which way. It exists so answering "is anyone using the tracking
@@ -12,7 +12,7 @@ tab?" doesn't mean opening the Supabase SQL editor.
 
 | Piece | File |
 |---|---|
-| SQL — six `security definer` RPCs | [`scripts/migrations/20260816195705_add_admin_analytics_rpcs.sql`](../scripts/migrations/20260816195705_add_admin_analytics_rpcs.sql) |
+| SQL: six `security definer` RPCs | [`scripts/migrations/20260816195705_add_admin_analytics_rpcs.sql`](../scripts/migrations/20260816195705_add_admin_analytics_rpcs.sql) |
 | Typed RPC wrappers + pure helpers | [`src/lib/analyticsAdmin.ts`](../src/lib/analyticsAdmin.ts) |
 | Helper tests | [`src/__tests__/analyticsAdmin.test.ts`](../src/__tests__/analyticsAdmin.test.ts) |
 | The page | [`src/AdminPage.tsx`](../src/AdminPage.tsx) |
@@ -20,18 +20,18 @@ tab?" doesn't mean opening the Supabase SQL editor.
 | Route + owner gate | [`src/App.tsx`](../src/App.tsx) |
 | Event capture (unchanged) | [`src/lib/analytics.ts`](../src/lib/analytics.ts), [`scripts/create_events.sql`](../scripts/create_events.sql) |
 
-`/admin` is a static SPA route, so `public/_routes.json` needs nothing — that file only
+`/admin` is a static SPA route, so `public/_routes.json` needs nothing. That file only
 lists paths that hit Cloudflare Functions.
 
 **There is one admin surface.** The old `maxWidth="xs"` dialog off the account menu was
 folded into this page (`AdminPanel.tsx` now exports `AdminTools`, the same sections with
 the dialog chrome removed); the ⚡ Admin menu item navigates here. Feedback and Users are
 still modals, but they're drill-downs opened *from* the page. If you add an admin feature,
-it goes on this page — don't start a second surface.
+it goes on this page. Don't start a second surface.
 
 ---
 
-## 2. The security model — read this before changing any of it
+## 2. The security model: read this before changing any of it
 
 **Analytics data is readable only by the site owner, and the only thing enforcing that is
 the pair of `security definer` + an explicit `is_site_owner()` guard inside each function.**
@@ -55,7 +55,7 @@ the pair of `security definer` + an explicit `is_site_owner()` guard inside each
   non-owner from seeing a broken page; they are not the boundary.
 - `usernames.user_id` is `text` while `events.user_id` is `uuid`. Any join between them
   needs an explicit cast. `user_preferences`, `push_subscriptions`, and
-  `wpbl_game_reminders` are all `uuid` — `usernames` is the odd one out.
+  `wpbl_game_reminders` are all `uuid`: `usernames` is the odd one out.
 
 To verify the boundary still holds: sign out (or sign in as anyone else), open the console,
 and call one of the RPCs. It must return a 401 / `not authorized`, not data.
@@ -83,7 +83,7 @@ The existing three indexes on `events` cover every one of these. No new indexes.
 
 ## 4. Counting rules the numbers depend on
 
-Break one of these and the dashboard keeps rendering — it just lies.
+Break one of these and the dashboard keeps rendering. It just lies.
 
 - **"Browsers", never "visitors".** `session_id` is a random per-browser id in
   localStorage. One person on a phone and a laptop is two; clearing site data starts a new
@@ -91,7 +91,7 @@ Break one of these and the dashboard keeps rendering — it just lies.
 - **Exclude the `'no-storage'` sentinel from distinct counts.** `analytics.ts` writes that
   literal when localStorage is unavailable (221 rows and counting), so counting it would
   collapse every such visitor into one implausibly busy browser. Those rows still count as
-  *events* — they're filtered only out of `count(distinct session_id)`.
+  *events*: they're filtered only out of `count(distinct session_id)`.
 - **Funnel rates are over distinct sessions.** `discord_shown` fires on every card mount,
   roughly 3× a session. Raw `joined / shown` reads ~3%; the honest sessions-that-joined ÷
   sessions-that-saw-it number is **8.3%**. Any new funnel does the same.
@@ -100,7 +100,7 @@ Break one of these and the dashboard keeps rendering — it just lies.
 - **League comes from `props->>'league'`, falling back to `path`.** Most events carry the
   prop; the WPBL-only and cross-cutting ones (tab views, player opens, Discord, login)
   don't, and `path` resolves 100% of those. Don't reintroduce an "unlabelled means WPBL"
-  assumption — it's true of today's traffic mix, not of the data.
+  assumption: it's true of today's traffic mix, not of the data.
 - **Day buckets are timezone-dependent.** The client passes its own IANA zone and the page
   labels the axis with it; an unrecognised zone falls back to UTC rather than raising.
 - **`noindex` is written on every route change, never conditionally.** See

@@ -52,7 +52,7 @@ GOOGLE_REFRESH_TOKEN=1//0g...
 The refresh token does not expire under normal use, so this is a one-time step.
 
 > If it says "No refresh token returned", remove the app at
-> <https://myaccount.google.com/permissions> and run the command again — Google
+> <https://myaccount.google.com/permissions> and run the command again. Google
 > only returns a refresh token on the first consent.
 
 ## Pulling tasks

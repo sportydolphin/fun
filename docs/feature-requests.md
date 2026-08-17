@@ -1,7 +1,7 @@
 # Feature requests
 
 > Generated from Google Tasks by `npm run tasks` (scripts/pull-tasks.mjs). Do not
-> edit by hand — edit the tasks in Google Tasks and re-run.
+> edit by hand: edit the tasks in Google Tasks and re-run.
 > Last pulled: 2026-08-17 05:39 UTC · 10 open items.
 
 ## Site todos

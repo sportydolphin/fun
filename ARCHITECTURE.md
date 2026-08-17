@@ -3,8 +3,8 @@
 A single-page **Vite + React (TypeScript, MUI)** app hosted on **Cloudflare Pages** at
 `sportydolphin.fun`, backed by **Supabase** (Postgres + Auth + Edge Functions + pg_cron),
 with a fleet of **GitHub Actions** cron jobs for the periodic/back-end work. It hosts two
-main sections — **MLB** (predictions, survivor, stat cards) and **WPBL** (a mirror of the
-Women's Pro Baseball League official feed) — plus a few small tools/games.
+main sections: **MLB** (predictions, survivor, stat cards) and **WPBL** (a mirror of the
+Women's Pro Baseball League official feed): plus a few small tools/games.
 
 > **Keep this current.** When you add a table, a cron workflow, an edge function, or an
 > external integration, update the matching diagram/table below. Each section notes the
@@ -18,7 +18,7 @@ Women's Pro Baseball League official feed) — plus a few small tools/games.
 flowchart TB
     user(["👤 Browser / PWA<br/>service worker + Web Push"])
 
-    subgraph CF["☁️ Cloudflare Pages — sportydolphin.fun"]
+    subgraph CF["☁️ Cloudflare Pages: sportydolphin.fun"]
         spa["Vite React SPA<br/>(App.tsx router)"]
         pagefn["Pages Function /wpbl<br/>rewrites OG tags for ?player= links"]
     end
@@ -78,13 +78,13 @@ flowchart TB
 
 **Two ways data reaches the DB:** (1) the browser writes user-generated rows directly
 through RLS (events, feedback, picks); (2) everything derived or ingested is written by
-**service-role** actors — the `wpbl-ingest` edge function (WPBL feed) and the GitHub
+**service-role** actors: the `wpbl-ingest` edge function (WPBL feed) and the GitHub
 Actions scripts (MLB predictions, boards, odds, streaks). The browser only ever reads
 those.
 
 ---
 
-## 2. Frontend — routes & sections
+## 2. Frontend: routes & sections
 
 Client-side routing in [`src/App.tsx`](src/App.tsx) (no framework router; matches
 `window.location.pathname`). Heavy sections are `lazy()`-loaded chunks. `/` redirects to
@@ -121,16 +121,28 @@ flowchart LR
 ```
 
 - **Shared shell:** toolbar with search bridge, theme (`ThemeContext`), units
-  (`UnitsContext`), auth (`AuthContext`), MLB⇆WPBL switch, `--app-zoom` desktop scaling.
-- **WPBL tab pager:** [`src/wpbl/SwipeableViews.tsx`](src/wpbl/SwipeableViews.tsx) —
+  (`UnitsContext`), auth (`AuthContext`), accessibility prefs
+  ([`AccessibilityContext`](src/AccessibilityContext.tsx): text scale and a swipe-navigation
+  opt-out), MLB⇆WPBL switch, `--app-zoom` desktop scaling.
+- **WPBL tab pager:** [`src/wpbl/SwipeableViews.tsx`](src/wpbl/SwipeableViews.tsx),
   finger-tracking mobile swipe with keep-alive + idle neighbor pre-warming. Two scroll
   models via its `mode` prop: `window` for the section's own tabs (the page scrolls; each
   tab keeps its own `window.scrollY` and lands under the pinned nav) and `pane` for the
   Game Center's Recap / Box Score / Play-by-Play / Pitch Data tabs, which sit in a modal
   with the body locked, so each pane scrolls itself instead.
-- **`/admin`** — the owner's analytics dashboard plus the operational admin tools (they
+- **Settings** ([`src/SettingsDialog.tsx`](src/SettingsDialog.tsx)) is split by league, with
+  a WPBL / MLB switch seeded from the section the reader came from, so a WPBL-only visitor
+  never scrolls past thirty MLB crests. Account, accessibility, app and danger-zone settings
+  sit outside that split; the device-level "stop all push" control does too, because one
+  subscription delivers every reminder on the site.
+- **Reduced motion** is honoured site-wide from `src/styles.css`, with
+  [`src/lib/motion.ts`](src/lib/motion.ts) for programmatic scrolls, which CSS cannot reach.
+  Colour tokens that have to clear WCAG AA in both themes (`--wpbl-pos`, `--wpbl-neg`,
+  `--wpbl-medal-*`, `--wpbl-accent-fg`, `--wpbl-accent-solid`) are defined there too, keyed
+  on `[data-theme]`.
+- **`/admin`**: the owner's analytics dashboard plus the operational admin tools (they
   used to be a dialog off the account menu; there is deliberately one surface now). Reads
-  the `events` table through owner-guarded `security definer` RPCs — see
+  the `events` table through owner-guarded `security definer` RPCs. See
   [`docs/ADMIN_ANALYTICS.md`](docs/ADMIN_ANALYTICS.md), whose security section is
   load-bearing. The route gate is cosmetic; the RPC guards are the boundary.
 - **Client libs** ([`src/lib/`](src/lib)): `supabase` (anon client), `analytics`
@@ -149,7 +161,7 @@ through **RLS**; service-role actors bypass it to write.
 
 ```mermaid
 flowchart TB
-    subgraph WPBL["WPBL — mirror of the official feed (written by wpbl-ingest)"]
+    subgraph WPBL["WPBL: mirror of the official feed (written by wpbl-ingest)"]
         t_teams["wpbl_teams"]
         t_players["wpbl_players"]
         t_games["wpbl_games<br/>(+ live_state jsonb)"]
@@ -194,7 +206,7 @@ function, so our readable team slugs / player UUIDs stay stable across feed spel
 variants.
 
 **Reserved, unread column:** `user_preferences.wpbl_favorite_team_id` (text) exists in
-production but nothing reads it — the favourite-team feature it belongs to is parked on the
+production but nothing reads it, because the favourite-team feature it belongs to is parked on the
 `wpbl-favorite-team` branch (see ROADMAP-WPBL.md, "Parked, with reasons"). It shipped
 ahead of its feature only because it had already been applied when the work was parked, and
 omitting the file made the migration runner report a missing-file warning on every machine.
@@ -226,7 +238,7 @@ sequenceDiagram
     App->>DB: read via RLS (cached client-side; polls faster while live)
 ```
 
-- **Modes:** `active` (default — only games not yet `final`), `all` (full backfill),
+- **Modes:** `active` (default: only games not yet `final`), `all` (full backfill),
   `gameId` (one game), `force` (re-pull finals for corrections).
 - **Idempotent** → safe to run every 2 minutes; finished games stop costing anything.
 
@@ -234,7 +246,7 @@ sequenceDiagram
 
 ## 5. Scheduled jobs
 
-### GitHub Actions (`.github/workflows/*.yml`) — all times **UTC**, all also `workflow_dispatch`
+### GitHub Actions (`.github/workflows/*.yml`): all times **UTC**, all also `workflow_dispatch`
 
 | Workflow | Schedule (UTC) | Script(s) | Purpose |
 |---|---|---|---|
@@ -255,7 +267,7 @@ sequenceDiagram
 > Ordering is intentional (see each workflow's header comment): bots/survivor pick *before*
 > first pitch (14:00); grading + boards run overnight after west-coast finals (06:00–07:30).
 
-### pg_cron (in-database) — [`scripts/wpbl_cron.sql`](scripts/wpbl_cron.sql)
+### pg_cron (in-database): [`scripts/wpbl_cron.sql`](scripts/wpbl_cron.sql)
 
 | Job | Schedule | Action |
 |---|---|---|
@@ -305,7 +317,7 @@ Setup walkthrough: [`docs/PUSH_NOTIFICATIONS.md`](docs/PUSH_NOTIFICATIONS.md).
 
 ---
 
-## 8. Edge Functions (Deno) — [`supabase/functions/`](supabase/functions)
+## 8. Edge Functions (Deno): [`supabase/functions/`](supabase/functions)
 
 | Function | Trigger | Purpose |
 |---|---|---|
@@ -315,7 +327,7 @@ Setup walkthrough: [`docs/PUSH_NOTIFICATIONS.md`](docs/PUSH_NOTIFICATIONS.md).
 
 `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are injected automatically; VAPID secrets and
 `DISCORD_RECAP_WEBHOOK_URL` are set via `supabase secrets set` (the recap webhook is
-optional — without it `wpbl-ingest` skips the Discord post and the hourly job covers it). Walkthrough: [`supabase/functions/README.md`](supabase/functions/README.md).
+optional, and without it `wpbl-ingest` skips the Discord post and the hourly job covers it). Walkthrough: [`supabase/functions/README.md`](supabase/functions/README.md).
 
 ---
 
@@ -324,8 +336,8 @@ optional — without it `wpbl-ingest` skips the Discord post and the hourly job 
 | Scope | Vars | Where |
 |---|---|---|
 | **Client (build-time)** | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Cloudflare Pages env + `.env` |
-| **Pages Functions** (`functions/wpbl`, `functions/discord/wpbl`) | the same `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | Cloudflare Pages env (available to functions at runtime). The Discord app's Ed25519 public key is committed in the function rather than held here — it verifies Discord's signatures and grants nothing, so it survives redeploys with nothing to re-enter |
-| **Migration runner** | `SUPABASE_DB_URL` (Postgres connection string — Supabase *session pooler*, port 5432) | `.env` locally + repo **Actions secret** |
+| **Pages Functions** (`functions/wpbl`, `functions/discord/wpbl`) | the same `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` | Cloudflare Pages env (available to functions at runtime). The Discord app's Ed25519 public key is committed in the function rather than held here, since it verifies Discord's signatures and grants nothing, so it survives redeploys with nothing to re-enter |
+| **Migration runner** | `SUPABASE_DB_URL` (Postgres connection string, Supabase *session pooler*, port 5432) | `.env` locally + repo **Actions secret** |
 | **Edge functions** | `SUPABASE_URL`*, `SUPABASE_SERVICE_ROLE_KEY`*, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `DISCORD_RECAP_WEBHOOK_URL` | Supabase (*auto-injected) |
 | **pg_cron** | service-role key | Supabase **Vault** (`wpbl_service_role_key`) |
 | **GitHub Actions** | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`, `VAPID_*`, `DISCORD_BOARD_WEBHOOK_URL`, `DISCORD_BOARD_MESSAGE_ID`, `DISCORD_EVENTS_URL`, `DISCORD_WATCH_PARTY_VC_URL`, `DISCORD_RECAP_WEBHOOK_URL`, `DISCORD_HIGHLIGHTS_WEBHOOK_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_TASKS_LIST` | Repo **Actions secrets** |
@@ -345,7 +357,7 @@ optional — without it `wpbl-ingest` skips the Discord post and the hourly job 
   [`scripts/vite-plugin-wpbl-portraits.mjs`](scripts/vite-plugin-wpbl-portraits.mjs), since
   the edge has no copy of the build's hashed-asset map.
 - **Discord bot:** [`functions/discord/wpbl.ts`](functions/discord/wpbl.ts) is a second
-  Pages Function, serving the `/player` slash command as an HTTP interactions endpoint —
+  Pages Function, serving the `/player` slash command as an HTTP interactions endpoint,
   Discord POSTs the command and takes the reply from the response body, so there is no
   gateway websocket and no process to keep running. Verifies Discord's Ed25519 signature,
   resolves the typed name against the roster
@@ -353,14 +365,14 @@ optional — without it `wpbl-ingest` skips the Discord post and the hourly job 
   `stats.ts` aggregation the site uses. Setup: [`docs/DISCORD.md`](docs/DISCORD.md).
 - **`public/_routes.json` is an allow-list**, and it gates both of the above: only the paths
   named in `include` invoke the Functions worker, everything else is served as a plain
-  asset with no function run. **Adding a function under `functions/` is not enough — its
+  asset with no function run. **Adding a function under `functions/` is not enough. Its
   route has to be added here too**, or it compiles, uploads, deploys and is then never
   called. `npm run check-functions` bundles the functions the way Cloudflare will, since a
   failed functions build leaves the previous deployment serving rather than failing the
   deploy.
 - **Edge functions:** `supabase functions deploy <name>` (manual). `wpbl-ingest` also
   announces a game to Discord the moment it sees it go final
-  ([`announce-final.ts`](supabase/functions/wpbl-ingest/announce-final.ts)) — the
+  ([`announce-final.ts`](supabase/functions/wpbl-ingest/announce-final.ts)): the
   scheduled `wpbl-discord-recaps` job then only handles what the ingest missed and
   later corrections. Both render through `src/wpbl/derive/discordRecap.ts` and claim
   the game by primary key in `wpbl_discord_recap_posts`, so neither double-posts.

@@ -19,7 +19,7 @@ GitHub Action nudges signed-in users who still have unpicked games for today.
 | Schedule | `.github/workflows/daily-reminders.yml` | Cron that runs the sender |
 | Test button | `src/AdminPanel.tsx` → `supabase/functions/send-test-push` | Admin "send test notification to me" |
 
-Being subscribed in a browser **is** the opt-in — there's no separate preference
+Being subscribed in a browser **is** the opt-in. There's no separate preference
 row. Unsubscribing removes the row.
 
 ## One-time setup
@@ -27,7 +27,7 @@ row. Unsubscribing removes the row.
 ### 1. VAPID keys
 
 Web Push authenticates the sender with a VAPID keypair. A fresh pair was
-generated for this project — the public key is safe to ship to the browser; the
+generated for this project. The public key is safe to ship to the browser; the
 private key must stay secret.
 
 ```
@@ -81,14 +81,14 @@ supabase secrets set \
   VAPID_SUBJECT=mailto:snichols246@gmail.com
 ```
 
-(`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are injected automatically — don't
+(`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are injected automatically, so don't
 set those.)
 
 ## Testing end-to-end
 
 Easiest path (no games required):
 
-1. Deploy with `VITE_VAPID_PUBLIC_KEY` set (or run locally — service workers work
+1. Deploy with `VITE_VAPID_PUBLIC_KEY` set (or run locally, since service workers work
    on `http://localhost`).
 2. Sign in, open **Settings → Notifications**, flip **Daily pick reminders** on,
    and accept the browser permission prompt. A row appears in `push_subscriptions`.
@@ -148,6 +148,6 @@ than a standing preference.
   signed out (there's no anonymous reminder to store).
 - **Scheduling:** `.github/workflows/wpbl-game-start-reminders.yml` runs the sender
   every 10 min during game hours. It reuses the same `SUPABASE_*` / `VAPID_*` repo
-  secrets as the MLB jobs — no new secrets needed. Trigger a one-off test from the
+  secrets as the MLB jobs, so no new secrets needed. Trigger a one-off test from the
   Actions UI (*WPBL Game Start Reminders → Run workflow*, `test_user` = your email)
   or locally with `node scripts/send-wpbl-game-start.mjs --test <email>`.
