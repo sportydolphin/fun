@@ -9,7 +9,7 @@
 
 import React, { useEffect, useCallback, useRef, useState } from 'react'
 import { Box, Typography, useTheme, useMediaQuery } from '@mui/material'
-import type { Theme } from '@mui/material'
+import type { Theme, SxProps } from '@mui/material'
 import { WPBL_ACCENT, wpblAccentFg, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
 import { wpblPortrait } from './portraits'
 import type { WpblTeam } from './types'
@@ -150,8 +150,35 @@ export function PlayerPortrait({ name, teamId, size = 40 }: { name: string; team
 
 // Pill segmented control — the section nav "menu". Mirrors MLB's SegControl, wrapped
 // in the same centered / mobile-horizontal-scroll container MlbStats uses for its tabs.
+/** A "there is something new here" dot.
+ *
+ *  Deliberately a static 6px circle: no pulse, no "NEW" wordmark. The brief was
+ *  unintrusive, and a dot is the quietest mark that still reads as "this changed". It takes
+ *  the section accent rather than a notification red, because red reads as "you have a
+ *  problem" and this is an invitation.
+ *
+ *  Invisible to a screen reader by design; the tab that owns it carries the news in its
+ *  accessible name instead, so the nudge is not purely visual. */
+export function NewDot({ sx }: { sx?: SxProps<Theme> }) {
+  return (
+    <Box aria-hidden sx={{
+      width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+      bgcolor: 'var(--wpbl-accent-solid)',
+      ...sx,
+    }} />
+  )
+}
+
+// Absolutely placed at the pill's top-right, so the dot costs no layout. An inline dot would
+// widen the tab it sits on, and these pills live in a horizontal scroll strip: the whole row
+// would shift the moment the badge retired, which is exactly the wrong time to move the
+// thing someone just tapped.
+const SEG_DOT_SX = { position: 'absolute' as const, top: 5, right: 6 }
+
 export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 } }: {
-  options: { value: string; label: string }[]
+  /** `badge` draws a NewDot on that option. Opt-in per item because this control is shared
+   *  with the MLB section, which has nothing to announce. */
+  options: { value: string; label: string; badge?: boolean }[]
   value: string
   onChange: (v: string) => void
   accent?: string
@@ -200,8 +227,12 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
             ref={value === opt.value ? activeRef : undefined}
             {...pressable(() => onChange(opt.value))}
             aria-pressed={value === opt.value}
+            // The dot is aria-hidden, so the news has to live in the name instead. Without
+            // this the nudge would be purely visual.
+            aria-label={opt.badge ? `${opt.label}, updated` : undefined}
             sx={{
               ...FOCUS_RING,
+              position: 'relative',
               px: 1.75, py: 0.5,
               borderRadius: 999,
               cursor: 'pointer',
@@ -222,6 +253,7 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
             }}
           >
             {opt.label}
+            {opt.badge && <NewDot sx={SEG_DOT_SX} />}
           </Box>
         ))}
       </Box>

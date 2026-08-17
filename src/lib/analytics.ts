@@ -23,6 +23,8 @@ export const EVENTS = {
   WPBL_GAME_REMINDER_OFF: 'wpbl_game_reminder_off', // turned a WPBL game reminder back off
   WPBL_TAB_VIEWED:        'wpbl_tab_viewed',        // switched WPBL tab — props carry {view, via, from}
   WPBL_PLAYER_OPENED:     'wpbl_player_opened',     // opened a WPBL player page
+  NEW_BADGE_SHOWN:        'new_badge_shown',        // a "new here" dot was rendered (impression), props {badge}
+  NEW_BADGE_CLICKED:      'new_badge_clicked',      // opened the thing while its dot was showing, props {badge}
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the

@@ -12,6 +12,7 @@ import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import { fmtSigned } from './stats'
 import { track, EVENTS } from '../lib/analytics'
+import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import WpblHome from './Home'
 import WpblStatsView, { type WpblStatsFocus } from './StatsView'
 import TeamPage from './TeamPage'
@@ -421,6 +422,20 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const [statsFocus, setStatsFocus] = useState<WpblStatsFocus>(
     () => (seedTracking() ? { group: 'tracking', token: 1 } : { group: 'hitting', token: 0 }))
 
+  // "Something new here" dot on the Teams tab, pointing at the v1.45.0 rebuild. Read once at
+  // mount: shouldShowBadge() consults localStorage and an expiry date, and neither changes
+  // under us mid-session. See src/lib/seen.ts.
+  const [teamsBadge, setTeamsBadge] = useState(() => shouldShowBadge('teams-v145'))
+  // Impression, logged once per mount rather than per render, so the click-through rate has
+  // an honest denominator. Without this half of the point is lost: a nudge you cannot
+  // measure is a nudge you will be guessing about next time.
+  const badgeLogged = useRef(false)
+  useEffect(() => {
+    if (!teamsBadge || badgeLogged.current) return
+    badgeLogged.current = true
+    track(EVENTS.NEW_BADGE_SHOWN, { badge: 'teams-v145' })
+  }, [teamsBadge])
+
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [games, setGames] = useState<WpblGame[]>([])
   const [players, setPlayers] = useState<WpblPlayer[]>([])
@@ -509,6 +524,14 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // off-screen. Back/forward navigations go through popstate, not here, and aren't counted.
   const selectTab = useCallback((v: WpblView, via: 'pill' | 'swipe' | 'link' = 'pill') => {
     if (v !== view) track(EVENTS.WPBL_TAB_VIEWED, { view: v, via, from: view })
+    // Opening Teams retires the dot, whether the reader tapped the nav, swiped into it, or
+    // followed a card link. `via` rides along so a tap and a swipe can be told apart: only
+    // one of the three is the badge actually doing its job.
+    if (v === 'teams' && teamsBadge) {
+      track(EVENTS.NEW_BADGE_CLICKED, { badge: 'teams-v145', via })
+      markBadgeSeen('teams-v145')
+      setTeamsBadge(false)
+    }
     // Tapping the tab you are already on returns it to its root. This matters for Teams and
     // nowhere else: `selectedTeam` rides along through every tab switch (so swiping out to
     // Stats and back keeps the team page you were reading), but nothing ever cleared it — so
@@ -517,7 +540,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     // pill just re-opened the same team.
     const backToRoot = v === view && via === 'pill'
     push({ view: v, team: backToRoot ? null : selectedTeam, game: null, player: null })
-  }, [push, selectedTeam, view])
+  }, [push, selectedTeam, view, teamsBadge])
   const selectTeam = useCallback((t: WpblTeam | null) => push({ view: 'teams', team: t, game: null, player: null }), [push])
   // `opts` is how the team page asks for a specific board: the four-team comparison, or the
   // player table already filtered to one club. Omitted by every other caller, which keeps
@@ -758,7 +781,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         boxShadow: navStuck ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
       }}>
         <SegNav
-          options={NAV.map(n => ({ value: n.key, label: n.label }))}
+          options={NAV.map(n => ({ value: n.key, label: n.label, badge: n.key === 'teams' && teamsBadge }))}
           value={view}
           onChange={v => selectTab(v as WpblView, 'pill')}
         />
@@ -827,7 +850,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
 
       {bottomNav && (
         <WpblBottomNav
-          items={NAV.map(n => ({ key: n.key, label: n.label }))}
+          items={NAV.map(n => ({ key: n.key, label: n.label, badge: n.key === 'teams' && teamsBadge }))}
           value={view}
           onChange={k => selectTab(k as WpblView, 'pill')}
         />

@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.45.1',
+    date:    '2026-08-17',
+    title:   'A quiet dot on the Teams tab',
+    changes: [
+      {
+        short: 'A small dot points at the rebuilt Teams tab',
+        full:  'The Teams tab changed a lot in the last release, and there was nothing to tell anyone who had already learned to skip it. A small dot now sits on the tab until you open it, then goes for good. It disappears on its own at the end of August whether or not you ever tapped it, so it cannot outlive the thing it is pointing at.',
+      },
+    ],
+  },
+  {
     version: '1.45.0',
     date:    '2026-08-17',
     title:   'A Teams tab worth opening, and settings that know which league you follow',

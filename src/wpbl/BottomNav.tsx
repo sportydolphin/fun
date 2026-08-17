@@ -24,6 +24,8 @@ import { WPBL_ACCENT } from './constants'
 export interface BottomNavItem {
   key: string
   label: string
+  /** Draws a "something new here" dot on the icon. See src/lib/seen.ts. */
+  badge?: boolean
 }
 
 // Filled icon when active, outlined when not — the standard tab-bar cue, and it means the
@@ -161,7 +163,7 @@ export default function WpblBottomNav({ items, value, onChange }: {
               onClick={() => select(item.key)}
               role="tab"
               aria-selected={active}
-              aria-label={item.label}
+              aria-label={item.badge ? `${item.label}, updated` : item.label}
               sx={{
                 position: 'relative', // above the sliding indicator
                 flex: 1, minWidth: 0,
@@ -185,6 +187,18 @@ export default function WpblBottomNav({ items, value, onChange }: {
                   drawn. There is no scale on the swap either, for the same reason: a tab bar
                   changes tabs often enough that a zoom on every change is noise. */}
               <Box sx={{ position: 'relative', width: ICON_PX, height: ICON_PX, flexShrink: 0 }}>
+                {/* Sits on the icon's top-right corner, outside its box so it never
+                    overlaps the glyph. Same static dot as the pill nav. */}
+                {item.badge && (
+                  <Box aria-hidden sx={{
+                    position: 'absolute', top: -1, right: -3, zIndex: 1,
+                    width: 6, height: 6, borderRadius: '50%',
+                    bgcolor: 'var(--wpbl-accent-solid)',
+                    // A ring in the bar's own colour, so the dot stays legible where it
+                    // would otherwise sit directly on a stroke of the icon.
+                    boxShadow: theme => `0 0 0 1.5px ${theme.palette.background.paper}`,
+                  }} />
+                )}
                 {set && ([['off', set.off] as const, ['on', set.on] as const]).map(([kind, Icon]) => {
                   const visible = kind === 'on' ? active : !active
                   return (
