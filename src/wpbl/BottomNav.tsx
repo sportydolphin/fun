@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import {
   HomeOutlined, Home,
@@ -53,6 +53,9 @@ const LABEL_REM = 0.62
 const LABEL_LINE_HEIGHT = 1.3
 const FLOAT_GAP = 10       // how far the bar hovers above the bottom edge
 
+// How long the optimistic selection may outlive reality before the bar gives up on it.
+const PENDING_STALL_MS = 2000
+
 // What the bar actually measures: the px pieces above plus its 1px border top and bottom,
 // and then the label, which is the one part measured in rem.
 const BAR_PX = TAB_PAD_Y * 2 + ICON_PX + ICON_LABEL_GAP + 2
@@ -81,15 +84,37 @@ export default function WpblBottomNav({ items, value, onChange }: {
   // the real navigation to the next frame, so the indicator is already travelling while the
   // panel renders. `pending` clears as soon as the parent confirms the new value.
   const [pending, setPending] = useState<string | null>(null)
-  useEffect(() => { setPending(null) }, [value])
+  const stall = useRef<number | undefined>(undefined)
+  const clearStall = () => {
+    if (stall.current !== undefined) { clearTimeout(stall.current); stall.current = undefined }
+  }
+  useEffect(() => { setPending(null); clearStall() }, [value])
+  useEffect(() => clearStall, [])
   const shown = pending ?? value
 
   const count = Math.max(1, items.length)
   const index = Math.max(0, items.findIndex(i => i.key === shown))
 
   const select = (key: string) => {
+    // `shown`, not `value`: while a selection is pending, tapping the tab we are already
+    // travelling to is a no-op rather than a second navigation.
     if (key === shown) return
     setPending(key)
+    // Recovery for a navigation that never lands. `pending` used to be cleared only by the
+    // parent confirming a new `value`, so if onChange failed to take effect the bar was left
+    // pointing at a tab it never reached, and since `shown` was then that tab, EVERY later
+    // tap hit the guard above and returned. One stalled navigation and the bar was dead for
+    // the rest of the session.
+    //
+    // Reachable for real: the handover below runs in a requestAnimationFrame, and rAF does
+    // not fire while the document is hidden. Rather than enumerate causes, this just bounds
+    // how long the optimistic state is allowed to outlive reality. On expiry the indicator
+    // snaps back to where the reader actually is, which is honest, and taps work again.
+    //
+    // Generous on purpose: this only ever fires in the broken case, and a real navigation
+    // updates `value` in the same commit as the parent's state change, long before this.
+    clearStall()
+    stall.current = window.setTimeout(() => { stall.current = undefined; setPending(null) }, PENDING_STALL_MS)
     requestAnimationFrame(() => onChange(key))
   }
 
