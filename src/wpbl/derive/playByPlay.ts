@@ -87,6 +87,27 @@ function condense(clause: string, shorten: (name: string) => string): string {
   return squash(shorten(s))
 }
 
+/**
+ * How many runs a play actually put on the board.
+ *
+ * `runs_scored` from the feed counts the RUNNERS who crossed, never the batter. A solo home
+ * run therefore reads 0, a two-run homer reads 1, and a grand slam reads 3. That is a
+ * consistent rule and not corruption: measured over 1,352 plays, `runs_scored` equals the
+ * number of "X scored" clauses in the narrative on every single row.
+ *
+ * It is also a trap, and it has caught three separate readers of this data. `firsts.ts` gets
+ * it right, and says so in a comment nobody else could see; the play-by-play badge in
+ * GameDetail showed nothing on a solo home run; and a validation script written against the
+ * feed flagged 15 of 28 team-games as having lost runs. Crediting the batter on a home run
+ * took that to 1. Hence one exported function rather than a fourth private rediscovery.
+ *
+ * Nothing else needs adjusting. Wild pitches, errors and fielder's choices all carry their
+ * runs correctly, because in those cases the run belongs to a runner and the feed counts it.
+ */
+export function runsOnPlay(p: { event_type: string | null; runs_scored: number | null }): number {
+  return (p.runs_scored ?? 0) + (p.event_type === 'home_run' ? 1 : 0)
+}
+
 export function parsePlay(
   narrative: string,
   batterName: string | null,

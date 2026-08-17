@@ -21,30 +21,44 @@
  *
  * WHAT IT FOUND ON THE FIRST RUN. Five batters with box-score plate appearances and no plays
  * at all, worth 16 at-bats and 6 hits. Six team-games where a whole lineup slot is missing.
- * And ten home runs the feed sends with runs_scored = 0 and is_scoring_play = false while its
- * OWN narrative on the same row reads "homered ... RBI". That last one is upstream, not ours:
- * the ingest is a straight passthrough (see wpbl-ingest/index.ts). It is also the easiest to
- * act on without the league, since the narrative can be trusted over the fields.
+ *
+ * And one false alarm worth recording, because it nearly became a correction pipeline built on
+ * a misunderstanding: ten home runs looked like a feed bug for carrying runs_scored = 0 while
+ * their own narrative read "homered ... RBI". The field counts runners and omits the batter,
+ * so a solo home run reads 0 by design. The data was self-consistent and the check was wrong.
+ * See runsOnPlay() in src/wpbl/derive/playByPlay.ts.
  *
  * WHAT THIS CANNOT CATCH. If two players are swapped consistently through a game, the batting
  * order stays legal, the outs still add up and both box lines look plausible. Nothing in here
  * will see it. That needs a genuinely independent transcription of the same game; see the note
  * at the bottom of this file.
  *
+ * THE BASELINE, AND WHY IT EXISTS. Run unattended, this reports 57 things and would report 57
+ * things tomorrow, so a job wired to "fail when anything is flagged" fails every night and is
+ * ignored inside a week. Pass --baseline and it compares against a committed list of findings
+ * already seen, reports only what is NEW, and exits 0 when nothing is. Triage a finding, then
+ * --update-baseline to accept it. That is what makes the scheduled run worth reading.
+ *
  * Usage:
  *   node --env-file=.env scripts/validate-wpbl-pbp.mjs
  *   node --env-file=.env scripts/validate-wpbl-pbp.mjs --game 2026-08-01
  *   node --env-file=.env scripts/validate-wpbl-pbp.mjs --json > report.json
+ *   node --env-file=.env scripts/validate-wpbl-pbp.mjs --baseline scripts/wpbl-pbp-baseline.json
+ *   node --env-file=.env scripts/validate-wpbl-pbp.mjs --baseline <file> --update-baseline
  *
  * Needs SUPABASE_DB_URL (the same connection string the migration runner uses).
- * Exits 1 when anything is flagged, so it can gate a job later.
+ * Exits 1 when anything is flagged, or with a baseline, when anything NEW is.
  *
  * npm script: npm run validate-pbp
  */
 
 import pg from 'pg'
+import fs from 'node:fs'
 
 const JSON_OUT = process.argv.includes('--json')
+const UPDATE_BASELINE = process.argv.includes('--update-baseline')
+const baseArgIx = process.argv.indexOf('--baseline')
+const BASELINE = baseArgIx > -1 ? process.argv[baseArgIx + 1] : null
 const gameArgIx = process.argv.indexOf('--game')
 const GAME_DATE = gameArgIx > -1 ? process.argv[gameArgIx + 1] : null
 
@@ -142,35 +156,40 @@ const sql = {
       and o.last_seq <> l.game_last
     order by g.game_date, o.inning`,
 
-  // ─── 4a. A home run that scored nobody ────────────────────────────────────────
+  // ─── 4a. A home run not flagged as a scoring play ─────────────────────────────
   //
-  // The tightest rule in the file: a home run scores at least the batter, always. Measured
-  // across the first 14 games there are 25 home runs carrying 22 runs between them, and only
-  // 15 are flagged `is_scoring_play`, so both fields are demonstrably wrong on some rows.
-  // Unlike the aggregate below, each hit here is a single row you can point at.
+  // NOTE, because this check originally claimed far more than it should have. `runs_scored = 0`
+  // on a home run is CORRECT: the field counts the runners who crossed and never the batter,
+  // so a solo shot reads 0 by design (see runsOnPlay in src/wpbl/derive/playByPlay.ts). Ten
+  // rows were reported here as a feed bug on that misreading. They were not.
+  //
+  // What survives is only the label: `is_scoring_play` is false on those same rows, and a home
+  // run is a scoring play by any definition. Low severity, because nothing downstream reads
+  // that flag for a total.
   homeRuns: `
     select g.game_date::text as game_date, t.abbr as team, p.inning, p.half,
-           p.batter_name, p.runs_scored, p.is_scoring_play, left(p.narrative, 60) as narrative
+           p.batter_name, p.runs_scored, left(p.narrative, 60) as narrative
     from wpbl_game_plays p
     join wpbl_games g on g.id = p.game_id
     left join wpbl_teams t on t.id = p.team_id
-    where p.event_type = 'home_run'
-      and (coalesce(p.runs_scored, 0) < 1 or p.is_scoring_play is not true)
+    where p.event_type = 'home_run' and p.is_scoring_play is not true
     order by g.game_date, p.sequence`,
 
   // ─── 4b. Runs in the play log against the final score ─────────────────────────
   //
-  // READ THE MAGNITUDE, NOT THE EXISTENCE. Every gap measured so far is negative, 1 to 3 runs
-  // short across 15 of 28 team-games and never once over. That is a systematic under-count in
-  // the feed's own `runs_scored`, not a scattering of scorer errors, so "this game has a gap"
-  // says almost nothing. A gap much larger than 3 is the part worth looking at.
+  // Adds the batter back on every home run, mirroring runsOnPlay() in
+  // src/wpbl/derive/playByPlay.ts. Without that this check flagged 15 of 28 team-games, all
+  // short by 1 to 3 and never once over, which was not 15 findings but one misunderstanding
+  // repeated. With it, one team-game is left, and that one is a real lead.
   //
   // `team_id` on a play is the BATTING side, verified against a game where the two halves
   // matched the two clubs exactly. Do not "fix" this join.
   runs: `
     with pbp as (
-      select p.game_id, p.team_id, sum(p.runs_scored) as runs
-      from wpbl_game_plays p where p.runs_scored is not null group by 1,2
+      select p.game_id, p.team_id,
+             sum(coalesce(p.runs_scored, 0))
+               + sum(case when p.event_type = 'home_run' then 1 else 0 end) as runs
+      from wpbl_game_plays p group by 1,2
     )
     select g.game_date::text as game_date, t.abbr as team,
            pbp.runs as runs_in_play_log,
@@ -224,9 +243,7 @@ const CHECKS = [
   { key: 'missingBatters', severity: 'high',
     title: 'Batters with plate appearances in the box score and no plays logged',
     note: 'Their at-bats are unaccounted for. Watch these innings first.' },
-  { key: 'homeRuns', severity: 'high',
-    title: 'Home runs credited with no run, or not marked as scoring plays',
-    note: 'A home run always scores at least the batter. Each row is a single play to check.' },
+
   { key: 'battingOrder', severity: 'high',
     title: 'Breaks in the batting order',
     note: 'A jump repeated 3+ times means a whole slot is missing all game; a single one is a likelier mis-attribution.' },
@@ -236,9 +253,12 @@ const CHECKS = [
   { key: 'outs', severity: 'medium',
     title: 'Half-innings that look incomplete',
     note: 'Flags a half-inning with no two-out play, so the third out has nothing before it. The final half-inning of each game is excluded.' },
-  { key: 'runs', severity: 'low',
+  { key: 'runs', severity: 'medium',
     title: 'Runs in the play log against the final score',
-    note: 'Systematically 1 to 3 short, never over, so a gap is expected. Only an unusually large one is a lead.' },
+    note: 'Counts the batter on a home run. A gap here is a real lead, not the old systematic bias.' },
+  { key: 'homeRuns', severity: 'low',
+    title: 'Home runs not flagged as scoring plays',
+    note: 'Label only. runs_scored = 0 on a solo home run is correct by design, not an error.' },
   { key: 'pitchers', severity: 'low',
     title: 'Pitchers in one view and not the other' },
 ]
@@ -261,12 +281,46 @@ async function main() {
   }
   await client.end()
 
-  if (JSON_OUT) {
-    console.log(JSON.stringify({ generated_at: new Date().toISOString(), results }, null, 2))
-  } else {
-    report(results)
+  // A finding's identity is its check plus its whole row. Rows are aggregates of stable facts
+  // (date, team, player, inning), so the same underlying problem fingerprints identically run
+  // to run, and a genuinely new one cannot collide with an accepted one.
+  const fingerprint = (key, row) => `${key}:${JSON.stringify(row)}`
+  const current = new Set()
+  for (const [key, rows] of Object.entries(results)) for (const row of rows) current.add(fingerprint(key, row))
+
+  if (UPDATE_BASELINE) {
+    if (!BASELINE) { console.error('--update-baseline needs --baseline <file>'); process.exit(2) }
+    fs.writeFileSync(BASELINE, JSON.stringify({ updated_at: new Date().toISOString(), accepted: [...current] }, null, 2) + '\n')
+    console.log(`Baseline written: ${current.size} findings accepted in ${BASELINE}`)
+    process.exit(0)
   }
-  process.exit(Object.values(results).some(r => r.length > 0) ? 1 : 0)
+
+  let accepted = new Set()
+  if (BASELINE && fs.existsSync(BASELINE)) {
+    accepted = new Set(JSON.parse(fs.readFileSync(BASELINE, 'utf8')).accepted ?? [])
+  }
+  const fresh = {}
+  for (const [key, rows] of Object.entries(results)) {
+    fresh[key] = BASELINE ? rows.filter(r => !accepted.has(fingerprint(key, r))) : rows
+  }
+  const newCount = Object.values(fresh).reduce((n, r) => n + r.length, 0)
+
+  if (JSON_OUT) {
+    console.log(JSON.stringify({
+      generated_at: new Date().toISOString(),
+      baseline: BASELINE ?? null,
+      new_findings: newCount,
+      results: BASELINE ? fresh : results,
+    }, null, 2))
+  } else {
+    report(BASELINE ? fresh : results)
+    if (BASELINE) {
+      console.log(accepted.size
+        ? `\nBaseline: ${accepted.size} findings already accepted and not shown.`
+        : `\nBaseline file ${BASELINE} is empty or missing; everything counts as new.`)
+    }
+  }
+  process.exit(newCount > 0 ? 1 : 0)
 }
 
 function report(results) {

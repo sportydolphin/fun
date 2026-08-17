@@ -1,0 +1,89 @@
+name: WPBL Play-by-Play Validation
+
+# Checks the league's play-by-play against the rules of baseball and reports anything NEW.
+#
+# The league's scoring has errors and they are not reachable to fix at source, so we find them
+# ourselves. Running nightly rather than on demand is the point: a mis-scored game is far
+# cheaper to check while the video is fresh and someone still remembers the inning, and there
+# are only so many games left in the inaugural season to catch in real time.
+#
+# WHY THE BASELINE MATTERS HERE. The validator reports every finding it can see, and most of
+# them are already known. Wired to "fail when anything is flagged" this job would fail every
+# single night, and a job that always fails is one nobody reads within a week. It runs against
+# a committed baseline instead and fails only on findings that were not there yesterday.
+#
+# Triaging a finding means either correcting it (see wpbl_play_corrections) or accepting it:
+#   node --env-file=.env scripts/validate-wpbl-pbp.mjs \
+#     --baseline scripts/wpbl-pbp-baseline.json --update-baseline
+# then commit the baseline.
+
+on:
+  schedule:
+    # 08:00 UTC, which is the small hours Central: every game of the previous day has long
+    # since gone final and been ingested, and nothing is mid-flight.
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: wpbl-pbp-validation
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Only `pg` is needed. `npm ci` would pull the whole frontend toolchain this script
+      # never imports; the version is read from package.json so there is still one source
+      # of truth. Same approach as the reminder workflows.
+      - name: Install validator dependency
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['pg'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Validate play-by-play
+        id: validate
+        env:
+          # The same direct Postgres connection string the migration runner uses. The checks
+          # are window functions and full-table joins across four tables, which is SQL's job
+          # rather than something to reimplement over PostgREST.
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set +e
+          node scripts/validate-wpbl-pbp.mjs --baseline scripts/wpbl-pbp-baseline.json > report.txt 2>&1
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          cat report.txt
+
+      - name: Post new findings to Discord
+        # Only when something new turned up AND an ops webhook is configured. Deliberately its
+        # own secret rather than one of the DISCORD_*_WEBHOOK_URL channels the fans read: a
+        # scoring-error report is operational noise to them.
+        if: steps.validate.outputs.exit_code != '0' && env.DISCORD_OPS_WEBHOOK_URL != ''
+        env:
+          DISCORD_OPS_WEBHOOK_URL: ${{ secrets.DISCORD_OPS_WEBHOOK_URL }}
+        run: |
+          node -e "
+            const fs = require('fs');
+            const body = fs.readFileSync('report.txt', 'utf8').slice(0, 1800);
+            fetch(process.env.DISCORD_OPS_WEBHOOK_URL, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                content: 'New WPBL play-by-play findings:\n\`\`\`\n' + body + '\n\`\`\`',
+                allowed_mentions: { parse: [] },
+              }),
+            }).then(r => console.log('discord', r.status));
+          "
+
+      # Fails the job last, so the Discord post above still runs. With no ops webhook set this
+      # is the whole alert: GitHub emails the repo owner when a scheduled workflow fails.
+      - name: Fail if anything new was found
+        if: steps.validate.outputs.exit_code != '0'
+        run: |
+          echo "New findings. Triage them, then accept with --update-baseline and commit."
+          exit 1

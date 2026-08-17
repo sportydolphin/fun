@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parsePlay } from '../derive/playByPlay'
+import { parsePlay, runsOnPlay } from '../derive/playByPlay'
 
 // The real shortener maps a full name to a display form; here surnames stand in for it.
 const shorten = (t: string) => t
@@ -87,5 +87,32 @@ describe('parsePlay', () => {
 
   it('survives an empty narrative rather than throwing', () => {
     expect(parsePlay('', null, shorten)).toEqual({ who: null, what: '', count: null, detail: null, kind: 'play' })
+  })
+})
+
+// ─── runsOnPlay ───────────────────────────────────────────────────────────────
+//
+// The feed's runs_scored counts runners and omits the batter. Three separate readers of this
+// data got that wrong before it was written down in one place, so it is pinned here.
+describe('runsOnPlay', () => {
+  const play = (event_type: string | null, runs_scored: number | null) => ({ event_type, runs_scored })
+
+  it('credits the batter on a home run', () => {
+    expect(runsOnPlay(play('home_run', 0))).toBe(1)   // solo
+    expect(runsOnPlay(play('home_run', 1))).toBe(2)   // two-run
+    expect(runsOnPlay(play('home_run', 3))).toBe(4)   // grand slam
+  })
+
+  it('leaves every other event alone, because the runner is already counted', () => {
+    expect(runsOnPlay(play('single', 1))).toBe(1)
+    expect(runsOnPlay(play('wild_pitch', 1))).toBe(1)
+    expect(runsOnPlay(play('fielders_choice', 2))).toBe(2)
+    expect(runsOnPlay(play('groundout', 0))).toBe(0)
+  })
+
+  it('treats a missing count as none', () => {
+    expect(runsOnPlay(play('single', null))).toBe(0)
+    expect(runsOnPlay(play(null, null))).toBe(0)
+    expect(runsOnPlay(play('home_run', null))).toBe(1)
   })
 })

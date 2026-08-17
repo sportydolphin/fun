@@ -389,10 +389,66 @@ export function fetchWpblPitchingUsage(teamId: string): Promise<WpblPitchingUsag
 
 // The official-feed play-by-play for one game, in order. Full rows — the Game Center renders
 // every pitch of every at-bat, so it genuinely needs `pitch_events`.
-export function fetchWpblGamePlays(gameId: string): Promise<WpblGamePlay[]> {
-  return safe('fetchWpblGamePlays', () =>
-    supabase.from('wpbl_game_plays').select('*').eq('game_id', gameId).order('sequence', { ascending: true }),
-    [] as WpblGamePlay[])
+// ─── Play corrections ─────────────────────────────────────────────────────────
+//
+// The league's scoring has errors: batters credited to the wrong player, plate appearances
+// missing entirely. They are not reachable to fix it at source, so we keep our own
+// corrections and lay them over the mirror on the way out.
+//
+// This CANNOT be done by editing wpbl_game_plays. That table is a mirror and wpbl-ingest
+// deletes and reinserts every play for a game on each pass, so an edit written into it
+// survives until the next cron tick and then disappears without trace.
+//
+// Values arrive as text because one table serves fields of several types; see the migration
+// for why that beats a jsonb blob. Casting happens here, once, rather than at each call site.
+const CORRECTABLE_NUMBER = new Set(['runs_scored'])
+const CORRECTABLE_BOOLEAN = new Set(['is_hit', 'is_scoring_play'])
+
+function castCorrection(field: string, value: string | null): unknown {
+  if (value === null) return null
+  if (CORRECTABLE_NUMBER.has(field)) return Number(value)
+  if (CORRECTABLE_BOOLEAN.has(field)) return value === 'true' || value === '1'
+  return value
+}
+
+interface WpblPlayCorrection { sequence: number; field: string; new_value: string | null }
+
+/** Overlay corrections onto plays, matched on the feed's own sequence number. The play uuid is
+ *  regenerated on every reinsert and so identifies a row only for minutes. */
+export function applyPlayCorrections<T extends { sequence: number }>(
+  plays: T[], corrections: WpblPlayCorrection[],
+): T[] {
+  if (corrections.length === 0) return plays
+  const bySeq = new Map<number, WpblPlayCorrection[]>()
+  for (const c of corrections) {
+    const list = bySeq.get(c.sequence)
+    if (list) list.push(c); else bySeq.set(c.sequence, [c])
+  }
+  return plays.map(play => {
+    const fixes = bySeq.get(play.sequence)
+    if (!fixes) return play
+    const next = { ...play } as Record<string, unknown>
+    for (const f of fixes) next[f.field] = castCorrection(f.field, f.new_value)
+    return next as T
+  })
+}
+
+function fetchPlayCorrections(gameId: string): Promise<WpblPlayCorrection[]> {
+  return safe('fetchPlayCorrections', () =>
+    supabase.from('wpbl_play_corrections').select('sequence,field,new_value').eq('game_id', gameId),
+    [] as WpblPlayCorrection[])
+}
+
+export async function fetchWpblGamePlays(gameId: string): Promise<WpblGamePlay[]> {
+  // Both reads go out together: the corrections table is tiny and usually empty, so making it
+  // wait on the plays would add a round trip to every game anyone opens.
+  const [plays, corrections] = await Promise.all([
+    safe('fetchWpblGamePlays', () =>
+      supabase.from('wpbl_game_plays').select('*').eq('game_id', gameId).order('sequence', { ascending: true }),
+      [] as WpblGamePlay[]),
+    fetchPlayCorrections(gameId),
+  ])
+  return applyPlayCorrections(plays, corrections)
 }
 
 // The same game's plays, projected to what buildRecap reads (see WpblRecapPlay).

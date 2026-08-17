@@ -9,7 +9,7 @@ import { GameHighlightCard } from './Highlights'
 import { GameRecapView } from './RecapCard'
 import { ModalShell, SegNav, TeamBadge, useWpblDark, useWpblName, wpblFeatureName } from './ui'
 import SwipeableViews from './SwipeableViews'
-import { parsePlay } from './derive/playByPlay'
+import { parsePlay, runsOnPlay } from './derive/playByPlay'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, speedUnit } from '../lib/units'
 import { prettyType } from './tracking'
@@ -370,12 +370,17 @@ function PlayByPlay({ plays, teams, game }: { plays: WpblGamePlay[]; teams: Map<
   }, [plays, shortName])
   // Group consecutive plays into half-innings, in order.
   //
-  // The half-inning's run count comes from the line score, not from summing the plays. The
-  // feed leaves runs_scored at 0 on a good number of the plays that actually pushed a runner
-  // home — a wild pitch, an error, a fielder's choice — so about one half-inning in nine
-  // would otherwise announce fewer runs than the same box score's line score shows directly
-  // above it. The per-play +N badges still come from the feed: they're only claimed where the
-  // feed does attribute a run, so they under-report rather than mislabel which play scored.
+  // The half-inning's run count comes from the line score rather than from summing the plays.
+  //
+  // The reason given here used to be that the feed leaves runs_scored at 0 on plays that
+  // pushed a runner home, naming wild pitches, errors and fielder's choices. That is not what
+  // happens: no play with runs_scored = 0 mentions anyone scoring, on any of the 1,352 rows in
+  // hand, and wild pitches and fielder's choices carry their runs correctly. The whole gap was
+  // home runs, where the field counts the runners and omits the batter. runsOnPlay() now
+  // accounts for that, so the badges below are right.
+  //
+  // The line score stays the source for the half-inning total anyway, because it is the
+  // number printed in the box score directly above and the two must not disagree.
   const groups = useMemo(() => {
     const scored = (inning: number, half: string) =>
       (half === 'top' ? game.away_line : game.home_line)?.find(c => c.inning === inning)?.runs ?? 0
@@ -475,9 +480,9 @@ function PlayByPlay({ plays, teams, game }: { plays: WpblGamePlay[]; teams: Map<
                             <Box component="span" sx={{ fontWeight: 700 }}>{shortName(parsed.who)} </Box>
                           )}
                           {parsed.what}
-                          {p.runs_scored > 0 && (
+                          {runsOnPlay(p) > 0 && (
                             <Box component="span" sx={{ ml: 0.5, fontSize: '0.66rem', fontWeight: 800, color: '#16a34a' }}>
-                              +{p.runs_scored}
+                              +{runsOnPlay(p)}
                             </Box>
                           )}
                         </Typography>
