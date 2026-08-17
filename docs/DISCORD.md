@@ -1,6 +1,6 @@
 # Discord integrations (WPBL)
 
-Four things **post** to the WPBL fan server, all through **webhooks**: send-only HTTP, no bot
+Five things **post** to the WPBL fan server, all through **webhooks**: send-only HTTP, no bot
 token, no gateway, nothing to keep running:
 
 | What | Channel | Written by | Behaviour |
@@ -8,7 +8,8 @@ token, no gateway, nothing to keep running:
 | **Watch-party board** | wherever you point its webhook | [`scripts/update-wpbl-discord-board.mjs`](../scripts/update-wpbl-discord-board.mjs) | One message, edited forever. Always shows the next few games with live countdowns. |
 | **Box scores** | a different channel | [`supabase/functions/wpbl-ingest/announce-final.ts`](../supabase/functions/wpbl-ingest/announce-final.ts) and [`scripts/post-wpbl-discord-recaps.ts`](../scripts/post-wpbl-discord-recaps.ts) | One message per finished game, edited in place if the stats are corrected later. |
 | **Highlight reels** | the highlights channel | [`scripts/post-wpbl-discord-highlights.mjs`](../scripts/post-wpbl-discord-highlights.mjs) | One message per YouTube highlight reel, posted once and never touched again. |
-| **Shop restock alerts** | a private channel | [`scripts/watch-wpbl-restock.mjs`](../scripts/watch-wpbl-restock.mjs) | One message when a watched item on the league's shop comes back in stock. Silent otherwise. |
+| **Shop feed** | a shop channel | [`scripts/watch-wpbl-restock.mjs`](../scripts/watch-wpbl-restock.mjs) | New merch and restocks across the whole store, batched into one message per run. Never pings. |
+| **Shortlist alerts** | a private channel | the same script | A loud `@everyone` when something on the `wpbl_restock_watch` shortlist comes back. |
 
 A webhook is bound to one channel, so each of these needs its **own** webhook URL.
 
@@ -71,52 +72,64 @@ who came to watch. Both are one edit away in `buildMessage` if you disagree.
 **It doesn't backfill** either: the first run against an empty table posts only the newest
 reel and records the rest as handled.
 
-### The shop restock alerts
+### The shop feed and the shortlist alerts
 
-`wpbl-restock-watch` runs every 10 minutes and asks the league's Shopify store whether a
-watched item is back. It exists because the giveaway winner chose a cap that was out of stock
-and the shop has no back-in-stock notification of its own.
+`wpbl-restock-watch` runs every 10 minutes and mirrors the league's Shopify catalogue, then
+announces what changed. It started as one question, since the giveaway winner chose a cap that
+was out of stock and the shop has no back-in-stock notification of its own; asking that about
+the whole store is the same job with a snapshot behind it.
+
+**Two audiences, two volumes.** 241 of 271 variants are sold out, so a restock day could move
+a lot at once, and a channel that pings on all of it gets muted before it is ever useful.
+
+| Channel | Secret | Gets | Pings |
+|---|---|---|---|
+| Shop | `DISCORD_SHOP_WEBHOOK_URL` | Everything: new merch and every restock, batched into one message per run | Never |
+| Private | `DISCORD_RESTOCK_WEBHOOK_URL` | Only products on the `wpbl_restock_watch` shortlist | `@everyone` |
+
+A shortlisted product restocking produces both. They are different channels for different
+audiences, so that is a complete shop feed plus a targeted alert, not a duplicate. If
+`DISCORD_SHOP_WEBHOOK_URL` is unset the feed falls back to the private channel, so the job
+degrades to one channel rather than losing the feed.
 
 **It announces a change, not a state.** At ten-minute intervals "this is in stock" stays true
-for as long as the item sits there, so posting that every run would be 144 messages a day.
-The job posts on the edge from sold out to in stock and records what it saw in
-`wpbl_restock_watch.last_available`. When the item sells out again the row re-arms, so a
-second restock is announced like the first.
+for as long as the item sits there, so the snapshot in `wpbl_shop_products` /
+`wpbl_shop_variants` is what stops 144 messages a day. A variant going false to true is a
+restock; a product id never seen before is new merch. When something sells out again it
+re-arms, so the next restock is announced like the first.
 
-**It never buys.** It notifies a human and stops. It does not cart and does not touch
-checkout: the store's own `robots.txt` asks that checkout stay human, and buying on someone's
-behalf the instant a page changes is not a thing to automate. The message says as much, so
-nobody assumes the prize is already secured.
+**The first run announces nothing.** An empty snapshot would otherwise read as 78 brand-new
+products in one enormous message. Seeding records the catalogue and stays quiet; real changes
+are announced from the second run. The one exception is the shortlist: a shortlisted item that
+is available during seeding is still shouted about, because missing that is the failure the
+job exists to prevent.
 
-**How it asks.** Shopify serves `/products/<handle>.js` on every storefront: about 3 KB of
-JSON with an explicit `available` per variant. `robots.txt` permits it (only `/cart.js` and
-the checkout paths are disallowed) and there is no `Crawl-delay`. That beats scraping the
-rendered page, which is bigger, slower, and moves whenever the theme does. The watcher sends
-an honest `User-Agent` naming the site rather than impersonating a browser, so the store can
-identify and block it if they would rather it stopped.
+**It never buys.** It notifies humans and stops: no cart, no checkout. The store's own
+`robots.txt` asks that checkout stay human, and buying on someone's behalf the instant a page
+changes is not a thing to automate.
 
-**The restock alert pings `@everyone`; the outage notice does not.** A restock is news for
-everyone in the channel. "The watcher has been blind for six hours" is an operational problem
-for whoever maintains it, and blasting the channel about it once a day is how a useful warning
-becomes noise. Setting `DISCORD_RESTOCK_MENTION` narrows the first and is the only thing that
-gives the second a mention at all.
+**How it asks.** Shopify serves `/products.json` on every storefront: the published catalogue,
+78 products in one page here, with an explicit `available` per variant. `robots.txt` permits it
+(only `/cart.js` and the checkout paths are disallowed) and sets no `Crawl-delay`. The watcher
+sends an honest `User-Agent` naming the site rather than impersonating a browser, so the store
+can identify and block it if they would rather it stopped.
 
 **The failure that matters is silence**, because a watcher with nothing to say looks exactly
-like a watcher that has died. If the store stops answering for six hours the job says so in
-the same channel, once a day, until it recovers. That does not cover the job never starting
-at all: see the limitations at the end of this doc.
+like a watcher that has died. Every run is recorded in `wpbl_shop_watch_runs`, and if the store
+stops answering for six hours the job says so in the shop channel. That does not cover the job
+never starting at all: see the limitations at the end of this doc.
 
-What is watched lives in `wpbl_restock_watch`, not in the script, so adding an item is an
-insert rather than a commit:
+The shortlist is a table, so adding something worth shouting about is an insert:
 
 ```sql
 insert into wpbl_restock_watch (product_handle, variant_id, label, note)
 values ('some-product-handle', null, 'Friendly name', 'Why we care');
 ```
 
-`variant_id` null means "tell me when any variant is available", which is what you want for a
+`variant_id` null means "shout when any variant is available", which is what you want for a
 product with sizes. Pin it when the product has one variant, or when a future second colourway
-should not read as this one coming back.
+should not read as this one coming back. Everything else in the store is covered by the shop
+feed without needing a row at all.
 
 ### The `/player` command
 
@@ -200,7 +213,7 @@ run the workflow manually with **dry-run**, which also proves the secret resolve
 
 Then run it for real once (workflow → **post**), and leave the schedule to it.
 
-### 5. The restock watcher, if you want one
+### 5. The shop watcher, if you want one
 
 It is independent of everything above: its own channel, its own webhook, its own secret.
 
@@ -209,13 +222,20 @@ It is independent of everything above: its own channel, its own webhook, its own
    regardless of who can read the channel, so a private channel changes nothing about the job.
 2. **Channel Settings → Integrations → Webhooks → New Webhook**, copy the URL.
 3. Settings → Secrets and variables → Actions → `DISCORD_RESTOCK_WEBHOOK_URL`.
+   Then repeat 1 and 2 for a second, ordinary channel and add its URL as
+   `DISCORD_SHOP_WEBHOOK_URL`. That one carries the whole-store feed and never pings, so it
+   does not want to be the private channel. Skip it and the feed falls back to the private
+   channel, which works but mixes a lot of routine traffic in with the alerts.
 4. The restock alert pings **`@everyone`** by default, so the channel is actually notified
    rather than the message waiting to be noticed. In a private channel that reaches exactly
    the people who can see it. To narrow it, set `DISCORD_RESTOCK_MENTION` to a user
    (`<@123456789012345678>`) or a role (`<@&123456789012345678>`); set it to an empty value
    to ping nobody. Get an id with Developer Mode on, then right-click → *Copy ID*.
-5. Prove the webhook resolves in CI before trusting it: run **WPBL Shop Restock Watch**
-   manually with **test_post** ticked. That posts one sample message and checks nothing.
+5. Prove the webhooks resolve in CI before trusting them: run **WPBL Shop Restock Watch**
+   manually with **test_post** ticked. That posts a sample to each configured channel and
+   checks no stock.
+6. Then let it run once normally. That first real run **seeds** the catalogue and announces
+   nothing; changes are announced from the run after.
 
 Until `DISCORD_RESTOCK_WEBHOOK_URL` is set the scheduled job prints a line saying it has
 nowhere to announce and exits 0. That is on purpose: the workflow ships before the secret
@@ -223,12 +243,17 @@ does, and a job that fails every ten minutes until someone pastes a URL is a job
 has learned to ignore by the time it matters.
 
 ```bash
-npm run restock-watch -- --status     # what is being watched, and what it last saw
+npm run restock-watch -- --status     # snapshot size, the shortlist, last successful run
 npm run restock-watch -- --dry-run    # check the store now; writes nothing, posts nothing
+npm run restock-watch -- --reseed     # re-record the catalogue silently, announce nothing
 ```
 
-Both need `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, since `wpbl_restock_watch` is RLS'd
-with no policies and no other key can see it at all.
+All of these need `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, since the shop tables are
+RLS'd with no policies and no other key can see them at all.
+
+Use `--reseed` after a deliberate change that would otherwise produce a flood: if the store
+rebuilds its catalogue and every product gets a new id, a normal run would announce all 78 as
+new merch. Reseed, confirm `--status` looks right, and let the schedule resume.
 
 ## Running it by hand
 
@@ -401,7 +426,7 @@ which bundles each function exactly as Cloudflare will and fails loudly instead 
 - **A reel only posts within four days of upload** (`WINDOW_DAYS` in the poster), so one
   that slips through can't surface a fortnight later looking like news. `--seed` ignores
   the window on purpose.
-- **The restock watcher can be killed by GitHub, silently.** Scheduled workflows are disabled
+- **The shop watcher can be killed by GitHub, silently.** Scheduled workflows are disabled
   automatically after 60 days without repository activity. For a watch that may run for weeks
   waiting on a restock, that is the likeliest way it dies, and the job's own outage notice
   cannot cover it: a job that never starts cannot report on itself. If the wait gets long,
@@ -412,9 +437,18 @@ which bundles each function exactly as Cloudflare will and fails loudly instead 
 - **A restock is announced, not secured.** Ten-minute polling plus GitHub's best-effort cron
   means the message can arrive twenty minutes after the item returns. For a popular drop that
   may be too late, and nothing here changes that: buying is a human step, on purpose.
-- **A rebuilt product breaks a pinned watch loudly, on purpose.** If the pinned `variant_id`
-  vanishes from the product the job throws rather than reading it as "still sold out", which
-  would wait politely forever. Update the row in `wpbl_restock_watch`.
+- **A shortlisted product that leaves the catalogue is logged, not announced.** The run prints
+  a warning and carries on rather than throwing, since one stale shortlist row should not stop
+  the whole store being watched. Check the run log if a shortlisted item goes quiet for a
+  suspiciously long time, and update `wpbl_restock_watch`.
+- **An empty catalogue is treated as an error, not a mass delisting.** A 200 with no products
+  is the store having a bad day. Accepting it would mark all 78 products delisted and then
+  announce them all back as new the moment it recovered.
+- **A drop-day message is truncated at 12 items per section**, with a count of the rest, since
+  Discord caps a message at 2000 characters and nobody reads sixty bullet points anyway.
+- **Prices come from `/products.json` as decimal strings** (`"39.99"`), unlike the per-product
+  `/products/<handle>.js` endpoint, which gives integer cents. The two are easy to confuse and
+  the symptom is a $40 cap posted at $0.40.
 - **What counts as a highlight** is `classify()` in
   [`scripts/sync-wpbl-youtube.mjs`](../scripts/sync-wpbl-youtube.mjs): a title containing
   "highlight(s)" *and* a matchup separator (`@` or `vs.`). Single-play clips ("Kelsie

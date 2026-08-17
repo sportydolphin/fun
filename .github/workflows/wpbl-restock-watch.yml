@@ -1,10 +1,17 @@
 name: WPBL Shop Restock Watch
 
-# Announces in Discord when a sold-out item on the league's shop comes back.
+# Watches the league's whole shop and announces new merch and restocks in Discord.
 #
-# The giveaway winner picked a cap that is out of stock, and the shop has no back-in-stock
-# notification of its own. What is watched lives in `wpbl_restock_watch` rather than here, so
-# adding an item is an insert and does not need a commit.
+# It began as one question (the giveaway winner picked a cap that was out of stock, and the
+# shop has no back-in-stock notification of its own) and grew to the catalogue, because asking
+# that about 271 variants is the same job with a snapshot behind it.
+#
+# TWO VOLUMES, ON PURPOSE. 241 of 271 variants are sold out, so a restock day could move a lot
+# at once and a channel that pings on all of it gets muted before it is ever useful:
+#   - DISCORD_SHOP_WEBHOOK_URL     everything, quietly, batched into one message per run.
+#   - DISCORD_RESTOCK_WEBHOOK_URL  a loud @everyone alert, only for the wpbl_restock_watch
+#                                  shortlist. That is the giveaway cap.
+# The shortlist lives in the database rather than here, so adding an item is an insert.
 #
 # It notifies a human and stops there. It never carts and never checks out: the store's own
 # robots.txt asks that checkout stay human, and this would be the wrong thing to automate on
@@ -19,8 +26,11 @@ name: WPBL Shop Restock Watch
 #
 # The job does not fail on a store outage. A 503 or a network wobble is retried by the next
 # run ten minutes later, and a red X every time the shop hiccups is a job nobody reads. If it
-# stays blind for six hours the script says so in the same Discord channel, once. It fails
-# only on things a human must fix: missing secrets, or a variant id that no longer exists.
+# stays blind for six hours the script says so in the shop channel, once, and every run is
+# recorded in wpbl_shop_watch_runs so a dead watcher can be told from a quiet store.
+#
+# THE FIRST RUN ANNOUNCES NOTHING. An empty snapshot would read as 78 brand-new products. It
+# records the catalogue and stays quiet; real changes are announced from the second run.
 
 on:
   schedule:
@@ -28,7 +38,11 @@ on:
   workflow_dispatch:
     inputs:
       test_post:
-        description: 'Post a test message to prove the webhook works, then stop'
+        description: 'Post a test message to each webhook to prove they work, then stop'
+        type: boolean
+        default: false
+      reseed:
+        description: 'Re-record the catalogue silently (announce nothing). Use after a deliberate change.'
         type: boolean
         default: false
 
@@ -60,7 +74,10 @@ jobs:
           # wpbl_restock_watch is RLS'd with no policies, so only the service role can see it.
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DISCORD_RESTOCK_WEBHOOK_URL: ${{ secrets.DISCORD_RESTOCK_WEBHOOK_URL }}
+          # The quiet shop feed. Falls back to the restock webhook when unset, so the job
+          # degrades to one channel rather than losing the feed entirely.
+          DISCORD_SHOP_WEBHOOK_URL: ${{ secrets.DISCORD_SHOP_WEBHOOK_URL }}
           # Optional. A user or role mention, e.g. "<@123456789012345678>", so the alert
           # reaches a phone instead of waiting to be noticed.
           DISCORD_RESTOCK_MENTION: ${{ secrets.DISCORD_RESTOCK_MENTION }}
-        run: node scripts/watch-wpbl-restock.mjs ${{ inputs.test_post && '--test-post' || '' }}
+        run: node scripts/watch-wpbl-restock.mjs ${{ inputs.test_post && '--test-post' || '' }} ${{ inputs.reseed && '--reseed' || '' }}
