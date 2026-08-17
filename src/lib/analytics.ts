@@ -23,6 +23,9 @@ export const EVENTS = {
   WPBL_GAME_REMINDER_OFF: 'wpbl_game_reminder_off', // turned a WPBL game reminder back off
   WPBL_TAB_VIEWED:        'wpbl_tab_viewed',        // switched WPBL tab — props carry {view, via, from}
   WPBL_PLAYER_OPENED:     'wpbl_player_opened',     // opened a WPBL player page
+  WPBL_FAVORITE_PROMPTED: 'wpbl_favorite_prompted', // the pick-your-team card was rendered
+  WPBL_FAVORITE_SET:      'wpbl_favorite_set',      // chose a team — props carry {teamId, from}
+  WPBL_FAVORITE_CLEARED:  'wpbl_favorite_cleared',  // chose "no favourite", or cleared an existing one
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the

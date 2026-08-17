@@ -79,6 +79,23 @@ export function wpblAccent(teamId: string | null | undefined, isDark: boolean): 
   return isDark ? c.dark : c.light
 }
 
+// Black or white, whichever actually reads on top of a solid fill of `hex`.
+//
+// Picks by measured contrast rather than a brightness eyeball: at 0.75rem the pill label is
+// "normal" text for WCAG, needing 4.5:1, and the four accents straddle the crossover. Boston
+// green and Heights blue take dark text (4.9-7.6:1, where white would be 4.3:1 and fail);
+// Firebells red takes white. Guessing one colour for all four would fail two of them.
+export function readableOn(hex: string): string {
+  const h = hex.replace('#', '')
+  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h
+  const n = parseInt(full, 16)
+  if (!Number.isFinite(n)) return '#ffffff'
+  const chan = (c: number) => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4) }
+  const L = 0.2126 * chan((n >> 16) & 255) + 0.7152 * chan((n >> 8) & 255) + 0.0722 * chan(n & 255)
+  // Contrast against white vs. against near-black; higher wins.
+  return (L + 0.05) / 0.05 >= 1.05 / (L + 0.05) ? '#0b0e14' : '#ffffff'
+}
+
 // Bundled logo asset for a team, or null (badge then falls back to the abbr).
 export function wpblLogo(teamId: string | null | undefined): string | null {
   if (!teamId) return null

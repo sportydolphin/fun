@@ -4,13 +4,14 @@
 // one design language — same menus, headers, and modal shell. Kept as its own copy
 // (rather than importing from src/mlb) so WPBL stays a self-contained, decoupled lazy
 // chunk and the MLB side is left untouched. Only the accent differs: these are keyed
-// to WPBL_ACCENT, so the league keeps its own color while the shape stays identical.
+// to the section accent, so the league keeps its own color while the shape stays identical.
 // If you restyle a primitive here, mirror the change in the MLB file (and vice versa).
 
 import React, { useEffect, useCallback, useRef, useState } from 'react'
 import { Box, Typography, useTheme, useMediaQuery } from '@mui/material'
 import type { Theme } from '@mui/material'
-import { WPBL_ACCENT, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
+import { wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, readableOn } from './constants'
+import { useWpblAccent, useWpblTeamId } from './accent'
 import { wpblPortrait } from './portraits'
 import type { WpblTeam } from './types'
 
@@ -93,7 +94,13 @@ export function useWpblName(mobileMaxLen = 12): (name: string) => string {
 // Card outline color — noticeably stronger than MUI's faint `divider` so the WPBL
 // cards (and the sub-cards nested inside them) read as crisply outlined in both light
 // and dark mode. Use for card container borders; keep `divider` for thin inner row rules.
-export const CARD_BORDER = (t: Theme) => t.palette.mode === 'dark' ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.34)'
+// Card hairline. Reads a CSS variable the section root sets from the favourite team, with
+// the neutral as the fallback — so a reader with no favourite (and every view outside the
+// WPBL section) gets exactly the old colour. A variable rather than a hook because this is
+// consumed at 28 call sites that all pass it straight to `borderColor`; none of them
+// concatenate it, which is the thing that ruled a variable out for the accent itself.
+export const CARD_BORDER = (t: Theme) =>
+  `var(--wpbl-card-border, ${t.palette.mode === 'dark' ? 'rgba(255,255,255,0.30)' : 'rgba(0,0,0,0.34)'})`
 
 // Is the app in dark mode? Used to pick foreground-safe team accents (see wpblAccent).
 export function useWpblDark(): boolean {
@@ -149,13 +156,20 @@ export function PlayerPortrait({ name, teamId, size = 40 }: { name: string; team
 
 // Pill segmented control — the section nav "menu". Mirrors MLB's SegControl, wrapped
 // in the same centered / mobile-horizontal-scroll container MlbStats uses for its tabs.
-export function SegNav({ options, value, onChange, accent = WPBL_ACCENT, mb = { xs: 0, sm: 3 } }: {
+export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 } }: {
   options: { value: string; label: string }[]
   value: string
   onChange: (v: string) => void
+  /** Override. Omitted, the bar takes the section accent — the reader's team, or league blue. */
   accent?: string
   mb?: number | { xs?: number; sm?: number }
 }) {
+  const sectionAccent = useWpblAccent()
+  accent = accent ?? sectionAccent
+  // The solid chip is the *favourite's* badge, not a redesign of the bar. Someone who
+  // declined a team keeps the original neutral chip with accent text — "skip and nothing
+  // changes" has to stay literally true, or the opt-out isn't one.
+  const filled = useWpblTeamId() != null
   // When the strip is wider than the screen (many tabs on mobile), keep the selected
   // pill in view: on every selection change — a tap or a swipe between tabs — scroll it
   // to the container's centre (clamped at the ends). We nudge only the strip's own
@@ -202,14 +216,15 @@ export function SegNav({ options, value, onChange, accent = WPBL_ACCENT, mb = { 
               whiteSpace: 'nowrap',
               transition: 'all 0.15s',
               userSelect: 'none',
-              // Raised neutral pill (iOS-style): the active tab is a surface-colored chip with
-              // a soft shadow and accent-colored text, rather than a solid accent fill. Reads as
-              // part of the page in both themes (the chip follows the surface color) and sits
-              // more quietly next to the rest of the UI than a bold color block.
-              bgcolor: value === opt.value ? 'background.paper' : 'transparent',
-              color: value === opt.value ? accent : 'text.secondary',
+              // With a favourite, the active tab is a solid team-colour chip — the bar is the
+              // first thing on the page, so it carries the identity. Label colour is measured
+              // per team (readableOn), not fixed: white would fail contrast on Boston green,
+              // Queens gold, and Heights blue. Without a favourite it stays the original
+              // raised neutral chip with accent text.
+              bgcolor: value === opt.value ? (filled ? accent : 'background.paper') : 'transparent',
+              color: value === opt.value ? (filled ? readableOn(accent) : accent) : 'text.secondary',
               fontWeight: value === opt.value ? 700 : 600,
-              boxShadow: value === opt.value ? '0 1px 3px rgba(0,0,0,0.20)' : 'none',
+              boxShadow: value === opt.value && !filled ? '0 1px 3px rgba(0,0,0,0.20)' : 'none',
               '&:hover': value !== opt.value ? { color: 'text.primary' } : {},
             }}
           >
@@ -273,11 +288,16 @@ export function SectionCard({ icon, title, subtitle, action, collapsed, onToggle
   children: React.ReactNode
 }) {
   const collapsible = !!onToggleCollapse
+  const accent = useWpblAccent()
   return (
     <Box sx={{
       borderRadius: 3, overflow: 'hidden',
       border: '1px solid', borderColor: CARD_BORDER,
       bgcolor: 'background.paper',
+      // A ~4% team wash over the surface colour, as a gradient layer rather than a mixed
+      // bgcolor so the theme's own paper colour still shows through underneath and light
+      // mode doesn't go muddy. Invisible on one card; the page reads warmer or cooler.
+      backgroundImage: `linear-gradient(${accent}0a, ${accent}0a)`,
     }}>
       {/* The whole header toggles — a thumb-sized target rather than a small chevron hitbox.
           `action` keeps its own click (e.g. "View all"), so it stops the event bubbling. */}
@@ -388,6 +408,7 @@ function unlockBodyScroll() {
 // here as a fallback rather than being retired as legacy.
 export function CopyLinkButton({ url, title = 'Copy link' }: { url: string; title?: string }) {
   const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const copyAccent = useWpblAccent()
 
   const copy = useCallback(async () => {
     const ok = await writeClipboard(url)
@@ -409,7 +430,7 @@ export function CopyLinkButton({ url, title = 'Copy link' }: { url: string; titl
         height: 26, px: 0.9, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
         // Confirmation is the accent, failure is the theme's error colour, and idle recedes
         // to match the close button beside it.
-        color: state === 'copied' ? WPBL_ACCENT : state === 'failed' ? 'error.main' : 'text.disabled',
+        color: state === 'copied' ? copyAccent : state === 'failed' ? 'error.main' : 'text.disabled',
         '&:hover': { bgcolor: 'action.hover', color: state === 'idle' ? 'text.primary' : undefined },
         transition: 'color 0.15s',
       }}

@@ -6,7 +6,7 @@ import {
 } from './api'
 import { aggregateTracking } from './tracking'
 import type { TrackingBoard, VeloLeader, SpinLeader, PitchHit, BattedBall } from './tracking'
-import { WPBL_ACCENT } from './constants'
+import { useWpblAccent } from './accent'
 import { SectionCard, PlayerPortrait, TeamBadge, CARD_BORDER, useWpblName } from './ui'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
@@ -121,7 +121,7 @@ export default function WpblTrackingView({ side, onOpenPlayer }: {
     return () => { cancelled = true }
   }, [])
 
-  const accent = WPBL_ACCENT
+  const accent = useWpblAccent()
   const { units } = useUnits()
   const bests = useMemo(() => {
     if (!board) return []

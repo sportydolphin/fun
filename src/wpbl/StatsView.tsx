@@ -5,7 +5,8 @@ import {
   fetchWpblAllPlayers, fetchWpblAllLines,
   getCachedWpblAllPlayers, getCachedWpblAllLines, wpblStatsCacheAgeMs,
 } from './api'
-import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
+import { outsToIp, wpblFullName } from './constants'
+import { useWpblAccent } from './accent'
 import { TeamBadge, CARD_BORDER, pressable, FOCUS_RING, useWpblName } from './ui'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, wpblQualifiers, fmtRate, fmtTwo,
@@ -176,9 +177,10 @@ export interface WpblStatsFocus {
 // bar, so a centred spinner in the content area is what the reader already sees while their
 // data loads — the switch reads as slow rather than broken.
 function SubViewFallback() {
+  const accent = useWpblAccent()
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-      <CircularProgress size={26} sx={{ color: WPBL_ACCENT }} />
+      <CircularProgress size={26} sx={{ color: accent }} />
     </Box>
   )
 }
@@ -215,6 +217,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
   const [source, setSource] = useState<Source>(seedAxes.source)
   const [mode, setMode] = useState<Mode>('players')
   const [teamId, setTeamId] = useState<string | null>(null)
+  const accent = useWpblAccent()
   // The 5 AB / 3 IP qualifier only defaults on once every team has played 2+ games;
   // before that it would hide nearly everyone, so the complete table shows by default.
   const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])
@@ -273,6 +276,17 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
         ? 100 * (t.obp / lgObp + t.slg / lgSlg - 1)
         : null
     const cols = [...HIT_COLS]
+    // Team rows only. Player LOB isn't reported by the feed, so on the player board this
+    // column would be a solid stripe of dashes pretending to be a stat.
+    if (mode === 'teams') {
+      cols.splice(cols.findIndex(c => c.key === 'g'), 0, {
+        key: 'lob', label: 'LOB',
+        value: t => t.lob,
+        // Never the default `String(v ?? 0)` — an unreported LOB must read as "unknown",
+        // not as "nobody was left on".
+        display: t => (t.lob == null ? '—' : String(t.lob)),
+      })
+    }
     const opsIdx = cols.findIndex(c => c.key === 'ops')
     cols.splice(opsIdx + 1, 0, {
       key: 'opsPlus', label: 'OPS+',
@@ -281,7 +295,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
       rate: true,
     })
     return cols
-  }, [lines.batting])
+  }, [lines.batting, mode])
 
   // ERA+ mirrors OPS+ for pitchers: league ERA over the pitcher's ERA, ×100 (100 = league
   // average, higher is better — note it inverts ERA, so unlike ERA it sorts descending). No
@@ -330,6 +344,18 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
     else { setSortKey(c.key); setSortAsc(c.lowerBetter ?? false) }
   }
 
+  // Team LOB, keyed `${gameId}|${teamId}`. It has to come off the game row: the feed sends a
+  // per-player `lob` but never fills it in, and summing the players wouldn't give the team
+  // total anyway (see the note in sumBatting).
+  const lobByGameTeam = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const g of games) {
+      if (g.home_lob != null) m.set(`${g.id}|${g.home_team_id}`, g.home_lob)
+      if (g.away_lob != null) m.set(`${g.id}|${g.away_team_id}`, g.away_lob)
+    }
+    return m
+  }, [games])
+
   const rows = useMemo<Row[]>(() => {
     let built: Row[]
     if (mode === 'teams') {
@@ -340,7 +366,20 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
           ? lines.batting.filter(l => l.team_id === team.id)
           : lines.pitching.filter(l => l.team_id === team.id)
         const totals = side === 'hitting' ? sumBatting(src as WpblBattingLine[]) : sumPitching(src as WpblPitchingLine[])
-        totals.g = new Set(src.map(l => l.game_id)).size
+        const gameIds = new Set(src.map(l => l.game_id))
+        totals.g = gameIds.size
+        if (side === 'hitting') {
+          // Summed over exactly the games this team has box-score lines for, so LOB covers
+          // the same games as the rest of the row rather than drifting ahead of it when a
+          // game's score lands before its boxscore does. Left null when none of them
+          // reported one, so the cell dashes instead of claiming a tidy zero.
+          let lob = 0, any = false
+          for (const gid of gameIds) {
+            const v = lobByGameTeam.get(`${gid}|${team.id}`)
+            if (v != null) { lob += v; any = true }
+          }
+          ;(totals as WpblBattingTotals).lob = any ? lob : null
+        }
         return {
           key: team.id, team, label: wpblFullName(team), shortLabel: team.name,
           totals, qualified: true,
@@ -377,7 +416,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
       if (av !== bv) return sortAsc ? av - bv : bv - av
       return sample(b) - sample(a)
     })
-  }, [mode, side, players, lines, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, shortName])
+  }, [mode, side, players, lines, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, shortName, lobByGameTeam])
 
   const teamChips = [...teams].sort((a, b) => a.abbr.localeCompare(b.abbr))
 
@@ -474,7 +513,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
             return (
               <Box key={sd} onClick={() => switchSide(sd)} sx={{
                 pb: 1, mb: '-1px', cursor: 'pointer', userSelect: 'none',
-                borderBottom: '2px solid', borderColor: active ? WPBL_ACCENT : 'transparent',
+                borderBottom: '2px solid', borderColor: active ? accent : 'transparent',
                 color: active ? 'text.primary' : 'text.secondary',
                 fontSize: '0.98rem', fontWeight: active ? 800 : 600, transition: 'color 0.15s',
                 '&:hover': { color: 'text.primary' },
@@ -571,8 +610,8 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
                     <Box component="th" data-swipe-handle="" onClick={() => clickHeader(activeCol)} sx={{
                       ...thBase, position: 'sticky', left: nameW - 2, zIndex: 5, touchAction: 'pan-y',
                       textAlign: 'center', cursor: 'pointer', minWidth: 50, px: 0.5,
-                      color: WPBL_ACCENT,
-                      backgroundImage: `linear-gradient(${WPBL_ACCENT}24, ${WPBL_ACCENT}24)`,
+                      color: accent,
+                      backgroundImage: `linear-gradient(${accent}24, ${accent}24)`,
                       borderRight: '1px solid', borderColor: 'divider',
                       boxShadow: scrollX.atStart ? 'none' : FROZEN_SHADOW,
                     }}>
@@ -589,14 +628,14 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
                         data-active={active ? 'true' : undefined}
                         sx={{
                           ...thBase, textAlign: 'center', cursor: 'pointer', minWidth: 38,
-                          color: active ? WPBL_ACCENT : 'text.disabled',
+                          color: active ? accent : 'text.disabled',
                           // The sorted column's tint rides on backgroundImage over the opaque
                           // paper thBase already sets. As a bgcolor it *replaced* that paper
                           // with a 14%-alpha accent, so this one header cell went see-through
                           // and the rows scrolling under the sticky header showed through it.
                           // Same layering the frozen column beside it already uses.
-                          backgroundImage: active ? `linear-gradient(${WPBL_ACCENT}24, ${WPBL_ACCENT}24)` : undefined,
-                          '&:hover': { color: WPBL_ACCENT },
+                          backgroundImage: active ? `linear-gradient(${accent}24, ${accent}24)` : undefined,
+                          '&:hover': { color: accent },
                         }}>
                         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.2 }}>
                           {c.label}
@@ -621,7 +660,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
                         // scrolling beneath it showed through.
                         '@media (hover: hover)': {
                           '&:hover > td, &:hover > th': r.onClick
-                            ? { backgroundImage: `linear-gradient(${WPBL_ACCENT}0e, ${WPBL_ACCENT}0e)` }
+                            ? { backgroundImage: `linear-gradient(${accent}0e, ${accent}0e)` }
                             : undefined,
                         },
                       }}>
@@ -653,9 +692,9 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
                           position: 'sticky', left: nameW - 2, zIndex: 3, touchAction: 'pan-y',
                           textAlign: 'center', py: 0.5, px: 0.5,
                           borderTop: '1px solid', borderRight: '1px solid', borderColor: 'divider',
-                          fontSize: '0.84rem', fontWeight: 800, color: WPBL_ACCENT,
+                          fontSize: '0.84rem', fontWeight: 800, color: accent,
                           backgroundColor: 'background.paper',
-                          backgroundImage: `linear-gradient(${WPBL_ACCENT}12, ${WPBL_ACCENT}12)`,
+                          backgroundImage: `linear-gradient(${accent}12, ${accent}12)`,
                           boxShadow: scrollX.atStart ? 'none' : FROZEN_SHADOW,
                           whiteSpace: 'nowrap',
                         }}>
@@ -670,10 +709,10 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
                           <Box component="td" key={c.key} onClick={e => { e.stopPropagation(); clickHeader(c) }} sx={{
                             textAlign: 'center', py: 0.5, px: 0.5, borderTop: '1px solid', borderColor: 'divider',
                             fontSize: active ? '0.84rem' : '0.8rem', fontWeight: active ? 800 : 500,
-                            color: active ? WPBL_ACCENT : 'text.primary',
+                            color: active ? accent : 'text.primary',
                             // Layered like the header, so a hovered row and the sorted column
                             // compose instead of one of them winning outright.
-                            backgroundImage: active ? `linear-gradient(${WPBL_ACCENT}12, ${WPBL_ACCENT}12)` : undefined,
+                            backgroundImage: active ? `linear-gradient(${accent}12, ${accent}12)` : undefined,
                             whiteSpace: 'nowrap',
                           }}>
                             {txt}
@@ -710,7 +749,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
           display: 'flex', alignItems: 'center', gap: 1.25, mt: 1.5, px: 1.5, py: 1.25,
           border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2,
           cursor: 'pointer', userSelect: 'none', transition: 'border-color 0.15s, background-color 0.15s',
-          '&:hover': { borderColor: WPBL_ACCENT, bgcolor: `${WPBL_ACCENT}0a` },
+          '&:hover': { borderColor: accent, bgcolor: `${accent}0a` },
           ...fullBleedSx,
         }}>
           <Box sx={{ fontSize: '1.1rem', lineHeight: 1, flexShrink: 0 }}>📈</Box>
@@ -729,6 +768,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
 
 // Small pill used for the team filter + qualified toggle.
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  const accent = useWpblAccent()
   return (
     <Box {...pressable(onClick)} aria-pressed={active} sx={{
       ...FOCUS_RING,
@@ -736,10 +776,10 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
       flexShrink: 0, whiteSpace: 'nowrap',
       px: 1, py: 0.4, borderRadius: 999, fontSize: '0.74rem', fontWeight: 700,
       border: '1px solid', transition: 'all 0.15s',
-      borderColor: active ? WPBL_ACCENT : CARD_BORDER,
-      color: active ? WPBL_ACCENT : 'text.secondary',
-      bgcolor: active ? `${WPBL_ACCENT}12` : 'transparent',
-      '&:hover': { borderColor: WPBL_ACCENT },
+      borderColor: active ? accent : CARD_BORDER,
+      color: active ? accent : 'text.secondary',
+      bgcolor: active ? `${accent}12` : 'transparent',
+      '&:hover': { borderColor: accent },
     }}>
       {children}
     </Box>

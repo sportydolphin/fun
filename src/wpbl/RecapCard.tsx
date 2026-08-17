@@ -4,7 +4,8 @@ import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine,
 import { buildRecap, leagueRecapContext, type GameRecap, type RecapStar } from './derive/recap'
 import { fetchWpblGameLines, fetchWpblGameRecapPlays } from './api'
 import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, wpblNameStages } from './ui'
-import { WPBL_ACCENT, relativeDayLabel, wpblFullName } from './constants'
+import { relativeDayLabel, wpblFullName } from './constants'
+import { useWpblAccent } from './accent'
 
 const MEDAL = ['🥇', '🥈', '🥉']
 
@@ -167,6 +168,7 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
   games?: WpblGame[]   // full schedule, so the recap verbs calibrate to the league's run environment
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
+  const accent = useWpblAccent()
   const nameOf = useMemo(() => (id: string) => names.get(id)?.name ?? '—', [names])
   const ctx = useMemo(() => leagueRecapContext(games), [games])
   const recap = useMemo(() => buildRecap(game, teams, batting, pitching, plays, nameOf, ctx),
@@ -218,7 +220,7 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
           {recap.decisions.map(d => (
             <Box key={d.key}>
-              <Typography component="span" sx={{ fontSize: '0.72rem', fontWeight: 800, color: d.key === 'L' ? 'text.disabled' : WPBL_ACCENT }}>{d.key}</Typography>
+              <Typography component="span" sx={{ fontSize: '0.72rem', fontWeight: 800, color: d.key === 'L' ? 'text.disabled' : accent }}>{d.key}</Typography>
               <Typography component="span" sx={{ fontSize: '0.78rem', fontWeight: 600, ml: 0.5 }}>{d.name}</Typography>
               <Typography component="span" sx={{ fontSize: '0.72rem', color: 'text.secondary', ml: 0.5 }}>{d.statline}</Typography>
             </Box>
@@ -245,6 +247,7 @@ export function LastGameCard({ games, teams, players, onOpenGame }: {
   players: WpblPlayer[]
   onOpenGame: (g: WpblGame) => void
 }) {
+  const accent = useWpblAccent()
   const game = useMemo(() => latestFinal(games), [games])
   const [data, setData] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[]; plays: WpblRecapPlay[] } | null>(null)
 
@@ -284,7 +287,7 @@ export function LastGameCard({ games, teams, players, onOpenGame }: {
       title="Last Game"
       subtitle={dateLabel}
       action={
-        <Typography onClick={() => onOpenGame(game)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
+        <Typography onClick={() => onOpenGame(game)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: accent, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
           Full recap
         </Typography>
       }

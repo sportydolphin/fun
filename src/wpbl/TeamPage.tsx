@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblRoster, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, computeStandings } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
@@ -8,6 +8,8 @@ import {
   type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import { outsToIp } from './constants'
+import { track, EVENTS } from '../lib/analytics'
+import { useWpblFavoriteTeam } from './favoriteTeam'
 import LineupHistory from './LineupHistory'
 import PitchingUsage from './PitchingUsage'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblLineupHistoryRow, WpblPitchingUsageRow } from './types'
@@ -175,6 +177,19 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onOpe
   const [usage, setUsage] = useState<WpblPitchingUsageRow[]>([])
   const [scheduleOpen, setScheduleOpen] = useState(false)
 
+  const teamIds = useMemo(() => new Set(teams.map(t => t.id)), [teams])
+  const { favoriteTeamId, setFavorite } = useWpblFavoriteTeam(teamIds)
+  const isFavorite = favoriteTeamId === team.id
+  const toggleFavorite = useCallback(() => {
+    if (isFavorite) {
+      setFavorite(null)
+      track(EVENTS.WPBL_FAVORITE_CLEARED, { from: 'team_page' })
+    } else {
+      setFavorite(team.id)
+      track(EVENTS.WPBL_FAVORITE_SET, { teamId: team.id, from: 'team_page' })
+    }
+  }, [isFavorite, setFavorite, team.id])
+
   useEffect(() => {
     let cancelled = false
     setRoster(null); setLines(null)
@@ -324,6 +339,28 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onOpe
         <Box sx={{ minWidth: 0 }}>
           <Typography sx={{ fontSize: '1.25rem', fontWeight: 900, lineHeight: 1.1 }}>{wpblFullName(team)}</Typography>
           <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{recordText}</Typography>
+        </Box>
+        {/* The way back in. The Home prompt is one-shot by design, so without a control here
+            a reader who skipped it — or who wants to switch — would have no way to set a
+            team at all. Toggling it off is the same control, so "no favourite" stays
+            reachable rather than being a one-time door that closes behind you. */}
+        <Box
+          {...pressable(toggleFavorite)}
+          aria-pressed={isFavorite}
+          aria-label={isFavorite ? `Remove ${wpblFullName(team)} as your team` : `Set ${wpblFullName(team)} as your team`}
+          title={isFavorite ? 'Your team — tap to remove' : 'Set as my team'}
+          sx={{
+            ...FOCUS_RING, ml: 'auto', flexShrink: 0, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 0.5,
+            px: 1.1, py: 0.55, borderRadius: 999,
+            border: '1.5px solid', borderColor: isFavorite ? accent : 'divider',
+            bgcolor: isFavorite ? `${accent}1f` : 'background.paper',
+            color: isFavorite ? accent : 'text.secondary',
+            fontSize: '0.74rem', fontWeight: 800, whiteSpace: 'nowrap',
+          }}
+        >
+          <Box component="span" sx={{ fontSize: '0.85rem', lineHeight: 1 }}>{isFavorite ? '★' : '☆'}</Box>
+          {isFavorite ? 'My team' : 'Set as my team'}
         </Box>
       </Box>
 

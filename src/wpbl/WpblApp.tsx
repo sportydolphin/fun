@@ -4,8 +4,9 @@ import {
   fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings,
   fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, fetchWpblVideos,
 } from './api'
-import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
+import { wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
 import { wpblPortrait } from './portraits'
+import { WpblAccentProvider, useWpblAccent, useWpblTeamId } from './accent'
 import { SegNav, SectionLabel, TeamBadge, pressable, FOCUS_RING, useWpblDark, CARD_BORDER } from './ui'
 import { useSearchBridge, updateSearchBridge, setSearchQuery } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
@@ -27,17 +28,41 @@ import { useExperiments } from '../ExperimentsContext'
 const GameDetailModal = lazy(() => import('./GameDetail'))
 const PlayerDetailModal = lazy(() => import('./PlayerDetail'))
 
+// Section-wide surface theming: the card hairline (published as a CSS variable that
+// CARD_BORDER reads, so all 28 card call sites pick it up without being touched) and a very
+// faint full-section wash.
+//
+// Both are pinned at low alpha on purpose. The accent already carries the identity in text
+// and controls; these exist to stop the section looking like the default one with a couple
+// of coloured words in it. Past roughly 6% the wash starts fighting the cards for contrast,
+// and light mode goes muddy well before dark mode does.
+function WpblSectionSurface({ children }: { children: ReactNode }) {
+  const accent = useWpblAccent()
+  const teamId = useWpblTeamId()
+  return (
+    <Box sx={{
+      // Unset with no favourite, so CARD_BORDER falls through to its neutral default and
+      // the section renders exactly as it did before this feature existed.
+      ...(teamId ? { '--wpbl-card-border': `${accent}66` } : null),
+      ...(teamId ? { backgroundImage: `linear-gradient(${accent}08, ${accent}08)` } : null),
+    }}>
+      {children}
+    </Box>
+  )
+}
+
 // Shown while a modal's chunk loads. A tap should visibly do something immediately, so this
 // paints the scrim the modal itself is about to paint — the panel then fills in over it,
 // rather than the tap appearing to have missed.
 function ModalChunkFallback() {
+  const accent = useWpblAccent()
   return (
     <Box sx={{
       position: 'fixed', inset: 0, zIndex: 1300,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       bgcolor: 'rgba(0,0,0,0.5)',
     }}>
-      <CircularProgress size={28} sx={{ color: WPBL_ACCENT }} />
+      <CircularProgress size={28} sx={{ color: accent }} />
     </Box>
   )
 }
@@ -97,6 +122,7 @@ function ScheduleView({ teams, games, onOpenGame }: {
 }) {
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const isDark = useWpblDark()
+  const accent = useWpblAccent()
   // Season-to-date record per team, so upcoming games can show each side's W-L.
   const recordById = useMemo(() => {
     const m = new Map<string, string>()
@@ -224,7 +250,7 @@ function ScheduleView({ teams, games, onOpenGame }: {
                 )})}
               </Box>
               <Box sx={{ flexShrink: 0, textAlign: 'right', minWidth: 58, whiteSpace: 'nowrap' }}>
-                <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: live ? '#ef4444' : final ? 'text.secondary' : WPBL_ACCENT }}>
+                <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: live ? '#ef4444' : final ? 'text.secondary' : accent }}>
                   {live ? '● Live' : final ? `Final${g.innings && g.innings !== 7 ? `/${g.innings}` : ''}` : formatGameTime(g.game_date, g.start_time) || 'TBD'}
                 </Typography>
               </Box>
@@ -747,10 +773,17 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     }
   }, [liveGame?.id])
 
+  // Every accent in the section resolves through this — the league blue until the reader
+  // picks a team, then theirs. Wraps the whole subtree (portaled modals included; React
+  // context crosses portals) so nothing is left on the old colour.
+  const accentTeamIds = useMemo(() => new Set(teams.map(t => t.id)), [teams])
+
+  // Cap + center on wide screens (site convention); full width on mobile.
+  // On mobile, pull up to trim most of the app's top gutter (p:2) above the pill nav — the
+  // toolbar already sits right above it, so the extra gap just reads as dead space at rest.
   return (
-    // Cap + center on wide screens (site convention); full width on mobile.
-    // On mobile, pull up to trim most of the app's top gutter (p:2) above the pill nav — the
-    // toolbar already sits right above it, so the extra gap just reads as dead space at rest.
+   <WpblAccentProvider teamIds={accentTeamIds}>
+    <WpblSectionSurface>
     <Box sx={{ maxWidth: 720, mx: 'auto', mt: { xs: -1.5, sm: 0 } }}>
       {/* Section nav — shared SegControl pill bar, matching the MLB tab bar. */}
       {/* Tab bar stays put on mobile (sticky under the toolbar) so it doesn't scroll away
@@ -870,5 +903,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         </Suspense>
       )}
     </Box>
+    </WpblSectionSurface>
+   </WpblAccentProvider>
   )
 }

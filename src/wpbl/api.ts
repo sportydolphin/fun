@@ -220,18 +220,45 @@ export function fetchWpblAllPlays(): Promise<WpblFirstsPlay[]> {
   })
 }
 
-// Every box-score line in the league — for computing season league leaders. Cheap for
-// a four-team league; returns empty (no leaders) until games start being entered.
+/**
+ * Read a whole table, a page at a time.
+ *
+ * PostgREST silently caps a bare `select` at 1000 rows — no error, just a short array — so
+ * anything that means "every row" has to page explicitly or it quietly returns a prefix.
+ * The `order` the caller passes matters as much as the paging does: without a deterministic
+ * total order PostgREST can hand back the same row on two pages and skip another entirely
+ * (same trap documented on fetchWpblAllPlays above).
+ */
+async function fetchAllPaged<T>(
+  label: string,
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const PAGE = 1000
+  const out: T[] = []
+  for (let from = 0; ; from += PAGE) {
+    const rows = await safe<T[]>(label, () => page(from, from + PAGE - 1), [])
+    out.push(...rows)
+    if (rows.length < PAGE) break
+  }
+  return out
+}
+
+// Every box-score line in the league — for computing season league leaders. Paged, because
+// a truncated read here doesn't fail, it just makes every league-wide rate quietly wrong:
+// OPS+ and ERA+ derive their league baseline from these rows. Returns empty (no leaders)
+// until games start being entered.
 export function fetchWpblAllLines(): Promise<WpblLinesResult> {
   if (isFresh(allLinesCache)) return Promise.resolve(allLinesCache!.data)
   return once('allLines', async () => {
     const [batting, pitching] = await Promise.all([
-      safe('fetchWpblAllBatting', () =>
-        supabase.from('wpbl_batting_lines').select('*'),
-        [] as WpblBattingLine[]),
-      safe('fetchWpblAllPitching', () =>
-        supabase.from('wpbl_pitching_lines').select('*'),
-        [] as WpblPitchingLine[]),
+      fetchAllPaged<WpblBattingLine>('fetchWpblAllBatting', (from, to) =>
+        supabase.from('wpbl_batting_lines').select('*')
+          .order('id', { ascending: true }).range(from, to) as unknown as
+          PromiseLike<{ data: WpblBattingLine[] | null; error: unknown }>),
+      fetchAllPaged<WpblPitchingLine>('fetchWpblAllPitching', (from, to) =>
+        supabase.from('wpbl_pitching_lines').select('*')
+          .order('id', { ascending: true }).range(from, to) as unknown as
+          PromiseLike<{ data: WpblPitchingLine[] | null; error: unknown }>),
     ])
     const result = { batting, pitching }
     // Keep last-good on a transient empty (see fetchWpblAllPlayers).

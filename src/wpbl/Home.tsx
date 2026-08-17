@@ -9,8 +9,8 @@ import {
   getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblAllPlays, getCachedWpblAllTracking, wpblHomeCacheAgeMs,
   fetchWpblVideos, getCachedWpblVideos,
 } from './api'
-import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
-import { SectionCard, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, wpblFeatureName, CARD_BORDER } from './ui'
+import { wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
+import { SectionCard, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, wpblFeatureName, CARD_BORDER, pressable, FOCUS_RING } from './ui'
 import { LiveHero } from './Live'
 import {
   aggregateBatting, aggregatePitching, wpblQualifiers, fmtRate, fmtTwo,
@@ -20,6 +20,8 @@ import { aggregateTracking, type TrackingBoard } from './tracking'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import { track, EVENTS } from '../lib/analytics'
+import { useWpblFavoriteTeam } from './favoriteTeam'
+import { useWpblAccent } from './accent'
 import { computeFirsts, type WpblFirst } from './firsts'
 import { LastGameCard } from './RecapCard'
 import { HighlightsRail } from './Highlights'
@@ -249,6 +251,7 @@ function Scoreboard({ games, teams, onOpenGame }: {
 // ─── Next game + countdown ───────────────────────────────────────────────────────
 
 function Countdown({ target }: { target: number }) {
+  const accent = useWpblAccent()
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000)
@@ -268,7 +271,7 @@ function Countdown({ target }: { target: number }) {
   })()
   return (
     <Box sx={{ flexShrink: 0, px: 1, py: 0.4, borderRadius: 999, bgcolor: 'action.hover' }}>
-      <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, color: WPBL_ACCENT, lineHeight: 1, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{label}</Typography>
+      <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, color: accent, lineHeight: 1, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{label}</Typography>
     </Box>
   )
 }
@@ -317,6 +320,7 @@ function downloadIcs(filename: string, ics: string) {
 function GameReminderRow({ game, away, home, startMs }: {
   game: WpblGame; away?: WpblTeam; home?: WpblTeam; startMs: number | null
 }) {
+  const accent = useWpblAccent()
   const { user, openAuthDialog } = useAuth()
   const supported  = pushSupported()
   const configured = pushConfigured()
@@ -375,7 +379,7 @@ function GameReminderRow({ game, away, home, startMs }: {
           cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },
         }}
       >
-        <EventAvailableOutlined sx={{ fontSize: '1.15rem', flexShrink: 0, color: WPBL_ACCENT }} />
+        <EventAvailableOutlined sx={{ fontSize: '1.15rem', flexShrink: 0, color: accent }} />
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.2 }}>Add to calendar</Typography>
           <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', mt: 0.15, lineHeight: 1.35 }}>
@@ -412,7 +416,7 @@ function GameReminderRow({ game, away, home, startMs }: {
         ...(!user ? { cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } } : {}),
       }}
     >
-      <Icon sx={{ fontSize: '1.15rem', flexShrink: 0, color: on ? WPBL_ACCENT : 'text.disabled' }} />
+      <Icon sx={{ fontSize: '1.15rem', flexShrink: 0, color: on ? accent : 'text.disabled' }} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.2 }}>Reminders for every game</Typography>
         <Typography sx={{ fontSize: '0.7rem', color: err ? 'error.main' : 'text.secondary', mt: 0.15, lineHeight: 1.35 }}>
@@ -474,8 +478,9 @@ function NextGameCard({ games, teams, onOpenGame }: {
 
 // ─── Standings card ─────────────────────────────────────────────────────────────
 
-function StandingsCard({ teams, games, onOpenTeam }: {
+function StandingsCard({ teams, games, onOpenTeam, favoriteTeamId }: {
   teams: WpblTeam[]; games: WpblGame[]; onOpenTeam: (t: WpblTeam) => void
+  favoriteTeamId?: string | null
 }) {
   const rows = useMemo(() => computeStandings(teams, games), [teams, games])
   return (
@@ -499,7 +504,15 @@ function StandingsCard({ teams, games, onOpenTeam }: {
               {/* Nickname only ("Queens", "Firebells") — the badge already carries the
                   city, and the full "Los Angeles Queens" overflows the narrow column on
                   mobile, truncating to the least-useful half ("Los Ang…"). */}
-              <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.team.name}</Typography>
+              <Typography sx={{ fontSize: '0.85rem', fontWeight: r.team.id === favoriteTeamId ? 800 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.team.name}</Typography>
+              {/* The one thing the pick currently DOES, so choosing a team visibly lands
+                  somewhere instead of vanishing into a preference nobody can see. The row
+                  keeps its place — the table is a standings table, and reordering it around
+                  the reader would make it lie about who is in first. */}
+              {r.team.id === favoriteTeamId && (
+                <Box component="span" aria-label="Your team" title="Your team"
+                  sx={{ fontSize: '0.7rem', lineHeight: 1, color: 'text.secondary', flexShrink: 0 }}>★</Box>
+              )}
             </Box>
             <Box sx={{ width: 32, textAlign: 'right', fontWeight: 700, fontSize: '0.85rem' }}>{r.wins}</Box>
             <Box sx={{ width: 32, textAlign: 'right', fontWeight: 700, fontSize: '0.85rem' }}>{r.losses}</Box>
@@ -720,6 +733,7 @@ function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, 
   loading: boolean; hasData: boolean; teamById: Map<string, WpblTeam>
   onOpenPlayer: (p: WpblPlayer) => void; onViewAll: (sortKey?: string) => void
 }) {
+  const accent = useWpblAccent()
   const shown = blocks.filter(b => b.rows.length > 0)
   const [active, setActive] = useState(0)
   const idx = Math.min(active, Math.max(0, shown.length - 1)) // clamp as data loads/changes
@@ -738,7 +752,7 @@ function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, 
       // Carry the board you're actually looking at into the full table — tapping "View all"
       // under the HR board should land on the table sorted by HR, not its default column.
       action={shown.length ? (
-        <Typography onClick={() => onViewAll(shown[idx]?.sortKey)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
+        <Typography onClick={() => onViewAll(shown[idx]?.sortKey)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: accent, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
           View all
         </Typography>
       ) : undefined}
@@ -761,7 +775,7 @@ function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, 
                   px: 1.5, py: 0.4, borderRadius: 999, cursor: 'pointer',
                   fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.3,
                   whiteSpace: 'nowrap', userSelect: 'none', transition: 'all 0.15s',
-                  bgcolor: i === idx ? WPBL_ACCENT : 'transparent',
+                  bgcolor: i === idx ? accent : 'transparent',
                   color: i === idx ? '#fff' : 'text.secondary',
                   '&:hover': i !== idx ? { color: 'text.primary' } : {},
                 }}
@@ -805,6 +819,7 @@ function TrackingTeaserCard({ board, latestGameIds, loading, teamById, onOpenPla
   board: TrackingBoard; latestGameIds: Set<string>; loading: boolean
   teamById: Map<string, WpblTeam>; onOpenPlayer: (p: WpblPlayer) => void; onViewAll: () => void
 }) {
+  const accent = useWpblAccent()
   const isDark = useWpblDark()
   const { units } = useUnits()
   const shortName = useWpblName()
@@ -821,7 +836,7 @@ function TrackingTeaserCard({ board, latestGameIds, loading, teamById, onOpenPla
       title="Ballpark tracking"
       subtitle="Season bests, measured by in-park radar"
       action={tiles.length > 0 ? (
-        <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
+        <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: accent, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
           View all
         </Typography>
       ) : undefined}
@@ -914,6 +929,7 @@ function HallOfFirstsCard({ firsts, teamById, loading, onOpenPlayer, onViewAll }
   firsts: WpblFirst[]; teamById: Map<string, WpblTeam>; loading: boolean
   onOpenPlayer: (p: WpblPlayer) => void; onViewAll: () => void
 }) {
+  const accent = useWpblAccent()
   // Lead with the featured firsts, then the rest, so the card opens on the marquee milestones
   // and rotates through everything else from there.
   const pool = useMemo(
@@ -970,7 +986,7 @@ function HallOfFirstsCard({ firsts, teamById, loading, onOpenPlayer, onViewAll }
     <SectionCard
       title="Hall of Firsts"
       action={n > 0 ? (
-        <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
+        <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: accent, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
           View all
         </Typography>
       ) : undefined}
@@ -1061,13 +1077,14 @@ function useNewTrackingBatch(tracking: WpblTrackRow[]): { newCount: number; ack:
 }
 
 function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView: () => void; onDismiss: () => void }) {
+  const accent = useWpblAccent()
   return (
     <Box
       onClick={onView}
       role="button"
       sx={{
         mb: 2, display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25, cursor: 'pointer',
-        borderRadius: 2, border: '1.5px solid', borderColor: WPBL_ACCENT,
+        borderRadius: 2, border: '1.5px solid', borderColor: accent,
         bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.015)',
         transition: 'background-color 0.15s',
         '&:hover': { bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)' },
@@ -1082,7 +1099,7 @@ function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView
           Velocity, spin &amp; exit velo for {count} new game{count === 1 ? '' : 's'} — tap to explore Ballpark Tracking.
         </Typography>
       </Box>
-      <Typography sx={{ fontSize: '0.75rem', fontWeight: 800, color: WPBL_ACCENT, flexShrink: 0, whiteSpace: 'nowrap' }}>
+      <Typography sx={{ fontSize: '0.75rem', fontWeight: 800, color: accent, flexShrink: 0, whiteSpace: 'nowrap' }}>
         View →
       </Typography>
       <Box
@@ -1170,6 +1187,69 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
   )
 }
 
+// Pick-your-team prompt — one slim row, four taps' worth of choice, and a ✕ that means
+// "no favourite" for good.
+//
+// Restraint is the whole design here. It renders only on Home, only until it is answered
+// either way, and never while the Discord card is up: two dismissible asks stacked on the
+// same screen is the nagging this is meant to avoid. Choosing nothing is a real answer that
+// leaves every view exactly as it is today, so it is offered as plainly as the teams are —
+// no dark-pattern asymmetry where the decline is a grey whisper next to a bright CTA.
+function FavoriteTeamCard({ teams, onPick, onDecline }: {
+  teams: WpblTeam[]
+  onPick: (teamId: string) => void
+  onDecline: () => void
+}) {
+  // One impression per mount, matching how the Discord card counts, so the two are
+  // comparable in the admin dashboard.
+  useEffect(() => { track(EVENTS.WPBL_FAVORITE_PROMPTED) }, [])
+  return (
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: { xs: 0.75, sm: 1.25 }, p: 1.25,
+      borderRadius: 2, border: '1.5px solid', borderColor: 'divider',
+      bgcolor: 'background.paper',
+    }}>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, lineHeight: 1.2 }}>
+          Pick your team
+        </Typography>
+        {/* Says only what the pick actually does today. Worth keeping honest as this grows:
+            if the favourite starts driving the scoreboard or reminders, update this line —
+            promising more than it delivers is how a small opt-in loses trust. */}
+        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 0.2 }}>
+          We&rsquo;ll highlight them. Skip and nothing changes.
+        </Typography>
+      </Box>
+      <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+        {teams.map(t => (
+          <Box
+            key={t.id}
+            {...pressable(() => onPick(t.id))}
+            aria-label={`Set ${wpblFullName(t)} as your team`}
+            sx={{ ...FOCUS_RING, borderRadius: '50%', lineHeight: 0, cursor: 'pointer' }}
+          >
+            <TeamBadge team={t} size={28} />
+          </Box>
+        ))}
+      </Box>
+      <Box
+        {...pressable(onDecline)}
+        aria-label="No favourite team"
+        sx={{
+          ...FOCUS_RING,
+          flexShrink: 0, width: 22, height: 22, ml: 0.25,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: '50%', color: 'text.disabled', fontSize: '0.8rem', lineHeight: 1,
+          cursor: 'pointer',
+          '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+        }}
+      >
+        ✕
+      </Box>
+    </Box>
+  )
+}
+
 // ─── Home ───────────────────────────────────────────────────────────────────────
 
 // ─── Ingest health (admin-only) ──────────────────────────────────────────────────
@@ -1206,6 +1286,14 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   const [discordDismissed, setDiscordDismissed] = useState(() => {
     try { return localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { return false }
   })
+
+  // The reader's team. `answered` (not the id) gates the prompt, so "no favourite" sticks.
+  const teamIds = useMemo(() => new Set(teams.map(t => t.id)), [teams])
+  const { favoriteTeamId, answered, setFavorite } = useWpblFavoriteTeam(teamIds)
+  const accent = useWpblAccent()
+  // Never two asks at once — the Discord invite gets the slot first, and this one waits for
+  // the screen to be free. Also waits on `teams` so the badges don't pop in one by one.
+  const showFavoritePrompt = !answered && teams.length > 0 && discordDismissed
 
   // Full load once, then revalidate on later mounts only when the cache is cold or stale —
   // a quick swipe back to a warm Home is instant and silent. Players are static for the
@@ -1302,7 +1390,29 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   const viewTracking = () => { ackTracking(); onViewTracking() }
 
   return (
-    <Box>
+    <Box sx={{ position: 'relative' }}>
+      {/* Team masthead — a gradient wash behind the header and scoreboard, fading out into
+          the normal page. Absolutely positioned and pointer-events:none so it colours the
+          top of the section without getting between the reader and anything up there.
+          Full-bleed via the negative inline inset: the section is a 720px column, and a
+          band that stopped at the column edge would read as a stray coloured rectangle
+          rather than as the page's own header.
+          Built from the accent, not the team's primary — all four primaries are near-black
+          (Queens is literally #000000), so a primary-based band would be a black smear for
+          one club and near-invisible in dark mode for the rest. */}
+      {favoriteTeamId && (
+        <Box aria-hidden sx={{
+          position: 'absolute', top: 0, left: { xs: -16, sm: -24 }, right: { xs: -16, sm: -24 },
+          height: 260, pointerEvents: 'none', zIndex: 0,
+          // A radial dome rather than a linear band: a linear gradient stops at the
+          // element's edges, and since this is only bled a little past the 720px column
+          // that left a visible vertical seam down each side. The radial falls off
+          // horizontally as well as vertically, so it has no edge to see.
+          background: theme => `radial-gradient(125% 100% at 50% 0%, ${accent}${theme.palette.mode === 'dark' ? '33' : '26'} 0%, transparent 72%)`,
+        }} />
+      )}
+      {/* Everything below sits above the wash. */}
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
       {/* Slim league header. On mobile it's just the title; on wider screens the club chips
           sit inline to the right. */}
       <Box sx={{
@@ -1350,6 +1460,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
 
       {/* Scoreboard */}
       <Scoreboard games={games} teams={teamMap} onOpenGame={onOpenGame} />
+      </Box>
 
       {/* Two-column feed. On desktop the two columns render as written (The League |
           Around the League). On mobile there's one column, so the two wrappers collapse to
@@ -1368,6 +1479,15 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
           {!discordDismissed && (
             <Box sx={{ minWidth: 0, order: { xs: 1, md: 0 } }}><DiscordCard onDismiss={() => setDiscordDismissed(true)} /></Box>
           )}
+          {showFavoritePrompt && (
+            <Box sx={{ minWidth: 0, order: { xs: 1, md: 0 } }}>
+              <FavoriteTeamCard
+                teams={teams}
+                onPick={id => { setFavorite(id); track(EVENTS.WPBL_FAVORITE_SET, { teamId: id, from: 'home_prompt' }) }}
+                onDecline={() => { setFavorite(null); track(EVENTS.WPBL_FAVORITE_CLEARED, { from: 'home_prompt' }) }}
+              />
+            </Box>
+          )}
           <Box sx={{ minWidth: 0, order: { xs: 2, md: 0 } }}><NextGameCard games={games} teams={teamMap} onOpenGame={onOpenGame} /></Box>
           <Box sx={{ minWidth: 0, order: { xs: 3, md: 0 } }}><LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} /></Box>
           {/* Highlights rail — sits under the Next game card in the left column on desktop,
@@ -1376,7 +1496,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
           {videos.length > 0 && (
             <Box sx={{ minWidth: 0, order: { xs: 3, md: 0 } }}><HighlightsRail videos={videos} teams={teams} /></Box>
           )}
-          <Box sx={{ minWidth: 0, order: { xs: 4, md: 0 } }}><StandingsCard teams={teams} games={games} onOpenTeam={onOpenTeam} /></Box>
+          <Box sx={{ minWidth: 0, order: { xs: 4, md: 0 } }}><StandingsCard teams={teams} games={games} onOpenTeam={onOpenTeam} favoriteTeamId={favoriteTeamId} /></Box>
         </Box>
 
         {/* Around the League */}

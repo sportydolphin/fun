@@ -7,7 +7,7 @@ import {
   BarChartOutlined, BarChart,
   GroupsOutlined, Groups,
 } from '@mui/icons-material'
-import { WPBL_ACCENT } from './constants'
+import { useWpblAccent } from './accent'
 
 // Floating bottom tab bar for the WPBL section — phones only, and only when the reader has
 // turned on experimental features in Settings. Being evaluated as a replacement for the
@@ -71,6 +71,7 @@ export default function WpblBottomNav({ items, value, onChange }: {
   // the real navigation to the next frame, so the indicator is already travelling while the
   // panel renders. `pending` clears as soon as the parent confirms the new value.
   const [pending, setPending] = useState<string | null>(null)
+  const accent = useWpblAccent()
   useEffect(() => { setPending(null) }, [value])
   const shown = pending ?? value
 
@@ -161,7 +162,7 @@ export default function WpblBottomNav({ items, value, onChange }: {
                 gap: `${ICON_LABEL_GAP}px`, py: `${TAB_PAD_Y}px`,
                 cursor: 'pointer', userSelect: 'none',
                 WebkitTapHighlightColor: 'transparent',
-                color: active ? WPBL_ACCENT : 'text.secondary',
+                color: active ? accent : 'text.secondary',
                 transition: 'color 200ms ease',
               }}
             >
