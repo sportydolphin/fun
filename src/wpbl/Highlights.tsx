@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { ModalShell, SectionCard, TeamBadge, CARD_BORDER } from './ui'
 import type { WpblVideo, WpblTeam } from './types'
+import { scrollBehavior } from '../lib/motion'
 
 // The WPBL highlights surface: a mirror of the league's official YouTube uploads, read from
 // the wpbl_videos table (populated by scripts/sync-wpbl-youtube.mjs). Two consumers share
@@ -229,7 +230,7 @@ export function HighlightsRail({ videos, teams }: { videos: WpblVideo[]; teams: 
   const page = (dir: 1 | -1) => {
     const c = scrollRef.current
     if (!c) return
-    c.scrollBy({ left: dir * Math.max(c.clientWidth * 0.8, 200), behavior: 'smooth' })
+    c.scrollBy({ left: dir * Math.max(c.clientWidth * 0.8, 200), behavior: scrollBehavior() })
   }
 
   if (shown.length === 0) return null

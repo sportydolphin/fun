@@ -10,9 +10,10 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react'
 import { Box, Typography, useTheme, useMediaQuery } from '@mui/material'
 import type { Theme } from '@mui/material'
-import { WPBL_ACCENT, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
+import { WPBL_ACCENT, wpblAccentFg, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
 import { wpblPortrait } from './portraits'
 import type { WpblTeam } from './types'
+import { scrollBehavior } from '../lib/motion'
 
 // ─── Name shortening ────────────────────────────────────────────────────────────
 // Compact a full name to "F. Last" once it's long enough to crowd a tight WPBL layout
@@ -149,7 +150,7 @@ export function PlayerPortrait({ name, teamId, size = 40 }: { name: string; team
 
 // Pill segmented control — the section nav "menu". Mirrors MLB's SegControl, wrapped
 // in the same centered / mobile-horizontal-scroll container MlbStats uses for its tabs.
-export function SegNav({ options, value, onChange, accent = WPBL_ACCENT, mb = { xs: 0, sm: 3 } }: {
+export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 } }: {
   options: { value: string; label: string }[]
   value: string
   onChange: (v: string) => void
@@ -160,6 +161,13 @@ export function SegNav({ options, value, onChange, accent = WPBL_ACCENT, mb = { 
   // pill in view: on every selection change — a tap or a swipe between tabs — scroll it
   // to the container's centre (clamped at the ends). We nudge only the strip's own
   // scrollLeft, never the page, so a swipe can't jog the vertical scroll.
+  // The active pill is a SURFACE-coloured chip with accent TEXT on it (see below), so the
+  // accent here has to be the foreground-safe variant, since the raw #60a5fa reads at 2.2:1 on a
+  // white chip. Callers passing their own accent are already handing us a team colour from
+  // wpblAccent(), which is foreground-safe by construction.
+  const isDark = useWpblDark()
+  const accentFg = accent ?? wpblAccentFg(isDark)
+
   const scrollRef = useRef<HTMLDivElement>(null)
   const activeRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -167,7 +175,7 @@ export function SegNav({ options, value, onChange, accent = WPBL_ACCENT, mb = { 
     if (!c || !a || c.scrollWidth <= c.clientWidth) return
     const cRect = c.getBoundingClientRect(), aRect = a.getBoundingClientRect()
     const delta = (aRect.left - cRect.left) - (c.clientWidth - aRect.width) / 2
-    c.scrollTo({ left: c.scrollLeft + delta, behavior: 'smooth' })
+    c.scrollTo({ left: c.scrollLeft + delta, behavior: scrollBehavior() })
   }, [value])
 
   return (
@@ -207,7 +215,7 @@ export function SegNav({ options, value, onChange, accent = WPBL_ACCENT, mb = { 
               // part of the page in both themes (the chip follows the surface color) and sits
               // more quietly next to the rest of the UI than a bold color block.
               bgcolor: value === opt.value ? 'background.paper' : 'transparent',
-              color: value === opt.value ? accent : 'text.secondary',
+              color: value === opt.value ? accentFg : 'text.secondary',
               fontWeight: value === opt.value ? 700 : 600,
               boxShadow: value === opt.value ? '0 1px 3px rgba(0,0,0,0.20)' : 'none',
               '&:hover': value !== opt.value ? { color: 'text.primary' } : {},
@@ -395,6 +403,7 @@ export function CopyLinkButton({ url, title = 'Copy link' }: { url: string; titl
     setTimeout(() => setState('idle'), ok ? 1600 : 2400)
   }, [url])
 
+  const isDarkCopy = useWpblDark()
   const label = state === 'copied' ? 'Copied' : state === 'failed' ? "Couldn't copy" : 'Copy link'
   return (
     <Box
@@ -409,7 +418,7 @@ export function CopyLinkButton({ url, title = 'Copy link' }: { url: string; titl
         height: 26, px: 0.9, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
         // Confirmation is the accent, failure is the theme's error colour, and idle recedes
         // to match the close button beside it.
-        color: state === 'copied' ? WPBL_ACCENT : state === 'failed' ? 'error.main' : 'text.disabled',
+        color: state === 'copied' ? wpblAccentFg(isDarkCopy) : state === 'failed' ? 'error.main' : 'text.disabled',
         '&:hover': { bgcolor: 'action.hover', color: state === 'idle' ? 'text.primary' : undefined },
         transition: 'color 0.15s',
       }}

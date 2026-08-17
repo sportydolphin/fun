@@ -171,7 +171,9 @@ export default function GameGrid({ columns, rows, renderCell, colWidth, nameWidt
               <GridName name={r.label} fitKey={NAME_W.xs + NAME_W.sm} />
               {r.meta && (
                 <Typography sx={{
-                  flexShrink: 0, pl: 0.5,
+                  // Gap in ems, not spacing units: at the Large text setting a fixed 4px
+                  // leaves the total sitting right on the end of the name.
+                  flexShrink: 0, pl: '0.5em',
                   fontSize: '0.66rem', fontWeight: 700, color: 'text.disabled',
                   fontVariantNumeric: 'tabular-nums',
                 }}>

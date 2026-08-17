@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Box, Typography } from '@mui/material'
 import { ACCENT } from '../constants'
 import { RecentGameEntry } from '../types'
+import { scrollBehavior } from '../../lib/motion'
 
 const INIT = 5
 
@@ -117,7 +118,7 @@ function GameSection({ title, entries, cols, dataKey, highlightDate, onTeamClick
   useEffect(() => {
     if (!highlightDate) return
     const el = document.querySelector(`[data-game-date="${highlightDate}"]`)
-    if (el) (el as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    if (el) (el as HTMLElement).scrollIntoView({ behavior: scrollBehavior(), block: 'nearest' })
   }, [highlightDate, expanded])
   if (!entries.length) return null
   const shown = expanded ? entries : entries.slice(0, INIT)

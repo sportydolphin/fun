@@ -11,6 +11,20 @@ import sfLogo from './logos/sf.webp'
 // active pill, links, chips, and card stripes.
 export const WPBL_ACCENT = '#60a5fa'
 
+// The same accent made safe for FOREGROUND use, mirroring what wpblAccent() does for team
+// colours. #60a5fa is a light blue: measured against this app's light-mode surfaces it comes
+// out at 2.2–2.5:1, so every place it is used as TEXT on a light background (the active nav
+// pill's label, the sorted stat column, "View all" links) fails AA by a wide margin. It is
+// perfectly fine in dark mode, and fine in both modes as a FILL behind white text, which is
+// why the raw constant stays exactly as it is.
+//
+// The light variant is the same hue darkened to clear 4.5:1 on both `background.default` and
+// `background.paper`. Use this for anything that has to be read; use WPBL_ACCENT for fills.
+const WPBL_ACCENT_LIGHT_FG = '#1565c0'
+export function wpblAccentFg(isDark: boolean): string {
+  return isDark ? WPBL_ACCENT : WPBL_ACCENT_LIGHT_FG
+}
+
 // Everything visual for a team lives here — one source of truth for color + logo, so
 // setting a value once applies across the whole section (badges, accents, ordering).
 // This is also the static fallback used before the Supabase `wpbl_teams` rows load.
@@ -63,11 +77,19 @@ export function wpblSecondary(teamId: string | null | undefined): string {
 // orange accent, which breaks the warm cluster and leaves four distinct hues —
 // green / gold / blue / red. Each has a light- and dark-mode variant tuned to read as
 // both text and a bar fill on that background.
+//
+// The light variants are all >= 4.5:1 on both light surfaces, measured. Three of the four
+// used to sit just under, at BOS 4.38, LA 3.89 and NY 4.33, which is invisible as a badge fill
+// but fails AA everywhere they are used as small TEXT (the leader triangles, rank numbers,
+// card links). Each has been taken down by one step of the same hue rather than re-picked,
+// so the four still read as green / gold / blue / red at a glance. SF was already at 4.97
+// and is unchanged. Dark variants are untouched: they sit on a near-black page and measure
+// well clear there.
 const WPBL_ACCENTS: Record<string, { light: string; dark: string }> = {
-  BOS: { light: '#1f8a4c', dark: '#37b06d' }, // Hunters green
-  LA:  { light: '#a9781f', dark: '#d9ad4a' }, // Queens gold
-  NY:  { light: '#1f7fc0', dark: '#5bb2ec' }, // Heights blue
-  SF:  { light: '#d1332f', dark: '#f05a5a' }, // Firebells red
+  BOS: { light: '#1c7d45', dark: '#37b06d' }, // Hunters green,  5.16:1 on white
+  LA:  { light: '#9c6d1b', dark: '#d9ad4a' }, // Queens gold,    4.55:1
+  NY:  { light: '#1c73ae', dark: '#5bb2ec' }, // Heights blue,   5.11:1
+  SF:  { light: '#d1332f', dark: '#f05a5a' }, // Firebells red,  4.97:1
 }
 const NEUTRAL_ACCENT = { light: '#6b7280', dark: '#9ca3af' }
 

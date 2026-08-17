@@ -12,6 +12,7 @@ import { isInsideDeviceFrame } from './mlb/dev/devDevice'
 import { AuthProvider, useAuth } from './AuthContext'
 import { UnitsProvider } from './UnitsContext'
 import { ExperimentsProvider } from './ExperimentsContext'
+import { AccessibilityProvider } from './AccessibilityContext'
 import { PENDING_USERNAME_PREFIX } from './AuthContext'
 import { SiteFooter } from './SiteFooter'
 import { NotificationBell } from './NotificationBell'
@@ -1201,6 +1202,8 @@ function AppInner() {
             email={user?.email ?? ''}
             currentUsername={username}
             onEditUsername={() => { setSettingsOpen(false); setUsernameOpen(true) }}
+            // Which section they came from, so the league block opens on the one in use.
+            isWpbl={path.startsWith('/wpbl')}
           />
         </Suspense>
       )}
@@ -1224,7 +1227,9 @@ export default function App() {
     <AuthProvider>
       <UnitsProvider>
         <ExperimentsProvider>
-          <AppInner />
+          <AccessibilityProvider>
+            <AppInner />
+          </AccessibilityProvider>
         </ExperimentsProvider>
       </UnitsProvider>
     </AuthProvider>

@@ -321,6 +321,10 @@ export interface WpblStandingRow {
   gamesBack: number                                    // games behind the leader (0 = leading)
   streak: { type: 'W' | 'L'; count: number } | null    // current streak, null before any game
   lastTen: { wins: number; losses: number }            // record over the last up-to-10 games
+  /** The last up-to-five decisive results, OLDEST FIRST: the sequence `lastTen` collapses
+   *  into a count. A 2–3 stretch reads very differently as LLWWL than as WWLLL, and the
+   *  five-dot form strip on the Teams cards is the only place that difference shows. */
+  recent: ('W' | 'L')[]
 }
 
 // Insert shapes for the box-score entry form (the DB fills id/created_at; game_id is

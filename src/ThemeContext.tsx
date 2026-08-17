@@ -141,6 +141,22 @@ const createAppTheme = (mode: ThemeMode, skin: ThemeSkin): Theme => {
         default: p.default,
         paper: p.paper,
       },
+      // MUI's stock `text.disabled` is rgba(0,0,0,0.38) in light mode, which measures 2.65:1
+      // against this app's page background, well under the 4.5:1 AA needs. It would be
+      // exempt if it were only doing what its name says (a disabled control is exempt from
+      // the contrast rules), but across this app it is the de-facto TERTIARY text colour:
+      // measured on the stats tab alone it carries the table's column headings, the position
+      // codes, the rank numbers, the "33 players · 2026 season" caption and every footer
+      // link. All of that is content, and content has to be readable.
+      //
+      // 0.58 measures ~5.0:1 while staying clearly recessed against text.primary (0.87) and
+      // text.secondary (0.6), so a genuinely disabled control still reads as disabled, just
+      // not as invisible. Dark mode's rgba(255,255,255,0.5) already measures 5.19:1 and is
+      // left alone.
+      //
+      // The cleaner fix is a real tertiary token that disabled controls don't share; this is
+      // the one-line version of it that fixes every call site at once.
+      ...(mode === 'light' ? { text: { disabled: 'rgba(0,0,0,0.58)' } } : {}),
     },
     typography: {
       // Self-hosted Inter (see @font-face in styles.css) leads the stack so headings get a

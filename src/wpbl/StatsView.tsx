@@ -178,7 +178,7 @@ export interface WpblStatsFocus {
 function SubViewFallback() {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-      <CircularProgress size={26} sx={{ color: WPBL_ACCENT }} />
+      <CircularProgress size={26} sx={{ color: 'var(--wpbl-accent-fg)' }} />
     </Box>
   )
 }
@@ -607,7 +607,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
                     <Box component="th" data-swipe-handle="" onClick={() => clickHeader(activeCol)} sx={{
                       ...thBase, position: 'sticky', left: nameW - 2, zIndex: 5, touchAction: 'pan-y',
                       textAlign: 'center', cursor: 'pointer', minWidth: 50, px: 0.5,
-                      color: WPBL_ACCENT,
+                      color: 'var(--wpbl-accent-fg)',
                       backgroundImage: `linear-gradient(${WPBL_ACCENT}24, ${WPBL_ACCENT}24)`,
                       borderRight: '1px solid', borderColor: 'divider',
                       boxShadow: scrollX.atStart ? 'none' : FROZEN_SHADOW,
@@ -625,14 +625,14 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
                         data-active={active ? 'true' : undefined}
                         sx={{
                           ...thBase, textAlign: 'center', cursor: 'pointer', minWidth: 38,
-                          color: active ? WPBL_ACCENT : 'text.disabled',
+                          color: active ? 'var(--wpbl-accent-fg)' : 'text.disabled',
                           // The sorted column's tint rides on backgroundImage over the opaque
                           // paper thBase already sets. As a bgcolor it *replaced* that paper
                           // with a 14%-alpha accent, so this one header cell went see-through
                           // and the rows scrolling under the sticky header showed through it.
                           // Same layering the frozen column beside it already uses.
                           backgroundImage: active ? `linear-gradient(${WPBL_ACCENT}24, ${WPBL_ACCENT}24)` : undefined,
-                          '&:hover': { color: WPBL_ACCENT },
+                          '&:hover': { color: 'var(--wpbl-accent-fg)' },
                         }}>
                         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.2 }}>
                           {c.label}
@@ -689,7 +689,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
                           position: 'sticky', left: nameW - 2, zIndex: 3, touchAction: 'pan-y',
                           textAlign: 'center', py: 0.5, px: 0.5,
                           borderTop: '1px solid', borderRight: '1px solid', borderColor: 'divider',
-                          fontSize: '0.84rem', fontWeight: 800, color: WPBL_ACCENT,
+                          fontSize: '0.84rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
                           backgroundColor: 'background.paper',
                           backgroundImage: `linear-gradient(${WPBL_ACCENT}12, ${WPBL_ACCENT}12)`,
                           boxShadow: scrollX.atStart ? 'none' : FROZEN_SHADOW,
@@ -706,7 +706,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
                           <Box component="td" key={c.key} onClick={e => { e.stopPropagation(); clickHeader(c) }} sx={{
                             textAlign: 'center', py: 0.5, px: 0.5, borderTop: '1px solid', borderColor: 'divider',
                             fontSize: active ? '0.84rem' : '0.8rem', fontWeight: active ? 800 : 500,
-                            color: active ? WPBL_ACCENT : 'text.primary',
+                            color: active ? 'var(--wpbl-accent-fg)' : 'text.primary',
                             // Layered like the header, so a hovered row and the sorted column
                             // compose instead of one of them winning outright.
                             backgroundImage: active ? `linear-gradient(${WPBL_ACCENT}12, ${WPBL_ACCENT}12)` : undefined,
@@ -773,7 +773,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
       px: 1, py: 0.4, borderRadius: 999, fontSize: '0.74rem', fontWeight: 700,
       border: '1px solid', transition: 'all 0.15s',
       borderColor: active ? WPBL_ACCENT : CARD_BORDER,
-      color: active ? WPBL_ACCENT : 'text.secondary',
+      color: active ? 'var(--wpbl-accent-fg)' : 'text.secondary',
       bgcolor: active ? `${WPBL_ACCENT}12` : 'transparent',
       '&:hover': { borderColor: WPBL_ACCENT },
     }}>

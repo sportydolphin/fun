@@ -1,8 +1,39 @@
 // The site changelog, newest first. Split out of ./version.ts so it stays out of the entry
-// chunk — see the note there. Loaded on demand when the "What's New" dialog opens.
+// chunk. See the note there. Loaded on demand when the "What's New" dialog opens.
 import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.45.0',
+    date:    '2026-08-17',
+    title:   'A Teams tab worth opening, and settings that know which league you follow',
+    changes: [
+      {
+        short: 'The Teams tab shows records, form and the next game',
+        full:  'The Teams tab used to be four cards carrying a badge and a name, which told you nothing you could not get from the home page. Each club now shows its record and win percentage, a five dot strip of its last five results, its run differential, and who it plays next and when. The four are listed in standings order. A win is a solid dot and a loss is a hollow ring, so the strip reads the same way whether or not you can tell the two colours apart.',
+      },
+      {
+        short: 'A head to head grid on the Teams tab',
+        full:  'Underneath the four cards is a grid of every club against every other. Read a row across and you get how that team has fared against each of the other three. In a four team league a bare 4-3 hides the shape of a record completely, since a club can be unbeaten against two opponents and swept by the third, and that is usually the thing worth knowing before the next meeting.',
+      },
+      {
+        short: 'Team pages have a pinned header you can switch clubs from',
+        full:  'A team page is thousands of pixels tall on a phone, and once you were into the roster nothing on screen said whose roster it was. The back link and the team name are now a small bar that stays at the top as you scroll, showing the club and its record, with the other three clubs beside it. Tapping one takes you straight to that team rather than sending you back out to the list first.',
+      },
+      {
+        short: 'Settings are split by league',
+        full:  'Settings showed a preferred team picker of thirty MLB clubs and two reminder switches for a prediction game, none of which mean anything if you only follow the WPBL. There is now a WPBL and MLB switch at the top, opening on whichever section you came from. The standing reminder for WPBL games, which until now lived only on a card on the WPBL home tab, is in Settings as well.',
+      },
+      {
+        short: 'Text size and swipe settings, and less motion when you ask for it',
+        full:  'A new accessibility section can make the type larger without reflowing the layout the way browser zoom does, and can turn off swiping between tabs, which is worth having if a stray drag keeps moving you off the page you were reading. Separately, the whole site now respects the reduce motion setting in your operating system, so animations and smooth scrolling stop without your having to find a switch here.',
+      },
+      {
+        short: 'Colours that were too faint to read have been fixed',
+        full:  'Several colours were measured against the background they actually sit on and failed the contrast standard, almost all of them in light mode. Muted text used for table headings, position codes and captions was the worst of them, along with the blue used for links and the active tab, the medal colours on the leaderboards, the green and red on run differentials, and three of the four team colours where they appear as small text. All have been darkened enough to pass while keeping the same hue.',
+      },
+    ],
+  },
   {
     version: '1.44.1',
     date:    '2026-08-17',
@@ -10,7 +41,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'Team stats show runners left on base',
-        full:  'The team hitting table has a Left On Base column. It uses the league\u2019s own per-game totals rather than adding up the individual batting lines, because a batter\u2019s left-on-base counts every runner who happened to be aboard when she came up \u2014 add those together and the same stranded runner gets counted several times over. Worth reading alongside the rest of the row rather than on its own: a club that puts fewer runners on base has fewer runners to leave there, so a low number is not automatically a good one.',
+        full:  'The team hitting table has a Left On Base column. It uses the league\u2019s own per-game totals rather than adding up the individual batting lines, because a batter\u2019s left-on-base counts every runner who happened to be aboard when she came up, and adding those together counts the same stranded runner several times over. Worth reading alongside the rest of the row rather than on its own: a club that puts fewer runners on base has fewer runners to leave there, so a low number is not automatically a good one.',
       },
     ],
   },
@@ -360,7 +391,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'See where a WPBL pitcher put every pitch',
-        full:  'A WPBL pitcher\'s page now maps where their tracked pitches crossed the plate, on a strike zone colored by pitch type — plus a separate mini map for each pitch, fastball, slider, curveball, and so on, with how many they threw and its average velocity.',
+        full:  'A WPBL pitcher\'s page now maps where their tracked pitches crossed the plate, on a strike zone colored by pitch type, plus a separate mini map for each pitch, fastball, slider, curveball, and so on, with how many they threw and its average velocity.',
       },
       {
         short: 'The home page flags new pitch-tracking data',
@@ -372,7 +403,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       },
       {
         short: 'Clearer note on what pitch tracking is missing',
-        full:  'The WPBL tracking section now explains up front that the in-park radar cannot fully track balls hit out of the field, so home runs — often the hardest, longest hits — are usually missing from the leaderboards rather than being an error.',
+        full:  'The WPBL tracking section now explains up front that the in-park radar cannot fully track balls hit out of the field, so home runs, often the hardest and longest hits, are usually missing from the leaderboards rather than being an error.',
       },
     ],
   },

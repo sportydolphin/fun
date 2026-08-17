@@ -528,6 +528,7 @@ export function computeStandings(teams: WpblTeam[], games: WpblGame[]): WpblStan
       gamesBack: 0, // set after sort, relative to the leader
       streak,
       lastTen: { wins: last.filter(x => x === 'W').length, losses: last.filter(x => x === 'L').length },
+      recent: hist.slice(-5),
     }
   })
 

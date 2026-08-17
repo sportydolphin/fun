@@ -60,7 +60,7 @@ function EndpointCard({ path, purpose, returns }: { path: string; purpose: strin
     <Box sx={{ mb: 1.25, p: 1.5, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
       <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
         <Box component="span" sx={{ fontSize: '0.68rem', fontWeight: 800, color: '#16a34a', letterSpacing: 0.5 }}>GET</Box>
-        <Box component="span" sx={{ fontSize: '0.88rem', fontWeight: 700, fontFamily: 'ui-monospace, Menlo, Consolas, monospace', color: WPBL_ACCENT, wordBreak: 'break-all' }}>
+        <Box component="span" sx={{ fontSize: '0.88rem', fontWeight: 700, fontFamily: 'ui-monospace, Menlo, Consolas, monospace', color: 'var(--wpbl-accent-fg)', wordBreak: 'break-all' }}>
           {path}
         </Box>
       </Box>

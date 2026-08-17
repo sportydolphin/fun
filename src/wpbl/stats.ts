@@ -140,6 +140,14 @@ export const fmtRate = (v: number | null): string => (v == null ? '—' : v.toFi
 // "3.24" for ERA/WHIP; dash when null.
 export const fmtTwo = (v: number | null): string => (v == null ? '—' : v.toFixed(2))
 
+/** A signed run differential: "+26", "\u221217", "0".
+ *
+ *  The sign is a true minus (U+2212), not a hyphen. Measured, the two have the identical
+ *  advance here. The difference is the GLYPH inside it: a hyphen is a short dash centred in
+ *  a digit-width slot, so it leaves air on both sides and reads as "- 17" where the plus,
+ *  drawn to fill its slot, reads as "+26". U+2212 is the minus built to match the plus. */
+export const fmtSigned = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `\u2212${Math.abs(n)}` : '0')
+
 // ─── League leaders ─────────────────────────────────────────────────────────────
 // Group every box-score line by player and total it, attaching the player. One entry
 // per player who has logged at least one line; the home view ranks these per stat.

@@ -284,7 +284,7 @@ export function LastGameCard({ games, teams, players, onOpenGame }: {
       title="Last Game"
       subtitle={dateLabel}
       action={
-        <Typography onClick={() => onOpenGame(game)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
+        <Typography onClick={() => onOpenGame(game)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
           Full recap
         </Typography>
       }

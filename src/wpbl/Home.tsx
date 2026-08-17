@@ -13,7 +13,7 @@ import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameS
 import { SectionCard, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, wpblFeatureName, CARD_BORDER } from './ui'
 import { LiveHero } from './Live'
 import {
-  aggregateBatting, aggregatePitching, wpblQualifiers, fmtRate, fmtTwo,
+  aggregateBatting, aggregatePitching, wpblQualifiers, fmtRate, fmtTwo, fmtSigned,
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import { aggregateTracking, type TrackingBoard } from './tracking'
@@ -268,7 +268,7 @@ function Countdown({ target }: { target: number }) {
   })()
   return (
     <Box sx={{ flexShrink: 0, px: 1, py: 0.4, borderRadius: 999, bgcolor: 'action.hover' }}>
-      <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, color: WPBL_ACCENT, lineHeight: 1, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{label}</Typography>
+      <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)', lineHeight: 1, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{label}</Typography>
     </Box>
   )
 }
@@ -375,7 +375,7 @@ function GameReminderRow({ game, away, home, startMs }: {
           cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },
         }}
       >
-        <EventAvailableOutlined sx={{ fontSize: '1.15rem', flexShrink: 0, color: WPBL_ACCENT }} />
+        <EventAvailableOutlined sx={{ fontSize: '1.15rem', flexShrink: 0, color: 'var(--wpbl-accent-fg)' }} />
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.2 }}>Add to calendar</Typography>
           <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', mt: 0.15, lineHeight: 1.35 }}>
@@ -503,8 +503,8 @@ function StandingsCard({ teams, games, onOpenTeam }: {
             </Box>
             <Box sx={{ width: 32, textAlign: 'right', fontWeight: 700, fontSize: '0.85rem' }}>{r.wins}</Box>
             <Box sx={{ width: 32, textAlign: 'right', fontWeight: 700, fontSize: '0.85rem' }}>{r.losses}</Box>
-            <Box sx={{ width: 48, textAlign: 'right', fontSize: '0.85rem', color: diff > 0 ? 'success.main' : diff < 0 ? 'error.main' : 'text.secondary' }}>
-              {diff > 0 ? `+${diff}` : diff}
+            <Box sx={{ width: 48, textAlign: 'right', fontSize: '0.85rem', color: diff > 0 ? 'var(--wpbl-pos)' : diff < 0 ? 'var(--wpbl-neg)' : 'text.secondary' }}>
+              {fmtSigned(diff)}
             </Box>
           </Box>
         )
@@ -549,7 +549,9 @@ interface LeaderRow {
 
 // Medal tints for the rank number — gold / silver / bronze, chosen to stay legible in
 // both light and dark mode. Ranks past 3rd fall back to the disabled grey.
-const RANK_MEDAL = ['#e0a100', '#9aa0a8', '#c17d3f']
+// Themed, because the originals measure 2.27 / 2.64 / 3.35 against a light background. The
+// comment above claimed both modes and only dark was ever true. See styles.css.
+const RANK_MEDAL = ['var(--wpbl-medal-1)', 'var(--wpbl-medal-2)', 'var(--wpbl-medal-3)']
 
 // Character budget for the featured rows — every stat-leader rank and every Hall of Firsts
 // row. These get a name to themselves, with the team conveyed by the badge/portrait rather
@@ -738,7 +740,7 @@ function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, 
       // Carry the board you're actually looking at into the full table — tapping "View all"
       // under the HR board should land on the table sorted by HR, not its default column.
       action={shown.length ? (
-        <Typography onClick={() => onViewAll(shown[idx]?.sortKey)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
+        <Typography onClick={() => onViewAll(shown[idx]?.sortKey)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
           View all
         </Typography>
       ) : undefined}
@@ -761,7 +763,9 @@ function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, 
                   px: 1.5, py: 0.4, borderRadius: 999, cursor: 'pointer',
                   fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.3,
                   whiteSpace: 'nowrap', userSelect: 'none', transition: 'all 0.15s',
-                  bgcolor: i === idx ? WPBL_ACCENT : 'transparent',
+                  // The solid variant, not WPBL_ACCENT: white on #60a5fa measures 2.37:1,
+                  // and colour contrast is absolute, so that fails in dark mode too.
+                  bgcolor: i === idx ? 'var(--wpbl-accent-solid)' : 'transparent',
                   color: i === idx ? '#fff' : 'text.secondary',
                   '&:hover': i !== idx ? { color: 'text.primary' } : {},
                 }}
@@ -821,7 +825,7 @@ function TrackingTeaserCard({ board, latestGameIds, loading, teamById, onOpenPla
       title="Ballpark tracking"
       subtitle="Season bests, measured by in-park radar"
       action={tiles.length > 0 ? (
-        <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
+        <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
           View all
         </Typography>
       ) : undefined}
@@ -970,7 +974,7 @@ function HallOfFirstsCard({ firsts, teamById, loading, onOpenPlayer, onViewAll }
     <SectionCard
       title="Hall of Firsts"
       action={n > 0 ? (
-        <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: WPBL_ACCENT, cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
+        <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
           View all
         </Typography>
       ) : undefined}
@@ -1082,7 +1086,7 @@ function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView
           Velocity, spin &amp; exit velo for {count} new game{count === 1 ? '' : 's'} — tap to explore Ballpark Tracking.
         </Typography>
       </Box>
-      <Typography sx={{ fontSize: '0.75rem', fontWeight: 800, color: WPBL_ACCENT, flexShrink: 0, whiteSpace: 'nowrap' }}>
+      <Typography sx={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)', flexShrink: 0, whiteSpace: 'nowrap' }}>
         View →
       </Typography>
       <Box

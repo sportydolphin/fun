@@ -6,14 +6,16 @@ import {
 } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
 import { wpblPortrait } from './portraits'
-import { SegNav, SectionLabel, TeamBadge, pressable, FOCUS_RING, useWpblDark, CARD_BORDER } from './ui'
+import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER } from './ui'
 import { useSearchBridge, updateSearchBridge, setSearchQuery } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
+import { fmtSigned } from './stats'
 import { track, EVENTS } from '../lib/analytics'
 import WpblHome from './Home'
 import WpblStatsView, { type WpblStatsFocus } from './StatsView'
 import TeamPage from './TeamPage'
+import TeamsGrid from './TeamsGrid'
 import SwipeableViews from './SwipeableViews'
 import WpblBottomNav, { BOTTOM_NAV_SPACE } from './BottomNav'
 import { useExperiments } from '../ExperimentsContext'
@@ -279,7 +281,7 @@ function StandingsView({ teams, games, onOpenTeam }: {
           {rows.map(r => {
             const gp = r.wins + r.losses
             const l10 = r.lastTen
-            const l10Color = l10.wins > l10.losses ? '#22c55e' : l10.wins < l10.losses ? '#ef4444' : 'text.secondary'
+            const l10Color = l10.wins > l10.losses ? 'var(--wpbl-pos)' : l10.wins < l10.losses ? 'var(--wpbl-neg)' : 'text.secondary'
             return (
               <Box component="tr" key={r.team.id}
                 onClick={clickable ? () => onOpenTeam!(r.team) : undefined}
@@ -299,13 +301,13 @@ function StandingsView({ teams, games, onOpenTeam }: {
                 <Box component="td" sx={{ ...td, color: 'text.secondary' }}>{r.gamesBack === 0 ? '—' : r.gamesBack.toFixed(1)}</Box>
                 {(() => {
                   const diff = r.runsFor - r.runsAgainst
-                  const diffColor = gp === 0 ? 'text.disabled' : diff > 0 ? '#22c55e' : diff < 0 ? '#ef4444' : 'text.secondary'
-                  return <Box component="td" sx={{ ...td, color: diffColor, fontWeight: 600 }}>{gp === 0 ? '—' : diff > 0 ? `+${diff}` : diff}</Box>
+                  const diffColor = gp === 0 ? 'text.disabled' : diff > 0 ? 'var(--wpbl-pos)' : diff < 0 ? 'var(--wpbl-neg)' : 'text.secondary'
+                  return <Box component="td" sx={{ ...td, color: diffColor, fontWeight: 600 }}>{gp === 0 ? '—' : fmtSigned(diff)}</Box>
                 })()}
                 <Box component="td" sx={{ ...td, display: { xs: 'none', sm: 'table-cell' }, color: gp === 0 ? 'text.disabled' : l10Color, fontWeight: 600 }}>
                   {gp === 0 ? '—' : `${l10.wins}-${l10.losses}`}
                 </Box>
-                <Box component="td" sx={{ ...td, pr: 1.25, fontWeight: 700, color: r.streak ? (r.streak.type === 'W' ? '#22c55e' : '#ef4444') : 'text.disabled' }}>
+                <Box component="td" sx={{ ...td, pr: 1.25, fontWeight: 700, color: r.streak ? (r.streak.type === 'W' ? 'var(--wpbl-pos)' : 'var(--wpbl-neg)') : 'text.disabled' }}>
                   {r.streak ? `${r.streak.type}${r.streak.count}` : '—'}
                 </Box>
               </Box>
@@ -330,8 +332,6 @@ function TeamsView({ teams, games, selected, onSelect, onOpenGame, onOpenPlayer,
   onOpenStats: (g: 'hitting' | 'pitching', sortKey?: string,
                 opts?: Pick<WpblStatsFocus, 'mode' | 'teamId'>) => void
 }) {
-  const isDark = useWpblDark()
-
   if (teams.length === 0) {
     return <EmptyState title="No teams yet" hint="The four inaugural teams appear here once added." />
   }
@@ -349,6 +349,9 @@ function TeamsView({ teams, games, selected, onSelect, onOpenGame, onOpenPlayer,
         // Up to the grid, as distinct from Back. Back returns you to wherever you opened the
         // team from (Stats, a Home chip, a schedule link); this always goes to all four.
         onAllTeams={() => onSelect(null)}
+        // The sticky header's team rail: switching clubs from inside a team page, without
+        // a trip back out to the grid.
+        onSelectTeam={onSelect}
         onOpenGame={onOpenGame}
         onOpenPlayer={onOpenPlayer}
         onOpenStats={onOpenStats}
@@ -356,24 +359,7 @@ function TeamsView({ teams, games, selected, onSelect, onOpenGame, onOpenPlayer,
     )
   }
 
-  return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
-      {teams.map(t => (
-        <Box key={t.id} {...pressable(() => onSelect(t))} sx={{
-          ...FOCUS_RING,
-          display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, cursor: 'pointer',
-          borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
-          transition: 'border-color 0.15s', '&:hover': { borderColor: wpblAccent(t.id, isDark) },
-        }}>
-          <TeamBadge team={t} size={40} />
-          <Box>
-            <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.15 }}>{wpblFullName(t)}</Typography>
-            <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>{t.abbr}</Typography>
-          </Box>
-        </Box>
-      ))}
-    </Box>
-  )
+  return <TeamsGrid teams={teams} games={games} onSelect={onSelect} />
 }
 
 // ─── Section root ───────────────────────────────────────────────────────────────
@@ -786,7 +772,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         minHeight: { xs: 'calc(100dvh - 24px)', sm: 'auto' },
         // Scroll room under the floating bar, plus the device's own safe-area inset, so the
         // last card in a tab can always be scrolled clear of it.
-        pb: bottomNav ? `calc(${BOTTOM_NAV_SPACE}px + env(safe-area-inset-bottom, 0px))` : 0,
+        pb: bottomNav ? `calc(${BOTTOM_NAV_SPACE} + env(safe-area-inset-bottom, 0px))` : 0,
       }}>
       {loading
         ? <ViewSkeleton />
@@ -827,7 +813,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
                 // bar's height when it's on, so the footer comes to rest just above it.
                 <Box sx={{ display: 'flex', flexDirection: 'column',
                   minHeight: bottomNav
-                    ? `calc(100dvh - 24px - ${BOTTOM_NAV_SPACE}px - env(safe-area-inset-bottom, 0px))`
+                    ? `calc(100dvh - 24px - (${BOTTOM_NAV_SPACE}) - env(safe-area-inset-bottom, 0px))`
                     : 'calc(100dvh - 24px)' }}>
                   {content}
                   <Box sx={{ mt: 'auto' }}>{renderFooter()}</Box>

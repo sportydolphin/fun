@@ -51,14 +51,22 @@ const LABEL_REM = 0.62
 const LABEL_LINE_HEIGHT = 1.3
 const FLOAT_GAP = 10       // how far the bar hovers above the bottom edge
 
-// What the bar actually measures, from the pieces above plus its 1px border top and bottom.
-const BAR_H = TAB_PAD_Y * 2 + ICON_PX + ICON_LABEL_GAP + Math.round(LABEL_REM * 16 * LABEL_LINE_HEIGHT) + 2
+// What the bar actually measures: the px pieces above plus its 1px border top and bottom,
+// and then the label, which is the one part measured in rem.
+const BAR_PX = TAB_PAD_Y * 2 + ICON_PX + ICON_LABEL_GAP + 2
 
 /** Height of the bar plus its float gap — callers reserve this much scroll room beneath the
  *  content so the last card isn't parked under the bar. Excludes the safe-area inset, which
- *  is added on top in the padding below. Derived, so that changing the bar's proportions
- *  can't quietly leave the last card parked underneath it. */
-export const BOTTOM_NAV_SPACE = BAR_H + FLOAT_GAP + 10
+ *  callers add on top. Derived, so that changing the bar's proportions can't quietly leave
+ *  the last card parked underneath it.
+ *
+ *  A CSS expression rather than a number, because one term of it is a rem. This used to read
+ *  `Math.round(LABEL_REM * 16 * LABEL_LINE_HEIGHT)`, which bakes in the assumption that the
+ *  root font size is 16px. That holds until the Large text setting makes it 18, at which point the
+ *  label is taller than the arithmetic believes and the reserved strip is short by a few
+ *  pixels, parking the last card under the bar. Left as an expression (no `calc()` wrapper)
+ *  so callers can compose it with their own terms. */
+export const BOTTOM_NAV_SPACE = `${BAR_PX + FLOAT_GAP + 10}px + ${(LABEL_REM * LABEL_LINE_HEIGHT).toFixed(3)}rem`
 
 export default function WpblBottomNav({ items, value, onChange }: {
   items: BottomNavItem[]

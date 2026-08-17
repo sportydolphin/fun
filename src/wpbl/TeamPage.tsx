@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
+import { ArrowBackRounded, GridViewRounded } from '@mui/icons-material'
 import { fetchWpblRoster, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, computeStandings } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
 import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, pressable, FOCUS_RING, useWpblDark, useWpblName, CARD_BORDER } from './ui'
@@ -149,11 +150,116 @@ function LeaderList({ label, rows, accent, onOpenPlayer }: {
   )
 }
 
-export default function TeamPage({ team, teams, games, onBack, onAllTeams, onOpenGame, onOpenPlayer, onOpenStats }: {
+// ─── Sticky header ──────────────────────────────────────────────────────────────
+
+/** Vertical padding inside the pinned bar. Small on purpose: it is on screen for the whole
+ *  page, and this page is thousands of pixels tall on a phone. */
+const BAR_PAD_Y = 0.75
+
+/**
+ * The four-team switcher, and the thing that answers "whose page is this?" once the name
+ * at the top has scrolled a roster's length away.
+ *
+ * Order is the league's, NOT the standings'. A control that reshuffles itself as results
+ * land is a mis-tap generator: the club that was third from the left this morning is third
+ * from the left tonight, whatever happened last night. (The active pill is wider than a bare
+ * badge, so its neighbours do shift a little as you move along the rail. But the sequence
+ * never changes, which is the half that matters for finding a club without looking.)
+ *
+ * The active club is the only one that spells itself out (badge, abbreviation and record)
+ * because that is the orientation cue; the other three are badges alone, which is all a
+ * destination needs and what keeps the whole bar inside a phone's width.
+ */
+function TeamRail({ teams, current, record, onSelect, onBack, onAllTeams }: {
+  teams: WpblTeam[]
+  current: WpblTeam
+  /** The active club's record ("4–3"), or null before the first game. */
+  record: string | null
+  onSelect?: (t: WpblTeam) => void
+  onBack: () => void
+  onAllTeams?: () => void
+}) {
+  const isDark = useWpblDark()
+  const accent = wpblAccent(current.id, isDark)
+
+  const iconBtn = {
+    ...FOCUS_RING,
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    width: 32, height: 32, flexShrink: 0, borderRadius: '50%', cursor: 'pointer',
+    color: 'text.secondary',
+    '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+  }
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+      <Box {...pressable(onBack)} aria-label="Back" sx={iconBtn}>
+        <ArrowBackRounded sx={{ fontSize: 20 }} />
+      </Box>
+
+      <Box role="group" aria-label="Teams" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
+        {teams.map(t => {
+          const active = t.id === current.id
+          if (active) {
+            return (
+              <Box key={t.id} aria-current="page" sx={{
+                display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0,
+                pl: 0.5, pr: 1, py: 0.4, borderRadius: 999,
+                border: '1px solid', borderColor: accent,
+                // A wash of the club's colour rather than the colour itself: a solid fill
+                // needs a per-team contrast check for the text on top of it (seven of the
+                // eight team/theme pairs fail AA against white), and the border already
+                // carries the identity.
+                bgcolor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+              }}>
+                <TeamBadge team={t} size={22} />
+                <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: 0.3, color: accent }}>{t.abbr}</Typography>
+                {record && (
+                  <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                    {record}
+                  </Typography>
+                )}
+              </Box>
+            )
+          }
+          return (
+            <Box
+              key={t.id}
+              {...pressable(onSelect ? () => onSelect(t) : undefined)}
+              aria-label={wpblFullName(t)}
+              sx={{
+                ...FOCUS_RING,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                width: 34, height: 34, flexShrink: 0, borderRadius: '50%',
+                cursor: onSelect ? 'pointer' : 'default',
+                // Dimmed so the active pill wins the row at a glance; full strength on touch
+                // or hover, which is also the only feedback a bare badge can give.
+                opacity: 0.55, transition: 'opacity 0.15s, background-color 0.15s',
+                '&:hover': { opacity: 1, bgcolor: 'action.hover' },
+              }}
+            >
+              <TeamBadge team={t} size={26} />
+            </Box>
+          )
+        })}
+      </Box>
+
+      {onAllTeams && (
+        <Box {...pressable(onAllTeams)} aria-label="All teams" sx={iconBtn}>
+          <GridViewRounded sx={{ fontSize: 18 }} />
+        </Box>
+      )}
+    </Box>
+  )
+}
+
+export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSelectTeam, onOpenGame, onOpenPlayer, onOpenStats }: {
   team: WpblTeam
   teams: WpblTeam[]
   games: WpblGame[]
   onBack: () => void
+  /** Switch to another club from the pinned rail. Optional so the page still renders
+   *  standalone; without it the rail is a read-only "you are here" strip. */
+  onSelectTeam?: (t: WpblTeam) => void
   /** Up to the four-team grid. Distinct from `onBack`, which returns to wherever this page
    *  was opened from — often the Stats table, which is not "up". */
   onAllTeams?: () => void
@@ -168,6 +274,34 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onOpe
   const accent = wpblAccent(team.id, isDark)
   const shortName = useWpblName()
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+
+  // The pinned bar earns a hairline + shadow only once it is actually holding content back;
+  // at rest it should read as part of the page, not as a slab across the top. Detected by
+  // comparing the bar against a zero-height sentinel left behind at its resting place,
+  // which works at every breakpoint without this page having to know how tall the chrome
+  // above it is (that lives in --app-header-h / --wpbl-nav-h, and exactly one is non-zero).
+  const barRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const [stuck, setStuck] = useState(false)
+  useEffect(() => {
+    let frame = 0
+    const measure = () => {
+      frame = 0
+      const s = sentinelRef.current, b = barRef.current
+      if (s && b) setStuck(s.getBoundingClientRect().bottom < b.getBoundingClientRect().top - 0.5)
+    }
+    // rAF-coalesced: two rect reads per scroll EVENT would force layout far more often than
+    // the screen can show it; per frame is exactly as often as it can matter.
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(measure) }
+    measure()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll, { passive: true })
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+    }
+  }, [])
 
   const [roster, setRoster] = useState<WpblPlayer[] | null>(null)
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] } | null>(null)
@@ -305,20 +439,55 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onOpe
 
   return (
     <Box>
-      {/* Header */}
-      {/* Back and up are different journeys: Back retraces how you got here, "All teams" goes
-          to this page's parent. Both are needed — arriving from the Stats table, Back is the
-          stats board and the grid is otherwise unreachable. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 2 }}>
-        <Box {...pressable(onBack)} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, borderRadius: 1, '&:hover': { color: 'text.primary' }, ...FOCUS_RING }}>
-          ← Back
-        </Box>
-        {onAllTeams && (
-          <Box {...pressable(onAllTeams)} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.8rem', fontWeight: 600, borderRadius: 1, px: 0.5, '&:hover': { color: 'text.primary' }, ...FOCUS_RING }}>
-            All teams
-          </Box>
-        )}
+      {/* Zero-height marker at the bar's resting position. See `stuck` above. */}
+      <Box ref={sentinelRef} aria-hidden sx={{ height: 0 }} />
+
+      {/* Pinned header. Replaces the plain "← Back / All teams" row this page used to open
+          with, and does three jobs that row could not once you had scrolled past it: it says
+          whose page this is, it carries the record, and it switches clubs in one tap.
+
+          Back and "All teams" are still different journeys, so both are still here as icons:
+          Back retraces how you got here (arriving from the Stats table, that is the stats
+          board), while the grid icon always goes up to all four. */}
+      <Box
+        ref={barRef}
+        sx={{
+          position: 'sticky',
+          // Exactly one of these is non-zero at a time: the app toolbar is sticky only on
+          // desktop, the section's pill nav only on mobile, so the sum lands this just under
+          // the chrome on both without either breakpoint being special-cased. Same expression
+          // the Stats tab's pinned control bar uses.
+          top: 'calc(var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px))',
+          zIndex: 5,
+          bgcolor: 'background.default',
+          // Full-bleed to the screen edge on mobile (cancelling the swipe pane's 16px inset,
+          // then handing it back inside) so page content slides under an unbroken bar instead
+          // of showing through a gutter either side of it.
+          mx: { xs: -2, sm: 0 },
+          px: { xs: 2, sm: 0 },
+          py: BAR_PAD_Y, mb: 1.5,
+          transition: 'box-shadow 0.2s, border-color 0.2s',
+          borderBottom: '1px solid',
+          borderColor: stuck ? 'divider' : 'transparent',
+          boxShadow: stuck ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
+        }}
+      >
+        <TeamRail
+          teams={teams}
+          current={team}
+          record={standing && played ? `${standing.row.wins}–${standing.row.losses}` : null}
+          onSelect={onSelectTeam && (t => {
+            // A different club's page starts at its own top. Keeping the scroll depth would
+            // land you at whatever section happens to sit at that pixel on a page of a
+            // different length: the roster of one team against the leaders of another.
+            window.scrollTo({ top: 0 })
+            onSelectTeam(t)
+          })}
+          onBack={onBack}
+          onAllTeams={onAllTeams}
+        />
       </Box>
+
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
         <TeamBadge team={team} size={52} />
         <Box sx={{ minWidth: 0 }}>

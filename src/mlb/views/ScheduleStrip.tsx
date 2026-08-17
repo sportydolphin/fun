@@ -15,6 +15,7 @@ import {
   fetchTeamSchedule, fetchGamePreview, fetchGameFinalDetails, fetchLiveGameData,
   ScheduleGame, ProbablePitcher, GamePreviewData, GameFinalDetails, LiveGameData,
 } from './scheduleData'
+import { scrollBehavior } from '../../lib/motion'
 
 // ─── GameChip ─────────────────────────────────────────────────────────────────
 
@@ -396,7 +397,7 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
     const c = containerRef.current, el = chipRef.current
     if (!c || !el) return
     const t = setTimeout(() => {
-      c.scrollTo({ left: Math.max(0, el.offsetLeft - c.clientWidth / 2 + el.offsetWidth / 2), behavior: 'smooth' })
+      c.scrollTo({ left: Math.max(0, el.offsetLeft - c.clientWidth / 2 + el.offsetWidth / 2), behavior: scrollBehavior() })
     }, 80)
     return () => clearTimeout(t)
   }, [games])
@@ -409,7 +410,7 @@ function FullScheduleModal({ games, myTeamId, teamColor, today, onPlayerClick, o
   }, [])
 
   const scrollStrip = useCallback((dir: 'left' | 'right') => {
-    containerRef.current?.scrollBy({ left: dir === 'right' ? 280 : -280, behavior: 'smooth' })
+    containerRef.current?.scrollBy({ left: dir === 'right' ? 280 : -280, behavior: scrollBehavior() })
   }, [])
 
   // The shared preview modal fetches its own probable-starter data by gamePk, so opening

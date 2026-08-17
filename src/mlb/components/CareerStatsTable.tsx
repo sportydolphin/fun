@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { ACCENT, TEAM_BG } from '../constants'
 import { CareerStatSplit } from '../types'
 import { fmtR } from '../lib/utils'
+import { scrollBehavior } from '../../lib/motion'
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -66,7 +67,7 @@ function StatSection<T extends BaseRow>({
     if (!highlightYear) return
     const timer = setTimeout(() => {
       if (highlightRef.current) {
-        highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        highlightRef.current.scrollIntoView({ behavior: scrollBehavior(), block: 'nearest' })
       }
     }, 80)
     return () => clearTimeout(timer)

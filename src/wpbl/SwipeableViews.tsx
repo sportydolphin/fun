@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode, RefObject } from 'react'
 import { useMediaQuery } from '@mui/material'
+import { useSwipeNav } from '../AccessibilityContext'
 
 // Finger-tracking tab pager for touch devices. The active view and, during a drag, the
 // one neighbour in the drag direction translate 1:1 with the finger; releasing past a
@@ -87,6 +88,15 @@ interface Props {
 export default function SwipeableViews({ index, panels, onIndexChange, minHeight, stickyNavRef, padX = 0, mode = 'window' }: Props) {
   const paneMode = mode === 'pane'
   const isMobile = useMediaQuery('(max-width:600px)')
+  // Accessibility opt-out. With swiping off, the pager takes exactly the same path desktop
+  // already takes (render the active panel and touch nothing else), so there is no second
+  // code path to keep working, and no gesture listener bound to steal a drag. Tabs are still
+  // reachable by tapping the nav, which was always the primary way in.
+  // The hook is called unconditionally and the two are combined after: `isMobile &&
+  // useSwipeNav()` would short-circuit the hook away, changing the hook count on the render
+  // where the viewport crosses 600px.
+  const swipeNav = useSwipeNav()
+  const pagerOn = isMobile && swipeNav
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Keep-alive set: every tab index that has ever been shown (active or swiped-to). Those
@@ -139,7 +149,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     if (prevIndex.current === index) return
     // Pane mode owns no window scroll — each pane has its own scroller, and the modal above it
     // has the body locked, so there is nothing to save or restore here.
-    if (!isMobile || paneMode) { prevIndex.current = index; return }
+    if (!pagerOn || paneMode) { prevIndex.current = index; return }
     // Prefer the depth captured at commit time (see commitScrollY): window.scrollY here is
     // post-clamp on a swipe into a shorter pane, which would lose the toolbar-hidden state.
     // A tap (no capture) falls back to the live scroll position.
@@ -149,7 +159,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     const target = targetFor(index, fromY)
     prevIndex.current = index
     window.scrollTo(0, target)
-  }, [index, isMobile])
+  }, [index, pagerOn])
 
   const [engaged, setEngaged] = useState(false) // a horizontal drag/animation is in progress
   const [offset, setOffset] = useState(0)        // px the track is translated by
@@ -166,7 +176,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   // network too: Home preloads the shared caches every tab reads, so a warmed tab's
   // fetch-on-mount finds a fresh cache and no-ops. Only ever grows `visited`.
   useEffect(() => {
-    if (!isMobile) return
+    if (!pagerOn) return
     const warm = () => {
       let added = false
       for (const j of [index - 1, index + 1]) {
@@ -177,7 +187,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     const hasRIC = typeof window.requestIdleCallback === 'function'
     const id = hasRIC ? window.requestIdleCallback(warm, { timeout: 1500 }) : window.setTimeout(warm, 500)
     return () => { if (hasRIC) window.cancelIdleCallback(id as number); else window.clearTimeout(id as number) }
-  }, [index, isMobile, panels.length])
+  }, [index, pagerOn, panels.length])
 
   // Mirrors for the native (non-React) touch handlers, which close over stale state otherwise.
   const animRef = useRef(false); animRef.current = anim
@@ -197,7 +207,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
 
   useEffect(() => {
     const el = containerRef.current
-    if (!el || !isMobile) return
+    if (!el || !pagerOn) return
 
     const onStart = (e: TouchEvent) => {
       if (animRef.current || e.touches.length !== 1) { g.current.tracking = false; return }
@@ -302,7 +312,7 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       el.removeEventListener('touchend', onEnd)
       el.removeEventListener('touchcancel', onEnd)
     }
-  }, [isMobile, paneMode])
+  }, [pagerOn, paneMode])
 
   // A pane owns its own vertical scroll in pane mode (in window mode the page scrolls, so the
   // pane must not become a scroll container).
@@ -321,8 +331,9 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     }
     : {}
 
-  // Desktop: no pager, but pane mode still has to supply the scroller the modal relies on.
-  if (!isMobile) {
+  // Desktop, or swiping turned off: no pager, but pane mode still has to supply the
+  // scroller the modal relies on.
+  if (!pagerOn) {
     return paneMode
       ? <div style={{ flex: 1, minHeight: 0, ...paneScroll }}>{panels[index]}</div>
       : <>{panels[index]}</>

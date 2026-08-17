@@ -4,6 +4,7 @@ import { LbFullscreenState, LeaderboardEntry } from '../types'
 import { ACCENT, HITTING_STAT_DEFS, PITCHING_STAT_DEFS, TEAM_SEASONS, LB_FEATURED } from '../constants'
 import { SegControl, pillActionSx } from '../components/ui'
 import { filterQualified } from '../lib/utils'
+import { scrollBehavior } from '../../lib/motion'
 
 export interface StatsViewProps {
   lbGroup: 'hitting' | 'pitching'
@@ -46,9 +47,9 @@ export function StatsView({
     const timer = setTimeout(() => {
       if (highlightColRef.current) {
         // Focused cell: center both row (block) and column (inline)
-        highlightColRef.current.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+        highlightColRef.current.scrollIntoView({ behavior: scrollBehavior(), block: 'center', inline: 'center' })
       } else if (highlightRowRef.current) {
-        highlightRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        highlightRowRef.current.scrollIntoView({ behavior: scrollBehavior(), block: 'center' })
       }
     }, 120)
     return () => clearTimeout(timer)

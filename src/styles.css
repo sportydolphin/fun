@@ -31,6 +31,40 @@
   --crit-color-2: #ef4444;
 }
 
+/* Section accent, foreground-safe. The raw #60a5fa is a light blue: as TEXT on this app's
+   light surfaces it measures 2.2:1, well under AA, while being perfectly readable in dark
+   mode and perfectly fine in either mode as a FILL behind white. Rather than thread a
+   useWpblDark() through the dozen places that use it as text, the safe value is published
+   here and keyed on [data-theme], the same attribute the rest of the stylesheet already
+   switches on, set pre-paint by the head script so there is no light-blue flash.
+   Keep in sync with wpblAccentFg() in src/wpbl/constants.ts, which is the JS counterpart
+   for the few places that need the value rather than the CSS. */
+:root {
+  --wpbl-accent-fg: #1565c0;
+  /* Accent used as a FILL with white text on it. #60a5fa measures 2.37:1 against white, and
+     colour contrast is absolute, so that fails in dark mode exactly as hard as in light, which
+     is why this one value serves both themes rather than splitting. */
+  --wpbl-accent-solid: #1565c0;
+  /* Positive / negative numerics (run differential, W-L streaks, form). The dark-mode pair is
+     the original #22c55e / #ef4444, which measure 2.28 and 3.76 on a light background; the
+     light-mode pair is the same hues taken down to 5.0 and 6.5. */
+  --wpbl-pos: #15803d;
+  --wpbl-neg: #b91c1c;
+  /* Leaderboard medals. The originals were picked to "stay legible in both modes" but measure
+     2.27 / 2.64 / 3.35 on light. */
+  --wpbl-medal-1: #8a6200;
+  --wpbl-medal-2: #6b7280;
+  --wpbl-medal-3: #8a5a2b;
+}
+[data-theme="dark"] {
+  --wpbl-accent-fg: #60a5fa;
+  --wpbl-pos: #22c55e;
+  --wpbl-neg: #ef4444;
+  --wpbl-medal-1: #e0a100;
+  --wpbl-medal-2: #9aa0a8;
+  --wpbl-medal-3: #c17d3f;
+}
+
 [data-theme="dark"] {
   color-scheme: dark;
   --bg-color: #0f1115;
@@ -120,3 +154,33 @@ h1 { margin: 0 0 8px 0; }
 
 
 
+
+/* ─── Reduced motion ──────────────────────────────────────────────────────────
+   Honour the reader's OS-level "reduce motion" preference across the whole site.
+   This is a baseline, not a setting: someone who has asked their operating system for
+   less motion has already answered the question, and shouldn't have to find a toggle
+   in an app to be taken at their word.
+
+   `transition-delay` is zeroed alongside the durations, which the widely-copied version
+   of this snippet leaves out. That matters here: the bottom tab bar hands its two icons
+   over in sequence: the outgoing one fades, THEN the incoming one starts after a 90ms
+   delay, precisely so the tab you press never shows a frame with no icon on it. Collapse
+   the durations but keep the delay and you reintroduce that gap as a dark flash, which is
+   the one glitch the staggered fade exists to prevent.
+
+   Scoped to duration/delay rather than `transition: none`, so a transition still fires and
+   any code waiting on `transitionend` still hears it. It just arrives immediately.
+
+   JS-driven smooth scrolling isn't reachable from CSS: `scroll-behavior: auto` here does
+   not override an explicit `scrollTo({ behavior: 'smooth' })`. Those call sites check
+   `prefersReducedMotion()` from src/lib/motion.ts instead. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}

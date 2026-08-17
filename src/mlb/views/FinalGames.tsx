@@ -9,6 +9,7 @@ import { LogoBubble, LiveDot } from '../components/boxScore'
 import { useScrollLock } from '../lib/useScrollLock'
 import { track, EVENTS } from '../../lib/analytics'
 import { GamePreviewModal } from './GamePreview'
+import { scrollBehavior } from '../../lib/motion'
 
 // Loaded on first game click — keeps the Game Center out of the home bundle.
 const GameCenterModal = lazy(() => import('./LiveGameCenter').then(m => ({ default: m.GameCenterModal })))
@@ -611,7 +612,7 @@ export function FinalGamesSection({ followedTeamId, onPlayerClick, onTeamClick }
     const c = stripRef.current
     if (!c) return
     const amount = Math.round(c.clientWidth * 0.85)
-    c.scrollBy({ left: dir === 'right' ? amount : -amount, behavior: 'smooth' })
+    c.scrollBy({ left: dir === 'right' ? amount : -amount, behavior: scrollBehavior() })
   }, [])
 
   // Hover (mouse/trackpad only — gated on the `hover` media feature so touch
