@@ -5,9 +5,10 @@ import { useAuth } from '../AuthContext'
 import { pushSupported, pushConfigured, notificationPermission } from '../lib/push'
 import { getCachedAllGamesPref, fetchAllGamesPref, setAllGamesPref } from './reminders'
 import {
-  fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, computeStandings,
-  getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblAllPlays, getCachedWpblAllTracking, wpblHomeCacheAgeMs,
+  fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllTracking, computeStandings,
+  getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblAllTracking, wpblHomeCacheAgeMs,
   fetchWpblVideos, getCachedWpblVideos,
+  fetchWpblArticles, getCachedWpblArticles,
 } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
 import { SectionCard, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, wpblFeatureName, CARD_BORDER } from './ui'
@@ -20,10 +21,10 @@ import { aggregateTracking, type TrackingBoard } from './tracking'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import { track, EVENTS } from '../lib/analytics'
-import { computeFirsts, type WpblFirst } from './firsts'
 import { LastGameCard } from './RecapCard'
 import { HighlightsRail } from './Highlights'
-import type { WpblTeam, WpblPlayer, WpblGame, WpblFirstsPlay, WpblBattingLine, WpblPitchingLine, WpblTrackRow, WpblVideo } from './types'
+import { ReadingRail } from './Reading'
+import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblTrackRow, WpblVideo, WpblArticle } from './types'
 
 // WPBL home dashboard (Phase 2). Mirrors the MLB home: a full-width scoreboard strip
 // on top, then a two-column card feed (The League / Around the League) that stacks on
@@ -513,30 +514,6 @@ function StandingsCard({ teams, games, onOpenTeam }: {
   )
 }
 
-// ─── Teams card ─────────────────────────────────────────────────────────────────
-
-function TeamsCard({ teams, onOpenTeam }: { teams: WpblTeam[]; onOpenTeam: (t: WpblTeam) => void }) {
-  return (
-    <SectionCard title="Teams" subtitle="The four founding clubs">
-      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
-        {teams.map(t => (
-          <Box key={t.id} onClick={() => onOpenTeam(t)} sx={{
-            display: 'flex', alignItems: 'center', gap: 1, p: 1, cursor: 'pointer',
-            borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
-            transition: 'border-color 0.15s', '&:hover': { borderColor: wpblColor(t.id) },
-          }}>
-            <TeamBadge team={t} size={30} />
-            <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.name}</Typography>
-              <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.city}</Typography>
-            </Box>
-          </Box>
-        ))}
-      </Box>
-    </SectionCard>
-  )
-}
-
 // ─── Leaders ────────────────────────────────────────────────────────────────────
 
 interface LeaderRow {
@@ -553,10 +530,10 @@ interface LeaderRow {
 // comment above claimed both modes and only dark was ever true. See styles.css.
 const RANK_MEDAL = ['var(--wpbl-medal-1)', 'var(--wpbl-medal-2)', 'var(--wpbl-medal-3)']
 
-// Character budget for the featured rows — every stat-leader rank and every Hall of Firsts
-// row. These get a name to themselves, with the team conveyed by the badge/portrait rather
-// than by text, so they show names in FULL; the shared useWpblName() cap (12 on a phone) is
-// tuned for dense tables and would abbreviate here for no reason.
+// Character budget for the featured rows: every stat-leader rank. These get a name to
+// themselves, with the team conveyed by the badge/portrait rather than by text, so they show
+// names in FULL; the shared useWpblName() cap (12 on a phone) is tuned for dense tables and
+// would abbreviate here for no reason.
 //
 // Sized from the measured boxes, taking the tightest: the leader hero is 220px on mobile and
 // 210px on desktop at 14.4px type; ranks 2–3 are 219px at 13.12px. The longest name on any
@@ -698,8 +675,9 @@ function LeaderStatSkeleton() {
   )
 }
 
-// A left-icon / two-line / right-value row, used for both the tracking teaser (icon
-// tile) and Hall of Firsts (portrait). `size` is the leading circle's diameter.
+// A left-icon / two-line / right-value row, used by the tracking teaser. `size` is the
+// leading circle's diameter, kept a parameter because the row was shared with a second
+// card (a portrait rather than an icon tile) before that card was retired.
 function TeaserRowSkeleton({ size, py }: { size: number; py: number }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, py, borderTop: '1px solid', borderColor: 'divider' }}>
@@ -873,155 +851,6 @@ function TrackingTeaserCard({ board, latestGameIds, loading, teamById, onOpenPla
   )
 }
 
-// ─── Hall of Firsts ───────────────────────────────────────────────────────────────
-
-function FirstRow({ f, teamById, onOpenPlayer, showDetail }: {
-  f: WpblFirst; teamById: Map<string, WpblTeam>; onOpenPlayer: (p: WpblPlayer) => void; showDetail?: boolean
-}) {
-  const team = f.teamId ? teamById.get(f.teamId) : undefined
-  const dateLabel = new Date(`${f.date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })
-  const clickable = !!f.player
-  return (
-    <Box
-      onClick={clickable ? () => onOpenPlayer(f.player!) : undefined}
-      sx={{
-        display: 'flex', alignItems: 'center', gap: 1.25, py: 0.85,
-        borderTop: '1px solid', borderColor: 'divider',
-        borderRadius: 1, ...(clickable ? { cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } } : {}),
-      }}
-    >
-      <PlayerPortrait name={f.name} teamId={f.teamId ?? ''} size={42} />
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary' }}>
-          {f.icon} {f.label}
-        </Typography>
-        <Typography sx={{ fontSize: '0.9rem', fontWeight: 700, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{wpblFeatureName(f.name, FEATURE_NAME_MAX)}</Typography>
-        {showDetail && f.detail && (
-          <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.detail}</Typography>
-        )}
-      </Box>
-      <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-        {team && <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary' }}>{team.abbr}</Typography>}
-        <Typography sx={{ fontSize: '0.66rem', color: 'text.secondary' }}>{dateLabel}</Typography>
-      </Box>
-    </Box>
-  )
-}
-
-// The home card rotates through EVERY first (not just the featured handful): every ~30s the
-// top row slides up and out, the rest shift up, and the next first enters at the bottom, so the
-// card always feels fresh. It shows a 4-row window; the full static list lives behind "View all".
-const FIRSTS_WINDOW = 4
-const FIRSTS_INTERVAL = 30000
-
-function HallOfFirstsCard({ firsts, teamById, loading, onOpenPlayer, onViewAll }: {
-  firsts: WpblFirst[]; teamById: Map<string, WpblTeam>; loading: boolean
-  onOpenPlayer: (p: WpblPlayer) => void; onViewAll: () => void
-}) {
-  // Lead with the featured firsts, then the rest, so the card opens on the marquee milestones
-  // and rotates through everything else from there.
-  const pool = useMemo(
-    () => [...firsts].sort((a, b) => Number(b.featured) - Number(a.featured) || a.order - b.order),
-    [firsts],
-  )
-  const n = pool.length
-  const rotates = n > FIRSTS_WINDOW
-
-  const [start, setStart] = useState(0)
-  const [sliding, setSliding] = useState(false)
-  const listRef = useRef<HTMLDivElement>(null)
-  const [rowH, setRowH] = useState(0)
-
-  // Measure a row so the window can be height-clamped and the slide distance is exact.
-  useLayoutEffect(() => {
-    const first = listRef.current?.children[0] as HTMLElement | undefined
-    if (first) setRowH(first.offsetHeight)
-  }, [pool])
-
-  // Seed a random starting first once the pool loads, so the card opens on a different one
-  // each visit instead of always the featured lead.
-  const seeded = useRef(false)
-  useEffect(() => {
-    if (start >= n && n > 0) setStart(0)
-    if (!seeded.current && n > 0) { seeded.current = true; setStart(Math.floor(Math.random() * n)) }
-  }, [n, start])
-
-  // Every interval, slide the window up one row, then commit the advance a beat after the
-  // animation ends. The commit is timer-driven (not animationend-driven) on purpose: it stays
-  // reliable when the tab is backgrounded or the user prefers reduced motion, cases where the
-  // animation may not run or fire its end event. The reset is seamless — a window slid up by
-  // one row looks identical to the next window at rest.
-  const SLIDE_MS = 550
-  useEffect(() => {
-    if (!rotates || rowH === 0) return
-    let commitTimer: ReturnType<typeof setTimeout>
-    const id = setInterval(() => {
-      setSliding(true)
-      commitTimer = setTimeout(() => {
-        setSliding(false)
-        setStart(s => (s + 1) % n)
-      }, SLIDE_MS + 20)
-    }, FIRSTS_INTERVAL)
-    return () => { clearInterval(id); clearTimeout(commitTimer) }
-  }, [rotates, rowH, n])
-
-  // When rotating, render one extra row below the fold — it's what slides into view.
-  const rows = rotates
-    ? Array.from({ length: FIRSTS_WINDOW + 1 }, (_, i) => pool[(start + i) % n])
-    : pool.slice(0, FIRSTS_WINDOW)
-
-  return (
-    <SectionCard
-      title="Hall of Firsts"
-      action={n > 0 ? (
-        <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
-          View all
-        </Typography>
-      ) : undefined}
-    >
-      {loading ? (
-        <>{[0, 1, 2, 3].map(i => <TeaserRowSkeleton key={i} size={42} py={0.85} />)}</>
-      ) : n === 0 ? (
-        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', py: 1 }}>
-          Milestones appear as the season's firsts happen.
-        </Typography>
-      ) : (
-        <Box sx={{ overflow: 'hidden', height: rotates && rowH ? FIRSTS_WINDOW * rowH : 'auto' }}>
-          <Box
-            ref={listRef}
-            sx={{
-              '--hof-row': rowH ? `-${rowH}px` : '0px',
-              '@keyframes hofSlideUp': { to: { transform: 'translateY(var(--hof-row))' } },
-              animation: sliding && rowH ? `hofSlideUp ${SLIDE_MS}ms ease forwards` : 'none',
-            }}
-          >
-            {/* Keyed by slot index so DOM nodes are reused across the seamless reset. */}
-            {rows.map((f, i) => <FirstRow key={i} f={f} teamById={teamById} onOpenPlayer={onOpenPlayer} />)}
-          </Box>
-        </Box>
-      )}
-    </SectionCard>
-  )
-}
-
-function FirstsModal({ firsts, teamById, onClose, onOpenPlayer }: {
-  firsts: WpblFirst[]; teamById: Map<string, WpblTeam>; onClose: () => void; onOpenPlayer: (p: WpblPlayer) => void
-}) {
-  return (
-    <ModalShell eyebrow="Hall of Firsts" onClose={onClose} maxWidth={520}>
-      <Box sx={{ px: 2, py: 1 }}>
-        {firsts.length === 0 ? (
-          <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', py: 3, textAlign: 'center' }}>
-            No milestones yet. They appear as the season's firsts happen.
-          </Typography>
-        ) : (
-          firsts.map(f => <FirstRow key={f.key} f={f} teamById={teamById} onOpenPlayer={onOpenPlayer} showDetail />)
-        )}
-      </Box>
-    </ModalShell>
-  )
-}
-
 // ─── New-tracking banner ──────────────────────────────────────────────────────────
 // The league publishes TrackMan tracking in batches that land days after a game, often in
 // bulk for several games at once (see wpbl-ingest's late-backfill note). When the set of
@@ -1192,18 +1021,17 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
 }) {
   const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
-  // Leaders + Hall-of-Firsts + tracking data — fetched here so only the home view pays for
-  // it. Seeded from the shared session cache so swiping back to Home (the default tab, so
-  // the most re-entered) repaints instantly instead of flashing every card's skeleton and
-  // re-pulling all four datasets — including the heavy play-by-play read.
+  // Leaders + tracking data, fetched here so only the home view pays for it. Seeded from the
+  // shared session cache so swiping back to Home (the default tab, so the most re-entered)
+  // repaints instantly instead of flashing every card's skeleton and re-pulling all three
+  // datasets.
   const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
-  const [plays, setPlays] = useState<WpblFirstsPlay[]>(() => getCachedWpblAllPlays() ?? [])
   const [tracking, setTracking] = useState<WpblTrackRow[]>(() => getCachedWpblAllTracking() ?? [])
   const [videos, setVideos] = useState<WpblVideo[]>(() => getCachedWpblVideos() ?? [])
+  const [articles, setArticles] = useState<WpblArticle[]>(() => getCachedWpblArticles() ?? [])
   const [loadingLeaders, setLoadingLeaders] = useState(() => wpblHomeCacheAgeMs() === Infinity)
-  const [firstsOpen, setFirstsOpen] = useState(false)
   // Discord dismissal is tracked here (not inside DiscordCard) so a dismissed invite leaves no
   // empty wrapper in the left column — otherwise the column's row-gap would keep pushing the
   // Next game card down, out of line with the top of the right column (Batting Leaders).
@@ -1211,16 +1039,16 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
     try { return localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { return false }
   })
 
-  // Full load once, then revalidate on later mounts only when the cache is cold or stale —
+  // Full load once, then revalidate on later mounts only when the cache is cold or stale:
   // a quick swipe back to a warm Home is instant and silent. Players are static for the
-  // session; lines/plays/tracking seed the leaders, Hall of Firsts, and tracking teaser.
+  // session; lines and tracking seed the leaders and the tracking teaser.
   useEffect(() => {
     if (wpblHomeCacheAgeMs() < 30_000) return
     let cancelled = false
-    Promise.all([fetchWpblAllPlayers(), fetchWpblAllLines(), fetchWpblAllPlays(), fetchWpblAllTracking()])
-      .then(([p, l, pl, tr]) => {
+    Promise.all([fetchWpblAllPlayers(), fetchWpblAllLines(), fetchWpblAllTracking()])
+      .then(([p, l, tr]) => {
         if (cancelled) return
-        setPlayers(p); setLines(l); setPlays(pl); setTracking(tr); setLoadingLeaders(false)
+        setPlayers(p); setLines(l); setTracking(tr); setLoadingLeaders(false)
       })
       .catch(() => { if (!cancelled) setLoadingLeaders(false) })
     return () => { cancelled = true }
@@ -1235,24 +1063,33 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
     return () => { cancelled = true }
   }, [])
 
-  // While a game is live, refresh only the box-score lines + play-by-play (what the leaders
-  // and Hall of Firsts read), and on a gentle cadence. Deliberately NOT re-pulled on the
-  // tick: the full player roster (static) and the whole pitch_tracking table (large) — that
-  // repeated full-table scan every 25s was the main load pegging the WPBL database. The
-  // tracking teaser shows season bests, which barely move within a single game; it refreshes
-  // on the next visit.
+  // The reading feed, on the same terms as the highlights above: its own small cached read,
+  // kept out of the leaders load so a slow Substack sync can never gate or flash those cards.
+  useEffect(() => {
+    let cancelled = false
+    fetchWpblArticles().then(a => { if (!cancelled) setArticles(a) }).catch(() => { /* keep last-good */ })
+    return () => { cancelled = true }
+  }, [])
+
+  // While a game is live, refresh only the box-score lines (what the leaders read), and on a
+  // gentle cadence. Deliberately NOT re-pulled on the tick: the full player roster (static)
+  // and the whole pitch_tracking table (large). That repeated full-table scan every 25s was
+  // the main load pegging the WPBL database. The tracking teaser shows season bests, which
+  // barely move within a single game; it refreshes on the next visit.
+  //
+  // The whole-season play-by-play used to be pulled here too, for the Hall of Firsts. That
+  // card is gone, and with it the most expensive read on the section: nothing on Home needs
+  // play-by-play now.
   useEffect(() => {
     if (!liveGame) return
     let cancelled = false
     const id = setInterval(() => {
-      Promise.all([fetchWpblAllLines(), fetchWpblAllPlays()])
-        .then(([l, pl]) => { if (!cancelled) { setLines(l); setPlays(pl) } })
+      fetchWpblAllLines()
+        .then(l => { if (!cancelled) setLines(l) })
         .catch(() => { /* keep last-good */ })
     }, 60000)
     return () => { cancelled = true; clearInterval(id) }
   }, [liveGame?.id])
-
-  const firsts = useMemo(() => computeFirsts(plays, games, players, lines.pitching), [plays, games, players, lines.pitching])
 
   const trackingBoard = useMemo(() => aggregateTracking(tracking, players, lines.pitching), [tracking, players, lines.pitching])
   // Game ids from the most recent day that has a final — used to flag a record as "New".
@@ -1359,14 +1196,18 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
           Around the League). On mobile there's one column, so the two wrappers collapse to
           `display: contents` and every card becomes a direct grid item — then CSS `order`
           sets the single-column sequence independently of which desktop column a card lives
-          in. That lets Hall of Firsts drop below the season leaders and Teams sit dead last
-          on mobile, while desktop keeps Hall of Firsts and Teams below the leaders in the
-          right column. */}
+          in. That is what lets the right column's cards interleave into the mobile stack at
+          the points they belong rather than all landing beneath the left column's. */}
       <Box sx={{
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', md: '1.4fr 1fr' },
         columnGap: 2.5, rowGap: 1.5, alignItems: 'start',
       }}>
+        {/* The single-column (mobile) sequence, which the `order` values below spell out:
+            Discord, Next game, Last game, Reading, Highlights, Standings, Tracking, Batting,
+            Pitching. Kept gap-free and collision-free on purpose: two cards sharing an order
+            value fall back to DOM order, which reads as correct until someone reorders a
+            column and it silently isn't. */}
         {/* The League */}
         <Box sx={{ minWidth: 0, display: { xs: 'contents', md: 'flex' }, flexDirection: 'column', gap: 1.5 }}>
           {!discordDismissed && (
@@ -1374,40 +1215,44 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
           )}
           <Box sx={{ minWidth: 0, order: { xs: 2, md: 0 } }}><NextGameCard games={games} teams={teamMap} onOpenGame={onOpenGame} /></Box>
           <Box sx={{ minWidth: 0, order: { xs: 3, md: 0 } }}><LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} /></Box>
-          {/* Highlights rail — sits under the Next game card in the left column on desktop,
-              and directly below it in the mobile stack. Self-hides when the feed is empty
-              (pre-migration / no uploads), so it never leaves an empty slot or gap. */}
-          {videos.length > 0 && (
-            <Box sx={{ minWidth: 0, order: { xs: 3, md: 0 } }}><HighlightsRail videos={videos} teams={teams} /></Box>
+          {/* Reading then Highlights. The two are a pair (both answer "what happened", one in
+              prose and one in video) and they share a card shape to say so, but reading leads:
+              a piece of writing is the thing you would not have found on your own, and the
+              league's own reels are a click away wherever else you look for them.
+
+              The order is set twice on purpose. DOM order is what desktop follows, since this
+              column is a plain flex column at md; the `xs` values are what the single-column
+              mobile grid follows. Changing one without the other silently flips the pair on
+              the other breakpoint. Both self-hide on an empty feed, so neither leaves a gap. */}
+          {articles.length > 0 && (
+            <Box sx={{ minWidth: 0, order: { xs: 4, md: 0 } }}><ReadingRail articles={articles} teams={teams} /></Box>
           )}
-          <Box sx={{ minWidth: 0, order: { xs: 4, md: 0 } }}><StandingsCard teams={teams} games={games} onOpenTeam={onOpenTeam} /></Box>
+          {videos.length > 0 && (
+            <Box sx={{ minWidth: 0, order: { xs: 5, md: 0 } }}><HighlightsRail videos={videos} teams={teams} /></Box>
+          )}
         </Box>
 
         {/* Around the League */}
         <Box sx={{ minWidth: 0, display: { xs: 'contents', md: 'flex' }, flexDirection: 'column', gap: 1.5 }}>
-          {/* Mobile: below the season leaders (orders 5–6), above only Teams.
-              Desktop: md order 1 drops it below the leaders (md 0) in this column. */}
-          <Box sx={{ minWidth: 0, order: { xs: 8, md: 1 } }}><HallOfFirstsCard firsts={firsts} teamById={teamMap} loading={loadingLeaders} onOpenPlayer={onOpenPlayer} onViewAll={() => setFirstsOpen(true)} /></Box>
+          {/* Standings heads this column. It moved over from the left when Hall of Firsts
+              came out: the left column is now the narrative one (what happened, in video and
+              in prose) and the right is the reference one (where everyone stands, and who is
+              leading what), which is a cleaner split than the four-card left column it had
+              become. Mobile still reads it straight after Reading. */}
+          <Box sx={{ minWidth: 0, order: { xs: 6, md: 0 } }}><StandingsCard teams={teams} games={games} onOpenTeam={onOpenTeam} /></Box>
           {/* Only reserve the tracking slot (skeleton included) when tracking will actually
               show. Gating on the loading flag too would flash a skeleton on cold load and then
               yank the card once it resolves stale — which it now essentially always is, since
               tracking data exists for only the first couple games. Its loading placeholder
               stays accurate by not appearing at all when there's nothing to place. */}
           {!trackingStale && (
-            <Box sx={{ minWidth: 0, order: { xs: 5, md: 0 } }}><TrackingTeaserCard board={trackingBoard} latestGameIds={latestGameIds} loading={loadingLeaders} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={viewTracking} /></Box>
+            <Box sx={{ minWidth: 0, order: { xs: 7, md: 0 } }}><TrackingTeaserCard board={trackingBoard} latestGameIds={latestGameIds} loading={loadingLeaders} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={viewTracking} /></Box>
           )}
-          <Box sx={{ minWidth: 0, order: { xs: 6, md: 0 } }}><LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={sortKey => onViewStats('hitting', sortKey)} /></Box>
-          <Box sx={{ minWidth: 0, order: { xs: 7, md: 0 } }}><LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={sortKey => onViewStats('pitching', sortKey)} /></Box>
-          {/* Teams sits at the bottom of the right column on desktop (md order 2, under the
-              leaders and Hall of Firsts) — it doesn't need the wide left column. Mobile keeps
-              it as the last card in the whole feed. */}
-          <Box sx={{ minWidth: 0, order: { xs: 9, md: 2 } }}><TeamsCard teams={teams} onOpenTeam={onOpenTeam} /></Box>
+          <Box sx={{ minWidth: 0, order: { xs: 8, md: 0 } }}><LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={sortKey => onViewStats('hitting', sortKey)} /></Box>
+          <Box sx={{ minWidth: 0, order: { xs: 9, md: 0 } }}><LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={sortKey => onViewStats('pitching', sortKey)} /></Box>
         </Box>
       </Box>
 
-      {firstsOpen && (
-        <FirstsModal firsts={firsts} teamById={teamMap} onClose={() => setFirstsOpen(false)} onOpenPlayer={onOpenPlayer} />
-      )}
     </Box>
   )
 }

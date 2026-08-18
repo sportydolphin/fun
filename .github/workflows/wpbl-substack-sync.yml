@@ -1,0 +1,54 @@
+name: WPBL Substack Sync
+
+on:
+  schedule:
+    # Hourly, and only across the hours she actually files. She publishes roughly twice a
+    # week, usually mid-morning to early-afternoon Eastern, so a post reaches the site
+    # within the hour without polling one person's personal Substack around the clock.
+    # There is nothing to gain from going faster: an essay published at 2pm is exactly as
+    # good on the site at 3pm.
+    - cron: '0 12-23 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'How to run. "dry-run" prints what it would write and writes nothing. "sync" is the normal run.'
+        required: true
+        default: 'dry-run'
+        type: choice
+        options: [dry-run, sync]
+
+# One writer at a time; skip a tick rather than racing two upserts of the same rows.
+concurrency:
+  group: wpbl-substack-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Same trick as the sibling WPBL workflows: install only what this script needs, at
+      # the versions pinned in package.json. esbuild is among them because the script is
+      # TypeScript, which is what lets the matching rules live in a unit-tested module
+      # (src/wpbl/derive/articles.ts) rather than inside the job.
+      - name: Install dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws','esbuild'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Sync the WPBL reading feed
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MODE:                      ${{ inputs.mode }}
+        run: |
+          case "$MODE" in
+            dry-run)  npm run substack-sync -- --dry-run ;;
+            *)        npm run substack-sync ;;
+          esac

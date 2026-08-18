@@ -20,6 +20,7 @@
     "migrate": "node --env-file=.env scripts/migrate.mjs",
     "discord-recaps": "esbuild scripts/post-wpbl-discord-recaps.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-discord-recaps.mjs && node node_modules/.cache/wpbl-discord-recaps.mjs",
     "discord-highlights": "node scripts/post-wpbl-discord-highlights.mjs",
+    "substack-sync": "esbuild scripts/sync-wpbl-substack.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-substack-sync.mjs && node node_modules/.cache/wpbl-substack-sync.mjs",
     "discord-commands": "node --env-file=.env scripts/register-wpbl-discord-commands.mjs",
     "giveaway": "node --env-file=.env scripts/draw-discord-giveaway.mjs",
     "birthdays": "node --env-file=.env scripts/ingest-wpbl-birthdays.mjs",

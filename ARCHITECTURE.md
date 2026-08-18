@@ -41,6 +41,7 @@ flowchart TB
         wpblfeed["WPBL Official Feed<br/>stats.womensprobaseballleague.com/v1"]
         wpblyt["WPBL YouTube<br/>channel RSS feed"]
         wpblshop["WPBL Shop (Shopify)<br/>/products.json catalogue"]
+        substack["towards a more perfect game<br/>Substack: archive API + RSS"]
         discord["Discord<br/>webhooks: board · box scores · highlights<br/>bot: /player interactions"]
         gtasks["Google Tasks API<br/>feature requests"]
         push["Web Push (VAPID)"]
@@ -68,13 +69,14 @@ flowchart TB
     scripts -->|"POST self-editing message"| discord
     scripts -->|"pull uploads (RSS)"| wpblyt
     scripts -->|"mirror catalogue (read-only, never buys)"| wpblshop
+    scripts -->|"pull headlines (never the body)"| substack
     scripts -->|"pull tasks"| gtasks
     scripts -->|"send"| push
     push --> user
 
     classDef ext fill:#fff3e0,stroke:#e08a00,color:#663d00;
     classDef sb fill:#e7f7ee,stroke:#1a9c5b,color:#0b4a2b;
-    class mlbapi,mlbcdn,fangraphs,wpblfeed,wpblyt,wpblshop,discord,gtasks,push ext;
+    class mlbapi,mlbcdn,fangraphs,wpblfeed,wpblyt,wpblshop,substack,discord,gtasks,push ext;
     class auth,db,edge,pgcron sb;
 ```
 
@@ -177,6 +179,7 @@ flowchart TB
         t_rem["wpbl_game_reminders"]
         t_wsent["wpbl_game_start_sent"]
         t_vid["wpbl_videos<br/>(YouTube highlights)"]
+        t_art["wpbl_articles<br/>(Substack headlines; NO body text)"]
         t_board["wpbl_discord_board_state<br/>(the board's message id)"]
         t_recap["wpbl_discord_recap_posts<br/>(posted box scores + hash)"]
         t_corr["wpbl_play_corrections<br/>(OUR fixes, not the feed's)"]
@@ -271,6 +274,7 @@ sequenceDiagram
 | `wpbl-discord-board` | `*/15 14-23,0-3` | `update-wpbl-discord-board` | Self-editing WPBL "next games" Discord message |
 | `wpbl-discord-recaps` | `0 18-23,0-4` (hourly) | `post-wpbl-discord-recaps` | Backstop + corrections for the Discord recaps `wpbl-ingest` posts (a final it missed; a box score revised afterwards) |
 | `wpbl-youtube-sync` | `0,30 14-23,0-3` | `sync-wpbl-youtube`, `post-wpbl-discord-highlights` | Mirror WPBL YouTube uploads → `wpbl_videos` (highlights rail + game recaps), then post any new highlight reel to the Discord highlights channel in the same pass |
+| `wpbl-substack-sync` | `0 12-23` (hourly) | `sync-wpbl-substack` | Mirror an independent writer's WPBL posts → `wpbl_articles` (Reading rail, game story card, player "written about"), resolving each to the players, clubs and game it is about |
 | `resolve-survivor` | `30 6` | `resolve-survivor` | Grade survivor picks overnight |
 | `update-playoff-odds` | `0 6` | `simulate-playoff-odds` | Monte-Carlo playoff odds |
 | `update-streaks` | `0 6` + `0 23` + `0 3` (in-season) | `update-streaks` | Streak leaderboards |
@@ -325,6 +329,7 @@ Setup walkthrough: [`docs/PUSH_NOTIFICATIONS.md`](docs/PUSH_NOTIFICATIONS.md).
 | **FanGraphs** | `update-payrolls` | Team payroll data |
 | **WPBL Official Feed** (`stats.womensprobaseballleague.com/v1`) | `wpbl-ingest` | Games, box scores, play-by-play, TrackMan |
 | **WPBL YouTube** (channel RSS `feeds/videos.xml`) | `sync-wpbl-youtube` | Highlight/recap videos → `wpbl_videos`; SPA embeds via youtube-nocookie on click |
+| **towards a more perfect game** (`towardsamoreperfectgame.substack.com`) | `sync-wpbl-substack` | An independent writer's WPBL coverage: headline, dek, cover, word count and link → `wpbl_articles`, matched to players/clubs/games. **The article body is never stored.** The RSS feed carries the full text, and the job reads it only to find names in it; `wpbl_articles` has no body column so the rule is enforced by the schema. Every surface links out to her site |
 | **WPBL Shop** (`shop.womensprobaseballleague.com`, Shopify) | `watch-wpbl-restock` | The published catalogue via `/products.json`, diffed against a stored snapshot to find new merch and restocks. **Read-only, and it stays that way**: the job announces and never carts or checks out |
 | **Discord webhooks** (send-only) | `update-wpbl-discord-board`, `wpbl-ingest`, `post-wpbl-discord-recaps`, `post-wpbl-discord-highlights`, `watch-wpbl-restock` | Self-editing WPBL board + events/watch-party links; per-game box scores posted as a game goes final and edited in place on a correction; new YouTube highlight reels posted once each; shop restock alerts |
 | **Discord interactions** (inbound) | [`functions/discord/wpbl.ts`](functions/discord/wpbl.ts) | The `/player` slash command: an HTTP interactions endpoint (no gateway bot, nothing long-running), answering with a player's season and serving name autocomplete |

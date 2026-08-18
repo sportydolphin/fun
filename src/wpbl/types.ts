@@ -130,6 +130,28 @@ export interface WpblVideo {
   game_date_hint?: string | null
 }
 
+/** One post from the WPBL reading feed: a mirror of an independent writer's Substack
+ *  (scripts/sync-wpbl-substack.ts). Deliberately carries no body text. The feed publishes
+ *  the full article, and we store a headline, a dek and a link so every surface sends the
+ *  reader to her post rather than standing in for it. */
+export interface WpblArticle {
+  post_id: number            // Substack's stable numeric post id
+  slug: string
+  url: string                // what every card opens, in a new tab
+  title: string
+  subtitle: string | null    // her dek
+  cover_url: string | null
+  published_at: string       // ISO timestamp
+  word_count: number | null  // with video_count, drives the "N min read" label
+  /** Baseball clips embedded in the post. Null means "not counted", not "none": only posts
+   *  still inside the RSS window have a body for the sync to count embeds in. */
+  video_count: number | null
+  tags: string[]
+  game_id: string | null     // the game this post recaps, when all the signals agreed
+  team_ids: string[]         // clubs the post is ABOUT, not merely mentions
+  player_ids: string[]       // rostered players named by full name
+}
+
 export interface WpblBattingLine {
   id: string
   game_id: string

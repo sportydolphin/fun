@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, Tooltip, useMediaQuery } from '@mui/material'
 import { supabase } from '../lib/supabase'
-import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblVideos, getCachedWpblVideos } from './api'
+import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles } from './api'
 import { wpblAccent, wpblFullName, outsToIp, playedInnings, formatGameTime } from './constants'
 import { LiveBanner, useLiveGame } from './Live'
 import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
+import { GameStoryCard } from './Reading'
 import { GameRecapView } from './RecapCard'
 import { ModalShell, SegNav, TeamBadge, useWpblDark, useWpblName, wpblFeatureName } from './ui'
 import SwipeableViews from './SwipeableViews'
@@ -15,7 +16,7 @@ import { fmtSpeed, speedUnit } from '../lib/units'
 import { prettyType } from './tracking'
 import type {
   WpblTeam, WpblGame, WpblPlayer, WpblBattingLine, WpblPitchingLine,
-  WpblGamePlay, WpblPitchTracking, WpblVideo,
+  WpblGamePlay, WpblPitchTracking, WpblVideo, WpblArticle,
 } from './types'
 
 // Read-only game center. Fed entirely by the official-feed mirror (see wpbl-ingest):
@@ -913,6 +914,11 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   // wpbl_videos cache (a tiny table, fetched once app-wide), matched on game_id.
   const [video, setVideo] = useState<WpblVideo | null>(() =>
     getCachedWpblVideos()?.find(v => v.game_id === seed.id) ?? null)
+  // The written recap of this game, when someone has written one and the sync was confident
+  // enough to link it (see matchGame in derive/articles.ts). Same shared-cache treatment as
+  // the video above.
+  const [story, setStory] = useState<WpblArticle | null>(() =>
+    getCachedWpblArticles()?.find(a => a.game_id === seed.id) ?? null)
 
   const reload = useCallback((withSpinner = false) => {
     if (withSpinner) setLoading(true)
@@ -940,6 +946,16 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
     let cancelled = false
     fetchWpblVideos()
       .then(vs => { if (!cancelled) setVideo(vs.find(v => v.game_id === seed.id) ?? null) })
+      .catch(() => { /* keep last-good */ })
+    return () => { cancelled = true }
+  }, [seed.id])
+
+  // Same again for the written recap. She files the morning after a night game, so this is
+  // routinely absent when the game first goes final and present the next time it's opened.
+  useEffect(() => {
+    let cancelled = false
+    fetchWpblArticles()
+      .then(as => { if (!cancelled) setStory(as.find(a => a.game_id === seed.id) ?? null) })
       .catch(() => { /* keep last-good */ })
     return () => { cancelled = true }
   }, [seed.id])
@@ -1026,9 +1042,15 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
           )}
           {game.venue && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', px: 2, mt: 1 }}>{game.venue}</Typography>}
 
-          {/* Recap highlight — shown for a finished game the league has posted video for. */}
+          {/* Recap highlight: shown for a finished game the league has posted video for. */}
           {final && video && (
             <Box sx={{ px: 2, mt: 1.5 }}><GameHighlightCard video={video} /></Box>
+          )}
+          {/* The written recap, directly beneath the reel. Watch it, then read about it,
+              then scroll into the box score below: three views of one night, which is the
+              whole reason this section holds both the stats and the writing. */}
+          {final && story && (
+            <Box sx={{ px: 2, mt: 1 }}><GameStoryCard article={story} /></Box>
           )}
         </Box>
 

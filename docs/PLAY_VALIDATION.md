@@ -205,7 +205,7 @@ concluded it), `external` (a second transcription agreed), or `league`.
 | Read | Surface | Corrected |
 |---|---|---|
 | `fetchWpblGamePlays` | Game Center play-by-play | yes |
-| `fetchWpblAllPlays` | Hall of Firsts | yes |
+| `fetchWpblAllPlays` | (no surface: the Hall of Firsts card it fed was retired) | yes |
 | `fetchWpblGameRecapPlays` | Home "Last Game" card, recap engine | yes |
 
 The corrections table is tiny and usually empty, so the per-game reads fetch it alongside the

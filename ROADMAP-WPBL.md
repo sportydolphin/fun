@@ -31,7 +31,7 @@ played. Nothing yet exists that makes `/wpbl` worth opening in November.
 ## Where the section stands
 
 **Live surfaces:** Home (scoreboard strip, last-game recap card, next-game card + countdown,
-standings, leaders, Hall of Firsts, tracking highlights, highlights rail, Discord invite) ·
+standings, leaders, tracking highlights, highlights rail, reading rail, Discord invite) ·
 Schedule · Standings (W/L/PCT/GB/L10/STRK/DIFF, H2H tiebreak) · Stats (hitting / pitching /
 tracking / draft, sortable, team filter, qualified toggle) · Teams (ranked club cards with
 record, form, run differential and next game, plus a head-to-head grid) → team pages (record,

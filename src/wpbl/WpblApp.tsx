@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { Box, Typography, Skeleton, CircularProgress, useMediaQuery } from '@mui/material'
 import {
   fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings,
-  fetchWpblAllLines, fetchWpblAllPlays, fetchWpblAllTracking, fetchWpblVideos,
+  fetchWpblAllLines, fetchWpblAllTracking, fetchWpblVideos, fetchWpblArticles,
 } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
 import { wpblPortrait } from './portraits'
@@ -602,16 +602,19 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // already settled, Home seeds straight from cache and skips the round trip entirely.
   //
   // Deliberately scoped to a Home landing. Deep links (a shared ?game=, or ?view=stats) open
-  // a view that wants a different, smaller slice, and the whole-season play-by-play read is
-  // the most expensive one on the section — it should not be speculative.
+  // a view that wants a different, smaller slice, so this should not be speculative.
+  //
+  // The whole-season play-by-play used to be prefetched here as well, and it was by far the
+  // most expensive read on the section. It fed the Hall of Firsts card and nothing else, so
+  // retiring that card retired the read with it.
   const landsOnHome = useRef(view === 'home')
   useEffect(() => {
     if (!landsOnHome.current) return
     void Promise.all([
       fetchWpblAllLines(),
-      fetchWpblAllPlays(),
       fetchWpblAllTracking(),
       fetchWpblVideos(),
+      fetchWpblArticles(),
     ]).catch(() => { /* Home's own effect surfaces failures; this is only a head start */ })
   }, [])
 

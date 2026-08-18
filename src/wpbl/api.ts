@@ -4,7 +4,7 @@ import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
   WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchTracking, WpblTrackRow,
-  WpblVideo, WpblLineupHistoryRow, WpblPitchingUsageRow,
+  WpblVideo, WpblArticle, WpblLineupHistoryRow, WpblPitchingUsageRow,
 } from './types'
 
 // Reads for the WPBL section. Everything degrades gracefully: if the tables don't
@@ -111,6 +111,7 @@ let allLinesCache:    { data: WpblLinesResult; at: number } | null = null
 let allTrackingCache: { data: WpblTrackRow[]; at: number } | null = null
 let allPlaysCache:    { data: WpblFirstsPlay[]; at: number } | null = null
 let allVideosCache:   { data: WpblVideo[]; at: number } | null = null
+let allArticlesCache: { data: WpblArticle[]; at: number } | null = null
 
 // How long a bulk result is served straight from the cache without re-querying.
 //
@@ -134,6 +135,7 @@ export function getCachedWpblAllLines(): WpblLinesResult | null { return allLine
 export function getCachedWpblAllTracking(): WpblTrackRow[] | null { return allTrackingCache?.data ?? null }
 export function getCachedWpblAllPlays(): WpblFirstsPlay[] | null { return allPlaysCache?.data ?? null }
 export function getCachedWpblVideos(): WpblVideo[] | null { return allVideosCache?.data ?? null }
+export function getCachedWpblArticles(): WpblArticle[] | null { return allArticlesCache?.data ?? null }
 
 /** Age (ms) of the cached players+lines pair; Infinity until both are seeded. */
 export function wpblStatsCacheAgeMs(): number {
@@ -341,6 +343,23 @@ export function fetchWpblVideos(): Promise<WpblVideo[]> {
         PromiseLike<{ data: WpblVideo[] | null; error: unknown }>,
       [])
     if (data.length > 0 || allVideosCache == null) allVideosCache = { data, at: Date.now() }
+    return data
+  })
+}
+
+// The reading feed (wpbl_articles): a mirror of an independent writer's WPBL coverage.
+// Tiny table, read once app-wide and shared by the Home rail, the game card, and the player
+// and team pages, exactly like the videos read above it.
+export function fetchWpblArticles(): Promise<WpblArticle[]> {
+  if (isFresh(allArticlesCache)) return Promise.resolve(allArticlesCache!.data)
+  return once('allArticles', async () => {
+    const data = await safe<WpblArticle[]>('fetchWpblArticles', () =>
+      supabase.from('wpbl_articles')
+        .select('post_id,slug,url,title,subtitle,cover_url,published_at,word_count,video_count,tags,game_id,team_ids,player_ids')
+        .order('published_at', { ascending: false }) as unknown as
+        PromiseLike<{ data: WpblArticle[] | null; error: unknown }>,
+      [])
+    if (data.length > 0 || allArticlesCache == null) allArticlesCache = { data, at: Date.now() }
     return data
   })
 }

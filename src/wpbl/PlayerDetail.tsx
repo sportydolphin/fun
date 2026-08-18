@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress, Tooltip } from '@mui/material'
-import { fetchWpblPlayerLines, fetchWpblPitcherLocations, type WpblPitchLoc } from './api'
+import { fetchWpblPlayerLines, fetchWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, type WpblPitchLoc } from './api'
 import { sumBatting, sumPitching, sumFielding, fmtRate, fmtTwo } from './stats'
 import { wpblAccent, wpblFullName, outsToIp } from './constants'
 import { ModalShell, PlayerPortrait, CopyLinkButton, useWpblDark } from './ui'
+import { WrittenAbout } from './Reading'
 import { PitchLocationCard } from './PitchLocation'
-import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine } from './types'
+import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblArticle } from './types'
 
 // Player page (Phase 1c): profile + season totals aggregated from box-score lines,
 // plus a per-game log. Public read; opened from a team's roster.
@@ -166,6 +167,16 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
   const [pitching, setPitching] = useState<WpblPitchingLine[]>([])
   const [fielding, setFielding] = useState<WpblFieldingLine[]>([])
   const [pitchLocs, setPitchLocs] = useState<WpblPitchLoc[]>([])
+  // Posts that name this player. Seeded from the shared cache so reopening a player is
+  // instant, then revalidated. Most players are never written about, and for them the
+  // section below simply doesn't render.
+  const [articles, setArticles] = useState<WpblArticle[]>(() => getCachedWpblArticles() ?? [])
+
+  useEffect(() => {
+    let cancelled = false
+    fetchWpblArticles().then(a => { if (!cancelled) setArticles(a) }).catch(() => { /* keep last-good */ })
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -231,6 +242,11 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
       const db = gameById.get(b.game_id)?.game_date ?? ''
       return da.localeCompare(db)
     })
+
+  // Posts naming this player, newest first (the query already orders that way).
+  const writtenAbout = useMemo(
+    () => articles.filter(a => a.player_ids.includes(player.id)),
+    [articles, player.id])
 
   const subParts = [player.position, [player.bats, player.throws].filter(Boolean).join('/') ? `B/T ${player.bats || '-'}/${player.throws || '-'}` : null, player.age != null ? `${player.age} yrs` : null].filter(Boolean)
 
@@ -340,6 +356,11 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
             // Ordered by primary role; nulls (absent skills) drop out cleanly.
             <>{statBlocks.map((el, i) => el && <Box key={i}>{el}</Box>)}</>
           )}
+          {/* Outside the loading/no-stats branches on purpose: a player who has been written
+              about but hasn't logged a game yet is exactly the case where this is the most
+              interesting thing on the page. Renders nothing when nobody has written about
+              her, which is most of the roster. */}
+          <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} />
         </Box>
     </ModalShell>
   )
