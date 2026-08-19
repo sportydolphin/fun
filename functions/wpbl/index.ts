@@ -130,10 +130,10 @@ async function portraitUrl(path: string, env: Env, url: URL): Promise<string | n
 
 // ─── HTML ──────────────────────────────────────────────────────────────────────
 
-// index.html's tags are edited in place rather than appended to, because unfurlers take
-// the FIRST occurrence of a property — a second og:title further down the head would just
-// be ignored. The image tags are the exception: they don't exist in the static head
-// (they're commented out there), so those get appended.
+// Every tag is edited in place, never appended, because unfurlers take the FIRST
+// occurrence of a property: a second og:title further down the head would just be
+// ignored. index.html carries a full set of defaults, including the image tags, so
+// there is always something here to edit.
 function rewrite(page: Response, card: Resolved): Response {
   const replacements: Record<string, string> = {
     'og:type': 'profile',
@@ -145,6 +145,22 @@ function rewrite(page: Response, card: Resolved): Response {
     description: card.description,
   }
 
+  // Swapping the image means swapping the frame with it. The default card is a 1200x630
+  // landscape of the logo; a headshot is a portrait, and a portrait in a large-image
+  // card is centre-cropped to a band across the player's chin, so this one asks for the
+  // small square thumbnail instead. The two size tags describe the default cover and
+  // would be a lie about the headshot, so they are dropped rather than corrected: an
+  // unfurler that trusts them would reserve the wrong shape before fetching the image.
+  const dropped = new Set<string>()
+  if (card.image) {
+    replacements['og:image'] = card.image
+    replacements['og:image:alt'] = card.imageAlt
+    replacements['twitter:image'] = card.image
+    replacements['twitter:card'] = 'summary'
+    dropped.add('og:image:width')
+    dropped.add('og:image:height')
+  }
+
   return new HTMLRewriter()
     .on('title', {
       element(el) { el.setInnerContent(card.title) },
@@ -152,29 +168,14 @@ function rewrite(page: Response, card: Resolved): Response {
     .on('meta', {
       element(el) {
         const key = el.getAttribute('property') || el.getAttribute('name')
-        const value = key ? replacements[key] : undefined
+        if (!key) return
+        if (dropped.has(key)) return el.remove()
+        const value = replacements[key]
         if (value) el.setAttribute('content', value)
-      },
-    })
-    .on('head', {
-      element(el) {
-        if (!card.image) return
-        el.append(
-          `<meta property="og:image" content="${esc(card.image)}" />` +
-          `<meta property="og:image:alt" content="${esc(card.imageAlt)}" />` +
-          `<meta name="twitter:image" content="${esc(card.image)}" />`,
-          { html: true },
-        )
       },
     })
     .transform(page)
 }
-
-// Attribute-safe escaping for the values injected as raw HTML. Player names are our own
-// data, but they arrive here by way of a URL parameter, so they get escaped like any
-// other input.
-const esc = (s: string): string =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 // Minimal shapes for the one Workers global this file touches, so the repo doesn't take on
 // @cloudflare/workers-types for a single function. tsconfig.json doesn't cover functions/;
@@ -187,5 +188,5 @@ interface HtmlElement {
   getAttribute(name: string): string | null
   setAttribute(name: string, value: string): void
   setInnerContent(content: string): void
-  append(content: string, options?: { html: boolean }): void
+  remove(): void
 }

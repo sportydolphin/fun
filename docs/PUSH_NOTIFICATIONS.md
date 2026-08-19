@@ -9,7 +9,8 @@ GitHub Action nudges signed-in users who still have unpicked games for today.
 | Piece | File | Role |
 |-------|------|------|
 | Manifest | `public/manifest.webmanifest` | Makes the app installable |
-| Icon | `public/icon.svg` | App / notification icon (maskable) |
+| Icons | `public/icon-*.png`, `public/badge-96.png` | Install tiles, plus the notification image and its status-bar badge |
+| Icon source | `scripts/make-brand-icons.py` | Regenerates every icon from `public/logo.png` |
 | Service worker | `public/sw.js` | Receives push messages, shows notifications |
 | SW registration | `src/main.tsx` | Registers `/sw.js` on load |
 | Client helpers | `src/lib/push.ts` | Permission + subscribe/unsubscribe + save to Supabase |

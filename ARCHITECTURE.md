@@ -378,6 +378,15 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 
 - **Frontend:** `vite build` → **Cloudflare Pages** (`sportydolphin.fun`), deployed on push
   to `main`.
+- **Brand icons:** every icon the site publishes (tab, home screen, install tile,
+  notification, social card) is generated from the one logo master, `public/logo.png`, by
+  [`scripts/make-brand-icons.py`](scripts/make-brand-icons.py). That script is a manual
+  design step, not part of the build: run it when the art changes and commit what it
+  rewrites. **`public/icon.svg` is one of its outputs, so hand-edits there are lost on the
+  next run.** Which file fills which slot, and why no one file can fill them all, is in the
+  script's own docstring. `index.html` declares the tab, apple-touch and social tags;
+  `public/manifest.webmanifest` declares the install tiles; `public/sw.js` names the
+  notification image and badge.
 - **Link previews:** [`functions/wpbl/index.ts`](functions/wpbl/index.ts) is a Pages
   Function that rewrites the Open Graph tags of `/wpbl?player=<id>` at the edge, so a
   shared player link unfurls with that player's name, club, and season line instead of the
@@ -385,7 +394,9 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   lives in [`src/wpbl/ogCard.ts`](src/wpbl/ogCard.ts). Headshots are republished
   at `/portraits/<slug>.webp` by
   [`scripts/vite-plugin-wpbl-portraits.mjs`](scripts/vite-plugin-wpbl-portraits.mjs), since
-  the edge has no copy of the build's hashed-asset map.
+  the edge has no copy of the build's hashed-asset map. It **edits** `index.html`'s tags
+  and never appends: unfurlers read the first occurrence of a property, so a default that
+  ships in the static head cannot be overridden by a tag added after it.
 - **Discord bot:** [`functions/discord/wpbl.ts`](functions/discord/wpbl.ts) is a second
   Pages Function, serving the `/player` slash command as an HTTP interactions endpoint,
   Discord POSTs the command and takes the reply from the response body, so there is no
@@ -425,6 +436,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - Discord (board + box scores + the `/predict` game) → [`docs/DISCORD.md`](docs/DISCORD.md)
 - Prediction/trivia question rules → [`src/wpbl/derive/predictions.ts`](src/wpbl/derive/predictions.ts), [`src/wpbl/derive/trivia.ts`](src/wpbl/derive/trivia.ts)
 - Owner analytics (`/admin`, the `admin_*` RPCs) → [`docs/ADMIN_ANALYTICS.md`](docs/ADMIN_ANALYTICS.md)
+- Brand icons (favicon, home screen, install tiles, social card) → [`scripts/make-brand-icons.py`](scripts/make-brand-icons.py), from [`public/logo.png`](public/logo.png)
 - Scoring validation + our play corrections → [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md)
 - Edge functions → [`supabase/functions/`](supabase/functions) · Cloudflare Pages functions → [`functions/`](functions)
 - Cron script logic → [`scripts/*.mjs`](scripts) · the Discord recap poster is TS

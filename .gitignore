@@ -10,5 +10,8 @@ dist
 .claude/
 supabase/.temp/
 
+# Bytecode from scripts/make-brand-icons.py, the one Python tool in the repo.
+__pycache__/
+
 # Giveaway entry lists: real usernames + user ids, never in a public repo.
 giveaway-data/

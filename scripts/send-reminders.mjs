@@ -86,7 +86,7 @@ async function fetchPreviewGamePks(date) {
  * `id` doubles as the push `tag`, so a resend replaces the previous banner and
  * the in-site bell recognises it as the same notification. The catalog's emoji
  * travels as `emoji` — `icon` is reserved for the OS notification image, which
- * sw.js defaults to /icon.svg.
+ * sw.js defaults to /icon-192.png.
  */
 function toPushPayload(n) {
   return { id: n.id, type: n.type, title: n.title, body: n.body, url: n.url, emoji: n.icon, tag: n.id }

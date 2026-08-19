@@ -147,3 +147,7 @@ constraints:
   edge. Headshots are republished at a stable `/portraits/<slug>.webp` for it by a Vite
   plugin, since the edge has no copy of the build's hashed-asset map. (Google Search Console verification was still a TODO as of
   the last update, so check whether it's done before assuming.)
+- Every published icon (tab, home screen, install tile, notification, social card) is
+  generated from `public/logo.png` by `scripts/make-brand-icons.py`, a manual step that is
+  not part of the build. `public/icon.svg` is one of its outputs, so editing that file by
+  hand loses the edit on the next run. Change the art, rerun the script, commit the lot.
