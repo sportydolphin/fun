@@ -10,7 +10,7 @@
 //
 // The sync that uses this is scripts/sync-wpbl-substack.ts.
 
-import type { WpblGame, WpblPlayer, WpblTeam } from '../types'
+import type { WpblGame, WpblPlayer, WpblTeam } from '../types.ts'
 
 /** Her publication. Note this is the PUBLICATION subdomain, not the author handle: the
  *  handle (dijondarling) resolves to a Substack profile page with no feed on it. */

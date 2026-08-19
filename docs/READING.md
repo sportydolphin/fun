@@ -229,29 +229,47 @@ That the feed works matters as much as the API: bodies are what player matching,
 matching, the game link and the clip count all come from. A sync running on Supabase is
 therefore fully equivalent to one running on a laptop, with nothing degraded.
 
-So the job belongs in a **Supabase Edge Function on pg_cron**, which is infrastructure this
-project already runs: `wpbl-ingest` is exactly that shape, every two minutes, and the
-architecture diagram already has the pg_cron → pg_net → edge function path drawn on it.
+So the job runs as a **Supabase Edge Function on pg_cron**, which is infrastructure this
+project already had: `wpbl-ingest` is the same shape, and the pg_cron → pg_net → edge function
+path was already on the architecture diagram.
+
+| Piece | Where |
+|---|---|
+| The sync itself | [`src/wpbl/substackSync.ts`](../src/wpbl/substackSync.ts) |
+| Scheduled runner | [`supabase/functions/wpbl-substack-sync/`](../supabase/functions/wpbl-substack-sync/) |
+| Schedule (`17 * * * *`) | `scripts/migrations/20260819030000_schedule_wpbl_substack_sync.sql` |
+| Run by hand | `npm run substack-sync [-- --dry-run]` |
+
+The orchestration is deliberately in `src/`, shared by the edge function and the npm script,
+rather than living in either. Two copies of "which post counts, what it is about, what we keep
+when we cannot read it" would drift the first time one was fixed and the other was not. Each
+caller supplies a five-line adapter for the `SyncDb` interface; the module never imports
+supabase-js, because Node and Deno pin it from different places.
+
+Hourly rather than every two minutes like `wpbl-ingest`: she publishes about twice a week, so
+what matters is the ceiling on staleness, and an essay is no less good on the site an hour
+after it lands. It runs at 17 past to stay clear of the jobs that fire on the hour.
+
+The function authorises on the JWT's `role` claim rather than string-matching the service-role
+key. Supabase verifies the signature before the handler runs, so what is left to establish is
+WHICH key it was, and that matters because the anon key is also a valid project JWT and it
+ships in the browser bundle. Platform verification alone (which is all `wpbl-ingest` relies on)
+would let any visitor trigger a sync. Reading the claim also survives key rotation, where a
+string comparison against Vault's copy would fail closed in the most confusing way available:
+a 401 on a scheduled job whose credentials are correct.
+
+The GitHub workflow is deleted rather than left disabled. It cannot work from Actions, and a
+workflow kept around only to fail on demand is a trap for whoever finds it next.
 
 Rejected alternatives, for the record:
 
 - **A `launchd` job on the Mac.** Works, but the machine is not reliably awake, and a mirror
   that updates only when a laptop happens to be open is not a mirror.
 - **A self-hosted runner at home.** Same dependency, more machinery.
-- **Parsing the newsletter email.** Legitimate and immune to all of this, but a real build,
-  and the email carries no `postTags`, so the World Cup filter would become guesswork.
-- **Third-party RSS proxies.** They route around the block on somebody else's egress, most
-  are themselves challenged, and they fail quietly.
-
-Until the edge function lands, run it by hand after she posts. This works from any normal
-machine and is how the current rows got there:
-
-```bash
-npm run substack-sync
-```
-
-The GitHub workflow keeps `workflow_dispatch` as the cheapest way to re-test the block: if
-Substack ever relaxes the rule, one dry-run says so.
+- **Parsing the newsletter email.** Legitimate and immune to all of this, but a real build, and
+  the email carries no `postTags`, so the World Cup filter would become guesswork.
+- **Third-party RSS proxies.** They route around the block on somebody else's egress, most are
+  themselves challenged, and they fail quietly.
 
 ## 9. Open questions
 
