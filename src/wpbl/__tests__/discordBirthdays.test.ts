@@ -19,7 +19,7 @@ const TEAMS = new Map([
 
 const player = (o: Partial<BirthdayPlayer> = {}): BirthdayPlayer => ({
   id: 'p1', name: 'Sarah Edwards', team_id: 'LA', position: '1B',
-  birth_date: '1996-06-26', birth_date_source: 'sheet', age: 29, active: true,
+  birth_date: '1996-06-26', birth_date_source: 'doc', age: 29, active: true,
   ...o,
 })
 
@@ -29,9 +29,17 @@ describe('birthdaysOn', () => {
     expect(birthdaysOn(roster, '2026-06-26').map(p => p.id)).toEqual(['p1'])
   })
 
-  it('skips a date the sheet contradicted itself about', () => {
-    const roster = [player({ birth_date_source: 'sheet-conflict' })]
-    expect(birthdaysOn(roster, '2026-06-26')).toEqual([])
+  it('greets a date the sheet settled where the doc is silent', () => {
+    const roster = [player({ birth_date_source: 'sheet' })]
+    expect(birthdaysOn(roster, '2026-06-26').map(p => p.id)).toEqual(['p1'])
+  })
+
+  it('skips a date no source settled', () => {
+    // The doc listing someone and saying it does not know their day, and the sheet
+    // contradicting itself, are the same thing to this channel: a star sign, not a greeting.
+    for (const source of ['doc-unsettled', 'sheet-conflict', 'something-new', null]) {
+      expect(birthdaysOn([player({ birth_date_source: source })], '2026-06-26')).toEqual([])
+    }
   })
 
   it('skips players who are no longer on a roster', () => {
@@ -62,8 +70,8 @@ describe('statedAge', () => {
     expect(statedAge(player({ age: 30 }), '2026-06-26')).toBe(30)
   })
 
-  it('stays quiet when the sheet year and the feed disagree', () => {
-    // Edith De Leija, the real case: the sheet says 2002 and the feed says 22.
+  it('stays quiet when the birth year and the feed disagree', () => {
+    // Edith De Leija, the real case: the doc says 2002 and the feed says 22.
     expect(statedAge(player({ birth_date: '2002-04-13', age: 22 }), '2026-04-13')).toBeNull()
   })
 

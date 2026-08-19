@@ -8,14 +8,14 @@
 // Two judgement calls live here rather than in the job, because both are about what the
 // channel is told:
 //
-//   1. A date the BDay sheet contradicted itself about ('sheet-conflict') is not greeted at
-//      all. The sheet listed two different dates for that player and the zodiac grid was
-//      taken as the tiebreak, which is good enough to draw a sign with and not good enough
-//      to wish someone a happy birthday on a coin flip.
+//   1. Only a settled date is greeted. The birthdays doc and the BDay sheet both admit to
+//      not knowing some dates, and scripts/ingest-wpbl-birthdays.mjs records which kind of
+//      answer each row is in birth_date_source. An unsettled date is good enough to draw a
+//      star sign with and not good enough to wish someone a happy birthday on a coin flip.
 //   2. An age is only stated when the league's own `age` agrees with the birth year. The
-//      sheet's years are fan-collected and some of them are wrong: Edith De Leija's date
-//      says 24 while the feed says 22. Getting the day right and the age wrong is worse
-//      than not mentioning the age, and the day is the part the post is about.
+//      years are collected by hand and some of them are wrong: Edith De Leija's date says
+//      24 while the feed says 22. Getting the day right and the age wrong is worse than not
+//      mentioning the age, and the day is the part the post is about.
 import type { WpblPlayer, WpblTeam } from '../types'
 
 const SITE = 'https://sportydolphin.fun'
@@ -30,6 +30,16 @@ export interface DiscordBirthdayMessage {
   allowed_mentions: { parse: string[] }
   content: string
 }
+
+/**
+ * The birth_date_source values that mean "this is the day, we checked".
+ *
+ * An allowlist rather than a list of things to skip, so a source added to the ingest later
+ * has to be named here before the channel starts greeting people on it. The two it leaves
+ * out today are 'doc-unsettled' (the doc lists the player and says the date is not known)
+ * and 'sheet-conflict' (the doc does not list them and the sheet contradicts itself).
+ */
+const SETTLED_SOURCES = new Set(['doc', 'sheet'])
 
 /** 'YYYY-MM-DD' (or a full timestamp from postgres) to its month and day. */
 function monthDay(iso: string): string | null {
@@ -49,7 +59,7 @@ export function birthdaysOn(players: BirthdayPlayer[], today: string): BirthdayP
   if (!md) return []
   return players
     .filter(p => p.active)
-    .filter(p => p.birth_date_source !== 'sheet-conflict')
+    .filter(p => SETTLED_SOURCES.has(p.birth_date_source ?? ''))
     .filter(p => p.birth_date && monthDay(p.birth_date) === md)
     .sort((a, b) => a.name.localeCompare(b.name))
 }
@@ -109,12 +119,13 @@ function playerLine(
 }
 
 /**
- * The whole message, or null when nobody has a birthday. Null is the normal case: 65 of the
- * 118 players have a date at all, so most days the channel hears nothing, which is the
- * point. A birthday channel that posts every day is a channel nobody reads.
+ * The whole message, or null when nobody has a birthday. Null is still the common case: 105
+ * of the 118 players have a settled date and they fall on 92 distinct days, so the channel
+ * hears nothing on three mornings in four, which is the point. A birthday channel that posts
+ * every day is a channel nobody reads.
  *
- * One message covers however many people share the day (five pairs of players do), because
- * three separate posts a few seconds apart read like a broken bot.
+ * One message covers however many people share the day (thirteen pairs of players do),
+ * because two separate posts a few seconds apart read like a broken bot.
  */
 export function buildBirthdayMessage(
   players: BirthdayPlayer[],

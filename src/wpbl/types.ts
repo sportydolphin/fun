@@ -30,12 +30,14 @@ export interface WpblPlayer {
   draft_round: number | null
   draft_pick: number | null
   bio: string | null
-  /** From the community BDay sheet (scripts/ingest-wpbl-birthdays.mjs). Null for roughly
-   *  half the league — the sheet doesn't cover everyone, and that gap is expected. */
+  /** From the community birthdays doc, or the BDay sheet where the doc is silent
+   *  (scripts/ingest-wpbl-birthdays.mjs). Null for the dozen players neither one knows. */
   birth_date: string | null
-  /** How much to trust birth_date: 'sheet' when the BDay sheet agreed with itself,
-   *  'sheet-conflict' when it listed two dates and the zodiac grid was taken as the
-   *  authoritative one. Null when there is no date at all. */
+  /** How much to trust birth_date. Settled: 'doc' (the doc gave a sourced date) and 'sheet'
+   *  (the doc does not list them, the sheet agreed with itself). Unsettled, so good for a
+   *  star sign and never for a greeting: 'doc-unsettled' (the doc lists them and says the
+   *  date is not known) and 'sheet-conflict' (the sheet listed two dates and the zodiac grid
+   *  was taken as the tiebreak). Null when there is no date at all. */
   birth_date_source: string | null
   /** Generated in the database from birth_date; null when the date is unknown. */
   zodiac_sign: string | null

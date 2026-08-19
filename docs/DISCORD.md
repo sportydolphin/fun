@@ -14,11 +14,12 @@ token, no gateway, nothing to keep running:
 
 A webhook is bound to one channel, so each of these needs its **own** webhook URL.
 
-There is also one thing that **answers** in the server, which webhooks cannot do:
+There are also two things that **answer** in the server, which webhooks cannot do:
 
 | What | Written by | Behaviour |
 |---|---|---|
 | **`/player` slash command** | [`functions/discord/wpbl.ts`](../functions/discord/wpbl.ts) | Looks up any WPBL player by name and replies with their season. Suggests names as you type. |
+| **`/predict`, the in-game game** | the same function, settled by [`settle-predictions.ts`](../supabase/functions/wpbl-ingest/settle-predictions.ts) | A mod opens a round on the at-bat happening now; the channel answers with buttons; the feed settles it. One winner a game. |
 
 ## How it fits together
 
@@ -77,23 +78,40 @@ reel and records the rest as handled.
 
 `wpbl-discord-birthdays` runs once a day at 14:00 UTC (9am at the league's Central hub in
 summer, 8am in winter) and asks one question: whose birthday is it in Chicago today. Most
-mornings the answer is nobody and the job posts nothing, which is the whole design. Only 65
-of the 118 players have a birth date at all, so the channel hears from it every few days.
+mornings the answer is nobody and the job posts nothing, which is the whole design. 105 of
+the 118 players have a date settled enough to greet and they fall on 92 distinct days, so the
+channel hears from it on roughly one morning in four.
 
-The dates are not in the league's feed, which carries `age` and never a date. They come from
-the community BDay sheet through [`scripts/ingest-wpbl-birthdays.mjs`](../scripts/ingest-wpbl-birthdays.mjs),
-which is also why the poster is careful about two things:
+The dates are not in the league's feed, which carries `age` and never a date. They are
+collected by hand, and [`scripts/ingest-wpbl-birthdays.mjs`](../scripts/ingest-wpbl-birthdays.mjs)
+reconciles two collections into `wpbl_players.birth_date`:
 
-- **A contradicted date is never greeted.** Where the sheet listed two dates for one player,
-  the row is stored as `birth_date_source = 'sheet-conflict'` and this job skips it. The
-  zodiac grid is a fine tiebreak for a star sign and not good enough to wish someone a happy
-  birthday on a coin flip. Two players are in that state today.
+1. **The birthdays doc is the source of truth.** One date per player with the citations
+   behind it (USA Baseball, WBSC daily reports, club Instagram accounts), and an explicit
+   "we do not know" where the day has never been pinned down. Where it has a date, that date
+   wins.
+2. **The BDay sheet is the fallback**, for players the doc does not list. It lays everyone
+   out twice, as a zodiac grid and an age-ordered list, so a sheet-only player can be checked
+   against themselves; where the two halves disagree the grid wins and the row is flagged.
+
+The doc covers the whole roster today, so the sheet is currently contributing nothing to it
+beyond a second opinion. It stays wired up because the doc's coverage is a fact about today,
+not a guarantee.
+
+That reconciliation is why the poster is careful about two things:
+
+- **Only a settled date is greeted.** `birth_date_source` records what kind of answer each
+  row is: `'doc'` and `'sheet'` are settled, while `'doc-unsettled'` (the doc lists the
+  player and says the date is not known) and `'sheet-conflict'` (the sheet contradicted
+  itself) are not. This job greets the first two and skips the rest, because an unsettled
+  date is a fine basis for a star sign on the site and not good enough to wish someone a
+  happy birthday on a coin flip. Thirteen players are in that state today.
 - **An age is only printed when the feed agrees with it.** On a birthday the league's `age`
-  should read either the new age or the one just retired. Anything else means the sheet's
+  should read either the new age or the one just retired. Anything else means the collected
   year is wrong (Edith De Leija's says 24 where the feed says 22), and then the message names
   the day and leaves the number out.
 
-One message covers everyone who shares the day, since five pairs of players do and three
+One message covers everyone who shares the day, since thirteen pairs of players do and two
 posts seconds apart read like a broken bot. The name links to the player's page with the URL
 in angle brackets, which stops Discord unfurling a card that would be bigger than the post.
 
@@ -195,6 +213,131 @@ The reply is public so lookups can be shared. A miss, an ambiguous name, or a fa
 **ephemeral** (only the person who ran it sees it), so a channel doesn't fill up with other
 people's typos. Both are built in
 [`src/wpbl/discordPlayerCard.ts`](../src/wpbl/discordPlayerCard.ts) and unit tested.
+
+### The `/predict` game ("Call It Early")
+
+The predictions game the mods host during a live game. A mod asks the channel whether a team
+will score in the half-inning **coming up next**, everyone answers by pressing a button, the
+mod locks the picks as the inning starts, and the league's own play-by-play settles it. One
+winner a game.
+
+The rules live in [`src/wpbl/derive/predictions.ts`](../src/wpbl/derive/predictions.ts) and
+the message rendering in [`src/wpbl/discordPredictions.ts`](../src/wpbl/discordPredictions.ts).
+Neither knows anything about Discord or Postgres, so both are unit tested, and the grader has
+been replayed against all 195 half-innings of the season.
+
+#### Running one
+
+Every subcommand is **mod-only** (`MANAGE_MESSAGES`). Players never type anything: they press
+buttons.
+
+```
+/predict open              ask about the half-inning coming up next
+/predict open seconds:60   a shorter voting window than the default 120
+/predict lock              close picks now, as the inning starts
+/predict cancel            abandon the round; its picks count for nothing
+/predict standings         post the board so far
+/predict winner            settle the game and crown one winner
+```
+
+The natural rhythm is: open it during the break between innings, let the channel vote, then
+**`/predict lock` as the first pitch is thrown**.
+
+**It works in a voice channel's text chat.** That is an ordinary guild channel as far as
+Discord's API is concerned, so a round can run inside the watch-party voice room with nothing
+special configured. Note that text-in-voice is visible to everyone with *View Channel*, not
+only the people connected to voice, so the audience is the whole channel either way.
+
+#### Why the question is always about a half-inning nobody has played
+
+This is the design, and it is worth understanding before anyone "improves" it by asking about
+the at-bat in progress. That was the first version, and it could not be made fair.
+
+**Nothing in the feed says when a play happened.** The play-by-play carries no timestamps at
+all: `pitch_events` has `code`, `type`, `sequence` and `description`, and nothing else.
+`created_at` is our own insert time, and it is rewritten every time the ingest deletes and
+reinserts the game. TrackMan does carry a real per-pitch clock, but only **2 of 14 games**
+have it. So every clock available to us measures when we *heard* about a play, never when it
+happened, and between those two moments sit two delays we cannot see: a human scorer entering
+the play, then our own two-minute ingest.
+
+**A voting window therefore cannot be closed before the event it is about.** And the exposure
+is not marginal. Of the season's 983 plate appearances, 13% end within one pitch and 27%
+within two; across ~3800 pitches, any single pitch has roughly a **26% chance of ending the
+at-bat**. A window covering even one pitch leaves about a quarter of rounds already decided,
+in reality, while the buttons are still live, and anyone watching the game can simply wait and
+then click.
+
+**Asking about the next half-inning removes the problem instead of managing it.** For a "yes"
+to be observable the inning must have started and a run must have crossed; for a "no" the side
+must have been retired, which is three outs. Both are minutes away from the moment the round
+opens, and once the mod locks as the inning starts, the entire graded event happens after the
+buttons are dead. There is nothing left to leak.
+
+The lock timer is a **backstop for a distracted mod**, not the thing that makes the game fair.
+That distinction matters: an earlier version of this document claimed the timer closed the
+hole, and it did not.
+
+`/predict open` also **refuses to target a half-inning that is already under way**, which is
+the one way the unfair round could sneak back in: between innings the feed can briefly report
+a half that the plays table has already moved past.
+
+#### Adding a second round type
+
+One ships. Anything else has to pass the same test: *could a person watching the game know the
+answer before picks close?* "How many runs next inning" and "who gets the first hit next
+inning" pass. Anything about the at-bat in progress does not.
+
+#### Who wins
+
+Most correct calls. A tie is broken by **average** time to answer, not total. A total would
+punish whoever played the most rounds, since answering ten questions accumulates ten response
+times and answering two accumulates two, so the player who sat out most of the game would win
+every tie. Answering more is already rewarded by the primary sort, because a round you skipped
+can never be correct.
+
+**Nobody winning is a real result.** A game where every round was voided, or where nobody
+called a single one right, is announced as such rather than crowning the least wrong player.
+
+#### How a round settles
+
+`wpbl-ingest` runs every two minutes, and settling is a step on its normal pass, so the reveal
+is automatic. A round is graded on its **target half-inning**, not on a play id or a sequence
+anchor. A half-inning names itself uniquely within a game, so grading survives a feed that was
+behind when the round opened, plays arriving out of order, and the fact that `wpbl_game_plays`
+is a mirror whose uuids the ingest regenerates on every pass. `anchor_sequence` is stored only
+to keep the grader's query small.
+
+It settles **as early as it honestly can**: the first run crossing ends the round, with no
+reason to make anyone wait for the third out.
+
+A half-inning that is **never played** is voided, not scored as "held scoreless". The home
+side does not bat in the bottom of the ninth when it is already ahead, and calling that
+scoreless would punish everyone who correctly said they would score in a half-inning that
+never happened. Replayed across the season, the grader agrees with reality on all 195
+half-innings and voids the unplayed one in all 14 games.
+
+The bot **also** settles rounds whenever a mod asks for the board or the winner. That is
+deliberate duplication of the plumbing and not of the rules: both call the same pure
+functions. It means the standings are right even if the ingest is behind or has stopped,
+instead of the game quietly losing its scoring while everything looks fine.
+
+#### Revealing the answer needs a bot token, or nearly
+
+The reveal edits the round's own message, and there are two ways to do that:
+
+| Credential | Lifetime | Needs |
+|---|---|---|
+| The round's **interaction token** | 15 minutes from opening | Nothing at all |
+| **`DISCORD_BOT_TOKEN`** | Forever | The app actually in the guild (the `bot` scope, not just `applications.commands`) |
+
+A half-inning takes roughly **ten minutes** to play out, and the ingest can be two minutes
+behind, so the interaction token is genuinely marginal: it covers a round that settles early
+and misses one that goes the distance. Set the bot token, or expect a good share of rounds to
+grade correctly while their card in the channel still looks open.
+
+Either way the round is **graded and scored**. The picks counted, the board is right, and
+`/predict standings` shows it. Only the card is stale.
 
 ## One-time setup
 
@@ -353,6 +496,62 @@ The **bot token is a real credential** (unlike the webhook URLs, and unlike the 
 below). It is only ever needed by this script. The endpoint itself never calls Discord's
 API and never sees it.
 
+### 2b. Switch on the `/predict` game
+
+Off until these are done.
+
+1. **Create the tables.**
+
+   ```bash
+   npm run migrate
+   ```
+
+   Applies [`…_add_wpbl_predict_game.sql`](../scripts/migrations/20260817225409_add_wpbl_predict_game.sql):
+   `wpbl_predict_rounds`, `wpbl_predict_picks`, `wpbl_predict_winners`. RLS-on with no
+   policies, like the other bookkeeping tables.
+
+2. **Give the Pages function a service-role key.** Cloudflare Pages → your project →
+   Settings → Environment variables → `SUPABASE_SERVICE_ROLE_KEY`, as an **encrypted**
+   variable. Redeploy for it to take effect.
+
+   This is the one real secret in the Pages environment, unlike the anon key beside it. It is
+   unavoidable: recording a pick is a write, the predictions tables are service-role only, and
+   the anon key ships inside the client bundle, so a pick recorded under it could be forged
+   for any Discord user by anyone who opened dev tools.
+
+   Note this makes the Discord bot a **third service-role writer**, which the "two write
+   paths" rule in [context.md](../context.md) did not previously allow for. It is a deliberate
+   widening, recorded there and here rather than left as an undeclared exception.
+
+   Without the key the command answers with a plain "not configured" message rather than
+   appearing to work: the predictions tables read as *empty* under the anon key rather than
+   erroring, so the alternative would be rounds that open and picks that silently vanish.
+
+3. **Re-register the commands**, which is what puts `/predict` in the picker:
+
+   ```bash
+   DISCORD_APP_ID=... DISCORD_BOT_TOKEN=... DISCORD_GUILD_ID=... npm run discord-commands
+   ```
+
+   The script `PUT`s the whole set, so this replaces rather than duplicates, and `/player` is
+   re-registered unchanged in the same call.
+
+4. **Put the app in the guild, and give the ingest a bot token.** Strongly recommended rather
+   than strictly required: without it, a round that takes a full half-inning to settle grades
+   correctly but never updates its card in the channel. See the table in the section above.
+
+   - Developer Portal → **OAuth2 → URL Generator**, tick **`bot`** as well as
+     `applications.commands`, tick **Send Messages**, and open the generated URL to add it to
+     the server. `/player` and the buttons work without this; editing an old message does not.
+   - ```bash
+     supabase secrets set DISCORD_BOT_TOKEN='...'
+     ```
+     No redeploy needed; the next invocation picks it up.
+   - Optionally set `DISCORD_BOT_TOKEN` in the Cloudflare Pages environment too, which
+     covers the bot's own backstop settle when a mod runs `/predict standings` late.
+
+   The bot token is a **real credential**, unlike the webhook URLs and unlike the public key.
+
 ### 3. The public key
 
 Already committed, in `functions/discord/wpbl.ts` as `PUBLIC_KEY`. Nothing to do here
@@ -497,6 +696,33 @@ which bundles each function exactly as Cloudflare will and fails loudly instead 
 - **Prices come from `/products.json` as decimal strings** (`"39.99"`), unlike the per-product
   `/products/<handle>.js` endpoint, which gives integer cents. The two are easy to confuse and
   the symptom is a $40 cap posted at $0.40.
+- **A prediction round's card can go stale without `DISCORD_BOT_TOKEN`.** The reveal falls
+  back to the round's interaction token, which Discord expires fifteen minutes after the round
+  opened, and a half-inning routinely takes longer than that to play out and reach us. The
+  round is **still graded and still scores**: the picks count, the board is right, and
+  `/predict standings` shows it. Only the message in the channel keeps looking open. Set the
+  bot token and re-invite with the `bot` scope to fix it properly.
+- **The lock timer is a backstop, not the fairness mechanism.** What makes the game fair is
+  that the question is about a half-inning that has not started. Do not "improve" this by
+  asking about the current at-bat, however tempting the drama is: the feed has no timestamps,
+  so that round cannot be closed before the event it asks about. The numbers are in the
+  section above and the argument is in the engine's header.
+- **One open round per channel.** Two open rounds would be indistinguishable once both were
+  showing buttons. `/predict cancel` clears a stuck one.
+- **A half-inning already under way is refused.** Between innings the feed can briefly report
+  a half that the plays table has already moved past, which is the one route by which an
+  unfair round could sneak back in.
+- **Two games live at once needs the `game` option.** With one live game the bot picks it.
+  With two it refuses and asks, because a round pointed at the wrong game is graded against
+  somebody else's half-inning and nothing in the message would reveal that. The option
+  autocompletes to the live games, so nobody types a uuid.
+- **A cancelled round is voided, not deleted.** Its picks stay and simply never grade, so the
+  question remains in the channel's history where a mod who mis-clicked can still see it.
+- **The winner is announced by a mod, not by a cron.** `/predict winner` is what settles the
+  game and writes `wpbl_predict_winners`. That is on purpose: the announcement wants to land
+  while the channel is still talking about the game, which is a judgement no scheduled job
+  has. Running it twice is safe, since the game id is a primary key and the second insert
+  conflicts and changes nothing.
 - **What counts as a highlight** is `classify()` in
   [`scripts/sync-wpbl-youtube.mjs`](../scripts/sync-wpbl-youtube.mjs): a title containing
   "highlight(s)" *and* a matchup separator (`@` or `vs.`). Single-play clips ("Kelsie

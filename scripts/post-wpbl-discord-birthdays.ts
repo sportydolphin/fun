@@ -3,10 +3,12 @@
  * post-wpbl-discord-birthdays.ts: posts one message a day naming whoever on the WPBL
  * roster has a birthday, and says nothing at all on the days nobody does.
  *
- * The silence is the feature. Only 65 of the 118 players have a birth date (the league's
- * feed carries `age` and never a date, so the dates come from the community BDay sheet via
- * scripts/ingest-wpbl-birthdays.mjs), which works out to a post every few days. A job that
- * greeted the channel daily, birthday or not, would be muted inside a week.
+ * The silence is the feature. The league's feed carries `age` and never a date, so the dates
+ * come from the community birthdays doc, with the BDay sheet as the fallback, via
+ * scripts/ingest-wpbl-birthdays.mjs. 105 of the 118 players have a date settled enough to
+ * greet and they land on 92 distinct days, so the channel hears from this job roughly every
+ * fourth morning. A job that greeted the channel daily, birthday or not, would be muted
+ * inside a week.
  *
  * Why a webhook (not a bot): send-only HTTP, no token, no gateway, nothing to keep running.
  * Same reasoning as the board, recap and highlight posters. This one posts to its own
