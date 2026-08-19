@@ -4,6 +4,7 @@ import { ModalShell, SectionCard, TeamBadge, CARD_BORDER } from './ui'
 import { readMinutes, authorPhoto, AUTHOR_BIO, AUTHOR_NAME, PUBLICATION_NAME, PUBLICATION_URL } from './derive/articles'
 import type { WpblArticle, WpblTeam } from './types'
 import { scrollBehavior } from '../lib/motion'
+import { track, EVENTS } from '../lib/analytics'
 
 // The WPBL reading surface: a mirror of an independent writer's coverage of the league,
 // read from the wpbl_articles table (populated by scripts/sync-wpbl-substack.ts). Four
@@ -20,6 +21,25 @@ import { scrollBehavior } from '../lib/motion'
  *  target=_blank link: without it the opened page gets a handle on ours through
  *  window.opener. */
 const linkProps = { target: '_blank', rel: 'noopener noreferrer' } as const
+
+/** Which surface a click came from. The breakdown is the point of tracking this at all:
+ *  it is what says whether the story card on a game and the list on a player page earn
+ *  their keep, or whether the Home rail is doing all the work. */
+export type ReadingSource = 'rail' | 'archive' | 'game' | 'player'
+
+/** One click through to her writing.
+ *
+ *  Safe to fire from an anchor's onClick without preventDefault: these links open in a new
+ *  tab, so this page is never unloaded and the fire-and-forget insert has time to land. A
+ *  same-tab navigation would need a beacon instead. */
+function trackOpen(article: WpblArticle, from: ReadingSource): void {
+  track(EVENTS.WPBL_ARTICLE_OPENED, {
+    postId: article.post_id,
+    slug: article.slug,
+    from,
+    minutes: readMinutes(article.word_count, article.video_count),
+  })
+}
 
 /** "Aug 16" for a card, from the post's publish time. */
 function dateLabel(iso: string): string {
@@ -67,6 +87,7 @@ function RailCard({ article, teamById }: { article: WpblArticle; teamById: Map<s
       component="a"
       href={article.url}
       {...linkProps}
+      onClick={() => trackOpen(article, 'rail')}
       aria-label={`Read: ${article.title}, ${readLabel(article)}, opens in a new tab`}
       sx={{
         display: 'block', textDecoration: 'none', color: 'inherit',
@@ -154,7 +175,7 @@ function RailArrow({ dir, show, onClick }: { dir: 'left' | 'right'; show: boolea
 // single article: everything else sends you to one post, this sends you to her.
 //
 // The whole row is the link, so the tap target is the card rather than three words of it.
-export function AuthorByline({ compact }: { compact?: boolean }) {
+export function AuthorByline({ compact, from }: { compact?: boolean; from: ReadingSource }) {
   // Sized up from 44/36 after looking at the result. Her Substack profile photo is a wide
   // shot of her on a ballfield rather than a head-and-shoulders portrait, and the source is
   // already square, so there is no crop available that finds her face: Substack's CDN has
@@ -167,6 +188,7 @@ export function AuthorByline({ compact }: { compact?: boolean }) {
       component="a"
       href={PUBLICATION_URL}
       {...linkProps}
+      onClick={() => track(EVENTS.WPBL_AUTHOR_OPENED, { from })}
       aria-label={`${AUTHOR_NAME}, ${PUBLICATION_NAME}, opens in a new tab`}
       sx={{
         display: 'flex', alignItems: 'center', gap: 1.25, textDecoration: 'none', color: 'inherit',
@@ -217,6 +239,10 @@ export function ReadingRail({ articles, teams }: { articles: WpblArticle[]; team
   const toggleCollapsed = useCallback(() => {
     setCollapsed(prev => {
       const next = !prev
+      // Worth an event because it is the honest negative signal for this rail, the way
+      // dismissing the Discord card is for that one: a reader saying "not this". Cloudflare
+      // cannot see it, and the choice is remembered, so a collapse is a lasting opinion.
+      track(EVENTS.WPBL_READING_COLLAPSED, { collapsed: next })
       try { localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0') } catch { /* choice just isn't remembered */ }
       return next
     })
@@ -235,11 +261,28 @@ export function ReadingRail({ articles, teams }: { articles: WpblArticle[]; team
     setCanPrev(c.scrollLeft > 1)
     setCanNext(c.scrollLeft < max - 1)
   }, [])
+  // One impression per mount, and only once there is something to see: without the ref this
+  // would re-fire as the feed loads, and without the length check it would count a mount that
+  // rendered nothing (the early return below). This is the denominator the click-through rate
+  // needs, and it is the one thing here Cloudflare's page counts cannot stand in for, since a
+  // collapsed rail is still a page view.
+  const shownLogged = useRef(false)
+  useEffect(() => {
+    if (shownLogged.current || shown.length === 0) return
+    shownLogged.current = true
+    track(EVENTS.WPBL_READING_SHOWN, { count: shown.length, collapsed })
+  }, [shown.length, collapsed])
+
   useEffect(() => { syncEdges() }, [shown, syncEdges])
   useEffect(() => {
     window.addEventListener('resize', syncEdges)
     return () => window.removeEventListener('resize', syncEdges)
   }, [syncEdges])
+
+  const openArchive = useCallback(() => {
+    track(EVENTS.WPBL_READING_ARCHIVE, { count: articles.length })
+    setArchiveOpen(true)
+  }, [articles.length])
 
   const page = (dir: 1 | -1) => {
     const c = scrollRef.current
@@ -260,10 +303,10 @@ export function ReadingRail({ articles, teams }: { articles: WpblArticle[]; team
       // their deks showing, which is the version worth reading before choosing one.
       action={(
         <Box
-          onClick={() => setArchiveOpen(true)}
+          onClick={openArchive}
           role="button"
           tabIndex={0}
-          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setArchiveOpen(true) } }}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openArchive() } }}
           sx={{
             fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary', cursor: 'pointer',
             px: 0.5, borderRadius: 1,
@@ -287,7 +330,7 @@ export function ReadingRail({ articles, teams }: { articles: WpblArticle[]; team
         <RailArrow dir="left" show={canPrev} onClick={() => page(-1)} />
         <RailArrow dir="right" show={canNext} onClick={() => page(1)} />
       </Box>
-      <Box sx={{ mt: 1.25 }}><AuthorByline /></Box>
+      <Box sx={{ mt: 1.25 }}><AuthorByline from="rail" /></Box>
       {archiveOpen && (
         <ReadingArchive articles={articles} teamById={teamById} onClose={() => setArchiveOpen(false)} />
       )}
@@ -306,6 +349,7 @@ function ArchiveRow({ article, teamById }: { article: WpblArticle; teamById: Map
       component="a"
       href={article.url}
       {...linkProps}
+      onClick={() => trackOpen(article, 'archive')}
       aria-label={`Read: ${article.title}, ${readLabel(article)}, opens in a new tab`}
       sx={{
         // `stretch`, not `flex-start`. Her headlines are long and good ("I Cannot Overstate
@@ -376,7 +420,7 @@ export function ReadingArchive({ articles, teamById, onClose }: {
       <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         {/* The byline leads here rather than trailing. On Home the rail is the point and she
             is the credit under it; in her own archive she is the point. */}
-        <AuthorByline compact />
+        <AuthorByline compact from="archive" />
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {articles.map(a => <ArchiveRow key={a.post_id} article={a} teamById={teamById} />)}
         </Box>
@@ -396,6 +440,7 @@ export function GameStoryCard({ article }: { article: WpblArticle }) {
       component="a"
       href={article.url}
       {...linkProps}
+      onClick={() => trackOpen(article, 'game')}
       aria-label={`Read the story: ${article.title}, opens in a new tab`}
       sx={{
         display: 'flex', alignItems: 'center', gap: 1.25, textDecoration: 'none', color: 'inherit',
@@ -438,12 +483,14 @@ export function GameStoryCard({ article }: { article: WpblArticle }) {
  *
  *  Renders nothing when nobody has written about this subject, which is the common case for
  *  a player and should stay silent rather than showing an empty shell. */
-export function WrittenAbout({ articles, title, limit = 5 }: {
+export function WrittenAbout({ articles, title, limit = 5, from = 'player' }: {
   articles: WpblArticle[]
   /** e.g. "Written about Denae Benites". Omit where the surrounding card already carries
    *  the heading, as the team page's does: repeating it there reads as a stutter. */
   title?: string
   limit?: number
+  /** Which surface this list is on, for the click-through breakdown. */
+  from?: ReadingSource
 }) {
   const shown = articles.slice(0, limit)
   if (shown.length === 0) return null
@@ -461,6 +508,7 @@ export function WrittenAbout({ articles, title, limit = 5 }: {
             component="a"
             href={a.url}
             {...linkProps}
+            onClick={() => trackOpen(a, from)}
             aria-label={`Read: ${a.title}, ${readLabel(a)}, opens in a new tab`}
             sx={{
               display: 'block', textDecoration: 'none', color: 'inherit',

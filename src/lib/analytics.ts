@@ -25,6 +25,15 @@ export const EVENTS = {
   WPBL_PLAYER_OPENED:     'wpbl_player_opened',     // opened a WPBL player page
   NEW_BADGE_SHOWN:        'new_badge_shown',        // a "new here" dot was rendered (impression), props {badge}
   NEW_BADGE_CLICKED:      'new_badge_clicked',      // opened the thing while its dot was showing, props {badge}
+  // The reading feed (an independent writer's WPBL coverage). These are the only events in
+  // the app that measure traffic we send AWAY from the site, which is the whole point of the
+  // feature: it exists to send readers to her. Worth measuring twice over, because it tells
+  // us whether the surfaces earn their space AND it is the number worth telling her.
+  WPBL_ARTICLE_OPENED:    'wpbl_article_opened',    // clicked through to a post, props {postId, slug, from, minutes}
+  WPBL_READING_SHOWN:     'wpbl_reading_shown',     // reading rail rendered (impression), props {count, collapsed}
+  WPBL_READING_ARCHIVE:   'wpbl_reading_archive',   // opened the full archive from "See all"
+  WPBL_READING_COLLAPSED: 'wpbl_reading_collapsed', // toggled the rail shut or open, props {collapsed}
+  WPBL_AUTHOR_OPENED:     'wpbl_author_opened',     // clicked the byline through to the publication, props {from}
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the
