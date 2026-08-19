@@ -521,6 +521,39 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     window.history.pushState({ ...window.history.state, wpbl: s }, '', urlFor(s))
   }, [apply])
 
+  /**
+   * Open a modal that a shared link asked for, on a cold load.
+   *
+   * THIS IS NOT `push`, AND IT IS NOT `replaceState` EITHER, WHICH IS THE BUG THIS FIXES.
+   * A deep link used to open its modal with replaceState, so the whole session history was a
+   * single entry that already had the modal open. `closeTop` is `history.back()`, so the X,
+   * the backdrop and Escape all had nothing to walk back to: from the only entry in the
+   * session, back() either does nothing or leaves the site. Anyone arriving on a player from
+   * a pasted link was trapped in the modal.
+   *
+   * So seat a modal-less entry underneath first, then push the modal on top. Back and the X
+   * then behave exactly as they would had the reader opened the player themselves, which is
+   * the invariant closeTop is built on.
+   *
+   * Both halves run in the same synchronous block on purpose: seating the base at mount
+   * instead would leave the address bar showing a bare /wpbl for as long as the roster took
+   * to load, and a link copied in that window would have lost its player.
+   *
+   * The base is seated ONCE. A link can name a game and a player at the same time
+   * (?game=X&player=Y is what the address bar holds once you open a player from a game), and
+   * those arrive as two independent effects racing on two different fetches. Seating a fresh
+   * base on the second one would throw away the first one's entry.
+   */
+  const linkBaseSeated = useRef(false)
+  const openFromLink = useCallback((s: WpblSnap) => {
+    if (!linkBaseSeated.current) {
+      linkBaseSeated.current = true
+      const base: WpblSnap = { view: s.view, team: s.team, game: null, player: null }
+      window.history.replaceState({ ...window.history.state, wpbl: base }, '', urlFor(base))
+    }
+    push(s)
+  }, [push])
+
   // Navigation intents. Tab/team switches clear any open modal; opening a player keeps the
   // game beneath it (so Back closes the player first, then the game).
   // Tab switches carry HOW the reader got there. Cloudflare already counts the ?view= paths,
@@ -627,10 +660,8 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     pendingGameId.current = null
     const g = games.find(gm => gm.id === id)
     if (!g) return
-    setDetailGame(g)
-    const s: WpblSnap = { view, team: selectedTeam, game: g, player: detailPlayer }
-    window.history.replaceState({ ...window.history.state, wpbl: s }, '', urlFor(s))
-  }, [games, detailGame, view, selectedTeam, detailPlayer])
+    openFromLink({ view, team: selectedTeam, game: g, player: detailPlayer })
+  }, [games, detailGame, view, selectedTeam, detailPlayer, openFromLink])
 
   // Open the player named in a shared ?player=<id> link, once the roster is available.
   useEffect(() => {
@@ -639,10 +670,8 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     pendingPlayerId.current = null
     const p = players.find(pl => pl.id === id)
     if (!p) return
-    setDetailPlayer(p)
-    const s: WpblSnap = { view, team: selectedTeam, game: detailGame, player: p }
-    window.history.replaceState({ ...window.history.state, wpbl: s }, '', urlFor(s))
-  }, [players, detailPlayer, view, selectedTeam, detailGame])
+    openFromLink({ view, team: selectedTeam, game: detailGame, player: p })
+  }, [players, detailPlayer, view, selectedTeam, detailGame, openFromLink])
 
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
