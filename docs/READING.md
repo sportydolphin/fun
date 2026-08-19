@@ -196,7 +196,58 @@ card on a site that links to them. When it is built, note the warning in
 [`DISCORD.md`](DISCORD.md): Substack draws its own rich embed, so posting a bare link
 alongside it produces the double-card the recap poster had to have surgery to remove.
 
-## 8. Open questions
+## 8. The sync cannot run in CI
+
+**Status: the scheduled job is disabled.** Substack serves Cloudflare's JavaScript
+interstitial (`Just a moment...`) to datacenter address space, and it covers the whole host:
+`/api/v1/archive` and `/feed` both answer **403** from a GitHub runner, while the identical
+requests return **200** from a laptop. Every scheduled run failed, 7 for 7.
+
+What was ruled out, so nobody repeats the experiments:
+
+| Tried | Result |
+|---|---|
+| Self-identifying User-Agent | 403 |
+| Real browser UA plus `accept-language` and `cache-control` | 403, identical challenge body |
+| RSS feed instead of the archive API | 403, same challenge |
+
+The challenge wants a client that executes JavaScript. Getting past it deliberately means
+driving a headless browser with stealth patches, or paying a challenge-solving service. That
+is bot-detection evasion rather than engineering, and it is not a thing to build against one
+person's personal Substack. It is also not aimed at us: it is a generic Cloudflare rule that
+treats all datacenter traffic alike.
+
+The constraint is the IP, not the code. `npm run substack-sync` works perfectly from a normal
+machine, which is how the current 11 articles got there.
+
+**Options, in the order worth considering them:**
+
+1. **Run it from a residential IP.** A `launchd` job on the Mac, twice a day, is the whole
+   fix. She publishes roughly twice a week, so a twice-daily pass loses nothing that matters.
+   It is also the only option that keeps the archive API, and with it the tags that keep
+   World Cup posts out of the rail.
+2. **A self-hosted runner at home.** Same effect, more machinery. Worth it only if other jobs
+   end up needing one too.
+3. **Subscribe by email and parse the newsletter.** Substack sends every post to subscribers,
+   so a dedicated address receives the content with no web request at all. Legitimate (we
+   would be a subscriber) and immune to this entirely, but a real build, and the email
+   carries no tags either.
+4. **Ask mary.** Worth raising alongside the permission conversation, though she almost
+   certainly cannot change a Cloudflare rule Substack applies to every publication.
+
+Not recommended: third-party RSS proxies. They route around the block on somebody else's
+egress, most are themselves challenged, and they add a dependency that fails quietly.
+
+Until one of those lands, run the sync by hand after she posts:
+
+```bash
+npm run substack-sync
+```
+
+Manual `workflow_dispatch` stays enabled deliberately, as the cheapest way to re-test the
+block: if Substack ever relaxes the rule, one dry-run says so.
+
+## 9. Open questions
 
 - **One writer, or the first of several?** `wpbl_articles` has no author column, because
   today every row has the same author and a column of one repeated string is a lie about how

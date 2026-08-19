@@ -1,13 +1,27 @@
 name: WPBL Substack Sync
 
+# SCHEDULE DISABLED. This job cannot run from GitHub Actions.
+#
+# Substack serves Cloudflare's JavaScript interstitial ("Just a moment...") to datacenter
+# address space, and it covers the whole host: both /api/v1/archive AND /feed answer 403
+# from a runner while the identical requests return 200 from a laptop. It is a generic edge
+# defence, not anything aimed at us or at her. Verified twice by workflow_dispatch, once
+# after switching to a browser User-Agent and full browser headers, which changed nothing:
+# the challenge wants a client that executes JavaScript, and defeating that deliberately is
+# bot-detection evasion rather than a fix.
+#
+# Every scheduled run failed, 7 for 7, so the cron is off rather than left to fail hourly
+# and train everyone to ignore this workflow's red X. Manual dispatch stays, because it is
+# how the block gets re-tested cheaply: if Substack ever relaxes the rule, one dry-run says
+# so immediately.
+#
+# The data already in wpbl_articles is unaffected and the site reads it normally. What
+# stopped is the automatic pickup of NEW posts. See docs/READING.md for the options; the
+# short version is that this needs to run from a residential IP.
+#
+#  schedule:
+#    - cron: '0 12-23 * * *'
 on:
-  schedule:
-    # Hourly, and only across the hours she actually files. She publishes roughly twice a
-    # week, usually mid-morning to early-afternoon Eastern, so a post reaches the site
-    # within the hour without polling one person's personal Substack around the clock.
-    # There is nothing to gain from going faster: an essay published at 2pm is exactly as
-    # good on the site at 3pm.
-    - cron: '0 12-23 * * *'
   workflow_dispatch:
     inputs:
       mode:
