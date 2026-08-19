@@ -31,7 +31,7 @@ played. Nothing yet exists that makes `/wpbl` worth opening in November.
 ## Where the section stands
 
 **Live surfaces:** Home (scoreboard strip, last-game recap card, next-game card + countdown,
-standings, leaders, tracking highlights, highlights rail, reading rail, Discord invite) ·
+standings, leaders, highlights rail, reading rail, Discord invite) ·
 Schedule · Standings (W/L/PCT/GB/L10/STRK/DIFF, H2H tiebreak) · Stats (hitting / pitching /
 tracking / draft, sortable, team filter, qualified toggle) · Teams (ranked club cards with
 record, form, run differential and next game, plus a head-to-head grid) → team pages (record,
@@ -430,6 +430,49 @@ v1.45.0.
   design **cannot** catch: two players swapped consistently through a game keeps the order
   legal and the outs adding up. That needs an independent transcription, and the one that
   exists carries no licence.
+
+### Aug 19, 2026: shared player links were a trap
+
+- 🐛 **Fixed: a player or game opened from a pasted link could not be closed.** The X, the
+  backdrop and Escape all route through `closeTop`, which is `window.history.back()`, so that
+  closing a modal and the browser Back button can never disagree. But a deep link opened its
+  modal with `replaceState`, so the entire session history was a single entry that already had
+  the modal open: `back()` had nothing to walk to and either did nothing or left the site.
+  Every shared player link, which is exactly the link the Discord `/player` command and the
+  unfurl-friendly cards exist to produce, dropped the reader into a modal they could not leave.
+- The fix seats a modal-less entry underneath before pushing the modal on top, in the same
+  synchronous block so the address bar never flickers back to a bare `/wpbl` and a link copied
+  mid-load never loses its player. `?game=X&player=Y` (what the address bar holds once you open
+  a player from a game) seats that base once, since the two arrive as independent effects
+  racing on two different fetches.
+
+### Aug 19, 2026: the tracking teaser goes, and something actually watches the feed
+
+- ❌ **Removed the "Ballpark tracking" Home card.** It was gated on `!trackingStale`, hiding
+  itself once the league's radar publishing fell more than three days behind the schedule. The
+  league published TrackMan for **two games** (through Aug 2) and stopped; the last final is
+  Aug 16, so the feed is **14 days behind** and the card had been rendering never. That took
+  8,060 characters out of `Home.tsx` along with `TeaserRowSkeleton`, `TeaserTile`, the
+  `trackingBoard` and `latestGameIds` memos, the `trackingStale` gate, and the units imports
+  that only it used.
+- ✅ **A nightly watcher replaced it**
+  ([`scripts/watch-wpbl-tracking.mjs`](scripts/watch-wpbl-tracking.mjs), `wpbl_tracking_watch`,
+  daily at 08:30 UTC). **The card hiding itself was the actual bug**: the only thing watching
+  for the feed's return was a component that had already disappeared, so the feed could have
+  come back at any point and nobody would have found out. The watcher keeps a watermark of how
+  far tracking reaches and posts to Discord when it moves.
+- ✅ **A watermark, not a row-per-game log.** The league publishes in batches that land days
+  late and cover several games at once, so the news is "the feed moved", once per batch. The
+  `wpbl_discord_recap_posts` shape would have turned one twelve-game backfill into twelve
+  messages. The watcher also fires on the count growing, not just the date, so a backfill that
+  fills in games *behind* the front edge still counts.
+- ✅ **A TrackMan row on `/admin`**, so the state is somewhere you can look without waiting to
+  be told. Deliberately grey rather than red while the feed is behind: red for the expected
+  state trains the eye to ignore the row over the weeks it will sit there. Green is the news.
+- 🔍 **The visitor-facing cue was left alone.** `NewTrackingBanner` still tells a reader
+  when the tracked set has grown since their browser last saw it. That is per-browser
+  localStorage and only fires if somebody visits; the watcher fires whether or not anyone is
+  looking. They answer different questions and neither replaces the other.
 
 ---
 

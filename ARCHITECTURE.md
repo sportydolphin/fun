@@ -182,6 +182,7 @@ flowchart TB
         t_wsent["wpbl_game_start_sent"]
         t_vid["wpbl_videos<br/>(YouTube highlights)"]
         t_art["wpbl_articles<br/>(Substack headlines; NO body text)"]
+        t_trackwatch["wpbl_tracking_watch<br/>(TrackMan watermark, one row)"]
         t_board["wpbl_discord_board_state<br/>(the board's message id)"]
         t_recap["wpbl_discord_recap_posts<br/>(posted box scores + hash)"]
         t_pround["wpbl_predict_rounds<br/>(Discord predictions: one per half-inning asked)"]
@@ -281,6 +282,7 @@ sequenceDiagram
 | `wpbl-youtube-sync` | `0,30 14-23,0-3` | `sync-wpbl-youtube`, `post-wpbl-discord-highlights` | Mirror WPBL YouTube uploads → `wpbl_videos` (highlights rail + game recaps), then post any new highlight reel to the Discord highlights channel in the same pass |
 | `wpbl-discord-birthdays` | `0 14` (daily) | `post-wpbl-discord-birthdays` | Post the day's roster birthdays to the Discord birthdays channel, and nothing at all on the days nobody has one |
 | `wpbl-substack-sync` | `0 12-23` (hourly) | `sync-wpbl-substack` | Mirror an independent writer's WPBL posts → `wpbl_articles` (Reading rail, game story card, player/team "written about"), resolving each to the players, clubs and game it is about |
+| `wpbl-tracking-watch` | `30 8` (daily) | `watch-wpbl-tracking` | Notice when the league resumes publishing TrackMan data → `wpbl_tracking_watch`, and say so in Discord. Replaced a Home teaser card that hid itself when the feed fell behind, which meant nothing was watching for its return |
 | `resolve-survivor` | `30 6` | `resolve-survivor` | Grade survivor picks overnight |
 | `update-playoff-odds` | `0 6` | `simulate-playoff-odds` | Monte-Carlo playoff odds |
 | `update-streaks` | `0 6` + `0 23` + `0 3` (in-season) | `update-streaks` | Streak leaderboards |
