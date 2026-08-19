@@ -95,6 +95,46 @@ export function WpblValidationChip({ run }: { run: WpblValidationRow }) {
   )
 }
 
+// TrackMan publishing health. Unlike the two chips above this is not about OUR job failing:
+// the watcher runs nightly and will keep reporting whatever it finds. It is about the
+// LEAGUE, which published pitch tracking for two games and then stopped.
+//
+// So "behind" is the normal state and is deliberately not red. Red would train the eye to
+// ignore this row over the weeks it is expected to sit there. What earns attention is the
+// good news: green when the feed has caught up with the schedule, which is the thing the
+// Home teaser card used to be watching for before it hid itself permanently.
+export interface WpblTrackingRow {
+  last_tracked_game_date: string | null
+  tracked_game_count: number
+  last_final_game_date: string | null
+  last_checked_at: string | null
+  last_advanced_at: string | null
+}
+export function WpblTrackingChip({ row }: { row: WpblTrackingRow }) {
+  const lagDays = row.last_tracked_game_date && row.last_final_game_date
+    ? Math.round((Date.parse(row.last_final_game_date + 'T00:00:00Z')
+                - Date.parse(row.last_tracked_game_date + 'T00:00:00Z')) / 86_400_000)
+    : null
+  // Stale at 50h, not 26 like the nightly validator: this is a daily job whose findings do
+  // not change for weeks, so one missed run is not worth flagging.
+  const watcherStale = !row.last_checked_at || Date.now() - Date.parse(row.last_checked_at) > 50 * 60 * 60_000
+  const color = watcherStale ? '#f97316' : lagDays == null ? '#94a3b8' : lagDays <= 0 ? '#22c55e' : '#94a3b8'
+  const text = watcherStale ? 'Watcher stale'
+    : lagDays == null ? 'No data'
+    : lagDays <= 0 ? 'Current'
+    : `${lagDays}d behind`
+  return (
+    <Box sx={{
+      display: 'inline-flex', alignItems: 'center', gap: 0.5,
+      px: 1, py: 0.25, borderRadius: 999,
+      bgcolor: `${color}18`, border: '1px solid', borderColor: `${color}40`,
+    }}>
+      <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: color }} />
+      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color }}>{text}</Typography>
+    </Box>
+  )
+}
+
 // ─── Stat row ─────────────────────────────────────────────────────────────────
 
 export function StatRow({ label, value, sub }: { label: React.ReactNode; value: React.ReactNode; sub?: React.ReactNode }) {
@@ -671,6 +711,7 @@ export function AdminTools({ apps, isAppLocked, onOpenApp }: {
   const [payrolls, setPayrolls]   = useState<PayrollRow[] | null>(null)
   const [wpblRun, setWpblRun]     = useState<WpblRunRow | null>(null)
   const [wpblCheck, setWpblCheck] = useState<WpblValidationRow | null>(null)
+  const [wpblTrack, setWpblTrack] = useState<WpblTrackingRow | null>(null)
   const [predCount, setPredCount] = useState<number | null>(null)
   const [userCount, setUserCount] = useState<number | null>(null)
   const [usersOpen, setUsersOpen] = useState(false)
@@ -731,11 +772,18 @@ export function AdminTools({ apps, isAppLocked, onOpenApp }: {
         .select('ran_at, ok, new_findings, total_findings')
         .order('ran_at', { ascending: false })
         .limit(1),
-    ]).then(([pr, pc, wp, wv]) => {
+
+      // How far the league's TrackMan publishing has got. A single row, written nightly by
+      // scripts/watch-wpbl-tracking.mjs; empty until that job has run once.
+      supabase.from('wpbl_tracking_watch')
+        .select('last_tracked_game_date, tracked_game_count, last_final_game_date, last_checked_at, last_advanced_at')
+        .limit(1),
+    ]).then(([pr, pc, wp, wv, wt]) => {
       setPayrolls((pr.data ?? []) as PayrollRow[])
       setPredCount(pc.count ?? 0)
       setWpblRun((((wp.data ?? [])[0]) ?? null) as WpblRunRow | null)
       setWpblCheck((((wv.data ?? [])[0]) ?? null) as WpblValidationRow | null)
+      setWpblTrack((((wt.data ?? [])[0]) ?? null) as WpblTrackingRow | null)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -820,6 +868,35 @@ export function AdminTools({ apps, isAppLocked, onOpenApp }: {
                   </Typography>
                 </Box>
               )}
+            </Section>
+
+            {/* ── TrackMan publishing ───────────────────────────────────── */}
+            {/* This replaced a Home card. The "Ballpark tracking" teaser hid itself once the
+                league's radar publishing fell behind the schedule, which meant the only thing
+                watching for the feed's return was a component that had already disappeared.
+                Here it cannot hide, and the nightly watcher shouts when it moves. */}
+            <Section title="WPBL TrackMan">
+              <Box sx={{ px: 1.5 }}>
+                {wpblTrack ? (
+                  <StatRow
+                    label="Pitch tracking"
+                    sub={wpblTrack.last_tracked_game_date
+                      ? `Through ${wpblTrack.last_tracked_game_date} · ${wpblTrack.tracked_game_count} game${wpblTrack.tracked_game_count === 1 ? '' : 's'} · checked ${timeAgoMin(wpblTrack.last_checked_at ?? '')}`
+                      : 'The league has published none of it yet.'}
+                    value={<WpblTrackingChip row={wpblTrack} />}
+                  />
+                ) : (
+                  <StatRow
+                    label="Pitch tracking"
+                    sub="Nightly at 08:30 UTC. Nothing recorded yet."
+                    value={
+                      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled' }}>
+                        Not yet run
+                      </Typography>
+                    }
+                  />
+                )}
+              </Box>
             </Section>
 
             {/* ── Play-by-play validation ───────────────────────────────── */}

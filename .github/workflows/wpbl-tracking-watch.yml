@@ -1,0 +1,64 @@
+name: WPBL Tracking Watch
+
+on:
+  schedule:
+    # Daily, after the overnight jobs. The league publishes TrackMan in batches that land
+    # days after a game, so there is nothing an hourly check would catch sooner. This exists
+    # to notice a feed that has been dead for weeks waking up, which is a "tell me this week"
+    # event, not a "tell me within the hour" one.
+    - cron: '30 8 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'normal = check and alert. dry-run = report only. status = print what the last run recorded. reseed = accept the current state as the baseline without alerting.'
+        required: true
+        default: 'status'
+        type: choice
+        options: [status, dry-run, normal, reseed]
+
+concurrency:
+  group: wpbl-tracking-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # This one needs `pg` rather than the supabase client: it talks to Postgres directly,
+      # since it is three queries and one row of owner-only bookkeeping.
+      - name: Install dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['pg'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Check whether TrackMan data has moved
+        env:
+          SUPABASE_DB_URL:              ${{ secrets.SUPABASE_DB_URL }}
+          # Where the alert lands. Its own channel on purpose: this is an operations alert
+          # about our own mirror, not something a fan channel wants next to highlight reels.
+          # Unset is survivable, not fatal: the watermark is still recorded and /admin still
+          # shows the state, so the job stays useful while the webhook is being set up.
+          DISCORD_ALERTS_WEBHOOK_URL:   ${{ secrets.DISCORD_ALERTS_WEBHOOK_URL }}
+          DISCORD_TRACKING_MENTION:     ${{ vars.DISCORD_TRACKING_MENTION }}
+          MODE:                         ${{ inputs.mode }}
+        # A scheduled run has no `inputs`, so MODE is empty and falls through to the real
+        # check. Only an explicit choice from the Actions tab does anything else.
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "SUPABASE_DB_URL is not set, so there is nothing to check against."
+            echo "Add it to the repo secrets (same connection string the migration runner uses)."
+            exit 1
+          fi
+          case "$MODE" in
+            status)   node scripts/watch-wpbl-tracking.mjs --status ;;
+            dry-run)  node scripts/watch-wpbl-tracking.mjs --dry-run ;;
+            reseed)   node scripts/watch-wpbl-tracking.mjs --reseed ;;
+            *)        node scripts/watch-wpbl-tracking.mjs ;;
+          esac

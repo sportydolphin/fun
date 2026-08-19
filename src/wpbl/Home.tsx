@@ -17,9 +17,6 @@ import {
   aggregateBatting, aggregatePitching, wpblQualifiers, fmtRate, fmtTwo, fmtSigned,
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
-import { aggregateTracking, type TrackingBoard } from './tracking'
-import { useUnits } from '../UnitsContext'
-import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import { track, EVENTS } from '../lib/analytics'
 import { LastGameCard } from './RecapCard'
 import { HighlightsRail } from './Highlights'
@@ -675,22 +672,6 @@ function LeaderStatSkeleton() {
   )
 }
 
-// A left-icon / two-line / right-value row, used by the tracking teaser. `size` is the
-// leading circle's diameter, kept a parameter because the row was shared with a second
-// card (a portrait rather than an icon tile) before that card was retired.
-function TeaserRowSkeleton({ size, py }: { size: number; py: number }) {
-  return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, py, borderTop: '1px solid', borderColor: 'divider' }}>
-      <Skeleton variant="circular" width={size} height={size} sx={{ flexShrink: 0 }} />
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Skeleton variant="text" width={84} sx={{ fontSize: '0.6rem' }} />
-        <Skeleton variant="text" width="55%" sx={{ fontSize: '0.9rem' }} />
-      </Box>
-      <Skeleton variant="text" width={36} sx={{ fontSize: '1rem' }} />
-    </Box>
-  )
-}
-
 // One leaderboard at a time (OPS, then HR, RBI…) instead of all three stacked — cuts the
 // card's height ~3× on mobile. A chip row selects the category; a horizontal swipe on the
 // rows steps between neighbours. Only categories that have data get a chip (an empty HR
@@ -767,85 +748,6 @@ function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, 
             <StatBlock key={shown[idx].label} label={shown[idx].label} rows={shown[idx].rows} teamById={teamById} onOpenPlayer={onOpenPlayer} hideLabel />
           </Box>
         </>
-      )}
-    </SectionCard>
-  )
-}
-
-// ─── Tracking teaser ──────────────────────────────────────────────────────────────
-// A three-stat teaser for the Tracking tab: the season's fastest pitch, hardest-hit
-// ball, and longest tracked hit. Radar coverage is partial, so these are "bests we
-// measured," not absolutes (the full tab carries that caveat). A stat gets a "New" pill
-// when its record was set on the most recent game day.
-
-interface TeaserTile {
-  icon: string; label: string; value: string; unit: string
-  name: string; player: WpblPlayer | null; teamId: string | null; isNew: boolean
-}
-
-function TrackingTeaserCard({ board, latestGameIds, loading, teamById, onOpenPlayer, onViewAll }: {
-  board: TrackingBoard; latestGameIds: Set<string>; loading: boolean
-  teamById: Map<string, WpblTeam>; onOpenPlayer: (p: WpblPlayer) => void; onViewAll: () => void
-}) {
-  const isDark = useWpblDark()
-  const { units } = useUnits()
-  const shortName = useWpblName()
-  const fp = board.fastestPitches[0]
-  const hh = board.hardestHits[0]
-  const lh = board.longestHits[0]
-  const tiles: TeaserTile[] = []
-  if (fp) tiles.push({ icon: '🔥', label: 'Fastest pitch', value: fmtSpeed(fp.velo, units), unit: speedUnit(units), name: fp.name, player: fp.player, teamId: fp.teamId, isNew: latestGameIds.has(fp.gameId) })
-  if (hh && hh.exit != null) tiles.push({ icon: '💥', label: 'Hardest hit', value: fmtSpeed(hh.exit, units), unit: speedUnit(units), name: hh.name, player: hh.player, teamId: hh.teamId, isNew: latestGameIds.has(hh.gameId) })
-  if (lh && lh.distance != null) tiles.push({ icon: '🚀', label: 'Longest hit', value: fmtDistance(lh.distance, units), unit: distanceUnit(units), name: lh.name, player: lh.player, teamId: lh.teamId, isNew: latestGameIds.has(lh.gameId) })
-
-  return (
-    <SectionCard
-      title="Ballpark tracking"
-      subtitle="Season bests, measured by in-park radar"
-      action={tiles.length > 0 ? (
-        <Typography onClick={onViewAll} sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
-          View all
-        </Typography>
-      ) : undefined}
-    >
-      {loading ? (
-        <>{[0, 1, 2].map(i => <TeaserRowSkeleton key={i} size={22} py={0.7} />)}</>
-      ) : tiles.length === 0 ? (
-        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', py: 1 }}>
-          Tracking data appears once games are played.
-        </Typography>
-      ) : (
-        tiles.map(t => {
-          const team = t.teamId ? teamById.get(t.teamId) : undefined
-          const clickable = !!t.player
-          return (
-            <Box
-              key={t.label}
-              onClick={clickable ? () => onOpenPlayer(t.player!) : undefined}
-              sx={{
-                display: 'flex', alignItems: 'center', gap: 1.25, py: 0.7,
-                borderTop: '1px solid', borderColor: 'divider',
-                borderRadius: 1, ...(clickable ? { cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } } : {}),
-              }}
-            >
-              <Box sx={{ fontSize: '1.05rem', width: 24, textAlign: 'center', flexShrink: 0 }}>{t.icon}</Box>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary' }}>{t.label}</Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
-                  {team && <TeamBadge team={team} size={18} />}
-                  <Typography sx={{ fontSize: '0.85rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(t.name)}</Typography>
-                  {t.isNew && (
-                    <Box sx={{ flexShrink: 0, px: 0.6, py: 0.1, borderRadius: 1, bgcolor: wpblAccent(t.teamId ?? '', isDark), color: '#fff', fontSize: '0.55rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 }}>New</Box>
-                  )}
-                </Box>
-              </Box>
-              <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                <Typography component="span" sx={{ fontSize: '1rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums' }}>{t.value}</Typography>
-                <Typography component="span" sx={{ fontSize: '0.66rem', fontWeight: 700, color: 'text.secondary', ml: 0.4 }}>{t.unit}</Typography>
-              </Box>
-            </Box>
-          )
-        })
       )}
     </SectionCard>
   )
@@ -1041,7 +943,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
 
   // Full load once, then revalidate on later mounts only when the cache is cold or stale:
   // a quick swipe back to a warm Home is instant and silent. Players are static for the
-  // session; lines and tracking seed the leaders and the tracking teaser.
+  // session; lines seed the leaders, and tracking drives the new-batch banner.
   useEffect(() => {
     if (wpblHomeCacheAgeMs() < 30_000) return
     let cancelled = false
@@ -1074,8 +976,9 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   // While a game is live, refresh only the box-score lines (what the leaders read), and on a
   // gentle cadence. Deliberately NOT re-pulled on the tick: the full player roster (static)
   // and the whole pitch_tracking table (large). That repeated full-table scan every 25s was
-  // the main load pegging the WPBL database. The tracking teaser shows season bests, which
-  // barely move within a single game; it refreshes on the next visit.
+  // the main load pegging the WPBL database. Tracking now only feeds the new-batch banner,
+  // and the league publishes it in batches days after a game, so a live tick could not
+  // surface anything new anyway; it refreshes on the next visit.
   //
   // The whole-season play-by-play used to be pulled here too, for the Hall of Firsts. That
   // card is gone, and with it the most expensive read on the section: nothing on Home needs
@@ -1091,32 +994,6 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
     return () => { cancelled = true; clearInterval(id) }
   }, [liveGame?.id])
 
-  const trackingBoard = useMemo(() => aggregateTracking(tracking, players, lines.pitching), [tracking, players, lines.pitching])
-  // Game ids from the most recent day that has a final — used to flag a record as "New".
-  const latestGameIds = useMemo(() => {
-    const finals = games.filter(g => g.status === 'final' && g.game_date)
-    if (finals.length === 0) return new Set<string>()
-    const maxDate = finals.reduce((m, g) => (g.game_date > m ? g.game_date : m), finals[0].game_date)
-    return new Set(finals.filter(g => g.game_date === maxDate).map(g => g.id))
-  }, [games])
-
-  // Hide the tracking teaser once the league's radar publish falls materially behind the
-  // schedule. Tracking is a manual league batch that has stalled for stretches (see
-  // wpbl-ingest's late-backfill note), and showing 8-day-old "season bests" as if current
-  // is worse than showing nothing. The card returns on its own when a fresh batch lands —
-  // ingest backfills automatically. Grace of 3 days absorbs the normal next-day publish lag.
-  // Pre-season (no finals yet) is NOT stale: the card keeps its friendly "coming soon" state.
-  const trackingStale = useMemo(() => {
-    const finals = games.filter(g => g.status === 'final' && g.game_date)
-    if (finals.length === 0) return false
-    const latestFinal = finals.reduce((m, g) => (g.game_date > m ? g.game_date : m), finals[0].game_date)
-    const trackedIds = new Set(tracking.map(t => t.game_id))
-    const trackedDates = games.filter(g => trackedIds.has(g.id) && g.game_date).map(g => g.game_date)
-    if (trackedDates.length === 0) return true // finals exist but nothing is tracked yet
-    const latestTracked = trackedDates.reduce((m, d) => (d > m ? d : m), trackedDates[0])
-    const lagDays = (Date.parse(`${latestFinal}T00:00:00Z`) - Date.parse(`${latestTracked}T00:00:00Z`)) / 86_400_000
-    return lagDays > 3
-  }, [games, tracking])
 
   const batSeasons = useMemo(() => aggregateBatting(players, lines.batting), [players, lines.batting])
   const pitSeasons = useMemo(() => aggregatePitching(players, lines.pitching), [players, lines.pitching])
@@ -1204,10 +1081,9 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
         columnGap: 2.5, rowGap: 1.5, alignItems: 'start',
       }}>
         {/* The single-column (mobile) sequence, which the `order` values below spell out:
-            Discord, Next game, Last game, Reading, Highlights, Standings, Tracking, Batting,
-            Pitching. Kept gap-free and collision-free on purpose: two cards sharing an order
-            value fall back to DOM order, which reads as correct until someone reorders a
-            column and it silently isn't. */}
+            Discord, Next game, Last game, Reading, Highlights, Standings, Batting, Pitching. Kept gap-free and collision-free on purpose: two cards sharing
+            an order value fall back to DOM order, which reads as correct until someone
+            reorders a column and it silently isn't. */}
         {/* The League */}
         <Box sx={{ minWidth: 0, display: { xs: 'contents', md: 'flex' }, flexDirection: 'column', gap: 1.5 }}>
           {!discordDismissed && (
@@ -1238,18 +1114,10 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
               came out: the left column is now the narrative one (what happened, in video and
               in prose) and the right is the reference one (where everyone stands, and who is
               leading what), which is a cleaner split than the four-card left column it had
-              become. Mobile still reads it straight after Reading. */}
+              become. Mobile reads it after the left column's rails. */}
           <Box sx={{ minWidth: 0, order: { xs: 6, md: 0 } }}><StandingsCard teams={teams} games={games} onOpenTeam={onOpenTeam} /></Box>
-          {/* Only reserve the tracking slot (skeleton included) when tracking will actually
-              show. Gating on the loading flag too would flash a skeleton on cold load and then
-              yank the card once it resolves stale — which it now essentially always is, since
-              tracking data exists for only the first couple games. Its loading placeholder
-              stays accurate by not appearing at all when there's nothing to place. */}
-          {!trackingStale && (
-            <Box sx={{ minWidth: 0, order: { xs: 7, md: 0 } }}><TrackingTeaserCard board={trackingBoard} latestGameIds={latestGameIds} loading={loadingLeaders} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={viewTracking} /></Box>
-          )}
-          <Box sx={{ minWidth: 0, order: { xs: 8, md: 0 } }}><LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={sortKey => onViewStats('hitting', sortKey)} /></Box>
-          <Box sx={{ minWidth: 0, order: { xs: 9, md: 0 } }}><LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={sortKey => onViewStats('pitching', sortKey)} /></Box>
+          <Box sx={{ minWidth: 0, order: { xs: 7, md: 0 } }}><LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={sortKey => onViewStats('hitting', sortKey)} /></Box>
+          <Box sx={{ minWidth: 0, order: { xs: 8, md: 0 } }}><LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={sortKey => onViewStats('pitching', sortKey)} /></Box>
         </Box>
       </Box>
 
