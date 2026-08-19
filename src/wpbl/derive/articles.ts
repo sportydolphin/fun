@@ -15,12 +15,32 @@ import type { WpblGame, WpblPlayer, WpblTeam } from '../types'
 /** Her publication. Note this is the PUBLICATION subdomain, not the author handle: the
  *  handle (dijondarling) resolves to a Substack profile page with no feed on it. */
 export const SUBSTACK_HOST = 'towardsamoreperfectgame.substack.com'
-/** Substack rejects a `limit` above 50 with a 400, so the archive is read a page at a
- *  time. She is at 23 posts today, which is one page, but the job should not quietly start
- *  losing her back catalogue on the day she passes fifty. */
+/** Substack rejects a `limit` above 50, so both endpoints below are read a page at a time.
+ *  She is under fifty posts today, but the job should not quietly start losing her back
+ *  catalogue on the day she passes it. */
 export const ARCHIVE_PAGE_SIZE = 50
 export const archiveUrl = (offset: number) =>
   `https://${SUBSTACK_HOST}/api/v1/archive?sort=new&limit=${ARCHIVE_PAGE_SIZE}&offset=${offset}`
+
+/**
+ * Her author id on substack.com, and the profile endpoint that lists everything she has
+ * published.
+ *
+ * This is the APEX domain, not her publication subdomain, and that distinction is the
+ * difference between this job running and not running. Cloudflare serves a JavaScript
+ * challenge to datacenter address space on `towardsamoreperfectgame.substack.com`, covering
+ * both its archive API and its RSS feed, so every scheduled run 403'd. `substack.com` itself
+ * is not behind that challenge.
+ *
+ * It is also the better source on the merits, which was a surprise: it returns her COMPLETE
+ * history (37 posts back to October 2025) where the publication archive stopped at 23, and
+ * it carries the same fields, `postTags` included. What it does NOT carry is the article
+ * body, only a truncated preview, which is why the feed is still fetched when reachable.
+ */
+export const AUTHOR_USER_ID = 5865502
+export const profilePostsUrl = (cursor?: string) =>
+  `https://substack.com/api/v1/profile/posts?profile_user_id=${AUTHOR_USER_ID}` +
+  `&limit=${ARCHIVE_PAGE_SIZE}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`
 export const FEED_URL = `https://${SUBSTACK_HOST}/feed`
 export const PUBLICATION_URL = `https://${SUBSTACK_HOST}`
 /** Her own styling of both, lowercase. Left as she writes them rather than title-cased to

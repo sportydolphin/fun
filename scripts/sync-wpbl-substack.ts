@@ -39,9 +39,10 @@ import { createClient } from '@supabase/supabase-js'
 // @ts-expect-error: no types installed for `ws`; it is only handed to supabase-js below.
 import ws from 'ws'
 import {
-  ARCHIVE_PAGE_SIZE, archiveUrl, FEED_URL, SUBSTACK_HOST,
+  ARCHIVE_PAGE_SIZE, archiveUrl, profilePostsUrl, FEED_URL, SUBSTACK_HOST,
   isWpblPost, matchGame, matchPlayers, matchTeams, parseFeed, readMinutes,
 } from '../src/wpbl/derive/articles'
+import type { FeedPost } from '../src/wpbl/derive/articles'
 import type { WpblGame, WpblPlayer, WpblTeam } from '../src/wpbl/types'
 
 // ─── Config ─────────────────────────────────────────────────────────────────
@@ -140,6 +141,7 @@ interface ArchivePost {
   cover_image?: string | null
   wordcount?: number | null
   audience?: string | null
+  type?: string | null
   postTags?: { name?: string | null }[] | null
 }
 
@@ -152,9 +154,9 @@ interface StoredArticle {
   video_count: number | null
 }
 
-/** Every post, paged. Stops on the first short page, and at a hard ceiling so a malformed
- *  response that keeps returning full pages can't spin here forever. */
-async function fetchArchive(): Promise<ArchivePost[]> {
+/** Every post, from her publication's own archive endpoint. Paged; stops on the first short
+ *  page, and at a hard ceiling so a malformed response can't spin here forever. */
+async function fetchPublicationArchive(): Promise<ArchivePost[]> {
   const all: ArchivePost[] = []
   for (let offset = 0; offset < 1000; offset += ARCHIVE_PAGE_SIZE) {
     const raw = await get(archiveUrl(offset), 'application/json')
@@ -165,6 +167,57 @@ async function fetchArchive(): Promise<ArchivePost[]> {
     if (page.length < ARCHIVE_PAGE_SIZE) break
   }
   return all
+}
+
+/**
+ * Every post, from her author profile on substack.com.
+ *
+ * The paging guard is deliberately not "stop when the cursor is empty". She is under one
+ * page today, so the cursor parameter's name is unverified against a real second page; if it
+ * is wrong the API would hand back page one forever. Stopping as soon as a page contributes
+ * no NEW post id makes that failure terminate with the right data instead of looping.
+ */
+async function fetchProfilePosts(): Promise<ArchivePost[]> {
+  const byId = new Map<number, ArchivePost>()
+  let cursor: string | undefined
+  for (let page = 0; page < 20; page++) {
+    const raw = await get(profilePostsUrl(cursor), 'application/json')
+    const json = JSON.parse(raw) as { posts?: ArchivePost[]; nextCursor?: string | null }
+    const posts = json.posts ?? []
+    const before = byId.size
+    // Only her own publication, and only real posts. The endpoint is scoped to an author
+    // rather than a publication, so a future guest post elsewhere would arrive here too.
+    for (const p of posts) {
+      const host = (p.canonical_url ?? '').split('/')[2] ?? ''
+      if (host === SUBSTACK_HOST && (p.type ?? 'newsletter') === 'newsletter') byId.set(p.id, p)
+    }
+    if (!json.nextCursor || byId.size === before) break
+    cursor = json.nextCursor
+  }
+  return [...byId.values()]
+}
+
+/**
+ * The post list, from whichever source answers.
+ *
+ * Profile first. It is unblocked from CI, and it is also the more complete of the two: her
+ * whole history rather than the recent slice the publication archive returns. The
+ * publication archive stays as the fallback for the case where substack.com is the one
+ * having a bad day, since it carries identical fields.
+ */
+async function fetchArchive(): Promise<ArchivePost[]> {
+  try {
+    const posts = await fetchProfilePosts()
+    if (posts.length === 0) throw new Error('profile endpoint returned no posts')
+    console.log(`📚  ${posts.length} posts from the author profile (substack.com)`)
+    return posts
+  } catch (e) {
+    console.warn(`   profile endpoint unavailable (${e instanceof Error ? e.message.slice(0, 90) : e})`)
+    console.warn('   falling back to the publication archive')
+    const posts = await fetchPublicationArchive()
+    console.log(`📚  ${posts.length} posts from the publication archive`)
+    return posts
+  }
 }
 
 // ─── Main ───────────────────────────────────────────────────────────────────
@@ -201,7 +254,6 @@ async function main() {
     console.error('   from CI. See docs/READING.md for what to do about it.')
     process.exit(1)
   }
-  console.log(`📚  ${archive.length} posts in the archive`)
 
   const wpblPosts = archive.filter(p => isWpblPost((p.postTags ?? []).map(t => t?.name ?? '')))
   console.log(`⚾  ${wpblPosts.length} tagged WPBL (${archive.length - wpblPosts.length} skipped: World Cup and other beats)`)
@@ -210,9 +262,20 @@ async function main() {
   // Bodies, for entity matching, and the video counts taken from them. Keyed by URL because
   // that is the only field the RSS item and the archive row reliably share (the feed carries
   // no post id).
-  const feed = await fetchFeed()
+  // Best-effort, and non-fatal when it fails. The feed lives on her publication subdomain,
+  // which is the host behind Cloudflare's challenge, so from CI this normally returns
+  // nothing. That costs the body-derived fields (players, clubs, game link, clip count) for
+  // posts we have never read, and costs nothing at all for posts we have: see the ladder
+  // below. Everything the rail actually renders comes from the post list, not from here.
+  let feed: FeedPost[] = []
+  try {
+    feed = await fetchFeed()
+    console.log(`📰  ${feed.length} posts in the RSS window (bodies available for matching)`)
+  } catch (e) {
+    console.warn(`📰  RSS feed unavailable (${e instanceof Error ? e.message.slice(0, 90) : e})`)
+    console.warn('    Continuing without bodies: stored matches are kept, new posts match on the headline.')
+  }
   const feedByUrl = new Map(feed.map(f => [f.link.replace(/\/$/, ''), f]))
-  console.log(`📰  ${feed.length} posts in the RSS window (bodies available for matching)`)
 
   // What we already worked out about each post, for the posts we can no longer read.
   //
@@ -258,12 +321,23 @@ async function main() {
       playerIds = matchPlayers(`${headline} ${post.text}`, players)
       gameId = matchGame({ title: p.title, publishedAt: p.post_date, teamIds }, games)
       videoCount = post.videos
+    } else if (prior) {
+      // Body out of reach, but we have read this post before. Keep what it taught us rather
+      // than recomputing from a headline and quietly demoting it.
+      teamIds = prior.team_ids
+      playerIds = prior.player_ids
+      gameId = prior.game_id
+      videoCount = prior.video_count
     } else {
-      // Out of the RSS window: keep what we knew rather than recomputing from a headline.
-      teamIds = prior?.team_ids ?? []
-      playerIds = prior?.player_ids ?? []
-      gameId = prior?.game_id ?? null
-      videoCount = prior?.video_count ?? null
+      // Never read, and no body available: match on the headline alone. Weaker than a full
+      // read, but not nothing, because the headline is where she names her subject. This is
+      // the path every new post takes while the feed is blocked from CI, and it is why a
+      // profile piece still lands on the right club (see rule 3 in matchTeams). Clip count
+      // stays null rather than 0: we do not know, and 0 would claim we did.
+      teamIds = matchTeams(headline, '', teams, players)
+      playerIds = matchPlayers(headline, players)
+      gameId = matchGame({ title: p.title, publishedAt: p.post_date, teamIds }, games)
+      videoCount = null
     }
 
     rows.push({
@@ -283,7 +357,7 @@ async function main() {
       updated_at: new Date().toISOString(),
     })
 
-    const note = post ? '' : ' (outside the RSS window: keeping stored matches)'
+    const note = post ? '' : prior ? ' (no body: keeping stored matches)' : ' (no body: headline only)'
     console.log(`  • ${p.title.slice(0, 64)}`)
     console.log(`      ${readMinutes(p.wordcount, videoCount)} min · ` +
       `${videoCount ?? '?'} clip${videoCount === 1 ? '' : 's'} · ` +
