@@ -1,166 +1,149 @@
-# Project Context: start here
+# sportydolphin.fun
 
-Orientation for anyone (human or LLM) picking up this repo cold. It won't repeat the
-architecture. It points you at the deep docs and captures the conventions and gotchas
-that aren't obvious from the code. This file was `context.md` until Aug 18, 2026; it was
-renamed so Claude Code loads it automatically at the start of every session.
+Loaded at the start of every session. It does not repeat the architecture; it carries the
+rules and the traps that the code does not state out loud. Was `context.md` until
+Aug 18, 2026.
 
 ## Be concise
 
-**This one matters more than anything else in this file.** Answer the question and stop.
-No preamble, no recap of what was just asked, no summary of a summary. Don't restate a
-change that is visible in the diff, don't list every file touched unless asked, and don't
-pad with caveats that don't change what to do next. If a one-line answer is right, give
-the one line. Length is not thoroughness.
+**This outranks everything else here.** Answer the question and stop. No preamble, no
+restating the request, no summary of a summary, no listing files that are already in the
+diff, no caveats that don't change what to do next. If one line is the answer, give one
+line. Length is not thoroughness.
 
-The exceptions, where detail is the point: code comments and commit messages explain *why*
-(see the rest of this file), and a genuine risk or an assumption that changes the work
-gets stated plainly, once.
+Detail belongs in two places only: code comments and commit messages, which explain *why*
+(see [House rules](#house-rules)), and one plain sentence for a real risk or an assumption
+that changes the work.
 
-## What this is
+## House rules
 
-**sportydolphin.fun**: a baseball web app with two independent league sections that share
-one shell (auth, search, notifications, theme, units):
+Violating these creates real problems. Treat them as hard constraints.
 
-- **WPBL** (`/wpbl`, the default): Women's Pro Baseball League coverage: live scoreboard,
-  schedule, standings, stats, TrackMan tracking, Game Center, auto game recaps, Hall of
-  Firsts, push reminders. Data is mirrored from the league's public feed into Supabase by
-  the `wpbl-ingest` edge function.
-- **MLB** (`/mlb`): a deeper StatsAPI-driven app: live Game Center, personalized home feed,
-  a predictions game with a Wilson-ranked leaderboard + bot rivals, playoff odds, milestone
+- **No em dashes.** UI copy, comments, commit messages, docs, changelog. Rewrite the
+  sentence rather than swapping the character; a colon, a full stop or a comma pair almost
+  always reads better. En dashes stay where they are correct: ranges and scores, `5–2`.
+  The one allowed `—` is the glyph meaning "no value" in tables and stat lines, which is a
+  symbol rather than punctuation.
+- **WPBL is baseball, not softball.** ⚾ never 🥎. It is the *Women's Pro Baseball League*,
+  a full pro league. No gender stereotypes, no softball framing, anywhere.
+- **Never use the Yankees or their players as examples.** Not in comments, sample data,
+  docs, or explanations. Pick any other club.
+- **`main` is the deploy branch.** Cloudflare Pages deploys on every push to it. Work on a
+  feature branch and push that to main: `git push origin <branch>:main`. Commit and push
+  only when asked.
+- **Comments and commit messages explain why, not what.** The diff already says what
+  changed. Say what forced it, and what breaks if someone undoes it.
+- **Schema changes go through the migration runner.** New schema in
+  [`scripts/migrations/`](scripts/migrations/), applied with `npm run migrate`; scaffold
+  with `npm run migrate -- new "add foo table"`. Needs `SUPABASE_DB_URL` in `.env`. The 33
+  legacy `scripts/*.sql` files are the pre-runner baseline: applied by hand, left alone,
+  never re-run.
+- **Never commit secrets.** Client build vars live in Cloudflare Pages env plus `.env`;
+  edge-function and cron secrets live in Supabase and GitHub Actions (table in
+  ARCHITECTURE §9).
+
+## Traps
+
+Each of these has already cost someone a debugging session, and none of them fail loudly.
+
+- **`wpbl_game_plays` is a mirror. Never fix a scoring error by editing it.** `wpbl-ingest`
+  deletes and reinserts every play for a game on each pass, so an edit survives two minutes
+  and then vanishes with no trace it existed. Corrections go in `wpbl_play_corrections` and
+  are applied as a read-time overlay keyed on `(game_id, sequence)`, never the play's uuid,
+  which is regenerated on every reinsert. Same reasoning for every other mirrored WPBL
+  table. See [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md).
+- **The feed's `runs_scored` does not count the batter.** It counts the runners who
+  crossed, so a solo home run reads 0, a two-run homer 1, a grand slam 3. This has caught
+  every reader of the field so far, including a validator, a Game Center badge and the Hall
+  of Firsts. Call `runsOnPlay()` in
+  [`src/wpbl/derive/playByPlay.ts`](src/wpbl/derive/playByPlay.ts) instead of reading the
+  column.
+- **"Read every row" needs explicit paging.** PostgREST silently caps a bare `.select()` at
+  1000 rows: no error, just a short array. Any fetch that means "all of them" must page
+  with `.range()` *and* carry a deterministic `.order()`, or Postgres can return the same
+  row twice and skip another. Getting this wrong quietly makes league-wide aggregates wrong
+  by a silent prefix (OPS+ and ERA+ take their baseline from `fetchWpblAllLines`). Use
+  `fetchAllPaged` in [`src/wpbl/api.ts`](src/wpbl/api.ts).
+- **Modules shared with Deno carry `.ts` on their imports.** The recap engine
+  ([`recap.ts`](src/wpbl/derive/recap.ts), [`discordRecap.ts`](src/wpbl/derive/discordRecap.ts))
+  is loaded by three builds: Vite, the esbuild bundle behind `npm run discord-recaps`, and
+  Deno inside `wpbl-ingest`. Deno resolves local specifiers literally, so any *runtime*
+  import they add needs the extension (type-only imports are erased and stay
+  extensionless). For the same reason they must never import
+  [`constants.ts`](src/wpbl/constants.ts), which pulls the team logos in as Vite assets:
+  that is why `outsToIp` lives in [`innings.ts`](src/wpbl/innings.ts).
+- **Two write paths to the DB, and only two.** The browser writes user rows through RLS
+  (events, feedback, picks); everything ingested or derived is written by service-role
+  actors, the `wpbl-ingest` edge function and the GitHub Actions `scripts/*.mjs` jobs. The
+  browser only reads those. Do not add a third.
+- **`public/icon.svg` is generated**, along with every other published icon, by
+  [`scripts/make-brand-icons.py`](scripts/make-brand-icons.py) from `public/logo.png`. A
+  hand-edit is lost on the next run. Change the art, rerun the script, commit the lot.
+- **`functions/` and `supabase/functions/` are different platforms.** The first is
+  Cloudflare Pages Functions, the second is Supabase Deno edge functions.
+- **A new Cloudflare Pages Function also needs a route in `public/_routes.json`.** That
+  file is an allow-list. Without an entry the function compiles, uploads, deploys, and is
+  never called.
+
+## What it is
+
+Two independent league sections sharing one shell (auth, search, notifications, theme,
+units):
+
+- **WPBL** (`/wpbl`, the default): Women's Pro Baseball League. Scoreboard, schedule,
+  standings, stats, TrackMan, Game Center, auto recaps, Hall of Firsts, push reminders.
+  Mirrored from the league feed into Supabase by the `wpbl-ingest` edge function. The feed
+  stops Sep 6, 2026.
+- **MLB** (`/mlb`): deeper and StatsAPI-driven. Game Center, personalized home feed, a
+  predictions game with a Wilson-ranked leaderboard and bot rivals, playoff odds, milestone
   watch, streak report cards, Streak Survivor.
 
-**Stack:** React 18 + TypeScript + Vite + MUI · Supabase (Postgres + Auth + Edge Functions
-+ pg_cron) · GitHub Actions for cron jobs · installable PWA · hosted on **Cloudflare Pages**.
+Also `/admin` (owner analytics) and small bolted-on tools at `/cups`, `/stopwatch`,
+`/poop`, backed by `projects/` and `public/projects/`.
 
-## Read these, in order
+**Stack:** React 18 + TypeScript + Vite + MUI · Supabase (Postgres, Auth, Edge Functions,
+pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare Pages at
+`sportydolphin.fun`.
 
-1. **[README.md](README.md)**: quick start, scripts, top-level layout.
-2. **[ARCHITECTURE.md](ARCHITECTURE.md)**: the real map, with system diagram, routes, DB tables,
-   the WPBL ingest pipeline, every cron job, edge functions, external integrations, and the
-   config/secrets reference. Keep it current when you add a table, workflow, or integration.
-3. **[ROADMAP-WPBL.md](ROADMAP-WPBL.md)**: the WPBL plan. Start here if you're touching
-   `/wpbl`: it opens with the season clock (the feed stops Sep 6, 2026), then the
-   prioritized next list, with a dated realignment log at the end for what shipped when.
-   **[ROADMAP.md](ROADMAP.md)** is the MLB section's own plan. The two were one file until
-   Aug 16, 2026.
-4. **[docs/](docs/)**: `DISCORD.md` (the fan-server board, the box score posted when a
-   game goes final, the YouTube highlight reels, the `/player` slash-command bot, and which
-   of the secret stores each writer reads),
-   `PUSH_NOTIFICATIONS.md`, `GOOGLE_TASKS.md`, `feature-requests.md`,
-   `ADMIN_ANALYTICS.md` (the owner dashboard at `/admin`: read it before touching the
-   `events` table or the `admin_*` RPCs; its security section is the only thing keeping
-   site analytics from being readable by every signed-in user), and
-   `PLAY_VALIDATION.md` (how the league's scoring errors are found, and how our corrections
-   are applied without being eaten by the ingest).
+## Where to look
 
-Source-of-truth index is at the bottom of ARCHITECTURE.md.
+- [ARCHITECTURE.md](ARCHITECTURE.md) is the real map: system diagram, routes, DB tables,
+  the ingest pipeline, every cron job, edge functions, integrations, config and secrets.
+  Its source-of-truth index is at the bottom. **Keep it current** when you add a table,
+  workflow, or integration.
+- [ROADMAP-WPBL.md](ROADMAP-WPBL.md) for anything under `/wpbl`: season clock, prioritized
+  next list, dated log of what shipped. [ROADMAP.md](ROADMAP.md) is the MLB equivalent.
+- [README.md](README.md) for quick start and scripts.
+- [docs/](docs/): `DISCORD.md` (fan-server board, final-score box scores, highlight reels,
+  the `/player` slash command, and which secret store each writer reads),
+  `ADMIN_ANALYTICS.md` (**read before touching the `events` table or the `admin_*` RPCs**;
+  its security section is the only thing keeping site analytics from being readable by
+  every signed-in user), `PLAY_VALIDATION.md`, `PUSH_NOTIFICATIONS.md`, `GOOGLE_TASKS.md`,
+  `feature-requests.md`.
 
-## Conventions that aren't in the code (important)
+Code: [`src/App.tsx`](src/App.tsx) is the shell, with hand-rolled path routing and no
+router lib. [`src/wpbl/`](src/wpbl/) is self-contained with no MLB coupling
+(`WpblApp.tsx`, `api.ts`, `SwipeableViews.tsx` are its spine);
+[`src/mlb/`](src/mlb/) plus [`src/MlbStats.tsx`](src/MlbStats.tsx) is the other section;
+[`src/lib/`](src/lib/) holds the shared client libs;
+[`shared/notifications.js`](shared/notifications.js) is one catalog serving both the
+in-site bell and the push senders.
 
-These are project rules. Violating them creates real problems, so treat them as hard
-constraints:
+## Environment
 
-- **No em dashes.** House style, and it applies to everything: UI copy, code comments,
-  commit messages, docs, and changelog entries. Rewrite the sentence rather than swapping
-  the character; a colon, a full stop or a comma pair almost always reads better. En dashes
-  stay where they are correct on their own: numeric ranges and scores such as `5–2`. The one
-  allowed em dash is the `—` glyph used in tables and stat lines to mean "no value", which is
-  a typographic symbol rather than punctuation.
-- **WPBL is baseball, not softball.** Use ⚾ (never 🥎). It's the *Women's Pro Baseball
-  League*, a full pro baseball league. Never introduce gender stereotypes or softball
-  framing in copy, UI, or examples.
-- **Never use the Yankees (or their players) as examples.** No Aaron Judge, no NYY, in code
-  comments, sample data, docs, or explanations. Pick any other team/player.
-- **`main` is the deploy branch.** Cloudflare Pages deploys on every push to `main`. Work on
-  a feature branch, then push it to `main`: e.g. `git push origin <branch>:main`. Only
-  commit/push when asked.
-- **Schema changes go through the migration runner.** New schema lives in
-  [`scripts/migrations/`](scripts/migrations/) and is applied with `npm run migrate` (see
-  [scripts/migrations/README.md](scripts/migrations/README.md)). Scaffold one with
-  `npm run migrate -- new "add foo table"`. The 33 legacy `scripts/*.sql` files are the
-  pre-runner **baseline**: already applied by hand, left in place, not re-run. The runner
-  needs a `SUPABASE_DB_URL` (direct Postgres connection string) in `.env`.
-- **Modules shared with Deno carry `.ts` on their imports.** The WPBL recap engine
-  ([`src/wpbl/derive/recap.ts`](src/wpbl/derive/recap.ts) and
-  [`discordRecap.ts`](src/wpbl/derive/discordRecap.ts)) is loaded by three different
-  builds: Vite, the esbuild bundle behind `npm run discord-recaps`, and **Deno** inside
-  `wpbl-ingest`. Deno resolves local specifiers literally, so any *runtime* import those
-  files add needs an explicit `.ts` extension (type-only imports are erased and stay
-  extensionless; `allowImportingTsExtensions` in tsconfig is what lets `tsc` accept them).
-  For the same reason they must never import [`constants.ts`](src/wpbl/constants.ts): it
-  pulls the team logos in as Vite assets, which is why `outsToIp` lives in
-  [`innings.ts`](src/wpbl/innings.ts).
-- **"Read every row" needs explicit paging.** PostgREST silently caps a bare
-  `.select()` at **1000 rows**: no error, just a short array, so any fetch that means
-  "all of them" must page with `.range()` *and* carry a deterministic `.order()`, or
-  Postgres can return the same row on two pages and skip another. Getting this wrong
-  doesn't fail loudly; it quietly makes league-wide aggregates (OPS+ and ERA+ derive their
-  baseline from `fetchWpblAllLines`) wrong by a silent prefix. See `fetchAllPaged` in
-  [`src/wpbl/api.ts`](src/wpbl/api.ts).
-- **Never fix a scoring error by editing `wpbl_game_plays`.** That table is a *mirror*, and
-  `wpbl-ingest` deletes and reinserts every play for a game on each pass. An edit made there
-  survives until the next cron tick (two minutes) and then vanishes, silently, with no trace
-  it existed. Corrections go in `wpbl_play_corrections` and are applied as a read-time
-  overlay keyed on `(game_id, sequence)`, never the play's uuid, which is regenerated on every
-  reinsert. Same reasoning applies to any other mirrored WPBL table. See
-  [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md).
-- **The feed's `runs_scored` does not count the batter.** It counts the runners who crossed,
-  so a solo home run reads 0, a two-run homer 1, a grand slam 3. This has caught every reader
-  of the field so far, including a validator, a Game Center badge and the Hall of Firsts. Call
-  `runsOnPlay()` in [`src/wpbl/derive/playByPlay.ts`](src/wpbl/derive/playByPlay.ts) rather
-  than reading the column.
-- **Two write paths to the DB, and only two:** (1) the browser writes user rows through RLS
-  (events, feedback, picks); (2) everything ingested or derived is written by service-role
-  actors: the `wpbl-ingest` edge function and the GitHub Actions `scripts/*.mjs` jobs. The
-  browser only *reads* those. Don't add a third path.
-
-## Environment / workflow notes
-
-- **Dev is on Windows**: primary shell is PowerShell 5.1 (a Bash tool is also available for
-  POSIX scripts). Watch for shell-syntax differences.
-- **Local dev:** `npm install && npm run dev` → http://localhost:5173 (redirects to `/wpbl`).
-  Needs a `.env` with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and (for push)
-  `VITE_VAPID_PUBLIC_KEY`; without them the app renders empty states.
-- **Tests:** `npm run test` (Vitest). Tests live in `src/__tests__/` and `src/**/__tests__`.
-- **Cron scripts** (`scripts/*.mjs`) are Node jobs run by GitHub Actions on a schedule (see
-  the table in ARCHITECTURE §5); they use the service-role key from repo Actions secrets.
-- **Edge functions** deploy manually: `supabase functions deploy <name>`.
-- **Secrets:** never commit them. Client build vars live in Cloudflare Pages env + `.env`;
-  edge-function and cron secrets live in Supabase and GitHub Actions secrets respectively
-  (full table in ARCHITECTURE §9).
-
-## Code layout at a glance
-
-- [`src/App.tsx`](src/App.tsx): the shell: hand-rolled path-based routing (no router lib),
-  toolbar, auth, search bridge, MLB⇆WPBL switch. Heavy sections are `lazy()` chunks.
-- [`src/wpbl/`](src/wpbl/): the WPBL section, fully self-contained (WPBL-native components,
-  no MLB coupling). `WpblApp.tsx`, `api.ts`, `SwipeableViews.tsx` are the spine.
-- [`src/mlb/`](src/mlb/) + [`src/MlbStats.tsx`](src/MlbStats.tsx): the MLB section.
-- [`src/lib/`](src/lib/): shared client libs: Supabase anon client, analytics, push,
-  notifications, units.
-- [`shared/notifications.js`](shared/notifications.js): one notification catalog shared by
-  the in-site bell and the push senders.
-- [`scripts/`](scripts/): SQL schema files + the Node cron jobs.
-- [`supabase/functions/`](supabase/functions/): Supabase (Deno) edge functions:
-  `wpbl-ingest`, `delete-account`, `send-test-push`.
-- [`functions/`](functions/): **Cloudflare Pages** Functions, a different thing in a
-  confusingly similar place: `wpbl/index.ts` rewrites Open Graph tags at the edge so a
-  shared `/wpbl?player=<id>` link unfurls as that player.
-- `projects/`, `public/projects/`, and routes like `/cups`, `/stopwatch`, `/poop`: small
-  standalone tools/games bolted onto the same shell.
-
-## SEO / hosting facts
-
-- Hosted as a Vite SPA on **Cloudflare Pages** at `sportydolphin.fun`.
-- SEO plumbing exists: `robots.txt`, `sitemap.xml`, per-route meta + JSON-LD via
-  [`src/seo.ts`](src/seo.ts). Note `seo.ts` runs *after* React mounts, so social unfurlers
-  never see it, because a shared player link gets its card from the Cloudflare Pages Function in
-  [`functions/wpbl/`](functions/wpbl/), which rewrites the tags before the HTML leaves the
-  edge. Headshots are republished at a stable `/portraits/<slug>.webp` for it by a Vite
-  plugin, since the edge has no copy of the build's hashed-asset map. (Google Search Console verification was still a TODO as of
-  the last update, so check whether it's done before assuming.)
-- Every published icon (tab, home screen, install tile, notification, social card) is
-  generated from `public/logo.png` by `scripts/make-brand-icons.py`, a manual step that is
-  not part of the build. `public/icon.svg` is one of its outputs, so editing that file by
-  hand loses the edit on the next run. Change the art, rerun the script, commit the lot.
+- **Windows.** PowerShell 5.1 is the primary shell; a Bash tool is also available. Mind the
+  syntax differences.
+- **Dev:** `npm install && npm run dev` → http://localhost:5173, redirects to `/wpbl`.
+  Needs `.env` with `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_VAPID_PUBLIC_KEY`
+  for push. Without them the app renders empty states.
+- **Tests:** `npm run test` (Vitest), in `src/__tests__/` and `src/**/__tests__`.
+- **Cron:** `scripts/*.mjs` are Node jobs on GitHub Actions schedules (table in
+  ARCHITECTURE §5), using the service-role key from repo secrets.
+- **Edge functions** deploy by hand: `supabase functions deploy <name>`.
+- **SEO:** `robots.txt`, `sitemap.xml`, and per-route meta plus JSON-LD via
+  [`src/seo.ts`](src/seo.ts), which runs after React mounts and so never reaches an
+  unfurler. Shared player links get their card from [`functions/wpbl/`](functions/wpbl/)
+  instead, rewriting the tags at the edge; headshots are republished at a stable
+  `/portraits/<slug>.webp` by a Vite plugin, since the edge has no copy of the build's
+  hashed-asset map. Google Search Console verification was still open as of Aug 18, 2026;
+  check before assuming.
