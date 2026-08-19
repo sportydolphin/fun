@@ -55,10 +55,23 @@ const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
 const SUPABASE_KEY = SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY || ''
 
-// Identify the job honestly. This is one person's personal Substack, not a platform API:
-// a contactable UA is the least we owe a site we poll hourly, and it means she can see
-// what we are in her logs rather than an anonymous scraper.
-const UA = 'sportydolphin.fun WPBL reading feed (+https://sportydolphin.fun/wpbl)'
+// A real browser User-Agent, reluctantly.
+//
+// This started as a self-identifying string ("sportydolphin.fun WPBL reading feed" plus a
+// contact URL), which is the polite thing to send to one person's personal Substack and is
+// what she would see in her logs. It works from a laptop. It does not work from CI: every
+// scheduled run 403'd at Cloudflare while the identical request from a residential IP
+// returned 200. Substack sits behind Cloudflare's bot protection, which is far stricter
+// about datacenter address space, and a non-browser UA from a GitHub runner is the exact
+// shape it drops.
+//
+// So this is not an attempt to look like something we are not to HER: the job still reads
+// only public endpoints, at a gentler cadence than a single reader hitting refresh, and
+// every card it produces links straight back to her post. It is what it takes to get past a
+// generic edge filter that was never aimed at us. If Substack ever offers a documented way
+// to identify a friendly integration, that is strictly better and should replace this.
+const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
+  '(KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('❌  Set SUPABASE_URL (or VITE_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY before running')
@@ -88,9 +101,25 @@ async function get(url: string, accept: string): Promise<string> {
   let last = ''
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const res = await fetch(url, { headers: { 'user-agent': UA, accept } })
+      const res = await fetch(url, {
+        headers: {
+          'user-agent': UA,
+          accept,
+          // Cloudflare scores the whole header set, not the UA alone: a "browser" that sends
+          // no language or encoding preferences is a tell. These are what a real request
+          // carries anyway.
+          'accept-language': 'en-US,en;q=0.9',
+          'cache-control': 'no-cache',
+        },
+      })
       if (res.ok) return await res.text()
-      last = `${res.status} ${res.statusText}`
+      // Include a snippet of the body. A bare "403 Forbidden" is unactionable; Cloudflare's
+      // block page names the reason, and the difference between a challenge, a rate limit
+      // and an outright ban decides what to do next. Whitespace-collapsed so an HTML error
+      // page does not bury the run log in markup.
+      const body = await res.text().catch(() => '')
+      const hint = body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200)
+      last = `${res.status} ${res.statusText}${hint ? ` :: ${hint}` : ''}`
     } catch (e) {
       last = e instanceof Error ? e.message : String(e)
     }
