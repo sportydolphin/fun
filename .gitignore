@@ -7,7 +7,6 @@ dist
 # Keep .env.example (if one is ever added) tracked.
 .env.*
 !.env.example
-.claude/
 supabase/.temp/
 
 # Bytecode from scripts/make-brand-icons.py, the one Python tool in the repo.
