@@ -135,7 +135,7 @@ public feed we already mirror in far more depth. People want the historical reco
 
 ### 3. Google Search Console + SEO follow-through ⚙️
 
-Still unverified: there is no verification token anywhere in the repo, and `context.md`
+Still unverified: there is no verification token anywhere in the repo, and `CLAUDE.md`
 flags it as an open TODO. Search volume for "WPBL standings / stats / roster" peaks during
 the season and collapses afterwards. The SEO plumbing (robots, sitemap, per-route meta,
 JSON-LD, the edge-rewritten OG tags) is already built; being unindexed through the only
@@ -268,12 +268,12 @@ is retired.
 - **The section is self-contained.** `src/wpbl/` has no MLB coupling; the shell (auth,
   search, notifications, theme, units) is the only shared surface.
 - **Two write paths only**: browser-through-RLS for user rows, service-role for everything
-  ingested or derived. See `context.md`.
+  ingested or derived. See `CLAUDE.md`.
 
 **Live gotchas worth remembering:**
 - The recap engine (`derive/recap.ts`, `derive/discordRecap.ts`) is loaded by three builds
   including **Deno**, so its runtime imports need explicit `.ts` extensions and it must
-  never import `constants.ts`. See `context.md`.
+  never import `constants.ts`. See `CLAUDE.md`.
 - A **vendor-chunk split** (`manualChunks` splitting MUI/React) was tried and **reverted**:
   it produced a circular import that blanked the page on a fresh load. Any retry must keep
   React + MUI + emotion in one chunk and be browser-verified first.
@@ -341,7 +341,7 @@ realignment was Aug 10.
 - ✅ **Reminders became a standing setting** (v1.42.1): one switch for every game, and the
   MLB pick reminder was split into its own opt-in so WPBL fans stopped receiving it.
 - ✅ **Infra**: a real **migration runner** (`scripts/migrate.mjs` + `scripts/migrations/`,
-  replacing hand-run SQL), `context.md` onboarding doc, an experimental-features switch, a
+  replacing hand-run SQL), `CLAUDE.md` onboarding doc, an experimental-features switch, a
   changelog split out of the entry chunk, `functions/` type-checking, and a cold-load
   payload reduction.
 - ✅ **Game Center swipe + card polish** (v1.44.0): `SwipeableViews` gained a **`pane`

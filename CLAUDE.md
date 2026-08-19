@@ -2,7 +2,20 @@
 
 Orientation for anyone (human or LLM) picking up this repo cold. It won't repeat the
 architecture. It points you at the deep docs and captures the conventions and gotchas
-that aren't obvious from the code.
+that aren't obvious from the code. This file was `context.md` until Aug 18, 2026; it was
+renamed so Claude Code loads it automatically at the start of every session.
+
+## Be concise
+
+**This one matters more than anything else in this file.** Answer the question and stop.
+No preamble, no recap of what was just asked, no summary of a summary. Don't restate a
+change that is visible in the diff, don't list every file touched unless asked, and don't
+pad with caveats that don't change what to do next. If a one-line answer is right, give
+the one line. Length is not thoroughness.
+
+The exceptions, where detail is the point: code comments and commit messages explain *why*
+(see the rest of this file), and a genuine risk or an assumption that changes the work
+gets stated plainly, once.
 
 ## What this is
 

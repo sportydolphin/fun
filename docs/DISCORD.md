@@ -520,7 +520,7 @@ Off until these are done.
    for any Discord user by anyone who opened dev tools.
 
    Note this makes the Discord bot a **third service-role writer**, which the "two write
-   paths" rule in [context.md](../context.md) did not previously allow for. It is a deliberate
+   paths" rule in [CLAUDE.md](../CLAUDE.md) did not previously allow for. It is a deliberate
    widening, recorded there and here rather than left as an undeclared exception.
 
    Without the key the command answers with a plain "not configured" message rather than
@@ -647,7 +647,7 @@ which bundles each function exactly as Cloudflare will and fails loudly instead 
   later than that won't be picked up; the site still shows it.
 - **The recap wording is the site's**, from [`src/wpbl/derive/recap.ts`](../src/wpbl/derive/recap.ts),
   the same engine behind the Recap tab. Change it there and both follow. See
-  [context.md](../context.md) for the `.ts`-extension rule that keeps that module loadable
+  [CLAUDE.md](../CLAUDE.md) for the `.ts`-extension rule that keeps that module loadable
   by Deno.
 - **Nothing here pings anyone, with one deliberate exception.** The board, box scores,
   highlights and `/player` all set `allowed_mentions: { parse: [] }`. The restock watcher is
