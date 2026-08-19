@@ -9,11 +9,15 @@
 // has an obvious second place to follow.
 import { sumBatting, sumPitching, fmtRate, fmtTwo } from './stats'
 import { slugifyName } from './slug'
+import { displayPosition } from './positions'
 import type { WpblBattingLine, WpblPitchingLine } from './types'
 
 // Only the columns the card needs. The Pages function selects exactly these, so a preview
 // costs four narrow reads rather than whole box-score rows.
+// `position` is here for the card's subject line rather than for any stat: it is what the
+// player has actually been playing, which the roster does not always agree with.
 export type WpblCardBatting = Pick<WpblBattingLine, 'ab' | 'r' | 'h' | 'doubles' | 'triples' | 'hr' | 'rbi' | 'bb' | 'so' | 'hbp' | 'sb' | 'cs' | 'sf' | 'sh'>
+  & Partial<Pick<WpblBattingLine, 'position'>>
 export type WpblCardPitching = Pick<WpblPitchingLine, 'outs' | 'h' | 'r' | 'er' | 'bb' | 'so' | 'hr' | 'decision'>
 export interface WpblCardPlayer { id: string; name: string; position: string | null }
 
@@ -32,7 +36,7 @@ export function wpblPlayerCard(
 ): WpblPlayerCard {
   // A middot, not a comma: position codes are themselves comma-joined for a two-way
   // player ("RHP, UTL"), and "RHP, UTL, San Francisco Firebells" reads as one long list.
-  const subject = [player.position, teamName].filter(Boolean).join(' · ')
+  const subject = [displayPosition(player.position, batting).label, teamName].filter(Boolean).join(' · ')
   return {
     title: `${player.name} — WPBL stats | sportydolphin.fun`,
     ogTitle: `${player.name} — ${subject}`,

@@ -3,6 +3,7 @@ import { Box, Typography, CircularProgress } from '@mui/material'
 import { ArrowBackRounded, GridViewRounded } from '@mui/icons-material'
 import { fetchWpblRoster, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, computeStandings } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
+import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, pressable, FOCUS_RING, useWpblDark, useWpblName, CARD_BORDER } from './ui'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, fmtRate, fmtTwo,
@@ -305,6 +306,16 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
 
   const [roster, setRoster] = useState<WpblPlayer[] | null>(null)
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] } | null>(null)
+  // Where each player has actually been playing. The roster's own labels go stale as a season
+  // goes on, and a club list that says "C" beside someone who has played third all year is
+  // wrong in the one place a reader goes to learn the shape of the team.
+  const positionIndex = useMemo(() => buildPositionIndex(lines?.batting ?? []), [lines])
+  // Sorted by the position we are going to SHOW, not the one on file, or the list reads as
+  // unsorted the moment a label is overridden.
+  const sortedRoster = useMemo(() => roster && [...roster].sort((a, b) =>
+    positionRank(displayPositionFromIndex(a, positionIndex).label)
+      - positionRank(displayPositionFromIndex(b, positionIndex).label)
+    || a.name.localeCompare(b.name)), [roster, positionIndex])
   const [lineups, setLineups] = useState<WpblLineupHistoryRow[]>([])
   const [usage, setUsage] = useState<WpblPitchingUsageRow[]>([])
   const [scheduleOpen, setScheduleOpen] = useState(false)
@@ -319,7 +330,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
     ]).then(([r, l, lh, pu]) => {
       if (cancelled) return
       setLineups(lh); setUsage(pu)
-      setRoster([...r].sort((a, b) => positionRank(a.position) - positionRank(b.position) || a.name.localeCompare(b.name)))
+      setRoster(r)
       setLines({
         batting: l.batting.filter(x => x.team_id === team.id),
         pitching: l.pitching.filter(x => x.team_id === team.id),
@@ -367,8 +378,8 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
     return s
   }, [lines])
   const visibleRoster = useMemo(
-    () => (roster ?? []).filter(p => p.status === 'Signed' || statPlayerIds.has(p.id)),
-    [roster, statPlayerIds],
+    () => (sortedRoster ?? []).filter(p => p.status === 'Signed' || statPlayerIds.has(p.id)),
+    [sortedRoster, statPlayerIds],
   )
 
   const top = <T,>(list: { player: WpblPlayer; totals: T }[], val: (t: T) => number | null, disp: (t: T) => string, tie: (t: T) => number, n = 3) =>
@@ -708,7 +719,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                       borderRadius: 1, '&:hover': { bgcolor: 'action.hover' }, ...FOCUS_RING,
                     }}>
                       <Typography sx={{ width: 26, textAlign: 'center', flexShrink: 0, fontSize: '0.72rem', fontWeight: 800, color: accent }}>
-                        {p.position || '—'}
+                        {displayPositionFromIndex(p, positionIndex).label || '—'}
                       </Typography>
                       <PlayerPortrait name={p.name} teamId={p.team_id} size={34} />
                       <Typography sx={{ flex: 1, fontSize: '0.88rem', fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(p.name)}</Typography>

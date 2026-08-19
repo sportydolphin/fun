@@ -6,6 +6,7 @@ import { wpblAccent, wpblFullName, outsToIp } from './constants'
 import { ModalShell, PlayerPortrait, CopyLinkButton, useWpblDark } from './ui'
 import { WrittenAbout } from './Reading'
 import { PitchLocationCard } from './PitchLocation'
+import { displayPosition } from './positions'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblArticle } from './types'
 
 // Player page (Phase 1c): profile + season totals aggregated from box-score lines,
@@ -207,6 +208,10 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
   // one-liner instead of a full hero card, so genuine two-way players stand apart from
   // occasional-hitting pitchers. Thresholds are absolute (AB / outs) so they hold at any
   // sample size; the whole season is only days old.
+  // Deliberately the FILED position, not the played one. This decides which stat block
+  // leads, and a two-way player filed RHP who has spent more games at first is still someone
+  // whose pitching is the headline. Relabelling where she stands on the field is a different
+  // question from which half of her season to lead with.
   const isPitcherPos = /P/.test(player.position ?? '')
   const pitcherFirst = hasPitching && (!hasBatting || isPitcherPos)
   const BAT_CAMEO_AB = 10, PIT_CAMEO_OUTS = 9
@@ -248,7 +253,11 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
     () => articles.filter(a => a.player_ids.includes(player.id)),
     [articles, player.id])
 
-  const subParts = [player.position, [player.bats, player.throws].filter(Boolean).join('/') ? `B/T ${player.bats || '-'}/${player.throws || '-'}` : null, player.age != null ? `${player.age} yrs` : null].filter(Boolean)
+  // The position she has actually been playing, which is not always the one on the roster.
+  // `overridden` puts the filed one alongside rather than dropping it: a reader who knows her
+  // as the club's catcher should not have to wonder whether we lost her.
+  const pos = displayPosition(player.position, batting)
+  const subParts = [pos.label, pos.overridden && pos.official ? `listed ${pos.official}` : null, [player.bats, player.throws].filter(Boolean).join('/') ? `B/T ${player.bats || '-'}/${player.throws || '-'}` : null, player.age != null ? `${player.age} yrs` : null].filter(Boolean)
 
   // Stat sections as elements so the body can order them by the player's primary role. A
   // cameo secondary skill renders as a one-line summary instead of a full hero card.

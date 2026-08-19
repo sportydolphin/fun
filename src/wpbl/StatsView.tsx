@@ -7,6 +7,7 @@ import {
 } from './api'
 import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
 import { TeamBadge, CARD_BORDER, pressable, FOCUS_RING, useWpblName } from './ui'
+import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, wpblQualifiers, fmtRate, fmtTwo,
   type WpblBattingTotals, type WpblPitchingTotals,
@@ -218,6 +219,8 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
   // The 5 AB / 3 IP qualifier only defaults on once every team has played 2+ games;
   // before that it would hide nearly everyone, so the complete table shows by default.
   const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])
+  // The position each player has actually been playing, for the leaderboard sublabels.
+  const positionIndex = useMemo(() => buildPositionIndex(lines.batting), [lines.batting])
   const [qualified, setQualified] = useState(() => qual.active)
   const [sortKey, setSortKey] = useState(() => defaultSort(seedAxes.side ?? 'hitting', focus?.sortKey).key)
   const [sortAsc, setSortAsc] = useState(() => defaultSort(seedAxes.side ?? 'hitting', focus?.sortKey).asc)
@@ -395,7 +398,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
       if (qualified) list = list.filter(s => s.qualified)
       built = list.map(s => ({
         key: s.player.id, team: teamById.get(s.player.team_id),
-        label: shortName(s.player.name), sublabel: s.player.position ?? undefined,
+        label: shortName(s.player.name), sublabel: displayPositionFromIndex(s.player, positionIndex).label ?? undefined,
         totals: s.totals, qualified: s.qualified,
         onClick: () => onOpenPlayer(s.player),
       }))

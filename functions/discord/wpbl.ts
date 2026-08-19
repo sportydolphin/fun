@@ -15,6 +15,7 @@
 // docs/DISCORD.md.
 import { searchPlayers } from '../../src/wpbl/playerSearch'
 import { buildPlayerReply, buildNoMatchReply, buildAmbiguousReply, type DiscordReply } from '../../src/wpbl/discordPlayerCard'
+import { buildPositionIndex, displayPositionFromIndex } from '../../src/wpbl/positions'
 import type { WpblPlayer, WpblTeam, WpblBattingLine, WpblPitchingLine } from '../../src/wpbl/types'
 
 interface Env {
@@ -191,7 +192,13 @@ function reader(env: Env, signal: AbortSignal) {
 // batting line during a live game is the one staleness anyone would actually notice.
 const ROSTER_TTL_S = 300
 
-interface Roster { players: RosterPlayer[]; teams: WpblTeam[] }
+interface Roster {
+  players: RosterPlayer[]
+  teams: WpblTeam[]
+  /** Every box-score line's position, for working out where each player actually plays.
+   *  Cached with the roster because it changes on the same timescale: once a game. */
+  battingPositions: { player_id: string; position: string | null }[]
+}
 
 let memo: { at: number; data: Roster } | null = null
 
@@ -224,11 +231,14 @@ export async function loadRoster(
 
   const read = reader(env, signal)
   if (!read) return null
-  const [players, teams] = await Promise.all([
+  const [players, teams, battingPositions] = await Promise.all([
     read<RosterPlayer>('wpbl_players?select=id,name,position,team_id&order=name'),
     read<WpblTeam>('wpbl_teams?select=*'),
+    // Two narrow columns over the whole season (a few hundred rows) so the suggestions
+    // name the position a player actually plays, the same as every other surface.
+    read<{ player_id: string; position: string | null }>('wpbl_batting_lines?select=player_id,position'),
   ])
-  const data: Roster = { players, teams }
+  const data: Roster = { players, teams, battingPositions }
   memo = { at: now, data }
 
   if (cache) {
@@ -256,12 +266,15 @@ async function autocomplete(
     const players = roster.players
     // An empty box should still offer something rather than sitting blank.
     const hits = query ? searchPlayers(query, players).slice(0, 25) : players.slice(0, 25).map(p => ({ player: p }))
-    return hits.map(h => ({
-      name: h.player.position ? `${h.player.name} (${h.player.position})` : h.player.name,
+    const positionIndex = buildPositionIndex(roster.battingPositions)
+    return hits.map(h => {
+      const pos = displayPositionFromIndex(h.player, positionIndex).label
+      return ({
+      name: pos ? `${h.player.name} (${pos})` : h.player.name,
       // The value is the full name, not the id: if the reader ignores the menu and submits
       // their own text, the command still receives something the search can resolve.
       value: h.player.name.slice(0, 100),
-    }))
+    })})
   } catch {
     return []
   } finally {

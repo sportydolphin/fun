@@ -87,7 +87,7 @@ async function resolvePlayer(playerId: string, env: Env, url: URL): Promise<Reso
     [players, teams, batting, pitching] = await Promise.all([
       read<PlayerRow>(`wpbl_players?select=id,name,position,team_id&id=eq.${playerId}&limit=1`),
       read<TeamRow>('wpbl_teams?select=id,city,name'),
-      read<WpblCardBatting>(`wpbl_batting_lines?select=ab,r,h,doubles,triples,hr,rbi,bb,so,hbp,sb,cs,sf,sh&player_id=eq.${playerId}`),
+      read<WpblCardBatting>(`wpbl_batting_lines?select=position,ab,r,h,doubles,triples,hr,rbi,bb,so,hbp,sb,cs,sf,sh&player_id=eq.${playerId}`),
       read<WpblCardPitching>(`wpbl_pitching_lines?select=outs,h,r,er,bb,so,hr,decision&player_id=eq.${playerId}`),
     ])
   } finally {

@@ -6,6 +6,7 @@ import {
 } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
 import { wpblPortrait } from './portraits'
+import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from './positions'
 import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER } from './ui'
 import { useSearchBridge, updateSearchBridge, setSearchQuery } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
@@ -675,6 +676,19 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
 
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
+  // Where each player has actually been playing, for the header search rows. Its own effect
+  // rather than the landing-view warm-up below, because search works from every tab and that
+  // warm-up only runs when the section opens on Home. fetchWpblAllLines is deduped and cached
+  // app-wide, so asking again here costs nothing once anything else has asked.
+  const [positionIndex, setPositionIndex] = useState<Map<string, PrimaryPosition>>(() => new Map())
+  useEffect(() => {
+    let cancelled = false
+    fetchWpblAllLines()
+      .then(l => { if (!cancelled) setPositionIndex(buildPositionIndex(l.batting)) })
+      .catch(() => { /* search falls back to the roster's own labels */ })
+    return () => { cancelled = true }
+  }, [])
+
   // Filter players + teams on the typed query and push self-describing rows up to the
   // toolbar. The rows carry primitive avatar data (portrait/logo URLs + team colors) so the
   // always-loaded toolbar renders them without importing this lazy chunk; each onSelect
@@ -692,7 +706,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         return {
           key: `player-${p.id}`,
           title: p.name,
-          subtitle: [p.position, team?.abbr].filter(Boolean).join(' · ') || undefined,
+          subtitle: [displayPositionFromIndex(p, positionIndex).label, team?.abbr].filter(Boolean).join(' · ') || undefined,
           avatar: {
             imageUrl: wpblPortrait(p.name) ?? undefined,
             fallbackText: initials,

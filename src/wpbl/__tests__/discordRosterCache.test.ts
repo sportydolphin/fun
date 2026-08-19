@@ -17,7 +17,11 @@ function stubFetch() {
     calls.push(u)
     const body = u.includes('wpbl_players')
       ? [{ id: 'p1', name: 'Kelsie Whitmore', position: 'RHP', team_id: 'SF' }]
-      : [{ id: 'SF', city: 'San Francisco', name: 'Firebells', color: '#e8412c' }]
+      : u.includes('wpbl_batting_lines')
+        // Enough games at one position for the autocomplete to relabel her, so the third read
+        // is exercised rather than merely counted.
+        ? Array.from({ length: 5 }, () => ({ player_id: 'p1', position: 'cf' }))
+        : [{ id: 'SF', city: 'San Francisco', name: 'Firebells', color: '#e8412c' }]
     return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
   })
   vi.stubGlobal('fetch', fake)
@@ -28,25 +32,30 @@ describe('the bot roster cache', () => {
   beforeEach(() => { __resetRosterCache() })
   afterEach(() => { vi.unstubAllGlobals() })
 
-  it('reads players and teams once on a cold load', async () => {
+  it('reads players, teams and box-score positions once on a cold load', async () => {
     const calls = stubFetch()
     const roster = await loadRoster(env, new AbortController().signal)
     expect(roster?.players).toHaveLength(1)
     expect(roster?.teams).toHaveLength(1)
-    expect(calls).toHaveLength(2)
+    // The third read is what lets the suggestions name the position a player actually plays
+    // rather than the one the roster filed. It is cached with the rest, so it costs one read
+    // per window, not one per keystroke.
+    expect(roster?.battingPositions).toHaveLength(5)
+    expect(calls).toHaveLength(3)
     expect(calls.some(c => c.includes('wpbl_players'))).toBe(true)
     expect(calls.some(c => c.includes('wpbl_teams'))).toBe(true)
+    expect(calls.some(c => c.includes('wpbl_batting_lines'))).toBe(true)
   })
 
   it('serves repeat loads without touching the database again', async () => {
     const calls = stubFetch()
     await loadRoster(env, new AbortController().signal)
-    expect(calls).toHaveLength(2)
+    expect(calls).toHaveLength(3)
 
     // What an autocomplete burst looks like: several interactions in a couple of seconds.
     for (let i = 0; i < 8; i++) await loadRoster(env, new AbortController().signal)
 
-    expect(calls).toHaveLength(2)   // still just the cold load
+    expect(calls).toHaveLength(3)   // still just the cold load
   })
 
   it('returns the same data on a cached load as on the cold one', async () => {

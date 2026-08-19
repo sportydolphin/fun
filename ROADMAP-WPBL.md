@@ -446,6 +446,37 @@ v1.45.0.
   a player from a game) seats that base once, since the two arrive as independent effects
   racing on two different fetches.
 
+### Aug 19, 2026: listed positions follow the season, not the roster
+
+- ✅ **A player's listed position is now the one she has actually been playing**
+  ([`src/wpbl/positions.ts`](src/wpbl/positions.ts)). The roster is filed once, before a ball
+  is thrown, and the season disagrees with it: Alyssa Zettlemoyer was listed at catcher and has
+  played third in all six games she has fielded; Natsuki Yonetani was listed in left and has
+  played right seven times out of seven; Ticara Geldenhuis was listed as the un-helpful "OF".
+  **15 of 118 players are relabelled**, and the other 103 keep what the league filed.
+- ✅ **Majority, not plurality, over at least four fielded games.** A strict `> 50%` share
+  guarantees a single winner, so a tie can never be broken by whatever the sort happened to put
+  first (Samantha Gutierrez has caught twice and played third twice, and neither is the answer),
+  and genuine utility players are not relabelled off a 40% share. Four games is the floor on
+  evidence against a 15-game season: it clears Elodie Ciamarro at 3 of 4, and it ignores Kylee
+  Lahners, who has DH'd four times and played first twice.
+- ✅ **DH, PH and PR count for nothing and toward nothing.** They are batting roles rather than
+  places on the field, so a catcher who DHs half the time is still a catcher, and her catching
+  share is measured against the games she actually fielded.
+- ✅ **The two vocabularies are reconciled.** The roster writes handedness on pitchers ("RHP")
+  where a box score only writes "p", so reading them as different would have relabelled every
+  pitcher in the league. Buckets ("IF", "OF", "UTL") are deliberately NOT treated as agreement:
+  sharpening "OF" into "LF" is the most useful thing this does.
+- ✅ **One rule, three runtimes.** The site, the Cloudflare Pages function behind a shared
+  link's unfurl card, and the Discord `/player` command (including its autocomplete) all import
+  the same pure module, because three copies of "which position counts" would disagree the first
+  time one was fixed. The bot's roster cache gained a third narrow read for it, cached on the
+  same window, so it is one read per window rather than one per keystroke.
+- 🔍 **What it deliberately does not change:** which stat block leads a player page. That
+  still reads the filed position. A two-way player filed RHP who has spent more games at first is
+  still someone whose pitching is the headline, and the player page shows "3B · listed C" so the
+  original is never silently lost.
+
 ### Aug 19, 2026: the tracking teaser goes, and something actually watches the feed
 
 - ❌ **Removed the "Ballpark tracking" Home card.** It was gated on `!trackingStale`, hiding
