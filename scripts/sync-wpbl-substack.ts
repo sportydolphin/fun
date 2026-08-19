@@ -169,8 +169,38 @@ async function fetchArchive(): Promise<ArchivePost[]> {
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 
+/**
+ * When the archive API is unreachable, say whether the RSS feed is too.
+ *
+ * These two endpoints are not equally defended. Cloudflare challenges tend to be scoped to
+ * `/api/*`, while `/feed` is usually left open because every feed reader on the internet is
+ * a datacenter client and challenging them would break the feed for everyone. Knowing which
+ * of the two is blocked is the difference between "wait it out" and "this job needs to stop
+ * depending on the API", so the failure path answers it instead of leaving it to guesswork
+ * on the next incident.
+ */
+async function probeFeed(): Promise<string> {
+  try {
+    const xml = await get(FEED_URL, 'application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8')
+    return `reachable, ${parseFeed(xml).length} posts`
+  } catch (e) {
+    return `also blocked (${e instanceof Error ? e.message.slice(0, 120) : e})`
+  }
+}
+
 async function main() {
-  const archive = await fetchArchive()
+  let archive: ArchivePost[]
+  try {
+    archive = await fetchArchive()
+  } catch (e) {
+    console.error(`\n❌  Archive API unreachable: ${e instanceof Error ? e.message : e}`)
+    console.error(`   RSS feed: ${await probeFeed()}`)
+    console.error('   A "Just a moment..." body is Cloudflare\'s JavaScript challenge, which no')
+    console.error('   amount of header tuning gets past: it wants a browser that runs JS. It fires')
+    console.error('   on datacenter address space, which is why this passes from a laptop and fails')
+    console.error('   from CI. See docs/READING.md for what to do about it.')
+    process.exit(1)
+  }
   console.log(`📚  ${archive.length} posts in the archive`)
 
   const wpblPosts = archive.filter(p => isWpblPost((p.postTags ?? []).map(t => t?.name ?? '')))
