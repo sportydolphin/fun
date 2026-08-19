@@ -97,7 +97,7 @@ export default function LineupHistory({
         }}
       />
       <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', pt: 1, lineHeight: 1.5 }}>
-        Position and lineup spot per game, newest first. <b>Bold</b> started; <i>italic</i> entered
+        Position and lineup spot per game, oldest to newest. <b>Bold</b> started; <i>italic</i> entered
         as a substitute. Under each date is the opponent, then the pitcher who <i>started</i> for
         them and their throwing hand &mdash; relievers who followed aren't shown here.
       </Typography>

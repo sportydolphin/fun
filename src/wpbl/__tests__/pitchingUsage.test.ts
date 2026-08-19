@@ -27,9 +27,11 @@ describe('buildUsageGrid', () => {
     row({ game_id: 'g1', player_id: 'pen-a', game_date: '2026-08-12', pitches: 20, outs: 3 }),
   ]
 
-  it('orders games newest first and honours the window', () => {
-    expect(buildUsageGrid(rows, 6).games.map(g => g.id)).toEqual(['g3', 'g2', 'g1'])
-    expect(buildUsageGrid(rows, 2).games.map(g => g.id)).toEqual(['g3', 'g2'])
+  // Chronological across (oldest left), but the window is still the most recent N: sorting
+  // ascending before slicing would silently show the oldest games instead.
+  it('orders games oldest first and honours the window', () => {
+    expect(buildUsageGrid(rows, 6).games.map(g => g.id)).toEqual(['g1', 'g2', 'g3'])
+    expect(buildUsageGrid(rows, 2).games.map(g => g.id)).toEqual(['g2', 'g3'])
   })
 
   it('puts pitchers who started above pitchers who only relieved', () => {

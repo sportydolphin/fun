@@ -108,7 +108,7 @@ export default function PitchingUsage({
         }}
       />
       <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', pt: 1, lineHeight: 1.5 }}>
-        Pitches thrown over innings pitched, newest first. The number beside each name is their
+        Pitches thrown over innings pitched, oldest to newest. The number beside each name is their
         total across these {games.length} games ({totalPitches} staff-wide). <b>Bold</b> started;
         <Box component="span" sx={{ color: GRID_FLAG, fontWeight: 900 }}> *</Box> came back on
         one day of rest or less.

@@ -4,9 +4,10 @@ import { pressable, FOCUS_RING, wpblNameStages } from './ui'
 
 /**
  * The scrolling game-by-game grid shared by the lineup-history and pitching-usage cards:
- * a pinned player column on the left, one column per game across the top, newest first.
+ * a pinned player column on the left, one column per game across the top, oldest to newest.
  *
- * Presentational only — callers supply the columns, the rows, and a renderer for each cell.
+ * Presentational only — callers supply the columns, the rows, and a renderer for each cell,
+ * so the column ORDER is the caller's business (see derive/lineupGrid.ts).
  * It exists so the two cards can't drift apart, and because the sticky-column CSS below has
  * two non-obvious traps that are easy to reintroduce (both flagged inline).
  */
@@ -97,13 +98,34 @@ export default function GameGrid({ columns, rows, renderCell, colWidth, nameWidt
     flexGrow: 1, flexShrink: 0, flexBasis: COL_W,
     minWidth: COL_W, maxWidth: COL_W * GROW_CAP,
   }
+
+  // Open at the RIGHT edge, i.e. the most recent game.
+  //
+  // The columns run oldest-to-newest to match every other time-ordered surface in the app,
+  // but on a phone six columns are wider than the screen (about 130px of overflow), so
+  // chronological order alone would open the card on the oldest games with last night's off
+  // the right edge — the one column a reader is most likely to want. Scrolling to the end
+  // keeps the reading order and the useful default, which is the same trade the Home
+  // scoreboard makes when it anchors itself on the most recent final rather than either end.
+  //
+  // useLayoutEffect, not useEffect: this runs before paint, so the card appears already
+  // scrolled instead of visibly jumping. Re-runs when the window changes (a different team,
+  // or the phone/desktop column count), and is a no-op on a wide screen where nothing
+  // overflows. Deliberately not tied to user scrolling: it only ever sets the initial
+  // position, so a reader who scrolls back through the month is left alone.
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (el) el.scrollLeft = el.scrollWidth
+  }, [columns.length, columns[0]?.id, columns[columns.length - 1]?.id])
+
   return (
     // The grid is wider than a phone, so it scrolls sideways while the name column stays
     // pinned — otherwise you lose track of whose row you're reading.
     // TRAP 1: no horizontal padding here. `position: sticky; left: 0` pins to the
     // scrollport's PADDING edge, so any px leaves a strip the pinned column never covers,
     // and the scrolled cells show through beside the names.
-    <Box sx={{ overflowX: 'auto', pb: 0.5 }}>
+    <Box ref={scrollRef} sx={{ overflowX: 'auto', pb: 0.5 }}>
       {/* `width: 100%` is what makes the columns fill a wide card; `minWidth` is the phone's
           fixed layout and the point at which the grid starts scrolling instead. */}
       <Box sx={{ minWidth: NAME_W.xs + columns.length * COL_W, width: '100%', display: 'inline-block' }}>

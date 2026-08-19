@@ -1,8 +1,9 @@
 import type { WpblLineupHistoryRow } from '../types'
 
 /**
- * Shapes wpbl_lineup_history rows into the grid the "last N lineups" card renders:
- * games across the top (newest first), players down the side, one cell each.
+ * Shapes wpbl_lineup_history rows into the grid the "last N lineups" card renders: the most
+ * recent games across the top in chronological order (oldest left, newest right), players
+ * down the side, one cell each.
  *
  * Pure and separate from the component because the ordering rules are the part with
  * actual judgement in them — see `rankPlayer`.
@@ -37,12 +38,23 @@ export function rankPlayer(cells: LineupCell[]): { key: number; starts: number }
   return { key: modal, starts: starts.length }
 }
 
-// Newest first. Two games can share a date (a doubleheader), and the view carries no start
-// time or game number to separate them, so the id breaks the tie: an arbitrary order, but a
-// STABLE one, and — more to the point — the same one in both grids. Without it the two cards
-// on a team page could show the same doubleheader's columns in opposite orders.
+// Two sorts, because picking the games and showing them want opposite orders.
+//
+// The WINDOW is the N most recent games, so choosing them means sorting newest first and
+// taking the head. The DISPLAY is left-to-right chronological, matching every other
+// time-ordered surface in the app: the scoreboard strip runs oldest to newest across, and a
+// player's game log reads top-down the same way. These two grids used to be the only places
+// that ran backwards.
+//
+// Two games can share a date (a doubleheader) and the view carries no start time or game
+// number to separate them, so the id breaks the tie: an arbitrary order, but a STABLE one,
+// and the same one in both grids. Without it the two cards on a team page could show the
+// same doubleheader's columns in opposite orders. Note the tie-break stays ASCENDING in
+// both, so reversing the window can't flip a doubleheader's two games against each other.
 const byGameDesc = (a: { date: string; id: string }, b: { date: string; id: string }) =>
   b.date.localeCompare(a.date) || a.id.localeCompare(b.id)
+const byGameAsc = (a: { date: string; id: string }, b: { date: string; id: string }) =>
+  a.date.localeCompare(b.date) || a.id.localeCompare(b.id)
 
 export function buildLineupGrid(rows: WpblLineupHistoryRow[], maxGames: number): LineupGrid {
   // Distinct games. Keyed by id, not date: a team can play twice in a day.
@@ -57,7 +69,7 @@ export function buildLineupGrid(rows: WpblLineupHistoryRow[], maxGames: number):
       })
     }
   }
-  const games = [...meta.values()].sort(byGameDesc).slice(0, maxGames)
+  const games = [...meta.values()].sort(byGameDesc).slice(0, maxGames).sort(byGameAsc)
   const keep = new Set(games.map(g => g.id))
 
   const cells = new Map<string, Map<string, LineupCell>>()

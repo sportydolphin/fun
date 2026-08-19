@@ -64,13 +64,18 @@ describe('buildLineupGrid', () => {
     row({ game_id: 'g1', player_id: 'c', game_date: '2026-08-12', lineup_spot: 9 }),
   ]
 
-  it('orders games newest first', () => {
-    expect(buildLineupGrid(rows, 6).games.map(g => g.id)).toEqual(['g3', 'g2', 'g1'])
+  // Chronological across, oldest on the left, matching the scoreboard strip and a player's
+  // game log. These grids used to run backwards.
+  it('orders games oldest first', () => {
+    expect(buildLineupGrid(rows, 6).games.map(g => g.id)).toEqual(['g1', 'g2', 'g3'])
   })
 
+  // The two orders pull opposite ways and this is where that bites: the WINDOW is the most
+  // recent N, the DISPLAY is chronological. Sorting ascending and then slicing would read
+  // perfectly well and quietly show the OLDEST two games instead.
   it('keeps only the most recent N games and drops cells outside them', () => {
     const g = buildLineupGrid(rows, 2)
-    expect(g.games.map(x => x.id)).toEqual(['g3', 'g2'])
+    expect(g.games.map(x => x.id)).toEqual(['g2', 'g3'])
     // 'c' only played in g1, which fell outside the window, so they have no row at all.
     expect(g.players).not.toContain('c')
   })
