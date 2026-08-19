@@ -85,6 +85,12 @@ const LOCK_PASSWORD = 'sportydolphin'
 const LOCKED_PATHS = new Set(['/cups', '/weights'])
 const SESSION_KEY = 'sdUnlocked'
 
+// Brand lockup in the toolbar. The logo is sized to the wordmark's line box so the
+// two read as one unit, and the wordmark is held back until the viewport can show it
+// without the ellipsis biting into it. See the toolbar brand block for the math.
+const BRAND_LOGO_H = 32
+const BRAND_WORDMARK_MIN = 1350
+
 function navigate(to: string) {
   window.history.pushState({}, '', to)
   window.dispatchEvent(new PopStateEvent('popstate'))
@@ -596,13 +602,39 @@ function AppInner() {
             flex: 1, minWidth: 0, display: mobileSearchExpanded && !isDesktop ? 'none' : 'flex',
             alignItems: 'center', gap: 0.75,
           }}>
+            {/* Logo mark. The art is a black plate with the dolphin knocked out of it,
+                so it vanishes against a near-black header; inverting it in dark mode
+                gives a white plate with a dark dolphin instead. `display: block` keeps
+                it off the text baseline, so the flex row centers the mark against the
+                wordmark's line box rather than hanging it from the baseline. Always
+                shown: it is the brand at every width the wordmark drops out of. */}
+            <Box
+              component="img"
+              src="/logo-mark.png"
+              alt="sportydolphin"
+              onClick={() => navigate('/mlb')}
+              sx={{
+                display: 'block', height: BRAND_LOGO_H, width: 'auto', flexShrink: 0,
+                cursor: 'pointer', userSelect: 'none',
+                ...(mode === 'dark' && { filter: 'invert(1)' }),
+              }}
+            />
+
+            {/* Wordmark. It only earns its place once the toolbar can show it whole,
+                so it appears at BRAND_WORDMARK_MIN and the logo carries the brand alone
+                below that. The threshold is a raw px media query, not a theme
+                breakpoint, because those match the real viewport while the layout here
+                is divided by DESKTOP_ZOOM: the lockup wants ~308px of the ~964px the
+                toolbar has to split at 1350, leaving a few px of slack even while the
+                webfont is still loading and a wider fallback is being measured. */}
             <Typography
               variant="h6" component="div"
               onClick={() => navigate('/mlb')}
               sx={{
                 minWidth: 0, fontWeight: 700, cursor: 'pointer', userSelect: 'none',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                display: { xs: 'none', sm: 'block' },
+                display: 'none',
+                [`@media (min-width:${BRAND_WORDMARK_MIN}px)`]: { display: 'block' },
               }}
             >
               sportydolphin
