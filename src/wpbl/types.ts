@@ -33,6 +33,10 @@ export interface WpblPlayer {
   /** From the community BDay sheet (scripts/ingest-wpbl-birthdays.mjs). Null for roughly
    *  half the league — the sheet doesn't cover everyone, and that gap is expected. */
   birth_date: string | null
+  /** How much to trust birth_date: 'sheet' when the BDay sheet agreed with itself,
+   *  'sheet-conflict' when it listed two dates and the zodiac grid was taken as the
+   *  authoritative one. Null when there is no date at all. */
+  birth_date_source: string | null
   /** Generated in the database from birth_date; null when the date is unknown. */
   zodiac_sign: string | null
   active: boolean

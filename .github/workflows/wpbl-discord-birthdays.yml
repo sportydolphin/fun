@@ -1,0 +1,67 @@
+name: WPBL Discord Birthdays
+
+on:
+  schedule:
+    # Once a day, 14:00 UTC. That is 9am at the league's Central-time hub in summer and 8am
+    # in winter, which is the point of picking a fixed UTC hour: cron does not follow the
+    # clock change, and a greeting that arrives an hour early in January is nobody's
+    # problem. Morning matters more than the exact minute, since a birthday post that lands
+    # at midnight is read the next day anyway.
+    #
+    # One run is enough. The job asks a single question ("whose birthday is it in Chicago
+    # today"), and the answer does not change until the day does.
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'How to run. "dry-run" prints what it would send. "post" is the normal run.'
+        required: true
+        default: 'dry-run'
+        type: choice
+        options: [dry-run, post]
+
+# One poster at a time. A manual run on top of the schedule would otherwise race it, and
+# although the claim in wpbl_discord_birthday_posts is what actually stops a double post,
+# the loser of that race fails the run for no reason.
+concurrency:
+  group: wpbl-discord-birthdays
+  cancel-in-progress: false
+
+jobs:
+  post-birthdays:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Same trick as the recap workflow: install only what this script needs, at the
+      # versions pinned in package.json, rather than the whole frontend toolchain. esbuild
+      # is one of them because the script is TypeScript, so that the message it posts is
+      # built by a module the test suite can load.
+      - name: Install dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws','esbuild'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Post WPBL birthdays
+        env:
+          SUPABASE_URL:                  ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY:     ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DISCORD_BIRTHDAY_WEBHOOK_URL:  ${{ secrets.DISCORD_BIRTHDAY_WEBHOOK_URL }}
+          MODE:                          ${{ inputs.mode }}
+        run: |
+          # Without the secret the job no-ops rather than failing. It runs every morning,
+          # so the alternative is a daily red cross for a channel that has not been set up
+          # yet, and a failing workflow nobody trusts is worse than a quiet one.
+          if [ -z "$DISCORD_BIRTHDAY_WEBHOOK_URL" ]; then
+            echo "DISCORD_BIRTHDAY_WEBHOOK_URL not set, skipping the birthday post."
+            exit 0
+          fi
+          case "$MODE" in
+            dry-run)  npm run discord-birthdays -- --dry-run ;;
+            *)        npm run discord-birthdays ;;
+          esac

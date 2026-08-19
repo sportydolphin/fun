@@ -1,6 +1,6 @@
 # Discord integrations (WPBL)
 
-Five things **post** to the WPBL fan server, all through **webhooks**: send-only HTTP, no bot
+Six things **post** to the WPBL fan server, all through **webhooks**: send-only HTTP, no bot
 token, no gateway, nothing to keep running:
 
 | What | Channel | Written by | Behaviour |
@@ -10,6 +10,7 @@ token, no gateway, nothing to keep running:
 | **Highlight reels** | the highlights channel | [`scripts/post-wpbl-discord-highlights.mjs`](../scripts/post-wpbl-discord-highlights.mjs) | One message per YouTube highlight reel, posted once and never touched again. |
 | **Shop feed** | a shop channel | [`scripts/watch-wpbl-restock.mjs`](../scripts/watch-wpbl-restock.mjs) | New merch and restocks across the whole store, batched into one message per run. Never pings. |
 | **Shortlist alerts** | a private channel | the same script | A loud `@everyone` when something on the `wpbl_restock_watch` shortlist comes back. |
+| **Birthdays** | a birthdays channel | [`scripts/post-wpbl-discord-birthdays.ts`](../scripts/post-wpbl-discord-birthdays.ts) | One message on the mornings someone on the roster has a birthday, and nothing on the mornings nobody does. |
 
 A webhook is bound to one channel, so each of these needs its **own** webhook URL.
 
@@ -71,6 +72,36 @@ who came to watch. Both are one edit away in `buildMessage` if you disagree.
 
 **It doesn't backfill** either: the first run against an empty table posts only the newest
 reel and records the rest as handled.
+
+### The birthdays
+
+`wpbl-discord-birthdays` runs once a day at 14:00 UTC (9am at the league's Central hub in
+summer, 8am in winter) and asks one question: whose birthday is it in Chicago today. Most
+mornings the answer is nobody and the job posts nothing, which is the whole design. Only 65
+of the 118 players have a birth date at all, so the channel hears from it every few days.
+
+The dates are not in the league's feed, which carries `age` and never a date. They come from
+the community BDay sheet through [`scripts/ingest-wpbl-birthdays.mjs`](../scripts/ingest-wpbl-birthdays.mjs),
+which is also why the poster is careful about two things:
+
+- **A contradicted date is never greeted.** Where the sheet listed two dates for one player,
+  the row is stored as `birth_date_source = 'sheet-conflict'` and this job skips it. The
+  zodiac grid is a fine tiebreak for a star sign and not good enough to wish someone a happy
+  birthday on a coin flip. Two players are in that state today.
+- **An age is only printed when the feed agrees with it.** On a birthday the league's `age`
+  should read either the new age or the one just retired. Anything else means the sheet's
+  year is wrong (Edith De Leija's says 24 where the feed says 22), and then the message names
+  the day and leaves the number out.
+
+One message covers everyone who shares the day, since five pairs of players do and three
+posts seconds apart read like a broken bot. The name links to the player's page with the URL
+in angle brackets, which stops Discord unfurling a card that would be bigger than the post.
+
+It never backfills and never edits. A birthday is one day: a run that misses its window has
+missed it, and the next morning's run does not go looking for yesterday, because a late
+greeting is worse than none. What stops a double post is `wpbl_discord_birthday_posts`, keyed
+by player and date. Rows are claimed **before** the message is sent, so a manual run on top of
+the schedule finds the day taken and stops.
 
 ### The shop feed and the shortlist alerts
 
@@ -179,9 +210,10 @@ secret: anyone holding it can post to that channel.
 npm run migrate
 ```
 
-Applies [`…_wpbl_discord_recap_posts.sql`](../scripts/migrations/20260813223000_wpbl_discord_recap_posts.sql)
-and [`…_wpbl_discord_highlight_posts.sql`](../scripts/migrations/20260814190000_wpbl_discord_highlight_posts.sql).
-Both are RLS-on with no policies: they are bookkeeping for a job, not public data.
+Applies [`…_wpbl_discord_recap_posts.sql`](../scripts/migrations/20260813223000_wpbl_discord_recap_posts.sql),
+[`…_wpbl_discord_highlight_posts.sql`](../scripts/migrations/20260814190000_wpbl_discord_highlight_posts.sql)
+and [`…_wpbl_discord_birthday_posts.sql`](../scripts/migrations/20260818100000_add_wpbl_discord_birthday_posts.sql).
+All three are RLS-on with no policies: they are bookkeeping for a job, not public data.
 
 ### 3. Put the URL in **both** secret stores
 
@@ -196,6 +228,11 @@ The highlights poster needs only the GitHub one, under its own name, a different
 for the highlights channel: Settings → Secrets and variables → Actions →
 `DISCORD_HIGHLIGHTS_WEBHOOK_URL`. Until it is set, the step in `wpbl-youtube-sync` prints a
 line saying so and exits 0, so the video sync itself keeps working either way.
+
+The birthday poster is the same story under its own name, its own webhook, its own
+channel: Settings → Secrets and variables → Actions → `DISCORD_BIRTHDAY_WEBHOOK_URL`. Until
+it is set the daily workflow prints a line and exits 0, so it does not spend the next month
+mailing a failed run every morning for a channel that does not exist yet.
 
 The Supabase one is optional. Without it `announceFinal` returns on its first line and the
 hourly job remains the only poster, which is a good way to deploy the function and confirm
@@ -270,6 +307,15 @@ npm run discord-highlights -- --dry-run   # render, send nothing (anon key is fi
 npm run discord-highlights                # post whatever reels are new
 npm run discord-highlights -- --seed      # record every reel as handled, post nothing
 ```
+
+```bash
+npm run discord-birthdays -- --dry-run                # render, send nothing (anon key is fine)
+npm run discord-birthdays                             # post today's birthdays, if there are any
+npm run discord-birthdays -- --dry-run --date=2026-08-08   # rehearse another day
+```
+
+`--date` is rejected on a real run on purpose. Posting a day the calendar does not agree with
+is how a greeting lands three days late.
 
 In CI the highlights modes are the `highlights_mode` input on the **WPBL YouTube Sync**
 workflow (`dry-run` / `post` / `seed` / `skip`); a scheduled run always takes the normal
