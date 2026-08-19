@@ -54,14 +54,23 @@ jobs:
           DISCORD_BIRTHDAY_WEBHOOK_URL:  ${{ secrets.DISCORD_BIRTHDAY_WEBHOOK_URL }}
           MODE:                          ${{ inputs.mode }}
         run: |
-          # Without the secret the job no-ops rather than failing. It runs every morning,
-          # so the alternative is a daily red cross for a channel that has not been set up
-          # yet, and a failing workflow nobody trusts is worse than a quiet one.
-          if [ -z "$DISCORD_BIRTHDAY_WEBHOOK_URL" ]; then
-            echo "DISCORD_BIRTHDAY_WEBHOOK_URL not set, skipping the birthday post."
-            exit 0
-          fi
           case "$MODE" in
-            dry-run)  npm run discord-birthdays -- --dry-run ;;
-            *)        npm run discord-birthdays ;;
+            # A dry run sends nothing, so it has no use for the webhook. Guarding it behind
+            # the secret is what made the first rehearsal print a skip line instead of the
+            # day's birthday, which is exactly backwards: rehearsing before the channel
+            # exists is the whole reason to have a dry run.
+            dry-run)
+              npm run discord-birthdays -- --dry-run
+              ;;
+            *)
+              # A real run does need it, and without it the job no-ops rather than failing.
+              # It runs every morning, so the alternative is a daily red cross for a channel
+              # that has not been set up yet, and a failing workflow nobody trusts is worse
+              # than a quiet one.
+              if [ -z "$DISCORD_BIRTHDAY_WEBHOOK_URL" ]; then
+                echo "DISCORD_BIRTHDAY_WEBHOOK_URL not set, skipping the birthday post."
+                exit 0
+              fi
+              npm run discord-birthdays
+              ;;
           esac
