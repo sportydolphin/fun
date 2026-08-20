@@ -182,6 +182,7 @@ flowchart TB
         t_wsent["wpbl_game_start_sent"]
         t_vid["wpbl_videos<br/>(YouTube highlights)"]
         t_art["wpbl_articles<br/>(Substack headlines; NO body text)"]
+        t_photo["wpbl_photos<br/>(Commons archive; approved-only reads)"]
         t_trackwatch["wpbl_tracking_watch<br/>(TrackMan watermark, one row)"]
         t_board["wpbl_discord_board_state<br/>(the board's message id)"]
         t_recap["wpbl_discord_recap_posts<br/>(posted box scores + hash)"]
@@ -227,6 +228,13 @@ fixes to the league's scoring and is applied as a read-time overlay, because `wp
 is a mirror that `wpbl-ingest` deletes and reinserts wholesale on every pass, so an edit made
 in place would vanish at the next cron tick. See
 [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md).
+
+**`wpbl_photos` is the one WPBL table whose rows are not public simply by existing.** Its
+`select` policy is `using (approved)`, not `using (true)`, because the unreviewed Commons
+backlog is the majority of the table and includes files that are correctly categorised on
+Commons and still have no business on the site. `fetchWpblPhotos` deliberately does not
+repeat the filter in the query, so nobody can mistake a client-side `.eq()` for the thing
+keeping the backlog private. See [`docs/COMMONS_PHOTOS.md`](docs/COMMONS_PHOTOS.md).
 
 **Reserved, unread column:** `user_preferences.wpbl_favorite_team_id` (text) exists in
 production but nothing reads it, because the favourite-team feature it belongs to is parked on the
@@ -279,10 +287,11 @@ sequenceDiagram
 | `wpbl-game-start-reminders` | `*/10 15-23,0-2` | `send-wpbl-game-start` | Push: WPBL game starting soon |
 | `wpbl-discord-board` | `*/15 14-23,0-3` | `update-wpbl-discord-board` | Self-editing WPBL "next games" Discord message |
 | `wpbl-discord-recaps` | `0 18-23,0-4` (hourly) | `post-wpbl-discord-recaps` | Backstop + corrections for the Discord recaps `wpbl-ingest` posts (a final it missed; a box score revised afterwards) |
-| `wpbl-youtube-sync` | `0,30 14-23,0-3` | `sync-wpbl-youtube`, `post-wpbl-discord-highlights` | Mirror WPBL YouTube uploads → `wpbl_videos` (highlights rail + game recaps), then post any new highlight reel to the Discord highlights channel in the same pass |
+| `wpbl-youtube-sync` | `0,30 14-23,0-3` | `sync-wpbl-youtube`, `post-wpbl-discord-highlights` | Mirror WPBL YouTube uploads → `wpbl_videos` (the Highlights segment of Home's media shelf + game recaps), then post any new highlight reel to the Discord highlights channel in the same pass |
 | `wpbl-discord-birthdays` | `0 14` (daily) | `post-wpbl-discord-birthdays` | Post the day's roster birthdays to the Discord birthdays channel, and nothing at all on the days nobody has one |
-| `wpbl-substack-sync` | `0 12-23` (hourly) | `sync-wpbl-substack` | Mirror an independent writer's WPBL posts → `wpbl_articles` (Reading rail, game story card, player/team "written about"), resolving each to the players, clubs and game it is about |
+| `wpbl-substack-sync` | `0 12-23` (hourly) | `sync-wpbl-substack` | Mirror an independent writer's WPBL posts → `wpbl_articles` (the Reading segment of Home's media shelf, game story card, player/team "written about"), resolving each to the players, clubs and game it is about |
 | `wpbl-tracking-watch` | `30 8` (daily) | `watch-wpbl-tracking` | Notice when the league resumes publishing TrackMan data → `wpbl_tracking_watch`, and say so in Discord. Replaced a Home teaser card that hid itself when the feed fell behind, which meant nothing was watching for its return |
+| `wpbl-commons-sync` | `0 9 * * 0` (weekly, Sun) | `sync-wpbl-commons` | Mirror freely licensed women's baseball photography from Wikimedia Commons → `wpbl_photos` (the Archive segment of Home's media shelf + the full gallery). Writes to a review queue: rows land `approved = false` and nothing renders until a human publishes them ([`docs/COMMONS_PHOTOS.md`](docs/COMMONS_PHOTOS.md)) |
 | `resolve-survivor` | `30 6` | `resolve-survivor` | Grade survivor picks overnight |
 | `update-playoff-odds` | `0 6` | `simulate-playoff-odds` | Monte-Carlo playoff odds |
 | `update-streaks` | `0 6` + `0 23` + `0 3` (in-season) | `update-streaks` | Streak leaderboards |
@@ -338,6 +347,7 @@ Setup walkthrough: [`docs/PUSH_NOTIFICATIONS.md`](docs/PUSH_NOTIFICATIONS.md).
 | **WPBL Official Feed** (`stats.womensprobaseballleague.com/v1`) | `wpbl-ingest` | Games, box scores, play-by-play, TrackMan |
 | **WPBL YouTube** (channel RSS `feeds/videos.xml`) | `sync-wpbl-youtube` | Highlight/recap videos → `wpbl_videos`; SPA embeds via youtube-nocookie on click |
 | **towards a more perfect game** (`towardsamoreperfectgame.substack.com`) | `sync-wpbl-substack` | An independent writer's WPBL coverage: headline, dek, cover, word count and link → `wpbl_articles`, matched to players/clubs/games. **The article body is never stored.** The RSS feed carries the full text, and the job reads it only to find names in it; `wpbl_articles` has no body column so the rule is enforced by the schema. Every surface links out to her site |
+| **Wikimedia Commons** (`commons.wikimedia.org/w/api.php`) | `sync-wpbl-commons` | Freely licensed photographs of women's baseball → `wpbl_photos`, walked from three seed categories. **Public domain, CC0, CC BY and CC BY-SA only**, tested on the machine-readable licence slug: Commons is not uniformly free. Attribution and a link to the file page are rendered on every card, because CC BY-SA requires it. Descriptions and credits are stored as plain text, never HTML. A contact-carrying user-agent is mandatory, not polite ([`docs/COMMONS_PHOTOS.md`](docs/COMMONS_PHOTOS.md)) |
 | **WPBL Shop** (`shop.womensprobaseballleague.com`, Shopify) | `watch-wpbl-restock` | The published catalogue via `/products.json`, diffed against a stored snapshot to find new merch and restocks. **Read-only, and it stays that way**: the job announces and never carts or checks out |
 | **Discord webhooks** (send-only) | `update-wpbl-discord-board`, `wpbl-ingest`, `post-wpbl-discord-recaps`, `post-wpbl-discord-highlights`, `post-wpbl-discord-birthdays`, `watch-wpbl-restock` | Self-editing WPBL board + events/watch-party links; per-game box scores posted as a game goes final and edited in place on a correction; new YouTube highlight reels posted once each; a birthday greeting on the days someone has one; shop restock alerts |
 | **Discord interactions** (inbound) | [`functions/discord/wpbl.ts`](functions/discord/wpbl.ts) | The `/player` slash command: an HTTP interactions endpoint (no gateway bot, nothing long-running), answering with a player's season and serving name autocomplete. Also `/predict`, the mod-run in-game predictions game (every round is about a half-inning that has not started, which is what makes it fair), whose answer buttons arrive here as component interactions |
@@ -441,6 +451,10 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - Brand icons (favicon, home screen, install tiles, social card) → [`scripts/make-brand-icons.py`](scripts/make-brand-icons.py), from [`public/logo.png`](public/logo.png)
 - Scoring validation + our play corrections → [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md)
 - Which position a player is listed at (the season overrides the roster) → [`src/wpbl/positions.ts`](src/wpbl/positions.ts), shared by the site, the unfurl card and the Discord bot
+- Archive gallery: which photos ship, and the approval gate → [`docs/COMMONS_PHOTOS.md`](docs/COMMONS_PHOTOS.md)
+- Reading, Highlights and Archive share ONE Home card, one segment painting at a time →
+  [`src/wpbl/MediaShelf.tsx`](src/wpbl/MediaShelf.tsx). Three feeds, three tables, one surface:
+  a new feed belongs in that card rather than as a fourth rail down the page
 - Edge functions → [`supabase/functions/`](supabase/functions) · Cloudflare Pages functions → [`functions/`](functions)
 - Cron script logic → [`scripts/*.mjs`](scripts) · the Discord recap poster is TS
   ([`scripts/post-wpbl-discord-recaps.ts`](scripts/post-wpbl-discord-recaps.ts)), bundled at CI

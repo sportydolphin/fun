@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ModalShell, SectionCard, TeamBadge, CARD_BORDER } from './ui'
+import { ModalShell, TeamBadge, CARD_BORDER, useRailPaging, RailArrow, RailScroller } from './ui'
 import type { WpblVideo, WpblTeam } from './types'
-import { scrollBehavior } from '../lib/motion'
 
 // The WPBL highlights surface: a mirror of the league's official YouTube uploads, read from
 // the wpbl_videos table (populated by scripts/sync-wpbl-youtube.mjs). Two consumers share
@@ -137,128 +136,40 @@ function RailCard({ video, teamById, onPlay }: {
   )
 }
 
-// Desktop-only paging arrow. Touch users swipe the rail; a mouse user has no visible
-// scrollbar (it's hidden) and no drag affordance, so on fine-pointer/hover devices we
-// float a chevron over each edge that pages the scroller. Hidden on touch (via the
-// media query) and faded out at whichever end of the rail it can't move toward.
-function RailArrow({ dir, show, onClick }: { dir: 'left' | 'right'; show: boolean; onClick: () => void }) {
-  return (
-    <Box
-      onClick={onClick}
-      aria-label={dir === 'left' ? 'Previous highlights' : 'More highlights'}
-      role="button"
-      tabIndex={-1}
-      sx={{
-        position: 'absolute', top: '34%', [dir]: -4, transform: 'translateY(-50%)', zIndex: 2,
-        width: 34, height: 34, borderRadius: '50%',
-        display: 'none', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-        bgcolor: 'background.paper', border: '1px solid', borderColor: CARD_BORDER,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.28)', color: 'text.primary',
-        opacity: show ? 1 : 0, pointerEvents: show ? 'auto' : 'none',
-        transition: 'opacity 0.15s, background 0.15s',
-        '&:hover': { bgcolor: 'action.hover' },
-        // Only devices with a precise, hover-capable pointer (i.e. a desktop mouse/trackpad)
-        // get the arrows; touch devices keep the clean swipe surface.
-        '@media (hover: hover) and (pointer: fine)': { display: 'flex' },
-      }}
-    >
-      <Box sx={{
-        width: 0, height: 0, borderStyle: 'solid',
-        ...(dir === 'left'
-          ? { borderWidth: '6px 8px 6px 0', borderColor: 'transparent currentColor transparent transparent', mr: '2px' }
-          : { borderWidth: '6px 0 6px 8px', borderColor: 'transparent transparent transparent currentColor', ml: '2px' }),
-      }} />
-    </Box>
-  )
-}
-
-// The Home "Highlights" rail — a horizontal scroller of the most recent uploads. Renders
-// nothing when there are no videos (pre-migration / empty feed), so it never shows an empty
-// shell. Highlights (matched to a game) lead; the tail keeps whatever else the feed carried.
-// Collapsed state is remembered per browser, mirroring how the Discord invite remembers a
-// dismissal (`wpbl_discord_dismissed` in Home.tsx). Deliberately localStorage and not an
-// account preference: it's a per-device layout choice, it must be known on the very first
-// paint (a signed-in round trip would flash the rail open before collapsing it), and the
-// section is usable signed-out. Reads/writes are wrapped because storage throws in private
-// mode and inside some in-app browsers — a failure there just means the choice isn't kept.
-const COLLAPSE_KEY = 'wpbl_highlights_collapsed'
-
-function readCollapsed(): boolean {
-  try { return localStorage.getItem(COLLAPSE_KEY) === '1' } catch { return false }
-}
-
-export function HighlightsRail({ videos, teams }: { videos: WpblVideo[]; teams: WpblTeam[] }) {
+/**
+ * The Highlights strip, as one segment of Home's media shelf. Bare: the card, the title and the
+ * collapse control belong to the shelf (see MediaShelf.tsx).
+ *
+ * Nothing here touches YouTube until a viewer clicks Play. The cards are static thumbnail
+ * facades and only then does the privacy-mode embed mount.
+ */
+export function HighlightsStrip({ videos, teams }: { videos: WpblVideo[]; teams: WpblTeam[] }) {
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const [active, setActive] = useState<WpblVideo | null>(null)
-  const [collapsed, setCollapsed] = useState(readCollapsed)
-  const scrollRef = useRef<HTMLDivElement>(null)
 
-  const toggleCollapsed = useCallback(() => {
-    setCollapsed(prev => {
-      const next = !prev
-      try { localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0') } catch { /* choice just isn't remembered */ }
-      return next
-    })
-  }, [])
-
-  // Newest first (the query already orders this way), highlights ahead of podcasts/features
-  // so the rail leads with game recaps. Cap the rail so it stays a glanceable strip.
+  // Highlights (matched to a game) lead; podcasts and features keep the tail. Capped so the
+  // strip stays a glanceable shelf rather than the whole channel.
   const shown = useMemo(() => {
     const rank = (v: WpblVideo) => (v.kind === 'highlight' ? 0 : v.kind === 'podcast' ? 1 : 2)
     return [...videos].sort((a, b) => rank(a) - rank(b)).slice(0, 12)
   }, [videos])
-
-  // Which paging arrows can do anything: hidden at the ends so a desktop user isn't offered
-  // a dead control. Re-checked on scroll, on content change, and on resize (the reachable
-  // scroll distance shifts as the strip's width changes).
-  const [canPrev, setCanPrev] = useState(false)
-  const [canNext, setCanNext] = useState(false)
-  const syncEdges = useCallback(() => {
-    const c = scrollRef.current
-    if (!c) return
-    const max = c.scrollWidth - c.clientWidth
-    setCanPrev(c.scrollLeft > 1)
-    setCanNext(c.scrollLeft < max - 1)
-  }, [])
-  useEffect(() => { syncEdges() }, [shown, syncEdges])
-  useEffect(() => {
-    window.addEventListener('resize', syncEdges)
-    return () => window.removeEventListener('resize', syncEdges)
-  }, [syncEdges])
-
-  // Page by most of the visible width, leaving a card of overlap so nothing is skipped.
-  const page = (dir: 1 | -1) => {
-    const c = scrollRef.current
-    if (!c) return
-    c.scrollBy({ left: dir * Math.max(c.clientWidth * 0.8, 200), behavior: scrollBehavior() })
-  }
+  const { scrollRef, canPrev, canNext, syncEdges, page } = useRailPaging(shown.length)
 
   if (shown.length === 0) return null
-  // No edge-fade overlay here (unlike the small scoreboard chips): over a full-size video
-  // card the gradient sat on top of the very card the user just snapped into focus, reading
-  // as "this one is faded/disabled." A half-peeking neighbour card is the "swipe for more"
-  // cue on touch; on desktop the floating arrows (RailArrow) do the paging instead.
+  // No edge-fade overlay: over a full-size video card the gradient sat on top of the very card
+  // the reader had just snapped into focus, reading as "this one is disabled". A half-peeking
+  // neighbour is the swipe cue on touch; the arrows do the paging on desktop.
   return (
-    <SectionCard
-      title="Highlights"
-      subtitle="Game recaps from the WPBL channel"
-      collapsed={collapsed}
-      onToggleCollapse={toggleCollapsed}
-    >
+    <>
       <Box sx={{ position: 'relative' }}>
-        <Box ref={scrollRef} onScroll={syncEdges} data-swipe-ignore="true" sx={{
-          display: 'flex', gap: 1.25, overflowX: 'auto', pb: 0.5,
-          scrollSnapType: 'x proximity',
-          '&::-webkit-scrollbar': { display: 'none' },
-          msOverflowStyle: 'none', scrollbarWidth: 'none',
-        }}>
+        <RailScroller scrollRef={scrollRef} onScroll={syncEdges}>
           {shown.map(v => <RailCard key={v.video_id} video={v} teamById={teamById} onPlay={() => setActive(v)} />)}
-        </Box>
-        <RailArrow dir="left" show={canPrev} onClick={() => page(-1)} />
-        <RailArrow dir="right" show={canNext} onClick={() => page(1)} />
+        </RailScroller>
+        <RailArrow dir="left" show={canPrev} onClick={() => page(-1)} label="highlights" />
+        <RailArrow dir="right" show={canNext} onClick={() => page(1)} label="highlights" />
       </Box>
       {active && <HighlightLightbox video={active} onClose={() => setActive(null)} />}
-    </SectionCard>
+    </>
   )
 }
 

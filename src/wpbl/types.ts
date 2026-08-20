@@ -158,6 +158,33 @@ export interface WpblArticle {
   player_ids: string[]       // rostered players named by full name
 }
 
+/** One photograph from the Wikimedia Commons mirror (scripts/sync-wpbl-commons.mjs): the
+ *  archive gallery, which is the only WPBL surface that still has something to show once the
+ *  league's feed stops.
+ *
+ *  Only approved rows ever reach the client, enforced in RLS rather than in the query, so a
+ *  future caller cannot forget the filter and publish the unreviewed backlog.
+ *
+ *  Every string here is PLAIN TEXT. Commons serves the description and attribution as HTML
+ *  written by whoever uploaded the file, and the sync strips it: nothing on this type may be
+ *  rendered as markup. */
+export interface WpblPhoto {
+  page_id: number            // Commons' stable numeric page id
+  title: string              // "File:…", as Commons names it
+  description: string | null // Commons' own description, often archive boilerplate
+  caption: string | null     // a curator's replacement, shown instead when set
+  file_url: string           // 1280px render, for the lightbox
+  thumb_url: string          // 500px render, for cards
+  width: number | null       // the ORIGINAL's dimensions, for aspect ratio
+  height: number | null
+  description_url: string    // the Commons file page; the licences require pointing at it
+  artist: string | null      // who took it, where Commons knows
+  license_short: string      // "Public domain", "CC BY-SA 4.0"
+  license_url: string | null
+  date_original: string | null // verbatim from Commons, and unreliable. See the migration
+  sort_order: number | null
+}
+
 export interface WpblBattingLine {
   id: string
   game_id: string

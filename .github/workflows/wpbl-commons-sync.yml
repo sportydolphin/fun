@@ -1,0 +1,64 @@
+name: WPBL Commons Photo Sync
+
+on:
+  schedule:
+    # Weekly, Sunday morning UTC. Deliberately the slowest cadence of any job in this repo:
+    # the source is a photographic archive of a league that folded in 1954, and the current
+    # league's category gained its first two files in three months. Anything more frequent
+    # would be re-reading an unchanged archive to produce an unchanged backlog.
+    - cron: '0 9 * * 0'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Read Commons and report what would be written, without writing it.'
+        required: true
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
+
+# One writer at a time; skip a tick rather than racing two upserts.
+concurrency:
+  group: wpbl-commons-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Same install trick as the sibling WPBL workflows: pull only the packages this script
+      # imports, at the version pinned in package.json, not the whole frontend.
+      - name: Install dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Sync Commons photographs
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # Wikimedia's user-agent policy wants a contact for whoever is running the job.
+          # Unset falls back to the site's address, which is a real contact route.
+          WPBL_COMMONS_CONTACT:      ${{ vars.WPBL_COMMONS_CONTACT }}
+          DRY_RUN:                   ${{ inputs.dry_run }}
+        # A scheduled run has no `inputs`, so DRY_RUN is empty there and the real sync runs.
+        # Only an explicit "true" from the Actions tab holds the write back.
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            node scripts/sync-wpbl-commons.mjs --dry-run
+          else
+            node scripts/sync-wpbl-commons.mjs
+          fi
+
+      # Nothing this job writes is visible until a human approves it, so a run that finds
+      # new files needs to say so somewhere a person will look. See docs/COMMONS_PHOTOS.md
+      # for the approval query.
+      - name: Note the review step
+        if: ${{ inputs.dry_run != 'true' }}
+        run: echo "New rows land with approved = false. Review the backlog before they ship."

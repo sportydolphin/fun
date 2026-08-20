@@ -30,10 +30,26 @@ export const EVENTS = {
   // feature: it exists to send readers to her. Worth measuring twice over, because it tells
   // us whether the surfaces earn their space AND it is the number worth telling her.
   WPBL_ARTICLE_OPENED:    'wpbl_article_opened',    // clicked through to a post, props {postId, slug, from, minutes}
-  WPBL_READING_SHOWN:     'wpbl_reading_shown',     // reading rail rendered (impression), props {count, collapsed}
-  WPBL_READING_ARCHIVE:   'wpbl_reading_archive',   // opened the full archive from "See all"
-  WPBL_READING_COLLAPSED: 'wpbl_reading_collapsed', // toggled the rail shut or open, props {collapsed}
+  WPBL_READING_SHOWN:     'wpbl_reading_shown',     // Reading became the shelf's visible segment, props {count, collapsed}
+  WPBL_READING_ARCHIVE:   'wpbl_reading_archive',   // opened the full archive from the strip's "All N" link
+  // RETIRED when the three rails folded into one shelf. Kept so the rows already in
+  // `events` still have a name here; nothing fires it. Use WPBL_SHELF_COLLAPSED.
+  WPBL_READING_COLLAPSED: 'wpbl_reading_collapsed', // retired
   WPBL_AUTHOR_OPENED:     'wpbl_author_opened',     // clicked the byline through to the publication, props {from}
+  // The archive gallery (Wikimedia Commons photography). The one WPBL surface that does not
+  // need a live game, so these are the numbers that say whether anything on /wpbl holds up
+  // after the feed stops on Sep 6. Read them against the season, not within it.
+  WPBL_PHOTO_OPENED:      'wpbl_photo_opened',      // opened a photo in the lightbox, props {pageId, from}
+  WPBL_PHOTO_SOURCE:      'wpbl_photo_source',      // clicked through to the Commons file page, props {pageId}
+  WPBL_PHOTOS_SHOWN:      'wpbl_photos_shown',      // Archive became the shelf's visible segment, props {count, collapsed}
+  WPBL_PHOTOS_GALLERY:    'wpbl_photos_gallery',    // opened the full gallery from the strip's "All N" link
+  // Home's media shelf: Reading, Highlights and Archive share one card behind a segmented
+  // control, so only the active segment is ever seen. The *_SHOWN events above now fire on
+  // segment ACTIVATION rather than on render, which makes them a true impression for the first
+  // time (the old rails counted a collapsed card as shown). WPBL_SHELF_SEGMENT is the one that
+  // says whether folding three rails into one buried the other two.
+  WPBL_SHELF_SEGMENT:     'wpbl_shelf_segment',     // switched shelf segment, props {segment}
+  WPBL_SHELF_COLLAPSED:   'wpbl_shelf_collapsed',   // toggled the shelf shut or open, props {collapsed}
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the

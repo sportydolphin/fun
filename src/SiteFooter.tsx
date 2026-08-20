@@ -2,6 +2,7 @@ import React from 'react'
 import { Box, Typography } from '@mui/material'
 import { APP_VERSION } from './version'
 import { ACCENT } from './mlb/constants'
+import { track, EVENTS } from './lib/analytics'
 
 const KOFI_URL = 'https://ko-fi.com/sportydolphin'
 
@@ -17,6 +18,8 @@ const linkSx = {
 // Slim site-wide footer. Home for the meta bits that used to crowd the toolbar:
 // the version + "What's new" changelog, plus a feedback box and a Ko-fi support
 // link. Caps + centers on wide screens, wraps and centers on mobile.
+const WPBL_DISCORD_INVITE = 'https://discord.gg/hTaZKFzk6H'
+
 export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl = false }: {
   onOpenChangelog: () => void
   onOpenFeedback: () => void
@@ -53,6 +56,16 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
         <Dot />
         {isWpbl && (
           <>
+            {/* The fan Discord's only remaining door. It had a promo card on the WPBL home
+                screen for weeks, which is long enough for anyone who wanted it to have taken
+                it; what is left is the standing link, not the pitch. Still tracked as a join,
+                so the one number worth keeping survives the card being retired. */}
+            <Box
+              component="a" href={WPBL_DISCORD_INVITE} target="_blank" rel="noopener noreferrer"
+              onClick={() => track(EVENTS.DISCORD_JOINED, { from: 'footer' })}
+              sx={linkSx}
+            >Fan Discord</Box>
+            <Dot />
             <Box component="a" href="/wpbl/api" onClick={e => { e.preventDefault(); onNavigate('/wpbl/api') }} sx={linkSx}>API for developers</Box>
             <Dot />
           </>

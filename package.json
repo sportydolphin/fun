@@ -29,6 +29,7 @@
     "subset-font": "node scripts/subset-inter.mjs",
     "validate-pbp": "node --env-file=.env scripts/validate-wpbl-pbp.mjs",
     "restock-watch": "node --env-file=.env scripts/watch-wpbl-restock.mjs",
+    "commons-sync": "node --env-file=.env scripts/sync-wpbl-commons.mjs",
     "tracking-watch": "node --env-file=.env scripts/watch-wpbl-tracking.mjs"
   },
   "dependencies": {

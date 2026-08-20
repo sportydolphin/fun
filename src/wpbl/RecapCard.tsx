@@ -283,6 +283,7 @@ export function LastGameCard({ games, teams, players, onOpenGame }: {
     <SectionCard
       title="Last Game"
       subtitle={dateLabel}
+      fill
       action={
         <Typography onClick={() => onOpenGame(game)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
           Full recap
@@ -296,11 +297,18 @@ export function LastGameCard({ games, teams, players, onOpenGame }: {
       <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>{recap.headline}</Typography>
       <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: 0.5, lineHeight: 1.35 }}>{recap.blurb}</Typography>
       {recap.stars[0] && (
-        // One star with the card to itself, so its name almost always fits in full — but it
-        // still gets the same fit key, so a name shortened on a narrow phone comes back when
-        // the phone turns.
-        <Box ref={starRef} sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-          <StarRow star={recap.stars[0]} medal="🥇" name={recap.stars[0].name} teamId={recap.stars[0].teamId} portraitSize={44} medalSize={30} fitKey={starWidth} onClick={() => onOpenGame(game)} />
+        // Pinned to the bottom edge: this card shares a stretched row with Leaders on Home, so
+        // whichever of the two is shorter has slack to place. Above the star's rule is the
+        // right place for it, since the blurb is a variable-length paragraph and extra air
+        // after it reads as paragraph spacing. Wrapped rather than swapping `mt: 1` for
+        // `mt: 'auto'`, so the 8px minimum gap survives when there is no slack at all.
+        <Box sx={{ mt: 'auto' }}>
+          {/* One star with the card to itself, so its name almost always fits in full, but it
+              still gets the same fit key, so a name shortened on a narrow phone comes back when
+              the phone turns. */}
+          <Box ref={starRef} sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+            <StarRow star={recap.stars[0]} medal="🥇" name={recap.stars[0].name} teamId={recap.stars[0].teamId} portraitSize={44} medalSize={30} fitKey={starWidth} onClick={() => onOpenGame(game)} />
+          </Box>
         </Box>
       )}
     </SectionCard>

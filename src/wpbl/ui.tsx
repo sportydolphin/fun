@@ -261,6 +261,48 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
   )
 }
 
+// Compact segmented pills. The in-card sibling of SegNav: SegNav is the page-level tab bar
+// and centres itself across the full width, this one is inline and sized to sit inside a
+// SectionCard, either in the body beside a leaderboard or in the header's `action` slot.
+//
+// Solid accent fill rather than SegNav's raised surface chip, because at this size the chip's
+// shadow-on-paper trick disappears against the card it is sitting on: inside a card the only
+// thing that reads as "selected" at 0.68rem is colour. Use `--wpbl-accent-solid`, never
+// WPBL_ACCENT. White on #60a5fa measures 2.37:1, and colour contrast is absolute, so the raw
+// accent fails in dark mode too.
+export function PillGroup({ options, value, onChange, mb }: {
+  options: { value: string; label: string }[]
+  value: string
+  onChange: (v: string) => void
+  mb?: number
+}) {
+  return (
+    <Box sx={{ display: 'inline-flex', bgcolor: 'action.hover', borderRadius: 999, p: '3px', mb }}>
+      {options.map(opt => {
+        const on = opt.value === value
+        return (
+          <Box
+            key={opt.value}
+            {...pressable(() => onChange(opt.value))}
+            aria-pressed={on}
+            sx={{
+              ...FOCUS_RING,
+              px: 1.5, py: 0.4, borderRadius: 999, cursor: 'pointer',
+              fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.3,
+              whiteSpace: 'nowrap', userSelect: 'none', transition: 'all 0.15s',
+              bgcolor: on ? 'var(--wpbl-accent-solid)' : 'transparent',
+              color: on ? '#fff' : 'text.secondary',
+              '&:hover': on ? {} : { color: 'text.primary' },
+            }}
+          >
+            {opt.label}
+          </Box>
+        )
+      })}
+    </Box>
+  )
+}
+
 // Bordered content card with a left accent stripe and an icon + title + subtitle
 // header, mirroring the MLB home-feed cards. `action` sits at the right of the header
 // (e.g. a "View all" link); body is the children.
@@ -301,7 +343,112 @@ export const FOCUS_RING = {
   },
 } as const
 
-export function SectionCard({ icon, title, subtitle, action, collapsed, onToggleCollapse, children }: {
+// ─── Horizontal rail paging ─────────────────────────────────────────────────────
+// The scroll-edge bookkeeping and the paging chevron, shared by every horizontal strip on
+// Home. This lived as three byte-identical copies in Reading, Highlights and Photos; folding
+// those rails into one card put all three copies inside a single component, which is where a
+// duplicate stops being tolerable.
+
+/**
+ * State for a horizontally scrolling strip: which way it can still move, and how to move it.
+ *
+ * `contentKey` is whatever changes when the strip's contents do (usually the item count).
+ * The reachable scroll distance depends on the content and on the width, so the edges are
+ * re-checked on scroll, on content change, and on resize; miss the last one and the arrows
+ * lie after a window resize.
+ */
+export function useRailPaging(contentKey: unknown) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [canPrev, setCanPrev] = useState(false)
+  const [canNext, setCanNext] = useState(false)
+
+  const syncEdges = useCallback(() => {
+    const c = scrollRef.current
+    if (!c) return
+    const max = c.scrollWidth - c.clientWidth
+    setCanPrev(c.scrollLeft > 1)
+    setCanNext(c.scrollLeft < max - 1)
+  }, [])
+
+  useEffect(() => { syncEdges() }, [contentKey, syncEdges])
+  useEffect(() => {
+    window.addEventListener('resize', syncEdges)
+    return () => window.removeEventListener('resize', syncEdges)
+  }, [syncEdges])
+
+  // Page by most of the visible width, leaving a card of overlap so nothing is skipped.
+  const page = useCallback((dir: 1 | -1) => {
+    const c = scrollRef.current
+    if (!c) return
+    c.scrollBy({ left: dir * Math.max(c.clientWidth * 0.8, 200), behavior: scrollBehavior() })
+  }, [])
+
+  return { scrollRef, canPrev, canNext, syncEdges, page }
+}
+
+/**
+ * The paging chevron that floats over a rail's edge.
+ *
+ * Desktop only, by media query rather than by width: touch users swipe, but a mouse user has
+ * no visible scrollbar (it is hidden) and no drag affordance, so on hover-capable, fine-pointer
+ * devices a chevron is the only discoverable way to reach the rest of the strip. Faded out at
+ * whichever end it cannot move toward, so nobody is offered a dead control.
+ */
+export function RailArrow({ dir, show, onClick, label }: {
+  dir: 'left' | 'right'; show: boolean; onClick: () => void
+  /** What the strip holds, for the accessible name: "Previous <label>". */
+  label: string
+}) {
+  return (
+    <Box
+      onClick={onClick}
+      aria-label={`${dir === 'left' ? 'Previous' : 'More'} ${label}`}
+      role="button"
+      tabIndex={-1}
+      sx={{
+        position: 'absolute', top: '34%', [dir]: -4, transform: 'translateY(-50%)', zIndex: 2,
+        width: 34, height: 34, borderRadius: '50%',
+        display: 'none', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+        bgcolor: 'background.paper', border: '1px solid', borderColor: CARD_BORDER,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.28)', color: 'text.primary',
+        opacity: show ? 1 : 0, pointerEvents: show ? 'auto' : 'none',
+        transition: 'opacity 0.15s, background 0.15s',
+        '&:hover': { bgcolor: 'action.hover' },
+        '@media (hover: hover) and (pointer: fine)': { display: 'flex' },
+      }}
+    >
+      <Box sx={{
+        width: 0, height: 0, borderStyle: 'solid',
+        ...(dir === 'left'
+          ? { borderWidth: '6px 8px 6px 0', borderColor: 'transparent currentColor transparent transparent', mr: '2px' }
+          : { borderWidth: '6px 0 6px 8px', borderColor: 'transparent transparent transparent currentColor', ml: '2px' }),
+      }} />
+    </Box>
+  )
+}
+
+/**
+ * The scroller itself: hidden scrollbar, snap points, and `data-swipe-ignore` so a sideways
+ * drag here never reaches SwipeableViews and changes tab underneath the reader.
+ */
+export function RailScroller({ onScroll, scrollRef, children }: {
+  onScroll: () => void
+  scrollRef: React.RefObject<HTMLDivElement | null>
+  children: React.ReactNode
+}) {
+  return (
+    <Box ref={scrollRef} onScroll={onScroll} data-swipe-ignore="true" sx={{
+      display: 'flex', gap: 1.25, overflowX: 'auto', pb: 0.5,
+      scrollSnapType: 'x proximity',
+      '&::-webkit-scrollbar': { display: 'none' },
+      msOverflowStyle: 'none', scrollbarWidth: 'none',
+    }}>
+      {children}
+    </Box>
+  )
+}
+
+export function SectionCard({ icon, title, subtitle, action, collapsed, onToggleCollapse, fill, children }: {
   icon?: React.ReactNode
   title: string
   subtitle?: string
@@ -310,6 +457,12 @@ export function SectionCard({ icon, title, subtitle, action, collapsed, onToggle
    *  can persist the choice; the card itself stays presentational. */
   collapsed?: boolean
   onToggleCollapse?: () => void
+  /** Let the card take whatever height its container gives it, and lay the body out as a
+   *  column so a child can claim the slack with `mt: 'auto'` (pin to the bottom) or `flex: 1`
+   *  (absorb it). For Home's paired columns, where the two cards in a row are stretched to a
+   *  shared height and the shorter one has to put the difference somewhere deliberate.
+   *  Off by default: a card in normal flow should stay its content's height. */
+  fill?: boolean
   children: React.ReactNode
 }) {
   const collapsible = !!onToggleCollapse
@@ -318,6 +471,11 @@ export function SectionCard({ icon, title, subtitle, action, collapsed, onToggle
       borderRadius: 3, overflow: 'hidden',
       border: '1px solid', borderColor: CARD_BORDER,
       bgcolor: 'background.paper',
+      // No `height: 100%` here. A grid item already stretches to its row, so this would only
+      // ever be redundant there, and below md, where the container falls back to a flex
+      // column, a percentage height resolves against the column's own height and makes every
+      // card in it the same size. That squashed Last Game by 32px on a phone.
+      ...(fill ? { display: 'flex', flexDirection: 'column' } : {}),
     }}>
       {/* The whole header toggles — a thumb-sized target rather than a small chevron hitbox.
           `action` keeps its own click (e.g. "View all"), so it stops the event bubbling. */}
@@ -342,7 +500,17 @@ export function SectionCard({ icon, title, subtitle, action, collapsed, onToggle
         {action != null && <Box onClick={e => e.stopPropagation()} sx={{ display: 'flex', flexShrink: 0 }}>{action}</Box>}
         {collapsible && <Chevron open={!collapsed} />}
       </Box>
-      {!collapsed && <Box sx={{ px: 2, pb: 1.5 }}>{children}</Box>}
+      {!collapsed && (
+        <Box sx={{
+          px: 2, pb: 1.5,
+          // `flexShrink: 0` on every child so a filled body lays out exactly like the block
+          // body it replaces: flex items shrink below their content height by default, which
+          // would squash a leader board or a score row the moment the card ran short.
+          ...(fill ? { flex: 1, display: 'flex', flexDirection: 'column', '& > *': { flexShrink: 0 } } : {}),
+        }}>
+          {children}
+        </Box>
+      )}
     </Box>
   )
 }

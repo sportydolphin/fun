@@ -4,6 +4,37 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.46.0',
+    date:    '2026-08-19',
+    title:   'An archive of women’s baseball, and a home screen that fits together',
+    changes: [
+      {
+        short: 'From the archive: freely licensed women’s baseball photography',
+        full:  'A new archive of photographs of women’s baseball, drawn from Wikimedia Commons and refreshed weekly. It reaches back well before this league: the All-American Girls Professional Baseball League, the World Cup, and the players who came first. Every photograph names its creator and its licence and links back to the source, because a good share of them are licensed on the condition that you do. Each one has been looked at by a person before it appears here, since the categories they come from are maintained by the public and return whatever somebody happened to file.',
+      },
+      {
+        short: 'Reading, highlights and the archive are one card now',
+        full:  'The three were separate rails stacked down the left of the home screen, all doing the same job, and between them they ran the best part of three screens on a desktop while the other side of the page sat empty. They are now one card the full width of the page, and you pick which one you are looking at. A sideways strip is the one thing on that page that turns width into content, so the same height now shows five or six cards instead of three.',
+      },
+      {
+        short: 'The next game card shows records and the season series',
+        full:  'It used to be two team names and a time, which was less than anything else on the page. Each club now carries its record, and a line underneath says where the season series between the two stands. The countdown has moved out of the small chip in the corner and into the card proper, since the time to first pitch is the one thing that card knows and nothing else on the page does. The records come from the same place the standings table does, so the two can never disagree.',
+      },
+      {
+        short: 'Leaders list five names, and batting and pitching share one card',
+        full:  'The leader boards showed three names and now show five. Batting and pitching used to be two separate cards offering the same thing twice, and are now one card with a switch. Switching between them resets which statistic you are looking at, because home runs have no counterpart on the pitching side.',
+      },
+      {
+        short: 'The cards on the home screen line up with each other',
+        full:  'The two columns of cards each ended wherever their contents happened to run out, which left a ragged edge down the middle of the page and a notch above the card underneath. Cards side by side now share the same top and bottom, and whichever of the pair has room to spare gives it to its own contents rather than leaving a gap: the standings rows get taller, the leader rows spread out a little.',
+      },
+      {
+        short: 'The Discord invite moved to the footer',
+        full:  'The card inviting you to the fan server has been on the home screen for several weeks, which is long enough for anyone who wanted to join to have joined. The link is still there, in the WPBL footer next to the developer API link. Nothing was removed, it just stopped taking up room on the page.',
+      },
+    ],
+  },
+  {
     version: '1.45.2',
     date:    '2026-08-17',
     title:   'Head to head, on the Standings tab',

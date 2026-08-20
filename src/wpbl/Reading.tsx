@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ModalShell, SectionCard, TeamBadge, CARD_BORDER } from './ui'
+import { ModalShell, TeamBadge, CARD_BORDER, useRailPaging, RailArrow, RailScroller } from './ui'
 import { readMinutes, authorPhoto, AUTHOR_BIO, AUTHOR_NAME, PUBLICATION_NAME, PUBLICATION_URL } from './derive/articles'
 import type { WpblArticle, WpblTeam } from './types'
-import { scrollBehavior } from '../lib/motion'
 import { track, EVENTS } from '../lib/analytics'
 
 // The WPBL reading surface: a mirror of an independent writer's coverage of the league,
@@ -133,38 +132,6 @@ function RailCard({ article, teamById }: { article: WpblArticle; teamById: Map<s
   )
 }
 
-// Desktop-only paging arrow, lifted from the highlights rail so the two strips page
-// identically. Touch users swipe; a mouse user has no visible scrollbar and no drag
-// affordance, so on fine-pointer devices a chevron floats over each edge.
-function RailArrow({ dir, show, onClick }: { dir: 'left' | 'right'; show: boolean; onClick: () => void }) {
-  return (
-    <Box
-      onClick={onClick}
-      aria-label={dir === 'left' ? 'Previous articles' : 'More articles'}
-      role="button"
-      tabIndex={-1}
-      sx={{
-        position: 'absolute', top: '34%', [dir]: -4, transform: 'translateY(-50%)', zIndex: 2,
-        width: 34, height: 34, borderRadius: '50%',
-        display: 'none', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-        bgcolor: 'background.paper', border: '1px solid', borderColor: CARD_BORDER,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.28)', color: 'text.primary',
-        opacity: show ? 1 : 0, pointerEvents: show ? 'auto' : 'none',
-        transition: 'opacity 0.15s, background 0.15s',
-        '&:hover': { bgcolor: 'action.hover' },
-        '@media (hover: hover) and (pointer: fine)': { display: 'flex' },
-      }}
-    >
-      <Box sx={{
-        width: 0, height: 0, borderStyle: 'solid',
-        ...(dir === 'left'
-          ? { borderWidth: '6px 8px 6px 0', borderColor: 'transparent currentColor transparent transparent', mr: '2px' }
-          : { borderWidth: '6px 0 6px 8px', borderColor: 'transparent transparent transparent currentColor', ml: '2px' }),
-      }} />
-    </Box>
-  )
-}
-
 // Collapsed state is remembered per browser, matching the highlights rail's own key and for
 // the same reasons set out there: a per-device layout choice, needed on the very first
 // paint, and the section is usable signed out. Storage is wrapped because it throws in
@@ -224,117 +191,64 @@ export function AuthorByline({ compact, from }: { compact?: boolean; from: Readi
   )
 }
 
-const COLLAPSE_KEY = 'wpbl_reading_collapsed'
-
-function readCollapsed(): boolean {
-  try { return localStorage.getItem(COLLAPSE_KEY) === '1' } catch { return false }
-}
-
-export function ReadingRail({ articles, teams }: { articles: WpblArticle[]; teams: WpblTeam[] }) {
+/**
+ * The Reading strip, as one segment of Home's media shelf.
+ *
+ * Bare on purpose: no SectionCard, no collapse, no title. Those belong to the shelf now, which
+ * is what lets Reading, Highlights and Archive share one card instead of stacking three
+ * near-identical strips down the left column (see MediaShelf.tsx).
+ *
+ * The byline stays here rather than moving up to the shelf. It is the credit for THIS
+ * segment's content, and hoisting it would leave her name sitting over a rail of YouTube
+ * thumbnails whenever somebody switched to Highlights.
+ */
+export function ReadingStrip({ articles, teams }: { articles: WpblArticle[]; teams: WpblTeam[] }) {
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
-  const [collapsed, setCollapsed] = useState(readCollapsed)
   const [archiveOpen, setArchiveOpen] = useState(false)
-  const scrollRef = useRef<HTMLDivElement>(null)
-
-  const toggleCollapsed = useCallback(() => {
-    setCollapsed(prev => {
-      const next = !prev
-      // Worth an event because it is the honest negative signal for this rail, the way
-      // dismissing the Discord card is for that one: a reader saying "not this". Cloudflare
-      // cannot see it, and the choice is remembered, so a collapse is a lasting opinion.
-      track(EVENTS.WPBL_READING_COLLAPSED, { collapsed: next })
-      try { localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0') } catch { /* choice just isn't remembered */ }
-      return next
-    })
-  }, [])
-
-  // Newest first (the query already orders this way). Capped so the rail stays a glanceable
-  // strip; "See all" opens the rest.
+  // Newest first (the query already orders this way). Capped so the strip stays glanceable;
+  // "See all" opens the rest.
   const shown = useMemo(() => articles.slice(0, 12), [articles])
-
-  const [canPrev, setCanPrev] = useState(false)
-  const [canNext, setCanNext] = useState(false)
-  const syncEdges = useCallback(() => {
-    const c = scrollRef.current
-    if (!c) return
-    const max = c.scrollWidth - c.clientWidth
-    setCanPrev(c.scrollLeft > 1)
-    setCanNext(c.scrollLeft < max - 1)
-  }, [])
-  // One impression per mount, and only once there is something to see: without the ref this
-  // would re-fire as the feed loads, and without the length check it would count a mount that
-  // rendered nothing (the early return below). This is the denominator the click-through rate
-  // needs, and it is the one thing here Cloudflare's page counts cannot stand in for, since a
-  // collapsed rail is still a page view.
-  const shownLogged = useRef(false)
-  useEffect(() => {
-    if (shownLogged.current || shown.length === 0) return
-    shownLogged.current = true
-    track(EVENTS.WPBL_READING_SHOWN, { count: shown.length, collapsed })
-  }, [shown.length, collapsed])
-
-  useEffect(() => { syncEdges() }, [shown, syncEdges])
-  useEffect(() => {
-    window.addEventListener('resize', syncEdges)
-    return () => window.removeEventListener('resize', syncEdges)
-  }, [syncEdges])
+  const { scrollRef, canPrev, canNext, syncEdges, page } = useRailPaging(shown.length)
 
   const openArchive = useCallback(() => {
     track(EVENTS.WPBL_READING_ARCHIVE, { count: articles.length })
     setArchiveOpen(true)
   }, [articles.length])
 
-  const page = (dir: 1 | -1) => {
-    const c = scrollRef.current
-    if (!c) return
-    c.scrollBy({ left: dir * Math.max(c.clientWidth * 0.8, 200), behavior: scrollBehavior() })
-  }
-
   if (shown.length === 0) return null
   return (
-    <SectionCard
-      title="Reading"
-      subtitle={PUBLICATION_NAME}
-      collapsed={collapsed}
-      onToggleCollapse={toggleCollapsed}
-      // Always offered, not just once the rail overflows. She is at eleven posts and files
-      // about twice a week, so a "more than twelve" gate would leave the archive unreachable
-      // for months; and the archive is not merely "the rest", it is the same posts with
-      // their deks showing, which is the version worth reading before choosing one.
-      action={(
+    <>
+      <Box sx={{ position: 'relative' }}>
+        <RailScroller scrollRef={scrollRef} onScroll={syncEdges}>
+          {shown.map(a => <RailCard key={a.post_id} article={a} teamById={teamById} />)}
+        </RailScroller>
+        <RailArrow dir="left" show={canPrev} onClick={() => page(-1)} label="articles" />
+        <RailArrow dir="right" show={canNext} onClick={() => page(1)} label="articles" />
+      </Box>
+      <Box sx={{ mt: 1.25 }}><AuthorByline from="rail" /></Box>
+      {/* Always offered, not just once the strip overflows. She files about twice a week, so a
+          "more than twelve" gate would leave the archive unreachable for months; and the
+          archive is not merely "the rest", it is the same posts with their deks showing. */}
+      <Box sx={{ mt: 1 }}>
         <Box
           onClick={openArchive}
           role="button"
           tabIndex={0}
           onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openArchive() } }}
           sx={{
-            fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary', cursor: 'pointer',
-            px: 0.5, borderRadius: 1,
+            display: 'inline-block', fontSize: '0.72rem', fontWeight: 700,
+            color: 'text.secondary', cursor: 'pointer', px: 0.5, borderRadius: 1,
             '&:hover': { color: 'text.primary' },
             '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
           }}
         >
-          See all
+          All {articles.length} posts
         </Box>
-      )}
-    >
-      <Box sx={{ position: 'relative' }}>
-        <Box ref={scrollRef} onScroll={syncEdges} data-swipe-ignore="true" sx={{
-          display: 'flex', gap: 1.25, overflowX: 'auto', pb: 0.5,
-          scrollSnapType: 'x proximity',
-          '&::-webkit-scrollbar': { display: 'none' },
-          msOverflowStyle: 'none', scrollbarWidth: 'none',
-        }}>
-          {shown.map(a => <RailCard key={a.post_id} article={a} teamById={teamById} />)}
-        </Box>
-        <RailArrow dir="left" show={canPrev} onClick={() => page(-1)} />
-        <RailArrow dir="right" show={canNext} onClick={() => page(1)} />
       </Box>
-      <Box sx={{ mt: 1.25 }}><AuthorByline from="rail" /></Box>
       {archiveOpen && (
         <ReadingArchive articles={articles} teamById={teamById} onClose={() => setArchiveOpen(false)} />
       )}
-    </SectionCard>
+    </>
   )
 }
 

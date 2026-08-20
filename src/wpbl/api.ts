@@ -4,7 +4,7 @@ import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
   WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchTracking, WpblTrackRow,
-  WpblVideo, WpblArticle, WpblLineupHistoryRow, WpblPitchingUsageRow,
+  WpblVideo, WpblArticle, WpblPhoto, WpblLineupHistoryRow, WpblPitchingUsageRow,
 } from './types'
 
 // Reads for the WPBL section. Everything degrades gracefully: if the tables don't
@@ -112,6 +112,7 @@ let allTrackingCache: { data: WpblTrackRow[]; at: number } | null = null
 let allPlaysCache:    { data: WpblFirstsPlay[]; at: number } | null = null
 let allVideosCache:   { data: WpblVideo[]; at: number } | null = null
 let allArticlesCache: { data: WpblArticle[]; at: number } | null = null
+let allPhotosCache:   { data: WpblPhoto[]; at: number } | null = null
 
 // How long a bulk result is served straight from the cache without re-querying.
 //
@@ -136,6 +137,7 @@ export function getCachedWpblAllTracking(): WpblTrackRow[] | null { return allTr
 export function getCachedWpblAllPlays(): WpblFirstsPlay[] | null { return allPlaysCache?.data ?? null }
 export function getCachedWpblVideos(): WpblVideo[] | null { return allVideosCache?.data ?? null }
 export function getCachedWpblArticles(): WpblArticle[] | null { return allArticlesCache?.data ?? null }
+export function getCachedWpblPhotos(): WpblPhoto[] | null { return allPhotosCache?.data ?? null }
 
 /** Age (ms) of the cached players+lines pair; Infinity until both are seeded. */
 export function wpblStatsCacheAgeMs(): number {
@@ -360,6 +362,35 @@ export function fetchWpblArticles(): Promise<WpblArticle[]> {
         PromiseLike<{ data: WpblArticle[] | null; error: unknown }>,
       [])
     if (data.length > 0 || allArticlesCache == null) allArticlesCache = { data, at: Date.now() }
+    return data
+  })
+}
+
+// The archive gallery (wpbl_photos): freely licensed women's baseball photography mirrored
+// from Wikimedia Commons. Same shape as the two reads above, and the same tolerance for the
+// table not existing yet.
+//
+// NOT filtered on `approved` here, and that is deliberate. The RLS policy already restricts
+// the select to approved rows, so the unreviewed backlog is unreachable from the browser
+// whatever this query asks for. Adding `.eq('approved', true)` would read as though it were
+// the thing keeping the backlog private, and the next person to write a query would copy the
+// filter and believe it was enough.
+//
+// Ordered by the curator's sequence, which is the point of having one: the gallery is a
+// curated set, not a feed, so upload date is the wrong axis. `page_id` breaks ties so the
+// order is total (see fetchAllPaged for what a non-deterministic order costs a paged read;
+// this table is far too small to page, but the habit is cheap).
+export function fetchWpblPhotos(): Promise<WpblPhoto[]> {
+  if (isFresh(allPhotosCache)) return Promise.resolve(allPhotosCache!.data)
+  return once('allPhotos', async () => {
+    const data = await safe<WpblPhoto[]>('fetchWpblPhotos', () =>
+      supabase.from('wpbl_photos')
+        .select('page_id,title,description,caption,file_url,thumb_url,width,height,description_url,artist,license_short,license_url,date_original,sort_order')
+        .order('sort_order', { ascending: true, nullsFirst: false })
+        .order('page_id', { ascending: true }) as unknown as
+        PromiseLike<{ data: WpblPhoto[] | null; error: unknown }>,
+      [])
+    if (data.length > 0 || allPhotosCache == null) allPhotosCache = { data, at: Date.now() }
     return data
   })
 }

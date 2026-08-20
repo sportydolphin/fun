@@ -118,8 +118,9 @@ pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare Pages at
   the `/player` slash command, and which secret store each writer reads),
   `ADMIN_ANALYTICS.md` (**read before touching the `events` table or the `admin_*` RPCs**;
   its security section is the only thing keeping site analytics from being readable by
-  every signed-in user), `PLAY_VALIDATION.md`, `PUSH_NOTIFICATIONS.md`, `GOOGLE_TASKS.md`,
-  `feature-requests.md`.
+  every signed-in user), `PLAY_VALIDATION.md`, `COMMONS_PHOTOS.md` (**read before approving an archive
+  photo**: what the sync will not do, and why the approval gate is in RLS rather than in the
+  query), `PUSH_NOTIFICATIONS.md`, `GOOGLE_TASKS.md`, `feature-requests.md`.
 
 Code: [`src/App.tsx`](src/App.tsx) is the shell, with hand-rolled path routing and no
 router lib. [`src/wpbl/`](src/wpbl/) is self-contained with no MLB coupling

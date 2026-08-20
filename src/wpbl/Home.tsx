@@ -9,9 +9,10 @@ import {
   getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblAllTracking, wpblHomeCacheAgeMs,
   fetchWpblVideos, getCachedWpblVideos,
   fetchWpblArticles, getCachedWpblArticles,
+  fetchWpblPhotos, getCachedWpblPhotos,
 } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
-import { SectionCard, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, wpblFeatureName, CARD_BORDER } from './ui'
+import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, wpblFeatureName, CARD_BORDER } from './ui'
 import { LiveHero } from './Live'
 import {
   aggregateBatting, aggregatePitching, wpblQualifiers, fmtRate, fmtTwo, fmtSigned,
@@ -19,9 +20,8 @@ import {
 } from './stats'
 import { track, EVENTS } from '../lib/analytics'
 import { LastGameCard } from './RecapCard'
-import { HighlightsRail } from './Highlights'
-import { ReadingRail } from './Reading'
-import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblTrackRow, WpblVideo, WpblArticle } from './types'
+import MediaShelf from './MediaShelf'
+import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblTrackRow, WpblVideo, WpblArticle, WpblPhoto } from './types'
 
 // WPBL home dashboard (Phase 2). Mirrors the MLB home: a full-width scoreboard strip
 // on top, then a two-column card feed (The League / Around the League) that stacks on
@@ -253,10 +253,9 @@ function Countdown({ target }: { target: number }) {
     return () => clearInterval(id)
   }, [])
   const diff = target - now
-  // Compact single-line countdown so it can sit in the card header's top-right instead
-  // of a tall block of digit tiles below the matchup. Seconds only tick inside a day.
+  // Seconds only tick inside a day; past a day they would be noise under a number that
+  // barely moves.
   const label = (() => {
-    if (diff <= 0) return 'Starting soon'
     const d = Math.floor(diff / 86400000)
     const h = Math.floor((diff % 86400000) / 3600000)
     const m = Math.floor((diff % 3600000) / 60000)
@@ -264,10 +263,21 @@ function Countdown({ target }: { target: number }) {
     const p = (n: number) => String(n).padStart(2, '0')
     return d > 0 ? `${d}d ${p(h)}h ${p(m)}m` : `${p(h)}h ${p(m)}m ${p(s)}s`
   })()
+  // Sized and weighted as Last Game's headline, because it occupies the same slot in the
+  // same shape of card: the one sentence that says what this game IS right now. It was a
+  // chip in the header's top-right, which is where a card puts an afterthought, and the
+  // clock is the only thing Next game knows that nothing else on the page does.
+  //
+  // `tabular-nums` on the digits alone. The whole line would set "First pitch in" on a
+  // monospace grid too, and the seconds place re-renders every tick, so without it the
+  // sentence would twitch sideways once a second.
   return (
-    <Box sx={{ flexShrink: 0, px: 1, py: 0.4, borderRadius: 999, bgcolor: 'action.hover' }}>
-      <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)', lineHeight: 1, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{label}</Typography>
-    </Box>
+    <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>
+      {diff <= 0 ? 'Starting soon' : <>
+        First pitch in{' '}
+        <Box component="span" sx={{ color: 'var(--wpbl-accent-fg)', fontVariantNumeric: 'tabular-nums' }}>{label}</Box>
+      </>}
+    </Typography>
   )
 }
 
@@ -430,6 +440,24 @@ function GameReminderRow({ game, away, home, startMs }: {
   )
 }
 
+// Head-to-head record between two clubs this season. Deliberately filtered the same way
+// `computeStandings` filters, decisive finals only, so the series line and the standings
+// table sitting beside it can never tell a reader two different stories about the same games.
+// Null before the two have met, which is a real state early in a season and reads better as
+// nothing than as "0–0".
+function seasonSeries(games: WpblGame[], homeId: string, awayId: string): { homeWins: number; awayWins: number } | null {
+  let homeWins = 0, awayWins = 0
+  for (const g of games) {
+    if (g.status !== 'final' || g.home_score == null || g.away_score == null || g.home_score === g.away_score) continue
+    const involvesBoth = (g.home_team_id === homeId && g.away_team_id === awayId)
+      || (g.home_team_id === awayId && g.away_team_id === homeId)
+    if (!involvesBoth) continue
+    const winner = g.home_score > g.away_score ? g.home_team_id : g.away_team_id
+    if (winner === homeId) homeWins++; else awayWins++
+  }
+  return homeWins + awayWins === 0 ? null : { homeWins, awayWins }
+}
+
 function NextGameCard({ games, teams, onOpenGame }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
 }) {
@@ -444,6 +472,15 @@ function NextGameCard({ games, teams, onOpenGame }: {
     return upcoming.find(x => x.ms >= now - 3 * 3600000) ?? upcoming[0] ?? null
   }, [games])
 
+  // Records through `computeStandings` rather than a local count, so the two numbers on these
+  // rows are the same two numbers the Standings card renders beside them. A card that
+  // disagrees with the table next to it is worse than a card with no records at all.
+  const recordOf = useMemo(() => {
+    const rows = computeStandings([...teams.values()], games)
+    const by = new Map(rows.map(r => [r.team.id, `${r.wins}–${r.losses}`]))
+    return (id: string) => by.get(id) ?? null
+  }, [teams, games])
+
   if (!next) return null
   const g = next.g
   const away = teams.get(g.away_team_id)
@@ -451,19 +488,66 @@ function NextGameCard({ games, teams, onOpenGame }: {
   const dateLabel = relativeDayLabel(g.game_date)
   const timeLabel = formatGameTime(g.game_date, g.start_time)
 
-  const teamRow = (t: WpblTeam | undefined, side: string) => (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      {t && <TeamBadge team={t} size={26} />}
-      <Typography sx={{ flex: 1, fontSize: '0.9rem', fontWeight: 600 }}>{t ? wpblFullName(t) : '?'}</Typography>
-      <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary' }}>{side}</Typography>
-    </Box>
-  )
+  // Not memoised: one pass over a 30-game season, and Countdown holds its own tick state, so
+  // this card only re-renders when its data actually changes.
+  const series = seasonSeries(games, g.home_team_id, g.away_team_id)
+  let seriesLabel: string | null = null
+  if (series && home && away) {
+    const { homeWins, awayWins } = series
+    // Nicknames, matching the standings table next to it rather than the full club names on
+    // the rows above: "Boston Hunters lead the season series" says the city twice in one card.
+    if (homeWins === awayWins) seriesLabel = `Season series tied ${homeWins}–${awayWins}`
+    else seriesLabel = `${homeWins > awayWins ? home.name : away.name} lead the season series `
+      + `${Math.max(homeWins, awayWins)}–${Math.min(homeWins, awayWins)}`
+  }
+
+  // Deliberately the same row as LastGameCard's `scoreRow`: same badge size, same name size
+  // and weight, same trailing number in the same slot at the same size. The two cards sit one
+  // above the other in the same column, and the only honest difference between them is that
+  // one row's number is a final score and the other's is a record.
+  const teamRow = (t: WpblTeam | undefined, side: string) => {
+    const record = t ? recordOf(t.id) : null
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {t && <TeamBadge team={t} size={26} />}
+        {/* Ellipsis as the final net, which LastGameCard's otherwise-identical row does not
+            need: its trailing number is one or two digits, this one is a four-glyph record, and
+            those extra pixels are what tips "San Francisco Firebells" onto a second line at
+            320px. A row that silently doubles in height on one matchup is worse than a name
+            that runs out of room on the narrowest phone we support. */}
+        <Typography noWrap sx={{ flex: 1, minWidth: 0, fontSize: '0.9rem', fontWeight: 600 }}>{t ? wpblFullName(t) : '?'}</Typography>
+        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary', flexShrink: 0 }}>{side}</Typography>
+        {record && (
+          <Typography sx={{ fontSize: '1rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'text.secondary', flexShrink: 0 }}>
+            {record}
+          </Typography>
+        )}
+      </Box>
+    )
+  }
 
   return (
-    <SectionCard title="Next game" subtitle={`${dateLabel}${timeLabel ? ` · ${timeLabel}` : ''}`} action={<Countdown target={next.ms} />}>
-      <Box onClick={() => onOpenGame(g)} sx={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 0.75, borderRadius: 1, p: 0.5, mx: -0.5, '&:hover': { bgcolor: 'action.hover' } }}>
-        {teamRow(away, 'AWAY')}
-        {teamRow(home, 'HOME')}
+    <SectionCard title="Next game" subtitle={`${dateLabel}${timeLabel ? ` · ${timeLabel}` : ''}`} fill>
+      {/* Laid out as LastGameCard is, tier for tier: the two team rows, then one line at
+          headline weight saying what the game is right now, then a quieter line of context,
+          then a rule and the row you can act on. Everything inside the clickable block is a
+          fact about THIS game, so it all opens the game, the way the team rows already did.
+
+          `flex: 1` + centred absorbs whatever height Standings forces on this card, splitting
+          it above and below rather than dropping it in one hole. With the card nearly full it
+          is a few pixels either side, but it keeps the card even if the series line drops out,
+          which it does the first time two clubs meet. */}
+      <Box onClick={() => onOpenGame(g)} sx={{ cursor: 'pointer', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', borderRadius: 1, p: 0.5, mx: -0.5, '&:hover': { bgcolor: 'action.hover' } }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1 }}>
+          {teamRow(away, 'AWAY')}
+          {teamRow(home, 'HOME')}
+        </Box>
+        <Countdown target={next.ms} />
+        {seriesLabel && (
+          <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: 0.5, lineHeight: 1.35 }}>
+            {seriesLabel}
+          </Typography>
+        )}
       </Box>
       <GameReminderRow game={g} away={away} home={home} startMs={next.ms} />
     </SectionCard>
@@ -477,7 +561,7 @@ function StandingsCard({ teams, games, onOpenTeam }: {
 }) {
   const rows = useMemo(() => computeStandings(teams, games), [teams, games])
   return (
-    <SectionCard title="Standings">
+    <SectionCard title="Standings" fill>
       <Box sx={{ display: 'flex', px: 0.5, pb: 0.5, fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary' }}>
         <Box sx={{ flex: 1 }}>Team</Box>
         <Box sx={{ width: 32, textAlign: 'right' }}>W</Box>
@@ -491,6 +575,11 @@ function StandingsCard({ teams, games, onOpenTeam }: {
             display: 'flex', alignItems: 'center', px: 0.5, py: 0.85, cursor: 'pointer',
             borderTop: '1px solid', borderColor: 'divider', fontVariantNumeric: 'tabular-nums',
             borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },
+            // Share out whatever height the row's other card forces on this one. A table
+            // absorbs that as taller rows, not as a slab under the last club: the rules stay
+            // attached to the rows they belong to and the whole thing just breathes. `py` is
+            // still the floor, so nothing collapses when there is no slack to share.
+            flex: 1,
           }}>
             <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
               <TeamBadge team={r.team} size={24} />
@@ -545,8 +634,22 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
   hideLabel?: boolean
 }) {
   if (rows.length === 0) return null
+  // A column rather than a plain block, so when Home stretches the Leaders card to match the one
+  // beside it the leftover height is shared out between the rows instead of pooling as a slab
+  // under the last one. A handful of pixels per gap reads as comfortable row spacing; the same
+  // pixels in one lump read as the card having run out of things to say.
+  //
+  // Only for a FULL board. The board reserves the tallest category's height so stepping between
+  // categories doesn't jolt the card, which means a short category (three players with a home
+  // run in the season's first week) is already sitting in a box built for five. Spreading two
+  // rows across that would put eighty pixels between them and look broken; leaving them packed
+  // at the top is merely quiet, which is the right failure.
+  const spread = rows.length >= LEADER_ROWS
   return (
-    <Box sx={{ mb: 1.25, '&:last-of-type': { mb: 0 } }}>
+    <Box sx={{
+      mb: 1.25, '&:last-of-type': { mb: 0 },
+      ...(spread ? { height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' } : {}),
+    }}>
       {!hideLabel && <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.secondary', mb: 0.4 }}>{label}</Typography>}
       {rows.map((r, i) => {
         const team = teamById.get(r.player.team_id)
@@ -614,9 +717,17 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
   )
 }
 
+// How many names a Home leader board lists. Five rather than three because Home pairs this
+// card with Last Game in a shared-height row, and three names left the card about 90px short
+// of the one beside it. That gap had to be filled with something, and two more leaders is the
+// only filling that is worth a reader's time: the alternative was 90px of margin. Five also
+// happens to be the shape of a leaderboard people expect. Raising it further starts to make
+// Leaders the taller card in the row, which just moves the gap into Last Game.
+const LEADER_ROWS = 5
+
 // Pick the top `n` by `value` (higher is better; negate inside for ascending stats),
 // after an optional qualifier filter.
-function topBat(list: WpblBatSeason[], value: (t: WpblBattingTotals) => number | null, display: (t: WpblBattingTotals) => string, qualify?: (t: WpblBattingTotals) => boolean, n = 3, meta?: (t: WpblBattingTotals) => string): LeaderRow[] {
+function topBat(list: WpblBatSeason[], value: (t: WpblBattingTotals) => number | null, display: (t: WpblBattingTotals) => string, qualify?: (t: WpblBattingTotals) => boolean, n = LEADER_ROWS, meta?: (t: WpblBattingTotals) => string): LeaderRow[] {
   return list
     .filter(x => (qualify ? qualify(x.totals) : true) && value(x.totals) != null)
     // Ties break toward the bigger sample (more at-bats).
@@ -624,7 +735,7 @@ function topBat(list: WpblBatSeason[], value: (t: WpblBattingTotals) => number |
     .slice(0, n)
     .map(x => ({ player: x.player, display: display(x.totals), meta: meta?.(x.totals) }))
 }
-function topPit(list: WpblPitSeason[], value: (t: WpblPitchingTotals) => number | null, display: (t: WpblPitchingTotals) => string, qualify?: (t: WpblPitchingTotals) => boolean, n = 3, meta?: (t: WpblPitchingTotals) => string): LeaderRow[] {
+function topPit(list: WpblPitSeason[], value: (t: WpblPitchingTotals) => number | null, display: (t: WpblPitchingTotals) => string, qualify?: (t: WpblPitchingTotals) => boolean, n = LEADER_ROWS, meta?: (t: WpblPitchingTotals) => string): LeaderRow[] {
   return list
     .filter(x => (qualify ? qualify(x.totals) : true) && value(x.totals) != null)
     // Ties (e.g. equal ERA) break toward more innings pitched.
@@ -676,12 +787,35 @@ function LeaderStatSkeleton() {
 // card's height ~3× on mobile. A chip row selects the category; a horizontal swipe on the
 // rows steps between neighbours. Only categories that have data get a chip (an empty HR
 // board early in the season simply doesn't appear), mirroring the old stacked behaviour.
-function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, onViewAll }: {
-  title: string; blocks: { label: string; short: string; sortKey: string; rows: LeaderRow[] }[]
+/**
+ * The leaders card. One card for batting AND pitching, switched by the group control.
+ *
+ * They were two cards until the Discord promo left the left column at two cards against the
+ * right's three, and no column ratio closes a 211px gap between cards whose heights are set by
+ * their content. Merging them is the version that both closes it and leaves Home with one
+ * fewer thing on it: the two were the same card twice, three rows each, differing only in
+ * which six categories they offered.
+ */
+function LeadersCard({ title, groups, loading, hasData, teamById, onOpenPlayer }: {
+  title: string
+  groups: {
+    key: string
+    label: string
+    blocks: { label: string; short: string; sortKey: string; rows: LeaderRow[] }[]
+    onViewAll: (sortKey?: string) => void
+  }[]
   loading: boolean; hasData: boolean; teamById: Map<string, WpblTeam>
-  onOpenPlayer: (p: WpblPlayer) => void; onViewAll: (sortKey?: string) => void
+  onOpenPlayer: (p: WpblPlayer) => void
 }) {
-  const shown = blocks.filter(b => b.rows.length > 0)
+  // Only groups with something in them. Early in a season pitching can have boards before
+  // batting does, and a control offering an empty half is worse than no control.
+  const liveGroups = groups.filter(g => g.blocks.some(b => b.rows.length > 0))
+  const [group, setGroup] = useState(0)
+  const gIdx = Math.min(group, Math.max(0, liveGroups.length - 1))
+  const current = liveGroups[gIdx]
+  const onViewAll = current?.onViewAll ?? (() => {})
+
+  const shown = (current?.blocks ?? []).filter(b => b.rows.length > 0)
   const [active, setActive] = useState(0)
   const idx = Math.min(active, Math.max(0, shown.length - 1)) // clamp as data loads/changes
   const swipe = useRef({ x: 0, y: 0 })
@@ -696,6 +830,7 @@ function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, 
   return (
     <SectionCard
       title={title}
+      fill
       // Carry the board you're actually looking at into the full table — tapping "View all"
       // under the HR board should land on the table sorted by HR, not its default column.
       action={shown.length ? (
@@ -712,26 +847,32 @@ function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, 
         </Typography>
       ) : (
         <>
-          {/* Category chips — the selector doubles as the block's label. */}
-          <Box sx={{ display: 'inline-flex', bgcolor: 'action.hover', borderRadius: 999, p: '3px', mb: 1.25 }}>
-            {shown.map((b, i) => (
-              <Box
-                key={b.label}
-                onClick={() => setActive(i)}
-                sx={{
-                  px: 1.5, py: 0.4, borderRadius: 999, cursor: 'pointer',
-                  fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.3,
-                  whiteSpace: 'nowrap', userSelect: 'none', transition: 'all 0.15s',
-                  // The solid variant, not WPBL_ACCENT: white on #60a5fa measures 2.37:1,
-                  // and colour contrast is absolute, so that fails in dark mode too.
-                  bgcolor: i === idx ? 'var(--wpbl-accent-solid)' : 'transparent',
-                  color: i === idx ? '#fff' : 'text.secondary',
-                  '&:hover': i !== idx ? { color: 'text.primary' } : {},
-                }}
-              >
-                {b.short}
-              </Box>
-            ))}
+          {/* Both selectors on one row: the half of the game on the left, the statistic within
+              it on the right. They were stacked, which read as a hierarchy that isn't there and
+              cost the card a second band of chrome above a three-row board. Opposite ends of
+              one row says the same thing about them being different questions, in one band.
+              They fit: two groups of short labels come to roughly 260px of the ~490px column,
+              and `flexWrap` stacks them again on a phone rather than crushing either.
+
+              Switching halves resets the statistic, since "HR" has no counterpart on the
+              pitching side and carrying the index across would land on whatever sat third. */}
+          <Box sx={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: 1, rowGap: 1, flexWrap: 'wrap', mb: 1.25,
+          }}>
+            {liveGroups.length > 1 && (
+              <PillGroup
+                options={liveGroups.map(g => ({ value: g.key, label: g.label }))}
+                value={current.key}
+                onChange={v => { setGroup(liveGroups.findIndex(g => g.key === v)); setActive(0) }}
+              />
+            )}
+            {/* Category chips. The selector doubles as the block's label. */}
+            <PillGroup
+              options={shown.map(b => ({ value: b.label, label: b.short }))}
+              value={shown[idx].label}
+              onChange={v => setActive(shown.findIndex(b => b.label === v))}
+            />
           </Box>
 
           {/* Swipe the rows left/right to change category (commit on release, so vertical
@@ -743,7 +884,11 @@ function LeadersCard({ title, blocks, loading, hasData, teamById, onOpenPlayer, 
               const dy = e.changedTouches[0].clientY - swipe.current.y
               if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) step(dx < 0 ? 1 : -1)
             }}
-            sx={{ minHeight: `${reservePx}px` }}
+            // `reservePx` is the floor, `flex: 1` the ceiling. Leaders is the shorter of the
+            // two cards in its row and the row now stretches both to a shared height, so the
+            // difference has to land somewhere: below the last leader, inside the board, is
+            // the only place it reads as margin rather than as a gap in the card.
+            sx={{ minHeight: `${reservePx}px`, flex: 1 }}
           >
             <StatBlock key={shown[idx].label} label={shown[idx].label} rows={shown[idx].rows} teamById={teamById} onOpenPlayer={onOpenPlayer} hideLabel />
           </Box>
@@ -836,74 +981,6 @@ function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView
   )
 }
 
-// Community invite — links out to the WPBL fan Discord. Styled in Discord's blurple
-// so it reads as "join the chat" at a glance, but kept to one slim row so it sits
-// under the scoreboard without crowding the actual content.
-const DISCORD_INVITE = 'https://discord.gg/hTaZKFzk6H'
-const DISCORD_BLURPLE = '#5865F2'
-const DISCORD_DISMISS_KEY = 'wpbl_discord_dismissed'
-
-function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
-  // Dismissal is remembered (localStorage) and owned by the parent, which only mounts this card
-  // when it hasn't been dismissed — so once closed it stays gone and leaves no empty slot behind.
-  // Count one impression per mount, i.e. only for users who actually see the card.
-  useEffect(() => { track(EVENTS.DISCORD_SHOWN) }, [])
-  const dismiss = () => {
-    track(EVENTS.DISCORD_DISMISSED)
-    try { localStorage.setItem(DISCORD_DISMISS_KEY, '1') } catch { /* private mode / quota — non-fatal */ }
-    onDismiss()
-  }
-  return (
-    <Box
-      component="a"
-      href={DISCORD_INVITE}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={() => track(EVENTS.DISCORD_JOINED)}
-      sx={{
-        display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25,
-        textDecoration: 'none', cursor: 'pointer',
-        borderRadius: 2, border: '1.5px solid', borderColor: `${DISCORD_BLURPLE}66`,
-        bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(88,101,242,0.09)' : 'rgba(88,101,242,0.06)',
-        transition: 'background-color 0.15s, border-color 0.15s',
-        '&:hover': {
-          bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(88,101,242,0.18)' : 'rgba(88,101,242,0.12)',
-          borderColor: DISCORD_BLURPLE,
-        },
-      }}
-    >
-      <Box sx={{ width: 34, height: 34, borderRadius: '50%', bgcolor: DISCORD_BLURPLE, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <Box component="svg" viewBox="0 0 24 24" aria-hidden="true" sx={{ width: 19, height: 19 }}>
-          <path fill="#fff" d="M20.317 4.3698a19.7913 19.7913 0 0 0-4.8851-1.5152.0741.0741 0 0 0-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 0 0-.0785-.037 19.7363 19.7363 0 0 0-4.8852 1.515.0699.0699 0 0 0-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 0 0 .0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 0 0 .0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 0 0-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 0 1-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 0 1 .0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 0 1 .0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 0 1-.0066.1276 12.2986 12.2986 0 0 1-1.873.8914.0766.0766 0 0 0-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 0 0 .0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 0 0 .0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 0 0-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z" />
-        </Box>
-      </Box>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, lineHeight: 1.2, color: 'text.primary' }}>
-          Join the WPBL fan Discord
-        </Typography>
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 0.2 }}>
-          Live game chats and more.
-        </Typography>
-      </Box>
-      <Box sx={{ flexShrink: 0, px: 1.5, py: 0.6, borderRadius: 999, bgcolor: DISCORD_BLURPLE, color: '#fff', fontSize: '0.75rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
-        Join
-      </Box>
-      <Box
-        onClick={e => { e.preventDefault(); e.stopPropagation(); dismiss() }}
-        role="button"
-        aria-label="Dismiss Discord invite"
-        sx={{
-          flexShrink: 0, width: 22, height: 22, ml: 0.25,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          borderRadius: '50%', color: 'text.disabled', fontSize: '0.8rem', lineHeight: 1,
-          '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
-        }}
-      >
-        ✕
-      </Box>
-    </Box>
-  )
-}
 
 // ─── Home ───────────────────────────────────────────────────────────────────────
 
@@ -933,13 +1010,8 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   const [tracking, setTracking] = useState<WpblTrackRow[]>(() => getCachedWpblAllTracking() ?? [])
   const [videos, setVideos] = useState<WpblVideo[]>(() => getCachedWpblVideos() ?? [])
   const [articles, setArticles] = useState<WpblArticle[]>(() => getCachedWpblArticles() ?? [])
+  const [photos, setPhotos] = useState<WpblPhoto[]>(() => getCachedWpblPhotos() ?? [])
   const [loadingLeaders, setLoadingLeaders] = useState(() => wpblHomeCacheAgeMs() === Infinity)
-  // Discord dismissal is tracked here (not inside DiscordCard) so a dismissed invite leaves no
-  // empty wrapper in the left column — otherwise the column's row-gap would keep pushing the
-  // Next game card down, out of line with the top of the right column (Batting Leaders).
-  const [discordDismissed, setDiscordDismissed] = useState(() => {
-    try { return localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { return false }
-  })
 
   // Full load once, then revalidate on later mounts only when the cache is cold or stale:
   // a quick swipe back to a warm Home is instant and silent. Players are static for the
@@ -973,6 +1045,15 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
     return () => { cancelled = true }
   }, [])
 
+  // The archive gallery, on the same terms again. This one is the least urgent read on the
+  // page by a distance: the table is a curated set that changes when someone approves a
+  // photograph, which is weeks apart, so it must never be able to gate anything else.
+  useEffect(() => {
+    let cancelled = false
+    fetchWpblPhotos().then(p => { if (!cancelled) setPhotos(p) }).catch(() => { /* keep last-good */ })
+    return () => { cancelled = true }
+  }, [])
+
   // While a game is live, refresh only the box-score lines (what the leaders read), and on a
   // gentle cadence. Deliberately NOT re-pulled on the tick: the full player roster (static)
   // and the whole pitch_tracking table (large). That repeated full-table scan every 25s was
@@ -1002,14 +1083,14 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])
 
   const battingBlocks = useMemo(() => [
-    { label: 'OPS',       short: 'OPS', sortKey: 'ops', rows: topBat(batSeasons, t => t.ops, t => fmtRate(t.ops), t => !qual.active || t.ab >= qual.minAb, 3, t => `${t.ab} AB`) },
+    { label: 'OPS',       short: 'OPS', sortKey: 'ops', rows: topBat(batSeasons, t => t.ops, t => fmtRate(t.ops), t => !qual.active || t.ab >= qual.minAb, LEADER_ROWS, t => `${t.ab} AB`) },
     { label: 'Home runs', short: 'HR',  sortKey: 'hr',  rows: topBat(batSeasons, t => t.hr,  t => String(t.hr), t => t.hr > 0) },
     { label: 'RBI',       short: 'RBI', sortKey: 'rbi', rows: topBat(batSeasons, t => t.rbi, t => String(t.rbi), t => t.rbi > 0) },
   ], [batSeasons, qual])
 
   const pitchingBlocks = useMemo(() => [
-    { label: 'ERA',        short: 'ERA', sortKey: 'era', rows: topPit(pitSeasons, t => (t.era == null ? null : -t.era), t => fmtTwo(t.era), t => !qual.active || t.outs >= qual.minOuts, 3, t => `${outsToIp(t.outs)} IP`) },
-    { label: 'Strikeouts', short: 'K',   sortKey: 'so',  rows: topPit(pitSeasons, t => t.so, t => String(t.so), t => t.so > 0, 3, t => `${outsToIp(t.outs)} IP`) },
+    { label: 'ERA',        short: 'ERA', sortKey: 'era', rows: topPit(pitSeasons, t => (t.era == null ? null : -t.era), t => fmtTwo(t.era), t => !qual.active || t.outs >= qual.minOuts, LEADER_ROWS, t => `${outsToIp(t.outs)} IP`) },
+    { label: 'Strikeouts', short: 'K',   sortKey: 'so',  rows: topPit(pitSeasons, t => t.so, t => String(t.so), t => t.so > 0, LEADER_ROWS, t => `${outsToIp(t.outs)} IP`) },
     { label: 'Innings',    short: 'IP',  sortKey: 'ip',  rows: topPit(pitSeasons, t => t.outs, t => outsToIp(t.outs), t => t.outs > 0) },
   ], [pitSeasons, qual])
 
@@ -1069,56 +1150,82 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
       {/* Scoreboard */}
       <Scoreboard games={games} teams={teamMap} onOpenGame={onOpenGame} />
 
-      {/* Two-column feed. On desktop the two columns render as written (The League |
-          Around the League). On mobile there's one column, so the two wrappers collapse to
-          `display: contents` and every card becomes a direct grid item — then CSS `order`
-          sets the single-column sequence independently of which desktop column a card lives
-          in. That is what lets the right column's cards interleave into the mobile stack at
-          the points they belong rather than all landing beneath the left column's. */}
+      {/* Two columns: today's games on the left, the season's numbers on the right.
+
+          EVEN TRACKS, and three up was tried and rejected. Laying the season cards out as a
+          row of three gives each 317px at this page's width, and at 317px the standings table
+          clips every club name and both leader boards clip every player name. Two columns at
+          490px clip nothing. A tidier bottom edge is not worth reading "Meggie Meidling…".
+
+          SUBGRID, so the two columns share their ROW boundaries. As two independent flex
+          columns they only agreed at the top: Next game ended above Standings, Last game and
+          Leaders ended wherever their content ran out, and the ragged bottom edge left a notch
+          under the shorter column that the full-width shelf below made impossible to miss.
+          The parent declares two rows; each column spans both and re-uses them, so row 1 is
+          max(Next game, Standings) in BOTH columns and row 2 is max(Last game, Leaders). The
+          bottom edge is then flush by construction rather than by luck of the content.
+
+          Every card in here is `fill`, and the shorter one in each row places the difference
+          deliberately (see the `mt: 'auto'` in NextGameCard and LastGameCard, and the board's
+          `flex: 1` in LeadersCard). Without that, stretching a card would just move the ragged
+          edge inside it.
+
+          NO `order` VALUES, AND STILL NONE NEEDED, which is the reason for subgrid rather
+          than four bare grid items. Four items in one grid would align rows for free, but the
+          single mobile column would then read Next game, Standings, Last game, Leaders, and
+          fixing that needs `order` at one breakpoint: a second numbering scheme to keep in
+          step with DOM order by hand, which is exactly what a previous layout here did and
+          what removing it was worth. Keeping the columns as real elements means mobile is
+          plain DOM order, and the columns just drop back to flex below md.
+
+          Subgrid is Chrome 117 / Safari 16 / Firefox 71. Where it is missing the declaration
+          is dropped and each column falls back to its own two auto rows, which is the ragged
+          edge this replaced: degraded, not broken. */}
       <Box sx={{
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: '1.4fr 1fr' },
-        columnGap: 2.5, rowGap: 1.5, alignItems: 'start',
+        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+        gridTemplateRows: { md: 'auto auto' },
+        columnGap: 2.5, rowGap: 1.5,
       }}>
-        {/* The single-column (mobile) sequence, which the `order` values below spell out:
-            Discord, Next game, Last game, Reading, Highlights, Standings, Batting, Pitching. Kept gap-free and collision-free on purpose: two cards sharing
-            an order value fall back to DOM order, which reads as correct until someone
-            reorders a column and it silently isn't. */}
-        {/* The League */}
-        <Box sx={{ minWidth: 0, display: { xs: 'contents', md: 'flex' }, flexDirection: 'column', gap: 1.5 }}>
-          {!discordDismissed && (
-            <Box sx={{ minWidth: 0, order: { xs: 1, md: 0 } }}><DiscordCard onDismiss={() => setDiscordDismissed(true)} /></Box>
-          )}
-          <Box sx={{ minWidth: 0, order: { xs: 2, md: 0 } }}><NextGameCard games={games} teams={teamMap} onOpenGame={onOpenGame} /></Box>
-          <Box sx={{ minWidth: 0, order: { xs: 3, md: 0 } }}><LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} /></Box>
-          {/* Reading then Highlights. The two are a pair (both answer "what happened", one in
-              prose and one in video) and they share a card shape to say so, but reading leads:
-              a piece of writing is the thing you would not have found on your own, and the
-              league's own reels are a click away wherever else you look for them.
-
-              The order is set twice on purpose. DOM order is what desktop follows, since this
-              column is a plain flex column at md; the `xs` values are what the single-column
-              mobile grid follows. Changing one without the other silently flips the pair on
-              the other breakpoint. Both self-hide on an empty feed, so neither leaves a gap. */}
-          {articles.length > 0 && (
-            <Box sx={{ minWidth: 0, order: { xs: 4, md: 0 } }}><ReadingRail articles={articles} teams={teams} /></Box>
-          )}
-          {videos.length > 0 && (
-            <Box sx={{ minWidth: 0, order: { xs: 5, md: 0 } }}><HighlightsRail videos={videos} teams={teams} /></Box>
-          )}
+        {/* Today's games. */}
+        <Box sx={{
+          minWidth: 0, gap: 1.5,
+          display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
+          gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
+        }}>
+          <NextGameCard games={games} teams={teamMap} onOpenGame={onOpenGame} />
+          <LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} />
         </Box>
 
-        {/* Around the League */}
-        <Box sx={{ minWidth: 0, display: { xs: 'contents', md: 'flex' }, flexDirection: 'column', gap: 1.5 }}>
-          {/* Standings heads this column. It moved over from the left when Hall of Firsts
-              came out: the left column is now the narrative one (what happened, in video and
-              in prose) and the right is the reference one (where everyone stands, and who is
-              leading what), which is a cleaner split than the four-card left column it had
-              become. Mobile reads it after the left column's rails. */}
-          <Box sx={{ minWidth: 0, order: { xs: 6, md: 0 } }}><StandingsCard teams={teams} games={games} onOpenTeam={onOpenTeam} /></Box>
-          <Box sx={{ minWidth: 0, order: { xs: 7, md: 0 } }}><LeadersCard title="Batting Leaders" blocks={battingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={sortKey => onViewStats('hitting', sortKey)} /></Box>
-          <Box sx={{ minWidth: 0, order: { xs: 8, md: 0 } }}><LeadersCard title="Pitching Leaders" blocks={pitchingBlocks} loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer} onViewAll={sortKey => onViewStats('pitching', sortKey)} /></Box>
+        {/* The season's numbers. */}
+        <Box sx={{
+          minWidth: 0, gap: 1.5,
+          display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
+          gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
+        }}>
+          <StandingsCard teams={teams} games={games} onOpenTeam={onOpenTeam} />
+          <LeadersCard
+            title="Leaders"
+            groups={[
+              { key: 'hitting', label: 'Batting', blocks: battingBlocks, onViewAll: sortKey => onViewStats('hitting', sortKey) },
+              { key: 'pitching', label: 'Pitching', blocks: pitchingBlocks, onViewAll: sortKey => onViewStats('pitching', sortKey) },
+            ]}
+            loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer}
+          />
         </Box>
+      </Box>
+
+      {/* Reading, Highlights and the Archive, in one full-width card under the feed.
+
+          Outside the columns on purpose, and full width on purpose. These are horizontal strips,
+          the one thing on this page that turns width into content: the same card height shows
+          five or six cards across the page instead of three in a column. Stacked as three
+          separate cards they were 1415px of a 2125px left column, against 838px on the right.
+
+          Last on the page at both breakpoints, which is also the right editorial answer during
+          a season: everything above is about games that just happened or are about to. */}
+      <Box sx={{ mt: 1.5 }}>
+        <MediaShelf articles={articles} videos={videos} photos={photos} teams={teams} />
       </Box>
 
     </Box>

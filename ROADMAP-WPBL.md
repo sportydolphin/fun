@@ -31,7 +31,7 @@ played. Nothing yet exists that makes `/wpbl` worth opening in November.
 ## Where the section stands
 
 **Live surfaces:** Home (scoreboard strip, last-game recap card, next-game card + countdown,
-standings, leaders, highlights rail, reading rail, Discord invite) ·
+standings, leaders, highlights rail, reading rail, archive rail, Discord invite) ·
 Schedule · Standings (W/L/PCT/GB/L10/STRK/DIFF, H2H tiebreak) · Stats (hitting / pitching /
 tracking / draft, sortable, team filter, qualified toggle) · Teams (ranked club cards with
 record, form, run differential and next game, plus a head-to-head grid) → team pages (record,
@@ -132,6 +132,12 @@ Two reasons to start now rather than in September:
 Worth noting as evidence of demand: `github.com/exu6jh/RetroWPBL` is a stranger
 hand-transcribing WPBL play-by-play into Retrosheet format, game by game, from the same
 public feed we already mirror in far more depth. People want the historical record.
+
+**Partly answered as of Aug 19**, from the other end: the Commons archive gallery (see the
+shipped log) is durable content that needed no season capture at all. It does not replace this
+item, which is about *this* season's record. It does mean `/wpbl` is no longer completely empty
+of reasons to visit in November, so the deadline pressure here is about the snapshotting, not
+about having something to show.
 
 ### 3. Google Search Console + SEO follow-through ⚙️
 
@@ -430,6 +436,168 @@ v1.45.0.
   design **cannot** catch: two players swapped consistently through a game keeps the order
   legal and the outs adding up. That needs an independent transcription, and the one that
   exists carries no licence.
+
+### Aug 19, 2026: Home's cards line up, and Next game earns its height
+
+The shelf pass above squared the two columns as *totals*, 627 against 625. It did not square
+them anywhere a reader looks: the cards inside them still ended wherever their content ran out,
+so the row boundaries were ragged and the full-width shelf underneath made the notch under the
+shorter column impossible to miss. This pass fixed the alignment, then dealt with the empty space
+that aligning things creates.
+
+- ✅ **The two columns share row boundaries, via CSS subgrid.** The parent grid declares two
+  rows; each column spans both and re-uses them, so row 1 is `max(Next game, Standings)` in
+  both columns and row 2 is `max(Last Game, Leaders)`. The bottom edge is flush by
+  construction rather than by luck of the content. Measured: **333/333 and 358/358**.
+- ⚙️ **Subgrid rather than four bare grid items, to keep `order` out of the layout.** Four
+  items in one grid would align rows for free, but the single mobile column would then read
+  Next game, Standings, Last Game, Leaders, and fixing that needs `order` at one breakpoint:
+  the second numbering scheme the entry above was pleased to have deleted. Real column
+  elements mean mobile is plain DOM order and the columns just fall back to flex below `md`.
+  Chrome 117 / Safari 16 / Firefox 71; where it is missing the declaration is dropped and each
+  column falls back to its own rows, which is the ragged edge this replaced.
+- ⚙️ **Stretching a card only moves the ragged edge inside it**, so every card in the grid
+  takes a `fill` prop and the shorter one in each row places the difference deliberately:
+  leader rows share it out between them, standings rows grow into it (a table absorbs height
+  as taller rows, 48px to 59px, with the rules still attached to the rows they belong to), and
+  Next game splits it above and below the matchup.
+- 🐛 **`fill` originally set `height: 100%`, which squashed Last Game by 32px on a phone.**
+  Below `md` the container is a flex column, and a percentage height resolves against the
+  column's own height, making every card in it the same size. A grid item already stretches to
+  its row, so the declaration was redundant where it worked and harmful where it did not.
+- ✅ **The Reading / Highlights / Archive switcher moved into the shelf's header.** That header
+  was carrying a title, a subtitle and a chevron across the full page width with nothing in the
+  middle, while the control below it cost a whole band on the page's longest card. The subtitle
+  already names the active segment, so the two were describing the same thing on two lines.
+  Header placement is `sm` and up; at 375px the row is title plus three pills plus chevron,
+  which is where the title starts wrapping. Picking a segment while the card is collapsed now
+  opens it, since the switcher stays visible when the body does not.
+- ✅ **Leader boards list five, not three.** Three names left the card about 90px short of the
+  one beside it, and two more leaders is the only filling for that gap worth a reader's time.
+  The board reserves the tallest category's height so stepping between categories does not jolt
+  the card, so a short category is already sitting in a box built for five: rows only share out
+  the slack when the board is **full**, since spreading two rows across it would put eighty
+  pixels between them.
+- ✅ **Next game was the weakest card on the page and is now built on Last Game's skeleton**,
+  tier for tier: two team rows, one line at headline weight, one quieter line of context, a
+  rule, then the row you can act on. Same badge, same name size, same trailing number in the
+  same slot at the same size. The only honest difference is that one card's number is a final
+  score and the other's is a record.
+- ✅ **Records and the season series** are the new content. Records come from
+  `computeStandings`, not a local count, so the two numbers on those rows are the same two the
+  Standings card renders beside them. The series line is filtered the same way, decisive finals
+  only, for the same reason. It renders nothing before two clubs have met, which is a real
+  state early in a season and reads better than "0–0".
+- ✅ **The countdown moved out of the header chip into the headline slot.** The top-right of a
+  card is where it puts an afterthought, and the clock is the only thing Next game knows that
+  nothing else on the page does. `tabular-nums` is scoped to the digits, so the sentence does
+  not twitch sideways once a second.
+- ⚙️ **The record's width tipped "San Francisco Firebells" onto a second line at 320px**, so
+  the name takes an ellipsis as its final net. Last Game's otherwise identical row does not
+  need one: its trailing number is one or two digits against this one's four glyphs. At 375px
+  every club name still fits in full.
+- ❌ **Not done: swapping Leaders above Standings.** It measures better, cutting the leftover
+  from 135px to 48px and the column by 41px, but it drops Standings from third card to fourth
+  on a phone. That is an editorial call about what a reader wants first, not a layout one.
+
+### Aug 19, 2026: Home rearranged around one media shelf, and the Discord card retired
+
+- ✅ **Reading, Highlights and the Archive are now one full-width card** with a segmented
+  control ([`src/wpbl/MediaShelf.tsx`](src/wpbl/MediaShelf.tsx)), sitting under the two-column
+  feed instead of stacked down the left of it.
+- **The measurement that forced it**, at 1440px: the left column ran to **2125px across six
+  cards** and the right to **838px across three**, so the right was 39% of the left and
+  **1286px of empty space** ran down one side of the page. The three rails alone were 1415px
+  of that, 67% of the column. They are also the same UI doing the same job, and three
+  sideways-scrolling strips stacked vertically read as repetition rather than as three offers.
+- **Result:** columns at **627 vs 625**, page height **2779px to 1800px**, and Home down from ten cards to four plus the shelf. On mobile the three
+  rails were about 1180px of the single column and the shelf is 462px.
+- ✅ **Full width is the point, not a side effect.** A horizontal strip is the one thing on
+  this page that converts width into content: the same card height shows five or six cards
+  across the page instead of three in a column.
+- ✅ **The Discord promo card is retired**, after several weeks on the home screen. That is
+  long enough for anyone who wanted the fan server to have joined it; what is left is the
+  standing link, not the pitch. It moved to the WPBL footer beside "API for developers", still
+  firing `discord_joined` so the one number worth keeping survives. The `/admin` funnel is
+  labelled retired, because `shown` is now frozen while `joined` keeps climbing and the rate
+  would otherwise drift past 100% and read as a bug.
+- ✅ **Column ratio 1.4fr to 1fr 1fr**, in two steps: the 1.4 existed to give the media rails
+  room, and with them gone it was starving the side that needed it (the leaders card was
+  ellipsising player names at 1440px). Even tracks at 490px clip nothing.
+- ✅ **Batting and Pitching leaders became one card**, switched by its own control. That is
+  what first squared the columns: **627 against 625, a 2px difference**, down from 211px. They
+  were the same card twice, three rows each, differing only in which categories they offered.
+  Switching halves resets the category, since "HR" has no counterpart on the pitching side and
+  carrying the index across would land on whatever happened to sit third. The control started
+  on a row of its own, because sharing one with the chips as a **single** five-pill strip with
+  two of them lit reads as one broken control rather than as two questions. Later the same day
+  the two went back onto one row as two **separate** groups at opposite ends, which says the
+  same thing about them being different questions and costs one band instead of two (see the
+  alignment pass below).
+- ❌ **Two other ways to close that gap were tried and rejected.** Three-up for the season
+  cards balances perfectly and is 187px shorter, but at 317px each the standings table clips
+  every club name and both leader boards clip every player name. A full-width standings row is
+  worse still: its stat columns are fixed at 32/32/48px, so at 1008px the numbers strand
+  themselves an inch from the names. No column ratio helps either, tested at 0.85fr and 1.4fr:
+  these cards are sized by their content structure, not by text wrap, so a narrower track does
+  not make them taller.
+- ⚙️ **Both mobile-ordering mechanisms are gone.** The layout used to collapse its column
+  wrappers to `display: contents` on mobile and re-sequence every card with CSS `order`: two
+  numbering schemes kept in step by hand. That existed so Standings could interleave into the
+  middle of the left column's rails. The rails are in the shelf and the Discord card is gone,
+  so the mobile order is just left column then right column, which is DOM order.
+- ⚠️ **What it costs:** only the active segment paints, so Highlights and Archive lose the
+  free impression they used to get. Reading still leads, for the reason already written into
+  the old layout. `wpbl_shelf_segment` and the two `*_SHOWN` events measure it, and the latter
+  are now true impressions for the first time: the old rails logged a render even when the
+  reader had the card collapsed.
+
+### Aug 19, 2026: the archive gallery, and the first thing here that survives Sep 6
+
+- ✅ **"From the archive": freely licensed women's baseball photography** from Wikimedia
+  Commons, as a Home rail plus a full gallery
+  ([`src/wpbl/Photos.tsx`](src/wpbl/Photos.tsx), `wpbl_photos`,
+  [`scripts/sync-wpbl-commons.mjs`](scripts/sync-wpbl-commons.mjs) weekly on Sundays).
+  **The feature that was asked for was photographs of current WPBL players, and Commons cannot
+  support it**: its WPBL category held 8 files, and all 118 rostered players searched by name
+  returned 0 real matches. What it does hold is the AAGPBL, the World Cup and the pioneers,
+  227 files reachable from three seed categories, largely public domain via Florida Memory and
+  the Library of Congress. So the feature turned into the archive, which is the better version
+  anyway: it is the **only thing on the section today that still has something to show in
+  November**, and the first item to actually answer "The clock" above rather than race it.
+- ✅ **An approval gate, in RLS rather than in the query.** Rows land `approved = false` and
+  the `select` policy is `using (approved)`, making `wpbl_photos` the one WPBL table whose rows
+  are not public simply by existing. Necessary because Commons category membership is
+  crowd-maintained and returns whatever somebody filed: `Category:Women's baseball` legitimately
+  reaches 67 photos of a Japanese high school exhibition game and 27 Victorian cigarette cards.
+  The sync omits `approved`, `caption` and `sort_order` from its upsert payload, so a weekly
+  re-run can neither publish something new nor resurrect something rejected. 16 photographs are
+  approved; 211 sit in the review queue.
+- ✅ **Attribution designed in, not appended.** A real share of the pool is CC BY or CC BY-SA,
+  which oblige naming the creator and the licence and linking the source, so the credit line is
+  on every card in every surface: the licence is engaged the moment the rail paints, not when
+  someone clicks. Commons serves descriptions and credits as uploader-authored HTML, which the
+  sync strips to plain text; nothing on `WpblPhoto` is ever rendered as markup.
+- ✅ **Library cataloguing unpicked into captions.** Most of this pool has a catalogue record
+  where a caption should be ("Local call number: c009836 Title: […] Date: Photographed on April
+  22, 1948. Physical descrip: 1 photoprint…"), so `deriveCaption()` extracts the title,
+  unbrackets it and drops the general material designation. Without it nearly every card on the
+  rail opened with a call number. A `caption` column overrides it where the result still reads
+  badly, which is expected rather than a failure.
+- ⚙️ **Commons serves thumbnails only at a fixed ladder of widths** (250, 500, 960, 1280,
+  1920) and 400s anything else. The first cut of the sync picked 640 and 1600, so every image
+  would have shipped broken. It now asks the API once per width instead of swapping the number
+  in a URL, which also covers the two rules underneath that one: Commons will not upscale, and
+  past a filename-length limit it renames the render to a literal `500px-thumbnail.jpg`. Both
+  would have defeated a constructed URL. The two passes also let archival TIFF scans in, which
+  Commons renders to JPEG and which are sixteen of the better photographs in the pool.
+- ⚙️ **Wikimedia's rate limit is real.** A first pass that looked up 118 player names one
+  request at a time was blocked within two minutes. The sync walks categories with a generator
+  (fifty files and their imageinfo per request), sends a contact-carrying user-agent because
+  the API requires one, and retries a throttle with a widening backoff rather than bailing and
+  leaving the table half-written.
+- 📄 Written up in [`docs/COMMONS_PHOTOS.md`](docs/COMMONS_PHOTOS.md): the survey, the
+  review query, and what the sync will not do.
 
 ### Aug 19, 2026: shared player links were a trap
 

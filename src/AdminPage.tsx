@@ -388,8 +388,17 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
       </Section>
 
       {/* ── Discord funnel ─────────────────────────────────────────────── */}
-      <Section title="Discord invite">
+      <Section title="Discord invite (retired)">
         <Box sx={{ px: 1.5, py: 0.5 }}>
+          {/* The Home promo card was retired on Aug 19 after several weeks up; the invite is a
+              standing link in the WPBL footer now. So `shown` and `dismissed` are frozen while
+              `joined` keeps climbing from the footer, and the rates below will drift past what
+              they mean and eventually past 100%. Read this as a record of the card's run, not
+              as a live funnel. */}
+          <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', pb: 0.75 }}>
+            The card was retired on Aug 19, 2026. Impressions and dismissals are frozen; joins
+            still accrue from the footer link, so treat the rates as historical.
+          </Typography>
           <StatRow
             label="Sessions that saw the card"
             sub={`${discord.impressions.toLocaleString()} impressions — the card mounts several times a session`}
