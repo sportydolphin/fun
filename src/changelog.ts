@@ -6,11 +6,23 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '1.46.2',
     date:    '2026-08-20',
-    title:   'Season stats stay season stats',
+    title:   'Season stats stay season stats, and a way back into your account',
     changes: [
       {
         short: 'Playoff games will not be added to anyone’s season numbers',
         full:  'Last week the standings were fixed so the postseason could not change a club’s record. This is the other half of it: the stat pages. A batting average, an ERA, a home run count and every leaderboard on the site are the regular season only, and the seven to eleven playoff games that start on September 9 will be kept apart from them. Left alone it would have been unfair as well as wrong, because a club that reaches the final plays up to eight extra games while a club knocked out in the first round plays two, so the leaderboards would have quietly reordered themselves by how far a team went rather than by how anyone played. Game pages still show every game, including playoff games, and a player’s game log still lists all of them.',
+      },
+      {
+        short: 'You can reset your password if you have forgotten it',
+        full:  'There was no way back into an account with a forgotten password, short of asking. There is now a "Forgot password?" link on the sign in box: it emails you a link, and opening that link lets you choose a new password on the spot. It works for accounts made with Google too, which is how you would add a password to one. For your own safety the confirmation is worded the same whether or not that email address has an account here, so the form cannot be used by anyone else to find out who has signed up.',
+      },
+      {
+        short: 'Confirming your email now tells you it worked',
+        full:  'Clicking the confirmation link in a new account’s email did the right thing and then said nothing at all: the account was activated, you were signed in, and the page looked exactly like any other visit. It now says so. The same fix means a link that has expired or has already been used explains itself instead of leaving you on a page where apparently nothing happened.',
+      },
+      {
+        short: 'A seeding race card, if you turn experimental features on',
+        full:  'All four clubs go to the postseason, so the standings table has been showing a race for a place nobody can miss. What the last games actually decide is the order, because that sets the semifinals: first plays fourth and second plays third. A new card under the standings says so, with how far each club is clear of the one below, how many results it needs to lock its place, and who it would draw. It is behind the experimental features switch in Settings for now, since it is the first thing here that predicts rather than reports.',
       },
     ],
   },

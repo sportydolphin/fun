@@ -30,6 +30,7 @@ npm run build    # production build (vite build)
 npm run preview  # serve the production build locally
 npm run test     # Vitest (jsdom pinned to 26.x, see note below)
 npm run migrate  # apply pending DB migrations (scripts/migrations/; needs SUPABASE_DB_URL)
+npm run auth-link -- recovery you@example.com   # a real reset link pointing at localhost (see below)
 npm run discord-recaps -- --dry-run   # render the WPBL box scores this would post to Discord
 npm run discord-highlights -- --dry-run # render the YouTube highlight posts this would send
 npm run discord-commands -- --list    # show the Discord slash commands currently registered
@@ -37,6 +38,31 @@ npm run check-functions               # bundle the Cloudflare Pages functions as
 npm run validate-pbp -- --baseline scripts/wpbl-pbp-baseline.json  # WPBL scoring check (needs SUPABASE_DB_URL)
 npm run restock-watch -- --status     # WPBL shop watcher: snapshot size, shortlist, last successful run
 ```
+
+### Testing auth links locally
+
+A password-reset or email-confirmation link **cannot be tested by clicking it locally**, and it
+fails in the least helpful way possible. The app asks Supabase to redirect back to the origin the
+request came from, and if that origin is not in the project's redirect allow-list Supabase does
+not error: it silently substitutes the Site URL. The link lands on production, runs whatever is
+deployed there, and nothing anywhere says the redirect was swapped.
+
+Two ways round it, and the first needs no dashboard access:
+
+```bash
+npm run auth-link -- recovery you@example.com     # password reset
+npm run auth-link -- signup   new@example.com     # email confirmation
+```
+
+That prints a real callback URL pointing at `http://localhost:5173`, byte-identical to what
+Supabase's verify endpoint would have redirected to, with real tokens and no email sent. Paste it
+into a browser and every line of the app's link handling runs for real. It needs
+`SUPABASE_SERVICE_ROLE_KEY` in `.env` (generating a link without sending it is an admin call).
+
+To test the actual emails instead, add `http://localhost:5173/**` to **Authentication → URL
+Configuration → Redirect URLs** in the Supabase dashboard. The dev server is pinned to 5173 with
+`strictPort` for exactly this reason: a port that quietly drifts to 5174 breaks that match and
+sends you back to production. Run a second server with `PORT=5174 npm run dev`.
 
 **jsdom is pinned to `^26.1.0` on purpose.** jsdom 27 pulls in `html-encoding-sniffer@6`,
 which is CommonJS but `require()`s the ESM-only `@exodus/bytes`: that only works on a Node

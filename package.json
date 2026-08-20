@@ -18,6 +18,7 @@
     "survivor-bots": "node scripts/run-survivor-bots.mjs",
     "tasks": "node --env-file=.env scripts/pull-tasks.mjs",
     "migrate": "node --env-file=.env scripts/migrate.mjs",
+    "auth-link": "node --env-file=.env scripts/dev-auth-link.mjs",
     "discord-recaps": "esbuild scripts/post-wpbl-discord-recaps.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-discord-recaps.mjs && node node_modules/.cache/wpbl-discord-recaps.mjs",
     "discord-highlights": "node scripts/post-wpbl-discord-highlights.mjs",
     "discord-birthdays": "esbuild scripts/post-wpbl-discord-birthdays.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-discord-birthdays.mjs && node node_modules/.cache/wpbl-discord-birthdays.mjs",

@@ -7,7 +7,19 @@ export default defineConfig({
   root: '.',
   plugins: [react(), wpblPortraitAssets(), wpblPreload()],
   // Dev-server port can be assigned by tooling (e.g. Claude preview) via PORT.
-  server: process.env.PORT ? { port: Number(process.env.PORT) } : undefined,
+  //
+  // `strictPort` on the default branch, so a busy 5173 FAILS instead of quietly moving to 5174.
+  // The port used to be an irrelevance; it stopped being one when auth links arrived. A Supabase
+  // reset or confirmation link redirects to an origin that has to be in the project's allow-list,
+  // and an origin that is not on it does not error: Supabase substitutes the Site URL, so the
+  // link lands on production and the thing you were testing never runs. A drifting dev port
+  // breaks that match silently, one port at a time. Loud is better here.
+  //
+  // A second dev server therefore has to say so: `PORT=5174 npm run dev`, which takes the
+  // branch above and drops the constraint.
+  server: process.env.PORT
+    ? { port: Number(process.env.PORT) }
+    : { port: 5173, strictPort: true },
   // NOTE: a manualChunks split of MUI/React into separate vendor chunks was tried and
   // reverted — it produced a circular import between the two chunks (react-vendor ⇄ mui,
   // because MUI's transitive deps straddled the split), which broke module init order and

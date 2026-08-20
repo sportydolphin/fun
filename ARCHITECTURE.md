@@ -367,6 +367,7 @@ Setup walkthrough: [`docs/PUSH_NOTIFICATIONS.md`](docs/PUSH_NOTIFICATIONS.md).
 | **Google Tasks API** | `pull-tasks` | Ingest feature requests |
 | **Web Push (VAPID)** | reminder scripts + `send-test-push` | Browser notifications |
 | **Google OAuth** | `AuthContext` via Supabase Auth | Sign-in |
+| **Supabase Auth email** | `AuthContext` | Sign-up confirmation and password reset. Links redirect back to whatever page they were requested from, so **every such origin must be in the project's redirect allow-list** or supabase silently substitutes the Site URL (which is why a local reset link lands on production unless `http://localhost:*` is allowed). The client runs the default `implicit` flow, so the callback arrives in the URL fragment; `AuthContext` reads its `type` at module scope and then drives both dialogs off `getSession()`, because neither `PASSWORD_RECOVERY` nor `SIGNED_IN` can be relied on to reach a listener in time |
 
 ---
 

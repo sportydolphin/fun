@@ -160,14 +160,18 @@ on the schedule and Game Center, series-aware recap and Discord wording, and a
 clinched/eliminated state. Depends on knowing how the feed represents a series (game
 number? series id?), which is unknown until the first postseason game lands.
 
-### 1c. The seeding race 🎯: *the frame the last 17 games actually have*
+### 1c. The seeding race 🎯: ✅ **built Aug 20, 2026, behind the experiments flag** (see the log)
 
 All four clubs qualify, so a clinch tracker is pointless and stays parked. **Seeding is not
 pointless**: the standings order sets the semifinals 1v4 and 2v3, and it is the only thing
-the remaining games decide. Nothing on the section says so. Standings still presents itself
-as a race for a title that is already conceded to everyone. Wants: seed number, games ahead
-of the seed below, a magic number to lock a seed, and who each seed would draw. All of it
-derives from `computeStandings`, so it needs no new data and no new request.
+the remaining games decide. Nothing on the section said so, and Standings presented itself
+as a race for a title already conceded to everyone. Shipped as a card under the table: seed
+number, the cushion over the seed below, a magic number to lock a seed, and the semifinal
+each seed would draw. All derived from `computeStandings`, so it needed no new data and no
+new request. **Opt-in from Settings** for now: it is the first thing on the section that makes
+a forward-looking claim rather than reporting a result, and a number like "8 to lock 1st" is
+worth being wrong in front of a handful of volunteers first. Turning it on is the remaining
+step.
 
 ### 2. The inaugural-season archive 🔬🎯: *the only durable item on this list*
 
@@ -509,6 +513,100 @@ v1.45.0.
   design **cannot** catch: two players swapped consistently through a game keeps the order
   legal and the outs adding up. That needs an independent transcription, and the one that
   exists carries no licence.
+
+### Aug 20, 2026: auth links have to say something when they land
+
+- 🐛 **The reset link opened nothing.** `PASSWORD_RECOVERY` is emitted from a `setTimeout`
+  inside the supabase client's initialize, once, to whoever is subscribed at that instant, and
+  is never replayed. Whether React had mounted by then was a race against one network round
+  trip. Lose it and the link silently did nothing, which looks exactly like a broken link.
+- ✅ **Email confirmation now says so**, which is the other half of the same bug and had been
+  true since the site launched. `SIGNED_IN` does fire for a confirmation link, but the
+  reload-and-toast is gated on having been *confirmed signed out* first, and it never is:
+  `INITIAL_SESSION` is emitted on a microtask after initialize while `SIGNED_IN` waits for a
+  macrotask, so the session is already known by the time `SIGNED_IN` lands. Confirming your
+  email showed nothing at all. There is now a dialog.
+- 🔑 **Both are driven from `getSession()`**, which awaits the same initialize that consumes
+  the link, so it can neither resolve too early nor be missed. The events stay as a fast path.
+  The link type is read at MODULE scope, one line after the client is constructed: the client
+  wipes the fragment as soon as its first network call returns, so anything that waits for
+  React finds an empty URL.
+- ⌛ **A third dead-link shape**, tokens present but no longer redeemable, now explains itself
+  too. It is not the `#error=` shape `takeUrlAuthError` catches, and it was the case that sat
+  on a blank page.
+- 🧪 [`authLinks.test.tsx`](src/__tests__/authLinks.test.tsx) covers arriving on each link type
+  and **never emits either event**, so it fails if this regresses to relying on one.
+- 📌 **Deploy note:** every origin a reset can be requested from has to be in the project's
+  redirect allow-list, or supabase silently substitutes the Site URL. The dev server picks a
+  random port (`autoPort`), so a local reset link lands on production unless the allow-list
+  carries a `http://localhost:*` entry.
+
+### Aug 20, 2026: a way back into an account
+
+- ✅ **Password reset**, which the site has never had: a "Forgot password?" link under the
+  sign-in password field, and the set-a-new-password dialog the emailed link lands on. Google
+  accounts can use it too, and end up with a password as well as the button.
+- 🔒 **The confirmation is worded the same whether or not the address has an account.** A reset
+  form that answers "no account with that email" is a free membership check for anyone holding
+  a list of addresses. supabase deliberately does not say which, and neither does this.
+- 🪤 **The trap this flow sits on:** [`AuthContext`](src/AuthContext.tsx) reloads the page on
+  `SIGNED_IN`, to strip OAuth callback params from the URL. A recovery link IS a sign-in, so
+  that reload would throw the reader straight back out of the flow. It does not, because
+  supabase emits `PASSWORD_RECOVERY` **instead of** `SIGNED_IN` for a recovery redirect. That
+  is load-bearing and invisible, so [`passwordReset.test.tsx`](src/__tests__/passwordReset.test.tsx)
+  pins it: the dialog opens on the event and nothing calls `location.replace`.
+- ⌛ **A dead link now says so.** An expired or reused link comes back as `#error=...` rather
+  than a session, and supabase clears that fragment only on the success path, so it is still
+  there to read. Previously the page just loaded signed-out with no explanation. Now it opens
+  the reset form with the reason. Guarded on the fragment carrying an error, so it can never
+  race away the tokens on a link that actually worked.
+- 🧪 The set-password half is reachable only from an inbox, so it cannot be checked by opening
+  a browser. Six tests cover it instead: mismatch, too-short, the successful save, and the
+  no-reload guarantee.
+
+### Aug 20, 2026: what the last games are actually for
+
+- ✅ **Item #1c shipped**: a **Seeding race** card under the Standings table. The section had
+  spent the season showing a four-team race for four postseason places, which is not a race.
+  The stake is the ORDER, because it sets the semifinals 1v4 and 2v3, and nothing anywhere
+  said so.
+- 🧮 [`derive/seeding.ts`](src/wpbl/derive/seeding.ts) is pure and takes `computeStandings`
+  rows as given, so the card cannot contradict the table it sits under. Per club: seed,
+  games remaining, the gap to the adjacent seeds, a magic number, and the range of seeds
+  still reachable.
+- 🔒 **The magic number deliberately ignores the head-to-head tiebreak.** At zero it means the
+  seed is locked OUTRIGHT, which is a claim a fan can repeat without qualification; leaning on
+  a tiebreak would make it depend on a series not yet played. It therefore reads a touch
+  conservative in the last week, which is the safe direction for a number people quote at each
+  other. Same "outright" rule for the reachable range, which is why two clubs finishing level
+  both land on the lower of their two seeds: the standings sort has already broken that tie by
+  the time the card sees it.
+- 📐 **One row per club, six columns.** The first pass drew the four clubs twice, as two
+  bracket boxes and then as a list, and each row put a name at the left margin, a number at the
+  right and a hand's width of nothing between them. Folding the matchup into a column killed
+  the second copy and gave the middle of the row something to hold. The card lost a third of
+  its height in the process.
+- 🏷️ **The cushion cell names the club it measures against**: "0.5 ahead of Queens". A bare
+  games-back figure always begs "behind whom?", and the club it means here is never the one the
+  Standings table's own GB column uses, so the answer has to be in the cell rather than in a
+  header. It is also the first column to drop as the card narrows, being the one figure a
+  reader can approximate from the table above.
+- 🔤 **A and B letter chips pair the two clubs of a semifinal**, which are never adjacent on a
+  list ordered by seed. Our labels, not the league's, which names its games by date.
+- 🚪 **Every club on the card is a tap through to a team page.** Standings was a surface with
+  no route to a player page, and the traffic says opening one is the retention event.
+- 📊 Carries its own impression (`wpbl_seeding_shown`) plus `wpbl_seeding_team` on a tap, since
+  `wpbl_tab_viewed` cannot tell a reader who reached Standings from one who reached this.
+- 🧪 **Behind the experiments flag**, so the shipped Standings tab is unchanged. The card
+  carries an `ExperimentalChip` in its header, which is new: everything the flag gated before
+  this announced itself by replacing something (the bottom tab bar is impossible to miss),
+  while a CARD arrives looking exactly like the shipped cards either side of it. Without the
+  chip, a bug report about an experiment is indistinguishable from a bug report about the site.
+  The chip and its `--experimental-fg` colour are app-wide, not `--wpbl-` prefixed, so MLB can
+  use them.
+- 📌 **Not** a bracket feature: series state (#1b) still waits on the first postseason row,
+  because how the feed represents a series is unknown until Sep 9. The card knows the format
+  and the dates; it does not yet know a series score.
 
 ### Aug 20, 2026: the postseason cannot reach the season numbers either
 
