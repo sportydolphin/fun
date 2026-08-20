@@ -4,7 +4,8 @@
 > Companion doc: **[ROADMAP.md](ROADMAP.md)**: the MLB section, which runs on its own
 > calendar and its own priorities. Nothing here blocks anything there.
 > Tags: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra
-> Last realigned: **Aug 17, 2026**. Teams tab, Settings and an accessibility pass shipped
+> Last realigned: **Aug 20, 2026**, against traffic data for the first time (see
+> "What the traffic says"); before that Aug 17, 2026. Teams tab, Settings and an accessibility pass shipped
 > as v1.45.0 (see the shipped log); favourite-team + theming remains built and parked (see
 > "Parked, with reasons"); before that, split out of `ROADMAP.md` and reprioritized around
 > the season clock (see the realignment log at the end).
@@ -58,6 +59,46 @@ against the rules of baseball and our own corrections are applied as a read-time
 
 **What it does NOT have:** predictions/pick'em, win probability, daily standouts, a league
 primer or stat glossary, any postseason handling, and anything at all that survives Sep 22.
+
+---
+
+## What the traffic says (Aug 20, 2026)
+
+Read from `events` over the 14 days to Aug 19, which is the first time this list has been
+prioritized against measurement rather than judgement. Counting rules in
+[`docs/ADMIN_ANALYTICS.md`](docs/ADMIN_ANALYTICS.md): "browsers" are localStorage ids, not people.
+
+- **The section is the site.** 18,213 WPBL events across 2,036 browsers, against 768 MLB
+  events across 33. Whatever the next three weeks are spent on, it is not `/mlb`.
+- **Growth is real and accelerating.** Aug 19 was the biggest day on record at 548 browsers,
+  against 55 to 76 a day in the first week of measurement.
+- **Opening a player page is the retention event.** Return rate by what a browser did on
+  its first day: neither Game Center nor a player page, 7.8% (n=1,354) · Game Center only,
+  35.7% (n=476) · **both, 76.5% (n=162)**. Correlation, not proof of cause, but a tenfold
+  gradient is not noise, and nothing on the list was aimed at it.
+- **Home is where they are lost.** 670 of 2,037 browsers fired exactly one event, and for
+  554 of them that event was the Discord card's own impression. They landed, the card
+  rendered, they left. Note the card was retired on Aug 19, so that bounce is now
+  **unmeasured**: anything new on Home should carry its own impression event.
+- **Retention is falling as reach grows.** Aug 5-9 cohorts returned at 41-54%; Aug 13-18
+  cohorts at 12-20%. Acquisition is outrunning conversion, which is what strangers off a
+  search result look like.
+- **They come for the numbers.** First tab a session opens: stats 206, schedule 196,
+  standings 122, teams 62. Stats is the most-used surface in the section.
+- **Swipe earned its keep.** 3,020 pill taps to 1,141 swipes: 27% of all tab changes.
+- **Teams landed.** 703 browsers saw the "new" dot, 139 tapped it, a 20% click-through, and
+  the tab now runs 588 views from a standing start.
+- **Discord is the durable channel; push is not.** 137 of 1,780 browsers who saw the invite
+  joined (7.7%). Against that: 12 push subscriptions across 11 users, and one per-game
+  reminder row in the whole table.
+- **The media shelf is seen and not used.** 575 browsers saw Reading, 39 clicked through, 3
+  opened a photo. Whatever it is, it is not the retention lever.
+
+**What this reorders.** Daily standouts (#5) and the seeding race (#1c) move up, not because
+they are cheap but because they are the only two items that put a player-page entry point on
+the screen where the audience is currently lost. Anything that makes a name tappable is worth
+more than it looks. The primer (#4) and SEO (#3) hold, aimed at a cold audience returning at
+12 to 20%.
 
 ---
 
@@ -118,6 +159,15 @@ Firebells won 4–2" with no notion that a championship was just won. Wants: ser
 on the schedule and Game Center, series-aware recap and Discord wording, and a
 clinched/eliminated state. Depends on knowing how the feed represents a series (game
 number? series id?), which is unknown until the first postseason game lands.
+
+### 1c. The seeding race 🎯: *the frame the last 17 games actually have*
+
+All four clubs qualify, so a clinch tracker is pointless and stays parked. **Seeding is not
+pointless**: the standings order sets the semifinals 1v4 and 2v3, and it is the only thing
+the remaining games decide. Nothing on the section says so. Standings still presents itself
+as a race for a title that is already conceded to everyone. Wants: seed number, games ahead
+of the seed below, a magic number to lock a seed, and who each seed would draw. All of it
+derives from `computeStandings`, so it needs no new data and no new request.
 
 ### 2. The inaugural-season archive 🔬🎯: *the only durable item on this list*
 
@@ -459,6 +509,31 @@ v1.45.0.
   design **cannot** catch: two players swapped consistently through a game keeps the order
   legal and the outs adding up. That needs an independent transcription, and the one that
   exists carries no licence.
+
+### Aug 20, 2026: measuring the tab nobody could see into
+
+- ✅ **The Stats tab is instrumented.** It is the most-opened tab in the section and was the
+  only one whose contents were invisible: the axes (Hitting/Pitching × Season/Tracked,
+  Players/Teams, Draft) are component state and never touch the URL, so neither
+  `wpbl_tab_viewed` nor Cloudflare's path counts could tell which of six boards anyone was
+  reading. Three events now do: `wpbl_stats_board` (which board, and whether a tap or a
+  default put it there), `wpbl_stats_sorted` (the column readers rank by, which is the input
+  the archive's frozen leaderboards need) and `wpbl_stats_filtered` (whether a four-team
+  league needs a team filter, and whether Qualified earns its space on a phone).
+- 🐛 **Caught in verification: every return to Stats was logging as a first open.** The tab
+  pager unmounts the pane on the way out, so the flag saying "we have already counted an
+  arrival" was born false on each visit. It lives at module scope now. Same unmount is why a
+  return reports the *default* board rather than the one that reader left, which is written
+  down beside the other counting rules rather than left to be rediscovered as a mystery in
+  the data.
+- ✅ **`/admin` split into three groups**: Audience, Health, Tools. It had grown to seventeen
+  stacked cards mixing three unrelated jobs, with the range and league filters at the top
+  implying they governed all of it. The four pipeline states are one card now instead of four
+  single-line Sections, and a summary strip carries them above every other group, because
+  they are the only thing on that page that is ever urgent and they had ended up furthest
+  from the top. Thresholds moved into pure functions with tests: none of the four jobs fails
+  loudly, so a threshold that reads "Fresh" for a job that died on Tuesday is
+  indistinguishable from a healthy site.
 
 ### Aug 19, 2026: the postseason would have broken the standings
 

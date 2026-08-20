@@ -42,6 +42,13 @@ export interface EventCount {
 }
 
 export interface TabStat    { view: string; via: string; events: number; browsers: number }
+// The Stats tab's own axes. `board` is "<source> <side>" ('season hitting', 'tracked
+// pitching') or the bare 'draft', which sits on neither axis.
+export interface StatsBoard  { board: string; mode: string; events: number; browsers: number }
+export interface StatsVia    { via: string; events: number; browsers: number }
+export interface StatsSort   { key: string; side: string; asc: boolean; events: number; browsers: number }
+export interface StatsFilter { filter: string; on: boolean; events: number; browsers: number }
+export interface StatsBoards { boards: StatsBoard[]; via: StatsVia[]; sorts: StatsSort[]; filters: StatsFilter[] }
 export interface TopPlayer  { player_id: string; name: string; team_id: string | null; opens: number; browsers: number }
 export interface DiscordFunnel { impressions: number; shown: number; joined: number; dismissed: number }
 export interface Growth {
@@ -164,13 +171,15 @@ export const EMPTY_OVERVIEW: Overview = {
   active: { today: 0, week: 0, month: 0 },
 }
 
+export const EMPTY_STATS_BOARDS: StatsBoards = { boards: [], via: [], sorts: [], filters: [] }
+
 export const EMPTY_GROWTH: Growth = {
   signups: [], signups_window: 0, total_users: 0, deleted_users: 0,
   push_users: 0, push_devices: 0, notify_game_start: 0, notify_picks: 0,
   notify_wpbl_all: 0, game_reminder_users: 0, game_reminder_rows: 0,
 }
 
-// One call shape for all six. The RPCs return jsonb, so supabase hands back the parsed
+// One call shape for all seven. The RPCs return jsonb, so supabase hands back the parsed
 // object directly and there's nothing to unwrap.
 async function callRpc<T>(fn: string, args: Record<string, unknown>, fallback: T): Promise<T> {
   const { data, error } = await supabase.rpc(fn, args)
@@ -193,6 +202,10 @@ export function fetchTabStats(days: number, tz: string): Promise<TabStat[]> {
   return callRpc('admin_wpbl_tab_stats', { days_back: days, tz }, [])
 }
 
+export function fetchStatsBoards(days: number, tz: string): Promise<StatsBoards> {
+  return callRpc('admin_wpbl_stats_boards', { days_back: days, tz }, EMPTY_STATS_BOARDS)
+}
+
 export function fetchTopPlayers(days: number, tz: string, lim = 10): Promise<TopPlayer[]> {
   return callRpc('admin_top_players', { days_back: days, lim, tz }, [])
 }
@@ -210,6 +223,7 @@ export interface AnalyticsBundle {
   overview: Overview
   events: EventCount[]
   tabs: TabStat[]
+  statsBoards: StatsBoards
   players: TopPlayer[]
   discord: DiscordFunnel
   growth: Growth
@@ -228,10 +242,11 @@ export function fetchAnalytics(
     fetchOverview(days, tz, league),
     fetchEventCounts(days, tz, league),
     fetchTabStats(days, tz),
+    fetchStatsBoards(days, tz),
     fetchTopPlayers(days, tz),
     fetchDiscordFunnel(days, tz),
     fetchGrowth(days, tz),
-  ]).then(([overview, events, tabs, players, discord, growth]) => ({
-    overview, events, tabs, players, discord, growth,
+  ]).then(([overview, events, tabs, statsBoards, players, discord, growth]) => ({
+    overview, events, tabs, statsBoards, players, discord, growth,
   }))
 }

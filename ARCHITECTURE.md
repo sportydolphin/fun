@@ -148,7 +148,10 @@ flowchart LR
   on `[data-theme]`.
 - **`/admin`**: the owner's analytics dashboard plus the operational admin tools (they
   used to be a dialog off the account menu; there is deliberately one surface now). Reads
-  the `events` table through owner-guarded `security definer` RPCs. See
+  the `events` table through owner-guarded `security definer` RPCs. Three groups since
+  Aug 20, 2026: **Audience** (the analytics, and the only group the range/league filters
+  govern), **Health** (the four background pipelines, with a summary strip that follows you
+  across the other groups) and **Tools**. See
   [`docs/ADMIN_ANALYTICS.md`](docs/ADMIN_ANALYTICS.md), whose security section is
   load-bearing. The route gate is cosmetic; the RPC guards are the boundary.
 - **Client libs** ([`src/lib/`](src/lib)): `supabase` (anon client), `analytics`

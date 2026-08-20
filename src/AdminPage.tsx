@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress, IconButton, Tooltip } from '@mui/material'
 import { Refresh, InfoOutlined } from '@mui/icons-material'
-import { Section, StatRow, AdminTools } from './AdminPanel'
+import { Section, StatRow, AdminTools, HealthGroup, HealthStrip, useOpsHealth } from './AdminPanel'
 import { PlayerPortrait } from './wpbl/ui'
 import {
   fetchAnalytics, localTz, deltaPct, formatDelta, formatCount, formatShare,
   trimLeadingEmpty, shortDate, prettyEvent, seriesPoints,
-  EMPTY_OVERVIEW, EMPTY_GROWTH,
+  EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS,
 } from './lib/analyticsAdmin'
 import type { AnalyticsBundle, LeagueFilter, DayPoint } from './lib/analyticsAdmin'
 
@@ -25,6 +25,22 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString
 // doesn't justify adding one — PitchLocation.tsx already sets the precedent that a plot
 // here is a viewBox and some polylines.
 
+// The page has three jobs that were previously one 17-card scroll: what the audience did,
+// whether the pipelines ran, and the things the owner operates. They share almost nothing:
+// the range and league filters below apply to the first and to nothing else, so they are
+// three groups rather than three runs of cards separated by nothing but a heading.
+type Group = 'audience' | 'health' | 'tools'
+const GROUPS: Array<{ value: Group; label: string }> = [
+  { value: 'audience', label: 'Audience' },
+  { value: 'health',   label: 'Health' },
+  { value: 'tools',    label: 'Tools' },
+]
+
+// How many event rows the card shows before the "show all" tap. Twelve covers everything
+// that has ever cleared a hundred events in a window; the tail below it is instrumentation
+// that exists to be checked occasionally, not scanned daily.
+const EVENT_HEAD = 12
+
 const RANGES = [7, 30, 90] as const
 const LEAGUES: Array<{ value: LeagueFilter; label: string }> = [
   { value: 'all',  label: 'All' },
@@ -33,7 +49,7 @@ const LEAGUES: Array<{ value: LeagueFilter; label: string }> = [
 ]
 
 const EMPTY_BUNDLE: AnalyticsBundle = {
-  overview: EMPTY_OVERVIEW, events: [], tabs: [], players: [],
+  overview: EMPTY_OVERVIEW, events: [], tabs: [], statsBoards: EMPTY_STATS_BOARDS, players: [],
   discord: { impressions: 0, shown: 0, joined: 0, dismissed: 0 },
   growth: EMPTY_GROWTH,
 }
@@ -44,6 +60,10 @@ const VIA_COLORS: Record<string, string> = {
   pill: '#60a5fa', swipe: '#f59e0b', link: '#22c55e', '—': '#94a3b8',
 }
 const viaColor = (v: string) => VIA_COLORS[v] ?? VIA_COLORS['—']
+
+/** 'season hitting' → 'Season · Hitting'; the bare 'draft' stays one word. */
+const prettyBoard = (b: string) =>
+  b.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' · ')
 
 // ─── small shared bits ────────────────────────────────────────────────────────
 
@@ -194,11 +214,18 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
   isAppLocked: (path: string) => boolean
   onOpenApp: (path: string) => void
 }) {
+  const [group, setGroup]   = useState<Group>('audience')
   const [days, setDays]     = useState<number>(30)
   const [league, setLeague] = useState<LeagueFilter>('all')
   const [data, setData]     = useState<AnalyticsBundle>(EMPTY_BUNDLE)
   const [loading, setLoading] = useState(true)
+  // Long tail: 28 event names and counting, most of them near-zero. Show the head, and keep
+  // the rest one tap away rather than making the card scroll past everything else on the page.
+  const [allEvents, setAllEvents] = useState(false)
   const tz = useMemo(() => localTz(), [])
+  // Read once for the whole page, not per group: the header strip summarises it from
+  // wherever you are, so it cannot wait for the Health group to mount.
+  const health = useOpsHealth()
 
   const load = useCallback(() => {
     setLoading(true)
@@ -209,7 +236,7 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
 
   useEffect(() => load(), [load])
 
-  const { overview, events, tabs, players, discord, growth } = data
+  const { overview, events, tabs, statsBoards, players, discord, growth } = data
   const t = overview.totals, p = overview.prev
 
   // A range that reaches back before the first event would otherwise pad the chart with
@@ -221,6 +248,7 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
 
   const maxEvent = Math.max(1, ...events.map(e => e.events))
   const maxPlayer = Math.max(1, ...players.map(x => x.opens))
+  const maxBoard = Math.max(1, ...statsBoards.boards.map(b => b.events))
   // Tab views are grouped into one stacked bar per tab, so the segments share a scale: the
   // busiest tab's TOTAL. Scaling each segment to the largest single segment instead would
   // let a three-way split (stats: 472 + 190 + 113) add up past the full width of its track.
@@ -240,13 +268,26 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
           <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#000', letterSpacing: 0.5 }}>OWNER</Typography>
         </Box>
         <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          {loading && <CircularProgress size={14} />}
-          <IconButton size="small" onClick={load} sx={{ color: 'text.secondary' }} aria-label="Refresh">
+          {(loading || health.loading) && <CircularProgress size={14} />}
+          <IconButton size="small" onClick={() => { load(); health.reload() }} sx={{ color: 'text.secondary' }} aria-label="Refresh">
             <Refresh sx={{ fontSize: '1.05rem' }} />
           </IconButton>
         </Box>
       </Box>
 
+      {/* ── group nav ──────────────────────────────────────────────────── */}
+      <Box sx={{ display: 'flex', gap: 0.6, mb: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+        {GROUPS.map(g => (
+          <Chip key={g.value} label={g.label} active={group === g.value} onClick={() => setGroup(g.value)} />
+        ))}
+      </Box>
+
+      {/* Pipeline health follows you across groups. It is the only thing on this page that is
+          ever urgent, and it used to be the furthest from the top. Redundant on the Health
+          group, which is the same four states with their detail, so it steps aside there. */}
+      {group !== 'health' && <HealthStrip health={health} onOpen={() => setGroup('health')} />}
+
+      {group === 'audience' && (<>
       <Box sx={{ display: 'flex', gap: 0.6, mb: 1, flexWrap: 'wrap', alignItems: 'center' }}>
         {RANGES.map(r => (
           <Chip key={r} label={`${r}d`} active={days === r} onClick={() => setDays(r)} />
@@ -294,7 +335,7 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
           </Box>
         ) : (
           <Box sx={{ px: 1.5, py: 0.5 }}>
-            {events.map(e => (
+            {(allEvents ? events : events.slice(0, EVENT_HEAD)).map(e => (
               <Box key={e.event} sx={{ py: 0.8, '&:not(:last-child)': { borderBottom: '1px solid', borderColor: 'divider' } }}>
                 <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5 }}>
                   <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, minWidth: 0, flex: 1 }}>
@@ -311,12 +352,28 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
                 </Typography>
               </Box>
             ))}
+            {events.length > EVENT_HEAD && (
+              <Box
+                onClick={() => setAllEvents(v => !v)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); setAllEvents(v => !v) } }}
+                sx={{
+                  py: 0.9, textAlign: 'center', cursor: 'pointer', userSelect: 'none',
+                  borderTop: '1px solid', borderColor: 'divider',
+                  fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary',
+                  '&:hover': { color: 'text.primary' },
+                }}
+              >
+                {allEvents ? 'Show fewer' : `Show all ${events.length}`}
+              </Box>
+            )}
           </Box>
         )}
       </Section>
 
       {/* ── WPBL tabs ──────────────────────────────────────────────────── */}
-      <Section title="WPBL Tabs — how they're reached">
+      <Section title="WPBL Tabs: how they're reached">
         {tabs.length === 0 ? (
           <Box sx={{ px: 1.5, py: 2 }}>
             <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>No tab views in this range.</Typography>
@@ -354,6 +411,71 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
                 </Box>
               )
             })}
+          </Box>
+        )}
+      </Section>
+
+      {/* ── WPBL stats boards ──────────────────────────────────────────── */}
+      {/* The tab above says people arrive at Stats; this says what they read once they're
+          there. The axes are component state and never reach the URL, so this panel is the
+          only place the answer exists. Cloudflare's path counts see one /wpbl either way. */}
+      <Section title="WPBL Stats: which board">
+        {statsBoards.boards.length === 0 ? (
+          <Box sx={{ px: 1.5, py: 2 }}>
+            <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>
+              No board views in this range. Instrumented Aug 20, 2026, so ranges reaching back
+              past that are empty rather than quiet.
+            </Typography>
+          </Box>
+        ) : (
+          <Box sx={{ px: 1.5, py: 1 }}>
+            {statsBoards.boards.map(b => (
+              <Box key={`${b.board}|${b.mode}`} sx={{
+                display: 'flex', alignItems: 'center', gap: 1.25, py: 0.7,
+                '&:not(:last-child)': { borderBottom: '1px solid', borderColor: 'divider' },
+              }}>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography noWrap sx={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                    {prettyBoard(b.board)}{b.mode !== '—' && b.mode !== 'players' ? ` · ${b.mode}` : ''}
+                  </Typography>
+                  <Box sx={{ mt: 0.4 }}><Bar value={b.events} max={maxBoard} color="#a78bfa" /></Box>
+                </Box>
+                <Box sx={{ textAlign: 'right' }}>
+                  <Typography sx={{ fontSize: '0.82rem', fontWeight: 800 }}>{b.events.toLocaleString()}</Typography>
+                  <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled' }}>{b.browsers} br</Typography>
+                </Box>
+              </Box>
+            ))}
+
+            {/* Arrivals (open/return, the board they already had) against deliberate
+                switches. A board nobody ever switches *to* is one the defaults chose. */}
+            <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 1 }}>
+              reached by {statsBoards.via.map(v => `${v.via} ${v.events}`).join(' · ')}
+            </Typography>
+
+            {statsBoards.sorts.length > 0 && (
+              <>
+                <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', mt: 1.5, mb: 0.5 }}>
+                  Sorted by
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                  {statsBoards.sorts.slice(0, 10).map(x => (
+                    <Box key={`${x.key}|${x.side}|${x.asc}`} sx={{
+                      px: 0.9, py: 0.3, borderRadius: 999, bgcolor: 'action.hover',
+                      fontSize: '0.68rem', fontWeight: 700, color: 'text.secondary',
+                    }}>
+                      {x.key.toUpperCase()} {x.asc ? '↑' : '↓'} {x.events}
+                    </Box>
+                  ))}
+                </Box>
+              </>
+            )}
+
+            {statsBoards.filters.length > 0 && (
+              <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 1.25 }}>
+                filters {statsBoards.filters.map(f => `${f.filter} ${f.on ? 'on' : 'off'} ${f.events}`).join(' · ')}
+              </Typography>
+            )}
           </Box>
         )}
       </Section>
@@ -440,16 +562,24 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
             value={<Typography sx={{ fontSize: '0.88rem', fontWeight: 800 }}>{growth.notify_game_start}</Typography>} />
           <StatRow label="Per-game WPBL reminders" sub={`${plural(growth.game_reminder_users, 'user')}, upcoming games only`}
             value={<Typography sx={{ fontSize: '0.88rem', fontWeight: 800 }}>{growth.game_reminder_rows}</Typography>} />
+          {/* Was a Section of its own holding this one number. It is a usage count, so it
+              belongs with the other usage counts rather than with the pipeline health. */}
+          <StatRow label="MLB predictions" sub="all time, across every player and bot"
+            value={<Typography sx={{ fontSize: '0.88rem', fontWeight: 800 }}>
+              {health.predictions?.toLocaleString() ?? '—'}
+            </Typography>} />
         </Box>
       </Section>
-
-      {/* ── the operational half, lifted out of the old Admin dialog ───── */}
-      <AdminTools apps={apps} isAppLocked={isAppLocked} onOpenApp={onOpenApp} />
 
       <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled', mt: 2 }}>
         "Browsers" counts distinct localStorage ids, not people — one person on a phone and a
         laptop is two, and clearing site data starts a new one. Day buckets are in {overview.tz || tz}.
       </Typography>
+      </>)}
+
+      {group === 'health' && <HealthGroup health={health} />}
+
+      {group === 'tools' && <AdminTools apps={apps} isAppLocked={isAppLocked} onOpenApp={onOpenApp} />}
     </Box>
   )
 }

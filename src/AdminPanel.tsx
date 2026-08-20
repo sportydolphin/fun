@@ -24,24 +24,6 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`
 }
 
-function FreshnessChip({ updatedAt }: { updatedAt: string }) {
-  const ageH = (Date.now() - new Date(updatedAt).getTime()) / 3_600_000
-  const fresh = ageH < 26
-  return (
-    <Box sx={{
-      display: 'inline-flex', alignItems: 'center', gap: 0.5,
-      px: 1, py: 0.25, borderRadius: 999,
-      bgcolor: fresh ? '#22c55e18' : '#f9731618',
-      border: '1px solid', borderColor: fresh ? '#22c55e40' : '#f9731640',
-    }}>
-      <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: fresh ? '#22c55e' : '#f97316' }} />
-      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: fresh ? '#22c55e' : '#f97316' }}>
-        {fresh ? 'Fresh' : 'Stale'}
-      </Typography>
-    </Box>
-  )
-}
-
 // Minute-precision relative time — the WPBL feed cron runs every ~2 min, so hour-grained
 // timeAgo would read "just now" almost always and hide whether the mirror is actually live.
 function timeAgoMin(iso: string): string {
@@ -52,24 +34,53 @@ function timeAgoMin(iso: string): string {
   return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`
 }
 
-// WPBL feed-mirror ingest health, consolidated here from the WPBL home header. Cron runs
-// ~every 2 min: green = fresh + clean, amber = stale (>6 min) or per-game errors on the
-// last run, red = the last run failed outright.
-interface WpblRunRow { ran_at: string; ok: boolean; mode: string | null; games: number; boxscores: number; error_count: number }
-function WpblFreshnessChip({ run }: { run: WpblRunRow }) {
-  const stale = Date.now() - new Date(run.ran_at).getTime() > 6 * 60_000
-  const color = !run.ok ? '#ef4444' : (run.error_count > 0 || stale) ? '#f97316' : '#22c55e'
-  const text  = !run.ok ? 'Failed'  : run.error_count > 0 ? 'Errors' : stale ? 'Stale' : 'Fresh'
+// ─── Status pills ─────────────────────────────────────────────────────────────
+//
+// Four pipelines report health here and each used to rebuild the same pill markup with its
+// own colour literals, which is how three of them ended up with subtly different padding.
+// One primitive renders the pill; each pipeline contributes a pure `Status`. Pure because
+// the thresholds ARE the feature: a job that quietly stopped still looking healthy is the
+// failure mode, so they are unit-tested rather than eyeballed.
+
+export type Tone = 'ok' | 'warn' | 'bad' | 'idle'
+export interface Status { tone: Tone; label: string }
+
+const TONE: Record<Tone, string> = {
+  ok:   '#22c55e',
+  warn: '#f97316',
+  bad:  '#ef4444',
+  idle: '#94a3b8',
+}
+
+export function StatusPill({ tone, label, title }: Status & { title?: string }) {
+  const color = TONE[tone]
   return (
-    <Box sx={{
+    <Box title={title} sx={{
       display: 'inline-flex', alignItems: 'center', gap: 0.5,
       px: 1, py: 0.25, borderRadius: 999,
       bgcolor: `${color}18`, border: '1px solid', borderColor: `${color}40`,
     }}>
       <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: color }} />
-      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color }}>{text}</Typography>
+      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color }}>{label}</Typography>
     </Box>
   )
+}
+
+/** Payrolls refresh daily; 26h rather than 24 so a cron that slips an hour isn't amber. */
+export function payrollStatus(updatedAt: string): Status {
+  const ageH = (Date.now() - new Date(updatedAt).getTime()) / 3_600_000
+  return ageH < 26 ? { tone: 'ok', label: 'Fresh' } : { tone: 'warn', label: 'Stale' }
+}
+
+// WPBL feed-mirror ingest health, consolidated here from the WPBL home header. Cron runs
+// ~every 2 min: green = fresh + clean, amber = stale (>6 min) or per-game errors on the
+// last run, red = the last run failed outright.
+interface WpblRunRow { ran_at: string; ok: boolean; mode: string | null; games: number; boxscores: number; error_count: number }
+export function ingestStatus(run: WpblRunRow): Status {
+  const stale = Date.now() - new Date(run.ran_at).getTime() > 6 * 60_000
+  if (!run.ok) return { tone: 'bad', label: 'Failed' }
+  if (run.error_count > 0) return { tone: 'warn', label: 'Errors' }
+  return stale ? { tone: 'warn', label: 'Stale' } : { tone: 'ok', label: 'Fresh' }
 }
 
 // Nightly play-by-play validation health. The counts matter less than the freshness: the job
@@ -79,25 +90,18 @@ function WpblFreshnessChip({ run }: { run: WpblRunRow }) {
 // Stale at 26h rather than 24: the schedule is daily and GitHub's cron is best-effort, so a
 // run that slips an hour under load is not worth an amber chip.
 export interface WpblValidationRow { ran_at: string; ok: boolean; new_findings: number; total_findings: number }
-export function WpblValidationChip({ run }: { run: WpblValidationRow }) {
+export function validationStatus(run: WpblValidationRow): Status {
   const stale = Date.now() - new Date(run.ran_at).getTime() > 26 * 60 * 60_000
-  const color = !run.ok ? '#ef4444' : (stale || run.new_findings > 0) ? '#f97316' : '#22c55e'
-  const text = !run.ok ? 'Failed' : stale ? 'Stale' : run.new_findings > 0 ? `${run.new_findings} new` : 'Clean'
-  return (
-    <Box sx={{
-      display: 'inline-flex', alignItems: 'center', gap: 0.5,
-      px: 1, py: 0.25, borderRadius: 999,
-      bgcolor: `${color}18`, border: '1px solid', borderColor: `${color}40`,
-    }}>
-      <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: color }} />
-      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color }}>{text}</Typography>
-    </Box>
-  )
+  if (!run.ok) return { tone: 'bad', label: 'Failed' }
+  if (stale) return { tone: 'warn', label: 'Stale' }
+  return run.new_findings > 0
+    ? { tone: 'warn', label: `${run.new_findings} new` }
+    : { tone: 'ok', label: 'Clean' }
 }
 
-// TrackMan publishing health. Unlike the two chips above this is not about OUR job failing:
-// the watcher runs nightly and will keep reporting whatever it finds. It is about the
-// LEAGUE, which published pitch tracking for two games and then stopped.
+// TrackMan publishing health. Unlike the two above this is not about OUR job failing: the
+// watcher runs nightly and will keep reporting whatever it finds. It is about the LEAGUE,
+// which published pitch tracking for two games and then stopped.
 //
 // So "behind" is the normal state and is deliberately not red. Red would train the eye to
 // ignore this row over the weeks it is expected to sit there. What earns attention is the
@@ -110,7 +114,7 @@ export interface WpblTrackingRow {
   last_checked_at: string | null
   last_advanced_at: string | null
 }
-export function WpblTrackingChip({ row }: { row: WpblTrackingRow }) {
+export function trackingStatus(row: WpblTrackingRow): Status {
   const lagDays = row.last_tracked_game_date && row.last_final_game_date
     ? Math.round((Date.parse(row.last_final_game_date + 'T00:00:00Z')
                 - Date.parse(row.last_tracked_game_date + 'T00:00:00Z')) / 86_400_000)
@@ -118,21 +122,16 @@ export function WpblTrackingChip({ row }: { row: WpblTrackingRow }) {
   // Stale at 50h, not 26 like the nightly validator: this is a daily job whose findings do
   // not change for weeks, so one missed run is not worth flagging.
   const watcherStale = !row.last_checked_at || Date.now() - Date.parse(row.last_checked_at) > 50 * 60 * 60_000
-  const color = watcherStale ? '#f97316' : lagDays == null ? '#94a3b8' : lagDays <= 0 ? '#22c55e' : '#94a3b8'
-  const text = watcherStale ? 'Watcher stale'
-    : lagDays == null ? 'No data'
-    : lagDays <= 0 ? 'Current'
-    : `${lagDays}d behind`
-  return (
-    <Box sx={{
-      display: 'inline-flex', alignItems: 'center', gap: 0.5,
-      px: 1, py: 0.25, borderRadius: 999,
-      bgcolor: `${color}18`, border: '1px solid', borderColor: `${color}40`,
-    }}>
-      <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: color }} />
-      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color }}>{text}</Typography>
-    </Box>
-  )
+  if (watcherStale) return { tone: 'warn', label: 'Watcher stale' }
+  if (lagDays == null) return { tone: 'idle', label: 'No data' }
+  return lagDays <= 0
+    ? { tone: 'ok', label: 'Current' }
+    : { tone: 'idle', label: `${lagDays}d behind` }
+}
+
+/** Kept as a component because a test renders it directly. */
+export function WpblValidationChip({ run }: { run: WpblValidationRow }) {
+  return <StatusPill {...validationStatus(run)} />
 }
 
 // ─── Stat row ─────────────────────────────────────────────────────────────────
@@ -696,60 +695,45 @@ function UserModal({ open, onClose, onChanged }: {
   )
 }
 
-// ─── Admin Panel ──────────────────────────────────────────────────────────────
+// ─── Pipeline health ──────────────────────────────────────────────────────────
+//
+// The four background jobs whose state the owner has to be able to see: the WPBL feed
+// mirror, the league's TrackMan publishing, the nightly scoring check, and MLB payrolls.
+//
+// These used to be four one-row Sections buried under seven analytics cards, which put the
+// only urgent thing on the page furthest from the top. They are one card now, and
+// `HealthStrip` puts the same four states in the header so a dead pipeline is visible from
+// whichever group is open.
 
-// The operational half of /admin: the things the owner *does* (run an app, fire a test
-// push, work the feedback queue) and the freshness reads that say whether the pipelines
-// ran. This used to be a maxWidth="xs" dialog off the account menu; it renders inline on
-// the page now so there is exactly one admin surface to keep current. Feedback and Users
-// stay modals — they're drill-downs opened FROM the page, not competing with it.
-export function AdminTools({ apps, isAppLocked, onOpenApp }: {
-  apps: AppTile[]
-  isAppLocked: (path: string) => boolean
-  onOpenApp: (path: string) => void
-}) {
-  const [payrolls, setPayrolls]   = useState<PayrollRow[] | null>(null)
-  const [wpblRun, setWpblRun]     = useState<WpblRunRow | null>(null)
-  const [wpblCheck, setWpblCheck] = useState<WpblValidationRow | null>(null)
-  const [wpblTrack, setWpblTrack] = useState<WpblTrackingRow | null>(null)
-  const [predCount, setPredCount] = useState<number | null>(null)
-  const [userCount, setUserCount] = useState<number | null>(null)
-  const [usersOpen, setUsersOpen] = useState(false)
-  const [feedbackNew, setFeedbackNew]   = useState<number | null>(null)
-  const [feedbackOpen, setFeedbackOpen] = useState(false)
-  const [loading, setLoading]     = useState(false)
+interface PayrollRow { updated_at: string; season: number }
 
-  // Summary counts for the panel's clickable rows. Split out so the modals can refresh
-  // just their own count after an action, without re-running the whole panel load.
-  const loadFeedbackCount = React.useCallback(() => {
-    supabase.from('feedback')
-      .select('*', { count: 'exact', head: true })
-      .is('handled_at', null)
-      .then(({ count }) => setFeedbackNew(count ?? 0))
-  }, [])
+export interface OpsHealth {
+  payroll:     PayrollRow | null
+  ingest:      WpblRunRow | null
+  validation:  WpblValidationRow | null
+  tracking:    WpblTrackingRow | null
+  predictions: number | null
+  loading:     boolean
+  /** Re-read every table. Wired to the page's refresh button, which used to reload the
+      analytics half and silently leave the pipeline states as they were. */
+  reload:      () => void
+}
 
-  // Active (non-deactivated) users. Filters out is_deleted, falling back to a plain
-  // count if that column isn't migrated yet.
-  const loadUserCount = React.useCallback(async () => {
-    const r = await supabase.from('usernames')
-      .select('*', { count: 'exact', head: true })
-      .eq('is_deleted', false)
-    if (r.error) {
-      const all = await supabase.from('usernames').select('*', { count: 'exact', head: true })
-      setUserCount(all.count ?? 0)
-    } else {
-      setUserCount(r.count ?? 0)
-    }
-  }, [])
+/**
+ * One read of every operational table, shared by the header strip and the Health group.
+ *
+ * Lifted out of the old panel component so the strip can render without the group it
+ * summarises being mounted: the whole point is that it shows on the Audience tab too.
+ */
+export function useOpsHealth(): OpsHealth {
+  const [state, setState] = useState<Omit<OpsHealth, 'loading' | 'reload'>>({
+    payroll: null, ingest: null, validation: null, tracking: null, predictions: null,
+  })
+  const [loading, setLoading] = useState(true)
+  const [nonce, setNonce] = useState(0)
 
   useEffect(() => {
-    loadFeedbackCount()
-    loadUserCount()
-  }, [loadFeedbackCount, loadUserCount])
-
-  useEffect(() => {
-    setLoading(true)
-
+    let live = true
     Promise.all([
       // Most-recent payroll update per season
       supabase.from('team_payrolls')
@@ -779,205 +763,252 @@ export function AdminTools({ apps, isAppLocked, onOpenApp }: {
         .select('last_tracked_game_date, tracked_game_count, last_final_game_date, last_checked_at, last_advanced_at')
         .limit(1),
     ]).then(([pr, pc, wp, wv, wt]) => {
-      setPayrolls((pr.data ?? []) as PayrollRow[])
-      setPredCount(pc.count ?? 0)
-      setWpblRun((((wp.data ?? [])[0]) ?? null) as WpblRunRow | null)
-      setWpblCheck((((wv.data ?? [])[0]) ?? null) as WpblValidationRow | null)
-      setWpblTrack((((wt.data ?? [])[0]) ?? null) as WpblTrackingRow | null)
-    }).finally(() => setLoading(false))
+      if (!live) return
+      setState({
+        payroll:     (((pr.data ?? [])[0]) ?? null) as PayrollRow | null,
+        predictions: pc.count ?? 0,
+        ingest:      (((wp.data ?? [])[0]) ?? null) as WpblRunRow | null,
+        validation:  (((wv.data ?? [])[0]) ?? null) as WpblValidationRow | null,
+        tracking:    (((wt.data ?? [])[0]) ?? null) as WpblTrackingRow | null,
+      })
+    }).finally(() => { if (live) setLoading(false) })
+    return () => { live = false }
+  }, [nonce])
+
+  return { ...state, loading, reload: React.useCallback(() => setNonce(n => n + 1), []) }
+}
+
+/**
+ * Every pipeline's state as one row, in the order they matter.
+ *
+ * A pipeline with no row yet is 'idle' and never 'ok': "not yet run" and "ran and was fine"
+ * are different answers, and collapsing them is how a job that never started reads green.
+ */
+const IDLE: Status = { tone: 'idle', label: 'Not yet run' }
+
+export function healthStatuses(h: OpsHealth): Array<Status & { key: string; name: string }> {
+  return [
+    { key: 'ingest',   name: 'Ingest',   ...(h.ingest     ? ingestStatus(h.ingest)              : IDLE) },
+    { key: 'trackman', name: 'TrackMan', ...(h.tracking   ? trackingStatus(h.tracking)          : IDLE) },
+    { key: 'scoring',  name: 'Scoring',  ...(h.validation ? validationStatus(h.validation)      : IDLE) },
+    { key: 'payrolls', name: 'Payrolls', ...(h.payroll    ? payrollStatus(h.payroll.updated_at) : IDLE) },
+  ]
+}
+
+/**
+ * The four pipeline states, compact, for the page header.
+ *
+ * Sits above whichever group is open, so a dead pipeline never depends on scrolling to the
+ * bottom of the page to be noticed, which is where all four of these used to live. Clicking
+ * it opens the Health group, where the detail is.
+ */
+export function HealthStrip({ health, onOpen }: { health: OpsHealth; onOpen: () => void }) {
+  if (health.loading) return null
+  return (
+    <Box
+      onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
+      aria-label="Pipeline health: open the Health group"
+      sx={{
+        display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1.5, cursor: 'pointer',
+        alignItems: 'center', userSelect: 'none', borderRadius: 1.5, p: 0.5, mx: -0.5,
+        '&:hover': { bgcolor: 'action.hover' },
+      }}
+    >
+      {healthStatuses(health).map(st => (
+        <Box key={st.key} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+          <Typography sx={{ fontSize: '0.66rem', fontWeight: 700, color: 'text.disabled' }}>{st.name}</Typography>
+          <StatusPill tone={st.tone} label={st.label} />
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
+/**
+ * The Health group: one card, one row per pipeline, with when it last ran and what it found.
+ *
+ * Replaced four separate Sections that spent four headers and four borders on four single
+ * lines, in an order that put the every-two-minutes job below the once-a-day ones.
+ */
+export function HealthGroup({ health }: { health: OpsHealth }) {
+  const { payroll, ingest, validation, tracking, loading } = health
+  if (loading) {
+    return (
+      <Section title="Pipelines">
+        <Box sx={{ textAlign: 'center', py: 4 }}><CircularProgress size={24} /></Box>
+      </Section>
+    )
+  }
+  return (
+    <>
+      <Section title="Pipelines">
+        <Box sx={{ px: 1.5 }}>
+          {/* The feed mirror runs every two minutes, so it leads. */}
+          <StatRow
+            label="WPBL ingest"
+            sub={ingest
+              ? `${ingest.mode ?? '—'} · ${ingest.games} games, ${ingest.boxscores} boxscores · ${timeAgoMin(ingest.ran_at)}${ingest.error_count > 0 ? ` · ${ingest.error_count} error(s)` : ''}`
+              : 'No ingest runs logged yet.'}
+            value={<StatusPill {...(ingest ? ingestStatus(ingest) : IDLE)} />}
+          />
+          {/* Not our job failing: this one watches for the LEAGUE's radar publishing to resume. */}
+          <StatRow
+            label="TrackMan publishing"
+            sub={tracking?.last_tracked_game_date
+              ? `Through ${tracking.last_tracked_game_date} · ${tracking.tracked_game_count} game${tracking.tracked_game_count === 1 ? '' : 's'} · checked ${timeAgoMin(tracking.last_checked_at ?? '')}`
+              : tracking
+                ? 'The league has published none of it yet.'
+                : 'Nightly at 08:30 UTC. Nothing recorded yet.'}
+            value={<StatusPill {...(tracking ? trackingStatus(tracking) : IDLE)} />}
+          />
+          {/* Stale is the state that matters here; findings are expected and mostly known. */}
+          <StatRow
+            label="Scoring check"
+            sub={validation
+              ? `${validation.total_findings} open · ${timeAgoMin(validation.ran_at)}`
+              : 'Nightly at 08:00 UTC. Nothing recorded yet.'}
+            value={<StatusPill {...(validation ? validationStatus(validation) : IDLE)} />}
+          />
+          <StatRow
+            label="MLB payrolls"
+            sub={payroll
+              ? `${payroll.season} season · updated ${timeAgo(payroll.updated_at)}`
+              : 'No payroll data. Run npm run payrolls'}
+            value={<StatusPill {...(payroll ? payrollStatus(payroll.updated_at) : IDLE)} />}
+          />
+        </Box>
+      </Section>
+
+      <Section title="Quick Links">
+        <QuickLink emoji="🔄" label="GitHub Actions: run workflows" href="https://github.com/sportydolphin/fun/actions" />
+        <QuickLink emoji="☁️" label="Cloudflare Pages: deploys" href="https://dash.cloudflare.com/ffbac30453d122b1e45cbd885857b100/pages/view/fun" />
+        <QuickLink emoji="🗄️" label="Supabase Dashboard" href="https://supabase.com/dashboard" />
+        <QuickLink emoji="📦" label="GitHub Repository" href="https://github.com/sportydolphin/fun" />
+      </Section>
+    </>
+  )
+}
+
+// ─── Tools ────────────────────────────────────────────────────────────────────
+
+/** A row that opens a drill-down modal. Feedback and Users had a copy each. */
+function DrillRow({ emoji, label, badge, onClick }: {
+  emoji: string; label: string; badge?: React.ReactNode; onClick: () => void
+}) {
+  return (
+    <Box
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+      sx={{
+        display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: 1.1,
+        cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' },
+      }}
+    >
+      <Typography sx={{ fontSize: '1rem', lineHeight: 1 }}>{emoji}</Typography>
+      <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: 'text.primary' }}>{label}</Typography>
+      <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+        {badge}
+        <Typography sx={{ fontSize: '0.9rem', color: 'text.disabled' }}>›</Typography>
+      </Box>
+    </Box>
+  )
+}
+
+// The things the owner *does*: fire a test push, work the feedback queue, manage users, open
+// one of the small apps. This began as a maxWidth="xs" dialog off the account menu, then
+// became the whole operational half of one long page; the freshness reads moved to
+// HealthGroup above, so what is left here is only the actions. Feedback and Users stay
+// modals: they are drill-downs opened FROM the page, not competing with it.
+export function AdminTools({ apps, isAppLocked, onOpenApp }: {
+  apps: AppTile[]
+  isAppLocked: (path: string) => boolean
+  onOpenApp: (path: string) => void
+}) {
+  const [userCount, setUserCount] = useState<number | null>(null)
+  const [usersOpen, setUsersOpen] = useState(false)
+  const [feedbackNew, setFeedbackNew]   = useState<number | null>(null)
+  const [feedbackOpen, setFeedbackOpen] = useState(false)
+
+  // Summary counts for the clickable rows. Split out so each modal can refresh just its own
+  // count after an action, without re-running the whole panel load.
+  const loadFeedbackCount = React.useCallback(() => {
+    supabase.from('feedback')
+      .select('*', { count: 'exact', head: true })
+      .is('handled_at', null)
+      .then(({ count }) => setFeedbackNew(count ?? 0))
   }, [])
 
-  const latestPayroll = payrolls?.[0]
+  // Active (non-deactivated) users. Filters out is_deleted, falling back to a plain count if
+  // that column isn't migrated yet.
+  const loadUserCount = React.useCallback(async () => {
+    const r = await supabase.from('usernames')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_deleted', false)
+    if (r.error) {
+      const all = await supabase.from('usernames').select('*', { count: 'exact', head: true })
+      setUserCount(all.count ?? 0)
+    } else {
+      setUserCount(r.count ?? 0)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadFeedbackCount()
+    loadUserCount()
+  }, [loadFeedbackCount, loadUserCount])
 
   return (
     <>
       <Box>
-        {/* ── Other apps ─────────────────────────────────────────────── */}
+        <Section title="Queues">
+          <DrillRow
+            emoji="📮"
+            label="View feedback"
+            onClick={() => setFeedbackOpen(true)}
+            badge={feedbackNew != null && feedbackNew > 0 ? (
+              <Box sx={{ px: 1, py: 0.2, borderRadius: 999, bgcolor: 'primary.main' }}>
+                <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#fff', letterSpacing: 0.5 }}>
+                  {feedbackNew} NEW
+                </Typography>
+              </Box>
+            ) : undefined}
+          />
+          <Box sx={{ height: '1px', bgcolor: 'divider' }} />
+          <DrillRow
+            emoji="👥"
+            label="Manage users"
+            onClick={() => setUsersOpen(true)}
+            badge={userCount != null ? (
+              <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: 'text.secondary' }}>
+                {userCount}
+              </Typography>
+            ) : undefined}
+          />
+        </Section>
+
+        <TestNotificationSection />
+
         <Section title="Other Apps">
           <AppGrid apps={apps} isAppLocked={isAppLocked} onOpenApp={onOpenApp} />
         </Section>
-
-        {/* ── Test notification ──────────────────────────────────────── */}
-        <TestNotificationSection />
-
-        {/* ── User feedback — opens the full queue in its own popup ───── */}
-        <Section title="Feedback">
-          <Box
-            onClick={() => setFeedbackOpen(true)}
-            sx={{
-              display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: 1.1,
-              cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' },
-            }}
-          >
-            <Typography sx={{ fontSize: '1rem', lineHeight: 1 }}>📮</Typography>
-            <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: 'text.primary' }}>
-              View feedback
-            </Typography>
-            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
-              {feedbackNew != null && feedbackNew > 0 && (
-                <Box sx={{ px: 1, py: 0.2, borderRadius: 999, bgcolor: 'primary.main' }}>
-                  <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#fff', letterSpacing: 0.5 }}>
-                    {feedbackNew} NEW
-                  </Typography>
-                </Box>
-              )}
-              <Typography sx={{ fontSize: '0.9rem', color: 'text.disabled' }}>›</Typography>
-            </Box>
-          </Box>
-        </Section>
-
-        {loading ? (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <CircularProgress size={24} />
-          </Box>
-        ) : (
-          <>
-            {/* ── Payroll data ─────────────────────────────────────────── */}
-            <Section title="Payroll Data">
-              {latestPayroll ? (
-                <Box sx={{ px: 1.5 }}>
-                  <StatRow
-                    label={`${latestPayroll.season} season`}
-                    sub={`Updated ${timeAgo(latestPayroll.updated_at)}`}
-                    value={<FreshnessChip updatedAt={latestPayroll.updated_at} />}
-                  />
-                </Box>
-              ) : (
-                <Box sx={{ px: 1.5, py: 1 }}>
-                  <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>
-                    No payroll data. Run <code>npm run payrolls</code>
-                  </Typography>
-                </Box>
-              )}
-            </Section>
-
-            {/* ── WPBL feed mirror ─────────────────────────────────────── */}
-            <Section title="WPBL Ingest">
-              {wpblRun ? (
-                <Box sx={{ px: 1.5 }}>
-                  <StatRow
-                    label="Feed mirror"
-                    sub={`${wpblRun.mode ?? '—'} · ${wpblRun.games} games, ${wpblRun.boxscores} boxscores · ${timeAgoMin(wpblRun.ran_at)}${wpblRun.error_count > 0 ? ` · ${wpblRun.error_count} error(s)` : ''}`}
-                    value={<WpblFreshnessChip run={wpblRun} />}
-                  />
-                </Box>
-              ) : (
-                <Box sx={{ px: 1.5, py: 1 }}>
-                  <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>
-                    No ingest runs logged yet.
-                  </Typography>
-                </Box>
-              )}
-            </Section>
-
-            {/* ── TrackMan publishing ───────────────────────────────────── */}
-            {/* This replaced a Home card. The "Ballpark tracking" teaser hid itself once the
-                league's radar publishing fell behind the schedule, which meant the only thing
-                watching for the feed's return was a component that had already disappeared.
-                Here it cannot hide, and the nightly watcher shouts when it moves. */}
-            <Section title="WPBL TrackMan">
-              <Box sx={{ px: 1.5 }}>
-                {wpblTrack ? (
-                  <StatRow
-                    label="Pitch tracking"
-                    sub={wpblTrack.last_tracked_game_date
-                      ? `Through ${wpblTrack.last_tracked_game_date} · ${wpblTrack.tracked_game_count} game${wpblTrack.tracked_game_count === 1 ? '' : 's'} · checked ${timeAgoMin(wpblTrack.last_checked_at ?? '')}`
-                      : 'The league has published none of it yet.'}
-                    value={<WpblTrackingChip row={wpblTrack} />}
-                  />
-                ) : (
-                  <StatRow
-                    label="Pitch tracking"
-                    sub="Nightly at 08:30 UTC. Nothing recorded yet."
-                    value={
-                      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled' }}>
-                        Not yet run
-                      </Typography>
-                    }
-                  />
-                )}
-              </Box>
-            </Section>
-
-            {/* ── Play-by-play validation ───────────────────────────────── */}
-            <Section title="WPBL Scoring Check">
-              <Box sx={{ px: 1.5 }}>
-                {wpblCheck ? (
-                  <StatRow
-                    label="Play-by-play validation"
-                    sub={`${wpblCheck.total_findings} open · ${timeAgoMin(wpblCheck.ran_at)}`}
-                    value={<WpblValidationChip run={wpblCheck} />}
-                  />
-                ) : (
-                  <StatRow
-                    label="Play-by-play validation"
-                    sub="Nightly at 08:00 UTC. Nothing recorded yet."
-                    value={
-                      <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled' }}>
-                        Not yet run
-                      </Typography>
-                    }
-                  />
-                )}
-              </Box>
-            </Section>
-
-            {/* ── Prediction activity ───────────────────────────────────── */}
-            <Section title="Prediction Activity">
-              <Box sx={{ px: 1.5 }}>
-                <StatRow
-                  label="Total predictions"
-                  value={<Typography sx={{ fontSize: '0.88rem', fontWeight: 700 }}>{predCount?.toLocaleString() ?? '—'}</Typography>}
-                />
-              </Box>
-            </Section>
-
-            {/* ── Users — opens the full roster in its own popup ─────────── */}
-            <Section title="Users">
-              <Box
-                onClick={() => setUsersOpen(true)}
-                sx={{
-                  display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: 1.1,
-                  cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' },
-                }}
-              >
-                <Typography sx={{ fontSize: '1rem', lineHeight: 1 }}>👥</Typography>
-                <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: 'text.primary' }}>
-                  Manage users
-                </Typography>
-                <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {userCount != null && (
-                    <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, color: 'text.secondary' }}>
-                      {userCount}
-                    </Typography>
-                  )}
-                  <Typography sx={{ fontSize: '0.9rem', color: 'text.disabled' }}>›</Typography>
-                </Box>
-              </Box>
-            </Section>
-
-            {/* ── Quick links ───────────────────────────────────────────── */}
-            <Section title="Quick Links">
-              <QuickLink emoji="🔄" label="GitHub Actions — Run workflows" href="https://github.com/sportydolphin/fun/actions" />
-              <QuickLink emoji="☁️" label="Cloudflare Pages — Deploys" href="https://dash.cloudflare.com/ffbac30453d122b1e45cbd885857b100/pages/view/fun" />
-              <QuickLink emoji="🗄️" label="Supabase Dashboard" href="https://supabase.com/dashboard" />
-              <QuickLink emoji="📦" label="GitHub Repository" href="https://github.com/sportydolphin/fun" />
-            </Section>
-          </>
-        )}
       </Box>
 
-    <FeedbackModal
-      open={feedbackOpen}
-      onClose={() => setFeedbackOpen(false)}
-      onChanged={loadFeedbackCount}
-    />
+      <FeedbackModal
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        onChanged={loadFeedbackCount}
+      />
 
-    <UserModal
-      open={usersOpen}
-      onClose={() => setUsersOpen(false)}
-      onChanged={loadUserCount}
-    />
+      <UserModal
+        open={usersOpen}
+        onClose={() => setUsersOpen(false)}
+        onChanged={loadUserCount}
+      />
     </>
   )
 }

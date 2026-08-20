@@ -50,6 +50,14 @@ export const EVENTS = {
   // says whether folding three rails into one buried the other two.
   WPBL_SHELF_SEGMENT:     'wpbl_shelf_segment',     // switched shelf segment, props {segment}
   WPBL_SHELF_COLLAPSED:   'wpbl_shelf_collapsed',   // toggled the shelf shut or open, props {collapsed}
+  // The Stats tab, which is the most-viewed surface in the section and was, until these,
+  // entirely unmeasured below the tab itself. Its axes (Hitting/Pitching × Season/Tracked,
+  // Players/Teams, and Draft) never touch the URL, so Cloudflare cannot see them and the
+  // "no page-view counters here" rule above doesn't reach them: `wpbl_tab_viewed` says a
+  // reader arrived at Stats and nothing says which of six boards they actually read.
+  WPBL_STATS_BOARD:    'wpbl_stats_board',    // a Stats board is on screen, props {side, source, mode, via}
+  WPBL_STATS_SORTED:   'wpbl_stats_sorted',   // tapped a column header, props {key, asc, side, mode}
+  WPBL_STATS_FILTERED: 'wpbl_stats_filtered', // team chip or Qualified, props {filter, on, teamId?}
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the

@@ -13,6 +13,7 @@ import {
   type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
+import { track, EVENTS } from '../lib/analytics'
 // Two of the five Stats groups, behind their own chunks. Hitting and Pitching are what the
 // tab opens on; Tracking (the TrackMan boards) and Draft (the draft-value model) are each a
 // separate sub-tab with its own layout and neither is reachable without a deliberate tap.
@@ -46,6 +47,12 @@ type Mode = 'players' | 'teams'
 // The deep-link contract, unchanged — Home's leader cards ask for 'hitting'/'pitching' with a
 // column, and a legacy ?view=tracking URL asks for 'tracking'. Resolved onto the axes above.
 type Group = 'hitting' | 'pitching' | 'tracking' | 'draft'
+
+// Whether this page-load has already logged an arrival at Stats. Module scope rather than a
+// ref inside the component, because the pager unmounts the pane on the way out of the tab:
+// a component-scoped flag is born false on every visit, which would call all of them 'open'
+// and leave the two names measuring nothing.
+let statsOpened = false
 
 // A tracking link names no side, so it lands on whichever one the reader already had open.
 function axesOf(g: Group): { side?: Side; source: Source } {
@@ -184,10 +191,13 @@ function SubViewFallback() {
   )
 }
 
-export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpenTeam }: {
+export default function WpblStatsView({ teams, games, focus, active = true, onOpenPlayer, onOpenTeam }: {
   teams: WpblTeam[]
   games: WpblGame[]
   focus?: WpblStatsFocus
+  // Whether this pane is the one on screen. The pager keeps visited tabs mounted, so without
+  // it every return to Stats after the first would go unrecorded (see the board log below).
+  active?: boolean
   onOpenPlayer: (p: WpblPlayer) => void
   onOpenTeam?: (t: WpblTeam) => void
 }) {
@@ -225,6 +235,25 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
   const [sortKey, setSortKey] = useState(() => defaultSort(seedAxes.side ?? 'hitting', focus?.sortKey).key)
   const [sortAsc, setSortAsc] = useState(() => defaultSort(seedAxes.side ?? 'hitting', focus?.sortKey).asc)
 
+  // ── What board is being read ─────────────────────────────────────────────────
+  // Stats is the most-opened tab in the section and, until this, the only one whose contents
+  // were invisible: the axes are component state and never reach the URL, so neither
+  // `wpbl_tab_viewed` nor Cloudflare's path counts can tell Hitting from the Draft board.
+  // Logged imperatively at each place the board changes rather than from an effect on the
+  // axes, because the useful part is *why* it changed and only the caller knows that.
+  type BoardVia = 'open' | 'return' | 'link' | 'side' | 'source' | 'mode'
+  const logBoard = (via: BoardVia, next?: { side?: Side; source?: Source; mode?: Mode }) =>
+    track(EVENTS.WPBL_STATS_BOARD, {
+      side:   next?.side   ?? side,
+      source: next?.source ?? source,
+      mode:   next?.mode   ?? mode,
+      via,
+    })
+  // Set by the focus effect, consumed by the arrival effect below. A leader-card jump makes
+  // this pane active AND re-seeds it in the same commit; both effects run, and without the
+  // handoff the one visit would be logged twice, once per reason.
+  const linkLogged = useRef(false)
+
   // Re-focus the table whenever a leader card sends us here. Keyed on `token`, NOT on the
   // group/column values: this panel stays mounted once visited, so seeding state at mount is
   // not enough (a second "View all" used to be a no-op), while reacting to the values alone
@@ -241,11 +270,25 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
     // doesn't mention them, so an ordinary leader-card jump behaves exactly as before.
     if (focus.mode) setMode(focus.mode)
     if (focus.teamId !== undefined) setTeamId(focus.teamId)
+    linkLogged.current = true
+    logBoard('link', { side: axes.side, source: axes.source, mode: focus.mode })
     if (axes.source !== 'season') return // the tracked boards and draft have nothing to sort
     const next = defaultSort(axes.side ?? 'hitting', focus.sortKey)
     setSortKey(next.key)
     setSortAsc(next.asc)
   }, [requested])
+
+  // Arriving at the tab: the first time counts as an open, every later one as a return. Both
+  // report the board that was showing on arrival, which is the number that makes "boards read"
+  // comparable to "tab views" without inferring the second from the first in SQL. Note the
+  // board a return lands on is the default one, not the board that reader left: the unmount
+  // takes the axes with it.
+  useEffect(() => {
+    if (!active) return
+    if (linkLogged.current) { linkLogged.current = false; statsOpened = true; return }
+    logBoard(statsOpened ? 'return' : 'open')
+    statsOpened = true
+  }, [active])
 
   // Revalidate on mount, but skip the DB round trip entirely when the shared cache is
   // still fresh — so a quick swipe out and back is instant and silent. Box scores move
@@ -335,11 +378,37 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
   // Flipping sides re-sorts on that side's headline stat. Safe to do even while the tracked
   // boards are showing: it leaves the table sorted sensibly for when the reader switches back.
   const switchSide = (s: Side) => {
+    if (s !== side) logBoard('side', { side: s })
     setSide(s)
     if (s === 'hitting') { setSortKey('ops'); setSortAsc(false) }
     else { setSortKey('era'); setSortAsc(true) }
   }
+  const switchSource = (s: Source) => {
+    if (s !== source) logBoard('source', { source: s })
+    setSource(s)
+  }
+  const switchMode = (m: Mode) => {
+    if (m !== mode) logBoard('mode', { mode: m })
+    setMode(m)
+  }
+  // The two filters don't change which board is open, only what it shows, so they get their
+  // own event rather than muddying the board counts. Both are here to answer one question
+  // each: does a four-team league need a team filter, and does the qualified toggle earn
+  // the space it takes on a phone.
+  const filterTeam = (id: string | null) => {
+    track(EVENTS.WPBL_STATS_FILTERED, { filter: 'team', on: id !== null, teamId: id, side })
+    setTeamId(id)
+  }
+  const toggleQualified = () => {
+    track(EVENTS.WPBL_STATS_FILTERED, { filter: 'qualified', on: !qualified, side })
+    setQualified(q => !q)
+  }
   const clickHeader = (c: Col<WpblBattingTotals | WpblPitchingTotals>) => {
+    // The column a reader sorts by is the stat they came for, which is the question the
+    // frozen archive leaderboards will need answered. Only deliberate header taps are
+    // logged: the re-sort switchSide does for them is a side effect of the board, not a choice.
+    const asc = c.key === sortKey ? !sortAsc : (c.lowerBetter ?? false)
+    track(EVENTS.WPBL_STATS_SORTED, { key: c.key, asc, side, mode })
     if (c.key === sortKey) setSortAsc(a => !a)
     else { setSortKey(c.key); setSortAsc(c.lowerBetter ?? false) }
   }
@@ -463,7 +532,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
   if (source === 'draft') {
     return (
       <Box>
-        <Box onClick={() => setSource('season')} sx={{
+        <Box onClick={() => switchSource('season')} sx={{
           display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 1.75, cursor: 'pointer',
           userSelect: 'none', color: 'text.secondary', fontSize: '0.82rem', fontWeight: 700,
           '&:hover': { color: 'text.primary' },
@@ -528,8 +597,8 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
             tracked boards rank individual players and have no team cut. */}
         {source === 'season' && (
           <Box sx={{ display: 'flex', gap: 0.5, pb: 0.75, flexShrink: 0 }}>
-            <Chip active={mode === 'players'} onClick={() => setMode('players')}>Players</Chip>
-            <Chip active={mode === 'teams'} onClick={() => setMode('teams')}>Teams</Chip>
+            <Chip active={mode === 'players'} onClick={() => switchMode('players')}>Players</Chip>
+            <Chip active={mode === 'teams'} onClick={() => switchMode('teams')}>Teams</Chip>
           </Box>
         )}
       </Box>
@@ -542,8 +611,8 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
           of three. `order` is what swaps them; the markup stays single-source. */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, rowGap: 1, pb: 1.5 }}>
         <Box sx={{ order: 1, display: 'flex', gap: 0.5, flexShrink: 0 }}>
-          <Chip active={source === 'season'} onClick={() => setSource('season')}>Season</Chip>
-          <Chip active={source === 'tracked'} onClick={() => setSource('tracked')}>Tracked</Chip>
+          <Chip active={source === 'season'} onClick={() => switchSource('season')}>Season</Chip>
+          <Chip active={source === 'tracked'} onClick={() => switchSource('tracked')}>Tracked</Chip>
         </Box>
 
         {/* Players mode only — in Teams mode the table already is the four teams. */}
@@ -555,9 +624,9 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
           }}>
             {/* Separates the filter from the source toggle once they share a line. */}
             <Box sx={{ display: { xs: 'none', sm: 'block' }, width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mr: 0.25, flexShrink: 0 }} />
-            <Chip active={teamId === null} onClick={() => setTeamId(null)}>All</Chip>
+            <Chip active={teamId === null} onClick={() => filterTeam(null)}>All</Chip>
             {teamChips.map(t => (
-              <Chip key={t.id} active={teamId === t.id} onClick={() => setTeamId(teamId === t.id ? null : t.id)}>
+              <Chip key={t.id} active={teamId === t.id} onClick={() => filterTeam(teamId === t.id ? null : t.id)}>
                 <TeamBadge team={t} size={16} />
                 <Box component="span" sx={{ ml: 0.5 }}>{t.abbr}</Box>
               </Chip>
@@ -568,7 +637,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
         {/* The one filter that changes what the table *is* rather than which team it shows. */}
         {source === 'season' && mode === 'players' && (
           <Box sx={{ order: { xs: 2, sm: 3 }, ml: 'auto', flexShrink: 0 }}>
-            <Chip active={qualified} onClick={() => setQualified(q => !q)}>{qualified ? '✓ Qualified' : 'Qualified'}</Chip>
+            <Chip active={qualified} onClick={() => toggleQualified()}>{qualified ? '✓ Qualified' : 'Qualified'}</Chip>
           </Box>
         )}
       </Box>
@@ -745,7 +814,7 @@ export default function WpblStatsView({ teams, games, focus, onOpenPlayer, onOpe
           weekly, and it spans both sides of the ball so it belongs on neither axis. The table
           above is a fixed-height scroller, so this sits on screen rather than below the fold. */}
       {source === 'season' && (
-        <Box onClick={() => setSource('draft')} sx={{
+        <Box onClick={() => switchSource('draft')} sx={{
           display: 'flex', alignItems: 'center', gap: 1.25, mt: 1.5, px: 1.5, py: 1.25,
           border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2,
           cursor: 'pointer', userSelect: 'none', transition: 'border-color 0.15s, background-color 0.15s',
