@@ -13,6 +13,7 @@
 // player modal exactly as before either way — this only changes what a crawler reads.
 // The card's wording lives in src/wpbl/ogCard.ts, where it is unit-tested.
 import { wpblPlayerCard, type WpblCardBatting, type WpblCardPitching, type WpblPlayerCard } from '../../src/wpbl/ogCard'
+import type { WpblSeasonGame } from '../../src/wpbl/season'
 
 interface Env {
   // Pages exposes the project's environment variables to functions at runtime, so these
@@ -83,12 +84,16 @@ async function resolvePlayer(playerId: string, env: Env, url: URL): Promise<Reso
   }
 
   let players: PlayerRow[], teams: TeamRow[], batting: WpblCardBatting[], pitching: WpblCardPitching[]
+  let games: WpblSeasonGame[]
   try {
-    [players, teams, batting, pitching] = await Promise.all([
+    [players, teams, batting, pitching, games] = await Promise.all([
       read<PlayerRow>(`wpbl_players?select=id,name,position,team_id&id=eq.${playerId}&limit=1`),
       read<TeamRow>('wpbl_teams?select=id,city,name'),
-      read<WpblCardBatting>(`wpbl_batting_lines?select=position,ab,r,h,doubles,triples,hr,rbi,bb,so,hbp,sb,cs,sf,sh&player_id=eq.${playerId}`),
-      read<WpblCardPitching>(`wpbl_pitching_lines?select=outs,h,r,er,bb,so,hr,decision&player_id=eq.${playerId}`),
+      read<WpblCardBatting>(`wpbl_batting_lines?select=game_id,position,ab,r,h,doubles,triples,hr,rbi,bb,so,hbp,sb,cs,sf,sh&player_id=eq.${playerId}`),
+      read<WpblCardPitching>(`wpbl_pitching_lines?select=game_id,outs,h,r,er,bb,so,hr,decision&player_id=eq.${playerId}`),
+      // Three narrow columns over ~40 rows, so the card's season line can leave the
+      // postseason out the same way every other surface does.
+      read<WpblSeasonGame>('wpbl_games?select=id,game_type,counts_in_standings'),
     ])
   } finally {
     clearTimeout(timer)
@@ -99,7 +104,7 @@ async function resolvePlayer(playerId: string, env: Env, url: URL): Promise<Reso
   const team = teams.find(t => t.id === player.team_id)
   const teamName = team ? `${team.city} ${team.name}` : 'the WPBL'
 
-  const card = wpblPlayerCard(player, teamName, batting, pitching)
+  const card = wpblPlayerCard(player, teamName, batting, pitching, games)
   return {
     ...card,
     url: `${SITE}/wpbl?player=${player.id}`,

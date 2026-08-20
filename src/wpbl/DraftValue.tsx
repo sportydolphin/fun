@@ -3,6 +3,7 @@ import { Box, Typography, useTheme } from '@mui/material'
 import { aggregateBatting, aggregatePitching, fmtRate, fmtTwo } from './stats'
 import { CARD_BORDER } from './ui'
 import type { WpblPlayer, WpblBattingLine, WpblPitchingLine } from './types'
+import { regularSeasonLines, type WpblSeasonGame } from './season'
 
 // "Do earlier draft picks actually produce better players?" — a scatter of every drafted
 // player's season rate stat against where they were taken, with the per-round average drawn
@@ -281,10 +282,12 @@ function describeR(r: number, better: 'higher' | 'lower'): string {
 
 type Cut = 'all' | 'sample'
 
-export default function WpblDraftValue({ players, batting, pitching, onOpenPlayer }: {
+export default function WpblDraftValue({ players, batting, pitching, games: schedule, onOpenPlayer }: {
   players: WpblPlayer[]
   batting: WpblBattingLine[]
   pitching: WpblPitchingLine[]
+  // Renamed on the way in because the body already calls its own game COUNT `games`.
+  games: WpblSeasonGame[]
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
   const [cut, setCut] = useState<Cut>('all')
@@ -301,10 +304,12 @@ export default function WpblDraftValue({ players, batting, pitching, onOpenPlaye
     const size = Math.max(...players.map(p => p.draft_pick ?? 0), 1)
     const lastRound = Math.max(...players.map(p => p.draft_round ?? 0), 1)
     const draftedCount = players.filter(p => p.draft_round && p.draft_pick).length
-    const games = new Set(batting.map(l => l.game_id)).size
+    // Regular-season games only, or the "N games in" line under the chart starts counting
+    // playoff games as season progress the moment the postseason begins.
+    const games = new Set(regularSeasonLines(batting, schedule).map(l => l.game_id)).size
 
     const bat: Pt[] = []
-    for (const { player, totals } of aggregateBatting(players, batting)) {
+    for (const { player, totals } of aggregateBatting(players, batting, schedule)) {
       const x = overallPickOf(player, size)
       const pa = totals.ab + totals.bb + totals.hbp + totals.sf
       if (x == null || totals.ops == null || pa === 0) continue
@@ -316,7 +321,7 @@ export default function WpblDraftValue({ players, batting, pitching, onOpenPlaye
     }
 
     const pit: Pt[] = []
-    for (const { player, totals } of aggregatePitching(players, pitching)) {
+    for (const { player, totals } of aggregatePitching(players, pitching, schedule)) {
       const x = overallPickOf(player, size)
       const ip = totals.outs / 3
       if (x == null || totals.era == null || ip === 0) continue

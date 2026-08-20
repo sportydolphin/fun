@@ -1079,8 +1079,8 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   }, [liveGame?.id])
 
 
-  const batSeasons = useMemo(() => aggregateBatting(players, lines.batting), [players, lines.batting])
-  const pitSeasons = useMemo(() => aggregatePitching(players, lines.pitching), [players, lines.pitching])
+  const batSeasons = useMemo(() => aggregateBatting(players, lines.batting, games), [players, lines.batting, games])
+  const pitSeasons = useMemo(() => aggregatePitching(players, lines.pitching, games), [players, lines.pitching, games])
 
   // Only enforce the 5 AB / 3 IP rate qualifier once every team has played 2+ games.
   const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])

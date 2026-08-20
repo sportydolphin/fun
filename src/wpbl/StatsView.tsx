@@ -312,7 +312,7 @@ export default function WpblStatsView({ teams, games, focus, active = true, onOp
   // classic formula includes them, but this league's single-season, unmeasured parks give no
   // reliable adjustment, so we omit it (implicitly 1.0). Sits right after OPS.
   const hitCols = useMemo<Col<WpblBattingTotals>[]>(() => {
-    const lg = sumBatting(lines.batting)
+    const lg = sumBatting(lines.batting, games)
     const lgObp = lg.obp, lgSlg = lg.slg
     const opsPlus = (t: WpblBattingTotals): number | null =>
       t.obp != null && t.slg != null && lgObp != null && lgObp > 0 && lgSlg != null && lgSlg > 0
@@ -345,7 +345,7 @@ export default function WpblStatsView({ teams, games, focus, active = true, onOp
   // park factor, same reasoning as OPS+. A 0.00 ERA has no finite ratio, so it reads "∞" and
   // sorts to the top rather than dashing to the bottom. Sits right after ERA.
   const pitCols = useMemo<Col<WpblPitchingTotals>[]>(() => {
-    const lgEra = sumPitching(lines.pitching).era
+    const lgEra = sumPitching(lines.pitching, games).era
     const eraPlus = (t: WpblPitchingTotals): number | null => {
       if (t.era == null || lgEra == null || lgEra <= 0) return null
       return t.era === 0 ? Infinity : 100 * lgEra / t.era
@@ -434,7 +434,9 @@ export default function WpblStatsView({ teams, games, focus, active = true, onOp
         const src = side === 'hitting'
           ? lines.batting.filter(l => l.team_id === team.id)
           : lines.pitching.filter(l => l.team_id === team.id)
-        const totals = side === 'hitting' ? sumBatting(src as WpblBattingLine[]) : sumPitching(src as WpblPitchingLine[])
+        const totals = side === 'hitting'
+          ? sumBatting(src as WpblBattingLine[], games)
+          : sumPitching(src as WpblPitchingLine[], games)
         const gameIds = new Set(src.map(l => l.game_id))
         totals.g = gameIds.size
         if (side === 'hitting') {
@@ -457,8 +459,8 @@ export default function WpblStatsView({ teams, games, focus, active = true, onOp
       })
     } else {
       const seasons = side === 'hitting'
-        ? aggregateBatting(players, lines.batting).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.ab >= qual.minAb }))
-        : aggregatePitching(players, lines.pitching).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.outs >= qual.minOuts }))
+        ? aggregateBatting(players, lines.batting, games).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.ab >= qual.minAb }))
+        : aggregatePitching(players, lines.pitching, games).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.outs >= qual.minOuts }))
       let list = seasons
       if (teamId) list = list.filter(s => s.player.team_id === teamId)
       // The qualifier applies to every sort, counting stats included — a 1-for-1 HR leader
@@ -540,7 +542,7 @@ export default function WpblStatsView({ teams, games, focus, active = true, onOp
           <Box component="span" sx={{ fontSize: '0.95rem', lineHeight: 1 }}>←</Box> Stats
         </Box>
         <Suspense fallback={<SubViewFallback />}>
-          <WpblDraftValue players={players} batting={lines.batting} pitching={lines.pitching}
+          <WpblDraftValue players={players} batting={lines.batting} pitching={lines.pitching} games={games}
             onOpenPlayer={onOpenPlayer} />
         </Suspense>
       </Box>

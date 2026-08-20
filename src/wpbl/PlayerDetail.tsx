@@ -194,8 +194,11 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
   // Only real plate appearances count as batting — a 0-for-0 pinch/defensive cameo shouldn't
   // produce an all-zero batting card or a phantom game-log row.
   const battingReal = useMemo(() => batting.filter(hasPlateAppearance), [batting])
-  const bt = useMemo(() => sumBatting(battingReal), [battingReal])
-  const pt = useMemo(() => sumPitching(pitching), [pitching])
+  // The season line is the REGULAR season. The game log below it still lists every game
+  // the player appeared in, postseason included: a log is a record of what happened, and
+  // hiding games from it would read as missing data rather than as a filtered total.
+  const bt = useMemo(() => sumBatting(battingReal, games), [battingReal, games])
+  const pt = useMemo(() => sumPitching(pitching, games), [pitching, games])
   const ft = useMemo(() => sumFielding(fielding), [fielding])
   const hasBatting = battingReal.length > 0
   const hasPitching = pitching.length > 0

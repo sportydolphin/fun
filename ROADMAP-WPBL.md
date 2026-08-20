@@ -104,7 +104,7 @@ more than it looks. The primer (#4) and SEO (#3) hold, aimed at a cold audience 
 
 ## Next: in priority order
 
-### 1. Postseason data hygiene ⚙️: *hard deadline, nothing else on this list has one*
+### 1. Postseason data hygiene ⚙️: ✅ **shipped Aug 20, 2026** (see the log). Kept here until the first postseason game confirms what the feed sends
 
 **Format** (confirmed Aug 16): all four teams qualify · semifinals **best-of-3** ·
 finals **best-of-5**. So **7–11 postseason games** land on top of a 30-game regular season,
@@ -144,7 +144,7 @@ pages, player pages, the Draft tab's draft-value analysis, the Discord `/player`
 and the OG cards on shared links. **The season archive (#2) is built on these numbers**, so
 leaving this unfixed makes the permanent record of the inaugural season wrong.
 
-**Scope:** thread game context into the four aggregation functions and their ~15 call
+**Scope** (done): thread game context into the four aggregation functions and their 23 call
 sites; audit every `status === 'final'` filter for whether it means "counts toward the
 season record" or "has been played"; confirm what the feed actually puts in `game_type` for
 a postseason game (unknown until the first one lands, and the semis start right after
@@ -509,6 +509,32 @@ v1.45.0.
   design **cannot** catch: two players swapped consistently through a game keeps the order
   legal and the outs adding up. That needs an independent transcription, and the one that
   exists carries no licence.
+
+### Aug 20, 2026: the postseason cannot reach the season numbers either
+
+- ✅ **Item #1 is done.** The standings half shipped Aug 19; this is the aggregation half. All
+  four functions in [`stats.ts`](src/wpbl/stats.ts) now take the schedule as a **required**
+  argument and filter their input through `regularSeasonLines()`. Required rather than
+  optional on purpose: a defaulted parameter makes forgetting it silent, and silence was the
+  entire failure mode. `tsc` named all 23 call sites, which is the first time this class of
+  bug has been catchable by the compiler rather than by noticing a wrong number.
+- ✅ **`countsInStandings` moved to [`season.ts`](src/wpbl/season.ts)**, which imports nothing
+  but types. `stats.ts` is bundled into the Cloudflare Pages Functions behind the OG cards and
+  the Discord `/player` command, so importing the predicate from `api.ts` would have dragged
+  the whole supabase client to the edge. Both bundles verified clean afterwards.
+- ✅ **Two more of the same bug, found on the way.** `computeWpblTeamStats` kept its own copy
+  of "games played" and would have divided regular-season runs by a total including playoff
+  games; and the qualifier thresholds scale off games played, so the postseason would have
+  raised the bar for a rate title mid-October and dropped players off leaderboards they had
+  already earned. Both now share one filtered helper.
+- ✅ **The edge surfaces carry the schedule too.** The `/player` card reads it from the bot's
+  existing roster cache, which already refreshes once a game; the unfurl card fetches three
+  narrow columns over about forty rows. The Discord cache tolerates an entry written before
+  the field existed by treating it as an empty schedule, which excludes nothing.
+- 📌 **Still unknown, and unknowable until Sep 9:** what the feed actually puts in `game_type`
+  for a postseason game. Every row today reads `regular` / `counts_in_standings: true`. That
+  is exactly why the predicate is matched loosely and fails open, and why the shape landing
+  now matters more than the values: come Sep 9 only the predicate should need revisiting.
 
 ### Aug 20, 2026: measuring the tab nobody could see into
 

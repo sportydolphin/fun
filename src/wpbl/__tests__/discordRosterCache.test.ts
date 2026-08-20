@@ -32,30 +32,34 @@ describe('the bot roster cache', () => {
   beforeEach(() => { __resetRosterCache() })
   afterEach(() => { vi.unstubAllGlobals() })
 
-  it('reads players, teams and box-score positions once on a cold load', async () => {
+  it('reads players, teams, box-score positions and the schedule once on a cold load', async () => {
     const calls = stubFetch()
     const roster = await loadRoster(env, new AbortController().signal)
     expect(roster?.players).toHaveLength(1)
     expect(roster?.teams).toHaveLength(1)
-    // The third read is what lets the suggestions name the position a player actually plays
-    // rather than the one the roster filed. It is cached with the rest, so it costs one read
-    // per window, not one per keystroke.
+    // The positions read is what lets the suggestions name the position a player actually
+    // plays rather than the one the roster filed. It is cached with the rest, so it costs one
+    // read per window, not one per keystroke.
     expect(roster?.battingPositions).toHaveLength(5)
-    expect(calls).toHaveLength(3)
+    expect(calls).toHaveLength(4)
     expect(calls.some(c => c.includes('wpbl_players'))).toBe(true)
     expect(calls.some(c => c.includes('wpbl_teams'))).toBe(true)
     expect(calls.some(c => c.includes('wpbl_batting_lines'))).toBe(true)
+    // The schedule joined the batch so /player's season line can leave the postseason out.
+    // It belongs in the cache and not in the per-command path: it changes once a game, and a
+    // fourth uncached read on every keystroke would be the expensive way to get it.
+    expect(calls.some(c => c.includes('wpbl_games'))).toBe(true)
   })
 
   it('serves repeat loads without touching the database again', async () => {
     const calls = stubFetch()
     await loadRoster(env, new AbortController().signal)
-    expect(calls).toHaveLength(3)
+    expect(calls).toHaveLength(4)
 
     // What an autocomplete burst looks like: several interactions in a couple of seconds.
     for (let i = 0; i < 8; i++) await loadRoster(env, new AbortController().signal)
 
-    expect(calls).toHaveLength(3)   // still just the cold load
+    expect(calls).toHaveLength(4)   // still just the cold load
   })
 
   it('returns the same data on a cached load as on the cold one', async () => {

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { FIRSTS_EVENT_TYPES } from './firsts'
+import { countsInStandings } from './season'
 import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
@@ -676,32 +677,13 @@ function standingsStartMin(t: string | null | undefined): number {
   return h * 60 + Number(m[2])
 }
 
-/** Does this game belong in the regular-season record?
- *
- *  The postseason runs Sep 9 to Sep 22, 2026: two best-of-three semifinals and a best-of-five
- *  championship. Those are real finals with real scores, and until this existed every one of
- *  them would have been folded straight into the standings, run differential, streaks, last-10
- *  and the head-to-head tiebreak. A club could finish the regular season 3-4 and be shown 6-5.
- *
- *  DELIBERATELY FAILS OPEN. It excludes a game only on positive evidence that it is a playoff
- *  game, and counts anything it does not recognise. The alternative, counting only what it can
- *  positively identify as regular season, breaks catastrophically and silently the day the feed
- *  renames its game types: every game drops out and the standings render four clubs at 0-0
- *  rather than showing an obviously wrong number. Wrong-by-a-few is recoverable; blank is not.
- *
- *  Two independent signals, because the feed has not shown us a postseason row yet and we
- *  cannot know which one it will use. All 30 regular-season rows carry
- *  `counts_in_standings: true` and `game_type: 'regular'` today. */
-export function countsInStandings(g: WpblGame): boolean {
-  // The column exists for exactly this, so an explicit false is definitive. `null`/`undefined`
-  // means "not stated" (older, hand-entered rows), which must keep counting.
-  if (g.counts_in_standings === false) return false
-  // Backstop for a feed that labels the round but leaves the flag alone. Matched loosely on
-  // the round names the published schedule uses, and NOT on the bare word "final", which the
-  // status field also uses for every completed regular-season game.
-  if (g.game_type && /post|playoff|semi|champ|wild.?card/i.test(g.game_type)) return false
-  return true
-}
+// `countsInStandings` lives in season.ts now, which imports nothing but types. The predicate
+// is needed by stats.ts, which is bundled into the Cloudflare Pages Functions behind the OG
+// cards and the Discord /player command; importing it from here would drag the whole supabase
+// client into those. Re-exported so every existing importer keeps working and there is still
+// exactly one definition of "counts toward the season".
+export { regularSeasonLines, excludedGameIds } from './season'
+export { countsInStandings }
 
 export function computeStandings(teams: WpblTeam[], games: WpblGame[]): WpblStandingRow[] {
   const acc = new Map<string, { team: WpblTeam; wins: number; losses: number; runsFor: number; runsAgainst: number }>()

@@ -16,6 +16,7 @@ import { displayPosition } from './positions'
 // to stay asset-free for the same reason.
 import { outsToIp } from './innings'
 import type { WpblPlayer, WpblTeam, WpblBattingLine, WpblPitchingLine } from './types'
+import type { WpblSeasonGame } from '../wpbl/season'
 
 const SITE = 'https://sportydolphin.fun'
 
@@ -57,12 +58,15 @@ export function buildPlayerReply(
   team: WpblTeam | undefined,
   batting: WpblBattingLine[],
   pitching: WpblPitchingLine[],
+  // The schedule, so the season line stops where the regular season does. Same reason as
+  // every other aggregate on the site; see stats.ts.
+  games: WpblSeasonGame[],
 ): DiscordReply {
   // Zero-PA rows (a pinch-runner who scored, a defensive sub) would read as an 0-for-0
   // game, so they come out here exactly as they do on the player page.
   const batted = batting.filter(l => l.ab + l.bb + l.hbp + l.sf + l.sh > 0)
-  const bt = sumBatting(batted)
-  const pt = sumPitching(pitching)
+  const bt = sumBatting(batted, games)
+  const pt = sumPitching(pitching, games)
   const hasBatting = batted.length > 0
   const hasPitching = pitching.length > 0
   const pitcherFirst = hasPitching && (!hasBatting || /P/.test(player.position ?? ''))

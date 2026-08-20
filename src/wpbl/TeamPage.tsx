@@ -359,10 +359,10 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
       .sort((a, b) => a.game_date !== b.game_date ? (a.game_date < b.game_date ? -1 : 1) : startMin(a.start_time) - startMin(b.start_time))
   }, [games, team.id])
 
-  const batSeasons = useMemo(() => lines ? aggregateBatting(roster ?? [], lines.batting) : [], [roster, lines])
-  const pitSeasons = useMemo(() => lines ? aggregatePitching(roster ?? [], lines.pitching) : [], [roster, lines])
-  const teamBat = useMemo(() => lines ? sumBatting(lines.batting) : null, [lines])
-  const teamPit = useMemo(() => lines ? sumPitching(lines.pitching) : null, [lines])
+  const batSeasons = useMemo(() => lines ? aggregateBatting(roster ?? [], lines.batting, games) : [], [roster, lines, games])
+  const pitSeasons = useMemo(() => lines ? aggregatePitching(roster ?? [], lines.pitching, games) : [], [roster, lines, games])
+  const teamBat = useMemo(() => lines ? sumBatting(lines.batting, games) : null, [lines, games])
+  const teamPit = useMemo(() => lines ? sumPitching(lines.pitching, games) : null, [lines, games])
 
   const batByPid = useMemo(() => new Map(batSeasons.map(s => [s.player.id, s.totals])), [batSeasons])
   const pitByPid = useMemo(() => new Map(pitSeasons.map(s => [s.player.id, s.totals])), [pitSeasons])

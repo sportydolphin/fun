@@ -1,4 +1,21 @@
 import type { WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblGame, WpblTeam } from './types'
+import { countsInStandings, regularSeasonLines, type WpblSeasonGame } from './season'
+
+// EVERY aggregate here takes the schedule, and it is not optional.
+//
+// A box-score line carries a `game_id` and nothing else about the game, so it cannot say for
+// itself whether it belongs in a season total. Before this, none of these functions had a
+// parameter through which a postseason line could have been filtered, which meant the first
+// semifinal box score would silently have changed every season number on the site: the Stats
+// tab, the home leaders, team and player pages, the draft-value model, the Discord /player
+// card and the OG images on shared links. Unevenly, too, since a finalist's hitter gains up
+// to eight extra games and a team swept in the semis gains two, so the leaderboards would
+// have reordered by how far a club went rather than by how anyone played.
+//
+// `games` is REQUIRED rather than defaulted for that reason: an optional argument makes
+// forgetting it silent, and silence is the entire failure mode here. Pass the schedule you
+// already hold. The filtering itself fails open (see season.ts), so a partial schedule
+// over-counts rather than blanking the page.
 
 // Season stat aggregation from box-score lines. Rates are null when the denominator
 // is zero (no AB / no IP) so the UI can show a dash instead of NaN.
@@ -14,7 +31,13 @@ export interface WpblBattingTotals {
   lob: number | null
 }
 
-export function sumBatting(lines: WpblBattingLine[]): WpblBattingTotals {
+export function sumBatting(lines: WpblBattingLine[], games: WpblSeasonGame[]): WpblBattingTotals {
+  return sumBattingRaw(regularSeasonLines(lines, games))
+}
+
+/** The arithmetic alone, on lines already known to be in scope. Internal, so the grouping
+ *  helpers below can filter once for the whole league instead of once per player. */
+function sumBattingRaw(lines: WpblBattingLine[]): WpblBattingTotals {
   const t = { g: lines.length, ab: 0, r: 0, h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, bb: 0, so: 0, sb: 0, hbp: 0, cs: 0, sf: 0 }
   for (const l of lines) {
     t.ab += l.ab; t.r += l.r; t.h += l.h; t.doubles += l.doubles; t.triples += l.triples; t.hr += l.hr
@@ -60,7 +83,12 @@ export interface WpblPitchingTotals {
   kbb: number | null
 }
 
-export function sumPitching(lines: WpblPitchingLine[]): WpblPitchingTotals {
+export function sumPitching(lines: WpblPitchingLine[], games: WpblSeasonGame[]): WpblPitchingTotals {
+  return sumPitchingRaw(regularSeasonLines(lines, games))
+}
+
+/** The arithmetic alone; see `sumBattingRaw`. */
+function sumPitchingRaw(lines: WpblPitchingLine[]): WpblPitchingTotals {
   const t = { g: lines.length, outs: 0, h: 0, r: 0, er: 0, bb: 0, so: 0, hr: 0, w: 0, l: 0, s: 0 }
   for (const l of lines) {
     t.outs += l.outs; t.h += l.h; t.r += l.r; t.er += l.er; t.bb += l.bb; t.so += l.so; t.hr += l.hr
@@ -105,11 +133,16 @@ export interface WpblQualifiers {
   minOuts: number    // outs recorded needed for a pitching rate title
 }
 
-/** Games played (finals only) per team id. */
+/** Regular-season games played (finals only) per team id.
+ *
+ *  Postseason games come out here too, and not just for tidiness: the qualifier thresholds
+ *  scale off this number, so counting playoff games would raise the bar for a rate title in
+ *  the middle of the postseason and quietly drop players off leaderboards they had already
+ *  qualified for. */
 function gamesPlayed(games: WpblGame[]): Map<string, number> {
   const played = new Map<string, number>()
   for (const g of games) {
-    if (g.status !== 'final') continue
+    if (g.status !== 'final' || !countsInStandings(g)) continue
     played.set(g.home_team_id, (played.get(g.home_team_id) ?? 0) + 1)
     played.set(g.away_team_id, (played.get(g.away_team_id) ?? 0) + 1)
   }
@@ -155,32 +188,32 @@ export const fmtSigned = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `\u22
 export interface WpblBatSeason { player: WpblPlayer; totals: WpblBattingTotals }
 export interface WpblPitSeason { player: WpblPlayer; totals: WpblPitchingTotals }
 
-export function aggregateBatting(players: WpblPlayer[], lines: WpblBattingLine[]): WpblBatSeason[] {
+export function aggregateBatting(players: WpblPlayer[], lines: WpblBattingLine[], games: WpblSeasonGame[]): WpblBatSeason[] {
   const pmap = new Map(players.map(p => [p.id, p]))
   const byPlayer = new Map<string, WpblBattingLine[]>()
-  for (const l of lines) {
+  for (const l of regularSeasonLines(lines, games)) {
     const arr = byPlayer.get(l.player_id) ?? []
     arr.push(l); byPlayer.set(l.player_id, arr)
   }
   const out: WpblBatSeason[] = []
   for (const [pid, ls] of byPlayer) {
     const player = pmap.get(pid)
-    if (player) out.push({ player, totals: sumBatting(ls) })
+    if (player) out.push({ player, totals: sumBattingRaw(ls) })
   }
   return out
 }
 
-export function aggregatePitching(players: WpblPlayer[], lines: WpblPitchingLine[]): WpblPitSeason[] {
+export function aggregatePitching(players: WpblPlayer[], lines: WpblPitchingLine[], games: WpblSeasonGame[]): WpblPitSeason[] {
   const pmap = new Map(players.map(p => [p.id, p]))
   const byPlayer = new Map<string, WpblPitchingLine[]>()
-  for (const l of lines) {
+  for (const l of regularSeasonLines(lines, games)) {
     const arr = byPlayer.get(l.player_id) ?? []
     arr.push(l); byPlayer.set(l.player_id, arr)
   }
   const out: WpblPitSeason[] = []
   for (const [pid, ls] of byPlayer) {
     const player = pmap.get(pid)
-    if (player) out.push({ player, totals: sumPitching(ls) })
+    if (player) out.push({ player, totals: sumPitchingRaw(ls) })
   }
   return out
 }
@@ -233,21 +266,18 @@ export function computeWpblTeamStats(
   batting: WpblBattingLine[],
   pitching: WpblPitchingLine[],
 ): Map<string, WpblTeamSeasonStats> {
-  // Final games each team has played — the denominator for R/G.
-  const gamesPlayed = new Map<string, number>()
-  for (const g of games) {
-    if (g.status !== 'final') continue
-    gamesPlayed.set(g.away_team_id, (gamesPlayed.get(g.away_team_id) ?? 0) + 1)
-    gamesPlayed.set(g.home_team_id, (gamesPlayed.get(g.home_team_id) ?? 0) + 1)
-  }
+  // Regular-season games each team has played, the denominator for R/G. It has to move in
+  // step with the numerator, or a finalist's runs end up divided by a regular-season count.
+  // Shares the helper above rather than keeping the copy of it that used to live here.
+  const played = gamesPlayed(games)
 
   const batByTeam = new Map<string, WpblBattingLine[]>()
-  for (const l of batting) {
+  for (const l of regularSeasonLines(batting, games)) {
     if (!l.team_id) continue
     const a = batByTeam.get(l.team_id) ?? []; a.push(l); batByTeam.set(l.team_id, a)
   }
   const pitByTeam = new Map<string, WpblPitchingLine[]>()
-  for (const l of pitching) {
+  for (const l of regularSeasonLines(pitching, games)) {
     if (!l.team_id) continue
     const a = pitByTeam.get(l.team_id) ?? []; a.push(l); pitByTeam.set(l.team_id, a)
   }
@@ -261,16 +291,16 @@ export function computeWpblTeamStats(
   }
 
   for (const t of teams) {
-    const bt = sumBatting(batByTeam.get(t.id) ?? [])
+    const bt = sumBattingRaw(batByTeam.get(t.id) ?? [])
     put('avg', t.id, bt.avg)
     put('obp', t.id, bt.obp)
     put('slg', t.id, bt.slg)
     put('ops', t.id, bt.ops)
     if (bt.ab > 0 || bt.h > 0) put('hr', t.id, bt.hr)
-    const gp = gamesPlayed.get(t.id) ?? 0
+    const gp = played.get(t.id) ?? 0
     if (gp > 0) put('rpg', t.id, bt.r / gp)
 
-    const pt = sumPitching(pitByTeam.get(t.id) ?? [])
+    const pt = sumPitchingRaw(pitByTeam.get(t.id) ?? [])
     put('era', t.id, pt.era)
     put('whip', t.id, pt.whip)
     // K/7 — strikeouts per 7 innings (a full WPBL game), from innings-in-outs.

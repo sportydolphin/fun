@@ -17,6 +17,7 @@ import { searchPlayers } from '../../src/wpbl/playerSearch'
 import { buildPlayerReply, buildNoMatchReply, buildAmbiguousReply, type DiscordReply } from '../../src/wpbl/discordPlayerCard'
 import { buildPositionIndex, displayPositionFromIndex } from '../../src/wpbl/positions'
 import type { WpblPlayer, WpblTeam, WpblBattingLine, WpblPitchingLine } from '../../src/wpbl/types'
+import type { WpblSeasonGame } from '../../src/wpbl/season'
 
 interface Env {
   // Optional override for the committed key below. Set it if the app is ever rotated or
@@ -195,6 +196,9 @@ const ROSTER_TTL_S = 300
 interface Roster {
   players: RosterPlayer[]
   teams: WpblTeam[]
+  /** The schedule's three "does this game count" columns, so the /player card's season line
+   *  can drop postseason games. Cached alongside the roster: both change once a game. */
+  games: WpblSeasonGame[]
   /** Every box-score line's position, for working out where each player actually plays.
    *  Cached with the roster because it changes on the same timescale: once a game. */
   battingPositions: { player_id: string; position: string | null }[]
@@ -231,14 +235,15 @@ export async function loadRoster(
 
   const read = reader(env, signal)
   if (!read) return null
-  const [players, teams, battingPositions] = await Promise.all([
+  const [players, teams, battingPositions, games] = await Promise.all([
     read<RosterPlayer>('wpbl_players?select=id,name,position,team_id&order=name'),
     read<WpblTeam>('wpbl_teams?select=*'),
     // Two narrow columns over the whole season (a few hundred rows) so the suggestions
     // name the position a player actually plays, the same as every other surface.
     read<{ player_id: string; position: string | null }>('wpbl_batting_lines?select=player_id,position'),
+    read<WpblSeasonGame>('wpbl_games?select=id,game_type,counts_in_standings'),
   ])
-  const data: Roster = { players, teams, battingPositions }
+  const data: Roster = { players, teams, battingPositions, games }
   memo = { at: now, data }
 
   if (cache) {
@@ -319,7 +324,9 @@ async function lookup(
     ])
 
     const team = teams.find(t => t.id === best.player.team_id)
-    return buildPlayerReply(best.player, team, batting, pitching)
+    // `?? []` because the roster is cached: an entry written before games joined it has no
+    // such field, and an empty schedule excludes nothing, which is the safe direction.
+    return buildPlayerReply(best.player, team, batting, pitching, roster.games ?? [])
   } catch {
     return errorReply("Couldn't reach the WPBL stats just now. Try again in a moment.")
   } finally {

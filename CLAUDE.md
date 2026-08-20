@@ -64,10 +64,18 @@ Each of these has already cost someone a debugging session, and none of them fai
   row twice and skip another. Getting this wrong quietly makes league-wide aggregates wrong
   by a silent prefix (OPS+ and ERA+ take their baseline from `fetchWpblAllLines`). Use
   `fetchAllPaged` in [`src/wpbl/api.ts`](src/wpbl/api.ts).
-- **Postseason games must never reach the standings, and the filter fails OPEN.**
-  `countsInStandings()` in [`src/wpbl/api.ts`](src/wpbl/api.ts) is the one definition of "counts
-  toward the regular-season record", used by `computeStandings` and by Home's season-series
-  line. It excludes a game only on positive evidence (`counts_in_standings === false`, or a
+- **Postseason games must never reach the standings *or any season total*, and the filter
+  fails OPEN.** `countsInStandings()` now lives in [`src/wpbl/season.ts`](src/wpbl/season.ts)
+  (types-only imports, so the Pages Functions can use it without pulling in the supabase
+  client; `api.ts` re-exports it). It is the one definition of "counts toward the regular
+  season", used by `computeStandings`, by Home's season-series line, and by
+  `regularSeasonLines()`, which every aggregate in [`stats.ts`](src/wpbl/stats.ts) runs its
+  input through. **`sumBatting` / `sumPitching` / `aggregateBatting` / `aggregatePitching`
+  take the schedule as a REQUIRED argument** for that reason: a box-score line carries only a
+  `game_id`, so it cannot say for itself whether it belongs in a season total, and an optional
+  parameter would make forgetting it silent. Filtering is by the EXCLUDED game ids, never the
+  included ones, so a caller holding a partial schedule over-counts instead of rendering an
+  empty season. It excludes a game only on positive evidence (`counts_in_standings === false`, or a
   postseason-looking `game_type`) and counts everything it does not recognise. Do not invert it
   into "count only what looks regular": the day the feed renames its game types, that version
   drops every game and renders four clubs at 0-0, which reads as an outage rather than as a

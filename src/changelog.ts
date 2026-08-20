@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.46.2',
+    date:    '2026-08-20',
+    title:   'Season stats stay season stats',
+    changes: [
+      {
+        short: 'Playoff games will not be added to anyone’s season numbers',
+        full:  'Last week the standings were fixed so the postseason could not change a club’s record. This is the other half of it: the stat pages. A batting average, an ERA, a home run count and every leaderboard on the site are the regular season only, and the seven to eleven playoff games that start on September 9 will be kept apart from them. Left alone it would have been unfair as well as wrong, because a club that reaches the final plays up to eight extra games while a club knocked out in the first round plays two, so the leaderboards would have quietly reordered themselves by how far a team went rather than by how anyone played. Game pages still show every game, including playoff games, and a player’s game log still lists all of them.',
+      },
+    ],
+  },
+  {
     version: '1.46.1',
     date:    '2026-08-19',
     title:   'Ready for the postseason',
