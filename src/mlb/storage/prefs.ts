@@ -177,3 +177,29 @@ export async function saveGameStartPrefToSupabase(userId: string, pref: GameStar
     }, { onConflict: 'user_id' })
   if (error) { /* columns may not exist yet — localStorage still holds them */ }
 }
+
+// ─── Milestone-alert preference ───────────────────────────────────────────────
+// Opt-in for "a player you follow is closing on a milestone" in the bell.
+//
+// This switch exists because the milestone source used to have no opt-in at all: it fired
+// for anyone holding followed players, which is not the same thing as asking for MLB
+// notifications. A WPBL reader who had ever followed an MLB player, or who just loaded the
+// app in dev where useMlbState auto-fills three featured players, got MLB milestone
+// notifications they never requested. Every other type here is off until asked for; this one
+// silently was not.
+//
+// localStorage only, deliberately: milestones are bell-only, with no push twin and no sender
+// script, so nothing server-side ever reads this. The neighbouring prefs are mirrored to
+// user_preferences precisely because a cron job needs them. Give this one a column the day it
+// grows a push sender, not before.
+
+const MILESTONES_KEY = 'mlb_notify_milestones'
+
+export function getLocalMilestonePref(): boolean {
+  // Absent means off. A user who has never seen the switch has not opted in.
+  try { return localStorage.getItem(MILESTONES_KEY) === '1' } catch { return false }
+}
+
+export function setLocalMilestonePref(enabled: boolean) {
+  try { localStorage.setItem(MILESTONES_KEY, enabled ? '1' : '0') } catch {}
+}

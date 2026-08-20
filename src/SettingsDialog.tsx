@@ -10,6 +10,7 @@ import {
   loadPrefsFromSupabase, savePrefsToSupabase,
   getLocalFollowedTeamId, setLocalFollowedTeamId, getLocalFollowedPlayerIds,
   getLocalGameStartPref, setLocalGameStartPref,
+  getLocalMilestonePref, setLocalMilestonePref,
   getLocalPickReminderPref, setLocalPickReminderPref,
   loadPickReminderPrefFromSupabase, savePickReminderPrefToSupabase,
   loadGameStartPrefFromSupabase, saveGameStartPrefToSupabase,
@@ -253,7 +254,7 @@ function WpblSection({ userId, push }: { userId: string; push: PushState }) {
               checked={on}
               disabled={push.busy || blocked}
               onChange={e => toggle(e.target.checked)}
-              inputProps={{ 'aria-label': 'WPBL game reminders' }}
+              slotProps={{ input: { 'aria-label': 'WPBL game reminders' } }}
             />
           }
         />
@@ -280,6 +281,7 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
   const [picks, setPicks] = useState(getLocalPickReminderPref())
   const [gsEnabled, setGsEnabled] = useState(false)
   const [gsLead, setGsLead] = useState(getLocalGameStartPref().leadMin)
+  const [milestones, setMilestones] = useState(getLocalMilestonePref())
   const [err, setErr] = useState('')
 
   useEffect(() => {
@@ -300,6 +302,9 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
     // or corrects it.
     setPicks(getLocalPickReminderPref())
     loadPickReminderPrefFromSupabase(userId).then(row => { if (row !== null) setPicks(row) })
+
+    // Bell-only and device-local, so there is no account value to reconcile against.
+    setMilestones(getLocalMilestonePref())
 
     const local = getLocalGameStartPref()
     setGsEnabled(local.enabled)
@@ -474,7 +479,7 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
               checked={picks}
               disabled={push.busy || blocked}
               onChange={e => togglePicks(e.target.checked)}
-              inputProps={{ 'aria-label': 'MLB prediction reminders' }}
+              slotProps={{ input: { 'aria-label': 'MLB prediction reminders' } }}
             />
           }
         />
@@ -492,7 +497,7 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
                 setGsEnabled(e.target.checked)
                 persistGameStart({ enabled: e.target.checked, leadMin: gsLead })
               }}
-              inputProps={{ 'aria-label': 'MLB game start reminders' }}
+              slotProps={{ input: { 'aria-label': 'MLB game start reminders' } }}
             />
           }
         >
@@ -510,6 +515,28 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
             </Box>
           )}
         </Row>
+
+        <Row
+          title="Milestone alerts"
+          hint={milestones
+            ? 'On. We’ll flag it in the bell when a player you follow is closing on a milestone.'
+            : 'A heads-up when a player you follow nears a milestone.'}
+          control={
+            <Switch
+              checked={milestones}
+              // No push permission involved: this one only ever lands in the bell, so it
+              // stays usable on a device that has denied or never granted notifications.
+              onChange={e => {
+                setMilestones(e.target.checked)
+                setLocalMilestonePref(e.target.checked)
+              }}
+              // slotProps.input, not inputProps: MUI v7 dropped the latter on Switch, so the
+              // neighbouring rows here render with no accessible name at all. See the note in
+              // the settings-toggle test.
+              slotProps={{ input: { 'aria-label': 'MLB milestone alerts' } }}
+            />
+          }
+        />
       </SettingsCard>
       {err && <ErrorNote>{err}</ErrorNote>}
     </>
@@ -679,7 +706,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
                 <Switch
                   checked={swipeNav}
                   onChange={e => setSwipeNav(e.target.checked)}
-                  inputProps={{ 'aria-label': 'Swipe between tabs' }}
+                  slotProps={{ input: { 'aria-label': 'Swipe between tabs' } }}
                 />
               }
             />
@@ -708,7 +735,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
                 <Switch
                   checked={experiments}
                   onChange={e => setExperiments(e.target.checked)}
-                  inputProps={{ 'aria-label': 'Enable experimental features' }}
+                  slotProps={{ input: { 'aria-label': 'Enable experimental features' } }}
                 />
               }
             />

@@ -180,7 +180,7 @@ async function main() {
   }
 
   const date = todayStr()
-  console.log(`\n🥎 WPBL game-start reminders — ${date}\n`)
+  console.log(`\n⚾ WPBL game-start reminders: ${date}\n`)
 
   // 1. Opt-ins for games today (past days can't still be "upcoming"; future days
   //    aren't in-window yet, but keeping >= today keeps the query cheap and correct).

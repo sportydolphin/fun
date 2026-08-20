@@ -12,7 +12,7 @@
 import { buildMilestoneNear } from '../../../shared/notifications'
 import type { NotificationPayload } from '../../../shared/notifications'
 import type { NotificationContext, NotificationSource } from '../../lib/notifications'
-import { getLocalFollowedPlayerIds } from '../storage/prefs'
+import { getLocalFollowedPlayerIds, getLocalMilestonePref } from '../storage/prefs'
 
 // Only ping when it's genuinely imminent, so the bell isn't noisy about a player
 // who's 40 hits away. Records get a slightly wider window — they're rare enough to
@@ -24,6 +24,12 @@ export const milestoneSource: NotificationSource = {
   id: 'milestone',
 
   async evaluate(_ctx: NotificationContext): Promise<NotificationPayload[]> {
+    // Opt-in, like every other type in the catalog. Holding a followed player is not a
+    // request for MLB notifications: the list gets populated by browsing, by a Supabase
+    // sync, and in dev by useMlbState's auto-fill, none of which asked the user anything.
+    // Checked before the followed-players read so an opted-out reader does no work at all.
+    if (!getLocalMilestonePref()) return []
+
     const followed = getLocalFollowedPlayerIds()
     if (!followed.length) return []
 

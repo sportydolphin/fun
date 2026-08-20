@@ -214,7 +214,7 @@ type GroupFilter = 'all' | 'hitting' | 'pitching'
 const GROUP_FILTERS: { key: GroupFilter; label: string }[] = [
   { key: 'all',      label: 'All' },
   { key: 'hitting',  label: '⚾ Hitting' },
-  { key: 'pitching', label: '🥎 Pitching' },
+  { key: 'pitching', label: '⚾ Pitching' },
 ]
 
 // One tab of the Chasing / Reached segmented control.
