@@ -33,3 +33,54 @@ if (typeof localStorage === 'undefined' || typeof (localStorage as Storage).clea
   Object.defineProperty(globalThis, 'Storage', { value: MemoryStorage, configurable: true, writable: true })
   Object.defineProperty(globalThis, 'localStorage', { value: new MemoryStorage(), configurable: true, writable: true })
 }
+
+// ── matchMedia, which jsdom does not implement at all ────────────────────────────
+//
+// Not a gap in our code: jsdom has never shipped matchMedia, and anything that renders the
+// real app hits it immediately. ThemeContext calls it to read the OS dark-mode preference,
+// and MUI's useMediaQuery calls it for every responsive breakpoint, so without this a full
+// App render dies on `window.matchMedia is not a function` before the first element exists.
+//
+// Reports "does not match" for every query. That makes the app render its light-theme,
+// desktop-width branch, which is the deterministic default a test wants: a test that cares
+// about the other branch should drive it through the app's own controls, not by making the
+// environment lie in a way the assertions cannot see.
+//
+// GUARDED, like the storage shim above, so it steps aside the day jsdom implements this.
+if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
+  Object.defineProperty(window, 'matchMedia', {
+    configurable: true,
+    writable: true,
+    value: (query: string): MediaQueryList => ({
+      media: query,
+      matches: false,
+      onchange: null,
+      addListener: () => {},      // deprecated, still called by older libs
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    }) as MediaQueryList,
+  })
+}
+
+// ── ResizeObserver, another jsdom omission ───────────────────────────────────────
+//
+// jsdom does no layout, so it ships no ResizeObserver. App.tsx observes the toolbar to publish
+// its height, and several rails observe their scroll container, so a full render throws
+// `ResizeObserver is not defined` from inside an effect, after the tree has mounted, which
+// makes it look like a rendering bug rather than a missing global.
+//
+// A no-op is the honest stub: with no layout there are no size changes to report, and a
+// version that synthesised callbacks would feed the app numbers jsdom never actually computed.
+// Anything asserting on real geometry belongs in a browser, not here.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  class NoopResizeObserver implements ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  Object.defineProperty(globalThis, 'ResizeObserver', {
+    value: NoopResizeObserver, configurable: true, writable: true,
+  })
+}

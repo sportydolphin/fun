@@ -348,7 +348,7 @@ function RosterMovesModal({ open, onClose, moves, followedTeamId, onPlayerClick,
               Trades, DFAs, claims and signings · last 14 days
             </Typography>
           </Box>
-          <IconButton size="small" onClick={onClose} sx={{ ml: 1, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
+          <IconButton size="small" aria-label="Close" onClick={onClose} sx={{ ml: 1, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
             <Close sx={{ fontSize: '1.1rem' }} />
           </IconButton>
         </Box>

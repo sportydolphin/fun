@@ -15,6 +15,7 @@ import { ExperimentsProvider } from './ExperimentsContext'
 import { AccessibilityProvider } from './AccessibilityContext'
 import { PENDING_USERNAME_PREFIX } from './AuthContext'
 import { SiteFooter } from './SiteFooter'
+import { pressable, FOCUS_RING } from './wpbl/ui'
 import { NotificationBell } from './NotificationBell'
 import { supabase } from './lib/supabase'
 import { useSeo } from './seo'
@@ -591,7 +592,7 @@ function AppInner() {
         <Toolbar variant="dense" sx={{ minHeight: 48, py: 0.5 }}>
           {/* Close button — mobile search mode only */}
           {!isDesktop && mobileSearchExpanded && (
-            <IconButton size="small" onClick={() => { setMobileSearchExpanded(false); setSearchQuery('') }} sx={{ mr: 0.5, flexShrink: 0 }}>
+            <IconButton size="small" aria-label="Close search" onClick={() => { setMobileSearchExpanded(false); setSearchQuery('') }} sx={{ mr: 0.5, flexShrink: 0 }}>
               <Close fontSize="small" />
             </IconButton>
           )}
@@ -862,7 +863,7 @@ function AppInner() {
           <Box sx={{ flex: isDesktop ? 1 : undefined, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
             {/* Mobile: search icon when not expanded */}
             {bridge.isRegistered && !isDesktop && !mobileSearchExpanded && (
-              <IconButton size="small" onClick={() => setMobileSearchExpanded(true)} sx={{ color: 'text.secondary', mr: 0.25 }}>
+              <IconButton size="small" aria-label="Search" onClick={() => setMobileSearchExpanded(true)} sx={{ color: 'text.secondary', mr: 0.25 }}>
                 <Search />
               </IconButton>
             )}
@@ -875,18 +876,34 @@ function AppInner() {
                 in WPBL too. See src/dev/DevSettings.tsx. Never in a production build. */}
             {import.meta.env.DEV && <DevSettings showMlbTools={path === '/mlb'} />}
 
-            <IconButton onClick={toggleTheme} size="small" sx={{ color: mode === 'dark' ? '#fbbf24' : 'text.secondary' }}>
+            <IconButton
+              onClick={toggleTheme}
+              size="small"
+              // Names the action rather than the state: a control called "Dark theme" is
+              // ambiguous about whether it reports the current theme or the one it switches to.
+              aria-label={mode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              sx={{ color: mode === 'dark' ? '#fbbf24' : 'text.secondary' }}
+            >
               {mode === 'dark' ? <Brightness7 /> : <Brightness4 />}
             </IconButton>
           {user ? (
             <ClickAwayListener onClickAway={() => setAccountOpen(false)}>
               <Box sx={{ position: 'relative' }}>
+                {/* pressable(), not a bare onClick: this Box is the whole account control, and
+                    the IconButton inside it is a `span`, so without a role and a tab stop the
+                    signed-in menu (settings, sign out, the lot) could not be reached by
+                    keyboard at all. The signed-out branch below is a real IconButton and was
+                    never affected, which is why this stayed invisible. */}
                 <Box
-                  onClick={() => setAccountOpen(o => !o)}
+                  {...pressable(() => setAccountOpen(o => !o))}
+                  aria-label="Account menu"
+                  aria-haspopup="menu"
+                  aria-expanded={accountOpen}
                   sx={{
                     display: 'flex', alignItems: 'center', gap: 0.75, cursor: 'pointer',
                     pl: isDesktop ? 1 : 0, pr: isDesktop ? 0.5 : 0, py: 0.25, borderRadius: 999,
                     '&:hover': { bgcolor: 'action.hover' },
+                    ...FOCUS_RING,
                   }}
                 >
                   {isDesktop && (username || user.user_metadata?.full_name) && (
@@ -900,10 +917,17 @@ function AppInner() {
                       ) : user.user_metadata.full_name}
                     </Typography>
                   )}
+                  {/* Presentational: the Box above is the control now. MUI's ButtonBase gives
+                      a `component="span"` IconButton role="button" AND tabindex="0" of its own,
+                      which put a second, nameless button inside this one and left a tab stop
+                      that swallowed focus without doing anything, because the click handler was on the
+                      parent, so Enter on it did nothing. Styling only, no semantics. */}
                   <IconButton
                     ref={accountBtnRef}
                     component="span"
                     size="small"
+                    role="presentation"
+                    tabIndex={-1}
                     sx={{ color: 'success.main' }}
                   >
                     <AccountCircle />
@@ -989,6 +1013,9 @@ function AppInner() {
                 <IconButton
                   onClick={() => setAccountOpen(o => !o)}
                   size="small"
+                  aria-label="Account menu"
+                  aria-haspopup="menu"
+                  aria-expanded={accountOpen}
                   sx={{ color: 'text.secondary' }}
                 >
                   <AccountCircle />

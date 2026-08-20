@@ -156,7 +156,7 @@ export function LeaderboardCard({ icon, title, subtitle, accent, tooltipText, ro
           </Box>
         ) : (
           <Tooltip title="View all teams" arrow placement="top">
-            <IconButton size="small" onClick={onExpand} sx={{ color: 'text.disabled', '&:hover': { color: ACCENT } }}>
+            <IconButton size="small" aria-label="Expand" onClick={onExpand} sx={{ color: 'text.disabled', '&:hover': { color: ACCENT } }}>
               <OpenInFull sx={{ fontSize: '1rem' }} />
             </IconButton>
           </Tooltip>
@@ -234,7 +234,7 @@ export function LeaderboardModal({ open, onClose, icon, title, subtitle, accent,
               <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.1 }}>{subtitle}</Typography>
             )}
           </Box>
-          <IconButton size="small" onClick={onClose} sx={{ ml: 1, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
+          <IconButton size="small" aria-label="Close" onClick={onClose} sx={{ ml: 1, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
             <Close sx={{ fontSize: '1.1rem' }} />
           </IconButton>
         </Box>
@@ -403,7 +403,7 @@ export function PlayerLeaderboardCard({ icon, title, subtitle, accent, tooltipTe
           <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.1 }}>{subtitle}</Typography>
         </Box>
         <Tooltip title="View all players" arrow placement="top">
-          <IconButton size="small" onClick={onExpand} sx={{ color: 'text.disabled', '&:hover': { color: ACCENT } }}>
+          <IconButton size="small" aria-label="Expand" onClick={onExpand} sx={{ color: 'text.disabled', '&:hover': { color: ACCENT } }}>
             <OpenInFull sx={{ fontSize: '1rem' }} />
           </IconButton>
         </Tooltip>
@@ -460,7 +460,7 @@ export function PlayerLeaderboardModal({ open, onClose, icon, title, subtitle, a
             <Typography sx={{ fontWeight: 800, fontSize: '1rem', letterSpacing: '-0.3px' }}>{icon} {title}</Typography>
             {subtitle && <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', mt: 0.1 }}>{subtitle}</Typography>}
           </Box>
-          <IconButton size="small" onClick={onClose} sx={{ ml: 1, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
+          <IconButton size="small" aria-label="Close" onClick={onClose} sx={{ ml: 1, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}>
             <Close sx={{ fontSize: '1.1rem' }} />
           </IconButton>
         </Box>

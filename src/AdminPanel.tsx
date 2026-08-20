@@ -351,7 +351,7 @@ function FeedbackRowItem({ row, busy, onToggleHandled, onDelete }: {
               </Button>
             </Box>
           ) : (
-            <IconButton size="small" disabled={busy} onClick={() => setConfirmDelete(true)} sx={{ color: 'text.disabled' }}>
+            <IconButton size="small" aria-label="Delete" disabled={busy} onClick={() => setConfirmDelete(true)} sx={{ color: 'text.disabled' }}>
               <DeleteOutline sx={{ fontSize: '1rem' }} />
             </IconButton>
           )}
@@ -414,7 +414,7 @@ function FeedbackModal({ open, onClose, onChanged }: {
             </Box>
           )}
         </Box>
-        <IconButton size="small" onClick={onClose} sx={{ color: 'text.secondary' }}>
+        <IconButton size="small" aria-label="Close" onClick={onClose} sx={{ color: 'text.secondary' }}>
           <Close sx={{ fontSize: '1.1rem' }} />
         </IconButton>
       </DialogTitle>
@@ -512,7 +512,7 @@ function UserRowItem({ u, busy, onToggleDeleted }: {
           <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', fontFamily: 'monospace', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {u.user_id}
           </Typography>
-          <IconButton size="small" onClick={copyId} sx={{ p: 0.15, color: 'text.disabled' }}>
+          <IconButton size="small" aria-label="Copy id" onClick={copyId} sx={{ p: 0.15, color: 'text.disabled' }}>
             <ContentCopy sx={{ fontSize: '0.65rem' }} />
           </IconButton>
         </Box>
@@ -615,7 +615,7 @@ function UserModal({ open, onClose, onChanged }: {
             </Box>
           )}
         </Box>
-        <IconButton size="small" onClick={onClose} sx={{ color: 'text.secondary' }}>
+        <IconButton size="small" aria-label="Close" onClick={onClose} sx={{ color: 'text.secondary' }}>
           <Close sx={{ fontSize: '1.1rem' }} />
         </IconButton>
       </DialogTitle>
