@@ -58,6 +58,13 @@ export const EVENTS = {
   WPBL_STATS_BOARD:    'wpbl_stats_board',    // a Stats board is on screen, props {side, source, mode, via}
   WPBL_STATS_SORTED:   'wpbl_stats_sorted',   // tapped a column header, props {key, asc, side, mode}
   WPBL_STATS_FILTERED: 'wpbl_stats_filtered', // team chip or Qualified, props {filter, on, teamId?}
+
+  // The seeding card under the Standings table. It carries its own impression because the
+  // tab view can't distinguish "read the standings" from "read the standings and learned
+  // what the order is for", and because a club tapped from here is a team-page entry point
+  // opened from a surface that had none.
+  WPBL_SEEDING_SHOWN:  'wpbl_seeding_shown',  // seeding card rendered, props {settled, gamesLeft}
+  WPBL_SEEDING_TEAM:   'wpbl_seeding_team',   // opened a club from the card, props {teamId, seed, from}
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the

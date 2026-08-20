@@ -55,6 +55,12 @@
   --wpbl-medal-1: #8a6200;
   --wpbl-medal-2: #6b7280;
   --wpbl-medal-3: #8a5a2b;
+  /* The "this is unfinished" marker, drawn as 1px of border and ~9px of uppercase text by
+     ExperimentalChip. Amber because it has to read as a caveat rather than as an error, and
+     these two values because they are the medal-gold pair, which was already measured to pass
+     AA as text in its own theme. NOT prefixed --wpbl-: the experiments flag is app-wide and
+     the MLB section can mark a feature with the same chip. */
+  --experimental-fg: #8a6200;
 }
 [data-theme="dark"] {
   --wpbl-accent-fg: #60a5fa;
@@ -63,6 +69,7 @@
   --wpbl-medal-1: #e0a100;
   --wpbl-medal-2: #9aa0a8;
   --wpbl-medal-3: #c17d3f;
+  --experimental-fg: #e0a100;
 }
 
 [data-theme="dark"] {

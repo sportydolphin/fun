@@ -19,6 +19,7 @@ import WpblStatsView, { type WpblStatsFocus } from './StatsView'
 import TeamPage from './TeamPage'
 import TeamsGrid from './TeamsGrid'
 import HeadToHead from './HeadToHead'
+import SeedingRace from './SeedingRace'
 import SwipeableViews from './SwipeableViews'
 import WpblBottomNav, { BOTTOM_NAV_SPACE } from './BottomNav'
 import { useExperiments } from '../ExperimentsContext'
@@ -254,6 +255,11 @@ function StandingsView({ teams, games, onOpenTeam }: {
   teams: WpblTeam[]; games: WpblGame[]; onOpenTeam?: (t: WpblTeam) => void
 }) {
   const rows = useMemo(() => computeStandings(teams, games), [teams, games])
+  // Seeding race is opt-in while its framing settles: it is the first thing on the section to
+  // make a forward-looking claim ("8 to lock 1st") rather than report a result, and a number
+  // like that is worth being wrong in front of a handful of volunteers before it is wrong in
+  // front of everyone. It reads nothing the table below does not, so off is the shipped view.
+  const experiments = useExperiments()
   if (teams.length === 0) {
     return <EmptyState title="No teams yet" hint="Standings appear once teams and results are added." />
   }
@@ -325,6 +331,11 @@ function StandingsView({ teams, games, onOpenTeam }: {
         </Box>
       )}
     </Box>
+      {/* The table says who is ahead; this says what being ahead is FOR. All four clubs
+          qualify, so the order is the entire stake of the remaining games, and the table on
+          its own reads as a race for a place nobody can miss. Sits directly under it, in the
+          same order, so a club can be carried from one to the other by eye. */}
+      {played && experiments && <SeedingRace rows={rows} games={games} onOpenTeam={onOpenTeam} />}
       {/* The table answers "who is ahead"; this answers "of whom". They are the same four
           clubs in the same order, so the eye can carry a row straight down from one to the
           other. Only once there is a result to show: before that it is sixteen dots. */}
