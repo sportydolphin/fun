@@ -39,3 +39,10 @@ locally and in GitHub Actions secrets for CI.
 - **Prefer idempotent DDL** (`create table if not exists`, `add column if not exists`) so a
   file is safe even if it's ever partially applied.
 - **Never edit an applied migration** — its effect is already in the DB. Add a new one.
+- **"Recorded as applied but no file present"** means someone applied schema and recorded the
+  version without committing the file, so a database rebuilt from this repo would be missing
+  it. The fix is to reconstruct the file from the live schema and commit it under **exactly
+  the recorded version name**: the runner's version string is the filename minus `.sql`, so a
+  matching name is seen as already applied and never re-runs, while any other name re-runs it
+  against production. `20260817225409_add_wpbl_predict_game.sql` was rebuilt this way on
+  Aug 20, 2026 and is the worked example.
