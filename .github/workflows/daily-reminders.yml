@@ -12,6 +12,13 @@ on:
         required: false
         default: ''
 
+# One reminder sender at a time. This job sends push notifications, so an overlap is not a
+# wasted run, it is a duplicate notification on someone's phone. A manual test dispatch landing
+# on top of the scheduled run is the likely way that happens.
+concurrency:
+  group: daily-reminders
+  cancel-in-progress: false
+
 jobs:
   send-reminders:
     runs-on: ubuntu-latest

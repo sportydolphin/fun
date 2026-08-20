@@ -10,7 +10,10 @@ on:
     #
     # One run is enough. The job asks a single question ("whose birthday is it in Chicago
     # today"), and the answer does not change until the day does.
-    - cron: '0 14 * * *'
+    #
+    # :20 rather than :00, because daily-bots.yml also fires at 14:00 exactly and minute zero
+    # is GitHub's most contended scheduling slot. A greeting is not time-critical to the minute.
+    - cron: '20 14 * * *'
   workflow_dispatch:
     inputs:
       mode:

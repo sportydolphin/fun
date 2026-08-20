@@ -23,5 +23,21 @@ export default defineConfig({
     // blows up with "Cannot read properties of null (reading 'useState')". Spread the
     // defaults rather than replacing them: setting `exclude` overrides the built-in list.
     exclude: ['**/node_modules/**', '**/dist/**', '**/.claude/**'],
+    server: {
+      deps: {
+        // The cron scripts under scripts/ are Node CLI programs and start with a shebang.
+        // Node strips that when it imports them; Vite's transform does not, so a script that
+        // gets pulled through the transform dies on `#!` with "Invalid or unexpected token",
+        // pointing at line 1 of a file that is perfectly valid.
+        //
+        // Which scripts got pulled in was luck: a script importing `pg` was externalised and
+        // loaded natively, while one importing `@supabase/supabase-js` (a dep Vite processes
+        // for the app) was inlined along with it. That is why only one of the two script
+        // tests failed. Externalising the whole directory settles it for every script, now
+        // and for the next test that imports one.
+        // Both separators: the matched id is an absolute path, which is backslashed on Windows.
+        external: [/[\\/]scripts[\\/].*\.mjs$/],
+      },
+    },
   },
 })

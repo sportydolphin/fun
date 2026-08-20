@@ -11,7 +11,11 @@ name: Update Playoff Odds
 # settled previous day.
 on:
   schedule:
-    - cron: '0 6 * * *'
+    # :20 rather than :00. update-streaks.yml also fired at 06:00 exactly, so the two hit
+    # Supabase in the same instant every night for no reason. Minute zero is also the most
+    # contended slot on GitHub's scheduler, where a run is most likely to be delayed or
+    # dropped. Twenty minutes later costs nothing: the standings this reads settled hours ago.
+    - cron: '20 6 * * *'
   workflow_dispatch:   # also triggerable manually from the GitHub Actions UI
 
 # Never let two runs upsert the same season row at once.

@@ -4,6 +4,21 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.46.1',
+    date:    '2026-08-19',
+    title:   'Ready for the postseason',
+    changes: [
+      {
+        short: 'Playoff games will not count in the standings',
+        full:  'The postseason runs Sep 9 to Sep 22, and a playoff game is a real game with a real score. Until now every one of them would have been added to the regular season records, so a club that finished 3-4 could have been shown as 6-5, with run differential and streaks wrong to match. The standings, the head to head grid and the season series line on the home page now count the regular season only. The postseason will be kept separately.',
+      },
+      {
+        short: 'Live scores use less of your data',
+        full:  'While a game is in progress the site keeps it up to date two ways: a live connection that pushes each change as it happens, and a slower check behind it in case that connection drops. The slower check was running three times more often than it needed to and asking for the whole game record each time, neither of which made anything arrive sooner. Over a full game that is a few megabytes it no longer has to spend, which matters most on a phone.',
+      },
+    ],
+  },
+  {
     version: '1.46.0',
     date:    '2026-08-19',
     title:   'An archive of women’s baseball, and a home screen that fits together',

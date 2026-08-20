@@ -284,16 +284,25 @@ sequenceDiagram
 | `daily-bots` | `0 14` + `30 15` (retry) | `update-payrolls`, `run-bots`, `run-survivor-bots` | Bot predictions + survivor picks before first pitch; refresh payrolls |
 | `daily-reminders` | `0 16` | `send-reminders` | Push: nudge users to make their picks |
 | `game-start-reminders` | `*/5 15-23,0-4 * 3-10` | `send-game-start` | Push: MLB game starting soon (in-season, active hours) |
-| `wpbl-game-start-reminders` | `*/10 15-23,0-2` | `send-wpbl-game-start` | Push: WPBL game starting soon |
-| `wpbl-discord-board` | `*/15 14-23,0-3` | `update-wpbl-discord-board` | Self-editing WPBL "next games" Discord message |
-| `wpbl-discord-recaps` | `0 18-23,0-4` (hourly) | `post-wpbl-discord-recaps` | Backstop + corrections for the Discord recaps `wpbl-ingest` posts (a final it missed; a box score revised afterwards) |
+| `wpbl-game-start-reminders` | `*/10 15-23,0-2` (Mar-Oct) | `send-wpbl-game-start` | Push: WPBL game starting soon |
+| `wpbl-discord-board` | `*/15 14-23,0-3` (Mar-Oct) | `update-wpbl-discord-board` | Self-editing WPBL "next games" Discord message |
+| `wpbl-discord-recaps` | `0 18-23,0-4` (hourly, Mar-Oct) | `post-wpbl-discord-recaps` | Backstop + corrections for the Discord recaps `wpbl-ingest` posts (a final it missed; a box score revised afterwards) |
 | `wpbl-youtube-sync` | `0,30 14-23,0-3` | `sync-wpbl-youtube`, `post-wpbl-discord-highlights` | Mirror WPBL YouTube uploads → `wpbl_videos` (the Highlights segment of Home's media shelf + game recaps), then post any new highlight reel to the Discord highlights channel in the same pass |
-| `wpbl-discord-birthdays` | `0 14` (daily) | `post-wpbl-discord-birthdays` | Post the day's roster birthdays to the Discord birthdays channel, and nothing at all on the days nobody has one |
+| `wpbl-discord-birthdays` | `20 14` (daily) | `post-wpbl-discord-birthdays` | Post the day's roster birthdays to the Discord birthdays channel, and nothing at all on the days nobody has one |
 | `wpbl-substack-sync` | `0 12-23` (hourly) | `sync-wpbl-substack` | Mirror an independent writer's WPBL posts → `wpbl_articles` (the Reading segment of Home's media shelf, game story card, player/team "written about"), resolving each to the players, clubs and game it is about |
 | `wpbl-tracking-watch` | `30 8` (daily) | `watch-wpbl-tracking` | Notice when the league resumes publishing TrackMan data → `wpbl_tracking_watch`, and say so in Discord. Replaced a Home teaser card that hid itself when the feed fell behind, which meant nothing was watching for its return |
 | `wpbl-commons-sync` | `0 9 * * 0` (weekly, Sun) | `sync-wpbl-commons` | Mirror freely licensed women's baseball photography from Wikimedia Commons → `wpbl_photos` (the Archive segment of Home's media shelf + the full gallery). Writes to a review queue: rows land `approved = false` and nothing renders until a human publishes them ([`docs/COMMONS_PHOTOS.md`](docs/COMMONS_PHOTOS.md)) |
+
+**The three game-dependent WPBL jobs carry a `3-10` season window**, matching the MLB ones.
+The 2026 feed runs Aug 1 to Sep 22, postseason included, and then goes quiet until spring, and without a window they
+spend the winter waking a runner ~139 times a day to find no game, which buries real failures
+in noise. The window is wider than the season we know about on purpose: 2026 was the inaugural
+year, and a window that clips a real 2027 season would fail silently. `wpbl-youtube-sync` is
+deliberately NOT gated: the channel keeps posting out of season, and the Highlights segment
+would stop updating all winter. Every one of them has `workflow_dispatch` for an off-season run.
+
 | `resolve-survivor` | `30 6` | `resolve-survivor` | Grade survivor picks overnight |
-| `update-playoff-odds` | `0 6` | `simulate-playoff-odds` | Monte-Carlo playoff odds |
+| `update-playoff-odds` | `20 6` | `simulate-playoff-odds` | Monte-Carlo playoff odds |
 | `update-streaks` | `0 6` + `0 23` + `0 3` (in-season) | `update-streaks` | Streak leaderboards |
 | `update-milestones` | `0 7` | `update-milestones` | Milestone watch |
 | `update-prediction-boards` | `30 7` | `update-prediction-boards` | Prediction leaderboards |

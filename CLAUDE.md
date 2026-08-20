@@ -64,6 +64,25 @@ Each of these has already cost someone a debugging session, and none of them fai
   row twice and skip another. Getting this wrong quietly makes league-wide aggregates wrong
   by a silent prefix (OPS+ and ERA+ take their baseline from `fetchWpblAllLines`). Use
   `fetchAllPaged` in [`src/wpbl/api.ts`](src/wpbl/api.ts).
+- **Postseason games must never reach the standings, and the filter fails OPEN.**
+  `countsInStandings()` in [`src/wpbl/api.ts`](src/wpbl/api.ts) is the one definition of "counts
+  toward the regular-season record", used by `computeStandings` and by Home's season-series
+  line. It excludes a game only on positive evidence (`counts_in_standings === false`, or a
+  postseason-looking `game_type`) and counts everything it does not recognise. Do not invert it
+  into "count only what looks regular": the day the feed renames its game types, that version
+  drops every game and renders four clubs at 0-0, which reads as an outage rather than as a
+  bug. Wrong by a couple of games is visible and recoverable. Blank is neither.
+
+- **The live poll reads a hand-listed half of `wpbl_games`, and the two halves must
+  partition the table.** `LIVE_GAME_COLUMNS` in [`src/wpbl/api.ts`](src/wpbl/api.ts) names
+  every column that can change mid-game; the poll merges those over the row it already holds,
+  so everything omitted is assumed immutable. Add a volatile column to `wpbl_games` and forget
+  this list and nothing breaks: the value simply freezes on screen at whatever it was on first
+  paint, for the whole game, with no error. The bulk line reads have the same shape
+  (`BATTING_LINE_COLUMNS`, `PITCHING_LINE_COLUMNS`, which are "the type, minus `created_at`"),
+  where a missed column means the season aggregates silently cannot see it. `tsc` catches
+  none of this.
+
 - **Modules shared with Deno carry `.ts` on their imports.** The recap engine
   ([`recap.ts`](src/wpbl/derive/recap.ts), [`discordRecap.ts`](src/wpbl/derive/discordRecap.ts))
   is loaded by three builds: Vite, the esbuild bundle behind `npm run discord-recaps`, and
@@ -93,7 +112,7 @@ units):
 - **WPBL** (`/wpbl`, the default): Women's Pro Baseball League. Scoreboard, schedule,
   standings, stats, TrackMan, Game Center, auto recaps, Hall of Firsts, push reminders.
   Mirrored from the league feed into Supabase by the `wpbl-ingest` edge function. The feed
-  stops Sep 6, 2026.
+  stops Sep 22, 2026 (regular season ends Sep 6; the postseason runs Sep 9 to Sep 22).
 - **MLB** (`/mlb`): deeper and StatsAPI-driven. Game Center, personalized home feed, a
   predictions game with a Wilson-ranked leaderboard and bot rivals, playoff odds, milestone
   watch, streak report cards, Streak Survivor.

@@ -13,8 +13,13 @@
 
 ## The clock: read this before prioritizing anything
 
-**17 games left. The last regular-season game is Sep 6, 2026, three weeks out.**
-Then the league's feed goes quiet and this section has no new data until spring 2027.
+**17 games left. The last regular-season game is Sep 6, 2026, three weeks out, and the
+postseason runs Sep 9 to Sep 22** (schedule in Background, below). Then the league's feed goes
+quiet and this section has no new data until spring 2027.
+
+So the real deadline is Sep 22, not Sep 6, and the last two weeks of it are the highest-stakes
+baseball the league will play. A season-locked feature that only just misses Sep 6 may still be
+worth finishing; one that misses Sep 22 is a year late.
 
 That single fact should grade every item below:
 
@@ -52,7 +57,7 @@ against the rules of baseball and our own corrections are applied as a read-time
 (`wpbl_play_corrections`), never written into the mirror.
 
 **What it does NOT have:** predictions/pick'em, win probability, daily standouts, a league
-primer or stat glossary, any postseason handling, and anything at all that survives Sep 6.
+primer or stat glossary, any postseason handling, and anything at all that survives Sep 22.
 
 ---
 
@@ -254,11 +259,29 @@ MLB section).
 
 ## Background: architecture and locked decisions
 
-**The league.** Inaugural season Aug 1 – Sep 6, 2026. Four teams (Boston Hunters, LA
-Queens, NY Heights, SF Firebells), 30 regular-season games (15 each), all at one hub venue
-(Robin Roberts Stadium, Springfield IL). **Seven-inning games**: ERA is computed over 7,
-not 9. **Postseason:** all four teams qualify · semifinals best-of-3 · finals best-of-5,
-so 7–11 games follow Sep 6 (up to 8 more for a finalist).
+**The league.** Inaugural season Aug 1 – Sep 6, 2026, postseason Sep 9 – Sep 22. Four teams
+(Boston Hunters, LA Queens, NY Heights, SF Firebells), 30 regular-season games (15 each), all
+at one hub venue (Robin Roberts Stadium, Springfield IL). **Seven-inning games**: ERA is
+computed over 7, not 9. **Postseason:** all four teams qualify · semifinals best-of-3 ·
+finals best-of-5, so 7–11 games follow Sep 6 (up to 8 more for a finalist).
+
+**The published postseason schedule.** Every game 7:30 p.m. ET on ESPN+. An asterisk is
+if-necessary. **The feed stores start times in Central** (`WPBL_TZ` in
+[`constants.ts`](src/wpbl/constants.ts)), so 7:30 ET arrives as `6:30 PM`, identical to the
+regular-season slot: nothing keyed on the clock needs moving, and the cron windows already
+cover it.
+
+| Date | Round | | Date | Round |
+|---|---|---|---|---|
+| Wed Sep 9 | Semifinal A, G1 | | Wed Sep 16 | Championship, G1 |
+| Thu Sep 10 | Semifinal B, G1 | | Thu Sep 17 | Championship, G2 |
+| Fri Sep 11 | Semifinal A, G2 | | Sat Sep 19 | Championship, G3 |
+| Sat Sep 12 | Semifinal B, G2 | | Sun Sep 20 | Championship, G4\* |
+| Sun Sep 13 | Semifinal A, G3\* | | Tue Sep 22 | Championship, G5\* |
+| Mon Sep 14 | Semifinal B, G3\* | | | |
+
+Note the two dark days, Sep 15 and Sep 18, and that Championship G3 skips Friday. Anything
+that infers "the season is over" from a gap in the schedule has to survive a two-day one.
 
 **Architecture, pivoted twice.** It began as owner hand-entry with Supabase as the source
 of truth. In Aug 2026 the league published a public JSON feed at
@@ -437,6 +460,33 @@ v1.45.0.
   legal and the outs adding up. That needs an independent transcription, and the one that
   exists carries no licence.
 
+### Aug 19, 2026: the postseason would have broken the standings
+
+- 🐛 **Every playoff game would have counted in the regular-season record.**
+  `computeStandings` filtered on `status === 'final'` and nothing else, and a playoff game is a
+  real final with a real score. Simulated against live data, a single 12-0 championship game
+  swings SF's run differential from +23 to +35 and Boston's from -17 to -29, with W/L, streak,
+  last-10 and the head-to-head tiebreak wrong to match, and nothing on screen to say so.
+- ✅ **`countsInStandings()` is now the one definition**, used by `computeStandings` and by
+  Home's season-series line. Two independent signals, because no postseason row has arrived yet
+  and we cannot know which the feed will use: `counts_in_standings === false`, or a
+  postseason-looking `game_type`.
+- ⚙️ **It FAILS OPEN, deliberately.** It excludes only on positive evidence and counts anything
+  it does not recognise. The inverse ("count only what looks regular") drops every game the day
+  the feed renames a type, rendering four clubs at 0-0, which reads as an outage rather than a
+  bug. Wrong by a couple of games is visible and recoverable; blank is neither. Pinned by tests,
+  including that the bare word "final" must not trigger it: `status` is `'final'` for every
+  completed game, and "Semifinal" and "Championship" both contain it.
+- ✅ **Timing needed nothing.** The published schedule is 7:30 p.m. ET, and the feed stores
+  Central, so it arrives as `6:30 PM`: the same slot the regular season uses, 23:30 UTC. The
+  `3-10` cron windows already cover through Sep 22.
+- ⏭️ **Postseason stats are still folded into the season leaders.** `fetchWpblAllLines`
+  aggregates every line regardless of round, so a championship 4-for-4 will move a season OPS.
+  Separating it means threading the schedule into `aggregateBatting`/`aggregatePitching` (four
+  call sites, and `DraftValue` has no games list), and deciding what `wpblQualifiers` should do
+  when playoff games inflate the games-played count that arms the 5 AB / 3 IP threshold. Its own
+  change, before Sep 9.
+
 ### Aug 19, 2026: Home's cards line up, and Next game earns its height
 
 The shelf pass above squared the two columns as *totals*, 627 against 625. It did not square
@@ -496,6 +546,12 @@ that aligning things creates.
   the name takes an ellipsis as its final net. Last Game's otherwise identical row does not
   need one: its trailing number is one or two digits against this one's four glyphs. At 375px
   every club name still fits in full.
+- ✅ **One gap in both directions, and it is Home's gap.** The grid ran a 20px column gap
+  against 12px everywhere else on the page: between the scoreboard and the grid, between the
+  grid and the shelf, and between the two cards stacked in each column. With the cards now
+  sharing row boundaries the mismatch became visible, a wide vertical channel crossing narrow
+  horizontal ones, which reads as two grids rather than one. Both are 12px. The columns gain
+  4px each as a side effect, which is free width for the leader names.
 - ❌ **Not done: swapping Leaders above Standings.** It measures better, cutting the leftover
   from 135px to 48px and the column by 41px, but it drops Standings from third card to fourth
   on a phone. That is an editorial call about what a reader wants first, not a layout one.

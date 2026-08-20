@@ -7,6 +7,12 @@ on:
     # going final, so this cadence surfaces a fresh recap promptly without hammering the
     # feed. The feed itself only carries the latest ~15 uploads, so there's nothing to
     # gain from running more often.
+    # NOT season-gated, unlike the other WPBL workflows. The other three act on games and have
+    # nothing to do out of season; this one mirrors a YouTube channel that keeps posting
+    # podcasts and features after the last pitch, and the Highlights segment of Home's media
+    # shelf would quietly stop updating all winter if this stopped with the schedule.
+    # Twice an hour is arguably generous for a channel that posts a few times a week, but
+    # cadence is a separate question from the season window.
     - cron: '0,30 14-23,0-3 * * *'
   workflow_dispatch:   # run on demand from the Actions tab (use for the first, seeding run)
     inputs:

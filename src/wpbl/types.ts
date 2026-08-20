@@ -211,7 +211,9 @@ export interface WpblBattingLine {
   tb: number                 // total bases (feed-computed)
   lob: number                // left on base (feed)
   sub_out?: boolean          // true = replaced in this slot; active batter is the sub_out=false row
-  created_at: string
+  /** Absent from the bulk season reads, which omit it: nothing in the section reads it and
+   *  it is 12% of the payload. The per-game reads still return it. */
+  created_at?: string
 }
 
 export interface WpblPitchingLine {
@@ -237,7 +239,9 @@ export interface WpblPitchingLine {
   strikes: number            // strikes thrown
   doubles: number            // 2B allowed
   triples: number            // 3B allowed
-  created_at: string
+  /** Absent from the bulk season reads, which omit it: nothing in the section reads it and
+   *  it is 12% of the payload. The per-game reads still return it. */
+  created_at?: string
 }
 
 // One player's fielding line for a game (mirrors wpbl_fielding_lines).

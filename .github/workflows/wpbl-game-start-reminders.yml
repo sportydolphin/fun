@@ -18,7 +18,13 @@ on:
     # The 10-min interval stays well under the fixed 30-min lead time, so a game
     # can't slip between passes; wpbl_game_start_sent keeps each reminder to a
     # single send. Note: GitHub's scheduler is best-effort and can lag under load.
-    - cron: '*/10 15-23,0-2 * * *'
+    # Season window, matching the MLB workflows' `3-10`. The 2026 feed runs Aug 1 to Sep 6 and
+    # then goes quiet until spring, so without this the job runs every day of the winter with
+    # no game to act on. The window is deliberately WIDER than the season we know about: 2026
+    # was the inaugural year and a 2027 schedule could start much earlier, and a window that
+    # clips a real season fails silently, which is far worse than a few idle runs in March.
+    # `workflow_dispatch` still covers an out-of-season run.
+    - cron: '*/10 15-23,0-2 * 3-10 *'
   workflow_dispatch:   # also triggerable manually from the GitHub Actions UI
     inputs:
       test_user:

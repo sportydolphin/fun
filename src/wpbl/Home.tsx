@@ -5,7 +5,7 @@ import { useAuth } from '../AuthContext'
 import { pushSupported, pushConfigured, notificationPermission } from '../lib/push'
 import { getCachedAllGamesPref, fetchAllGamesPref, setAllGamesPref } from './reminders'
 import {
-  fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllTracking, computeStandings,
+  fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllTracking, computeStandings, countsInStandings,
   getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblAllTracking, wpblHomeCacheAgeMs,
   fetchWpblVideos, getCachedWpblVideos,
   fetchWpblArticles, getCachedWpblArticles,
@@ -441,14 +441,17 @@ function GameReminderRow({ game, away, home, startMs }: {
 }
 
 // Head-to-head record between two clubs this season. Deliberately filtered the same way
-// `computeStandings` filters, decisive finals only, so the series line and the standings
-// table sitting beside it can never tell a reader two different stories about the same games.
-// Null before the two have met, which is a real state early in a season and reads better as
-// nothing than as "0–0".
+// `computeStandings` filters, decisive regular-season finals only, so the series line and the
+// standings table sitting beside it can never tell a reader two different stories about the
+// same games. That includes the postseason: two clubs meeting five times in a championship
+// series have not played a fifteen-game season series, and a line saying so next to a 3-4
+// record would be nonsense. Null before the two have met, which is a real state early in a
+// season and reads better as nothing than as "0–0".
 function seasonSeries(games: WpblGame[], homeId: string, awayId: string): { homeWins: number; awayWins: number } | null {
   let homeWins = 0, awayWins = 0
   for (const g of games) {
     if (g.status !== 'final' || g.home_score == null || g.away_score == null || g.home_score === g.away_score) continue
+    if (!countsInStandings(g)) continue
     const involvesBoth = (g.home_team_id === homeId && g.away_team_id === awayId)
       || (g.home_team_id === awayId && g.away_team_id === homeId)
     if (!involvesBoth) continue
@@ -1185,7 +1188,12 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
         gridTemplateRows: { md: 'auto auto' },
-        columnGap: 2.5, rowGap: 1.5,
+        // One gap in both directions, and it is Home's gap: 1.5 is the step between the
+        // scoreboard and this grid, between this grid and the shelf, and between the two cards
+        // stacked in each column. The 20px column gap was the odd one out, and with the cards
+        // now sharing row boundaries the mismatch showed: a 20px vertical channel crossing
+        // 12px horizontal ones reads as two grids rather than one.
+        gap: 1.5,
       }}>
         {/* Today's games. */}
         <Box sx={{

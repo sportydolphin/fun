@@ -86,11 +86,50 @@ export function fetchWpblSchedule(): Promise<WpblGame[]> {
   })
 }
 
-// One game's current row — used by the live views to poll fresh score + live_state.
-export async function fetchWpblGame(gameId: string): Promise<WpblGame | null> {
-  return safe('fetchWpblGame', () =>
-    supabase.from('wpbl_games').select('*').eq('id', gameId).maybeSingle(),
-    null as WpblGame | null)
+// How often the live views re-read a game in progress.
+//
+// This is a FALLBACK, not the delivery mechanism. Both live surfaces also hold a Supabase
+// Realtime subscription on the row (Live.tsx) or on the plays and batting lines feeding it
+// (GameDetail.tsx), and those push within a second of the write. The poll exists for the case
+// where a subscription drops silently, which websockets do.
+//
+// It was 5s, which bought nothing: it cannot beat Realtime to a change, so all it did was ask
+// three times as often for an answer that was already on screen. Over a three-hour game that
+// is 2,160 requests per viewer per surface instead of 720. Raise it further and a dropped
+// subscription starts to show; lower it and you are paying for latency Realtime already gave
+// you for free.
+export const LIVE_POLL_MS = 15000
+
+// Every column of `wpbl_games` that can change while a game is in progress. The live poll
+// asks for these and merges them over the row the caller already holds, instead of re-reading
+// the whole game every few seconds.
+//
+// TRAP: THIS LIST AND THE IMMUTABLE ONE BELOW MUST PARTITION THE TABLE. The columns
+// deliberately left out are fixed the moment a game is scheduled and cannot move under a
+// poll: game_date, start_time, home_team_id, away_team_id, venue, created_at, api_game_id,
+// season_id, game_type, counts_in_standings. Adding a volatile column to `wpbl_games` and
+// forgetting it here does not fail: it goes stale on screen mid-game, silently, and the merge
+// below will keep serving the value from first paint. If you add a column, put it in one of
+// the two lists. The saving is real but modest (0.94 KB against 1.2 KB, 22%), so if this list
+// ever becomes hard to keep honest, going back to `select('*')` is the right call.
+const LIVE_GAME_COLUMNS = [
+  'id', 'status', 'status_detail', 'notes', 'updated_at', 'source_updated_at',
+  'home_score', 'away_score', 'innings',
+  'home_hits', 'away_hits', 'home_errors', 'away_errors', 'home_lob', 'away_lob',
+  'home_line', 'away_line', 'live_state',
+  'live_inning', 'live_half', 'live_outs', 'live_balls', 'live_strikes',
+  'runner_first', 'runner_second', 'runner_third',
+  'away_batting_order', 'home_batting_order', 'away_pitcher_id', 'home_pitcher_id',
+  'last_play_at',
+].join(',')
+
+/** The volatile half of one game's row, for the live poll. Merge it over the game you already
+ *  have (`{ ...prev, ...delta }`); every column it omits is immutable, so the merge is
+ *  complete rather than a best effort. */
+export async function fetchWpblGameLive(gameId: string): Promise<Partial<WpblGame> | null> {
+  return safe('fetchWpblGameLive', () =>
+    supabase.from('wpbl_games').select(LIVE_GAME_COLUMNS).eq('id', gameId).maybeSingle(),
+    null as Partial<WpblGame> | null)
 }
 
 export function fetchWpblRoster(teamId: string): Promise<WpblPlayer[]> {
@@ -257,16 +296,35 @@ async function fetchAllPaged<T>(
 // a truncated read here doesn't fail, it just makes every league-wide rate quietly wrong:
 // OPS+ and ERA+ derive their league baseline from these rows. Returns empty (no leaders)
 // until games start being entered.
+// The bulk line reads take every column EXCEPT `created_at`, which nothing in the section
+// reads and which costs 17 KB across the season's batting lines (145 KB to 128 KB, 12%). The
+// per-game reads still take `select('*')`: they are one game's worth of rows and the saving
+// there is noise.
+//
+// Read these as "the type, minus created_at". If you add a column to either table, add it
+// here too, or the season aggregates simply will not see it. tsc will not catch the omission,
+// because a missing column arrives as `undefined` and both types allow that for new fields.
+const PITCHING_LINE_COLUMNS = [
+  'id', 'game_id', 'player_id', 'team_id', 'outs', 'bf', 'h', 'r', 'er', 'bb', 'so', 'hr',
+  'pitches', 'decision', 'gs', 'hbp', 'ibb', 'wp', 'bk', 'strikes', 'doubles', 'triples',
+].join(',')
+
+const BATTING_LINE_COLUMNS = [
+  'id', 'game_id', 'player_id', 'team_id', 'batting_order', 'position',
+  'ab', 'r', 'h', 'doubles', 'triples', 'hr', 'rbi', 'bb', 'so', 'hbp',
+  'sb', 'cs', 'sf', 'sh', 'ibb', 'gdp', 'tb', 'lob', 'sub_out',
+].join(',')
+
 export function fetchWpblAllLines(): Promise<WpblLinesResult> {
   if (isFresh(allLinesCache)) return Promise.resolve(allLinesCache!.data)
   return once('allLines', async () => {
     const [batting, pitching] = await Promise.all([
       fetchAllPaged<WpblBattingLine>('fetchWpblAllBatting', (from, to) =>
-        supabase.from('wpbl_batting_lines').select('*')
+        supabase.from('wpbl_batting_lines').select(BATTING_LINE_COLUMNS)
           .order('id', { ascending: true }).range(from, to) as unknown as
           PromiseLike<{ data: WpblBattingLine[] | null; error: unknown }>),
       fetchAllPaged<WpblPitchingLine>('fetchWpblAllPitching', (from, to) =>
-        supabase.from('wpbl_pitching_lines').select('*')
+        supabase.from('wpbl_pitching_lines').select(PITCHING_LINE_COLUMNS)
           .order('id', { ascending: true }).range(from, to) as unknown as
           PromiseLike<{ data: WpblPitchingLine[] | null; error: unknown }>),
     ])
@@ -618,14 +676,42 @@ function standingsStartMin(t: string | null | undefined): number {
   return h * 60 + Number(m[2])
 }
 
+/** Does this game belong in the regular-season record?
+ *
+ *  The postseason runs Sep 9 to Sep 22, 2026: two best-of-three semifinals and a best-of-five
+ *  championship. Those are real finals with real scores, and until this existed every one of
+ *  them would have been folded straight into the standings, run differential, streaks, last-10
+ *  and the head-to-head tiebreak. A club could finish the regular season 3-4 and be shown 6-5.
+ *
+ *  DELIBERATELY FAILS OPEN. It excludes a game only on positive evidence that it is a playoff
+ *  game, and counts anything it does not recognise. The alternative, counting only what it can
+ *  positively identify as regular season, breaks catastrophically and silently the day the feed
+ *  renames its game types: every game drops out and the standings render four clubs at 0-0
+ *  rather than showing an obviously wrong number. Wrong-by-a-few is recoverable; blank is not.
+ *
+ *  Two independent signals, because the feed has not shown us a postseason row yet and we
+ *  cannot know which one it will use. All 30 regular-season rows carry
+ *  `counts_in_standings: true` and `game_type: 'regular'` today. */
+export function countsInStandings(g: WpblGame): boolean {
+  // The column exists for exactly this, so an explicit false is definitive. `null`/`undefined`
+  // means "not stated" (older, hand-entered rows), which must keep counting.
+  if (g.counts_in_standings === false) return false
+  // Backstop for a feed that labels the round but leaves the flag alone. Matched loosely on
+  // the round names the published schedule uses, and NOT on the bare word "final", which the
+  // status field also uses for every completed regular-season game.
+  if (g.game_type && /post|playoff|semi|champ|wild.?card/i.test(g.game_type)) return false
+  return true
+}
+
 export function computeStandings(teams: WpblTeam[], games: WpblGame[]): WpblStandingRow[] {
   const acc = new Map<string, { team: WpblTeam; wins: number; losses: number; runsFor: number; runsAgainst: number }>()
   for (const team of teams) acc.set(team.id, { team, wins: 0, losses: 0, runsFor: 0, runsAgainst: 0 })
 
-  // Decisive final games, chronological (date then start time) so streak / last-10 read
-  // in true order and head-to-head is accumulated as played.
+  // Decisive REGULAR-SEASON final games, chronological (date then start time) so streak /
+  // last-10 read in true order and head-to-head is accumulated as played.
   const finals = games
     .filter(g => g.status === 'final' && g.home_score != null && g.away_score != null && g.home_score !== g.away_score)
+    .filter(countsInStandings)
     .sort((a, b) => a.game_date !== b.game_date
       ? (a.game_date < b.game_date ? -1 : 1)
       : standingsStartMin(a.start_time) - standingsStartMin(b.start_time))

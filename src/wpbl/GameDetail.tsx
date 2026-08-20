@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, Tooltip, useMediaQuery } from '@mui/material'
 import { supabase } from '../lib/supabase'
-import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles } from './api'
+import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, LIVE_POLL_MS } from './api'
 import { wpblAccent, wpblFullName, outsToIp, playedInnings, formatGameTime } from './constants'
 import { LiveBanner, useLiveGame } from './Live'
 import { WpblGamePreview } from './GamePreview'
@@ -963,7 +963,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   // While the game is live, keep the box score + play-by-play fresh (poll + realtime).
   useEffect(() => {
     if (game.status !== 'live') return
-    const poll = setInterval(() => reload(false), 5000)
+    const poll = setInterval(() => reload(false), LIVE_POLL_MS)
     const ch = supabase.channel(`wpbl-gc-${seed.id}-${gcUid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wpbl_game_plays', filter: `game_id=eq.${seed.id}` }, () => reload(false))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wpbl_batting_lines', filter: `game_id=eq.${seed.id}` }, () => reload(false))

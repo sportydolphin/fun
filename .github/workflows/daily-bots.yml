@@ -11,6 +11,14 @@ on:
     - cron: '30 15 * * *'
   workflow_dispatch:   # also triggerable manually from GitHub Actions UI
 
+# One bot run at a time. This workflow schedules its own retry 90 minutes after the first
+# attempt, so a first run that hangs near its 10-minute timeout can still be alive when the
+# backup fires. The bots are idempotent (ignoreDuplicates), so an overlap is not corrupting,
+# but skipping the tick is cheaper than racing two runs through the same writes.
+concurrency:
+  group: daily-bots
+  cancel-in-progress: false
+
 jobs:
   run-bots:
     runs-on: ubuntu-latest

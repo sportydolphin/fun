@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { supabase } from '../lib/supabase'
-import { fetchWpblGame } from './api'
+import { fetchWpblGameLive, LIVE_POLL_MS } from './api'
 import { wpblAccent, wpblFullName } from './constants'
 import { TeamBadge, useWpblDark } from './ui'
 import type { WpblTeam, WpblGame, WpblLiveState } from './types'
@@ -30,8 +30,11 @@ export function useLiveGame(seed: WpblGame): WpblGame {
   useEffect(() => {
     if (seed.status !== 'live') return
     let cancelled = false
-    const refresh = () => fetchWpblGame(seed.id).then(g => { if (!cancelled && g) setGame(g) })
-    const poll = setInterval(refresh, 5000)
+    // Merge rather than replace: the fetch returns only the columns that can move during a
+    // game, so everything it omits is already correct in the row we hold.
+    const refresh = () => fetchWpblGameLive(seed.id)
+      .then(delta => { if (!cancelled && delta) setGame(prev => ({ ...prev, ...delta })) })
+    const poll = setInterval(refresh, LIVE_POLL_MS)
     const ch = supabase.channel(`wpbl-game-${seed.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wpbl_games', filter: `id=eq.${seed.id}` }, refresh)
       .subscribe()
