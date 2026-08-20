@@ -375,7 +375,7 @@ Setup walkthrough: [`docs/PUSH_NOTIFICATIONS.md`](docs/PUSH_NOTIFICATIONS.md).
 
 | Function | Trigger | Purpose |
 |---|---|---|
-| `wpbl-ingest` | pg_cron (every 2m) + manual | Mirror the WPBL official feed into Postgres (idempotent); posts a game's box score to Discord on a not-final → final transition ([`announce-final.ts`](supabase/functions/wpbl-ingest/announce-final.ts)); settles any open Discord prediction rounds against the half-innings it just wrote ([`settle-predictions.ts`](supabase/functions/wpbl-ingest/settle-predictions.ts)) |
+| `wpbl-ingest` | pg_cron (every 2m) + manual | Mirror the WPBL official feed into Postgres (idempotent); posts a game's box score to Discord on a not-final → final transition ([`announce-final.ts`](supabase/functions/wpbl-ingest/announce-final.ts)); locks, grades and reveals any open Discord prediction rounds against the half-innings it just wrote, and crowns one winner per game on that same final transition ([`settle-predictions.ts`](supabase/functions/wpbl-ingest/settle-predictions.ts)) |
 | `wpbl-substack-sync` | pg_cron (hourly, :17) + manual | Mirror an independent writer's WPBL coverage into `wpbl_articles`: headline, dek, cover, word and clip counts, and which players/clubs/game each post is about. Never stores her article text. Runs here rather than in GitHub Actions because Substack serves Cloudflare's JS challenge to Actions runners and not to Supabase ([`docs/READING.md`](docs/READING.md)). Logic shared with `npm run substack-sync` via [`src/wpbl/substackSync.ts`](src/wpbl/substackSync.ts) |
 | `delete-account` | SPA (authed user) | Delete the calling user's auth record + app rows |
 | `send-test-push` | SPA (Admin panel) | One-off Web Push to the caller's own devices |

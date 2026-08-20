@@ -514,6 +514,29 @@ v1.45.0.
   legal and the outs adding up. That needs an independent transcription, and the one that
   exists carries no licence.
 
+### Aug 20, 2026: the Discord predictions game, which runs itself
+
+- 🎮 **"Call It Early" ships**, the mod-hosted in-game game the schema had been sitting in
+  production for since Aug 17 with no code behind it. A mod runs `/predict open` during the
+  break between innings, the channel answers "how many runs" with four buttons (0/1/2/3+), and
+  the league's own play-by-play settles it. One winner a game.
+- ⏱️ **Picks close themselves**, on whichever comes first of the round's timer and the target
+  half-inning starting. The second is checked **on the button press**, not only on the ingest's
+  two-minute pass: a round whose inning started ninety seconds ago still reads "open" in the
+  table, and anyone watching the game could otherwise see a run cross and then click.
+- 🏆 **The game ends itself too**, crowned on the same not-final to final transition that posts
+  the box score. `/predict winner` stays as the override for a watch party that breaks up
+  early. Both claim `wpbl_predict_winners` by primary key, so it can never be announced twice.
+- 🪤 **The trap it is built around:** nothing in the feed says *when* a play happened, so a
+  voting window can never be closed before the event it asks about. Asking about a half-inning
+  nobody has played removes the problem instead of managing it. `/predict open` refuses a half
+  that is already under way, reading whichever of the play log and the feed's live situation is
+  further along, because between innings the two disagree.
+- ⚙️ **One rulebook, two runtimes.** The rules and the cards are pure and unit tested
+  (31 tests); the I/O and the settle pass are plain `fetch` against PostgREST, so the
+  Cloudflare Pages function and the Deno edge function run the same grading rather than two
+  copies that drift.
+
 ### Aug 20, 2026: auth links have to say something when they land
 
 - 🐛 **The reset link opened nothing.** `PASSWORD_RECOVERY` is emitted from a `setTimeout`

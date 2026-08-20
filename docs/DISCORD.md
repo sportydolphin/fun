@@ -19,7 +19,7 @@ There are also two things that **answer** in the server, which webhooks cannot d
 | What | Written by | Behaviour |
 |---|---|---|
 | **`/player` slash command** | [`functions/discord/wpbl.ts`](../functions/discord/wpbl.ts) | Looks up any WPBL player by name and replies with their season. Suggests names as you type. |
-| **`/predict`, the in-game game** | the same function, settled by [`settle-predictions.ts`](../supabase/functions/wpbl-ingest/settle-predictions.ts) | A mod opens a round on the at-bat happening now; the channel answers with buttons; the feed settles it. One winner a game. |
+| **`/predict`, the in-game game** | the same function, settled by [`settle-predictions.ts`](../supabase/functions/wpbl-ingest/settle-predictions.ts) | A mod opens a round on the half-inning coming up next; the channel answers with buttons; it closes itself as the inning starts and the feed settles it. One winner a game. |
 
 ## How it fits together
 
@@ -216,15 +216,21 @@ people's typos. Both are built in
 
 ### The `/predict` game ("Call It Early")
 
-The predictions game the mods host during a live game. A mod asks the channel whether a team
-will score in the half-inning **coming up next**, everyone answers by pressing a button, the
-mod locks the picks as the inning starts, and the league's own play-by-play settles it. One
-winner a game.
+The predictions game the mods host during a live game. A mod asks the channel **how many runs**
+a team will score in the half-inning **coming up next**, everyone answers by pressing one of
+four buttons (0, 1, 2, 3+), picks close on their own as the inning starts, and the league's own
+play-by-play settles it. The game ends when the feed sees the final, and one winner is crowned.
+
+Nobody has to sit at a keyboard for any of that except to open a round. The ingest already
+pulls the feed every two minutes, so locking, revealing and crowning all happen on a pass it
+was making anyway.
 
 The rules live in [`src/wpbl/derive/predictions.ts`](../src/wpbl/derive/predictions.ts) and
 the message rendering in [`src/wpbl/discordPredictions.ts`](../src/wpbl/discordPredictions.ts).
-Neither knows anything about Discord or Postgres, so both are unit tested, and the grader has
-been replayed against all 195 half-innings of the season.
+Neither knows anything about Discord or Postgres, so both are unit tested. The I/O sits in
+[`predictStore.ts`](../src/wpbl/predictStore.ts) and the lock/grade/crown pass in
+[`predictEngine.ts`](../src/wpbl/predictEngine.ts), both plain `fetch` against PostgREST so
+that the Cloudflare function and the Deno edge function run the same one.
 
 #### Running one
 
@@ -234,14 +240,29 @@ buttons.
 ```
 /predict open              ask about the half-inning coming up next
 /predict open seconds:60   a shorter voting window than the default 120
-/predict lock              close picks now, as the inning starts
+/predict open team:boston  which game, when two are on at once
+/predict lock              close picks now, without waiting for either trigger
 /predict cancel            abandon the round; its picks count for nothing
 /predict standings         post the board so far
-/predict winner            settle the game and crown one winner
+/predict winner            close the game out early and crown one winner
 ```
 
-The natural rhythm is: open it during the break between innings, let the channel vote, then
-**`/predict lock` as the first pitch is thrown**.
+The natural rhythm is: **open it during the break between innings and go back to watching**.
+Two things close picks and neither needs a mod:
+
+| Trigger | What it is for |
+|---|---|
+| the round's own timer (`seconds`, default 120) | the ordinary case: the break between innings is about that long |
+| the target half-inning starting | the one that matters, and the one that keeps the game honest |
+
+The second is checked on the button press itself, not only on the ingest's pass, because the
+ingest can be two minutes behind and a round whose inning started ninety seconds ago still
+reads "open" in the table. `/predict lock` remains as a manual override for a mod who wants
+picks shut early.
+
+`/predict winner` is likewise an override rather than the normal ending: the game crowns itself
+when the feed reports the final. Use it when a watch party breaks up before the last out. Any
+round still unsettled when a mod ends the game is voided rather than guessed at.
 
 **It works in a voice channel's text chat.** That is an ordinary guild channel as far as
 Discord's API is concerned, so a round can run inside the watch-party voice room with nothing
@@ -284,9 +305,10 @@ a half that the plays table has already moved past.
 
 #### Adding a second round type
 
-One ships. Anything else has to pass the same test: *could a person watching the game know the
-answer before picks close?* "How many runs next inning" and "who gets the first hit next
-inning" pass. Anything about the at-bat in progress does not.
+One ships, `kind = 'runs'`. Anything else has to pass the same test: *could a person watching
+the game know the answer before picks close?* "Will they score at all next inning" (`'score'`,
+which the schema still allows) and "who gets the first hit next inning" pass. Anything about
+the at-bat in progress does not.
 
 #### Who wins
 
@@ -308,8 +330,11 @@ behind when the round opened, plays arriving out of order, and the fact that `wp
 is a mirror whose uuids the ingest regenerates on every pass. `anchor_sequence` is stored only
 to keep the grader's query small.
 
-It settles **as early as it honestly can**: the first run crossing ends the round, with no
-reason to make anyone wait for the third out.
+It settles **as early as it honestly can**. For the runs question that means the third run
+crossing, because "3+" is the top bucket and nothing after that can change the answer. Short of
+that it waits for evidence the frame is over, which is a play appearing in a **later**
+half-inning, or the game going final. Counting outs would settle sooner, and would mean
+guessing at whether the feed's `outs` column is before or after the play it sits on.
 
 A half-inning that is **never played** is voided, not scored as "held scoreless". The home
 side does not bat in the bottom of the ninth when it is already ahead, and calling that
@@ -508,7 +533,11 @@ Off until these are done.
 
    Applies [`…_add_wpbl_predict_game.sql`](../scripts/migrations/20260817225409_add_wpbl_predict_game.sql):
    `wpbl_predict_rounds`, `wpbl_predict_picks`, `wpbl_predict_winners`. RLS-on with no
-   policies, like the other bookkeeping tables.
+   policies, like the other bookkeeping tables. Then
+   [`…_add_wpbl_predict_runs_kind.sql`](../scripts/migrations/20260820193000_add_wpbl_predict_runs_kind.sql),
+   which widens two check constraints the first file wrote too narrowly: `kind` to allow the
+   `'runs'` round that shipped, and `status` to allow `'locked'`, the state a round sits in
+   between picks closing and its half-inning finishing.
 
 2. **Give the Pages function a service-role key.** Cloudflare Pages → your project →
    Settings → Environment variables → `SUPABASE_SERVICE_ROLE_KEY`, as an **encrypted**
@@ -702,8 +731,9 @@ which bundles each function exactly as Cloudflare will and fails loudly instead 
   round is **still graded and still scores**: the picks count, the board is right, and
   `/predict standings` shows it. Only the message in the channel keeps looking open. Set the
   bot token and re-invite with the `bot` scope to fix it properly.
-- **The lock timer is a backstop, not the fairness mechanism.** What makes the game fair is
-  that the question is about a half-inning that has not started. Do not "improve" this by
+- **Neither closer is the fairness mechanism.** What makes the game fair is that the question
+  is about a half-inning that has not started; the timer and the inning-start check only stop a
+  late click from being worth anything. Do not "improve" this by
   asking about the current at-bat, however tempting the drama is: the feed has no timestamps,
   so that round cannot be closed before the event it asks about. The numbers are in the
   section above and the argument is in the engine's header.
@@ -712,17 +742,21 @@ which bundles each function exactly as Cloudflare will and fails loudly instead 
 - **A half-inning already under way is refused.** Between innings the feed can briefly report
   a half that the plays table has already moved past, which is the one route by which an
   unfair round could sneak back in.
-- **Two games live at once needs the `game` option.** With one live game the bot picks it.
-  With two it refuses and asks, because a round pointed at the wrong game is graded against
-  somebody else's half-inning and nothing in the message would reveal that. The option
-  autocompletes to the live games, so nobody types a uuid.
+- **Two games live at once needs the `team` option.** With one game on the bot picks it, and
+  it counts anything scheduled for today as well as anything live, so a round can be opened on
+  the top of the 1st before first pitch. With two it refuses and lists them, because a round
+  pointed at the wrong game is graded against somebody else's half-inning and nothing in the
+  message would reveal that. `team:` matches a slug, an abbreviation or any part of a name.
 - **A cancelled round is voided, not deleted.** Its picks stay and simply never grade, so the
   question remains in the channel's history where a mod who mis-clicked can still see it.
-- **The winner is announced by a mod, not by a cron.** `/predict winner` is what settles the
-  game and writes `wpbl_predict_winners`. That is on purpose: the announcement wants to land
-  while the channel is still talking about the game, which is a judgement no scheduled job
-  has. Running it twice is safe, since the game id is a primary key and the second insert
-  conflicts and changes nothing.
+- **The winner is crowned by whichever gets there first, and only once.** The ingest crowns a
+  game on the same not-final to final transition that posts the box score; a mod running
+  `/predict winner` crowns it early. Both claim `wpbl_predict_winners` with an INSERT against
+  its primary key, so the conflict IS the lock and the game cannot be announced twice.
+  **Announcing needs `DISCORD_BOT_TOKEN`**, because posting a NEW message into the round's
+  channel is something a webhook cannot do (a webhook is bound to one channel and a round can
+  run in any of them). Without it the winner row is still written, with `announced_at` null,
+  and `/predict winner` posts it as its own reply.
 - **What counts as a highlight** is `classify()` in
   [`scripts/sync-wpbl-youtube.mjs`](../scripts/sync-wpbl-youtube.mjs): a title containing
   "highlight(s)" *and* a matchup separator (`@` or `vs.`). Single-play clips ("Kelsie

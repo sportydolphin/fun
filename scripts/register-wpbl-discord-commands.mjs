@@ -38,8 +38,17 @@ if (!APP_ID || !BOT_TOKEN) {
 const scope = GUILD_ID ? `guilds/${GUILD_ID}` : ''
 const URL = `https://discord.com/api/v10/applications/${APP_ID}/${scope ? `${scope}/` : ''}commands`
 
-// One command, one option. `autocomplete` is what lets the endpoint suggest players while
-// the reader types; without it Discord sends only the final submitted string.
+// Option types, from Discord's API: 1 = SUB_COMMAND, 3 = STRING, 4 = INTEGER.
+//
+// `autocomplete` is what lets the endpoint suggest players while the reader types; without it
+// Discord sends only the final submitted string.
+//
+// `default_member_permissions` on /predict is 8192 (MANAGE_MESSAGES), which hides the whole
+// command from everyone who is not a mod. That is presentation, not security: a server owner
+// can override it per role, so the endpoint checks the same permission itself on every
+// subcommand. Players never need it either way, since they answer a round with buttons.
+const MANAGE_MESSAGES = String(1 << 13)
+
 const COMMANDS = [
   {
     name: 'player',
@@ -48,10 +57,43 @@ const COMMANDS = [
       {
         name: 'name',
         description: 'Player name (partial or misspelled is fine)',
-        type: 3,            // STRING
+        type: 3,
         required: true,
         autocomplete: true,
       },
+    ],
+  },
+  {
+    name: 'predict',
+    description: 'Run the in-game predictions game',
+    default_member_permissions: MANAGE_MESSAGES,
+    dm_permission: false,
+    options: [
+      {
+        name: 'open',
+        description: 'Ask how many runs the next half-inning brings',
+        type: 1,
+        options: [
+          {
+            name: 'seconds',
+            description: 'How long picks stay open (default 120). Picks also close when the inning starts.',
+            type: 4,
+            required: false,
+            min_value: 15,
+            max_value: 600,
+          },
+          {
+            name: 'team',
+            description: 'Which game, when more than one is on',
+            type: 3,
+            required: false,
+          },
+        ],
+      },
+      { name: 'lock', description: 'Close picks now, without waiting for the timer', type: 1 },
+      { name: 'cancel', description: 'Throw the live round away; its picks count for nothing', type: 1 },
+      { name: 'standings', description: 'Post the board for this game so far', type: 1 },
+      { name: 'winner', description: 'Close the game out and crown one winner', type: 1 },
     ],
   },
 ]

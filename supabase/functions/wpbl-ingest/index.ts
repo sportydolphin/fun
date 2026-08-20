@@ -24,6 +24,7 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { normName, editDistance, isDamaged, replacementMatch } from './names.ts'
 import { announceFinal } from './announce-final.ts'
+import { crownPredictions, settlePredictions } from './settle-predictions.ts'
 
 const FEED = 'https://stats.womensprobaseballleague.com/v1'
 const CORS = {
@@ -685,6 +686,10 @@ Deno.serve(async (req) => {
         // announceFinal owns its own errors; the box score is already written either way.
         if (box.status === 'final' && prior != null && prior.status !== 'final') {
           await announceFinal(db, up.id)
+          // The predictions game ends with the game. Done here rather than in the pass below
+          // because that one starts from rounds that are still open, and a game whose last
+          // round graded an inning ago has none left to find it by.
+          await crownPredictions(up.id)
         }
       } catch (e) {
         summary.errors.push(`box ${apiGameId}: ${e instanceof Error ? e.message : e}`)
@@ -692,6 +697,9 @@ Deno.serve(async (req) => {
     }
 
     await resolver.flushApiIds()
+    // Every open Discord prediction round, settled against the plays this pass just wrote. It
+    // owns its own errors: a Discord outage is not an ingest failure.
+    await settlePredictions()
     await logRun(true, summary.games, summary.boxscores, summary.errors)
     return json({ ok: true, mode, ...summary })
   } catch (e) {

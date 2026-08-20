@@ -99,10 +99,16 @@ Each of these has already cost someone a debugging session, and none of them fai
   extensionless). For the same reason they must never import
   [`constants.ts`](src/wpbl/constants.ts), which pulls the team logos in as Vite assets:
   that is why `outsToIp` lives in [`innings.ts`](src/wpbl/innings.ts).
-- **Two write paths to the DB, and only two.** The browser writes user rows through RLS
+- **Three write paths to the DB, and only three.** The browser writes user rows through RLS
   (events, feedback, picks); everything ingested or derived is written by service-role
   actors, the `wpbl-ingest` edge function and the GitHub Actions `scripts/*.mjs` jobs. The
-  browser only reads those. Do not add a third.
+  browser only reads those. The third is the **Discord bot**
+  ([`functions/discord/wpbl.ts`](functions/discord/wpbl.ts)), which holds a service-role key
+  for the `/predict` game alone: recording a pick is a write, the predictions tables are
+  RLS-on with no policies, and the anon key ships in the client bundle so a pick recorded
+  under it could be forged for any Discord user by anyone who opened dev tools. That is the
+  whole of the exception. Do not add a fourth, and do not let the bot's key reach anything
+  outside `wpbl_predict_*`.
 - **`public/icon.svg` is generated**, along with every other published icon, by
   [`scripts/make-brand-icons.py`](scripts/make-brand-icons.py) from `public/logo.png`. A
   hand-edit is lost on the next run. Change the art, rerun the script, commit the lot.
