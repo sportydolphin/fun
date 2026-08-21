@@ -5,7 +5,7 @@
 // distinct "WPBL stats" page because, as far as the markup was concerned, one didn't
 // exist. Googlebot renders JS and reads what this hook sets on route change; index.html
 // still carries sensible defaults for non-JS crawlers and social unfurlers.
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 const SITE = 'https://sportydolphin.fun'
 
@@ -54,6 +54,13 @@ const ROUTES: Record<string, Seo> = {
     description:
       "All four Women's Pro Baseball League clubs: rosters, team stats, and results for the Firebells, Queens, Hunters and Heights.",
   },
+  // The flat roster. Its own page mostly so the 118 player pages have something linking to
+  // them, but it is a real destination too, and "WPBL players" is a term people type.
+  '/wpbl/players': {
+    title: "WPBL Players 2026: full rosters | sportydolphin.fun",
+    description:
+      "Every player in the 2026 Women's Pro Baseball League, by club, with a stats page for each: the Firebells, Queens, Hunters and Heights rosters in one list.",
+  },
   '/wpbl/api': {
     title: "WPBL API — Women's Pro Baseball League data feed | sportydolphin.fun",
     description:
@@ -82,6 +89,29 @@ const ROUTES: Record<string, Seo> = {
   },
 }
 
+// ─── Routes whose tags are not knowable from the path alone ───────────────────
+//
+// A player page is titled with the player's name, and the name arrives with the roster
+// fetch, several hundred milliseconds after the route does. ROUTES is a static map keyed on
+// the path, so the section registers the tags here once it can and clears them when the
+// player closes.
+//
+// Why a subscription rather than a prop: `useSeo` is called by src/App.tsx, which is the
+// PARENT of the lazy WPBL chunk and knows nothing about players. React runs child effects
+// before parent ones, so a child writing the tags directly would simply be overwritten by
+// the parent's `useSeo` on the same commit. Registering the value and waking `useSeo` puts
+// the last write back in one place.
+const subscribers = new Set<() => void>()
+let dynamicSeo: { path: string; seo: Seo } | null = null
+
+/** Register (or clear, with null) the tags for a route ROUTES cannot describe. `path` is
+ *  matched against the current pathname, so a stale registration cannot leak onto another
+ *  page even if a caller forgets to clear it. */
+export function setDynamicSeo(next: { path: string; seo: Seo } | null) {
+  dynamicSeo = next
+  subscribers.forEach(fn => fn())
+}
+
 function upsertMeta(attr: 'name' | 'property', key: string, content: string) {
   let el = document.head.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`)
   if (!el) {
@@ -104,9 +134,18 @@ function upsertLink(rel: string, href: string) {
 
 /** Set document title + meta/canonical/OG tags for the current route path. */
 export function useSeo(path: string) {
+  // Bumped when a section registers dynamic tags, so the effect below re-runs on a route
+  // whose path did not change (the roster landing under an already-open player page).
+  const [dynamicVersion, setDynamicVersion] = useState(0)
+  useEffect(() => {
+    const wake = () => setDynamicVersion(v => v + 1)
+    subscribers.add(wake)
+    return () => { subscribers.delete(wake) }
+  }, [])
+
   useEffect(() => {
     const base = path.split('?')[0].replace(/\/+$/, '') || '/'
-    const seo = ROUTES[base] ?? DEFAULT
+    const seo = (dynamicSeo?.path === base ? dynamicSeo.seo : null) ?? ROUTES[base] ?? DEFAULT
     const url = `${SITE}${base === '/' ? '/wpbl' : base}`
 
     document.title = seo.title
@@ -123,5 +162,5 @@ export function useSeo(path: string) {
     upsertMeta('property', 'og:url', url)
     upsertMeta('name', 'twitter:title', seo.title)
     upsertMeta('name', 'twitter:description', seo.description)
-  }, [path])
+  }, [path, dynamicVersion])
 }

@@ -451,7 +451,14 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   ahead of the catch-all. **A new route in the `Route` union in
   [`src/App.tsx`](src/App.tsx) needs a line in both blocks here**, or it 404s in production
   and works fine in dev, since Vite serves the shell for everything. Check a build with
-  `npx wrangler pages dev dist`.
+  `npx wrangler pages dev dist`. The single wildcard, `/wpbl/players/*`, exists because the
+  valid slugs are rows in `wpbl_players`; the Pages Function 404s unknown ones first, which
+  is the only thing keeping that directory from being an infinite set of 200s.
+- **`public/sitemap.xml` is generated** by `npm run sitemap`
+  ([`scripts/build-sitemap.ts`](scripts/build-sitemap.ts)): the static routes plus one URL
+  per player, read live from the roster. It warns loudly if two players share a slug, since
+  that is the one case where a player's URL is not simply their name. Re-run it when the
+  roster changes; a hand-edit is lost.
 - **Edge functions:** `supabase functions deploy <name>` (manual). `wpbl-ingest` also
   announces a game to Discord the moment it sees it go final
   ([`announce-final.ts`](supabase/functions/wpbl-ingest/announce-final.ts)): the

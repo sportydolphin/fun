@@ -27,6 +27,7 @@
     "giveaway": "node --env-file=.env scripts/draw-discord-giveaway.mjs",
     "birthdays": "node --env-file=.env scripts/ingest-wpbl-birthdays.mjs",
     "check-functions": "esbuild functions/*/*.ts --bundle --format=esm --platform=neutral --outdir=node_modules/.cache/functions-check",
+    "sitemap": "esbuild scripts/build-sitemap.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/build-sitemap.mjs && node --env-file=.env node_modules/.cache/build-sitemap.mjs",
     "subset-font": "node scripts/subset-inter.mjs",
     "validate-pbp": "node --env-file=.env scripts/validate-wpbl-pbp.mjs",
     "restock-watch": "node --env-file=.env scripts/watch-wpbl-restock.mjs",

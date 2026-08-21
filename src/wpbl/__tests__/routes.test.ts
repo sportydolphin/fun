@@ -17,6 +17,7 @@ import sitemap from '../../../public/sitemap.xml?raw'
 import seoSource from '../../seo.ts?raw'
 import {
   WPBL_NAV, WPBL_VIEW_PATHS, wpblPathFor, wpblViewFromPath, normalizeWpblView,
+  wpblPlayerSlug, wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug,
 } from '../routes'
 
 describe('wpblViewFromPath', () => {
@@ -80,6 +81,73 @@ describe('every tab path is actually routable in production', () => {
   // place. The tabs are listed one by one for that reason.
   it('does not route the section with a wildcard', () => {
     expect(redirects).not.toMatch(/^\/wpbl\/\*/m)
+  })
+})
+
+describe('player slugs', () => {
+  const roster = [
+    { id: 'aaaaaaaa-1111-4111-8111-111111111111', name: 'Denae Benites' },
+    { id: 'bbbbbbbb-2222-4222-8222-222222222222', name: "Claire O'Sullivan" },
+    { id: 'cccccccc-3333-4333-8333-333333333333', name: 'Samaria Benítez' },
+  ]
+
+  it('is the name, lowercased and punctuation-free', () => {
+    expect(wpblPlayerSlug(roster[0], roster)).toBe('denae-benites')
+    expect(wpblPlayerSlug(roster[1], roster)).toBe('claire-o-sullivan')
+  })
+
+  // The roster has five accented names. If these did not fold, their pages would sit at
+  // percent-encoded URLs that nobody would ever link to or type.
+  it('folds accents rather than escaping them', () => {
+    expect(wpblPlayerSlug(roster[2], roster)).toBe('samaria-benitez')
+  })
+
+  it('round-trips through the path', () => {
+    const path = wpblPlayerPath(roster[0], roster)
+    expect(path).toBe('/wpbl/players/denae-benites')
+    expect(findWpblPlayerBySlug(wpblPlayerSlugFromPath(path)!, roster)).toEqual(roster[0])
+  })
+
+  it('is not fooled by neighbouring routes', () => {
+    expect(wpblPlayerSlugFromPath('/wpbl/players')).toBeNull()   // the index, not a player
+    expect(wpblPlayerSlugFromPath('/wpbl/stats')).toBeNull()
+    expect(wpblPlayerSlugFromPath('/wpbl/players/a/b')).toBeNull()
+  })
+
+  it('resolves nobody for a slug that names nobody', () => {
+    expect(findWpblPlayerBySlug('not-a-player', roster)).toBeNull()
+  })
+
+  // No two players share a name today, so this is the case with no live example and
+  // therefore the one most likely to be got wrong. Both players must end up reachable, at
+  // DIFFERENT URLs, and the bare name must resolve to neither rather than picking one.
+  describe('when two players share a name', () => {
+    const twins = [
+      { id: 'dddddddd-4444-4444-8444-444444444444', name: 'Maria Garcia' },
+      { id: 'eeeeeeee-5555-4555-8555-555555555555', name: 'Maria Garcia' },
+      ...roster,
+    ]
+
+    it('gives each a distinct, stable URL', () => {
+      const a = wpblPlayerSlug(twins[0], twins)
+      const b = wpblPlayerSlug(twins[1], twins)
+      expect(a).not.toBe(b)
+      expect(a).toBe('maria-garcia-dddddddd')
+      expect(b).toBe('maria-garcia-eeeeeeee')
+    })
+
+    it('keeps both reachable', () => {
+      expect(findWpblPlayerBySlug(wpblPlayerSlug(twins[0], twins), twins)).toEqual(twins[0])
+      expect(findWpblPlayerBySlug(wpblPlayerSlug(twins[1], twins), twins)).toEqual(twins[1])
+    })
+
+    it('refuses the ambiguous bare name instead of guessing', () => {
+      expect(findWpblPlayerBySlug('maria-garcia', twins)).toBeNull()
+    })
+
+    it('leaves everyone else alone', () => {
+      expect(wpblPlayerSlug(roster[0], twins)).toBe('denae-benites')
+    })
   })
 })
 

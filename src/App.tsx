@@ -21,7 +21,7 @@ import { supabase } from './lib/supabase'
 import { useSeo } from './seo'
 // Import-free by design, so naming it here does not drag the lazy WPBL chunk into the
 // entry bundle. See the note at the top of that file.
-import { wpblViewFromPath, WPBL_PATH_EVENT } from './wpbl/routes'
+import { wpblViewFromPath, wpblPlayerSlugFromPath, isWpblPlayersIndex, WPBL_PATH_EVENT } from './wpbl/routes'
 import { track, EVENTS } from './lib/analytics'
 import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from './lib/usernames'
 import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
@@ -39,6 +39,9 @@ const MlbStats = lazy(() => import('./MlbStats'))
 // WPBL — a separate top-level league section (its own data + views). Lazy so it
 // stays out of the MLB and landing bundles.
 const WpblApp = lazy(() => import('./wpbl/WpblApp'))
+// The flat players list at /wpbl/players. Its own chunk and its own route: it is a plain
+// page, not one of the section's tabs, so it has no business waking WpblApp's state machine.
+const WpblPlayersIndex = lazy(() => import('./wpbl/PlayersIndex'))
 const WpblApiDocs = lazy(() => import('./wpbl/ApiDocs'))
 // The owner's dashboard. Its own route rather than a dialog: charts and tables need the
 // room, and it pulls in the analytics RPC layer that nobody else should ever download.
@@ -90,8 +93,13 @@ type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame' |
 
 /** A WPBL tab page. `/wpbl/api` is a sibling route, not a tab, so it is not one of these. */
 const isWpblTab = (p: string) => wpblViewFromPath(p) !== null
+/** A player page or the index that lists them. Both are rendered by WpblApp: a player is a
+ *  modal the section opens over a tab, so the section still owns the route. */
+const isWpblPlayerPage = (p: string) => wpblPlayerSlugFromPath(p) !== null || isWpblPlayersIndex(p)
+/** Everything WpblApp renders. The players INDEX is its own page, so it is not here. */
+const rendersWpblApp = (p: string) => isWpblTab(p) || wpblPlayerSlugFromPath(p) !== null
 /** Anything that should read as "the reader is in the WPBL section". */
-const isWpblSection = (p: string) => isWpblTab(p) || p === '/wpbl/api'
+const isWpblSection = (p: string) => rendersWpblApp(p) || p === '/wpbl/api'
 
 const LOCK_PASSWORD = 'sportydolphin'
 const LOCKED_PATHS = new Set(['/cups', '/weights'])
@@ -1184,7 +1192,12 @@ function AppInner() {
             <MlbStats />
           </Suspense>
         )}
-        {isWpblTab(path) && (
+        {isWpblPlayersIndex(path) && (
+          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+            <WpblPlayersIndex onNavigate={navigate} />
+          </Suspense>
+        )}
+        {rendersWpblApp(path) && (
           <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
             {/* On mobile the WPBL tabs swipe, so the footer rides inside each tab pane (see
                 WpblApp) instead of sitting shared below them — the shared one is suppressed
@@ -1245,7 +1258,7 @@ function AppInner() {
       {/* On mobile WPBL the footer rides inside each swipeable tab pane (WpblApp's
           renderFooter) so it doesn't reflow when tabs of different heights swap — so skip
           the shared one there. Everywhere else (incl. desktop WPBL) it renders here. */}
-      {!(isWpblTab(path) && !isDesktop) && (
+      {!(rendersWpblApp(path) && !isDesktop) && (
         <SiteFooter
           onOpenChangelog={() => setChangelogOpen(true)}
           onOpenFeedback={() => setFeedbackOpen(true)}

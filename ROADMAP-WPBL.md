@@ -490,6 +490,36 @@ is retired.
 
 ## Shipped log
 
+### Aug 21, 2026: a page per player
+
+118 of them, at `/wpbl/players/denae-benites` rather than `?player=<uuid>` hanging off
+whichever tab you happened to open her from. A uuid tells a reader nothing and a search
+engine less, and the same player reachable under five URLs was five near-duplicate pages
+competing with each other. Now there is one canonical URL per person, and the old form 301s
+onto it at the edge, which also hands over whatever ranking signal it had.
+
+`/wpbl/players` is new and exists mostly to be crawled: a player is otherwise reachable only
+from a stat-leader row (top five only) or a team roster behind a tab and a team selection,
+which is a long way in from `/wpbl`. One flat page of real anchors puts every player one hop
+from a page Google already has.
+
+The slug rule has a case with no live example, which is why it is the one under test: no two
+players share a name today, so when two do, BOTH take an id-suffixed URL and the bare name
+resolves to neither. Serving a 404 for a genuinely ambiguous URL is recoverable; quietly
+serving the wrong player is not. `npm run sitemap` warns loudly when it happens.
+
+The sitemap is generated now ([`scripts/build-sitemap.ts`](scripts/build-sitemap.ts)), 128
+URLs. Hand-maintaining five was fine; hand-maintaining a hundred and twenty was not, and the
+old file was also claiming `changefreq: hourly` for pages that had not changed in a week.
+
+Two things this needed that were not obvious. `/wpbl/players/*` is the only wildcard in
+`_redirects`, because valid slugs are database rows; what stops it being a soft-404 hole is
+the Pages Function resolving the slug and 404ing first, and Cloudflare's `*` matches across
+slashes, so `/wpbl/players/a/b` needed rejecting too. And `openFromLink` was seating a base
+history entry unconditionally, which was right for a pasted link and wrong from the new
+index: it replaced the index entry, so Back from a player returned to the section root
+instead of the list the reader came from.
+
 ### Aug 21, 2026: one URL per tab, so the section can be found at all
 
 Search Console said the site had three indexed pages, and one of them was `/wpbl),and` — a

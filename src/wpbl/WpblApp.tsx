@@ -25,8 +25,10 @@ import WpblBottomNav, { BOTTOM_NAV_SPACE } from './BottomNav'
 import { useExperiments } from '../ExperimentsContext'
 import {
   WPBL_NAV, wpblPathFor, wpblViewFromPath, normalizeWpblView, WPBL_PATH_EVENT,
+  wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug, isWpblPlayersIndex,
   type WpblView,
 } from './routes'
+import { setDynamicSeo } from '../seo'
 
 // The two detail modals, split out of the section's chunk.
 //
@@ -542,13 +544,33 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // title, a modal is a state laid over whichever page you were on. Keeping the modal in
   // the query is also what lets seo.ts canonicalise it back to the tab underneath, so a
   // hundred shared game links do not read as a hundred near-duplicate pages.
-  const urlFor = (s: WpblSnap) => {
+  // Memoised on `players` and threaded through push's deps below: it reads the roster now,
+  // so leaving it out would freeze `push` around the empty roster of the first render and
+  // every player URL would come out in the legacy query form.
+  const urlFor = useCallback((s: WpblSnap) => {
     const q = new URLSearchParams()
-    if (s.game) q.set('game', s.game.id)       // deep-linkable game center
-    if (s.player) q.set('player', s.player.id) // deep-linkable player page
+    if (s.game) q.set('game', s.game.id) // deep-linkable game center
+
+    // An open player takes over the path, so a player has ONE canonical URL no matter which
+    // tab it was opened from. The alternative, ?player=<uuid> hanging off five different
+    // tabs, is five near-duplicate URLs for one person, none of them readable.
+    //
+    // Falls back to the old query form only while the roster is still in flight, since the
+    // slug cannot be proven unique without it (see wpblPlayerSlug). That window is the first
+    // moment of a cold load, and the URL corrects itself on the next navigation.
+    if (s.player) {
+      const path = players.length
+        ? wpblPlayerPath(s.player, players)
+        : `${wpblPathFor(s.view)}`
+      const str = q.toString()
+      if (players.length) return str ? `${path}?${str}` : path
+      q.set('player', s.player.id)
+      return `${path}?${q.toString()}`
+    }
+
     const str = q.toString()
     return str ? `${wpblPathFor(s.view)}?${str}` : wpblPathFor(s.view)
-  }
+  }, [players])
   // A ?player=<id> / ?game=<id> from a pasted or shared link, resolved once the data they
   // name has loaded. Both are read at mount only: a restored history snapshot already
   // carries the real objects, so the query string is the cold-start path.
@@ -556,13 +578,19 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     window.history.state?.wpbl ? null : new URLSearchParams(window.location.search).get(key)
   const pendingPlayerId = useRef<string | null>(pendingParam('player'))
   const pendingGameId = useRef<string | null>(pendingParam('game'))
+  // The same idea for /wpbl/players/<slug>, which is the canonical form. Read from the path
+  // rather than the query, and likewise only on a cold load: a restored history entry
+  // already carries the player object.
+  const pendingPlayerSlug = useRef<string | null>(
+    window.history.state?.wpbl ? null : wpblPlayerSlugFromPath(window.location.pathname),
+  )
   // Every forward navigation = one history entry (apply state + push a matching snapshot).
   const push = useCallback((s: WpblSnap) => {
     apply(s)
     window.history.pushState({ ...window.history.state, wpbl: s }, '', urlFor(s))
     // Tell the shell the path moved, so useSeo re-runs for the tab we just landed on.
     window.dispatchEvent(new Event(WPBL_PATH_EVENT))
-  }, [apply])
+  }, [apply, urlFor])
 
   /**
    * Open a modal that a shared link asked for, on a cold load.
@@ -588,14 +616,35 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
    * base on the second one would throw away the first one's entry.
    */
   const linkBaseSeated = useRef(false)
+  // Whether this entry was reached by a click inside the site rather than by arriving
+  // directly. src/App.tsx's `navigate` pushes `{}`, a cold load has null, and a restored
+  // WPBL entry never reaches openFromLink at all, so the three cases are distinguishable.
+  //
+  // It matters because seating a base is only correct when there is nothing behind us. The
+  // players index at /wpbl/players is a separate route, so following a link from it remounts
+  // this component and lands here: seating a base there REPLACED the index entry with a bare
+  // /wpbl, and Back from a player returned to the section root instead of the list the reader
+  // was just reading.
+  const arrivedByInAppLink = useRef(window.history.state != null)
   const openFromLink = useCallback((s: WpblSnap) => {
+    // Came from a link inside the site: the shell already pushed an entry for this exact
+    // URL, so FILL IT IN rather than seating a base under it or pushing a second entry with
+    // the same address. Pushing would leave two /wpbl/players/<slug> entries back to back,
+    // the lower one carrying no snapshot, so Back would render Home under a player's URL.
+    if (arrivedByInAppLink.current) {
+      arrivedByInAppLink.current = false
+      apply(s)
+      window.history.replaceState({ ...window.history.state, wpbl: s }, '', urlFor(s))
+      window.dispatchEvent(new Event(WPBL_PATH_EVENT))
+      return
+    }
     if (!linkBaseSeated.current) {
       linkBaseSeated.current = true
       const base: WpblSnap = { view: s.view, team: s.team, game: null, player: null }
       window.history.replaceState({ ...window.history.state, wpbl: base }, '', urlFor(base))
     }
     push(s)
-  }, [push])
+  }, [push, apply, urlFor])
 
   // Navigation intents. Tab/team switches clear any open modal; opening a player keeps the
   // game beneath it (so Back closes the player first, then the game).
@@ -698,15 +747,42 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     openFromLink({ view, team: selectedTeam, game: g, player: detailPlayer })
   }, [games, detailGame, view, selectedTeam, detailPlayer, openFromLink])
 
-  // Open the player named in a shared ?player=<id> link, once the roster is available.
+  // Open the player named by the URL, once the roster is available. Two spellings: the
+  // canonical /wpbl/players/<slug> path, and the legacy ?player=<uuid> that shared links and
+  // the Discord bot still carry (the edge 301s those, but a client-side entry can skip it).
+  //
+  // A slug that resolves to nobody is left alone rather than falling back to Home: the edge
+  // has already answered 404 for it on a cold load, and quietly showing the section instead
+  // would turn a dead link into a soft 404.
   useEffect(() => {
+    if (detailPlayer || players.length === 0) return
+    const slug = pendingPlayerSlug.current
     const id = pendingPlayerId.current
-    if (!id || detailPlayer || players.length === 0) return
+    if (!slug && !id) return
+    pendingPlayerSlug.current = null
     pendingPlayerId.current = null
-    const p = players.find(pl => pl.id === id)
+    const p = slug ? findWpblPlayerBySlug(slug, players) : players.find(pl => pl.id === id)
     if (!p) return
     openFromLink({ view, team: selectedTeam, game: detailGame, player: p })
   }, [players, detailPlayer, view, selectedTeam, detailGame, openFromLink])
+
+  // A player page is titled with the player's name, which ROUTES in seo.ts cannot know from
+  // the path. Register it here, and clear it the moment the modal closes so the tag cannot
+  // outlive the page it describes.
+  useEffect(() => {
+    if (!detailPlayer || players.length === 0) return setDynamicSeo(null)
+    const team = teams.find(t => t.id === detailPlayer.team_id)
+    const club = team ? wpblFullName(team) : 'the WPBL'
+    setDynamicSeo({
+      path: wpblPlayerPath(detailPlayer, players),
+      seo: {
+        title: `${detailPlayer.name} Stats 2026 | WPBL | sportydolphin.fun`,
+        description:
+          `${detailPlayer.name} of the ${club}: 2026 Women's Pro Baseball League batting and pitching stats, game log, and season splits.`,
+      },
+    })
+    return () => setDynamicSeo(null)
+  }, [detailPlayer, players, teams])
 
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 

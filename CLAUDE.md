@@ -123,6 +123,15 @@ Each of these has already cost someone a debugging session, and none of them fai
   handler rather than copying it). This is how the player share-card rewrite quietly stopped
   running the day the WPBL tabs became real paths: the page was fine, only the unfurl was
   wrong.
+- **`public/sitemap.xml` is generated.** `npm run sitemap` rebuilds it from the roster (one
+  URL per player). A hand-edit is lost on the next run.
+- **The one wildcard in `_redirects` is `/wpbl/players/*`,** because the valid slugs live in
+  the database. What keeps it from being a soft-404 hole is
+  [`functions/wpbl/index.ts`](functions/wpbl/index.ts), which resolves the slug against the
+  roster and answers a real 404 for anything that names nobody, *before* the rewrite is
+  reached. Cloudflare's `*` matches across slashes, so the same check has to reject
+  `/wpbl/players/a/b` too. Remove either and every typo under that directory is an indexable
+  page again.
 - **A new app route also needs two lines in `public/_redirects`,** and a WPBL tab needs an
   entry in [`src/wpbl/routes.ts`](src/wpbl/routes.ts) and
   [`src/seo.ts`](src/seo.ts) besides. `src/wpbl/__tests__/routes.test.ts` pins all four
