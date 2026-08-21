@@ -49,7 +49,7 @@ function load(): State {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed?.items)) return { items: parsed.items.filter(isFresh) }
+      if (Array.isArray(parsed?.items)) return { items: parsed.items.filter(isFresh).map(correctIcon) }
     }
   } catch { /* fall through to empty */ }
   return { items: [] }
@@ -57,6 +57,21 @@ function load(): State {
 
 function isFresh(n: AppNotification): boolean {
   return typeof n?.id === 'string' && Date.now() - (n.createdAt ?? 0) < MAX_AGE_MS
+}
+
+// WPBL is baseball, so its reminders carry ⚾. The glyph is baked into the payload
+// by the sender and stored here on arrival, which means fixing the catalog does not
+// reach a notification already sitting in someone's browser: it would keep the old
+// softball for the rest of MAX_AGE_MS. Rewrite the retired glyph on read.
+//
+// Keyed on the glyph rather than the notification type: a stored row is whatever the
+// sender wrote at the time, so its `type` is not guaranteed to still match the catalog,
+// and matching the glyph corrects the row either way.
+const RETIRED_ICONS: Record<string, string> = { '\u{1F94E}': '\u26be' }
+
+function correctIcon(n: AppNotification): AppNotification {
+  const fixed = RETIRED_ICONS[n.icon]
+  return fixed ? { ...n, icon: fixed } : n
 }
 
 let state: State = load()
