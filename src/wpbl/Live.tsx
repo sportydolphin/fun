@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { fetchWpblGameLive, LIVE_POLL_MS } from './api'
 import { wpblAccent, wpblFullName } from './constants'
 import { TeamBadge, useWpblDark } from './ui'
-import type { WpblTeam, WpblGame, WpblLiveState } from './types'
+import type { WpblTeam, WpblGame, WpblLineScoreEntry, WpblLiveState } from './types'
 
 // Feed-driven live views. The official feed's boxscore `status` is mirrored onto the game
 // row as `live_state` by wpbl-ingest; these components render it. No hand-scoring — the
@@ -48,15 +48,103 @@ interface Situation {
   half: 'top' | 'bottom'; inning: number; outs: number; balls: number; strikes: number
   battingTeam: WpblTeam; batterName: string | null; pitcherName: string | null
   first: boolean; second: boolean; third: boolean
+  /** The side is retired and the next one has not come to bat. */
+  between: boolean
+  /** What to call that gap: "Middle of the 4th" once the top is over, "End of the 4th"
+   *  once the bottom is. Null while a half-inning is actually being played. */
+  breakLabel: string | null
 }
 
-export function deriveSituation(state: WpblLiveState, away: WpblTeam, home: WpblTeam): Situation {
-  const half = state.half === 'bottom' ? 'bottom' : 'top'
+const ORDINAL = (n: number): string => {
+  const rest = n % 100
+  if (rest >= 11 && rest <= 13) return `${n}th`
+  return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`
+}
+
+/**
+ * Is the game sitting between half-innings?
+ *
+ * Worth having because the strip has no honest reading of the break otherwise. The feed sends
+ * one situation object and keeps serving the last one it built until something moves, so the
+ * count, the outs, the runners and the batter it carries during the gap describe an at-bat
+ * that has already finished. Drawn literally they say a game is being played.
+ *
+ * HOW THE BREAK IS FOUND, AND WHY IT IS NOT THE OBVIOUS WAY. The MLB feed hands over an
+ * `inningState` of "Middle" or "End" and src/mlb reads it straight. This one has no such
+ * field, and it has none of the substitutes either. Watched through the top of the 4th on
+ * 2026-08-20 it went:
+ *
+ *   17:42:42  In Progress - Top of 4th     top 4   2 out  0-0  Denae Benites
+ *   17:43:13  In Progress - Bottom of 4th  bottom 4  0 out  0-0  Suzuka Yamamoto
+ *
+ * The third out and the flip to the next half arrive in the SAME update. There is no state
+ * in which the feed reports three outs, no state in which it blanks `half`, and the status
+ * string only ever reads "Top of"/"Bottom of", never "Middle of"/"End of". Every signal the
+ * MLB side keys on is absent, and anything built on them would simply never fire.
+ *
+ * What the feed does instead is announce the next half-inning the moment the last one ends
+ * and then sit on it, untouched, for the length of the break: that 17:43:13 state held until
+ * 17:45:55, two minutes and forty-two seconds, when the first pitch of the bottom of the 4th
+ * finally registered. So the break is not a state the feed names, it is a state the feed
+ * leaves EMPTY: the next half-inning is on the board and nothing has happened in it yet.
+ *
+ * That is what this tests for. Nobody out, no count, nobody on base, and no runs in the
+ * batting side's line for the inning.
+ *
+ * The runs check is what makes the rest of it airtight rather than nearly right. Empty bases
+ * with nobody out normally does mean nobody has batted, because every runner who leaves the
+ * bases without scoring costs an out. The exception is the leadoff home run, which puts the
+ * next batter up on a 0-0 count with the bases clear and no outs, and which without this
+ * check would read as a break for as long as it took the next pitch to land.
+ */
+export function betweenInnings(state: WpblLiveState, lines?: LineScores): boolean {
+  if (state.complete) return false
+  const half = state.half === 'bottom' ? 'bottom' : state.half === 'top' ? 'top' : null
+  if (!half) return false
+  const inning = state.inning || 0
+  // The top of the 1st with nothing in it is not a break, it is a game that has not started.
+  // The ingest only calls a game live once something has actually happened, so this is
+  // belt-and-braces, but the label for it would be "End of the 0th".
+  if (inning < 1 || (inning === 1 && half === 'top')) return false
+  if ((state.outs || 0) !== 0 || (state.balls || 0) !== 0 || (state.strikes || 0) !== 0) return false
+  if (state.first_base || state.second_base || state.third_base) return false
+  const line = (half === 'top' ? lines?.away : lines?.home) ?? []
+  return !line.some(e => e.inning === inning && e.runs > 0)
+}
+
+export interface LineScores { away?: WpblLineScoreEntry[] | null; home?: WpblLineScoreEntry[] | null }
+
+/**
+ * What to call the break, which is the half-inning BEHIND the one the feed is showing.
+ *
+ * The feed has already moved the board on to what comes next, so the naming inverts: sitting
+ * on an untouched bottom of the 4th means the top of the 4th is what just finished, which is
+ * the middle of the 4th. Sitting on an untouched top of the 5th means the bottom of the 4th
+ * finished, which is the end of the 4th.
+ */
+function breakLabelFor(half: 'top' | 'bottom', inning: number): string {
+  return half === 'bottom'
+    ? `Middle of the ${ORDINAL(inning)}`
+    : `End of the ${ORDINAL(inning - 1)}`
+}
+
+export function deriveSituation(state: WpblLiveState, away: WpblTeam, home: WpblTeam, lines?: LineScores): Situation {
+  // A blank half cannot be read as 'top' the way this used to read it: that named the away
+  // team as batting whenever the feed left the half out. Fall back to the batting side the
+  // feed names instead, and only then to the top of the inning.
+  const half: 'top' | 'bottom' =
+    state.half === 'bottom' ? 'bottom'
+    : state.half === 'top' ? 'top'
+    : state.batting_team_id && state.batting_team_id === home.id ? 'bottom'
+    : 'top'
+  const between = betweenInnings(state, lines)
   return {
     half, inning: state.inning || 1, outs: state.outs || 0, balls: state.balls || 0, strikes: state.strikes || 0,
     battingTeam: half === 'top' ? away : home,
     batterName: state.batter_name || null, pitcherName: state.pitcher_name || null,
     first: !!state.first_base, second: !!state.second_base, third: !!state.third_base,
+    between,
+    breakLabel: between ? breakLabelFor(half, state.inning || 1) : null,
   }
 }
 
@@ -75,6 +163,18 @@ function MiniDiamond({ first, second, third, size = 34 }: { first: boolean; seco
 }
 
 export function SituationStrip({ s }: { s: Situation }) {
+  // Between innings the diamond, the outs and the count are all leftovers from a half-inning
+  // that is over, so the strip drops them and says which break it is instead. The arrow and
+  // the inning number go with them: they would point at the half just finished, which is the
+  // opposite of what a glance at a live game is asking.
+  if (s.between) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'text.disabled', flexShrink: 0 }} />
+        <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, color: 'text.secondary', lineHeight: 1.2 }}>{s.breakLabel}</Typography>
+      </Box>
+    )
+  }
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
@@ -93,16 +193,23 @@ export function SituationStrip({ s }: { s: Situation }) {
 }
 
 // Situation banner shown atop the Game Center (GameDetail) while a game is live.
-export function LiveBanner({ state, away, home }: { state: WpblLiveState; away: WpblTeam; home: WpblTeam }) {
+export function LiveBanner({ state, away, home, lines }: { state: WpblLiveState; away: WpblTeam; home: WpblTeam; lines?: LineScores }) {
   const isDark = useWpblDark()
-  const s = deriveSituation(state, away, home)
+  const s = deriveSituation(state, away, home, lines)
   return (
     <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
       <SituationStrip s={s} />
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        {s.batterName && <Typography sx={{ fontSize: '0.76rem', lineHeight: 1.3 }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>AB </Box><Box component="span" sx={{ fontWeight: 700, color: wpblAccent(s.battingTeam.id, isDark) }}>{shortName(s.batterName)}</Box></Typography>}
-        {s.pitcherName && <Typography sx={{ fontSize: '0.76rem', lineHeight: 1.3 }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>P </Box><Box component="span" sx={{ fontWeight: 700 }}>{shortName(s.pitcherName)}</Box></Typography>}
-      </Box>
+      {/* The matchup is dropped for the length of the break rather than relabelled. The feed
+          holds `batter_name` and `pitcher_name` across the gap without saying whether they are
+          the pair that just finished or the pair due up next, so any label put on them here
+          would be a guess, and "AB" on a player who is not batting is the one reading that is
+          certainly wrong. */}
+      {!s.between && (
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          {s.batterName && <Typography sx={{ fontSize: '0.76rem', lineHeight: 1.3 }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>AB </Box><Box component="span" sx={{ fontWeight: 700, color: wpblAccent(s.battingTeam.id, isDark) }}>{shortName(s.batterName)}</Box></Typography>}
+          {s.pitcherName && <Typography sx={{ fontSize: '0.76rem', lineHeight: 1.3 }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>P </Box><Box component="span" sx={{ fontWeight: 700 }}>{shortName(s.pitcherName)}</Box></Typography>}
+        </Box>
+      )}
     </Box>
   )
 }
@@ -115,7 +222,7 @@ export function LiveHero({ game: seed, teams, onOpen }: { game: WpblGame; teams:
   const away = byId.get(game.away_team_id)
   const home = byId.get(game.home_team_id)
   if (game.status !== 'live' || !away || !home) return null
-  const s = game.live_state ? deriveSituation(game.live_state, away, home) : null
+  const s = game.live_state ? deriveSituation(game.live_state, away, home, { away: game.away_line, home: game.home_line }) : null
 
   const scoreRow = (t: WpblTeam, runs: number, batting: boolean) => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -146,16 +253,21 @@ export function LiveHero({ game: seed, teams, onOpen }: { game: WpblGame; teams:
 
       <Box sx={{ p: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5, alignItems: { sm: 'center' } }}>
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0.75, minWidth: 0 }}>
-          {scoreRow(away, game.away_score ?? 0, s?.battingTeam.id === away.id)}
-          {scoreRow(home, game.home_score ?? 0, s?.battingTeam.id === home.id)}
+          {/* The pulsing dot marks the side at bat, so it goes out for the break along with
+              the rest of the at-bat. */}
+          {scoreRow(away, game.away_score ?? 0, !s?.between && s?.battingTeam.id === away.id)}
+          {scoreRow(home, game.home_score ?? 0, !s?.between && s?.battingTeam.id === home.id)}
         </Box>
         {s && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, alignItems: { xs: 'flex-start', sm: 'flex-end' }, pl: { sm: 2 }, borderLeft: { sm: '1px solid' }, borderColor: { sm: 'divider' } }}>
             <SituationStrip s={s} />
-            <Box sx={{ textAlign: { sm: 'right' } }}>
-              {s.batterName && <Typography sx={{ fontSize: '0.74rem' }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>AB </Box><Box component="span" sx={{ fontWeight: 700, color: wpblAccent(s.battingTeam.id, isDark) }}>{shortName(s.batterName)}</Box></Typography>}
-              {s.pitcherName && <Typography sx={{ fontSize: '0.74rem' }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>P </Box><Box component="span" sx={{ fontWeight: 700 }}>{shortName(s.pitcherName)}</Box></Typography>}
-            </Box>
+            {/* Dropped for the length of the break, for the reason given in LiveBanner. */}
+            {!s.between && (
+              <Box sx={{ textAlign: { sm: 'right' } }}>
+                {s.batterName && <Typography sx={{ fontSize: '0.74rem' }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>AB </Box><Box component="span" sx={{ fontWeight: 700, color: wpblAccent(s.battingTeam.id, isDark) }}>{shortName(s.batterName)}</Box></Typography>}
+                {s.pitcherName && <Typography sx={{ fontSize: '0.74rem' }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>P </Box><Box component="span" sx={{ fontWeight: 700 }}>{shortName(s.pitcherName)}</Box></Typography>}
+              </Box>
+            )}
           </Box>
         )}
       </Box>

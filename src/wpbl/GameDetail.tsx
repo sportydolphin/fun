@@ -1056,7 +1056,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
 
         {/* Live situation banner (inning / count / bases / matchup) */}
         {live && game.live_state && away && home && (
-          <Box sx={{ flexShrink: 0 }}><LiveBanner state={game.live_state} away={away} home={home} /></Box>
+          <Box sx={{ flexShrink: 0 }}><LiveBanner state={game.live_state} away={away} home={home} lines={{ away: game.away_line, home: game.home_line }} /></Box>
         )}
 
         {loading ? (
