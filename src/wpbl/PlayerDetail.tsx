@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Box, Typography, CircularProgress, Tooltip } from '@mui/material'
+import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblPlayerLines, fetchWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, type WpblPitchLoc } from './api'
 import { sumBatting, sumPitching, sumFielding, fmtRate, fmtTwo } from './stats'
 import { wpblAccent, wpblFullName, outsToIp } from './constants'
-import { ModalShell, PlayerPortrait, CopyLinkButton, useWpblDark } from './ui'
+import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, useWpblDark } from './ui'
 import { WrittenAbout } from './Reading'
 import { PitchLocationCard } from './PitchLocation'
 import { displayPosition } from './positions'
@@ -32,7 +32,7 @@ const hasPlateAppearance = (l: WpblBattingLine): boolean =>
   l.ab + l.bb + l.hbp + l.sf + l.sh > 0
 // The player modal sits at zIndex 1600; MUI's tooltip defaults to 1500, so it would
 // render behind the modal. Lift the popper above it.
-const tipSlotProps = { popper: { sx: { zIndex: 1700 } } } as const
+const TIP_Z = 1700
 
 // A stat section (Batting / Pitching / Fielding) as its own card with a team-color spine,
 // a prominent rate-stat hero row, and a tidy aligned stat line of counting stats. `meta`
@@ -53,12 +53,11 @@ function StatSection({ label, color, meta, hero, line }: {
         {/* Hero rate stats — big, evenly spaced, divided */}
         <Box sx={{ display: 'flex', mb: line && line.length ? 1.75 : 0 }}>
           {hero.map((t, i) => (
-            <Tooltip key={t.label} title={statFull(t.label)} arrow enterTouchDelay={0} leaveTouchDelay={2500} slotProps={tipSlotProps}>
-              <Box sx={{ flex: 1, textAlign: 'center', cursor: 'help', borderLeft: i > 0 ? '1px solid' : 'none', borderColor: 'divider' }}>
-                <Typography sx={{ fontSize: '1.4rem', fontWeight: 800, lineHeight: 1.05, fontVariantNumeric: 'tabular-nums' }}>{t.value}</Typography>
-                <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled' }}>{t.label}</Typography>
-              </Box>
-            </Tooltip>
+            <TapTip key={t.label} title={statFull(t.label)} popperZIndex={TIP_Z}
+              sx={{ flex: 1, textAlign: 'center', borderLeft: i > 0 ? '1px solid' : 'none', borderColor: 'divider' }}>
+              <Typography sx={{ fontSize: '1.4rem', fontWeight: 800, lineHeight: 1.05, fontVariantNumeric: 'tabular-nums' }}>{t.value}</Typography>
+              <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.disabled' }}>{t.label}</Typography>
+            </TapTip>
           ))}
         </Box>
         {/* Counting stats as an aligned label-over-value line */}
@@ -86,17 +85,17 @@ function StatCameo({ label, color, summary }: { label: string; color: string; su
 }
 
 // Counting stats as evenly-spread columns (label over value) so everything lines up in a
-// clean row. Each column is hoverable and shows what the abbreviation stands for.
+// clean row. Each column tells you what the abbreviation stands for: on hover with a mouse,
+// on a tap with a finger (see TapTip).
 function StatLine({ items }: { items: [string, string | number][] }) {
   return (
     <Box sx={{ display: 'flex', overflowX: 'auto', borderTop: '1px solid', borderColor: 'divider', pt: 1.25 }}>
       {items.map(([label, value]) => (
-        <Tooltip key={label} title={statFull(label)} arrow enterTouchDelay={0} leaveTouchDelay={2500} slotProps={tipSlotProps}>
-          <Box sx={{ flex: '1 0 auto', minWidth: 34, textAlign: 'center', px: 0.75, cursor: 'help' }}>
-            <Typography sx={{ fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled', mb: 0.15 }}>{label}</Typography>
-            <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
-          </Box>
-        </Tooltip>
+        <TapTip key={label} title={statFull(label)} popperZIndex={TIP_Z}
+          sx={{ flex: '1 0 auto', minWidth: 34, textAlign: 'center', px: 0.75 }}>
+          <Typography sx={{ fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled', mb: 0.15 }}>{label}</Typography>
+          <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
+        </TapTip>
       ))}
     </Box>
   )
@@ -121,9 +120,7 @@ function GameLogTable({ title, statHeaders, rows }: {
               <Box component="th" sx={{ ...thSx, textAlign: 'left' }}>Date</Box>
               <Box component="th" sx={{ ...thSx, textAlign: 'left' }}>Opp</Box>
               {statHeaders.map(h => (
-                <Tooltip key={h} title={statFull(h)} arrow enterTouchDelay={0} leaveTouchDelay={2500} slotProps={tipSlotProps}>
-                  <Box component="th" sx={{ ...thSx, cursor: 'help' }}>{h}</Box>
-                </Tooltip>
+                <TapTip key={h} title={statFull(h)} component="th" popperZIndex={TIP_Z} sx={thSx}>{h}</TapTip>
               ))}
             </Box>
           </Box>

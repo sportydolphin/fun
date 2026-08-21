@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, CircularProgress, Tooltip, useMediaQuery } from '@mui/material'
+import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblGameDetails, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, LIVE_POLL_MS } from './api'
 import { wpblAccent, wpblFullName, outsToIp, playedInnings, formatGameTime } from './constants'
@@ -8,7 +8,7 @@ import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
 import { GameStoryCard } from './Reading'
 import { GameRecapView } from './RecapCard'
-import { ModalShell, SegNav, TeamBadge, useWpblDark, useWpblName, wpblFeatureName } from './ui'
+import { ModalShell, SegNav, TapTip, TeamBadge, useWpblDark, useWpblName, wpblFeatureName } from './ui'
 import SwipeableViews from './SwipeableViews'
 import { parsePlay, runsOnPlay } from './derive/playByPlay'
 import { useUnits } from '../UnitsContext'
@@ -402,20 +402,18 @@ function PitchSequence({ seq }: { seq: string }) {
     </Box>
   )
   return (
-    <Tooltip title={tip} arrow enterTouchDelay={0} leaveTouchDelay={4000}>
-      <Box sx={{
-        display: 'flex', gap: '2px', flexShrink: 0, mt: '2px', cursor: 'help',
-        fontFamily: 'monospace', fontSize: '0.66rem', fontWeight: 700,
-      }}>
+    <TapTip title={tip} sx={{
+      display: 'flex', gap: '2px', flexShrink: 0, mt: '2px',
+      fontFamily: 'monospace', fontSize: '0.66rem', fontWeight: 700,
+    }}>
         {pitches.map(p => (
           // A called strike (looking) gets the scorekeeper's backwards K, mirrored via CSS.
           <Box key={p.i} component="span" sx={{
             color: p.color,
             ...(p.code === 'K' && { display: 'inline-block', transform: 'scaleX(-1)' }),
           }}>{p.code}</Box>
-        ))}
-      </Box>
-    </Tooltip>
+      ))}
+    </TapTip>
   )
 }
 
