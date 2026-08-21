@@ -537,6 +537,15 @@ carries `com,"umpchange,6,umphome,monaa701"`, so that game had three officials a
 listed two. `umpire_crew` (new column) is everyone who worked, and the four positional columns
 stay as what they honestly are.
 
+**Names render short, and the id is what makes that safe.** Both name files put "Thomas
+McKeen" and "Elliott Dine" in the LAST column, so a page read `UMPIRES Janet Thomas McKeen`.
+Those are middle or maiden names. A Retrosheet id is four letters of the SURNAME plus the
+first initial, so `mckej701` says the surname is McKeen and `dinek701` says Dine, and
+reporting on this crew calls her Kelly Dine. `surnameFromId` uses that rather than a rule like
+"take the last word", which would turn a genuine two-word surname into the wrong name, and it
+falls back to the whole field whenever the id proves nothing: rendering a name in full is a
+much smaller error than rendering the wrong part of it.
+
 **First pitch is stored and not shown.** It matched our own `wpbl_games.start_time` exactly on
 all 11 games checked, one of them played through drizzle, so it is the scheduled start rather
 than the moment of the first pitch. Showing a number we already hold, under a label claiming

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 // A plain .mjs cron script with no type declarations, imported rather than reimplemented: the
 // parser IS the job. A copy of it living in the test would keep passing while the script it
 // mirrors drifted, which is the same reasoning as trackingWatch.test.ts.
-import { parseEventFile, toDetails, parseNames, TEAM_CODES } from '../../../scripts/sync-wpbl-retro.mjs'
+import { parseEventFile, toDetails, parseNames, surnameFromId, TEAM_CODES } from '../../../scripts/sync-wpbl-retro.mjs'
 
 // RetroWPBL is a hand transcription in Retrosheet's format. Everything that can go wrong here
 // is quiet: a mis-parsed `info` line drops a field, a wrong team code hangs one game's weather
@@ -119,6 +119,11 @@ describe('parseNames', () => {
     expect(parseNames(UMPS, BIO).get('herpe701')).toBe('Emilie Herpick')
   })
 
+  it('renders the name people actually use, not the full legal one', () => {
+    const m = parseNames('ID,last,first\nmckej701,Thomas McKeen,Janet\n', 'PLAYERID,LAST,FIRST\n')
+    expect(m.get('mckej701')).toBe('Janet McKeen')
+  })
+
   it('still reads the umpires file for anyone the biofile misses', () => {
     expect(parseNames(UMPS, BIO).get('monaa701')).toBe('Annie Monachello')
   })
@@ -134,6 +139,43 @@ describe('parseNames', () => {
 
   it('ignores a blank trailing line', () => {
     expect(parseNames('ID,last,first\ndelpb701,Delp,Brian\n\n', 'PLAYERID,LAST,FIRST\n').size).toBe(1)
+  })
+})
+
+describe('surnameFromId', () => {
+  // Both name files put "Thomas McKeen" and "Elliott Dine" in the LAST column, which rendered
+  // as "Janet Thomas McKeen" on a game page. Those are middle or maiden names, and the
+  // person's own id is the proof: a Retrosheet id is four letters of the SURNAME plus the
+  // first initial, so mckej701 says McKeen and dinek701 says Dine.
+  it('drops a middle name the id says is not the surname', () => {
+    expect(surnameFromId('mckej701', 'Thomas McKeen')).toBe('McKeen')
+    expect(surnameFromId('dinek701', 'Elliott Dine')).toBe('Dine')
+  })
+
+  it('leaves a one-word surname alone, hyphens included', () => {
+    expect(surnameFromId('beras701', 'Berardino')).toBe('Berardino')
+    expect(surnameFromId('chare601', 'Charlesworth-Seiler')).toBe('Charlesworth-Seiler')
+  })
+
+  // The failure to avoid is mangling a real two-word surname. "Take the last word" would turn
+  // De La Cruz into Cruz; matching on the id cannot, because nothing in it matches.
+  it('keeps a genuine multi-word surname whole', () => {
+    expect(surnameFromId('dela-201', 'De La Cruz')).toBe('De La Cruz')
+  })
+
+  it('keeps the whole field when the id proves nothing', () => {
+    expect(surnameFromId('zzzzy701', 'Van Der Berg')).toBe('Van Der Berg')
+    expect(surnameFromId('', 'Thomas McKeen')).toBe('Thomas McKeen')
+  })
+
+  // Short surnames are padded with '-' upstream, so only the real letters can be compared.
+  it('handles a surname shorter than the four letters an id carries', () => {
+    expect(surnameFromId('ott-b201', 'Ott')).toBe('Ott')
+  })
+
+  // The id drops diacritics; the name keeps them.
+  it('matches through an accent the id dropped', () => {
+    expect(surnameFromId('bedae201', 'Maria Bédard')).toBe('Bédard')
   })
 })
 

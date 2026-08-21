@@ -177,19 +177,50 @@ export function toDetails(game) {
  *
  * Also picks up Emma Charlesworth-Seiler, whose id is in the coach range (chare601) because
  * she is one, and who has umpired a game anyway.
+ *
+ * NAMES COME OUT SHORT, and the id is what makes that safe. Both files put "Thomas McKeen"
+ * and "Elliott Dine" in the LAST column, which reads as a two-word surname and rendered as
+ * "Janet Thomas McKeen" on a game page. They are middle or maiden names: a Retrosheet id is
+ * the first four letters of the SURNAME plus the first initial, so `mckej701` says the
+ * surname is McKeen and `dinek701` says it is Dine. Reporting on this crew calls her Kelly
+ * Dine. `surnameFromId` below uses that, rather than a guess like "take the last word",
+ * because the guess is wrong for a genuine two-word surname and this is somebody's name.
  */
+/**
+ * Which word of a LAST field is the surname, decided by the person's own id.
+ *
+ * A Retrosheet id is `llllf` + digits: four letters of the surname, then the first initial.
+ * So the word of LAST whose opening letters match those four IS the surname, and anything
+ * before it is a middle or maiden name. Short surnames are padded with '-' upstream ("ott-"),
+ * so the padding is stripped and only the real letters are compared.
+ *
+ * FALLS BACK TO THE WHOLE FIELD. If nothing matches (an unfamiliar id shape, an accent the
+ * id dropped), the full name is kept. Rendering someone's name in full is a much smaller
+ * error than rendering the wrong part of it, so the uncertain case keeps everything.
+ */
+export function surnameFromId(id, last) {
+  const prefix = (id ?? '').slice(0, 4).replace(/-+$/, '').toLowerCase()
+  const words = (last ?? '').trim().split(/\s+/).filter(Boolean)
+  if (prefix.length < 2 || words.length < 2) return last
+  const norm = (w) => w.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+  const hit = words.find((w) => norm(w).startsWith(prefix))
+  // Everything from the matched word on: a surname the id truncated at four letters may still
+  // be several words ("De La Cruz" as "dela"), and only the leading names are being dropped.
+  return hit ? words.slice(words.indexOf(hit)).join(' ') : last
+}
+
 export function parseNames(umpiresCsv, biofileCsv) {
   const out = new Map()
   // biofile: PLAYERID,LAST,FIRST,NICKNAME,…
   for (const line of biofileCsv.split(/\r?\n/).slice(1)) {
     const cells = line.split(',').map((c) => c.replace(/^"|"$/g, '').trim())
     const [id, last, first] = cells
-    if (id && last) out.set(id, `${first} ${last}`.trim())
+    if (id && last) out.set(id, `${first} ${surnameFromId(id, last)}`.trim())
   }
   // UMPIRES2026.txt: ID,last,first. Anything it knows that the biofile does not.
   for (const line of umpiresCsv.split(/\r?\n/).slice(1)) {
     const [id, last, first] = line.split(',').map((c) => (c ?? '').trim())
-    if (id && last && !out.has(id)) out.set(id, `${first} ${last}`.trim())
+    if (id && last && !out.has(id)) out.set(id, `${first} ${surnameFromId(id, last)}`.trim())
   }
   return out
 }
@@ -296,6 +327,6 @@ async function main() {
 }
 
 // Importable for the tests without running the sync.
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((err) => { console.error('❌ ', err); process.exit(1) })
 }
