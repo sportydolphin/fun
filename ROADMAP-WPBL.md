@@ -5,7 +5,9 @@
 > calendar and its own priorities. Nothing here blocks anything there.
 > Tags: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra
 > Last realigned: **Aug 20, 2026**, against traffic data for the first time (see
-> "What the traffic says"); before that Aug 17, 2026. Teams tab, Settings and an accessibility pass shipped
+> "What the traffic says"), and revised again later the same day when 1b turned out not to be
+> blocked (see its entry) and the seeding race came out from behind the experiments flag;
+> before that Aug 17, 2026. Teams tab, Settings and an accessibility pass shipped
 > as v1.45.0 (see the shipped log); favourite-team + theming remains built and parked (see
 > "Parked, with reasons"); before that, split out of `ROADMAP.md` and reprioritized around
 > the season clock (see the realignment log at the end).
@@ -44,7 +46,8 @@ record, form, run differential and next game, plus a head-to-head grid) → team
 results, opponent splits, season totals, leaders, roster with inline stats, lineup-history
 and pitching-usage grids, all under a pinned club switcher) · Game Center (recap, box score, play-by-play, pitch data) ·
 Player pages (batting/pitching/fielding cards, game log, pitch-location maps, shareable
-links that unfurl) · search · live polling · push reminders · a fan Discord integration
+links that unfurl) · a seeding race under the standings (and, opt-in, a drawn postseason
+bracket on Home) · search · live polling · push reminders · a fan Discord integration
 (board, final-score box scores, YouTube highlight reels, `/player` slash command, giveaway
 draw).
 
@@ -57,8 +60,9 @@ the league is not reachable to fix them at source, so a nightly job checks the p
 against the rules of baseball and our own corrections are applied as a read-time overlay
 (`wpbl_play_corrections`), never written into the mirror.
 
-**What it does NOT have:** predictions/pick'em, win probability, daily standouts, a league
-primer or stat glossary, any postseason handling, and anything at all that survives Sep 22.
+**What it does NOT have:** predictions/pick'em on the site itself (the Discord game is not the
+same thing), win probability, daily standouts, a league primer or stat glossary, series records
+anywhere but the bracket, and anything at all that survives Sep 22.
 
 ---
 
@@ -150,17 +154,39 @@ season record" or "has been played"; confirm what the feed actually puts in `gam
 a postseason game (unknown until the first one lands, and the semis start right after
 Sep 6).
 
-### 1b. Series state 🎯: *the postseason feature that is actually worth building*
+### 1b. Series state 🎯: ✅ **the bracket shipped Aug 20, 2026, behind the experiments flag** (see the log). The rest is open
 
-Postseason baseball is series-shaped and **nothing in the section models a series**. The
-schedule, standings, recaps, and the Discord poster are all single-game shaped. "SF leads
-2–1" is the unit fans track, and as it stands a best-of-5 clincher gets recapped as "the
-Firebells won 4–2" with no notion that a championship was just won. Wants: series records
-on the schedule and Game Center, series-aware recap and Discord wording, and a
-clinched/eliminated state. Depends on knowing how the feed represents a series (game
-number? series id?), which is unknown until the first postseason game lands.
+Postseason baseball is series-shaped and **almost nothing in the section models a series**.
+The schedule, recaps and the Discord poster are all single-game shaped. "SF leads 2–1" is the
+unit fans track, and as it stands a best-of-5 clincher gets recapped as "the Firebells won
+4–2" with no notion that a championship was just won.
 
-### 1c. The seeding race 🎯: ✅ **built Aug 20, 2026, behind the experiments flag** (see the log)
+**THIS ITEM WAS FILED AS BLOCKED AND WAS NOT.** The entry used to end "depends on knowing how
+the feed represents a series (game number? series id?), which is unknown until the first
+postseason game lands." That premise was wrong, and it had parked the whole item behind a date
+we do not control. A series needs no id: the postseason is the only part of the schedule
+`countsInStandings` rejects, and **within it an unordered pair of team ids identifies a series
+uniquely**, because the semifinals are 1v4 and 2v3, the championship is the two winners, and
+no two of those three pairings can be the same two clubs. Grouping postseason games by their
+team pair reconstructs every series record with no new field, whatever the feed calls them.
+
+**Done**: `derive/bracket.ts` (pairings from the standings order, series records from grouped
+postseason games, championship slot, champion) and the Home card that draws it. Before Sep 6
+it is a projection that moves with the standings; from Sep 9 the same boxes carry real series.
+**Opt-in from Settings**, so turning it on is the remaining step, exactly as it was for 1c.
+Note the flag has to earn its keep faster here than it did there: an opt-in card is seen by
+almost nobody, and this one has three weeks before the thing it draws stops being a projection.
+
+**Still open**: series records on the schedule and Game Center, series-aware recap and Discord
+wording, and a clinched/eliminated state. None of these are blocked either, by the same
+argument.
+
+**The one real dependency**, now isolated: the feed must mark postseason games at all, through
+`game_type` or `counts_in_standings`. If it marks neither, those games read as regular season,
+the bracket stays empty and every season total is wrong, which is the exposure #1 already
+carries (see `season.ts`) rather than a new one. Confirm it the day the first semifinal lands.
+
+### 1c. The seeding race 🎯: ✅ **shipped Aug 20, 2026; live for everyone as of the same day**
 
 All four clubs qualify, so a clinch tracker is pointless and stays parked. **Seeding is not
 pointless**: the standings order sets the semifinals 1v4 and 2v3, and it is the only thing
@@ -168,10 +194,12 @@ the remaining games decide. Nothing on the section said so, and Standings presen
 as a race for a title already conceded to everyone. Shipped as a card under the table: seed
 number, the cushion over the seed below, a magic number to lock a seed, and the semifinal
 each seed would draw. All derived from `computeStandings`, so it needed no new data and no
-new request. **Opt-in from Settings** for now: it is the first thing on the section that makes
-a forward-looking claim rather than reporting a result, and a number like "8 to lock 1st" is
-worth being wrong in front of a handful of volunteers first. Turning it on is the remaining
-step.
+new request. It shipped opt-in from Settings, on the grounds that it is the first thing on the
+section to make a forward-looking claim rather than report a result, and that "8 to lock 1st"
+was worth being wrong in front of a handful of volunteers first. **The flag came off on
+Aug 20** once the bracket gave the same four rows a second home: a card almost nobody could
+see was not earning the caution, and with three weeks of season left the runway to keep
+waiting had run out. The experiments flag now gates only the mobile bottom nav.
 
 ### 2. The inaugural-season archive 🔬🎯: *the only durable item on this list*
 
@@ -513,6 +541,45 @@ v1.45.0.
   design **cannot** catch: two players swapped consistently through a game keeps the order
   legal and the outs adding up. That needs an independent transcription, and the one that
   exists carries no licence.
+
+### Aug 20, 2026: who goes where, drawn
+
+- 🎯 **A postseason bracket on Home**, behind the experiments flag (`derive/bracket.ts`,
+  `PlayoffBracket.tsx`). Two
+  semifinals into a championship, drawn: 1v4 and 2v3 from the standings order, the higher seed
+  always on top, every club a tap through to its page. Before Sep 6 it is a projection that
+  moves with the table; from Sep 9 the same three boxes carry the real series; after that it
+  names the champion. One card for all of September, because the interesting thing about a
+  bracket is watching a provisional one harden, and only the subtitle changes.
+- 🔍 **The blocker on 1b was imaginary, and that is the finding worth keeping.** The
+  item had been parked on "we need to see how the feed represents a series", i.e. on a date we
+  do not control. But a series needs no id from anybody: postseason games are the only ones
+  `countsInStandings` rejects, and inside that set an unordered **pair of team ids** names a
+  series uniquely, because no two of the three pairings in a four-club bracket can be the same
+  two clubs. Series records fall straight out of grouping. **Worth re-reading the other blocked
+  items with this in mind**: "blocked on the feed" was an assumption here, not a finding.
+- ⚠️ What is genuinely still unknown, now isolated to one line: whether the feed marks
+  postseason games at all. If `game_type` and `counts_in_standings` both come back looking like
+  a regular-season row, the bracket stays empty AND every season total is wrong. That is the
+  exposure `season.ts` already documents; the bracket just gives it a second symptom. Check it
+  the day the first semifinal lands.
+- 🎯 **The seeding race came out from behind the experiments flag** on the same day, in
+  the same breath as the bracket went behind it, which is less contradictory than it reads: the
+  seeding card had been built and read for weeks and the flag was buying no further signal,
+  while the bracket was hours old. It
+  had been opt-in since the morning on the grounds that "8 to lock 1st" is a forward-looking
+  claim worth being wrong in private first. Against that: almost nobody has the switch on, so
+  the caution bought no signal, and there are three weeks of season left for it to be worth
+  anything. The flag now gates only the mobile bottom nav.
+- ✏️ The seeding card is no longer titled "The bracket" when the order settles. There is a
+  real bracket on the section now and only one thing can carry that name; the card is "Final
+  seeding" instead. The two are deliberately different readings of the same four rows: the card
+  is per club and quantitative, the bracket is per series and spatial.
+- 🧪 29 tests. The derivation covers the pairings, series reconstruction, the
+  championship slot and the champion; the render tests cover the two things drawing gets wrong
+  on its own, a column of zeroes before a ball is thrown (which reads as a series finished
+  nil-nil) and a championship box that resizes the card when a semifinal ends. Geometry was
+  measured in a real browser, since jsdom does no layout.
 
 ### Aug 20, 2026: the Discord predictions game, which runs itself
 

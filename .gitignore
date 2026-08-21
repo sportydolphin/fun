@@ -14,3 +14,7 @@ __pycache__/
 
 # Giveaway entry lists: real usernames + user ids, never in a public repo.
 giveaway-data/
+
+# Agent worktrees: full repo checkouts (341M today), each with its own node_modules.
+# Only this subdirectory: .claude/launch.json and settings.local.json stay tracked.
+.claude/worktrees/

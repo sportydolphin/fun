@@ -4,6 +4,25 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.46.3',
+    date:    '2026-08-20',
+    title:   'The live game says when it is between innings',
+    changes: [
+      {
+        short: 'A break between innings now looks like a break',
+        full:  'While a WPBL game is on, the live card on the home page and the banner at the top of the Game Center show the inning, the bases, the outs and the count. Between innings none of that is happening. The league’s feed does not have a way of saying so: the moment a side is retired it puts the next half-inning on the board and leaves it empty until the first pitch, which on Wednesday night was a wait of two minutes and forty-two seconds. Drawn literally that read as a game in play, with a batter standing in and a count on her, for the whole of every pitching change. The card now recognises an empty half-inning for what it is and says which break it is instead, like “End of the 4th”, putting the diamond, the outs, the count and the at-bat away until somebody is actually batting. The pulsing dot that marks the side at bat goes out with them, because between innings neither side is.',
+      },
+      {
+        short: 'A playoff bracket on the home page, if you turn experimental features on',
+        full:  'All four clubs go to the postseason, so what the last games decide is not who gets in but where everyone lands: the standings order sets the semifinals, first against fourth and second against third, and the winners meet for the title. A new card on the home page draws that, so who plays whom is something you can see rather than something you work out from a table. Until Sep 6 it is a projection and moves with the standings; from Sep 9 the same three boxes carry the real series, so you can watch a provisional bracket harden into the actual one. Every club on it opens that club’s page. It is behind the experimental features switch in Settings while it settles.',
+      },
+      {
+        short: 'Games back is on the home page standings',
+        full:  'The standings card on the home page showed wins, losses and run differential, which tells you the order but not how close it is. It now has a games back column, the same one the full Standings tab has had: a dash for whoever is top, and how far behind everyone else is. Half games show up as you would expect when two clubs have played a different number of games, which at the moment is the Queens sitting half a game behind the Firebells on one game in hand.',
+      },
+    ],
+  },
+  {
     version: '1.46.2',
     date:    '2026-08-20',
     title:   'Season stats stay season stats, and a way back into your account',
