@@ -569,6 +569,7 @@ function StandingsCard({ teams, games, onOpenTeam }: {
         <Box sx={{ flex: 1 }}>Team</Box>
         <Box sx={{ width: 32, textAlign: 'right' }}>W</Box>
         <Box sx={{ width: 32, textAlign: 'right' }}>L</Box>
+        <Box sx={{ width: 40, textAlign: 'right' }}>GB</Box>
         <Box sx={{ width: 48, textAlign: 'right' }}>Diff</Box>
       </Box>
       {rows.map(r => {
@@ -593,6 +594,13 @@ function StandingsCard({ teams, games, onOpenTeam }: {
             </Box>
             <Box sx={{ width: 32, textAlign: 'right', fontWeight: 700, fontSize: '0.85rem' }}>{r.wins}</Box>
             <Box sx={{ width: 32, textAlign: 'right', fontWeight: 700, fontSize: '0.85rem' }}>{r.losses}</Box>
+            {/* Same rendering as the full Standings tab (WpblApp.tsx): a dash for whoever is
+                top rather than a "0.0", and one decimal for the half-game a lopsided pair of
+                records produces. Sitting between L and Diff keeps the column order the two
+                tables share. */}
+            <Box sx={{ width: 40, textAlign: 'right', fontSize: '0.85rem', color: 'text.secondary' }}>
+              {r.gamesBack === 0 ? '—' : r.gamesBack.toFixed(1)}
+            </Box>
             <Box sx={{ width: 48, textAlign: 'right', fontSize: '0.85rem', color: diff > 0 ? 'var(--wpbl-pos)' : diff < 0 ? 'var(--wpbl-neg)' : 'text.secondary' }}>
               {fmtSigned(diff)}
             </Box>
