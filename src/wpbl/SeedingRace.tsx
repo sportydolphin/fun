@@ -4,7 +4,6 @@ import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark } from './ui
 import { wpblAccentFg, wpblFullName } from './constants'
 import { seedingRace, semifinalLabel, bracketIsSet } from './derive/seeding'
 import type { WpblSeedRow } from './derive/seeding'
-import { ExperimentalChip } from '../ExperimentsContext'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblGame, WpblStandingRow, WpblTeam } from './types'
 
@@ -25,6 +24,13 @@ import type { WpblGame, WpblStandingRow, WpblTeam } from './types'
  * while each row carried a name at the left margin, a number at the right, and a hand's width
  * of nothing in between. The matchup is a column now, which removes the second copy and puts
  * something worth reading in the middle of the row.
+ *
+ * The drawn bracket lives on Home instead (PlayoffBracket.tsx), where there is no list beside
+ * it for it to repeat. The two are deliberately different readings of the same four rows: this
+ * one is per club and quantitative, a magic number and a cushion; that one is per series and
+ * spatial. Which is why this card is no longer titled "The bracket" when the order settles,
+ * even though it once was: there is a real bracket on the section now, and only one thing can
+ * carry that name.
  */
 
 const ORDINALS = ['', '1st', '2nd', '3rd', '4th']
@@ -108,11 +114,7 @@ export default function SeedingRace({ rows, games, onOpenTeam }: {
 
   return (
     <SectionCard
-      title={settled ? 'The bracket' : 'Seeding race'}
-      // The card is behind the experiments flag and looks exactly like the shipped cards it
-      // sits between, so it has to say which one it is. Someone who turned the switch on weeks
-      // ago should not have to remember.
-      action={<ExperimentalChip />}
+      title={settled ? 'Final seeding' : 'Seeding race'}
       subtitle={settled
         ? 'The order is final. Semifinals are best-of-three, the championship best-of-five.'
         : `All four clubs reach the postseason, so the last ${left} game${left === 1 ? '' : 's'} only decide the bracket.`}
