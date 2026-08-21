@@ -65,6 +65,11 @@ export const EVENTS = {
   // opened from a surface that had none.
   WPBL_SEEDING_SHOWN:  'wpbl_seeding_shown',  // seeding card rendered, props {settled, gamesLeft}
   WPBL_SEEDING_TEAM:   'wpbl_seeding_team',   // opened a club from the card, props {teamId, seed, from}
+  // Home's bracket carries its own impression: `wpbl_tab_viewed` says a reader reached Home
+  // and nothing else can say whether this card was on screen or under the fold. The Discord
+  // card's bounce went unmeasured for exactly that reason when it was retired.
+  WPBL_BRACKET_SHOWN:  'wpbl_bracket_shown',  // bracket rendered, props {settled, started, gamesLeft, from}
+  WPBL_BRACKET_TEAM:   'wpbl_bracket_team',   // opened a club from the bracket, props {teamId, seed, from}
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the
