@@ -123,6 +123,19 @@ Each of these has already cost someone a debugging session, and none of them fai
   handler rather than copying it). This is how the player share-card rewrite quietly stopped
   running the day the WPBL tabs became real paths: the page was fine, only the unfurl was
   wrong.
+- **`_redirects` may only use 200/301/302/303/307/308, and `wrangler pages dev` will not
+  tell you.** Cloudflare validates the file at UPLOAD time and rejects the whole thing for
+  anything else, which **fails the build and leaves the previous deploy serving**: the site
+  does not break, it silently stops updating, which is the worst shape a failure can take.
+  `/*  /404.html  404` did this on Aug 21, 2026 after months of working. No rule is needed
+  for 404s anyway: once `public/404.html` exists the platform serves it with a 404 status for
+  any unmatched path, and the reason unknown URLs used to answer 200 was only that the file
+  did not exist. `src/wpbl/__tests__/routes.test.ts` now pins the allowed statuses.
+- **`npx wrangler pages dev dist` is NOT the production runtime.** Production deploys as a
+  Worker (the build log says `workers/scripts/fun/versions`). It is still the best local
+  check for routing and status codes, but it accepts input the real deploy refuses, so a
+  green local run is evidence and not proof. Watch the actual Cloudflare build after a push
+  that touches `_redirects`, `_routes.json` or `functions/`.
 - **`public/sitemap.xml` is generated.** `npm run sitemap` rebuilds it from the roster (one
   URL per player). A hand-edit is lost on the next run.
 - **The one wildcard in `_redirects` is `/wpbl/players/*`,** because the valid slugs live in

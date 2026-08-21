@@ -65,7 +65,18 @@
 /poop          /  200
 /testgame      /  200
 
-# Everything else. Static files (assets, icons, robots.txt, sitemap.xml) and the Pages
-# Functions in functions/ are both matched ahead of this rule, so it only ever catches
-# paths that genuinely do not exist. Verified with `npx wrangler pages dev dist`.
-/*             /404.html  404
+# Everything else falls through to public/404.html, WITH A 404 STATUS, and there is
+# deliberately no rule for it here.
+#
+# There used to be: `/*  /404.html  404`. It worked, and then it stopped being deployable.
+# Cloudflare rejects the whole file at upload time with "Valid status codes are 200, 301,
+# 302, 303, 307, or 308. Got 404", which fails the build and leaves the previous deploy
+# serving, so the site does not break, it just silently stops updating.
+#
+# It is not needed anyway. Serving 404.html for an unmatched path is what the platform does
+# by default once that file exists, and the reason every unknown URL used to answer 200 with
+# the app shell was simply that the file did not exist yet. The rules above are what make
+# the app's own routes the exception.
+#
+# Do not re-add a 404 line here to make the intent explicit. It is not more explicit, it is
+# undeployable.

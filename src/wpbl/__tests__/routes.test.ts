@@ -82,6 +82,29 @@ describe('every tab path is actually routable in production', () => {
   it('does not route the section with a wildcard', () => {
     expect(redirects).not.toMatch(/^\/wpbl\/\*/m)
   })
+
+  // Cloudflare validates the whole file at UPLOAD time and rejects it outright for a status
+  // it does not allow: "Valid status codes are 200, 301, 302, 303, 307, or 308". That fails
+  // the build, and a failed build leaves the previous deploy serving, so the site does not
+  // break in any visible way. It just quietly stops updating, which is the worst shape a
+  // failure can have. `/*  /404.html  404` did exactly this on Aug 21, 2026.
+  //
+  // Note that `npx wrangler pages dev dist` accepts a file the real deploy refuses, so
+  // local testing does not catch it and this is the only thing standing in the way.
+  it('uses only status codes Cloudflare will accept', () => {
+    const allowed = new Set(['200', '301', '302', '303', '307', '308'])
+    const rules = redirects
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l && !l.startsWith('#'))
+    expect(rules.length).toBeGreaterThan(0)
+    for (const rule of rules) {
+      const parts = rule.split(/\s+/)
+      // `from to [status]` — the status is optional and defaults to 302.
+      if (parts.length < 3) continue
+      expect(allowed, `"${rule}" has an undeployable status`).toContain(parts[2])
+    }
+  })
 })
 
 describe('player slugs', () => {
