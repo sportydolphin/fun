@@ -523,6 +523,27 @@ feed in more depth, and a second copy would be two truths about the same at-bats
 for a reader to tell which one they were looking at. Its value as an INDEPENDENT transcription
 is as a check on ours, which is a different job.
 
+**Two things the first version got wrong, both caught by looking at the rendered page.** A
+game showed `UMPIRES Janet Thomas McKeen, herpe701`: the name lookup read
+`umpires/UMPIRES2026.txt`, which lists five officials and is stale, and Emilie Herpick debuted
+on Aug 12 without being added to it. The lookup now reads `biodata/biofile.csv` (everyone,
+maintained) with the umpires file as a fallback, and **never substitutes an id for a name**:
+an unresolved official is dropped and counted in the run log, because an id on a page is worse
+than a shorter list. It also picks up Emma Charlesworth-Seiler, whose id sits in the coach
+range because she is one, and who has umpired a game anyway.
+
+Second: the `info` records are the crew **at first pitch**, and crews move. NYH's Aug 8 game
+carries `com,"umpchange,6,umphome,monaa701"`, so that game had three officials and the page
+listed two. `umpire_crew` (new column) is everyone who worked, and the four positional columns
+stay as what they honestly are.
+
+**First pitch is stored and not shown.** It matched our own `wpbl_games.start_time` exactly on
+all 11 games checked, one of them played through drizzle, so it is the scheduled start rather
+than the moment of the first pitch. Showing a number we already hold, under a label claiming
+more precision than it has, and crediting a source for it, would be three small wrongs. The
+column stays: it anchors the duration, and a future transcription that does record a delayed
+start would show up as this disagreeing with ours.
+
 **Permission is the whole licence.** The repository carries no licence file, so the credit is
 the consideration: it renders in the UI wherever the data does, and links out.
 

@@ -385,16 +385,27 @@ export interface WpblTrackRow {
 export interface WpblGameDetails {
   game_id: string
   retro_game_id: string
-  /** Local first pitch, verbatim ("6:30PM"). Text, not a timestamp: the feed's own start
+  /** Local start time as transcribed ("6:30PM"). Text, not a timestamp: the feed's own start
    *  times are Central and already a documented trap, and a second timezone opinion here
-   *  would be a third version of one fact. */
+   *  would be a third version of one fact.
+   *
+   *  NOT SHOWN, deliberately. It matched `wpbl_games.start_time` exactly on all 11 games
+   *  checked, including one played through drizzle, so it is the SCHEDULED time rather than
+   *  the moment of the first pitch, and we already hold that. Kept because it anchors the
+   *  duration and because a future transcription that does record a delayed start would be
+   *  told apart by this column disagreeing with ours. */
   first_pitch_local: string | null
   /** Length of game in minutes. The reason this table exists: not derivable from the feed. */
   duration_minutes: number | null
+  /** The assignment at first pitch, from the event file's `info` records. Crews move: one
+   *  game this season swapped the plate umpire in the 6th, so these four are the START and
+   *  `umpire_crew` is who actually worked. */
   ump_home: string | null
   ump_first: string | null
   ump_second: string | null
   ump_third: string | null
+  /** Everyone who umpired, starting crew first, names not ids. What the UI shows. */
+  umpire_crew: string[] | null
   temp_f: number | null
   wind_dir: string | null    // Retrosheet vocabulary: ltor, rtol, fromcf, tocf, …
   sky: string | null

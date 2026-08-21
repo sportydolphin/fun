@@ -143,7 +143,10 @@ function StatCell({ children, bold = false, dense = false }: { children: React.R
  */
 function GameConditions({ details }: { details: WpblGameDetails | null }) {
   if (!details) return null
-  const crew = [details.ump_home, details.ump_first, details.ump_second, details.ump_third].filter(Boolean)
+  // `umpire_crew` and not the four positional columns: those are the assignment at first
+  // pitch, and one game this season changed the plate umpire in the 6th, which left that
+  // game's third official off the list entirely.
+  const crew = details.umpire_crew?.filter(Boolean) ?? []
   const weather = [
     details.temp_f != null ? `${details.temp_f}°F` : null,
     details.sky,
@@ -151,8 +154,11 @@ function GameConditions({ details }: { details: WpblGameDetails | null }) {
     details.precip && details.precip.toLowerCase() !== 'none' ? details.precip : null,
     details.field_cond && details.field_cond.toLowerCase() !== 'dry' ? `${details.field_cond} field` : null,
   ].filter(Boolean).join(' · ')
+  // No first-pitch row. It is stored, and it turned out to be the SCHEDULED start: it matched
+  // our own `start_time` on all 11 games checked, one of them played through drizzle. Showing
+  // a number we already hold, under a label claiming more precision than it has, and crediting
+  // a source for it, would be three small wrongs.
   const facts: { label: string; value: string }[] = []
-  if (details.first_pitch_local) facts.push({ label: 'First pitch', value: details.first_pitch_local })
   if (details.duration_minutes != null) {
     const h = Math.floor(details.duration_minutes / 60)
     facts.push({ label: 'Length', value: h > 0 ? `${h}h ${details.duration_minutes % 60}m` : `${details.duration_minutes}m` })
@@ -178,7 +184,7 @@ function GameConditions({ details }: { details: WpblGameDetails | null }) {
         Transcribed by{' '}
         <Box component="a" href="https://github.com/exu6jh/RetroWPBL" target="_blank" rel="noopener noreferrer"
           sx={{ color: 'inherit', textDecoration: 'underline' }}>RetroWPBL</Box>
-        , used with permission. The league's own feed does not publish these.
+        , used with permission.
       </Typography>
     </Box>
   )

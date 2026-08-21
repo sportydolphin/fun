@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 // A plain .mjs cron script with no type declarations, imported rather than reimplemented: the
 // parser IS the job. A copy of it living in the test would keep passing while the script it
 // mirrors drifted, which is the same reasoning as trackingWatch.test.ts.
-import { parseEventFile, toDetails, parseUmpires, TEAM_CODES } from '../../../scripts/sync-wpbl-retro.mjs'
+import { parseEventFile, toDetails, parseNames, TEAM_CODES } from '../../../scripts/sync-wpbl-retro.mjs'
 
 // RetroWPBL is a hand transcription in Retrosheet's format. Everything that can go wrong here
 // is quiet: a mis-parsed `info` line drops a field, a wrong team code hangs one game's weather
@@ -107,15 +107,75 @@ describe('toDetails', () => {
   })
 })
 
-describe('parseUmpires', () => {
-  it('maps an id to a readable name', () => {
-    const m = parseUmpires('ID,last,first\ndinek701,Elliott Dine,Kelly\nmonaa701,Monachello,Annie\n')
-    expect(m.get('dinek701')).toBe('Kelly Elliott Dine')
-    expect(m.get('monaa701')).toBe('Annie Monachello')
+describe('parseNames', () => {
+  // UMPIRES2026.txt lists five officials and is stale: Emilie Herpick (herpe701) debuted on
+  // Aug 12 and was never added, so the first sync wrote the literal string "herpe701" onto a
+  // game page. biofile.csv has everyone and is the one that gets maintained.
+  const UMPS = 'ID,last,first\ndinek701,Elliott Dine,Kelly\nmonaa701,Monachello,Annie\n'
+  const BIO = 'PLAYERID,LAST,FIRST,NICKNAME\n"herpe701","Herpick","Emilie","Emilie"\n' +
+    '"chare601","Charlesworth-Seiler","Emma","Emma"\n'
+
+  it('finds an umpire the umpires file has never heard of', () => {
+    expect(parseNames(UMPS, BIO).get('herpe701')).toBe('Emilie Herpick')
+  })
+
+  it('still reads the umpires file for anyone the biofile misses', () => {
+    expect(parseNames(UMPS, BIO).get('monaa701')).toBe('Annie Monachello')
+  })
+
+  // Her id is in the coach range because she is one. She has umpired anyway.
+  it('does not care which id range a person is in', () => {
+    expect(parseNames(UMPS, BIO).get('chare601')).toBe('Emma Charlesworth-Seiler')
+  })
+
+  it('has no entry for an id in neither file, rather than a placeholder', () => {
+    expect(parseNames(UMPS, BIO).get('nobod999')).toBeUndefined()
   })
 
   it('ignores a blank trailing line', () => {
-    expect(parseUmpires('ID,last,first\ndelpb701,Delp,Brian\n\n').size).toBe(1)
+    expect(parseNames('ID,last,first\ndelpb701,Delp,Brian\n\n', 'PLAYERID,LAST,FIRST\n').size).toBe(1)
+  })
+})
+
+describe('the umpire crew', () => {
+  // The `info` records are the assignment AT FIRST PITCH. NYH's Aug 8 game swapped the plate
+  // umpire in the 6th, so reading them alone reported two officials for a game that had three.
+  const CHANGED = `id,NYH202608080
+info,hometeam,NYH
+info,date,2026/08/08
+info,umphome,beras701
+info,ump1b,monaa701
+com,"Around 1:15 rain delay"
+com,"umpchange,6,umphome,monaa701"
+com,"umpchange,6,ump1b,chare601"
+play,1,0,davim201,01,SX,E6/G
+`
+
+  it('includes an umpire who arrived mid-game', () => {
+    const d = toDetails(parseEventFile(CHANGED)[0])
+    expect(d.crew).toEqual(['beras701', 'monaa701', 'chare601'])
+  })
+
+  it('does not list an umpire twice when they merely move position', () => {
+    // monaa701 started at first and moved to the plate: one person, one entry.
+    expect(toDetails(parseEventFile(CHANGED)[0]).crew.filter(id => id === 'monaa701')).toHaveLength(1)
+  })
+
+  it('reads umpchange out of the transcriber\'s ordinary prose comments', () => {
+    // Hundreds of `com` lines are notes about a play. Only the umpchange token counts.
+    const d = toDetails(parseEventFile(CHANGED)[0])
+    expect(d.crew).not.toContain('Around 1:15 rain delay')
+  })
+
+  it('keeps the starting crew when nobody changed', () => {
+    const d = toDetails(parseEventFile(EVENT)[0])
+    expect(d.crew).toEqual(['dinek701', 'mckej701'])
+  })
+
+  // Aug 7 at LAQ was worked by one official, with "(none)" for every other position.
+  it('handles a game worked by a single umpire', () => {
+    const one = `id,LAQ202608070\ninfo,umphome,beras701\ninfo,ump1b,(none)\ninfo,ump2b,(none)\n`
+    expect(toDetails(parseEventFile(one)[0]).crew).toEqual(['beras701'])
   })
 })
 

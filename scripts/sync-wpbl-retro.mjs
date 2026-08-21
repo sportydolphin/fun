@@ -99,10 +99,20 @@ export function parseEventFile(text) {
     if (!line) continue
     if (line.startsWith('id,')) {
       if (current) games.push(current)
-      current = { id: line.slice(3).trim(), info: {} }
+      current = { id: line.slice(3).trim(), info: {}, umpChanges: [] }
       continue
     }
-    if (!current || !line.startsWith('info,')) continue
+    if (!current) continue
+    // Crews move mid-game, and the `info` records are the assignment at first pitch only.
+    // A change is a free-text comment: com,"umpchange,6,umphome,monaa701". Read out of the
+    // hundreds of other `com` lines (which are the transcriber's prose about a play) by that
+    // one leading token; everything else is ignored.
+    if (line.startsWith('com,')) {
+      const m = /^com,"umpchange,\s*(\d+)\s*,\s*([a-z0-9]+)\s*,\s*([a-z0-9-]+)"/i.exec(line)
+      if (m) current.umpChanges.push({ inning: Number(m[1]), position: m[2], id: m[3] })
+      continue
+    }
+    if (!line.startsWith('info,')) continue
     // info,key,value — and a value may itself contain commas, so split on the first two only.
     const rest = line.slice(5)
     const comma = rest.indexOf(',')
@@ -126,7 +136,16 @@ export function toDetails(game) {
   const date = (clean(i.date) ?? '').replace(/\//g, '-')
   const homeCode = TEAM_CODES[clean(i.hometeam) ?? '']
   const parkId = clean(i.site)
+  // Everyone who worked, starting crew first then anyone who came in, de-duplicated in order.
+  // A crew member who merely MOVES (plate to first, say) is already in the list and must not
+  // appear twice; a new arrival is appended.
+  const crew = []
+  for (const id of [clean(i.umphome), clean(i.ump1b), clean(i.ump2b), clean(i.ump3b),
+    ...(game.umpChanges ?? []).map(c => c.id)]) {
+    if (id && !crew.includes(id)) crew.push(id)
+  }
   return {
+    crew,
     retro_game_id: game.id,
     date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null,
     homeTeamId: homeCode ?? null,
@@ -146,13 +165,31 @@ export function toDetails(game) {
   }
 }
 
-/** Their umpire ids ("dinek701") are meaningless to a reader, so the crew is stored by name.
- *  UMPIRES2026.txt is the id-to-name table and is five rows long. */
-export function parseUmpires(csv) {
+/**
+ * Their ids ("dinek701") are meaningless to a reader, so umpires are stored by name.
+ *
+ * TWO SOURCES, AND THE SECOND IS NOT OPTIONAL. UMPIRES2026.txt is the obvious id-to-name
+ * table and it is STALE: it lists five officials, and Emilie Herpick (herpe701) debuted on
+ * Aug 12 without being added to it, so the first sync shipped the literal string "herpe701"
+ * onto a game page. biofile.csv carries every person in the project, umpires included, and it
+ * is the one that gets maintained. Read both, biofile first, so a name that exists anywhere
+ * upstream is found.
+ *
+ * Also picks up Emma Charlesworth-Seiler, whose id is in the coach range (chare601) because
+ * she is one, and who has umpired a game anyway.
+ */
+export function parseNames(umpiresCsv, biofileCsv) {
   const out = new Map()
-  for (const line of csv.split(/\r?\n/).slice(1)) {
-    const [id, last, first] = line.split(',').map((s) => (s ?? '').trim())
+  // biofile: PLAYERID,LAST,FIRST,NICKNAME,…
+  for (const line of biofileCsv.split(/\r?\n/).slice(1)) {
+    const cells = line.split(',').map((c) => c.replace(/^"|"$/g, '').trim())
+    const [id, last, first] = cells
     if (id && last) out.set(id, `${first} ${last}`.trim())
+  }
+  // UMPIRES2026.txt: ID,last,first. Anything it knows that the biofile does not.
+  for (const line of umpiresCsv.split(/\r?\n/).slice(1)) {
+    const [id, last, first] = line.split(',').map((c) => (c ?? '').trim())
+    if (id && last && !out.has(id)) out.set(id, `${first} ${last}`.trim())
   }
   return out
 }
@@ -181,13 +218,25 @@ async function main() {
     process.exit(1)
   }
 
-  const [umpCsv, commit, ...files] = await Promise.all([
+  const [umpCsv, bioCsv, commit, ...files] = await Promise.all([
     fetchText(`${RAW}/umpires/UMPIRES2026.txt`),
+    fetchText(`${RAW}/biodata/biofile.csv`),
     headCommit(),
     ...EVENT_FILES.map((f) => fetchText(`${RAW}/events/${f}`)),
   ])
-  const umpires = parseUmpires(umpCsv)
-  const named = (id) => (id ? umpires.get(id) ?? id : null)
+  const names = parseNames(umpCsv, bioCsv)
+  // NEVER FALLS BACK TO THE ID. An id is not a name, and the first version of this shipped
+  // "herpe701" onto a game page because it treated one as an acceptable substitute. An
+  // unresolved official is dropped and counted, which is visible in the run log and invisible
+  // to a reader.
+  let unnamed = 0
+  const named = (id) => {
+    if (!id) return null
+    const n = names.get(id)
+    if (n) return n
+    unnamed++
+    return null
+  }
 
   const parsed = files.flatMap(parseEventFile).map(toDetails)
   console.log(`RetroWPBL: ${parsed.length} transcribed games${commit ? ` @ ${commit}` : ''}`)
@@ -209,22 +258,24 @@ async function main() {
       await db.query(
         `insert into public.wpbl_game_details (
            game_id, retro_game_id, first_pitch_local, duration_minutes,
-           ump_home, ump_first, ump_second, ump_third,
+           ump_home, ump_first, ump_second, ump_third, umpire_crew,
            temp_f, wind_dir, sky, precip, field_cond, park_id, park_name,
            source_commit, synced_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, now())
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17, now())
          on conflict (game_id) do update set
            retro_game_id = excluded.retro_game_id,
            first_pitch_local = excluded.first_pitch_local,
            duration_minutes = excluded.duration_minutes,
            ump_home = excluded.ump_home, ump_first = excluded.ump_first,
            ump_second = excluded.ump_second, ump_third = excluded.ump_third,
+           umpire_crew = excluded.umpire_crew,
            temp_f = excluded.temp_f, wind_dir = excluded.wind_dir, sky = excluded.sky,
            precip = excluded.precip, field_cond = excluded.field_cond,
            park_id = excluded.park_id, park_name = excluded.park_name,
            source_commit = excluded.source_commit, synced_at = now()`,
         [gameId, d.retro_game_id, d.first_pitch_local, d.duration_minutes,
           named(d.ump_home), named(d.ump_first), named(d.ump_second), named(d.ump_third),
+          d.crew.map(named).filter(Boolean),
           d.temp_f, d.wind_dir, d.sky, d.precip, d.field_cond, d.park_id, d.park_name,
           commit])
     }
@@ -236,6 +287,9 @@ async function main() {
     // shouts about that every night is a job that gets muted.
     if (finals > written) console.log(`  ${finals - written} final game(s) not transcribed yet`)
     if (unmatched.length) console.log(`  ⚠ ${unmatched.length} unmatched: ${unmatched.join(', ')}`)
+    // Loud, because it means somebody upstream is missing from both name files and a crew
+    // list is quietly short until they are added.
+    if (unnamed) console.log(`  ⚠ ${unnamed} umpire reference(s) had no name and were dropped`)
   } finally {
     await db.end()
   }
