@@ -7,6 +7,7 @@ import type {
   WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchPlay,
   WpblPitchTracking, WpblTrackRow,
   WpblVideo, WpblArticle, WpblPhoto, WpblLineupHistoryRow, WpblPitchingUsageRow,
+  WpblGameDetails,
 } from './types'
 
 // Reads for the WPBL section. Everything degrades gracefully: if the tables don't
@@ -657,6 +658,15 @@ export async function fetchWpblGameRecapPlays(gameId: string): Promise<WpblRecap
 }
 
 // TrackMan pitch/hit tracking for one game (chronological).
+// The transcribed extras for one game: first pitch, duration, crew, weather. Absent for any
+// game RetroWPBL has not written up yet, which is the recent ones, so this resolves to null
+// rather than erroring and every caller renders nothing at all in that case.
+export function fetchWpblGameDetails(gameId: string): Promise<WpblGameDetails | null> {
+  return safe('fetchWpblGameDetails', () =>
+    supabase.from('wpbl_game_details').select('*').eq('game_id', gameId).maybeSingle(),
+    null as WpblGameDetails | null)
+}
+
 export function fetchWpblGameTracking(gameId: string): Promise<WpblPitchTracking[]> {
   return safe('fetchWpblGameTracking', () =>
     supabase.from('wpbl_pitch_tracking').select('*').eq('game_id', gameId).order('occurred_at', { ascending: true }),

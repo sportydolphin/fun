@@ -374,6 +374,39 @@ export interface WpblTrackRow {
   hit_type: string | null           // GroundBall / FlyBall / LineDrive / … or 'Undefined'
 }
 
+/** The facts about a game that the league's feed does not carry, transcribed by RetroWPBL and
+ *  used with permission (mirrors wpbl_game_details; see the migration for why it is its own
+ *  table rather than columns on wpbl_games).
+ *
+ *  ABSENT IS THE NORMAL CASE. The source is one person transcribing by hand and runs several
+ *  games behind the schedule, so a null row means "not written up yet", never "no such game".
+ *  Every field inside it is nullable for the same reason: a game can be transcribed before its
+ *  weather is known. */
+export interface WpblGameDetails {
+  game_id: string
+  retro_game_id: string
+  /** Local first pitch, verbatim ("6:30PM"). Text, not a timestamp: the feed's own start
+   *  times are Central and already a documented trap, and a second timezone opinion here
+   *  would be a third version of one fact. */
+  first_pitch_local: string | null
+  /** Length of game in minutes. The reason this table exists: not derivable from the feed. */
+  duration_minutes: number | null
+  ump_home: string | null
+  ump_first: string | null
+  ump_second: string | null
+  ump_third: string | null
+  temp_f: number | null
+  wind_dir: string | null    // Retrosheet vocabulary: ltor, rtol, fromcf, tocf, …
+  sky: string | null
+  precip: string | null
+  field_cond: string | null
+  park_id: string | null
+  park_name: string | null
+  source: string
+  source_commit: string | null
+  synced_at: string
+}
+
 // One ingest run's health summary (mirrors wpbl_ingest_runs). Written by the wpbl-ingest
 // Edge Function at the end of every run; read by the admin freshness indicator.
 export interface WpblIngestRun {

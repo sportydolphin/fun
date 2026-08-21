@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, Tooltip, useMediaQuery } from '@mui/material'
 import { supabase } from '../lib/supabase'
-import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, LIVE_POLL_MS } from './api'
+import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblGameDetails, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, LIVE_POLL_MS } from './api'
 import { wpblAccent, wpblFullName, outsToIp, playedInnings, formatGameTime } from './constants'
 import { LiveBanner, useLiveGame } from './Live'
 import { WpblGamePreview } from './GamePreview'
@@ -16,7 +16,7 @@ import { fmtSpeed, speedUnit } from '../lib/units'
 import { prettyType } from './tracking'
 import type {
   WpblTeam, WpblGame, WpblPlayer, WpblBattingLine, WpblPitchingLine,
-  WpblGamePlay, WpblPitchTracking, WpblVideo, WpblArticle,
+  WpblGamePlay, WpblPitchTracking, WpblVideo, WpblArticle, WpblGameDetails,
 } from './types'
 
 // Read-only game center. Fed entirely by the official-feed mirror (see wpbl-ingest):
@@ -128,6 +128,62 @@ function StatCell({ children, bold = false, dense = false }: { children: React.R
 // column IS the final/running score (large + winner-emphasised), so no vertical space is
 // spent restating it. Team column shows the full "City Nickname" on desktop, the nickname
 // alone on a phone, and the innings + R/H/E scroll horizontally if they overrun the width.
+/**
+ * First pitch, length of game, the crew and the weather: the four things the league's feed
+ * does not carry, transcribed by RetroWPBL and used with permission.
+ *
+ * RENDERS NOTHING AT ALL when there is no row, and that is the common case rather than the
+ * edge one. The source is one person writing games up by hand and it runs several games
+ * behind the schedule, so the newest game in the section is exactly the one least likely to
+ * have this. An empty state saying "not transcribed yet" would therefore be the thing most
+ * readers saw, on the game they most wanted, which is worse than a quiet absence.
+ *
+ * The attribution is not decoration. Permission was given for this data and the credit is the
+ * consideration, so it renders whenever the data does, in the same block, and links out.
+ */
+function GameConditions({ details }: { details: WpblGameDetails | null }) {
+  if (!details) return null
+  const crew = [details.ump_home, details.ump_first, details.ump_second, details.ump_third].filter(Boolean)
+  const weather = [
+    details.temp_f != null ? `${details.temp_f}°F` : null,
+    details.sky,
+    // "none" is the transcriber saying they checked, which is not worth a line of its own.
+    details.precip && details.precip.toLowerCase() !== 'none' ? details.precip : null,
+    details.field_cond && details.field_cond.toLowerCase() !== 'dry' ? `${details.field_cond} field` : null,
+  ].filter(Boolean).join(' · ')
+  const facts: { label: string; value: string }[] = []
+  if (details.first_pitch_local) facts.push({ label: 'First pitch', value: details.first_pitch_local })
+  if (details.duration_minutes != null) {
+    const h = Math.floor(details.duration_minutes / 60)
+    facts.push({ label: 'Length', value: h > 0 ? `${h}h ${details.duration_minutes % 60}m` : `${details.duration_minutes}m` })
+  }
+  if (weather) facts.push({ label: 'Weather', value: weather })
+  if (crew.length) facts.push({ label: crew.length > 1 ? 'Umpires' : 'Umpire', value: crew.join(', ') })
+  if (facts.length === 0) return null
+
+  return (
+    <Box sx={{ px: 2, mt: 1.25 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2, rowGap: 0.5 }}>
+        {facts.map(f => (
+          <Box key={f.label} sx={{ minWidth: 0 }}>
+            <Typography component="span" sx={{
+              fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5,
+              color: 'text.disabled', mr: 0.6,
+            }}>{f.label}</Typography>
+            <Typography component="span" sx={{ fontSize: '0.78rem', color: 'text.secondary' }}>{f.value}</Typography>
+          </Box>
+        ))}
+      </Box>
+      <Typography sx={{ fontSize: '0.65rem', color: 'text.disabled', mt: 0.6 }}>
+        Transcribed by{' '}
+        <Box component="a" href="https://github.com/exu6jh/RetroWPBL" target="_blank" rel="noopener noreferrer"
+          sx={{ color: 'inherit', textDecoration: 'underline' }}>RetroWPBL</Box>
+        , used with permission. The league's own feed does not publish these.
+      </Typography>
+    </Box>
+  )
+}
+
 function Scoreboard({ away, home, game, awayWon, homeWon }: {
   away: WpblTeam; home: WpblTeam; game: WpblGame; awayWon: boolean; homeWon: boolean
 }) {
@@ -909,6 +965,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>({ batting: [], pitching: [] })
   const [plays, setPlays] = useState<WpblGamePlay[]>([])
   const [tracking, setTracking] = useState<WpblPitchTracking[]>([])
+  const [details, setDetails] = useState<WpblGameDetails | null>(null)
   const [names, setNames] = useState<Map<string, WpblPlayer>>(new Map())
   // The recap video for this game, if the league has published one. Read from the shared
   // wpbl_videos cache (a tiny table, fetched once app-wide), matched on game_id.
@@ -929,10 +986,15 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
       fetchWpblGameLines(seed.id),
       fetchWpblGamePlays(seed.id),
       fetchWpblGameTracking(seed.id),
-    ]).then(([a, h, l, pl, tr]) => {
+      // The transcribed extras (first pitch, length, crew, weather). Null for any game
+      // RetroWPBL has not written up yet, which is every recent one, so it rides along with
+      // the rest of the load rather than gating anything on it.
+      fetchWpblGameDetails(seed.id),
+    ]).then(([a, h, l, pl, tr, det]) => {
       if (cancelled) return
       setNames(new Map([...a, ...h].map(p => [p.id, p])))
       setLines({ batting: l.batting, pitching: l.pitching }); setPlays(pl); setTracking(tr)
+      setDetails(det)
       setLoading(false)
     })
     return () => { cancelled = true }
@@ -1041,6 +1103,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
             </Box>
           )}
           {game.venue && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', px: 2, mt: 1 }}>{game.venue}</Typography>}
+          <GameConditions details={details} />
 
           {/* Recap highlight: shown for a finished game the league has posted video for. */}
           {final && video && (

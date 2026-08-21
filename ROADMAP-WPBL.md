@@ -393,10 +393,11 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
   is still exact-only, so name variants leave these null. Nothing reads them today (Hall of
   Firsts resolves by name instead). Would need a redeploy + `mode=all` re-ingest. Unpark
   only if win probability (#6) or a "biggest hits" feed needs the linkage.
-- **Game duration**: investigated thoroughly and not derivable, because the feed has no
-  duration or first-pitch field, `completed_at` is a processing timestamp, and plays carry
-  no timestamps at all. TrackMan `occurred_at` is the only wall clock and is absent for
-  untracked games. Unpark only if the feed exposes a real first-pitch / final-out stamp.
+- **Game duration**: ✅ **unparked and shipped Aug 21, 2026**, from a source outside the feed.
+  The original finding still stands for the league's own feed: no duration or first-pitch
+  field, `completed_at` is a processing timestamp, plays carry no timestamps at all. RetroWPBL
+  records `starttime` and `timeofgame` by hand and we now have permission to use it (see the
+  log). Available only for games somebody has transcribed, which trails the schedule.
 - **Streak report cards, Milestone Watch, WPBL Streak Survivor** 🎁: the remaining fun
   MLB mechanics. All want more season history than a six-week inaugural year provides.
 
@@ -424,6 +425,12 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
   year-only, and 13 disagree with our sheet, 5 of those as clean day/month transpositions,
   meaning one of the two sources has ambiguous date formatting. Not worth ingesting.
   Revisit only if we get explicit permission *and* a way to adjudicate the conflicts.
+  **Closed Aug 21, 2026, and not by the permission.** Permission was granted, and re-checking
+  the biofile against production the case had evaporated anyway: our own coverage is 106 of 118
+  now, not 65, the biofile agrees on 104 of them, and it fills **zero** gaps, because the 12
+  players we have no date for it has no date for either. One row disagrees (Luciana Moreno: we
+  hold 2006-09-09 marked `doc-unsettled`, they hold 2006-09-06), which is a judgement call
+  about two weak sources rather than a reason to ingest anything.
 
 ---
 
@@ -482,6 +489,43 @@ is retired.
 ---
 
 ## Shipped log
+
+### Aug 21, 2026: the facts the league does not publish
+
+RetroWPBL (`github.com/exu6jh/RetroWPBL`) is one person transcribing this season into
+Retrosheet format by hand. We now have **explicit permission to use it**, which was the thing
+missing in August, and the interesting part turned out not to be the thing we wanted it for
+then. Their event files open with `info` records, and four of them exist nowhere in the league
+feed: **`starttime`**, **`timeofgame`**, the **umpiring crew** and the **weather**.
+
+`timeofgame` is the point. Game duration has been parked all season as investigated and not
+derivable, and that finding was right about the feed: no duration field, no first-pitch field,
+`completed_at` is a processing timestamp, plays carry no timestamps at all. This is simply a
+different source, and it has both ends of the clock.
+
+**Shipped**: `wpbl_game_details` (migration), [`scripts/sync-wpbl-retro.mjs`](scripts/sync-wpbl-retro.mjs)
+on a daily Action, and a line under the Game Center scoreboard reading
+`FIRST PITCH 6:30PM · LENGTH 2h 29m · WEATHER 78°F sunny · UMPIRES Janet Thomas McKeen, Kelly
+Elliott Dine`, with the credit and a link beneath it. 14 tests over the parser.
+
+**Its own table, not columns on `wpbl_games`.** That row is the feed's mirror and `wpbl-ingest`
+rewrites it every two minutes, so a duration written there would appear, survive one cron tick
+and vanish with no trace it had been there. Same reasoning as `wpbl_play_corrections`.
+
+**Absence is the normal case, so absence renders nothing.** 11 games transcribed against 16
+finals on the day it shipped, roughly six days behind, and it is hand work so it always will
+be. The newest game in the section is therefore the one least likely to carry this, which
+makes an empty state saying "not transcribed yet" the thing most readers would see, on the
+game they most wanted. The block is simply not drawn.
+
+**The play records are deliberately not mirrored.** We already hold the play-by-play from the
+feed in more depth, and a second copy would be two truths about the same at-bats with no way
+for a reader to tell which one they were looking at. Its value as an INDEPENDENT transcription
+is as a check on ours, which is a different job.
+
+**Permission is the whole licence.** The repository carries no licence file, so the credit is
+the consideration: it renders in the UI wherever the data does, and links out.
+
 
 ### Aug 21, 2026: twenty times the pitches, from a string we already had (v1.47.0)
 

@@ -1,0 +1,57 @@
+name: WPBL RetroWPBL Sync
+
+on:
+  schedule:
+    # Once a day, mid-morning UTC, after the night's games are long over. The source is one
+    # person transcribing games by hand, so it moves in bursts of a game or two a day and
+    # there is nothing a faster cadence could pick up. Deliberately after the pbp-validation
+    # job at 08:00, so a day's new transcription is in place before anything reads it.
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Read RetroWPBL and report what would be written, without writing it.'
+        required: true
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
+
+# One writer at a time; skip a tick rather than racing two upserts.
+concurrency:
+  group: wpbl-retro-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # `pg` rather than the supabase client, matching watch-wpbl-tracking: this is a dozen
+      # rows of owner-only data and talks to Postgres directly.
+      - name: Install dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['pg'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Sync transcribed game details
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DRY_RUN:         ${{ inputs.dry_run }}
+        # A scheduled run has no `inputs`, so DRY_RUN is empty there and the real sync runs.
+        # Only an explicit "true" from the Actions tab holds the write back.
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "SUPABASE_DB_URL is not set, so there is nowhere to write."
+            exit 1
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            node scripts/sync-wpbl-retro.mjs --dry-run
+          else
+            node scripts/sync-wpbl-retro.mjs
+          fi
