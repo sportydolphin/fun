@@ -4,7 +4,8 @@ import { countsInStandings } from './season'
 import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
-  WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchTracking, WpblTrackRow,
+  WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchPlay,
+  WpblPitchTracking, WpblTrackRow,
   WpblVideo, WpblArticle, WpblPhoto, WpblLineupHistoryRow, WpblPitchingUsageRow,
 } from './types'
 
@@ -150,6 +151,7 @@ let allPlayersCache:  { data: WpblPlayer[]; at: number } | null = null
 let allLinesCache:    { data: WpblLinesResult; at: number } | null = null
 let allTrackingCache: { data: WpblTrackRow[]; at: number } | null = null
 let allPlaysCache:    { data: WpblFirstsPlay[]; at: number } | null = null
+let allPitchPlaysCache: { data: WpblPitchPlay[]; at: number } | null = null
 let allVideosCache:   { data: WpblVideo[]; at: number } | null = null
 let allArticlesCache: { data: WpblArticle[]; at: number } | null = null
 let allPhotosCache:   { data: WpblPhoto[]; at: number } | null = null
@@ -175,6 +177,7 @@ export function getCachedWpblAllPlayers(): WpblPlayer[] | null { return allPlaye
 export function getCachedWpblAllLines(): WpblLinesResult | null { return allLinesCache?.data ?? null }
 export function getCachedWpblAllTracking(): WpblTrackRow[] | null { return allTrackingCache?.data ?? null }
 export function getCachedWpblAllPlays(): WpblFirstsPlay[] | null { return allPlaysCache?.data ?? null }
+export function getCachedWpblAllPitchPlays(): WpblPitchPlay[] | null { return allPitchPlaysCache?.data ?? null }
 export function getCachedWpblVideos(): WpblVideo[] | null { return allVideosCache?.data ?? null }
 export function getCachedWpblArticles(): WpblArticle[] | null { return allArticlesCache?.data ?? null }
 export function getCachedWpblPhotos(): WpblPhoto[] | null { return allPhotosCache?.data ?? null }
@@ -229,6 +232,24 @@ const FIRSTS_PLAY_FILTER = [
   'narrative.ilike.*balk*',
 ].join(',')
 
+// How many games carry TrackMan data, from the watcher's one-row snapshot
+// (`wpbl_tracking_watch`, refreshed daily by scripts/watch-wpbl-tracking.mjs). One row and one
+// integer, so the Stats tab can decide whether to offer the Tracked board BEFORE paying for
+// the paginated tracking scan that would answer the same question. Null when the row has never
+// been written, which callers should read as "unknown", not "none".
+let trackedGamesCache: { data: number | null; at: number } | null = null
+
+export function fetchWpblTrackedGameCount(): Promise<number | null> {
+  if (isFresh(trackedGamesCache)) return Promise.resolve(trackedGamesCache!.data)
+  return once('trackedGameCount', async () => {
+    const rows = await safe<{ tracked_game_count: number | null }[]>('fetchWpblTrackedGameCount', () =>
+      supabase.from('wpbl_tracking_watch').select('tracked_game_count').limit(1), [])
+    const data = rows.length > 0 ? rows[0].tracked_game_count ?? 0 : null
+    trackedGamesCache = { data, at: Date.now() }
+    return data
+  })
+}
+
 // Every play-by-play row in the league that could set a Hall of Firsts milestone (first HR,
 // first strikeout, first stolen base, …). The heaviest WPBL read — one row per play for the
 // whole season — so it is column-projected, filtered server-side, and cached last-good so
@@ -266,6 +287,38 @@ export function fetchWpblAllPlays(): Promise<WpblFirstsPlay[]> {
     // several.
     const corrected = applyPlayCorrections(out, await fetchAllPlayCorrections())
     if (corrected.length > 0 || allPlaysCache == null) allPlaysCache = { data: corrected, at: Date.now() }
+    return corrected
+  })
+}
+
+// Only the columns the pitch-code boards read (see WpblPitchPlay), and only the rows that
+// have a pitch sequence at all. The filter is doing real work: a third of the play log is
+// baserunning and substitution rows that carry no pitches, and dropping them at the database
+// is a third of the transfer for a board that would skip them anyway.
+const PITCH_PLAY_SELECT =
+  'game_id,sequence,team_id,batter_id,batter_name,pitcher_id,pitcher_name,event_type,pitch_sequence'
+
+/** Every plate appearance in the league, as its pitch sequence.
+ *
+ *  Paged, for the reason spelled out on fetchWpblAllPlays: an unbounded select stops at 1000
+ *  rows with no error, and the play log passed that mid-season. A truncated read here does not
+ *  fail, it just makes every rate on the boards a rate over an arbitrary slice of the season.
+ *
+ *  Corrected on the way out like the firsts read, because a correction to a play's batter or
+ *  pitcher moves that whole at-bat's pitches from one player's line to another's. */
+export function fetchWpblAllPitchPlays(): Promise<WpblPitchPlay[]> {
+  if (isFresh(allPitchPlaysCache)) return Promise.resolve(allPitchPlaysCache!.data)
+  return once('allPitchPlays', async () => {
+    const out = await fetchAllPaged<WpblPitchPlay>('fetchWpblAllPitchPlays', (from, to) =>
+      supabase.from('wpbl_game_plays')
+        .select(PITCH_PLAY_SELECT)
+        .not('pitch_sequence', 'is', null)
+        .order('game_id', { ascending: true })
+        .order('sequence', { ascending: true })
+        .range(from, to) as unknown as
+        PromiseLike<{ data: WpblPitchPlay[] | null; error: unknown }>)
+    const corrected = applyPlayCorrections(out, await fetchAllPlayCorrections())
+    if (corrected.length > 0 || allPitchPlaysCache == null) allPitchPlaysCache = { data: corrected, at: Date.now() }
     return corrected
   })
 }

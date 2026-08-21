@@ -12,7 +12,7 @@ import { Box, Typography, useTheme, useMediaQuery } from '@mui/material'
 import type { Theme, SxProps } from '@mui/material'
 import { WPBL_ACCENT, wpblAccentFg, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
 import { wpblPortrait } from './portraits'
-import type { WpblTeam } from './types'
+import type { WpblTeam, WpblPlayer } from './types'
 import { scrollBehavior } from '../lib/motion'
 
 // ─── Name shortening ────────────────────────────────────────────────────────────
@@ -448,7 +448,60 @@ export function RailScroller({ onScroll, scrollRef, children }: {
   )
 }
 
-export function SectionCard({ icon, title, subtitle, action, collapsed, onToggleCollapse, fill, children }: {
+/** One ranked row on a leaderboard: rank chip, portrait, name and club badge, a big value on
+ *  the right. Shared by the two Stats boards that rank players outside the sortable table
+ *  (Tracked and Pitches), which is why it lives here rather than inside either of them.
+ *
+ *  `player` null means the feed named someone no roster row matched: the row still renders,
+ *  it just is not clickable, because there is no page to open. */
+export function LeaderRow({ rank, player, name, teamId, value, unit, sub, accent, onOpen }: {
+  rank: number
+  player: WpblPlayer | null
+  name: string
+  teamId: string | null
+  value: string
+  unit?: string
+  sub?: string
+  accent: string
+  onOpen?: (p: WpblPlayer) => void
+}) {
+  const clickable = !!player && !!onOpen
+  const shortName = useWpblName()
+  return (
+    <Box
+      onClick={clickable ? () => onOpen!(player!) : undefined}
+      sx={{
+        display: 'flex', alignItems: 'center', gap: 1.25, px: 0.5, py: 0.85,
+        borderTop: rank === 1 ? 'none' : '1px solid', borderColor: 'divider',
+        borderRadius: 1, cursor: clickable ? 'pointer' : 'default',
+        WebkitTapHighlightColor: 'transparent',
+        // Hover is gated on a device that actually has one, the same guard the Stats table
+        // uses. A touch browser fires hover on tap and then LEAVES IT THERE: scroll a
+        // leaderboard with a finger and whichever row you happened to start on stays lit for
+        // the rest of the scroll, which reads as a selection nobody made.
+        '@media (hover: hover)': {
+          '&:hover': clickable ? { bgcolor: 'action.hover' } : undefined,
+        },
+      }}
+    >
+      <Box sx={{ width: 18, textAlign: 'center', fontSize: '0.8rem', fontWeight: 800, color: rank <= 3 ? accent : 'text.disabled', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{rank}</Box>
+      <PlayerPortrait name={name} teamId={teamId} size={32} />
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+          <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(name)}</Typography>
+          {teamId && <TeamBadge team={{ id: teamId, abbr: teamId }} size={16} />}
+        </Box>
+        {sub && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</Typography>}
+      </Box>
+      <Box sx={{ textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
+        <Box component="span" sx={{ fontSize: '1.05rem', fontWeight: 800, color: accent }}>{value}</Box>
+        {unit && <Box component="span" sx={{ fontSize: '0.65rem', fontWeight: 700, color: 'text.disabled', ml: 0.4 }}>{unit}</Box>}
+      </Box>
+    </Box>
+  )
+}
+
+export function SectionCard({ icon, title, subtitle, action, collapsed, onToggleCollapse, fill, bare, children }: {
   icon?: React.ReactNode
   title: string
   subtitle?: string
@@ -463,6 +516,13 @@ export function SectionCard({ icon, title, subtitle, action, collapsed, onToggle
    *  shared height and the shorter one has to put the difference somewhere deliberate.
    *  Off by default: a card in normal flow should stay its content's height. */
   fill?: boolean
+  /** Drop the raised paper fill and let the card sit straight on the page, keeping only the
+   *  border and the radius. For a card that IS a table: Standings and the season stats table
+   *  are both drawn that way already, and in dark mode `background.paper` is a lifted grey, so
+   *  a leaderboard using it read as a different surface from the tables beside it on the very
+   *  same tab. Off by default, because a card that holds prose or mixed content wants the
+   *  raised fill that separates it from the page. */
+  bare?: boolean
   children: React.ReactNode
 }) {
   const collapsible = !!onToggleCollapse
@@ -470,7 +530,7 @@ export function SectionCard({ icon, title, subtitle, action, collapsed, onToggle
     <Box sx={{
       borderRadius: 3, overflow: 'hidden',
       border: '1px solid', borderColor: CARD_BORDER,
-      bgcolor: 'background.paper',
+      bgcolor: bare ? 'transparent' : 'background.paper',
       // No `height: 100%` here. A grid item already stretches to its row, so this would only
       // ever be redundant there, and below md, where the container falls back to a flex
       // column, a percentage height resolves against the column's own height and makes every

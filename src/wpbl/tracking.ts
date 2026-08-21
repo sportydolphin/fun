@@ -40,6 +40,30 @@ export function prettyType(t: string | null): string | null {
   return t.replace(/FourSeamFastBall/i, 'Fastball').replace(/([a-z])([A-Z])/g, '$1 $2')
 }
 
+// ── Is there enough tracking to show? ────────────────────────────────────────────
+//
+// The league published TrackMan for two games in early August and then stopped
+// (scripts/watch-wpbl-tracking.mjs runs daily to notice if that changes). Two games of radar,
+// ranked as season leaderboards beside a board covering all sixteen, invites a comparison that
+// is not there: a hitter's "hardest hit" is the hardest of the two games anyone measured.
+//
+// So the surface is DATA-GATED, not deleted. The same reasoning retired the Home teaser card
+// in August, and the lesson recorded from that one was that hiding is fine as long as
+// something is watching for the return, which now something is. Cross the bar and the chip
+// comes back on its own; a ?view=tracking link opens it either way.
+export const TRACKED_MIN_GAMES = 4
+export const TRACKED_MIN_SHARE = 0.25
+
+/** Whether the tracked sample is broad enough to advertise. Needs both a floor (four games,
+ *  so a two-game batch never qualifies) and a share of the season (so it does not start
+ *  passing in April purely because only three games have been played). */
+export function trackingWorthShowing(trackedGames: number, finalGames: number): boolean {
+  if (trackedGames < TRACKED_MIN_GAMES) return false
+  // No finals recorded yet: the floor alone decides, rather than dividing by zero into true.
+  if (finalGames <= 0) return true
+  return trackedGames >= TRACKED_MIN_SHARE * finalGames
+}
+
 export interface VeloLeader { player: WpblPlayer | null; name: string; teamId: string | null; maxVelo: number; avgVelo: number; count: number }
 export interface SpinLeader { player: WpblPlayer | null; name: string; teamId: string | null; avgSpin: number; maxSpin: number; count: number }
 export interface PitchHit  { player: WpblPlayer | null; name: string; teamId: string | null; velo: number; pitchType: string | null; gameId: string }

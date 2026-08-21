@@ -271,6 +271,91 @@ MLB section).
 
 ---
 
+## The data-mining backlog (Aug 20, 2026)
+
+Everything above was scoped from what the section is *missing*. This list came from the other
+direction: reading the schema and querying production to find what is already **stored and
+unread**. It is a menu to work through over the rest of the season and into the winter, not a
+one-off, so nothing here gets deleted when it ships. It gets a ✅ and a pointer to the log.
+
+Numbers are real, taken from the live DB on Aug 20, 2026 (16 final games, 1,527 plays, 393
+batting lines, 766 tracking rows). Where a probe says "in the sample" it read 1,000 rows,
+which is all PostgREST returns without paging.
+
+> Re-run any of these with the anon key: `curl "$VITE_SUPABASE_URL/rest/v1/<table>?select=…"
+> -H "apikey: $VITE_SUPABASE_ANON_KEY"`. Public-read RLS means the whole mirror is queryable
+> from the shell in one line, which is how this list got its numbers.
+
+### The three underused assets
+
+**1. `pitch_events` / `pitch_sequence`: a pitch-level dataset nothing reads.** ✅ *shipped as
+the Pitches board, Aug 20, 2026 (see the log)*. Six codes, 2,801 pitches in the sample: `B`
+ball 1139 · `K` called strike 553 · `P` in play 542 · `F` foul 392 · `S` swinging strike 151 ·
+`H` hbp 24. That is roughly 4,300 pitches across every final game, against TrackMan's 766 rows
+across **two**. Three findings that made it cheap: `pitch_sequence` is the same data as a
+string and agreed with `pitch_events` on all 739 rows that had both, so the string is the
+whole read; both are null on exactly the plays that are not plate appearances (steals, wild
+pitches, subs), so a row with a sequence is one completed PA with no double counting; and
+`batter_id` / `pitcher_id` are only 2.4% and 1.4% null, so the play log keys on our own player
+ids after all. **The feed's own `type` labels are wrong** and this is the trap: `K` arrives as
+`"unknown"` and `P` as `"pitchout"`. Decode the code letter locally, never the label.
+
+**2. Hit direction is in the narrative text, at near-total coverage.** 475 of 522 balls in
+play in the sample name a fielder or a field (`ss` 69, `3b` 58, `lf` 53, `2b` 46, `cf` 44,
+`rf` 39, …), and the 47 misses were "up the middle" and "to p" / "to c" phrasings the probe
+regex did not cover rather than plays with no direction. That is a league-wide spray dataset
+for **every** game, with no radar involved, sitting in a column already fetched for other
+reasons.
+
+**3. Base-out state plus `runsOnPlay()` gives run expectancy for free.** Every play stores
+outs and all three bases, and summing runs chronologically reconstructs the score at each
+play. So RE24, and a WPA-shaped leverage number, are derivable from our own 1,527 plays with
+no new field and no new table.
+
+### The list
+
+Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
+
+- **Play of the game / biggest swings of the season** 🔬🎮. Build the run-expectancy table
+  from our own play log, rank every play by its RE change. Feeds a Game Center badge, a Home
+  "swing of the day" card, and a permanent top-10 in the archive (#2). It is also the honest
+  half of win probability (#6) without needing a credible seven-inning win model, and every
+  entry is a tappable name, which the traffic section says is the retention lever. Wants the
+  play-level `batter_id` backfill to be exact, but resolves by name like `firsts.ts` until then.
+- **Spray charts on player pages** 🎯🔬. A fan diagram per hitter from asset 2, with
+  pull/middle/oppo percentages, and the inverse for a pitcher. Lands on the surface that
+  correlates with return visits.
+- **Daily "Call the Play" puzzle on the site** 🎮. [`derive/trivia.ts`](src/wpbl/derive/trivia.ts)
+  is already written, pure and seeded, and only Discord can reach it. Seed it from the date so
+  everyone gets the same play, add a shareable result grid. ~980 usable plate appearances is
+  about three years of daily puzzles, and it needs no live feed. **The strongest durable item
+  on this page after the archive.**
+- **This day in the inaugural season** 🎯. A dated card replaying that day's recap, box,
+  highlight reel and article. Everything is already mirrored (75 videos, 20 articles). Turns
+  the archive from a static page into a daily surface.
+- **Fan awards ballot** 🎮🎯. Every player in the league is a rookie and nobody has voted on
+  anything. MVP, best pitcher, play of the year seeded from the leverage list. Uses the
+  existing browser-writes-through-RLS path, and it *peaks after Sep 22* rather than dying with
+  the feed.
+- **Who owns whom: the batter-vs-pitcher board** 🔬. Four teams and six pairings means a
+  hitter faces the same pitcher 10 to 15 times in one season, a sample a 30-team league never
+  produces. [`derive/matchups.ts`](src/wpbl/derive/matchups.ts) already computes the lines and
+  nothing surfaces a league-wide "biggest edges" board.
+- **Season series pages** 🎯. Six rivalry pages: running series record, the H2H grid, the
+  matchup edges, every game log. Six durable indexable pages from data already held.
+- **Where they come from** 🎯. `hometown` on 118 players and `birth_date` on 65: a league map,
+  an age curve, youngest and oldest. Indexable prose and images for a section that has almost
+  none, which feeds SEO (#3).
+- **Rolling form** 🎯. A last-5-game OPS sparkline per player. Nothing on the section answers
+  "who is hot right now".
+- **Fielding in the Stats tab** 🔬. 303 fielding lines, computed in `stats.ts` already, surfaced
+  only on player and team pages. Also unlocks a catcher board from `sba` / `cs`. (Same item as
+  #7, restated here because the data audit reached it independently.)
+- **Errors behind the pitcher** 🔬. Unearned runs and errors charged while each pitcher was on,
+  from fielding lines plus narratives. Nobody else covering this league will have it.
+- **The season in 30 seconds** 🎯. Each club's W-L path and run differential over time as one
+  chart, from 30 game rows. Makes a good share image.
+
 ## Parked, with reasons
 
 - **Game predictions / pick'em (+ bots)** 🎮: *demoted from "the marquee open item",
@@ -397,6 +482,134 @@ is retired.
 ---
 
 ## Shipped log
+
+### Aug 21, 2026: twenty times the pitches, from a string we already had (v1.47.0)
+
+The Stats tab's only pitch-level surface was Tracked, and the league has published TrackMan for
+**two games**. Meanwhile every plate appearance of every game carries `pitch_sequence`, one
+letter per pitch, and the only thing reading it was a decorative strip in Game Center. Decoding
+it gives 4,356 pitches across all 16 finals against the tracked 766, and it needed no ingest
+change, no new table and no new column.
+
+**Shipped**: [`derive/pitches.ts`](src/wpbl/derive/pitches.ts) (pure, 17 tests) and
+[`PitchView.tsx`](src/wpbl/PitchView.tsx), as a third **source** chip on the Stats tab beside
+Season and Tracked. It reads the same Hitting/Pitching side as everything else on that bar.
+Pitching gets swing-and-miss, strike throwers and put-away rate; hitting gets contact per swing,
+pitches seen per PA and two-strike survival. Each board prints the league's own number beside
+the title, because a 10.8% swinging-strike rate means nothing until you know the league is at
+5.6%. `LeaderRow` moved out of TrackingView into [`ui.tsx`](src/wpbl/ui.tsx), now that two
+boards draw one.
+
+**The trap, and it is a live one.** The feed ships a decoded `type` for every pitch inside
+`pitch_events`, and **two of the six are wrong**: `K` (called strike) arrives as `"unknown"` and
+`P` (in play) as `"pitchout"`. Between them that is 39% of every pitch thrown in the league.
+Reading the label instead of the letter would have put a called strike and a ball in play into
+an unclassified bucket and halved every rate on the board, with no error anywhere. The six-code
+map in `pitches.ts` is the contract; an unrecognised letter is counted as unknown and reported
+on the coverage line rather than guessed at.
+
+**Two things the live data caught that the tests could not.** The first board put a hitter at a
+flat 100% contact on **15 swings all season**, because the qualifier was on pitches seen and
+contact is measured per swing. So `rankBy` now applies the sample bar to each rate's *own*
+denominator, scaled off the league, and breaks ties toward the bigger sample: in a 16-game
+season a board's top rows are mostly ties, and the one who has been tested most should lead.
+Both are pinned by tests now.
+
+**The one-line explainer under each board title took three passes.** It started as a formula
+("Strikes per pitch"), which is not even what the number is: "per" is a ratio of unlike units,
+which is what "pitches per plate appearance" two boards along actually means. The fix for that
+was "Strikes as a share of every pitch", which is correct and reads like a statistics textbook.
+What it says now is how a person would say it out loud: **"How often a pitch is a strike"**,
+"How often a swing makes contact", "How rarely two strikes turns into a strikeout". Anyone who
+wants the formula can read the number beside it. Row subtitles got the same treatment: the whiff
+board names its own denominator ("25.7% of 105 swings missed") rather than pairing a per-swing
+rate with a pitch total, which was both the wrong number to sit beside it and the reason the
+line would not fit a phone.
+
+**The Stats tab's source chips were reordered, renamed, and one of them now hides itself.**
+The board shipped as the middle chip, labelled **Pitches**, which collided with the SIDE named
+**Pitching** one row above it: with Hitting selected, a chip called Pitches read as "you are
+about to leave the hitters", the opposite of what it does. It is **Pitch by pitch** now, and
+the chips are ordered by how much of the season each can speak for: Season, Pitch by pitch,
+Tracked. The internal value stays `'pitches'`, so the board-usage analytics keep one name
+across the rename.
+
+**Tracked is data-gated rather than deleted.** The league published TrackMan for two games in
+early August and stopped. Two games of radar ranked as season leaderboards, one chip away from
+a board covering all sixteen, invites a comparison that is not there. `trackingWorthShowing`
+(in [`tracking.ts`](src/wpbl/tracking.ts), tested) needs four games AND a quarter of the finals,
+read from the `wpbl_tracking_watch` row the daily watcher already maintains: one row and one
+integer, so the chip row decides before paying for the tracking scan that would answer the same
+question. **The chip comes back on its own** the day the feed wakes up, which is the thing the
+retired Home teaser could not do. Two escape hatches: a `?view=tracking` link opens the board
+regardless, and once a session has been on it the chip stays for the rest of that session
+rather than stranding the reader somewhere they had just been.
+
+**A leaderboard is a table, and tables on this tab do not use the raised fill.** Standings and
+the season stats table are both drawn as a border on the page background. `SectionCard` uses
+`background.paper`, which in dark mode is a lifted grey, so the two Stats boards read as a
+different surface from the tables sitting one chip away from them. `SectionCard` takes a `bare`
+prop now that drops the fill and keeps the border, and both Tracked and Pitches pass it. Default
+is unchanged, because a card holding prose or mixed content (Home's, the team pages') does want
+the raised fill that separates it from the page.
+
+**Touch devices do not un-hover.** `LeaderRow` tinted on `:hover` unconditionally, so scrolling
+a leaderboard with a finger left whichever row the scroll started on lit for the rest of the
+scroll: a selection nobody made, on the row nobody was looking at. Hover now sits behind
+`@media (hover: hover)`, the guard the Stats table already used, and the fix lands on Tracked
+at the same time since both boards draw the same row.
+
+**Postseason-safe by construction.** `aggregatePitchCodes` takes the schedule as a **required**
+argument for the same reason `sumBatting` does: a play row carries a `game_id` and nothing else,
+so it cannot say whether it belongs in a season total. It filters through `regularSeasonLines`,
+excluding by the known-postseason ids, so a partial schedule over-counts rather than rendering
+an empty board.
+
+**The header was rewritten twice on the way out.** First pass opened with a tinted paragraph
+explaining the coverage, three stat tiles and a titled card around the mix bar: about 300px
+before the first leaderboard row on a phone, on a board that is nothing but leaderboards. The
+prose was the problem, not the numbers, so the numbers stayed and grew (four tiles: pitches,
+per PA, strike rate, swing rate) and the paragraph moved to the footnote.
+
+**The four headline numbers are one divided block, not four tinted cards.** They shipped as
+cards with a blue gradient wash and the number set in the same blue on top of it, which muddied
+the one thing on the block that should be legible from across the room and spent the accent on
+decoration. The accent now means something everywhere it appears here (a rank, a leaderboard
+value, the swung-at half of the chart) and the numbers are simply the most contrast on the page
+at the biggest size, inside one bordered box divided by hairlines, the way the season table and
+Standings are drawn. Two by two at every width including desktop, where there is room for four
+across and it is still wrong: the block shares its row with the chart there, so four columns
+land at about 80px each and every subtitle truncates to "across all...".
+
+**The header is two columns from `md` up.** Stacked full width, the four tiles and the outcome
+chart each ran the page's whole measure for a line and a half of content apiece, which is a lot
+of empty space on a desktop and a first leaderboard pushed down for nothing. Side by side they
+read as one header block at half the height. A phone still stacks them.
+
+**The six-colour stacked bar went too.** It asked a reader to hold a colour key in their head
+and then read six widths off one line, the widest slice of which was 1%. It is now a ranked bar
+per outcome, labelled in words on its own row, grouped by the one split that explains all six:
+the batter either offered or did not. Colour carries that single fact instead of six arbitrary
+ones, so the legend is two words rather than a key. The labels are spelled out, "Called strike"
+and "Swinging strike" rather than "Called" and "Swinging", because both are strikes and that is
+the whole reason they are listed apart from Ball. Titled **Pitch outcomes**, which is what the
+block is, rather than the sentence it used to be titled with.
+
+**Ordering: two descending runs under a heading that names the group and sizes it.** Grouped but
+unheaded, which is what the first version shipped, the six bars read as one broken sort (long,
+medium, tiny, medium) because nothing marked where the takes ended. Sorting all six by size
+instead would drop "In play" between "Hit by pitch" and "Foul" and scatter the colour grouping
+for no gain. Every bar, group headings included, is on one scale set by the bigger group, so a
+group's bar reads as the sum of the bars indented under it. The light-mode palette is not the dark one:
+the raw accent is 2.3:1 on light surfaces, which `constants.ts` already says is fine for a fill
+and not for anything that has to be read, and a bar whose length is the information counts as
+something that has to be read.
+
+**Cheap on the wire**: `pitch_sequence` is the same data as `pitch_events` in a fraction of the
+bytes (verified identical on every row carrying both), the narratives are not fetched at all,
+and the rows without a sequence are dropped at the database. Paged, with a deterministic order,
+for the reason on `fetchWpblAllPlays`.
+
 
 ### Phases 0–2 (Jul 29 – Aug 4, 2026)
 

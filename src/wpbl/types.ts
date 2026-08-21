@@ -310,6 +310,23 @@ export type WpblRecapPlay = Pick<WpblGamePlay,
   'game_id' | 'sequence' | 'inning' | 'team_id' | 'event_type' | 'narrative'
 >
 
+/** The slim projection the pitch-code boards read (see derive/pitches.ts).
+ *
+ *  `pitch_sequence` IS the dataset: it is the same six code letters as `pitch_events`, in a
+ *  string instead of an array of objects, and the two agreed on every row in the league that
+ *  carried both. Taking the array instead would ship the season's every pitch as JSON for no
+ *  extra fact. `narrative` is left out for the same reason: nothing on these boards reads a
+ *  play's outcome beyond `event_type`, and the narratives alone are most of the payload.
+ *
+ *  A row with a `pitch_sequence` is exactly one completed plate appearance. The feed leaves it
+ *  null on the baserunning and substitution rows (steals, wild pitches, pickoffs), so counting
+ *  every row that has one cannot double-count a pitch across two plays of the same at-bat. */
+export type WpblPitchPlay = Pick<WpblGamePlay,
+  | 'game_id' | 'sequence' | 'team_id'
+  | 'batter_id' | 'batter_name' | 'pitcher_id' | 'pitcher_name'
+  | 'event_type' | 'pitch_sequence'
+>
+
 export type WpblFirstsPlay = Pick<WpblGamePlay,
   | 'game_id' | 'sequence' | 'team_id'
   | 'batter_id' | 'batter_name' | 'pitcher_id' | 'pitcher_name'

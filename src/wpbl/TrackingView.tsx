@@ -7,7 +7,7 @@ import {
 import { aggregateTracking } from './tracking'
 import type { TrackingBoard, VeloLeader, SpinLeader, PitchHit, BattedBall } from './tracking'
 import { WPBL_ACCENT } from './constants'
-import { SectionCard, PlayerPortrait, TeamBadge, CARD_BORDER, useWpblName } from './ui'
+import { SectionCard, LeaderRow, CARD_BORDER, useWpblName } from './ui'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import type { WpblTeam, WpblPlayer } from './types'
@@ -15,47 +15,6 @@ import type { WpblTeam, WpblPlayer } from './types'
 // The section's TrackMan showcase: season-wide velocity, spin, and batted-ball leaderboards
 // derived from the feed's pitch tracking (the distinctive data the WPBL feed carries that
 // even the MLB app has no equivalent for). Self-contained: fetches + aggregates on mount.
-
-// ── One ranked row: rank chip · portrait · name + team badge · a big value on the right ──
-function LeaderRow({ rank, player, name, teamId, value, unit, sub, accent, onOpen }: {
-  rank: number
-  player: WpblPlayer | null
-  name: string
-  teamId: string | null
-  value: string
-  unit?: string
-  sub?: string
-  accent: string
-  onOpen?: (p: WpblPlayer) => void
-}) {
-  const clickable = !!player && !!onOpen
-  const shortName = useWpblName()
-  return (
-    <Box
-      onClick={clickable ? () => onOpen!(player!) : undefined}
-      sx={{
-        display: 'flex', alignItems: 'center', gap: 1.25, px: 0.5, py: 0.85,
-        borderTop: rank === 1 ? 'none' : '1px solid', borderColor: 'divider',
-        borderRadius: 1, cursor: clickable ? 'pointer' : 'default',
-        '&:hover': clickable ? { bgcolor: 'action.hover' } : undefined,
-      }}
-    >
-      <Box sx={{ width: 18, textAlign: 'center', fontSize: '0.8rem', fontWeight: 800, color: rank <= 3 ? accent : 'text.disabled', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{rank}</Box>
-      <PlayerPortrait name={name} teamId={teamId} size={32} />
-      <Box sx={{ minWidth: 0, flex: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-          <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(name)}</Typography>
-          {teamId && <TeamBadge team={{ id: teamId, abbr: teamId }} size={16} />}
-        </Box>
-        {sub && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</Typography>}
-      </Box>
-      <Box sx={{ textAlign: 'right', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
-        <Box component="span" sx={{ fontSize: '1.05rem', fontWeight: 800, color: accent }}>{value}</Box>
-        {unit && <Box component="span" sx={{ fontSize: '0.65rem', fontWeight: 700, color: 'text.disabled', ml: 0.4 }}>{unit}</Box>}
-      </Box>
-    </Box>
-  )
-}
 
 // A big league-best callout tile (fastest pitch / hardest hit / longest hit).
 function BestTile({ label, value, unit, name, accent }: {
@@ -173,7 +132,7 @@ export default function WpblTrackingView({ side, onOpenPlayer }: {
 
       {side === 'pitching' ? (
         <>
-          <SectionCard title="Fastest pitchers" subtitle="Each pitcher's hardest pitch, with their season average">
+          <SectionCard bare title="Fastest pitchers" subtitle="Each pitcher's hardest pitch, with their season average">
             {board.veloLeaders.length === 0
               ? <EmptyState title="No velocity data yet" />
               : board.veloLeaders.slice(0, 10).map((l: VeloLeader, i) => (
@@ -183,7 +142,7 @@ export default function WpblTrackingView({ side, onOpenPlayer }: {
           </SectionCard>
 
           {board.spinLeaders.length > 0 && (
-            <SectionCard title="Spin leaders" subtitle="Ranked by average spin rate">
+            <SectionCard bare title="Spin leaders" subtitle="Ranked by average spin rate">
               {board.spinLeaders.slice(0, 8).map((l: SpinLeader, i) => (
                 <LeaderRow key={l.player?.id ?? l.name} rank={i + 1} player={l.player} name={l.name} teamId={l.teamId}
                   value={String(Math.round(l.avgSpin))} unit="rpm" sub={`max ${Math.round(l.maxSpin)} · ${l.count} pitches`} accent={accent} onOpen={onOpenPlayer} />
@@ -197,7 +156,7 @@ export default function WpblTrackingView({ side, onOpenPlayer }: {
             <EmptyState title="No batted-ball data yet" hint="Exit velocity and distance leaders appear once balls are put in play." />
           ) : (
             <>
-              <SectionCard title="Hardest-hit balls" subtitle="Ranked by exit velocity">
+              <SectionCard bare title="Hardest-hit balls" subtitle="Ranked by exit velocity">
                 {board.hardestHits.slice(0, 10).map((b: BattedBall, i) => (
                   <LeaderRow key={i} rank={i + 1} player={b.player} name={b.name} teamId={b.teamId}
                     value={fmtSpeed(b.exit ?? 0, units)} unit={speedUnit(units)} accent={accent} onOpen={onOpenPlayer}
@@ -206,7 +165,7 @@ export default function WpblTrackingView({ side, onOpenPlayer }: {
               </SectionCard>
 
               {board.longestHits.length > 0 && (
-                <SectionCard title="Longest tracked hits" subtitle="By radar-measured distance">
+                <SectionCard bare title="Longest tracked hits" subtitle="By radar-measured distance">
                   {board.longestHits.slice(0, 10).map((b: BattedBall, i) => (
                     <LeaderRow key={i} rank={i + 1} player={b.player} name={b.name} teamId={b.teamId}
                       value={fmtDistance(b.distance!, units)} unit={distanceUnit(units)} accent={accent} onOpen={onOpenPlayer}

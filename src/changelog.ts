@@ -4,6 +4,25 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.47.0',
+    date:    '2026-08-21',
+    title:   'Every pitch of every game, counted',
+    changes: [
+      {
+        short: 'A new Pitch by pitch board on the Stats tab',
+        full:  'The league’s feed records what every single pitch did, one letter at a time, and nothing here had ever read it. A new board on the Stats tab does. On the pitching side: how often a pitcher draws a swing and a miss, how often she throws a strike, and how often she finishes a hitter off once she has two strikes on her. On the hitting side: who makes the most contact, who makes a pitcher work the longest, and who survives with two strikes against her. Every board says what the league as a whole does too, so a number has something to be read against. It covers every pitch of every game played, which is the whole point of it: the Tracked board has radar for two games, this has all of them. At the top there is a breakdown of what those pitches actually did, from balls and called strikes through fouls and swings and misses to balls put in play, split by whether the batter offered at all.',
+      },
+      {
+        short: 'The Tracked board is resting until the league posts more of it',
+        full:  'The league published its TrackMan pitch tracking for the first two games of the season and then stopped. Two games of it sitting beside leaderboards built from every game invited a comparison that was not really there: the hardest hit ball of the season, on that board, was only ever the hardest of the two games anybody measured. So the Tracked button waits until there is enough tracking to be worth reading, and it comes back on its own the day the league starts posting again. Nothing has been deleted, and a link straight to it still opens it.',
+      },
+      {
+        short: 'Leaderboard rows stop sticking as you scroll on a phone',
+        full:  'Scrolling a leaderboard with a finger left whichever row you happened to start on highlighted for the rest of the scroll, as though you had selected it. That was a hover effect meant for a mouse pointer, on a screen that has no pointer to move away. It only happens on a device that can actually hover now.',
+      },
+    ],
+  },
+  {
     version: '1.46.3',
     date:    '2026-08-20',
     title:   'The live game says when it is between innings',

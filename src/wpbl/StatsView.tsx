@@ -2,9 +2,10 @@ import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState }
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import {
-  fetchWpblAllPlayers, fetchWpblAllLines,
+  fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblTrackedGameCount,
   getCachedWpblAllPlayers, getCachedWpblAllLines, wpblStatsCacheAgeMs,
 } from './api'
+import { trackingWorthShowing } from './tracking'
 import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
 import { TeamBadge, CARD_BORDER, pressable, FOCUS_RING, useWpblName } from './ui'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
@@ -18,6 +19,7 @@ import { track, EVENTS } from '../lib/analytics'
 // tab opens on; Tracking (the TrackMan boards) and Draft (the draft-value model) are each a
 // separate sub-tab with its own layout and neither is reachable without a deliberate tap.
 const WpblTrackingView = lazy(() => import('./TrackingView'))
+const WpblPitchView = lazy(() => import('./PitchView'))
 const WpblDraftValue = lazy(() => import('./DraftValue'))
 
 // Complete season stat table for the WPBL — a sortable board of every hitting and
@@ -34,19 +36,28 @@ const WpblDraftValue = lazy(() => import('./DraftValue'))
 // TrackingView used to carry its own Hitting/Pitching switch, which meant the same question
 // was being asked twice one level apart — the clearest sign these were never four peers.
 //
-// `source` is where the numbers come from — the box scores we aggregate all season, or the
-// feed's TrackMan radar. Switching it keeps your side, so "Pitching → Tracked" reads as the
-// same subject measured another way rather than a jump somewhere else.
+// `source` is where the numbers come from: the box scores we aggregate all season, the
+// play-by-play read one pitch at a time, or the feed's TrackMan radar. Switching it keeps your
+// side, so "Pitching → Tracked" reads as the same subject measured another way rather than a
+// jump somewhere else.
+//
+// Ordered by how much of the season each one can speak for: Season (every game), Pitch by
+// pitch (every game, one row deeper), Tracked (two games, and hidden until that changes; see
+// trackingWorthShowing). The pitch board used to sit in the middle chip labelled "Pitches",
+// which collided with the SIDE named Pitching one row above it: with Hitting selected, a chip
+// called Pitches read as "you are about to leave the hitters", which is the opposite of what
+// it does. The internal value stays 'pitches' so the board-usage analytics keep one name
+// across the rename.
 //
 // 'draft' sits on neither axis on purpose: it's a one-off analysis of the draft class that
 // spans both sides at once, so it's reached from a card under the table instead.
 type Side = 'hitting' | 'pitching'
-type Source = 'season' | 'tracked' | 'draft'
+type Source = 'season' | 'tracked' | 'pitches' | 'draft'
 type Mode = 'players' | 'teams'
 
 // The deep-link contract, unchanged — Home's leader cards ask for 'hitting'/'pitching' with a
 // column, and a legacy ?view=tracking URL asks for 'tracking'. Resolved onto the axes above.
-type Group = 'hitting' | 'pitching' | 'tracking' | 'draft'
+type Group = 'hitting' | 'pitching' | 'tracking' | 'pitches' | 'draft'
 
 // Whether this page-load has already logged an arrival at Stats. Module scope rather than a
 // ref inside the component, because the pager unmounts the pane on the way out of the tab:
@@ -57,6 +68,7 @@ let statsOpened = false
 // A tracking link names no side, so it lands on whichever one the reader already had open.
 function axesOf(g: Group): { side?: Side; source: Source } {
   if (g === 'tracking') return { source: 'tracked' }
+  if (g === 'pitches') return { source: 'pitches' }
   if (g === 'draft') return { source: 'draft' }
   return { side: g, source: 'season' }
 }
@@ -226,9 +238,31 @@ export default function WpblStatsView({ teams, games, focus, active = true, onOp
   const [source, setSource] = useState<Source>(seedAxes.source)
   const [mode, setMode] = useState<Mode>('players')
   const [teamId, setTeamId] = useState<string | null>(null)
+  // One row and one integer (see fetchWpblTrackedGameCount), read so the chip row can decide
+  // whether Tracked is worth offering without loading the tracking scan to find out. Null
+  // until it answers, and null means "do not offer": showing the chip and then discovering it
+  // has two games in it is the outcome being avoided.
+  const [trackedGames, setTrackedGames] = useState<number | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetchWpblTrackedGameCount().then(n => { if (!cancelled) setTrackedGames(n) }).catch(() => {})
+    return () => { cancelled = true }
+  }, [])
   // The 5 AB / 3 IP qualifier only defaults on once every team has played 2+ games;
   // before that it would hide nearly everyone, so the complete table shows by default.
   const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])
+  // Games that have actually been played, which is what the tracked count has to be a share
+  // of: measured against the 30-game schedule instead, the bar could never be cleared in April.
+  const showTracked = useMemo(
+    () => trackedGames != null && trackingWorthShowing(trackedGames, games.filter(g => g.status === 'final').length),
+    [trackedGames, games])
+  // Once a reader has actually been on the Tracked board in this session (a ?view=tracking
+  // link, a Discord post from the watcher, the back button), the chip stays for the rest of
+  // it. Taking it away the moment they switched off would strand them somewhere they had just
+  // been, with the URL as the only way back.
+  const [trackedSeen, setTrackedSeen] = useState(seedAxes.source === 'tracked')
+  useEffect(() => { if (source === 'tracked') setTrackedSeen(true) }, [source])
+  const trackedOffered = showTracked || trackedSeen
   // The position each player has actually been playing, for the leaderboard sublabels.
   const positionIndex = useMemo(() => buildPositionIndex(lines.batting), [lines.batting])
   const [qualified, setQualified] = useState(() => qual.active)
@@ -614,7 +648,12 @@ export default function WpblStatsView({ teams, games, focus, active = true, onOp
       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, rowGap: 1, pb: 1.5 }}>
         <Box sx={{ order: 1, display: 'flex', gap: 0.5, flexShrink: 0 }}>
           <Chip active={source === 'season'} onClick={() => switchSource('season')}>Season</Chip>
-          <Chip active={source === 'tracked'} onClick={() => switchSource('tracked')}>Tracked</Chip>
+          <Chip active={source === 'pitches'} onClick={() => switchSource('pitches')}>Pitch by pitch</Chip>
+          {/* Hidden while the league has published radar for barely any games, and kept for the
+              session once a link has opened it anyway. See trackedOffered. */}
+          {trackedOffered && (
+            <Chip active={source === 'tracked'} onClick={() => switchSource('tracked')}>Tracked</Chip>
+          )}
         </Box>
 
         {/* Players mode only — in Teams mode the table already is the four teams. */}
@@ -645,13 +684,17 @@ export default function WpblStatsView({ teams, games, focus, active = true, onOp
       </Box>
       </Box>
 
-      {/* Tracked renders its own boards (league-best tiles + velocity / exit-velo leaders)
-          rather than the shared table — a different shape of data, not more columns — but it
-          reads the same `side` as the table, so switching Hitting/Pitching above carries
-          straight through instead of being asked again inside it. */}
+      {/* Tracked and Pitches each render their own boards (league tiles + ranked leaders)
+          rather than the shared table: a different shape of data, not more columns. Both read
+          the same `side` as the table, so switching Hitting/Pitching above carries straight
+          through instead of being asked again inside them. */}
       {source === 'tracked' ? (
         <Suspense fallback={<SubViewFallback />}>
           <WpblTrackingView side={side} onOpenPlayer={onOpenPlayer} />
+        </Suspense>
+      ) : source === 'pitches' ? (
+        <Suspense fallback={<SubViewFallback />}>
+          <WpblPitchView side={side} teams={teams} games={games} trackedVisible={trackedOffered} onOpenPlayer={onOpenPlayer} />
         </Suspense>
       ) : rows.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
