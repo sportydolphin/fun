@@ -440,25 +440,19 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const [statsFocus, setStatsFocus] = useState<WpblStatsFocus>(
     () => (seedTracking() ? { group: 'tracking', token: 1 } : { group: 'hitting', token: 0 }))
 
-  // "Something new here" dot on the Teams tab, pointing at the v1.45.0 rebuild. Read once at
-  // mount: shouldShowBadge() consults localStorage and an expiry date, and neither changes
-  // under us mid-session. See src/lib/seen.ts.
-  const [teamsBadge, setTeamsBadge] = useState(() => shouldShowBadge('teams-v145'))
+  // "Something new here" dot for the Pitch by pitch board, which lives one level deeper than a
+  // tab: it is drawn on the Stats pill AND on the chip inside it, and only opening the board
+  // retires it (see the note in lib/seen.ts). Cleared from StatsView, which is the only thing
+  // that knows the reader actually got there. Read once at mount: shouldShowBadge() consults
+  // localStorage and an expiry date, and neither changes under us mid-session.
+  //
+  // The Teams tab carried the same dot for the v1.45.0 rebuild and no longer does. It was
+  // pulled by hand rather than left to expire on Aug 31; the registration went with it, which
+  // is what lib/seen.ts means by deleting a badge and its call site together.
+  const [pitchesBadge, setPitchesBadge] = useState(() => shouldShowBadge('pitches-v147'))
   // Impression, logged once per mount rather than per render, so the click-through rate has
   // an honest denominator. Without this half of the point is lost: a nudge you cannot
   // measure is a nudge you will be guessing about next time.
-  const badgeLogged = useRef(false)
-  useEffect(() => {
-    if (!teamsBadge || badgeLogged.current) return
-    badgeLogged.current = true
-    track(EVENTS.NEW_BADGE_SHOWN, { badge: 'teams-v145' })
-  }, [teamsBadge])
-
-  // The same dot for the Pitch by pitch board, which lives one level deeper than a tab: it is
-  // drawn on the Stats pill AND on the chip inside it, and only opening the board retires it
-  // (see the note in lib/seen.ts). Cleared from StatsView, which is the only thing that knows
-  // the reader actually got there.
-  const [pitchesBadge, setPitchesBadge] = useState(() => shouldShowBadge('pitches-v147'))
   const pitchesBadgeLogged = useRef(false)
   useEffect(() => {
     if (!pitchesBadge || pitchesBadgeLogged.current) return
@@ -478,10 +472,9 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     setPitchesBadge(false)
   }, [])
 
-  // Which tabs are wearing a dot. Two badges point at two different tabs, and a tab shows one
-  // if either applies, so the navs do not have to know which badge is which.
-  const navBadge = (key: string): boolean =>
-    (key === 'teams' && teamsBadge) || (key === 'stats' && pitchesBadge)
+  // Which tabs are wearing a dot. Kept as a function rather than inlined into both navs, so a
+  // future badge is added in one place and the two navs cannot disagree.
+  const navBadge = (key: string): boolean => key === 'stats' && pitchesBadge
 
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [games, setGames] = useState<WpblGame[]>([])
@@ -604,14 +597,6 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // off-screen. Back/forward navigations go through popstate, not here, and aren't counted.
   const selectTab = useCallback((v: WpblView, via: 'pill' | 'swipe' | 'link' = 'pill') => {
     if (v !== view) track(EVENTS.WPBL_TAB_VIEWED, { view: v, via, from: view })
-    // Opening Teams retires the dot, whether the reader tapped the nav, swiped into it, or
-    // followed a card link. `via` rides along so a tap and a swipe can be told apart: only
-    // one of the three is the badge actually doing its job.
-    if (v === 'teams' && teamsBadge) {
-      track(EVENTS.NEW_BADGE_CLICKED, { badge: 'teams-v145', via })
-      markBadgeSeen('teams-v145')
-      setTeamsBadge(false)
-    }
     // Tapping the tab you are already on returns it to its root. This matters for Teams and
     // nowhere else: `selectedTeam` rides along through every tab switch (so swiping out to
     // Stats and back keeps the team page you were reading), but nothing ever cleared it — so
@@ -620,7 +605,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     // pill just re-opened the same team.
     const backToRoot = v === view && via === 'pill'
     push({ view: v, team: backToRoot ? null : selectedTeam, game: null, player: null })
-  }, [push, selectedTeam, view, teamsBadge])
+  }, [push, selectedTeam, view])
   const selectTeam = useCallback((t: WpblTeam | null) => push({ view: 'teams', team: t, game: null, player: null }), [push])
   // `opts` is how the team page asks for a specific board: the four-team comparison, or the
   // player table already filtered to one club. Omitted by every other caller, which keeps

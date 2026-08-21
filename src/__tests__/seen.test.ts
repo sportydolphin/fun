@@ -6,9 +6,11 @@ import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 // still sitting in the nav at Christmas, and the only symptom is that it never goes away for
 // anyone who ignores it. These pin both halves.
 
-const KEY = 'teams-v145'
-const BEFORE_EXPIRY = new Date('2026-08-20T12:00:00Z')
-const AFTER_EXPIRY = new Date('2026-09-15T12:00:00Z')
+// Whichever badge is registered today: these test the mechanism, not the release. When the
+// last one is retired and BADGES is empty, this file goes with it.
+const KEY = 'pitches-v147'
+const BEFORE_EXPIRY = new Date('2026-08-21T12:00:00Z')
+const AFTER_EXPIRY = new Date('2026-10-01T12:00:00Z')
 
 describe('shouldShowBadge', () => {
   beforeEach(() => { localStorage.clear() })

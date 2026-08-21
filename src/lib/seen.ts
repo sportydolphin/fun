@@ -19,8 +19,6 @@
 /** Registered badges. Add an entry when shipping something worth pointing at, and delete it
  *  (plus its call site) once the date has passed. */
 const BADGES = {
-  // The Teams tab rebuild in v1.45.0: ranked club cards and the head-to-head grid.
-  'teams-v145': new Date('2026-08-31T23:59:59Z'),
   // The Pitch by pitch board in v1.47.0, which is a source chip inside the Stats tab rather
   // than a tab of its own, so this one dot is drawn TWICE: on the Stats pill to get the reader
   // into the tab, and on the chip to get them the rest of the way. It is therefore retired by
