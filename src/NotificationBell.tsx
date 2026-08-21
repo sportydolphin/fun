@@ -14,18 +14,20 @@ import { useAuth } from './AuthContext'
 import { pressable, FOCUS_RING } from './wpbl/ui'
 import {
   useNotifications, refreshNotifications, registerNotificationSource,
-  markAllRead, markRead, dismissNotification, addEventNotification,
+  markAllRead, markRead, dismissNotification, clearNotifications, addEventNotification,
   AppNotification,
 } from './lib/notifications'
 import { picksReadySource } from './mlb/notifications/picksReady'
 import { gameStartSource } from './mlb/notifications/gameStart'
 import { milestoneSource } from './mlb/notifications/milestones'
+import { wpblGameStartSource } from './wpbl/notifications/gameStart'
 import { parseDeepLink, requestDeepLink } from './mlb/state/deepLink'
 
 // Registered at module load so the set of sources is declared in one place.
 registerNotificationSource(picksReadySource)
 registerNotificationSource(gameStartSource)
 registerNotificationSource(milestoneSource)
+registerNotificationSource(wpblGameStartSource)
 
 const REFRESH_MS = 5 * 60_000
 
@@ -53,6 +55,16 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
   const [anchorBottom, setAnchorBottom] = useState(0)
   useLayoutEffect(() => {
     if (open && anchorRef.current) setAnchorBottom(anchorRef.current.getBoundingClientRect().bottom)
+  }, [open])
+
+  // Escape closes it. ClickAwayListener covers the pointer, but on a phone the panel is a
+  // near-full-width sheet with very little page left to tap beside it, and a keyboard user
+  // had no way out at all except tabbing through every row.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
   // Re-evaluate sources on mount, when the signed-in user changes, on a timer,
@@ -104,9 +116,15 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
   return (
     <ClickAwayListener onClickAway={() => setOpen(false)}>
       <Box ref={anchorRef} sx={{ position: 'relative' }}>
-        <Tooltip title="Notifications">
+        {/* Suppressed while the panel is open. The tooltip is interactive, so it sits on top
+            of the panel's own header and eats the click meant for Clear all, which lands
+            directly under it. A label for a control the reader has already operated is noise
+            anyway. */}
+        <Tooltip title={open ? '' : 'Notifications'}>
           <IconButton
             size="small"
+            aria-label={unread > 0 ? `Notifications, ${unread} unread` : 'Notifications'}
+            aria-expanded={open}
             onClick={() => {
               setOpen(o => !o)
               // Opening the panel is the "I've seen these" signal.
@@ -125,7 +143,7 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
         </Tooltip>
 
         {open && (
-          <Paper elevation={8} sx={{
+          <Paper elevation={8} role="dialog" aria-labelledby="notification-panel-title" sx={{
             zIndex: 1500, borderRadius: 2.5, overflow: 'hidden',
             // Phone: a sheet pinned to the viewport with an even margin each side, so it
             // can't run off an edge whatever the bell's position in the toolbar.
@@ -144,12 +162,34 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
               borderBottom: '1px solid', borderColor: 'divider',
               position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1,
             }}>
-              <Typography sx={{
+              <Typography id="notification-panel-title" sx={{
                 flex: 1, fontSize: '0.62rem', fontWeight: 800, color: 'text.secondary',
                 textTransform: 'uppercase', letterSpacing: 1,
               }}>
                 Notifications
               </Typography>
+              {/* Only when there is something to clear: a permanently visible control that
+                  does nothing most of the time reads as broken. Closing the panel too, since
+                  what is left behind is the empty state and the reader is plainly done. */}
+              {items.length > 0 && (
+                <Box
+                  {...pressable(() => { clearNotifications(); setOpen(false) })}
+                  aria-label="Clear all notifications"
+                  sx={{
+                    // 32px tall for the same reason the row's dismiss control is: text this
+                    // small makes a ~19px target, which a thumb misses. The negative margin
+                    // keeps the header its original height while the target grows.
+                    flexShrink: 0, px: 1, minHeight: 32, my: -0.5, borderRadius: 1,
+                    display: 'flex', alignItems: 'center',
+                    fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary',
+                    textTransform: 'uppercase', letterSpacing: 0.5, cursor: 'pointer',
+                    '&:hover': { color: 'text.primary', bgcolor: 'action.hover' },
+                    ...FOCUS_RING,
+                  }}
+                >
+                  Clear all
+                </Box>
+              )}
             </Box>
 
             {items.length === 0 ? (
@@ -157,8 +197,11 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
                 <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary' }}>
                   You're all caught up
                 </Typography>
+                {/* Deliberately section-neutral. The default section is WPBL, so the old
+                    "pick reminders" wording described a feature the reader may not have,
+                    in a section they may never open. */}
                 <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.5 }}>
-                  Pick reminders and updates will show up here.
+                  Game reminders and updates will show up here.
                 </Typography>
               </Box>
             ) : (

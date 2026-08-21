@@ -17,10 +17,10 @@ const TROPHY   = '\u{1F3C6}'
 function seed(icon: string) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     items: [{
-      id: 'wpbl-game-start-123',
-      type: 'wpbl_game_start',
+      id: 'wpbl-game-start:g1',
+      type: 'wpbl-game-start',
       title: 'WPBL game starting soon',
-      body: 'Boston Hunters @ San Francisco Sea Lions. First pitch in 30 min.',
+      body: 'Boston Hunters @ San Francisco Firebells. First pitch in 30 min.',
       url: '/wpbl?view=home',
       icon,
       source: 'event',

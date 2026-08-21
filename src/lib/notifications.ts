@@ -40,6 +40,19 @@ export interface AppNotification extends NotificationPayload {
 
 interface State {
   items: AppNotification[]
+  /**
+   * Ids the reader has dismissed, with when they did it.
+   *
+   * Derived sources recompute their output on every refresh, so without a record of
+   * the dismissal `reconcileSource` puts the item straight back: dismissing "Your picks
+   * are ready" bought about five minutes of quiet before it returned, unread and stamped
+   * "just now". A tombstone is the only thing that can outlive a recompute, because the
+   * thing being suppressed is regenerated from scratch each time rather than stored.
+   *
+   * Ids carry the occasion they belong to (`picks_ready:2026-08-21`,
+   * `wpbl_game_start:<gameId>`), so suppressing one never suppresses tomorrow's.
+   */
+  dismissed: Record<string, number>
 }
 
 // ─── Persistence ──────────────────────────────────────────────────────────────
@@ -49,10 +62,28 @@ function load(): State {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed?.items)) return { items: parsed.items.filter(isFresh).map(correctIcon) }
+      if (Array.isArray(parsed?.items)) {
+        return {
+          items:     parsed.items.filter(isFresh).map(correctIcon),
+          dismissed: freshDismissals(parsed.dismissed),
+        }
+      }
     }
   } catch { /* fall through to empty */ }
-  return { items: [] }
+  return { items: [], dismissed: {} }
+}
+
+// Tombstones age out on the same clock as the notifications themselves: past that,
+// nothing that could still be on screen refers to them, and keeping them forever
+// would grow localStorage without bound.
+function freshDismissals(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== 'object') return {}
+  const now = Date.now()
+  const out: Record<string, number> = {}
+  for (const [id, ts] of Object.entries(raw as Record<string, number>)) {
+    if (typeof ts === 'number' && now - ts < MAX_AGE_MS) out[id] = ts
+  }
+  return out
 }
 
 function isFresh(n: AppNotification): boolean {
@@ -77,10 +108,10 @@ function correctIcon(n: AppNotification): AppNotification {
 let state: State = load()
 const listeners = new Set<() => void>()
 
-function commit(items: AppNotification[]) {
+function commit(items: AppNotification[], dismissed = state.dismissed) {
   // Newest first, capped — the bell is a recent-activity list, not an archive.
   const next = [...items].sort((a, b) => b.createdAt - a.createdAt).slice(0, MAX_ITEMS)
-  state = { items: next }
+  state = { items: next, dismissed }
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)) } catch { /* quota — ignore */ }
   listeners.forEach(l => l())
 }
@@ -97,7 +128,7 @@ function commit(items: AppNotification[]) {
 export function reconcileSource(sourceId: string, payloads: NotificationPayload[]) {
   const existing = new Map(state.items.map(n => [n.id, n]))
   const kept     = state.items.filter(n => n.source !== sourceId)
-  const produced = payloads.map(p => {
+  const produced = payloads.filter(p => !state.dismissed[p.id]).map(p => {
     const prev = existing.get(p.id)
     return {
       ...p,
@@ -112,6 +143,9 @@ export function reconcileSource(sourceId: string, payloads: NotificationPayload[
 
 /** Record an externally delivered notification (push received while open). */
 export function addEventNotification(payload: NotificationPayload) {
+  // A re-send of something the reader already swept away. The OS notification is the
+  // sender's business; the bell was told to drop it.
+  if (state.dismissed[payload.id]) return
   const existing = state.items.find(n => n.id === payload.id)
   if (existing) {
     // Same id = same notification re-sent; refresh content, leave read state.
@@ -130,11 +164,22 @@ export function markAllRead() {
 }
 
 export function dismissNotification(id: string) {
-  commit(state.items.filter(n => n.id !== id))
+  commit(state.items.filter(n => n.id !== id), { ...state.dismissed, [id]: Date.now() })
 }
 
+/**
+ * Sweep the whole list.
+ *
+ * Every id currently on screen is tombstoned, not just deleted, for the same reason a
+ * single dismissal is: half this list is recomputed from live data every few minutes,
+ * so a plain empty would refill itself and make the button look broken. A source that
+ * later has something genuinely new to say uses a new id and comes through.
+ */
 export function clearNotifications() {
-  commit([])
+  const now = Date.now()
+  const dismissed = { ...state.dismissed }
+  for (const n of state.items) dismissed[n.id] = now
+  commit([], dismissed)
 }
 
 // ─── Sources ──────────────────────────────────────────────────────────────────
