@@ -23,8 +23,20 @@ vi.mock('../lib/supabase', () => ({
       select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }),
       upsert: async () => ({ error: null }),
     }),
-    auth: { getSession: async () => ({ data: { session: null } }) },
+    // Signed out. `onAuthStateChange` is not optional even so: AuthProvider subscribes on
+    // mount and destructures the subscription off the result, so omitting it throws before
+    // any of this dialog renders.
+    auth: {
+      getSession: async () => ({ data: { session: null } }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+    },
   },
+}))
+
+// Pulled in by AuthContext's sign-up path, which this test never walks.
+vi.mock('../lib/usernames', () => ({
+  usernameValidationMsg: () => '',
+  isUsernameTaken: async () => false,
 }))
 
 // No team crests: the grid is irrelevant here and each entry drags in a logo asset.
@@ -41,30 +53,34 @@ vi.mock('../lib/push', () => ({
 }))
 
 import { SettingsDialog } from '../SettingsDialog'
+import { AuthProvider } from '../AuthContext'
 import { UnitsProvider } from '../UnitsContext'
 import { ExperimentsProvider } from '../ExperimentsContext'
 import { AccessibilityProvider } from '../AccessibilityContext'
 
-// The dialog reads three shell contexts. Real providers rather than stubs: they are all
-// localStorage-backed and cheap, and stubbing them would let a future required context slip
-// through as a passing test.
+// The dialog reads four shell contexts. Real providers rather than stubs: they are all
+// localStorage- or mock-backed and cheap, and stubbing them would let a future required
+// context slip through as a passing test. AuthProvider joined the list when the Account card
+// grew a change-password form, which is exactly the slip this arrangement is meant to catch.
 function openMlbSettings() {
   return render(
-    <UnitsProvider>
-      <ExperimentsProvider>
-        <AccessibilityProvider>
-          <SettingsDialog
-            open
-            onClose={() => {}}
-            userId="u1"
-            email="fan@example.com"
-            currentUsername="fan"
-            onEditUsername={() => {}}
-            isWpbl={false}
-          />
-        </AccessibilityProvider>
-      </ExperimentsProvider>
-    </UnitsProvider>,
+    <AuthProvider>
+      <UnitsProvider>
+        <ExperimentsProvider>
+          <AccessibilityProvider>
+            <SettingsDialog
+              open
+              onClose={() => {}}
+              userId="u1"
+              email="fan@example.com"
+              currentUsername="fan"
+              onEditUsername={() => {}}
+              isWpbl={false}
+            />
+          </AccessibilityProvider>
+        </ExperimentsProvider>
+      </UnitsProvider>
+    </AuthProvider>,
   )
 }
 

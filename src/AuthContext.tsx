@@ -7,6 +7,8 @@ import {
 import { CheckCircle, Cancel } from '@mui/icons-material'
 import { supabase } from './lib/supabase'
 import { usernameValidationMsg, isUsernameTaken } from './lib/usernames'
+import { passwordProblem } from './lib/passwordPolicy'
+import { PasswordChecklist } from './PasswordChecklist'
 
 // Key prefix for stashing a chosen-at-signup username until the account has a
 // real session to write it under (email confirmation may gate that) — picked
@@ -204,6 +206,14 @@ interface AuthContextValue {
    *  an error string, or null on success, where "success" only means the request was
    *  accepted, never that the address has an account. See the call site. */
   resetPassword:    (email: string) => Promise<string | null>
+  /** Change the password of the account that is already signed in. `current` is checked first
+   *  and must be null only for an account that has no password yet (see `hasPassword`).
+   *  Resolves to an error string, or null on success. */
+  changePassword:   (current: string | null, next: string) => Promise<string | null>
+  /** Whether this account can be signed into with a password at all. False for one created
+   *  through Google and never given one, where there is no current password to ask for and the
+   *  operation is "set" rather than "change". */
+  hasPassword:      boolean
   openAuthDialog:   (mode?: AuthMode) => void
 }
 
@@ -334,10 +344,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return error ? friendlyError(error.message) : null
   }, [])
 
+  const changePassword = useCallback(async (current: string | null, next: string): Promise<string | null> => {
+    const em = session?.user.email
+    if (!em) return 'You need to be signed in to change your password.'
+
+    // Verify the current password by signing in with it, rather than trusting the open session.
+    // supabase does not require the old password to set a new one, which means a session left
+    // open on a shared machine is enough for someone else to change the password and lock the
+    // owner out of their own account. This closes that, and it costs one request.
+    //
+    // Skipped only for an account that has no password to prove: a Google sign-up setting one
+    // for the first time has nothing to check it against.
+    if (current !== null) {
+      const { error } = await supabase.auth.signInWithPassword({ email: em, password: current })
+      // Deliberately not `friendlyError`, whose wording for this case ("Incorrect email or
+      // password") names a field this form does not have.
+      if (error) return 'That is not your current password.'
+    }
+
+    const { error } = await supabase.auth.updateUser({ password: next })
+    return error ? friendlyError(error.message) : null
+  }, [session])
+
   const submitNewPassword = useCallback(async () => {
     // Checked here as well as server-side so the reader is told before a round trip, and
     // because the confirm field is ours alone: supabase never sees it.
-    if (newPw.length < 6) { setRecoveryErr('Password must be at least 6 characters.'); return }
+    const pwErr = passwordProblem(newPw, { email: session?.user.email ?? null })
+    if (pwErr) { setRecoveryErr(pwErr); return }
     if (newPw !== newPw2) { setRecoveryErr('Those two passwords do not match.'); return }
     setRecoveryBusy(true); setRecoveryErr('')
     const { error } = await supabase.auth.updateUser({ password: newPw })
@@ -346,7 +379,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Drop both copies out of component state the moment they are no longer needed.
     setNewPw(''); setNewPw2('')
     setRecoveryDone(true)
-  }, [newPw, newPw2])
+  }, [newPw, newPw2, session])
 
   const signOut = useCallback(async () => {
     // Clear a simulated dev login without touching real Supabase auth.
@@ -477,6 +510,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (mode === 'signup') {
+      // Checked before the request so the reader is told in place, and because supabase's own
+      // minimum is six characters: without this the policy would apply to changing a password
+      // and not to choosing the first one, which is the wrong way round.
+      const pwErr = passwordProblem(password, { email: em, username: username.trim() || null })
+      if (pwErr) { setError(pwErr); return }
+
       const desired = username.trim()
       if (desired) {
         const fmtErr = usernameValidationMsg(desired)
@@ -518,9 +557,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [mode, email, password, username, usernameStat, signIn, resetPassword])
 
+  // Does this account have a password at all? Supabase records one identity per sign-in method,
+  // so an account created through Google carries only a `google` identity until a password is
+  // set, at which point an `email` one appears. Read from both places it is published, because
+  // `identities` is absent from some session shapes while `app_metadata.providers` is absent
+  // from others, and getting this wrong in the FALSE direction is the harmless one: it asks for
+  // a current password that does exist.
+  const user = session?.user
+  const hasPassword =
+    (user?.identities?.some(i => i.provider === 'email') ?? false) ||
+    ((user?.app_metadata?.providers as string[] | undefined)?.includes('email') ?? false)
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signIn, signUp, signOut, signInWithGoogle, resetPassword, openAuthDialog }}>
+    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signIn, signUp, signOut, signInWithGoogle, resetPassword, changePassword, hasPassword, openAuthDialog }}>
       {children}
 
       <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
@@ -606,7 +656,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   value={password}
                   onChange={e => { setPassword(e.target.value); setError('') }}
                   onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-                  sx={{ mb: mode === 'signup' ? 1.5 : 0 }}
+                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                  sx={{ mb: mode === 'signup' ? 1 : 0 }}
+                />
+              )}
+
+              {/* Only where a password is being CHOSEN. On the sign-in form the rules are none
+                  of the reader's business: their existing password is whatever it is, and
+                  listing today's requirements next to it would read as an accusation. */}
+              {mode === 'signup' && (
+                <PasswordChecklist
+                  password={password}
+                  context={{ email: email.trim() || null, username: username.trim() || null }}
+                  sx={{ mb: 1.5 }}
                 />
               )}
 
@@ -754,7 +816,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 onChange={e => { setNewPw(e.target.value); setRecoveryErr('') }}
                 onKeyDown={e => e.key === 'Enter' && submitNewPassword()}
                 autoComplete="new-password"
-                helperText="At least 6 characters."
+                sx={{ mb: 1 }}
+              />
+              <PasswordChecklist
+                password={newPw}
+                context={{ email: session?.user.email ?? null }}
                 sx={{ mb: 1.5 }}
               />
               <TextField

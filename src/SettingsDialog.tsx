@@ -23,6 +23,9 @@ import { getCachedAllGamesPref, fetchAllGamesPref, setAllGamesPref } from './wpb
 import { ModalShell, pressable, FOCUS_RING } from './wpbl/ui'
 import { useUnits, type UnitSystem } from './UnitsContext'
 import { useExperimentsSetting } from './ExperimentsContext'
+import { useAuth } from './AuthContext'
+import { passwordProblem } from './lib/passwordPolicy'
+import { PasswordChecklist } from './PasswordChecklist'
 import { useAccessibilitySettings, type TextScale } from './AccessibilityContext'
 import { track, EVENTS } from './lib/analytics'
 
@@ -561,6 +564,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
   const [league, setLeague] = useState<League>(isWpbl ? 'wpbl' : 'mlb')
   useEffect(() => { if (open) setLeague(isWpbl ? 'wpbl' : 'mlb') }, [open, isWpbl])
 
+  const { changePassword, hasPassword } = useAuth()
   const { units, setUnits } = useUnits()
   const { experiments, setExperiments } = useExperimentsSetting()
   const { swipeNav, setSwipeNav, textScale, setTextScale } = useAccessibilitySettings()
@@ -568,6 +572,16 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
   const [perm, setPerm] = useState<ReturnType<typeof notificationPermission>>('default')
   const [subscribed, setSubscribed] = useState(false)
   const [busy, setBusy] = useState(false)
+
+  // Change-password form, expanded inline in the Account card rather than opening a second
+  // modal on top of this one.
+  const [pwOpen, setPwOpen] = useState(false)
+  const [pwCurrent, setPwCurrent] = useState('')
+  const [pwNext, setPwNext] = useState('')
+  const [pwConfirm, setPwConfirm] = useState('')
+  const [pwErr, setPwErr] = useState('')
+  const [pwBusy, setPwBusy] = useState(false)
+  const [pwDone, setPwDone] = useState(false)
 
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
@@ -584,8 +598,29 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
     if (!open) return
     setPerm(notificationPermission())
     setDeleteOpen(false); setDeleteConfirm(''); setDeleteErr(''); setDeleting(false)
+    closePasswordForm()
     if (pushSupported()) isSubscribed().then(setSubscribed).catch(() => setSubscribed(false))
   }, [open])
+
+  const closePasswordForm = () => {
+    setPwOpen(false); setPwDone(false); setPwErr('')
+    // Clear both copies out of component state the moment the form is not on screen.
+    setPwCurrent(''); setPwNext(''); setPwConfirm('')
+  }
+
+  const handleChangePassword = async () => {
+    // Checked here as well as server-side so nothing is sent that is going to bounce, and
+    // because the confirm field is ours alone: supabase never sees it.
+    const policyErr = passwordProblem(pwNext, { email, username: currentUsername })
+    if (policyErr) { setPwErr(policyErr); return }
+    if (pwNext !== pwConfirm) { setPwErr('Those two passwords do not match.'); return }
+    setPwBusy(true); setPwErr('')
+    const err = await changePassword(hasPassword ? pwCurrent : null, pwNext)
+    setPwBusy(false)
+    if (err) { setPwErr(err); return }
+    setPwCurrent(''); setPwNext(''); setPwConfirm('')
+    setPwDone(true)
+  }
 
   const handleDeleteAccount = async () => {
     setDeleting(true)
@@ -624,6 +659,80 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
                 onClick={onEditUsername}
                 chevron
               />
+              {/* An account made through Google has no password until someone sets one, so the
+                  row is "Set a password" there and never asks for a current one it could not
+                  check. Setting one does not remove the Google button; it adds a second way in,
+                  which is the point for anyone who loses access to that Google account. */}
+              {!pwOpen ? (
+                <Row
+                  title={hasPassword ? 'Change password' : 'Set a password'}
+                  hint={hasPassword
+                    ? 'You will need your current one.'
+                    : 'You signed up with Google. Adding a password gives you a second way in.'}
+                  onClick={() => { setPwOpen(true); setPwDone(false); setPwErr('') }}
+                  chevron
+                />
+              ) : (
+                <Box sx={{ p: 1.75, borderTop: '1px solid', borderColor: 'divider' }}>
+                  {pwDone ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5 }}>
+                      <Typography sx={{ fontSize: '0.82rem', color: 'success.main', fontWeight: 700 }}>
+                        Password {hasPassword ? 'changed' : 'set'}.
+                      </Typography>
+                      <Button size="small" onClick={closePasswordForm}>Done</Button>
+                    </Box>
+                  ) : (
+                    <>
+                      {hasPassword && (
+                        <TextField
+                          autoFocus fullWidth size="small" label="Current password" type="password"
+                          value={pwCurrent}
+                          onChange={e => { setPwCurrent(e.target.value); setPwErr('') }}
+                          autoComplete="current-password"
+                          sx={{ mb: 1.25 }}
+                        />
+                      )}
+                      <TextField
+                        autoFocus={!hasPassword}
+                        fullWidth size="small" label="New password" type="password"
+                        value={pwNext}
+                        onChange={e => { setPwNext(e.target.value); setPwErr('') }}
+                        onKeyDown={e => e.key === 'Enter' && handleChangePassword()}
+                        autoComplete="new-password"
+                        sx={{ mb: 0.75 }}
+                      />
+                      <PasswordChecklist
+                        password={pwNext}
+                        context={{ email, username: currentUsername }}
+                        sx={{ mb: 1.25 }}
+                      />
+                      <TextField
+                        fullWidth size="small" label="Confirm new password" type="password"
+                        value={pwConfirm}
+                        onChange={e => { setPwConfirm(e.target.value); setPwErr('') }}
+                        onKeyDown={e => e.key === 'Enter' && handleChangePassword()}
+                        autoComplete="new-password"
+                        error={pwConfirm.length > 0 && pwConfirm !== pwNext}
+                      />
+                      {pwErr && (
+                        <Typography sx={{ fontSize: '0.78rem', color: 'error.main', mt: 1, lineHeight: 1.45 }}>
+                          {pwErr}
+                        </Typography>
+                      )}
+                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', mt: 1.25 }}>
+                        <Button size="small" onClick={closePasswordForm} disabled={pwBusy}>Cancel</Button>
+                        <Button
+                          size="small" variant="contained"
+                          onClick={handleChangePassword}
+                          disabled={pwBusy || !pwNext || !pwConfirm || (hasPassword && !pwCurrent)}
+                        >
+                          {pwBusy ? 'Saving…' : hasPassword ? 'Change password' : 'Set password'}
+                        </Button>
+                      </Box>
+                    </>
+                  )}
+                </Box>
+              )}
             </SettingsCard>
           </Box>
         )}
