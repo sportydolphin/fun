@@ -299,9 +299,14 @@ function MlbSection({ userId, push }: { userId: string; push: PushState }) {
     })
 
     // localStorage paints the right state on the first frame, then the account value confirms
-    // or corrects it.
+    // or corrects it. The correction is written back to localStorage rather than kept in
+    // React state alone, because the bell's picks-ready source reads the local value to
+    // decide whether to nudge: leaving it stale means switching the reminder off on one
+    // device leaves this one still nudging.
     setPicks(getLocalPickReminderPref())
-    loadPickReminderPrefFromSupabase(userId).then(row => { if (row !== null) setPicks(row) })
+    loadPickReminderPrefFromSupabase(userId).then(row => {
+      if (row !== null) { setPicks(row); setLocalPickReminderPref(row) }
+    })
 
     // Bell-only and device-local, so there is no account value to reconcile against.
     setMilestones(getLocalMilestonePref())

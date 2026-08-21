@@ -11,7 +11,7 @@
 import { buildPicksReady } from '../../../shared/notifications'
 import type { NotificationPayload } from '../../../shared/notifications'
 import type { NotificationContext, NotificationSource } from '../../lib/notifications'
-import { isSubscribed } from '../../lib/push'
+import { getLocalPickReminderPref } from '../storage/prefs'
 
 function todayStr(): string {
   const d = new Date()
@@ -22,12 +22,14 @@ export const picksReadySource: NotificationSource = {
   id: 'picks-ready',
 
   async evaluate(ctx: NotificationContext): Promise<NotificationPayload[]> {
-    // Opt-in, exactly like the Web Push reminder it mirrors: only surface the in-site
-    // pick nudge once the user has turned on daily pick reminders (i.e. subscribed to
-    // push). Someone who never opted in — a WPBL-focused visitor, or anyone signed out —
-    // doesn't get the daily MLB prediction notification. Checked first so it also
-    // short-circuits the schedule/picks fetch below.
-    if (!(await isSubscribed())) return []
+    // Opt-in, exactly like the Web Push reminder it mirrors, and read from the same
+    // preference the sender filters on (scripts/send-reminders.mjs). This used to test
+    // isSubscribed() instead, on the assumption that a subscription meant pick reminders.
+    // It does not: one subscription carries pick, game-start and WPBL reminders, and
+    // turning pick reminders off deliberately leaves it in place for the others. So the
+    // bell kept nudging after the switch was off, while push correctly went quiet.
+    // Checked first so it also short-circuits the schedule/picks fetch below.
+    if (!getLocalPickReminderPref()) return []
 
     // Imported dynamically: the bell lives in the always-loaded toolbar, and a
     // static import here would drag the lazy MLB bundle into the initial chunk.
