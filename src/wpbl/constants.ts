@@ -123,7 +123,7 @@ export function wpblFullName(team: Pick<WpblTeam, 'city' | 'name'>): string {
 // re-render it in the VIEWER's local zone (a 5:00 PM Central game shows as "6:00 PM"
 // on the east coast). Pass withZone to append the zone abbreviation ("6:00 PM EDT")
 // where it helps disambiguate. Returns the original string if it isn't "H:MM AM/PM".
-const WPBL_TZ = 'America/Chicago'
+export const WPBL_TZ = 'America/Chicago'
 export function formatGameTime(gameDate: string, startTime: string | null | undefined, withZone = false): string | null {
   if (!startTime) return null
   const m = startTime.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
