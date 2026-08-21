@@ -129,17 +129,28 @@ Other ways to test the real reminder:
 ## WPBL game reminders
 
 A second reminder, reusing the same subscription plumbing: the **bell on the WPBL
-Home next-game card** ("Remind me before this game"). It's a per-game opt-in rather
-than a standing preference.
+Home next-game card** ("Reminders for every game"). It is one standing preference,
+`user_preferences.notify_wpbl_all_games`. It used to be a per-game opt-in, and the
+sender still honours any `wpbl_game_reminders` rows left from that, but nothing
+creates new ones.
 
 | Piece | File | Role |
 |-------|------|------|
 | Toggle UI | `src/wpbl/Home.tsx` (`GameReminderRow`) | Bell + switch under the matchup |
-| Client helpers | `src/wpbl/reminders.ts` | Ensures a push sub, then adds/removes the opt-in row |
+| Client helpers | `src/wpbl/reminders.ts` | Ensures a push sub, then writes the standing pref |
 | Catalog | `shared/notifications.js` (`buildWpblGameStart`) | Push content |
-| Tables | `scripts/create_wpbl_game_reminders.sql` | `wpbl_game_reminders` (opt-ins) + `wpbl_game_start_sent` (once-only log) |
+| Tables | `scripts/create_wpbl_game_reminders.sql` | `wpbl_game_reminders` (legacy per-game opt-ins) + `wpbl_game_start_sent` (once-only log) |
 | Sender | `scripts/send-wpbl-game-start.mjs` | Cron push; fires 30 min before first pitch |
 | Schedule | `.github/workflows/wpbl-game-start-reminders.yml` | Runs the sender every 10 min during game hours |
+| In-site twin | `src/wpbl/notifications/gameStart.ts` | Derives the same reminder for the toolbar bell |
+
+- **Why there is an in-site twin:** `sw.js` records a push in the bell by posting it
+  to open tabs, so a reminder that arrives while the app is closed is shown by the OS
+  and then exists nowhere in the app. The twin recomputes it from the schedule on
+  every bell refresh, under the same id the push uses, so the two collapse into one
+  row instead of doubling up. Its lead window (30 min) is hardcoded to match
+  `DEFAULT_LEAD_MIN` in the sender: change one and change the other, or the bell and
+  the lock screen disagree about when a game is starting.
 
 - **Opt-in record = metric:** each opt-in is a `wpbl_game_reminders` row, so
   counting rows (or distinct `user_id`s) tells you how many fans turned reminders
