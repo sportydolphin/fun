@@ -30,6 +30,30 @@ const ROUTES: Record<string, Seo> = {
     description:
       "Live WPBL scores, standings, and player and team stats for the Women's Pro Baseball League. Free and no sign-in required to browse.",
   },
+  // The section's four other tabs. Each is a real path as of Aug 21, 2026 (see
+  // wpbl/routes.ts); before that they were `?view=` on /wpbl, which meant one title and one
+  // canonical for the whole section and so exactly one page Google could rank. Titles lead
+  // with the term someone would actually type, since that is the half a result list shows.
+  '/wpbl/schedule': {
+    title: "WPBL Schedule 2026: Women's Pro Baseball League | sportydolphin.fun",
+    description:
+      "The full 2026 Women's Pro Baseball League schedule: every WPBL game, date, and first pitch time, with final scores as they land.",
+  },
+  '/wpbl/standings': {
+    title: "WPBL Standings 2026: Women's Pro Baseball League | sportydolphin.fun",
+    description:
+      "Current WPBL standings: wins, losses, run differential and games back for all four Women's Pro Baseball League clubs.",
+  },
+  '/wpbl/stats': {
+    title: "WPBL Stat Leaders 2026: batting & pitching | sportydolphin.fun",
+    description:
+      "WPBL batting and pitching leaders for 2026: OPS, home runs, RBI, ERA, strikeouts and TrackMan pitch data for the Women's Pro Baseball League.",
+  },
+  '/wpbl/teams': {
+    title: "WPBL Teams & Rosters: Women's Pro Baseball League | sportydolphin.fun",
+    description:
+      "All four Women's Pro Baseball League clubs: rosters, team stats, and results for the Firebells, Queens, Hunters and Heights.",
+  },
   '/wpbl/api': {
     title: "WPBL API — Women's Pro Baseball League data feed | sportydolphin.fun",
     description:

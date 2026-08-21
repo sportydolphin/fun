@@ -177,8 +177,13 @@ const SEG_DOT_SX = { position: 'absolute' as const, top: 5, right: 6 }
 
 export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 } }: {
   /** `badge` draws a NewDot on that option. Opt-in per item because this control is shared
-   *  with the MLB section, which has nothing to announce. */
-  options: { value: string; label: string; badge?: boolean }[]
+   *  with the MLB section, which has nothing to announce.
+   *
+   *  `href` renders that pill as a real <a>. Opt-in for the same reason: WPBL's tabs are
+   *  addressable routes (/wpbl/standings and friends) and Googlebot only follows anchors,
+   *  so without it those pages exist but nothing links to them. The MLB tab bar passes no
+   *  href and keeps its button semantics unchanged. */
+  options: { value: string; label: string; badge?: boolean; href?: string }[]
   value: string
   onChange: (v: string) => void
   accent?: string
@@ -225,13 +230,29 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
           <Box
             key={opt.value}
             ref={value === opt.value ? activeRef : undefined}
-            {...pressable(() => onChange(opt.value))}
-            aria-pressed={value === opt.value}
+            // An anchor is already focusable and already announces itself as a link, so the
+            // href variant takes neither `pressable`'s role/tabIndex nor aria-pressed: a link
+            // marks its current destination with aria-current, and a toggle button is the
+            // wrong thing to call a page you can open in a new tab. Modified clicks fall
+            // through untouched so cmd/middle-click still opens the tab in a new window.
+            {...(opt.href
+              ? {
+                  component: 'a' as const,
+                  href: opt.href,
+                  'aria-current': value === opt.value ? ('page' as const) : undefined,
+                  onClick: (e: React.MouseEvent) => {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+                    e.preventDefault()
+                    onChange(opt.value)
+                  },
+                }
+              : { ...pressable(() => onChange(opt.value)), 'aria-pressed': value === opt.value })}
             // The dot is aria-hidden, so the news has to live in the name instead. Without
             // this the nudge would be purely visual.
             aria-label={opt.badge ? `${opt.label}, updated` : undefined}
             sx={{
               ...FOCUS_RING,
+              textDecoration: 'none',
               position: 'relative',
               px: 1.75, py: 0.5,
               borderRadius: 999,

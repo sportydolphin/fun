@@ -116,9 +116,18 @@ Each of these has already cost someone a debugging session, and none of them fai
   Cloudflare Pages Functions, the second is Supabase Deno edge functions.
 - **A new Cloudflare Pages Function also needs a route in `public/_routes.json`.** That
   file is an allow-list. Without an entry the function compiles, uploads, deploys, and is
-  never called.
-- **A new app route also needs two lines in `public/_redirects`,** or it 404s in production
-  while working perfectly in dev. Pages used to serve the SPA shell with a 200 for *any*
+  never called. **It can only narrow, never widen.** Function routing is by file path, so
+  `functions/wpbl/index.ts` serves exactly `/wpbl`; adding `/wpbl/*` to `_routes.json` does
+  not make it run on `/wpbl/stats`. Covering a subtree takes a catch-all file
+  ([`functions/wpbl/[[tab]].ts`](functions/wpbl/%5B%5Btab%5D%5D.ts), which re-exports the
+  handler rather than copying it). This is how the player share-card rewrite quietly stopped
+  running the day the WPBL tabs became real paths: the page was fine, only the unfurl was
+  wrong.
+- **A new app route also needs two lines in `public/_redirects`,** and a WPBL tab needs an
+  entry in [`src/wpbl/routes.ts`](src/wpbl/routes.ts) and
+  [`src/seo.ts`](src/seo.ts) besides. `src/wpbl/__tests__/routes.test.ts` pins all four
+  together, because three of the four failures are invisible locally. Otherwise it 404s in
+  production while working perfectly in dev. Pages used to serve the SPA shell with a 200 for *any*
   unmatched path, which made every typo on the domain an indexable page: Google found
   `/wpbl),and` from a mangled pasted link and indexed it as a real page of the site. So the
   fallback is inverted. `_redirects` lists the app's routes explicitly (a `200` rewrite plus

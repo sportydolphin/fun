@@ -1,6 +1,12 @@
-// Cloudflare Pages function for /wpbl — rewrites the page's Open Graph tags when the URL
-// carries a ?player=<id> deep link, so a pasted player link unfurls as that player rather
-// than as the site's one generic card.
+// Cloudflare Pages function for /wpbl and its tabs. Rewrites the page's Open Graph tags
+// when the URL carries a ?player=<id> deep link, so a pasted player link unfurls as that
+// player rather than as the site's one generic card.
+//
+// It has to cover `/wpbl/*`, not just `/wpbl` (see public/_routes.json). A player modal
+// hangs off whichever tab you opened it from, so once the tabs became real paths the
+// commonest share links of all (a player opened from the Stats leaders or a Teams roster,
+// living at /wpbl/stats?player=…) stopped invoking this and silently fell back to the
+// generic card. Nothing about the page looked wrong; only the unfurl did.
 //
 // Why this can't live in the app: unfurlers (iMessage, Slack, Discord, X) fetch the HTML
 // and never run JS, so src/seo.ts — which sets its tags after React mounts — is invisible
@@ -43,9 +49,49 @@ const DATA_TIMEOUT_MS = 1200
 
 const SITE = 'https://sportydolphin.fun'
 
+// Legacy `?view=` value → the path that replaced it. Spelled out here rather than imported
+// from src/wpbl/routes.ts because it has to include the values that are NO LONGER views:
+// `tracking` folded into Stats back when Tracking stopped being its own tab, and a link
+// carrying it must still land somewhere real rather than 301 to a 404.
+const LEGACY_VIEW_PATHS: Record<string, string> = {
+  home: '/wpbl',
+  schedule: '/wpbl/schedule',
+  standings: '/wpbl/standings',
+  stats: '/wpbl/stats',
+  teams: '/wpbl/teams',
+  tracking: '/wpbl/stats',
+}
+
 export async function onRequestGet(context: Ctx): Promise<Response> {
   const { request, env, next } = context
   const url = new URL(request.url)
+
+  // The section's tabs were `/wpbl?view=standings` until Aug 21, 2026 and are now real
+  // paths. Fold the old spelling onto the new one so the links already in the wild keep
+  // working and hand their ranking signal over: shared URLs, push-notification payloads
+  // (shared/notifications.js), and anything a reader bookmarked. 301 rather than a rewrite
+  // because there should be one URL per tab and this says which one won.
+  //
+  // Anything else on the query (?game=, ?player=) rides along untouched: a link can name
+  // both a tab and an open modal, and dropping the modal here would quietly break every
+  // shared game link that also carried a view.
+  //
+  // Matched at the section ROOT only, which is the only place the legacy form ever existed.
+  // That guard is load-bearing rather than tidy: this handler serves the whole tab subtree
+  // now, and `?view=tracking` is deliberately carried through the redirect (see below), so
+  // without it /wpbl/stats?view=tracking would redirect to itself, forever.
+  const legacyView = url.pathname === '/wpbl' ? url.searchParams.get('view') : null
+  if (legacyView !== null && LEGACY_VIEW_PATHS[legacyView] !== undefined) {
+    const to = new URL(url)
+    to.pathname = LEGACY_VIEW_PATHS[legacyView]
+    // `tracking` is the one value that keeps its param. It is not a tab any more, so the
+    // path it maps to (/wpbl/stats) cannot express it: dropping it would land the reader on
+    // Stats but not on the Tracked board they actually asked for. Every other value is fully
+    // described by the path, so carrying it on would just be a duplicate of the URL.
+    if (legacyView !== 'tracking') to.searchParams.delete('view')
+    return Response.redirect(to.toString(), 301)
+  }
+
   const playerId = url.searchParams.get('player')
   if (!playerId || !UUID_RE.test(playerId)) return next()
 

@@ -436,7 +436,10 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   named in `include` invoke the Functions worker, everything else is served as a plain
   asset with no function run. **Adding a function under `functions/` is not enough. Its
   route has to be added here too**, or it compiles, uploads, deploys and is then never
-  called. `npm run check-functions` bundles the functions the way Cloudflare will, since a
+  called. It **narrows only**: routing is by file path, so `functions/wpbl/index.ts` serves
+  `/wpbl` and nothing below it no matter what `include` says. The subtree is covered by the
+  catch-all `functions/wpbl/[[tab]].ts`, which re-exports `onRequestGet` so the two cannot
+  drift; without it a player shared from `/wpbl/stats?player=…` unfurls as the generic card. `npm run check-functions` bundles the functions the way Cloudflare will, since a
   failed functions build leaves the previous deployment serving rather than failing the
   deploy.
 - **`public/_redirects` is the SPA route table**, and it is also an allow-list. Pages' own

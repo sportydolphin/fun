@@ -8,7 +8,7 @@
 #
 # So the fallback is inverted here: the app's routes are listed explicitly and rewritten to
 # the shell with a 200, and everything else falls through to the catch-all at the bottom
-# and gets a real 404. That makes this list load-bearing — ADD A LINE IN BOTH BLOCKS WHEN
+# and gets a real 404. That makes this list load-bearing. ADD A LINE IN BOTH BLOCKS WHEN
 # YOU ADD A ROUTE to the `Route` union in src/App.tsx, or the new page 404s in production
 # while working perfectly under `npm run dev` (Vite serves the shell for everything).
 #
@@ -19,8 +19,12 @@
 # Trailing-slash variants, folded onto the canonical form. Pages serves both spellings
 # otherwise, which is a duplicate of every page for a crawler to sort out. 301, not a
 # rewrite: there should be one URL per page and this says which one it is.
-/wpbl/         /wpbl      301
-/wpbl/api/     /wpbl/api  301
+/wpbl/           /wpbl            301
+/wpbl/api/       /wpbl/api        301
+/wpbl/schedule/  /wpbl/schedule   301
+/wpbl/standings/ /wpbl/standings  301
+/wpbl/stats/     /wpbl/stats      301
+/wpbl/teams/     /wpbl/teams      301
 /mlb/          /mlb       301
 /privacy/      /privacy   301
 /terms/        /terms     301
@@ -33,8 +37,15 @@
 
 # App routes: rewritten to the shell, status 200, URL unchanged in the address bar (which
 # is what the router and the canonical tags in src/seo.ts both expect).
-/wpbl          /  200
-/wpbl/api      /  200
+/wpbl            /  200
+/wpbl/api        /  200
+# The section's tabs. Listed one by one rather than as /wpbl/* on purpose: a wildcard would
+# hand a 200 to every mistyped path under the section, which is the exact soft-404 hole this
+# file exists to close.
+/wpbl/schedule   /  200
+/wpbl/standings  /  200
+/wpbl/stats      /  200
+/wpbl/teams      /  200
 /mlb           /  200
 /privacy       /  200
 /terms         /  200

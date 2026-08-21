@@ -23,6 +23,10 @@ import SeedingRace from './SeedingRace'
 import SwipeableViews from './SwipeableViews'
 import WpblBottomNav, { BOTTOM_NAV_SPACE } from './BottomNav'
 import { useExperiments } from '../ExperimentsContext'
+import {
+  WPBL_NAV, wpblPathFor, wpblViewFromPath, normalizeWpblView, WPBL_PATH_EVENT,
+  type WpblView,
+} from './routes'
 
 // The two detail modals, split out of the section's chunk.
 //
@@ -52,15 +56,9 @@ function ModalChunkFallback() {
 // play-by-play, live state) and renders it; everything shows a friendly empty state until
 // the feed has been ingested. Self-contained (no MLB/StatsAPI coupling).
 
-type WpblView = 'home' | 'schedule' | 'standings' | 'stats' | 'teams'
-
-const NAV: { key: WpblView; label: string }[] = [
-  { key: 'home',      label: 'Home' },
-  { key: 'schedule',  label: 'Schedule' },
-  { key: 'standings', label: 'Standings' },
-  { key: 'stats',     label: 'Stats' },
-  { key: 'teams',     label: 'Teams' },
-]
+// The view list and the path map live in ./routes, which App.tsx and seo.ts also read.
+// See the note there for why it is a separate, import-free module.
+const NAV = WPBL_NAV
 
 // ─── Shared bits ──────────────────────────────────────────────────────────────
 
@@ -394,34 +392,40 @@ type WpblSnap = {
   game: WpblGame | null
   player: WpblPlayer | null
 }
-const isWpblView = (v: unknown): v is WpblView => NAV.some(n => n.key === v)
-
-// Tracking used to be its own tab; it's now a stat group inside Stats. Any old bookmark,
-// shared link, or restored history snapshot still naming it lands on Stats instead of
-// falling back to Home. `wasTracking` tells the caller to open Stats *on* that group.
-const LEGACY_TRACKING = 'tracking'
-function normalizeView(v: unknown): { view: WpblView; wasTracking: boolean } {
-  if (v === LEGACY_TRACKING) return { view: 'stats', wasTracking: true }
-  return { view: isWpblView(v) ? v : 'home', wasTracking: false }
-}
+const normalizeView = normalizeWpblView
 const HOME_SNAP: WpblSnap = { view: 'home', team: null, game: null, player: null }
+
+/**
+ * The view a cold load is asking for.
+ *
+ * A legacy `?view=` is read BEFORE the path, because it is the only one of the two that can
+ * still say `tracking`. That group lives inside Stats now, so the edge 301s such a link to
+ * /wpbl/stats and deliberately keeps the param (see functions/wpbl/index.ts); reading the
+ * path first would see plain `stats`, and the Tracked board the link asked for would
+ * silently not open. Every other legacy value is 301'd with the param stripped, so in
+ * practice this only ever fires for tracking.
+ */
+function viewFromLocation(): string | null {
+  return new URLSearchParams(window.location.search).get('view')
+    ?? wpblViewFromPath(window.location.pathname)
+}
 
 export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNode } = {}) {
   // Section is public/read-only (feed-driven). Ingest-health freshness moved to the site
   // Admin panel, so the section no longer needs an admin flag.
 
   // Seed from the snapshot already on this history entry (Back/refresh into a deep state),
-  // then the URL's ?view=, else home. Read once per state (history.state is stable at mount).
+  // then the URL's path, else home. Read once per state (history.state is stable at mount).
   const seed = (): WpblSnap => {
     const s = (window.history.state?.wpbl ?? null) as WpblSnap | null
     if (s) return { ...s, view: normalizeView(s.view).view }
-    const v = new URLSearchParams(window.location.search).get('view')
+    const v = viewFromLocation()
     return v == null ? HOME_SNAP : { ...HOME_SNAP, view: normalizeView(v).view }
   }
   // A legacy ?view=tracking (or a restored snapshot) should open Stats already on the
   // tracking group — token 1 so the panel treats it as a real request on first mount.
   const seedTracking = () =>
-    normalizeView(window.history.state?.wpbl?.view ?? new URLSearchParams(window.location.search).get('view')).wasTracking
+    normalizeView(window.history.state?.wpbl?.view ?? viewFromLocation()).wasTracking
   const [view, setView] = useState<WpblView>(() => seed().view)
   const [selectedTeam, setSelectedTeam] = useState<WpblTeam | null>(() => seed().team)
   const [detailGame, setDetailGame] = useState<WpblGame | null>(() => seed().game)
@@ -533,13 +537,17 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     if (wasTracking) setStatsFocus(f => ({ group: 'tracking', token: f.token + 1 }))
     setView(v); setSelectedTeam(s.team); setDetailGame(s.game); setDetailPlayer(s.player)
   }, [])
+  // The tab is the PATH (/wpbl/standings); the open modal stays a query param on top of it.
+  // The two are different kinds of thing: a tab is a page worth indexing under its own
+  // title, a modal is a state laid over whichever page you were on. Keeping the modal in
+  // the query is also what lets seo.ts canonicalise it back to the tab underneath, so a
+  // hundred shared game links do not read as a hundred near-duplicate pages.
   const urlFor = (s: WpblSnap) => {
     const q = new URLSearchParams()
-    if (s.view !== 'home') q.set('view', s.view)
     if (s.game) q.set('game', s.game.id)       // deep-linkable game center
     if (s.player) q.set('player', s.player.id) // deep-linkable player page
     const str = q.toString()
-    return str ? `/wpbl?${str}` : '/wpbl'
+    return str ? `${wpblPathFor(s.view)}?${str}` : wpblPathFor(s.view)
   }
   // A ?player=<id> / ?game=<id> from a pasted or shared link, resolved once the data they
   // name has loaded. Both are read at mount only: a restored history snapshot already
@@ -552,6 +560,8 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const push = useCallback((s: WpblSnap) => {
     apply(s)
     window.history.pushState({ ...window.history.state, wpbl: s }, '', urlFor(s))
+    // Tell the shell the path moved, so useSeo re-runs for the tab we just landed on.
+    window.dispatchEvent(new Event(WPBL_PATH_EVENT))
   }, [apply])
 
   /**
@@ -775,7 +785,10 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // App router swapping sections (MLB|WPBL) — ignore them here.
   useEffect(() => {
     const onPop = (e: PopStateEvent) => {
-      if (window.location.pathname !== '/wpbl') return
+      // Any WPBL tab, not just the section root: the tabs became real paths, and comparing
+      // against '/wpbl' alone would ignore every Back/Forward taken from /wpbl/standings and
+      // friends, leaving the view frozen while the address bar moved.
+      if (wpblViewFromPath(window.location.pathname) === null) return
       apply(((e.state?.wpbl ?? null) as WpblSnap | null) ?? HOME_SNAP)
     }
     window.addEventListener('popstate', onPop)
@@ -857,8 +870,12 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         borderColor: navStuck ? 'divider' : 'transparent',
         boxShadow: navStuck ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
       }}>
+        {/* href per pill: these are five separate URLs now, and a crawler only finds the
+            other four by following a real link from this bar. */}
         <SegNav
-          options={NAV.map(n => ({ value: n.key, label: n.label, badge: navBadge(n.key) }))}
+          options={NAV.map(n => ({
+            value: n.key, label: n.label, badge: navBadge(n.key), href: wpblPathFor(n.key),
+          }))}
           value={view}
           onChange={v => selectTab(v as WpblView, 'pill')}
         />

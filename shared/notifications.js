@@ -69,7 +69,7 @@ export const NOTIFICATION_META = {
     icon:       '⚾',
     // The WPBL section isn't wired into the MLB deep-link router, so a click lands
     // on the WPBL home where the next game is featured up top — the honest fallback.
-    defaultUrl: '/wpbl?view=home',
+    defaultUrl: '/wpbl',
   },
 }
 

@@ -490,6 +490,36 @@ is retired.
 
 ## Shipped log
 
+### Aug 21, 2026: one URL per tab, so the section can be found at all
+
+Search Console said the site had three indexed pages, and one of them was `/wpbl),and` — a
+mangled link someone pasted, which Pages had happily answered with a 200 and the app shell.
+Google had never heard of `/mlb`. Two silent causes, both now fixed:
+
+- **Nothing linked anywhere.** Every internal navigation in `App.tsx` was a `Box` with an
+  `onClick`, and Googlebot does not click. The only crawlable links on the site were the
+  three real anchors in the footer, which is exactly the set Google had found. `linkTo()`
+  makes them anchors that still route client-side.
+- **Every path answered 200.** `public/_redirects` now lists the app's routes explicitly and
+  sends everything else to a real `public/404.html`, which is what makes the file an
+  allow-list and therefore load-bearing.
+
+Then the tabs themselves: `?view=standings` became `/wpbl/standings`, and Schedule, Stats and
+Teams likewise. A query string is one URL to a search engine, so the whole section had shared
+a single title, description and canonical, and there was literally no page for "WPBL
+standings" to rank. Each tab now has its own, and the old spelling 301s at the edge.
+
+Googlebot's rendered HTML (via URL Inspection) settled the question that was holding up the
+plan: **it renders the JS completely** — scoreboard, standings, leaders, recap prose. So
+pre-rendering was cancelled rather than built.
+
+Two traps worth remembering, both of which fail without a symptom: rewrites must target `/`
+and never `/index.html` (Pages canonicalises the latter with a 308, turning every route into a
+redirect to the home page), and `_routes.json` can only narrow function routing, never widen
+it — the player share-card rewrite needed a catch-all file once the tabs moved.
+
+Next: player pages at `/wpbl/players/<slug>`, which is where the long-tail volume actually is.
+
 ### Aug 21, 2026: the facts the league does not publish
 
 RetroWPBL (`github.com/exu6jh/RetroWPBL`) is one person transcribing this season into

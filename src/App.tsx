@@ -19,6 +19,9 @@ import { pressable, FOCUS_RING } from './wpbl/ui'
 import { NotificationBell } from './NotificationBell'
 import { supabase } from './lib/supabase'
 import { useSeo } from './seo'
+// Import-free by design, so naming it here does not drag the lazy WPBL chunk into the
+// entry bundle. See the note at the top of that file.
+import { wpblViewFromPath, WPBL_PATH_EVENT } from './wpbl/routes'
 import { track, EVENTS } from './lib/analytics'
 import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from './lib/usernames'
 import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
@@ -80,7 +83,15 @@ function useOpenedOnce(open: boolean): boolean {
 // over the app; the brief gap before the chunk lands reads as the click taking a moment.
 const DIALOG_FALLBACK = null
 
+// The WPBL tabs (/wpbl/schedule and friends) are routes too; they live in wpbl/routes.ts
+// because seo.ts and WpblApp need the same list. Adding one there means adding a line in
+// public/_redirects as well, or it 404s in production and works fine in dev.
 type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame' | '/mlb' | '/wpbl' | '/wpbl/api' | '/privacy' | '/terms' | '/admin'
+
+/** A WPBL tab page. `/wpbl/api` is a sibling route, not a tab, so it is not one of these. */
+const isWpblTab = (p: string) => wpblViewFromPath(p) !== null
+/** Anything that should read as "the reader is in the WPBL section". */
+const isWpblSection = (p: string) => isWpblTab(p) || p === '/wpbl/api'
 
 const LOCK_PASSWORD = 'sportydolphin'
 const LOCKED_PATHS = new Set(['/cups', '/weights'])
@@ -537,7 +548,14 @@ function AppInner() {
       setPath(p as Route)
     }
     window.addEventListener('popstate', onPop)
-    return () => window.removeEventListener('popstate', onPop)
+    // WPBL pushes its own history entries (see WPBL_PATH_EVENT), so a tab switch there moves
+    // the address bar without a popstate. Without this the shell's `path` would lag and
+    // useSeo would keep serving the landing tab's title on every other tab.
+    window.addEventListener(WPBL_PATH_EVENT, onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      window.removeEventListener(WPBL_PATH_EVENT, onPop)
+    }
   }, [])
 
   // Bounce everyone but the owner off /admin. Gated on auth having RESOLVED, not merely on
@@ -588,7 +606,7 @@ function AppInner() {
     // compensate. Portaled MUI Dialogs/Snackbar render outside this box (in body),
     // so they stay at native scale. Mobile (xs) and other routes stay at 1.
     <Box sx={{
-      '--app-zoom': { xs: '1', md: (path === '/mlb' || path === '/wpbl' || path === '/wpbl/api') ? String(DESKTOP_ZOOM) : '1' },
+      '--app-zoom': { xs: '1', md: (path === '/mlb' || isWpblSection(path)) ? String(DESKTOP_ZOOM) : '1' },
       zoom: 'var(--app-zoom)',
     }}>
       <AppBar
@@ -682,8 +700,9 @@ function AppInner() {
             <Box
               ref={leagueSwitchRef}
               onClick={() => {
-                // /wpbl/api counts as the WPBL side, so flipping from the API docs goes to MLB.
-                const target = (path === '/wpbl' || path === '/wpbl/api') ? '/mlb' : '/wpbl'
+                // Every WPBL tab and /wpbl/api count as the WPBL side, so flipping from any
+                // of them goes to MLB.
+                const target = isWpblSection(path) ? '/mlb' : '/wpbl'
                 if (target === '/wpbl') {
                   // Pop confetti from the bottom edge of the WPBL segment (right half of the
                   // control), held until the thumb finishes sliding across (matches the 0.28s slide).
@@ -705,8 +724,8 @@ function AppInner() {
               p: '2px', borderRadius: 999, cursor: 'pointer',
               border: '1px solid', borderColor: `${ACCENT}55`, bgcolor: `${ACCENT}14`,
             }}>
-              {(path === '/mlb' || path === '/wpbl' || path === '/wpbl/api') && (() => {
-                const wpblActive = path === '/wpbl' || path === '/wpbl/api'
+              {(path === '/mlb' || isWpblSection(path)) && (() => {
+                const wpblActive = isWpblSection(path)
                 return (
                   <Box sx={{
                     position: 'absolute', top: '2px', bottom: '2px', left: '2px',
@@ -737,7 +756,7 @@ function AppInner() {
                   // An anchor, not a plain Box, purely so a crawler can see the two
                   // sections exist: the switch is what makes /mlb reachable at all.
                   // It only cancels the browser's navigation and lets the click bubble
-                  // to the parent, which owns the toggle (and the confetti) — handling
+                  // to the parent, which owns the toggle (and the confetti); handling
                   // it here as well would navigate twice on one click.
                   <Box
                     key={seg.to}
@@ -1165,7 +1184,7 @@ function AppInner() {
             <MlbStats />
           </Suspense>
         )}
-        {path === '/wpbl' && (
+        {isWpblTab(path) && (
           <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
             {/* On mobile the WPBL tabs swipe, so the footer rides inside each tab pane (see
                 WpblApp) instead of sitting shared below them — the shared one is suppressed
@@ -1226,7 +1245,7 @@ function AppInner() {
       {/* On mobile WPBL the footer rides inside each swipeable tab pane (WpblApp's
           renderFooter) so it doesn't reflow when tabs of different heights swap — so skip
           the shared one there. Everywhere else (incl. desktop WPBL) it renders here. */}
-      {!(path === '/wpbl' && !isDesktop) && (
+      {!(isWpblTab(path) && !isDesktop) && (
         <SiteFooter
           onOpenChangelog={() => setChangelogOpen(true)}
           onOpenFeedback={() => setFeedbackOpen(true)}
