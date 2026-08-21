@@ -1403,6 +1403,23 @@ redirect to the home page), and `_routes.json` can only narrow function routing,
 it — the player share-card rewrite needed a catch-all file once the tabs moved.
 
 Next: player pages at `/wpbl/players/<slug>`, which is where the long-tail volume actually is.
+### Aug 21, 2026: the batter in every play opens
+
+Traffic says opening a player page is the retention event (7.8% return without one, 76.5%
+with a player page and a Game Center together), so a name that renders as plain text is a
+missed door. Every play in the play-by-play opens with a batter, already set in bold on its
+own span, and it was not a link.
+
+It resolves on `batter_id` rather than by matching the printed name, since the feed fills
+that column on all but a couple of percent of plays and the name on screen has already been
+through the shortener by then. `parsePlay` only fills its `who` when the narrative opens with
+that play's own batter, so a runner-only play links nothing rather than linking the wrong
+person.
+
+Names inside the play narrative ("Jaida Lee advanced to third") stay plain on purpose: the
+row's own batter is tappable now, and linkifying prose means splitting a sentence the section
+already rewrites once for name shortening.
+
 
 ### Aug 21, 2026: the facts the league does not publish
 

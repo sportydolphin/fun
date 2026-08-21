@@ -439,7 +439,15 @@ function PitchSequence({ seq }: { seq: string }) {
   )
 }
 
-function PlayByPlay({ plays, teams, game }: { plays: WpblGamePlay[]; teams: Map<string, WpblTeam>; game: WpblGame }) {
+function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
+  plays: WpblGamePlay[]; teams: Map<string, WpblTeam>; game: WpblGame
+  /** This game's two rosters, by player id, so the batter each play opens with can be opened.
+   *  Resolved on `batter_id` rather than by matching the printed name: the feed fills that
+   *  column on all but a couple of percent of plays, and a name match would have to survive
+   *  the shortening the line has already applied to it. */
+  names: Map<string, WpblPlayer>
+  onOpenPlayer?: (p: WpblPlayer) => void
+}) {
   const shortName = useWpblName()
   // Every name the feed uses in this game, longest first so "Elodie Ciamarro" is replaced
   // before a bare "Ciamarro" could match part of it. Built from the plays themselves rather
@@ -559,9 +567,23 @@ function PlayByPlay({ plays, teams, game }: { plays: WpblGamePlay[]; teams: Map<
                             for down the column, so it carries the weight; the outcome sits in
                             normal text beside it rather than as one undifferentiated sentence. */}
                         <Typography sx={{ fontSize: '0.82rem', lineHeight: 1.35 }}>
-                          {parsed.who && (
-                            <Box component="span" sx={{ fontWeight: 700 }}>{shortName(parsed.who)} </Box>
-                          )}
+                          {parsed.who && (() => {
+                            // parsePlay only fills `who` when the narrative opens with THIS
+                            // play's batter, so the id on the row is the right person; a
+                            // runner-only play leaves it null and nothing here is clickable.
+                            const batter = p.batter_id ? names.get(p.batter_id) : undefined
+                            const open = batter && onOpenPlayer ? () => onOpenPlayer(batter) : undefined
+                            return (
+                              <Box component="span" {...pressable(open)} sx={{
+                                fontWeight: 700,
+                                ...(open ? {
+                                  ...FOCUS_RING, cursor: 'pointer', borderRadius: 0.5,
+                                  '@media (hover: hover)': { '&:hover': { textDecoration: 'underline' } },
+                                } : {}),
+                              }}>{shortName(parsed.who)}</Box>
+                            )
+                          })()}
+                          {parsed.who && ' '}
                           {parsed.what}
                           {runsOnPlay(p) > 0 && (
                             <Box component="span" sx={{ ml: 0.5, fontSize: '0.66rem', fontWeight: 800, color: '#16a34a' }}>
@@ -1274,7 +1296,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
                     </Box>
                   )
                 })() : t.value === 'plays' ? (
-                  <PlayByPlay plays={plays} teams={byId} game={game} />
+                  <PlayByPlay plays={plays} teams={byId} game={game} names={names} onOpenPlayer={onOpenPlayer} />
                 ) : t.value === 'pitch' ? (
                   <PitchData tracking={tracking} boxPitchers={boxPitchers} firstHit={firstHit} live={live} />
                 ) : null
