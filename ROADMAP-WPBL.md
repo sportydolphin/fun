@@ -6,8 +6,8 @@
 > Tags: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra
 > Last realigned: **Aug 20, 2026**, against traffic data for the first time (see
 > "What the traffic says"), and revised again later the same day when 1b turned out not to be
-> blocked (see its entry) and the seeding race came out from behind the experiments flag;
-> before that Aug 17, 2026. Teams tab, Settings and an accessibility pass shipped
+> blocked (see its entry). The seeding race and the bracket are both opt-in behind the
+> experiments flag; before that Aug 17, 2026. Teams tab, Settings and an accessibility pass shipped
 > as v1.45.0 (see the shipped log); favourite-team + theming remains built and parked (see
 > "Parked, with reasons"); before that, split out of `ROADMAP.md` and reprioritized around
 > the season clock (see the realignment log at the end).
@@ -46,8 +46,7 @@ record, form, run differential and next game, plus a head-to-head grid) → team
 results, opponent splits, season totals, leaders, roster with inline stats, lineup-history
 and pitching-usage grids, all under a pinned club switcher) · Game Center (recap, box score, play-by-play, pitch data) ·
 Player pages (batting/pitching/fielding cards, game log, pitch-location maps, shareable
-links that unfurl) · a seeding race under the standings (and, opt-in, a drawn postseason
-bracket on Home) · search · live polling · push reminders · a fan Discord integration
+links that unfurl) · search · live polling · push reminders · a fan Discord integration
 (board, final-score box scores, YouTube highlight reels, `/player` slash command, giveaway
 draw).
 
@@ -186,7 +185,7 @@ argument.
 the bracket stays empty and every season total is wrong, which is the exposure #1 already
 carries (see `season.ts`) rather than a new one. Confirm it the day the first semifinal lands.
 
-### 1c. The seeding race 🎯: ✅ **shipped Aug 20, 2026; live for everyone as of the same day**
+### 1c. The seeding race 🎯: ✅ **shipped Aug 20, 2026, behind the experiments flag** (see the log)
 
 All four clubs qualify, so a clinch tracker is pointless and stays parked. **Seeding is not
 pointless**: the standings order sets the semifinals 1v4 and 2v3, and it is the only thing
@@ -194,12 +193,16 @@ the remaining games decide. Nothing on the section said so, and Standings presen
 as a race for a title already conceded to everyone. Shipped as a card under the table: seed
 number, the cushion over the seed below, a magic number to lock a seed, and the semifinal
 each seed would draw. All derived from `computeStandings`, so it needed no new data and no
-new request. It shipped opt-in from Settings, on the grounds that it is the first thing on the
-section to make a forward-looking claim rather than report a result, and that "8 to lock 1st"
-was worth being wrong in front of a handful of volunteers first. **The flag came off on
-Aug 20** once the bracket gave the same four rows a second home: a card almost nobody could
-see was not earning the caution, and with three weeks of season left the runway to keep
-waiting had run out. The experiments flag now gates only the mobile bottom nav.
+new request. **Opt-in from Settings**: it is the first thing on the section to make a
+forward-looking claim rather than report a result, and a number like "8 to lock 1st" is worth
+being wrong in front of a handful of volunteers first. Turning it on is the remaining step,
+and it now shares that step with the bracket (1b), since both sit behind the same switch.
+
+The flag did come off briefly on Aug 20 and went back on the same day. Worth recording only
+because the argument for taking it off still stands and will have to be answered again: an
+opt-in card is seen by almost nobody, so the caution buys little signal, and there are three
+weeks left for either card to be worth anything. Whatever settles that, it should settle it
+for both at once rather than one at a time.
 
 ### 2. The inaugural-season archive 🔬🎯: *the only durable item on this list*
 
@@ -563,17 +566,17 @@ v1.45.0.
   a regular-season row, the bracket stays empty AND every season total is wrong. That is the
   exposure `season.ts` already documents; the bracket just gives it a second symptom. Check it
   the day the first semifinal lands.
-- 🎯 **The seeding race came out from behind the experiments flag** on the same day, in
-  the same breath as the bracket went behind it, which is less contradictory than it reads: the
-  seeding card had been built and read for weeks and the flag was buying no further signal,
-  while the bracket was hours old. It
-  had been opt-in since the morning on the grounds that "8 to lock 1st" is a forward-looking
-  claim worth being wrong in private first. Against that: almost nobody has the switch on, so
-  the caution bought no signal, and there are three weeks of season left for it to be worth
-  anything. The flag now gates only the mobile bottom nav.
+- 🔄 **The seeding race came out from behind the experiments flag and went back behind
+  it**, both on Aug 20. The case for taking it off was that an opt-in card is seen by almost
+  nobody, so the flag buys little signal, and three weeks of season is not long to wait; the
+  case for putting it back is that it and the bracket are two readings of the same four rows
+  and should be judged together rather than one at a time. Net effect on the shipped site:
+  none. Both cards are opt-in, and the flag also still gates the mobile bottom nav.
 - ✏️ The seeding card is no longer titled "The bracket" when the order settles. There is a
   real bracket on the section now and only one thing can carry that name; the card is "Final
-  seeding" instead. The two are deliberately different readings of the same four rows: the card
+  seeding" instead. This outlives the flag churn above: both cards are behind the same switch,
+  so anyone who turns it on sees the pair together, which is exactly the case the naming has
+  to survive. The two are deliberately different readings of the same four rows: the card
   is per club and quantitative, the bracket is per series and spatial.
 - 🧪 29 tests. The derivation covers the pairings, series reconstruction, the
   championship slot and the champion; the render tests cover the two things drawing gets wrong

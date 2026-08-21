@@ -4,6 +4,7 @@ import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark } from './ui
 import { wpblAccentFg, wpblFullName } from './constants'
 import { seedingRace, semifinalLabel, bracketIsSet } from './derive/seeding'
 import type { WpblSeedRow } from './derive/seeding'
+import { ExperimentalChip } from '../ExperimentsContext'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblGame, WpblStandingRow, WpblTeam } from './types'
 
@@ -30,7 +31,8 @@ import type { WpblGame, WpblStandingRow, WpblTeam } from './types'
  * one is per club and quantitative, a magic number and a cushion; that one is per series and
  * spatial. Which is why this card is no longer titled "The bracket" when the order settles,
  * even though it once was: there is a real bracket on the section now, and only one thing can
- * carry that name.
+ * carry that name. Both sit behind the same experiments flag, so a reader who turns the switch
+ * on gets the pair of them, which is the arrangement the naming has to survive.
  */
 
 const ORDINALS = ['', '1st', '2nd', '3rd', '4th']
@@ -115,6 +117,10 @@ export default function SeedingRace({ rows, games, onOpenTeam }: {
   return (
     <SectionCard
       title={settled ? 'Final seeding' : 'Seeding race'}
+      // Opt-in, and the card has to say which one it is: it looks exactly like the shipped
+      // cards it sits between, and someone who turned the switch on weeks ago should not have
+      // to remember.
+      action={<ExperimentalChip />}
       subtitle={settled
         ? 'The order is final. Semifinals are best-of-three, the championship best-of-five.'
         : `All four clubs reach the postseason, so the last ${left} game${left === 1 ? '' : 's'} only decide the bracket.`}

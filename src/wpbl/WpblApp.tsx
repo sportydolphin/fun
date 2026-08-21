@@ -255,6 +255,10 @@ function StandingsView({ teams, games, onOpenTeam }: {
   teams: WpblTeam[]; games: WpblGame[]; onOpenTeam?: (t: WpblTeam) => void
 }) {
   const rows = useMemo(() => computeStandings(teams, games), [teams, games])
+  // Opt-in, like the bracket on Home. It reads nothing the table below it does not, and it is
+  // the one card here that makes a forward-looking claim ("8 to lock 1st") rather than
+  // reporting a result, so off stays the shipped view.
+  const experiments = useExperiments()
   if (teams.length === 0) {
     return <EmptyState title="No teams yet" hint="Standings appear once teams and results are added." />
   }
@@ -330,7 +334,7 @@ function StandingsView({ teams, games, onOpenTeam }: {
           qualify, so the order is the entire stake of the remaining games, and the table on
           its own reads as a race for a place nobody can miss. Sits directly under it, in the
           same order, so a club can be carried from one to the other by eye. */}
-      {played && <SeedingRace rows={rows} games={games} onOpenTeam={onOpenTeam} />}
+      {played && experiments && <SeedingRace rows={rows} games={games} onOpenTeam={onOpenTeam} />}
       {/* The table answers "who is ahead"; this answers "of whom". They are the same four
           clubs in the same order, so the eye can carry a row straight down from one to the
           other. Only once there is a result to show: before that it is sixteen dots. */}
