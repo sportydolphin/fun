@@ -1,0 +1,78 @@
+<!-- Served with a real 404 status for any path that is not an app route. See _redirects.
+
+     This exists because Cloudflare Pages' default for an unmatched path is to serve
+     index.html with a 200, which made every typo on the domain a valid, indexable page.
+     Google found "https://sportydolphin.fun/wpbl),and" from a mangled link someone pasted,
+     got a 200 and a full app shell, and indexed it as a third page of the site. A soft 404
+     like that costs crawl budget and puts junk URLs in the index, and it never fails
+     loudly: the page looks fine to a human.
+
+     Deliberately static and dependency-free. It must not boot the SPA, or a 404 turns back
+     into a working page and we are where we started. -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Page not found — sportydolphin.fun</title>
+    <!-- Belt to the 404 status: a crawler that indexes on content rather than status code
+         still gets told to leave this out. -->
+    <meta name="robots" content="noindex, follow" />
+    <script>
+      // Same pre-paint theme stamp as index.html, so a dark-mode reader who hits a bad
+      // link does not get a white flash. Kept inline and tiny: this page loads no JS.
+      (function () {
+        try {
+          var t = localStorage.getItem('theme');
+          if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.setAttribute('data-theme', t);
+          document.documentElement.style.colorScheme = t;
+        } catch (e) { /* storage off — fall through to the CSS defaults below */ }
+      })();
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/x-icon" sizes="48x48" href="/favicon.ico" />
+    <style>
+      :root { --bg: #ffffff; --fg: #111827; --muted: #6b7280; --accent: #2563eb; --line: #e5e7eb; }
+      :root[data-theme="dark"] { --bg: #0f172a; --fg: #f8fafc; --muted: #94a3b8; --accent: #60a5fa; --line: #1e293b; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: var(--bg); color: var(--fg);
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        display: flex; align-items: center; justify-content: center;
+        min-height: 100vh; padding: 24px;
+      }
+      main { max-width: 480px; text-align: center; }
+      img { height: 56px; width: auto; margin-bottom: 20px; }
+      :root[data-theme="dark"] img { filter: invert(1); }
+      h1 { font-size: 3rem; font-weight: 800; margin: 0 0 8px; letter-spacing: -0.02em; }
+      h2 { font-size: 1.15rem; font-weight: 700; margin: 0 0 12px; }
+      p { color: var(--muted); line-height: 1.6; margin: 0 0 24px; }
+      .links { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+      a.btn {
+        display: inline-block; padding: 9px 18px; border-radius: 999px;
+        border: 1px solid var(--line); color: var(--fg);
+        font-size: 0.9rem; font-weight: 700; text-decoration: none;
+        transition: border-color 0.15s, color 0.15s;
+      }
+      a.btn:hover { border-color: var(--accent); color: var(--accent); }
+      a.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/logo-mark.png" alt="sportydolphin" />
+      <h1>404</h1>
+      <h2>That page doesn't exist</h2>
+      <p>The link may be broken, or the page may have moved. Both league sections are below.</p>
+      <!-- Real anchors, so this page also feeds the crawler two good links instead of
+           being a dead end. -->
+      <div class="links">
+        <a class="btn primary" href="/wpbl">WPBL stats</a>
+        <a class="btn" href="/mlb">MLB stats</a>
+      </div>
+    </main>
+  </body>
+</html>

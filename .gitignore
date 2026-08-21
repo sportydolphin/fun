@@ -18,3 +18,6 @@ giveaway-data/
 # Agent worktrees: full repo checkouts (341M today), each with its own node_modules.
 # Only this subdirectory: .claude/launch.json and settings.local.json stay tracked.
 .claude/worktrees/
+
+# wrangler pages dev scratch (local Pages emulation for _redirects/404 checks)
+.wrangler

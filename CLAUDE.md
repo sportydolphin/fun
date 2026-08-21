@@ -117,6 +117,22 @@ Each of these has already cost someone a debugging session, and none of them fai
 - **A new Cloudflare Pages Function also needs a route in `public/_routes.json`.** That
   file is an allow-list. Without an entry the function compiles, uploads, deploys, and is
   never called.
+- **A new app route also needs two lines in `public/_redirects`,** or it 404s in production
+  while working perfectly in dev. Pages used to serve the SPA shell with a 200 for *any*
+  unmatched path, which made every typo on the domain an indexable page: Google found
+  `/wpbl),and` from a mangled pasted link and indexed it as a real page of the site. So the
+  fallback is inverted. `_redirects` lists the app's routes explicitly (a `200` rewrite plus
+  a `301` folding the trailing-slash spelling), and `/*` falls through to a real `404.html`.
+  Vite serves the shell for everything, so `npm run dev` will never show you the omission.
+  Verify with `npx wrangler pages dev dist` after `npm run build`. Rewrite to `/`, never to
+  `/index.html`: Pages canonicalizes the latter with a 308, which silently turns every app
+  route into a redirect to the home page.
+- **Internal links must be real `<a href>`, never a `Box` with only an `onClick`.** Googlebot
+  does not fire click handlers, so an onClick-only control is invisible to it. `/mlb` sat
+  undiscovered by Google for months for exactly this reason while `/privacy` and `/terms`,
+  which the footer links properly, were found. Use `linkTo()` in
+  [`src/App.tsx`](src/App.tsx), which supplies the href and preventDefaults so the SPA still
+  handles the navigation, and lets modified clicks through so open-in-new-tab works.
 
 ## What it is
 

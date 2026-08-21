@@ -50,6 +50,18 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
         <Dot />
         <Box component="a" href={KOFI_URL} target="_blank" rel="noopener noreferrer" sx={linkSx}>Support on Ko-fi ♥</Box>
         <Dot />
+        {/* The other section, with its name spelled out. The header's league switch is a
+            toggle rather than a pair of links, so before this the only crawlable door to
+            a section was whichever one you happened to land on: Google had indexed /wpbl
+            and had never heard of /mlb. Keep the wording keyword-shaped rather than
+            "Switch" — anchor text is most of what tells a search engine what a page is. */}
+        <Box
+          component="a"
+          href={isWpbl ? '/mlb' : '/wpbl'}
+          onClick={e => { e.preventDefault(); onNavigate(isWpbl ? '/mlb' : '/wpbl') }}
+          sx={linkSx}
+        >{isWpbl ? 'MLB stats' : 'WPBL stats'}</Box>
+        <Dot />
         <Box component="a" href="/privacy" onClick={e => { e.preventDefault(); onNavigate('/privacy') }} sx={linkSx}>Privacy</Box>
         <Dot />
         <Box component="a" href="/terms" onClick={e => { e.preventDefault(); onNavigate('/terms') }} sx={linkSx}>Terms</Box>

@@ -97,6 +97,32 @@ function navigate(to: string) {
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
+// Props that turn any Box/Typography into a real in-app link.
+//
+// Every internal navigation MUST render an <a href>. Googlebot does not fire onClick
+// handlers, so a Box with only an onClick is invisible to a crawler: that is why /mlb
+// went undiscovered for months while /privacy and /terms, which the footer links with
+// real anchors, were found. The href is what a crawler follows; preventDefault is what
+// keeps the SPA from doing a full page load.
+//
+// Modified clicks (cmd/ctrl/shift/alt, middle button) fall through to the browser
+// untouched, so open-in-new-tab works the way it does on every other site.
+function linkTo(to: string) {
+  return {
+    component: 'a' as const,
+    href: to,
+    onClick: (e: React.MouseEvent) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+      e.preventDefault()
+      navigate(to)
+    },
+  }
+}
+
+// Anchors carry a browser default underline and link colour; the site's controls set
+// their own. Spread alongside linkTo() on anything that should not look like body text.
+const UNSTYLED_LINK = { textDecoration: 'none', color: 'inherit' } as const
+
 // A one-shot confetti pop, fired when you flip the league switch to WPBL — a small nod to
 // the section's playful side. Purely cosmetic: self-contained CSS, no library, `pointer-
 // events: none` so it never blocks a tap, and it unmounts itself once the animation ends.
@@ -546,7 +572,7 @@ function AppInner() {
   }, [pwInput, pendingPath])
 
   const backBtn = (
-    <Box onClick={() => navigate('/mlb')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
+    <Box {...linkTo('/mlb')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
   )
 
   // Other mini apps (everything but MLB Stats) — opened from the admin menu now
@@ -609,17 +635,23 @@ function AppInner() {
                 it off the text baseline, so the flex row centers the mark against the
                 wordmark's line box rather than hanging it from the baseline. Always
                 shown: it is the brand at every width the wordmark drops out of. */}
+            {/* Wrapped in an anchor rather than given an onClick: an <img> cannot carry an
+                href, and this is one of only two doors to /mlb. */}
             <Box
-              component="img"
-              src="/logo-mark.png"
-              alt="sportydolphin"
-              onClick={() => navigate('/mlb')}
-              sx={{
-                display: 'block', height: BRAND_LOGO_H, width: 'auto', flexShrink: 0,
-                cursor: 'pointer', userSelect: 'none',
-                ...(mode === 'dark' && { filter: 'invert(1)' }),
-              }}
-            />
+              {...linkTo('/mlb')}
+              sx={{ ...UNSTYLED_LINK, display: 'flex', alignItems: 'center', flexShrink: 0 }}
+            >
+              <Box
+                component="img"
+                src="/logo-mark.png"
+                alt="sportydolphin"
+                sx={{
+                  display: 'block', height: BRAND_LOGO_H, width: 'auto',
+                  cursor: 'pointer', userSelect: 'none',
+                  ...(mode === 'dark' && { filter: 'invert(1)' }),
+                }}
+              />
+            </Box>
 
             {/* Wordmark. It only earns its place once the toolbar can show it whole,
                 so it appears at BRAND_WORDMARK_MIN and the logo carries the brand alone
@@ -629,9 +661,10 @@ function AppInner() {
                 toolbar has to split at 1350, leaving a few px of slack even while the
                 webfont is still loading and a wider fallback is being measured. */}
             <Typography
-              variant="h6" component="div"
-              onClick={() => navigate('/mlb')}
+              variant="h6"
+              {...linkTo('/mlb')}
               sx={{
+                ...UNSTYLED_LINK,
                 minWidth: 0, fontWeight: 700, cursor: 'pointer', userSelect: 'none',
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 display: 'none',
@@ -701,9 +734,18 @@ function AppInner() {
                 const active = path === seg.to || (seg.to === '/wpbl' && path === '/wpbl/api')
                 const rainbow = active && seg.to === '/wpbl'
                 return (
+                  // An anchor, not a plain Box, purely so a crawler can see the two
+                  // sections exist: the switch is what makes /mlb reachable at all.
+                  // It only cancels the browser's navigation and lets the click bubble
+                  // to the parent, which owns the toggle (and the confetti) — handling
+                  // it here as well would navigate twice on one click.
                   <Box
                     key={seg.to}
+                    component="a"
+                    href={seg.to}
+                    onClick={e => e.preventDefault()}
                     sx={{
+                      ...UNSTYLED_LINK,
                       position: 'relative', zIndex: 1, textAlign: 'center',
                       px: 1, py: '3px', borderRadius: 999, userSelect: 'none',
                       fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.3, lineHeight: 1,
@@ -1143,7 +1185,7 @@ function AppInner() {
             {/* Align the back control to the docs column (same maxWidth/px as WpblApiDocs)
                 so on desktop it sits by the content, not stranded at the far-left page edge. */}
             <Box sx={{ maxWidth: 760, mx: 'auto', px: { xs: 2, sm: 3 }, mb: 2 }}>
-              <Box onClick={() => navigate('/wpbl')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
+              <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
             </Box>
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               <WpblApiDocs />
@@ -1156,7 +1198,7 @@ function AppInner() {
         {path === '/admin' && !authLoading && isAdmin && (
           <Box>
             <Box sx={{ maxWidth: 860, mx: 'auto', px: { xs: 1.5, sm: 3 }, mb: 2 }}>
-              <Box onClick={() => navigate('/wpbl')} sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
+              <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
             </Box>
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               <AdminPage apps={otherApps} isAppLocked={isAppLocked} onOpenApp={openApp} />

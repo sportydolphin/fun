@@ -1,0 +1,51 @@
+# Cloudflare Pages routing. First matching rule wins, so order in this file matters.
+#
+# The app is a client-rendered SPA with hand-rolled path routing (src/App.tsx), so every
+# app route has to be served the same shell. Pages does that by default for ANY unmatched
+# path, which is the problem: a typo, a mangled pasted link, or a probe all got the shell
+# with a 200, so the whole domain was one infinite set of valid-looking pages. Google found
+# "https://sportydolphin.fun/wpbl),and" that way and indexed it as a third page of the site.
+#
+# So the fallback is inverted here: the app's routes are listed explicitly and rewritten to
+# the shell with a 200, and everything else falls through to the catch-all at the bottom
+# and gets a real 404. That makes this list load-bearing — ADD A LINE IN BOTH BLOCKS WHEN
+# YOU ADD A ROUTE to the `Route` union in src/App.tsx, or the new page 404s in production
+# while working perfectly under `npm run dev` (Vite serves the shell for everything).
+#
+# The rewrite target is `/`, NOT `/index.html`. Pages canonicalizes `/index.html` to `/`
+# with a 308, so naming the file here makes every app route a redirect to the home page
+# instead of a rewrite. It serves the same asset either way; only the spelling is safe.
+
+# Trailing-slash variants, folded onto the canonical form. Pages serves both spellings
+# otherwise, which is a duplicate of every page for a crawler to sort out. 301, not a
+# rewrite: there should be one URL per page and this says which one it is.
+/wpbl/         /wpbl      301
+/wpbl/api/     /wpbl/api  301
+/mlb/          /mlb       301
+/privacy/      /privacy   301
+/terms/        /terms     301
+/admin/        /admin     301
+/cups/         /cups      301
+/stopwatch/    /stopwatch 301
+/weights/      /weights   301
+/poop/         /poop      301
+/testgame/     /testgame  301
+
+# App routes: rewritten to the shell, status 200, URL unchanged in the address bar (which
+# is what the router and the canonical tags in src/seo.ts both expect).
+/wpbl          /  200
+/wpbl/api      /  200
+/mlb           /  200
+/privacy       /  200
+/terms         /  200
+/admin         /  200
+/cups          /  200
+/stopwatch     /  200
+/weights       /  200
+/poop          /  200
+/testgame      /  200
+
+# Everything else. Static files (assets, icons, robots.txt, sitemap.xml) and the Pages
+# Functions in functions/ are both matched ahead of this rule, so it only ever catches
+# paths that genuinely do not exist. Verified with `npx wrangler pages dev dist`.
+/*             /404.html  404

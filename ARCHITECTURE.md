@@ -439,6 +439,16 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   called. `npm run check-functions` bundles the functions the way Cloudflare will, since a
   failed functions build leaves the previous deployment serving rather than failing the
   deploy.
+- **`public/_redirects` is the SPA route table**, and it is also an allow-list. Pages' own
+  default is to serve the shell with a 200 for any unmatched path, which made every typo on
+  the domain a valid, indexable page (Google indexed `/wpbl),and`, picked up from a mangled
+  pasted link). The file inverts that: each app route gets a `200` rewrite to `/` plus a
+  `301` folding its trailing-slash spelling, and a final `/*` sends everything else to
+  `public/404.html` with a real 404. Static assets and the Functions above are both matched
+  ahead of the catch-all. **A new route in the `Route` union in
+  [`src/App.tsx`](src/App.tsx) needs a line in both blocks here**, or it 404s in production
+  and works fine in dev, since Vite serves the shell for everything. Check a build with
+  `npx wrangler pages dev dist`.
 - **Edge functions:** `supabase functions deploy <name>` (manual). `wpbl-ingest` also
   announces a game to Discord the moment it sees it go final
   ([`announce-final.ts`](supabase/functions/wpbl-ingest/announce-final.ts)): the
