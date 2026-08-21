@@ -454,6 +454,35 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     track(EVENTS.NEW_BADGE_SHOWN, { badge: 'teams-v145' })
   }, [teamsBadge])
 
+  // The same dot for the Pitch by pitch board, which lives one level deeper than a tab: it is
+  // drawn on the Stats pill AND on the chip inside it, and only opening the board retires it
+  // (see the note in lib/seen.ts). Cleared from StatsView, which is the only thing that knows
+  // the reader actually got there.
+  const [pitchesBadge, setPitchesBadge] = useState(() => shouldShowBadge('pitches-v147'))
+  const pitchesBadgeLogged = useRef(false)
+  useEffect(() => {
+    if (!pitchesBadge || pitchesBadgeLogged.current) return
+    pitchesBadgeLogged.current = true
+    track(EVENTS.NEW_BADGE_SHOWN, { badge: 'pitches-v147' })
+  }, [pitchesBadge])
+  // Guarded by a ref rather than by the state it sets, for two reasons: the callback stays
+  // referentially stable (StatsView calls it from an effect, and a changing identity would
+  // re-run that effect on every retirement), and the click is tracked OUTSIDE a state updater,
+  // which React is free to run twice.
+  const pitchesBadgeLive = useRef(pitchesBadge)
+  const retirePitchesBadge = useCallback((via: string) => {
+    if (!pitchesBadgeLive.current) return
+    pitchesBadgeLive.current = false
+    track(EVENTS.NEW_BADGE_CLICKED, { badge: 'pitches-v147', via })
+    markBadgeSeen('pitches-v147')
+    setPitchesBadge(false)
+  }, [])
+
+  // Which tabs are wearing a dot. Two badges point at two different tabs, and a tab shows one
+  // if either applies, so the navs do not have to know which badge is which.
+  const navBadge = (key: string): boolean =>
+    (key === 'teams' && teamsBadge) || (key === 'stats' && pitchesBadge)
+
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [games, setGames] = useState<WpblGame[]>([])
   const [players, setPlayers] = useState<WpblPlayer[]>([])
@@ -844,7 +873,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         boxShadow: navStuck ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
       }}>
         <SegNav
-          options={NAV.map(n => ({ value: n.key, label: n.label, badge: n.key === 'teams' && teamsBadge }))}
+          options={NAV.map(n => ({ value: n.key, label: n.label, badge: navBadge(n.key) }))}
           value={view}
           onChange={v => selectTab(v as WpblView, 'pill')}
         />
@@ -883,7 +912,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
                   case 'home':      return <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} onViewStats={openStats} onViewTracking={openTracking} />
                   case 'schedule':  return <ScheduleView teams={teams} games={games} onOpenGame={openGame} active={view === 'schedule'} />
                   case 'standings': return <StandingsView teams={teams} games={games} onOpenTeam={selectTeam} />
-                  case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} active={view === 'stats'} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} />
+                  case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} active={view === 'stats'} newBoardBadge={pitchesBadge} onNewBoardSeen={retirePitchesBadge} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} />
                   case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeam} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenStats={openStats} />
                 }
               })()
@@ -913,7 +942,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
 
       {bottomNav && (
         <WpblBottomNav
-          items={NAV.map(n => ({ key: n.key, label: n.label, badge: n.key === 'teams' && teamsBadge }))}
+          items={NAV.map(n => ({ key: n.key, label: n.label, badge: navBadge(n.key) }))}
           value={view}
           onChange={k => selectTab(k as WpblView, 'pill')}
         />

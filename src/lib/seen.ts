@@ -21,6 +21,14 @@
 const BADGES = {
   // The Teams tab rebuild in v1.45.0: ranked club cards and the head-to-head grid.
   'teams-v145': new Date('2026-08-31T23:59:59Z'),
+  // The Pitch by pitch board in v1.47.0, which is a source chip inside the Stats tab rather
+  // than a tab of its own, so this one dot is drawn TWICE: on the Stats pill to get the reader
+  // into the tab, and on the chip to get them the rest of the way. It is therefore retired by
+  // opening the BOARD, not by opening the tab. Clearing it at the tab would put out the chip's
+  // dot before anyone had seen it, which is the half that does the actual pointing.
+  // Expires with the postseason: a dot advertising a stats board is stale the moment the feed
+  // stops producing stats for it.
+  'pitches-v147': new Date('2026-09-22T23:59:59Z'),
 } as const
 
 export type BadgeKey = keyof typeof BADGES

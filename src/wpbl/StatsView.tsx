@@ -7,7 +7,7 @@ import {
 } from './api'
 import { trackingWorthShowing } from './tracking'
 import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
-import { TeamBadge, CARD_BORDER, pressable, FOCUS_RING, useWpblName } from './ui'
+import { TeamBadge, NewDot, CARD_BORDER, pressable, FOCUS_RING, useWpblName } from './ui'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, wpblQualifiers, fmtRate, fmtTwo,
@@ -203,10 +203,18 @@ function SubViewFallback() {
   )
 }
 
-export default function WpblStatsView({ teams, games, focus, active = true, onOpenPlayer, onOpenTeam }: {
+export default function WpblStatsView({
+  teams, games, focus, active = true, newBoardBadge, onNewBoardSeen, onOpenPlayer, onOpenTeam,
+}: {
   teams: WpblTeam[]
   games: WpblGame[]
   focus?: WpblStatsFocus
+  /** Draw the "new here" dot on the Pitch by pitch chip. The same badge is on the Stats pill
+   *  one level up; this is the half that points the rest of the way. */
+  newBoardBadge?: boolean
+  /** Called once the reader has actually reached that board, by any route. Owned by WpblApp,
+   *  which holds the badge and writes the seen flag. */
+  onNewBoardSeen?: (via: string) => void
   // Whether this pane is the one on screen. The pager keeps visited tabs mounted, so without
   // it every return to Stats after the first would go unrecorded (see the board log below).
   active?: boolean
@@ -260,6 +268,11 @@ export default function WpblStatsView({ teams, games, focus, active = true, onOp
   // link, a Discord post from the watcher, the back button), the chip stays for the rest of
   // it. Taking it away the moment they switched off would strand them somewhere they had just
   // been, with the URL as the only way back.
+  // Any route onto the board counts, not just a tap on the chip: a ?view= link and the back
+  // button both land here without going through switchSource.
+  useEffect(() => {
+    if (source === 'pitches') onNewBoardSeen?.('board')
+  }, [source, onNewBoardSeen])
   const [trackedSeen, setTrackedSeen] = useState(seedAxes.source === 'tracked')
   useEffect(() => { if (source === 'tracked') setTrackedSeen(true) }, [source])
   const trackedOffered = showTracked || trackedSeen
@@ -648,7 +661,10 @@ export default function WpblStatsView({ teams, games, focus, active = true, onOp
       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, rowGap: 1, pb: 1.5 }}>
         <Box sx={{ order: 1, display: 'flex', gap: 0.5, flexShrink: 0 }}>
           <Chip active={source === 'season'} onClick={() => switchSource('season')}>Season</Chip>
-          <Chip active={source === 'pitches'} onClick={() => switchSource('pitches')}>Pitch by pitch</Chip>
+          <Chip active={source === 'pitches'} onClick={() => switchSource('pitches')}>
+            Pitch by pitch
+            {newBoardBadge && <NewDot sx={{ ml: 0.6 }} />}
+          </Chip>
           {/* Hidden while the league has published radar for barely any games, and kept for the
               session once a link has opened it anyway. See trackedOffered. */}
           {trackedOffered && (
