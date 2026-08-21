@@ -14,7 +14,7 @@
  * Needs VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY (both public, both already in the
  * client bundle). Reads only; writes nothing but the file.
  */
-import { writeFileSync } from 'node:fs'
+import { writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { WPBL_VIEW_PATHS, WPBL_PLAYERS_BASE, wpblPlayerSlug, type WpblSluggable } from '../src/wpbl/routes'
 import { slugifyName } from '../src/wpbl/slug'
@@ -99,6 +99,25 @@ const players: Entry[] = roster.map(p => ({
 const missing = WPBL_VIEW_PATHS.filter(p => !STATIC.some(e => e.loc === p))
 if (missing.length) throw new Error(`WPBL tabs missing from STATIC: ${missing.join(', ')}`)
 
-const lastmod = new Date().toISOString().slice(0, 10)
-writeFileSync(OUT, xml([...STATIC, ...players], lastmod), 'utf8')
-console.log(`sitemap: ${STATIC.length + players.length} URLs (${players.length} players) -> public/sitemap.xml`)
+const entries = [...STATIC, ...players]
+
+// Rewrite ONLY when the set of URLs actually changed.
+//
+// This runs on a daily cron, and `lastmod` is stamped with the run date, so regenerating
+// unconditionally would produce a diff every single day: a commit that says nothing, and a
+// Cloudflare deploy behind it, for a file whose contents are identical. Worse, a sitemap
+// that claims every page changed today, every day, is a signal Google learns to distrust.
+//
+// So lastmod here means "when this URL set last changed", which is a claim the file can
+// actually keep. A new player, or a retired one, moves it; a quiet Tuesday does not.
+const existing = existsSync(OUT) ? readFileSync(OUT, 'utf8') : ''
+const locsIn = (xmlText: string) => [...xmlText.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]).join('\n')
+const wanted = entries.map(e => `${SITE}${e.loc}`).join('\n')
+
+if (existing && locsIn(existing) === wanted) {
+  console.log(`sitemap: unchanged (${entries.length} URLs), not rewritten`)
+} else {
+  const lastmod = new Date().toISOString().slice(0, 10)
+  writeFileSync(OUT, xml(entries, lastmod), 'utf8')
+  console.log(`sitemap: ${entries.length} URLs (${players.length} players) -> public/sitemap.xml`)
+}

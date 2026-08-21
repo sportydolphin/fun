@@ -312,6 +312,7 @@ would stop updating all winter. Every one of them has `workflow_dispatch` for an
 | `update-milestones` | `0 7` | `update-milestones` | Milestone watch |
 | `update-prediction-boards` | `30 7` | `update-prediction-boards` | Prediction leaderboards |
 | `pull-feature-requests` | `0 5` | `pull-tasks` | Google Tasks → `docs/feature-requests.md` / feedback |
+| `build-sitemap` | `40 6` | `sitemap` | Rebuild `public/sitemap.xml` from the roster (one URL per player) and commit it **only if the URL set changed**: a push to main is a deploy, so an unconditional rewrite would ship one a day for nothing |
 | `wpbl-restock-watch` | `*/10 * * * *` | `watch-wpbl-restock` | Mirror the league's Shopify catalogue and announce new merch + restocks: quiet batched feed to the shop channel, loud `@everyone` for the shortlist. Notifies only, never buys (see [`docs/DISCORD.md`](docs/DISCORD.md)) |
 | `wpbl-pbp-validation` | `0 8` | `validate-wpbl-pbp` | Check the league's play-by-play against the rules of baseball; records health to `wpbl_pbp_validation_runs`. **Never fails on findings** (see [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md)) |
 

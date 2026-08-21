@@ -1,5 +1,7 @@
 # sportydolphin.fun
 
+**Live at [sportydolphin.fun](https://sportydolphin.fun)** ([WPBL](https://sportydolphin.fun/wpbl) · [standings](https://sportydolphin.fun/wpbl/standings) · [stat leaders](https://sportydolphin.fun/wpbl/stats) · [players](https://sportydolphin.fun/wpbl/players) · [MLB](https://sportydolphin.fun/mlb))
+
 A baseball web app with **two independent league sections**, switchable from the toolbar:
 
 - **WPBL** (`/wpbl`): Women's Pro Baseball League coverage (the default section): live scoreboard, schedule, standings, a full sortable stats table, team & player pages, a TrackMan **Tracking** tab (velocity / spin / exit-velo leaders + pitch-location maps), a **Game Center** (line score, box score, play-by-play, pitch data), **Hall of Firsts**, opt-in **pre-game push reminders**, and **Discord integration** for the fan server (a self-editing "next games" board, a box score posted as each game goes final, new YouTube highlight reels posted to the highlights channel, and a `/player` slash command that looks up any player's season). Data comes from the league's public feed, mirrored into Supabase by the `wpbl-ingest` Edge Function.
@@ -37,6 +39,7 @@ npm run discord-commands -- --list    # show the Discord slash commands currentl
 npm run check-functions               # bundle the Cloudflare Pages functions as CI will
 npm run validate-pbp -- --baseline scripts/wpbl-pbp-baseline.json  # WPBL scoring check (needs SUPABASE_DB_URL)
 npm run restock-watch -- --status     # WPBL shop watcher: snapshot size, shortlist, last successful run
+npm run sitemap                       # regenerate public/sitemap.xml from the roster (one URL per player)
 ```
 
 ### Testing auth links locally

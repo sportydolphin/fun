@@ -1,0 +1,70 @@
+name: Rebuild sitemap
+
+# Regenerates public/sitemap.xml from the roster and commits it if the URL set changed,
+# so a signing or a call-up reaches search engines without anyone remembering to run
+# `npm run sitemap`.
+#
+# It commits only when the set of URLs actually differs: the generator leaves the file
+# alone otherwise (see scripts/build-sitemap.ts), so a quiet day produces no commit and
+# no deploy. That matters here because a push to main IS a Cloudflare deploy.
+#
+# Dormant until configured: add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as repository
+# secrets. Both are public values that already ship in the client bundle; they are secrets
+# here only because Actions has nowhere else to put them. Until they exist every run skips
+# cleanly rather than failing, so there are no red-X emails.
+on:
+  schedule:
+    - cron: '40 6 * * *'   # 06:40 UTC daily. Clear of update-playoff-odds at 06:20.
+  workflow_dispatch:        # also triggerable manually from the Actions UI
+
+# The job commits the regenerated file back to the repo.
+permissions:
+  contents: write
+
+# Never let two runs push at once.
+concurrency:
+  group: build-sitemap
+  cancel-in-progress: false
+
+jobs:
+  build-sitemap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VITE_SUPABASE_URL:      ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Skip when not configured
+        if: env.VITE_SUPABASE_ANON_KEY == ''
+        run: echo "Supabase vars not set, skipping. Add VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY to enable."
+
+      # Unlike most of the cron scripts this one is TypeScript and is bundled by esbuild
+      # first, so it needs the dev dependencies. `npm ci` rather than `npm install` to keep
+      # the run reproducible.
+      - name: Install
+        if: env.VITE_SUPABASE_ANON_KEY != ''
+        run: npm ci
+
+      - name: Rebuild sitemap
+        if: env.VITE_SUPABASE_ANON_KEY != ''
+        run: npm run sitemap
+
+      - name: Commit if the URL set changed
+        if: env.VITE_SUPABASE_ANON_KEY != ''
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/sitemap.xml
+          if git diff --cached --quiet; then
+            echo "Sitemap unchanged."
+          else
+            git commit -m "Sitemap: refresh from the roster"
+            git push
+          fi
