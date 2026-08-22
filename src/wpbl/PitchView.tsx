@@ -138,11 +138,19 @@ function StatStrip({ items }: { items: { label: string; value: string; sub: stri
   return (
     <Box sx={{
       display: 'grid', gridTemplateColumns: '1fr 1fr',
+      // Fill the row rather than sitting at its natural height. Beside the outcome chart this
+      // block is the shorter of the two by about 40px, which read as a gap hanging under a
+      // bordered box rather than as two columns of one header. The rows share whatever height
+      // that leaves, so the border still closes level with the last bar.
+      height: '100%', gridTemplateRows: 'repeat(2, minmax(0, 1fr))',
       border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden',
     }}>
       {items.map((t, i) => (
         <Box key={t.label} sx={{
           px: 1.25, py: 1.1, minWidth: 0,
+          // Centred so the slack from the stretch above is split above and below each tile,
+          // instead of collecting under the text and against the hairline.
+          display: 'flex', flexDirection: 'column', justifyContent: 'center',
           // Interior hairlines only: a left edge for the right-hand column, a top edge for
           // every row after the first.
           borderColor: 'divider', borderStyle: 'solid',
@@ -290,7 +298,9 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
           Every pitch, every game
         </Typography>
         <Box sx={{
-          mt: 1, display: 'grid', alignItems: 'start',
+          // Stretch, not start: the two columns are one header block, so the shorter of them
+          // fills the row instead of leaving a hole below it. See StatStrip.
+          mt: 1, display: 'grid', alignItems: 'stretch',
           gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(0, 1.15fr)' },
           gap: { xs: 1.5, md: 2.5 },
         }}>

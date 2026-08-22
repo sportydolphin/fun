@@ -108,7 +108,12 @@ describe('the offline page', () => {
 // handlers from the shipped file, not a copy of its logic.
 function loadServiceWorker() {
   const handlers: Record<string, (event: any) => void> = {}
-  const cache = { addAll: vi.fn(async () => {}), put: vi.fn(async () => {}) }
+  // Both take their real arguments so the assertions can read mock.calls: an argument-less
+  // vi.fn() types every call as [], and `calls.map(c => c[0])` stops compiling.
+  const cache = {
+    addAll: vi.fn(async (_urls: string[]) => {}),
+    put: vi.fn(async (_url: string, _response: Response) => {}),
+  }
   const self = {
     addEventListener: (type: string, fn: (event: any) => void) => { handlers[type] = fn },
     skipWaiting: vi.fn(),
@@ -308,8 +313,8 @@ describe('the service worker precache', () => {
     // What actually gets stored must be a clean response, or the put throws for real in a
     // browser even though this mock would have accepted it.
     for (const [, response] of sw.cache.put.mock.calls) {
-      expect((response as Response).redirected).toBe(false)
-      expect((response as Response).status).toBe(200)
+      expect(response.redirected).toBe(false)
+      expect(response.status).toBe(200)
     }
   })
 
