@@ -230,6 +230,36 @@ a phone:
 5. **Back button** at the root of the app, and the deep-link handoff: with assetlinks live, a
    `sportydolphin.fun` link tapped anywhere on the device should open the app.
 
+## Deep links, and their limits
+
+Verified on a device Aug 22, 2026: no URL bar, Google sign-in, push and the offline page all
+work. Link handling is the one that surprises, so what follows is what is normal rather than
+what is broken.
+
+`AndroidManifest.xml` carries `android:autoVerify="true"` on a VIEW/BROWSABLE filter for
+`https://sportydolphin.fun`, all paths, which is correct and needs no changes. **What it
+cannot do is win against an app that never asks.** Android resolves app links only for an
+*implicit* `ACTION_VIEW` intent, so:
+
+- **In-app browsers (Discord, Reddit, Slack) render the URL themselves**, in a WebView or a
+  Custom Tab, and never send an intent at all.
+- **Their "open in browser" item sends an EXPLICIT intent** naming the default browser, which
+  bypasses link resolution by design. On a phone with Firefox as default, that is where it
+  goes, and no amount of asset-links work changes it.
+
+App links do fire from SMS, Gmail, notes apps, search results and QR scans. Test there.
+Confirm the OS side with `adb shell pm get-app-links fun.sportydolphin.app`, which should
+report `sportydolphin.fun: verified`.
+
+**Do not add `www.sportydolphin.fun` to the intent filter**, tempting as it looks. `www`
+exists and 301s to the apex, so a www link does open in a browser rather than the app. But
+Android's verification is **all-or-nothing across every `autoVerify` host** and does not
+follow cross-host redirects, so www would need its own `assetlinks.json` served at
+`https://www.sportydolphin.fun/.well-known/assetlinks.json`. The redirect sends that to the
+apex. Adding the host without solving that loses verification for **both** hosts and puts the
+URL bar back on the apex, trading a rare annoyance for a permanent one. Every URL the site
+emits is apex already: canonical, `og:url`, sitemap, JSON-LD.
+
 ## Play Console
 
 - **$25, one time.** The money is not the constraint.
