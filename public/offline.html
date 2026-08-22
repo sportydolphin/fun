@@ -1,0 +1,84 @@
+<!-- Served by sw.js when a navigation cannot reach the network. See public/sw.js.
+
+     This exists for the Android wrapper. On the web a dead network is a browser problem
+     and the browser says so in its own chrome. Inside a Trusted Web Activity there is no
+     browser chrome, so the same failure renders Chrome's dinosaur page full-screen under
+     our icon and app name, which reads as "this app is broken" rather than "you are in a
+     tunnel". Anything with a launcher icon has to own its own offline state.
+
+     Deliberately static and dependency-free, for the same reason as 404.html: it has to
+     render from cache with no network and no bundle. It must not boot the SPA. -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>You're offline | sportydolphin.fun</title>
+    <!-- Never index the offline shell. It is reachable only from a cache miss, but a
+         crawler that somehow fetched it would otherwise store it as the page's content. -->
+    <meta name="robots" content="noindex, nofollow" />
+    <script>
+      // Same pre-paint theme stamp as index.html and 404.html. Inline and tiny: this page
+      // loads no JS bundle, and by definition it cannot fetch one.
+      (function () {
+        try {
+          var t = localStorage.getItem('theme');
+          if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.setAttribute('data-theme', t);
+          document.documentElement.style.colorScheme = t;
+        } catch (e) { /* storage off: fall through to the CSS defaults below */ }
+      })();
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/x-icon" sizes="48x48" href="/favicon.ico" />
+    <style>
+      :root { --bg: #ffffff; --fg: #111827; --muted: #6b7280; --accent: #2563eb; --line: #e5e7eb; }
+      :root[data-theme="dark"] { --bg: #0f172a; --fg: #f8fafc; --muted: #94a3b8; --accent: #60a5fa; --line: #1e293b; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: var(--bg); color: var(--fg);
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        display: flex; align-items: center; justify-content: center;
+        min-height: 100vh; padding: 24px;
+      }
+      main { max-width: 480px; text-align: center; }
+      img { height: 56px; width: auto; margin-bottom: 20px; }
+      :root[data-theme="dark"] img { filter: invert(1); }
+      h1 { font-size: 1.6rem; font-weight: 800; margin: 0 0 10px; letter-spacing: -0.02em; }
+      p { color: var(--muted); line-height: 1.6; margin: 0 0 24px; }
+      button {
+        font: inherit; cursor: pointer;
+        display: inline-block; padding: 9px 18px; border-radius: 999px;
+        background: var(--accent); border: 1px solid var(--accent); color: #fff;
+        font-size: 0.9rem; font-weight: 700;
+      }
+      .status { margin-top: 18px; font-size: 0.85rem; color: var(--muted); min-height: 1.2em; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/logo-mark.png" alt="sportydolphin" />
+      <h1>You're offline</h1>
+      <p>Scores and stats need a connection. This page will reload itself as soon as you get one.</p>
+      <button type="button" id="retry">Try again</button>
+      <p class="status" id="status"></p>
+    </main>
+    <script>
+      // The service worker serves this page FOR the URL that was requested, so the address
+      // bar still holds it and a plain reload retries the right page rather than the home
+      // screen. Do not "helpfully" send this to '/': that would silently throw away
+      // whatever the person was actually opening, including a push notification's target.
+      var status = document.getElementById('status');
+      function retry() {
+        status.textContent = 'Reconnecting…';
+        location.reload();
+      }
+      document.getElementById('retry').addEventListener('click', retry);
+      // Fires when the OS regains an interface. It is optimistic (an interface is not the
+      // internet), so a failed retry simply lands back here, which is why the button stays.
+      window.addEventListener('online', retry);
+    </script>
+  </body>
+</html>

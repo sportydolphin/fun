@@ -109,6 +109,17 @@ Each of these has already cost someone a debugging session, and none of them fai
   under it could be forged for any Discord user by anyone who opened dev tools. That is the
   whole of the exception. Do not add a fourth, and do not let the bot's key reach anything
   outside `wpbl_predict_*`.
+- **`manifest.webmanifest`'s `id` is `/mlb` while `start_url` is `/wpbl`, and that is not a
+  bug to fix.** `id` is the installed app's IDENTITY, not a route. Chrome keys an installed
+  PWA on it, so "correcting" it does not rename the app, it creates a second unrelated one
+  and orphans every existing install, plus (once the Android app ships) the Digital Asset
+  Links association built against it. The mismatch is cosmetic and costs nothing; the fix
+  costs the installed base. Pinned in `src/__tests__/pwaShell.test.ts`.
+- **`public/sw.js` must never cache the app shell.** It caches `offline.html` and three
+  images, and serves them only for a navigation that could not reach the network. Widen it
+  into a shell cache and the failure is invisible by construction: the app renders fine, it
+  is just an old build, for anyone who does not close every tab. Navigations stay
+  network-first with nothing written back.
 - **`public/icon.svg` is generated**, along with every other published icon, by
   [`scripts/make-brand-icons.py`](scripts/make-brand-icons.py) from `public/logo.png`. A
   hand-edit is lost on the next run. Change the art, rerun the script, commit the lot.
@@ -202,7 +213,10 @@ pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare Pages at
   photo**: what the sync will not do, and why the approval gate is in RLS rather than in the
   query), `PUSH_NOTIFICATIONS.md`, `GOOGLE_TASKS.md`, `feature-requests.md`,
   `BACKLINKS.md` (the SEO work that is not code: who to contact and the drafts to send;
-  the site's own markup is done, links are the remaining constraint).
+  the site's own markup is done, links are the remaining constraint),
+  `ANDROID.md` (the plan of record for shipping this on Google Play as a Trusted Web
+  Activity: what is done, what is blocked on a signing key, and the two things that are
+  frozen forever the moment the first build reaches Play).
 
 Code: [`src/App.tsx`](src/App.tsx) is the shell, with hand-rolled path routing and no
 router lib. [`src/wpbl/`](src/wpbl/) is self-contained with no MLB coupling

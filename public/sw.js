@@ -1,19 +1,84 @@
-/* sw.js — service worker for sportydolphin.fun (MLB app)
+/* sw.js: the service worker for sportydolphin.fun
  *
- * Scope: '/' (served from the site root). This worker exists to receive Web
- * Push messages and show notifications. It deliberately does NOT precache or
- * intercept fetches yet — offline caching is a separate, later step. Keeping it
- * network-passthrough avoids serving stale app shells while we iterate.
+ * Scope: '/' (served from the site root). Two jobs, and deliberately only two:
+ *   1. receive Web Push messages and show notifications;
+ *   2. answer a NAVIGATION that cannot reach the network with /offline.html.
+ *
+ * It still does NOT precache or serve the app shell, and must not start. Serving a cached
+ * shell means shipping a stale app to anyone who does not close every tab, and the staleness
+ * is invisible: the app renders, it is just old. The offline page is safe to cache because
+ * it is static, tiny, and nothing reads data from it.
  */
 
-self.addEventListener('install', () => {
-  // Activate this worker as soon as it's installed, replacing any old one.
+// Bump on any change to OFFLINE_ASSETS or to the contents of /offline.html. The activate
+// handler deletes every cache whose name is not this one, so a bump is also the uninstall.
+const CACHE = 'sd-offline-v1'
+
+// The offline page and everything it renders, because a cache that holds the HTML but not
+// its logo produces a broken-image icon in the one situation where nothing can be refetched.
+// /offline.html itself pulls in no CSS or JS files on purpose; both are inline.
+const OFFLINE_URL = '/offline.html'
+const OFFLINE_ASSETS = [OFFLINE_URL, '/logo-mark.png', '/icon.svg', '/favicon.ico']
+
+self.addEventListener('install', (event) => {
+  // `reload` so a fresh worker takes the offline page from the network rather than from
+  // the HTTP cache, which is how an old copy survives the version bump meant to replace it.
+  event.waitUntil(
+    caches.open(CACHE)
+      .then((cache) => cache.addAll(OFFLINE_ASSETS.map((u) => new Request(u, { cache: 'reload' }))))
+      // A precache failure must not block the worker: push is the more important job and it
+      // needs no cache at all. Worst case the offline page is missing and a dead network
+      // falls through to the browser's own error, which is where we were before.
+      .catch(() => {})
+  )
+  // Activate as soon as installed, replacing any old one.
   self.skipWaiting()
 })
 
 self.addEventListener('activate', (event) => {
-  // Take control of open pages immediately so the first subscribe works without a reload.
-  event.waitUntil(self.clients.claim())
+  event.waitUntil((async () => {
+    // Navigation preload lets the browser start the network request in parallel with
+    // booting this worker, so adding a fetch handler does not put worker startup on the
+    // critical path of every navigation. Without it, the cost of this file is paid on
+    // every cold navigation whether or not the user is offline.
+    if (self.registration.navigationPreload) {
+      await self.registration.navigationPreload.enable().catch(() => {})
+    }
+    const names = await caches.keys()
+    await Promise.all(names.filter((n) => n !== CACHE).map((n) => caches.delete(n)))
+    // Take control of open pages immediately so the first subscribe works without a reload.
+    await self.clients.claim()
+  })())
+})
+
+self.addEventListener('fetch', (event) => {
+  // NAVIGATIONS ONLY. Every other request (the JS bundle, the API, images) is left to the
+  // browser untouched: this worker has no copy of any of it, so intercepting would add a
+  // pass through the worker and return the identical response. Requests to Supabase must
+  // stay untouched for a second reason, which is that they carry auth headers.
+  if (event.request.mode !== 'navigate') return
+
+  event.respondWith((async () => {
+    try {
+      const preloaded = await event.preloadResponse
+      if (preloaded) return preloaded
+      // Network FIRST and network only. The response is deliberately not cached: the whole
+      // point is that the shell is never served stale.
+      return await fetch(event.request)
+    } catch {
+      // Offline, or the request never completed. Anything the server actually answered,
+      // including a 404 or a 500, is a real answer and is returned above.
+      const cached = await caches.match(OFFLINE_URL)
+      // 503, not 200, and that means rebuilding the response rather than returning the
+      // cached one: a cache hit is a 200 by construction, so `return cached` would hand
+      // back the offline page under the requested URL with a success status. This is not
+      // the page that was asked for, and a crawler or an unfurler that reached it must not
+      // record it as one. `Retry-After` says the condition is temporary.
+      const headers = { 'Content-Type': 'text/html; charset=utf-8', 'Retry-After': '60' }
+      const body = cached ? await cached.text() : ''
+      return new Response(body, { status: 503, statusText: 'Offline', headers })
+    }
+  })())
 })
 
 self.addEventListener('push', (event) => {
