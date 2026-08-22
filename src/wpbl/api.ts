@@ -700,11 +700,17 @@ export interface WpblPitchLoc {
   height: number | null
 }
 
-// Every tracked pitch thrown by one pitcher (keyed by the feed id = wpbl_players.api_id),
-// projected out of the raw payload. Empty for non-pitchers / players with no api_id.
+// Every tracked pitch thrown by one pitcher, projected out of the raw payload. Empty for
+// non-pitchers and for players the feed has no id for.
+//
+// Takes EVERY feed id the player has held, not just the current one. The tracking rows are
+// keyed on the feed's player id, and the feed mints a new id per club — so reading only
+// `api_id` would show a traded pitcher's work for her new team and silently nothing before
+// it, which looks exactly like a pitcher who has not thrown much rather than like a bug.
 // Paginated past PostgREST's 1000-row default so it holds up as the season fills in.
-export async function fetchWpblPitcherLocations(apiId: string | null): Promise<WpblPitchLoc[]> {
-  if (!apiId) return []
+export async function fetchWpblPitcherLocations(apiIds: string | string[] | null): Promise<WpblPitchLoc[]> {
+  const ids = (typeof apiIds === 'string' ? [apiIds] : apiIds ?? []).filter(Boolean)
+  if (ids.length === 0) return []
   const SELECT = 'game_id,release_speed,pitch_type:raw->>pitch_type,' +
     'side:raw->>plate_location_side,height:raw->>plate_location_height'
   const PAGE = 1000
@@ -712,7 +718,10 @@ export async function fetchWpblPitcherLocations(apiId: string | null): Promise<W
   for (let from = 0; ; from += PAGE) {
     const page = await safe<Record<string, unknown>[]>('fetchWpblPitcherLocations', () =>
       supabase.from('wpbl_pitch_tracking').select(SELECT)
-        .eq('kind', 'pitch').eq('raw->>pitcher_id', apiId)
+        .eq('kind', 'pitch').in('raw->>pitcher_id', ids)
+        // Deterministic order, or Postgres is free to hand the same row to two pages and skip
+        // another (see the paging note in CLAUDE.md). activity_id is the table's natural key.
+        .order('activity_id', { ascending: true })
         .range(from, from + PAGE - 1) as unknown as
         PromiseLike<{ data: Record<string, unknown>[] | null; error: unknown }>,
       [])

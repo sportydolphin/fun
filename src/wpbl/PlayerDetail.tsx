@@ -176,6 +176,12 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
     return () => { cancelled = true }
   }, [])
 
+  // Every official-feed id this player has held. `api_id` alone is only her CURRENT club's
+  // id, and the feed mints a new one per club. Keyed on the joined string so a fresh array
+  // out of a re-render does not re-fire the fetch.
+  const feedKey = [...new Set([...(player.api_ids ?? []), player.api_id].filter(Boolean))].sort().join(',')
+  const feedIds = useMemo(() => (feedKey ? feedKey.split(',') : []), [feedKey])
+
   useEffect(() => {
     let cancelled = false
     fetchWpblPlayerLines(player.id).then(({ batting, pitching, fielding }) => {
@@ -183,10 +189,12 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
       setBatting(batting); setPitching(pitching); setFielding(fielding); setLoading(false)
     })
     // Pitch-location tracking keys on the feed id; empty for non-pitchers / unmapped players.
+    // Every id she has held, not just the current one, so a trade does not erase the half of
+    // her season she threw under the old club's id.
     setPitchLocs([])
-    fetchWpblPitcherLocations(player.api_id).then(locs => { if (!cancelled) setPitchLocs(locs) })
+    fetchWpblPitcherLocations(feedIds).then(locs => { if (!cancelled) setPitchLocs(locs) })
     return () => { cancelled = true }
-  }, [player.id, player.api_id])
+  }, [player.id, feedIds])
 
   // Only real plate appearances count as batting — a 0-for-0 pinch/defensive cameo shouldn't
   // produce an all-zero batting card or a phantom game-log row.
@@ -225,10 +233,17 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
   const pitchingMeta = `${pt.g} G · ${outsToIp(pt.outs)} IP${pt.outs < PIT_SMALL_OUTS ? ' · small sample' : ''}`
 
   // Opponent label for a game the player appeared in.
-  const oppLabel = (gameId: string): { date: string; text: string } => {
+  //
+  // `lineTeam` is the club she played THAT game for, off the box-score line, not the one on
+  // her roster row. A traded player's old games are still in her log, and reading the current
+  // club would ask "was Los Angeles at home?" of a New York game she played in July — neither
+  // side matches, so the label falls through to naming her own team and the row reads "@ NY"
+  // for a game she played for New York. The line always knows; the roster row only knows now.
+  const oppLabel = (gameId: string, lineTeam: string | null): { date: string; text: string } => {
     const g = gameById.get(gameId)
     if (!g) return { date: '', text: '' }
-    const isHome = g.home_team_id === player.team_id
+    const forTeam = lineTeam ?? player.team_id
+    const isHome = g.home_team_id === forTeam
     const oppId = isHome ? g.away_team_id : g.home_team_id
     const opp = teamById.get(oppId)
     const date = new Date(`${g.game_date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })
@@ -295,14 +310,14 @@ export default function PlayerDetailModal({ player, teams, games, onClose }: {
     <GameLogTable
       title={hasPitching ? 'Hitting log' : 'Game log'}
       statHeaders={['AB', 'R', 'H', '2B', '3B', 'HR', 'RBI', 'BB', 'SO', 'SB', 'TB']}
-      rows={byGameDate(battingReal).map(l => { const o = oppLabel(l.game_id); return { date: o.date, opp: o.text, cells: [l.ab, l.r, l.h, l.doubles, l.triples, l.hr, l.rbi, l.bb, l.so, l.sb, l.tb] } })}
+      rows={byGameDate(battingReal).map(l => { const o = oppLabel(l.game_id, l.team_id); return { date: o.date, opp: o.text, cells: [l.ab, l.r, l.h, l.doubles, l.triples, l.hr, l.rbi, l.bb, l.so, l.sb, l.tb] } })}
     />
   )
   const pitchingLogEl = !hasPitching ? null : (
     <GameLogTable
       title={hasBatting ? 'Pitching log' : 'Game log'}
       statHeaders={['DEC', 'IP', 'H', 'R', 'ER', 'BB', 'SO', 'HR', 'P']}
-      rows={byGameDate(pitching).map(l => { const o = oppLabel(l.game_id); return { date: o.date, opp: o.text, cells: [l.decision ?? '—', outsToIp(l.outs), l.h, l.r, l.er, l.bb, l.so, l.hr, l.pitches ?? '—'] } })}
+      rows={byGameDate(pitching).map(l => { const o = oppLabel(l.game_id, l.team_id); return { date: o.date, opp: o.text, cells: [l.decision ?? '—', outsToIp(l.outs), l.h, l.r, l.er, l.bb, l.so, l.hr, l.pitches ?? '—'] } })}
     />
   )
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normName, isDamaged, replacementMatch, editDistance } from '../../../supabase/functions/wpbl-ingest/names'
+import { normName, isDamaged, replacementMatch, editDistance, tradeMatch, teamMoveWins } from '../../../supabase/functions/wpbl-ingest/names'
 
 // Player-name reconciliation for the WPBL ingest. The module under test lives with the
 // Supabase edge function (which only Deno can load, so it can't be imported here), but the
@@ -58,5 +58,86 @@ describe('editDistance', () => {
 
   it('gives up past the cap instead of merging distant names', () => {
     expect(editDistance('kate blunt', 'katherine blunt')).toBeGreaterThan(1)
+  })
+})
+
+// ─── trades ───────────────────────────────────────────────────────────────────
+// The league feed mints a NEW player_id when a player changes club, and says nothing that
+// links the two. On Aug 21, 2026 that turned Diana Ibarra into two players: eight games on
+// New York, one on Los Angeles, her name suddenly ambiguous enough that the canonical
+// /wpbl/players/diana-ibarra started 404ing and the Discord bot offered a "did you mean"
+// list for someone who exists once.
+const entry = (id: string, name: string, teamId: string) => ({ id, norm: normName(name), teamId })
+
+describe('tradeMatch', () => {
+  const roster = [
+    entry('ibarra', 'Diana Ibarra', 'NY'),
+    entry('whitmore', 'Kelsie Whitmore', 'SF'),
+    entry('dumais', 'Maïka Dumais', 'BOS'),
+  ]
+
+  it('recognises a player who turns up in another club’s box score', () => {
+    expect(tradeMatch(normName('Diana Ibarra'), 'LA', roster)).toBe('ibarra')
+  })
+
+  it('folds accents, so the feed spelling still finds her', () => {
+    expect(tradeMatch(normName('Maika Dumais'), 'LA', roster)).toBe('dumais')
+  })
+
+  it('says nothing about a player already on that club — the same-team matchers own that', () => {
+    expect(tradeMatch(normName('Diana Ibarra'), 'NY', roster)).toBeNull()
+  })
+
+  it('refuses a shared name rather than guessing which one moved', () => {
+    // A wrong merge is silent and permanent; a duplicate is visible in the next roster list.
+    const twins = [...roster, entry('ibarra2', 'Diana Ibarra', 'BOS')]
+    expect(tradeMatch(normName('Diana Ibarra'), 'LA', twins)).toBeNull()
+  })
+
+  it('refuses a bare surname, which is not evidence of anything', () => {
+    expect(tradeMatch(normName('Ibarra'), 'LA', roster)).toBeNull()
+  })
+
+  it('will not reach for a near miss the way the same-team matchers do', () => {
+    expect(tradeMatch(normName('Diana Ybarra'), 'LA', roster)).toBeNull()
+    expect(tradeMatch(normName('Diane Ibarra'), 'LA', roster)).toBeNull()
+  })
+
+  it('does nothing without a club, so play-by-play cannot move anyone', () => {
+    expect(tradeMatch(normName('Diana Ibarra'), '', roster)).toBeNull()
+  })
+})
+
+describe('teamMoveWins', () => {
+  const TODAY = '2026-08-31'
+  const ny = { teamId: 'NY', teamAsOf: null as string | null }
+
+  it('moves a player when a box score puts her somewhere new', () => {
+    expect(teamMoveWins(ny, 'LA', '2026-08-21', TODAY)).toBe(true)
+  })
+
+  it('does not move a player who is already there', () => {
+    expect(teamMoveWins({ teamId: 'LA', teamAsOf: '2026-08-21' }, 'LA', '2026-08-30', TODAY)).toBe(false)
+  })
+
+  it('ignores an older game, so re-reading the season cannot undo a trade', () => {
+    // The ingest re-reads old box scores constantly: corrections via `force`, the late
+    // TrackMan backfill, mode 'all'. Each one is honest evidence of where she was THEN, and
+    // without this guard her club would be whichever game the loop happened to touch last.
+    const traded = { teamId: 'LA', teamAsOf: '2026-08-21' }
+    expect(teamMoveWins(traded, 'NY', '2026-07-15', TODAY)).toBe(false)
+    expect(teamMoveWins(traded, 'NY', '2026-08-21', TODAY)).toBe(true)   // same day, a doubleheader
+    expect(teamMoveWins(traded, 'NY', '2026-08-25', TODAY)).toBe(true)   // traded back
+  })
+
+  it('ignores a game that has not been played, so a staged lineup cannot lock the future', () => {
+    // The feed stages a lineup before first pitch, and `mode: "all"` walks the whole schedule.
+    // Believing one would set the floor weeks ahead and block every real trade until then.
+    expect(teamMoveWins(ny, 'LA', '2026-09-06', TODAY)).toBe(false)
+    expect(teamMoveWins(ny, 'LA', TODAY, TODAY)).toBe(true)   // today's game counts
+  })
+
+  it('will not move anyone off a game with no date', () => {
+    expect(teamMoveWins(ny, 'LA', null, TODAY)).toBe(false)
   })
 })

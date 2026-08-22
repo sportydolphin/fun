@@ -194,6 +194,7 @@ flowchart TB
         t_ppick["wpbl_predict_picks<br/>(one pick per person per round)"]
         t_pwin["wpbl_predict_winners<br/>(one winner per game)"]
         t_corr["wpbl_play_corrections<br/>(OUR fixes, not the feed's)"]
+        t_moves["wpbl_player_team_changes<br/>(trades the ingest spotted)"]
         t_restock["wpbl_restock_watch<br/>(shortlist: shout about these)"]
         t_shopp["wpbl_shop_products<br/>+ wpbl_shop_variants<br/>(catalogue snapshot)"]
         t_shopr["wpbl_shop_watch_runs<br/>(shop watcher health)"]
@@ -221,11 +222,21 @@ flowchart TB
     t_teams --- t_players
     t_games --- t_bat & t_pit & t_field & t_plays & t_track
     t_plays -.->|read-time overlay| t_corr
+    t_players --- t_moves
 ```
 
 Feed identity is reconciled by `api_id` (games) and fuzzy roster matching in the ingest
 function, so our readable team slugs / player UUIDs stay stable across feed spelling
 variants.
+
+**A player's feed id is not the player.** The league mints a NEW `player_id` when someone
+changes club, flags both ACTIVE and links them with nothing, so `wpbl_players.api_ids` holds
+every id a person has ever had (`api_id` is whichever is current) and the ingest matches on
+any of them. `team_as_of` records the date of the newest box score that placed her on
+`team_id`, which is what stops a re-read of an old game from undoing a trade, and every move
+the ingest makes on its own is logged to `wpbl_player_team_changes`. Historical team is never
+read off the roster row: box-score lines and plays each carry the club that game was played
+for, and that is what the game logs, team pages and Hall of Firsts use.
 
 **`wpbl_play_corrections` is the one WPBL table the feed does not write.** It holds our own
 fixes to the league's scoring and is applied as a read-time overlay, because `wpbl_game_plays`
@@ -513,6 +524,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - Brand icons (favicon, home screen, install tiles, social card) → [`scripts/make-brand-icons.py`](scripts/make-brand-icons.py), from [`public/logo.png`](public/logo.png)
 - Scoring validation + our play corrections → [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md)
 - Which position a player is listed at (the season overrides the roster) → [`src/wpbl/positions.ts`](src/wpbl/positions.ts), shared by the site, the unfurl card and the Discord bot
+- Which CLUB a player counted for (the line overrides the roster, because people get traded) → the `team_id` on each box-score line and play; the rules that recognise a trade are `tradeMatch` / `teamMoveWins` in [`supabase/functions/wpbl-ingest/names.ts`](supabase/functions/wpbl-ingest/names.ts), and `wpbl_merge_players(keep, dupe)` folds a duplicate back into one person
 - Archive gallery: which photos ship, and the approval gate → [`docs/COMMONS_PHOTOS.md`](docs/COMMONS_PHOTOS.md)
 - Reading, Highlights and Archive share ONE Home card, one segment painting at a time →
   [`src/wpbl/MediaShelf.tsx`](src/wpbl/MediaShelf.tsx). Three feeds, three tables, one surface:

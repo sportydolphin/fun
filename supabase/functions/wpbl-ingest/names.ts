@@ -63,3 +63,73 @@ export function editDistance(a: string, b: string, max = 1): number {
   }
   return prev[b.length]
 }
+
+// ─── trades ───────────────────────────────────────────────────────────────────
+// The feed mints a NEW player_id when a player changes club. Diana Ibarra is
+// moizfkn9dtrm4vno on New York and 27svefz41ds4k58k on Los Angeles, both flagged ACTIVE,
+// career_id empty on both: nothing in the payload says they are one person. Every other
+// matcher in this file is scoped to a single team, which is right for spelling variants and
+// fatal here, so the two rules a trade needs live below — pure, and therefore testable from
+// the app's runner, which is the whole reason this module exists.
+
+export interface RosterEntry { id: string; norm: string; teamId: string }
+
+/**
+ * The player a feed entry names, when they are already on the roster under a DIFFERENT club.
+ * Null when nobody matches, when more than one does, or when they are already on this club
+ * (which the same-team matchers handle and this must not second-guess).
+ *
+ * This is the only rule that reaches across teams, so it is the only one that could merge two
+ * genuinely different people, and it asks for more than the others: the full name, at least
+ * two parts, spelled exactly after accent folding, and unique league-wide. Two players who
+ * really do share a name fail the uniqueness test and neither is touched — the same "don't
+ * guess" rule the same-team matchers use. A wrong merge is silent and permanent; a missed one
+ * shows up as a duplicate in the next roster listing.
+ */
+export function tradeMatch(nm: string, teamSlug: string, roster: readonly RosterEntry[]): string | null {
+  if (!teamSlug || !nm) return null
+  if (nm.split(' ').length < 2) return null   // a lone surname is not evidence of anything
+  let hit: RosterEntry | null = null
+  for (const cand of roster) {
+    if (cand.norm !== nm) continue
+    if (hit) return null                      // shared name — ambiguous, leave it alone
+    hit = cand
+  }
+  if (!hit || hit.teamId === teamSlug) return null
+  return hit.id
+}
+
+/**
+ * Should a box score for `gameDate` move this player onto `teamSlug`?
+ *
+ * `teamAsOf` is the date of the newest game we have already believed. The ingest re-reads old
+ * box scores constantly (corrections via `force`, the late-TrackMan backfill, mode 'all'), and
+ * every one of them is honest evidence of where the player was THEN. Without this guard a July
+ * re-read would send a traded player back to her old club and the next pass would send her
+ * forward again, so her club would depend on whichever game the loop happened to touch last.
+ * With it, evidence only moves forward and re-ingesting the whole season changes nothing.
+ */
+export function teamMoveWins(
+  player: { teamId: string; teamAsOf: string | null },
+  teamSlug: string,
+  gameDate: string | null,
+  today: string,
+): boolean {
+  if (!teamSlug || !gameDate) return false
+  if (!datedEvidence(gameDate, today)) return false
+  if (player.teamId === teamSlug) return false
+  return !player.teamAsOf || gameDate >= player.teamAsOf
+}
+
+/**
+ * Is a box score for `gameDate` usable as evidence of where someone plays?
+ *
+ * No, if the game has not been played. The feed stages a lineup for a game it has not started
+ * — that is what `mode: "all"` reads when it walks the whole schedule — and a staged lineup
+ * for a game three weeks out would set the floor three weeks into the future, which would then
+ * block every real trade until that date arrived. A future game is a plan; only a played one
+ * is evidence.
+ */
+export function datedEvidence(gameDate: string, today: string): boolean {
+  return gameDate <= today
+}

@@ -4,6 +4,21 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.47.2',
+    date:    '2026-08-22',
+    title:   'One player, even after a trade',
+    changes: [
+      {
+        short: 'A traded player keeps one page, one season and one set of numbers',
+        full:  'The league’s stats feed gives a player a brand new id when she changes club, and says nothing that connects it to the old one. When Diana Ibarra moved from New York to Los Angeles she arrived here as a second, separate player: eight games under one name and one game under the other, neither of them her real season, and her own page answering “not found” because two people appeared to be claiming it. She is one player again, with all nine games, and the site now recognises a trade for what it is instead of meeting a stranger.',
+      },
+      {
+        short: 'Her old club keeps the games she played there',
+        full:  'A player who leaves does not take her first half of the season with her. Her game log names the right opponent for the games she played before the trade, her old club’s page still counts what she did for it, and the Hall of Firsts credits each milestone to the club she was actually playing for on the day. The only thing that changes when someone is traded is where she plays next.',
+      },
+    ],
+  },
+  {
     version: '1.47.1',
     date:    '2026-08-22',
     title:   'A real page when you lose signal',

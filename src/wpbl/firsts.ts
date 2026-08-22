@@ -156,7 +156,15 @@ export function computeFirsts(
     // Attribute even when the player can't be resolved, using the feed name + batting-side
     // slug, so the chronologically-first event still wins its "first".
     const batName = (bat?.name ?? p.batter_name ?? '').trim()
-    const batTeam = bat?.team_id ?? p.team_id ?? null
+    // Badge each first with the club she did it FOR, which the play knows and the roster row
+    // does not: `team_id` on a play is the batting side of that half-inning, so the pitcher's
+    // club is the game's other side. A player traded in August did not hit her first home run
+    // for the team she is on now, and a Hall of Firsts that says she did is telling the story
+    // wrong in the one place whose whole job is remembering when things happened.
+    const batTeam = p.team_id ?? bat?.team_id ?? null
+    const pitTeam = p.team_id
+      ? (p.team_id === g.home_team_id ? g.away_team_id : g.home_team_id)
+      : pit?.team_id ?? null
     const pitName = (pit?.name ?? p.pitcher_name ?? '').trim()
     if (p.is_hit && batName) rec('first_hit', bat, batName, batTeam, d, nar)
     if (batName) {
@@ -174,7 +182,7 @@ export function computeFirsts(
         rec('first_rbi', bat, batName, batTeam, d, nar)
       }
     }
-    if (et === 'strikeout' && pitName) rec('first_so', pit, pitName, pit?.team_id ?? null, d, nar)
+    if (et === 'strikeout' && pitName) rec('first_so', pit, pitName, pitTeam, d, nar)
     // Balks aren't a distinct event_type in the feed — they arrive as an 'unknown' play
     // whose narrative reads "... on a balk." (the pitcher is named). Match the narrative,
     // and credit the pitcher (their team, not the batting side).
@@ -183,11 +191,13 @@ export function computeFirsts(
       // The runner is named in the narrative ("Maggie Fox stole second"), not batter_id.
       const runnerName = (p.narrative.match(/^(.+?)\s+stole\b/i)?.[1] ?? '').trim()
       const runner = findByName(runnerName)
-      rec('first_sb', runner, runner?.name ?? (runnerName || 'Unknown'), runner?.team_id ?? null, d, nar)
+      rec('first_sb', runner, runner?.name ?? (runnerName || 'Unknown'), p.team_id ?? runner?.team_id ?? null, d, nar)
     }
   }
 
   // ── Box-line firsts: first win, first complete game (earliest final game) ──
+  // Team comes off the LINE, which records the club she pitched that game for, ahead of the
+  // roster row, which only records where she is now. Same reason as the event firsts above.
   const finals = pitching
     .map(l => ({ l, g: gById.get(l.game_id) }))
     .filter((x): x is { l: WpblPitchingLine; g: WpblGame } => !!x.g && x.g.status === 'final')
@@ -198,14 +208,14 @@ export function computeFirsts(
   for (const { l, g } of finals) {
     if (l.decision === 'W') {
       const p = pById.get(l.player_id)
-      rec('first_win', p, p?.name ?? '—', p?.team_id ?? l.team_id, g.game_date, `${outsToIp(l.outs)} IP, ${l.so} K`)
+      rec('first_win', p, p?.name ?? '—', l.team_id ?? p?.team_id ?? null, g.game_date, `${outsToIp(l.outs)} IP, ${l.so} K`)
       break
     }
   }
   for (const { l, g } of finals) {
     if (l.decision === 'S') {
       const p = pById.get(l.player_id)
-      rec('first_save', p, p?.name ?? '—', p?.team_id ?? l.team_id, g.game_date, `${outsToIp(l.outs)} IP, ${l.so} K`)
+      rec('first_save', p, p?.name ?? '—', l.team_id ?? p?.team_id ?? null, g.game_date, `${outsToIp(l.outs)} IP, ${l.so} K`)
       break
     }
   }
@@ -219,7 +229,7 @@ export function computeFirsts(
     const k = `${l.game_id}|${l.team_id}`
     if (perTeamGame.get(k) === 1 && l.outs >= 18) { // full ~7-inning outing, not a rain-shortened cameo
       const p = pById.get(l.player_id)
-      rec('complete_game', p, p?.name ?? '—', p?.team_id ?? l.team_id, g.game_date, `${outsToIp(l.outs)} IP`)
+      rec('complete_game', p, p?.name ?? '—', l.team_id ?? p?.team_id ?? null, g.game_date, `${outsToIp(l.outs)} IP`)
       break
     }
   }

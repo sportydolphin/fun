@@ -81,6 +81,23 @@ Each of these has already cost someone a debugging session, and none of them fai
   drops every game and renders four clubs at 0-0, which reads as an outage rather than as a
   bug. Wrong by a couple of games is visible and recoverable. Blank is neither.
 
+- **A player's feed id is not the player, and a player's team is a fact about a DATE.** The
+  league mints a NEW `player_id` when someone changes club (Diana Ibarra is `moizfkn9…` on New
+  York and `27svefz4…` on Los Angeles, both ACTIVE, `career_id` empty on both), so nothing in
+  the payload says they are one person. Left alone, the ingest inserted a second Diana Ibarra
+  and split her season 8 games to 1, which is not merely a duplicate: the slug rules in
+  [`routes.ts`](src/wpbl/routes.ts) correctly decide a shared name is ambiguous, so her
+  canonical `/wpbl/players/diana-ibarra` started answering 404 and the Discord bot started
+  offering a "did you mean" for someone who exists once. `wpbl_players.api_ids` now holds every
+  id a person has held and the resolver matches on any of them. Two consequences to keep:
+  **`team_id` on a roster row means "now", never "then"** — a game log, a team page, or a Hall
+  of Firsts badge must take the club off the box-score line or the play, both of which carry
+  the team that game was played for, or a traded player's July reads as if she spent it
+  somewhere she had not arrived yet. And **the ingest only ever moves a player forward in
+  time**, guarded by `team_as_of`: it re-reads old box scores constantly (`force`, the
+  TrackMan backfill, mode `all`), every one of those is honest evidence of where she was
+  *then*, and without the guard her club is whichever game the loop happened to touch last.
+  `wpbl_merge_players(keep, dupe)` is the tool for the duplicates no rule can catch.
 - **The live poll reads a hand-listed half of `wpbl_games`, and the two halves must
   partition the table.** `LIVE_GAME_COLUMNS` in [`src/wpbl/api.ts`](src/wpbl/api.ts) names
   every column that can change mid-game; the poll merges those over the row it already holds,

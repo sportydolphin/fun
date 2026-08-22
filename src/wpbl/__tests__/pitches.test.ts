@@ -29,7 +29,7 @@ function play(over: Partial<WpblPitchPlay> = {}): WpblPitchPlay {
 const player = (id: string, name: string, teamId: string): WpblPlayer => ({
   id, team_id: teamId, name, position: null, bats: null, throws: null, jersey_number: null,
   age: null, hometown: null, status: 'Signed', draft_round: null, draft_pick: null, bio: null,
-  birth_date: null, birth_date_source: null, zodiac_sign: null, active: true, api_id: null,
+  birth_date: null, birth_date_source: null, zodiac_sign: null, active: true, api_id: null, api_ids: [], team_as_of: null,
   created_at: '',
 })
 

@@ -42,7 +42,14 @@ export interface WpblPlayer {
   /** Generated in the database from birth_date; null when the date is unknown. */
   zodiac_sign: string | null
   active: boolean
-  api_id: string | null          // official-feed player id (reconciliation key)
+  api_id: string | null          // official-feed player id (reconciliation key), the current one
+  /** Every feed id this player has held. The feed mints a NEW one per club, so a traded
+   *  player has more than one and anything keyed on the feed id (pitch tracking) needs all
+   *  of them; `api_id` is whichever is current. */
+  api_ids: string[]
+  /** Game date of the most recent box score that placed her on `team_id`. The ingest only
+   *  moves a player forward in time, so re-reading an old game cannot undo a trade. */
+  team_as_of: string | null
   created_at: string
 }
 

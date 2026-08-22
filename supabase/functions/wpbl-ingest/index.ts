@@ -22,7 +22,7 @@
 // schedule.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { normName, editDistance, isDamaged, replacementMatch } from './names.ts'
+import { normName, editDistance, isDamaged, replacementMatch, tradeMatch, teamMoveWins, datedEvidence } from './names.ts'
 import { announceFinal } from './announce-final.ts'
 import { crownPredictions, settlePredictions } from './settle-predictions.ts'
 
@@ -103,23 +103,52 @@ function mapStatus(text: string, complete?: boolean): 'scheduled' | 'live' | 'fi
 }
 
 // ─── player reconciliation cache ──────────────────────────────────────────────
-// Resolve a feed player to our wpbl_players.id: by api_id, else by (team, name), else
-// insert a new roster row. Backfills api_id / uniform / bats / throws on the way.
+// Resolve a feed player to our wpbl_players.id: by any feed id we have ever seen for them,
+// else by (team, name), else by a league-wide name match that means they were traded, else
+// insert a new roster row. Backfills feed ids / uniform / bats / throws on the way, and moves
+// a player's club forward when a box score puts them somewhere new.
+//
+// TRADES. The feed mints a NEW player_id per club — Diana Ibarra is moizfkn9dtrm4vno on New
+// York and 27svefz41ds4k58k on Los Angeles, both ACTIVE, career_id empty on both, so nothing
+// in the payload says they are one person. Every match below except `traded` is scoped to a
+// single team, which is right for spelling variants and fatal for a trade: the new id matched
+// nothing and the old resolver inserted a second Diana Ibarra, splitting her season 8 games to
+// 1 and turning her name ambiguous enough that /wpbl/players/diana-ibarra started 404ing.
 class PlayerResolver {
-  private byApi = new Map<string, string>()             // api_id → our uuid
-  private byTeamName = new Map<string, string>()        // `${teamSlug}::${normName}` → uuid
-  private byTeam = new Map<string, { id: string; norm: string }[]>()  // teamSlug → roster
-  private pendingApi = new Map<string, string>()        // uuid → api_id to backfill
+  // One entry per roster row, kept in step with what we write back, so every matcher below
+  // and every later call in the same run sees the current club rather than the one we loaded.
+  private players = new Map<string, {
+    id: string
+    norm: string
+    teamId: string
+    teamAsOf: string | null   // game date, 'YYYY-MM-DD'
+    apiIds: Set<string>
+  }>()
+  private byApi = new Map<string, string>()        // any feed id → our uuid
+  private byName = new Map<string, string[]>()     // normalized roster name → uuids
+  // Feed spellings learned this run (a fuzzy / damaged / nickname hit). League-wide because
+  // play-by-play gives a bare name with no team beside it.
+  private alias = new Map<string, string>()
+  // uuid → the columns this run wants to write back, flushed once at the end.
+  private pending = new Map<string, Record<string, unknown>>()
+  private moves: Record<string, unknown>[] = []
 
   constructor(private db: SupabaseClient, rows: any[]) {
     for (const p of rows) {
-      if (p.api_id) this.byApi.set(p.api_id, p.id)
       const nm = normName(p.name)
-      const slug = p.team_id ?? ''
-      this.byTeamName.set(`${slug}::${nm}`, p.id)
-      const list = this.byTeam.get(slug) ?? []
-      list.push({ id: p.id, norm: nm }); this.byTeam.set(slug, list)
+      const apiIds = new Set<string>([...(p.api_ids ?? []), p.api_id].filter(Boolean) as string[])
+      this.players.set(p.id, { id: p.id, norm: nm, teamId: p.team_id ?? '', teamAsOf: p.team_as_of ?? null, apiIds })
+      for (const a of apiIds) this.byApi.set(a, p.id)
+      const list = this.byName.get(nm) ?? []
+      list.push(p.id); this.byName.set(nm, list)
     }
+  }
+
+  /** Everyone currently on this club, for the same-team matchers. */
+  private roster(teamSlug: string) {
+    const out: { id: string; norm: string }[] = []
+    for (const p of this.players.values()) if (p.teamId === teamSlug) out.push(p)
+    return out
   }
 
   // Unique same-team roster player within edit distance 1 (names ≥4 chars), or null if
@@ -127,7 +156,7 @@ class PlayerResolver {
   private fuzzy(teamSlug: string, nm: string): string | null {
     if (nm.length < 4) return null
     let hit: string | null = null
-    for (const cand of this.byTeam.get(teamSlug) ?? []) {
+    for (const cand of this.roster(teamSlug)) {
       if (cand.norm.length < 4) continue
       if (editDistance(nm, cand.norm, 1) <= 1) {
         if (hit && hit !== cand.id) return null // ambiguous — don't guess
@@ -145,7 +174,7 @@ class PlayerResolver {
   private damaged(teamSlug: string, nm: string): string | null {
     if (!isDamaged(nm)) return null
     let hit: string | null = null
-    for (const cand of this.byTeam.get(teamSlug) ?? []) {
+    for (const cand of this.roster(teamSlug)) {
       if (!replacementMatch(nm, cand.norm)) continue
       if (hit && hit !== cand.id) return null // ambiguous — don't guess
       hit = cand.id
@@ -166,7 +195,7 @@ class PlayerResolver {
     const given = parts[0]
     if (surname.length < 3 || given.length < 3) return null
     let hit: string | null = null
-    for (const cand of this.byTeam.get(teamSlug) ?? []) {
+    for (const cand of this.roster(teamSlug)) {
       const cp = cand.norm.split(' ')
       if (cp.length < 2) continue
       if (cp[cp.length - 1] !== surname) continue         // surnames must match exactly
@@ -180,47 +209,118 @@ class PlayerResolver {
     return hit
   }
 
-  async resolve(feed: { id?: string; name?: string; uniform?: string; bats?: string; throws?: string; position?: string }, teamSlug: string): Promise<string | null> {
+  // A trade: a feed id we have never seen, naming someone already on another club's roster.
+  // The rule itself is `tradeMatch` in names.ts, where it can be tested; every hit is also
+  // written to wpbl_player_team_changes, because a heuristic that reaches across teams and
+  // runs unattended every two minutes needs somewhere you can go and check what it did.
+  private traded(teamSlug: string, nm: string): string | null {
+    return tradeMatch(nm, teamSlug, [...this.players.values()])
+  }
+
+  /** Remember a feed id (and the feed's spelling of the name) against a player we resolved. */
+  private link(id: string, apiId: string, nm: string) {
+    const p = this.players.get(id)
+    if (!p) return
+    if (nm !== p.norm) this.alias.set(nm, id)
+    if (!apiId || p.apiIds.has(apiId)) return
+    p.apiIds.add(apiId)
+    this.byApi.set(apiId, id)
+    // api_id stays "the current one" — plenty of code reads it as a scalar — while api_ids
+    // keeps every id the player has ever had, because wpbl_pitch_tracking is keyed on the
+    // FEED id and a traded player's older pitches are only reachable through the older one.
+    this.patch(id, { api_id: apiId, api_ids: [...p.apiIds] })
+  }
+
+  /**
+   * Move a player to the club whose box score just listed them, if this game is newer than the
+   * evidence we already had.
+   *
+   * The date guard is what makes this safe to run on every pass. The ingest re-reads old box
+   * scores all the time (corrections via `force`, the late-TrackMan backfill, mode 'all'), and
+   * each one is true evidence of where the player was THEN. Without the guard a July re-read
+   * would send a traded player back to her old club and the next pass would send her forward
+   * again, so her club would depend on whichever game the loop happened to touch last. With
+   * it, evidence only ever moves forward and re-ingesting the whole season changes nothing.
+   */
+  private noteTeam(id: string, teamSlug: string, ctx: GameCtx, apiId: string, reason: string): boolean {
+    const p = this.players.get(id)
+    if (!p || !teamSlug || !ctx.date) return false
+    // A game that has not been played yet is a plan, not evidence: the feed stages lineups
+    // ahead of first pitch, and `mode: "all"` walks the whole schedule.
+    if (!datedEvidence(ctx.date, chicagoDate(new Date().toISOString()))) return false
+    if (p.teamId === teamSlug) {
+      // Same club, but a newer game: raise the floor so a later re-read of an older game
+      // cannot move them. Cheap — in steady state this is only the games ingested for the
+      // first time, and a re-poll of the same live game writes nothing.
+      if (p.teamAsOf == null || ctx.date > p.teamAsOf) {
+        p.teamAsOf = ctx.date
+        this.patch(id, { team_as_of: ctx.date })
+      }
+      return false
+    }
+    if (!teamMoveWins(p, teamSlug, ctx.date, chicagoDate(new Date().toISOString()))) return false   // older news
+    const from = p.teamId || null
+    p.teamId = teamSlug
+    p.teamAsOf = ctx.date
+    this.patch(id, { team_id: teamSlug, team_as_of: ctx.date })
+    this.moves.push({
+      player_id: id, from_team_id: from, to_team_id: teamSlug,
+      game_id: ctx.gameId, game_date: ctx.date, feed_api_id: apiId || null, reason,
+    })
+    console.log(`[wpbl-ingest] ${reason}: ${p.norm} ${from ?? '(none)'} → ${teamSlug} (${ctx.date})`)
+    return true
+  }
+
+  private patch(id: string, cols: Record<string, unknown>) {
+    this.pending.set(id, { ...(this.pending.get(id) ?? {}), ...cols })
+  }
+
+  async resolve(
+    feed: { id?: string; name?: string; uniform?: string; bats?: string; throws?: string; position?: string },
+    teamSlug: string,
+    ctx: GameCtx,
+  ): Promise<string | null> {
     const name = s(feed.name)
     if (!name) return null
     const apiId = s(feed.id)
-
-    // 1) api_id hit
-    if (apiId && this.byApi.has(apiId)) return this.byApi.get(apiId)!
-
-    // 2) (team, name) hit → backfill api_id
     const nm = normName(name)
-    const existing = this.byTeamName.get(`${teamSlug}::${nm}`) ?? this.byTeamName.get(`::${nm}`)
-    if (existing) {
-      if (apiId) { this.byApi.set(apiId, existing); this.pendingApi.set(existing, apiId) }
-      return existing
+
+    // 1) a feed id we have seen before — including one this player picked up in an earlier trade
+    let id = apiId ? this.byApi.get(apiId) ?? null : null
+    let reason = 'feed-id'
+
+    // 2) (team, name), or a roster row with no club yet
+    if (!id) {
+      for (const cand of this.byName.get(nm) ?? []) {
+        const p = this.players.get(cand)
+        if (p && (p.teamId === teamSlug || p.teamId === '')) { id = cand; break }
+      }
+      if (!id) id = this.alias.get(nm) ?? null
     }
 
-    // 2.5) damaged-name hit within the same team → backfill api_id. Ahead of the fuzzy
-    // pass because it is the stricter test: it only forgives characters the decoder
-    // actually flagged as lost.
-    const damaged = this.damaged(teamSlug, nm)
-    if (damaged) {
-      this.byTeamName.set(`${teamSlug}::${nm}`, damaged)
-      if (apiId) { this.byApi.set(apiId, damaged); this.pendingApi.set(damaged, apiId) }
-      return damaged
+    // 2.5) damaged-name hit within the same team. Ahead of the fuzzy pass because it is the
+    // stricter test: it only forgives characters the decoder actually flagged as lost.
+    if (!id) id = this.damaged(teamSlug, nm)
+
+    // 3) fuzzy (spelling-variant) hit within the same team
+    if (!id) id = this.fuzzy(teamSlug, nm)
+
+    // 3.5) nickname-shortening hit within the same team
+    if (!id) id = this.nickname(teamSlug, nm)
+
+    // 3.75) exact name, different club — she was traded, not born
+    if (!id) {
+      const moved = this.traded(teamSlug, nm)
+      if (moved) { id = moved; reason = 'name-match' }
     }
 
-    // 3) fuzzy (spelling-variant) hit within the same team → backfill api_id
-    const fuzzy = this.fuzzy(teamSlug, nm)
-    if (fuzzy) {
-      this.byTeamName.set(`${teamSlug}::${nm}`, fuzzy)
-      if (apiId) { this.byApi.set(apiId, fuzzy); this.pendingApi.set(fuzzy, apiId) }
-      return fuzzy
-    }
-
-    // 3.5) nickname-shortening hit within the same team → backfill api_id. Also cache the
-    // feed spelling under the team key so play-by-play resolveName() finds it too.
-    const nick = this.nickname(teamSlug, nm)
-    if (nick) {
-      this.byTeamName.set(`${teamSlug}::${nm}`, nick)
-      if (apiId) { this.byApi.set(apiId, nick); this.pendingApi.set(nick, apiId) }
-      return nick
+    if (id) {
+      this.link(id, apiId, nm)
+      const moved = this.noteTeam(id, teamSlug, ctx, apiId, reason)
+      // A new club usually means a new number (Ibarra wore 8 in New York and wears 6 in Los
+      // Angeles), and the roster row is the only place a uniform number lives.
+      if (moved && feed.uniform) this.patch(id, { jersey_number: feed.uniform })
+      return id
     }
 
     // 4) insert a new feed-only player — but never under a name we know is damaged. An
@@ -234,47 +334,69 @@ class PlayerResolver {
     }
     const { data, error } = await this.db.from('wpbl_players').insert({
       team_id: teamSlug || null,
+      team_as_of: ctx.date,
       name,
       position: feed.position || null,
       bats: feed.bats || null,
       throws: feed.throws || null,
       jersey_number: feed.uniform || null,
       api_id: apiId || null,
+      api_ids: apiId ? [apiId] : [],
       active: true,
     }).select('id').single()
     if (error || !data) { console.warn('[wpbl-ingest] player insert failed', name, error?.message); return null }
+    const apiIds = new Set<string>(apiId ? [apiId] : [])
+    this.players.set(data.id, { id: data.id, norm: nm, teamId: teamSlug, teamAsOf: ctx.date, apiIds })
     if (apiId) this.byApi.set(apiId, data.id)
-    this.byTeamName.set(`${teamSlug}::${nm}`, data.id)
-    const list = this.byTeam.get(teamSlug) ?? []
-    list.push({ id: data.id, norm: nm }); this.byTeam.set(teamSlug, list)
+    const list = this.byName.get(nm) ?? []
+    list.push(data.id); this.byName.set(nm, list)
     return data.id
   }
 
-  // Resolve a bare name (play-by-play batter/pitcher) against any team. Best-effort.
+  // Resolve a bare name (play-by-play batter/pitcher) against any team. Best-effort, and
+  // ambiguity always loses: an unattributed play is recoverable, a play credited to the wrong
+  // player is not.
   resolveName(name: string): string | null {
     const nm = normName(name)
-    for (const [key, id] of this.byTeamName) if (key.endsWith(`::${nm}`)) return id
+    const ids = this.byName.get(nm)
+    if (ids && ids.length === 1) return ids[0]
+    if (!ids) {
+      const aliased = this.alias.get(nm)
+      if (aliased) return aliased
+    }
     // Same damaged-name recovery as resolve(), so a play keeps its batter/pitcher link
     // instead of going unattributed. Any ambiguity leaves it unattributed, as before.
     if (isDamaged(nm)) {
       let hit: string | null = null
-      for (const [key, id] of this.byTeamName) {
-        if (!replacementMatch(nm, key.slice(key.indexOf('::') + 2))) continue
-        if (hit && hit !== id) return null
-        hit = id
+      for (const p of this.players.values()) {
+        if (!replacementMatch(nm, p.norm)) continue
+        if (hit && hit !== p.id) return null
+        hit = p.id
       }
       return hit
     }
     return null
   }
 
-  async flushApiIds() {
-    for (const [uuid, apiId] of this.pendingApi) {
-      await this.db.from('wpbl_players').update({ api_id: apiId }).eq('id', uuid)
+  /** One write per changed player, plus the trade log. Best-effort: this is bookkeeping, and
+   *  failing it must not fail an ingest that has already stored the games. */
+  async flush() {
+    for (const [uuid, cols] of this.pending) {
+      const { error } = await this.db.from('wpbl_players').update(cols).eq('id', uuid)
+      if (error) console.warn('[wpbl-ingest] player update failed', uuid, error.message)
     }
-    this.pendingApi.clear()
+    this.pending.clear()
+    if (this.moves.length) {
+      const { error } = await this.db.from('wpbl_player_team_changes').insert(this.moves)
+      if (error) console.warn('[wpbl-ingest] team-change log failed', error.message)
+      this.moves = []
+    }
   }
 }
+
+/** The game a box-score row came from: which club a player was on is only ever true as of a
+ *  date, so every resolve carries one. */
+interface GameCtx { gameId: string; date: string | null }
 
 // Write one game's child rows with minimal churn. The old delete-then-insert rewrote every
 // row on every ingest — brutal under the every-2-min live re-ingest, which bloats the table
@@ -338,6 +460,7 @@ async function ingestBoxscore(
   db: SupabaseClient,
   gameUuid: string,
   apiGameId: string,
+  gameDate: string | null,
   teamSlug: Map<string, string>,
   resolver: PlayerResolver,
 ): Promise<{ status: 'scheduled' | 'live' | 'final'; batting: number; pitching: number; fielding: number; plays: number; tracking: number }> {
@@ -397,7 +520,7 @@ async function ingestBoxscore(
     if (derivedStatus === 'final') gamePatch[`${side}_score`] = n(tot.runs)
 
     for (const pl of team.players ?? []) {
-      const playerId = await resolver.resolve(pl, slug ?? '')
+      const playerId = await resolver.resolve(pl, slug ?? '', { gameId: gameUuid, date: gameDate })
       if (!playerId) continue
       const spot = n(pl.spot)
       const hit = pl.hitting
@@ -526,7 +649,7 @@ Deno.serve(async (req) => {
     }
 
     // Player cache for reconciliation.
-    const { data: players } = await db.from('wpbl_players').select('id, name, team_id, api_id')
+    const { data: players } = await db.from('wpbl_players').select('id, name, team_id, api_id, api_ids, team_as_of')
     const resolver = new PlayerResolver(db, players ?? [])
 
     // Our current games (to decide which boxscores to (re)fetch).
@@ -677,7 +800,7 @@ Deno.serve(async (req) => {
       if (!wantBox) continue
 
       try {
-        const box = await ingestBoxscore(db, up.id, apiGameId, teamSlug, resolver)
+        const box = await ingestBoxscore(db, up.id, apiGameId, gameRow.game_date, teamSlug, resolver)
         summary.boxscores++
         // A game we were already tracking has just finished — announce it to Discord now,
         // rather than leaving it for the scheduled poster's next quarter-hour. Deliberately
@@ -696,7 +819,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    await resolver.flushApiIds()
+    await resolver.flush()
     // Every open Discord prediction round, settled against the plays this pass just wrote. It
     // owns its own errors: a Discord outage is not an ingest failure.
     await settlePredictions()

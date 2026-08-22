@@ -134,3 +134,28 @@ describe('computeFirsts is unchanged by the server-side filter', () => {
     expect(out?.name).toBe('Ada Batter') // g1 is 2026-05-01, g2 is 2026-05-02
   })
 })
+
+describe('a trade does not rewrite the record', () => {
+  // The Hall of Firsts is a record of when things happened, so it has to badge each one with
+  // the club the player did it FOR. A player's roster row only knows where she is now, and
+  // the league feed mints her a new player id when she moves, so "now" changed under the
+  // whole season the day Diana Ibarra went from New York to Los Angeles.
+  const traded = [player('p1', 'Ada Batter', 'A'), player('p2', 'Bea Pitcher', 'H'), player('p3', 'Cleo Runner', 'A')]
+
+  it('credits a batter to the club she was batting for, not the one she plays for now', () => {
+    const hr = play({ event_type: 'home_run', is_hit: true, team_id: 'H', narrative: 'Ada Batter homered to left.' })
+    const out = computeFirsts([hr], GAMES, traded, []).find(f => f.key === 'first_hr')
+    expect(out?.teamId).toBe('H')
+  })
+
+  it('credits a pitcher to the fielding side of the play, which is the other half of the game', () => {
+    const k = play({ event_type: 'strikeout', team_id: 'H', narrative: 'Bea Pitcher struck out Ada Batter.' })
+    const out = computeFirsts([k], GAMES, traded, []).find(f => f.key === 'first_so')
+    expect(out?.teamId).toBe('A')   // 'H' was batting, so the pitcher was on 'A'
+  })
+
+  it('credits a win to the club on the pitching line', () => {
+    const out = computeFirsts([], GAMES, traded, PITCHING).find(f => f.key === 'first_win')
+    expect(out?.teamId).toBe('A')   // PITCHING says team 'A'; Bea's roster row now says 'H'
+  })
+})

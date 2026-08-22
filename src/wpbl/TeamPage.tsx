@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { ArrowBackRounded, GridViewRounded } from '@mui/icons-material'
-import { fetchWpblRoster, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, computeStandings } from './api'
+import { fetchWpblRoster, fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, computeStandings } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, pressable, FOCUS_RING, useWpblDark, useWpblName, CARD_BORDER } from './ui'
@@ -305,6 +305,14 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   }, [])
 
   const [roster, setRoster] = useState<WpblPlayer[] | null>(null)
+  // Everyone in the league, which is a different list from the roster and needed beside it.
+  // A player who was traded away in August still batted for this club in July: her lines are
+  // in `lines` (they carry the team she played that game FOR), but she is on somebody else's
+  // roster now, and every helper below that resolves a line back to a person does it through
+  // a player list. Hand those the roster and her July disappears from this page's leaders and
+  // her name disappears from its lineup grid, which reads as a hole in the data rather than as
+  // a trade. The roster list itself still uses `roster`: she does not play here any more.
+  const [league, setLeague] = useState<WpblPlayer[]>([])
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] } | null>(null)
   // Where each player has actually been playing. The roster's own labels go stale as a season
   // goes on, and a club list that says "C" beside someone who has played third all year is
@@ -325,12 +333,12 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
     setRoster(null); setLines(null)
     setLineups([]); setUsage([])
     Promise.all([
-      fetchWpblRoster(team.id), fetchWpblAllLines(),
+      fetchWpblRoster(team.id), fetchWpblAllPlayers(), fetchWpblAllLines(),
       fetchWpblLineupHistory(team.id), fetchWpblPitchingUsage(team.id),
-    ]).then(([r, l, lh, pu]) => {
+    ]).then(([r, all, l, lh, pu]) => {
       if (cancelled) return
       setLineups(lh); setUsage(pu)
-      setRoster(r)
+      setRoster(r); setLeague(all)
       setLines({
         batting: l.batting.filter(x => x.team_id === team.id),
         pitching: l.pitching.filter(x => x.team_id === team.id),
@@ -359,8 +367,10 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
       .sort((a, b) => a.game_date !== b.game_date ? (a.game_date < b.game_date ? -1 : 1) : startMin(a.start_time) - startMin(b.start_time))
   }, [games, team.id])
 
-  const batSeasons = useMemo(() => lines ? aggregateBatting(roster ?? [], lines.batting, games) : [], [roster, lines, games])
-  const pitSeasons = useMemo(() => lines ? aggregatePitching(roster ?? [], lines.pitching, games) : [], [roster, lines, games])
+  // `lines` is already filtered to this club, so aggregating against the whole league gives
+  // exactly the people who played for it, current roster or not.
+  const batSeasons = useMemo(() => lines ? aggregateBatting(league, lines.batting, games) : [], [league, lines, games])
+  const pitSeasons = useMemo(() => lines ? aggregatePitching(league, lines.pitching, games) : [], [league, lines, games])
   const teamBat = useMemo(() => lines ? sumBatting(lines.batting, games) : null, [lines, games])
   const teamPit = useMemo(() => lines ? sumPitching(lines.pitching, games) : null, [lines, games])
 
@@ -632,12 +642,12 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
 
           {/* How the manager has actually been filling out the card */}
           {roster && lineups.length > 0 && (
-            <LineupHistory rows={lineups} roster={roster} accent={accent} onOpenPlayer={onOpenPlayer} />
+            <LineupHistory rows={lineups} roster={league} accent={accent} onOpenPlayer={onOpenPlayer} />
           )}
 
           {/* Who's been worked, and who's available */}
           {roster && usage.length > 0 && (
-            <PitchingUsage rows={usage} roster={roster} accent={accent} onOpenPlayer={onOpenPlayer} />
+            <PitchingUsage rows={usage} roster={league} accent={accent} onOpenPlayer={onOpenPlayer} />
           )}
 
           {/* Leaders, back in a two-column grid of their own. */}

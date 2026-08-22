@@ -490,6 +490,47 @@ is retired.
 
 ## Shipped log
 
+### Aug 22, 2026: the league started trading, and the feed did not tell us
+
+Diana Ibarra went from New York to Los Angeles and became two players. The league feed issues
+a **new** `player_id` when someone changes club, flags both records ACTIVE, and leaves
+`career_id` empty on each: there is nothing in the payload that says they are one person. The
+ingest's roster matching is scoped to a single team, which is exactly right for the spelling
+variants it was built for and exactly wrong here, so the Los Angeles id matched nothing and it
+inserted a second Diana Ibarra.
+
+The interesting part is what a duplicate does downstream, because it is not just a stray row.
+Her season split 8 games to 1, so every leaderboard she was on undercounted her twice over.
+The slug rule from Aug 21 did precisely what it was written to do with a shared name and
+declared it ambiguous, which meant her canonical `/wpbl/players/diana-ibarra` — indexed, in
+the sitemap, one day old — started answering a real 404. The Discord bot began offering a "did
+you mean" list for a player who exists once. That is the case the Aug 21 log called "no live
+example"; it took a day to get one, and it arrived from a direction nobody was watching.
+
+What shipped:
+
+- **`api_ids`** on `wpbl_players`: every feed id a person has held, `api_id` being the current
+  one. Not cosmetic — `wpbl_pitch_tracking` is keyed on the FEED id, so a traded pitcher's
+  work before the trade is only reachable through the old one.
+- **`team_as_of`**: the date of the newest box score that placed her on `team_id`. The ingest
+  re-reads old games constantly and each of those is honest evidence of where she was *then*,
+  so without a date guard her club would be whichever game the loop last touched.
+- **`tradeMatch` / `teamMoveWins`** in the ingest's `names.ts`, so the two new rules are plain
+  functions the app's test runner can pin. The trade rule is the only matcher that reaches
+  across teams and so the only one that could ever merge two different people: it wants the
+  full name, at least two parts, exact after accent folding, and unique league-wide. Two
+  players who really do share a name fail it and neither is touched.
+- **`wpbl_player_team_changes`**, because a heuristic that runs unattended every two minutes
+  needs somewhere you can go and see what it did.
+- **`wpbl_merge_players(keep, dupe)`** for the duplicates no rule will ever catch: `names.ts`
+  has documented the non-prefix nicknames (Gabby/Gabriella) since it was written.
+- **Read paths that were quietly assuming nobody moves.** A team page aggregated its stats
+  against its CURRENT roster, so a departed player's July would have vanished from the club
+  she earned it for. A player's game log worked out the opponent from her current club, so her
+  old games would have read "@ NY" for games she played *for* New York. The Hall of Firsts
+  badged milestones with the roster row rather than the play. All three now take the club off
+  the line or the play, which is the only place that knows which one it was.
+
 ### Aug 21, 2026: a page per player
 
 118 of them, at `/wpbl/players/denae-benites` rather than `?player=<uuid>` hanging off
