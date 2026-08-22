@@ -301,10 +301,9 @@ emits is apex already: canonical, `og:url`, sitemap, JSON-LD.
   account id through Supabase Auth, and site analytics through the `events` table. Declaring
   less than is collected is the kind of thing that gets an app pulled.
 
-## iOS, later
+## iOS
 
-There is no TWA equivalent. iOS means Capacitor or a WKWebView wrapper, which means the auth
-rewrite described at the top, and then Apple's App Store Review guideline 4.2, which exists
-specifically to reject apps that are a website in a wrapper. It needs native functionality to
-pass. Treat it as a separate project with a real risk of rejection, not as the second half of
-this one.
+Not the second half of this project, and worth reading before assuming anything here
+carries over: there is no TWA equivalent, so an iOS app means Capacitor, which means
+rebuilding sign-in and push and finding native functionality that satisfies App Store
+Review guideline 4.2. Plan of record in [IOS.md](IOS.md).

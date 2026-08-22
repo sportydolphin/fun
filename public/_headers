@@ -44,3 +44,17 @@
 # but an explicit no-cache keeps an intermediary from pinning an old worker.
 /sw.js
   Cache-Control: public, max-age=0, must-revalidate
+
+# Apple's Universal Links association file, the iOS counterpart to assetlinks.json. Two
+# things about it are unusual and both are load-bearing:
+#
+#   1. It has NO file extension, by Apple's spec, so Pages has no mime type to infer and
+#      would serve it as application/octet-stream. iOS rejects the file outright at any
+#      other content type, silently: links just keep opening in Safari.
+#   2. Apple's CDN fetches it directly and does NOT follow redirects, which is the same
+#      shape of trap that emptied the offline precache when Pages canonicalised
+#      /offline.html to /offline. Verify against the deployed URL, never `npm run dev`.
+#
+# See docs/IOS.md.
+/.well-known/apple-app-site-association
+  Content-Type: application/json

@@ -15,6 +15,8 @@ import manifestSource from '../../public/manifest.webmanifest?raw'
 import swSource from '../../public/sw.js?raw'
 import offlineSource from '../../public/offline.html?raw'
 import assetLinksSource from '../../public/.well-known/assetlinks.json?raw'
+import aasaSource from '../../public/.well-known/apple-app-site-association?raw'
+import headersSource from '../../public/_headers?raw'
 
 const manifest = JSON.parse(manifestSource) as {
   id: string
@@ -334,5 +336,67 @@ describe('the service worker precache', () => {
     sw.fetch.mockRejectedValue(new TypeError('Failed to fetch'))
     await expect(runInstall(sw)).resolves.toBeUndefined()
     expect(sw.self.skipWaiting).toHaveBeenCalled()
+  })
+})
+
+// Universal Links: the iOS counterpart to the Digital Asset Links block above, and it fails
+// in exactly the same invisible way. A wrong file does not break the site, does not break
+// the app, and does not error anywhere. Links simply keep opening in Safari, which is also
+// what happens when everything is correct and the user has no app installed, so the two
+// states are indistinguishable without a device.
+//
+// It is live ahead of the app on purpose. Everything that can go wrong with it is a serving
+// problem rather than a contents problem (extension, content type, redirect), so the file
+// wants to have been deployed and checked long before there is an app whose deep links
+// depend on it. See docs/IOS.md.
+describe('universal links', () => {
+  const aasa = JSON.parse(aasaSource) as {
+    applinks: { details: { appIDs: string[]; components: Record<string, string>[] }[] }
+  }
+
+  // Apple reads `applinks.details[].appIDs`. The older spelling put a bare `apps: []` next
+  // to it and named the app under `appID` (singular) with a `paths` array; current iOS
+  // ignores `apps` and prefers `components`, but a file written in the old shape still
+  // parses and still associates nothing new, so the shape is worth pinning.
+  it('is in the components-era shape iOS actually reads', () => {
+    expect(aasa.applinks.details).toHaveLength(1)
+    expect(aasa.applinks.details[0].components).toEqual([{ '/': '/*' }])
+  })
+
+  // TEAMID is a PLACEHOLDER and the file is inert until it is replaced. The real prefix is
+  // the ten character Apple Developer Team ID, which does not exist until enrollment
+  // completes, the same way Google's app signing fingerprint does not exist until the first
+  // Play upload. Both halves are accepted here so the file can ship before the account.
+  it('names one app, under the bundle id the Capacitor project will use', () => {
+    const appIDs = aasa.applinks.details[0].appIDs
+    expect(appIDs).toHaveLength(1)
+    expect(appIDs[0], 'expected <TeamID>.fun.sportydolphin.app')
+      .toMatch(/^(TEAMID|[A-Z0-9]{10})\.fun\.sportydolphin\.app$/)
+  })
+
+  // The bundle id is frozen the moment the first build reaches App Store Connect, exactly
+  // like the Play application id, and the two deliberately match so there is one name to
+  // remember. If this ever disagrees with the Capacitor project's appId, the association
+  // silently does not apply.
+  it('uses the same reverse-DNS name as the Android package', () => {
+    const statements = JSON.parse(assetLinksSource) as { target: { package_name: string } }[]
+    const bundleId = aasa.applinks.details[0].appIDs[0].split('.').slice(1).join('.')
+    expect(bundleId).toBe(statements[0].target.package_name)
+  })
+
+  // Apple's spec forbids the extension and iOS rejects anything that is not
+  // application/json, so Pages has to be told: with no extension it infers nothing and
+  // serves application/octet-stream. This is the only place that instruction exists.
+  it('is served as JSON, which only _headers can arrange', () => {
+    // _headers is a flat file: a path line in column 0, then its headers indented under
+    // it until the next unindented line. Parsed rather than regexed so an added rule for a
+    // neighbouring path cannot be mistaken for this one.
+    const lines = headersSource.split(/\r?\n/)
+    const at = lines.indexOf('/.well-known/apple-app-site-association')
+    expect(at, 'no _headers rule for /.well-known/apple-app-site-association')
+      .toBeGreaterThan(-1)
+    const rule = []
+    for (let i = at + 1; i < lines.length && /^\s+\S/.test(lines[i]); i++) rule.push(lines[i].trim())
+    expect(rule).toContain('Content-Type: application/json')
   })
 })

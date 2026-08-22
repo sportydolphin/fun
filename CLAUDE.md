@@ -235,7 +235,13 @@ pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare Pages at
   exists and works on a device; what is left is Play process. **Read before touching
   `manifest.webmanifest`, `sw.js` or `assetlinks.json`**: it carries the Windows build traps,
   why `manifest.id` must not be corrected, and the things frozen forever once the first build
-  reaches Play).
+  reaches Play),
+  `IOS.md` (the App Store equivalent, and a much larger project rather than a second export
+  target: iOS has no TWA, so Capacitor means rebuilding Google sign-in, adding Sign in with
+  Apple, adding APNs alongside Web Push, and building something native enough to survive
+  review guideline 4.2. **Read before touching
+  `public/.well-known/apple-app-site-association` or its `_headers` rule**, which is live
+  ahead of the app with a placeholder Team ID).
 
 Code: [`src/App.tsx`](src/App.tsx) is the shell, with hand-rolled path routing and no
 router lib. [`src/wpbl/`](src/wpbl/) is self-contained with no MLB coupling
