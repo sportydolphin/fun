@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.47.1',
+    date:    '2026-08-22',
+    title:   'A real page when you lose signal',
+    changes: [
+      {
+        short: 'Losing your connection now shows the site instead of a browser error',
+        full:  'Opening a page with no connection used to hand you whatever your browser shows when it cannot reach a site, which on a phone is usually a dinosaur. There is a proper page for it now, in the site’s own colours and following your dark or light setting, which says you are offline and reloads itself the moment a connection comes back. It keeps the address you were opening, so trying again takes you to that page rather than dropping you at the home screen. Nothing about the site itself is stored on your device to make this work: pages are still fetched fresh every time, so you will never be handed yesterday’s scores as though they were today’s.',
+      },
+    ],
+  },
+  {
     version: '1.47.0',
     date:    '2026-08-21',
     title:   'Every pitch of every game, counted',

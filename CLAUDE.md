@@ -214,9 +214,11 @@ pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare Pages at
   query), `PUSH_NOTIFICATIONS.md`, `GOOGLE_TASKS.md`, `feature-requests.md`,
   `BACKLINKS.md` (the SEO work that is not code: who to contact and the drafts to send;
   the site's own markup is done, links are the remaining constraint),
-  `ANDROID.md` (the plan of record for shipping this on Google Play as a Trusted Web
-  Activity: what is done, what is blocked on a signing key, and the two things that are
-  frozen forever the moment the first build reaches Play).
+  `ANDROID.md` (shipping this on Google Play as a Trusted Web Activity. A signed build
+  exists and works on a device; what is left is Play process. **Read before touching
+  `manifest.webmanifest`, `sw.js` or `assetlinks.json`**: it carries the Windows build traps,
+  why `manifest.id` must not be corrected, and the things frozen forever once the first build
+  reaches Play).
 
 Code: [`src/App.tsx`](src/App.tsx) is the shell, with hand-rolled path routing and no
 router lib. [`src/wpbl/`](src/wpbl/) is self-contained with no MLB coupling

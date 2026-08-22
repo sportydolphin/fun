@@ -81,7 +81,7 @@ files are the already-applied baseline.
 
 ## Layout
 
-- [index.html](index.html) → [src/main.tsx](src/main.tsx): entry point (registers the service worker)
+- [index.html](index.html) → [src/main.tsx](src/main.tsx): entry point (registers [public/sw.js](public/sw.js), which receives Web Push and serves [public/offline.html](public/offline.html) when a navigation cannot reach the network)
 - [src/App.tsx](src/App.tsx): shell: routing between `/mlb` and `/wpbl`, toolbar, auth, search bridge
 - [src/mlb/](src/mlb/): the MLB section (views, components, state, notifications)
 - [src/wpbl/](src/wpbl/): the WPBL section (self-contained, WPBL-native components; no MLB coupling)
@@ -99,4 +99,5 @@ files are the already-applied baseline.
 - [docs/DISCORD.md](docs/DISCORD.md): the WPBL fan-server integrations: the watch-party board, the box score posted when a game goes final, the highlight reels, and the `/player` bot
 - [docs/PLAY_VALIDATION.md](docs/PLAY_VALIDATION.md): finding the league's scoring errors against the rules of baseball, the nightly check, and our read-time play corrections
 - [docs/ADMIN_ANALYTICS.md](docs/ADMIN_ANALYTICS.md): the owner dashboard at `/admin`
+- [docs/ANDROID.md](docs/ANDROID.md): shipping the site on Google Play as a Trusted Web Activity: what is built, the Windows build traps, and why the launcher app is not Capacitor
 - [docs/GOOGLE_TASKS.md](docs/GOOGLE_TASKS.md), [docs/feature-requests.md](docs/feature-requests.md)

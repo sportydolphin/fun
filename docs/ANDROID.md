@@ -1,7 +1,32 @@
 # Android app
 
 The plan of record for putting sportydolphin.fun on Google Play. Started Aug 21, 2026.
-Nothing here has shipped yet; the "Status" line under each step says where it actually is.
+
+## Where this stands, Aug 22, 2026
+
+**A signed build exists and works on a real phone.** `app-release-signed.apk`, sideloaded,
+shows no URL bar (so asset links verify on-device), signs in with Google, receives push, and
+falls back to the offline page in airplane mode. `app-release-bundle.aab` is built and ready
+to upload. Link handoff behaves as documented under "Deep links, and their limits", which is
+to say correctly.
+
+**Nothing has been submitted to Play**, and everything remaining is process rather than code:
+
+1. Register the developer account, $25 once.
+2. Upload the `.aab`.
+3. **Add Google's app signing key fingerprint to `assetlinks.json`.** Until this lands, users
+   installing from Play see a URL bar even though a sideloaded APK does not, because Play
+   re-signs with its own key. This is the one remaining code change in this repo.
+4. Listing assets: feature graphic 1024x500, two phone screenshots, descriptions, and
+   `/privacy` as the policy URL.
+5. Closed testing: 12 testers, 14 continuous days. The long pole, worth starting first.
+
+One loose end: Google's Digital Asset Links API was still returning a cached negative from
+before the file existed, while the file itself answered 200 over every transport tried
+(IPv6, HTTP/1.1, TLS 1.2, Googlebot UA, trailing-dot host) and the phone verified it. Cosmetic,
+but recheck before relying on it.
+
+The "Status" line under each step below says where that step is.
 
 ## What we are building, and what we are not
 
@@ -67,8 +92,9 @@ than it looks like it does.
 
 ### 3. Digital Asset Links
 
-**Status: half done. The upload key is in; Google's is not, and cannot be until the first
-upload.**
+**Status: half done, and the half that is done is verified.** The upload key is in and a
+phone accepts it: a sideloaded APK shows no URL bar. Google's key is not in, and cannot be
+until the first upload.
 
 `https://sportydolphin.fun/.well-known/assetlinks.json` is what proves the app and the domain
 are the same owner. Without it the TWA still installs and runs, but Chrome shows the URL bar
@@ -104,7 +130,7 @@ https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=http
 
 ## The Android side
 
-None of this lives in this repo, deliberately. The Bubblewrap project is a sibling directory,
+**Status: built.** None of this lives in this repo, deliberately. The Bubblewrap project is a sibling directory,
 `../sportydolphin-android`, so that `android.keystore` can never be committed next to tracked
 files. It carries its own `.gitignore` excluding the keystore, the build output and
 `local.properties`, in case it is ever turned into a repo of its own.
