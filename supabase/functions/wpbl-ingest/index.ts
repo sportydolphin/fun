@@ -122,6 +122,7 @@ class PlayerResolver {
     norm: string
     teamId: string
     teamAsOf: string | null   // game date, 'YYYY-MM-DD'
+    jersey: string | null
     apiIds: Set<string>
   }>()
   private byApi = new Map<string, string>()        // any feed id → our uuid
@@ -137,7 +138,10 @@ class PlayerResolver {
     for (const p of rows) {
       const nm = normName(p.name)
       const apiIds = new Set<string>([...(p.api_ids ?? []), p.api_id].filter(Boolean) as string[])
-      this.players.set(p.id, { id: p.id, norm: nm, teamId: p.team_id ?? '', teamAsOf: p.team_as_of ?? null, apiIds })
+      this.players.set(p.id, {
+        id: p.id, norm: nm, teamId: p.team_id ?? '', teamAsOf: p.team_as_of ?? null,
+        jersey: p.jersey_number ?? null, apiIds,
+      })
       for (const a of apiIds) this.byApi.set(a, p.id)
       const list = this.byName.get(nm) ?? []
       list.push(p.id); this.byName.set(nm, list)
@@ -271,6 +275,32 @@ class PlayerResolver {
     return true
   }
 
+  /**
+   * Take the uniform number off this box score, if this game is the newest evidence we hold
+   * for the player. Every box-score line carries it and the roster row is the only place it
+   * lives, so without this it is only ever set at insert: the players who predate the column
+   * would stay blank forever.
+   *
+   * Same date guard as noteTeam, and for the same reason plus one more. A new club usually
+   * means a new number (Ibarra wore 8 in New York and wears 6 in Los Angeles), so an old box
+   * score is honest evidence of the number she wore THEN, and the ingest re-reads old games
+   * constantly (`force`, the TrackMan backfill, mode 'all'). `team_as_of` is the floor
+   * because it already means "the newest game we have seen this player in": anything older
+   * either shows the same club, where the number is the one we already hold, or an older
+   * club, where it is the wrong one. noteTeam runs first and raises that floor to this game
+   * when the game is newer, which is exactly when we want the number.
+   */
+  private noteJersey(id: string, uniform: string, ctx: GameCtx) {
+    const p = this.players.get(id)
+    if (!p || !uniform || !ctx.date) return
+    // A staged lineup for a game nobody has played is a plan, not evidence.
+    if (!datedEvidence(ctx.date, chicagoDate(new Date().toISOString()))) return
+    if (p.teamAsOf != null && ctx.date < p.teamAsOf) return
+    if (p.jersey === uniform) return
+    p.jersey = uniform
+    this.patch(id, { jersey_number: uniform })
+  }
+
   private patch(id: string, cols: Record<string, unknown>) {
     this.pending.set(id, { ...(this.pending.get(id) ?? {}), ...cols })
   }
@@ -316,10 +346,8 @@ class PlayerResolver {
 
     if (id) {
       this.link(id, apiId, nm)
-      const moved = this.noteTeam(id, teamSlug, ctx, apiId, reason)
-      // A new club usually means a new number (Ibarra wore 8 in New York and wears 6 in Los
-      // Angeles), and the roster row is the only place a uniform number lives.
-      if (moved && feed.uniform) this.patch(id, { jersey_number: feed.uniform })
+      this.noteTeam(id, teamSlug, ctx, apiId, reason)
+      this.noteJersey(id, s(feed.uniform), ctx)
       return id
     }
 
@@ -346,7 +374,10 @@ class PlayerResolver {
     }).select('id').single()
     if (error || !data) { console.warn('[wpbl-ingest] player insert failed', name, error?.message); return null }
     const apiIds = new Set<string>(apiId ? [apiId] : [])
-    this.players.set(data.id, { id: data.id, norm: nm, teamId: teamSlug, teamAsOf: ctx.date, apiIds })
+    this.players.set(data.id, {
+      id: data.id, norm: nm, teamId: teamSlug, teamAsOf: ctx.date,
+      jersey: feed.uniform || null, apiIds,
+    })
     if (apiId) this.byApi.set(apiId, data.id)
     const list = this.byName.get(nm) ?? []
     list.push(data.id); this.byName.set(nm, list)
@@ -649,7 +680,7 @@ Deno.serve(async (req) => {
     }
 
     // Player cache for reconciliation.
-    const { data: players } = await db.from('wpbl_players').select('id, name, team_id, api_id, api_ids, team_as_of')
+    const { data: players } = await db.from('wpbl_players').select('id, name, team_id, api_id, api_ids, team_as_of, jersey_number')
     const resolver = new PlayerResolver(db, players ?? [])
 
     // Our current games (to decide which boxscores to (re)fetch).

@@ -52,9 +52,9 @@ function embedColor(team: WpblTeam | undefined): number | undefined {
  * unfurl card use to decide which way round to tell it.
  */
 export function buildPlayerReply(
-  // Only the three fields the card actually shows, so a caller holding a partial roster row
-  // (the bot selects id/name/position/team_id) doesn't need a cast to pass it.
-  player: Pick<WpblPlayer, 'id' | 'name' | 'position'>,
+  // Only the fields the card actually shows, so a caller holding a partial roster row
+  // (the bot selects id/name/position/jersey_number/team_id) doesn't need a cast to pass it.
+  player: Pick<WpblPlayer, 'id' | 'name' | 'position' | 'jersey_number'>,
   team: WpblTeam | undefined,
   batting: WpblBattingLine[],
   pitching: WpblPitchingLine[],
@@ -96,7 +96,18 @@ export function buildPlayerReply(
   }
 
   const teamName = team ? `${team.city} ${team.name}` : 'the WPBL'
-  const subject = [displayPosition(player.position, batting).label, teamName].filter(Boolean).join(' · ')
+  // The number leads, the way a player page header reads it. Kept out of the title so the
+  // embed still links under the plain name, and a blank one just drops out of the line: the
+  // feed only started carrying uniforms into our roster rows partway through the season, so
+  // an older player who has not appeared since can genuinely have none. Note it is a string,
+  // not a number — "0" and "00" are different players' jerseys, so this must never be
+  // coerced or falsy-tested against the number 0.
+  const jersey = (player.jersey_number ?? '').trim()
+  const subject = [
+    jersey ? `#${jersey}` : '',
+    displayPosition(player.position, batting).label,
+    teamName,
+  ].filter(Boolean).join(' · ')
 
   return {
     allowed_mentions: { parse: [] },

@@ -193,7 +193,7 @@ async function verify(body: string, signature: string, timestamp: string, public
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
-type RosterPlayer = Pick<WpblPlayer, 'id' | 'name' | 'position' | 'team_id'>
+type RosterPlayer = Pick<WpblPlayer, 'id' | 'name' | 'position' | 'jersey_number' | 'team_id'>
 
 function reader(env: Env, signal: AbortSignal) {
   const base = (env.VITE_SUPABASE_URL || env.SUPABASE_URL || '').replace(/\/+$/, '')
@@ -273,7 +273,7 @@ export async function loadRoster(
   const read = reader(env, signal)
   if (!read) return null
   const [players, teams, battingPositions, games] = await Promise.all([
-    read<RosterPlayer>('wpbl_players?select=id,name,position,team_id&order=name'),
+    read<RosterPlayer>('wpbl_players?select=id,name,position,jersey_number,team_id&order=name'),
     read<WpblTeam>('wpbl_teams?select=*'),
     // Two narrow columns over the whole season (a few hundred rows) so the suggestions
     // name the position a player actually plays, the same as every other surface.
