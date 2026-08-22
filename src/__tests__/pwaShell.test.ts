@@ -106,7 +106,7 @@ describe('the offline page', () => {
 // handlers from the shipped file, not a copy of its logic.
 function loadServiceWorker() {
   const handlers: Record<string, (event: any) => void> = {}
-  const cache = { addAll: vi.fn(async () => {}) }
+  const cache = { addAll: vi.fn(async () => {}), put: vi.fn(async () => {}) }
   const self = {
     addEventListener: (type: string, fn: (event: any) => void) => { handlers[type] = fn },
     skipWaiting: vi.fn(),
@@ -128,7 +128,7 @@ function loadServiceWorker() {
   new Function('self', 'caches', 'fetch', 'Response', 'Request', swSource)(
     self, caches, fetchMock, Response, Request,
   )
-  return { handlers, self, caches, fetch: fetchMock }
+  return { handlers, self, caches, cache, fetch: fetchMock }
 }
 
 // Runs the fetch handler against one request and returns whatever it responded with, or
@@ -145,6 +145,16 @@ async function runFetch(
     respondWith: (p: Promise<Response>) => { responded = p },
   })
   return responded ? await (responded as Promise<Response>) : null
+}
+
+
+// Runs the install handler to completion. It hands its work to event.waitUntil, which is
+// how the browser knows the worker is not ready yet, so the promise has to be awaited or
+// the assertions race the precache.
+async function runInstall(sw: ReturnType<typeof loadServiceWorker>) {
+  let work: Promise<unknown> = Promise.resolve()
+  sw.handlers.install({ waitUntil: (p: Promise<unknown>) => { work = p } })
+  await work
 }
 
 describe('the service worker fetch handler', () => {
@@ -261,5 +271,68 @@ describe('digital asset links', () => {
   // trap. This cannot be asserted, only remembered: see docs/ANDROID.md.
   it('holds at most the two keys that will ever sign this app', () => {
     expect(statements[0].target.sha256_cert_fingerprints.length).toBeLessThanOrEqual(2)
+  })
+})
+
+// The precache, and the production-only redirect that silently emptied it once already.
+describe('the service worker precache', () => {
+  const okResponse = (type = 'text/html') =>
+    new Response('<html>offline</html>', { status: 200, headers: { 'Content-Type': type } })
+
+  it('stores every offline asset under the url the fetch handler asks for', async () => {
+    const sw = loadServiceWorker()
+    sw.fetch.mockImplementation(async () => okResponse())
+    await runInstall(sw)
+    const keys = sw.cache.put.mock.calls.map(c => c[0])
+    expect(keys).toContain('/offline.html')
+    expect(keys).toHaveLength(4)
+  })
+
+  // The regression. Cloudflare Pages answers /offline.html with a 308 to /offline, so this
+  // fetch is redirected in production and not in `npm run dev`. Cache.put rejects a
+  // redirected response, so storing `res` directly throws, and cache.addAll would have
+  // taken the other three assets down with it. Verified against the live site: the deploy
+  // on Aug 21, 2026 cached nothing at all.
+  it('survives Cloudflare canonicalising /offline.html to /offline', async () => {
+    const sw = loadServiceWorker()
+    sw.fetch.mockImplementation(async () => {
+      const res = okResponse()
+      Object.defineProperty(res, 'redirected', { value: true })
+      Object.defineProperty(res, 'url', { value: 'https://sportydolphin.fun/offline' })
+      return res
+    })
+    await runInstall(sw)
+    expect(sw.cache.put.mock.calls.map(c => c[0])).toContain('/offline.html')
+    // What actually gets stored must be a clean response, or the put throws for real in a
+    // browser even though this mock would have accepted it.
+    for (const [, response] of sw.cache.put.mock.calls) {
+      expect((response as Response).redirected).toBe(false)
+      expect((response as Response).status).toBe(200)
+    }
+  })
+
+  // cache.addAll is atomic, which is the other half of why the redirect was so expensive.
+  // Losing the logo must not cost us the page that needs it least.
+  it('keeps the offline page when a decorative asset fails', async () => {
+    const sw = loadServiceWorker()
+    sw.fetch.mockImplementation(async (url: string) => {
+      if (url === '/logo-mark.png') throw new TypeError('Failed to fetch')
+      if (url === '/favicon.ico') return new Response('', { status: 404 })
+      return okResponse()
+    })
+    await runInstall(sw)
+    const keys = sw.cache.put.mock.calls.map(c => c[0])
+    expect(keys).toContain('/offline.html')
+    expect(keys).not.toContain('/logo-mark.png')
+    expect(keys).not.toContain('/favicon.ico')
+  })
+
+  // Install must resolve regardless. A worker that never finishes installing is a worker
+  // that never receives a push, which is the job that matters more than any of this.
+  it('installs even when nothing can be cached at all', async () => {
+    const sw = loadServiceWorker()
+    sw.fetch.mockRejectedValue(new TypeError('Failed to fetch'))
+    await expect(runInstall(sw)).resolves.toBeUndefined()
+    expect(sw.self.skipWaiting).toHaveBeenCalled()
   })
 })

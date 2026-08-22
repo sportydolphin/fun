@@ -10,9 +10,10 @@
  * it is static, tiny, and nothing reads data from it.
  */
 
-// Bump on any change to OFFLINE_ASSETS or to the contents of /offline.html. The activate
-// handler deletes every cache whose name is not this one, so a bump is also the uninstall.
-const CACHE = 'sd-offline-v1'
+// Bump on any change to OFFLINE_ASSETS, to the contents of /offline.html, or to how the
+// precache stores them. The activate handler deletes every cache whose name is not this
+// one, so a bump is also the uninstall.
+const CACHE = 'sd-offline-v2'
 
 // The offline page and everything it renders, because a cache that holds the HTML but not
 // its logo produces a broken-image icon in the one situation where nothing can be refetched.
@@ -20,17 +21,37 @@ const CACHE = 'sd-offline-v1'
 const OFFLINE_URL = '/offline.html'
 const OFFLINE_ASSETS = [OFFLINE_URL, '/logo-mark.png', '/icon.svg', '/favicon.ico']
 
+// Fetch one asset and store it under the URL we will ask for later.
+//
+// This is deliberately not `cache.addAll`, which is the obvious way to write it and is
+// broken here for two compounding reasons. Cloudflare Pages canonicalises `/offline.html`
+// to `/offline` with a 308, so in PRODUCTION this fetch is a redirect while in `npm run dev`
+// it is not. `Cache.put` rejects a redirected response outright, and `addAll` is atomic, so
+// that one redirect threw away the entire precache, offline page included. Both halves are
+// silent: the worker installs, push keeps working, and the only symptom is that the offline
+// fallback never appears, on a device none of us is holding.
+//
+// Rebuilding the body into a fresh 200 drops the redirect, and keying it on the ORIGINAL
+// url is what makes `caches.match(OFFLINE_URL)` in the fetch handler find it.
+async function cacheOne(cache, url) {
+  // `reload` so a fresh worker takes the file from the network rather than from the HTTP
+  // cache, which is how an old copy survives the version bump meant to replace it.
+  const res = await fetch(url, { cache: 'reload' })
+  if (!res.ok) throw new Error(`${url} answered ${res.status}`)
+  // Only the content type is carried over. The body here is already decoded, so passing on
+  // a `Content-Encoding` from the network response would describe it wrongly.
+  const headers = { 'Content-Type': res.headers.get('Content-Type') || 'application/octet-stream' }
+  await cache.put(url, new Response(await res.blob(), { status: 200, headers }))
+}
+
 self.addEventListener('install', (event) => {
-  // `reload` so a fresh worker takes the offline page from the network rather than from
-  // the HTTP cache, which is how an old copy survives the version bump meant to replace it.
-  event.waitUntil(
-    caches.open(CACHE)
-      .then((cache) => cache.addAll(OFFLINE_ASSETS.map((u) => new Request(u, { cache: 'reload' }))))
-      // A precache failure must not block the worker: push is the more important job and it
-      // needs no cache at all. Worst case the offline page is missing and a dead network
-      // falls through to the browser's own error, which is where we were before.
-      .catch(() => {})
-  )
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE)
+    // One at a time, and one failure must not take the others with it. A missing logo
+    // should cost us the logo, not the offline page. A precache failure must never block
+    // the worker either: push is the more important job and it needs no cache at all.
+    await Promise.all(OFFLINE_ASSETS.map((url) => cacheOne(cache, url).catch(() => {})))
+  })())
   // Activate as soon as installed, replacing any old one.
   self.skipWaiting()
 })
