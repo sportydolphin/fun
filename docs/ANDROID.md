@@ -148,6 +148,34 @@ bubblewrap build
 Produces `app-release-bundle.aab` for Play and `app-release-signed.apk` for sideloading onto
 a device to test.
 
+**Two Windows traps, both hit on the first attempt (Aug 21, 2026), neither of which says what
+it actually is:**
+
+- **Bubblewrap downloads the 32-bit JDK.** Gradle then asks for a 1536m heap and dies with
+  `Could not reserve enough space for 1572864KB object heap`, which reads as a low-memory
+  problem on a machine with 20GB free. Check with
+  `java -XshowSettings:properties -version`: `os.arch = x86` is the tell. The fix is a real
+  64-bit JDK **17** (Bubblewrap hard-rejects 18 with "Unsupported jdk version"), installed
+  with `winget install EclipseAdoptium.Temurin.17.JDK`. Lowering `-Xmx` only moves the
+  failure later, into dexing.
+- **The JDK path must contain no spaces.** Bubblewrap shells out to `apksigner` by
+  concatenating a command string with `shell: true` and does not quote the java path, so a
+  JDK under `C:\Program Files\` fails with
+  `'C:\Program' is not recognized as an internal or external command`. Gradle itself quotes
+  correctly, so this surfaces only at the very end, after the APK is built and the passwords
+  are typed. Point `jdkPath` in `~/.bubblewrap/config.json` at a space-free path. A directory
+  junction avoids a second copy of the JDK and needs no admin rights:
+
+  ```bash
+  cmd /c mklink /J "C:\Users\snich\jdk17" "C:\Program Files\Eclipse Adoptium\jdk-17.0.20.8-hotspot"
+  ```
+
+**Bubblewrap echoes the keystore passwords in plaintext** on that apksigner command line
+whenever the signing step fails. Treat any password that has appeared in a terminal that way
+as compromised. Before the first Play upload this costs nothing, because the keystore can
+simply be regenerated with `keytool -genkeypair`; afterwards the app signing key is locked to
+Google and rotating the upload key is a support request.
+
 ### Get the upload fingerprint
 
 `bubblewrap fingerprint list` is **not** it: that subcommand manages *additional* fingerprints
@@ -177,8 +205,10 @@ tracked files.
 | `launcherName` | `sportydolphin` | Bubblewrap's prompt caps this at 12 characters and had silently truncated it to `sportydolphi`, which reads as a typo. The cap is Bubblewrap's, not Android's. **Re-check this after any `bubblewrap update`.** |
 | `orientation` | `portrait-primary` | Inherited from the web manifest. Wide stat tables argue for `default`. |
 
-`bubblewrap update` bumps the version on every run, so it will silently walk `versionCode`
-forward if run repeatedly before a release.
+**`bubblewrap build` bumps `versionCode` and `versionName` on every run**, as does
+`bubblewrap update`. Resetting them by hand does not stick, because the next build walks them
+forward again, so the first release will not be version 1 and that is not worth fighting.
+Play only requires that `versionCode` increase between uploads, which this guarantees.
 
 ## What to test on a real device
 

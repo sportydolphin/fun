@@ -1,11 +1,13 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "fun.sportydolphin.app",
       "sha256_cert_fingerprints": [
-        "3E:E9:F4:8B:6A:C7:3C:62:04:09:DD:28:33:EF:D4:9D:AB:EC:54:09:58:67:F1:6E:36:A8:87:CF:13:20:DB:F5"
+        "15:62:BD:D7:EB:E2:0D:C7:90:F5:7F:98:8F:92:FE:C9:52:F0:08:2A:98:72:4E:B7:9D:CF:32:71:A8:21:3A:4E"
       ]
     }
   }
