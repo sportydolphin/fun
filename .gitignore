@@ -21,3 +21,8 @@ giveaway-data/
 
 # wrangler pages dev scratch (local Pages emulation for _redirects/404 checks)
 .wrangler
+
+# Scratch helpers kept in the working tree, never committed. .tmp-q.mjs is an ad-hoc psql
+# substitute that reads SUPABASE_DB_URL out of .env; it holds no secret itself, but nothing
+# named .tmp-* is meant to be part of the repo, and `git add -A` will take it otherwise.
+.tmp-*
