@@ -1090,6 +1090,12 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
       eyebrow={final ? `Final${game.innings && game.innings !== 7 ? ` / ${game.innings}` : ''}` : live ? '● Live' : `${dateLabel}${game.start_time ? ` · ${formatGameTime(game.game_date, game.start_time)}` : ''}`}
       onClose={onClose}
       maxWidth={520}
+      // A sheet on a phone: this is the most-opened surface in the section, every game row on
+      // Home and Schedule leads here, and its only way out was a close button in the top right
+      // corner, which is the furthest point on a phone from the thumb holding it. Now it comes
+      // up from the bottom edge with a handle and goes back down the same way. Unchanged above
+      // sm, where a centred dialog is right and there is no thumb to accommodate.
+      sheet
     >
       {/* Content-height flex column, capped at the viewport: a short tab (recap, a collapsed
           play-by-play) sizes the modal down instead of forcing full height; a tall tab grows

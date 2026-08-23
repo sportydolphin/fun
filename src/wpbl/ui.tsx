@@ -14,6 +14,7 @@ import { WPBL_ACCENT, wpblAccentFg, wpblColor, wpblSecondary, wpblLogo, wpblLogo
 import { wpblPortrait } from './portraits'
 import type { WpblTeam, WpblPlayer } from './types'
 import { scrollBehavior } from '../lib/motion'
+import { useSwipeNav } from '../AccessibilityContext'
 
 // ─── Name shortening ────────────────────────────────────────────────────────────
 // Compact a full name to "F. Last" once it's long enough to crowd a tight WPBL layout
@@ -888,6 +889,132 @@ async function writeClipboard(text: string): Promise<boolean> {
   } catch { return false }
 }
 
+/**
+ * Drag a bottom sheet down to dismiss it.
+ *
+ * WHAT IT HAS TO SHARE THE SCREEN WITH. Game Center is the busiest gesture surface in the
+ * app: the tab panes scroll vertically, the tabs page horizontally under a finger, and the box
+ * score scrolls sideways inside a pane. Only one of those is a real conflict.
+ *
+ *   - The horizontal pager settles it itself. `SwipeableViews` locks its axis after 10px and,
+ *     on a vertical drag, sets `tracking = false` and hands the gesture back. This picks up
+ *     exactly what it refuses, so the two can never both claim a drag.
+ *   - Sideways scrollers are on the other axis and never see this.
+ *   - Vertical scrolling IS the conflict, and the rule is the standard one: a downward drag
+ *     dismisses only when the scroller under the finger is already at its top. Anywhere else
+ *     it is a scroll, and this never calls preventDefault, so the browser handles it as usual.
+ *
+ * The chrome is always draggable, scroller or no scroller: a finger on the grab handle or the
+ * title bar has no other possible intent. That half alone is most of the value, because the
+ * close button is top-right, which is the hardest place on a phone to reach one-handed.
+ *
+ * OFF WHEN SWIPE NAVIGATION IS OFF, the same accessibility switch the tab pager honours, and
+ * the close button never goes anywhere: a gesture is an extra way out, never the only one.
+ */
+const DRAG_LOCK_PX = 10        // movement before deciding dismiss-drag vs scroll
+const DRAG_DISMISS_FRACTION = 0.25 // of the sheet's height, for a slow drag
+const DRAG_FLICK_VELOCITY = 0.5    // px/ms downward, which commits from anywhere
+const DRAG_FLICK_MIN_PX = 24
+const DRAG_ANIM_MS = 220
+
+/** The scrollable box the finger is inside, if any, stopping at the sheet itself. */
+function scrollerUnder(target: EventTarget | null, stop: HTMLElement): HTMLElement | null {
+  let el = target instanceof HTMLElement ? target : null
+  while (el && el !== stop.parentElement) {
+    const oy = getComputedStyle(el).overflowY
+    if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1) return el
+    el = el.parentElement
+  }
+  return null
+}
+
+function useSheetDrag(
+  enabled: boolean,
+  cardRef: React.RefObject<HTMLDivElement | null>,
+  overlayRef: React.RefObject<HTMLDivElement | null>,
+  chromeRef: React.RefObject<HTMLDivElement | null>,
+  onClose: () => void,
+) {
+  useEffect(() => {
+    const card = cardRef.current
+    if (!enabled || !card) return
+
+    let active = false, locked = false, eligible = false
+    let startY = 0, startX = 0, dy = 0, lastY = 0, lastT = 0, vel = 0
+
+    // The backdrop fades by its own alpha, never by `opacity`: the sheet is its child, so
+    // fading the element would take the sheet down with it.
+    const setBackdrop = (progress: number) => {
+      const el = overlayRef.current
+      if (el) el.style.backgroundColor = `rgba(0,0,0,${(0.6 * (1 - progress)).toFixed(3)})`
+    }
+
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return
+      const t = e.touches[0]
+      active = true; locked = false; dy = 0; vel = 0
+      startY = lastY = t.clientY; startX = t.clientX
+      lastT = performance.now()
+      const onChrome = !!chromeRef.current && chromeRef.current.contains(e.target as Node)
+      const scroller = scrollerUnder(e.target, card)
+      eligible = onChrome || !scroller || scroller.scrollTop <= 0
+    }
+
+    const onMove = (e: TouchEvent) => {
+      if (!active) return
+      const t = e.touches[0]
+      const moveY = t.clientY - startY
+      const moveX = t.clientX - startX
+      if (!locked) {
+        if (Math.abs(moveY) < DRAG_LOCK_PX && Math.abs(moveX) < DRAG_LOCK_PX) return
+        // Sideways, upward, or over a scroller that has somewhere to go: not ours.
+        if (Math.abs(moveX) > Math.abs(moveY) || moveY <= 0 || !eligible) { active = false; return }
+        locked = true
+        card.style.transition = 'none'
+      }
+      const now = performance.now()
+      if (now > lastT) vel = (t.clientY - lastY) / (now - lastT)
+      lastY = t.clientY; lastT = now
+      dy = Math.max(0, moveY)
+      // Only now, and only because this drag is definitely a dismissal: preventing the default
+      // before the axis is settled would kill scrolling on every touch that starts at the top.
+      e.preventDefault()
+      card.style.transform = `translateY(${dy}px)`
+      setBackdrop(Math.min(1, dy / Math.max(card.offsetHeight, 1)))
+    }
+
+    const onEnd = () => {
+      if (!active) return
+      active = false
+      if (!locked) return
+      locked = false
+      const height = Math.max(card.offsetHeight, 1)
+      const go = dy > height * DRAG_DISMISS_FRACTION
+        || (vel > DRAG_FLICK_VELOCITY && dy > DRAG_FLICK_MIN_PX)
+      card.style.transition = `transform ${DRAG_ANIM_MS}ms ease-out`
+      if (go) {
+        card.style.transform = `translateY(${height}px)`
+        setBackdrop(1)
+        window.setTimeout(onClose, DRAG_ANIM_MS - 20)
+      } else {
+        card.style.transform = 'translateY(0)'
+        setBackdrop(0)
+      }
+    }
+
+    card.addEventListener('touchstart', onStart, { passive: true })
+    card.addEventListener('touchmove', onMove, { passive: false })
+    card.addEventListener('touchend', onEnd)
+    card.addEventListener('touchcancel', onEnd)
+    return () => {
+      card.removeEventListener('touchstart', onStart)
+      card.removeEventListener('touchmove', onMove)
+      card.removeEventListener('touchend', onEnd)
+      card.removeEventListener('touchcancel', onEnd)
+    }
+  }, [enabled, cardRef, overlayRef, chromeRef, onClose])
+}
+
 export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, actions, footer, fillHeight, sheet, children }: {
   eyebrow: React.ReactNode
   onClose: () => void
@@ -915,8 +1042,21 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
   // Freeze the page behind the modal for as long as it's open.
   useEffect(() => { lockBodyScroll(); return unlockBodyScroll }, [])
 
+  // A sheet on a phone can be pushed back down. See useSheetDrag for what that has to avoid
+  // colliding with; above sm this is an ordinary centred dialog and none of it is bound.
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const chromeRef = useRef<HTMLDivElement>(null)
+  const isPhone = useMediaQuery('(max-width:600px)')
+  // Called unconditionally and combined after. `isPhone && useSwipeNav()` would short-circuit
+  // the hook away on a desktop render and change the hook count the moment the viewport
+  // crossed 600px, which is the same trap SwipeableViews documents at its own call site.
+  const swipeNav = useSwipeNav()
+  useSheetDrag(!!sheet && isPhone && swipeNav, cardRef, overlayRef, chromeRef, onClose)
+
   return (
     <Box
+      ref={overlayRef}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
       sx={{
         position: 'fixed', inset: 0, zIndex,
@@ -926,7 +1066,7 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
         p: sheet ? { xs: 0, sm: 2 } : { xs: 1, sm: 2 },
       }}
     >
-      <Box sx={{
+      <Box ref={cardRef} sx={{
         width: '100%', maxWidth,
         bgcolor: 'background.paper',
         borderRadius: sheet ? { xs: '18px 18px 0 0', sm: 3 } : 3,
@@ -941,10 +1081,14 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
         {/* Grab handle. Purely a signal, and it earns its 12px: it says the card came up from
             the bottom edge, which is what tells a thumb that the backdrop left showing above
             it is the way out. */}
+        <Box ref={chromeRef} sx={{ flexShrink: 0 }}>
         {sheet && (
           <Box aria-hidden sx={{
             display: { xs: 'block', sm: 'none' }, flexShrink: 0,
             width: 36, height: 4, borderRadius: 2, bgcolor: 'divider', mx: 'auto', mt: 1,
+            // The handle is the one part of a sheet whose only purpose is to be dragged, so it
+            // gives the browser no reason to interpret a touch on it as anything else.
+            touchAction: sheet ? 'none' : undefined,
           }} />
         )}
         {/* Sticky eyebrow header */}
@@ -973,6 +1117,7 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
           >
             <Typography sx={{ fontSize: '0.75rem', lineHeight: 1 }}>✕</Typography>
           </Box>
+        </Box>
         </Box>
 
         {/* Scrollable body */}
