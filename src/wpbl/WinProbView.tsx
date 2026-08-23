@@ -43,6 +43,21 @@ function modelFor(plays: WpblRunValuePlay[], games: WpblGame[]) {
 /** How far a play has to move the game before it counts as the swing of it. */
 const SWING_FLOOR = 0.12
 
+/**
+ * The caption's height, reserved from the first paint and never negotiated afterwards.
+ *
+ * This card sits at the top of the recap, so every pixel it gains late pushes the rest of the
+ * tab down, and it gains them a second or two late by construction: it needs the league's
+ * whole play log, not this game's. Reserving the chart alone got the jump from 310px down to
+ * 101px, which is still the recap visibly lurching once the model lands.
+ *
+ * So the caption is a fixed box, and BOTH things that can go in it are written to fill about
+ * three lines: the swing of the game where there was one, and where there was not, what the
+ * game did instead. That second line is why there is copy here at all rather than an empty
+ * reserved gap, which would read as something failing to load.
+ */
+const CAPTION_H = 74
+
 /** The card's own height. Tall enough for the shape to read, short enough that the recap it
  *  sits inside is still a recap. */
 const CHART_H = { xs: 150, sm: 178 }
@@ -77,8 +92,55 @@ export default function WinProbView({ game, teams, plays, games }: Props) {
     return gameWinProb(model, plays as WpblRunValuePlay[], game)
   }, [league, plays, game, games])
 
+  // NOTHING HERE IS ALLOWED TO CHANGE HEIGHT ONCE IT HAS PAINTED. This card sits at the top
+  // of the recap, so anything that arrives late pushes the rest of the tab down, and it
+  // arrives late by construction: it needs the league's entire play log, not this game's. So
+  // the frame is drawn immediately, at exactly the size it will end up, and the chart is
+  // filled in underneath it. The alternative, and what this used to do, was render nothing
+  // for a second and then shove the whole recap down the screen.
+  if (league === null) return <WinProbFrame game={game} teams={teams} />
   if (!wp || wp.points.length < 2) return null
   return <WinProbCard game={game} teams={teams} wp={wp} />
+}
+
+/** The card before its data: the real header, and an empty chart of the real height. */
+function WinProbFrame({ game, teams }: { game: WpblGame; teams: Map<string, WpblTeam> }) {
+  const home = teams.get(game.home_team_id)
+  const away = teams.get(game.away_team_id)
+  return (
+    <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden' }}>
+      <CardHeader />
+      <Box sx={{ position: 'relative', height: CHART_H }}>
+        <Box aria-hidden sx={{
+          position: 'absolute', left: 0, right: 0, top: '50%',
+          borderTop: '1px dashed', borderColor: 'divider', opacity: 0.6,
+        }} />
+        <Label sx={{ top: 4, left: 6 }}>{away?.abbr ?? 'AWAY'}</Label>
+        <Label sx={{ bottom: 4, left: 6 }}>{home?.abbr ?? 'HOME'}</Label>
+      </Box>
+      <Box sx={{ height: 15, mt: '2px' }} />
+      <Box sx={{ height: CAPTION_H, mt: 0.5, borderTop: '1px solid', borderColor: 'divider' }} />
+    </Box>
+  )
+}
+
+/** Shared by the frame and the card, so the two can never disagree about the header. */
+function CardHeader() {
+  return (
+    <Box sx={{ px: 1.5, pt: 1.25, pb: 0.75, display: 'flex', alignItems: 'center', gap: 0.75 }}>
+      <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>Win probability</Typography>
+      <TapTip
+        title="Worked out from this league's own play-by-play. It reads the situation only: who is pitching, who is up, and how the two clubs have played all season are invisible to it."
+        sx={{
+          width: 16, height: 16, borderRadius: '50%', flexShrink: 0, cursor: 'pointer',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          border: '1px solid', borderColor: 'text.disabled', color: 'text.disabled',
+          fontSize: '0.6rem', fontWeight: 800, lineHeight: 1,
+        }}
+      >i</TapTip>
+      <Box sx={{ ml: 'auto' }}><ExperimentalChip /></Box>
+    </Box>
+  )
 }
 
 /** Split out so the model work above stays in one place and this stays drawing. */
@@ -141,19 +203,7 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
           it" under a 132px chart spent more of a phone screen on a disclaimer than on the
           thing being disclaimed. It is a tap away on the ⓘ, which is where a caveat belongs
           once the chip beside it has already said the board is provisional. */}
-      <Box sx={{ px: 1.5, pt: 1.25, pb: 0.75, display: 'flex', alignItems: 'center', gap: 0.75 }}>
-        <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>Win probability</Typography>
-        <TapTip
-          title="Worked out from this league's own play-by-play. It reads the situation only: who is pitching, who is up, and how the two clubs have played all season are invisible to it."
-          sx={{
-            width: 16, height: 16, borderRadius: '50%', flexShrink: 0, cursor: 'pointer',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            border: '1px solid', borderColor: 'text.disabled', color: 'text.disabled',
-            fontSize: '0.6rem', fontWeight: 800, lineHeight: 1,
-          }}
-        >i</TapTip>
-        <Box sx={{ ml: 'auto' }}><ExperimentalChip /></Box>
-      </Box>
+      <CardHeader />
 
       <Box sx={{ position: 'relative', height: CHART_H }}>
         <Box component="svg" viewBox="0 0 100 100" preserveAspectRatio="none"
@@ -217,15 +267,18 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
         ))}
       </Box>
 
-      {biggest && (
-        <Box sx={{ px: 1.5, py: 1.25, mt: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
-          <Typography sx={{
-            fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8,
-            color: 'var(--wpbl-accent-fg)', mb: 0.25,
-          }}>Swing of the game</Typography>
-          <Typography sx={{ fontSize: '0.85rem', lineHeight: 1.45 }}>{swingSentence(biggest, game, teams)}</Typography>
-        </Box>
-      )}
+      <Box sx={{
+        px: 1.5, py: 1.25, mt: 0.5, height: CAPTION_H, overflow: 'hidden',
+        borderTop: '1px solid', borderColor: 'divider',
+      }}>
+        <Typography sx={{
+          fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8,
+          color: 'var(--wpbl-accent-fg)', mb: 0.25,
+        }}>{biggest ? 'Swing of the game' : 'How it went'}</Typography>
+        <Typography sx={{ fontSize: '0.85rem', lineHeight: 1.45 }}>
+          {biggest ? swingSentence(biggest, game, teams) : quietSentence(wp, game, teams)}
+        </Typography>
+      </Box>
     </Box>
   )
 }
@@ -265,6 +318,45 @@ function swingSentence(pt: WinProbPoint, game: WpblGame, teams: Map<string, Wpbl
   const what = parsed.what || p.narrative || 'the play'
   const who = p.batter_name ?? 'the batter'
   return `${club} went from ${fmtWinPct(before)} to ${fmtWinPct(after)} in the ${ordinal(p.inning)}, when ${who} ${what}.`
+}
+
+/**
+ * The last inning in which the eventual winner was not yet in front. After it they never were
+ * behind, or level, again.
+ *
+ * For a game nothing swung, this is the interesting fact: not which play was biggest, since
+ * none of them was, but how early it stopped being in doubt.
+ *
+ * IT REPORTS THE INNING THEY WERE STILL LEVEL IN, not the one they took the lead in, and the
+ * caption says "never behind after the Nth" to match. Reporting the play AFTER the last level
+ * moment reads as "in front from the Nth on", and that overclaims whenever the lead is taken
+ * partway through an inning: the 12-5 on Aug 22 was 2-2 at the end of the first, and the
+ * earlier wording had San Francisco in front "from the 1st on".
+ */
+function levelUntil(wp: GameWinProb, homeWon: boolean): number | null {
+  const pts = wp.points
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const ahead = homeWon ? pts[i].before > 0.5 : pts[i].before < 0.5
+    if (!ahead) return pts[i].play.inning
+  }
+  return null   // in front from the first pitch
+}
+
+/**
+ * The caption for a game no single play swung: how early it stopped being in doubt, and how
+ * little the biggest moment was worth. Deliberately about the same length as the swing
+ * sentence it stands in for, because they share one fixed box.
+ */
+function quietSentence(wp: GameWinProb, game: WpblGame, teams: Map<string, WpblTeam>): string {
+  const homeWon = (game.home_score ?? 0) > (game.away_score ?? 0)
+  const t = teams.get(homeWon ? game.home_team_id : game.away_team_id)
+  const club = t ? wpblFullName(t) : (homeWon ? 'The home team' : 'The visitors')
+  const level = levelUntil(wp, homeWon)
+  const when = level == null
+    ? `${club} were in front from the first pitch`
+    : `${club} were never behind after the ${ordinal(level)}`
+  const most = wp.biggest ? Math.round(Math.abs(wp.biggest.swing) * 100) : 0
+  return `No single play swung this one. ${when}, and the biggest moment of the game moved it ${most} points.`
 }
 
 /** "6th". Innings only, so the teens never come up. */

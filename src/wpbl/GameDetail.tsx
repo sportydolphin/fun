@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { supabase } from '../lib/supabase'
-import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblGameDetails, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, LIVE_POLL_MS } from './api'
+import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblGameDetails, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllRunValuePlays, LIVE_POLL_MS } from './api'
 import { wpblAccent, wpblFullName, outsToIp, playedInnings, formatGameTime } from './constants'
 import { LiveBanner, useLiveGame } from './Live'
 import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
 import { GameStoryCard } from './Reading'
-import { GameRecapView } from './RecapCard'
+import { GameRecapView, preloadWinProb } from './RecapCard'
+import { useExperiments } from '../ExperimentsContext'
 import { ModalShell, SegNav, TapTip, TeamBadge, useWpblDark, useWpblName, wpblFeatureName } from './ui'
 import SwipeableViews from './SwipeableViews'
 import { parsePlay, runsOnPlay } from './derive/playByPlay'
@@ -1005,6 +1006,22 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   }, [seed.id, away?.id, home?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => reload(true), [reload])
+
+  // The win-probability card's two costs, started at the same moment the modal does rather
+  // than when the card first renders.
+  //
+  // It needs the league's ENTIRE play log, not this game's, which is the single slowest thing
+  // Game Center asks for and the reason the recap used to settle a second late and shove
+  // itself down the screen. Started here it overlaps the game's own load and the sheet's
+  // 260ms slide, and by the time the recap has anything to draw the model usually has too.
+  // Both calls are idempotent and cached by the layer beneath, so this is a head start and
+  // never a second fetch.
+  const experiments = useExperiments()
+  useEffect(() => {
+    if (!experiments) return
+    preloadWinProb()
+    fetchWpblAllRunValuePlays().catch(() => { /* the card retries on its own */ })
+  }, [experiments])
 
   // Resolve this game's recap video. Cheap shared read (deduped + cached by the api layer);
   // revalidates in the background so a recap that lands after the game repaints on next open.

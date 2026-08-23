@@ -160,8 +160,14 @@ function useFitKey(): [(node: HTMLDivElement | null) => void, number] {
 
 /** The win-probability card, which pulls in the league's whole play log and a model to draw
  *  itself. Lazy so that weight lands only on a reader who has experiments on and has opened a
- *  finished game, rather than in the WPBL bundle everybody downloads. */
+ *  finished game, rather than in the WPBL bundle everybody downloads.
+ *
+ *  `preloadWinProb` is the same import, called early by Game Center the moment it opens (see
+ *  GameDetail). The module registry dedupes it, so by the time Suspense asks for the component
+ *  it is already resolved and the fallback is never seen. Lazy loading is about what a reader
+ *  DOWNLOADS, and there is no reason for it to also be about what they WAIT for. */
 const WinProbView = lazy(() => import('./WinProbView'))
+export const preloadWinProb = () => { void import('./WinProbView') }
 
 export function GameRecapView({ game, teams, batting, pitching, plays, names, games = [], onOpenPlayer }: {
   game: WpblGame

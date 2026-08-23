@@ -1077,6 +1077,24 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
         maxHeight: sheet ? { xs: '88%', sm: '100%' } : '100%',
         ...(fillHeight ? { height: '100%' } : {}),
         display: 'flex', flexDirection: 'column',
+        // It comes up from the edge it is anchored to. Without this a "bottom sheet" simply
+        // appears, which reads as a dialog that happens to be at the bottom, and it leaves the
+        // drag-down dismissal with no opposite gesture to have been the undoing of.
+        //
+        // It also buys time. Game Center opens on the recap, whose win-probability card needs
+        // the league's whole play log before it can draw; 260ms of movement is 260ms in which
+        // that arrives, and content that settles while the sheet is still travelling settles
+        // invisibly. styles.css collapses this to nothing under prefers-reduced-motion, along
+        // with every other animation on the page, so it needs no guard of its own.
+        ...(sheet ? {
+          '@media (max-width: 599.95px)': {
+            animation: 'wpblSheetUp 260ms cubic-bezier(0.2, 0, 0, 1)',
+            '@keyframes wpblSheetUp': {
+              from: { transform: 'translateY(100%)' },
+              to: { transform: 'translateY(0)' },
+            },
+          },
+        } : {}),
       }}>
         {/* Grab handle. Purely a signal, and it earns its 12px: it says the card came up from
             the bottom edge, which is what tells a thumb that the backdrop left showing above
