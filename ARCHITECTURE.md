@@ -41,8 +41,7 @@ flowchart TB
         wpblfeed["WPBL Official Feed<br/>stats.womensprobaseballleague.com/v1"]
         wpblyt["WPBL YouTube<br/>channel RSS feed"]
         wpblshop["WPBL Shop (Shopify)<br/>/products.json catalogue"]
-        substack["Substack<br/>towards a more perfect game<br/>(blocks GitHub Actions, not Supabase)"]
-        substack["towards a more perfect game<br/>Substack: archive API + RSS"]
+        substack["towards a more perfect game (Substack)<br/>archive API + RSS<br/>(blocks GitHub Actions, not Supabase)"]
         discord["Discord<br/>webhooks: board · box scores · highlights<br/>bot: /player interactions"]
         gtasks["Google Tasks API<br/>feature requests"]
         push["Web Push (VAPID)"]
@@ -100,7 +99,8 @@ Client-side routing in [`src/App.tsx`](src/App.tsx) (no framework router; matche
 flowchart LR
     subgraph Main["Main sections (lazy chunks)"]
         mlb["/mlb<br/>MlbStats.tsx"]
-        wpbl["/wpbl<br/>wpbl/WpblApp.tsx"]
+        wpbl["/wpbl + /wpbl/{schedule,standings,stats,teams}<br/>wpbl/WpblApp.tsx"]
+        wplayers["/wpbl/players<br/>+ /wpbl/players/&lt;slug&gt;"]
         api["/wpbl/api<br/>wpbl/ApiDocs.tsx"]
     end
 
@@ -122,7 +122,9 @@ flowchart LR
     end
 
     root["/"] -->|redirect| wpbl
-    wpbl --> wtabs["Tabs (SwipeableViews):<br/>Home · Schedule · Standings ·<br/>Stats · Tracking · Teams"]
+    wpbl --> wtabs["Tabs (SwipeableViews), one PATH each:<br/>Home · Schedule · Standings · Stats · Teams"]
+    wtabs --> wstats["Stats sub-boards:<br/>Players · Teams · Pitch by pitch · Run value (experiments only) ·<br/>Tracked (hidden until radar returns) · Draft"]
+    wpbl --> wplayers
     mlb --> mtabs["Stat-card maker · predictions ·<br/>survivor · standings · playoff odds ·<br/>streaks · milestones"]
 ```
 
@@ -136,6 +138,19 @@ flowchart LR
   tab keeps its own `window.scrollY` and lands under the pinned nav) and `pane` for the
   Game Center's Recap / Box Score / Play-by-Play / Pitch Data tabs, which sit in a modal
   with the body locked, so each pane scrolls itself instead.
+- **WPBL URLs are paths, not query strings** ([`src/wpbl/routes.ts`](src/wpbl/routes.ts)):
+  one path per tab since Aug 21, 2026, so each has its own title, description and canonical
+  and Google has five WPBL pages to rank instead of one. `/wpbl?view=<tab>` still resolves
+  (301'd at the edge). A tab lives in **four** places that must agree: `routes.ts`,
+  [`src/seo.ts`](src/seo.ts), `public/_redirects` (both blocks) and the `Route` union in
+  `App.tsx`; [`src/wpbl/__tests__/routes.test.ts`](src/wpbl/__tests__/routes.test.ts) pins
+  them together because three of the four failures are invisible under `npm run dev`.
+- **The WPBL derive layer** ([`src/wpbl/derive/`](src/wpbl/derive)) is pure: arrays in, plain
+  shapes out, no supabase and no React, so the same code serves the site, the Discord posters
+  and the Deno ingest. `playByPlay` (parse a play, `runsOnPlay`), `runExpectancy` (the league's
+  own run-expectancy table and what each play was worth: **in the tree, deliberately not yet
+  behind the experiments switch**), `firsts`, `recap` / `discordRecap`,
+  `predictions`, `trivia`, `bracket`, `seeding`, `pitches`, `matchups`.
 - **Settings** ([`src/SettingsDialog.tsx`](src/SettingsDialog.tsx)) is split by league, with
   a WPBL / MLB switch seeded from the section the reader came from, so a WPBL-only visitor
   never scrolls past thirty MLB crests. Account, accessibility, app and danger-zone settings
@@ -184,6 +199,9 @@ flowchart TB
         t_rem["wpbl_game_reminders"]
         t_wsent["wpbl_game_start_sent"]
         t_vid["wpbl_videos<br/>(YouTube highlights)"]
+        t_hipost["wpbl_discord_highlight_posts<br/>(one post per reel)"]
+        t_bpost["wpbl_discord_birthday_posts<br/>(one greeting per person per year)"]
+        t_lineup["wpbl_lineup_history (VIEW)<br/>wpbl_pitching_usage (VIEW)"]
         t_art["wpbl_articles<br/>(Substack headlines; NO body text)"]
         t_photo["wpbl_photos<br/>(Commons archive; approved-only reads)"]
         t_gdet["wpbl_game_details<br/>(RetroWPBL: first pitch, length, crew, weather)"]
@@ -209,6 +227,8 @@ flowchart TB
         m_mile["milestone_watch"]
         m_pay["team_payrolls"]
         m_contract["player_contracts"]
+        m_gpred["game_predictions"]
+        m_pstats["prediction_stats"]
     end
 
     subgraph APP["App / users / notifications"]
@@ -217,6 +237,7 @@ flowchart TB
         a_events["events (analytics)"]
         a_push["push_subscriptions"]
         a_sent["game_start_sent"]
+        a_prefs["user_preferences<br/>(notification + section prefs)"]
     end
 
     t_teams --- t_players
@@ -308,15 +329,6 @@ sequenceDiagram
 | `wpbl-tracking-watch` | `30 8` (daily) | `watch-wpbl-tracking` | Notice when the league resumes publishing TrackMan data → `wpbl_tracking_watch`, and say so in Discord. Replaced a Home teaser card that hid itself when the feed fell behind, which meant nothing was watching for its return |
 | `wpbl-retro-sync` | `0 10` (daily) | `retro-sync` | Pull the per-game facts the league feed does not publish from RetroWPBL's event files → `wpbl_game_details` (first pitch, length of game, umpiring crew, weather), shown under the Game Center scoreboard. Matches on (date, home club); an unmatched game is counted and skipped, never guessed at. The source is hand-transcribed and runs several games behind, so a missing row means "not written up yet" and coverage is reported rather than warned about |
 | `wpbl-commons-sync` | `0 9 * * 0` (weekly, Sun) | `sync-wpbl-commons` | Mirror freely licensed women's baseball photography from Wikimedia Commons → `wpbl_photos` (the Archive segment of Home's media shelf + the full gallery). Writes to a review queue: rows land `approved = false` and nothing renders until a human publishes them ([`docs/COMMONS_PHOTOS.md`](docs/COMMONS_PHOTOS.md)) |
-
-**The three game-dependent WPBL jobs carry a `3-10` season window**, matching the MLB ones.
-The 2026 feed runs Aug 1 to Sep 22, postseason included, and then goes quiet until spring, and without a window they
-spend the winter waking a runner ~139 times a day to find no game, which buries real failures
-in noise. The window is wider than the season we know about on purpose: 2026 was the inaugural
-year, and a window that clips a real 2027 season would fail silently. `wpbl-youtube-sync` is
-deliberately NOT gated: the channel keeps posting out of season, and the Highlights segment
-would stop updating all winter. Every one of them has `workflow_dispatch` for an off-season run.
-
 | `resolve-survivor` | `30 6` | `resolve-survivor` | Grade survivor picks overnight |
 | `update-playoff-odds` | `20 6` | `simulate-playoff-odds` | Monte-Carlo playoff odds |
 | `update-streaks` | `0 6` + `0 23` + `0 3` (in-season) | `update-streaks` | Streak leaderboards |
@@ -326,6 +338,14 @@ would stop updating all winter. Every one of them has `workflow_dispatch` for an
 | `build-sitemap` | `40 6` | `sitemap` | Rebuild `public/sitemap.xml` from the roster (one URL per player) and commit it **only if the URL set changed**: a push to main is a deploy, so an unconditional rewrite would ship one a day for nothing |
 | `wpbl-restock-watch` | `*/10 * * * *` | `watch-wpbl-restock` | Mirror the league's Shopify catalogue and announce new merch + restocks: quiet batched feed to the shop channel, loud `@everyone` for the shortlist. Notifies only, never buys (see [`docs/DISCORD.md`](docs/DISCORD.md)) |
 | `wpbl-pbp-validation` | `0 8` | `validate-wpbl-pbp` | Check the league's play-by-play against the rules of baseball; records health to `wpbl_pbp_validation_runs`. **Never fails on findings** (see [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md)) |
+
+**The three game-dependent WPBL jobs carry a `3-10` season window**, matching the MLB ones.
+The 2026 feed runs Aug 1 to Sep 22, postseason included, and then goes quiet until spring, and without a window they
+spend the winter waking a runner ~139 times a day to find no game, which buries real failures
+in noise. The window is wider than the season we know about on purpose: 2026 was the inaugural
+year, and a window that clips a real 2027 season would fail silently. `wpbl-youtube-sync` is
+deliberately NOT gated: the channel keeps posting out of season, and the Highlights segment
+would stop updating all winter. Every one of them has `workflow_dispatch` for an off-season run.
 
 > Ordering is intentional (see each workflow's header comment): bots/survivor pick *before*
 > first pitch (14:00); grading + boards run overnight after west-coast finals (06:00–07:30).
@@ -446,6 +466,14 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   upload or the build Play serves will show a URL bar that a sideloaded APK does not. Plan of
   record, including why it is not Capacitor (Google blocks OAuth in embedded WebViews, and
   sign-in is a Google OAuth flow): [`docs/ANDROID.md`](docs/ANDROID.md).
+- **iOS app (not started; only the web half exists):** there is no TWA on iOS, so this is a
+  Capacitor project rather than a second export target, and it means rebuilding Google
+  sign-in (Google refuses OAuth in a WebView), adding APNs alongside Web Push, and clearing
+  App Store guideline 4.2. **Try the free option first**: iOS Safari already installs the
+  site as a PWA and, since 16.4, that install can receive Web Push. Live ahead of the app:
+  `public/.well-known/apple-app-site-association`, **carrying a placeholder Team ID**, plus
+  its content-type rule in `public/_headers`, both pinned in `pwaShell.test.ts`. Plan of
+  record: [`docs/IOS.md`](docs/IOS.md).
 - **Link previews:** [`functions/wpbl/index.ts`](functions/wpbl/index.ts) is a Pages
   Function that rewrites the Open Graph tags of `/wpbl?player=<id>` at the edge, so a
   shared player link unfurls with that player's name, club, and season line instead of the
@@ -518,6 +546,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - DB schema → baseline [`scripts/*.sql`](scripts) · new changes [`scripts/migrations/`](scripts/migrations) via [`scripts/migrate.mjs`](scripts/migrate.mjs)
 - Cron → [`.github/workflows/`](.github/workflows) + [`scripts/wpbl_cron.sql`](scripts/wpbl_cron.sql)
 - Discord (board + box scores + the `/predict` game) → [`docs/DISCORD.md`](docs/DISCORD.md)
+- What a situation is worth, and what each play was worth (the Run value board on Stats, **behind the experiments switch while it settles**) → [`src/wpbl/derive/runExpectancy.ts`](src/wpbl/derive/runExpectancy.ts), drawn by [`src/wpbl/RunValueView.tsx`](src/wpbl/RunValueView.tsx). The table is built from THIS league's plays, never a borrowed major-league one: the WPBL scores ~15 runs a game over seven innings, so every state is worth roughly double
 - Prediction/trivia question rules → [`src/wpbl/derive/predictions.ts`](src/wpbl/derive/predictions.ts), [`src/wpbl/derive/trivia.ts`](src/wpbl/derive/trivia.ts)
 - Owner analytics (`/admin`, the `admin_*` RPCs) → [`docs/ADMIN_ANALYTICS.md`](docs/ADMIN_ANALYTICS.md)
 - Android app / TWA plan, and the offline page it exists for → [`docs/ANDROID.md`](docs/ANDROID.md), [`public/sw.js`](public/sw.js)
@@ -525,6 +554,9 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - Scoring validation + our play corrections → [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md)
 - Which position a player is listed at (the season overrides the roster) → [`src/wpbl/positions.ts`](src/wpbl/positions.ts), shared by the site, the unfurl card and the Discord bot
 - Which CLUB a player counted for (the line overrides the roster, because people get traded) → the `team_id` on each box-score line and play; the rules that recognise a trade are `tradeMatch` / `teamMoveWins` in [`supabase/functions/wpbl-ingest/names.ts`](supabase/functions/wpbl-ingest/names.ts), and `wpbl_merge_players(keep, dupe)` folds a duplicate back into one person
+- iOS / App Store plan, and the Universal Links file already live ahead of the app → [`docs/IOS.md`](docs/IOS.md), [`public/.well-known/apple-app-site-association`](public/.well-known/apple-app-site-association)
+- The Substack mirror (why it runs on Supabase and not Actions, and why no body text is stored) → [`docs/READING.md`](docs/READING.md)
+- SEO work that is not code (backlinks: who to contact, and the drafts) → [`docs/BACKLINKS.md`](docs/BACKLINKS.md)
 - Archive gallery: which photos ship, and the approval gate → [`docs/COMMONS_PHOTOS.md`](docs/COMMONS_PHOTOS.md)
 - Reading, Highlights and Archive share ONE Home card, one segment painting at a time →
   [`src/wpbl/MediaShelf.tsx`](src/wpbl/MediaShelf.tsx). Three feeds, three tables, one surface:
@@ -534,5 +566,3 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   ([`scripts/post-wpbl-discord-recaps.ts`](scripts/post-wpbl-discord-recaps.ts)), bundled at CI
   time so it can share the site's recap engine; its message lives in
   [`src/wpbl/derive/discordRecap.ts`](src/wpbl/derive/discordRecap.ts)
-</content>
-</invoke>

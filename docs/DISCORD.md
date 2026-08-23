@@ -29,6 +29,15 @@ There are also two things that **answer** in the server, which webhooks cannot d
 exactly one message tall. The id of the message it owns lives in `wpbl_discord_board_state`,
 not in an env var, so it survives a deleted message (it recreates and re-records).
 
+**Each game on the board links to its own watch-party event**, from a map built by hand once
+and then reused: put the invite links in
+[`scripts/wpbl-discord-events.txt`](../scripts/wpbl-discord-events.txt), run
+`node scripts/map-wpbl-discord-events.mjs`, and it asks Discord's public invite API for each
+event's start time, matches it to the `wpbl_games` row starting at the same instant, and
+writes [`scripts/wpbl-event-urls.json`](../scripts/wpbl-event-urls.json), which the board
+script loads. Re-run it whenever the events are replaced; it prints its pairings and lists
+anything it could not match rather than guessing. No bot token: an event invite is public.
+
 ### The box scores
 
 A finished game is posted by whichever of two writers gets there first:
@@ -488,6 +497,24 @@ is how a greeting lands three days late.
 In CI the highlights modes are the `highlights_mode` input on the **WPBL YouTube Sync**
 workflow (`dry-run` / `post` / `seed` / `skip`); a scheduled run always takes the normal
 post path.
+
+### The giveaway draw
+
+`npm run giveaway` ([`scripts/draw-discord-giveaway.mjs`](../scripts/draw-discord-giveaway.mjs))
+is the one Discord tool that is neither scheduled nor triggered by a game. It **only reads**
+Discord: nothing is posted and no reaction is touched, and the winner is printed for you to
+announce yourself.
+
+```bash
+npm run giveaway -- <message-link>                                  # list the reactions on it
+npm run giveaway -- <message-link> --emoji wpbl_pride:123 --freeze  # snapshot the entry list
+npm run giveaway -- --draw                                          # draw from the frozen file
+```
+
+Freeze and draw are separate steps on purpose. The freeze is the entry list: reactions added
+afterwards do not count and reactions removed afterwards do not take anyone out. A re-draw
+excludes everyone already drawn, so an unresponsive winner is just the same command again, and
+every draw is appended to the file's history.
 
 Posting needs `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `DISCORD_RECAP_WEBHOOK_URL`.
 **The service-role key is not optional for a real run**: `wpbl_discord_recap_posts` is

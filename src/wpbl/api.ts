@@ -4,7 +4,7 @@ import { countsInStandings } from './season'
 import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
-  WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchPlay,
+  WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchPlay, WpblRunValuePlay,
   WpblPitchTracking, WpblTrackRow,
   WpblVideo, WpblArticle, WpblPhoto, WpblLineupHistoryRow, WpblPitchingUsageRow,
   WpblGameDetails,
@@ -153,6 +153,7 @@ let allLinesCache:    { data: WpblLinesResult; at: number } | null = null
 let allTrackingCache: { data: WpblTrackRow[]; at: number } | null = null
 let allPlaysCache:    { data: WpblFirstsPlay[]; at: number } | null = null
 let allPitchPlaysCache: { data: WpblPitchPlay[]; at: number } | null = null
+let allRunValuePlaysCache: { data: WpblRunValuePlay[]; at: number } | null = null
 let allVideosCache:   { data: WpblVideo[]; at: number } | null = null
 let allArticlesCache: { data: WpblArticle[]; at: number } | null = null
 let allPhotosCache:   { data: WpblPhoto[]; at: number } | null = null
@@ -179,6 +180,7 @@ export function getCachedWpblAllLines(): WpblLinesResult | null { return allLine
 export function getCachedWpblAllTracking(): WpblTrackRow[] | null { return allTrackingCache?.data ?? null }
 export function getCachedWpblAllPlays(): WpblFirstsPlay[] | null { return allPlaysCache?.data ?? null }
 export function getCachedWpblAllPitchPlays(): WpblPitchPlay[] | null { return allPitchPlaysCache?.data ?? null }
+export function getCachedWpblAllRunValuePlays(): WpblRunValuePlay[] | null { return allRunValuePlaysCache?.data ?? null }
 export function getCachedWpblVideos(): WpblVideo[] | null { return allVideosCache?.data ?? null }
 export function getCachedWpblArticles(): WpblArticle[] | null { return allArticlesCache?.data ?? null }
 export function getCachedWpblPhotos(): WpblPhoto[] | null { return allPhotosCache?.data ?? null }
@@ -307,6 +309,38 @@ const PITCH_PLAY_SELECT =
  *
  *  Corrected on the way out like the firsts read, because a correction to a play's batter or
  *  pitcher moves that whole at-bat's pitches from one player's line to another's. */
+const RUN_VALUE_PLAY_SELECT =
+  'game_id,sequence,inning,half,team_id,batter_id,batter_name,pitcher_id,pitcher_name,'
+  + 'outs,first_base,second_base,third_base,event_type,runs_scored,narrative,pitch_sequence'
+
+/** Every play in the league, in order, with the base-out state each one started from.
+ *
+ *  UNFILTERED, unlike the firsts read next door, and it has to be. Run expectancy is a walk
+ *  forward through a half-inning: the state a play ended in is the state the NEXT row reports,
+ *  so dropping the routine outs would leave the walk stepping over gaps and silently valuing
+ *  plays against the wrong state. This is the one league-wide play read that wants all of it.
+ *
+ *  Paged and ordered for the reason on fetchWpblAllPlays, and corrected on the way out like
+ *  every other play read: a correction that moves a run moves the value of the play it was
+ *  scored on. */
+export function fetchWpblAllRunValuePlays(): Promise<WpblRunValuePlay[]> {
+  if (isFresh(allRunValuePlaysCache)) return Promise.resolve(allRunValuePlaysCache!.data)
+  return once('allRunValuePlays', async () => {
+    const out = await fetchAllPaged<WpblRunValuePlay>('fetchWpblAllRunValuePlays', (from, to) =>
+      supabase.from('wpbl_game_plays')
+        .select(RUN_VALUE_PLAY_SELECT)
+        .order('game_id', { ascending: true })
+        .order('sequence', { ascending: true })
+        .range(from, to) as unknown as
+        PromiseLike<{ data: WpblRunValuePlay[] | null; error: unknown }>)
+    const corrected = applyPlayCorrections(out, await fetchAllPlayCorrections())
+    if (corrected.length > 0 || allRunValuePlaysCache == null) {
+      allRunValuePlaysCache = { data: corrected, at: Date.now() }
+    }
+    return corrected
+  })
+}
+
 export function fetchWpblAllPitchPlays(): Promise<WpblPitchPlay[]> {
   if (isFresh(allPitchPlaysCache)) return Promise.resolve(allPitchPlaysCache!.data)
   return once('allPitchPlays', async () => {

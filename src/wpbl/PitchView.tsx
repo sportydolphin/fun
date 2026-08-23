@@ -307,7 +307,9 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
           <StatStrip items={[
             { label: 'Pitches', value: board.pitches.toLocaleString(),
               sub: `across all ${board.gameCount} ${board.gameCount === 1 ? 'game' : 'games'}` },
-            { label: 'Per PA', value: (league.pitchesPerPa ?? 0).toFixed(2),
+            // "Per PA" was an abbreviation the reader had to already know; the subtitle under
+            // it says plate appearances anyway, so the label can just say who it is per.
+            { label: 'Per batter', value: (league.pitchesPerPa ?? 0).toFixed(2),
               sub: `${board.pa.toLocaleString()} plate appearances` },
             { label: 'Strikes', value: fmtPct(league.strikePct, 0),
               sub: `${fmtPct(league.firstStrikePct, 0)} on the first pitch` },

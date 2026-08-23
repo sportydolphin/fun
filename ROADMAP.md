@@ -8,6 +8,13 @@
 > Last realigned: **Aug 10, 2026**: the cross-cutting auth return-to-page fix landed with
 > that day's WPBL work. Nothing in the MLB list below has moved since; treat the "Suggested
 > next three" as the live front.
+>
+> **Status note, Aug 22, 2026: this section is dormant on purpose, and the measurement says
+> keep it that way.** Over the 14 days to Aug 19, `/mlb` drew 768 events across 33 browsers
+> against `/wpbl`'s 18,213 across 2,036 (see "What the traffic says" in
+> [ROADMAP-WPBL.md](ROADMAP-WPBL.md)). WPBL's feed stops Sep 22 and its work is deadlined;
+> nothing here is. The MLB cron jobs all still run and the section still works: it is
+> unattended, not broken. Revisit when the WPBL season is over.
 
 ## Where the app stands
 

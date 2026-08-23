@@ -7,7 +7,10 @@ import {
 } from './api'
 import { trackingWorthShowing } from './tracking'
 import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
-import { TeamBadge, NewDot, CARD_BORDER, pressable, FOCUS_RING, useWpblName } from './ui'
+import {
+  TeamBadge, PlayerPortrait, ModalShell, SectionLabel, PillGroup, ExpandRow, NewDot,
+  CARD_BORDER, pressable, FOCUS_RING, useWpblName,
+} from './ui'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, wpblQualifiers, fmtRate, fmtTwo,
@@ -15,11 +18,13 @@ import {
 } from './stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
 import { track, EVENTS } from '../lib/analytics'
+import { useExperiments } from '../ExperimentsContext'
 // Two of the five Stats groups, behind their own chunks. Hitting and Pitching are what the
 // tab opens on; Tracking (the TrackMan boards) and Draft (the draft-value model) are each a
 // separate sub-tab with its own layout and neither is reachable without a deliberate tap.
 const WpblTrackingView = lazy(() => import('./TrackingView'))
 const WpblPitchView = lazy(() => import('./PitchView'))
+const WpblRunValueView = lazy(() => import('./RunValueView'))
 const WpblDraftValue = lazy(() => import('./DraftValue'))
 
 // Complete season stat table for the WPBL — a sortable board of every hitting and
@@ -52,12 +57,12 @@ const WpblDraftValue = lazy(() => import('./DraftValue'))
 // 'draft' sits on neither axis on purpose: it's a one-off analysis of the draft class that
 // spans both sides at once, so it's reached from a card under the table instead.
 type Side = 'hitting' | 'pitching'
-type Source = 'season' | 'tracked' | 'pitches' | 'draft'
+type Source = 'season' | 'tracked' | 'pitches' | 'runs' | 'draft'
 type Mode = 'players' | 'teams'
 
 // The deep-link contract, unchanged — Home's leader cards ask for 'hitting'/'pitching' with a
 // column, and a legacy ?view=tracking URL asks for 'tracking'. Resolved onto the axes above.
-type Group = 'hitting' | 'pitching' | 'tracking' | 'pitches' | 'draft'
+type Group = 'hitting' | 'pitching' | 'tracking' | 'pitches' | 'runs' | 'draft'
 
 // Whether this page-load has already logged an arrival at Stats. Module scope rather than a
 // ref inside the component, because the pager unmounts the pane on the way out of the tab:
@@ -69,6 +74,7 @@ let statsOpened = false
 function axesOf(g: Group): { side?: Side; source: Source } {
   if (g === 'tracking') return { source: 'tracked' }
   if (g === 'pitches') return { source: 'pitches' }
+  if (g === 'runs') return { source: 'runs' }
   if (g === 'draft') return { source: 'draft' }
   return { side: g, source: 'season' }
 }
@@ -100,6 +106,11 @@ const HIT_COLS: Col<WpblBattingTotals>[] = [
   { key: '3b',  label: '3B',  value: t => t.triples },
   { key: 'bb',  label: 'BB',  value: t => t.bb },
   { key: 'so',  label: 'SO',  value: t => t.so },
+  // Trips to the plate, which is the honest measure of how much someone has played: AB drops
+  // every walk, and G counts a pinch-hitter's one swing as a full day. Summed the way OBP's
+  // denominator is (see sumBatting), so the two always agree. Sacrifice bunts are missing
+  // from it because the feed does not report them, which costs a handful of PA a season.
+  { key: 'pa',  label: 'PA',  value: t => t.ab + t.bb + t.hbp + t.sf },
   { key: 'ab',  label: 'AB',  value: t => t.ab },
   { key: 'g',   label: 'G',   value: t => t.g },
 ]
@@ -130,11 +141,83 @@ function defaultSort(side: Side, key?: string): { key: string; asc: boolean } {
   return { key: col.key, asc: !!col.lowerBetter }
 }
 
+// What each abbreviation stands for, for the stat picker. A sheet that offers "SLG, OPS, OPS+"
+// and nothing else is a vocabulary test, and this section's audience is two months old: the
+// point of the picker is that a reader who knows what an RBI is can find their way around it.
+//
+// Per side, because the same three letters are two different stats depending on who is being
+// measured. SO is a batter's failure and a pitcher's work; H, R and HR are things a hitter
+// does and things a pitcher allows. Writing "Strikeouts" for both would be the sort of nearly
+// right that reads as carelessness to anyone who follows the sport.
+const HIT_NAMES: Record<string, string> = {
+  avg: 'Batting average', obp: 'On-base', slg: 'Slugging', ops: 'On-base plus slugging',
+  opsPlus: 'OPS vs the league', hr: 'Home runs', rbi: 'Runs batted in', r: 'Runs', h: 'Hits',
+  sb: 'Stolen bases', '2b': 'Doubles', '3b': 'Triples', bb: 'Walks', so: 'Strikeouts',
+  ab: 'At-bats', g: 'Games',
+}
+const PIT_NAMES: Record<string, string> = {
+  era: 'Earned run average', whip: 'Walks + hits per inning', eraPlus: 'ERA vs the league',
+  w: 'Wins', l: 'Losses', sv: 'Saves', so: 'Strikeouts', ip: 'Innings pitched',
+  h: 'Hits allowed', r: 'Runs allowed', er: 'Earned runs', bb: 'Walks',
+  hr: 'Home runs allowed', g: 'Games',
+}
+
+/** A column's text for one row. Was written out three times: the pinned cell, the scrolling
+ *  cell and now the list, which have to agree or the same number reads differently depending
+ *  on where you are looking at it from. */
+function cellText<T>(c: Col<T>, t: T): string {
+  const v = c.value(t)
+  return c.display ? c.display(t) : (c.rate ? fmtRate(v) : String(v ?? 0))
+}
+
+// The stats a list row carries under the name, in preference order, minus whichever one is
+// already the big number on the right. Three of them fit a 375px row.
+//
+// TWO LISTS, PICKED BY WHAT THE BOARD IS RANKED ON, because the question the line has to answer
+// changes with it. Ranked by a RATE, the first thing missing is how much of a season it was
+// measured over: .500 off nine trips to the plate and .500 off ninety are not the same claim,
+// so the line leads with PA (or innings, for a pitcher) and follows with what she did with
+// them. Ranked by a COUNTING stat, volume is already the big number on the right and repeating
+// it teaches nobody anything, so the line spends itself on the rates instead: eight home runs
+// beside a .658 average and a 1.998 OPS is a season in one row.
+//
+// They are the stats a fan would ask for unprompted, not the ones the table happens to start
+// with: a row that says "12 HR" is worth more than one that says ".412 OBP", even though OBP
+// is the better stat, because this line is here to identify a season rather than to rank it.
+const CONTEXT_KEYS: Record<Side, { rate: string[]; counting: string[] }> = {
+  hitting: {
+    rate: ['pa', 'hr', 'rbi', 'ops', 'avg'],
+    counting: ['avg', 'rbi', 'ops', 'hr', 'pa'],
+  },
+  pitching: {
+    rate: ['ip', 'w', 'so', 'era', 'whip'],
+    counting: ['era', 'whip', 'ip', 'so'],
+  },
+}
+
+// How much of the list a phone gets before it asks. Ten is a leaderboard; thirty-four is a
+// directory, and the difference matters more than the rows do: everything UNDER the list (the
+// switch to the full grid, the count, the draft-value card) was two thousand pixels down, so
+// in practice nobody found it. A capped list puts the whole board and everything it offers on
+// one screen and a bit, and the reader who wants the other twenty-four asks for them.
+const LIST_CAP = 10
+
+// Phones get the ranked list; this is the escape hatch for the reader who wants the grid
+// anyway, remembered because it is a preference about how someone reads rather than a state
+// of the page. Off by default: see the list itself for why.
+const FULL_TABLE_KEY = 'wpbl_stats_full_table'
+function readFullTable(): boolean {
+  try { return localStorage.getItem(FULL_TABLE_KEY) === '1' } catch { return false }
+}
+
 // One table row — normalized so the same table renders a player or a whole team.
 interface Row {
   key: string
   team: WpblTeam | undefined       // for the badge (a player's club, or the team itself)
   label: string                    // player short name, or full team name
+  /** The player's name as the league spells it. `label` is already abbreviated to fit the
+   *  table's 84px name column, and the portrait lookup is keyed on the real one. */
+  fullName?: string
   shortLabel?: string              // teams mode on a phone: the nickname alone ('Firebells')
   sublabel?: string                // player position (players only)
   totals: WpblBattingTotals | WpblPitchingTotals
@@ -154,19 +237,73 @@ const fullBleedSx = {
   transform: 'translateX(-50%)',
 } as const
 
-// The same width, centred with a margin rather than left + transform. The control bar is the
-// one full-bleed block here that also has to stick, and those two can't share a box: sticky
-// spends `left` on its own threshold, and a transformed ancestor becomes the containing block
-// for anything positioned inside it.
+// The sticky control bar, which is wider than everything else on purpose. Centred with a
+// margin rather than left + transform: the bar is the one full-bleed block here that also has
+// to stick, and those two can't share a box, since sticky spends `left` on its own threshold
+// and a transformed ancestor becomes the containing block for anything positioned inside it.
+//
+// EDGE TO EDGE ON A PHONE, WITH THE GUTTER AS PADDING. At the cards' width the bar stopped
+// 12px short of each side of the screen, so its background and the hairline under it ended in
+// mid-air while the nav bar directly above ran the whole way across: the tabs read as a strip
+// someone had cut the ends off. Content still lines up with the cards below, because the 12px
+// the bar gives back as padding is exactly the gutter the cards keep as margin.
+//
+// PHONE ONLY, and `100vw` is the reason. It measures the viewport INCLUDING a classic
+// scrollbar, so on a desktop with one it is a dozen pixels wider than the page can hold and
+// the whole site gains a horizontal scrollbar. Touch scrollbars are overlaid and take no
+// width, so the phone is exactly where the unit is safe. It is also the only place the fix is
+// wanted: the nav above goes full-bleed on xs alone (`mx: { xs: -2, sm: 0 }`), so above sm
+// there is no mismatch to correct.
+const FULL_BLEED_GUTTER = 12
+const BAR_W = `min(${1100 + 2 * FULL_BLEED_GUTTER}px, calc(100vw / var(--app-zoom, 1)))`
 const fullBleedStickySx = {
-  width: FULL_BLEED_W,
-  marginLeft: `calc(50% - (${FULL_BLEED_W}) / 2)`,
+  width: { xs: BAR_W, sm: FULL_BLEED_W },
+  marginLeft: { xs: `calc(50% - (${BAR_W}) / 2)`, sm: `calc(50% - (${FULL_BLEED_W}) / 2)` },
+  px: { xs: `${FULL_BLEED_GUTTER}px`, sm: 0 },
 } as const
 
-// Shadow the frozen columns cast rightward onto the scrolling stats once you've scrolled
-// off the left edge — the "these columns float over the rest" cue. The divider border
-// carries the separation in dark mode where the shadow is faint.
-const FROZEN_SHADOW = '6px 0 6px -4px rgba(0,0,0,0.25)'
+// The two frozen columns are separate table cells, so the join between them is a seam, and a
+// fractional device pixel can open it into a 1px window onto the stats scrolling underneath.
+//
+// IT USED TO BE CLOSED BY OVERLAPPING, AND THAT COST MORE THAN THE SEAM DID. The pinned column
+// was stuck at `left: nameW - 2`, two pixels left of where the table actually puts it. Sticky
+// does not clamp until you have scrolled past its threshold, so the column sat flush at rest
+// and then CREPT two pixels left over the first two pixels of every horizontal scroll, in the
+// one place the whole design promises nothing moves. Visible on every phone, every scroll.
+//
+// So the offset is exact now (`left: nameW`, which is precisely the cell's own offsetLeft: the
+// collapsed border adds nothing, measured), and the seam is covered by something that cannot
+// move anything, drawn by the pinned column over the last of the name column beside it.
+//
+// NOT A BOX-SHADOW, WHICH IS THE TRAP HERE. `box-shadow` does not apply to internal table
+// elements when `border-collapse` is `collapse`, and this table collapses its borders. A
+// shadow set on one of these cells computes, inspects and reads back exactly as if it worked,
+// and paints nothing at all. That is also why FROZEN_EDGE below is a pseudo-element: the
+// frozen columns' drop shadow was written as a box-shadow the day the pinned column shipped
+// and has never once rendered.
+//
+// The cover redraws the divider at its right edge, because it lands on top of the name cell's
+// own border. 3px wide so rounding at any device pixel ratio has somewhere to land: the name
+// column's last 8px are padding, so there is nothing under there to hide.
+const SEAM_COVER = {
+  content: '""',
+  position: 'absolute' as const,
+  top: 0, bottom: 0, right: '100%', width: 3,
+  bgcolor: 'background.paper',
+  borderRight: '1px solid',
+  borderColor: 'divider',
+  pointerEvents: 'none' as const,
+}
+
+// The frozen columns' rightward shadow onto the scrolling stats once you are off the left
+// edge: the "these columns float over the rest" cue.
+const FROZEN_EDGE = {
+  content: '""',
+  position: 'absolute' as const,
+  top: 0, bottom: 0, left: '100%', width: 6,
+  background: 'linear-gradient(to right, rgba(0,0,0,0.25), rgba(0,0,0,0))',
+  pointerEvents: 'none' as const,
+}
 
 // Fixed width of the frozen Player column on mobile, so the pinned sort-value column can
 // sit flush against it with a constant `left` — no measurement to drift and let the two
@@ -232,6 +369,7 @@ export default function WpblStatsView({
   // 13-character "Denae Benites" became "D. Benites". 0 abbreviates every phone row alike.
   const shortName = useWpblName(0)
   const isNarrow = useMediaQuery('(max-width:600px)')
+  const experiments = useExperiments()
   const scrollRef = useRef<HTMLDivElement>(null)
   // Horizontal-scroll edges — drive the frozen-column shadow (not at start) and the
   // right-edge fade (not at end), so it's obvious the table scrolls sideways.
@@ -250,6 +388,13 @@ export default function WpblStatsView({
   // whether Tracked is worth offering without loading the tracking scan to find out. Null
   // until it answers, and null means "do not offer": showing the chip and then discovering it
   // has two games in it is the outcome being avoided.
+  const [fullTable, setFullTable] = useState(readFullTable)
+  const [expanded, setExpanded] = useState(false)
+  const listRef = useRef<HTMLDivElement>(null)
+  const barRef = useRef<HTMLDivElement>(null)
+  const [barStuck, setBarStuck] = useState(false)
+  const [sortOpen, setSortOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [trackedGames, setTrackedGames] = useState<number | null>(null)
   useEffect(() => {
     let cancelled = false
@@ -258,6 +403,22 @@ export default function WpblStatsView({
   }, [])
   // The 5 AB / 3 IP qualifier only defaults on once every team has played 2+ games;
   // before that it would hide nearly everyone, so the complete table shows by default.
+  // Is the control bar holding content under itself? Sticky gives no way to ask, so compare
+  // the bar with the box it lives in: it is the first thing in that box, so the two tops agree
+  // until the bar is pinned and the box has scrolled on without it. Cheaper than reading the
+  // resolved `top` off the CSS variables on every scroll event, and it needs no threshold.
+  useEffect(() => {
+    const onScroll = () => {
+      const el = barRef.current
+      const box = el?.parentElement
+      if (!el || !box) return
+      setBarStuck(el.getBoundingClientRect().top > box.getBoundingClientRect().top + 0.5)
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
   const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])
   // Games that have actually been played, which is what the tracked count has to be a share
   // of: measured against the 30-game schedule instead, the bar could never be cleared in April.
@@ -460,6 +621,29 @@ export default function WpblStatsView({
     else { setSortKey(c.key); setSortAsc(c.lowerBetter ?? false) }
   }
 
+  // Picking from the sheet is a choice of STAT, never of direction: a menu that silently
+  // reversed the list when you tapped the row already ticked would be a trap. Direction is its
+  // own control below the stats, in the words a fan would use for it.
+  const pickSort = (c: Col<WpblBattingTotals | WpblPitchingTotals>) => {
+    setSortOpen(false)
+    if (c.key === sortKey) return
+    track(EVENTS.WPBL_STATS_SORTED, { key: c.key, asc: c.lowerBetter ?? false, side, mode })
+    setSortKey(c.key)
+    setSortAsc(c.lowerBetter ?? false)
+  }
+  // "Best first" is not a direction: for ERA and WHIP it is ascending and for everything else
+  // it is descending. The column already knows which, so the reader never has to.
+  const bestAsc = activeCol.lowerBetter ?? false
+  const bestFirst = sortAsc === bestAsc
+
+  const toggleFullTable = () => {
+    setFullTable(prev => {
+      const next = !prev
+      try { localStorage.setItem(FULL_TABLE_KEY, next ? '1' : '0') } catch { /* choice just isn't remembered */ }
+      return next
+    })
+  }
+
   // Team LOB, keyed `${gameId}|${teamId}`. It has to come off the game row: the feed sends a
   // per-player `lob` but never fills it in, and summing the players wouldn't give the team
   // total anyway (see the note in sumBatting).
@@ -516,7 +700,7 @@ export default function WpblStatsView({
       if (qualified) list = list.filter(s => s.qualified)
       built = list.map(s => ({
         key: s.player.id, team: teamById.get(s.player.team_id),
-        label: shortName(s.player.name), sublabel: displayPositionFromIndex(s.player, positionIndex).label ?? undefined,
+        label: shortName(s.player.name), fullName: s.player.name, sublabel: displayPositionFromIndex(s.player, positionIndex).label ?? undefined,
         totals: s.totals, qualified: s.qualified,
         onClick: () => onOpenPlayer(s.player),
       }))
@@ -537,6 +721,119 @@ export default function WpblStatsView({
   }, [mode, side, players, lines, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, shortName, lobByGameTeam])
 
   const teamChips = [...teams].sort((a, b) => a.abbr.localeCompare(b.abbr))
+
+  // The five boards, in one row. `source` and `mode` stay as they were underneath: the deep
+  // links, the ?view= URLs and axesOf() all speak that language, and collapsing them into a
+  // single state would mean rewriting all of it to gain a variable.
+  const boards: { key: string; label: string; badge?: boolean }[] = [
+    { key: 'players', label: 'Players' },
+    { key: 'teams', label: 'Teams' },
+    { key: 'pitches', label: 'Pitch by pitch', badge: newBoardBadge },
+    // Behind the experiments switch while it settles. Kept in the row for anyone already on
+    // it, so a ?view=runs link both renders the board and lights its own tab rather than
+    // landing on a page with nothing selected.
+    ...(experiments || source === 'runs' ? [{ key: 'runs', label: 'Run value' }] : []),
+    // Hidden while the league has published radar for barely any games, and kept for the
+    // session once a link has opened it anyway. See trackedOffered.
+    ...(trackedOffered ? [{ key: 'tracked', label: 'Tracked' }] : []),
+    // Last, and a tab rather than the card it used to be. That card sat under the season
+    // board, which meant it sat under the players table AND the teams table, an invitation to
+    // somewhere else pinned to the bottom of two different pages. It is a destination like
+    // the other four, the row above is the list of destinations, and it costs nothing there.
+    { key: 'draft', label: 'Draft' },
+  ]
+  const activeBoard = source === 'season' ? mode : source
+  const selectBoard = (k: string) => {
+    if (k === 'players' || k === 'teams') { switchSource('season'); switchMode(k as Mode) }
+    else switchSource(k as Source)
+  }
+
+  // Anything the reader has changed away from how the board opens. Drives the dot on the
+  // Filters pill: `qualified` defaults to `qual.active`, so "on" is not the same as "set".
+  const filtersSet = teamId !== null || qualified !== qual.active
+
+  // THE PHONE READS A LIST, NOT A GRID. Sixteen columns behind a 150px frozen name column show
+  // four stats at a time on a 375px screen, so the one thing anyone comes here to do (rank the
+  // league by a stat) meant scrolling sideways to hunt for the column and tapping its header.
+  // The list ranks by one stat, chosen from a control that says which, and carries three more
+  // under each name for context; everything else about a player is one tap away on her card,
+  // where it was always better presented. Desktop keeps the table: there the grid fits, and
+  // comparing across columns is the thing a grid is for.
+  const listView = isNarrow && source === 'season' && !fullTable
+
+  // The three context stats: the preference list minus whatever is already the big number.
+  const contextCols = useMemo(() => (
+    CONTEXT_KEYS[side][activeCol.rate ? 'rate' : 'counting']
+      .filter(k => k !== sortKey)
+      .map(k => cols.find(c => c.key === k))
+      .filter((c): c is Col<WpblBattingTotals | WpblPitchingTotals> => !!c)
+      .slice(0, 3)
+  ), [side, sortKey, cols, activeCol])
+
+  const capped = listView && !expanded && rows.length > LIST_CAP
+  const visibleRows = capped ? rows.slice(0, LIST_CAP) : rows
+
+  // Collapsing removes a screenful and a half from BELOW the reader, so the browser clamps
+  // the scroll and leaves them staring at the page footer with the list they just closed
+  // somewhere above. Put them back at the top of it. `scrollMarginTop` on the card is what
+  // keeps the sticky control bar from landing on the first two rows.
+  const collapseRef = useRef(false)
+  const collapse = () => { collapseRef.current = true; setExpanded(false) }
+  // After the DOM has shrunk and before it is painted. A rAF here fired against the OLD
+  // layout, scrolled to the right place in it, and was then clamped back down when the page
+  // lost 1,200px underneath: the reader ended up 66px above the first row instead of on it.
+  useLayoutEffect(() => {
+    if (expanded || !collapseRef.current) return
+    collapseRef.current = false
+    listRef.current?.scrollIntoView({ block: 'start' })
+  }, [expanded])
+
+  // Shared by both boards so the count and the view switch cannot drift apart.
+  //
+  // It reads the population out in words, which is what lets the phone's Filters pill be one
+  // pill with a dot instead of a row of chips that each have to announce themselves. "34
+  // players · Boston · qualified only" is every filter's state AND what it did to the board,
+  // in less room than the chips took to say only the first half.
+  const noun = mode === 'teams' ? (rows.length === 1 ? 'team' : 'teams') : (rows.length === 1 ? 'player' : 'players')
+  const filterWords = [
+    // The club's full name, not the nickname the chip shows: "Boston Hunters" is a sentence
+    // and "Hunters" is a crossword clue.
+    teamId ? (() => { const t = teamById.get(teamId); return t ? wpblFullName(t) : null })() : null,
+    mode === 'players' && qualified ? 'qualified only' : null,
+  ].filter(Boolean) as string[]
+  const boardFooter = (
+    <Box sx={{
+      px: 1.5, py: 1, borderTop: '1px solid', borderColor: 'divider',
+      display: 'flex', alignItems: 'center', gap: 1,
+    }}>
+      <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', fontWeight: 600, minWidth: 0 }}>
+        {[
+          capped ? `${LIST_CAP} of ${rows.length} ${noun}` : `${rows.length} ${noun}`,
+          ...filterWords,
+          '2026 season',
+        ].join(' · ')}
+        {!listView && ' · tap a column to sort'}
+      </Typography>
+      {/* The way into the grid and back out. At the foot rather than in the control bar: it is
+          a preference someone sets once, not a control they work with, and the bar is the
+          thing this redesign is trying to make smaller. It only reads as a foot now that the
+          list is capped, which is the point of capping it.
+
+          The row above it adds PLAYERS and this one adds COLUMNS. "Every stat" named the
+          second by what it gets you, which read well next to the first and badly on its own:
+          the thing it switches to is a table, and calling it anything else means a reader has
+          to find out what it does by pressing it. */}
+      {isNarrow && source === 'season' && (
+        <Box {...pressable(toggleFullTable)} sx={{
+          ...FOCUS_RING, ml: 'auto', flexShrink: 0, cursor: 'pointer', whiteSpace: 'nowrap',
+          display: 'inline-flex', alignItems: 'center', gap: 0.4,
+          minHeight: 34, px: 1.25, borderRadius: 999,
+          border: '1px solid', borderColor: CARD_BORDER,
+          fontSize: '0.74rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+        }}>{fullTable ? 'Ranked list' : 'Full table'}</Box>
+      )}
+    </Box>
+  )
 
   // The sorted column (OPS / ERA by default) is at the far right, off-screen on a phone
   // where the table scrolls horizontally. Bring the highlighted column into view on load and
@@ -578,24 +875,6 @@ export default function WpblStatsView({
   // Draft takes the whole panel rather than sitting in a bar as a fourth tab. It's one
   // analysis covering hitters and pitchers at once, so a side switch above it would be inert
   // and a source switch meaningless — every control would be a control that does nothing.
-  if (source === 'draft') {
-    return (
-      <Box>
-        <Box onClick={() => switchSource('season')} sx={{
-          display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 1.75, cursor: 'pointer',
-          userSelect: 'none', color: 'text.secondary', fontSize: '0.82rem', fontWeight: 700,
-          '&:hover': { color: 'text.primary' },
-        }}>
-          <Box component="span" sx={{ fontSize: '0.95rem', lineHeight: 1 }}>←</Box> Stats
-        </Box>
-        <Suspense fallback={<SubViewFallback />}>
-          <WpblDraftValue players={players} batting={lines.batting} pitching={lines.pitching} games={games}
-            onOpenPlayer={onOpenPlayer} />
-        </Suspense>
-      </Box>
-    )
-  }
-
   const thBase = {
     position: 'sticky' as const, top: 0, zIndex: 3, bgcolor: 'background.paper',
     fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 0.4,
@@ -610,77 +889,139 @@ export default function WpblStatsView({
           toolbar is sticky only on desktop, the section nav only on mobile), so the sum lands
           it just below the chrome on both without either breakpoint being special-cased here.
           Above the table's own sticky header, which pins inside the scroll box below it. */}
-      <Box sx={{
+      <Box ref={barRef} sx={{
         position: 'sticky',
         top: 'calc(var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px))',
         zIndex: 6,
         bgcolor: 'background.default',
         pt: 1,
+        transition: 'box-shadow 0.2s, border-color 0.2s',
+        // An EDGE once it is holding something under it. Without one, rows slid up and
+        // vanished into an unexplained band of page colour below the pills, which reads as the
+        // table being eaten rather than as a bar it is passing behind. The nav above already
+        // does exactly this when it pins; this is the same treatment, so the two behave alike.
+        borderBottom: '1px solid',
+        borderColor: barStuck ? 'divider' : 'transparent',
+        boxShadow: barStuck ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
+        // Four pixels of the same paint above the top edge, for the seam with the bar above.
+        // Two sticky bars meeting at a shared offset agree only to within a rounding error,
+        // and a rounding error is a device pixel of the page showing between them. Same
+        // reasoning as the frozen columns' seam cover: put something there so whatever the
+        // device rounds to lands on paint rather than on a stats row.
+        //
+        // It lands on the nav's bottom 4px, which includes the hairline the nav draws when it
+        // pins, and covering that is the intent as much as the seam is: with a second bar
+        // directly beneath it, a rule across the middle of the chrome and none at the bottom
+        // is the wrong way round. The stack now shows one edge, and it is the one content
+        // actually passes under.
+        '&::before': {
+          content: '""', position: 'absolute', left: 0, right: 0, top: -4, height: 4,
+          bgcolor: 'background.default', pointerEvents: 'none',
+        },
         ...fullBleedStickySx,
       }}>
-      {/* Side of the ball — underline tabs, deliberately distinct from the section's pill nav
-          so the two don't read as the same control stacked twice. Two items now instead of
-          four, which is what lets Players ⇆ Teams share this row and still fit a phone: it
-          used to be shoved off the right edge by the tab set and was invisible until you
-          swiped a nav bar sideways. Full-bleed so the bars share the wide table's left edge
-          instead of floating in the 720px column. */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, borderBottom: '1px solid', borderColor: 'divider', mb: 1.25 }}>
-        <Box sx={{ display: 'flex', gap: 2.5 }}>
-          {(['hitting', 'pitching'] as Side[]).map(sd => {
-            const active = side === sd
-            return (
-              <Box key={sd} onClick={() => switchSide(sd)} sx={{
-                pb: 1, mb: '-1px', cursor: 'pointer', userSelect: 'none',
-                borderBottom: '2px solid', borderColor: active ? WPBL_ACCENT : 'transparent',
-                color: active ? 'text.primary' : 'text.secondary',
-                fontSize: '0.98rem', fontWeight: active ? 800 : 600, transition: 'color 0.15s',
-                '&:hover': { color: 'text.primary' },
-              }}>
-                {sd === 'hitting' ? 'Hitting' : 'Pitching'}
-              </Box>
-            )
-          })}
-        </Box>
+      {/* ROW ONE: WHICH BOARD. Five pages, one row, underline tabs, because that is what they
+          are: tapping one replaces the screen. They used to be chips on the second row, in the
+          same pill shape as the team filter and the qualified toggle, so "Run value" (a
+          different page) and "LA" (a filter on this one) were drawn identically, and the side
+          of the ball, which applies to all five, sat ABOVE them and looked more important.
+          The hierarchy is the right way up now: board, then side, then filters.
 
-        {/* Players ⇆ Teams — the entity the table ranks, not a stat group. Season only: the
-            tracked boards rank individual players and have no team cut. */}
-        {source === 'season' && (
-          <Box sx={{ display: 'flex', gap: 0.5, pb: 0.75, flexShrink: 0 }}>
-            <Chip active={mode === 'players'} onClick={() => switchMode('players')}>Players</Chip>
-            <Chip active={mode === 'teams'} onClick={() => switchMode('teams')}>Teams</Chip>
-          </Box>
-        )}
+          Players and Teams are boards here rather than a Season/Players+Teams pair, which is
+          what lets the row exist at all. "Season" was never a useful label anyway (every
+          number on this section is this season); its real meaning was "the normal table", and
+          splitting it into the two things it actually ranks says that outright and takes the
+          conditional Players/Teams row away with it.
+
+          Scrolls sideways rather than wrapping when Tracked is showing. SwipeableViews hands
+          the gesture back at the edges, so an extra flick still pages to the next tab. */}
+      <Box sx={{
+        display: 'flex', alignItems: 'flex-end', gap: { xs: 1.5, sm: 2 }, mb: 1.25,
+        borderBottom: '1px solid', borderColor: 'divider',
+        overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' },
+        msOverflowStyle: 'none', scrollbarWidth: 'none',
+      }}>
+        {boards.map(b => {
+          const on = b.key === activeBoard
+          return (
+            <Box key={b.key} {...pressable(() => selectBoard(b.key))} aria-current={on ? 'page' : undefined} sx={{
+              ...FOCUS_RING,
+              pb: 1, mb: '-1px', flexShrink: 0, cursor: 'pointer', userSelect: 'none',
+              whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center',
+              borderBottom: '2px solid', borderColor: on ? WPBL_ACCENT : 'transparent',
+              color: on ? 'text.primary' : 'text.secondary',
+              // Tightened on a phone so the five fit 375px without the last one, which is the
+              // one that just moved up here, being the one that hangs off the edge. It still
+              // scrolls when Tracked makes it six.
+              fontSize: { xs: '0.86rem', sm: '0.9rem' },
+              fontWeight: on ? 800 : 600, transition: 'color 0.15s',
+              '&:hover': { color: 'text.primary' },
+            }}>
+              {b.label}
+              {b.badge && <NewDot sx={{ ml: 0.6 }} />}
+            </Box>
+          )
+        })}
       </Box>
 
-      {/* Source, team filter and Qualified share one wrapping row, reordered by width rather
-          than duplicated per breakpoint. A phone puts the team chips on their own line below
-          (flex-basis 100%) with Qualified pulled right beside the source toggle, which is what
-          lets each line fit 375px without scrolling sideways. Desktop has room for all three
-          at once, so the chips ride up onto the same line and the bar costs two rows instead
-          of three. `order` is what swaps them; the markup stays single-source. */}
+      {/* ROW TWO: HOW TO CUT IT. Side of the ball on the left in a segmented pill, which is a
+          third visual language on purpose: underline tabs are pages, this is a two-way switch
+          that applies to whichever page you are on, and chips are filters. The row keeps its
+          shape on every board (the right-hand controls just empty out), so the bar no longer
+          grows and shrinks under a sticky header as you move between boards. */}
+      {source !== 'draft' && (
       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, rowGap: 1, pb: 1.5 }}>
-        <Box sx={{ order: 1, display: 'flex', gap: 0.5, flexShrink: 0 }}>
-          <Chip active={source === 'season'} onClick={() => switchSource('season')}>Season</Chip>
-          <Chip active={source === 'pitches'} onClick={() => switchSource('pitches')}>
-            Pitch by pitch
-            {newBoardBadge && <NewDot sx={{ ml: 0.6 }} />}
-          </Chip>
-          {/* Hidden while the league has published radar for barely any games, and kept for the
-              session once a link has opened it anyway. See trackedOffered. */}
-          {trackedOffered && (
-            <Chip active={source === 'tracked'} onClick={() => switchSource('tracked')}>Tracked</Chip>
-          )}
-        </Box>
+        <PillGroup
+          options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
+          value={side}
+          onChange={v => switchSide(v as Side)}
+        />
 
-        {/* Players mode only — in Teams mode the table already is the four teams. */}
-        {source === 'season' && mode === 'players' && (
-          <Box sx={{
-            order: { xs: 3, sm: 2 }, flexBasis: { xs: '100%', sm: 'auto' }, minWidth: 0,
-            display: 'flex', alignItems: 'center', gap: 0.75, overflowX: 'auto',
-            '&::-webkit-scrollbar': { display: 'none' }, msOverflowStyle: 'none', scrollbarWidth: 'none',
-          }}>
-            {/* Separates the filter from the source toggle once they share a line. */}
-            <Box sx={{ display: { xs: 'none', sm: 'block' }, width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mr: 0.25, flexShrink: 0 }} />
+        {/* Phones: the two controls that do the work, stating what they are set to. Desktop
+            keeps the chips inline, where there is room for the whole filter set at once and
+            the column headers already sort. */}
+        {source === 'season' && isNarrow && (
+          <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
+            <Box {...pressable(() => setSortOpen(true))} aria-haspopup="dialog" aria-expanded={sortOpen} sx={{
+              ...FOCUS_RING,
+              display: 'inline-flex', alignItems: 'center', gap: 0.4, flexShrink: 0,
+              cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
+              minHeight: 34, px: 1.25, borderRadius: 999, fontSize: '0.78rem', fontWeight: 700,
+              border: '1px solid', borderColor: WPBL_ACCENT, bgcolor: `${WPBL_ACCENT}12`,
+              color: 'var(--wpbl-accent-fg)',
+            }}>
+              <Box component="span" sx={{ color: 'text.secondary', fontWeight: 700 }}>Sort</Box>
+              {activeCol.label}
+              <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
+            </Box>
+
+            {/* One pill for both filters. Which ones are on is not written here: the footer
+                under the board says the population in words ("34 players · Boston · qualified
+                only"), which is the same fact plus its consequence, and it costs no room in a
+                bar this narrow. The dot is only there to say "something is not the default",
+                so a filter can never be silently on. */}
+            {mode === 'players' && (
+              <Box {...pressable(() => setFiltersOpen(true))} aria-haspopup="dialog" aria-expanded={filtersOpen} sx={{
+                ...FOCUS_RING,
+                display: 'inline-flex', alignItems: 'center', gap: 0.4, flexShrink: 0,
+                cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap',
+                minHeight: 34, px: 1.25, borderRadius: 999, fontSize: '0.78rem', fontWeight: 700,
+                border: '1px solid', transition: 'all 0.15s',
+                borderColor: filtersSet ? WPBL_ACCENT : CARD_BORDER,
+                bgcolor: filtersSet ? `${WPBL_ACCENT}12` : 'transparent',
+                color: filtersSet ? 'var(--wpbl-accent-fg)' : 'text.secondary',
+              }}>
+                Filters
+                {filtersSet && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: WPBL_ACCENT }} />}
+                <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
+              </Box>
+            )}
+          </Box>
+        )}
+
+        {/* Desktop: the filters themselves, no sheet in the way. */}
+        {source === 'season' && mode === 'players' && !isNarrow && (
+          <Box sx={{ ml: 'auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.75 }}>
             <Chip active={teamId === null} onClick={() => filterTeam(null)}>All</Chip>
             {teamChips.map(t => (
               <Chip key={t.id} active={teamId === t.id} onClick={() => filterTeam(teamId === t.id ? null : t.id)}>
@@ -688,23 +1029,24 @@ export default function WpblStatsView({
                 <Box component="span" sx={{ ml: 0.5 }}>{t.abbr}</Box>
               </Chip>
             ))}
-          </Box>
-        )}
-
-        {/* The one filter that changes what the table *is* rather than which team it shows. */}
-        {source === 'season' && mode === 'players' && (
-          <Box sx={{ order: { xs: 2, sm: 3 }, ml: 'auto', flexShrink: 0 }}>
+            <Box sx={{ width: '1px', alignSelf: 'stretch', bgcolor: 'divider', mx: 0.25, flexShrink: 0 }} />
             <Chip active={qualified} onClick={() => toggleQualified()}>{qualified ? '✓ Qualified' : 'Qualified'}</Chip>
           </Box>
         )}
       </Box>
+      )}
       </Box>
 
       {/* Tracked and Pitches each render their own boards (league tiles + ranked leaders)
           rather than the shared table: a different shape of data, not more columns. Both read
           the same `side` as the table, so switching Hitting/Pitching above carries straight
           through instead of being asked again inside them. */}
-      {source === 'tracked' ? (
+      {source === 'draft' ? (
+        <Suspense fallback={<SubViewFallback />}>
+          <WpblDraftValue players={players} batting={lines.batting} pitching={lines.pitching} games={games}
+            onOpenPlayer={onOpenPlayer} />
+        </Suspense>
+      ) : source === 'tracked' ? (
         <Suspense fallback={<SubViewFallback />}>
           <WpblTrackingView side={side} onOpenPlayer={onOpenPlayer} />
         </Suspense>
@@ -712,12 +1054,68 @@ export default function WpblStatsView({
         <Suspense fallback={<SubViewFallback />}>
           <WpblPitchView side={side} teams={teams} games={games} trackedVisible={trackedOffered} onOpenPlayer={onOpenPlayer} />
         </Suspense>
+      ) : source === 'runs' ? (
+        // Full-bleed, like the season table and unlike the other boards. Its two columns are a
+        // table and a leaderboard side by side, which want the width; left in the 720px page
+        // column they sat visibly indented from the control bar directly above them, which is
+        // full-bleed itself.
+        <Box sx={fullBleedSx}>
+          <Suspense fallback={<SubViewFallback />}>
+            <WpblRunValueView side={side} teams={teams} games={games} onOpenPlayer={onOpenPlayer} />
+          </Suspense>
+        </Box>
       ) : rows.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
           <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, mb: 0.5 }}>No stats yet</Typography>
           <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled' }}>
-            {qualified ? 'No qualified players yet — try “All players”.' : 'Stats fill in as games are played.'}
+            {qualified
+              ? (isNarrow
+                  ? 'Nobody has qualified yet. Filters → Everyone shows the whole roster.'
+                  : 'Nobody has qualified yet. Turn off Qualified to show the whole roster.')
+              : 'Stats fill in as games are played.'}
           </Typography>
+        </Box>
+      ) : listView ? (
+        // No inner scroller here, unlike the table: a vertical list inside a vertical page is
+        // two scrolls under one thumb, and the one your finger lands on is never the one you
+        // meant. The control bar above is sticky, so the sort control stays reachable anyway.
+        <Box ref={listRef} sx={{
+          border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden',
+          scrollMarginTop: 'calc(var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px) + 104px)',
+          ...fullBleedSx,
+        }}>
+          {/* A one-line header, the way the grid has one. The big number on the right was the
+              only unlabelled figure on the row: every stat in the line under a name carries
+              its abbreviation, and the one the whole board is ranked by carried none. Labelled
+              here rather than on each row, because ten greyed "AVG"s down a column is the same
+              word ten times, and it also gives the list the direction arrow the grid gets: on
+              the ERA board, ranked best first, the numbers ascend and nothing said so. */}
+          <Box sx={{
+            display: 'flex', alignItems: 'center', gap: 1, px: 1.25, py: 0.7,
+            borderBottom: '1px solid', borderColor: 'divider',
+          }}>
+            <Typography sx={{
+              flex: 1, minWidth: 0, fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.4,
+              textTransform: 'uppercase', color: 'text.disabled',
+            }}>{mode === 'teams' ? 'Team' : 'Player'}</Typography>
+            <Typography sx={{
+              flexShrink: 0, fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.4,
+              textTransform: 'uppercase', color: 'var(--wpbl-accent-fg)',
+            }}>
+              {activeCol.label}
+              <Box component="span" sx={{ ml: 0.3, fontSize: '0.62rem' }}>{sortAsc ? '↑' : '↓'}</Box>
+            </Typography>
+          </Box>
+          {visibleRows.map((r, i) => (
+            <StatListRow key={r.key} row={r} rank={i + 1} first={i === 0} isTeam={mode === 'teams'}
+              value={cellText(activeCol, r.totals)}
+              context={contextCols.map(c => `${cellText(c, r.totals)} ${c.label}`).join(' · ')} />
+          ))}
+          {rows.length > LIST_CAP && (
+            <ExpandRow expanded={!capped} moreLabel={`Show all ${rows.length} ${noun}`}
+              onToggle={capped ? () => setExpanded(true) : collapse} />
+          )}
+          {boardFooter}
         </Box>
       ) : (
         <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden', ...fullBleedSx }}>
@@ -738,12 +1136,13 @@ export default function WpblStatsView({
                   </Box>
                   {pinActive && (
                     <Box component="th" data-swipe-handle="" onClick={() => clickHeader(activeCol)} sx={{
-                      ...thBase, position: 'sticky', left: nameW - 2, zIndex: 5, touchAction: 'pan-y',
+                      ...thBase, position: 'sticky', left: nameW, zIndex: 5, touchAction: 'pan-y',
                       textAlign: 'center', cursor: 'pointer', minWidth: 50, px: 0.5,
                       color: 'var(--wpbl-accent-fg)',
                       backgroundImage: `linear-gradient(${WPBL_ACCENT}24, ${WPBL_ACCENT}24)`,
                       borderRight: '1px solid', borderColor: 'divider',
-                      boxShadow: scrollX.atStart ? 'none' : FROZEN_SHADOW,
+                      '&::before': SEAM_COVER,
+                      '&::after': scrollX.atStart ? undefined : FROZEN_EDGE,
                     }}>
                       <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.2 }}>
                         {activeCol.label}
@@ -819,22 +1218,22 @@ export default function WpblStatsView({
                       </Box>
                       {pinActive && (
                         <Box component="td" data-swipe-handle="" onClick={e => { e.stopPropagation(); clickHeader(activeCol) }} sx={{
-                          position: 'sticky', left: nameW - 2, zIndex: 3, touchAction: 'pan-y',
+                          position: 'sticky', left: nameW, zIndex: 3, touchAction: 'pan-y',
                           textAlign: 'center', py: 0.5, px: 0.5,
                           borderTop: '1px solid', borderRight: '1px solid', borderColor: 'divider',
                           fontSize: '0.84rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
                           backgroundColor: 'background.paper',
                           backgroundImage: `linear-gradient(${WPBL_ACCENT}12, ${WPBL_ACCENT}12)`,
-                          boxShadow: scrollX.atStart ? 'none' : FROZEN_SHADOW,
+                          '&::before': SEAM_COVER,
+                          '&::after': scrollX.atStart ? undefined : FROZEN_EDGE,
                           whiteSpace: 'nowrap',
                         }}>
-                          {activeCol.display ? activeCol.display(r.totals) : (activeCol.rate ? fmtRate(activeCol.value(r.totals)) : String(activeCol.value(r.totals) ?? 0))}
+                          {cellText(activeCol, r.totals)}
                         </Box>
                       )}
                       {scrollCols.map(c => {
                         const active = c.key === sortKey
-                        const v = c.value(r.totals)
-                        const txt = c.display ? c.display(r.totals) : (c.rate ? fmtRate(v) : String(v ?? 0))
+                        const txt = cellText(c, r.totals)
                         return (
                           <Box component="td" key={c.key} onClick={e => { e.stopPropagation(); clickHeader(c) }} sx={{
                             textAlign: 'center', py: 0.5, px: 0.5, borderTop: '1px solid', borderColor: 'divider',
@@ -862,37 +1261,293 @@ export default function WpblStatsView({
             opacity: scrollX.atEnd ? 0 : 1, transition: 'opacity 0.2s',
           })} />
           </Box>
-          <Box sx={{ px: 1.5, py: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-            <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', fontWeight: 600 }}>
-              {rows.length} {mode === 'teams' ? (rows.length === 1 ? 'team' : 'teams') : (rows.length === 1 ? 'player' : 'players')} · 2026 season · tap a column to sort
-            </Typography>
-          </Box>
+          {boardFooter}
         </Box>
       )}
 
-      {/* Draft value — still inside Stats, but under the table rather than beside Hitting and
-          Pitching in the bar. It's an analysis a reader takes in once, not a board they check
-          weekly, and it spans both sides of the ball so it belongs on neither axis. The table
-          above is a fixed-height scroller, so this sits on screen rather than below the fold. */}
-      {source === 'season' && (
-        <Box onClick={() => switchSource('draft')} sx={{
-          display: 'flex', alignItems: 'center', gap: 1.25, mt: 1.5, px: 1.5, py: 1.25,
-          border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2,
-          cursor: 'pointer', userSelect: 'none', transition: 'border-color 0.15s, background-color 0.15s',
-          '&:hover': { borderColor: WPBL_ACCENT, bgcolor: `${WPBL_ACCENT}0a` },
-          ...fullBleedSx,
-        }}>
-          <Box sx={{ fontSize: '1.1rem', lineHeight: 1, flexShrink: 0 }}>📈</Box>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontSize: '0.85rem', fontWeight: 800, lineHeight: 1.2 }}>Draft value</Typography>
-            <Typography sx={{ fontSize: '0.75rem', color: 'text.secondary', lineHeight: 1.3 }}>
-              Do earlier picks produce better players?
-            </Typography>
-          </Box>
-          <Box sx={{ ml: 'auto', flexShrink: 0, color: 'text.disabled', fontSize: '0.9rem' }}>→</Box>
+      {sortOpen && (
+        <SortSheet cols={cols} sortKey={sortKey} side={side} bestFirst={bestFirst}
+          onPick={pickSort}
+          onDirection={best => setSortAsc(best ? bestAsc : !bestAsc)}
+          onClose={() => setSortOpen(false)} />
+      )}
+      {filtersOpen && (
+        <FilterSheet teams={teamChips} teamId={teamId} onTeam={filterTeam}
+          qualified={qualified} onQualified={toggleQualified}
+          side={side} minAb={qual.minAb} minIp={outsToIp(qual.minOuts)}
+          onClose={() => setFiltersOpen(false)} />
+      )}
+
+    </Box>
+  )
+}
+
+// One row of the phone board. Deliberately the same shape as LeaderRow, which every other
+// board on this tab already uses (Pitch by pitch, Run value, Tracked): rank, face, name, one
+// big number. Not literally LeaderRow, because that one takes a WpblPlayer and puts a portrait
+// on it, and half the rows here can be clubs, which want their badge and have no face.
+//
+// The name is the league's spelling, not the table's. `row.label` is pre-abbreviated to
+// "D. Benites" to survive an 84px column; a list row has 200px and no reason to shorten
+// anybody.
+//
+// The player's position, which the table shows under the name, gives its line to the three
+// context stats. A leaderboard answers "how good", and the card behind one tap answers
+// everything else, position included.
+function StatListRow({ row, rank, value, context, isTeam, first }: {
+  row: Row
+  rank: number
+  value: string
+  context: string
+  isTeam: boolean
+  first: boolean
+}) {
+  return (
+    <Box {...pressable(row.onClick)} sx={{
+      ...FOCUS_RING,
+      display: 'flex', alignItems: 'center', gap: 1.25, px: 1.25, py: 0.85,
+      borderTop: first ? 'none' : '1px solid', borderColor: 'divider',
+      cursor: row.onClick ? 'pointer' : 'default',
+      WebkitTapHighlightColor: 'transparent',
+      // Hover only where there is one. On a touch browser it sticks to whichever row the
+      // scroll started on, which reads as a selection nobody made. Same guard as LeaderRow.
+      '@media (hover: hover)': { '&:hover': row.onClick ? { bgcolor: 'action.hover' } : undefined },
+    }}>
+      <Box sx={{
+        width: 18, flexShrink: 0, textAlign: 'center', fontSize: '0.8rem', fontWeight: 800,
+        fontVariantNumeric: 'tabular-nums',
+        color: rank <= 3 ? 'var(--wpbl-accent-fg)' : 'text.disabled',
+      }}>{rank}</Box>
+
+      {isTeam
+        ? (row.team ? <TeamBadge team={row.team} size={32} /> : null)
+        : <PlayerPortrait name={row.fullName ?? row.label} teamId={row.team?.id ?? null} size={32} />}
+
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
+          <Typography sx={{
+            fontSize: '0.85rem', fontWeight: 600,
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>{isTeam ? (row.shortLabel ?? row.label) : (row.fullName ?? row.label)}</Typography>
+          {!isTeam && row.team && <TeamBadge team={row.team} size={15} />}
         </Box>
+        <Typography sx={{
+          fontSize: '0.68rem', color: 'text.disabled', fontVariantNumeric: 'tabular-nums',
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{context}</Typography>
+      </Box>
+
+      <Box sx={{
+        flexShrink: 0, fontSize: '1.05rem', fontWeight: 800,
+        color: 'var(--wpbl-accent-fg)', fontVariantNumeric: 'tabular-nums',
+      }}>{value}</Box>
+    </Box>
+  )
+}
+
+// ── The sheets, and the one rule they are built to ───────────────────────────────
+//
+// EVERY TARGET IN HERE IS AT LEAST 52px TALL. The first version of both sheets used the same
+// `Chip` as the control bar, which is 24px: fine as a label you glance at, half the minimum
+// anything a finger has to hit should be, and there were fifteen of them wrapped into three
+// dense lines. A chip row is a good way to SHOW a small set of options and a bad way to let
+// someone pick from a long one.
+//
+// So the options are tiles and rows now, sized for a thumb, and the room that costs buys
+// something back: there is space to say what each abbreviation means.
+
+/** One option in a picker. Fills its grid cell, two lines, 52px minimum. */
+function OptionTile({ label, hint, on, onClick }: {
+  label: string
+  hint?: string
+  on: boolean
+  onClick: () => void
+}) {
+  return (
+    <Box {...pressable(onClick)} aria-pressed={on} sx={{
+      ...FOCUS_RING,
+      minHeight: 52, display: 'flex', flexDirection: 'column', justifyContent: 'center',
+      px: 1.25, py: 0.85, borderRadius: 2, cursor: 'pointer', userSelect: 'none',
+      border: '1px solid', transition: 'all 0.15s',
+      borderColor: on ? WPBL_ACCENT : CARD_BORDER,
+      bgcolor: on ? `${WPBL_ACCENT}14` : 'transparent',
+      '@media (hover: hover)': { '&:hover': { borderColor: WPBL_ACCENT } },
+    }}>
+      <Typography sx={{
+        fontSize: '0.85rem', fontWeight: 800, lineHeight: 1.2,
+        color: on ? 'var(--wpbl-accent-fg)' : 'text.primary',
+      }}>{label}</Typography>
+      {hint && (
+        <Typography sx={{
+          fontSize: '0.66rem', lineHeight: 1.25, color: 'text.disabled',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>{hint}</Typography>
       )}
     </Box>
+  )
+}
+
+/** A full-width option row, for a short list where the label wants the whole line. */
+function OptionRow({ label, hint, icon, on, onClick }: {
+  label: string
+  hint?: string
+  icon?: React.ReactNode
+  on: boolean
+  onClick: () => void
+}) {
+  return (
+    <Box {...pressable(onClick)} aria-pressed={on} sx={{
+      ...FOCUS_RING,
+      minHeight: 52, display: 'flex', alignItems: 'center', gap: 1.25,
+      px: 1.25, py: 0.85, borderRadius: 2, cursor: 'pointer', userSelect: 'none',
+      border: '1px solid', transition: 'all 0.15s',
+      borderColor: on ? WPBL_ACCENT : CARD_BORDER,
+      bgcolor: on ? `${WPBL_ACCENT}14` : 'transparent',
+      '@media (hover: hover)': { '&:hover': { borderColor: WPBL_ACCENT } },
+    }}>
+      {icon}
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Typography sx={{
+          fontSize: '0.9rem', fontWeight: 700, lineHeight: 1.25,
+          color: on ? 'var(--wpbl-accent-fg)' : 'text.primary',
+        }}>{label}</Typography>
+        {hint && (
+          <Typography sx={{ fontSize: '0.7rem', lineHeight: 1.3, color: 'text.disabled' }}>
+            {hint}
+          </Typography>
+        )}
+      </Box>
+      {/* A tick as well as the fill, never the fill alone: a tinted border is the sort of
+          difference that disappears in sunlight, and about one man in twelve cannot use
+          colour to tell two states apart at all. */}
+      <Box aria-hidden sx={{
+        flexShrink: 0, fontSize: '0.95rem', fontWeight: 800,
+        color: 'var(--wpbl-accent-fg)', opacity: on ? 1 : 0,
+      }}>✓</Box>
+    </Box>
+  )
+}
+
+/** The sheet's way out, at the bottom where a thumb is. The ✕ in the header is 700px up the
+ *  screen on a sheet this tall, which is the corner of a phone a hand cannot reach without
+ *  regripping it. Both sheets apply their choices live, so this only closes: it is a Done
+ *  rather than an Apply, and it says so. */
+function SheetDone({ onClose }: { onClose: () => void }) {
+  return (
+    <Box {...pressable(onClose)} sx={{
+      ...FOCUS_RING,
+      minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      borderRadius: 2, cursor: 'pointer', userSelect: 'none',
+      bgcolor: 'var(--wpbl-accent-solid)', color: '#fff', fontWeight: 800, fontSize: '0.9rem',
+    }}>Done</Box>
+  )
+}
+
+/** A titled group inside a sheet. */
+function SheetGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Box>
+      <SectionLabel>{title}</SectionLabel>
+      <Box sx={{ mt: 0.9 }}>{children}</Box>
+    </Box>
+  )
+}
+
+// Choosing what the board ranks by. Two columns of tiles: sixteen options as full-width rows
+// is three screenfuls of scrolling, and two columns is one and a bit, with every tile still
+// 165px wide on the narrowest phone.
+//
+// Direction is named rather than described. "Ascending" is a fact about the sort and "best
+// first" is what the reader wants, and the two are opposites for ERA and WHIP, which is
+// exactly where getting it wrong is least forgivable.
+function SortSheet({ cols, sortKey, side, bestFirst, onPick, onDirection, onClose }: {
+  cols: Col<WpblBattingTotals | WpblPitchingTotals>[]
+  sortKey: string
+  side: Side
+  bestFirst: boolean
+  onPick: (c: Col<WpblBattingTotals | WpblPitchingTotals>) => void
+  onDirection: (bestFirst: boolean) => void
+  onClose: () => void
+}) {
+  const names = side === 'pitching' ? PIT_NAMES : HIT_NAMES
+  const groups: [string, Col<WpblBattingTotals | WpblPitchingTotals>[]][] = [
+    ['Rate stats', cols.filter(c => c.rate)],
+    ['Counting stats', cols.filter(c => !c.rate)],
+  ]
+  const grid = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 } as const
+  return (
+    <ModalShell sheet eyebrow={side === 'pitching' ? 'Rank pitchers by' : 'Rank hitters by'}
+      onClose={onClose} maxWidth={480} footer={<SheetDone onClose={onClose} />}>
+      <Box sx={{ px: 2, py: 1.75, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {groups.map(([title, list]) => list.length === 0 ? null : (
+          <SheetGroup key={title} title={title}>
+            <Box sx={grid}>
+              {list.map(c => (
+                <OptionTile key={c.key} label={c.label} hint={names[c.key]}
+                  on={c.key === sortKey} onClick={() => onPick(c)} />
+              ))}
+            </Box>
+          </SheetGroup>
+        ))}
+        <SheetGroup title="Order">
+          <Box sx={grid}>
+            <OptionTile label="Best first" on={bestFirst} onClick={() => onDirection(true)} />
+            <OptionTile label="Worst first" on={!bestFirst} onClick={() => onDirection(false)} />
+          </Box>
+        </SheetGroup>
+      </Box>
+    </ModalShell>
+  )
+}
+
+// The two filters, on a phone, in one sheet.
+//
+// Rows rather than tiles: there are only seven, a club wants its badge and its whole name
+// rather than the three letters the chips showed, and "Qualified" needs a sentence under it.
+// It says what qualified MEANS, which the chip never did: a word a reader either knows or is
+// excluded by, set against a bar that moves with the season (see wpblQualifiers), so nobody
+// could have known it from memory either.
+function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, side, minAb, minIp, onClose }: {
+  teams: WpblTeam[]
+  teamId: string | null
+  onTeam: (id: string | null) => void
+  qualified: boolean
+  onQualified: () => void
+  side: Side
+  minAb: number
+  minIp: string
+  onClose: () => void
+}) {
+  const rows = { display: 'flex', flexDirection: 'column', gap: 0.75 } as const
+  return (
+    <ModalShell sheet eyebrow="Filter" onClose={onClose} maxWidth={480}
+      footer={<SheetDone onClose={onClose} />}>
+      <Box sx={{ px: 2, py: 1.75, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <SheetGroup title="Team">
+          <Box sx={rows}>
+            <OptionRow label="All teams" on={teamId === null} onClick={() => onTeam(null)} />
+            {teams.map(t => (
+              <OptionRow key={t.id} label={wpblFullName(t)} on={teamId === t.id}
+                icon={<TeamBadge team={t} size={28} />}
+                onClick={() => onTeam(teamId === t.id ? null : t.id)} />
+            ))}
+          </Box>
+        </SheetGroup>
+
+        <SheetGroup title="Who to include">
+          <Box sx={rows}>
+            <OptionRow label="Qualified" on={qualified}
+              hint={side === 'pitching' ? `${minIp} innings pitched or more` : `${minAb} at-bats or more`}
+              onClick={() => { if (!qualified) onQualified() }} />
+            <OptionRow label="Everyone" on={!qualified}
+              hint={side === 'pitching'
+                ? 'One good relief outing can top the ERA board'
+                : 'A hitter who is 1 for 1 can top the average board'}
+              onClick={() => { if (qualified) onQualified() }} />
+          </Box>
+        </SheetGroup>
+      </Box>
+    </ModalShell>
   )
 }
 

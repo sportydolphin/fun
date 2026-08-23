@@ -512,7 +512,13 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     const el = navRef.current
     const publish = () => {
       const pinned = el && getComputedStyle(el).position === 'sticky'
-      document.documentElement.style.setProperty('--wpbl-nav-h', pinned ? `${el!.offsetHeight}px` : '0px')
+      // The RECT height, not offsetHeight, which rounds to a whole pixel. A bar 43.67px tall
+      // published itself as 44, so anything sticking at that offset sat a third of a pixel
+      // below this one's bottom edge and the page scrolled through the crack: one device
+      // pixel of a stats row, running along under the nav the whole way down. Fractional CSS
+      // pixels are what the browser is laying out in, so hand it those.
+      document.documentElement.style.setProperty(
+        '--wpbl-nav-h', pinned ? `${el!.getBoundingClientRect().height}px` : '0px')
     }
     publish()
     const ro = new ResizeObserver(publish)

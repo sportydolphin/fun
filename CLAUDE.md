@@ -200,6 +200,8 @@ units):
 
 - **WPBL** (`/wpbl`, the default): Women's Pro Baseball League. Scoreboard, schedule,
   standings, stats, TrackMan, Game Center, auto recaps, Hall of Firsts, push reminders.
+  Run value (the league's own run-expectancy table, built from our own plays; behind the
+  experiments switch while it settles).
   Mirrored from the league feed into Supabase by the `wpbl-ingest` edge function. The feed
   stops Sep 22, 2026 (regular season ends Sep 6; the postseason runs Sep 9 to Sep 22).
 - **MLB** (`/mlb`): deeper and StatsAPI-driven. Game Center, personalized home feed, a
@@ -267,5 +269,6 @@ in-site bell and the push senders.
   unfurler. Shared player links get their card from [`functions/wpbl/`](functions/wpbl/)
   instead, rewriting the tags at the edge; headshots are republished at a stable
   `/portraits/<slug>.webp` by a Vite plugin, since the edge has no copy of the build's
-  hashed-asset map. Google Search Console verification was still open as of Aug 18, 2026;
-  check before assuming.
+  hashed-asset map. **Search Console is verified**, and Googlebot renders the JS completely,
+  so pre-rendering is settled as not needed. The remaining constraint is not code: near-zero
+  inbound links, worked from [`docs/BACKLINKS.md`](docs/BACKLINKS.md).

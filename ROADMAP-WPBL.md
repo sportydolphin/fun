@@ -4,6 +4,8 @@
 > Companion doc: **[ROADMAP.md](ROADMAP.md)**: the MLB section, which runs on its own
 > calendar and its own priorities. Nothing here blocks anything there.
 > Tags: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra
+> Last checked against production: **Aug 22, 2026** (18 of 30 regular-season games final;
+> the clock below is counted from the live schedule, not from memory).
 > Last realigned: **Aug 20, 2026**, against traffic data for the first time (see
 > "What the traffic says"), and revised again later the same day when 1b turned out not to be
 > blocked (see its entry). The seeding race and the bracket are both opt-in behind the
@@ -16,7 +18,7 @@
 
 ## The clock: read this before prioritizing anything
 
-**17 games left. The last regular-season game is Sep 6, 2026, three weeks out, and the
+**12 games left. The last regular-season game is Sep 6, 2026, just over two weeks out, and the
 postseason runs Sep 9 to Sep 22** (schedule in Background, below). Then the league's feed goes
 quiet and this section has no new data until spring 2027.
 
@@ -40,13 +42,15 @@ played. Nothing yet exists that makes `/wpbl` worth opening in November.
 
 **Live surfaces:** Home (scoreboard strip, last-game recap card, next-game card + countdown,
 standings, leaders, highlights rail, reading rail, archive rail, Discord invite) ·
-Schedule · Standings (W/L/PCT/GB/L10/STRK/DIFF, H2H tiebreak) · Stats (hitting / pitching /
-tracking / draft, sortable, team filter, qualified toggle) · Teams (ranked club cards with
+Schedule · Standings (W/L/PCT/GB/L10/STRK/DIFF, H2H tiebreak) · Stats, one row of board tabs
+(Players, a ranked list on a phone and the full table on a desktop, with a Sort sheet, a
+Filters sheet and a team cut · Teams · Pitch by pitch · Run value, experiments only · Tracked,
+hidden until the league publishes radar again · Draft) · Teams (ranked club cards with
 record, form, run differential and next game, plus a head-to-head grid) → team pages (record,
 results, opponent splits, season totals, leaders, roster with inline stats, lineup-history
 and pitching-usage grids, all under a pinned club switcher) · Game Center (recap, box score, play-by-play, pitch data) ·
-Player pages (batting/pitching/fielding cards, game log, pitch-location maps, shareable
-links that unfurl) · search · live polling · push reminders · a fan Discord integration
+Player pages at `/wpbl/players/<slug>` (batting/pitching/fielding cards, game log,
+pitch-location maps, shareable links that unfurl) · search · live polling · push reminders · a fan Discord integration
 (board, final-score box scores, YouTube highlight reels, `/player` slash command, giveaway
 draw).
 
@@ -60,8 +64,10 @@ against the rules of baseball and our own corrections are applied as a read-time
 (`wpbl_play_corrections`), never written into the mirror.
 
 **What it does NOT have:** predictions/pick'em on the site itself (the Discord game is not the
-same thing), win probability, daily standouts, a league primer or stat glossary, series records
-anywhere but the bracket, and anything at all that survives Sep 22.
+same thing), win probability (the Run value board is the run half of it; the win model is what
+is missing), daily standouts, a league primer or stat glossary, series records anywhere but the
+bracket, and almost nothing that survives Sep 22 (the Commons archive gallery and the Run value
+board are the two exceptions, and neither is a reason to visit twice).
 
 ---
 
@@ -229,13 +235,21 @@ item, which is about *this* season's record. It does mean `/wpbl` is no longer c
 of reasons to visit in November, so the deadline pressure here is about the snapshotting, not
 about having something to show.
 
-### 3. Google Search Console + SEO follow-through ⚙️
+### 3. SEO follow-through ⚙️: *the code half is done; links are the brake*
 
-Still unverified: there is no verification token anywhere in the repo, and `CLAUDE.md`
-flags it as an open TODO. Search volume for "WPBL standings / stats / roster" peaks during
-the season and collapses afterwards. The SEO plumbing (robots, sitemap, per-route meta,
-JSON-LD, the edge-rewritten OG tags) is already built; being unindexed through the only
-three weeks anyone is searching wastes it.
+**Search Console is verified** (it was recorded as open here and in `CLAUDE.md` until Aug 21,
+2026, and both were wrong). The plumbing is all built and shipped: robots, a sitemap on a daily
+cron, per-route meta and JSON-LD, real `<a href>` links, one path per tab, a page per player,
+and real 404s for everything else (see the Aug 21 entries in the log). **Pre-rendering was
+cancelled rather than built**: URL Inspection confirmed Googlebot renders the JS completely, so
+it would have bought nothing.
+
+**What is actually left is not code.** As of Aug 21 the site had 3 indexed pages against ~128
+submitted, and near-zero inbound links, which is the one input we cannot ship our way out of.
+[`docs/BACKLINKS.md`](docs/BACKLINKS.md) is the list of who to approach and the drafts to send;
+working that list is the item. Also open and cheap: `www.sportydolphin.fun` is NXDOMAIN.
+Indexing lag is measured in weeks and search volume for "WPBL standings / stats / roster"
+collapses after Sep 22, so the send-the-emails half is the part with a deadline.
 
 ### 4. League primer + stat glossary 🎯: *cheap, overdue, and feeds #3*
 
@@ -248,7 +262,7 @@ none of.
 ### 5. Daily standouts: Home card 🎯
 
 A "top performers" card for the latest game day, built from box lines Home already fetches.
-Mirrors the MLB TopPerformers/Spotlight pattern. Low effort, and there are 17 game days
+Mirrors the MLB TopPerformers/Spotlight pattern. Low effort, and there are 12 games
 left for it to pay off.
 
 ### 6. Win probability in Game Center 🔬
@@ -307,21 +321,29 @@ regex did not cover rather than plays with no direction. That is a league-wide s
 for **every** game, with no radar involved, sitting in a column already fetched for other
 reasons.
 
-**3. Base-out state plus `runsOnPlay()` gives run expectancy for free.** Every play stores
-outs and all three bases, and summing runs chronologically reconstructs the score at each
-play. So RE24, and a WPA-shaped leverage number, are derivable from our own 1,527 plays with
-no new field and no new table.
+**3. Base-out state plus `runsOnPlay()` gives run expectancy for free.** ✅ *shipped as the Run
+value board, Aug 23, 2026, behind the experiments switch: see the log*. Every play stores outs and all three bases, and
+summing runs chronologically reconstructs the score at each play. So RE24, and a WPA-shaped
+leverage number, are derivable from our own 1,527 plays with no new field and no new table.
+The table it produced is itself the finding: nobody on and nobody out is worth **1.13 runs** in
+this league against roughly 0.5 in the majors, which is what makes a borrowed table unusable
+here.
 
 ### The list
 
 Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
 
-- **Play of the game / biggest swings of the season** 🔬🎮. Build the run-expectancy table
-  from our own play log, rank every play by its RE change. Feeds a Game Center badge, a Home
-  "swing of the day" card, and a permanent top-10 in the archive (#2). It is also the honest
-  half of win probability (#6) without needing a credible seven-inning win model, and every
-  entry is a tappable name, which the traffic section says is the retention lever. Wants the
-  play-level `batter_id` backfill to be exact, but resolves by name like `firsts.ts` until then.
+- **Play of the game / biggest swings of the season** 🔬🎮. ✅ *the engine shipped Aug 23, 2026
+  behind the experiments switch; the biggest-swings list itself was built and cut, see the log*. Build the run-expectancy table from our own play log,
+  rank every play by its RE change. It is also the honest half of win probability (#6) without
+  needing a credible seven-inning win model, and every entry is a tappable name, which the
+  traffic section says is the retention lever. **Still open**, and all of it now cheap because
+  `derive/runExpectancy.ts` is pure and the values are already computed: a Game Center badge on
+  the game's biggest play (the per-game play rows are already fetched there, so it costs no new
+  request), a Home "swing of the day" card, which is the half of this that only works while
+  games are being played, and the permanent top-10 in the archive (#2).
+  The `batter_id` worry in the original entry is gone: 18 of 1,725 plays are missing one and
+  every one of those is a pickoff or reached-on-error row rather than a plate appearance.
 - **Spray charts on player pages** 🎯🔬. A fan diagram per hitter from asset 2, with
   pull/middle/oppo percentages, and the inverse for a pitcher. Lands on the surface that
   correlates with return visits.
@@ -359,8 +381,8 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
 ## Parked, with reasons
 
 - **Game predictions / pick'em (+ bots)** 🎮: *demoted from "the marquee open item",
-  where it sat unstarted from Aug 4 to Aug 16.* With 17 games left, a Wilson-ranked
-  leaderboard over ≤17 picks is statistical noise, and it is the largest build on the list
+  where it sat unstarted from Aug 4 to Aug 16.* With 12 games left, a Wilson-ranked
+  leaderboard over ≤12 picks is statistical noise, and it is the largest build on the list
   (pick UI + grading + boards precompute + a daily bot Action). Its value decayed past its
   cost for *this* season. Revisit for **2027 Opening Day**, when it gets a full season to
   accumulate against. Or ship a stripped "pick today's winner + running record, no
@@ -389,10 +411,13 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
   The DB column (`user_preferences.wpbl_favorite_team_id`) **is already on main and applied
   to production**: it shipped alone because it had been applied before the feature was
   parked. It is nullable and nothing reads it.
-- **Ingest play-level `batter_id` / `pitcher_id` backfill**: the play log's `resolveName`
-  is still exact-only, so name variants leave these null. Nothing reads them today (Hall of
-  Firsts resolves by name instead). Would need a redeploy + `mode=all` re-ingest. Unpark
-  only if win probability (#6) or a "biggest hits" feed needs the linkage.
+- **Ingest play-level `batter_id` / `pitcher_id` backfill**: ✅ **answered by measurement,
+  Aug 22, 2026, and it was never as bad as this entry assumed.** The premise was that
+  `resolveName` being exact-only leaves these null on any name variant. Counted over the whole
+  play log: `batter_id` is null on **18 of 1,725** plays and `pitcher_id` on none, and all 18
+  are `event_type: 'unknown'` rows (pickoffs, reached-on-error) rather than plate appearances.
+  The Run value board reads the linkage directly and needs no name fallback. Nothing to unpark:
+  win probability (#6) can assume the ids are there.
 - **Game duration**: ✅ **unparked and shipped Aug 21, 2026**, from a source outside the feed.
   The original finding still stands for the league's own feed: no duration or first-pitch
   field, `completed_at` is a processing timestamp, plays carry no timestamps at all. RetroWPBL
@@ -489,6 +514,74 @@ is retired.
 ---
 
 ## Shipped log
+
+### Aug 23, 2026: the Stats tab, rebuilt around a phone
+
+The table was sixteen columns behind a frozen 150px name column, which on a 375px screen shows
+four of them at once, so the one thing anyone opens a stats page to do (rank the league by a
+stat) meant scrolling sideways to hunt for a column and tapping its header. Three rounds of
+work here had all been maintenance on that: a pinned sort column, a seam cover under it, a
+scroll-into-view for the sorted header.
+
+So on a phone the board is a list instead: rank, portrait, name, the ranked stat large on the
+right, three more under the name, ten rows and a tap for the rest. An explicit Sort sheet
+replaces header-tapping, with every stat's name written out; a Filters sheet holds the team cut
+and the qualified toggle and says what qualified means. The five boards became one row of tabs
+(Players, Teams, Pitch by pitch, Run value, Draft), which is what let the control bar go from
+three rows and thirteen controls to two rows and four, in a shape that no longer changes as you
+move between boards. Draft value stopped being a card pinned under two different boards. PA is
+a column now, and the line under each name changes with the sort: a rate gets PA and
+production, a counting stat gets the rates.
+
+Two bugs came out of it that were nothing to do with the redesign. The nav published its height
+as `offsetHeight`, which rounds: 43.8px reported itself as 44, so anything sticking below it sat
+a fifth of a pixel low and the page scrolled through the crack all the way down. And the
+league switch lit its WPBL label on an exact path match, so every WPBL tab that became a real
+URL slid the rainbow across and left the label in unselected grey on top of it.
+
+### Aug 22, 2026: what every play was worth
+
+The third of the three underused assets, and the one that needed no new column at all. Every
+row in `wpbl_game_plays` carries the outs and all three bases, and they are the state BEFORE
+the play, so a walk forward through a half-inning gives both halves of run expectancy: what
+each of the 24 base-out states goes on to produce, and what each play was worth as the
+difference between the state it started in and the one it left.
+
+**The table is the finding.** Nobody on, nobody out is worth **1.13 runs** in this league,
+against roughly 0.5 in the majors, because the WPBL has scored 15.2 runs a game across seven
+innings. That single number is why the board builds its own table instead of borrowing one:
+priced against major-league expectancy every WPBL play would read as roughly twice the event
+it was. Measured off 1,229 plate appearances in 18 games, and every cell carries its own count
+on the page, because "bases loaded, nobody out" has been seen ten times and "nobody on, nobody
+out" 248, and a grid of tidy two-decimal numbers would imply those are equally well known.
+
+Three things the data settled, none of them guessable from the types:
+
+- **The state after a play is the next row's state**, so nothing parses a narrative to find
+  out where the runners ended up. The only row with no successor is the last of a half-inning,
+  and an inning that is over is worth nothing by definition.
+- **A half-inning that ended the GAME is dropped from the table and still valued.** Its runs
+  are censored by the final out of the game rather than by the inning, so averaging it in drags
+  every state it contains down, but the walk-off itself is a real play and must not vanish from
+  the board that exists to rank exactly that. Two different questions, two different rules.
+- **On a steal or a wild pitch the feed fills `batter_name` with whoever is standing at the
+  plate**, not the runner who did the thing. Those rows shape the run-expectancy table (they
+  move the state, and their runs are real) and are kept out of the per-player totals, or a
+  leaderboard row would carry the wrong name and, worse, the wrong tappable link.
+
+Validation, since a derived number that nobody can check is a number nobody should trust:
+summing `runsOnPlay()` over every play reproduces the box-score total exactly on 16 of 18
+games and is one short on the other two, 272 runs against 274.
+
+Shipped as a Run value board on the Stats tab, beside Players and Pitch by pitch: runs added /
+runs prevented per player, following the tab's Hitting/Pitching side, with one play worked
+through beside it and the run-environment table folded shut underneath. A second list, the ten
+biggest swings of the season with each play written out, was built and then cut: it was the
+most interesting thing on the board to a reader who already knew what run value was and the
+least useful to everyone else, and the worked example teaches what it was being asked to imply. The
+engine is `src/wpbl/derive/runExpectancy.ts`, pure and tested like the rest of the derive layer,
+so the Game Center badge and the Home "swing of the day" card are drawing work rather than
+computing work.
 
 ### Aug 22, 2026: the league started trading, and the feed did not tell us
 

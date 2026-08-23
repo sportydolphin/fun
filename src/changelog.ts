@@ -4,6 +4,29 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.48.0',
+    date:    '2026-08-23',
+    title:   'The Stats tab, rebuilt for a phone',
+    changes: [
+      {
+        short: 'Stats is a ranked list on a phone, not a sixteen-column table',
+        full:  'The stats table is sixteen columns wide, and on a phone four of them fit at a time, so the one thing anyone comes to a stats page to do, rank the league by a stat, meant scrolling sideways to find the column and tapping its header. On a phone it is now a list: one row per player, with the stat it is ranked by large on the right and three more under her name. A Sort control at the top says which stat that is and offers every one of them, each with its name written out, so you no longer have to know what SLG stands for to use it. The team filter and the qualified toggle moved into a Filters sheet beside it, which also explains what qualified means, since the bar moves as the season goes on. The list stops at ten with a tap for the rest, and the full table is one tap below that. Nothing changed on a desktop, where the table fits and comparing across columns is what a table is for.',
+      },
+      {
+        short: 'The Stats boards are one row of tabs',
+        full:  'Players, Teams, Pitch by pitch and Draft are a single row of tabs across the top of the tab, in the place the thing you are looking at should be named. They used to be pills mixed in with the filters, so a control that replaced the whole screen and a control that trimmed a list were drawn identically, and the side of the ball, which applies to all of them, sat above and looked more important. Draft value in particular was a card pinned under the bottom of two different boards; it is a destination like the others now.',
+      },
+      {
+        short: 'Plate appearances, on the table and under each name',
+        full:  'How much a hitter has played is a column of its own now, rather than something to work out from at-bats, which drop every walk, or from games, which count a pinch-hitter\'s single swing as a full day. It is also what the phone list puts under a name whenever the board is ranked by a rate, because .500 off nine trips to the plate and .500 off ninety are not the same claim.',
+      },
+      {
+        short: 'A Run value board, if you turn experimental features on',
+        full:  'Some moments in a game are worth more than others, and the league\u2019s play-by-play records enough to say how much. With the bases loaded and nobody out, a WPBL team goes on to score 3.2 more runs that inning on average; with two out and nobody on, 0.3. So every play can be priced by how far it moved between one situation and the next, and those add up: the board ranks who has created and saved the most runs across every trip to the plate. Beside the ranking, one play is worked through line by line, which is where the surprise lives: Kelsie Whitmore\u2019s grand slam on Aug 14 was worth 3.5 runs rather than four, because the bases were already loaded and the inning was already worth most of a run before the pitch. Every number is worked out from this league\u2019s own games, so it prices a WPBL play by how the WPBL actually scores: about fifteen runs a game across seven innings. It is behind the experimental features switch in Settings while it settles.',
+      },
+    ],
+  },
+  {
     version: '1.47.2',
     date:    '2026-08-22',
     title:   'One player, even after a trade',

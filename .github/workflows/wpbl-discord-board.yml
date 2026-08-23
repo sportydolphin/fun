@@ -6,7 +6,8 @@ on:
     # workflow for the same reasoning). The board only needs refreshing often enough
     # that the live countdown and "in progress" flip stay roughly current; the actual
     # <t:...> timestamps count down on their own between runs, so this cadence is plenty.
-    # Season window, matching the MLB workflows' `3-10`. The 2026 feed runs Aug 1 to Sep 6 and
+    # Season window, matching the MLB workflows' `3-10`. The 2026 feed runs Aug 1 to Sep 22
+    # (regular season ends Sep 6; the postseason runs Sep 9 to Sep 22) and
     # then goes quiet until spring, so without this the job runs every day of the winter with
     # no game to act on. The window is deliberately WIDER than the season we know about: 2026
     # was the inaugural year and a 2027 schedule could start much earlier, and a window that

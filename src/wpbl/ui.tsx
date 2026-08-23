@@ -487,7 +487,14 @@ export function LeaderRow({ rank, player, name, teamId, value, unit, sub, accent
   onOpen?: (p: WpblPlayer) => void
 }) {
   const clickable = !!player && !!onOpen
-  const shortName = useWpblName()
+  // 18, not the 12 the hook defaults to. That default is sized for the stats table's 84px
+  // name column; a leader row gives the name 135px after the badge, and measured at 375px the
+  // longest name on the roster ("Samantha Gutierrez") draws in 130. At 12 a leaderboard came
+  // out as "D. Benites, K. Whitmore, A. Lansdell, Jamie Mackay, Alexia Jorge": three initials
+  // and two whole names, in five consecutive rows, for no reason a reader could see. The
+  // mechanism stays for a name genuinely too long to fit, since a cut-off name reads worse
+  // than an abbreviated one.
+  const shortName = useWpblName(18)
   return (
     <Box
       onClick={clickable ? () => onOpen!(player!) : undefined}
@@ -702,6 +709,45 @@ export function SectionCard({ icon, title, subtitle, action, collapsed, onToggle
   )
 }
 
+/**
+ * The foot of a capped list: "Show all 34 players", and "Show fewer" once it is open.
+ *
+ * WHY LISTS ARE CAPPED AT ALL. Everything a board offers UNDER its list (a view switch, a
+ * count, the next card) is unreachable on a phone if the list is thirty rows long, and a
+ * reader who has to scroll two screens to find out what else is here mostly does not. Ten
+ * rows is a leaderboard, thirty is a directory, and the twenty in between are available in
+ * one tap to the reader who wants them.
+ *
+ * Presentational only: the caller owns `expanded`, because it also owns what to do on the way
+ * back down (the stats list scrolls itself back to the top; a five-row board has no need to).
+ */
+export function ExpandRow({ expanded, moreLabel, onToggle, flush }: {
+  expanded: boolean
+  /** What is behind the tap, counted: "Show all 34 players". */
+  moreLabel: string
+  onToggle: () => void
+  /** Cancel SectionCard's body padding so the row spans the card and sits on its bottom edge,
+   *  the way a footer does. Inside the padding it floats, with an inset rule above it and a
+   *  band of dead card below, which reads as a link someone left at the end rather than as
+   *  the foot of the list. Only correct inside a SectionCard: the numbers are its px/pb. */
+  flush?: boolean
+}) {
+  return (
+    <Box {...pressable(onToggle)} aria-expanded={expanded} sx={{
+      ...FOCUS_RING,
+      minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5,
+      cursor: 'pointer', userSelect: 'none', WebkitTapHighlightColor: 'transparent',
+      ...(flush ? { mx: -2, mb: -1.5, mt: 0.5 } : {}),
+      borderTop: '1px solid', borderColor: 'divider',
+      fontSize: '0.78rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
+      '@media (hover: hover)': { '&:hover': { bgcolor: 'action.hover' } },
+    }}>
+      {expanded ? 'Show fewer' : moreLabel}
+      <Box component="span" sx={{ fontSize: '0.66rem' }}>{expanded ? '▴' : '▾'}</Box>
+    </Box>
+  )
+}
+
 // Disclosure chevron, drawn from a rotated border corner rather than pulled from an icon
 // font — the same approach as the highlights play triangle, and it animates for free.
 function Chevron({ open }: { open: boolean }) {
@@ -842,7 +888,7 @@ async function writeClipboard(text: string): Promise<boolean> {
   } catch { return false }
 }
 
-export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, actions, footer, fillHeight, children }: {
+export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, actions, footer, fillHeight, sheet, children }: {
   eyebrow: React.ReactNode
   onClose: () => void
   maxWidth?: number
@@ -850,6 +896,14 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
   actions?: React.ReactNode   // rendered just left of the close button
   footer?: React.ReactNode    // sticky bottom bar
   fillHeight?: boolean        // pin the card to full height (content controls its own scroll)
+  /** Come up from the bottom edge on a phone instead of sitting in the middle of the screen,
+   *  with a grab handle and square bottom corners. For a modal that is a CONTROL rather than
+   *  a document: a centred dialog puts its options where a thumb has to reach across the
+   *  screen, and leaves page visible above and below it, so it reads as floating over the
+   *  thing you were doing rather than as the thing you are doing now. Above sm it is an
+   *  ordinary centred card, which is why this is opt-in and changes nothing for the modals
+   *  that do not pass it. */
+  sheet?: boolean
   children: React.ReactNode
 }) {
   useEffect(() => {
@@ -867,20 +921,32 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
       sx={{
         position: 'fixed', inset: 0, zIndex,
         bgcolor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        p: { xs: 1, sm: 2 },
+        display: 'flex', justifyContent: 'center',
+        alignItems: sheet ? { xs: 'flex-end', sm: 'center' } : 'center',
+        p: sheet ? { xs: 0, sm: 2 } : { xs: 1, sm: 2 },
       }}
     >
       <Box sx={{
         width: '100%', maxWidth,
-        bgcolor: 'background.paper', borderRadius: 3,
+        bgcolor: 'background.paper',
+        borderRadius: sheet ? { xs: '18px 18px 0 0', sm: 3 } : 3,
         border: '1px solid', borderColor: 'divider',
         boxShadow: '0 24px 64px rgba(0,0,0,0.55)',
         // `100%` (of the padded fixed overlay), not `vh`: under the desktop `zoom`
         // wrapper viewport units don't shrink, so `92vh` overflows the screen.
-        maxHeight: '100%', ...(fillHeight ? { height: '100%' } : {}),
+        maxHeight: sheet ? { xs: '88%', sm: '100%' } : '100%',
+        ...(fillHeight ? { height: '100%' } : {}),
         display: 'flex', flexDirection: 'column',
       }}>
+        {/* Grab handle. Purely a signal, and it earns its 12px: it says the card came up from
+            the bottom edge, which is what tells a thumb that the backdrop left showing above
+            it is the way out. */}
+        {sheet && (
+          <Box aria-hidden sx={{
+            display: { xs: 'block', sm: 'none' }, flexShrink: 0,
+            width: 36, height: 4, borderRadius: 2, bgcolor: 'divider', mx: 'auto', mt: 1,
+          }} />
+        )}
         {/* Sticky eyebrow header */}
         <Box sx={{
           px: 2, py: 1.25, borderBottom: '1px solid', borderColor: 'divider',

@@ -4,7 +4,7 @@
 
 A baseball web app with **two independent league sections**, switchable from the toolbar:
 
-- **WPBL** (`/wpbl`): Women's Pro Baseball League coverage (the default section): live scoreboard, schedule, standings, a full sortable stats table, team & player pages, a TrackMan **Tracking** tab (velocity / spin / exit-velo leaders + pitch-location maps), a **Game Center** (line score, box score, play-by-play, pitch data), **Hall of Firsts**, opt-in **pre-game push reminders**, and **Discord integration** for the fan server (a self-editing "next games" board, a box score posted as each game goes final, new YouTube highlight reels posted to the highlights channel, and a `/player` slash command that looks up any player's season). Data comes from the league's public feed, mirrored into Supabase by the `wpbl-ingest` Edge Function.
+- **WPBL** (`/wpbl`): Women's Pro Baseball League coverage (the default section), one URL per tab (`/wpbl`, `/wpbl/schedule`, `/wpbl/standings`, `/wpbl/stats`, `/wpbl/teams`) plus a page per player at `/wpbl/players/<slug>`. Live scoreboard, schedule, standings, team pages, and a **Stats** tab that carries five boards on one screen: the season table, **Pitch by pitch** (~4,300 pitches decoded from the play log), **Run value** (this league's own run-expectancy table, and runs added / prevented per player; behind the experimental-features switch while it settles), **Tracked** (TrackMan velocity / spin / exit velo, hidden while the league has published radar for barely any games) and the draft-class analysis. Also a **Game Center** (line score, box score, play-by-play, pitch data), **Hall of Firsts**, a media shelf (YouTube highlights, an independent writer's coverage, a Wikimedia Commons photo archive), opt-in **pre-game push reminders**, and **Discord integration** for the fan server (a self-editing "next games" board, a box score posted as each game goes final, highlight reels, birthday greetings, shop restock alerts, a `/player` slash command, and the mod-run `/predict` in-game game). Data comes from the league's public feed, mirrored into Supabase by the `wpbl-ingest` Edge Function.
 - **MLB** (`/mlb`): a deeper, StatsAPI-driven app: live Game Center with scrubbable win-probability, a personalized home feed, a predictions game with a Wilson-ranked leaderboard and bot rivals, playoff odds, milestone watch, streak report cards, Streak Survivor, and more.
 
 Both sections share one shell: auth, header search, notifications/Web Push, units, theme, and back-button history.
@@ -40,6 +40,10 @@ npm run check-functions               # bundle the Cloudflare Pages functions as
 npm run validate-pbp -- --baseline scripts/wpbl-pbp-baseline.json  # WPBL scoring check (needs SUPABASE_DB_URL)
 npm run restock-watch -- --status     # WPBL shop watcher: snapshot size, shortlist, last successful run
 npm run sitemap                       # regenerate public/sitemap.xml from the roster (one URL per player)
+npm run substack-sync -- --dry-run    # the Substack mirror, without writing
+npm run commons-sync -- --dry-run     # the Wikimedia Commons photo sync (rows land unapproved)
+npm run retro-sync -- --dry-run       # RetroWPBL per-game facts (first pitch, length, crew, weather)
+npm run tracking-watch -- --status    # is the league publishing TrackMan again?
 ```
 
 ### Testing auth links locally
@@ -100,4 +104,8 @@ files are the already-applied baseline.
 - [docs/PLAY_VALIDATION.md](docs/PLAY_VALIDATION.md): finding the league's scoring errors against the rules of baseball, the nightly check, and our read-time play corrections
 - [docs/ADMIN_ANALYTICS.md](docs/ADMIN_ANALYTICS.md): the owner dashboard at `/admin`
 - [docs/ANDROID.md](docs/ANDROID.md): shipping the site on Google Play as a Trusted Web Activity: what is built, the Windows build traps, and why the launcher app is not Capacitor
+- [docs/IOS.md](docs/IOS.md): the App Store plan, which is a much bigger job than Android: no TWA on iOS, so Google sign-in and push both have to be rebuilt. Nothing exists yet but the Universal Links file
+- [docs/COMMONS_PHOTOS.md](docs/COMMONS_PHOTOS.md): the Wikimedia Commons archive gallery, and why the approval gate lives in RLS rather than in the query
+- [docs/READING.md](docs/READING.md): mirroring an independent writer's WPBL coverage, headlines only, never the article body
+- [docs/BACKLINKS.md](docs/BACKLINKS.md): the SEO work that is not code. The markup is done; links are the remaining brake
 - [docs/GOOGLE_TASKS.md](docs/GOOGLE_TASKS.md), [docs/feature-requests.md](docs/feature-requests.md)

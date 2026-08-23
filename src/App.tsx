@@ -400,7 +400,11 @@ function AppInner() {
     const el = headerRef.current
     const publish = () => {
       const pinned = el && getComputedStyle(el).position === 'sticky'
-      document.documentElement.style.setProperty('--app-header-h', pinned ? `${el!.offsetHeight}px` : '0px')
+      // The rect height rather than offsetHeight, which rounds: see the note on --wpbl-nav-h
+      // in WpblApp. A rounded-up height leaves a sub-pixel gap under this bar for whatever
+      // sticks below it, and content scrolls through it.
+      document.documentElement.style.setProperty(
+        '--app-header-h', pinned ? `${el!.getBoundingClientRect().height}px` : '0px')
     }
     publish()
     const ro = new ResizeObserver(publish)
@@ -757,8 +761,12 @@ function AppInner() {
                 )
               })()}
               {[{ label: 'MLB', to: '/mlb' }, { label: 'WPBL', to: '/wpbl' }].map(seg => {
-                // /wpbl/api lights the WPBL segment too, so the switch stays "on WPBL" in the docs.
-                const active = path === seg.to || (seg.to === '/wpbl' && path === '/wpbl/api')
+                // The SAME test the thumb above uses, which is the whole point: an exact path
+                // match here meant that the day the WPBL tabs became real paths, /wpbl/stats
+                // slid the rainbow across and left the label in unselected grey on top of it.
+                // Every WPBL tab counts, and /wpbl/api too, so the switch stays "on WPBL" in
+                // the docs.
+                const active = seg.to === '/wpbl' ? isWpblSection(path) : path === seg.to
                 const rainbow = active && seg.to === '/wpbl'
                 return (
                   // An anchor, not a plain Box, purely so a crawler can see the two

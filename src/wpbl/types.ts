@@ -334,6 +334,23 @@ export type WpblPitchPlay = Pick<WpblGamePlay,
   | 'event_type' | 'pitch_sequence'
 >
 
+/** The slim projection the run-value boards read (see derive/runExpectancy.ts).
+ *
+ *  The base-out columns are the point: `outs` plus the three bases are the 24 states a run
+ *  expectancy table is built over, and they are the state BEFORE the play. `pitch_sequence`
+ *  comes along not for its pitches but as the feed's marker for "this row is one completed
+ *  plate appearance", which is what separates a row that may be credited to a batter from a
+ *  steal, where the column names whoever was standing at the plate instead.
+ *
+ *  `narrative` is the expensive one and is here on purpose: a board of the season's biggest
+ *  plays that could not say what happened would be a list of numbers. */
+export type WpblRunValuePlay = Pick<WpblGamePlay,
+  | 'game_id' | 'sequence' | 'inning' | 'half' | 'team_id'
+  | 'batter_id' | 'batter_name' | 'pitcher_id' | 'pitcher_name'
+  | 'outs' | 'first_base' | 'second_base' | 'third_base'
+  | 'event_type' | 'runs_scored' | 'narrative' | 'pitch_sequence'
+>
+
 export type WpblFirstsPlay = Pick<WpblGamePlay,
   | 'game_id' | 'sequence' | 'team_id'
   | 'batter_id' | 'batter_name' | 'pitcher_id' | 'pitcher_name'
