@@ -1134,10 +1134,18 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
       // reader's thumb when the box score lands, or resize every time they page a tab.
       sheetFill
     >
-      {/* Content-height flex column, capped at the viewport: a short tab (recap, a collapsed
-          play-by-play) sizes the modal down instead of forcing full height; a tall tab grows
-          to the cap, where the score header stays fixed and only the tab panel below scrolls. */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', maxHeight: '100%', minHeight: 0 }}>
+      {/* Two sizings, because the sheet and the dialog are shaped differently.
+          On a phone the sheet holds a definite height, so this fills it (`flex: 1`) and every
+          percentage below resolves, which is what lets each tab pane scroll itself.
+          Above sm the modal is content-height on purpose, so a short tab sizes it down instead
+          of forcing full height, and this is clamped rather than filled. `flex: 1` there would
+          collapse the pane to nothing, since a flex item with a zero basis contributes nothing
+          to an auto-height parent. */}
+      <Box sx={{
+        display: 'flex', flexDirection: 'column', minHeight: 0,
+        flex: { xs: '1 1 0%', sm: '0 1 auto' },
+        maxHeight: { xs: 'none', sm: '100%' },
+      }}>
         {/* Score header — one combined scoreboard for a played game (teams + line + R/H/E),
             or a plain name matchup for an unplayed one. */}
         <Box sx={{ flexShrink: 0, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>

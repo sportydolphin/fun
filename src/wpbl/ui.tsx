@@ -942,11 +942,18 @@ function useSheetDrag(
     let active = false, locked = false, eligible = false
     let startY = 0, startX = 0, dy = 0, lastY = 0, lastT = 0, vel = 0
 
-    // The backdrop fades by its own alpha, never by `opacity`: the sheet is its child, so
-    // fading the element would take the sheet down with it.
+    // The backdrop clears as the sheet falls, so what is behind it is readable on the way
+    // out rather than at the end of it. Both halves of it: the dim AND the blur, since a
+    // sheet sliding off a page that is still frosted looks like the page is broken.
+    //
+    // By its own alpha and filter, never by `opacity`: the sheet is a child of the overlay,
+    // so fading the element would take the sheet down with it.
     const setBackdrop = (progress: number) => {
       const el = overlayRef.current
-      if (el) el.style.backgroundColor = `rgba(0,0,0,${(0.6 * (1 - progress)).toFixed(3)})`
+      if (!el) return
+      const left = 1 - progress
+      el.style.backgroundColor = `rgba(0,0,0,${(0.6 * left).toFixed(3)})`
+      el.style.backdropFilter = `blur(${(2 * left).toFixed(2)}px)`
     }
 
     const onStart = (e: TouchEvent) => {
@@ -1156,9 +1163,21 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
         </Box>
         </Box>
 
-        {/* Scrollable body */}
+        {/* Scrollable body.
+            A flex COLUMN, not a plain block, and that is load-bearing rather than tidy. A
+            child of a block box cannot be a flex item, so it can only be sized by content and
+            clamped with max-height, and a clamp does not make a height definite: every
+            `height: 100%` below it silently falls back to auto. That is what stopped the Game
+            Center panes scrolling. With this, a child that says `flex: 1` gets a definite
+            height and the chain under it resolves.
+
+            Phones only, because that is where the sheet has a definite height for the chain to
+            resolve FROM. Above sm the modal is content-height on purpose and the block layout
+            it has always had is right: switching it there traded one working arrangement for a
+            worse one, a 174px scrolling window inside a 538px dialog on an 800px screen. */}
         <Box sx={{
           flex: 1, overflowY: 'auto',
+          display: { xs: 'flex', sm: 'block' }, flexDirection: 'column',
           '&::-webkit-scrollbar': { width: 4 },
           '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },
         }}>
