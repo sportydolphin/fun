@@ -964,14 +964,17 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   const away = byId.get(game.away_team_id)
 
   const gcUid = useRef(Math.random().toString(36).slice(2)).current
-  const [loading, setLoading] = useState(true)
+  // Seeded from the session cache, so a second look at a game paints before it fetches.
+  const cached = gameCache.get(seed.id)
+  const [loading, setLoading] = useState(!cached)
   const [tab, setTab] = useState<Tab>(() => seed.status === 'final' ? 'recap' : 'box')
   const [boxTeam, setBoxTeam] = useState<'away' | 'home'>('away')
-  const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>({ batting: [], pitching: [] })
-  const [plays, setPlays] = useState<WpblGamePlay[]>([])
-  const [tracking, setTracking] = useState<WpblPitchTracking[]>([])
-  const [details, setDetails] = useState<WpblGameDetails | null>(null)
-  const [names, setNames] = useState<Map<string, WpblPlayer>>(new Map())
+  const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
+    () => cached?.lines ?? { batting: [], pitching: [] })
+  const [plays, setPlays] = useState<WpblGamePlay[]>(() => cached?.plays ?? [])
+  const [tracking, setTracking] = useState<WpblPitchTracking[]>(() => cached?.tracking ?? [])
+  const [details, setDetails] = useState<WpblGameDetails | null>(() => cached?.details ?? null)
+  const [names, setNames] = useState<Map<string, WpblPlayer>>(() => cached?.names ?? new Map())
   // The recap video for this game, if the league has published one. Read from the shared
   // wpbl_videos cache (a tiny table, fetched once app-wide), matched on game_id.
   const [video, setVideo] = useState<WpblVideo | null>(() =>
@@ -996,16 +999,27 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
       // the rest of the load rather than gating anything on it.
       fetchWpblGameDetails(seed.id),
     ]).then(([a, h, l, pl, tr, det]) => {
+      const names = new Map([...a, ...h].map(p => [p.id, p]))
+      const lines = { batting: l.batting, pitching: l.pitching }
+      // Written whether or not this render is still mounted: the reader who just closed the
+      // modal is the likeliest person to open it again, and the answer is already in hand.
+      gameCache.set(seed.id, { names, lines, plays: pl, tracking: tr, details: det })
       if (cancelled) return
-      setNames(new Map([...a, ...h].map(p => [p.id, p])))
-      setLines({ batting: l.batting, pitching: l.pitching }); setPlays(pl); setTracking(tr)
+      setNames(names)
+      setLines(lines); setPlays(pl); setTracking(tr)
       setDetails(det)
       setLoading(false)
     })
     return () => { cancelled = true }
   }, [seed.id, away?.id, home?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => reload(true), [reload])
+  // The spinner is for a modal that has nothing to show, which is not the case when the
+  // session cache seeded it. Asking for one anyway threw the cached content away for 200ms
+  // and put a spinner in its place, so a REOPENED game flashed where a first open did not.
+  // Captured once, because `cached` is recomputed every render and this is a question about
+  // how this modal opened.
+  const openedCold = useRef(!cached).current
+  useEffect(() => reload(openedCold), [reload, openedCold])
 
   // The win-probability card's two costs, started at the same moment the modal does rather
   // than when the card first renders.
@@ -1074,10 +1088,13 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
     ...(final ? [{ value: 'recap' as Tab, label: 'Recap' }] : []),
     { value: 'box' as Tab, label: 'Box Score' },
     { value: 'plays' as Tab, label: 'Play-by-Play' },
-    // Show Pitch Data for any played game — if the feed hasn't posted TrackMan for it, the
-    // tab shows an explicit empty state rather than silently vanishing (feed tracking often
-    // lands after a game goes final; the ingest backfills it, this surfaces the gap meanwhile).
-    ...(showScore || tracking.length > 0 ? [{ value: 'pitch' as Tab, label: 'Pitch Data' }] : []),
+    // Only when the feed has actually posted TrackMan for this game. It used to appear for
+    // every played game and explain itself with an empty state, on the reasoning that tracking
+    // often lands late and a missing tab hides the gap. Two of nineteen final games have any,
+    // so in practice that was a fourth tab leading nowhere on seventeen games out of nineteen,
+    // and the gap it was surfacing is the league's, not ours. The Tracked board on the Stats
+    // tab hides itself for the same reason.
+    ...(tracking.length > 0 ? [{ value: 'pitch' as Tab, label: 'Pitch Data' }] : []),
   ]
 
   // The tab list is dynamic — 'recap' only once the game is final, 'pitch' only once it has
@@ -1152,14 +1169,21 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
           <Box sx={{ flexShrink: 0 }}><LiveBanner state={game.live_state} away={away} home={home} lines={{ away: game.away_line, home: game.home_line }} /></Box>
         )}
 
+        {/* The tab bar is structural, not data, so it does not wait for a fetch. Which tabs a
+            played game has is knowable from the game row alone, and drawing them immediately
+            is the difference between a modal that opens and one that opens later. Pitch Data
+            is the exception and appears with its data, which is the right way round: it is the
+            only tab whose existence depends on what came back. */}
+        {showScore && (loading || hasLines) && (
+          <Box sx={{ flexShrink: 0, pt: 0.75, pb: 1 }}>
+            <SegNav options={tabs} value={tab} onChange={v => setTab(v as Tab)} mb={0} />
+          </Box>
+        )}
+
         {loading ? (
           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress /></Box>
         ) : hasLines ? (
           <>
-            <Box sx={{ flexShrink: 0, pt: 0.75, pb: 1 }}>
-              <SegNav options={tabs} value={tab} onChange={v => setTab(v as Tab)} mb={0} />
-            </Box>
-
             {/* Scroll region — fixed height, one per tab. */}
             {/* Scroll region — one scroller per tab, paged by the same swipe as the home tabs
                 (`mode="pane"`, since this is a modal with a locked body and an inner scroller
@@ -1215,6 +1239,25 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
     </ModalShell>
   )
 }
+
+/**
+ * What a game's modal needs, kept for the session so opening the same game twice is instant.
+ *
+ * Nothing under here changes once a game is final, and browsing a schedule means opening one
+ * game, going back, and opening the next: the second look at any of them was refetching four
+ * queries to redraw a page that could not have changed. Painted from here on mount and then
+ * revalidated in the background, which is the same pattern the stats boards use.
+ *
+ * A live game revalidates on its own poll anyway, so a stale first paint there lasts until the
+ * next tick and is still better than an empty one.
+ */
+const gameCache = new Map<string, {
+  names: Map<string, WpblPlayer>
+  lines: { batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }
+  plays: WpblGamePlay[]
+  tracking: WpblPitchTracking[]
+  details: WpblGameDetails | null
+}>()
 
 // ─── styles ────────────────────────────────────────────────────────────────────
 // Box tables (batting / pitching / by-pitcher): table-layout:auto with a shrink-to-fit name
