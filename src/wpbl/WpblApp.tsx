@@ -37,12 +37,50 @@ import { setDynamicSeo } from '../seo'
 // single file in the section (line score, box score, play-by-play, pitch data, recap tab) and
 // it drags Highlights, GamePreview and the live poller along with it.
 const GameDetailModal = lazy(() => import('./GameDetail'))
+/**
+ * The same import, run while the section is idle.
+ *
+ * Opening a game is the primary act in this section: every row on Home and Schedule leads
+ * there. Waiting until the tap to fetch a 32kB chunk buys nothing, and it costs the one thing
+ * an opening animation cannot survive, which is a gap before it starts. The tap used to put a
+ * spinner in the middle of the screen and then, a beat later, slide a sheet up from the
+ * bottom edge: two unrelated movements for one gesture. Warmed here, the sheet is simply
+ * there on the first frame and the fallback below is a formality.
+ */
+function usePreloadGameDetail() {
+  useEffect(() => {
+    const warm = () => { void import('./GameDetail') }
+    const hasRIC = typeof window.requestIdleCallback === 'function'
+    const id = hasRIC ? window.requestIdleCallback(warm, { timeout: 2000 }) : window.setTimeout(warm, 800)
+    return () => { if (hasRIC) window.cancelIdleCallback(id as number); else window.clearTimeout(id as number) }
+  }, [])
+}
 const PlayerDetailModal = lazy(() => import('./PlayerDetail'))
 
 // Shown while a modal's chunk loads. A tap should visibly do something immediately, so this
 // paints the scrim the modal itself is about to paint — the panel then fills in over it,
 // rather than the tap appearing to have missed.
+/**
+ * Nothing at all for the first moment, then a spinner if the chunk really is slow.
+ *
+ * React.lazy suspends for at least a tick even when the module is already in memory, so this
+ * rendered on EVERY open: a dimmed screen and a spinner in the middle, for 326ms measured,
+ * and then a sheet sliding up from the bottom edge. Two unrelated movements for one tap, and
+ * the reason opening felt unstable while closing felt fine.
+ *
+ * A delay is the right shape for this rather than deleting the fallback outright. The common
+ * case is warm and instant and should show nothing; the rare cold one on a bad connection
+ * still needs to say something is happening.
+ */
+const CHUNK_SPINNER_DELAY_MS = 400
+
 function ModalChunkFallback() {
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    const t = window.setTimeout(() => setSlow(true), CHUNK_SPINNER_DELAY_MS)
+    return () => window.clearTimeout(t)
+  }, [])
+  if (!slow) return null
   return (
     <Box sx={{
       position: 'fixed', inset: 0, zIndex: 1300,
@@ -693,6 +731,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // Closing a modal (X or Escape) walks history back, so it and the browser Back button are
   // the same action and never fall out of sync.
   const closeTop   = useCallback(() => window.history.back(), [])
+  usePreloadGameDetail()
 
   // ── Toolbar search ─────────────────────────────────────────────────────────────
   // Register as the search owner for the shared header while /wpbl is mounted, and hand

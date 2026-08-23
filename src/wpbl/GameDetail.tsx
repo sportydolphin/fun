@@ -1113,6 +1113,9 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
       // up from the bottom edge with a handle and goes back down the same way. Unchanged above
       // sm, where a centred dialog is right and there is no thumb to accommodate.
       sheet
+      // And a constant height while it is one, so the sheet does not grow 419px under the
+      // reader's thumb when the box score lands, or resize every time they page a tab.
+      sheetFill
     >
       {/* Content-height flex column, capped at the viewport: a short tab (recap, a collapsed
           play-by-play) sizes the modal down instead of forcing full height; a tall tab grows

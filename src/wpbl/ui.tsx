@@ -1015,7 +1015,7 @@ function useSheetDrag(
   }, [enabled, cardRef, overlayRef, chromeRef, onClose])
 }
 
-export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, actions, footer, fillHeight, sheet, children }: {
+export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, actions, footer, fillHeight, sheet, sheetFill, children }: {
   eyebrow: React.ReactNode
   onClose: () => void
   maxWidth?: number
@@ -1031,6 +1031,23 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
    *  ordinary centred card, which is why this is opt-in and changes nothing for the modals
    *  that do not pass it. */
   sheet?: boolean
+  /**
+   * Hold a constant share of the screen instead of sizing to the content, on a phone, where
+   * `sheet` is in effect.
+   *
+   * A bottom sheet is anchored by its BOTTOM edge, so every pixel its content gains moves its
+   * top edge up the screen. Game Center mounted 296px tall, showing a line score and a
+   * spinner, and became 715px when the box score arrived: the sheet finished sliding up and
+   * then leapt another 419px, which is most of a phone. A centred dialog hid this, because
+   * growth there is split between two edges and reads as settling rather than as jumping.
+   *
+   * It also stops the sheet resizing when you page between tabs, since a recap and a
+   * play-by-play are nothing like the same height.
+   *
+   * Not for every sheet. The Sort and Filter pickers are short and honest about it; holding
+   * them at 88% would be 200px of nothing under six options.
+   */
+  sheetFill?: boolean
   children: React.ReactNode
 }) {
   useEffect(() => {
@@ -1075,6 +1092,7 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
         // `100%` (of the padded fixed overlay), not `vh`: under the desktop `zoom`
         // wrapper viewport units don't shrink, so `92vh` overflows the screen.
         maxHeight: sheet ? { xs: '88%', sm: '100%' } : '100%',
+        ...(sheet && sheetFill ? { height: { xs: '88%', sm: 'auto' } } : {}),
         ...(fillHeight ? { height: '100%' } : {}),
         display: 'flex', flexDirection: 'column',
         // It comes up from the edge it is anchored to. Without this a "bottom sheet" simply
