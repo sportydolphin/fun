@@ -213,7 +213,14 @@ export function SegNav({ options, value, onChange, accent, mb = { xs: 0, sm: 3 }
 
   return (
     <Box ref={scrollRef} sx={{
-      display: 'flex', justifyContent: { xs: 'flex-start', sm: 'center' },
+      display: 'flex',
+      // `safe center` rather than plain centring, because this strip scrolls when it has more
+      // tabs than fit. Centring overflowing content in a scroll container pushes the first
+      // item off the left edge and makes it unreachable, which is why this used to give up and
+      // left-align on a phone even when there was room to spare. `safe` centres when it fits
+      // and falls back to flex-start when it does not. A browser that does not know the
+      // keyword drops the declaration and lands on flex-start, which is where this started.
+      justifyContent: { xs: 'safe center', sm: 'center' },
       // Desktop keeps its gap before content; on mobile the breathing gap lives on the
       // sticky wrapper (as transparent margin) so this strip hugs the bar's hairline.
       // Callers can override (e.g. the game-center tabs want it flush to the team switch).

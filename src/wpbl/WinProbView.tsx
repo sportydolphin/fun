@@ -43,6 +43,10 @@ function modelFor(plays: WpblRunValuePlay[], games: WpblGame[]) {
 /** How far a play has to move the game before it counts as the swing of it. */
 const SWING_FLOOR = 0.12
 
+/** The inning axis: the row of numbers, and the word saying what they are. */
+const AXIS_H = 15
+const AXIS_LABEL_H = 12
+
 /**
  * The caption's height, reserved from the first paint and never negotiated afterwards.
  *
@@ -118,7 +122,8 @@ function WinProbFrame({ game, teams }: { game: WpblGame; teams: Map<string, Wpbl
         <Label sx={{ top: 4, left: 6 }}>{away?.abbr ?? 'AWAY'}</Label>
         <Label sx={{ bottom: 4, left: 6 }}>{home?.abbr ?? 'HOME'}</Label>
       </Box>
-      <Box sx={{ height: 15, mt: '2px' }} />
+      <Box sx={{ height: AXIS_H, mt: '2px' }} />
+      <Box sx={{ height: AXIS_LABEL_H }} />
       <Box sx={{ height: CAPTION_H, mt: 0.5, borderTop: '1px solid', borderColor: 'divider' }} />
     </Box>
   )
@@ -258,7 +263,7 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
           375px card gives 3.5% of its width 12px to put it in. The first cut at 7% looked
           reasonable and quietly dropped the SEVENTH from a game the home team won without
           batting in it, which is the one inning a reader most wants to find. */}
-      <Box aria-hidden sx={{ position: 'relative', height: 15, mt: '2px' }}>
+      <Box aria-hidden sx={{ position: 'relative', height: AXIS_H, mt: '2px' }}>
         {innings.filter(iv => iv.to - iv.from >= 3.5).map(iv => (
           <Typography key={iv.inning} sx={{
             position: 'absolute', left: `${(iv.from + iv.to) / 2}%`, transform: 'translateX(-50%)',
@@ -266,6 +271,13 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
           }}>{iv.inning}</Typography>
         ))}
       </Box>
+
+      {/* And what those numbers ARE. A bare row of 1 to 7 under a baseball chart is a good
+          guess rather than a label, and the axis is worth eleven pixels of saying so. */}
+      <Typography aria-hidden sx={{
+        height: AXIS_LABEL_H, textAlign: 'center', fontSize: '0.55rem', fontWeight: 700,
+        letterSpacing: 0.8, textTransform: 'uppercase', color: 'text.disabled', lineHeight: 1,
+      }}>Inning</Typography>
 
       <Box sx={{
         px: 1.5, py: 1.25, mt: 0.5, height: CAPTION_H, overflow: 'hidden',
