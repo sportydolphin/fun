@@ -83,7 +83,22 @@ export interface ReCell {
    *  show it: with one season of a four-team league, "nobody on, nobody out" and "bases
    *  loaded, nobody out" differ by a factor of twenty in how well they are known. */
   n: number
+  /**
+   * The same observations as a histogram: `dist[r]` is how many of the `n` produced exactly
+   * r more runs, with everything at or above `DIST_MAX` piled into the last bucket.
+   *
+   * The mean answers "what is this situation worth", which is the run-value board's question.
+   * A win model asks a different one: from two down in the last inning, a state's average is
+   * worthless and the only thing that matters is the chance it produces two or more. Same
+   * walk, same sample, one extra counter, so the shape is kept rather than thrown away and
+   * re-derived by a second pass over the season.
+   */
+  dist: number[]
 }
+
+/** Runs in one half-inning, bucketed. Seven has happened three times in 263 half-innings and
+ *  nothing has reached eight, so the tail beyond this is noise being given a bucket. */
+export const DIST_MAX = 8
 
 export interface ReTable {
   /** [outs 0..2][bases 0..7]. Always 3x8, so a caller can index without a guard. */
@@ -98,7 +113,11 @@ export interface ReTable {
 }
 
 const emptyCells = (): ReCell[][] =>
-  Array.from({ length: 3 }, () => Array.from({ length: 8 }, () => ({ re: null, n: 0 })))
+  Array.from({ length: 3 }, () => Array.from({ length: 8 }, () => (
+    { re: null, n: 0, dist: new Array<number>(DIST_MAX + 1).fill(0) })))
+
+/** Regulation is seven innings here. Anything past it is a different game: see the walk. */
+export const REGULATION_INNINGS = 7
 
 /** Run expectancy for a state, or null when the season has not produced that state yet. */
 export function reOf(table: ReTable, outs: number, bases: BaseCode): number | null {
@@ -190,6 +209,15 @@ function seasonContext(games: RunValueGame[]) {
  * The half-inning a game stopped in the middle of is left out entirely: its runs are censored
  * by the final out of the game rather than by the inning, so counting it would drag every
  * state it contains downward.
+ *
+ * EXTRA INNINGS ARE LEFT OUT TOO, and that one is not obvious. This league starts them with a
+ * runner already on second, and the feed records the placement as its own row whose base state
+ * is still EMPTY, because a row's bases are the ones it began with. So an extra inning handed
+ * the table a "nobody on, nobody out" observation that was followed by the runs of an inning
+ * which did, in fact, have somebody on second. Six of those against 248 honest ones in the
+ * cell the whole board leans on. They are 2% of the season's half-innings and they are not the
+ * same game, so the walk skips them, and anything that needs to know what a free runner on
+ * second is worth reads the cell for a runner on second, measured on regulation baseball.
  */
 export function buildRunExpectancy(
   plays: WpblRunValuePlay[],
@@ -200,11 +228,14 @@ export function buildRunExpectancy(
 
   const sums = Array.from({ length: 3 }, () => new Array<number>(8).fill(0))
   const counts = Array.from({ length: 3 }, () => new Array<number>(8).fill(0))
+  const dists = Array.from({ length: 3 }, () =>
+    Array.from({ length: 8 }, () => new Array<number>(DIST_MAX + 1).fill(0)))
   let pa = 0, measuredHalves = 0, runs = 0
   const gameIds = new Set<string>()
 
   for (const h of halves) {
     if (h.last) continue
+    if ((h.plays[0]?.inning ?? 0) > REGULATION_INNINGS) continue
     measuredHalves++
     gameIds.add(h.gameId)
     const rest = runsToEnd(h.plays)
@@ -217,6 +248,7 @@ export function buildRunExpectancy(
       const bases = baseCode(p)
       sums[outs][bases] += rest[i]
       counts[outs][bases]++
+      dists[outs][bases][Math.min(Math.max(rest[i], 0), DIST_MAX)]++
       pa++
     }
   }
@@ -225,7 +257,7 @@ export function buildRunExpectancy(
   for (let o = 0; o < 3; o++) {
     for (let b = 0; b < 8; b++) {
       const n = counts[o][b]
-      cells[o][b] = { re: n > 0 ? sums[o][b] / n : null, n }
+      cells[o][b] = { re: n > 0 ? sums[o][b] / n : null, n, dist: dists[o][b] }
     }
   }
 

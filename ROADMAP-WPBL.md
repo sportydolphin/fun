@@ -267,10 +267,18 @@ left for it to pay off.
 
 ### 6. Win probability in Game Center 🔬
 
-A win-prob line for live and final games from a generic score / inning / base-out model.
-Medium effort; the fiddly part is a credible model for a seven-inning league with no
-history. Would also be the first feature to need play→player linkage, which is currently
-deferred (see Parked).
+✅ *built Aug 23, 2026, behind the experiments switch: see the log.*
+
+The fiddly part was supposed to be a credible model for a seven-inning league with no
+history, and it turned out the run-value work had already paid for it. An empirical
+win-probability table is out of reach by three orders of magnitude (about 7,000 cells against
+1,820 plays), but nothing has to be looked up: the run-expectancy walk already measures how
+many runs follow each base-out state, and keeping that as a histogram instead of a mean gives
+the two distributions a win model needs. From there it is exact dynamic programming backwards
+from the last out, no simulation and no sampling noise.
+
+Still open on top of it: a season WPA leaderboard, and ranking games by how much they moved
+(the excitement number is computed already and nothing draws it).
 
 ### 7. Incremental depth 🔬
 

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblGamePlay, WpblRecapPlay } from './types'
 import { buildRecap, leagueRecapContext, type GameRecap, type RecapStar } from './derive/recap'
 import { fetchWpblGameLines, fetchWpblGameRecapPlays } from './api'
 import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, wpblNameStages } from './ui'
 import { WPBL_ACCENT, relativeDayLabel, wpblFullName } from './constants'
+import { useExperiments } from '../ExperimentsContext'
 
 const MEDAL = ['🥇', '🥈', '🥉']
 
@@ -157,6 +158,11 @@ function useFitKey(): [(node: HTMLDivElement | null) => void, number] {
 
 // ── Full recap (GameDetail "Recap" tab) ──────────────────────────────────────────
 
+/** The win-probability card, which pulls in the league's whole play log and a model to draw
+ *  itself. Lazy so that weight lands only on a reader who has experiments on and has opened a
+ *  finished game, rather than in the WPBL bundle everybody downloads. */
+const WinProbView = lazy(() => import('./WinProbView'))
+
 export function GameRecapView({ game, teams, batting, pitching, plays, names, games = [], onOpenPlayer }: {
   game: WpblGame
   teams: Map<string, WpblTeam>
@@ -172,6 +178,7 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
   const recap = useMemo(() => buildRecap(game, teams, batting, pitching, plays, nameOf, ctx),
     [game, teams, batting, pitching, plays, nameOf, ctx])
   const [starsRef, starsWidth] = useFitKey()
+  const experiments = useExperiments()
   if (!recap) return null
 
   return (
@@ -180,6 +187,15 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
         <Typography sx={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.2 }}>{recap.headline}</Typography>
         <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary', mt: 0.75, lineHeight: 1.35 }}>{recap.blurb}</Typography>
       </Box>
+
+      {/* Above the feats and the stars: the chart is the shape of the game, and the things
+          under it are details of the same game. Nothing else in the recap answers "was this
+          close" in one look. */}
+      {experiments && (
+        <Suspense fallback={null}>
+          <WinProbView game={game} teams={teams} plays={plays} games={games} />
+        </Suspense>
+      )}
 
       {recap.feats.length > 0 && (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
