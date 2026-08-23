@@ -35,7 +35,18 @@
     </style>
     <title>sportydolphin.fun — MLB & WPBL baseball stats</title>
     <meta name="description" content="sportydolphin.fun is a free baseball stats site for Major League Baseball and the Women's Pro Baseball League. Live scores, player and team stats, standings, and a predictions game. No sign-in required to browse." />
-    <link rel="canonical" href="https://sportydolphin.fun/wpbl" />
+    <!-- NO <link rel="canonical"> HERE, AND THERE MUST NEVER BE ONE. This file is served
+         verbatim for every route on the site: _redirects rewrites each one to `/` with a 200,
+         so a canonical written here is a canonical claimed by /mlb, /privacy, /wpbl/stats and
+         all 118 player pages alike. It said `/wpbl`, and on Aug 23, 2026 Search Console
+         reported the consequence: "Alternate page with proper canonical tag", which is Google
+         believing us and dropping every one of those URLs in favour of /wpbl.
+
+         src/seo.ts sets the right per-route canonical once React mounts, and Google renders
+         the JS, but the initial HTML is the first pass and a canonical is among the signals it
+         is least willing to overrule. With no tag at all, a page canonicalises to itself,
+         which is the correct answer for every URL this site serves. Pinned in
+         src/wpbl/__tests__/routes.test.ts. -->
 
     <!-- Open Graph / Twitter defaults. src/seo.ts overrides og:title/description/url per
          route once React mounts; these are what social unfurlers and non-JS crawlers see.

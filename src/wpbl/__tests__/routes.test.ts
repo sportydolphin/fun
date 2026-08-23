@@ -12,6 +12,7 @@
 // tsconfig does not have to admit @types/node into src, which would let genuinely
 // browser-side code reference `process` and `__dirname` without a squeak from tsc.
 import { describe, it, expect } from 'vitest'
+import indexHtml from '../../../index.html?raw'
 import redirects from '../../../public/_redirects?raw'
 import sitemap from '../../../public/sitemap.xml?raw'
 import seoSource from '../../seo.ts?raw'
@@ -197,5 +198,26 @@ describe('every tab page is discoverable and distinct', () => {
     })
     expect(titles.every(Boolean)).toBe(true)
     expect(new Set(titles).size).toBe(titles.length)
+  })
+})
+
+describe('the shell claims no canonical of its own', () => {
+  // index.html is served verbatim for every route (see the _redirects rewrites), so any
+  // canonical written into it is claimed by every URL on the site. One did: it pointed at
+  // /wpbl, and Search Console duly reported "Alternate page with proper canonical tag" on
+  // Aug 23, 2026, which is Google dropping /mlb, /privacy, every WPBL tab and all 118 player
+  // pages in favour of the section root. seo.ts sets the right one per route after mount, and
+  // a page with no canonical at all canonicalises to itself, which is what every URL here
+  // wants. This is the guard against someone helpfully putting it back.
+  it('has no static rel=canonical', () => {
+    // Comments stripped first: the note in index.html explaining why there is no canonical
+    // has to quote the tag to be worth reading, and a commented tag is not a tag.
+    const markup = indexHtml.replace(/<!--[\s\S]*?-->/g, '')
+    expect(markup).not.toMatch(/<link[^>]+rel=["']canonical["']/i)
+  })
+
+  // The counterpart: the per-route tag has to come from somewhere, and it is seo.ts.
+  it('sets one per route at runtime instead', () => {
+    expect(seoSource).toContain("upsertLink('canonical', url)")
   })
 })
