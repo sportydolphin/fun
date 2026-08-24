@@ -145,14 +145,24 @@ function eventUrlFor(game) {
 // <t:UNIX:R> renders as a live, per-viewer-timezone countdown ("in a day"). UNIX is seconds.
 function tsRel(ms) { return `<t:${Math.floor(ms / 1000)}:R>` }
 
+// The watch-party room itself, carried on every board so a reader who missed the event
+// still knows where to go. It is a STAGE channel as of Aug 23, 2026; DISCORD_WATCH_PARTY_VC_URL
+// keeps its older name because renaming a repo variable silently blanks the line until
+// someone notices the workflow is passing an empty string.
+function boardHeader() {
+  const room = VC_URL ? `🎙️ Watch along in [Game Day Watch Party](${VC_URL})` : ''
+  return [
+    `## ⚾ WPBL Watch Parties ⚾`,
+    `📅 Full schedule: [womensprobaseballleague.com/schedule](${SCHEDULE_URL})`,
+    room,
+  ].filter(Boolean).join('\n')
+}
+
 // Compact text board: a short header, the league schedule link, then one line per game.
 // Every line leads with a dot (red = next up, white = later) so the left edge stays flush
 // and "next" is indicated without unbalancing the list. Countdown is inline per game.
 function buildBoardContent(games, teamNames, now) {
-  const vc = VC_URL ? `, hop in [🔊 Watch Party VC](${VC_URL}) to watch together` : ''
-  const header =
-    `## ⚾ WPBL Watch Parties ⚾\n` +
-    `📅 Full schedule: [womensprobaseballleague.com/schedule](${SCHEDULE_URL})`
+  const header = boardHeader()
 
   const lines = games.map((game, i) => {
     const startMs = gameStartMs(game.game_date, game.start_time)
@@ -255,7 +265,9 @@ async function main() {
     embeds: [],
     content: upcoming.length
       ? buildBoardContent(upcoming, teamNames, now)
-      : `## ⚾ WPBL Watch Parties\nNo games scheduled right now — check back soon! ⚾\n📅 Full schedule: [womensprobaseballleague.com/schedule](${SCHEDULE_URL})`,
+      : `${boardHeader()}
+
+No games scheduled right now. Check back soon! ⚾`,
   }
 
   // Source of truth for which message to edit is the DB. DISCORD_BOARD_MESSAGE_ID is now
