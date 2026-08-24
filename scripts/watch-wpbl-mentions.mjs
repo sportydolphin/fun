@@ -312,7 +312,10 @@ async function redditToken(fetchImpl = fetch) {
     body: 'grant_type=client_credentials',
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   })
-  if (!res.ok) throw new Error(`Reddit refused the token request (${res.status}). Check REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET.`)
+  if (!res.ok) {
+    const said = await res.text().catch(() => '')
+    throw new Error(`Reddit refused the token request (${res.status}) ${said.slice(0, 200)}. Check REDDIT_CLIENT_ID (the unlabelled string under the app name, not the app name) and REDDIT_CLIENT_SECRET.`)
+  }
   const body = await res.json()
   if (!body?.access_token) throw new Error('Reddit returned no access_token')
   return body.access_token
@@ -512,7 +515,21 @@ async function blueskyToken(fetchImpl = fetch) {
     body: JSON.stringify({ identifier: BSKY_ID, password: BSKY_PASSWORD }),
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   })
-  if (!res.ok) throw new Error(`Bluesky refused the session (${res.status}). BLUESKY_APP_PASSWORD must be an app password from Settings, not the account password.`)
+  if (!res.ok) {
+    // NAME THE REASON THE SERVER GAVE. This line used to assert one cause ("must be an app
+    // password"), which is only one of four things a 401 here means, and the other three are
+    // invisible while it is guessing: a handle with a leading @, an identifier that is neither
+    // the full handle nor the account email, and two-factor being on, which answers
+    // AuthFactorTokenRequired and cannot be satisfied by any secret we could store. XRPC puts a
+    // machine-readable `error` in the body; a wrong guess in an error message costs more time
+    // than no guess at all.
+    const body = await res.json().catch(() => null)
+    const named = body?.error ? `${body.error}${body.message ? `: ${body.message}` : ''}` : await res.text().catch(() => '')
+    const hint = body?.error === 'AuthFactorTokenRequired'
+      ? ' Two-factor is on for this account. No stored secret can answer it: turn off email 2FA, or use an account without it.'
+      : ' Check BLUESKY_IDENTIFIER is the full handle (no leading @) or the account email, and that BLUESKY_APP_PASSWORD is an App Password from Settings rather than the account password.'
+    throw new Error(`Bluesky refused the session (${res.status}) ${String(named).slice(0, 200)}.${hint}`)
+  }
   const jwt = (await res.json())?.accessJwt
   if (!jwt) throw new Error('Bluesky returned no accessJwt')
   return jwt
@@ -699,8 +716,13 @@ export function fitDigest(due, pending, limit = DISCORD_LIMIT) {
 }
 
 function outageMessage(hours, errors) {
+  // `hoursSince` returns Infinity when there has never been a successful run, which is the
+  // NORMAL state on a fresh install with a bad secret, not a rare edge. Formatting it as a
+  // duration produced "No source has answered for Infinityh", which reads as a crash and hides
+  // the actually useful fact: this has never worked, so it is setup rather than an outage.
+  const forHow = Number.isFinite(hours) ? `for ${Math.floor(hours)}h` : 'since this job was set up, not once'
   return [
-    `⚠️  **Mention watcher is blind.** No source has answered for ${Math.floor(hours)}h.`,
+    `⚠️  **Mention watcher is blind.** No source has answered ${forHow}.`,
     ...errors.map(e => `• \`${String(e).slice(0, 200)}\``),
     'It will keep trying and will say nothing more until it recovers.',
   ].join('\n')
