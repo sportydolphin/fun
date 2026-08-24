@@ -316,6 +316,28 @@ and returns no cursor, and is deliberately not warned about. A sub that is gone,
 banned us answers 404 or 403 and is skipped by name; every sub refusing is a real failure and is
 raised as one.
 
+### Bluesky recaps, which are not this file's subject but live next door
+
+`wpbl-bluesky-recaps` posts a finished game to **our own** Bluesky timeline, reusing the same
+`buildRecap` engine as the Discord recap. It is worth knowing about here because the two look
+like the same job and are not, for one reason: **Bluesky posts cannot be edited.**
+
+The Discord recap leans on editing. It re-renders every recent final on every run and PATCHes
+the ones whose text changed, so a late scoring correction fixes itself in the channel and nobody
+sees it happen. On Bluesky a post is published or deleted, in public, with nothing between. So
+that job never re-sends, and instead waits: it records when it first saw a game final and
+publishes on a later run, 45 minutes on, once corrections have had time to land.
+
+The other difference is the box score itself. Discord's is a space-padded table inside a code
+fence; Bluesky has no monospace and no fences, so the same string is ragged nonsense there. The
+card is drawn as SVG ([`src/wpbl/derive/blueskyRecap.ts`](../src/wpbl/derive/blueskyRecap.ts),
+pure and tested) and rasterised at send time.
+
+It shares the mention watcher's credential, because both are the sportydolphin account. **That
+does not soften the watcher's rule**: it finds threads and never replies to them, and nothing in
+the recap poster may ever reply, quote or mention anybody. Posting our own recaps to our own
+timeline is a different act from turning up in somebody else's thread.
+
 ### The `/player` command
 
 The only piece here that is a real bot rather than a webhook, because it has to receive

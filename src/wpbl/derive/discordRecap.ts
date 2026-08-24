@@ -53,11 +53,21 @@ function inningRuns(line: WpblLineScoreEntry[] | null | undefined, innings: numb
  * for the same reason — the block does not wrap, and "San Francisco Firebells" against
  * seven innings runs past the width of a phone, which is where most of Discord is read.
  */
-export function lineScoreBlock(game: WpblGame, recap: GameRecap, teams: Map<string, WpblTeam>): string {
+export interface LineScoreRow { teamId: string; abbr: string; cells: (number | 'X')[]; r: number; h: number; e: number }
+export interface LineScoreGrid { innings: number; rows: [LineScoreRow, LineScoreRow] }
+
+/**
+ * The line score as data, shared by every renderer of it.
+ *
+ * Extracted from `lineScoreBlock` when the Bluesky card arrived, because the X rule below is a
+ * real baseball judgement and two copies of it would drift: one renderer would start claiming a
+ * scoreless bottom of the 7th that nobody batted, and nothing about that looks wrong until
+ * somebody who reads box scores notices.
+ */
+export function lineScoreGrid(game: WpblGame, recap: GameRecap, teams: Map<string, WpblTeam>): LineScoreGrid {
   const innings = Math.max(playedInnings(game.away_line, game.home_line), game.innings ?? 7)
   const [away, home] = recap.teamLine
   const abbr = (teamId: string, fallback: string) => teams.get(teamId)?.abbr ?? fallback
-  const cell = (v: string | number) => String(v).padStart(2)
   // A home team that's already ahead never bats in the bottom of the final inning. The feed
   // still reports 0 runs for that half, but printing it as a 0 claims a scoreless frame that
   // was never played, so use the X a scorebook would. A walk-off is the other branch — the
@@ -67,13 +77,23 @@ export function lineScoreBlock(game: WpblGame, recap: GameRecap, teams: Map<stri
   const hRuns = inningRuns(game.home_line, innings)
   const through = (runs: number[], n: number) => runs.slice(0, n).reduce((t, x) => t + x, 0)
   const homeDidNotBatLast = through(hRuns, innings - 1) > through(aRuns, innings)
-  const rows = [
-    { name: abbr(away.teamId, away.name), side: away, cells: aRuns.map(cell) },
-    {
-      name: abbr(home.teamId, home.name), side: home,
-      cells: hRuns.map((r, i) => cell(homeDidNotBatLast && i === innings - 1 ? 'X' : r)),
-    },
-  ]
+  return {
+    innings,
+    rows: [
+      { teamId: away.teamId, abbr: abbr(away.teamId, away.name), cells: aRuns, r: away.r, h: away.h, e: away.e },
+      {
+        teamId: home.teamId, abbr: abbr(home.teamId, home.name),
+        cells: hRuns.map((r, i) => (homeDidNotBatLast && i === innings - 1 ? 'X' : r)),
+        r: home.r, h: home.h, e: home.e,
+      },
+    ],
+  }
+}
+
+export function lineScoreBlock(game: WpblGame, recap: GameRecap, teams: Map<string, WpblTeam>): string {
+  const { innings, rows: grid } = lineScoreGrid(game, recap, teams)
+  const cell = (v: string | number) => String(v).padStart(2)
+  const rows = grid.map(g => ({ name: g.abbr, side: g, cells: g.cells.map(cell) }))
   const nameW = Math.max(...rows.map(r => r.name.length), 3)
   const header = `${' '.repeat(nameW)}  ${Array.from({ length: innings }, (_, i) => cell(i + 1)).join(' ')} │ ${cell('R')} ${cell('H')} ${cell('E')}`
   const body = rows.map(r =>

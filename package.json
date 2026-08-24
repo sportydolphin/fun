@@ -34,13 +34,15 @@
     "commons-sync": "node --env-file=.env scripts/sync-wpbl-commons.mjs",
     "tracking-watch": "node --env-file=.env scripts/watch-wpbl-tracking.mjs",
     "retro-sync": "node --env-file=.env scripts/sync-wpbl-retro.mjs",
-    "mentions-watch": "node --env-file=.env scripts/watch-wpbl-mentions.mjs"
+    "mentions-watch": "node --env-file=.env scripts/watch-wpbl-mentions.mjs",
+    "bluesky-recaps": "esbuild scripts/post-wpbl-bluesky-recaps.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-bluesky-recaps.mjs && node --env-file-if-exists=.env node_modules/.cache/wpbl-bluesky-recaps.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.7",
     "@mui/material": "^7.3.7",
+    "@resvg/resvg-js": "^2.6.2",
     "@supabase/supabase-js": "^2.106.2",
     "html2canvas": "^1.4.1",
     "pg": "^8.23.0",
@@ -52,6 +54,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
     "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^26.3.0",
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.2.7",
     "@vitejs/plugin-react": "^4.7.0",
