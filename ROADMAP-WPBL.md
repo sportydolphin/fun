@@ -531,6 +531,31 @@ is retired.
 
 ## Shipped log
 
+### Aug 24, 2026: recaps that do not all sound the same
+
+Four clubs play the same six matchups all season, so a recap engine with one verb per game
+shape produces one sentence per game shape, and the section had spent August saying "Firebells
+top Queens". Every branch is now a small pool: 11 of the 20 finals had used `top`, and 2 do now.
+The pick is **seeded on the game id**, never random, because the same recap is built by the
+site, by the ingest's Deno announce and by the nightly job, which compares them by content hash:
+a recap that reworded itself on each build would leave that job editing the same Discord message
+every night forever, and would rewrite the sentence under a reader on any re-render.
+
+Extra innings got a verb of their own (`outlast`), ahead of the margin checks. It is the only
+addition that carries a fact rather than a synonym, since a score cannot say the game went long.
+
+**The thresholds were also wrong, and rendering all 20 finals is what showed it.** `closeMargin`
+was set to the league's MEAN winning margin, which makes about half of every season "close" by
+construction: a 9-4 read as "the Heights held on for a 9-4 win". Close is a tail, not the middle,
+so it is now one SD *below* the mean, symmetric with the blowout cutoff at one SD above. On this
+league that is 2 rather than 5.
+
+That exposed a second thing: `closeMargin` had been doing two unrelated jobs, and they pull
+opposite ways. It also decided whether an inning was big enough to call the decisive swing, where
+tightening it to 2 would have produced "pulled ahead with a 2-run 4th". Split into
+`bigInningRuns`, which keeps the old formula because an inning worth naming really is about the
+size of a whole typical winning margin.
+
 ### Aug 24, 2026: the half of Reddit that search cannot see
 
 The mention watcher shipped with a hole it documented honestly: Reddit's search indexes link

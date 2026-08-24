@@ -45,7 +45,8 @@ export interface GameRecap {
 // early-season sample can't produce silly thresholds. Recompute as games land and the words retune.
 export interface RecapLeagueContext {
   blowoutMargin: number    // margin at/above → "rout" / "shut out"
-  closeMargin: number      // margin at/below → "tight" flow; also the decisive-inning size
+  closeMargin: number      // margin at/below → "held on" flow
+  bigInningRuns: number    // runs in one inning at/above → worth calling the decisive swing
   slugfestRuns: number     // combined runs at/above → "outslug" (with both sides productive)
   slugfestSide: number     // losing side's runs at/above, so a blowout can't read as a slugfest
   comebackDeficit: number  // deficit erased at/above → "rally past"
@@ -53,7 +54,7 @@ export interface RecapLeagueContext {
 
 // Season-neutral defaults, used until enough finals (<4) define a league profile.
 export const DEFAULT_RECAP_CONTEXT: RecapLeagueContext = {
-  blowoutMargin: 6, closeMargin: 2, slugfestRuns: 15, slugfestSide: 7, comebackDeficit: 3,
+  blowoutMargin: 6, closeMargin: 2, bigInningRuns: 3, slugfestRuns: 15, slugfestSide: 7, comebackDeficit: 3,
 }
 
 const mean = (a: number[]) => a.reduce((s, x) => s + x, 0) / a.length
@@ -73,7 +74,20 @@ export function leagueRecapContext(games: WpblGame[]): RecapLeagueContext {
   const r = Math.round
   return {
     blowoutMargin: Math.max(4, r(mMar + sMar)),   // ~1 SD above the league's typical margin
-    closeMargin: Math.max(2, r(mMar)),            // at/below the league's typical margin
+    // CLOSE IS A TAIL, NOT THE MIDDLE, and it used to be the middle. Setting this to the mean
+    // margin made roughly half of every season "close" by construction, which is how a 9-4
+    // came to read "the Heights held on for a 9-4 win". A typical game is not a nail-biter.
+    // One SD BELOW the mean, so close and blowout are symmetric ends of the same distribution:
+    // on the 20 finals to Aug 23 that is 2 rather than 5, and only one- and two-run games
+    // qualify. Floor of 1, because a league that somehow had no spread should still reserve
+    // the word for the one-run games rather than handing it to everybody.
+    closeMargin: Math.max(1, r(mMar - sMar)),
+    // Split out of closeMargin, which was doing this job as well. The two pull in opposite
+    // directions: tightening "close" to 2 would otherwise have made every 2-run inning the
+    // decisive swing of its game, and "pulled ahead with a 2-run 4th" says nothing. An inning
+    // worth naming is one about the size of a whole typical winning margin, which is what the
+    // mean gives, and it is already producing the right sentences at 5.
+    bigInningRuns: Math.max(2, r(mMar)),
     slugfestRuns: Math.max(12, r(mTot + sTot)),   // ~1 SD above the league's typical run total
     slugfestSide: Math.max(6, r(mSide + 1)),      // loser still productive, not just outscored
     comebackDeficit: Math.max(2, r(mMar)),        // a hole around a typical winning margin
@@ -85,6 +99,37 @@ export function leagueRecapContext(games: WpblGame[]): RecapLeagueContext {
 // Only the leading number matters — "an 8-2 win" is governed by the 8, not the 2.
 const article = (n: number): 'a' | 'an' =>
   (n === 8 || n === 11 || n === 18 || (n >= 80 && n <= 89)) ? 'an' : 'a'
+
+/**
+ * VARIATION HAS TO BE DETERMINISTIC, and that is the only hard rule in this file's wording.
+ *
+ * One recap is built in three places from the same inputs: the site renders it, the ingest's
+ * edge function announces the final to Discord, and the nightly job re-renders every game to
+ * decide whether the posted message still matches. That last one compares by CONTENT HASH, so
+ * a recap that worded itself differently on each build would leave the job editing the same
+ * message forever, every night, for the rest of the season. `Math.random()` would also rewrite
+ * the sentence under a reader on any re-render, which is its own small horror.
+ *
+ * So the pick is a pure function of the game id. Same game, same words, on every machine and in
+ * every runtime, permanently. Seed on nothing that can change: not the fetch order, not a
+ * timestamp, not the score.
+ */
+const seedOf = (s: string) => {
+  // FNV-1a. Chosen for being four lines rather than for its distribution; the pools are at most
+  // four long and any spread will do.
+  let h = 2166136261
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return h >>> 0
+}
+
+/** One of `pool`, chosen by the game id and the slot name. The slot is in the seed so the verb
+ *  and the flow sentence do not move together, which would give four recap shapes instead of
+ *  the dozens the pools actually describe. */
+const pick = <T>(pool: readonly T[], gameId: string, slot: string): T =>
+  pool[seedOf(`${gameId}:${slot}`) % pool.length]
 
 const ORD = ['0th', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th']
 const ord = (n: number) => ORD[n] ?? `${n}th`
@@ -183,14 +228,27 @@ export function buildRecap(
 
   // ── Headline (present tense, news-style; score shown separately by the UI). ────────────
   const slugfest = !flags.blowout && !flags.shutout && winnerScore + loserScore >= ctx.slugfestRuns && loserScore >= ctx.slugfestSide
-  const verb = flags.walkOff ? 'walk off'
-    : flags.shutout ? 'shut out'
-    : flags.blowout ? 'rout'
-    : flags.comeback ? 'rally past'
-    : slugfest ? 'outslug'
-    : flags.oneRun ? 'edge'
-    : 'top'
-  const headline = `${winner.name} ${verb} ${loser.name}`
+  // Pools rather than one verb each, because a four-club league plays the same four matchups
+  // over and over and most finals land in the last branch: an entire season of "Firebells top
+  // Queens" was the result. The pick is seeded on the game id, so a given game's headline never
+  // changes. Present tense, plural, and it has to read as a headline with the club name in
+  // front of it, which is what rules out most of the obvious synonyms.
+  const verbs: readonly string[] =
+      flags.walkOff ? ['walk off']
+    : flags.shutout ? ['shut out', 'blank']
+    : flags.blowout ? ['rout', 'hammer', 'roll past', 'pull away from']
+    : flags.comeback ? ['rally past', 'come back to beat', 'rally to beat']
+    // 'outscore' was cut: every winner outscores the loser, so it says nothing.
+    : slugfest ? ['outslug']
+    // Extra innings earn their own verb ahead of the margin ones. It is the only entry here
+    // that adds a FACT rather than a synonym: the game went long, which the score cannot say.
+    : flags.extras ? ['outlast']
+    : flags.oneRun ? ['edge', 'slip past', 'hold off']
+    // This branch runs from a 3-run win up to the blowout cutoff, which in this league is
+    // around 9, so every verb in it has to survive a wide margin. 'get past' and 'down' did
+    // not: "Queens get past Hunters" was a 12-4.
+    : ['top', 'beat']
+  const headline = `${winner.name} ${pick(verbs, game.id, 'verb')} ${loser.name}`
 
   // ── Stars: rank hitters (total bases + RBI + runs) and pitchers together; a pitcher earns
   // a spot only with a real, clean outing on the winning side (or a save), so a cameo reliever
@@ -214,25 +272,75 @@ export function buildRecap(
   // ── Narrative blurb: how it unfolded (the decisive swing is always the winner's), then the
   // day's biggest bat or arm. ─────────────────────────────────────────────────────────────
   const struckElsewhere = !!firstBlood && firstBlood.team.id !== winner.id
+  // Each branch is a pool for the same reason the verbs are: the shape of a game repeats all
+  // season, so the sentence describing it cannot be a single fixed string. Every variant in a
+  // pool has to say the SAME thing, since which one a game gets is decided by a hash and not by
+  // anything about the game. A variant that hedges differently, or claims a little more, would
+  // make the recap's accuracy depend on the game id.
+  const W = cap(nick(winner))
+  const bigInning = `${article(winnerBig.runs)} ${winnerBig.runs}-run ${ord(winnerBig.inning)}`
   let flow: string
   if (flags.walkOff) {
-    flow = `${cap(nick(winner))} won it in the bottom of the ${ord(innings)}${flags.extras ? `, after ${innings} innings` : ''}.`
+    const tail = flags.extras ? `, after ${innings} innings` : ''
+    flow = pick([
+      `${W} won it in the bottom of the ${ord(innings)}${tail}.`,
+      `${W} ended it in the bottom of the ${ord(innings)}${tail}.`,
+      `${W} walked it off in the ${ord(innings)}${tail}.`,
+    ], game.id, 'flow')
   } else if (flags.comeback) {
-    flow = `${cap(nick(winner))} came back from ${winnerDeficit} runs down${winnerBig.runs >= ctx.closeMargin ? ` on ${article(winnerBig.runs)} ${winnerBig.runs}-run ${ord(winnerBig.inning)}` : ''} to take it.`
-  } else if (winnerBig.runs >= ctx.closeMargin && struckElsewhere && firstBlood) {
-    flow = `${cap(nick(firstBlood.team))} scored first${firstBlood.runs > 1 ? `, putting up ${firstBlood.runs} in the ${ord(firstBlood.inning)}` : ''}, but ${nick(winner)} put up ${article(winnerBig.runs)} ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
-  } else if (winnerBig.runs >= ctx.closeMargin) {
+    const on = winnerBig.runs >= ctx.bigInningRuns ? ` on ${bigInning}` : ''
+    flow = pick([
+      `${W} came back from ${winnerDeficit} runs down${on} to take it.`,
+      `${W} erased a ${winnerDeficit}-run deficit${on} and took it.`,
+      `Down ${winnerDeficit}, ${nick(winner)} came back${on} to win it.`,
+    ], game.id, 'flow')
+  } else if (winnerBig.runs >= ctx.bigInningRuns && struckElsewhere && firstBlood) {
+    const F = cap(nick(firstBlood.team))
+    const early = firstBlood.runs > 1 ? `, putting up ${firstBlood.runs} in the ${ord(firstBlood.inning)}` : ''
+    flow = pick([
+      `${F} scored first${early}, but ${nick(winner)} put up ${bigInning}.`,
+      `${F} opened the scoring${early}, but ${nick(winner)} answered with ${bigInning}.`,
+      `${F} struck first${early}, before ${nick(winner)} put up ${bigInning}.`,
+    ], game.id, 'flow')
+  } else if (winnerBig.runs >= ctx.bigInningRuns) {
     const openedEarlier = firstBlood && firstBlood.inning !== winnerBig.inning
+    const early = openedEarlier && firstBlood!.runs > 1 ? ` with ${firstBlood!.runs} in the ${ord(firstBlood!.inning)}` : ''
     flow = openedEarlier
-      ? `${cap(nick(winner))} scored first${firstBlood!.runs > 1 ? ` with ${firstBlood!.runs} in the ${ord(firstBlood!.inning)}` : ''} and pulled ahead with ${article(winnerBig.runs)} ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
-      : `${cap(nick(winner))} pulled ahead with ${article(winnerBig.runs)} ${winnerBig.runs}-run ${ord(winnerBig.inning)}.`
+      ? pick([
+        `${W} scored first${early} and pulled ahead with ${bigInning}.`,
+        `${W} opened the scoring${early} and broke it open with ${bigInning}.`,
+        `${W} got on the board first${early} and took control with ${bigInning}.`,
+      ], game.id, 'flow')
+      : pick([
+        `${W} pulled ahead with ${bigInning}.`,
+        `${W} broke it open with ${bigInning}.`,
+        `${cap(article(winnerBig.runs))} ${winnerBig.runs}-run ${ord(winnerBig.inning)} put ${nick(winner)} in front.`,
+      ], game.id, 'flow')
   } else if (margin <= ctx.closeMargin) {
-    flow = `${cap(nick(winner))} held on for ${article(winnerScore)} ${winnerScore}-${loserScore} win.`
+    flow = pick([
+      `${W} held on for ${article(winnerScore)} ${winnerScore}-${loserScore} win.`,
+      `${W} hung on for ${article(winnerScore)} ${winnerScore}-${loserScore} win.`,
+    ], game.id, 'flow')
   } else {
-    flow = `${cap(nick(winner))} pulled away for ${article(winnerScore)} ${winnerScore}-${loserScore} win.`
+    flow = pick([
+      `${W} pulled away for ${article(winnerScore)} ${winnerScore}-${loserScore} win.`,
+      `${W} cruised to ${article(winnerScore)} ${winnerScore}-${loserScore} win.`,
+      `${W} controlled it, ${winnerScore}-${loserScore}.`,
+    ], game.id, 'flow')
   }
   const top = stars[0]
-  const starLine = top ? ` ${top.name} ${top.kind === 'bat' ? 'went' : 'threw'} ${top.statline}.` : ''
+  const starLine = !top ? ''
+    : top.kind === 'bat'
+      ? pick([
+        ` ${top.name} went ${top.statline}.`,
+        ` ${top.name} led the way, going ${top.statline}.`,
+        ` ${top.name} did the damage: ${top.statline}.`,
+      ], game.id, 'star')
+      : pick([
+        ` ${top.name} threw ${top.statline}.`,
+        ` ${top.name} went ${top.statline} on the mound.`,
+        ` ${top.name} handled it from the mound: ${top.statline}.`,
+      ], game.id, 'star')
   const blurb = flow + starLine
 
   // ── Decisions (W / L / S) with their lines. ────────────────────────────────────────────

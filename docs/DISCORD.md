@@ -595,7 +595,8 @@ Independent of everything above: its own channel, its own webhook, its own secre
 3. **Reddit:** reddit.com/prefs/apps → *create another app* → type **script**. The redirect URI
    is required by the form but never used; `http://localhost` is fine. It gives an id under the
    app name and a secret. Add them as `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET`. Free, and
-   the app-only token allows 100 requests a minute against the six this job makes.
+   the app-only token allows 100 requests a **minute** against the 9 to 17 this job makes per
+   run, a quarter of an hour apart. One pair of credentials covers both Reddit sources.
 4. **Bluesky:** Settings → Privacy and Security → App Passwords → *Add App Password*. Add the
    handle as `BLUESKY_IDENTIFIER` and the generated password as `BLUESKY_APP_PASSWORD`.
    **Never the account password**: an app password can be revoked on its own and cannot change
@@ -617,7 +618,7 @@ npm run mentions-watch -- --all        # ignore the per-run budget and announce 
 ```
 
 `--dry-run` deliberately needs **no** Supabase credentials, so the search terms can be tried
-from a laptop; the others need `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, since
+from a laptop, but it does need the source credentials in `.env` to have anything to search; the others need `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, since
 `wpbl_mention_hits` is RLS'd with no policies.
 
 ## Running it by hand
