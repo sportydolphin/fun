@@ -737,13 +737,34 @@ const SECTIONS = [
  * is the real guard, this is the belt), and one full of backticks must not break the rest of
  * the message out of its formatting.
  */
-const safeExcerpt = (text, max) => excerptOf(text, max).replace(/[`@]/g, ' ')
+const safeExcerpt = (text, max) => excerptOf(text, max).replace(/[`@\[\]]/g, ' ')
+
+/**
+ * A stranger's text as the clickable label on a link we control.
+ *
+ * Discord renders `[label](url)` in anything an app posts, which is the point of doing it this
+ * way and also the reason the label is stripped of brackets by `safeExcerpt` above: a post
+ * titled "WPBL scores](https://not-us.example)" would otherwise close our label early and mint
+ * a masked link to somebody else's URL, wearing our formatting and hiding where it goes. That
+ * is the trick Discord blocks human accounts from performing, and a webhook is not blocked
+ * from it. The same strip covers the quoted excerpt, which had the hole first and still would.
+ *
+ * Parentheses in the URL are encoded rather than left alone: Discord ends the link at the
+ * first `)`, so a permalink carrying one would render with its tail spilled into the sentence
+ * as plain text and the link itself pointing somewhere short of where it meant to. Anything
+ * that is not plainly http(s) falls back to the bare string, because a masked link is only
+ * honest when the reader could have seen the destination.
+ */
+function maskedLink(label, url) {
+  const href = String(url ?? '')
+  if (!/^https?:\/\/[^\s]+$/.test(href)) return `${label} ${href}`.trim()
+  return `[${label}](${href.replace(/\(/g, '%28').replace(/\)/g, '%29')})`
+}
 
 function hitLine(hit) {
   const where = [SOURCE_LABEL[hit.source] ?? hit.source, hit.author].filter(Boolean).join(' · ')
-  const lines = [`• **${safeExcerpt(hit.title ?? hit.excerpt, 90)}** _(${where})_`]
+  const lines = [`• **${maskedLink(safeExcerpt(hit.title ?? hit.excerpt, 90), hit.url)}** _(${where})_`]
   if (hit.title && hit.excerpt) lines.push(`  > ${safeExcerpt(hit.excerpt, 180)}`)
-  lines.push(`  ${hit.url}`)
   return lines.join('\n')
 }
 

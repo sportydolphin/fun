@@ -301,6 +301,35 @@ describe('digestMessage', () => {
     expect(message).not.toContain('`')
   })
 
+  it('hangs the link on the title instead of printing the URL raw', () => {
+    const message = digestMessage([hit()])!
+    expect(message).toContain('[WPBL live scores?](https://example.com/1)')
+  })
+
+  it('will not let a stranger\'s title mint a masked link of its own', () => {
+    // The reason the label is stripped of brackets: closing our label early would put an
+    // arbitrary destination behind our formatting, which is exactly what masked links are
+    // dangerous for and why Discord bars human accounts from writing them.
+    // Their URL surviving as plain text is fine and deliberate: Discord auto-links it, the
+    // reader sees where it goes, and that is the whole difference that matters here.
+    const message = digestMessage([hit({ title: 'WPBL scores](https://not-us.example) free' })])!
+    expect(message).not.toContain('](https://not-us.example)')
+    expect(message).toContain('](https://example.com/1)')
+  })
+
+  it('encodes parentheses in the URL, which would end the link early', () => {
+    const message = digestMessage([hit({ url: 'https://example.com/a_(b)_c' })])!
+    expect(message).toContain('(https://example.com/a_%28b%29_c)')
+  })
+
+  it('prints a non-http reference plainly rather than masking it', () => {
+    // A masked link is only honest when the reader could have seen the destination, and
+    // Bluesky falls back to an at:// URI when a post has no resolvable handle.
+    const message = digestMessage([hit({ url: 'at://did:plc:xyz/app.bsky.feed.post/3labc' })])!
+    expect(message).toContain('at://did:plc:xyz/app.bsky.feed.post/3labc')
+    expect(message).not.toContain('](at://')
+  })
+
   it('names the backlog rather than dropping it silently', () => {
     expect(digestMessage([hit()], { remaining: 12 })).toContain('12 more')
   })
