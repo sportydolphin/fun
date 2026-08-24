@@ -184,6 +184,10 @@ export const INTENT_TERMS = [
   'live score', 'live scores', 'live update', 'live updates', 'live stats',
   'box score', 'box scores', 'play by play', 'play-by-play',
   'is there an app', 'is there a site', 'is there a website', 'anywhere to',
+  // "anywhere ELSE to" is its own phrase: the literal terms match on word boundaries, so
+  // 'anywhere to' does not cover it. It is also the exact shape of the best lead this job can
+  // get, somebody whose usual source has just let them down.
+  'anywhere else to', 'somewhere else to',
   'standings', 'stat leaders', 'leaderboard',
 ]
 
@@ -259,6 +263,36 @@ export function classifyComment(body, parentTitle) {
   return { kind: 'question', matched: [...subject, ...intent] }
 }
 
+/**
+ * Sites that do the same job we do. Their own posts are not leads.
+ *
+ * Turning up under a competitor's post to say "actually, try my site" is the single fastest way
+ * to be the person everyone in a community dislikes, and it is a worse look than never having
+ * found the thread. So their posts never enter the queue at all, rather than being announced
+ * and left to a human to skip: a channel full of things you must not act on trains you to skim,
+ * and the one you skim past is the one that mattered.
+ *
+ * MATCHED ON WHO WE WOULD BE REPLYING TO, NEVER ON A MENTION. This distinction is the whole
+ * design. "dubsports is down, anywhere else to follow the score?" is the single best lead this
+ * job will ever produce, and a rule that dropped any post naming a competitor would throw it
+ * away silently. So the check reads the author, the domain of a link post, and the author of
+ * the thread a comment sits in. It never reads the text.
+ */
+export const COMPETITORS = ['dubsports', 'keepscore']
+
+/** Author-ish strings folded to bare letters and digits, so "@dub-sports.bsky.social",
+ *  "u/DubSports" and "dubsports.io" all collapse onto the same term. */
+const fold = (v) => String(v ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')
+
+/**
+ * Whether a result is a competitor's own, by any of the three routes they can own a thread.
+ * Pure and exported so the rule is testable without a network.
+ */
+export function isCompetitor(r, competitors = COMPETITORS) {
+  const fields = [r?.author, r?.domain, r?.parent_author].map(fold)
+  return competitors.some(c => fields.some(f => f.includes(c)))
+}
+
 /** The searches each source runs. Deliberately broad: the narrowing is `classify`, locally,
  *  where it can be tested and changed without learning two query syntaxes. */
 export const QUERIES = ['WPBL', '"women\'s pro baseball"', 'sportydolphin']
@@ -293,6 +327,10 @@ export function normaliseReddit(payload) {
       form: 'post',
       url: `https://www.reddit.com${d.permalink}`,
       author: d.author ? `u/${d.author}` : null,
+      // Where a link post points, which is NOT `url` above: that is the thread on Reddit. A
+      // competitor submitting their own site is the commonest shape of a post we must not
+      // turn up under, and this is the only field that says so.
+      domain: d.domain ?? null,
       title: d.title ?? null,
       // Both fields feed the matcher: the question is as often in the body as in the title.
       text: `${d.title ?? ''}\n${d.selftext ?? ''}`,
@@ -396,6 +434,9 @@ export function normaliseRedditComments(payload) {
       // and quotes the comment itself underneath, which is the order a human reads them in.
       title: d.link_title ? `re: ${d.link_title}` : null,
       parent_title: d.link_title ?? null,
+      // Whose thread this comment is in. A genuine question asked under a competitor's post is
+      // still a thread we cannot answer without it reading as an ad in their house.
+      parent_author: d.link_author ? `u/${d.link_author}` : null,
       text: d.body ?? '',
       context: d.subreddit ? `r/${d.subreddit}` : null,
       posted_at: d.created_utc ? new Date(d.created_utc * 1000).toISOString() : null,
@@ -640,6 +681,9 @@ export function toHits(results, known, { now = Date.now(), lookbackDays = LOOKBA
   const hits = []
   for (const r of results) {
     if (seen.has(r.external_id)) continue
+    // Dropped here rather than at announce time, so a competitor's post never reaches the
+    // table either. See `isCompetitor`: this reads authorship, never the text.
+    if (isCompetitor(r)) continue
     // A comment is judged against its parent post's title as well, and can never be a plain
     // mention. `classifyComment` carries the reasoning; the short version is that "where can I
     // watch this?" names no league, and that every other comment in the same thread would
@@ -935,7 +979,8 @@ async function main() {
   }
 
   const hits = toHits(results, DRY_RUN ? [] : await loadKnownIds())
-  console.log(`On topic and new: ${hits.length} of ${results.length}.`)
+  const theirs = results.filter(r => isCompetitor(r)).length
+  console.log(`On topic and new: ${hits.length} of ${results.length}.${theirs ? ` Skipped ${theirs} from ${COMPETITORS.join('/')}.` : ''}`)
 
   if (DRY_RUN) {
     const sorted = [...hits].sort(byUrgency)

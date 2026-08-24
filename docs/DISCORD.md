@@ -293,6 +293,20 @@ Without that second half every one of four hundred comments under that thread in
 from the title and lands in the channel, one busy night buries a week of real questions, and the
 channel is muted by morning.
 
+**Competitors' own posts never enter the queue.** `COMPETITORS` in the script lists the sites
+doing the same job (`dubsports`, `keepscore`); a result is dropped when one of them is who we
+would be replying *to*, matched on the author, on the domain of a link post, and on the author of
+the thread a comment sits in. Turning up under a rival's post to recommend ours is the fastest
+way to be the person a community dislikes, and worse than never having found the thread. They are
+dropped before the table rather than announced for a human to skip, because a channel full of
+things you must not act on is a channel you skim, and the one you skim past is the one that
+mattered.
+
+**The rule reads authorship and never the text, and that distinction is the whole design.**
+*"dubsports is down, anywhere else to follow the score?"* is the single best lead this job will
+ever produce. A filter that dropped any post naming a competitor would throw it away and say
+nothing.
+
 **A comment listing cannot be asked for a time range.** It returns the newest hundred, so a
 subreddit busier than the page budget (3 pages, reaching for 45 minutes, three times the cadence)
 is one the sweep only ever sees a slice of, and nothing about that looks like a failure. So it is

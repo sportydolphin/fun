@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest'
 // the script it mirrors drifted.
 import {
   classify, classifyComment, toHits, digestMessage, normaliseReddit, normaliseBluesky,
-  normaliseRedditComments, commentSpanMinutes, mentionParse, byUrgency,
+  normaliseRedditComments, commentSpanMinutes, isCompetitor, mentionParse, byUrgency,
   fitDigest, DISCORD_LIMIT,
 } from '../../scripts/watch-wpbl-mentions.mjs'
 
@@ -17,6 +17,7 @@ type Result = {
   external_id: string; source: string; url: string; author: string | null
   title: string | null; text: string; context: string | null; posted_at: string | null
   form?: string; parent_title?: string | null
+  domain?: string | null; parent_author?: string | null
 }
 
 const NOW = Date.parse('2026-08-24T12:00:00Z')
@@ -199,6 +200,47 @@ describe('toHits: comments', () => {
 
   it('drops the ordinary chatter under a thread the search already found', () => {
     expect(toHits([comment({ text: 'what a swing' })], [], { now: NOW })).toHaveLength(0)
+  })
+})
+
+describe('competitors', () => {
+  // Turning up under a rival site's post to recommend ours is the fastest way to be the person
+  // a community dislikes, and worse than never finding the thread. Their posts are dropped
+  // before they reach the table, rather than announced for a human to skip: a channel full of
+  // things you must not act on is a channel you skim, and the one you skim is the one that
+  // mattered.
+
+  it('drops a post by a competitor, however the handle is punctuated', () => {
+    expect(isCompetitor({ author: '@dub-sports.bsky.social' })).toBe(true)
+    expect(isCompetitor({ author: 'u/DubSports' })).toBe(true)
+    expect(isCompetitor({ author: '@keepscore.bsky.social' })).toBe(true)
+  })
+
+  it('drops a link post pointing at their site', () => {
+    // `domain` is the outbound link, not the Reddit thread: a competitor submitting their own
+    // site is the commonest shape of a post we must not turn up under.
+    expect(isCompetitor({ author: 'u/someone', domain: 'dubsports.io' })).toBe(true)
+  })
+
+  it('drops a comment sitting in a competitor thread', () => {
+    // The question may be genuine, and answering it there still reads as an ad in their house.
+    expect(isCompetitor({ author: 'u/curious', parent_author: 'u/dubsports' })).toBe(true)
+  })
+
+  it('KEEPS a post that merely names one, which is the best lead there is', () => {
+    // "dubsports is down, anywhere else to follow the score?" is the single most valuable thing
+    // this job can find. A rule that read the text would throw it away and say nothing.
+    const hit = toHits([result({
+      author: 'u/fan',
+      title: 'dubsports is down, anywhere else to follow WPBL scores?',
+    })], [], { now: NOW })
+    expect(hit).toHaveLength(1)
+    expect(hit[0].kind).toBe('question')
+  })
+
+  it('keeps everyone else', () => {
+    expect(isCompetitor({ author: 'u/baseballfan', domain: 'mlb.com' })).toBe(false)
+    expect(isCompetitor({})).toBe(false)
   })
 })
 
