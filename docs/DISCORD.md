@@ -29,14 +29,39 @@ There are also two things that **answer** in the server, which webhooks cannot d
 exactly one message tall. The id of the message it owns lives in `wpbl_discord_board_state`,
 not in an env var, so it survives a deleted message (it recreates and re-records).
 
-**Each game on the board links to its own watch-party event**, from a map built by hand once
-and then reused: put the invite links in
+**Each game on the board links to its own watch-party event**, from a map built once and
+then reused: put the event links in
 [`scripts/wpbl-discord-events.txt`](../scripts/wpbl-discord-events.txt), run
-`node scripts/map-wpbl-discord-events.mjs`, and it asks Discord's public invite API for each
-event's start time, matches it to the `wpbl_games` row starting at the same instant, and
-writes [`scripts/wpbl-event-urls.json`](../scripts/wpbl-event-urls.json), which the board
-script loads. Re-run it whenever the events are replaced; it prints its pairings and lists
-anything it could not match rather than guessing. No bot token: an event invite is public.
+`node scripts/map-wpbl-discord-events.mjs`, and it resolves each event's start time, matches
+it to the `wpbl_games` row starting at the same instant, and writes
+[`scripts/wpbl-event-urls.json`](../scripts/wpbl-event-urls.json), which the board script
+loads. Re-run it whenever the events are replaced; it prints its pairings, lists anything it
+could not match rather than guessing, and now also names any upcoming game left with no
+event at all. It refuses to write an empty map over a populated one.
+
+Two things about that map fail silently, and both have already happened:
+
+- **The invite in each link must belong to the channel the events live on.** An invite
+  carries a scheduled event only while the invite's channel IS the event's channel. The
+  watch parties moved from a voice channel to a stage channel on Aug 23, 2026, the old
+  invite stayed bound to the voice channel, and Discord stopped attaching the event to it:
+  HTTP 200, a perfectly valid invite, `guild_scheduled_event` absent. All twenty links on
+  the board became bare server invites with no RSVP, and nothing logged a thing. The fix
+  was one new invite created on the stage channel; re-running the mapper against it matched
+  all eleven remaining games at zero drift. Move the events again and this happens again,
+  so create the invite on the new channel FIRST, then re-run the mapper.
+
+  `https://discord.com/events/<guild>/<id>` links are the alternative: bound to the guild,
+  so they survive a channel move. The cost is that Discord has no public endpoint for that
+  form, so the mapper can only read those start times with `DISCORD_BOT_TOKEN` plus
+  `DISCORD_GUILD_ID` (which also lets it list the guild's events and skip the txt file
+  entirely). A same-channel invite needs no credential at all, which is why the txt file
+  ships that form.
+- **The map is keyed on `api_game_id`, never `wpbl_games.id`.** The ingest deletes phantom
+  duplicates by `api_game_id` and reinserts the real row later with a fresh uuid, so a
+  uuid-keyed map loses each game's entry days before it is played. Every past entry in the
+  original file had already rotted this way, which is why the day's own game kept showing
+  the generic fallback link.
 
 ### The box scores
 
