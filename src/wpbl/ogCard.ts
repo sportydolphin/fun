@@ -29,7 +29,7 @@ export interface WpblPlayerCard {
   title: string          // <title> — the browser tab and the search result
   ogTitle: string        // the unfurl's bold first line
   description: string
-  portraitPath: string   // /portraits/<slug>.webp — published by the build, may not exist
+  cardPath: string       // /cards/<slug>.webp, published by the build; may not exist
 }
 
 export function wpblPlayerCard(
@@ -46,7 +46,7 @@ export function wpblPlayerCard(
     title: `${player.name} — WPBL stats | sportydolphin.fun`,
     ogTitle: `${player.name} — ${subject}`,
     description: describeSeason(player, teamName, batting, pitching, games),
-    portraitPath: `/portraits/${slugifyName(player.name)}.webp`,
+    cardPath: `/cards/${slugifyName(player.name)}.webp`,
   }
 }
 

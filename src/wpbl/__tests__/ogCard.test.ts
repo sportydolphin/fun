@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, it, expect } from 'vitest'
 import { wpblPlayerCard, type WpblCardBatting, type WpblCardPitching } from '../ogCard'
 
@@ -85,8 +87,36 @@ describe('wpblPlayerCard', () => {
     expect(card.description).toContain('in 1 game')
   })
 
-  it('names the portrait by the same slug the app bundles it under', () => {
-    expect(wpblPlayerCard({ id: 'p3', name: 'Maïka Dumais', position: 'LHP' }, HEIGHTS, [], [], GAMES).portraitPath)
-      .toBe('/portraits/maika-dumais.webp')
+  it('names the card by the same slug the app bundles the headshot under', () => {
+    expect(wpblPlayerCard({ id: 'p3', name: 'Maïka Dumais', position: 'LHP' }, HEIGHTS, [], [], GAMES).cardPath)
+      .toBe('/cards/maika-dumais.webp')
+  })
+})
+
+describe('the generated share cards', () => {
+  // These are checked-in art, not build output, so nothing else notices when they fall out
+  // of step with the roster. The failure is silent and one-sided: a player whose headshot
+  // was added without rerunning scripts/make-wpbl-share-cards.py gets no og:image at all,
+  // because the edge confirms the file exists before pointing at it and quietly drops the
+  // tag when it does not.
+  // Resolved from the repo root, which is where vitest runs, because import.meta.url is
+  // not preserved through this config's transform.
+  const dir = (name: string) => readdirSync(join(process.cwd(), 'src/wpbl', name))
+    .filter(f => f.endsWith('.webp')).sort()
+
+  it('covers every bundled headshot', () => {
+    expect(dir('cards')).toEqual(dir('portraits'))
+  })
+
+  it('is 1200x630, which is the whole point of them', () => {
+    // Read out of the WebP itself so the check cannot pass on a stale expectation. A lossy
+    // VP8 frame states its size right after the 0x9d012a start code, 14 bits each, which is
+    // cheaper than pulling an image library in for two numbers. One file rather than all
+    // 118: they come out of one script in one pass, so they are all wrong or all right.
+    const buf = readFileSync(join(process.cwd(), 'src/wpbl/cards/maika-dumais.webp'))
+    const start = buf.indexOf(Buffer.from([0x9d, 0x01, 0x2a]))
+    expect(start).toBeGreaterThan(0)
+    expect(buf.readUInt16LE(start + 3) & 0x3fff).toBe(1200)
+    expect(buf.readUInt16LE(start + 5) & 0x3fff).toBe(630)
   })
 })

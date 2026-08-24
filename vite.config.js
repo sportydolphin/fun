@@ -1,11 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { wpblPortraitAssets } from './scripts/vite-plugin-wpbl-portraits.mjs'
+import { wpblImageAssets } from './scripts/vite-plugin-wpbl-images.mjs'
 import { wpblPreload } from './scripts/vite-plugin-wpbl-preload.mjs'
 
 export default defineConfig({
   root: '.',
-  plugins: [react(), wpblPortraitAssets(), wpblPreload()],
+  plugins: [react(), wpblImageAssets(), wpblPreload()],
   // Dev-server port can be assigned by tooling (e.g. Claude preview) via PORT.
   //
   // `strictPort` on the default branch, so a busy 5173 FAILS instead of quietly moving to 5174.

@@ -262,18 +262,19 @@ async function resolvePlayer(playerId: string, env: Env, url: URL): Promise<Reso
     // page's own identity is a redirect. `roster` is already in hand from slug resolution
     // upstream, so the uniqueness check costs nothing here.
     url: `${SITE}/wpbl/players/${wpblPlayerSlug(player, roster)}`,
-    image: await portraitUrl(card.portraitPath, env, url),
+    image: await cardUrl(card.cardPath, env, url),
     imageAlt: `${player.name}, ${teamName}`,
   }
 }
 
-// The headshot published at a stable path by scripts/vite-plugin-wpbl-portraits.mjs.
-// Confirmed present before we point at it: an unmatched path falls through to the SPA's
-// index.html with a 200, and aiming og:image at a page of HTML is worse than shipping no
-// image at all. The check is answered by Cloudflare's own asset store, not the network.
-async function portraitUrl(path: string, env: Env, url: URL): Promise<string | null> {
+// The 1200x630 share card published at a stable path by
+// scripts/vite-plugin-wpbl-images.mjs. Confirmed present before we point at it: an
+// unmatched path falls through to the SPA's index.html with a 200, and aiming og:image at
+// a page of HTML is worse than shipping no image at all. The check is answered by
+// Cloudflare's own asset store, not the network.
+async function cardUrl(path: string, env: Env, url: URL): Promise<string | null> {
   // No binding to check against (a local runner, a future platform change) — point at it
-  // anyway rather than drop the thumbnail for every player.
+  // anyway rather than drop the image for every player.
   if (env.ASSETS) {
     try {
       const res = await env.ASSETS.fetch(new Request(`${url.origin}${path}`, { method: 'HEAD' }))
@@ -304,20 +305,20 @@ function rewrite(page: Response, card: Resolved): Response {
     description: card.description,
   }
 
-  // Swapping the image means swapping the frame with it. The default card is a 1200x630
-  // landscape of the logo; a headshot is a portrait, and a portrait in a large-image
-  // card is centre-cropped to a band across the player's chin, so this one asks for the
-  // small square thumbnail instead. The two size tags describe the default cover and
-  // would be a lie about the headshot, so they are dropped rather than corrected: an
-  // unfurler that trusts them would reserve the wrong shape before fetching the image.
-  const dropped = new Set<string>()
+  // The player image is the same 1200x630 shape as the default cover, so the frame and
+  // the size tags carry over untouched.
+  //
+  // THIS USED TO SEND THE 512 HEADSHOT AND ASK FOR A SMALL SQUARE THUMBNAIL, which is the
+  // right request and only some platforms are listening. Bluesky reads og: alone: it never
+  // sees twitter:card, drops whatever it is given into one banner slot at roughly 1.91:1,
+  // and centre-cropped the square to a band across the player's face. Being handed a card
+  // already at 1.91:1 is the only instruction an unfurler that asks us nothing can follow,
+  // which is why scripts/make-wpbl-share-cards.py exists.
   if (card.image) {
     replacements['og:image'] = card.image
     replacements['og:image:alt'] = card.imageAlt
     replacements['twitter:image'] = card.image
-    replacements['twitter:card'] = 'summary'
-    dropped.add('og:image:width')
-    dropped.add('og:image:height')
+    replacements['twitter:card'] = 'summary_large_image'
   }
 
   return new HTMLRewriter()
@@ -328,7 +329,6 @@ function rewrite(page: Response, card: Resolved): Response {
       element(el) {
         const key = el.getAttribute('property') || el.getAttribute('name')
         if (!key) return
-        if (dropped.has(key)) return el.remove()
         const value = replacements[key]
         if (value) el.setAttribute('content', value)
       },
