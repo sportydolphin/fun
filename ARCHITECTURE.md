@@ -338,7 +338,7 @@ sequenceDiagram
 | `pull-feature-requests` | `0 5` | `pull-tasks` | Google Tasks → `docs/feature-requests.md` / feedback |
 | `build-sitemap` | `40 6` | `sitemap` | Rebuild `public/sitemap.xml` from the roster (one URL per player) and commit it **only if the URL set changed**: a push to main is a deploy, so an unconditional rewrite would ship one a day for nothing |
 | `wpbl-restock-watch` | `*/10 * * * *` | `watch-wpbl-restock` | Mirror the league's Shopify catalogue and announce new merch + restocks: quiet batched feed to the shop channel, loud `@everyone` for the shortlist. Notifies only, never buys (see [`docs/DISCORD.md`](docs/DISCORD.md)) |
-| `wpbl-mention-watch` | `*/15 * * * *` | `watch-wpbl-mentions` | Search Reddit and Bluesky for people asking where to follow a WPBL game, and digest the threads worth answering into a private Discord channel. **Finds threads, never replies to them**: the only place it posts is our own webhook. Facebook is absent because no permitted automated path to group content exists (see [`docs/DISCORD.md`](docs/DISCORD.md)) |
+| `wpbl-mention-watch` | `*/15 * * * *` | `watch-wpbl-mentions` | Search Reddit posts, Reddit comments (search does not index them, and the question is usually a reply in somebody else's game thread) and Bluesky for people asking where to follow a WPBL game, and digest the threads worth answering into a private Discord channel. **Finds threads, never replies to them**: the only place it posts is our own webhook. Facebook is absent because no permitted automated path to group content exists (see [`docs/DISCORD.md`](docs/DISCORD.md)) |
 | `wpbl-pbp-validation` | `0 8` | `validate-wpbl-pbp` | Check the league's play-by-play against the rules of baseball; records health to `wpbl_pbp_validation_runs`. **Never fails on findings** (see [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md)) |
 
 **The three game-dependent WPBL jobs carry a `3-10` season window**, matching the MLB ones.
@@ -561,7 +561,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - The Substack mirror (why it runs on Supabase and not Actions, and why no body text is stored) → [`docs/READING.md`](docs/READING.md)
 - SEO work that is not code (backlinks: who to contact, and the drafts) → [`docs/BACKLINKS.md`](docs/BACKLINKS.md)
 - Archive gallery: which photos ship, and the approval gate → [`docs/COMMONS_PHOTOS.md`](docs/COMMONS_PHOTOS.md)
-- Finding the people already asking where to follow a game (which platforms permit it, which need a credential, and why the job never replies) → [`scripts/watch-wpbl-mentions.mjs`](scripts/watch-wpbl-mentions.mjs) and the "mention watcher" section of [`docs/DISCORD.md`](docs/DISCORD.md)
+- Finding the people already asking where to follow a game (which platforms permit it, which need a credential, why a comment is judged differently from a post, and why the job never replies) → [`scripts/watch-wpbl-mentions.mjs`](scripts/watch-wpbl-mentions.mjs) and the "mention watcher" section of [`docs/DISCORD.md`](docs/DISCORD.md)
 - Reading, Highlights and Archive share ONE Home card, one segment painting at a time →
   [`src/wpbl/MediaShelf.tsx`](src/wpbl/MediaShelf.tsx). Three feeds, three tables, one surface:
   a new feed belongs in that card rather than as a fourth rail down the page

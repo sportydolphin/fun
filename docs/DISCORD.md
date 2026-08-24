@@ -217,8 +217,8 @@ feed without needing a row at all.
 
 ### The mention watcher
 
-`wpbl-mention-watch` runs every 15 minutes, searches Reddit and Bluesky for people talking
-about the WPBL, and digests the ones worth answering into a private channel.
+`wpbl-mention-watch` runs every 15 minutes, searches Reddit posts, Reddit comments and Bluesky
+for people talking about the WPBL, and digests the ones worth answering into a private channel.
 
 **It finds threads. It does not answer them.** The only place it ever posts is our own webhook.
 Do not give it a credential that would let it reply anywhere else: an automated reply in
@@ -278,9 +278,29 @@ reports from one source rather than alarming about the other.
 a watcher that has died. Every run is recorded in `wpbl_mention_watch_runs`, and if every
 configured source has been failing for six hours the job says so, once.
 
-Reddit search covers **link posts only**. A question asked as a reply inside somebody else's
-game thread is invisible here, which is worth knowing before wondering why a thread you found
-by hand never arrived.
+**Reddit is two sources, not one**, because its search indexes link posts and nothing else.
+The question this job exists to catch is more often a reply inside somebody else's game thread
+than a post of its own, so `searchRedditComments` sweeps the comment listings of a short list of
+subreddits (`COMMENT_SUBREDDITS`) on the same credential. It is registered separately in
+`SOURCES` so that post search going down does not cost the comment sweep, or the reverse.
+
+**A comment is judged differently from a post, and both halves of the rule carry weight.** The
+subject may come from the parent post's title, because the comment worth finding reads, in full,
+*"wait, where can I watch this?"*, under a thread titled "WPBL semifinal game thread": it names
+no league, so the post classifier returns null for the single most valuable thing here. But the
+intent has to come from the comment's own text, and **a comment can never be a plain `mention`**.
+Without that second half every one of four hundred comments under that thread inherits the league
+from the title and lands in the channel, one busy night buries a week of real questions, and the
+channel is muted by morning.
+
+**A comment listing cannot be asked for a time range.** It returns the newest hundred, so a
+subreddit busier than the page budget (3 pages, reaching for 45 minutes, three times the cadence)
+is one the sweep only ever sees a slice of, and nothing about that looks like a failure. So it is
+measured: when a sweep comes back short *with a cursor still left over*, it says which sub and how
+far back it actually reached. A **quiet** sub is short for an innocent reason, runs out of comments
+and returns no cursor, and is deliberately not warned about. A sub that is gone, private, or has
+banned us answers 404 or 403 and is skipped by name; every sub refusing is a real failure and is
+raised as one.
 
 ### The `/player` command
 

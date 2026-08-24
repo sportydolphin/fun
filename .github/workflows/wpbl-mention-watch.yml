@@ -12,6 +12,10 @@ name: WPBL Mention Watch
 # search API, and scraping them breaks the terms whichever account does it. Those two groups
 # are worked by hand; see docs/BACKLINKS.md.
 #
+# REDDIT IS TWO SOURCES. Its search indexes link posts and not comments, and the question this
+# exists to catch is usually a reply inside somebody else's game thread. The comment listings of
+# a short list of subreddits are swept separately, on the same credential, failing separately.
+#
 # BOTH SOURCES NEED A CREDENTIAL, and neither of them looks like it does. Reddit answers 403 to
 # every anonymous read (search.json, old.reddit.com, even /r/<sub>/new.json, from a residential
 # IP with an honest user-agent), and Bluesky's public AppView serves getProfile and searchActors

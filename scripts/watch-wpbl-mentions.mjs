@@ -21,6 +21,13 @@
  *
  * X IS ABSENT for a duller reason: search costs $200/month.
  *
+ * REDDIT IS TWO SOURCES, not one. Its search indexes link posts and not comments, and the
+ * question this exists to catch is more often a reply inside somebody else's game thread than
+ * a post of its own. So the comment listings of a short list of subreddits are swept
+ * separately, on the same credential, failing separately. What keeps that from drowning the
+ * channel is that a comment is only ever a question or a link to us, never a plain mention:
+ * see `classifyComment`.
+ *
  * SEEING AND ANNOUNCING ARE SEPARATE, and that is the one non-obvious thing in here. The
  * search looks back a week, so the first run can find dozens at once. Every hit is recorded
  * immediately; only a budgeted few per run are announced, and a row still holding
@@ -216,6 +223,42 @@ export function classify(text) {
   return { kind: 'mention', matched: subject }
 }
 
+/**
+ * What a COMMENT is, which is a different question from what a post is, and the difference is
+ * the whole reason this function exists rather than reusing `classify`.
+ *
+ * TWO RULES, PULLING OPPOSITE WAYS.
+ *
+ * The subject may come from the PARENT POST'S TITLE. The comment that matters most reads, in
+ * full, "wait, where can I watch this?", under a post titled "WPBL semifinal game thread". It
+ * names no league, so `classify` returns null for it, and the single most valuable thing this
+ * job could ever find would go past unseen. Reddit hands us `link_title` on every comment, so
+ * the parent is free to read.
+ *
+ * But the INTENT must come from the comment's OWN text, and a comment can never be a plain
+ * `mention`. Take that away and every one of the four hundred comments under that same game
+ * thread inherits the league from the title and lands in the channel, because the title alone
+ * makes each of them "the league, discussed". One game thread would bury a week of real
+ * questions, and the channel would be muted by the end of the night. A comment earns its place
+ * by asking something or by naming us. Nothing else does.
+ */
+export function classifyComment(body, parentTitle) {
+  const own = String(body ?? '').replace(/[‘’]/g, "'")
+  const parent = String(parentTitle ?? '').replace(/[‘’]/g, "'")
+
+  // Naming the site in a comment is worth seeing wherever it was said: it is a recommendation
+  // to thank someone for, or a complaint to answer today.
+  const site = found(own, SITE_TERMS)
+  if (site.length) return { kind: 'link', matched: [...site, ...found(own, SUBJECT_TERMS)] }
+
+  const intent = found(own, INTENT_TERMS)
+  if (!intent.length) return null
+  // The parent is read for the subject and for nothing else.
+  const subject = [...new Set([...found(own, SUBJECT_TERMS), ...found(parent, SUBJECT_TERMS)])]
+  if (!subject.length) return null
+  return { kind: 'question', matched: [...subject, ...intent] }
+}
+
 /** The searches each source runs. Deliberately broad: the narrowing is `classify`, locally,
  *  where it can be tested and changed without learning two query syntaxes. */
 export const QUERIES = ['WPBL', '"women\'s pro baseball"', 'sportydolphin']
@@ -230,9 +273,10 @@ const excerptOf = (text, max = 280) => {
 /**
  * Reddit's listing shape, flattened to what the digest needs.
  *
- * Link posts only. Reddit's search does not usefully cover comments, and the honest cost of
- * that is that a question asked as a reply inside somebody else's game thread is invisible
- * here. Worth knowing before wondering why a thread you saw by hand never arrived.
+ * Search covers LINK POSTS only, which is a limit of Reddit's search rather than a choice:
+ * comments are not in the index at all. The question this job exists to catch is more often a
+ * reply inside somebody else's game thread than a post of its own, so that half is swept
+ * separately, by `searchRedditComments` below, off each subreddit's own comment listing.
  */
 export function normaliseReddit(payload) {
   const children = payload?.data?.children ?? []
@@ -244,6 +288,9 @@ export function normaliseReddit(payload) {
       // changes when a post is edited, so it cannot be the key.
       external_id: `reddit:${d.name ?? `t3_${d.id}`}`,
       source: 'reddit',
+      // Spelled out rather than left to default, because `toHits` branches on it and a silent
+      // absence would read as a post whatever it actually was.
+      form: 'post',
       url: `https://www.reddit.com${d.permalink}`,
       author: d.author ? `u/${d.author}` : null,
       title: d.title ?? null,
@@ -298,6 +345,140 @@ export async function searchReddit(queries = QUERIES, fetchImpl = fetch) {
   return out
 }
 
+/**
+ * The subreddits whose comment listings are swept. THIS LIST IS THE TUNING KNOB, and it is
+ * short on purpose.
+ *
+ * A sub that does not exist, has gone private, or has banned us answers 404 or 403 and is
+ * SKIPPED with a line in the log rather than failing the sweep, so a speculative entry here
+ * costs one wasted request a run and nothing else.
+ *
+ * The real cost of a bad entry is the opposite one. A comment listing returns the NEWEST
+ * comments and cannot be asked for a time range, so a sub busy enough to produce more than
+ * MAX_COMMENT_PAGES * 100 comments between two runs is one this job only ever sees a slice of.
+ * That failure is invisible by construction, which is why `commentSpanMinutes` measures it and
+ * says so out loud. Adding r/AskReddit here would not break anything visibly; it would just
+ * quietly consume the budget and start missing r/baseball.
+ */
+export const COMMENT_SUBREDDITS = ['baseball', 'womenssports', 'womensbaseball', 'wpbl']
+
+// Three pages, 100 at a time. Enough that r/baseball is covered between runs on an ordinary
+// evening, bounded so a sub having a moment cannot spend the whole run on itself.
+const MAX_COMMENT_PAGES = 3
+
+// How far back the comment sweep tries to reach. Three times the 15-minute cadence, so one
+// skipped or slow run is caught up by the next rather than leaving a hole.
+const COMMENT_WINDOW_MINUTES = 45
+
+/**
+ * Reddit's comment listing, flattened to the same shape as a post.
+ *
+ * `form: 'comment'` is what makes `toHits` classify it against the parent title as well, and
+ * `parent_title` is what it reads. Both are load-bearing: see `classifyComment`.
+ */
+export function normaliseRedditComments(payload) {
+  const children = payload?.data?.children ?? []
+  return children
+    .filter(c => c?.kind === 't1' && c?.data)
+    .map(c => c.data)
+    .map(d => ({
+      external_id: `reddit:${d.name ?? `t1_${d.id}`}`,
+      source: 'reddit',
+      form: 'comment',
+      // ?context=3 so the link lands on the comment WITH the conversation above it. Answering
+      // well needs to know what was already said, and a permalink alone opens on an orphan.
+      url: `https://www.reddit.com${d.permalink}?context=3`,
+      author: d.author ? `u/${d.author}` : null,
+      // The thread the comment sits in, not the comment: the digest shows this as the heading
+      // and quotes the comment itself underneath, which is the order a human reads them in.
+      title: d.link_title ? `re: ${d.link_title}` : null,
+      parent_title: d.link_title ?? null,
+      text: d.body ?? '',
+      context: d.subreddit ? `r/${d.subreddit}` : null,
+      posted_at: d.created_utc ? new Date(d.created_utc * 1000).toISOString() : null,
+    }))
+}
+
+/** How many minutes of conversation a batch actually covers, which is the only way to know
+ *  whether the sweep saw the window or just the last ninety seconds of it. */
+export function commentSpanMinutes(rows, now = Date.now()) {
+  const stamps = rows.map(r => Date.parse(r.posted_at ?? '')).filter(Number.isFinite)
+  if (!stamps.length) return null
+  return (now - Math.min(...stamps)) / 60_000
+}
+
+/**
+ * The half of Reddit that search cannot see.
+ *
+ * A separate SOURCE rather than a second half of `searchReddit`, which costs one extra token
+ * request a run and buys the failure isolation the whole file is built on: post search going
+ * down must not cost the comment sweep, and a sub listing changing shape must not take the
+ * search results with it. It shares the credential and nothing else.
+ */
+export async function searchRedditComments(subs = COMMENT_SUBREDDITS, fetchImpl = fetch) {
+  const token = await redditToken(fetchImpl)
+  const headers = {
+    'User-Agent': USER_AGENT, Accept: 'application/json', Authorization: `Bearer ${token}`,
+  }
+
+  const out = []
+  const refused = []
+  for (const sub of subs) {
+    const rows = []
+    let after = null
+    try {
+      for (let page = 0; page < MAX_COMMENT_PAGES; page++) {
+        const url = `https://oauth.reddit.com/r/${encodeURIComponent(sub)}/comments`
+          + `?limit=100&raw_json=1${after ? `&after=${encodeURIComponent(after)}` : ''}`
+        const res = await fetchImpl(url, { headers, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
+        // A sub that is gone, private, or has banned us is not an outage. Say which, once, and
+        // carry on with the others.
+        if (res.status === 403 || res.status === 404) { refused.push(`r/${sub} (${res.status})`); break }
+        if (!res.ok) throw new Error(`Reddit returned ${res.status} for r/${sub}`)
+        const payload = await res.json()
+        const batch = normaliseRedditComments(payload)
+        // No new ids means the cursor was not honoured; paging on would fetch the same page
+        // until the budget ran out.
+        const before = rows.length
+        const seen = new Set(rows.map(r => r.external_id))
+        rows.push(...batch.filter(r => !seen.has(r.external_id)))
+        if (rows.length === before) break
+
+        after = payload?.data?.after ?? null
+        const span = commentSpanMinutes(rows)
+        if (!after || (span != null && span >= COMMENT_WINDOW_MINUTES)) break
+        await sleep(1_000)
+      }
+    } catch (err) {
+      // One sub failing is not the sweep failing. Everything gathered so far still counts.
+      console.warn(`⚠️   r/${sub}: ${err?.message ?? err}`)
+      continue
+    }
+
+    const span = commentSpanMinutes(rows)
+    // The invisible failure, made visible: the sweep ran, returned full pages, and still only
+    // reached back a few minutes. Nothing is wrong with the code; the sub is busier than the
+    // page budget, and anything asked before that window was never read. Either drop the sub
+    // or raise MAX_COMMENT_PAGES.
+    //
+    // A leftover cursor is what distinguishes this from a QUIET sub, which also spans very
+    // little and is fine: that one runs out of comments and Reddit returns no `after`, so it
+    // must not raise an alarm every fifteen minutes forever.
+    if (after != null && span != null && span < COMMENT_WINDOW_MINUTES) {
+      console.warn(`⚠️   r/${sub}: ${rows.length} comments reach back only ${Math.round(span)} min of the ${COMMENT_WINDOW_MINUTES} min window, and there is more to read. Anything asked before that was missed.`)
+    }
+    out.push(...rows)
+    await sleep(1_000)
+  }
+  if (refused.length) console.log(`Comment sweep skipped ${refused.join(', ')}.`)
+  // Every sub refusing is a real failure and must reach the caller: silently returning nothing
+  // is exactly how a source dies without anybody noticing.
+  if (refused.length === subs.length) {
+    throw new Error(`Every subreddit in the comment sweep refused: ${refused.join(', ')}`)
+  }
+  return out
+}
+
 // ─── Bluesky ────────────────────────────────────────────────────────────────
 
 /**
@@ -313,6 +494,7 @@ export function normaliseBluesky(payload) {
     return {
       external_id: `bluesky:${p.uri}`,
       source: 'bluesky',
+      form: 'post',
       url: handle && rkey ? `https://bsky.app/profile/${handle}/post/${rkey}` : String(p?.uri ?? ''),
       author: handle ? `@${handle}` : null,
       title: null,
@@ -380,6 +562,14 @@ const SOURCES = [
     hint: 'Set REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET from a free "script" app at reddit.com/prefs/apps. There is no anonymous mode any more.',
   },
   {
+    name: 'Reddit comments',
+    search: searchRedditComments,
+    // The same credential as the search above. Listed separately anyway, because the two fail
+    // for different reasons and each has to be able to report without the other.
+    configured: () => Boolean(REDDIT_ID && REDDIT_SECRET),
+    hint: 'Same REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET as the search above.',
+  },
+  {
     name: 'Bluesky',
     search: searchBluesky,
     configured: () => Boolean(BSKY_ID && BSKY_PASSWORD),
@@ -402,7 +592,13 @@ export function toHits(results, known, { now = Date.now(), lookbackDays = LOOKBA
   const hits = []
   for (const r of results) {
     if (seen.has(r.external_id)) continue
-    const verdict = classify(`${r.title ?? ''}\n${r.text ?? ''}`)
+    // A comment is judged against its parent post's title as well, and can never be a plain
+    // mention. `classifyComment` carries the reasoning; the short version is that "where can I
+    // watch this?" names no league, and that every other comment in the same thread would
+    // inherit one from the title if it could.
+    const verdict = r.form === 'comment'
+      ? classifyComment(r.text, r.parent_title)
+      : classify(`${r.title ?? ''}\n${r.text ?? ''}`)
     if (!verdict) continue
     // A missing timestamp is kept rather than dropped: an undated result is far more likely a
     // shape we did not expect than a decade-old post, and dropping it silently would hide it.

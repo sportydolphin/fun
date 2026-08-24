@@ -531,6 +531,35 @@ is retired.
 
 ## Shipped log
 
+### Aug 24, 2026: the half of Reddit that search cannot see
+
+The mention watcher shipped with a hole it documented honestly: Reddit's search indexes link
+posts and not comments, so *"wait, where can I watch this?"*, asked as a reply inside somebody
+else's game thread, went past unseen. That is not a corner case. It is the likeliest shape of
+the exact moment the job exists to catch, and the version that is a post of its own is the rarer
+one. `searchRedditComments` now sweeps the comment listings of a short list of subreddits on the
+same credential, registered as its own source so post search and the sweep fail separately.
+
+**The interesting part is that a comment cannot be judged the way a post is**, and the rule has
+two halves that pull against each other. The subject is allowed to come from the parent post's
+title, because the comment worth finding names no league at all: the post classifier returns null
+for it. But the intent has to come from the comment's own text, and **a comment can never be a
+plain mention**. Drop that half and every one of four hundred comments under the same game thread
+inherits the league from the title, one busy night buries a week of real questions, and the
+channel is muted by morning. `classifyComment` is separate from `classify` for that reason, with
+13 tests holding both halves down.
+
+**A comment listing also cannot be asked for a time range**: it hands back the newest hundred, so
+a subreddit busier than the page budget is one the sweep only ever sees a slice of, and a full
+page that reaches back ninety seconds looks exactly like a healthy one. It is measured instead of
+assumed. A short sweep *with a cursor still left over* names the sub and says how far back it got;
+a quiet sub, short for the innocent reason and holding no cursor, is deliberately silent, because
+an alarm that fires every fifteen minutes forever is an alarm nobody reads. A sub that is gone,
+private or has banned us is skipped by name, and every sub refusing is raised as a real failure.
+
+The subreddit list is the tuning knob and is short on purpose. A bad entry there costs nothing
+visible: it quietly spends the page budget and starts missing the sub that mattered.
+
 ### Aug 24, 2026: finding the people who are already asking
 
 Two Facebook posts got real traction, and the pattern underneath them is a recurring question in
