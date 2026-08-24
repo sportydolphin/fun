@@ -508,6 +508,35 @@ export function normaliseBluesky(payload) {
   })
 }
 
+/**
+ * Which of the two secrets is wrong, answered rather than guessed.
+ *
+ * `AuthenticationRequired: Invalid identifier or password` is deliberately vague on Bluesky's
+ * side, and a person cannot tell the two apart by looking: both secrets are opaque strings that
+ * look fine. But a handle resolves on the PUBLIC AppView with no credential whatsoever, so the
+ * identifier half can be checked on its own. If it resolves, the password is what is wrong, and
+ * that is the whole answer. Costs one request, and only on a failure that has already happened.
+ */
+async function whichHalfIsWrong(fetchImpl = fetch) {
+  const id = BSKY_ID
+  if (!id) return 'BLUESKY_IDENTIFIER is empty.'
+  if (id.startsWith('@')) return `BLUESKY_IDENTIFIER starts with "@". Bluesky wants "${id.slice(1)}", with no @.`
+  // An email is a legitimate identifier and there is nothing public to resolve it against, so
+  // say what can honestly be said rather than inventing a verdict.
+  if (id.includes('@')) return 'BLUESKY_IDENTIFIER looks like an email, which is valid but cannot be checked from here. Try the full handle instead, which can.'
+  if (!id.includes('.')) return `BLUESKY_IDENTIFIER is "${id}", which is not a full handle. It needs the domain too, e.g. "${id}.bsky.social".`
+  try {
+    const res = await fetchImpl(
+      `https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(id)}`,
+      { headers: { Accept: 'application/json', 'User-Agent': USER_AGENT }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
+    if (res.ok) return `The handle "${id}" resolves, so the identifier is right and BLUESKY_APP_PASSWORD is what is wrong. Generate a fresh App Password (Settings, Privacy and Security, App Passwords), keep its hyphens, and make sure it is not the account password.`
+    return `The handle "${id}" does not resolve (${res.status}), so BLUESKY_IDENTIFIER is what is wrong. Check the exact handle on your Bluesky profile page.`
+  } catch {
+    // The check is a courtesy. If it cannot run, the original error still stands on its own.
+    return 'Check BLUESKY_IDENTIFIER is the full handle (no leading @) and BLUESKY_APP_PASSWORD is an App Password rather than the account password.'
+  }
+}
+
 async function blueskyToken(fetchImpl = fetch) {
   const res = await fetchImpl('https://bsky.social/xrpc/com.atproto.server.createSession', {
     method: 'POST',
@@ -527,7 +556,9 @@ async function blueskyToken(fetchImpl = fetch) {
     const named = body?.error ? `${body.error}${body.message ? `: ${body.message}` : ''}` : await res.text().catch(() => '')
     const hint = body?.error === 'AuthFactorTokenRequired'
       ? ' Two-factor is on for this account. No stored secret can answer it: turn off email 2FA, or use an account without it.'
-      : ' Check BLUESKY_IDENTIFIER is the full handle (no leading @) or the account email, and that BLUESKY_APP_PASSWORD is an App Password from Settings rather than the account password.'
+      // "Invalid identifier or password" cannot say WHICH, and the two have nothing in common
+      // to check. So ask the half that can be checked without a credential.
+      : ` ${await whichHalfIsWrong(fetchImpl)}`
     throw new Error(`Bluesky refused the session (${res.status}) ${String(named).slice(0, 200)}.${hint}`)
   }
   const jwt = (await res.json())?.accessJwt
@@ -723,7 +754,7 @@ function outageMessage(hours, errors) {
   const forHow = Number.isFinite(hours) ? `for ${Math.floor(hours)}h` : 'since this job was set up, not once'
   return [
     `⚠️  **Mention watcher is blind.** No source has answered ${forHow}.`,
-    ...errors.map(e => `• \`${String(e).slice(0, 200)}\``),
+    ...errors.map(e => `• \`${String(e).slice(0, 500)}\``),
     'It will keep trying and will say nothing more until it recovers.',
   ].join('\n')
 }
