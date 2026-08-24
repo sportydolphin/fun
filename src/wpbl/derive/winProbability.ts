@@ -213,6 +213,11 @@ export interface WinProbPoint {
   runs: number
   /** Home runs less away runs, before the play. */
   margin: number
+  /** The scoreboard AFTER the play, summed from `runsOnPlay` the same way the margin is.
+   *  A play row does not carry the score, and a surface that shows one moment of a game
+   *  wants it: 60% means something different at 1-0 than at 8-7. */
+  homeScore: number
+  awayScore: number
 }
 
 export interface GameWinProb {
@@ -276,7 +281,7 @@ export function gameWinProb(
     if (p.team_id === homeTeamId) home += runs
     else away += runs
 
-    points.push({ play: p, before, after: before, swing: 0, runs, margin })
+    points.push({ play: p, before, after: before, swing: 0, runs, margin, homeScore: home, awayScore: away })
   }
 
   // Is the log the whole game? A final game whose last recorded play is in the seventh or

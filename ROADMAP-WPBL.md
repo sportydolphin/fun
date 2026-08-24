@@ -48,7 +48,8 @@ Filters sheet and a team cut · Teams · Pitch by pitch · Run value, experiment
 hidden until the league publishes radar again · Draft) · Teams (ranked club cards with
 record, form, run differential and next game, plus a head-to-head grid) → team pages (record,
 results, opponent splits, season totals, leaders, roster with inline stats, lineup-history
-and pitching-usage grids, all under a pinned club switcher) · Game Center (recap, box score, play-by-play, pitch data) ·
+and pitching-usage grids, all under a pinned club switcher) · Game Center (recap, with a win
+probability graph any moment of the game can be read off, box score, play-by-play, pitch data) ·
 Player pages at `/wpbl/players/<slug>` (batting/pitching/fielding cards, game log,
 pitch-location maps, shareable links that unfurl) · search · live polling · push reminders · a fan Discord integration
 (board, final-score box scores, YouTube highlight reels, `/player` slash command, giveaway
@@ -64,8 +65,9 @@ against the rules of baseball and our own corrections are applied as a read-time
 (`wpbl_play_corrections`), never written into the mirror.
 
 **What it does NOT have:** predictions/pick'em on the site itself (the Discord game is not the
-same thing), win probability (the Run value board is the run half of it; the win model is what
-is missing), daily standouts, a league primer or stat glossary, series records anywhere but the
+same thing), a season WPA leaderboard or any ranking of games by how much they moved (the win
+model that would feed both is live, and `excitement` is computed on every game and drawn
+nowhere), daily standouts, a league primer or stat glossary, series records anywhere but the
 bracket, and almost nothing that survives Sep 22 (the Commons archive gallery and the Run value
 board are the two exceptions, and neither is a reason to visit twice).
 
@@ -267,7 +269,8 @@ left for it to pay off.
 
 ### 6. Win probability in Game Center 🔬
 
-✅ *built Aug 23, 2026, behind the experiments switch: see the log.*
+✅ *built Aug 23, 2026, readable play by play by holding a finger on it, and live for everyone
+from the same day: see the log.*
 
 The fiddly part was supposed to be a credible model for a seven-inning league with no
 history, and it turned out the run-value work had already paid for it. An empirical
@@ -522,6 +525,91 @@ is retired.
 ---
 
 ## Shipped log
+
+### Aug 23, 2026: win probability, and a way to read it with a thumb
+
+The model is in `derive/winProbability.ts` and the argument for it is in its header: an
+empirical win-probability table is out of reach here by three orders of magnitude, but nothing
+has to be looked up. The run-expectancy walk already measures how many runs follow each
+base-out state, and keeping that as a histogram rather than a mean gives the two distributions
+a win model needs; from there it is exact dynamic programming backwards from the last out. No
+simulation, no seed, so the same game always draws the same chart.
+
+The card is `WinProbView.tsx`, at the top of the recap, and not gated: it shipped straight to
+everyone, since the thing behind the experiments switch is the Run value BOARD, whose numbers a
+reader has to take on trust, while this draws a line whose headline claim they can check against
+the score at the top of the same sheet. Every box
+in it is a FIXED height, reserved from the first paint, because it needs the league's whole play
+log rather than this game's and therefore lands a second late: unreserved, it shoved the rest of
+the recap 310px down the screen on arrival.
+
+**The readout is one shape in both states, and it always names a play.** Three rows: what this
+moment is and the win probability at it, the play itself, and the score it left (at rest, the
+hint that the chart can be read at all). Resting, the card sits on the play that won the game;
+holding the plot moves that same readout along the line, which teaches the gesture better than
+the hint does. The first cut had a second layout for a rout, where the card dropped the play
+entirely and printed prose about there being no swing, which is a non-answer in the most
+valuable 64px on the card. `SWING_FLOOR` survives, but it now decides the WORDING rather than
+whether a reader gets a play: "swing of the game" where one play really turned it, "biggest
+moment" where nothing did, and never "swing" for a game with no winner to have swung to. The
+17-3 on Aug 14 reads "Biggest moment · 1st, SF 56% → 64%", which is honest and is still an
+answer.
+
+**Reading it is a hold, not a hover, and that changed where the answer goes.** The MLB
+section's equivalent chart is `onMouseMove` with a floating tooltip, which on a phone means
+the feature does not exist. Here the gesture is native touch handlers on the plot: a press
+commits to scrubbing once it has held still for 220ms or moved sideways past 8px, and a finger
+heading up or down the page is released instantly, because this is 150px of a tab people
+scroll through and swallowing that gesture would be worse than the feature is good. Once it
+has the gesture it `preventDefault`s, which is why the listeners are native and non-passive:
+React registers `touchmove` on its root as passive and drops the call.
+
+The readout goes in the caption box, which is already there and already that size, rather than
+in a floating window that would cover the chart and sit under the hand pointing at it. **And
+the box moved above the plot**, which is the part worth remembering. Game Center is a sheet,
+and between the line score, the highlight reel, the tab row and the recap's opening line, the
+Recap pane hands this card about 220px of a 690px screen. With the readout last, the only part
+that answers the question was below the fold, along with the hint advertising that the chart
+can be held at all. Above the plot it is on screen from the moment the card is, and a finger
+on the chart is no longer on top of it. The same pass found the box clipping its own third
+line at 375px, a 110-character sentence in a box built for less, which is what settled the
+shape it has now: three rows, the play held to ONE of them with the batter's name giving way
+first (`useWpblName`, as everywhere else in the section), and a height sized to that worst
+case. 64px, down from 74, and the plot gives up 18px on a phone as well. The card went 299px
+to 275px while gaining the readout, and fits whole in the pane it lives in.
+
+**The header was the other half of the problem, and the reel paid for it.** Game Center's fixed
+header (line score, conditions, highlight reel, tab row) came to more than half a 690px phone
+screen, and every tab underneath was living on what was left. The reel moved to the foot of the
+Recap tab, where it is a fine thing to find after reading what happened and costs the other tabs
+nothing: the Recap pane went from 306px to 397px, which is the difference between the win
+probability card being clipped and fitting whole. `GameDetail` keeps one copy of the reel in the
+no-box-score branch, since a final game with no lines draws no tabs and would otherwise lose its
+video.
+
+**Three handlers already owned touches in that sheet, and the chart is the fourth.** Game
+Center is the busiest gesture surface in the section, so the rules are worth writing down:
+
+| gesture, starting on the chart | who takes it |
+| --- | --- |
+| Drag down, no hold, pane at its top | the sheet: it dismisses, exactly as from anywhere else |
+| Drag down, no hold, pane scrolled | the pane: it scrolls, nothing is prevented |
+| Drag down after a 220ms hold | the scrub, and only the scrub |
+| Drag sideways | the scrub. The pager is out (`data-swipe-lock`) |
+| Drag sideways on any other recap content | the pager, as before |
+| Tap | the scrub, as a peek |
+| Escape with a readout up | the scrub closes it; the sheet stays open |
+| Escape with no readout | the sheet closes |
+
+Two mechanisms hold that up. `data-swipe-lock` in `SwipeableViews` bails at `touchstart` for
+any element inside it, unlike `ownsHorizontalScroll` beside it, which is about a scroller
+having room left and is overridden by a hard flick; without it a drag across the chart paged
+to the box score. And an ENGAGED scrub calls `stopPropagation` as well as `preventDefault`,
+because `useSheetDrag` reads touchmove on the sheet itself: preventing the default stops the
+browser scrolling and does nothing at all about another JavaScript handler, so a hold and a
+drag down was throwing the whole modal off the screen while the reader thought they were
+reading it. Both are scoped to a deliberate gesture, so every touch that merely passes over
+the chart on its way somewhere still belongs to whoever it was going to.
 
 ### Aug 23, 2026: the Stats tab, rebuilt around a phone
 

@@ -211,6 +211,13 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
 
     const onStart = (e: TouchEvent) => {
       if (animRef.current || e.touches.length !== 1) { g.current.tracking = false; return }
+      // Something inside owns horizontal drags outright (the win probability chart, which is
+      // scrubbed by dragging along it). Unlike `ownsHorizontalScroll` below, this is not a
+      // question of having room left to scroll and it is not overridden by a hard flick:
+      // there is no gesture over that element the pager should ever take.
+      if (e.target instanceof Element && e.target.closest('[data-swipe-lock]')) {
+        g.current.tracking = false; return
+      }
       const t = e.touches[0]
       g.current = {
         tracking: true, lock: null, startX: t.clientX, startY: t.clientY,

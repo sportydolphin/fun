@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblGameDetails, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllRunValuePlays, LIVE_POLL_MS } from './api'
-import { wpblAccent, wpblFullName, outsToIp, playedInnings, formatGameTime } from './constants'
+import { wpblAccent, wpblFullName, outsToIp, playedInnings, formatGameTime, relativeDayLabel } from './constants'
 import { LiveBanner, useLiveGame } from './Live'
 import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
@@ -1030,12 +1030,10 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   // 260ms slide, and by the time the recap has anything to draw the model usually has too.
   // Both calls are idempotent and cached by the layer beneath, so this is a head start and
   // never a second fetch.
-  const experiments = useExperiments()
   useEffect(() => {
-    if (!experiments) return
     preloadWinProb()
     fetchWpblAllRunValuePlays().catch(() => { /* the card retries on its own */ })
-  }, [experiments])
+  }, [])
 
   // Resolve this game's recap video. Cheap shared read (deduped + cached by the api layer);
   // revalidates in the background so a recap that lands after the game repaints on next open.
@@ -1073,7 +1071,10 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   const hasLines = lines.batting.length > 0 || lines.pitching.length > 0
   const awayWon = final && (game.away_score ?? 0) > (game.home_score ?? 0)
   const homeWon = final && (game.home_score ?? 0) > (game.away_score ?? 0)
-  const dateLabel = new Date(`${game.game_date}T00:00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+  // The same label the scoreboard chips carry, so a game called "Yesterday" on Home is still
+  // "Yesterday" once it is opened. It falls back to a written date beyond the two days a
+  // reader orients around, which is what the old hand-rolled version always produced.
+  const dateLabel = relativeDayLabel(game.game_date)
   const showScore = final || live
 
   const scoreLine = (team: WpblTeam | undefined, score: number | null, won: boolean) => (
@@ -1121,7 +1122,10 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
 
   return (
     <ModalShell
-      eyebrow={final ? `Final${game.innings && game.innings !== 7 ? ` / ${game.innings}` : ''}` : live ? '● Live' : `${dateLabel}${game.start_time ? ` · ${formatGameTime(game.game_date, game.start_time)}` : ''}`}
+      // A final game says WHEN it was: the modal is opened from Home, from Schedule and from a
+      // shared link, and "Final" on its own is the one thing on the header that could belong
+      // to any night of the season. A live game does not, because a live game is now.
+      eyebrow={final ? `Final${game.innings && game.innings !== 7 ? ` / ${game.innings}` : ''} · ${dateLabel}` : live ? '● Live' : `${dateLabel}${game.start_time ? ` · ${formatGameTime(game.game_date, game.start_time)}` : ''}`}
       onClose={onClose}
       maxWidth={520}
       // A sheet on a phone: this is the most-opened surface in the section, every game row on
@@ -1160,15 +1164,12 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
           {game.venue && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', px: 2, mt: 1 }}>{game.venue}</Typography>}
           <GameConditions details={details} />
 
-          {/* Recap highlight: shown for a finished game the league has posted video for. */}
-          {final && video && (
-            <Box sx={{ px: 2, mt: 1.5 }}><GameHighlightCard video={video} /></Box>
-          )}
-          {/* The written recap, directly beneath the reel. Watch it, then read about it,
-              then scroll into the box score below: three views of one night, which is the
-              whole reason this section holds both the stats and the writing. */}
+          {/* The written recap. The highlight reel used to sit directly above it here and now
+              renders at the foot of the Recap tab instead: everything in this header block is
+              paid for by every tab, and on a phone the header had grown past half the screen
+              (see the note in RecapCard). This card is a paragraph and stays. */}
           {final && story && (
-            <Box sx={{ px: 2, mt: 1 }}><GameStoryCard article={story} /></Box>
+            <Box sx={{ px: 2, mt: 1.5 }}><GameStoryCard article={story} /></Box>
           )}
         </Box>
 
@@ -1202,7 +1203,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
               onIndexChange={i => setTab(tabs[i].value)}
               panels={tabs.map(t => (
                 t.value === 'recap' && away && home ? (
-                  <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} onOpenPlayer={onOpenPlayer} />
+                  <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} video={final ? video : null} onOpenPlayer={onOpenPlayer} />
                 ) : t.value === 'box' && away && home ? (() => {
                   const shown = boxTeam === 'home' ? home : away
                   return (
@@ -1231,6 +1232,9 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
               title="Box score not available yet"
               hint="The feed has not posted a box score for this game."
             />
+            {/* No lines means no tabs, so there is no Recap tab holding the reel. A game with
+                video and no box score is exactly the game somebody wants the video from. */}
+            {video && <Box sx={{ mt: 2 }}><GameHighlightCard video={video} /></Box>}
           </Box>
         ) : away && home ? (
           // Unplayed game: a pre-game matchup card comparing the two clubs' season stats,

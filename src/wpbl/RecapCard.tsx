@@ -1,11 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblGamePlay, WpblRecapPlay } from './types'
+import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblGamePlay, WpblRecapPlay, WpblVideo } from './types'
 import { buildRecap, leagueRecapContext, type GameRecap, type RecapStar } from './derive/recap'
 import { fetchWpblGameLines, fetchWpblGameRecapPlays } from './api'
 import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, wpblNameStages } from './ui'
 import { WPBL_ACCENT, relativeDayLabel, wpblFullName } from './constants'
-import { useExperiments } from '../ExperimentsContext'
+import { GameHighlightCard } from './Highlights'
 
 const MEDAL = ['🥇', '🥈', '🥉']
 
@@ -159,8 +159,8 @@ function useFitKey(): [(node: HTMLDivElement | null) => void, number] {
 // ── Full recap (GameDetail "Recap" tab) ──────────────────────────────────────────
 
 /** The win-probability card, which pulls in the league's whole play log and a model to draw
- *  itself. Lazy so that weight lands only on a reader who has experiments on and has opened a
- *  finished game, rather than in the WPBL bundle everybody downloads.
+ *  itself. Lazy so that weight lands only on a reader who has opened a finished game, rather
+ *  than in the WPBL bundle everybody downloads.
  *
  *  `preloadWinProb` is the same import, called early by Game Center the moment it opens (see
  *  GameDetail). The module registry dedupes it, so by the time Suspense asks for the component
@@ -169,7 +169,7 @@ function useFitKey(): [(node: HTMLDivElement | null) => void, number] {
 const WinProbView = lazy(() => import('./WinProbView'))
 export const preloadWinProb = () => { void import('./WinProbView') }
 
-export function GameRecapView({ game, teams, batting, pitching, plays, names, games = [], onOpenPlayer }: {
+export function GameRecapView({ game, teams, batting, pitching, plays, names, games = [], video, onOpenPlayer }: {
   game: WpblGame
   teams: Map<string, WpblTeam>
   batting: WpblBattingLine[]
@@ -177,6 +177,7 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
   plays: WpblGamePlay[]
   names: Map<string, WpblPlayer>
   games?: WpblGame[]   // full schedule, so the recap verbs calibrate to the league's run environment
+  video?: WpblVideo | null   // the league's highlight reel, when there is one: see the note where it renders
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
   const nameOf = useMemo(() => (id: string) => names.get(id)?.name ?? '—', [names])
@@ -184,24 +185,22 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
   const recap = useMemo(() => buildRecap(game, teams, batting, pitching, plays, nameOf, ctx),
     [game, teams, batting, pitching, plays, nameOf, ctx])
   const [starsRef, starsWidth] = useFitKey()
-  const experiments = useExperiments()
   if (!recap) return null
 
   return (
     <Box sx={{ px: 2, pb: 2, pt: 0.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Box>
-        <Typography sx={{ fontSize: '1.15rem', fontWeight: 700, lineHeight: 1.2 }}>{recap.headline}</Typography>
-        <Typography sx={{ fontSize: '0.9rem', color: 'text.secondary', mt: 0.75, lineHeight: 1.35 }}>{recap.blurb}</Typography>
-      </Box>
+      {/* NO HEADLINE OR BLURB HERE, and that is not an omission. "Heights edge Queens / the
+          Heights held on for an 8-7 win" is written for a reader who cannot see the score,
+          which is exactly the Home card's job and exactly not this one's: in Game Center the
+          line score sits three inches above it, with the winner in bold, so the headline
+          spends 87px of a phone sheet restating what the header already said. LastGameCard
+          still renders both, from the same `buildRecap`. */}
 
-      {/* Above the feats and the stars: the chart is the shape of the game, and the things
-          under it are details of the same game. Nothing else in the recap answers "was this
-          close" in one look. */}
-      {experiments && (
-        <Suspense fallback={null}>
-          <WinProbView game={game} teams={teams} plays={plays} games={games} />
-        </Suspense>
-      )}
+      {/* First, then: the chart is the shape of the game, and the things under it are details
+          of the same game. Nothing else in the recap answers "was this close" in one look. */}
+      <Suspense fallback={null}>
+        <WinProbView game={game} teams={teams} plays={plays} games={games} />
+      </Suspense>
 
       {recap.feats.length > 0 && (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
@@ -247,6 +246,15 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
           ))}
         </Box>
       )}
+
+      {/* The league's highlight reel, at the foot of the recap.
+          It used to sit in the modal's fixed header, above the tab row, where it cost every
+          tab about 90px it never got back: the header (line score, conditions, reel, tabs)
+          took more than half a 690px phone screen, and the Recap pane was left with 306px to
+          draw a 299px card in. A reel is a nice thing to find at the end of a recap and a poor
+          thing to spend a header on, so it moved down here. GameDetail keeps a copy for the
+          game that has video but no box score, since that game has no Recap tab to put it in. */}
+      {video && <GameHighlightCard video={video} />}
 
     </Box>
   )

@@ -4,6 +4,29 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.48.1',
+    date:    '2026-08-23',
+    title:   'Win probability, in every recap',
+    changes: [
+      {
+        short: 'Every finished game now opens with the shape of the game',
+        full:  'The Recap tab of a finished game starts with a win probability graph: one line across the whole game, each club holding the share of it their chances were worth at the time. It is worked out from this league’s own play-by-play rather than borrowed from somewhere else, so it prices a WPBL situation by how the WPBL actually scores. It reads the situation only, which the ⓘ beside it says out loud: who is pitching, who is at the plate, and how the two clubs have played all season are invisible to it.',
+      },
+      {
+        short: 'The highlight reel moved to the end of the recap',
+        full:  'Game Center opened with the line score, the highlight reel and the tab row all pinned above the tabs, which on a phone was more than half the screen before a single tab had drawn anything. The reel is at the foot of the Recap tab now, which is a good place to find it once you have read what happened, and the tabs themselves are about 90px taller everywhere as a result. A finished game the league has not posted a box score for still shows its video, since that game has no recap to put it at the end of.',
+      },
+      {
+        short: 'The win probability card always names the play',
+        full:  'The line above the graph used to go blank of plays in a one-sided game: where nothing had swung it, it said so and left it there, which is a non-answer in the most useful part of the card. It now always names a moment, and the label says what that moment is worth: the swing of the game where one play really did turn it, the biggest moment where the game was never in doubt. It reads the same three lines whether you are holding the graph or not, so a finger landing on it moves a readout that is already there: the inning, the two clubs’ chances, the play, and the score it left.',
+      },
+      {
+        short: 'Hold the win probability graph to read any moment of the game',
+        full:  'The graph in a game’s recap shows how the game swung, and now it will tell you what did the swinging. Press and hold anywhere on it and the line above it changes to that moment: which half of which inning, how many were out, what the two clubs’ chances were before and after, and the play itself. Slide your finger along the graph to walk through the game, and lift it to go back to the summary. The reading sits above the graph rather than below it, so it is on screen without scrolling and your finger is not on top of it. It works the same way with a mouse by hovering, and with the arrow keys once the graph is selected.',
+      },
+    ],
+  },
+  {
     version: '1.48.0',
     date:    '2026-08-23',
     title:   'The Stats tab, rebuilt for a phone',

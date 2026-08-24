@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Box, Typography } from '@mui/material'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Box, Typography, useMediaQuery } from '@mui/material'
 import { fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays } from './api'
 import {
   buildWinProbModel, gameWinProb, fmtWinPct, type GameWinProb, type WinProbPoint,
 } from './derive/winProbability'
 import { parsePlay } from './derive/playByPlay'
-import { wpblAccent, wpblFullName } from './constants'
-import { CARD_BORDER, TapTip, useWpblDark } from './ui'
-import { ExperimentalChip } from '../ExperimentsContext'
+import { wpblAccent } from './constants'
+import { CARD_BORDER, TapTip, useWpblDark, useWpblName } from './ui'
 import type { WpblGame, WpblGamePlay, WpblRunValuePlay, WpblTeam } from './types'
 
 /**
@@ -55,16 +54,37 @@ const AXIS_LABEL_H = 12
  * whole play log, not this game's. Reserving the chart alone got the jump from 310px down to
  * 101px, which is still the recap visibly lurching once the model lands.
  *
- * So the caption is a fixed box, and BOTH things that can go in it are written to fill about
- * three lines: the swing of the game where there was one, and where there was not, what the
- * game did instead. That second line is why there is copy here at all rather than an empty
- * reserved gap, which would read as something failing to load.
+ * So the readout is a fixed box, and it always has something in it: an empty reserved gap
+ * reads as something that failed to load.
+ *
+ * 64px is the whole of it, measured at 375px: the label row, ONE line of play, and the note.
+ * It is a fixed height rather than a fitted one because the text changes under a moving
+ * finger, and a box that resized as it did would be the one thing this card must never do.
+ * That is also why the play is one line and not two: the height has to be the worst case, so
+ * every game pays for the longest sentence any game could produce.
  */
-const CAPTION_H = 74
+const CAPTION_H = 64
 
-/** The card's own height. Tall enough for the shape to read, short enough that the recap it
- *  sits inside is still a recap. */
-const CHART_H = { xs: 150, sm: 178 }
+/** The plot's own height. Tall enough for the shape to read, short enough that the recap it
+ *  sits inside is still a recap. The phone figure pays for the readout above it: Game Center
+ *  is a sheet, and the card only gets about 220px of it before the fold. */
+const CHART_H = { xs: 132, sm: 178 }
+
+/**
+ * Reading the chart with a finger.
+ *
+ * A press has to be told apart from the start of a scroll, because this card is 150px of a tab
+ * people scroll through, and swallowing that gesture would be a far worse bug than the feature
+ * is a feature. So a touch commits to scrubbing only once it has HELD still for `HOLD_MS`, or
+ * moved sideways past `SLOP_PX`; a finger heading up or down the page is let go of instantly.
+ *
+ * `LINGER_MS` is why the readout does not vanish on release: lifting a finger is how you stop
+ * covering the chart, not a statement that you are done reading. It also lets a plain tap ask
+ * the question, since a tap is a hold that ended early.
+ */
+const HOLD_MS = 220
+const SLOP_PX = 8
+const LINGER_MS = 2600
 
 interface Props {
   game: WpblGame
@@ -114,6 +134,9 @@ function WinProbFrame({ game, teams }: { game: WpblGame; teams: Map<string, Wpbl
   return (
     <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden' }}>
       <CardHeader />
+      {/* Same order and the same boxes as the real card, or the recap moves when the model
+          lands. The readout's box is reserved even though the frame has nothing to put in it. */}
+      <Box sx={{ height: CAPTION_H, mb: 1, borderBottom: '1px solid', borderColor: 'divider' }} />
       <Box sx={{ position: 'relative', height: CHART_H }}>
         <Box aria-hidden sx={{
           position: 'absolute', left: 0, right: 0, top: '50%',
@@ -124,7 +147,6 @@ function WinProbFrame({ game, teams }: { game: WpblGame; teams: Map<string, Wpbl
       </Box>
       <Box sx={{ height: AXIS_H, mt: '2px' }} />
       <Box sx={{ height: AXIS_LABEL_H }} />
-      <Box sx={{ height: CAPTION_H, mt: 0.5, borderTop: '1px solid', borderColor: 'divider' }} />
     </Box>
   )
 }
@@ -143,9 +165,153 @@ function CardHeader() {
           fontSize: '0.6rem', fontWeight: 800, lineHeight: 1,
         }}
       >i</TapTip>
-      <Box sx={{ ml: 'auto' }}><ExperimentalChip /></Box>
     </Box>
   )
+}
+
+/**
+ * Which play the reader is pointing at, or null when they are not pointing at one.
+ *
+ * TOUCH IS HAND-ROLLED AND NATIVE, for two reasons that both matter. React registers
+ * `touchmove` on its root as PASSIVE, so `preventDefault` from an `onTouchMove` prop is
+ * ignored with a console warning, and once the scrub has engaged it must stop the pane
+ * scrolling under the finger. And the gesture has to be claimed before the browser starts
+ * scrolling: after a native scroll is under way, nothing can call it back.
+ *
+ * The tab pager is the other half of this. It owns horizontal drags everywhere inside Game
+ * Center, so a drag across the chart used to page to the box score; `data-swipe-lock` on the
+ * plot (see SwipeableViews) is what hands this gesture back.
+ *
+ * Mouse and keyboard come in as ordinary React props, since neither needs any of the above:
+ * a pointer is already unambiguous, and arrow keys make the chart readable without a
+ * pointer at all.
+ */
+function useChartScrub(count: number) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [index, setIndex] = useState<number | null>(null)
+
+  const at = useCallback((clientX: number) => {
+    const el = ref.current
+    if (!el || count < 2) return
+    const r = el.getBoundingClientRect()
+    // The inverse of the chart's own x(): the plot spans the full width, evenly per play.
+    const i = Math.round(((clientX - r.left) / Math.max(r.width, 1)) * (count - 1))
+    setIndex(Math.min(count - 1, Math.max(0, i)))
+  }, [count])
+
+  const step = useCallback((by: number) => {
+    setIndex(i => {
+      if (count < 2) return null
+      const next = i == null ? (by > 0 ? 0 : count - 1) : i + by
+      return Math.min(count - 1, Math.max(0, next))
+    })
+  }, [count])
+
+  // The live gesture, in a ref rather than in state: the move handler runs on every frame of
+  // a drag and must not wait on a render to know what the last one decided.
+  const g = useRef({ x: 0, y: 0, hold: 0, linger: 0, engaged: false, live: false })
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const s = g.current
+    const dropHold = () => { window.clearTimeout(s.hold); s.hold = 0 }
+
+    /**
+     * Take the gesture, from the browser AND from the two handlers above this one.
+     *
+     * `preventDefault` alone only stops the SCROLL. Game Center is a bottom sheet, and
+     * `useSheetDrag` reads touchmove on the sheet itself to let a downward drag throw it off
+     * the screen: it bails on a horizontal drag and on a scroller that has somewhere to go,
+     * neither of which describes a finger held on this chart, so a hold-then-drag-down was
+     * dismissing the whole modal while the reader thought they were reading it. Preventing
+     * the default does nothing about that, because that handler is JavaScript and not the
+     * browser. Stopping the event from reaching it does.
+     *
+     * Only ever from an ENGAGED scrub, which is a deliberate hold or a sideways drag. A touch
+     * that merely passes over the chart on its way down the page never gets here, so the
+     * sheet keeps every gesture a reader means for it.
+     */
+    const claim = (e: TouchEvent) => { e.preventDefault(); e.stopPropagation() }
+
+    const onStart = (e: TouchEvent) => {
+      window.clearTimeout(s.linger)
+      // A second finger means a pinch-zoom, which is the browser's gesture and not ours.
+      if (e.touches.length !== 1) { s.live = false; s.engaged = false; dropHold(); return }
+      const t = e.touches[0]
+      s.x = t.clientX; s.y = t.clientY; s.live = true; s.engaged = false
+      dropHold()
+      s.hold = window.setTimeout(() => { s.engaged = true; at(s.x) }, HOLD_MS)
+    }
+
+    const onMove = (e: TouchEvent) => {
+      if (!s.live) return
+      const t = e.touches[0]
+      if (s.engaged) { claim(e); at(t.clientX); return }
+      const dx = t.clientX - s.x
+      const dy = t.clientY - s.y
+      if (Math.abs(dy) > SLOP_PX && Math.abs(dy) >= Math.abs(dx)) { s.live = false; dropHold(); return }
+      if (Math.abs(dx) > SLOP_PX) { dropHold(); s.engaged = true; claim(e); at(t.clientX) }
+    }
+
+    const onEnd = () => {
+      dropHold()
+      if (!s.live) return
+      s.live = false
+      // A tap that ended before the hold did still asked a question, and it is the same
+      // question: read the chart where the finger landed.
+      if (!s.engaged) at(s.x)
+      s.engaged = false
+      s.linger = window.setTimeout(() => setIndex(null), LINGER_MS)
+    }
+
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove', onMove, { passive: false })
+    el.addEventListener('touchend', onEnd, { passive: true })
+    el.addEventListener('touchcancel', onEnd, { passive: true })
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove', onMove)
+      el.removeEventListener('touchend', onEnd)
+      el.removeEventListener('touchcancel', onEnd)
+      window.clearTimeout(s.hold)
+      window.clearTimeout(s.linger)
+    }
+  }, [at])
+
+  const clear = useCallback(() => {
+    window.clearTimeout(g.current.linger)
+    setIndex(null)
+  }, [])
+
+  const props = {
+    ref,
+    // The tab pager keeps out of this box; without it a sideways drag pages to the next tab.
+    'data-swipe-lock': true,
+    tabIndex: 0,
+    role: 'group',
+    'aria-label': 'Win probability through the game. Press and hold the chart, or use the arrow keys, to read any moment of it.',
+    onPointerMove: (e: React.PointerEvent) => { if (e.pointerType !== 'touch') at(e.clientX) },
+    onPointerLeave: (e: React.PointerEvent) => { if (e.pointerType !== 'touch') clear() },
+    onBlur: clear,
+    onKeyDown: (e: React.KeyboardEvent) => {
+      // Shift jumps roughly a half-inning at a time; a game runs to a few hundred plays and
+      // walking one at a time from the first pitch is not a way to reach the ninth.
+      const by = e.shiftKey ? 10 : 1
+      if (e.key === 'ArrowLeft') { e.preventDefault(); step(-by) }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); step(by) }
+      else if (e.key === 'Home') { e.preventDefault(); step(-1e9) }
+      else if (e.key === 'End') { e.preventDefault(); step(1e9) }
+      // Escape means "put that readout away" only while there IS one. Game Center is a modal
+      // and Escape is how it closes, so swallowing the key unconditionally would trap a
+      // reader who had merely tabbed onto the chart. Same reasoning as TapTip.
+      else if (e.key === 'Escape' && index != null) { e.stopPropagation(); clear() }
+    },
+  }
+
+  // Clamped on the way out rather than on the way in: the play list grows during a live game,
+  // and an index held across that must never index past the end of the array.
+  return { index: index == null ? null : Math.min(index, Math.max(count - 1, 0)), props }
 }
 
 /** Split out so the model work above stays in one place and this stays drawing. */
@@ -185,32 +351,113 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
   }
   if (innings.length > 0) innings[innings.length - 1].to = 100
 
+  // THE CARD ALWAYS RESTS ON A PLAY. The one that won it where a winner exists, the most
+  // volatile one while a game is still being played, and in a rout the biggest of a small
+  // lot. The honesty about which of those it is belongs in the LABEL, which is the whole
+  // change here: a rout used to drop the play entirely and print a sentence about the absence
+  // of one, which answered a question nobody asked while the card had a perfectly good play
+  // to show. `SWING_FLOOR` still decides the wording; it no longer decides whether a reader
+  // gets a play at all.
+  //
   // The marker sits where the swing LANDED, which is the next play's position. Clamped,
   // because in a game decided on the last play, which is the one worth marking, the next
   // position is off the right edge and the dot would simply not be drawn.
-  // The play that won it where there is a winner, and the most volatile one while a game is
-  // still being played. The marker and the sentence name the same play, or the dot points at
-  // one moment while the text describes another.
+  const resting = wp.decisive ?? wp.biggest
+  const restIdx = resting ? pts.indexOf(resting) : -1
+  const bigX = restIdx >= 0 ? Math.min(x(restIdx + 1), 100) : 0
+
+  // Reading the chart: hold a finger on it, hover it, or arrow along it. The answer goes in
+  // the caption box above the plot rather than in a floating tooltip: see the note on it.
   //
-  // BOTH GO AWAY IN A ROUT, because in a rout there was no swing. Nothing decided the 17-3 on
-  // Aug 14, so the largest play in it moved the game eight points and calling that the swing
-  // of the game is dressing up the biggest of a hundred small things. The four games this
-  // drops the line from were all decided by five runs or more; every one it keeps was decided
-  // by four or fewer. The chart above says "it was over early" perfectly well on its own.
-  const decisive = wp.decisive ?? wp.biggest
-  const biggest = decisive && Math.abs(decisive.swing) >= SWING_FLOOR ? decisive : null
-  const bigIdx = biggest ? pts.indexOf(biggest) : -1
-  const bigX = bigIdx >= 0 ? Math.min(x(bigIdx + 1), 100) : 0
+  // ONE SHAPE, BOTH STATES. Resting and scrubbing fill the same three rows, so the card is
+  // not two different things in one box: a finger landing on the plot moves the readout it
+  // was already showing, which is a far better way of teaching the gesture than the hint is.
+  const canHover = useMediaQuery('(hover: hover)')
+  // One line means the row has a budget, and the name is the part of a play that can be given
+  // up without losing what happened. The section's own shortener, so a name degrades here the
+  // way it does in every other WPBL list.
+  const short = useWpblName(14)
+  const scrub = useChartScrub(pts.length)
+  const at = scrub.index == null ? null : pts[scrub.index]
+  const read = at ? scrubReadout(at, game, teams, short)
+    : resting ? restingReadout(resting, game, teams, short, canHover, resting === wp.decisive)
+    : null
 
   return (
     <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden' }}>
       {/* One row, and the method is not in it. Three lines of "who is pitching is invisible to
           it" under a 132px chart spent more of a phone screen on a disclaimer than on the
           thing being disclaimed. It is a tap away on the ⓘ, which is where a caveat belongs
-          once the chip beside it has already said the board is provisional. */}
+          for a card whose headline claim a reader can check against the score above it. */}
       <CardHeader />
 
-      <Box sx={{ position: 'relative', height: CHART_H }}>
+      {/* The readout, ABOVE the plot, and both halves of that are deliberate.
+
+          It is the caption box rather than a floating tooltip because a tooltip covers the
+          chart it is describing and sits under the hand doing the pointing, and because a
+          fixed box costs no layout shift.
+
+          It is above rather than below because of where this card lands on a phone. Game
+          Center is a sheet, and by the time it has drawn the line score, the highlight reel,
+          the tab row and the recap's opening line, the pane gives this card less height than
+          the card has: with the readout last, the only part that answers the question was
+          below the fold, along with the hint that says the chart can be held at all. Above the
+          plot it arrives ~190px earlier in the scroll, and a finger on the chart no longer
+          covers it. */}
+      <Box sx={{
+        px: 1.5, pt: 0.25, pb: 1, mb: 1, height: CAPTION_H, overflow: 'hidden',
+        borderBottom: '1px solid', borderColor: 'divider',
+        // A column with the note pushed to the floor: the slack a one-line play leaves sits
+        // between the play and the note, so the note holds still when the play wraps to two.
+        display: 'flex', flexDirection: 'column',
+      }}>
+        {/* Row 1: what this moment IS, and the win probability at it. The two never swap
+            sides, so dragging changes the words in place instead of rearranging the row. */}
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.25 }}>
+          <Typography sx={{
+            fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8,
+            color: 'var(--wpbl-accent-fg)', whiteSpace: 'nowrap',
+            overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>{read?.label}</Typography>
+          {/* Tabular figures, because this number changes under a moving finger and
+              proportional digits make the whole row twitch as it does. */}
+          <Typography sx={{
+            ml: 'auto', fontSize: '0.62rem', fontWeight: 800, whiteSpace: 'nowrap',
+            fontVariantNumeric: 'tabular-nums', color: 'text.secondary',
+          }}>{read?.pct}</Typography>
+        </Box>
+
+        {/* Row 2: the play, on ONE line, whatever the feed writes. A second line costs 20px
+            of a card that has to fit above the fold of a sheet, and buys the tail of a
+            sentence whose front already carries it. The batter's name gives way first (see
+            the shortener passed to the readout), so what survives the width is the play. */}
+        <Typography aria-live="polite" sx={{
+          fontSize: '0.85rem', lineHeight: 1.45,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{read?.text}</Typography>
+
+        {/* Row 3: the score there, or, at rest, the one thing on the card that says it can be
+            read at all. A hold gesture nobody is told about is a feature nobody finds. */}
+        <Typography sx={{
+          mt: 'auto', pt: 0.25, fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase',
+          letterSpacing: 0.7, color: 'text.disabled', whiteSpace: 'nowrap',
+          fontVariantNumeric: 'tabular-nums',
+        }}>{read?.note}</Typography>
+      </Box>
+      <Box
+        {...scrub.props}
+        sx={{
+          position: 'relative', height: CHART_H,
+          // Vertical belongs to the page; sideways is the scrub's, claimed before the browser
+          // can start a pan with it.
+          touchAction: 'pan-y', WebkitTapHighlightColor: 'transparent',
+          userSelect: 'none', WebkitTouchCallout: 'none',
+          cursor: 'crosshair', outline: 'none',
+          '&:focus-visible': {
+            outline: '2px solid', outlineColor: 'var(--wpbl-accent-solid)', outlineOffset: '-2px',
+          },
+        }}
+      >
         <Box component="svg" viewBox="0 0 100 100" preserveAspectRatio="none"
           aria-hidden sx={{ display: 'block', width: '100%', height: '100%' }}>
           {/* The two territories. Whichever side of the line you are on is the share of the
@@ -229,6 +476,11 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
           <polyline points={line.join(' ')} fill="none"
             stroke="currentColor" strokeOpacity={0.85} strokeWidth={2}
             strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          {scrub.index != null && (
+            <line x1={x(scrub.index)} x2={x(scrub.index)} y1={0} y2={100}
+              stroke="currentColor" strokeOpacity={0.55} strokeWidth={1}
+              vectorEffect="non-scaling-stroke" />
+          )}
         </Box>
 
         {/* The marker is an HTML dot, not an SVG circle, and that is not a preference. The box
@@ -236,14 +488,36 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
             line can opt out of that for its stroke, a circle cannot opt out of it for its
             shape: it comes out an ellipse two and a half times wider than it is tall. Nudged
             off the very corner so a dot on the last play of the game is not half-clipped. */}
-        {bigIdx >= 0 && (
+        {restIdx >= 0 && (
           <Box aria-hidden sx={{
             position: 'absolute',
             left: `${Math.min(Math.max(bigX, 2), 98)}%`,
-            top: `${Math.min(Math.max(y(pts[bigIdx].after), 6), 94)}%`,
+            top: `${Math.min(Math.max(y(pts[restIdx].after), 6), 94)}%`,
             transform: 'translate(-50%, -50%)',
             width: 9, height: 9, borderRadius: '50%',
             bgcolor: 'var(--wpbl-accent-solid)',
+            border: '2px solid', borderColor: 'background.paper',
+            pointerEvents: 'none',
+            // It goes as soon as the chart is being read. This dot means "the play in the
+            // readout", and the moment a finger lands the readout is somewhere else: leaving
+            // it up puts two dots on the plot, one of which is pointing at a play the card is
+            // no longer telling you anything about. Faded rather than unmounted, so it does
+            // not blink in and out as a linger expires.
+            opacity: scrub.index == null ? 1 : 0,
+            transition: 'opacity 120ms ease',
+          }} />
+        )}
+
+        {/* Where the finger is. An HTML dot for the same reason the swing marker is one: the
+            box is stretched horizontally, so an SVG circle in it comes out an ellipse. */}
+        {at && scrub.index != null && (
+          <Box aria-hidden sx={{
+            position: 'absolute',
+            left: `${Math.min(Math.max(x(scrub.index), 1.5), 98.5)}%`,
+            top: `${Math.min(Math.max(y(at.before), 3), 97)}%`,
+            transform: 'translate(-50%, -50%)',
+            width: 11, height: 11, borderRadius: '50%',
+            bgcolor: 'text.primary',
             border: '2px solid', borderColor: 'background.paper',
             pointerEvents: 'none',
           }} />
@@ -279,18 +553,6 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
         letterSpacing: 0.8, textTransform: 'uppercase', color: 'text.disabled', lineHeight: 1,
       }}>Inning</Typography>
 
-      <Box sx={{
-        px: 1.5, py: 1.25, mt: 0.5, height: CAPTION_H, overflow: 'hidden',
-        borderTop: '1px solid', borderColor: 'divider',
-      }}>
-        <Typography sx={{
-          fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8,
-          color: 'var(--wpbl-accent-fg)', mb: 0.25,
-        }}>{biggest ? 'Swing of the game' : 'How it went'}</Typography>
-        <Typography sx={{ fontSize: '0.85rem', lineHeight: 1.45 }}>
-          {biggest ? swingSentence(biggest, game, teams) : quietSentence(wp, game, teams)}
-        </Typography>
-      </Box>
     </Box>
   )
 }
@@ -305,70 +567,111 @@ function Label({ children, sx }: { children: React.ReactNode; sx: object }) {
 }
 
 /**
- * "Los Angeles Queens went from 62% to 89% when Jamie Mackay singled up the middle, 2 RBI."
- *
- * THE SUBJECT IS THE TEAM THIS PLAY WAS GOOD FOR, which is nearly always the team that won,
- * since `decisive` picks the biggest swing their way. Told from the batting team's side
- * instead, a game-ending out came out as "Boston went from 24% to 0%", which is true and
- * reads as an obituary rather than as the play of the game.
- *
- * "When" rather than making the player the subject, because the two do not always share a
- * club: the play that wins a game is sometimes an out made by the team that lost it, and
- * "New York went from 76% to 100% when Geldenhuis grounded out" is a sentence, while
- * "Geldenhuis grounded out and New York went to 100%" reads as though she did it for them.
+ * The three rows the readout box holds, filled the same way whether the card is resting on the
+ * play of the game or following a finger. One shape means a reader learns to read it once.
  */
-function swingSentence(pt: WinProbPoint, game: WpblGame, teams: Map<string, WpblTeam>): string {
-  const p = pt.play
-  // A positive swing is the home team's gain, by the model's convention.
-  const gainer = pt.swing >= 0 ? game.home_team_id : game.away_team_id
-  const homeSide = gainer === game.home_team_id
-  const before = homeSide ? pt.before : 1 - pt.before
-  const after = homeSide ? pt.after : 1 - pt.after
-  const t = teams.get(gainer)
-  const club = t ? wpblFullName(t) : (homeSide ? 'The home team' : 'The visitors')
-  const parsed = parsePlay(p.narrative ?? '', p.batter_name, x => x)
-  const what = parsed.what || p.narrative || 'the play'
-  const who = p.batter_name ?? 'the batter'
-  return `${club} went from ${fmtWinPct(before)} to ${fmtWinPct(after)} in the ${ordinal(p.inning)}, when ${who} ${what}.`
+export interface Readout {
+  /** Row 1 left: what this moment is. A label at rest, the inning and outs while scrubbing. */
+  label: string
+  /** Row 1 right: the win probability at it. */
+  pct: string
+  /** Row 2: the play itself. */
+  text: string
+  /** Row 3: the score there, or, at rest, the hint that the chart can be read. */
+  note: string
 }
 
 /**
- * The last inning in which the eventual winner was not yet in front. After it they never were
- * behind, or level, again.
+ * "LA 65% → 69%".
  *
- * For a game nothing swung, this is the interesting fact: not which play was biggest, since
- * none of them was, but how early it stopped being in doubt.
+ * THE PERCENTAGES ARE THE TEAM THE PLAY LEFT IN FRONT, not a fixed side, so the second number
+ * is always the bigger half of the chart and always over 50%. Pinned to the home team instead,
+ * half the chart reads as a club losing, and scrubbing across a game the visitors ran away
+ * with is a column of numbers falling toward zero for a team that won. It only ever changes
+ * club on a lead change, which is a thing worth seeing happen under your thumb.
  *
- * IT REPORTS THE INNING THEY WERE STILL LEVEL IN, not the one they took the lead in, and the
- * caption says "never behind after the Nth" to match. Reporting the play AFTER the last level
- * moment reads as "in front from the Nth on", and that overclaims whenever the lead is taken
- * partway through an inning: the 12-5 on Aug 22 was 2-2 at the end of the first, and the
- * earlier wording had San Francisco in front "from the 1st on".
+ * The two are collapsed to one when rounding makes them equal: "38% → 38%" claims a change the
+ * model is not being allowed to print (see fmtWinPct), and most plays of a game are that.
  */
-function levelUntil(wp: GameWinProb, homeWon: boolean): number | null {
-  const pts = wp.points
-  for (let i = pts.length - 1; i >= 0; i--) {
-    const ahead = homeWon ? pts[i].before > 0.5 : pts[i].before < 0.5
-    if (!ahead) return pts[i].play.inning
+function pctLine(pt: WinProbPoint, game: WpblGame, teams: Map<string, WpblTeam>): string {
+  const homeSide = pt.after >= 0.5
+  const t = teams.get(homeSide ? game.home_team_id : game.away_team_id)
+  const abbr = t?.abbr ?? (homeSide ? 'HOME' : 'AWAY')
+  const before = fmtWinPct(homeSide ? pt.before : 1 - pt.before)
+  const after = fmtWinPct(homeSide ? pt.after : 1 - pt.after)
+  return before === after ? `${abbr} ${after}` : `${abbr} ${before} → ${after}`
+}
+
+/** The play, without the runner movements the feed hangs off the end of it: the box has two
+ *  lines, and "Benitez advanced to third" is the part a reader can see on the chart anyway. */
+function playText(pt: WinProbPoint, short: (name: string) => string): { who: string; what: string } {
+  const parsed = parsePlay(pt.play.narrative ?? '', pt.play.batter_name, x => x)
+  return {
+    who: parsed.who ? `${short(parsed.who)} ` : '',
+    what: parsed.what || pt.play.narrative?.trim() || 'No play recorded',
   }
-  return null   // in front from the first pitch
+}
+
+/** One moment of the game, as the finger passes over it. */
+export function scrubReadout(
+  pt: WinProbPoint,
+  game: WpblGame,
+  teams: Map<string, WpblTeam>,
+  short: (name: string) => string,
+): Readout {
+  const p = pt.play
+  const away = teams.get(game.away_team_id)?.abbr ?? 'AWAY'
+  const home = teams.get(game.home_team_id)?.abbr ?? 'HOME'
+  const { who, what } = playText(pt, short)
+  return {
+    label: `${p.half === 'bottom' ? 'Bot' : 'Top'} ${ordinal(p.inning)} · ${p.outs ?? 0} out`,
+    pct: pctLine(pt, game, teams),
+    text: `${who}${what}.`,
+    // The scoreboard as the play left it. 60% at 1-0 and 60% at 8-7 are not the same game,
+    // and the win figure alone cannot tell them apart.
+    note: `${away} ${pt.awayScore}, ${home} ${pt.homeScore}`,
+  }
 }
 
 /**
- * The caption for a game no single play swung: how early it stopped being in doubt, and how
- * little the biggest moment was worth. Deliberately about the same length as the swing
- * sentence it stands in for, because they share one fixed box.
+ * The play the card rests on, in the same three rows a scrubbed play fills.
+ *
+ * THE LABEL CARRIES THE HONESTY. "Swing of the game" is a claim, and in a rout it is a false
+ * one: nothing decided the 17-3 on Aug 14, where the biggest play moved the game eight points
+ * and was merely the largest of a hundred small ones. That used to mean the card showed no
+ * play at all and printed a sentence about the absence of one, which is a non-answer in the
+ * most valuable 64px on the card. So the play always shows and the label tells the truth about
+ * it: the swing of the game where there was one, the biggest moment where there was not, and
+ * "so far" while the game is still being played and nothing has been decided yet.
+ *
+ * The sentence carries the inning, because unlike a scrubbed play this one has no row of its
+ * own to say when it happened.
  */
-function quietSentence(wp: GameWinProb, game: WpblGame, teams: Map<string, WpblTeam>): string {
-  const homeWon = (game.home_score ?? 0) > (game.away_score ?? 0)
-  const t = teams.get(homeWon ? game.home_team_id : game.away_team_id)
-  const club = t ? wpblFullName(t) : (homeWon ? 'The home team' : 'The visitors')
-  const level = levelUntil(wp, homeWon)
-  const when = level == null
-    ? `${club} were in front from the first pitch`
-    : `${club} were never behind after the ${ordinal(level)}`
-  const most = wp.biggest ? Math.round(Math.abs(wp.biggest.swing) * 100) : 0
-  return `No single play swung this one. ${when}, and the biggest moment of the game moved it ${most} points.`
+export function restingReadout(
+  pt: WinProbPoint,
+  game: WpblGame,
+  teams: Map<string, WpblTeam>,
+  short: (name: string) => string,
+  canHover: boolean,
+  /** Is this the play that WON it, as opposed to merely the largest swing in it? False for a
+   *  game still being played and for a tie, neither of which has a winner to have swung to. */
+  decided: boolean,
+): Readout {
+  const label = decided && Math.abs(pt.swing) >= SWING_FLOOR ? 'Swing of the game'
+    : game.status === 'final' ? 'Biggest moment'
+    : 'Biggest moment so far'
+  const { who, what } = playText(pt, short)
+  return {
+    // The inning goes where a scrubbed play keeps it, at the end of the label, and not on the
+    // sentence: the feed's narratives already end in their own clause ("singled to left field,
+    // RBI"), and hanging "in the 1st" off that reads as though the RBI happened in the 1st.
+    label: `${label} · ${ordinal(pt.play.inning)}`,
+    pct: pctLine(pt, game, teams),
+    text: `${who}${what}.`,
+    // The affordance, not the score: the final score is on the scoreboard directly above this
+    // card, and somebody already holding the chart does not need to be told they can.
+    note: `${canHover ? 'Hover' : 'Hold'} the chart for any play`,
+  }
 }
 
 /** "6th". Innings only, so the teens never come up. */
