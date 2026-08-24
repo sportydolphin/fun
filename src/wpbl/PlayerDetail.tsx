@@ -356,6 +356,15 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
       maxWidth={640}
       zIndex={1600}
       actions={<CopyLinkButton url={shareUrl} title={`Copy a link to ${player.name}`} />}
+      // A sheet on a phone, like Game Center: this opens from a roster row, a leaderboard, a
+      // Home chip and a shared link, and its only way out was the close button in the far top
+      // corner. Now it comes up from the bottom edge with a handle and swipes back down.
+      // Unchanged above sm, where a centred dialog is right.
+      sheet
+      // Constant height while it is a sheet, so it does not leap up the screen when the season
+      // totals and game logs finish loading under the reader's thumb. Same reason as the game
+      // card, whose box score lands the same way.
+      sheetFill
     >
       {/* Identity */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.75, p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
