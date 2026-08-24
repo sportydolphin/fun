@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, useMediaQuery } from '@mui/material'
 import { pressable, FOCUS_RING, wpblNameStages } from './ui'
 
@@ -114,21 +114,58 @@ export default function GameGrid({ columns, rows, renderCell, colWidth, nameWidt
   // overflows. Deliberately not tied to user scrolling: it only ever sets the initial
   // position, so a reader who scrolls back through the month is left alone.
   const scrollRef = useRef<HTMLDivElement | null>(null)
+
+  // Which edges have more grid hidden past them, so a fade can advertise it. Desktop was the
+  // reason this exists: a team-page card is only ~690px, so ten-plus columns plus a 180px name
+  // column overflow it, and the only cue was the scrollbar — a mouse user could not tell the
+  // clipped oldest column was scrollable rather than broken.
+  const [edges, setEdges] = useState({ left: false, right: false })
+  const updateEdges = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const max = el.scrollWidth - el.clientWidth
+    setEdges({ left: el.scrollLeft > 1, right: el.scrollLeft < max - 1 })
+  }, [])
+
   useLayoutEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollLeft = el.scrollWidth
-  }, [columns.length, columns[0]?.id, columns[columns.length - 1]?.id])
+    updateEdges()
+  }, [columns.length, columns[0]?.id, columns[columns.length - 1]?.id, updateEdges])
+
+  // Recompute the fades when the viewport changes: a window widened past the overflow point
+  // has nothing left to scroll to and both fades should clear.
+  useEffect(() => {
+    window.addEventListener('resize', updateEdges)
+    return () => window.removeEventListener('resize', updateEdges)
+  }, [updateEdges])
+
+  // Gradient from the card's own background to transparent, so the hidden columns dissolve into
+  // the edge instead of ending on a hard line. Only over the scrollable columns, never the
+  // pinned name column (hence the left fade starts at NAME_W), and never over the scrollbar.
+  const fadeSx = (side: 'left' | 'right') => ({
+    position: 'absolute' as const, top: 0, bottom: 10, width: side === 'left' ? 22 : 26,
+    pointerEvents: 'none' as const, zIndex: 3,
+    ...(side === 'left' ? { left: NAME_W } : { right: 0 }),
+    background: (t: { palette: { background: { paper: string } } }) =>
+      `linear-gradient(to ${side === 'left' ? 'right' : 'left'}, ${t.palette.background.paper}, ${t.palette.background.paper}00)`,
+  })
 
   return (
-    // The grid is wider than a phone, so it scrolls sideways while the name column stays
-    // pinned — otherwise you lose track of whose row you're reading.
-    // TRAP 1: no horizontal padding here. `position: sticky; left: 0` pins to the
-    // scrollport's PADDING edge, so any px leaves a strip the pinned column never covers,
-    // and the scrolled cells show through beside the names.
-    <Box ref={scrollRef} sx={{ overflowX: 'auto', pb: 0.5 }}>
-      {/* `width: 100%` is what makes the columns fill a wide card; `minWidth` is the phone's
-          fixed layout and the point at which the grid starts scrolling instead. */}
-      <Box sx={{ minWidth: NAME_W.xs + columns.length * COL_W, width: '100%', display: 'inline-block' }}>
+    // position: relative so the edge fades can sit over the scrollport.
+    <Box sx={{ position: 'relative' }}>
+      {/* The grid is wider than a phone, so it scrolls sideways while the name column stays
+          pinned — otherwise you lose track of whose row you're reading.
+          TRAP 1: no horizontal padding here. `position: sticky; left: 0` pins to the
+          scrollport's PADDING edge, so any px leaves a strip the pinned column never covers,
+          and the scrolled cells show through beside the names. */}
+      <Box ref={scrollRef} onScroll={updateEdges} sx={{ overflowX: 'auto', pb: 0.5 }}>
+      {/* `width: 100%` is what makes the columns fill a wide card; `minWidth` is the fixed
+          layout and the point at which the grid starts scrolling instead. It has to use the
+          name width for THIS breakpoint: under-counting it (the desktop name column is wider)
+          let `width: 100%` win when the real content was wider still, so the grid overflowed
+          its own inner box and clipped the leftmost column against the pinned names. */}
+      <Box sx={{ minWidth: { xs: NAME_W.xs + columns.length * COL_W, sm: NAME_W.sm + columns.length * COL_W }, width: '100%', display: 'inline-block' }}>
 
         <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
           {/* TRAP 2: alignSelf:stretch is load-bearing on this spacer. With no children it
@@ -221,7 +258,10 @@ export default function GameGrid({ columns, rows, renderCell, colWidth, nameWidt
             })}
           </Box>
         ))}
+        </Box>
       </Box>
+      {edges.left && <Box aria-hidden sx={fadeSx('left')} />}
+      {edges.right && <Box aria-hidden sx={fadeSx('right')} />}
     </Box>
   )
 }

@@ -102,7 +102,34 @@ interesting engineering rather than the baseball.
 Post on a weekday morning US time. If it sinks, leave it: reposting is against the rules and
 against your interests.
 
-### 5. Wikipedia, carefully
+### 5. The two Facebook groups, which are already working
+
+Two large groups have had a post each and both got real traction, and the recurring question
+in them ("where can I see live updates?") is the single best moment this site has to be
+mentioned. Three things to know:
+
+**No automation is possible here, and that is settled rather than unexplored.** The Groups API
+was withdrawn in 2024, group posts appear in no search API, and scraping them violates the
+terms whichever account does it, including the account that is a member of the group. The
+mention watcher (`wpbl-mention-watch`, see [`DISCORD.md`](DISCORD.md)) covers Reddit and
+Bluesky for exactly this reason and deliberately leaves Facebook alone.
+
+**So the durable fix is structural, not faster reflexes.** Ask a mod to pin a resources comment
+or add the link to the group's **Featured** section or About. That converts the recurring
+question into a standing answer, works while you are asleep, and is a far better use of the
+goodwill already banked than answering the same question forever. This is the highest-leverage
+item in this whole file, and it costs one message:
+
+> Hi, I posted the WPBL stats site here a little while back and it went down well. I keep
+> seeing people ask where to follow games live, so rather than reply to each one: would you be
+> open to putting sportydolphin.fun/wpbl in the group's Featured section or a pinned resources
+> comment? Free, no ads, no account needed. Happy to leave it entirely up to you.
+
+**Turn on All posts notifications** for both groups in the meantime. Noisy, but the question is
+answerable in twenty seconds when you catch it. Answer the question first and link second: a
+bare link reads as an ad and gets removed, which costs the pin as well.
+
+### 6. Wikipedia, carefully
 
 The WPBL article has an external links section. Wikipedia links are nofollow and editors
 remove self-added links on sight, so **do not add your own**. It is listed here only so the

@@ -351,6 +351,44 @@ function ToolbarResultRow({ row, onSelect }: { row: SearchResultRow; onSelect: (
   )
 }
 
+// Empty-query dropdown for the section that drives the generic result rows (currently WPBL):
+// the players and teams last opened from search, each a self-describing SearchResultRow. The
+// MLB section keeps its own richer ToolbarSuggestionsDropdown (Recent + Your Team + Trending).
+function ToolbarRecentRowsDropdown({ rows, onSelect, onClear }: {
+  rows: SearchResultRow[]
+  onSelect: (r: SearchResultRow) => void
+  onClear: () => void
+}) {
+  return (
+    <Paper elevation={8} sx={{
+      position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
+      zIndex: 1500, borderRadius: 2.5, overflow: 'hidden', minWidth: 260,
+      maxHeight: 'calc(70vh / var(--app-zoom, 1))', overflowY: 'auto',
+    }}>
+      <Box sx={{ px: 1.5, pt: 1, pb: 0.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled' }}>
+          Recent
+        </Typography>
+        <Box
+          onClick={onClear}
+          sx={{ cursor: 'pointer', fontSize: '0.62rem', fontWeight: 600, color: 'text.disabled', userSelect: 'none', '&:hover': { color: 'error.main' } }}
+        >
+          Clear
+        </Box>
+      </Box>
+      <List dense disablePadding>
+        {rows.map((row, i) => (
+          <React.Fragment key={row.key}>
+            {i > 0 && <Divider />}
+            <ToolbarResultRow row={row} onSelect={onSelect} />
+          </React.Fragment>
+        ))}
+      </List>
+      <Box sx={{ height: 6 }} />
+    </Paper>
+  )
+}
+
 function AppInner() {
   const { mode, toggleTheme, skinConfig } = useTheme()
   const integratedHeader = skinConfig.integratedHeader
@@ -859,8 +897,16 @@ function AppInner() {
                   )}
                 </Box>
 
-                {/* Recent + suggestions dropdown — shown when input is focused and query is empty */}
-                {toolbarInputFocused && bridge.query.length < 2 && (bridge.recentSearches.length > 0 || bridge.toolbarSuggestions.length > 0) && (
+                {/* Recent + suggestions dropdown — shown when input is focused and query is empty.
+                    WPBL drives its own generic recent rows; MLB keeps its richer suggestions view. */}
+                {toolbarInputFocused && bridge.query.length < 2 && bridge.source === 'wpbl' && bridge.recentRows.length > 0 && (
+                  <ToolbarRecentRowsDropdown
+                    rows={bridge.recentRows}
+                    onSelect={handleToolbarSelectRow}
+                    onClear={() => bridge.clearRecentSearches?.()}
+                  />
+                )}
+                {toolbarInputFocused && bridge.query.length < 2 && bridge.source !== 'wpbl' && (bridge.recentSearches.length > 0 || bridge.toolbarSuggestions.length > 0) && (
                   <ToolbarSuggestionsDropdown
                     suggestions={bridge.toolbarSuggestions}
                     onSelect={handleToolbarSelectSuggestion}

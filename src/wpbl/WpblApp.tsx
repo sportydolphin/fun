@@ -10,6 +10,7 @@ import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } fr
 import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER } from './ui'
 import { useSearchBridge, updateSearchBridge, setSearchQuery } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
+import { getWpblRecents, mergeWpblRecent, setWpblRecents, type WpblRecentItem } from './recentSearches'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import { fmtSigned } from './stats'
 import { track, EVENTS } from '../lib/analytics'
@@ -744,7 +745,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   useEffect(() => {
     updateSearchBridge({ isRegistered: true, source: 'wpbl' })
     return () => {
-      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], searching: false })
+      updateSearchBridge({ isRegistered: false, source: null, resultRows: [], recentRows: [], searching: false, clearRecentSearches: null })
       setSearchQuery('')
     }
   }, [])
@@ -848,6 +849,54 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     return () => { cancelled = true }
   }, [])
 
+  // Recent searches: the players and teams opened from the header search, newest first, so
+  // the empty-query dropdown has something to show (traffic says opening a player page is the
+  // retention event, and the search box was a dead end with nothing typed). localStorage only
+  // — see recentSearches.ts for why this is not the MLB recents store.
+  const [recentSearches, setRecentSearches] = useState<WpblRecentItem[]>(getWpblRecents)
+  const recordRecent = useCallback((item: WpblRecentItem) => {
+    setRecentSearches(prev => {
+      const next = mergeWpblRecent(prev, item)
+      setWpblRecents(next)
+      return next
+    })
+  }, [])
+  const clearRecents = useCallback(() => { setRecentSearches([]); setWpblRecents([]) }, [])
+
+  // One place that turns a player/team into a self-describing toolbar row. Shared by the typed
+  // results and the recents list so both look identical and both record the selection (a
+  // recent re-selected bumps back to the front). The avatar is rebuilt from the live roster on
+  // every render, so a traded player carries her current tint and team rather than a stale one.
+  const buildPlayerRow = useCallback((p: WpblPlayer): SearchResultRow => {
+    const team = p.team_id ? teamById.get(p.team_id) : undefined
+    const initials = p.name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
+    return {
+      key: `player-${p.id}`,
+      title: p.name,
+      subtitle: [displayPositionFromIndex(p, positionIndex).label, team?.abbr].filter(Boolean).join(' · ') || undefined,
+      avatar: {
+        imageUrl: wpblPortrait(p.name) ?? undefined,
+        fallbackText: initials,
+        bg: wpblColor(p.team_id), ring: wpblSecondary(p.team_id),
+        fit: 'cover', circle: true,
+      },
+      onSelect: () => { recordRecent({ type: 'player', id: p.id, name: p.name }); setSearchQuery(''); openPlayer(p) },
+    }
+  }, [teamById, positionIndex, recordRecent, openPlayer])
+
+  const buildTeamRow = useCallback((t: WpblTeam): SearchResultRow => ({
+    key: `team-${t.id}`,
+    title: wpblFullName(t),
+    subtitle: t.abbr,
+    avatar: {
+      imageUrl: wpblLogo(t.id) ?? undefined,
+      fallbackText: t.abbr,
+      bg: wpblColor(t.id), ring: wpblSecondary(t.id),
+      fit: wpblLogoFill(t.id) ? 'cover' : 'contain', circle: true,
+    },
+    onSelect: () => { recordRecent({ type: 'team', id: t.id, name: wpblFullName(t) }); setSearchQuery(''); selectTeam(t) },
+  }), [recordRecent, selectTeam])
+
   // Filter players + teams on the typed query and push self-describing rows up to the
   // toolbar. The rows carry primitive avatar data (portrait/logo URLs + team colors) so the
   // always-loaded toolbar renders them without importing this lazy chunk; each onSelect
@@ -856,44 +905,26 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     const q = bridge.query.trim().toLowerCase()
     if (q.length < 2) { updateSearchBridge({ resultRows: [] }); return }
 
-    const playerRows = players
-      .filter(p => p.name.toLowerCase().includes(q))
-      .slice(0, 6)
-      .map<SearchResultRow>(p => {
-        const team = p.team_id ? teamById.get(p.team_id) : undefined
-        const initials = p.name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
-        return {
-          key: `player-${p.id}`,
-          title: p.name,
-          subtitle: [displayPositionFromIndex(p, positionIndex).label, team?.abbr].filter(Boolean).join(' · ') || undefined,
-          avatar: {
-            imageUrl: wpblPortrait(p.name) ?? undefined,
-            fallbackText: initials,
-            bg: wpblColor(p.team_id), ring: wpblSecondary(p.team_id),
-            fit: 'cover', circle: true,
-          },
-          onSelect: () => { setSearchQuery(''); openPlayer(p) },
-        }
-      })
-
-    const teamRows = teams
-      .filter(t => `${t.city} ${t.name} ${t.abbr}`.toLowerCase().includes(q))
-      .slice(0, 4)
-      .map<SearchResultRow>(t => ({
-        key: `team-${t.id}`,
-        title: wpblFullName(t),
-        subtitle: t.abbr,
-        avatar: {
-          imageUrl: wpblLogo(t.id) ?? undefined,
-          fallbackText: t.abbr,
-          bg: wpblColor(t.id), ring: wpblSecondary(t.id),
-          fit: wpblLogoFill(t.id) ? 'cover' : 'contain', circle: true,
-        },
-        onSelect: () => { setSearchQuery(''); selectTeam(t) },
-      }))
+    const playerRows = players.filter(p => p.name.toLowerCase().includes(q)).slice(0, 6).map(buildPlayerRow)
+    const teamRows = teams.filter(t => `${t.city} ${t.name} ${t.abbr}`.toLowerCase().includes(q)).slice(0, 4).map(buildTeamRow)
 
     updateSearchBridge({ resultRows: [...playerRows, ...teamRows] })
-  }, [bridge.query, players, teams, teamById, openPlayer, selectTeam])
+  }, [bridge.query, players, teams, buildPlayerRow, buildTeamRow])
+
+  // Resolve stored recents against the live roster and push them up as rows. A recent whose
+  // player/team no longer exists (a rare merge or roster change) is dropped rather than shown
+  // dead. Cleared on unmount along with the rest of the bridge (see the register effect).
+  useEffect(() => {
+    const rows = recentSearches.flatMap<SearchResultRow>(r => {
+      if (r.type === 'player') {
+        const p = players.find(pl => pl.id === r.id)
+        return p ? [buildPlayerRow(p)] : []
+      }
+      const t = teams.find(tm => tm.id === r.id)
+      return t ? [buildTeamRow(t)] : []
+    })
+    updateSearchBridge({ recentRows: rows, clearRecentSearches: clearRecents })
+  }, [recentSearches, players, teams, buildPlayerRow, buildTeamRow, clearRecents])
 
   // Stamp the entry App created for /wpbl with the initial snapshot the first time we land,
   // so the first Back leaves the section and a refresh restores the view. On a Back/remount

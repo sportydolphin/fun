@@ -10,6 +10,7 @@ token, no gateway, nothing to keep running:
 | **Highlight reels** | the highlights channel | [`scripts/post-wpbl-discord-highlights.mjs`](../scripts/post-wpbl-discord-highlights.mjs) | One message per YouTube highlight reel, posted once and never touched again. |
 | **Shop feed** | a shop channel | [`scripts/watch-wpbl-restock.mjs`](../scripts/watch-wpbl-restock.mjs) | New merch and restocks across the whole store, batched into one message per run. Never pings. |
 | **Shortlist alerts** | a private channel | the same script | A loud `@everyone` when something on the `wpbl_restock_watch` shortlist comes back. |
+| **Mention watch** | a private channel | [`scripts/watch-wpbl-mentions.mjs`](../scripts/watch-wpbl-mentions.mjs) | One digest per run of the public posts where somebody is asking where to follow a WPBL game. Threads to go and answer, not content for the server. |
 | **Birthdays** | a birthdays channel | [`scripts/post-wpbl-discord-birthdays.ts`](../scripts/post-wpbl-discord-birthdays.ts) | One message on the mornings someone on the roster has a birthday, and nothing on the mornings nobody does. |
 
 A webhook is bound to one channel, so each of these needs its **own** webhook URL.
@@ -213,6 +214,73 @@ values ('some-product-handle', null, 'Friendly name', 'Why we care');
 product with sizes. Pin it when the product has one variant, or when a future second colourway
 should not read as this one coming back. Everything else in the store is covered by the shop
 feed without needing a row at all.
+
+### The mention watcher
+
+`wpbl-mention-watch` runs every 15 minutes, searches Reddit and Bluesky for people talking
+about the WPBL, and digests the ones worth answering into a private channel.
+
+**It finds threads. It does not answer them.** The only place it ever posts is our own webhook.
+Do not give it a credential that would let it reply anywhere else: an automated reply in
+somebody else's community is spam, it gets the account banned from exactly the communities
+worth being in, and the reply is the half that needs a person. The digest carries a standing
+reminder to that effect at the bottom of every message, which is not decoration.
+
+**Facebook is absent and cannot be added.** That is where the traction actually is: two large
+groups, and a recurring "where can I see live updates?" question in both. There is no permitted
+automated path to it. The Groups API was withdrawn in 2024, group posts appear in no search
+API, and scraping them violates the terms whichever account does it, our own included. The
+durable fix there is not a faster way to notice but a **pinned resource link or a Featured
+entry**, which turns the recurring question into a standing answer; see
+[`BACKLINKS.md`](BACKLINKS.md). X is absent for a duller reason: search costs $200/month.
+
+**Three kinds, three urgencies.** `classify()` in the script decides from post text alone, and
+both failure modes are expensive: too loose and the channel is a firehose that gets muted
+inside a day, so the real question arrives where nobody is looking; too tight and it never
+arrives at all.
+
+| Kind | What it is | Ping |
+|---|---|---|
+| `question` | Names the league **and** asks where to follow it. The whole reason the job exists | Yes |
+| `link` | Names `sportydolphin`. Either a backlink worth thanking someone for or a complaint worth answering today | Yes |
+| `mention` | The league discussed, no question attached | No |
+
+Two rules in there are load-bearing. **Intent is matched as phrases, never single words**:
+"watch", "score" and "stats" appear in every second baseball post ever written. And **club
+nicknames are not subject terms on their own**: "Queens", "Heights" and "Hunters" are ordinary
+English words, so only the full city-and-club spellings count, plus "Firebells", which is
+unique enough to stand alone.
+
+**Seeing and announcing are separate**, which is the one non-obvious thing in the script. The
+search looks back a week, so the first run can find dozens at once. Every hit is recorded in
+`wpbl_mention_hits` immediately; only eight per run are announced, and a row still holding
+`announced_at` null is next run's message rather than something lost. Anything still waiting
+after three days is marked announced **without** being posted: somebody else has answered by
+then, and a backlog that drips for a fortnight is a muted channel.
+
+**Both sources need a credential, and neither of them looks like it does.** This is worth
+writing down because both were verified by hand on Aug 24, 2026 and both surprised us:
+
+- **Reddit** answers 403 to every anonymous read now. Not just from datacentre IPs:
+  `search.json`, `old.reddit.com` and even `/r/<sub>/new.json` all refuse a residential IP with
+  an honest `User-Agent`. There is nothing to fall back to, so the app-only OAuth token is
+  required.
+- **Bluesky**'s public AppView serves `app.bsky.actor.getProfile` and
+  `app.bsky.actor.searchActors` with no credential at all, and answers
+  `app.bsky.feed.searchPosts` with a **CDN 403 HTML page**, not an XRPC error body, so it does
+  not read as an auth failure. Post search is the one endpoint there that needs a token.
+
+A source with no credentials is **skipped** with an actionable line in the log. It never fails
+the run and never counts towards the everything-is-down notice, so a half-configured install
+reports from one source rather than alarming about the other.
+
+**The failure that matters is silence**, since a watcher with nothing to say looks exactly like
+a watcher that has died. Every run is recorded in `wpbl_mention_watch_runs`, and if every
+configured source has been failing for six hours the job says so, once.
+
+Reddit search covers **link posts only**. A question asked as a reply inside somebody else's
+game thread is invisible here, which is worth knowing before wondering why a thread you found
+by hand never arrived.
 
 ### The `/player` command
 
@@ -495,6 +563,42 @@ RLS'd with no policies and no other key can see them at all.
 Use `--reseed` after a deliberate change that would otherwise produce a flood: if the store
 rebuilds its catalogue and every product gets a new id, a normal run would announce all 78 as
 new merch. Reseed, confirm `--status` looks right, and let the schedule resume.
+
+### 6. The mention watcher, if you want one
+
+Independent of everything above: its own channel, its own webhook, its own secrets.
+
+1. Make the channel **private**. These are threads to go and answer, and a public feed of
+   "people are asking about us" reads badly to anyone who wanders in.
+2. **Channel Settings → Integrations → Webhooks → New Webhook**, copy the URL, and add it as
+   the Actions secret `DISCORD_MENTIONS_WEBHOOK_URL`.
+3. **Reddit:** reddit.com/prefs/apps → *create another app* → type **script**. The redirect URI
+   is required by the form but never used; `http://localhost` is fine. It gives an id under the
+   app name and a secret. Add them as `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET`. Free, and
+   the app-only token allows 100 requests a minute against the six this job makes.
+4. **Bluesky:** Settings → Privacy and Security → App Passwords → *Add App Password*. Add the
+   handle as `BLUESKY_IDENTIFIER` and the generated password as `BLUESKY_APP_PASSWORD`.
+   **Never the account password**: an app password can be revoked on its own and cannot change
+   the account.
+5. Optionally set `DISCORD_MENTIONS_MENTION` to a user (`<@123456789012345678>`) or role, so a
+   real question reaches a phone. It fires only for `question` and `link`, never for a plain
+   mention, because a channel that buzzes for those is muted before the next real question.
+6. Prove the webhook resolves in CI: run **WPBL Mention Watch** manually with **test_post**
+   ticked. Then run it once with **dry_run** ticked to see what the search actually returns
+   before anything is written or announced.
+
+Until `DISCORD_MENTIONS_WEBHOOK_URL` is set the scheduled job prints a line saying it has
+nowhere to report and exits 0, same as the shop watcher and for the same reason.
+
+```bash
+npm run mentions-watch -- --status     # what is queued, which sources are configured
+npm run mentions-watch -- --dry-run    # search now and render the digest; writes nothing
+npm run mentions-watch -- --all        # ignore the per-run budget and announce everything
+```
+
+`--dry-run` deliberately needs **no** Supabase credentials, so the search terms can be tried
+from a laptop; the others need `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, since
+`wpbl_mention_hits` is RLS'd with no policies.
 
 ## Running it by hand
 

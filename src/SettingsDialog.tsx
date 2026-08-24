@@ -567,7 +567,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
   const { changePassword, hasPassword } = useAuth()
   const { units, setUnits } = useUnits()
   const { experiments, setExperiments } = useExperimentsSetting()
-  const { swipeNav, setSwipeNav, textScale, setTextScale } = useAccessibilitySettings()
+  const { swipeNav, setSwipeNav, textScale, setTextScale, reduceMotion, setReduceMotion } = useAccessibilitySettings()
 
   const [perm, setPerm] = useState<ReturnType<typeof notificationPermission>>('default')
   const [subscribed, setSubscribed] = useState(false)
@@ -794,10 +794,9 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
           </Box>
         )}
 
-        {/* Accessibility. Both of these exist because the browser has no way to ask the
-            question for us. What is NOT here, deliberately, is a reduced-motion switch: the
-            OS already asks that, and the site honours the answer (see src/styles.css), so
-            adding a second one would only mean not believing the first. */}
+        {/* Accessibility. Swipe and text size exist because the browser has no way to ask the
+            question for us; reduce motion is an explicit override of the OS `prefers-reduced-
+            motion` query, which the site still honours as the baseline (see src/styles.css). */}
         <Box>
           <SettingsLabel>Accessibility</SettingsLabel>
           <SettingsCard>
@@ -821,6 +820,17 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
                   checked={swipeNav}
                   onChange={e => setSwipeNav(e.target.checked)}
                   slotProps={{ input: { 'aria-label': 'Swipe between tabs' } }}
+                />
+              }
+            />
+            <Row
+              title="Reduce motion"
+              hint="Turns off sliding and fading animations across the site, even if your device isn't set to reduce motion."
+              control={
+                <Switch
+                  checked={reduceMotion}
+                  onChange={e => setReduceMotion(e.target.checked)}
+                  slotProps={{ input: { 'aria-label': 'Reduce motion' } }}
                 />
               }
             />

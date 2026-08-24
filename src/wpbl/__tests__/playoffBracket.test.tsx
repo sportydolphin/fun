@@ -84,14 +84,14 @@ describe('PlayoffBracket', () => {
   it('calls the pairings provisional while games remain', () => {
     const scheduled = game({ game_date: '2026-09-05', status: 'scheduled', home_score: null, away_score: null })
     const { container } = draw([...season(), scheduled], vi.fn())
-    expect(container.textContent).toContain('decide only the order')
+    expect(container.textContent).toContain('as they stand today')
     expect(container.textContent).toContain('The pairings move with the standings')
   })
 
   it('calls the order final once every seed is locked', () => {
     const { container } = draw(season(), vi.fn())
-    expect(container.textContent).toContain('The order is final')
-    expect(container.textContent).not.toContain('decide only the order')
+    expect(container.textContent).toContain('Seeds are set')
+    expect(container.textContent).not.toContain('as they stand today')
   })
 
   it('shows the running series score once a game has been played', () => {
@@ -101,9 +101,11 @@ describe('PlayoffBracket', () => {
   })
 
   it('holds the championship box open while the semifinals are undecided', () => {
-    // Two placeholder rows, so the card does not change height under the reader on Sep 11.
+    // Two placeholder rows, so the card does not change height under the reader on Sep 11, and
+    // each names the semifinal that feeds it rather than a bare "Semifinal winner" on both.
     draw(season())
-    expect(screen.getAllByText('Semifinal winner')).toHaveLength(2)
+    expect(screen.getByText('Semifinal A winner')).toBeTruthy()
+    expect(screen.getByText('Semifinal B winner')).toBeTruthy()
     expect(screen.getByText('Awaiting semifinal')).toBeTruthy()
   })
 
@@ -112,7 +114,8 @@ describe('PlayoffBracket', () => {
       post('SF', 'BOS', '2026-09-09'), post('SF', 'BOS', '2026-09-10'),
       post('LA', 'NY', '2026-09-09'), post('LA', 'NY', '2026-09-10'),
     ])
-    expect(screen.queryByText('Semifinal winner')).toBeNull()
+    expect(screen.queryByText('Semifinal A winner')).toBeNull()
+    expect(screen.queryByText('Semifinal B winner')).toBeNull()
     const final = screen.getByText('Championship').closest('div')!.parentElement!
     expect(within(final).getByText('Best of 5')).toBeTruthy()
   })
@@ -128,18 +131,29 @@ describe('PlayoffBracket', () => {
 
   it('opens a club, which is the reason it is on Home', () => {
     // Opening a team or player page is the section's retention event, and Home is the surface
-    // the traffic says has no route to one.
+    // the traffic says has no route to one. A club name now appears twice, in a bracket box and
+    // in the title-odds strip; both are meant to be tappable, so opening the first is the check.
     const onOpenTeam = vi.fn()
     draw(season(), onOpenTeam)
-    fireEvent.click(screen.getByText('SF'))
+    fireEvent.click(screen.getAllByText('SF')[0])
     expect(onOpenTeam).toHaveBeenCalledWith(expect.objectContaining({ id: 'SF' }))
   })
 
   it('opens a club from the keyboard too', () => {
     const onOpenTeam = vi.fn()
     draw(season(), onOpenTeam)
-    fireEvent.keyDown(screen.getByText('BOS'), { key: 'Enter' })
+    fireEvent.keyDown(screen.getAllByText('BOS')[0], { key: 'Enter' })
     expect(onOpenTeam).toHaveBeenCalledWith(expect.objectContaining({ id: 'BOS' }))
+  })
+
+  // The new, forward-looking half: a title-odds strip that ranks by probability, not record,
+  // and is itself a set of tappable clubs. Derivation is pinned in seriesOdds.test.ts; this is
+  // just that the strip reaches the screen and every club carries a percentage.
+  it('shows a title-odds strip with a chance for each club', () => {
+    draw(season())
+    expect(screen.getByText('Chance to win it all')).toBeTruthy()
+    // Four clubs listed, each with its own percentage cell (bracket rows carry no % text).
+    expect(screen.getAllByText(/^\d+%$|^<1%$|^>99%$/).length).toBeGreaterThanOrEqual(4)
   })
 
   it('renders nothing for a league too small to have a bracket', () => {

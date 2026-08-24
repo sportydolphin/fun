@@ -184,9 +184,13 @@ it is a projection that moves with the standings; from Sep 9 the same boxes carr
 Note the flag has to earn its keep faster here than it did there: an opt-in card is seen by
 almost nobody, and this one has three weeks before the thing it draws stops being a projection.
 
+**Odds, added Aug 24** (see the log): the bracket card now prices each series and the title from
+season run differential, with an elimination flag, which is the "something new" the postseason
+needed rather than a third view of the standings. `derive/seriesOdds.ts`.
+
 **Still open**: series records on the schedule and Game Center, series-aware recap and Discord
-wording, and a clinched/eliminated state. None of these are blocked either, by the same
-argument.
+wording. The clinched/eliminated state is partly done (the bracket's elimination flag); the
+schedule and Game Center still do not carry it. None of these are blocked, by the same argument.
 
 **The one real dependency**, now isolated: the feed must mark postseason games at all, through
 `game_type` or `counts_in_standings`. If it marks neither, those games read as regular season,
@@ -286,8 +290,8 @@ Still open on top of it: a season WPA leaderboard, and ranking games by how much
 ### 7. Incremental depth 🔬
 
 Fielding columns in the Stats tab (already computed in `stats.ts`, only surfaced on
-player/team pages) · player-page splits vs each opponent as the sample grows · WPBL recents
-in the empty-query search dropdown.
+player/team pages) · player-page splits vs each opponent as the sample grows · ~~WPBL recents
+in the empty-query search dropdown~~ ✅ *shipped Aug 24, 2026 (see the log)*.
 
 ### 8. Cross-cutting leftover ⚙️
 
@@ -441,10 +445,11 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
 
 ## Ongoing hygiene & ops
 
-- **Name-mangling audit.** We store **"Estheoa Segovia"**; her name is **Esthela**
-  (Liliana Esthela Segovia Arredondo). Same family as the issues
-  [`names.ts`](supabase/functions/wpbl-ingest/names.ts) handles. Two-minute fix on a live
-  page showing a real player's name wrong.
+- **Name-mangling audit.** ✅ *Esthela Segovia corrected Aug 24, 2026* (was "Estheoa";
+  migration `20260824120000_fix_estheoa_segovia_name.sql`). She was a seed-only row with no
+  feed id and no games, so a guarded `UPDATE` was safe and the ingest will not revert it.
+  Watch for the next such case: same family as the issues
+  [`names.ts`](supabase/functions/wpbl-ingest/names.ts) handles.
 - **Portrait rights.** Ask the league for permission to republish player headshots. Open
   since the portrait work, and more pressing now that shared player links unfurl with them.
 - **Triage the nightly scoring check.** `wpbl-pbp-validation` runs at 08:00 UTC and records
@@ -525,6 +530,108 @@ is retired.
 ---
 
 ## Shipped log
+
+### Aug 24, 2026: finding the people who are already asking
+
+Two Facebook posts got real traction, and the pattern underneath them is a recurring question in
+both groups: *where can I see live updates?* That is the single best moment this site has to be
+mentioned, and it was being caught by luck, in whichever tab happened to be open.
+`wpbl-mention-watch` (every 15 minutes) searches Reddit and Bluesky for it and digests the
+threads worth answering into a private Discord channel, sorted question, then anyone naming the
+site, then plain league chatter.
+
+**It finds threads and never answers them.** The only place it posts is our own webhook, and it
+holds no credential that could reply anywhere else. An automated reply in somebody else's
+community is spam, and it would get the account banned from exactly the communities worth being
+in. Every digest ends with a line saying so, which is not decoration.
+
+**Facebook, where the traction actually is, is deliberately absent**: the Groups API was
+withdrawn in 2024, group posts are in no search API, and scraping them breaks the terms whichever
+account does it. The durable fix there is not automation but a **pinned resource link or a
+Featured entry**, which turns the recurring question into a standing answer;
+[`docs/BACKLINKS.md`](docs/BACKLINKS.md) now carries the ask, written out, as the highest-leverage
+item in the file.
+
+Two things about the sources are worth remembering, because both were checked by hand and both
+surprised us. **Reddit has no anonymous mode left**: `search.json`, `old.reddit.com` and
+`/r/<sub>/new.json` all answer 403 to a residential IP with an honest user-agent, so the OAuth
+token is required rather than a nicety. And **Bluesky's post search is the one public-AppView
+endpoint that needs a token**: `getProfile` and `searchActors` answer without one, while
+`searchPosts` returns a CDN 403 HTML page that does not read as an auth failure at all. A source
+with no credentials is skipped with an actionable log line rather than failing the run.
+
+The matching (`classify`, 21 tests) has two ways to be useless and they pull opposite ways. Too
+loose and the channel is a firehose that gets muted inside a day, so the real question lands
+where nobody is looking: that is why intent is matched as phrases ("where can I watch") and never
+single words, and why club nicknames are not subject terms on their own, since "Queens",
+"Heights" and "Hunters" are ordinary English words. Too tight and it never arrives at all. Seeing
+and announcing are also separate: the search looks back a week, so everything found is recorded
+at once but only eight per run are announced, and anything still queued after three days is
+dropped unposted rather than dribbling out for a fortnight.
+
+### Aug 24, 2026: the postseason gets odds, not another standings table
+
+The bracket and seeding cards report records and seed order, which the standings already do, so
+the postseason experiment was a re-skin of a table the section has twice over. This is the thing
+it was missing: the first FORWARD-LOOKING, PROBABILISTIC surface in the section. The bracket card
+now carries a win-probability bar under each series, an elimination flag when a club is a loss
+from going home, and a "chance to win it all" strip ranked by title probability rather than by
+record.
+
+It is the series analogue of the in-game win chart, and honest for the same reason: every link
+in the chain is standard rather than guessed. `derive/seriesOdds.ts` (pure, 11 tests) reads each
+club's season runs into a **pythagenpat** rating (exponent `((RF+RA)/G)^0.287`, chosen over a
+fixed 1.83 because this league scores ~15 runs a game and the exponent is meant to track exactly
+that), turns two ratings into a single game's odds via **log5**, enumerates the best-of-3 and
+best-of-5 from the current game count, and propagates the semifinal odds into a final whose
+opponent is a distribution until both semifinals are done. No new data, no new request: it reads
+the same standings rows the bracket was already built from.
+
+Three things it states plainly rather than hiding. **It is not the standings**: a club ranks by
+its chance to win the title, so a stronger lower seed can sit above a weaker higher one. On
+production today the 3 seed (Heights, 15%) edges the 2 seed (Queens, 13%) behind a 70% Firebells,
+because Heights matches up better against the club they would meet in the final even though their
+own semifinal is a coin flip. **It is soft**: 15 games is a small sample, and the card says to
+read the numbers as a lean, not a lock. **There is no home-field term** (`HOME_EDGE = 0`): one hub
+venue, no park to defend, one constant to change if that ever stops being true. It began behind the
+experiments switch (it draws a matchup that does not exist yet) and came out to everyone once the
+head-to-head blend turned it from a bare projected bracket into a forward-looking surface; the
+footnote carries the hedge a bracket-shaped guess needs, which a flag almost nobody flips did not.
+
+**Head-to-head blend, same day.** The first cut priced a game from run differential alone; it now
+blends in how the two clubs actually fared against each other, regressed toward the model by
+`n / (n + 10)`. A four-club league plays the same pairing 10-15 times, a sample a 30-club league
+never produces, so the real record deserves weight, but 12 games is still noisy, so at a full-
+season series it lands ~55% record / ~45% model and with two meetings almost all model. Each
+series box now shows the season series that feeds it ("Season series SF 2-0"). This is what moved
+the top seed from 92% to 94% in its semifinal (SF swept Boston) and reshuffled the title strip.
+
+### Aug 24, 2026: Esthela Segovia, not "Estheoa"
+
+A real player's name had rendered wrong since the seed. She is a seed-only row (no feed id, no
+games), so `wpbl-ingest` never touched her and a guarded one-row `UPDATE`
+(`20260824120000_fix_estheoa_segovia_name.sql`) was safe and will not be reverted. Her canonical
+URL moved to `/wpbl/players/esthela-segovia` with it, since the slug derives from the name.
+
+### Aug 24, 2026: recents in the empty search box
+
+The header search did nothing until you typed two characters, so tapping it on a phone showed
+an empty box and a keyboard. It now remembers the players and teams you opened from it and
+lists them the moment it is focused, newest first, which puts a tappable player entry point on
+the one control the traffic section says has none (opening a player page is the retention
+event, and Home is where new visitors are lost). Cleared with a Clear affordance on the card.
+
+**Deliberately not the MLB recents store.** That path (`user_preferences.recent_searches`,
+`mlb/storage/recentSearches.ts`) is keyed on numeric StatsAPI ids and renders from the MLB
+team-color map and mlbstatic headshot URLs; WPBL ids are string uuids and its avatars are its
+own. Sharing the store would either corrupt MLB recents or render WPBL rows blank, so the
+section keeps its own tiny localStorage list (`src/wpbl/recentSearches.ts`) storing only
+`{type, id, name}` and rebuilds each row's avatar and subtitle from the LIVE roster at render
+time, so a traded player carries her current tint and team rather than a stale one. The rows
+reuse the same self-describing `SearchResultRow` / `ToolbarResultRow` path the typed WPBL
+results already ride, so the always-loaded toolbar draws them without importing the section's
+lazy chunk. localStorage only: no cross-device sync, which the MLB column would have given but
+cannot hold WPBL ids.
 
 ### Aug 23, 2026: win probability, and a way to read it with a thumb
 

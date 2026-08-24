@@ -216,6 +216,7 @@ flowchart TB
         t_restock["wpbl_restock_watch<br/>(shortlist: shout about these)"]
         t_shopp["wpbl_shop_products<br/>+ wpbl_shop_variants<br/>(catalogue snapshot)"]
         t_shopr["wpbl_shop_watch_runs<br/>(shop watcher health)"]
+        t_ment["wpbl_mention_hits<br/>+ wpbl_mention_watch_runs<br/>(mention watcher queue + health)"]
     end
 
     subgraph MLB["MLB predictions / survivor / stats (written by GH Action scripts)"]
@@ -337,6 +338,7 @@ sequenceDiagram
 | `pull-feature-requests` | `0 5` | `pull-tasks` | Google Tasks → `docs/feature-requests.md` / feedback |
 | `build-sitemap` | `40 6` | `sitemap` | Rebuild `public/sitemap.xml` from the roster (one URL per player) and commit it **only if the URL set changed**: a push to main is a deploy, so an unconditional rewrite would ship one a day for nothing |
 | `wpbl-restock-watch` | `*/10 * * * *` | `watch-wpbl-restock` | Mirror the league's Shopify catalogue and announce new merch + restocks: quiet batched feed to the shop channel, loud `@everyone` for the shortlist. Notifies only, never buys (see [`docs/DISCORD.md`](docs/DISCORD.md)) |
+| `wpbl-mention-watch` | `*/15 * * * *` | `watch-wpbl-mentions` | Search Reddit and Bluesky for people asking where to follow a WPBL game, and digest the threads worth answering into a private Discord channel. **Finds threads, never replies to them**: the only place it posts is our own webhook. Facebook is absent because no permitted automated path to group content exists (see [`docs/DISCORD.md`](docs/DISCORD.md)) |
 | `wpbl-pbp-validation` | `0 8` | `validate-wpbl-pbp` | Check the league's play-by-play against the rules of baseball; records health to `wpbl_pbp_validation_runs`. **Never fails on findings** (see [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md)) |
 
 **The three game-dependent WPBL jobs carry a `3-10` season window**, matching the MLB ones.
@@ -430,7 +432,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 | **Migration runner** | `SUPABASE_DB_URL` (Postgres connection string, Supabase *session pooler*, port 5432) | `.env` locally + repo **Actions secret** |
 | **Edge functions** | `SUPABASE_URL`*, `SUPABASE_SERVICE_ROLE_KEY`*, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `DISCORD_RECAP_WEBHOOK_URL`, `DISCORD_BOT_TOKEN` (for the `/predict` reveal) | Supabase (*auto-injected) |
 | **pg_cron** | service-role key | Supabase **Vault** (`wpbl_service_role_key`) |
-| **GitHub Actions** | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`, `VAPID_*`, `DISCORD_BOARD_WEBHOOK_URL`, `DISCORD_BOARD_MESSAGE_ID`, `DISCORD_EVENTS_URL`, `DISCORD_WATCH_PARTY_VC_URL`, `DISCORD_RECAP_WEBHOOK_URL`, `DISCORD_HIGHLIGHTS_WEBHOOK_URL`, `DISCORD_BIRTHDAY_WEBHOOK_URL`, `DISCORD_RESTOCK_WEBHOOK_URL`, `DISCORD_SHOP_WEBHOOK_URL`, `DISCORD_RESTOCK_MENTION` (optional), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_TASKS_LIST` | Repo **Actions secrets** |
+| **GitHub Actions** | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`, `VAPID_*`, `DISCORD_BOARD_WEBHOOK_URL`, `DISCORD_BOARD_MESSAGE_ID`, `DISCORD_EVENTS_URL`, `DISCORD_WATCH_PARTY_VC_URL`, `DISCORD_RECAP_WEBHOOK_URL`, `DISCORD_HIGHLIGHTS_WEBHOOK_URL`, `DISCORD_BIRTHDAY_WEBHOOK_URL`, `DISCORD_RESTOCK_WEBHOOK_URL`, `DISCORD_SHOP_WEBHOOK_URL`, `DISCORD_RESTOCK_MENTION` (optional), `DISCORD_MENTIONS_WEBHOOK_URL`, `DISCORD_MENTIONS_MENTION` (optional), `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, `BLUESKY_IDENTIFIER`, `BLUESKY_APP_PASSWORD`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_TASKS_LIST` | Repo **Actions secrets** |
 
 ---
 
@@ -559,6 +561,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - The Substack mirror (why it runs on Supabase and not Actions, and why no body text is stored) → [`docs/READING.md`](docs/READING.md)
 - SEO work that is not code (backlinks: who to contact, and the drafts) → [`docs/BACKLINKS.md`](docs/BACKLINKS.md)
 - Archive gallery: which photos ship, and the approval gate → [`docs/COMMONS_PHOTOS.md`](docs/COMMONS_PHOTOS.md)
+- Finding the people already asking where to follow a game (which platforms permit it, which need a credential, and why the job never replies) → [`scripts/watch-wpbl-mentions.mjs`](scripts/watch-wpbl-mentions.mjs) and the "mention watcher" section of [`docs/DISCORD.md`](docs/DISCORD.md)
 - Reading, Highlights and Archive share ONE Home card, one segment painting at a time →
   [`src/wpbl/MediaShelf.tsx`](src/wpbl/MediaShelf.tsx). Three feeds, three tables, one surface:
   a new feed belongs in that card rather than as a fourth rail down the page

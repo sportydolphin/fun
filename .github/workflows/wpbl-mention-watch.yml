@@ -1,0 +1,89 @@
+name: WPBL Mention Watch
+
+# Finds the public posts where somebody is asking where to follow a WPBL game, and puts them
+# in one private Discord channel for a human to answer.
+#
+# THE JOB FINDS THREADS. IT DOES NOT ANSWER THEM. The only place it ever posts is our own
+# webhook. Do not add a credential that would let it reply anywhere else: an automated reply in
+# somebody else's community is spam, it gets the account banned from exactly the communities
+# worth being in, and the reply is the half that needs a person anyway.
+#
+# FACEBOOK IS NOT HERE and cannot be. The Groups API was withdrawn, group posts are in no
+# search API, and scraping them breaks the terms whichever account does it. Those two groups
+# are worked by hand; see docs/BACKLINKS.md.
+#
+# BOTH SOURCES NEED A CREDENTIAL, and neither of them looks like it does. Reddit answers 403 to
+# every anonymous read (search.json, old.reddit.com, even /r/<sub>/new.json, from a residential
+# IP with an honest user-agent), and Bluesky's public AppView serves getProfile and searchActors
+# without a token but answers app.bsky.feed.searchPosts with a CDN 403 that does not read as an
+# auth failure. Both are free. A source with no secret is SKIPPED with an actionable line in the
+# log and never fails the run, so this workflow can ship before the secrets do; with neither
+# set it searches nothing and says so.
+#
+# EVERY 15 MINUTES, WITH EYES OPEN. GitHub's cron is best-effort and slips under load. That is
+# fine here: fifteen minutes against a question that stays open for hours. Note that scheduled
+# workflows are disabled automatically after 60 days without repository activity, which is the
+# likeliest way this dies, and the job's own outage notice does NOT cover it: a job that never
+# starts cannot report on itself.
+#
+# A SOURCE FAILING IS NOT A FAILED JOB. One source down leaves the other reporting; both down
+# is recorded in wpbl_mention_watch_runs and, after six hours blind, said out loud once. A red
+# X every quarter hour is a job everybody learns to ignore.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Search and render the digest without writing or posting anything'
+        type: boolean
+        default: false
+      test_post:
+        description: 'Post a test message to the webhook to prove it works, then stop'
+        type: boolean
+        default: false
+
+concurrency:
+  group: wpbl-mention-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Only the two packages this script imports. `npm ci` would pull the whole frontend
+      # toolchain it never touches; versions still come from package.json, so there is one
+      # source of truth. Same approach as the other cron workflows.
+      - name: Install watcher dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Search for mentions
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          # wpbl_mention_hits is RLS'd with no policies, so only the service role can see it.
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # A PRIVATE channel. These are threads to go and answer, not content for the fan
+          # server, and a public feed of "people are asking about us" reads badly.
+          DISCORD_MENTIONS_WEBHOOK_URL: ${{ secrets.DISCORD_MENTIONS_WEBHOOK_URL }}
+          # Optional. A user or role mention, e.g. "<@123456789012345678>". Only fires for a
+          # question or a link to us, never for a plain mention.
+          DISCORD_MENTIONS_MENTION: ${{ secrets.DISCORD_MENTIONS_MENTION }}
+          # Application-only, read-only. A free "script" app at reddit.com/prefs/apps; the id
+          # and secret are the only two fields it produces. Without these Reddit is skipped.
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          # The handle, and an App Password from Bluesky's Settings. NEVER the account
+          # password: an app password can be revoked on its own and cannot change the account.
+          # Without these Bluesky is skipped.
+          BLUESKY_IDENTIFIER: ${{ secrets.BLUESKY_IDENTIFIER }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+        run: node scripts/watch-wpbl-mentions.mjs ${{ inputs.dry_run && '--dry-run' || '' }} ${{ inputs.test_post && '--test-post' || '' }}

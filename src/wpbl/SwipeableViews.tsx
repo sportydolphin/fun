@@ -433,12 +433,18 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     }
     : {}
 
+  // The horizontal inset the caller full-bleeds the track for and hands back per pane. Applied
+  // to whichever pane is on screen in EVERY path — pager or not — so turning swipe off does not
+  // strip the gutter and slam the content to the screen edge. padX is 0 on desktop, so this is
+  // a no-op there.
+  const paneInset = { boxSizing: 'border-box' as const, paddingLeft: padX, paddingRight: padX }
+
   // Desktop, or swiping turned off: no pager, but pane mode still has to supply the
   // scroller the modal relies on.
   if (!pagerOn) {
     return paneMode
-      ? <div style={{ flex: 1, minHeight: 0, ...paneScroll }}>{panels[activeIndex]}</div>
-      : <>{panels[activeIndex]}</>
+      ? <div style={{ flex: 1, minHeight: 0, ...paneInset, ...paneScroll }}>{panels[activeIndex]}</div>
+      : <div style={paneInset}>{panels[activeIndex]}</div>
   }
 
   // The panes riding the track besides the active one: a swipe's single neighbour, or, for a
@@ -461,8 +467,6 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
   // freshly-active tab is remembered immediately, with no one-frame lag).
   visited.current.add(activeIndex)
   for (const i of engagedExtras) visited.current.add(i)
-
-  const paneInset = { boxSizing: 'border-box' as const, paddingLeft: padX, paddingRight: padX }
 
   return (
     <div

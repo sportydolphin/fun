@@ -276,33 +276,6 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   const shortName = useWpblName()
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
-  // The pinned bar earns a hairline + shadow only once it is actually holding content back;
-  // at rest it should read as part of the page, not as a slab across the top. Detected by
-  // comparing the bar against a zero-height sentinel left behind at its resting place,
-  // which works at every breakpoint without this page having to know how tall the chrome
-  // above it is (that lives in --app-header-h / --wpbl-nav-h, and exactly one is non-zero).
-  const barRef = useRef<HTMLDivElement>(null)
-  const sentinelRef = useRef<HTMLDivElement>(null)
-  const [stuck, setStuck] = useState(false)
-  useEffect(() => {
-    let frame = 0
-    const measure = () => {
-      frame = 0
-      const s = sentinelRef.current, b = barRef.current
-      if (s && b) setStuck(s.getBoundingClientRect().bottom < b.getBoundingClientRect().top - 0.5)
-    }
-    // rAF-coalesced: two rect reads per scroll EVENT would force layout far more often than
-    // the screen can show it; per frame is exactly as often as it can matter.
-    const onScroll = () => { if (!frame) frame = requestAnimationFrame(measure) }
-    measure()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onScroll, { passive: true })
-    return () => {
-      if (frame) cancelAnimationFrame(frame)
-      window.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onScroll)
-    }
-  }, [])
 
   const [roster, setRoster] = useState<WpblPlayer[] | null>(null)
   // Everyone in the league, which is a different list from the roster and needed beside it.
@@ -460,37 +433,23 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
 
   return (
     <Box>
-      {/* Zero-height marker at the bar's resting position. See `stuck` above. */}
-      <Box ref={sentinelRef} aria-hidden sx={{ height: 0 }} />
-
-      {/* Pinned header. Replaces the plain "← Back / All teams" row this page used to open
-          with, and does three jobs that row could not once you had scrolled past it: it says
-          whose page this is, it carries the record, and it switches clubs in one tap.
+      {/* Header row. Replaces the plain "← Back / All teams" row this page used to open with,
+          and does three jobs that row could not: it says whose page this is, it carries the
+          record, and it switches clubs in one tap. It scrolls away with the page rather than
+          pinning to the top.
 
           Back and "All teams" are still different journeys, so both are still here as icons:
           Back retraces how you got here (arriving from the Stats table, that is the stats
           board), while the grid icon always goes up to all four. */}
       <Box
-        ref={barRef}
         sx={{
-          position: 'sticky',
-          // Exactly one of these is non-zero at a time: the app toolbar is sticky only on
-          // desktop, the section's pill nav only on mobile, so the sum lands this just under
-          // the chrome on both without either breakpoint being special-cased. Same expression
-          // the Stats tab's pinned control bar uses.
-          top: 'calc(var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px))',
-          zIndex: 5,
           bgcolor: 'background.default',
           // Full-bleed to the screen edge on mobile (cancelling the swipe pane's 16px inset,
-          // then handing it back inside) so page content slides under an unbroken bar instead
-          // of showing through a gutter either side of it.
+          // then handing it back inside) so the bar spans the width rather than showing through
+          // a gutter either side of it.
           mx: { xs: -2, sm: 0 },
           px: { xs: 2, sm: 0 },
           py: BAR_PAD_Y, mb: 1.5,
-          transition: 'box-shadow 0.2s, border-color 0.2s',
-          borderBottom: '1px solid',
-          borderColor: stuck ? 'divider' : 'transparent',
-          boxShadow: stuck ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
         }}
       >
         <TeamRail
@@ -567,7 +526,6 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
           {/* Results */}
           <SectionCard
             title="Results"
-            subtitle={`Last ${Math.min(RECENT_DONE, playedGames.length)} · next ${Math.min(NEXT_UP, upcomingGames.length)}`}
             action={hiddenCount > 0 ? (
               // Opens the full season in a modal. Expanding in place pushed everything below
               // it down by nine rows, so the card you were reading jumped out from under you
@@ -587,7 +545,6 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
           {/* Team season totals */}
           <SectionCard
             title="Team stats"
-            subtitle="Season totals"
             action={onOpenStats ? (
               // Lands on the Teams board, which is where these totals become meaningful —
               // a .355 team average says nothing until you can see the other three.

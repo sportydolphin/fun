@@ -4,8 +4,9 @@ import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark } from './ui
 import { wpblAccent } from './constants'
 import { buildBracket } from './derive/bracket'
 import type { BracketSeries, BracketEntrant, WpblBracket } from './derive/bracket'
+import { postseasonOdds, fmtOdds } from './derive/seriesOdds'
+import type { SeriesOdds, WpblPostseasonOdds } from './derive/seriesOdds'
 import { seedingRace } from './derive/seeding'
-import { ExperimentalChip } from '../ExperimentsContext'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblGame, WpblStandingRow, WpblTeam } from './types'
 
@@ -23,11 +24,11 @@ import type { WpblGame, WpblStandingRow, WpblTeam } from './types'
  * beside a list, not to a bracket: this one lives on Home, where the list is not, and Home is
  * the surface with no route to a team page at all.
  *
- * OPT-IN, from the experimental-features switch in Settings. It is the newest thing on the
- * section and the only one that draws a matchup which does not exist yet, so it earns a spell
- * in front of volunteers before it is in front of everyone. Note this is the opposite call
- * from the seeding race, which came OUT from behind the same flag the same day: that card had
- * been built and read for weeks and the flag was buying no more signal, this one is hours old.
+ * LIVE FOR EVERYONE. It began behind the experimental-features switch, since it draws a matchup
+ * that does not exist yet, and came out once the win-probability blend (run differential plus
+ * head-to-head, see derive/seriesOdds.ts) turned it from a bare projected bracket into the
+ * section's one forward-looking surface. The odds carry their own hedge in the card's footnote,
+ * which is what a bracket-shaped guess needs rather than a flag almost nobody flips.
  *
  * ONE CARD FOR BOTH HALVES OF SEPTEMBER. Before the postseason the pairings are a projection
  * from the standings order, which is exactly what the seeding race is about; from Sep 9 the
@@ -40,12 +41,15 @@ import type { WpblGame, WpblStandingRow, WpblTeam } from './types'
  *  traffic says readers are lost. */
 type OpenTeam = (t: WpblTeam) => void
 
-function SeriesTeamRow({ entrant, series, leading, onOpenTeam, from }: {
+function SeriesTeamRow({ entrant, series, leading, onOpenTeam, from, placeholder }: {
   entrant: BracketEntrant
   series: BracketSeries
   leading: boolean
   onOpenTeam?: OpenTeam
   from: string
+  /** What an empty slot reads as. The championship names WHICH semifinal feeds each slot
+   *  ("Semifinal A winner") rather than a bare "Semifinal winner" that is the same on both. */
+  placeholder?: string
 }) {
   const dark = useWpblDark()
   const { team, seed, wins } = entrant
@@ -61,7 +65,7 @@ function SeriesTeamRow({ entrant, series, leading, onOpenTeam, from }: {
           border: '1px dashed', borderColor: 'divider',
         }} />
         <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled', flex: 1, minWidth: 0 }}>
-          Semifinal winner
+          {placeholder ?? 'Semifinal winner'}
         </Typography>
       </Box>
     )
@@ -108,13 +112,62 @@ function SeriesTeamRow({ entrant, series, leading, onOpenTeam, from }: {
   )
 }
 
-function SeriesBox({ series, onOpenTeam, from }: {
-  series: BracketSeries; onOpenTeam?: OpenTeam; from: string
+/** The one-game odds turned into a two-tone bar under the series header: how likely each club
+ *  is to WIN THE SERIES from where it stands. Drawn only while the series is live or projected;
+ *  a decided series has a winner, not a chance. The colours are the two clubs' accents, so the
+ *  bar reads without a legend once the reader has seen the rows below it. */
+function SeriesOddsBar({ series, odds }: { series: BracketSeries; odds: SeriesOdds }) {
+  const dark = useWpblDark()
+  if (series.winner || !series.home.team || !series.away.team) return null
+  const homeAccent = wpblAccent(series.home.team.id, dark)
+  const awayAccent = wpblAccent(series.away.team.id, dark)
+
+  // The season series feeds the odds, so it earns a line of its own: leader's abbr first, which
+  // is how a fan says it ("SF 4-2"). Drawn only when the two actually met and one won more.
+  let seasonLine: string | null = null
+  const h = odds.h2h
+  if (h && h.homeWins + h.awayWins > 0) {
+    const [leadAbbr, hi, lo] = h.homeWins >= h.awayWins
+      ? [series.home.team.abbr, h.homeWins, h.awayWins]
+      : [series.away.team.abbr, h.awayWins, h.homeWins]
+    seasonLine = hi === lo ? `Season series ${hi}-${lo}` : `Season series ${leadAbbr} ${hi}-${lo}`
+  }
+
+  return (
+    <Box sx={{ px: 1, py: 0.6 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+        <Typography sx={{
+          fontSize: '0.6rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+          color: homeAccent, minWidth: 26,
+        }}>{fmtOdds(odds.homeWinP)}</Typography>
+        <Box sx={{ flex: 1, height: 6, borderRadius: 3, overflow: 'hidden', display: 'flex', bgcolor: 'action.hover' }}>
+          <Box sx={{ width: `${odds.homeWinP * 100}%`, bgcolor: homeAccent }} />
+          <Box sx={{ flex: 1, bgcolor: awayAccent, opacity: 0.55 }} />
+        </Box>
+        <Typography sx={{
+          fontSize: '0.6rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+          color: awayAccent, minWidth: 26, textAlign: 'right',
+        }}>{fmtOdds(odds.awayWinP)}</Typography>
+      </Box>
+      {seasonLine && (
+        <Typography sx={{
+          fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled', textAlign: 'center',
+          textTransform: 'uppercase', letterSpacing: 0.4, mt: 0.4,
+        }}>{seasonLine}</Typography>
+      )}
+    </Box>
+  )
+}
+
+function SeriesBox({ series, odds, onOpenTeam, from }: {
+  series: BracketSeries; odds?: SeriesOdds; onOpenTeam?: OpenTeam; from: string
 }) {
   const { home, away, winner } = series
   const homeLeads = winner ? winner.id === home.team?.id : home.wins > away.wins
   const awayLeads = winner ? winner.id === away.team?.id : away.wins > home.wins
   const isFinal = series.round === 'championship'
+  // The most dramatic true thing about a live series is when one club is a loss from going home.
+  const elim = odds?.eliminationFor ?? null
 
   return (
     <Box sx={{
@@ -130,15 +183,27 @@ function SeriesBox({ series, onOpenTeam, from }: {
           fontSize: '0.56rem', fontWeight: 900, letterSpacing: 0.7, textTransform: 'uppercase',
           color: isFinal ? 'var(--wpbl-medal-1)' : 'text.disabled', whiteSpace: 'nowrap',
         }}>{series.label}</Typography>
+        {elim && (
+          <Typography sx={{
+            fontSize: '0.5rem', fontWeight: 900, letterSpacing: 0.6, textTransform: 'uppercase',
+            color: 'error.main', border: '1px solid', borderColor: 'error.main', borderRadius: 0.75,
+            px: 0.5, py: 0.05, whiteSpace: 'nowrap', lineHeight: 1.3,
+          }}>Elimination</Typography>
+        )}
         <Box sx={{ flex: 1 }} />
         <Typography sx={{
           fontSize: '0.6rem', fontWeight: 700, color: 'text.secondary', whiteSpace: 'nowrap',
           overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{series.summary}</Typography>
       </Box>
-      <SeriesTeamRow entrant={home} series={series} leading={homeLeads} onOpenTeam={onOpenTeam} from={from} />
+      {/* In the final, the two empty slots name their source semifinal. The bracket draws A on
+          top and B below, and the connector runs A → the top (home) slot, so that is the match. */}
+      <SeriesTeamRow entrant={home} series={series} leading={homeLeads} onOpenTeam={onOpenTeam} from={from}
+        placeholder={isFinal ? 'Semifinal A winner' : undefined} />
       <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }} />
-      <SeriesTeamRow entrant={away} series={series} leading={awayLeads} onOpenTeam={onOpenTeam} from={from} />
+      <SeriesTeamRow entrant={away} series={series} leading={awayLeads} onOpenTeam={onOpenTeam} from={from}
+        placeholder={isFinal ? 'Semifinal B winner' : undefined} />
+      {odds && <SeriesOddsBar series={series} odds={odds} />}
     </Box>
   )
 }
@@ -163,14 +228,14 @@ function Connector() {
   )
 }
 
-export function BracketDiagram({ bracket, onOpenTeam, from }: {
-  bracket: WpblBracket; onOpenTeam?: OpenTeam; from: string
+export function BracketDiagram({ bracket, odds, onOpenTeam, from }: {
+  bracket: WpblBracket; odds?: WpblPostseasonOdds | null; onOpenTeam?: OpenTeam; from: string
 }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'stretch', gap: { xs: 1, sm: 0 } , flexDirection: { xs: 'column', sm: 'row' } }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, minWidth: 0 }}>
-        {bracket.semifinals.map(s => (
-          <SeriesBox key={s.label} series={s} onOpenTeam={onOpenTeam} from={from} />
+        {bracket.semifinals.map((s, i) => (
+          <SeriesBox key={s.label} series={s} odds={odds?.semifinals[i]} onOpenTeam={onOpenTeam} from={from} />
         ))}
       </Box>
       <Connector />
@@ -182,7 +247,66 @@ export function BracketDiagram({ bracket, onOpenTeam, from }: {
         color: 'text.disabled', textAlign: 'center', mt: 0.25,
       }}>The winners meet in the</Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
-        <SeriesBox series={bracket.championship} onOpenTeam={onOpenTeam} from={from} />
+        <SeriesBox series={bracket.championship} odds={odds?.championship ?? undefined} onOpenTeam={onOpenTeam} from={from} />
+      </Box>
+    </Box>
+  )
+}
+
+/** The headline the bracket cannot draw: each club's chance to WIN IT ALL, ranked by that
+ *  chance rather than by record. Ordered by probability, so a stronger lower seed can sit above
+ *  a weaker higher one, which is the whole point of pricing it off run differential instead of
+ *  reading the standings back. Champion crowned once the final is decided. */
+function TitleOddsStrip({ odds, onOpenTeam }: {
+  odds: WpblPostseasonOdds; onOpenTeam?: OpenTeam
+}) {
+  const dark = useWpblDark()
+  if (odds.title.length === 0) return null
+  const decided = odds.title.some(t => t.p >= 1)
+  return (
+    <Box sx={{ mt: 1.5 }}>
+      <Typography sx={{
+        fontSize: '0.56rem', fontWeight: 900, letterSpacing: 0.7, textTransform: 'uppercase',
+        color: 'text.disabled', mb: 0.75,
+      }}>{decided ? 'Champion' : 'Chance to win it all'}</Typography>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {odds.title.map(t => {
+          const accent = wpblAccent(t.team.id, dark)
+          const open = onOpenTeam
+            ? () => { track(EVENTS.WPBL_BRACKET_TEAM, { teamId: t.team.id, seed: t.seed, from: 'title-odds' }); onOpenTeam(t.team) }
+            : undefined
+          return (
+            <Box
+              key={t.team.id}
+              {...pressable(open)}
+              sx={{
+                display: 'flex', alignItems: 'center', gap: 0.9, minWidth: 0,
+                cursor: onOpenTeam ? 'pointer' : 'default', borderRadius: 1, px: 0.5, py: 0.3,
+                '&:hover': onOpenTeam ? { bgcolor: 'action.hover' } : undefined,
+                ...FOCUS_RING,
+              }}
+            >
+              <TeamBadge team={t.team} size={20} />
+              {/* Fixed name column so every bar starts at the same x and the four read as one
+                  chart. Wide enough for the longest club nickname; ellipsis is only a backstop
+                  for the Large text setting. */}
+              <Typography sx={{
+                width: 92, flexShrink: 0, fontSize: '0.82rem', fontWeight: 700,
+                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+              }}>{t.team.name}</Typography>
+              {/* The bar fills the row: name on the left, percentage on the right, no gap
+                  between. Length is the probability, so the four bars are directly comparable. */}
+              <Box sx={{ flex: 1, minWidth: 0, height: 8, borderRadius: 4, overflow: 'hidden', bgcolor: 'action.hover' }}>
+                <Box sx={{ width: `${Math.max(t.p * 100, t.p > 0 ? 2 : 0)}%`, height: '100%', bgcolor: accent }} />
+              </Box>
+              <Typography sx={{
+                width: 40, flexShrink: 0, fontSize: '0.8rem', fontWeight: 800,
+                fontVariantNumeric: 'tabular-nums', textAlign: 'right',
+                color: t.p >= 1 ? accent : 'text.primary',
+              }}>{fmtOdds(t.p)}</Typography>
+            </Box>
+          )
+        })}
       </Box>
     </Box>
   )
@@ -196,6 +320,7 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, from = 'home' 
   from?: string
 }) {
   const bracket = useMemo(() => buildBracket(rows, games), [rows, games])
+  const odds = useMemo(() => bracket ? postseasonOdds(bracket, rows, games) : null, [bracket, rows, games])
   // Games left is the seeding card's own figure, recomputed here rather than passed down so
   // the two cards cannot drift: each remaining game sits on two clubs, hence the halving.
   const left = useMemo(() => {
@@ -216,22 +341,28 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, from = 'home' 
 
   // Three states, one card. The subtitle is the only part that changes, because it is the only
   // part whose meaning does: the same boxes are a projection, then a scoreboard, then a record.
+  // Kept to one line on a phone: the format (best-of-N) shows in each series box, and the
+  // seeding mechanic in the footnote below, so the subtitle need not carry either.
   const subtitle =
     bracket.champion ? `${bracket.champion.name} are the inaugural champions.`
-    : bracket.started ? 'Semifinals are best-of-three, the championship best-of-five.'
-    : bracket.settled ? 'The order is final. Semifinals begin Sep 9.'
-    : `All four clubs are in, so the last ${left} game${left === 1 ? '' : 's'} decide only the order. Here is the bracket as it stands.`
+    : bracket.started ? 'Series odds, updated after every game.'
+    : bracket.settled ? 'Seeds are set. Semifinals begin Sep 9.'
+    : 'The bracket and title odds as they stand today.'
 
   return (
     <SectionCard
       title={bracket.started ? 'Postseason' : 'The road to the title'}
-      // Opt-in, and the card has to say so itself: it looks exactly like the shipped cards it
-      // sits between, and someone who turned the switch on weeks ago should not have to
-      // remember which of them was the experiment.
-      action={<ExperimentalChip />}
       subtitle={subtitle}
     >
-      <BracketDiagram bracket={bracket} onOpenTeam={onOpenTeam} from={from} />
+      <BracketDiagram bracket={bracket} odds={odds} onOpenTeam={onOpenTeam} from={from} />
+      {odds && <TitleOddsStrip odds={odds} onOpenTeam={onOpenTeam} />}
+      {odds && !bracket.champion && (
+        <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', mt: 1, lineHeight: 1.45 }}>
+          Odds blend each club’s season run differential with its head-to-head results, then
+          play the bracket out to a champion. Watch for a stronger club ranking above a higher
+          seed.
+        </Typography>
+      )}
       {!bracket.started && (
         <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 1.25, lineHeight: 1.45 }}>
           {bracket.settled

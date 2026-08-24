@@ -15,7 +15,6 @@ import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameS
 import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, wpblFeatureName, CARD_BORDER } from './ui'
 import { LiveHero } from './Live'
 import PlayoffBracket from './PlayoffBracket'
-import { useExperiments } from '../ExperimentsContext'
 import {
   aggregateBatting, aggregatePitching, wpblQualifiers, fmtRate, fmtTwo, fmtSigned,
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
@@ -1191,9 +1190,6 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   // StandingsCard: both call `computeStandings` on the same two arrays, so they cannot
   // disagree, and hoisting it would put the table's data in the page's scope for one consumer.
   const standingsRows = useMemo(() => computeStandings(teams, games), [teams, games])
-  // The bracket is opt-in; see the note in PlayoffBracket.tsx for why this one is gated when
-  // the seeding race no longer is.
-  const experiments = useExperiments()
 
   // New-tracking batch banner: fires when the set of tracked games grows since last seen.
   const { newCount: newTrackingCount, ack: ackTracking } = useNewTrackingBatch(tracking)
@@ -1340,7 +1336,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
           Below the season's numbers rather than above them, so it does not displace Next game
           and its countdown, and above the media shelf, which is the surface the traffic says
           is seen and not used. */}
-      {experiments && standingsRows.length > 0 && games.some(g => g.status === 'final') && (
+      {standingsRows.length > 0 && games.some(g => g.status === 'final') && (
         <Box sx={{ mt: 1.5 }}>
           <PlayoffBracket rows={standingsRows} games={games} onOpenTeam={onOpenTeam} from="home" />
         </Box>

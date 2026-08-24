@@ -191,3 +191,19 @@ h1 { margin: 0 0 8px 0; }
     scroll-behavior: auto !important;
   }
 }
+
+/* The in-app override: the same collapse, forced on by the reader from Settings regardless of
+   the OS query, via the `data-reduce-motion` attribute set in AccessibilityContext. Kept a
+   verbatim copy of the block above rather than a shared selector list, because the OS-query
+   version has to stay reachable even where an attribute selector is not (a very old engine),
+   and one line of duplication is cheaper than that risk. Same reasoning on zeroing the delay. */
+[data-reduce-motion="1"] *,
+[data-reduce-motion="1"] *::before,
+[data-reduce-motion="1"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+  scroll-behavior: auto !important;
+}

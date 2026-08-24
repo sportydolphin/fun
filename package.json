@@ -33,7 +33,8 @@
     "restock-watch": "node --env-file=.env scripts/watch-wpbl-restock.mjs",
     "commons-sync": "node --env-file=.env scripts/sync-wpbl-commons.mjs",
     "tracking-watch": "node --env-file=.env scripts/watch-wpbl-tracking.mjs",
-    "retro-sync": "node --env-file=.env scripts/sync-wpbl-retro.mjs"
+    "retro-sync": "node --env-file=.env scripts/sync-wpbl-retro.mjs",
+    "mentions-watch": "node --env-file=.env scripts/watch-wpbl-mentions.mjs"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
