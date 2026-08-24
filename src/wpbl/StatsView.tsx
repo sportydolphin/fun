@@ -883,6 +883,12 @@ export default function WpblStatsView({
 
   return (
     <Box>
+      {/* The page's one <h1>: /wpbl/stats, the section's most-searched term. It sits above the
+          sticky control bar and scrolls away with the content, leaving the bar to pin as
+          before; the bar's top offset is unaffected because this is not sticky itself. */}
+      <Typography component="h1" sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, mb: 1 }}>
+        WPBL Stats
+      </Typography>
       {/* The control bar, pinned. A 36-row table used to scroll every control off the top,
           leaving no way to change side, source or filter without scrolling back up. It offsets
           by --app-header-h + --wpbl-nav-h: exactly one of those is non-zero at a time (the

@@ -7,6 +7,7 @@ import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, useWpblDark } from 
 import { WrittenAbout } from './Reading'
 import { PitchLocationCard } from './PitchLocation'
 import { displayPosition } from './positions'
+import { wpblPlayerPath } from './routes'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblArticle } from './types'
 
 // Player page (Phase 1c): profile + season totals aggregated from box-score lines,
@@ -139,23 +140,31 @@ function GameLogTable({ title, statHeaders, rows }: {
   )
 }
 
-export default function PlayerDetailModal({ player, teams, games, onClose }: {
+export default function PlayerDetailModal({ player, teams, games, players, onClose }: {
   player: WpblPlayer
   teams: WpblTeam[]
   games: WpblGame[]
+  /** The full roster, needed to prove a name slug is unambiguous. Empty only during the first
+   *  moment of a cold load, which the share URL falls back around. */
+  players: WpblPlayer[]
   onClose: () => void
 }) {
   const isDark = useWpblDark()
   const team = useMemo(() => teams.find(t => t.id === player.team_id), [teams, player.team_id])
 
-  // The same URL the section already writes to the address bar when a player page is open
-  // (WpblApp's `q.set('player', …)`), so a copied link is the canonical one and the OG card
-  // in ogCard.ts unfurls it as the player rather than the league. Built from the current
-  // origin rather than a hardcoded host, so a link copied out of a local or preview build
-  // points back at that build instead of sending the reader to production.
+  // The same canonical URL the section writes to the address bar when a player page is open
+  // (WpblApp's `urlFor`): the readable /wpbl/players/<slug> form, so a copied link matches the
+  // bar, is the one Google indexes, and the OG card in ogCard.ts unfurls it as the player
+  // rather than the league. Falls back to the legacy ?player=<id> form only while the roster
+  // is still loading, since a name slug cannot be proven unique without it (see wpblPlayerSlug)
+  // — the same window and the same fallback the address bar uses. Built from the current origin
+  // rather than a hardcoded host, so a link copied out of a local or preview build points back
+  // at that build instead of sending the reader to production.
   const shareUrl = useMemo(
-    () => `${window.location.origin}/wpbl?player=${encodeURIComponent(player.id)}`,
-    [player.id])
+    () => players.length
+      ? `${window.location.origin}${wpblPlayerPath(player, players)}`
+      : `${window.location.origin}/wpbl?player=${encodeURIComponent(player.id)}`,
+    [player, players])
   const gameById = useMemo(() => new Map(games.map(g => [g.id, g])), [games])
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const color = team ? wpblAccent(team.id, isDark) : '#888'

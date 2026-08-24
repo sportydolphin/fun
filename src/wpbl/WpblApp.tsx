@@ -18,7 +18,6 @@ import WpblHome from './Home'
 import WpblStatsView, { type WpblStatsFocus } from './StatsView'
 import TeamPage from './TeamPage'
 import TeamsGrid from './TeamsGrid'
-import HeadToHead from './HeadToHead'
 import SeedingRace from './SeedingRace'
 import SwipeableViews from './SwipeableViews'
 import WpblBottomNav, { BOTTOM_NAV_SPACE } from './BottomNav'
@@ -282,6 +281,10 @@ function ScheduleView({ teams, games, onOpenGame }: {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+      {/* The page's one <h1>: /wpbl/schedule, named for what someone would search. */}
+      <Typography component="h1" sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, mb: 0.25 }}>
+        WPBL Schedule
+      </Typography>
       {lead.map(renderDate)}
       {earlier.length > 0 && <SectionLabel>Earlier</SectionLabel>}
       {earlier.map(renderDate)}
@@ -310,6 +313,11 @@ function StandingsView({ teams, games, onOpenTeam }: {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    {/* The page's one <h1>. This is /wpbl/standings, a distinct route with its own title, so
+        it gets a heading that names the term someone would search ("WPBL standings"). */}
+    <Typography component="h1" sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+      WPBL Standings
+    </Typography>
     <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden' }}>
       <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
         <Box component="thead">
@@ -373,10 +381,6 @@ function StandingsView({ teams, games, onOpenTeam }: {
           its own reads as a race for a place nobody can miss. Sits directly under it, in the
           same order, so a club can be carried from one to the other by eye. */}
       {played && experiments && <SeedingRace rows={rows} games={games} onOpenTeam={onOpenTeam} />}
-      {/* The table answers "who is ahead"; this answers "of whom". They are the same four
-          clubs in the same order, so the eye can carry a row straight down from one to the
-          other. Only once there is a result to show: before that it is sixteen dots. */}
-      {played && onOpenTeam && <HeadToHead rows={rows} games={games} onSelect={onOpenTeam} />}
     </Box>
   )
 }
@@ -1077,6 +1081,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
             player={detailPlayer}
             teams={teams}
             games={games}
+            players={players}
             onClose={closeTop}
           />
         </Suspense>

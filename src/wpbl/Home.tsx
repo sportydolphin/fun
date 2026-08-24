@@ -994,6 +994,79 @@ function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView
   )
 }
 
+// Community invite — links out to the WPBL fan Discord. Styled in Discord's blurple
+// so it reads as "join the chat" at a glance, but kept to one slim row so it sits
+// under the scoreboard without crowding the actual content.
+//
+// MOBILE-ONLY for now: the caller renders it inside a `display: { xs: 'block', md: 'none' }`
+// wrapper. The desktop feed is a two-column subgrid that shares row boundaries, and a fifth
+// card of a different shape breaks that alignment; a proper desktop home for it is a later job.
+const DISCORD_INVITE = 'https://discord.gg/hTaZKFzk6H'
+const DISCORD_BLURPLE = '#5865F2'
+const DISCORD_DISMISS_KEY = 'wpbl_discord_dismissed'
+
+function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
+  // Dismissal is remembered (localStorage) and owned by the parent, which only mounts this card
+  // when it hasn't been dismissed — so once closed it stays gone and leaves no empty slot behind.
+  // Count one impression per mount, i.e. only for users who actually see the card.
+  useEffect(() => { track(EVENTS.DISCORD_SHOWN) }, [])
+  const dismiss = () => {
+    track(EVENTS.DISCORD_DISMISSED)
+    try { localStorage.setItem(DISCORD_DISMISS_KEY, '1') } catch { /* private mode / quota — non-fatal */ }
+    onDismiss()
+  }
+  return (
+    <Box
+      component="a"
+      href={DISCORD_INVITE}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={() => track(EVENTS.DISCORD_JOINED)}
+      sx={{
+        display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25,
+        textDecoration: 'none', cursor: 'pointer',
+        borderRadius: 2, border: '1.5px solid', borderColor: `${DISCORD_BLURPLE}66`,
+        bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(88,101,242,0.09)' : 'rgba(88,101,242,0.06)',
+        transition: 'background-color 0.15s, border-color 0.15s',
+        '&:hover': {
+          bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(88,101,242,0.18)' : 'rgba(88,101,242,0.12)',
+          borderColor: DISCORD_BLURPLE,
+        },
+      }}
+    >
+      <Box sx={{ width: 34, height: 34, borderRadius: '50%', bgcolor: DISCORD_BLURPLE, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Box component="svg" viewBox="0 0 24 24" aria-hidden="true" sx={{ width: 19, height: 19 }}>
+          <path fill="#fff" d="M20.317 4.3698a19.7913 19.7913 0 0 0-4.8851-1.5152.0741.0741 0 0 0-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 0 0-.0785-.037 19.7363 19.7363 0 0 0-4.8852 1.515.0699.0699 0 0 0-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 0 0 .0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 0 0 .0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 0 0-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 0 1-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 0 1 .0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 0 1 .0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 0 1-.0066.1276 12.2986 12.2986 0 0 1-1.873.8914.0766.0766 0 0 0-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 0 0 .0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 0 0 .0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 0 0-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z" />
+        </Box>
+      </Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, lineHeight: 1.2, color: 'text.primary' }}>
+          Join the WPBL fan Discord
+        </Typography>
+        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 0.2 }}>
+          Live game chats and more.
+        </Typography>
+      </Box>
+      <Box sx={{ flexShrink: 0, px: 1.5, py: 0.6, borderRadius: 999, bgcolor: DISCORD_BLURPLE, color: '#fff', fontSize: '0.75rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+        Join
+      </Box>
+      <Box
+        onClick={e => { e.preventDefault(); e.stopPropagation(); dismiss() }}
+        role="button"
+        aria-label="Dismiss Discord invite"
+        sx={{
+          flexShrink: 0, width: 22, height: 22, ml: 0.25,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: '50%', color: 'text.disabled', fontSize: '0.8rem', lineHeight: 1,
+          '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+        }}
+      >
+        ✕
+      </Box>
+    </Box>
+  )
+}
+
 
 // ─── Home ───────────────────────────────────────────────────────────────────────
 
@@ -1025,6 +1098,11 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   const [articles, setArticles] = useState<WpblArticle[]>(() => getCachedWpblArticles() ?? [])
   const [photos, setPhotos] = useState<WpblPhoto[]>(() => getCachedWpblPhotos() ?? [])
   const [loadingLeaders, setLoadingLeaders] = useState(() => wpblHomeCacheAgeMs() === Infinity)
+  // Discord invite dismissal, read once. Owned here (not inside DiscordCard) so a dismissed
+  // invite unmounts the card entirely and leaves no empty wrapper taking up row-gap.
+  const [discordDismissed, setDiscordDismissed] = useState(() => {
+    try { return localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { return false }
+  })
 
   // Full load once, then revalidate on later mounts only when the cache is cold or stale:
   // a quick swipe back to a warm Home is instant and silent. Players are static for the
@@ -1130,7 +1208,11 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
         alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 }, mb: 1.5,
       }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontSize: '1.05rem', fontWeight: 600, letterSpacing: '-0.3px', lineHeight: 1.15 }}>
+          {/* The page's one <h1>. It carries the full league name (an exact match for that
+              search) while the <title> in seo.ts leads with "WPBL Stats"; between them the
+              home page covers both the brand term and the acronym people actually type. Every
+              other WPBL tab is a separate route with its own h1. */}
+          <Typography component="h1" sx={{ fontSize: '1.05rem', fontWeight: 600, letterSpacing: '-0.3px', lineHeight: 1.15 }}>
             Women's Pro Baseball League
           </Typography>
         </Box>
@@ -1170,6 +1252,16 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
 
       {/* Scoreboard */}
       <Scoreboard games={games} teams={teamMap} onOpenGame={onOpenGame} />
+
+      {/* Discord invite, mobile only for now. Sits between the scoreboard and the feed, where
+          it used to lead the single-column stack. Hidden at md+ because the desktop feed is a
+          two-column subgrid with shared row boundaries that a loose card would break; a desktop
+          home for it is a later job. */}
+      {!discordDismissed && (
+        <Box sx={{ display: { xs: 'block', md: 'none' }, mt: 1.5 }}>
+          <DiscordCard onDismiss={() => setDiscordDismissed(true)} />
+        </Box>
+      )}
 
       {/* Two columns: today's games on the left, the season's numbers on the right.
 

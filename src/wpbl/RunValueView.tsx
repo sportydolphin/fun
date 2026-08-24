@@ -5,10 +5,9 @@ import {
   getCachedWpblAllRunValuePlays, getCachedWpblAllPlayers,
 } from './api'
 import {
-  BASE_PHRASE, BASE_ROW_ORDER, BASE_SHORT, biggestSwings, buildRunExpectancy, describeState,
+  BASE_ROW_ORDER, BASE_SHORT, buildRunExpectancy, describeState,
   fmtRe, fmtRunValue, playRunValues, runValueLeaders, type PlayRunValue, type ReTable,
 } from './derive/runExpectancy'
-import { parsePlay } from './derive/playByPlay'
 import { wpblAccentFg } from './constants'
 import { SectionCard, LeaderRow, PlayerPortrait, ExpandRow, useWpblDark, useWpblName } from './ui'
 import { ExperimentalChip } from '../ExperimentsContext'
@@ -22,12 +21,13 @@ import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 // Pitch by pitch counts what each pitch did, and this one prices what each play was worth in
 // runs. The arithmetic is all in derive/runExpectancy.ts; what lives here is the drawing.
 //
-// ONE BOARD AND ONE EXPLANATION. There used to be a second list, the ten biggest single plays
-// of the season, and it was the most interesting thing here to somebody who already knew what
-// run value was and the least useful to everybody else: ten rows of narrative, each needing
-// the situation it happened in to make sense of the number beside it. The season leaderboard
-// answers "who is good", which is the question people bring, and one play worked through in
-// the card beside it does the teaching the ten rows were being asked to do by implication.
+// ONE BOARD. There used to be a second list, the ten biggest single plays of the season, and
+// it was the most interesting thing here to somebody who already knew what run value was and
+// the least useful to everybody else: ten rows of narrative, each needing the situation it
+// happened in to make sense of the number beside it. The season leaderboard answers "who is
+// good", which is the question people bring, and it carries the section on its own. There was
+// also a how-it-works card beside the board (two sentences and one play worked through); it
+// came off too, and the one-line intro plus the shut situations table carry what it taught.
 //
 // WHAT A PHONE SEES FIRST IS THE PLAYERS, AND EVERYTHING ELSE MOVED TO MAKE THAT TRUE.
 // Measured at 375px, the first version put the heading at y=193, a four-sentence paragraph
@@ -37,17 +37,16 @@ import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 // for every reader who is not already convinced. Run value is jargon-prone enough that it
 // cannot open cold, but the fix for that is one sentence, not five.
 //
-// The order is now: one line of what this is, the leaderboard, the plays, and a shut card
-// holding the arithmetic, the worked example, the 24-situation table and the caveats. Nobody
-// has to read any of that to use the board, and it is one tap away for anyone who wants it.
+// The order is now: one line of what this is, the leaderboard, and a shut card holding the
+// 24-situation table and the caveats. Nobody has to read any of that to use the board, and it
+// is one tap away for anyone who wants it.
 //
 // THE TABLE IS NOT THE OPENING ACT, AND THAT IS THE WHOLE LAYOUT. A 24-cell grid of two-decimal
 // numbers is the most expert-looking thing on the section, and it led the page in the first
 // version: a fan who came to see who is having a good season met a spreadsheet and left. So the
-// order is now the plays, then the players, then the table last and folded shut. The two
-// sentences of the intro carry the idea on their own, quoting two cells of the table inline,
-// which is as much of it as a casual reader ever needs. The grid stays for the reader who wants
-// it, one tap away and remembered.
+// order is now the players first, then the table last and folded shut. The one-line intro
+// carries the idea on its own, quoting the unit inline, which is as much as a casual reader
+// ever needs. The grid stays for the reader who wants it, one tap away and remembered.
 //
 // WRITTEN FOR SOMEONE WHO KNOWS WHAT AN RBI IS AND NOTHING BEYOND IT. This is a two-month-old
 // league whose audience mostly arrived this month, and run expectancy is the most jargon-prone
@@ -131,86 +130,6 @@ function ReGrid({ table, accent }: { table: ReTable; accent: string }) {
   )
 }
 
-// ── One play, priced out loud ────────────────────────────────────────────────────
-//
-// The intro states the rule; this shows it applied, on the play the reader is about to meet at
-// the top of the board. It also fills the half of that row which was empty: a measure-capped
-// paragraph under a heading left a third of the page white.
-//
-// IT SHOWS THE SUBTRACTION, AND IT HAS TO. The one question this board reliably provokes is
-// why a grand slam is worth 3.4 and not 4, and there is no answering it without the term that
-// comes off: the bases were loaded, so the inning was already worth 0.82 before the pitch. An
-// earlier version wrote the same three quantities into a sentence and deliberately left the
-// arithmetic out, on the theory that a reader adding rounded numbers would land a tenth away
-// from the board. They did the sum anyway, got 3.5, and asked why the slam was short. Prose
-// cannot hide arithmetic from anyone who cares enough to be confused by it.
-//
-// SO THE COLUMN ADDS UP EXACTLY, BY CONSTRUCTION. The total is summed from the three figures
-// AS PRINTED rather than from the raw value, which can differ from the board's own figure by a
-// hundredth and never by enough to show at the one decimal the board prints. A ledger that
-// does not add up is worse than one that is a hundredth off something on another card.
-function WorkedExample({ v, accent }: { v: PlayRunValue; accent: string }) {
-  const parsed = parsePlay(v.play.narrative ?? '', v.play.batter_name, t => t)
-  const what = parsed.what || v.play.narrative || 'the play'
-  // BASE_PHRASE is written for the tail of a sentence ("bases loaded, 2 out"), where the
-  // article would be wrong. Mid-sentence it needs one, and only that one state does.
-  const situation = v.bases === 7 ? 'the bases loaded' : BASE_PHRASE[v.bases]
-
-  const left = Number(v.after.toFixed(2))
-  const already = Number(v.before.toFixed(2))
-  const total = v.runs + left - already
-  const signed = (n: number) => `${n < 0 ? '−' : '+'}${Math.abs(n).toFixed(2)}`
-
-  const rows: [string, string, boolean][] = [
-    ['Runs it scored', v.runs.toFixed(2), false],
-    ['What it left behind', signed(left), false],
-    ['What the inning was already worth', signed(-already), false],
-    ['The play was worth', signed(total), true],
-  ]
-
-  return (
-    <Box sx={{
-      border: '1px solid', borderColor: 'divider', borderRadius: 3,
-      bgcolor: 'action.hover', px: 2, py: 1.5, alignSelf: 'start',
-    }}>
-      <Typography sx={{
-        fontSize: '0.62rem', fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase',
-        color: accent, mb: 0.5,
-      }}>One play, worked through</Typography>
-      <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', lineHeight: 1.5 }}>
-        {v.play.batter_name ?? 'The batter'} {what}, with {situation} and {v.outs} out.
-      </Typography>
-
-      <Box sx={{ mt: 1.25, display: 'grid', gridTemplateColumns: '1fr auto', rowGap: 0.4, columnGap: 2 }}>
-        {rows.map(([label, num, isTotal]) => (
-          <Box key={label} sx={{ display: 'contents' }}>
-            <Typography sx={{
-              fontSize: '0.78rem', lineHeight: 1.5,
-              color: isTotal ? 'text.primary' : 'text.secondary',
-              fontWeight: isTotal ? 700 : 400,
-              borderTop: isTotal ? '1px solid' : 'none', borderColor: 'divider',
-              pt: isTotal ? 0.6 : 0, mt: isTotal ? 0.2 : 0,
-            }}>{label}</Typography>
-            <Typography sx={{
-              fontSize: '0.78rem', lineHeight: 1.5, textAlign: 'right',
-              fontVariantNumeric: 'tabular-nums', fontWeight: isTotal ? 800 : 600,
-              color: isTotal ? accent : 'text.primary',
-              borderTop: isTotal ? '1px solid' : 'none', borderColor: 'divider',
-              pt: isTotal ? 0.6 : 0, mt: isTotal ? 0.2 : 0,
-            }}>{num}</Typography>
-          </Box>
-        ))}
-      </Box>
-
-      <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled', lineHeight: 1.5, mt: 1 }}>
-        The third line is the one that surprises: with {situation}, the inning was already
-        worth {already.toFixed(2)} before the pitch, and a play is only credited with what it
-        added to that.
-      </Typography>
-    </Box>
-  )
-}
-
 /** Remembered per browser: a reader who opened the table once wants it open next time, and one
  *  who never opens it should not be asked again on every visit. Shut by default.
  *
@@ -284,8 +203,6 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer }: {
     () => (plays ? buildRunExpectancy(plays, games) : null), [plays, games])
   const values = useMemo(
     () => (plays && table ? playRunValues(plays, games, table) : []), [plays, games, table])
-  // One, not ten: the only thing left that needs a play is the example in the explainer.
-  const topSwing = useMemo(() => biggestSwings(values, 1)[0] ?? null, [values])
   const leaders = useMemo(
     () => runValueLeaders(values, players, side).slice(0, 10), [values, players, side])
 
@@ -321,49 +238,22 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer }: {
         </Typography>
       </Box>
 
-      {/* The board and the reason for it, side by side above md and stacked below, which puts
-          the explanation exactly where a phone reader wants it: under the thing it explains,
-          rather than in front of it. */}
-      <Box sx={{
-        display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(0, 1fr)' },
-        gap: { xs: 1.5, md: 2 },
-        alignItems: 'start',
-        '& > *': { display: 'flex', minWidth: 0 },
-        '& > * > *': { flex: 1, minWidth: 0 },
-      }}>
-        <Box>
-          <SectionCard title={pitching ? 'Most runs saved' : 'Most runs created'}>
-            {leaders.length === 0
-              ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
-              : shownLeaders.map((r, i) => (
-                  <LeaderRow key={r.player?.id ?? r.name} rank={i + 1} player={r.player} name={r.name}
-                    teamId={r.teamId} value={fmtRunValue(r.value)} unit="runs" accent={accent}
-                    onOpen={onOpenPlayer}
-                    sub={pitching ? `${r.pa} batters faced` : `${r.pa} times up`} />
-                ))}
-            {isNarrow && leaders.length > LIST_CAP && (
-              <ExpandRow flush expanded={allLeaders} moreLabel={`Show all ${leaders.length}`}
-                onToggle={() => setAllLeaders(v => !v)} />
-            )}
-          </SectionCard>
-        </Box>
-
-        {/* Two sentences and one play. It is on the page rather than behind a disclosure now
-            that it is the only thing next to the board: an explanation nobody opens explains
-            nothing, and this one is short enough to read by accident. */}
-        <Box>
-          <SectionCard title="How this works"
-            subtitle="Why a grand slam is not worth a clean four runs.">
-            <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', lineHeight: 1.5, mb: 1.5 }}>
-              Before every pitch, a team is on for a certain number of runs before the inning
-              ends. A play is worth whatever it scored, plus however much it changed that
-              number.
-            </Typography>
-            {topSwing && <WorkedExample v={topSwing} accent={accent} />}
-          </SectionCard>
-        </Box>
-      </Box>
+      {/* The leaderboard, full width. It shared a row with a how-it-works card until that came
+          off; on its own it takes the whole measure rather than leaving half the row empty. */}
+      <SectionCard title={pitching ? 'Most runs saved' : 'Most runs created'}>
+        {leaders.length === 0
+          ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
+          : shownLeaders.map((r, i) => (
+              <LeaderRow key={r.player?.id ?? r.name} rank={i + 1} player={r.player} name={r.name}
+                teamId={r.teamId} value={fmtRunValue(r.value)} unit="runs" accent={accent}
+                onOpen={onOpenPlayer}
+                sub={pitching ? `${r.pa} batters faced` : `${r.pa} times up`} />
+            ))}
+        {isNarrow && leaders.length > LIST_CAP && (
+          <ExpandRow flush expanded={allLeaders} moreLabel={`Show all ${leaders.length}`}
+            onToggle={() => setAllLeaders(v => !v)} />
+        )}
+      </SectionCard>
 
       {/* The 24 situations the whole board is priced off, shut. It is the most expert-looking
           thing on the section and the least necessary: the two sentences above quote the only

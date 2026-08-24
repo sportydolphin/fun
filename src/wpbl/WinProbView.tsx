@@ -157,7 +157,7 @@ function CardHeader() {
     <Box sx={{ px: 1.5, pt: 1.25, pb: 0.75, display: 'flex', alignItems: 'center', gap: 0.75 }}>
       <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>Win probability</Typography>
       <TapTip
-        title="Worked out from this league's own play-by-play. It reads the situation only: who is pitching, who is up, and how the two clubs have played all season are invisible to it."
+        title="Each team's chance of winning from the current inning, score, outs and runners. Built from this league's own plays. It doesn't know who's pitching, who's up, or how the clubs have played all season."
         sx={{
           width: 16, height: 16, borderRadius: '50%', flexShrink: 0, cursor: 'pointer',
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
