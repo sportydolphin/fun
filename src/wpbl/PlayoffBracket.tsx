@@ -358,16 +358,8 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, from = 'home' 
       {odds && <TitleOddsStrip odds={odds} onOpenTeam={onOpenTeam} />}
       {odds && !bracket.champion && (
         <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', mt: 1, lineHeight: 1.45 }}>
-          Odds blend each club’s season run differential with its head-to-head results, then
-          play the bracket out to a champion. Watch for a stronger club ranking above a higher
-          seed.
-        </Typography>
-      )}
-      {!bracket.started && (
-        <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 1.25, lineHeight: 1.45 }}>
-          {bracket.settled
-            ? 'A and B are our labels for the two pairings, not the league’s.'
-            : 'Seeds 1 and 4 meet, and 2 and 3, so a club’s finishing position sets its opponent. The pairings move with the standings until the last game on Sep 6.'}
+          Odds blend each club’s run differential with its head-to-head results, then
+          play the bracket out to a champion.
         </Typography>
       )}
     </SectionCard>
