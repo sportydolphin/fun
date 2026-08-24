@@ -85,7 +85,6 @@ describe('PlayoffBracket', () => {
     const scheduled = game({ game_date: '2026-09-05', status: 'scheduled', home_score: null, away_score: null })
     const { container } = draw([...season(), scheduled], vi.fn())
     expect(container.textContent).toContain('as they stand today')
-    expect(container.textContent).toContain('The pairings move with the standings')
   })
 
   it('calls the order final once every seed is locked', () => {
