@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest'
 // the script it mirrors drifted.
 import {
   classify, classifyComment, toHits, digestMessage, normaliseReddit, normaliseBluesky,
-  normaliseRedditComments, commentSpanMinutes, isCompetitor, mentionParse, byUrgency,
+  normaliseRedditComments, commentSpanMinutes, isCompetitor, isOwnPost, mentionParse, byUrgency,
   fitDigest, DISCORD_LIMIT,
 } from '../../scripts/watch-wpbl-mentions.mjs'
 
@@ -200,6 +200,44 @@ describe('toHits: comments', () => {
 
   it('drops the ordinary chatter under a thread the search already found', () => {
     expect(toHits([comment({ text: 'what a swing' })], [], { now: NOW })).toHaveLength(0)
+  })
+})
+
+describe('our own posts', () => {
+  // The Bluesky recap poster publishes as sportydolphin and every recap it writes carries
+  // sportydolphin.fun, which SITE_TERMS matches and classify calls a `link`: the top-urgency
+  // kind, the one that pings. Without this the watcher reports our own output back to us
+  // several times a week, at the highest priority it has, forever.
+
+  it('drops what we posted, on either platform', () => {
+    expect(isOwnPost({ author: '@sportydolphin.bsky.social' })).toBe(true)
+    expect(isOwnPost({ author: 'u/sportydolphin' })).toBe(true)
+  })
+
+  it('drops our own recap rather than treating it as somebody linking us', () => {
+    const mine = result({
+      author: '@sportydolphin.bsky.social', source: 'bluesky', context: null,
+      text: 'Hunters 7, Queens 3 (F) sportydolphin.fun/wpbl?game=g1',
+    })
+    expect(toHits([mine], [], { now: NOW })).toHaveLength(0)
+  })
+
+  it('KEEPS a stranger submitting our own site, which is a backlink', () => {
+    // The competitor rule drops a link post on their domain, because that is them posting
+    // their own site. The identical shape pointing here is somebody recommending ours, and it
+    // is the most valuable thing this job can find. Hence author only, never domain.
+    const backlink = result({
+      author: 'u/somebody', domain: 'sportydolphin.fun',
+      title: 'Found a free WPBL stats site with a page for every player',
+    })
+    expect(isOwnPost(backlink)).toBe(false)
+    expect(toHits([backlink], [], { now: NOW })).toHaveLength(1)
+  })
+
+  it('KEEPS a reply under one of our own posts', () => {
+    // Somebody talking to us is a conversation to join, not noise to hide. Only the comments
+    // we wrote ourselves go.
+    expect(isOwnPost({ author: 'u/curious', parent_author: 'u/sportydolphin' })).toBe(false)
   })
 })
 

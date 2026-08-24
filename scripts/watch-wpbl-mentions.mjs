@@ -285,6 +285,38 @@ export const COMPETITORS = ['dubsports', 'keepscore']
 const fold = (v) => String(v ?? '').toLowerCase().replace(/[^a-z0-9]/g, '')
 
 /**
+ * Us. Our own posts are not mentions of us.
+ *
+ * THIS BECAME NECESSARY THE DAY THE BLUESKY RECAP POSTER SHIPPED. Every recap it publishes
+ * carries "sportydolphin.fun/wpbl?game=…", `SITE_TERMS` matches that, and a site match is
+ * classified `link`, which is the top-urgency kind and the one that pings a phone. Left alone
+ * the watcher would have reported our own output back to us several times a week, at the
+ * highest priority it has, forever.
+ *
+ * ADD THE REDDIT ACCOUNT HERE TOO if it is not spelled "sportydolphin". Matching is on the
+ * folded author string, so a handle that shares no letters with the brand will not be caught,
+ * and there is nothing in a post that can tell the job it wrote it.
+ */
+export const OWN_ACCOUNTS = ['sportydolphin']
+
+/**
+ * Whether we wrote it. AUTHOR ONLY, and the two things it deliberately does not check are the
+ * whole point of it being a separate rule from `isCompetitor`.
+ *
+ * NOT the domain: somebody else submitting sportydolphin.fun to a subreddit is a backlink, and
+ * the single most valuable thing this job can find. The competitor rule drops a link post on
+ * their domain because that is them posting their own site; the identical shape pointing here
+ * is a stranger recommending ours.
+ *
+ * NOT the parent: a reply UNDER one of our posts is somebody talking to us, which is a
+ * conversation to join rather than noise to hide. Only the comments we ourselves wrote go.
+ */
+export function isOwnPost(r, own = OWN_ACCOUNTS) {
+  const author = fold(r?.author)
+  return own.some(o => author.includes(o))
+}
+
+/**
  * Whether a result is a competitor's own, by any of the three routes they can own a thread.
  * Pure and exported so the rule is testable without a network.
  */
@@ -681,9 +713,10 @@ export function toHits(results, known, { now = Date.now(), lookbackDays = LOOKBA
   const hits = []
   for (const r of results) {
     if (seen.has(r.external_id)) continue
-    // Dropped here rather than at announce time, so a competitor's post never reaches the
-    // table either. See `isCompetitor`: this reads authorship, never the text.
-    if (isCompetitor(r)) continue
+    // Dropped here rather than at announce time, so neither our own posts nor a competitor's
+    // ever reach the table. Both read authorship and never the text, and they are separate
+    // rules because they check different fields: see `isOwnPost`.
+    if (isOwnPost(r) || isCompetitor(r)) continue
     // A comment is judged against its parent post's title as well, and can never be a plain
     // mention. `classifyComment` carries the reasoning; the short version is that "where can I
     // watch this?" names no league, and that every other comment in the same thread would
@@ -1000,8 +1033,10 @@ async function main() {
   }
 
   const hits = toHits(results, DRY_RUN ? [] : await loadKnownIds())
-  const theirs = results.filter(r => isCompetitor(r)).length
-  console.log(`On topic and new: ${hits.length} of ${results.length}.${theirs ? ` Skipped ${theirs} from ${COMPETITORS.join('/')}.` : ''}`)
+  const ours = results.filter(r => isOwnPost(r)).length
+  const theirs = results.filter(r => !isOwnPost(r) && isCompetitor(r)).length
+  const skipped = [ours ? `${ours} of our own` : '', theirs ? `${theirs} from ${COMPETITORS.join('/')}` : ''].filter(Boolean)
+  console.log(`On topic and new: ${hits.length} of ${results.length}.${skipped.length ? ` Skipped ${skipped.join(' and ')}.` : ''}`)
 
   if (DRY_RUN) {
     const sorted = [...hits].sort(byUrgency)

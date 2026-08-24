@@ -293,6 +293,16 @@ Without that second half every one of four hundred comments under that thread in
 from the title and lands in the channel, one busy night buries a week of real questions, and the
 channel is muted by morning.
 
+**Our own posts never enter the queue either**, and this stopped being hypothetical the day
+the Bluesky recap poster shipped: every recap it publishes carries `sportydolphin.fun`,
+`SITE_TERMS` matches that, and a site match is classified `link`, the top-urgency kind and the
+one that pings. `OWN_ACCOUNTS` drops them. It matches on the **author only**, which is the
+difference from the competitor rule below and is deliberate twice over. Not the domain, because
+somebody *else* submitting sportydolphin.fun is a backlink and the best thing this job can find.
+Not the parent, because a reply under one of our posts is somebody talking to us. **If the Reddit
+account is not spelled "sportydolphin", add it to `OWN_ACCOUNTS`**: nothing in a post can tell
+the job it wrote it.
+
 **Competitors' own posts never enter the queue.** `COMPETITORS` in the script lists the sites
 doing the same job (`dubsports`, `keepscore`); a result is dropped when one of them is who we
 would be replying *to*, matched on the author, on the domain of a link post, and on the author of
