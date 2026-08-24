@@ -351,7 +351,7 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, from = 'home' 
 
   return (
     <SectionCard
-      title={bracket.started ? 'Postseason' : 'The road to the title'}
+      title={bracket.started ? 'Postseason' : 'Road to the title'}
       subtitle={subtitle}
     >
       <BracketDiagram bracket={bracket} odds={odds} onOpenTeam={onOpenTeam} from={from} />
