@@ -13,7 +13,7 @@ One honest note on expectations: the regular season ends **Sep 6, 2026** and the
 **Sep 22**. None of this moves rankings before then. It pays off as an archive, and next
 season.
 
----
+----
 
 ## Already done in the repo
 
