@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
 import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark } from './ui'
 import { wpblAccent } from './constants'
-import { buildBracket } from './derive/bracket'
+import { buildBracket, seriesDateLine } from './derive/bracket'
 import type { BracketSeries, BracketEntrant, WpblBracket } from './derive/bracket'
 import { postseasonOdds, fmtOdds } from './derive/seriesOdds'
 import type { SeriesOdds, WpblPostseasonOdds } from './derive/seriesOdds'
@@ -168,6 +168,7 @@ function SeriesBox({ series, odds, onOpenTeam, from }: {
   const isFinal = series.round === 'championship'
   // The most dramatic true thing about a live series is when one club is a loss from going home.
   const elim = odds?.eliminationFor ?? null
+  const dates = seriesDateLine(series.round, series.key)
 
   return (
     <Box sx={{
@@ -203,6 +204,16 @@ function SeriesBox({ series, odds, onOpenTeam, from }: {
       <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }} />
       <SeriesTeamRow entrant={away} series={series} leading={awayLeads} onOpenTeam={onOpenTeam} from={from}
         placeholder={isFinal ? 'Semifinal B winner' : undefined} />
+      {/* The league's published dates for this series. Shown until it is decided, then dropped:
+          once a series is over, when it was going to be played is no longer news, and a
+          finished card should read as a record rather than as a fixture list. The asterisk
+          marks a game played only if the series is still alive. */}
+      {series.status !== 'done' && dates && (
+        <Typography sx={{
+          fontSize: '0.55rem', fontWeight: 600, color: 'text.disabled',
+          px: 0.75, pt: 0.4, pb: 0.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>{dates}</Typography>
+      )}
       {odds && <SeriesOddsBar series={series} odds={odds} />}
     </Box>
   )

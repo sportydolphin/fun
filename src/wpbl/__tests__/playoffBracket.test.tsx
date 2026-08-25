@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import PlayoffBracket from '../PlayoffBracket'
 import { computeStandings } from '../api'
+import { seriesDateLine, postseasonGames } from '../derive/bracket'
 import type { WpblGame, WpblTeam } from '../types'
 
 // The derivation is covered in bracket.test.ts. What is worth pinning at this level is the
@@ -85,6 +86,34 @@ describe('PlayoffBracket', () => {
     const scheduled = game({ game_date: '2026-09-05', status: 'scheduled', home_score: null, away_score: null })
     const { container } = draw([...season(), scheduled], vi.fn())
     expect(container.textContent).toContain('as they stand today')
+  })
+
+  it('carries the published dates for each series', () => {
+    // The feed has no postseason rows and cannot have any: a game row needs two clubs, and
+    // nobody knows who plays whom until the last regular-season game sets the seeds. So the
+    // dates are a constant and the pairings stay derived.
+    expect(seriesDateLine('semifinal', 'A')).toBe('Sep 9, 11, 13*')
+    expect(seriesDateLine('semifinal', 'B')).toBe('Sep 10, 12, 14*')
+    expect(seriesDateLine('championship', null)).toBe('Sep 16, 17, 19, 20*, 22*')
+  })
+
+  it('marks only the games that might not be played', () => {
+    // Best of three, so game 3 is conditional. Best of five, so games 1 to 3 always happen and
+    // only 4 and 5 are. Getting this backwards would promise a game that may never exist.
+    expect(postseasonGames('semifinal', 'A').filter(g => g.ifNecessary).map(g => g.game)).toEqual([3])
+    expect(postseasonGames('championship', null).filter(g => g.ifNecessary).map(g => g.game)).toEqual([4, 5])
+  })
+
+  it('keeps times as a Central wall clock, not an offset', () => {
+    // formatGameTime already converts a bare Central time to the reader's zone, DST-safe. The
+    // league's email said CST; Springfield is on CDT in September and plainly meant Central.
+    // Rewriting these as UTC would put every postseason game an hour out.
+    expect(postseasonGames('semifinal', 'A')[1]).toMatchObject({ date: '2026-09-11', time: '5:00 PM' })
+  })
+
+  it('shows the dates on an undecided series and drops them once it is over', () => {
+    const { container } = draw([...season(), game({ game_date: '2026-09-05', status: 'scheduled', home_score: null, away_score: null })], vi.fn())
+    expect(container.textContent).toContain('Sep 9, 11, 13*')
   })
 
   it('calls the order final once every seed is locked', () => {

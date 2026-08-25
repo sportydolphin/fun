@@ -28,6 +28,81 @@ import { seedingRace, SEMIFINAL_PAIRS, bracketIsSet } from './seeding'
 /** Semifinals are best-of-three, the championship best-of-five (format confirmed Aug 16). */
 export const BEST_OF: Record<BracketRound, number> = { semifinal: 3, championship: 5 }
 
+/**
+ * The postseason calendar, as the league published it on Aug 24, 2026.
+ *
+ * WHY THIS IS A CONSTANT AND NOT A TABLE. The feed carries no postseason rows yet, and it
+ * cannot: `wpbl_games` needs two clubs per row and nobody knows who plays whom until the last
+ * regular-season game on Sep 6 sets the seeds. Dates are known, opponents are not, so the
+ * dates live here and the pairings stay derived from the standings, exactly as they already
+ * are. When the feed does publish real rows they take over on their own; nothing here has to
+ * be removed, because this only ever labels a series with when it is scheduled.
+ *
+ * TIMES ARE CENTRAL WALL CLOCK, matching the `start_time` text the feed uses for every regular
+ * season game, which `formatGameTime` already converts to the reader's zone DST-safe. The
+ * league's email said "CST"; Springfield is on CDT in September, and it plainly meant Central
+ * rather than a fixed offset. Writing these as a bare wall clock is what keeps that right, and
+ * is why they must NOT be "corrected" into UTC.
+ */
+export interface PostseasonGame {
+  game: number
+  /** Central calendar date, YYYY-MM-DD, same shape as `wpbl_games.game_date`. */
+  date: string
+  /** Central wall clock, same shape as `wpbl_games.start_time`. */
+  time: string
+  /** Played only if the series is still alive. Marked with an asterisk wherever it is shown. */
+  ifNecessary?: boolean
+}
+
+export const POSTSEASON_SCHEDULE: Record<string, PostseasonGame[]> = {
+  'semifinal:A': [
+    { game: 1, date: '2026-09-09', time: '6:00 PM' },
+    { game: 2, date: '2026-09-11', time: '5:00 PM' },
+    { game: 3, date: '2026-09-13', time: '2:00 PM', ifNecessary: true },
+  ],
+  'semifinal:B': [
+    { game: 1, date: '2026-09-10', time: '6:00 PM' },
+    { game: 2, date: '2026-09-12', time: '6:00 PM' },
+    { game: 3, date: '2026-09-14', time: '6:00 PM', ifNecessary: true },
+  ],
+  // Best of five, so games 1 to 3 are always played and only 4 and 5 are conditional.
+  championship: [
+    { game: 1, date: '2026-09-16', time: '6:00 PM' },
+    { game: 2, date: '2026-09-17', time: '6:00 PM' },
+    { game: 3, date: '2026-09-19', time: '6:00 PM' },
+    { game: 4, date: '2026-09-20', time: '2:00 PM', ifNecessary: true },
+    { game: 5, date: '2026-09-22', time: '6:00 PM', ifNecessary: true },
+  ],
+}
+
+/** The published dates for one series, or [] for a round we have no schedule for. */
+export function postseasonGames(round: BracketRound, key: string | null): PostseasonGame[] {
+  return POSTSEASON_SCHEDULE[round === 'championship' ? 'championship' : `${round}:${key}`] ?? []
+}
+
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/**
+ * One line of dates for a series: "Sep 9, 11, 13*".
+ *
+ * The month is repeated only when it changes, which it does not this year but would the moment
+ * a series straddled the end of a month. Built by string surgery rather than `new Date`, since
+ * a bare date parsed as a Date is midnight UTC printed in local time, which is the previous
+ * evening in every American zone.
+ */
+export function seriesDateLine(round: BracketRound, key: string | null): string | null {
+  const games = postseasonGames(round, key)
+  if (!games.length) return null
+  let lastMonth = ''
+  return games.map(g => {
+    const [, mo, d] = g.date.split('-')
+    const month = SHORT_MONTHS[Number(mo) - 1] ?? mo
+    const label = month === lastMonth ? `${Number(d)}` : `${month} ${Number(d)}`
+    lastMonth = month
+    return `${label}${g.ifNecessary ? '*' : ''}`
+  }).join(', ')
+}
+
 export type BracketRound = 'semifinal' | 'championship'
 
 /** Games a club must win to take the series: 2 of 3, 3 of 5. */

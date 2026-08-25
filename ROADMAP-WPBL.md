@@ -117,6 +117,11 @@ more than it looks. The primer (#4) and SEO (#3) hold, aimed at a cold audience 
 
 ### 1. Postseason data hygiene ⚙️: ✅ **shipped Aug 20, 2026** (see the log). Kept here until the first postseason game confirms what the feed sends
 
+**Dates published Aug 24** and now carried on the bracket card (`POSTSEASON_SCHEDULE` in
+`derive/bracket.ts`): Semifinal A Sep 9, 11, 13* · Semifinal B Sep 10, 12, 14* · Championship
+Sep 16, 17, 19, 20*, 22*. They are a constant rather than rows, because a game row needs two
+clubs and the seeds are not set until Sep 6.
+
 **Format** (confirmed Aug 16): all four teams qualify · semifinals **best-of-3** ·
 finals **best-of-5**. So **7–11 postseason games** land on top of a 30-game regular season,
 and a team that reaches the finals plays up to **8 more games on top of its 15, a 53%
