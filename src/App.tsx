@@ -21,7 +21,7 @@ import { supabase } from './lib/supabase'
 import { useSeo } from './seo'
 // Import-free by design, so naming it here does not drag the lazy WPBL chunk into the
 // entry bundle. See the note at the top of that file.
-import { wpblViewFromPath, wpblPlayerSlugFromPath, isWpblPlayersIndex, WPBL_PATH_EVENT } from './wpbl/routes'
+import { wpblViewFromPath, wpblPlayerSlugFromPath, isWpblPlayersIndex, wpblAppOwnsPath, WPBL_PATH_EVENT } from './wpbl/routes'
 import { track, EVENTS } from './lib/analytics'
 import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from './lib/usernames'
 import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
@@ -96,8 +96,9 @@ const isWpblTab = (p: string) => wpblViewFromPath(p) !== null
 /** A player page or the index that lists them. Both are rendered by WpblApp: a player is a
  *  modal the section opens over a tab, so the section still owns the route. */
 const isWpblPlayerPage = (p: string) => wpblPlayerSlugFromPath(p) !== null || isWpblPlayersIndex(p)
-/** Everything WpblApp renders. The players INDEX is its own page, so it is not here. */
-const rendersWpblApp = (p: string) => isWpblTab(p) || wpblPlayerSlugFromPath(p) !== null
+/** Everything WpblApp renders. The players INDEX is its own page, so it is not here.
+ *  Defined in routes.ts because WpblApp's popstate handler has to agree with it. */
+const rendersWpblApp = wpblAppOwnsPath
 /** Anything that should read as "the reader is in the WPBL section". */
 const isWpblSection = (p: string) => rendersWpblApp(p) || p === '/wpbl/api'
 
@@ -667,21 +668,43 @@ function AppInner() {
         position={!isDesktop ? 'static' : integratedHeader ? 'sticky' : 'static'}
         color="default"
         elevation={integratedHeader ? 0 : 1}
-        sx={integratedHeader ? {
-          // Integrated header: same tint as the page, separated by a hairline + blur
-          // instead of sitting as a lighter-gray slab on near-black.
-          top: 0,
-          bgcolor: skinConfig.headerBg,
-          backgroundImage: 'none',
-          // Blur only on desktop, where the header is sticky and content actually passes
-          // under it. On mobile the bar scrolls away with the page, so the blur is purely
-          // decorative — and backdrop-filter makes the AppBar a stacking context that traps
-          // the account dropdown (z-index 1400) below page content like the sticky tab bar
-          // (z-index 3). Dropping it on mobile lets the dropdown render in front of the page.
-          ...(isDesktop && { backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }),
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-        } : undefined}
+        sx={{
+          ...(integratedHeader ? {
+            // Integrated header: same tint as the page, separated by a hairline + blur
+            // instead of sitting as a lighter-gray slab on near-black.
+            top: 0,
+            bgcolor: skinConfig.headerBg,
+            backgroundImage: 'none',
+            // Blur only on desktop, where the header is sticky and content actually passes
+            // under it. On mobile the bar scrolls away with the page, so the blur is purely
+            // decorative — and backdrop-filter makes the AppBar a stacking context that traps
+            // the account dropdown (z-index 1400) below page content like the sticky tab bar
+            // (z-index 3). Dropping it on mobile lets the dropdown render in front of the page.
+            ...(isDesktop && { backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }),
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+          } : {}),
+          // A SHORT viewport scrolls the bar away too, whatever its width. The rule above is
+          // width-only, so a phone turned sideways lands in the desktop branch and pins 44px
+          // of a 375px screen for a toggle and a search box, on top of whatever the page
+          // pins under it: the stats board was left holding 135px of chrome and 240px of
+          // screen. Portrait already answers this by scrolling the bar off, and the reason is
+          // height, not width, so this says height.
+          //
+          // In CSS rather than beside `isDesktop`, because the two must agree and only one of
+          // them can: `useMediaQuery` is JS state that has to be told to update, and an
+          // orientation change is exactly when it is least trustworthy. The effect that
+          // publishes --app-header-h reads the COMPUTED position and re-runs on resize, so it
+          // follows this on its own and reports 0 the moment the bar stops holding anything.
+          //
+          // 560px is the stats table's threshold too (see StatsView), and deliberately the
+          // same number: they are answering one question about one screen.
+          '@media (max-height: 560px)': {
+            position: 'static',
+            backdropFilter: 'none',
+            WebkitBackdropFilter: 'none',
+          },
+        }}
       >
         <Toolbar variant="dense" sx={{ minHeight: 48, py: 0.5 }}>
           {/* Close button — mobile search mode only */}
@@ -997,7 +1020,7 @@ function AppInner() {
                 simulation, notification tester, simulated login, and (on /mlb) the
                 MLB simulators. Renders on every section, so the mobile toggle works
                 in WPBL too. See src/dev/DevSettings.tsx. Never in a production build. */}
-            {import.meta.env.DEV && <DevSettings showMlbTools={path === '/mlb'} />}
+            {import.meta.env.DEV && <DevSettings showMlbTools={path === '/mlb'} showWpblTools={isWpblSection(path)} />}
 
             <IconButton
               onClick={toggleTheme}

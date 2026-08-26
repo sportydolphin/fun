@@ -573,6 +573,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - Reading, Highlights and Archive share ONE Home card, one segment painting at a time →
   [`src/wpbl/MediaShelf.tsx`](src/wpbl/MediaShelf.tsx). Three feeds, three tables, one surface:
   a new feed belongs in that card rather than as a fourth rail down the page
+- Local-dev-only controls (skin, device sim, simulated login, notification tester, the WPBL Discord-invite undo) → [`src/dev/DevSettings.tsx`](src/dev/DevSettings.tsx), gated on `import.meta.env.DEV`. **Anything it reaches into has to be import-light**: App.tsx imports that file eagerly while both sections are `lazy()`, so a convenience import from inside `MlbStats`/`WpblApp` pulls that section's chunk into the main bundle for every visitor, in production, to serve a control that only exists in dev. That is why the invite's dismissal key and its undo live in their own [`src/wpbl/discordInvite.ts`](src/wpbl/discordInvite.ts) rather than in `Home.tsx`
 - Edge functions → [`supabase/functions/`](supabase/functions) · Cloudflare Pages functions → [`functions/`](functions)
 - Cron script logic → [`scripts/*.mjs`](scripts) · the Discord recap poster is TS
   ([`scripts/post-wpbl-discord-recaps.ts`](scripts/post-wpbl-discord-recaps.ts)), bundled at CI

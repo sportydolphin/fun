@@ -101,10 +101,12 @@ describe('buildRecapMessage', () => {
     expect(buildRecapMessage(game(), recap(), TEAMS).allowed_mentions).toEqual({ parse: [] })
   })
 
-  it('leads with the headline and carries the blurb above the box score', () => {
+  // The BLANK line is the assertion, not incidental to it. Discord draws a code block as a
+  // filled box, and a single newline puts that box hard against the last line of the blurb.
+  it('leads with the headline and carries the blurb a clear line above the box score', () => {
     const { embeds: [e] } = buildRecapMessage(game(), recap(), TEAMS)
     expect(e.title).toBe('Hunters top Heights')
-    expect(e.description.startsWith('The Hunters held on for a 6-1 win.\n```')).toBe(true)
+    expect(e.description.startsWith('The Hunters held on for a 6-1 win.\n\n```')).toBe(true)
   })
 
   it('links at the game, not the section — the Recap tab opens straight from Discord', () => {

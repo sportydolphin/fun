@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git fetch *)"
+      "Bash(git fetch *)",
+      "Bash(curl -sI https://sportydolphin.fun/sitemap.xml)",
+      "Bash(curl -s https://sportydolphin.fun/sitemap.xml)"
     ]
   }
 }

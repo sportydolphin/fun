@@ -25,7 +25,7 @@ import WpblBottomNav, { BOTTOM_NAV_SPACE } from './BottomNav'
 import { useExperiments } from '../ExperimentsContext'
 import {
   WPBL_NAV, wpblPathFor, wpblViewFromPath, normalizeWpblView, WPBL_PATH_EVENT,
-  wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug, isWpblPlayersIndex,
+  wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug, isWpblPlayersIndex, wpblAppOwnsPath,
   type WpblView,
 } from './routes'
 import { setDynamicSeo } from '../seo'
@@ -475,9 +475,20 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const [selectedTeam, setSelectedTeam] = useState<WpblTeam | null>(() => seed().team)
   const [detailGame, setDetailGame] = useState<WpblGame | null>(() => seed().game)
   const [detailPlayer, setDetailPlayer] = useState<WpblPlayer | null>(() => seed().player)
-  // Mirror of the MLB game-center event, fired whenever the opened game changes.
+  // Mirror of the MLB game-center event, fired whenever the opened game changes. `from` is the
+  // surface the game was tapped on: without it the busiest modal in the section is one flat
+  // count that cannot say whether the Home scoreboard, the schedule grid or a team page is
+  // what actually feeds it, which is the question any change to those three has to answer.
   useEffect(() => {
-    if (detailGame) track(EVENTS.GAME_CENTER_OPENED, { league: 'wpbl', gameId: detailGame.id, status: detailGame.status })
+    if (detailGame) {
+      track(EVENTS.GAME_CENTER_OPENED, {
+        league: 'wpbl', gameId: detailGame.id, status: detailGame.status,
+        from: view === 'teams' && selectedTeam ? 'team' : view,
+      })
+    }
+    // Deliberately keyed on the game alone: `view` and `selectedTeam` are read for the label
+    // and must not re-fire this when a reader swipes tabs with a game still open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detailGame?.id])
   // Which stat group the Stats view opens on (set when jumping there from Home leaders).
   // What the Stats tab should be showing when it's opened from a Home leader card. `token`
@@ -714,7 +725,33 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     const backToRoot = v === view && via === 'pill'
     push({ view: v, team: backToRoot ? null : selectedTeam, game: null, player: null })
   }, [push, selectedTeam, view])
-  const selectTeam = useCallback((t: WpblTeam | null) => push({ view: 'teams', team: t, game: null, player: null }), [push])
+  // Every team-page open in the section funnels through here, so it is the only place that can
+  // count them all. Until this existed the only team opens on record were the seeding card's and
+  // the bracket's, which measured two widgets rather than the surface: the Teams grid, the
+  // standings table, the Stats table and the header search all reached a team page unseen.
+  //
+  // `from` names the SURFACE, not the widget, and the two card events stay where they are
+  // because they carry the seed, so a bracket click lands in both. That is deliberate:
+  // `wpbl_team_opened` is the total, `wpbl_bracket_team` is that card's own funnel. Adding the
+  // two together double-counts.
+  const selectTeam = useCallback(
+    (t: WpblTeam | null, from = 'unknown') => {
+      if (t) track(EVENTS.WPBL_TEAM_OPENED, { teamId: t.id, from })
+      push({ view: 'teams', team: t, game: null, player: null })
+    },
+    [push],
+  )
+  // Bound per surface rather than as an inline arrow at each render site: StatsView takes
+  // `onOpenTeam` into a useMemo dependency list, and a fresh identity on every render would
+  // rebuild its whole table whenever anything else in the tree changed.
+  const selectTeamFromHome      = useCallback((t: WpblTeam | null) => selectTeam(t, 'home'), [selectTeam])
+  const selectTeamFromStandings = useCallback((t: WpblTeam | null) => selectTeam(t, 'standings'), [selectTeam])
+  const selectTeamFromStats     = useCallback((t: WpblTeam | null) => selectTeam(t, 'stats'), [selectTeam])
+  const selectTeamFromTeams     = useCallback((t: WpblTeam | null) => selectTeam(t, 'teams'), [selectTeam])
+  // From a game: the score lines at the top of Game Center, the box score's own team rows,
+  // and the preview card's legend chips. Like `openGame` from a player, this closes the game
+  // as it goes, so Back walks off the team page and lands back on the game.
+  const selectTeamFromGame      = useCallback((t: WpblTeam) => selectTeam(t, 'game'), [selectTeam])
   // `opts` is how the team page asks for a specific board: the four-team comparison, or the
   // player table already filtered to one club. Omitted by every other caller, which keeps
   // the leader-card jumps behaving exactly as they did.
@@ -729,8 +766,13 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // Tracking is a Stats group now, so "view the tracking boards" means "open Stats on it".
   const openTracking = useCallback(() => openStats('tracking'), [openStats])
   const openGame   = useCallback((g: WpblGame) => push({ view, team: selectedTeam, game: g, player: null }), [push, view, selectedTeam])
-  const openPlayer = useCallback((p: WpblPlayer) => {
-    track(EVENTS.WPBL_PLAYER_OPENED, { playerId: p.id, teamId: p.team_id, from: detailGame ? 'game' : view })
+  // `from` defaults to the surface the reader is standing on, which is right for every in-page
+  // link. The header search has to override it: search works from every tab, so left to the
+  // default a player opened from the search box reports whichever tab happened to be behind it.
+  // Opening a player page is the retention event, which makes that the one attribution error
+  // here worth spending a parameter on.
+  const openPlayer = useCallback((p: WpblPlayer, from?: string) => {
+    track(EVENTS.WPBL_PLAYER_OPENED, { playerId: p.id, teamId: p.team_id, from: from ?? (detailGame ? 'game' : view) })
     push({ view, team: selectedTeam, game: detailGame, player: p })
   }, [push, view, selectedTeam, detailGame])
   // Closing a modal (X or Escape) walks history back, so it and the browser Back button are
@@ -867,7 +909,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // results and the recents list so both look identical and both record the selection (a
   // recent re-selected bumps back to the front). The avatar is rebuilt from the live roster on
   // every render, so a traded player carries her current tint and team rather than a stale one.
-  const buildPlayerRow = useCallback((p: WpblPlayer): SearchResultRow => {
+  const buildPlayerRow = useCallback((p: WpblPlayer, source: 'result' | 'recent'): SearchResultRow => {
     const team = p.team_id ? teamById.get(p.team_id) : undefined
     const initials = p.name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
     return {
@@ -880,11 +922,14 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         bg: wpblColor(p.team_id), ring: wpblSecondary(p.team_id),
         fit: 'cover', circle: true,
       },
-      onSelect: () => { recordRecent({ type: 'player', id: p.id, name: p.name }); setSearchQuery(''); openPlayer(p) },
+      onSelect: () => {
+        track(EVENTS.WPBL_SEARCH_PICKED, { type: 'player', id: p.id, source })
+        recordRecent({ type: 'player', id: p.id, name: p.name }); setSearchQuery(''); openPlayer(p, 'search')
+      },
     }
   }, [teamById, positionIndex, recordRecent, openPlayer])
 
-  const buildTeamRow = useCallback((t: WpblTeam): SearchResultRow => ({
+  const buildTeamRow = useCallback((t: WpblTeam, source: 'result' | 'recent'): SearchResultRow => ({
     key: `team-${t.id}`,
     title: wpblFullName(t),
     subtitle: t.abbr,
@@ -894,22 +939,57 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
       bg: wpblColor(t.id), ring: wpblSecondary(t.id),
       fit: wpblLogoFill(t.id) ? 'cover' : 'contain', circle: true,
     },
-    onSelect: () => { recordRecent({ type: 'team', id: t.id, name: wpblFullName(t) }); setSearchQuery(''); selectTeam(t) },
+    onSelect: () => {
+      track(EVENTS.WPBL_SEARCH_PICKED, { type: 'team', id: t.id, source })
+      recordRecent({ type: 'team', id: t.id, name: wpblFullName(t) }); setSearchQuery(''); selectTeam(t, 'search')
+    },
   }), [recordRecent, selectTeam])
 
   // Filter players + teams on the typed query and push self-describing rows up to the
   // toolbar. The rows carry primitive avatar data (portrait/logo URLs + team colors) so the
   // always-loaded toolbar renders them without importing this lazy chunk; each onSelect
   // routes back through openPlayer/selectTeam, keeping the section's back-stack intact.
-  useEffect(() => {
+  // Matching is its own memo so the rows and the analytics below read the same answer rather
+  // than filtering twice and being free to disagree. Counts are taken BEFORE the display slice:
+  // "6 players" has to mean six, not "the cap".
+  const matches = useMemo(() => {
     const q = bridge.query.trim().toLowerCase()
-    if (q.length < 2) { updateSearchBridge({ resultRows: [] }); return }
+    if (q.length < 2) return null
+    const p = players.filter(pl => pl.name.toLowerCase().includes(q))
+    const t = teams.filter(tm => `${tm.city} ${tm.name} ${tm.abbr}`.toLowerCase().includes(q))
+    return { q, players: p, teams: t }
+  }, [bridge.query, players, teams])
 
-    const playerRows = players.filter(p => p.name.toLowerCase().includes(q)).slice(0, 6).map(buildPlayerRow)
-    const teamRows = teams.filter(t => `${t.city} ${t.name} ${t.abbr}`.toLowerCase().includes(q)).slice(0, 4).map(buildTeamRow)
-
+  useEffect(() => {
+    if (!matches) { updateSearchBridge({ resultRows: [] }); return }
+    const playerRows = matches.players.slice(0, 6).map(p => buildPlayerRow(p, 'result'))
+    const teamRows = matches.teams.slice(0, 4).map(t => buildTeamRow(t, 'result'))
     updateSearchBridge({ resultRows: [...playerRows, ...teamRows] })
-  }, [bridge.query, players, teams, buildPlayerRow, buildTeamRow])
+  }, [matches, buildPlayerRow, buildTeamRow])
+
+  // The header search is on screen on every page in the section and was entirely unmeasured.
+  // One event per SETTLED query, never per keystroke: a debounce, plus a per-mount set of
+  // queries already logged so backspacing back through a word cannot re-fire it.
+  //
+  // The typed text is kept ONLY when the query matched nothing, because that is the one case
+  // where the string itself is the finding: a player we are missing, or a spelling the filter
+  // cannot reach, neither of which anyone will ever report. A query that did match is already
+  // described by whichever row the reader picked, so storing it would be collecting freeform
+  // user text for nothing.
+  const loggedQueries = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    if (!matches || loggedQueries.current.has(matches.q)) return
+    const { q, players: pl, teams: tm } = matches
+    const id = setTimeout(() => {
+      loggedQueries.current.add(q)
+      const empty = pl.length + tm.length === 0
+      track(EVENTS.WPBL_SEARCHED, {
+        length: q.length, players: pl.length, teams: tm.length,
+        ...(empty ? { q: q.slice(0, 40) } : {}),
+      })
+    }, 700)
+    return () => clearTimeout(id)
+  }, [matches])
 
   // Resolve stored recents against the live roster and push them up as rows. A recent whose
   // player/team no longer exists (a rare merge or roster change) is dropped rather than shown
@@ -918,10 +998,10 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     const rows = recentSearches.flatMap<SearchResultRow>(r => {
       if (r.type === 'player') {
         const p = players.find(pl => pl.id === r.id)
-        return p ? [buildPlayerRow(p)] : []
+        return p ? [buildPlayerRow(p, 'recent')] : []
       }
       const t = teams.find(tm => tm.id === r.id)
-      return t ? [buildTeamRow(t)] : []
+      return t ? [buildTeamRow(t, 'recent')] : []
     })
     updateSearchBridge({ recentRows: rows, clearRecentSearches: clearRecents })
   }, [recentSearches, players, teams, buildPlayerRow, buildTeamRow, clearRecents])
@@ -941,10 +1021,11 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // App router swapping sections (MLB|WPBL) — ignore them here.
   useEffect(() => {
     const onPop = (e: PopStateEvent) => {
-      // Any WPBL tab, not just the section root: the tabs became real paths, and comparing
+      // Any path the section renders, which is every tab AND a player page. Comparing
       // against '/wpbl' alone would ignore every Back/Forward taken from /wpbl/standings and
-      // friends, leaving the view frozen while the address bar moved.
-      if (wpblViewFromPath(window.location.pathname) === null) return
+      // friends; testing the tabs alone dropped every pop that LANDED on /wpbl/players/<slug>,
+      // leaving the modals frozen while the address bar moved. See wpblAppOwnsPath.
+      if (!wpblAppOwnsPath(window.location.pathname)) return
       apply(((e.state?.wpbl ?? null) as WpblSnap | null) ?? HOME_SNAP)
     }
     window.addEventListener('popstate', onPop)
@@ -1067,11 +1148,11 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
             panels={NAV.map(n => {
               const content = (() => {
                 switch (n.key) {
-                  case 'home':      return <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} onViewStats={openStats} onViewTracking={openTracking} />
+                  case 'home':      return <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromHome} onViewStats={openStats} onViewTracking={openTracking} />
                   case 'schedule':  return <ScheduleView teams={teams} games={games} onOpenGame={openGame} active={view === 'schedule'} />
-                  case 'standings': return <StandingsView teams={teams} games={games} onOpenTeam={selectTeam} />
-                  case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} active={view === 'stats'} newBoardBadge={pitchesBadge} onNewBoardSeen={retirePitchesBadge} onOpenPlayer={openPlayer} onOpenTeam={selectTeam} />
-                  case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeam} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenStats={openStats} />
+                  case 'standings': return <StandingsView teams={teams} games={games} onOpenTeam={selectTeamFromStandings} />
+                  case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} active={view === 'stats'} newBoardBadge={pitchesBadge} onNewBoardSeen={retirePitchesBadge} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromStats} />
+                  case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeamFromTeams} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenStats={openStats} />
                 }
               })()
               // On mobile the footer lives at the bottom of each tab pane rather than as one
@@ -1114,6 +1195,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
             games={games}
             players={players}
             onClose={closeTop}
+            onOpenGame={openGame}
           />
         </Suspense>
       )}
@@ -1126,6 +1208,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
             games={games}
             onClose={closeTop}
             onOpenPlayer={openPlayer}
+            onOpenTeam={selectTeamFromGame}
           />
         </Suspense>
       )}

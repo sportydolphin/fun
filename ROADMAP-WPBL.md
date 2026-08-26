@@ -536,6 +536,407 @@ is retired.
 
 ## Shipped log
 
+### Aug 25, 2026: the player page stops being a data dump
+
+Measured on a 375px phone before touching anything, because the complaint was about mobile and
+the page had never been measured there. The sheet scrolled 1287px against 654px of visible
+height, and three rows clipped horizontally with no scrollbar, no fade and nothing to say they
+scrolled: the batting counting-stat line was 408px of content in a 307px box, so **SB and TB
+were invisible on a phone**, cut mid-row. Silent data loss is the worst shape a layout bug can
+take, because nobody reports it. That is fixed by construction rather than by a scroll hint:
+the counting stats are a wrapping grid now, and a grid cannot clip. The game logs got
+responsive cell padding, which drops a thirteen-column hitting log from 401px to inside a
+375px screen with room over.
+
+**The roles are tabs.** Four stat blocks stacked down one scroll gave a two-way player two
+hero cards, two game logs and two sets of table chrome for the same nine games, and gave all
+four blocks the same visual weight, so a fielding percentage over nine games sat as tall as a
+.400 average. Batting and Pitching are a `SegNav` now, the same control Game Center uses, with
+only the active role mounted. The control appears **only** for a genuine two-way player: a
+cameo still folds into the primary pane as a one-line summary, so an occasional-hitting pitcher
+and a real two-way player do not end up in the same shape. Fielding is a collapsed line that
+opens on tap. Jill Albayati's page went from 1287px to 953px while *gaining* the strip below.
+The two roles also **page under a finger**, the same `SwipeableViews` in `mode="pane"` that
+Game Center's tabs use: two panes is exactly where a swipe earns its keep, since the pill bar
+is a 40px target at the top of a sheet and the thing a reader wants next is the other half of
+the same player. That is what pinned the identity band, which the pager needed a definite
+height beside, and pinning it turned out to pay for itself twice: whose numbers these are stays
+on screen at any scroll depth, and the sheet's grab surface stops scrolling out of reach.
+
+**And the sheet could not be pushed back down, which the restructure caused.** The page grew
+past the height of the sheet (1069px of content in a 654px pane on a 375px phone), so its body
+became a real scroller where it used to fit, and a scroller owns a touch before the drag
+handler can: the gesture decided at 10px, which is past the platform's ~8px slop, so
+`preventDefault` was a no-op and `touchcancel` ended the drag. It worked perfectly against
+synthetic touch events the whole time. `useSheetDrag` now splits the CLAIM from the COMMIT:
+at 4px it takes the touch off the browser if the gesture could be a dismissal (downward,
+vertical, over a scroller already at its top, where there is nothing to scroll anyway), and
+still decides at 10px whether to drag or hand it back. A card can also mark a block
+`data-sheet-drag` to make it a grab surface with the chrome's `touch-action: none`, which the
+identity band does.
+
+**Nothing on the page used to know whether the numbers were good.** A .406 average and a 1.40
+ERA sat there uncontextualised on a site that has every box-score line in the league already
+cached. Each pane leads with two stats, each carrying its OWN rank on its own line: OPS then
+AVG for a hitter, ERA then WHIP for a pitcher. The first cut led with a `.406/.513/.688` slash
+line under one floating `6th of 33` pill, which never said which of the three it ranked, gave
+hero weight to OBP and SLG while OPS (their sum) sat in the grey line underneath, and printed
+games and at-bats twice: once in that line and again as the first two chips of the grid below.
+Below the pair, every pane carries a percentile strip, from
+a new pure [`percentiles.ts`](src/wpbl/percentiles.ts). Three things in it are load-bearing:
+
+- **Ranked against QUALIFIED players only**, reusing `wpblQualifiers` rather than inventing a
+  second definition that could disagree with the Stats tab about who leads the league. Against
+  everyone with a line, a pinch-hitter who is 1-for-1 is the best hitter in the WPBL. A player
+  below the bar gets no strip and a sentence saying why, because there is no honest percentile
+  for nine at-bats and a short bar would claim she is bad rather than that we do not know.
+- **Every "lower is better" stat is a RATE.** The first cut ranked raw strikeouts with `low`
+  better, and Albayati came back 17th of 33 on four strikeouts: the bar was rewarding not
+  playing, since a hitter with 20 at-bats beats one with 40 before either swings. It is K% now.
+  HR stays a count, because rewarding playing time is what a counting stat is for.
+- **The population is printed under every strip.** "82nd percentile" borrows the authority of a
+  Statcast page built on thousands of batted balls; this is a four-club league playing about 40
+  games, where one good week moves a bar a long way. The strip says "against the 33 qualified
+  batters this season" and the bars are position-only, never coloured good-to-bad.
+
+Two things the first cut got wrong, both caught on a real phone. The rank beside each hero
+stat was drawn in the TEAM ACCENT, so "31st of 33" rendered in Boston green read as good news
+about a bad number, and a Firebells hitter leading the league would have got her rank in red:
+the colour was editorialising, at random, by club. It is neutral now. And the percentile bar
+put a tied block at the BOTTOM of its own range rather than the middle, so a hitter with 0 HR
+in a league where most of the field also has 0 drew a completely empty bar next to the text
+"13th of 33" — the bar said last and the number said mid-pack, about the same player, on the
+same row. Ties sit at their midpoint now, which that 0 HR row reads as a 31% bar.
+
+**And the sheet drag was broken on real phones, for a reason no emulator can show you.** The
+handler cannot call `preventDefault` on the first touchmove: it waits `DRAG_LOCK_PX` to tell a
+dismissal from a scroll, because preventing before the axis is settled would kill scrolling on
+every touch that starts near the top. But a real browser decides what a gesture is during those
+same first pixels, and once it has handed the touch to the compositor as a scroll or an
+overscroll, every later touchmove arrives `cancelable: false` and `preventDefault` is a no-op.
+Synthetic touch events are always cancelable, so the drag tested perfectly and did nothing on
+the device.
+
+Two declarations remove the race rather than trying to win it. The chrome (handle plus title
+bar) is `touch-action: none` on a phone, so the browser never claims a touch that starts there
+and the handler still owns it at 10px — safe for the reason `useSheetDrag` already gives for
+treating the chrome as always-draggable, and taps are unaffected because touch-action governs
+panning, not clicks. The scroll pane is `overscroll-behavior: contain`, so a downward drag at
+the top stops chaining out to Android's pull-to-refresh and iOS's rubber-banding, which is the
+other half of why dragging the CONTENT did nothing. `SwipeableViews` had `touch-action: pan-y`
+for exactly this reason all along; the sheet chrome was the one gesture surface in the section
+without a declaration.
+
+**`ModalShell` also lost its second source of truth about being a sheet.** Whether the card
+LOOKS like one (bottom-anchored, rounded top corners, grab handle) is a CSS breakpoint in `sx`;
+whether it could be DRAGGED away was a separate `useMediaQuery` hook holding a copy of the same
+600px threshold. When those two disagree the failure is silent and points one way: the sheet
+still looks like a sheet, still shows a grab handle, and cannot be grabbed. They can disagree,
+because `useMediaQuery` is JS state that has to be told to update and was measured not
+re-evaluating on a live viewport change during this work. The width test now lives inside the
+gesture, read off `matchMedia` at the moment the finger lands, where it cannot go stale. This
+touches every sheet in the section, Game Center included.
+
+The identity block is the club's own colours now: a band on the team PRIMARY (all four are
+near-black, so white text clears 12:1 on every one) washing toward the secondary across the
+right, with a 3px stripe of the secondary at full strength along the bottom, which is where
+each club's actual hue lives. The portrait is an 84px rounded square rather than a 72px circle,
+because a circle crops a head-and-shoulders shot to the face and at this size there is room for
+the shoulders and the uniform. One size at both widths on purpose: it was briefly a
+`useMediaQuery`, which is a JS media query and does not re-render on a live window resize the
+way the CSS breakpoints on the same band do, so dragging a desktop window narrow left a 92px
+portrait beside phone-sized padding until the next navigation.
+
+`fetchWpblAllLines` is cached, deduped and already prefetched when the section lands on Home,
+so for most readers the ranks cost nothing; if the read fails they simply never appear and the
+page is what it was. `wpbl_player_role` records the tab switch, because whether anyone ever
+taps through to the second role is the question this restructure raises and the tab is the only
+place it can be answered.
+
+**Then the same page was measured on a desktop, where it had never been measured either.** It
+was a 640px dialog on a 1440px screen holding 1143px of content in a scroller showing ~310px of
+it: the phone column, rendered verbatim, with ~800px of empty screen either side of it and the
+game log below the fold on every machine. At `lg` the dialog is 840 wide and the pane is two
+columns, season facts left and the record of the games right, which is also the split that
+keeps the growing half on its own: the game log gains a row a day until Sep 6 and the left rail
+does not grow at all. The same content is ~600px tall now instead of 1143.
+
+`lg` and not `md`, because the section runs under a 1.4x `zoom` on desktop and a media query is
+answered in real viewport pixels: `md` means 900px of screen but only 643px of layout to spend
+inside the zoom, which is narrower than the single column already is. The left rail is 340 so
+that the widest game log (the eleven-column hitting line, which measures 403px) always clears
+the ~430 beside it and never falls back to its horizontal scroll.
+
+The headline pair moved onto the club band, which was a gradient running most of the way across
+to nothing: a portrait at one end and empty space at the other, while the two numbers a reader
+opened the page for sat below it in the scroller. That needed the band's own background fixed
+first. As a plain gradient its right-hand end was the secondary at 25% alpha over *whatever sat
+behind the card*, which in light mode is white, so the band faded to near-white exactly where
+the numbers now sit; the secondary washes over an opaque primary instead, which keeps every
+point on it dark enough for white text and, as a side effect, is the first time the club's
+actual hue is visible in light mode. A two-way player's band follows her tab. Fielding moved up
+beside the other season facts, where it can be seen: under the game log it was 1100px down the
+phone's scroll. And the counting-stat grid picks a column count that DIVIDES the item count, so
+ten batting chips are two rows of five rather than 6 + 4 with two dead cells.
+
+Two columns then made their own problem, which is that they can end at different places. Denae
+Benites has five posts written about her, and in the right rail that was 346px of article cards
+under the game log against a 337px left rail: the columns finished 360px apart, so most of a
+screen of empty page sat beside the fielding line. The reading list runs UNDER both columns
+now, two cards across, which is also the right shape for it: it is neither a season fact nor a
+game, and its length is set by how often someone happened to write about her. The other half of
+the same problem is the game log, the one block here that grows on its own: ten rows today,
+about forty by Sep 6, which is ~1200px against a left rail that stays ~340 whatever happens. It
+is capped at `lg` and scrolls itself with its header pinned. That header needs its rule drawn as
+an inset shadow rather than a border, because a `border-collapse: collapse` table hands its cell
+borders to the row boundary and a sticky cell leaves them behind. The pane is 513px now.
+
+The log's rows then became the thing they had always looked like: **each row opens that game**,
+and each carries the **position she played that day**. POS is the RAW box-score line rather than
+`displayPosition`, which answers the season-long question and is already on the band above:
+Kylee Lahners is filed 3B, and the column is what shows she has actually DH'd six times, played
+first twice, and moved from one to the other in the opener. The rows are `pressable` rather than
+anchors, which is the one deliberate departure from the house rule about real hrefs, and it is
+for the rule's own reason: a game is `?game=` query state that seo.ts canonicalises back to the
+tab, so these are the one thing here meant NOT to be indexed separately. Two things this cost.
+The phone's cell padding had to come from 0.4 to 0.3, because fourteen columns at 0.4 measure
+345px against the 341px a 375px sheet leaves, and those four pixels are the whole TB column,
+silently. And Back out of a game opened this way landed on the player's URL with the game still
+on screen: `WpblApp`'s popstate handler gated on `wpblViewFromPath`, which is null for
+`/wpbl/players/<slug>`, so every pop that LANDED on a player page was dropped. That was already
+true of any Forward onto a player; the game log is just the first common way to reach it. One
+predicate, `wpblAppOwnsPath`, now serves both that handler and App.tsx's mount test.
+
+The log also runs **newest first** now. Oldest-first reads down the season the way it was
+played, which is the better argument at ten games and the wrong one at forty: it buries last
+night at the bottom of a scroll, and it is also what decides which thirteen rows the desktop cap
+shows without scrolling, since the cap clips the bottom of the list.
+
+Then back to the phone, which the desktop pass had not touched. Two things a screenshot showed
+at 412px. The hero's rank is right-aligned with `ml: auto`, which is right in the band's 216px
+box and wrong the moment the hero has a whole pane to spread across: it put **189px of nothing**
+between "OPS" and "1st of 33", so the two read as unrelated things at opposite ends of the sheet.
+The hero now carries its own measure, the same 216 at every size, and the gap is 27px. And the
+counting grid was pinned at four columns on the phone on the claim that five 3-character chips do
+not fit a 375px one. Measured on one, they do, and so do six: the ten batting chips went from
+three ragged rows to two full ones (138px to 90px) and the six pitching chips to a single row
+(90px to 45px), nothing clipping or wrapping at either size. The column count is one rule now,
+"the widest count that DIVIDES the item count", so no stat grid ends in dead cells at any width.
+
+Capping the hero turned out to only move that problem: a 216px group left-aligned in a 378px
+pane leaves all 162px of the slack on one side, under a grid and a percentile strip that both
+run the full width, so the headline read as shunted into the corner of the block it is meant to
+be the top of. It is centred below `lg` now, 81px a side, on the same axis the grid's columns
+are symmetric about. The band's copy stays left-aligned in its own column: there it is one half
+of a two-part row and its axis is the right edge it shares with the card.
+
+The last piece to look wrong was the sample line under it, and for the same kind of reason. The
+two stat rows are a three-column arrangement with three hard vertical lines (values right-align
+at one edge, labels start at the next, ranks right-align at the last), and "10 G · 29 AB" was
+block-level and left-aligned, so it began at the hero's own left edge: 16px left of the headline
+number, 65px left of the one under it, and level with nothing at all. One element in four
+aligned to a line no other element uses reads as a mistake, and it is the line the eye lands on
+last, which is why it survived the fix above it. It is centred now, on the axis the block is
+already centred on. Centred rather than joined to one of the three columns because its length
+varies more than anything else here ("10 G · 29 AB" against "6 G · 19.0 IP · 1-0 · 1 SV", which
+needs 135px): tied to the 104px value column the second would wrap, centred it grows either side.
+
+**Team names in Game Center open their club.** Three places, covering every state a game can be
+in: the score lines at the top of an unplayed game, the box score's own team rows on a played or
+live one, and the preview card's legend chips. `pressable` rather than anchors, like every other
+team target in the section, because a club page is history state on /wpbl/teams rather than a URL
+of its own. `openTeam` from a game closes the game as it goes, so Back walks off the club and
+lands on the game again, the same stack the game log builds. Two things deliberately left OUT of
+the target: the SCORE on a score line, which is where a thumb rests while reading a live game,
+and the rest of a box-score row, which is the innings and gets dragged sideways on a phone. The
+away/home tabs inside the Box Score tab are also untouched: they already switch which side you
+are reading, and a second meaning on the same control would be worse than no link at all.
+
+**The two-way role pills stopped being welded to the pane.** They were `pt: 2, pb: 0`, which is
+backwards on both counts: the pill belongs to the chrome above it, not the content below, and
+with no bottom padding its edge sat flush against the scroller's clip line. On a phone, scrolled,
+that put a row of stat chips sliced through the middle directly under the control with nothing
+between them, which reads as a broken layout rather than as content that continues. Now `pt:
+0.75, pb: 1`, which is Game Center's tab bar exactly: same control, same job, over the same kind
+of pager. 6px above and 8px below, and the sheet gets back the 16px the old top padding was
+spending on nothing.
+
+Making the box score's team names pressable cost the badges their vertical centring for about
+an hour, and the reason is worth writing down: the shrink-wrapped tap target was `inline-flex`,
+and an inline-level box sits on the row's text baseline, so it picks up the line box's descender
+space and the badge rides high of the cell's centre (the row also grew from 33px to 37px). `flex`
+plus `width: fit-content` shrink-wraps the same way with no baseline to sit on. Badge centre and
+row centre now agree to within a rounding error.
+
+## Aug 26, 2026: people thought I was mary mustard
+
+Reported, and true: readers were coming away from Home believing the person who writes the
+mirrored Substack is the person who runs this site. Two things were doing it, and neither was the
+byline being too big.
+
+The shelf's subtitle was the bare masthead. "towards a more perfect game" sat directly under our
+own "More from the league" heading with nothing to say whose it was, which reads as this site's
+tagline. The other two segments never had the problem because they say "Game recaps from the WPBL
+channel" and "Women's baseball on Wikimedia Commons" out loud. Hers now says "towards a more
+perfect game, by mary mustard".
+
+The byline printed her bio verbatim, in the first person, with no lead-in: "I am a writer and
+amateur baseball player from Albany." A first-person sentence inside somebody's card is read as
+that site's author speaking. So the framing does the work now rather than the size: **"Written
+by"** gives the sentence a subject before her name appears, her bio is **in quotation marks** so
+the "I" is unmistakably hers, and the publication line says **"her Substack"**, which is the fact
+a confused reader was actually missing. Smaller too, since the point is a credit and not a
+masthead: the avatar is 40 (was 52) and every line dropped a step.
+
+Worth being clear about why this matters more than it looks. It misattributes her writing and it
+misrepresents us, in both directions at once, and the whole point of the Reading surface is to
+send people to her.
+
+## Aug 26, 2026: the best game in each column, and a band that shows the club
+
+The game log marks the best value in each column it can. Which columns is the whole design: it
+has to be one where MORE IS BETTER, which drops SO from the batting log (marking a hitter's worst
+game in the same colour as her best is the kind of thing nobody notices until it is pointed at)
+and drops H, R, ER, BB and HR from the pitching log, since those are what she gave up. And it has
+to be an ACHIEVEMENT rather than an opportunity or a workload, which drops AB and a pitcher's
+pitch count. BB is left out of the batting list on a softer call: a walk is a good outcome, but
+nobody scans a game log for the most of them, and every mark spent there competes with the
+four-hit night. That leaves R, H, 2B, 3B, HR, RBI, SB, TB and, for a pitcher, IP and SO.
+
+A column also declines to have a best three ways, all of them about not spending colour on
+nothing: a max of zero (ten marked zeros for a stat she has not managed all season), a single
+game (it cannot have a best), and a max held by more than a third of the rows. That last one is
+the important one. A hitter with 1 HR in five of ten games would get five marks picking out
+nothing, which is worse than none, because it teaches a reader the colour means nothing and then
+they stop seeing it on the games where it does. Denae Benites lands on 12 marks over a 10x12
+grid, which is about right: three four-hit games, the two-homer night, the five-RBI game.
+
+The club band was too black-heavy, and on the two clubs it was worst on for a reason: LA's
+primary is literally `#000000` and New York's is `#091b47`. The wash held the flat primary to
+42% and reached only 25% secondary at the far edge, so the band read as black with a hint of
+something in one corner. It starts at 26% now and ramps through 25% to 40%.
+
+**40% is a ceiling rather than a taste**, and it took four text colours up with it. White text has
+to survive every point of that band, and the binding case each time is New York's pale sky blue:
+the hometown and draft lines went 0.62 → 0.75 (they measured 3.7:1), the band hero's stat label
+0.72 → 0.80 (4.4:1) and its sample line 0.62 → 0.76 (3.7:1). Every one of them now clears 4.5:1
+on all four clubs, with LA at 7 to 9:1. Anyone raising the wash past 40% has to move those four
+again or the smallest text on the card quietly stops being readable on one club.
+
+Home's Discord invite was off the same grid, and measurably: every SectionCard on that page
+indents its content 17px and rounds its corners at 12px, and the invite was doing 11px and 8px
+while sitting directly between the Scoreboard and Next Game. Six pixels and four pixels are each
+too small to look like a bug and plenty to look wrong, because the eye reads the left edges of a
+vertical stack as one line and this was the only card breaking it. It is on `px: 2` and radius 3
+now, still a slim strip (the vertical padding stays tighter; the row's height is the 34px avatar
+either way). The dismiss ✕ is pulled back out of the padding by half its own slack, since an 8px
+mark centred in a 22px thumb target otherwise sits 24px from the edge against the avatar's 17.
+
+The dev gear grew a **WPBL Home** section with a "Show Discord invite" button, because the ✕
+writes a localStorage flag with no reader-facing way back (correct: an invite you can re-summon
+is not dismissed) and that leaves one look at the card per browser profile, on a card that only
+renders at phone widths, where clearing site data is most annoying. The undo dispatches an event
+as well as clearing the key, since Home reads the flag once in a `useState` initialiser and a
+silent no-op until the next reload reads as a broken card rather than a button that missed. It
+lives in its own short [`discordInvite.ts`](src/wpbl/discordInvite.ts) rather than in Home:
+App.tsx imports the dev menu eagerly while `WpblApp` is `lazy()`, so importing the undo from
+Home would have pulled Home and its whole import graph into the main chunk for every visitor of
+every section, in production, to serve a dev button. Verified against a real build: Home's
+strings appear only in `WpblApp-*.js`, and `sd:dev-show-discord` in no chunk at all.
+
+The invite also had no space under it, and the cause was not the invite. Home's stack is a plain
+block with no gap, so every child carries its own margin, and the two-column feed grid carried
+none: it was spaced only by the scoreboard's `mb`, which worked exactly until something was
+inserted between the two. The invite was, and it collected that margin on the way past, leaving
+12px above it and nothing at all between it and Next game. The grid states its own `mt: 1.5`
+now. A block that depends on its neighbour for its own spacing breaks the next time it gets a
+new neighbour, and margins collapse, so dismissing the invite still leaves 12px rather than 24.
+Every gap down that column measures 12 in both states.
+
+### Aug 25, 2026: the section stops assuming a tall screen
+
+A phone turned sideways is WIDE, and every rule that mattered was written about width. So a
+landscape phone took the desktop branch everywhere: 812x375 got the desktop stats grid, the
+desktop sticky toolbar, and 375px of screen to hold both.
+
+**The stats table came out 115px tall.** Its cap is `100dvh - 260px`, where 260 is everything
+standing above it, which means "tall enough that nothing has to scroll" and is the right answer
+whenever the screen can afford it. In landscape it left the column header and TWO of
+thirty-three rows. Below 560dvh the page now scrolls instead and the cap becomes what fits in
+the gap the PINNED chrome leaves, asked for through `--app-header-h` and `--wpbl-nav-h` rather
+than assumed. The louder fix is wrong and was measured before being discarded: at
+`100dvh - 60px` the box is 315px trying to live in a 240px gap, so it can never be scrolled
+fully into view and its sticky header parks behind the nav at y=-94, which costs the reader
+the column labels for the whole board. The gap is a ceiling, not a suggestion.
+
+**And the top bar pinned 44px of that 375.** It is static under 600px WIDE, which is why it
+scrolls away in portrait, so the one screen that could least afford a permanent bar was the one
+screen that kept it. It now also goes static under 560px TALL, in CSS rather than beside the
+`isDesktop` hook, because the two have to agree and `useMediaQuery` is JS state that an
+orientation change is the worst moment to trust. `--app-header-h` reads the computed position
+and re-publishes on resize, so the stats cap followed this on its own. Landscape went 115px and
+two rows to 275px and seven.
+
+### Aug 25, 2026: the four surfaces nobody was counting
+
+An audit of every `track()` call against every interactive surface in the section, run
+because the next three weeks of decisions are all going to be argued from `events` and it
+is worth knowing which questions the table cannot answer. Four gaps, and each one made an
+existing number less useful than it looked:
+
+**Highlights had no events at all.** Reading and Archive each carry an impression, a
+click-through and an off-site click; the third segment of the same card carried none. So the
+one question the media shelf exists to answer, whether folding three rails into one buried
+the other two, could not be asked: a segment with no denominator cannot be compared to the
+two that have one. `wpbl_highlights_shown` / `_played` / `_youtube` complete the set, and
+`played` carries `from` so the Home shelf is separable from the card inside a box score.
+
+**Team pages were counted only when opened from two widgets.** `wpbl_seeding_team` and
+`wpbl_bracket_team` were the whole record, which measured two cards rather than the surface:
+the Teams grid, the standings table, the Stats table and the header search all reached a team
+page unseen. `wpbl_team_opened` now fires from `selectTeam`, the one funnel every open goes
+through, with `from` for the surface. The two card events stay because they carry the seed, so
+a bracket click lands in both on purpose; that is written down in `analytics.ts` and in
+`docs/ADMIN_ANALYTICS.md` because it is exactly the kind of overlap someone will add together.
+
+**Search was entirely unmeasured**, on a control that sits in the header of every page in the
+section. `wpbl_searched` fires once per settled query (a debounce plus a per-mount set of
+queries already logged, so backspacing through a word cannot re-fire it) and
+`wpbl_search_picked` records whether a typed result or a recent did the work. The typed text
+is kept only when the query matched nothing: that case is the only list on the dashboard that
+names a specific thing to go and fix, and a query that did match is already described by the
+row the reader picked.
+
+**Two existing events were lying about where readers came from.** `wpbl_player_opened` took
+`from` off the current tab, so every player opened from the header search reported whichever
+tab happened to be behind it, and opening a player page is the retention event. And
+`game_center_opened` carried no `from` at all, so the busiest modal in the section was one flat
+count that could not say whether Home, the schedule or a team page feeds it. Both fixed.
+`wpbl_game_tab` goes one level further in, for the same reason `wpbl_stats_board` exists: the
+Recap / Box Score / Play-by-Play / Pitch Data axis never touches the URL, so nothing said
+whether Pitch Data, the newest board in the section, is ever opened on purpose.
+
+The read side is two RPCs
+([`20260825065648`](scripts/migrations/20260825065648_add_admin_wpbl_entry_point_and_search_rpcs.sql),
+same owner-gated `security definer` model as the other seven) and two cards on `/admin`: how
+readers reach a player, a team or a game, and the search funnel with the missed queries.
+
+And the dashboard itself got the same treatment, because instrumenting a surface and then
+burying its answer under cards nobody reads is half a job. `/admin`'s Audience group lost the
+Discord funnel (retired Aug 19; impressions frozen, joins still climbing from the footer link,
+so its rates were heading past 100%) and dropped its headline row from five tiles to three:
+"Events" was a number a deploy moves rather than an audience, and "Active today" / "Active 30d"
+were two tiles holding three numbers that the range chips do not touch. It gained a **Today**
+range, deliberately named for what it is: `days_back = 1` is midnight-to-now, and because its
+previous window is a full yesterday the change arrows stand down on that range rather than
+reading negative every morning. A one-day series also stops pretending to be a chart.
+
+**Deliberately not done:** `/mlb`, which the same traffic read says is 768 events across 33
+browsers against the section's 18,213 across 2,036, so instrumenting its twenty-odd unmeasured
+views would be work spent on a rounding error. And impressions for Home's Next game, Last game
+and Standings cards, which sit above the fold on every visit and would count arrivals rather
+than sightings.
+
 ### Aug 24, 2026: player links unfurl as a card, not as a cropped face
 
 `og:image` on a player page was the bundled 512 headshot, with `twitter:card` set to

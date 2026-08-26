@@ -128,7 +128,11 @@ export function buildRecapMessage(game: WpblGame, recap: GameRecap, teams: Map<s
       title: recap.headline,
       url: `${SITE}/wpbl?game=${game.id}`,   // opens the game center, on its Recap tab
       color: embedColor(teams.get(recap.winner.id)),
-      description: `${recap.blurb}\n${lineScoreBlock(game, recap, teams)}`,
+      // A BLANK line before the fence, not just a newline. Discord draws a code block as a
+      // filled box with a border, and one newline puts that box hard against the last line of
+      // the blurb with no gap at all, so the recap reads as prose with a table stuck to the
+      // bottom of it. The blank line is the only spacing control an embed description has.
+      description: `${recap.blurb}\n\n${lineScoreBlock(game, recap, teams)}`,
       fields,
       footer: { text: `WPBL · ${game.game_date}${extras} · sportydolphin.fun` },
     }],

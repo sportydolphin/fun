@@ -7,9 +7,15 @@
 //
 // The generic controls (skin, device/mobile simulation, simulated login,
 // notification tester) show on every section; the MLB-only simulators are gated
-// behind `showMlbTools` so they don't clutter the WPBL menu. All state lives in
-// module singletons (devSim/devDrama/devDevice/devSeasonSelector) or app-wide
-// contexts, so the gear controls the live views no matter which section is mounted.
+// behind `showMlbTools` and the WPBL ones behind `showWpblTools`, so neither
+// section is asked to scroll past the other's tools. All state lives in module
+// singletons (devSim/devDrama/devDevice/devSeasonSelector) or app-wide contexts,
+// so the gear controls the live views no matter which section is mounted.
+//
+// Anything this menu reaches into must be import-light. App.tsx imports this file
+// eagerly while both sections are `lazy()`, so a convenience import from deep
+// inside MlbStats or WpblApp would pull that section's chunk into the main bundle
+// for every visitor, in production, to serve a control that only exists in dev.
 
 import React, { lazy, Suspense } from 'react'
 import { Box, Typography, Popover, Tooltip, Divider, Button } from '@mui/material'
@@ -22,6 +28,7 @@ import { useDevSim, setDevSimEnabled, regenerateDevSim, decideDevSimWinners, reo
 import { useDevDrama, setDevDramaEnabled, regenerateDevDrama } from '../mlb/dev/devDrama'
 import { useDevDevice, setDeviceMode, currentPreset, isInsideDeviceFrame } from '../mlb/dev/devDevice'
 import { useDevSeasonSelector, setSeasonSelectorStyle } from '../mlb/dev/devSeasonSelector'
+import { devShowDiscordCard } from '../wpbl/discordInvite'
 import { useNotifications, addEventNotification, refreshNotifications, clearNotifications } from '../lib/notifications'
 import { sampleNotifications } from '../../shared/notifications'
 import type { NotificationPayload } from '../../shared/notifications'
@@ -41,7 +48,7 @@ export function MobilePreviewHost() {
   )
 }
 
-export function DevSettings({ showMlbTools }: { showMlbTools: boolean }) {
+export function DevSettings({ showMlbTools, showWpblTools }: { showMlbTools: boolean; showWpblTools: boolean }) {
   const [anchor, setAnchor] = React.useState<HTMLElement | null>(null)
   const { user, signOut } = useAuth()
   return (
@@ -99,6 +106,14 @@ export function DevSettings({ showMlbTools }: { showMlbTools: boolean }) {
           </>
         )}
 
+        {showWpblTools && (
+          <>
+            <Divider sx={{ my: 1.75 }} />
+
+            <WpblControls />
+          </>
+        )}
+
         <Divider sx={{ my: 1.75 }} />
 
         <NotificationTestControls />
@@ -139,6 +154,37 @@ export function DevSettings({ showMlbTools }: { showMlbTools: boolean }) {
 }
 
 // ─── Skin / palette picker (was a standalone toolbar chip) ─────────────────────
+/**
+ * WPBL-only controls.
+ *
+ * Just the Discord invite for now. The invite is dismissed with an ✕ and remembered in
+ * localStorage with no reader-facing way back, which is correct and makes the card a nuisance
+ * to work on: one tap and it is gone from that browser for good.
+ *
+ * The note about device mode is not decoration. The card renders at `xs` only, so pressing
+ * this on a desktop-width window clears the flag and appears to do nothing, which reads as a
+ * broken button rather than a card that is out of scope for the width.
+ */
+function WpblControls() {
+  return (
+    <>
+      <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: 'text.secondary', mb: 0.75 }}>
+        WPBL Home
+      </Typography>
+      <Button
+        fullWidth size="small" variant="outlined" color="warning"
+        onClick={() => devShowDiscordCard()}
+        sx={{ textTransform: 'none', fontWeight: 600 }}
+      >
+        Show Discord invite
+      </Button>
+      <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.5 }}>
+        Undismisses it. Phone widths only. Switch Device to Mobile to see it.
+      </Typography>
+    </>
+  )
+}
+
 function SkinControls() {
   const { skin, setSkin } = useTheme()
   return (

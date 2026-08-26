@@ -17,7 +17,7 @@ import redirects from '../../../public/_redirects?raw'
 import sitemap from '../../../public/sitemap.xml?raw'
 import seoSource from '../../seo.ts?raw'
 import {
-  WPBL_NAV, WPBL_VIEW_PATHS, wpblPathFor, wpblViewFromPath, normalizeWpblView,
+  WPBL_NAV, WPBL_VIEW_PATHS, wpblPathFor, wpblViewFromPath, wpblAppOwnsPath, normalizeWpblView,
   wpblPlayerSlug, wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug,
 } from '../routes'
 
@@ -219,5 +219,30 @@ describe('the shell claims no canonical of its own', () => {
   // The counterpart: the per-route tag has to come from somewhere, and it is seo.ts.
   it('sets one per route at runtime instead', () => {
     expect(seoSource).toContain("upsertLink('canonical', url)")
+  })
+})
+
+// The predicate WpblApp's popstate handler gates on. It is here rather than in a component
+// test because the failure it guards against is a Back button that moves the address bar and
+// nothing else, which nothing in the section renders differently and no local run reveals.
+describe('wpblAppOwnsPath', () => {
+  it('claims every tab', () => {
+    for (const path of WPBL_VIEW_PATHS) expect(wpblAppOwnsPath(path)).toBe(true)
+  })
+
+  // The one this exists for. A player page is a modal over a tab, so a pop that LANDS on her
+  // URL is the section's to apply; testing the tabs alone dropped it and left whatever modal
+  // was open sitting over her address. Reachable by Forward onto any player, and by Back out
+  // of a game opened from a player's game log.
+  it('claims a player page, which is not a tab', () => {
+    expect(wpblViewFromPath('/wpbl/players/denae-benites')).toBeNull()
+    expect(wpblAppOwnsPath('/wpbl/players/denae-benites')).toBe(true)
+  })
+
+  it('disclaims the rest of the site, and the pages the section does not render itself', () => {
+    // The players index and the API docs are their own pages, routed by the shell.
+    for (const path of ['/mlb', '/privacy', '/wpbl/players', '/wpbl/api', '/wpbl/players/a/b', '/wpbl/nope']) {
+      expect(wpblAppOwnsPath(path)).toBe(false)
+    }
   })
 })

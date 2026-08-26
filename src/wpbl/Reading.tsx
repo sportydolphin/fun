@@ -136,27 +136,47 @@ function RailCard({ article, teamById }: { article: WpblArticle; teamById: Map<s
 // the same reasons set out there: a per-device layout choice, needed on the very first
 // paint, and the section is usable signed out. Storage is wrapped because it throws in
 // private mode and inside some in-app browsers.
-// The author credit under the rail. She is a person writing this for love, not a
-// syndication partner, so the credit is a face and a sentence in her own words rather than
-// a line of fine print. It is also the only door here that leads somewhere other than a
-// single article: everything else sends you to one post, this sends you to her.
-//
-// The whole row is the link, so the tap target is the card rather than three words of it.
+/**
+ * The credit under the Reading rail, and the one block on Home that is about a person who is
+ * not us.
+ *
+ * She is someone writing this for love rather than a syndication partner, so the credit is a
+ * face and a sentence in her own words rather than a line of fine print, and the whole row is
+ * the link: it is the only door here that leads somewhere other than a single article.
+ *
+ * IT HAS TO SAY SO, and until Aug 26, 2026 it did not. It showed her photo at 52px, her name,
+ * and then her own bio verbatim, "I am a writer and amateur baseball player from Albany.",
+ * with no lead-in at all, inside one of our cards. A first-person sentence in a card on
+ * somebody's site is read as that site's author speaking, and it was: readers came away
+ * thinking the person who runs sportydolphin.fun is mary mustard. That is worse than a
+ * cosmetic problem. It misattributes her writing and it misrepresents us, in both directions
+ * at once.
+ *
+ * Three changes, and the framing is doing the work rather than the size. "Written by" gives
+ * the sentence a subject before her name appears. Her bio is in quotation marks, so the "I"
+ * is unambiguously hers and not ours. And the publication line says "her Substack", which is
+ * the fact a confused reader is actually missing. The shelf's own subtitle names her too, so
+ * the attribution is there before this card is even reached (see MediaShelf).
+ *
+ * Smaller as well, since the point is a credit rather than an author bio: this is not the
+ * masthead of the page, it is a thank-you and a door to her writing.
+ *
+ * On the photo size, which is down from 52/40 but still larger than a 3-line block wants: her
+ * Substack profile photo is a wide shot of her on a ballfield rather than a head-and-shoulders
+ * portrait, and the source is already square, so there is no crop available that finds her
+ * face: Substack's CDN has Cloudinary's face gravity disabled (`g_face` 404s), leaving only a
+ * centred fill of the whole frame. If she ever sends a portrait this can go smaller again and
+ * will read better for it.
+ */
 export function AuthorByline({ compact, from }: { compact?: boolean; from: ReadingSource }) {
-  // Sized up from 44/36 after looking at the result. Her Substack profile photo is a wide
-  // shot of her on a ballfield rather than a head-and-shoulders portrait, and the source is
-  // already square, so there is no crop available that finds her face: Substack's CDN has
-  // Cloudinary's face gravity disabled (`g_face` 404s), leaving only a centred fill of the
-  // whole frame. A few more pixels is the only lever we have. If she ever sends a portrait,
-  // this can go back down and will read better for it.
-  const size = compact ? 40 : 52
+  const size = compact ? 34 : 40
   return (
     <Box
       component="a"
       href={PUBLICATION_URL}
       {...linkProps}
       onClick={() => track(EVENTS.WPBL_AUTHOR_OPENED, { from })}
-      aria-label={`${AUTHOR_NAME}, ${PUBLICATION_NAME}, opens in a new tab`}
+      aria-label={`Written by ${AUTHOR_NAME} for her Substack, ${PUBLICATION_NAME}, opens in a new tab`}
       sx={{
         display: 'flex', alignItems: 'center', gap: 1.25, textDecoration: 'none', color: 'inherit',
         p: 1, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
@@ -181,10 +201,17 @@ export function AuthorByline({ compact, from }: { compact?: boolean; from: Readi
         sx={{ width: size, height: size, borderRadius: '50%', flexShrink: 0, objectFit: 'cover', bgcolor: 'action.hover' }}
       />
       <Box sx={{ minWidth: 0, flex: 1 }}>
-        <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.25 }}>{AUTHOR_NAME}</Typography>
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.35 }}>{AUTHOR_BIO}</Typography>
-        <Typography sx={{ fontSize: '0.7rem', fontWeight: 600, color: 'text.disabled', mt: 0.25 }}>
-          {PUBLICATION_NAME} ↗
+        <Typography sx={{ fontSize: '0.76rem', color: 'text.secondary', lineHeight: 1.3 }}>
+          Written by{' '}
+          <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{AUTHOR_NAME}</Box>
+        </Typography>
+        {/* HER words, in quotation marks. The quotes are the whole point: the sentence is
+            first person, and unquoted under our heading it reads as ours. */}
+        <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', lineHeight: 1.35, fontStyle: 'italic' }}>
+          “{AUTHOR_BIO}”
+        </Typography>
+        <Typography sx={{ fontSize: '0.68rem', fontWeight: 600, color: 'text.disabled', mt: 0.2 }}>
+          {PUBLICATION_NAME} · her Substack ↗
         </Typography>
       </Box>
     </Box>
@@ -397,7 +424,7 @@ export function GameStoryCard({ article }: { article: WpblArticle }) {
  *
  *  Renders nothing when nobody has written about this subject, which is the common case for
  *  a player and should stay silent rather than showing an empty shell. */
-export function WrittenAbout({ articles, title, limit = 5, from = 'player' }: {
+export function WrittenAbout({ articles, title, limit = 5, from = 'player', wide }: {
   articles: WpblArticle[]
   /** e.g. "Written about Denae Benites". Omit where the surrounding card already carries
    *  the heading, as the team page's does: repeating it there reads as a stutter. */
@@ -405,6 +432,10 @@ export function WrittenAbout({ articles, title, limit = 5, from = 'player' }: {
   limit?: number
   /** Which surface this list is on, for the click-through breakdown. */
   from?: ReadingSource
+  /** The list is running the full width of a desktop layout rather than sitting in a column,
+   *  so lay the cards two across. Five 790px-wide cards down a single column is a lot of
+   *  height spent on five links, and each card is mostly empty besides. */
+  wide?: boolean
 }) {
   const shown = articles.slice(0, limit)
   if (shown.length === 0) return null
@@ -415,7 +446,9 @@ export function WrittenAbout({ articles, title, limit = 5, from = 'player' }: {
           {title}
         </Typography>
       )}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+      <Box sx={wide
+        ? { display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' }, gap: 0.75, alignItems: 'start' }
+        : { display: 'flex', flexDirection: 'column', gap: 0.75 }}>
         {shown.map(a => (
           <Box
             key={a.post_id}

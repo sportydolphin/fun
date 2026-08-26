@@ -20,6 +20,9 @@ import {
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import { track, EVENTS } from '../lib/analytics'
+// The dismissal key and the dev-only undo. Their own module so the dev settings menu can reach
+// the undo without dragging this file into the main bundle. See discordInvite.ts.
+import { DISCORD_DISMISS_KEY, DISCORD_DEV_SHOW_EVENT } from './discordInvite'
 import { LastGameCard } from './RecapCard'
 import MediaShelf from './MediaShelf'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblTrackRow, WpblVideo, WpblArticle, WpblPhoto } from './types'
@@ -1002,7 +1005,6 @@ function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView
 // card of a different shape breaks that alignment; a proper desktop home for it is a later job.
 const DISCORD_INVITE = 'https://discord.gg/hTaZKFzk6H'
 const DISCORD_BLURPLE = '#5865F2'
-const DISCORD_DISMISS_KEY = 'wpbl_discord_dismissed'
 
 function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
   // Dismissal is remembered (localStorage) and owned by the parent, which only mounts this card
@@ -1022,9 +1024,20 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
       rel="noopener noreferrer"
       onClick={() => track(EVENTS.DISCORD_JOINED)}
       sx={{
-        display: 'flex', alignItems: 'center', gap: 1.5, p: 1.25,
+        // `px: 2` and `borderRadius: 3` are NOT free choices: they are what every SectionCard
+        // on this page uses, and this card sits in the middle of a stack of them. At `p: 1.25`
+        // and radius 2 its avatar started 11px in where the Scoreboard above it and Next Game
+        // below it both start their content at 17px, and its corners were 4px tighter than
+        // theirs. Six pixels and four pixels are each too small to look like a bug and plenty
+        // to look wrong: the eye reads the left edges of a vertical stack as one line, and this
+        // was the only card that broke it.
+        //
+        // The vertical padding stays tighter than the horizontal on purpose. This is a promo
+        // strip rather than a section, and the row's height is set by the 34px avatar anyway,
+        // so `py: 2` would only add 12px of nothing to a card that is one line tall.
+        display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.25,
         textDecoration: 'none', cursor: 'pointer',
-        borderRadius: 2, border: '1.5px solid', borderColor: `${DISCORD_BLURPLE}66`,
+        borderRadius: 3, border: '1.5px solid', borderColor: `${DISCORD_BLURPLE}66`,
         bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(88,101,242,0.09)' : 'rgba(88,101,242,0.06)',
         transition: 'background-color 0.15s, border-color 0.15s',
         '&:hover': {
@@ -1054,7 +1067,11 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
         role="button"
         aria-label="Dismiss Discord invite"
         sx={{
-          flexShrink: 0, width: 22, height: 22, ml: 0.25,
+          // Pulled back out of the padding by half its own slack. The ✕ is an 8px glyph
+          // centred in a 22px thumb target, so left at the padding line the MARK sits 24px
+          // from the card edge against the avatar's 17px, and the row looks heavier on the
+          // left than the right. The target keeps its full size; only the box moves.
+          flexShrink: 0, width: 22, height: 22, ml: 0.25, mr: -0.75,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           borderRadius: '50%', color: 'text.disabled', fontSize: '0.8rem', lineHeight: 1,
           '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
@@ -1102,6 +1119,15 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   const [discordDismissed, setDiscordDismissed] = useState(() => {
     try { return localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { return false }
   })
+  // Dev only: the settings gear can put the invite back. `import.meta.env.DEV` is a build-time
+  // constant, so the whole body of this effect is eliminated from the production bundle and
+  // the listener is never registered there.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    const onShow = () => setDiscordDismissed(false)
+    window.addEventListener(DISCORD_DEV_SHOW_EVENT, onShow)
+    return () => window.removeEventListener(DISCORD_DEV_SHOW_EVENT, onShow)
+  }, [])
 
   // Full load once, then revalidate on later mounts only when the cache is cold or stale:
   // a quick swipe back to a warm Home is instant and silent. Players are static for the
@@ -1294,6 +1320,17 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
         gridTemplateRows: { md: 'auto auto' },
+        // Its OWN top margin, rather than living off the scoreboard's bottom one.
+        //
+        // This stack is a plain block with no gap: every child brings its own margin, and the
+        // blocks below this grid all carry `mt`. This one carried nothing and was spaced only
+        // by the scoreboard's `mb`, which worked exactly until something was inserted between
+        // them. The Discord invite was, and it collected that margin on the way past: 12px
+        // above the invite, and the grid then sat flush against it with no gap at all. A block
+        // that depends on its neighbour for its own spacing breaks the next time it gets a new
+        // neighbour, so this one now says what it wants. Margins collapse, so the invite being
+        // dismissed still leaves 12px here rather than 24.
+        mt: 1.5,
         // One gap in both directions, and it is Home's gap: 1.5 is the step between the
         // scoreboard and this grid, between this grid and the shelf, and between the two cards
         // stacked in each column. The 20px column gap was the odd one out, and with the cards

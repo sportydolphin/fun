@@ -132,12 +132,18 @@ export function TeamBadge({ team, size = 34 }: { team: Pick<WpblTeam, 'id' | 'ab
 // Player portrait — circular headshot ringed in the team's secondary hue (matching the
 // TeamBadge ring so players and teams read as one set). Falls back to the player's
 // initials on the team color when no portrait is bundled (see ./portraits.ts).
-export function PlayerPortrait({ name, teamId, size = 40 }: { name: string; teamId: string | null; size?: number }) {
+export function PlayerPortrait({ name, teamId, size = 40, square }: {
+  name: string; teamId: string | null; size?: number
+  /** A rounded square instead of a circle. Opt-in, and only the player page uses it: a circle
+   *  crops a head-and-shoulders portrait to the face, which is right at 32px in a table row
+   *  and wasteful at 84px where there is room to show the shoulders and the uniform. */
+  square?: boolean
+}) {
   const src = wpblPortrait(name)
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
   return (
     <Box sx={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      width: size, height: size, borderRadius: square ? `${Math.round(size * 0.18)}px` : '50%', flexShrink: 0,
       bgcolor: wpblColor(teamId),
       border: `2px solid ${wpblSecondary(teamId)}`,
       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
@@ -918,6 +924,48 @@ async function writeClipboard(text: string): Promise<boolean> {
  * OFF WHEN SWIPE NAVIGATION IS OFF, the same accessibility switch the tab pager honours, and
  * the close button never goes anywhere: a gesture is an extra way out, never the only one.
  */
+/**
+ * The viewport the sheet styling itself is keyed to.
+ *
+ * This is checked LIVE, at touchstart, rather than held in a `useMediaQuery` beside the
+ * component. Whether the card LOOKS like a sheet (bottom-anchored, rounded top corners, grab
+ * handle) is decided by MUI's `xs`/`sm` breakpoint in `sx`, which is a real CSS media query.
+ * Whether it can be DRAGGED was decided by a separate `useMediaQuery` hook holding a copy of
+ * the same threshold. Two sources of truth for one question, and when they disagree the
+ * failure is silent and confusing in exactly one direction: the sheet still looks like a
+ * sheet, still shows a grab handle, and cannot be grabbed.
+ *
+ * They can disagree. `useMediaQuery` is JS state that has to be told to update, and it was
+ * measured not re-evaluating on a live viewport change in at least one browser during this
+ * work. Reading `matchMedia` at the moment the finger lands cannot go stale, costs nothing on
+ * a gesture that happens a few times a session, and deletes the second source of truth.
+ */
+const SHEET_MQ = '(max-width:600px)'
+
+/**
+ * Two thresholds, not one, and the small one is the whole reason a drag that starts on the
+ * CONTENT works on a real phone.
+ *
+ * A touch that lands inside a scrollable pane belongs to the browser until something takes
+ * it: once the finger passes the platform's slop (about 8px on Android, similar on iOS) the
+ * gesture goes to the compositor as a scroll, every later `touchmove` arrives
+ * `cancelable: false`, and a `touchcancel` ends the sequence. Deciding at 10px is deciding
+ * one pixel too late, every time, which is why this worked perfectly against synthetic touch
+ * events and did nothing on a device.
+ *
+ * So the claim is split from the commit. At DRAG_CLAIM_PX the handler only asks "could this
+ * be a dismissal" — downward, vertical-dominant, and over a scroller that is already at its
+ * top — and if so starts calling `preventDefault`, which takes the touch off the browser while
+ * it is still cancelable. Nothing is lost by claiming early in exactly that case: a downward
+ * drag at scrollTop 0 has nowhere to scroll to. At DRAG_LOCK_PX it re-runs the same axis test
+ * on real movement and either commits or releases, and a released gesture is only ever one the
+ * browser could not have scrolled anyway. Horizontal paging is unharmed because
+ * `SwipeableViews` moves in JS, which `preventDefault` does not touch.
+ *
+ * This is what the sheet's `touch-action: none` chrome buys structurally: the same race, but
+ * removed rather than won. Content cannot use that, because the pane it sits in has to scroll.
+ */
+const DRAG_CLAIM_PX = 4        // movement before the touch is taken off the browser
 const DRAG_LOCK_PX = 10        // movement before deciding dismiss-drag vs scroll
 const DRAG_DISMISS_FRACTION = 0.25 // of the sheet's height, for a slow drag
 const DRAG_FLICK_VELOCITY = 0.5    // px/ms downward, which commits from anywhere
@@ -946,7 +994,7 @@ function useSheetDrag(
     const card = cardRef.current
     if (!enabled || !card) return
 
-    let active = false, locked = false, eligible = false
+    let active = false, claimed = false, locked = false, eligible = false
     let startY = 0, startX = 0, dy = 0, lastY = 0, lastT = 0, vel = 0
 
     // The backdrop clears as the sheet falls, so what is behind it is readable on the way
@@ -965,11 +1013,20 @@ function useSheetDrag(
 
     const onStart = (e: TouchEvent) => {
       if (e.touches.length !== 1) return
+      // Live, not cached: above this width the card is an ordinary centred dialog and there is
+      // nothing to push down. See SHEET_MQ.
+      if (!window.matchMedia(SHEET_MQ).matches) return
       const t = e.touches[0]
-      active = true; locked = false; dy = 0; vel = 0
+      active = true; claimed = false; locked = false; dy = 0; vel = 0
       startY = lastY = t.clientY; startX = t.clientX
       lastT = performance.now()
-      const onChrome = !!chromeRef.current && chromeRef.current.contains(e.target as Node)
+      const el = e.target instanceof Element ? e.target : null
+      // `data-sheet-drag` is how a card says "this block is my title, not my content": the
+      // player page's identity band is the obvious thing to grab and pull, and it is not
+      // something anyone scrolls to read. ModalShell gives anything carrying it the same
+      // `touch-action: none` as the chrome, so grabbing there never enters the race above.
+      const onChrome = (!!chromeRef.current && chromeRef.current.contains(e.target as Node))
+        || !!el?.closest('[data-sheet-drag]')
       const scroller = scrollerUnder(e.target, card)
       eligible = onChrome || !scroller || scroller.scrollTop <= 0
     }
@@ -980,9 +1037,21 @@ function useSheetDrag(
       const moveY = t.clientY - startY
       const moveX = t.clientX - startX
       if (!locked) {
+        // Claim, at DRAG_CLAIM_PX. Sideways, upward, or over a scroller that has somewhere to
+        // go: not ours, and left alone so the browser handles it as usual. See DRAG_CLAIM_PX
+        // for why this cannot wait for the lock threshold.
+        if (!claimed) {
+          if (Math.abs(moveY) < DRAG_CLAIM_PX && Math.abs(moveX) < DRAG_CLAIM_PX) return
+          if (Math.abs(moveX) > Math.abs(moveY) || moveY <= 0 || !eligible) { active = false; return }
+          claimed = true
+        }
+        // Held from here on, so the touch stays ours and stays cancelable while the axis
+        // settles. This is a no-op for the gesture itself: nothing here could have scrolled.
+        e.preventDefault()
+        // Commit, at DRAG_LOCK_PX, on movement big enough to mean something. A gesture that
+        // reads sideways or upward on real distance is handed back rather than dragged.
         if (Math.abs(moveY) < DRAG_LOCK_PX && Math.abs(moveX) < DRAG_LOCK_PX) return
-        // Sideways, upward, or over a scroller that has somewhere to go: not ours.
-        if (Math.abs(moveX) > Math.abs(moveY) || moveY <= 0 || !eligible) { active = false; return }
+        if (Math.abs(moveX) > Math.abs(moveY) || moveY <= 0) { active = false; return }
         locked = true
         card.style.transition = 'none'
       }
@@ -990,8 +1059,6 @@ function useSheetDrag(
       if (now > lastT) vel = (t.clientY - lastY) / (now - lastT)
       lastY = t.clientY; lastT = now
       dy = Math.max(0, moveY)
-      // Only now, and only because this drag is definitely a dismissal: preventing the default
-      // before the axis is settled would kill scrolling on every touch that starts at the top.
       e.preventDefault()
       card.style.transform = `translateY(${dy}px)`
       setBackdrop(Math.min(1, dy / Math.max(card.offsetHeight, 1)))
@@ -1032,7 +1099,9 @@ function useSheetDrag(
 export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, actions, footer, fillHeight, sheet, sheetFill, children }: {
   eyebrow: React.ReactNode
   onClose: () => void
-  maxWidth?: number
+  /** Responsive object as well as a plain number, because a modal that is the right size for
+   *  a phone sheet is not the right size for a desktop dialog. Handed straight to `sx`. */
+  maxWidth?: number | Record<string, number>
   zIndex?: number
   actions?: React.ReactNode   // rendered just left of the close button
   footer?: React.ReactNode    // sticky bottom bar
@@ -1078,12 +1147,11 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
   const overlayRef = useRef<HTMLDivElement>(null)
   const cardRef = useRef<HTMLDivElement>(null)
   const chromeRef = useRef<HTMLDivElement>(null)
-  const isPhone = useMediaQuery('(max-width:600px)')
-  // Called unconditionally and combined after. `isPhone && useSwipeNav()` would short-circuit
-  // the hook away on a desktop render and change the hook count the moment the viewport
-  // crossed 600px, which is the same trap SwipeableViews documents at its own call site.
+  // No `isPhone` here any more. The width test lives inside the gesture, where it is read
+  // live off `matchMedia` and cannot drift from the CSS breakpoint that decides whether this
+  // is a sheet at all. See SHEET_MQ.
   const swipeNav = useSwipeNav()
-  useSheetDrag(!!sheet && isPhone && swipeNav, cardRef, overlayRef, chromeRef, onClose)
+  useSheetDrag(!!sheet && swipeNav, cardRef, overlayRef, chromeRef, onClose)
 
   return (
     <Box
@@ -1125,20 +1193,45 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
               from: { transform: 'translateY(100%)' },
               to: { transform: 'translateY(0)' },
             },
+            // A card's own title block, opted in with `data-sheet-drag`, gets the chrome's
+            // deal: the browser never claims a touch that starts there, so useSheetDrag owns
+            // it outright instead of racing the scroller it sits inside. Phones only, for the
+            // same reason the chrome's is, and the cost is that the pane cannot be scrolled by
+            // dragging on the title, which is the trade every bottom sheet makes for its
+            // handle. Only opt in a block nobody scrolls to read.
+            '& [data-sheet-drag]': { touchAction: 'none' },
           },
         } : {}),
       }}>
         {/* Grab handle. Purely a signal, and it earns its 12px: it says the card came up from
             the bottom edge, which is what tells a thumb that the backdrop left showing above
             it is the way out. */}
-        <Box ref={chromeRef} sx={{ flexShrink: 0 }}>
+        {/* `touch-action: none` across the WHOLE chrome on a phone, not just the 36x4px
+            handle, and this is what makes the drag work on a real device at all.
+
+            The gesture handler cannot call `preventDefault` on the first touchmove: it has to
+            wait DRAG_LOCK_PX to tell a dismissal from a scroll, and preventing before the axis
+            is settled would kill scrolling on every touch that starts near the top. But a real
+            browser decides what a gesture is during those same first pixels, and once it has
+            handed the touch to the compositor as a scroll or an overscroll, every later
+            touchmove arrives with `cancelable: false` and `preventDefault` is a no-op. So the
+            drag silently did nothing on a phone while working perfectly against synthetic
+            touch events, which are always cancelable. That is the whole bug.
+
+            `touch-action: none` removes the race instead of trying to win it: the browser
+            never claims a touch that starts here, so the handler still owns it at 10px. It is
+            safe on this element for the reason useSheetDrag already gives for treating the
+            chrome as always-draggable — a finger on the grab handle or the title bar has no
+            other possible intent. Taps are unaffected: touch-action governs panning and
+            zooming, not clicks, so Close and Copy link still work.
+
+            Phones only. On desktop this is an ordinary dialog and the property would only
+            disable text selection in the header. */}
+        <Box ref={chromeRef} sx={{ flexShrink: 0, touchAction: sheet ? { xs: 'none', sm: 'auto' } : undefined }}>
         {sheet && (
           <Box aria-hidden sx={{
             display: { xs: 'block', sm: 'none' }, flexShrink: 0,
             width: 36, height: 4, borderRadius: 2, bgcolor: 'divider', mx: 'auto', mt: 1,
-            // The handle is the one part of a sheet whose only purpose is to be dragged, so it
-            // gives the browser no reason to interpret a touch on it as anything else.
-            touchAction: sheet ? 'none' : undefined,
           }} />
         )}
         {/* Sticky eyebrow header */}
@@ -1184,6 +1277,13 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
             worse one, a 174px scrolling window inside a 538px dialog on an 800px screen. */}
         <Box sx={{
           flex: 1, overflowY: 'auto',
+          // Stop a downward drag at the top of this pane from chaining out to the browser.
+          // Without it Android Chrome answers that gesture with pull-to-refresh and iOS with
+          // rubber-banding, both of which take ownership of the touch — which is the other
+          // half of why dismissing by dragging the CONTENT (rather than the chrome) did
+          // nothing on a real phone. `contain` keeps the overscroll inside this box, so the
+          // touch stays cancelable and useSheetDrag can still claim it at DRAG_LOCK_PX.
+          overscrollBehavior: 'contain',
           display: { xs: 'flex', sm: 'block' }, flexDirection: 'column',
           '&::-webkit-scrollbar': { width: 4 },
           '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },

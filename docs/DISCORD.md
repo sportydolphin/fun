@@ -339,7 +339,11 @@ that job never re-sends, and instead waits: it records when it first saw a game 
 publishes on a later run, 45 minutes on, once corrections have had time to land.
 
 The other difference is the box score itself. Discord's is a space-padded table inside a code
-fence; Bluesky has no monospace and no fences, so the same string is ragged nonsense there. The
+fence, separated from the blurb above it by a BLANK line rather than a single newline: Discord
+draws a code block as a filled box, and one newline puts that box hard against the last line of
+the prose. A blank line is the only spacing control an embed description has. Changing it moves
+every recap's fingerprint, so the next scheduled run re-edits the recent finals in place, which
+is exactly what that job is for; Bluesky has no monospace and no fences, so the same string is ragged nonsense there. The
 card is drawn as SVG ([`src/wpbl/derive/blueskyRecap.ts`](../src/wpbl/derive/blueskyRecap.ts),
 pure and tested) and rasterised at send time.
 

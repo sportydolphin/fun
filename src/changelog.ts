@@ -4,6 +4,37 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.49.0',
+    date:    '2026-08-26',
+    title:   'The player page, and everywhere a club name should have been a link',
+    changes: [
+      {
+        short: 'A player page uses the whole screen on a desktop',
+        full:  'The player page was built for a phone and a desktop got that same narrow column: about a third of it visible at a time in a 640px panel, with most of a screen empty either side. On a wide screen it now opens wider and reads as two columns, her season on the left and the games it came out of on the right, with the headline pair moved onto the band that carries her name and club colours. Same numbers, roughly half the scrolling, and nothing about the phone layout changed.',
+      },
+      {
+        short: 'Any game in a player\u2019s log opens from the log',
+        full:  'The game log lists every game she has played and, until now, was the one place on the site that named a game you could not open. Tap a row and that game opens on its Game Center, and going back returns you to her page. The log also leads with the most recent game rather than the oldest, which matters more the longer the season gets, and on a wide screen it keeps to a fixed height and scrolls itself with the column headings pinned.',
+      },
+      {
+        short: 'The game log says where she played, and marks her best game in each column',
+        full:  'A new POS column gives the position she actually played that day, taken from that game\u2019s box score rather than from her roster listing. Kylee Lahners is filed at third base and the column is what shows she has DH\u2019d six times, played first twice, and moved from one to the other in the opener. The best value in each column is picked out in her club\u2019s colour, for the columns where more is genuinely better: runs, hits, doubles, triples, home runs, RBI, steals and total bases, or innings and strikeouts for a pitcher. Strikeouts at the plate and the hits a pitcher gave up are never marked, and neither is a column where nothing stands out.',
+      },
+      {
+        short: 'Team names open the club, everywhere a game is shown',
+        full:  'The club names in Game Center are links now: the two names at the top of a game that has not been played, the team rows in a finished or live box score, and the two badges on the season comparison card. Going back from a club page returns you to the game. The score itself is deliberately not part of the link, since that is where a thumb rests while reading a live game.',
+      },
+      {
+        short: 'Clearer credit for the writing in the Reading rail',
+        full:  'The articles on Home are written by mary mustard for her own Substack, towards a more perfect game, and this site only links to them. That was not saying itself clearly enough: the card carried her masthead as though it were ours and printed her own bio in the first person with nothing in front of it, and readers were coming away thinking she writes this site. The credit now says "Written by" before her name, keeps her description in quotation marks as the words of hers that they are, and names her Substack as hers. She keeps the full credit; it just says whose it is.',
+      },
+      {
+        short: 'Club colours carry further across a player\u2019s name band',
+        full:  'The colour band behind a player\u2019s name held its club\u2019s near-black primary for most of its width and reached only a hint of the club\u2019s actual hue at one corner, which on Los Angeles and New York left it reading as black. Each club now carries as much of its own colour as its text can stand: Boston\u2019s orange and San Francisco\u2019s red much further across, Los Angeles gold rather than black. The smallest lines on the band were lifted to match, so every one of them still reads on every club.',
+      },
+    ],
+  },
+  {
     version: '1.48.1',
     date:    '2026-08-23',
     title:   'Win probability, in every recap',

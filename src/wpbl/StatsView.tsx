@@ -1129,10 +1129,49 @@ export default function WpblStatsView({
           {/* Capped inner scroll so the column headers stay sticky (top:0) as you scroll the
               rows. `overscroll-behavior: contain` stops the scroll from chaining out to the
               page at the ends, so it reads as one list rather than a scroll-box fighting the
-              page. `dvh` tracks the mobile browser chrome so the cap doesn't overshoot. */}
+              page. `dvh` tracks the mobile browser chrome so the cap doesn't overshoot.
+
+              TWO SUBTRACTIONS, because a phone turned sideways wants a different one.
+
+              260px is everything standing above the table at the top of the page: toolbar, tab
+              nav, board picker, sort row. Subtracting all of it means "tall enough that nothing
+              has to scroll", which is the right answer whenever the screen can afford it.
+
+              A landscape phone cannot. 375dvh less 260 left a 115px window on a 1149px table:
+              the header and TWO of thirty-three rows, which reads as broken rather than as
+              tight. There the page has to scroll, and the cap becomes what fits in the gap the
+              PINNED chrome leaves. Everything else scrolls away.
+
+              That gap is asked for rather than assumed. The shell publishes whichever of its
+              bars is actually holding a position (--app-header-h on desktop, --wpbl-nav-h on
+              mobile, both 0 when the bar is static), so subtracting the sum is right at every
+              width without naming a breakpoint here — and it followed by itself the day the
+              toolbar started scrolling away on a short screen. 100px is this page's OWN
+              control bar, which pins under them and is the one height the shell cannot report
+              (91px measured, the rest slack).
+
+              Going taller than that is not merely wasteful, it breaks the thing this box exists
+              for: a table taller than the free gap can never be scrolled fully into it, so its
+              sticky header ends up parked behind the nav and the reader loses the column labels
+              for the rest of the board. Tried at `100dvh - 60px` and measured: 315px of table
+              in a 240px gap, header at y=-94.
+
+              560px is where the two meet, and is picked rather than guessed: it is the height
+              at which the first subtraction still leaves about eight rows, which is the point
+              below which a scroll-box stops being a table. The query reads the RAW viewport
+              while the calc reads the zoomed one, which agree on a phone (`--app-zoom` is 1
+              below md) and diverge only on a short desktop window, where the query is late and
+              the box merely comes out shorter than it could be. That is the safe direction:
+              the unsafe one is a box taller than the gap, and the query cannot cause it. */}
           <Box ref={scrollRef} sx={{
             overflowX: 'auto', overflowY: 'auto', overscrollBehavior: 'contain',
             maxHeight: 'calc(100dvh / var(--app-zoom, 1) - 260px)',
+            '@media (max-height: 560px)': {
+              maxHeight: `calc(
+                100dvh / var(--app-zoom, 1)
+                - var(--app-header-h, 0px) - var(--wpbl-nav-h, 0px) - 100px
+              )`,
+            },
           }}>
             <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: '100%', fontVariantNumeric: 'tabular-nums' }}>
               <Box component="thead">

@@ -4,7 +4,7 @@ import { SectionCard, PillGroup } from './ui'
 import { ReadingStrip } from './Reading'
 import { HighlightsStrip } from './Highlights'
 import { PhotosStrip } from './Photos'
-import { PUBLICATION_NAME } from './derive/articles'
+import { AUTHOR_NAME, PUBLICATION_NAME } from './derive/articles'
 import type { WpblArticle, WpblVideo, WpblPhoto, WpblTeam } from './types'
 import { track, EVENTS } from '../lib/analytics'
 
@@ -64,7 +64,13 @@ export default function MediaShelf({ articles, videos, photos, teams }: {
   // promises content and then explains itself.
   const available = useMemo(() => {
     const out: { value: Segment; label: string; subtitle: string }[] = []
-    if (articles.length > 0) out.push({ value: 'reading', label: 'Reading', subtitle: PUBLICATION_NAME })
+    // Every subtitle here NAMES ITS SOURCE, and Reading's has to as much as the other two.
+    // It used to be the bare masthead, which put "towards a more perfect game" directly under
+    // our own "More from the league" heading with nothing to say whose it was, and readers
+    // duly took it for this site's tagline and mary mustard for the person writing this site.
+    // The other two segments never had that problem because they say "the WPBL channel" and
+    // "Wikimedia Commons" out loud. Hers now does too.
+    if (articles.length > 0) out.push({ value: 'reading', label: 'Reading', subtitle: `${PUBLICATION_NAME}, by ${AUTHOR_NAME}` })
     if (videos.length > 0) out.push({ value: 'highlights', label: 'Highlights', subtitle: 'Game recaps from the WPBL channel' })
     if (photos.length > 0) out.push({ value: 'archive', label: 'Archive', subtitle: "Women's baseball on Wikimedia Commons" })
     return out
@@ -108,8 +114,9 @@ export default function MediaShelf({ articles, videos, photos, teams }: {
     if (!active || collapsed || logged.current.has(active)) return
     logged.current.add(active)
     if (active === 'reading') track(EVENTS.WPBL_READING_SHOWN, { count: articles.length, collapsed: false })
+    if (active === 'highlights') track(EVENTS.WPBL_HIGHLIGHTS_SHOWN, { count: videos.length, collapsed: false })
     if (active === 'archive') track(EVENTS.WPBL_PHOTOS_SHOWN, { count: photos.length, collapsed: false })
-  }, [active, collapsed, articles.length, photos.length])
+  }, [active, collapsed, articles.length, videos.length, photos.length])
 
   if (!active) return null
   const current = available.find(s => s.value === active)!

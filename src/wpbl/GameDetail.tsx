@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { supabase } from '../lib/supabase'
+import { track, EVENTS } from '../lib/analytics'
 import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblGameDetails, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllRunValuePlays, LIVE_POLL_MS } from './api'
 import { wpblAccent, wpblFullName, outsToIp, playedInnings, formatGameTime, relativeDayLabel } from './constants'
 import { LiveBanner, useLiveGame } from './Live'
@@ -9,7 +10,7 @@ import { GameHighlightCard } from './Highlights'
 import { GameStoryCard } from './Reading'
 import { GameRecapView, preloadWinProb } from './RecapCard'
 import { useExperiments } from '../ExperimentsContext'
-import { ModalShell, SegNav, TapTip, TeamBadge, useWpblDark, useWpblName, wpblFeatureName } from './ui'
+import { ModalShell, SegNav, TapTip, TeamBadge, pressable, FOCUS_RING, useWpblDark, useWpblName, wpblFeatureName } from './ui'
 import SwipeableViews from './SwipeableViews'
 import { parsePlay, runsOnPlay } from './derive/playByPlay'
 import { useUnits } from '../UnitsContext'
@@ -191,8 +192,9 @@ function GameConditions({ details }: { details: WpblGameDetails | null }) {
   )
 }
 
-function Scoreboard({ away, home, game, awayWon, homeWon }: {
+function Scoreboard({ away, home, game, awayWon, homeWon, onOpenTeam }: {
   away: WpblTeam; home: WpblTeam; game: WpblGame; awayWon: boolean; homeWon: boolean
+  onOpenTeam?: (t: WpblTeam) => void
 }) {
   const isMobile = useMediaQuery('(max-width:600px)')
   const isDark = useWpblDark()
@@ -222,7 +224,26 @@ function Scoreboard({ away, home, game, awayWon, homeWon }: {
         {/* Thin team-color stripe on the winning row; a transparent one on the loser keeps
             both rows aligned. */}
         <Box component="td" sx={{ py: 0.5, pr: 1.5, pl: 1, borderLeft: '3px solid', borderColor: won ? accent : 'transparent' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+          {/* The name opens the club. Only the NAME, not the whole cell and certainly not the
+              row: the rest of the row is the innings, and a reader dragging that table
+              sideways on a phone must not land on a team page for it. */}
+          <Box
+            {...(onOpenTeam ? pressable(() => onOpenTeam(team)) : {})}
+            aria-label={onOpenTeam ? `${wpblFullName(team)} team page` : undefined}
+            sx={{
+              // `flex` + `fit-content`, NOT `inline-flex`. Both shrink-wrap, which is what
+              // keeps the tap target off the rest of the cell, but an inline-level box sits on
+              // the row's text baseline: it picks up the line box's descender space and the
+              // badge rides high of the cell's centre. A block-level flex box has no baseline
+              // to sit on and centres properly.
+              display: 'flex', width: 'fit-content', alignItems: 'center', gap: 0.75, minWidth: 0,
+              ...(onOpenTeam ? {
+                cursor: 'pointer', borderRadius: 1, mx: -0.5, px: 0.5,
+                '&:hover': { bgcolor: 'action.hover' },
+                ...FOCUS_RING,
+              } : {}),
+            }}
+          >
             <TeamBadge team={team} size={24} />
             <Typography sx={{ fontSize: isMobile ? '0.86rem' : '0.95rem', fontWeight: won ? 800 : 600, lineHeight: 1.15, whiteSpace: 'nowrap', color: won || !decided ? 'text.primary' : 'text.secondary' }}>
               {isMobile ? team.name : wpblFullName(team)}
@@ -951,12 +972,15 @@ function TeamSwitch({ away, home, value, onChange }: {
 }
 
 // ─── Modal root ────────────────────────────────────────────────────────────────
-export default function GameDetailModal({ game: seed, teams, games = [], onClose, onOpenPlayer }: {
+export default function GameDetailModal({ game: seed, teams, games = [], onClose, onOpenPlayer, onOpenTeam }: {
   game: WpblGame
   teams: WpblTeam[]
   games?: WpblGame[]
   onClose: () => void
   onOpenPlayer?: (p: WpblPlayer) => void
+  /** Open a club's page from a team name here. Same shape as `onOpenPlayer`: the section
+   *  closes this modal as it goes, so Back walks off the team page and lands on the game. */
+  onOpenTeam?: (t: WpblTeam) => void
 }) {
   const game = useLiveGame(seed)  // fresh score + live_state while the game is live
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
@@ -1077,11 +1101,27 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   const dateLabel = relativeDayLabel(game.game_date)
   const showScore = final || live
 
+  // The badge and the name are the target, and the SCORE is deliberately outside it. The
+  // score is the thing a reader's eye is on and the thing a thumb rests on while reading a
+  // live game, and "open Boston's page" is not what either means.
   const scoreLine = (team: WpblTeam | undefined, score: number | null, won: boolean) => (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      {team && <TeamBadge team={team} size={30} />}
-      <Typography sx={{ flex: 1, fontSize: '1rem', fontWeight: won ? 800 : 600 }}>{team ? wpblFullName(team) : ''}</Typography>
-      {showScore && <Typography sx={{ fontSize: '1.25rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: won ? 'text.primary' : 'text.secondary' }}>{score ?? 0}</Typography>}
+      <Box
+        {...(team && onOpenTeam ? pressable(() => onOpenTeam(team)) : {})}
+        aria-label={team && onOpenTeam ? `${wpblFullName(team)} team page` : undefined}
+        sx={{
+          flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 1,
+          ...(team && onOpenTeam ? {
+            cursor: 'pointer', borderRadius: 1.5, mx: -0.75, px: 0.75, py: 0.25,
+            '&:hover': { bgcolor: 'action.hover' },
+            ...FOCUS_RING,
+          } : {}),
+        }}
+      >
+        {team && <TeamBadge team={team} size={30} />}
+        <Typography sx={{ flex: 1, minWidth: 0, fontSize: '1rem', fontWeight: won ? 800 : 600 }}>{team ? wpblFullName(team) : ''}</Typography>
+      </Box>
+      {showScore && <Typography sx={{ flexShrink: 0, fontSize: '1.25rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: won ? 'text.primary' : 'text.secondary' }}>{score ?? 0}</Typography>}
     </Box>
   )
 
@@ -1104,6 +1144,21 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   // appears at the front, shifting every other tab along. Clamped, since a tab can also stop
   // being offered underneath us.
   const tabIndex = Math.max(0, tabs.findIndex(t => t.value === tab))
+
+  // Which of the four boards actually gets read. `game_center_opened` says only that a reader
+  // arrived; the Recap / Box Score / Play-by-Play / Pitch Data axis never touches the URL, so
+  // Cloudflare cannot see it either and nothing distinguished the tab that opened by default
+  // from the one someone chose. Same argument that already put `wpbl_stats_board` in place.
+  //
+  // `via` is that distinction: 'open' is the landing tab this modal picked, 'pill' and 'swipe'
+  // are the reader choosing. Gated on `hasLines` because the bar paints before the data does,
+  // and a board with nothing under it has not been read.
+  const tabVia = useRef<'open' | 'pill' | 'swipe'>('open')
+  const selectTab = useCallback((v: Tab, via: 'pill' | 'swipe') => { tabVia.current = via; setTab(v) }, [])
+  useEffect(() => {
+    if (!hasLines) return
+    track(EVENTS.WPBL_GAME_TAB, { tab, via: tabVia.current, status: game.status, gameId: game.id })
+  }, [tab, hasLines, game.status, game.id])
 
   // The authoritative pitcher list (real names + IP/P) that the Pitch Data tab merges
   // TrackMan velo/spin onto — see PitchData.
@@ -1154,7 +1209,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
             or a plain name matchup for an unplayed one. */}
         <Box sx={{ flexShrink: 0, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
           {showScore && away && home ? (
-            <Scoreboard away={away} home={home} game={game} awayWon={awayWon} homeWon={homeWon} />
+            <Scoreboard away={away} home={home} game={game} awayWon={awayWon} homeWon={homeWon} onOpenTeam={onOpenTeam} />
           ) : (
             <Box sx={{ px: 2, pt: 2, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
               {scoreLine(away, game.away_score, awayWon)}
@@ -1185,7 +1240,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
             only tab whose existence depends on what came back. */}
         {showScore && (loading || hasLines) && (
           <Box sx={{ flexShrink: 0, pt: 0.75, pb: 1 }}>
-            <SegNav options={tabs} value={tab} onChange={v => setTab(v as Tab)} mb={0} />
+            <SegNav options={tabs} value={tab} onChange={v => selectTab(v as Tab, 'pill')} mb={0} />
           </Box>
         )}
 
@@ -1200,7 +1255,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
             <SwipeableViews
               mode="pane"
               index={tabIndex}
-              onIndexChange={i => setTab(tabs[i].value)}
+              onIndexChange={i => selectTab(tabs[i].value, 'swipe')}
               panels={tabs.map(t => (
                 t.value === 'recap' && away && home ? (
                   <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} video={final ? video : null} onOpenPlayer={onOpenPlayer} />
@@ -1240,7 +1295,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
           // Unplayed game: a pre-game matchup card comparing the two clubs' season stats,
           // in place of a bare "not played yet" message (mirrors the MLB game preview).
           <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-            <WpblGamePreview away={away} home={home} teams={teams} games={games} />
+            <WpblGamePreview away={away} home={home} teams={teams} games={games} onOpenTeam={onOpenTeam} />
           </Box>
         ) : (
           <Box sx={{ flex: 1, p: 2 }}>

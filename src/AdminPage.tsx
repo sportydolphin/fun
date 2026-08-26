@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Box, Typography, CircularProgress, IconButton, Tooltip } from '@mui/material'
-import { Refresh, InfoOutlined } from '@mui/icons-material'
+import { Box, Typography, CircularProgress, IconButton } from '@mui/material'
+import { Refresh } from '@mui/icons-material'
 import { Section, StatRow, AdminTools, HealthGroup, HealthStrip, useOpsHealth } from './AdminPanel'
 import { PlayerPortrait } from './wpbl/ui'
 import {
   fetchAnalytics, localTz, deltaPct, formatDelta, formatCount, formatShare,
   trimLeadingEmpty, shortDate, prettyEvent, seriesPoints,
-  EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS,
+  EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH,
 } from './lib/analyticsAdmin'
 import type { AnalyticsBundle, LeagueFilter, DayPoint } from './lib/analyticsAdmin'
 
@@ -41,7 +41,20 @@ const GROUPS: Array<{ value: Group; label: string }> = [
 // that exists to be checked occasionally, not scanned daily.
 const EVENT_HEAD = 12
 
-const RANGES = [7, 30, 90] as const
+// `days_back` in every RPC means "this many calendar days back, ending now", so 1 is
+// midnight-to-now in the reader's own timezone. It is labelled "Today" rather than "24h"
+// because that is what the number is: at 9am it covers nine hours, not twenty-four. A true
+// rolling 24h window would mean an hours parameter on all nine RPCs and an hour-bucketed
+// series behind the chart, which is a different feature, not a different label.
+const RANGES: Array<{ days: number; label: string }> = [
+  { days: 1,  label: 'Today' },
+  { days: 7,  label: '7d' },
+  { days: 30, label: '30d' },
+  { days: 90, label: '90d' },
+]
+
+/** "in 30 days" / "today" — the range as it reads inside a tile's sub-line. */
+const rangeLabel = (days: number) => (days === 1 ? 'today so far' : `in ${days} days`)
 const LEAGUES: Array<{ value: LeagueFilter; label: string }> = [
   { value: 'all',  label: 'All' },
   { value: 'wpbl', label: 'WPBL' },
@@ -49,10 +62,20 @@ const LEAGUES: Array<{ value: LeagueFilter; label: string }> = [
 ]
 
 const EMPTY_BUNDLE: AnalyticsBundle = {
-  overview: EMPTY_OVERVIEW, events: [], tabs: [], statsBoards: EMPTY_STATS_BOARDS, players: [],
-  discord: { impressions: 0, shown: 0, joined: 0, dismissed: 0 },
+  overview: EMPTY_OVERVIEW, events: [], tabs: [], statsBoards: EMPTY_STATS_BOARDS,
+  entryPoints: EMPTY_ENTRY_POINTS, search: EMPTY_SEARCH, players: [],
   growth: EMPTY_GROWTH,
 }
+
+// The three destinations the entry-point card reports, in the order they are worth reading:
+// a player page is the section's retention event, a team page is its deepest surface, and
+// Game Center is its busiest modal. Fixed rather than sorted by volume, so the card does not
+// reshuffle between ranges.
+const DESTS: Array<{ key: string; label: string; color: string }> = [
+  { key: 'player', label: 'Player pages', color: '#22c55e' },
+  { key: 'team',   label: 'Team pages',   color: '#a78bfa' },
+  { key: 'game',   label: 'Game Center',  color: '#60a5fa' },
+]
 
 // How each WPBL tab was reached. Distinct hues rather than shades of one, because the
 // question the panel answers is "pill or swipe", not "more or less".
@@ -119,15 +142,6 @@ function Tile({ label, value, delta, sub }: {
   )
 }
 
-/** A "why this number is what it is" hint, for the counts that are easy to misread. */
-function Hint({ text }: { text: string }) {
-  return (
-    <Tooltip title={text} enterTouchDelay={0} leaveTouchDelay={4000}>
-      <InfoOutlined sx={{ fontSize: '0.85rem', color: 'text.disabled', verticalAlign: 'middle', ml: 0.4 }} />
-    </Tooltip>
-  )
-}
-
 /** A proportional bar for a table row, drawn relative to the biggest row in the table. */
 function Bar({ value, max, color }: { value: number; max: number; color: string }) {
   return (
@@ -157,6 +171,20 @@ function ActivityChart({ series, tz }: { series: DayPoint[]; tz: string }) {
   if (data.length === 0) {
     return <Box sx={{ px: 1.5, py: 3, textAlign: 'center' }}>
       <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>No activity in this range.</Typography>
+    </Box>
+  }
+
+  // One day is not a shape. A single point renders as an invisible polyline over a triangular
+  // fill, with the same date printed at both ends of the axis: 150px of chrome saying nothing.
+  // The Today range hits this every time, and so does the second day of any new instrument.
+  if (data.length < 2) {
+    return <Box sx={{ px: 1.5, py: 2.5, textAlign: 'center' }}>
+      <Typography sx={{ fontSize: '0.9rem', fontWeight: 800 }}>
+        {formatCount(data[0].events)} events · {formatCount(data[0].browsers)} browsers
+      </Typography>
+      <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', mt: 0.3 }}>
+        {shortDate(data[0].date)} — a trend needs at least two days
+      </Typography>
     </Box>
   }
 
@@ -236,7 +264,7 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
 
   useEffect(() => load(), [load])
 
-  const { overview, events, tabs, statsBoards, players, discord, growth } = data
+  const { overview, events, tabs, statsBoards, entryPoints, search, players, growth } = data
   const t = overview.totals, p = overview.prev
 
   // A range that reaches back before the first event would otherwise pad the chart with
@@ -246,9 +274,22 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
     ? (Date.now() - new Date(`${firstEvent}T00:00:00`).getTime()) / 86_400_000 < days
     : false
 
+  // Whether the previous-window deltas are worth drawing at all — see the note beside the
+  // tiles. Only the Today range is partial enough for them to mislead.
+  const comparable = days > 1
+
   const maxEvent = Math.max(1, ...events.map(e => e.events))
   const maxPlayer = Math.max(1, ...players.map(x => x.opens))
   const maxBoard = Math.max(1, ...statsBoards.boards.map(b => b.events))
+  // Entry points are grouped by destination, and each group gets its OWN scale: the three
+  // destinations differ by an order of magnitude, so a shared one would flatten the smaller
+  // two into empty tracks and hide the only thing this card is for, which is the mix inside
+  // each destination rather than the sizes of the three against each other.
+  const entryByDest = useMemo(() => {
+    const m = new Map<string, typeof entryPoints.sources>()
+    for (const r of entryPoints.sources) m.set(r.dest, [...(m.get(r.dest) ?? []), r])
+    return m
+  }, [entryPoints.sources])
   // Tab views are grouped into one stacked bar per tab, so the segments share a scale: the
   // busiest tab's TOTAL. Scaling each segment to the largest single segment instead would
   // let a three-way split (stats: 472 + 190 + 113) add up past the full width of its track.
@@ -290,13 +331,26 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
       {group === 'audience' && (<>
       <Box sx={{ display: 'flex', gap: 0.6, mb: 1, flexWrap: 'wrap', alignItems: 'center' }}>
         {RANGES.map(r => (
-          <Chip key={r} label={`${r}d`} active={days === r} onClick={() => setDays(r)} />
+          <Chip key={r.days} label={r.label} active={days === r.days} onClick={() => setDays(r.days)} />
         ))}
         <Box sx={{ width: 10 }} />
         {LEAGUES.map(l => (
           <Chip key={l.value} label={l.label} active={league === l.value} onClick={() => setLeague(l.value)} />
         ))}
       </Box>
+
+      {/* Today-so-far against ALL of yesterday is a comparison that reads negative every
+          morning and only catches up around midnight, so the Today range shows counts without
+          delta chips rather than a red arrow that means nothing. The same bias exists at the
+          longer ranges (a 7d window is six full days plus a partial one) but at 1/7th and
+          1/30th of the weight, which is why they keep theirs. */}
+      {!comparable && (
+        <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mb: 1.5 }}>
+          Today runs from midnight in {overview.tz || tz} to now, so it is a partial day.
+          Change arrows are hidden here: yesterday is a full day and the comparison would read
+          negative until late evening.
+        </Typography>
+      )}
 
       {shortHistory && firstEvent && (
         <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mb: 1.5 }}>
@@ -306,20 +360,32 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
       )}
 
       {/* ── headline tiles ─────────────────────────────────────────────── */}
+      {/* Three, and each answers a different question. This row used to be five, which put two
+          different window semantics side by side under one range filter: Browsers/Events/Signed
+          in follow the chips above, while Active today / Active 30d are FIXED and ignore them.
+          Two of the five are gone:
+
+          - "Events" was a headline that instrumentation moves. Adding seven event names on Aug
+            25 lifts it about a fifth with no change in what anyone did, and the number is
+            already on the page twice (the chart plots it per day, the Events card breaks it
+            down). A volume count that a deploy can move is not a headline.
+          - "Active 30d" and "Active today" were two tiles carrying three numbers between them.
+            They are one fixed-window answer and now read as one tile that says so. */}
       <Box sx={{
         display: 'grid', gap: 1, mb: 2.5,
-        gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)', md: 'repeat(5, 1fr)' },
+        gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' },
       }}>
-        <Tile label="Browsers" value={formatCount(t.browsers)} delta={deltaPct(t.browsers, p.browsers)}
-          sub={`in ${days} days`} />
-        <Tile label="Events" value={formatCount(t.events)} delta={deltaPct(t.events, p.events)}
-          sub={`in ${days} days`} />
+        <Tile label="Browsers" value={formatCount(t.browsers)}
+          delta={comparable ? deltaPct(t.browsers, p.browsers) : undefined}
+          sub={rangeLabel(days)} />
         <Tile label="Signed in" value={formatShare(t.signed_in_browsers, t.browsers)}
-          delta={deltaPct(t.signed_in_browsers, p.signed_in_browsers)}
+          delta={comparable ? deltaPct(t.signed_in_browsers, p.signed_in_browsers) : undefined}
           sub={`${t.users} users, ${t.signed_in_browsers} browsers`} />
-        <Tile label="Active today" value={formatCount(overview.active.today)} sub="browsers" />
-        <Tile label="Active 30d" value={formatCount(overview.active.month)}
-          sub={`${formatCount(overview.active.week)} in last 7d`} />
+        {/* Fixed windows, deliberately: these are the only numbers on the page the range chips
+            do not touch, so the sub-line names all three rather than letting the tile look like
+            it moved when the reader changed the range. */}
+        <Tile label="Active browsers" value={formatCount(overview.active.today)}
+          sub={`today · ${formatCount(overview.active.week)} in 7d · ${formatCount(overview.active.month)} in 30d`} />
       </Box>
 
       {/* ── activity ───────────────────────────────────────────────────── */}
@@ -342,9 +408,11 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
                     {prettyEvent(e.event)}
                   </Typography>
                   <Typography sx={{ fontSize: '0.82rem', fontWeight: 800 }}>{e.events.toLocaleString()}</Typography>
-                  <Box sx={{ minWidth: 42, textAlign: 'right' }}>
-                    <Delta pct={deltaPct(e.events, e.prev_events)} />
-                  </Box>
+                  {comparable && (
+                    <Box sx={{ minWidth: 42, textAlign: 'right' }}>
+                      <Delta pct={deltaPct(e.events, e.prev_events)} />
+                    </Box>
+                  )}
                 </Box>
                 <Bar value={e.events} max={maxEvent} color="#60a5fa" />
                 <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.4 }}>
@@ -480,6 +548,121 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
         )}
       </Section>
 
+      {/* ── how readers reach a page ───────────────────────────────────── */}
+      {/* Player opens are the retention event and team pages are the deepest surface in the
+          section, and both used to be one flat number. This is the `from` breakdown: which
+          surface actually feeds each destination, and which ones are decoration. */}
+      <Section title="WPBL: how readers get there">
+        {entryPoints.sources.length === 0 ? (
+          <Box sx={{ px: 1.5, py: 2 }}>
+            <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>
+              No page opens in this range. Team opens and the Game Center `from` label were
+              instrumented Aug 25, 2026, so earlier rows show as "—" rather than as a surface.
+            </Typography>
+          </Box>
+        ) : (
+          <Box sx={{ px: 1.5, py: 1 }}>
+            {DESTS.map(d => {
+              const rows = entryByDest.get(d.key) ?? []
+              if (rows.length === 0) return null
+              const total = rows.reduce((n, r) => n + r.events, 0)
+              const max = Math.max(1, ...rows.map(r => r.events))
+              return (
+                <Box key={d.key} sx={{ py: 0.9, '&:not(:last-child)': { borderBottom: '1px solid', borderColor: 'divider' } }}>
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.6 }}>
+                    <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, flex: 1 }}>{d.label}</Typography>
+                    <Typography sx={{ fontSize: '0.8rem', fontWeight: 800 }}>{total.toLocaleString()}</Typography>
+                  </Box>
+                  {rows.map(r => (
+                    <Box key={r.from} sx={{ display: 'flex', alignItems: 'center', gap: 1.25, py: 0.3 }}>
+                      <Typography noWrap sx={{ fontSize: '0.72rem', color: 'text.secondary', width: 84, flexShrink: 0 }}>
+                        {r.from}
+                      </Typography>
+                      <Box sx={{ flex: 1, minWidth: 0 }}><Bar value={r.events} max={max} color={d.color} /></Box>
+                      <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, width: 48, textAlign: 'right', flexShrink: 0 }}>
+                        {r.events.toLocaleString()}
+                      </Typography>
+                      <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', width: 40, textAlign: 'right', flexShrink: 0 }}>
+                        {r.browsers} br
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              )
+            })}
+
+            {entryPoints.game_tabs.length > 0 && (
+              <>
+                <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', mt: 1.5, mb: 0.5 }}>
+                  Game Center tabs
+                </Typography>
+                {/* 'open' is the tab the modal picked; 'pill' and 'swipe' are the reader
+                    choosing. A tab that only ever appears as 'open' was never wanted. */}
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                  {entryPoints.game_tabs.slice(0, 12).map(x => (
+                    <Box key={`${x.tab}|${x.via}|${x.status}`} sx={{
+                      px: 0.9, py: 0.3, borderRadius: 999, bgcolor: 'action.hover',
+                      fontSize: '0.68rem', fontWeight: 700, color: 'text.secondary',
+                    }}>
+                      {x.tab} · {x.via} {x.events}
+                    </Box>
+                  ))}
+                </Box>
+              </>
+            )}
+          </Box>
+        )}
+      </Section>
+
+      {/* ── header search ──────────────────────────────────────────────── */}
+      {/* Search is in the header on every page in the section and produced no rows at all
+          until Aug 25, 2026. The number that earns this card is `missed`: a query that found
+          nothing is a reader who came for something specific and left without it, and it is
+          the only list on this page that names a thing to go and fix. */}
+      <Section title="WPBL search">
+        {search.totals.searched === 0 ? (
+          <Box sx={{ px: 1.5, py: 2 }}>
+            <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>
+              No searches in this range. Instrumented Aug 25, 2026, so ranges reaching back
+              past that are empty rather than quiet.
+            </Typography>
+          </Box>
+        ) : (
+          <Box sx={{ px: 1.5, py: 0.5 }}>
+            <StatRow label="Searches" value={formatCount(search.totals.searched)}
+              sub={plural(search.totals.searched_browsers, 'browser')} />
+            <StatRow label="Found nothing" value={formatCount(search.totals.empty)}
+              sub={formatShare(search.totals.empty, search.totals.searched)} />
+            <StatRow label="Picked a result" value={formatCount(search.totals.picked)}
+              sub={formatShare(search.totals.picked, search.totals.searched)} />
+
+            {search.picks.length > 0 && (
+              <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 1 }}>
+                picks {search.picks.map(x => `${x.type} via ${x.source} ${x.events}`).join(' · ')}
+              </Typography>
+            )}
+
+            {search.missed.length > 0 && (
+              <>
+                <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary', mt: 1.5, mb: 0.5 }}>
+                  Matched nothing
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                  {search.missed.map(x => (
+                    <Box key={x.q} title={plural(x.browsers, 'browser')} sx={{
+                      px: 0.9, py: 0.3, borderRadius: 999, bgcolor: 'action.hover',
+                      fontSize: '0.68rem', fontWeight: 700, color: 'text.secondary',
+                    }}>
+                      {x.q}{x.events > 1 ? ` ×${x.events}` : ''}
+                    </Box>
+                  ))}
+                </Box>
+              </>
+            )}
+          </Box>
+        )}
+      </Section>
+
       {/* ── top players ────────────────────────────────────────────────── */}
       <Section title="Most-opened players">
         {players.length === 0 ? (
@@ -509,52 +692,21 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
         )}
       </Section>
 
-      {/* ── Discord funnel ─────────────────────────────────────────────── */}
-      <Section title="Discord invite (retired)">
-        <Box sx={{ px: 1.5, py: 0.5 }}>
-          {/* The Home promo card was retired on Aug 19 after several weeks up; the invite is a
-              standing link in the WPBL footer now. So `shown` and `dismissed` are frozen while
-              `joined` keeps climbing from the footer, and the rates below will drift past what
-              they mean and eventually past 100%. Read this as a record of the card's run, not
-              as a live funnel. */}
-          <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', pb: 0.75 }}>
-            The card was retired on Aug 19, 2026. Impressions and dismissals are frozen; joins
-            still accrue from the footer link, so treat the rates as historical.
-          </Typography>
-          <StatRow
-            label="Sessions that saw the card"
-            sub={`${discord.impressions.toLocaleString()} impressions — the card mounts several times a session`}
-            value={<Typography sx={{ fontSize: '0.88rem', fontWeight: 800 }}>{discord.shown.toLocaleString()}</Typography>}
-          />
-          <StatRow
-            label={<>Joined<Hint text="Sessions that clicked Join ÷ sessions that saw the card. Measured over raw impressions instead, this rate would read about a third of the truth." /></>}
-            sub={`${discord.joined.toLocaleString()} of ${plural(discord.shown, 'session')}`}
-            value={<Typography sx={{ fontSize: '0.88rem', fontWeight: 800, color: 'success.main' }}>
-              {formatShare(discord.joined, discord.shown)}
-            </Typography>}
-          />
-          <StatRow
-            label="Dismissed"
-            sub={`${discord.dismissed.toLocaleString()} of ${plural(discord.shown, 'session')}`}
-            value={<Typography sx={{ fontSize: '0.88rem', fontWeight: 800, color: 'text.secondary' }}>
-              {formatShare(discord.dismissed, discord.shown)}
-            </Typography>}
-          />
-          <Box sx={{ pb: 1 }}>
-            <Box sx={{ display: 'flex', height: 8, borderRadius: 999, overflow: 'hidden', bgcolor: 'action.hover' }}>
-              <Box sx={{ width: `${discord.shown ? (discord.joined / discord.shown) * 100 : 0}%`, bgcolor: '#22c55e' }} />
-              <Box sx={{ width: `${discord.shown ? (discord.dismissed / discord.shown) * 100 : 0}%`, bgcolor: '#ef4444' }} />
-            </Box>
-          </Box>
-        </Box>
-      </Section>
+      {/* The Discord invite funnel card lived here until Aug 25, 2026. The promo card it
+          measured was retired from Home on Aug 19: impressions and dismissals froze that day
+          while joins kept accruing from the footer link, so its rates were already drifting
+          toward a "joined" share that would eventually pass 100%. A card that has to open by
+          telling you not to read it is not a card. The run it recorded (8.3% of sessions that
+          saw it joined) is in the WPBL roadmap's shipped log, and `admin_discord_funnel` is
+          still there if the numbers are ever wanted again — it is just no longer a round trip
+          on every load of this page. */}
 
       {/* ── growth & notifications ─────────────────────────────────────── */}
       <Section title="Accounts & notifications">
         <Box sx={{ px: 1.5, py: 0.5 }}>
           <StatRow label="Total users" sub={growth.deleted_users > 0 ? `${growth.deleted_users} deactivated` : undefined}
             value={<Typography sx={{ fontSize: '0.88rem', fontWeight: 800 }}>{growth.total_users}</Typography>} />
-          <StatRow label={`Signups in ${days} days`}
+          <StatRow label={`Signups ${rangeLabel(days)}`}
             value={<Typography sx={{ fontSize: '0.88rem', fontWeight: 800 }}>{growth.signups_window}</Typography>} />
           <StatRow label="Push subscribers" sub={plural(growth.push_devices, 'device')}
             value={<Typography sx={{ fontSize: '0.88rem', fontWeight: 800 }}>{growth.push_users}</Typography>} />
@@ -574,6 +726,9 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
       <Typography sx={{ fontSize: '0.64rem', color: 'text.disabled', mt: 2 }}>
         "Browsers" counts distinct localStorage ids, not people — one person on a phone and a
         laptop is two, and clearing site data starts a new one. Day buckets are in {overview.tz || tz}.
+        An event's count can also jump on the day it was instrumented rather than on the day
+        behaviour changed: search, team opens and the Game Center tabs all start Aug 25, 2026,
+        and a window spanning that date is comparing a surface against its own silence.
       </Typography>
       </>)}
 

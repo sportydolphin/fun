@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { ModalShell, TeamBadge, CARD_BORDER, useRailPaging, RailArrow, RailScroller } from './ui'
+import { track, EVENTS } from '../lib/analytics'
 import type { WpblVideo, WpblTeam } from './types'
 
 // The WPBL highlights surface: a mirror of the league's official YouTube uploads, read from
@@ -70,6 +71,7 @@ export function HighlightLightbox({ video, onClose }: { video: WpblVideo; onClos
             href={`https://www.youtube.com/watch?v=${video.video_id}`}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => track(EVENTS.WPBL_HIGHLIGHT_YOUTUBE, { videoId: video.video_id })}
             sx={{ fontSize: '0.75rem', color: 'text.secondary', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
           >
             Watch on YouTube ↗
@@ -163,7 +165,14 @@ export function HighlightsStrip({ videos, teams }: { videos: WpblVideo[]; teams:
     <>
       <Box sx={{ position: 'relative' }}>
         <RailScroller scrollRef={scrollRef} onScroll={syncEdges}>
-          {shown.map(v => <RailCard key={v.video_id} video={v} teamById={teamById} onPlay={() => setActive(v)} />)}
+          {shown.map(v => (
+            <RailCard
+              key={v.video_id}
+              video={v}
+              teamById={teamById}
+              onPlay={() => { track(EVENTS.WPBL_HIGHLIGHT_PLAYED, { videoId: v.video_id, kind: v.kind, from: 'shelf' }); setActive(v) }}
+            />
+          ))}
         </RailScroller>
         <RailArrow dir="left" show={canPrev} onClick={() => page(-1)} label="highlights" />
         <RailArrow dir="right" show={canNext} onClick={() => page(1)} label="highlights" />
@@ -177,11 +186,15 @@ export function HighlightsStrip({ videos, teams }: { videos: WpblVideo[]; teams:
 // matched highlight. Compact: a small thumbnail facade + label, opening the same lightbox.
 export function GameHighlightCard({ video }: { video: WpblVideo }) {
   const [open, setOpen] = useState(false)
+  // `from` separates the two surfaces that open the same lightbox: the shelf on Home is
+  // discovery, this one is a reader already inside a box score. Without it the play count is
+  // one number that cannot tell the shelf's job from the game page's.
+  const play = () => { track(EVENTS.WPBL_HIGHLIGHT_PLAYED, { videoId: video.video_id, kind: video.kind, from: 'game' }); setOpen(true) }
   return (
     <>
       <Box
-        onClick={() => setOpen(true)}
-        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true) } }}
+        onClick={play}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); play() } }}
         role="button"
         tabIndex={0}
         aria-label={`Watch highlights: ${video.title}`}

@@ -70,6 +70,41 @@ export const EVENTS = {
   // card's bounce went unmeasured for exactly that reason when it was retired.
   WPBL_BRACKET_SHOWN:  'wpbl_bracket_shown',  // bracket rendered, props {settled, started, gamesLeft, from}
   WPBL_BRACKET_TEAM:   'wpbl_bracket_team',   // opened a club from the bracket, props {teamId, seed, from}
+
+  // Highlights, the third segment of Home's media shelf. It shipped with no events at all
+  // while Reading and Archive each had an impression, a click-through and an off-site click,
+  // which made the one question the shelf exists to answer ("did folding three rails into one
+  // bury the other two?") unanswerable: a segment with no denominator cannot be compared to
+  // the two that have one. These are the missing third of that set.
+  WPBL_HIGHLIGHTS_SHOWN:  'wpbl_highlights_shown',  // Highlights became the shelf's visible segment, props {count, collapsed}
+  WPBL_HIGHLIGHT_PLAYED:  'wpbl_highlight_played',  // opened the lightbox on a video, props {videoId, kind, from}
+  WPBL_HIGHLIGHT_YOUTUBE: 'wpbl_highlight_youtube', // clicked out to YouTube from the lightbox, props {videoId}
+
+  // A team page opened, from anywhere. `wpbl_seeding_team` and `wpbl_bracket_team` were the
+  // only team opens counted, which measured two cards rather than the surface: the Teams grid,
+  // the standings table, the Stats table and the header search all reached team pages
+  // unmeasured. This is the total, broken down by `from`; the two card events stay because
+  // they carry the seed, so a bracket click is deliberately in both. Do not add them together.
+  WPBL_TEAM_OPENED:    'wpbl_team_opened',    // opened a team page, props {teamId, from}
+
+  // The header search, which is on screen on every WPBL page and was entirely unmeasured:
+  // nothing said how often it was used, how often it found nothing, or whether a typed result
+  // or a recent did the work. `wpbl_searched` is the denominator for `wpbl_search_picked`.
+  WPBL_SEARCHED:       'wpbl_searched',       // a settled query ran, props {length, players, teams, q?}
+  WPBL_SEARCH_PICKED:  'wpbl_search_picked',  // chose a row, props {type, id, source: 'result' | 'recent'}
+
+  // Which Game Center tab gets read. Same argument as `wpbl_stats_board`, which is already
+  // here for the same reason: the Recap / Box Score / Play-by-Play / Pitch Data axis never
+  // touches the URL, so Cloudflare cannot see it and `game_center_opened` says only that
+  // someone arrived. Pitch Data in particular is the newest board in the section and nothing
+  // says whether anyone opens it.
+  WPBL_GAME_TAB:       'wpbl_game_tab',       // a Game Center tab is on screen, props {tab, via, status, gameId}
+
+  // A two-way player's role tabs. The player page folded its stacked stat blocks into a
+  // segmented control on Aug 25, 2026, which trades "the second role is visible" for "the
+  // second role is one tap away". Whether anyone takes that tap is the question the change
+  // raises, and this is the only place it can be answered.
+  WPBL_PLAYER_ROLE:    'wpbl_player_role',    // switched role on a player page, props {role, from, playerId}
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the

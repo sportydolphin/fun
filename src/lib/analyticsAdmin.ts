@@ -49,6 +49,19 @@ export interface StatsVia    { via: string; events: number; browsers: number }
 export interface StatsSort   { key: string; side: string; asc: boolean; events: number; browsers: number }
 export interface StatsFilter { filter: string; on: boolean; events: number; browsers: number }
 export interface StatsBoards { boards: StatsBoard[]; via: StatsVia[]; sorts: StatsSort[]; filters: StatsFilter[] }
+// How readers reach the section's three destinations. `dest` is 'player' | 'team' | 'game';
+// `from` is the surface it was opened from, or '—' for rows written before the prop existed.
+export interface EntrySource { dest: string; from: string; events: number; browsers: number }
+export interface GameTabStat { tab: string; via: string; status: string; events: number; browsers: number }
+export interface EntryPoints { sources: EntrySource[]; game_tabs: GameTabStat[] }
+
+// The header search. `empty` is the searches that matched nothing, and `missed` is what those
+// readers actually typed — the only place any typed text is stored (see analytics.ts).
+export interface SearchTotals { searched: number; searched_browsers: number; empty: number; picked: number; picked_browsers: number }
+export interface SearchPick   { type: string; source: string; events: number; browsers: number }
+export interface SearchMiss   { q: string; events: number; browsers: number }
+export interface SearchStats  { totals: SearchTotals; picks: SearchPick[]; missed: SearchMiss[] }
+
 export interface TopPlayer  { player_id: string; name: string; team_id: string | null; opens: number; browsers: number }
 export interface DiscordFunnel { impressions: number; shown: number; joined: number; dismissed: number }
 export interface Growth {
@@ -173,6 +186,13 @@ export const EMPTY_OVERVIEW: Overview = {
 
 export const EMPTY_STATS_BOARDS: StatsBoards = { boards: [], via: [], sorts: [], filters: [] }
 
+export const EMPTY_ENTRY_POINTS: EntryPoints = { sources: [], game_tabs: [] }
+
+export const EMPTY_SEARCH: SearchStats = {
+  totals: { searched: 0, searched_browsers: 0, empty: 0, picked: 0, picked_browsers: 0 },
+  picks: [], missed: [],
+}
+
 export const EMPTY_GROWTH: Growth = {
   signups: [], signups_window: 0, total_users: 0, deleted_users: 0,
   push_users: 0, push_devices: 0, notify_game_start: 0, notify_picks: 0,
@@ -206,10 +226,25 @@ export function fetchStatsBoards(days: number, tz: string): Promise<StatsBoards>
   return callRpc('admin_wpbl_stats_boards', { days_back: days, tz }, EMPTY_STATS_BOARDS)
 }
 
+export function fetchEntryPoints(days: number, tz: string): Promise<EntryPoints> {
+  return callRpc('admin_wpbl_entry_points', { days_back: days, tz }, EMPTY_ENTRY_POINTS)
+}
+
+export function fetchSearchStats(days: number, tz: string, lim = 25): Promise<SearchStats> {
+  return callRpc('admin_wpbl_search', { days_back: days, tz, lim }, EMPTY_SEARCH)
+}
+
 export function fetchTopPlayers(days: number, tz: string, lim = 10): Promise<TopPlayer[]> {
   return callRpc('admin_top_players', { days_back: days, lim, tz }, [])
 }
 
+/**
+ * NOT in `fetchAnalytics`. The Discord card was removed from /admin on Aug 25, 2026: the promo
+ * it measured came off Home on Aug 19, so its impressions and dismissals are frozen while joins
+ * keep accruing from the footer link, and the rates drift toward nonsense. Kept because the RPC
+ * and the history behind it are still real and someone may want them once. Re-adding it to the
+ * bundle puts a round trip back on every load of the page for a number that cannot move.
+ */
 export function fetchDiscordFunnel(days: number, tz: string): Promise<DiscordFunnel> {
   return callRpc('admin_discord_funnel', { days_back: days, tz },
     { impressions: 0, shown: 0, joined: 0, dismissed: 0 })
@@ -224,8 +259,9 @@ export interface AnalyticsBundle {
   events: EventCount[]
   tabs: TabStat[]
   statsBoards: StatsBoards
+  entryPoints: EntryPoints
+  search: SearchStats
   players: TopPlayer[]
-  discord: DiscordFunnel
   growth: Growth
 }
 
@@ -243,10 +279,11 @@ export function fetchAnalytics(
     fetchEventCounts(days, tz, league),
     fetchTabStats(days, tz),
     fetchStatsBoards(days, tz),
+    fetchEntryPoints(days, tz),
+    fetchSearchStats(days, tz),
     fetchTopPlayers(days, tz),
-    fetchDiscordFunnel(days, tz),
     fetchGrowth(days, tz),
-  ]).then(([overview, events, tabs, statsBoards, players, discord, growth]) => ({
-    overview, events, tabs, statsBoards, players, discord, growth,
+  ]).then(([overview, events, tabs, statsBoards, entryPoints, search, players, growth]) => ({
+    overview, events, tabs, statsBoards, entryPoints, search, players, growth,
   }))
 }

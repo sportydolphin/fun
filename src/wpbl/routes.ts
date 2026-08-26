@@ -126,6 +126,24 @@ export function findWpblPlayerBySlug<T extends WpblSluggable>(
   return hits.length === 1 ? hits[0] : null
 }
 
+/**
+ * Every path WpblApp itself renders: the tabs, plus a player page, which is a modal the
+ * section opens over a tab and so is still the section's own route.
+ *
+ * It is exported because two places in two files have to agree on it, and they did not.
+ * App.tsx uses it to decide whether to MOUNT the section; WpblApp's popstate handler uses it
+ * to decide whether a Back or Forward belongs to the section or is the shell swapping between
+ * MLB and WPBL. The handler tested `wpblViewFromPath` alone, which is null for
+ * /wpbl/players/<slug>, so every pop that LANDED on a player page was dropped: the address bar
+ * moved to her URL and the modals stayed exactly as they were. Reachable by Forward onto any
+ * player, and by Back out of any game opened from a player's game log.
+ *
+ * The players INDEX is deliberately not here. It is a page of its own, not a tab with a modal
+ * over it, and App.tsx routes it separately.
+ */
+export const wpblAppOwnsPath = (pathname: string): boolean =>
+  wpblViewFromPath(pathname) !== null || wpblPlayerSlugFromPath(pathname) !== null
+
 /** The players index, which exists mainly so every player page has something linking to it. */
 export const WPBL_PLAYERS_INDEX = WPBL_PLAYERS_BASE
 

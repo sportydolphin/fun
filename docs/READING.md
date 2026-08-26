@@ -28,6 +28,30 @@ the highlights rail beside it, where an embedded player genuinely beats bouncing
 YouTube. There is no equivalent gain for prose, and rendering her article inside our chrome
 would make us a mirror of her writing instead of a signpost to it.
 
+### The credit has to say whose writing this is
+
+Reported on Aug 26, 2026, and it was true: readers were coming away from Home believing the
+person who writes the mirrored Substack is the person who runs this site. Two things did it,
+and neither was the byline being too small to notice.
+
+The media shelf's subtitle was the bare masthead. "towards a more perfect game" sat directly
+under our own "More from the league" heading with nothing to say whose it was, which reads as
+this site's tagline. The other two segments never had the problem, because they say "Game
+recaps from the WPBL channel" and "Women's baseball on Wikimedia Commons" out loud. Reading's
+now says **"towards a more perfect game, by mary mustard"**.
+
+The byline printed `AUTHOR_BIO` verbatim, in the first person, with no lead-in: *"I am a writer
+and amateur baseball player from Albany."* A first-person sentence inside somebody's card is
+read as that site's author speaking. So the framing carries it rather than the size:
+
+- **"Written by"** gives the sentence a subject before her name appears.
+- Her bio is **in quotation marks**, so the "I" is unmistakably hers.
+- The publication line says **"her Substack"**, which is the fact a confused reader was missing.
+
+Keep all three if this card is ever rebuilt. It is not politeness: getting it wrong
+misattributes her writing and misrepresents us, in both directions at once, and the whole point
+of this surface (§1) is to be a signpost to her.
+
 ## 2. Why there is no "News" tab
 
 The obvious shape for this was a sixth nav item. It would have been wrong three times over:

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
-  EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS,
+  EMPTY_OVERVIEW, EMPTY_GROWTH, EMPTY_STATS_BOARDS, EMPTY_ENTRY_POINTS, EMPTY_SEARCH,
   type AnalyticsBundle,
 } from '../lib/analyticsAdmin'
 
@@ -16,8 +16,9 @@ const bundle = (over: Partial<AnalyticsBundle> = {}): AnalyticsBundle => ({
   events: [],
   tabs: [],
   statsBoards: EMPTY_STATS_BOARDS,
+  entryPoints: EMPTY_ENTRY_POINTS,
+  search: EMPTY_SEARCH,
   players: [],
-  discord: { impressions: 0, shown: 0, joined: 0, dismissed: 0 },
   growth: EMPTY_GROWTH,
   ...over,
 })
@@ -107,13 +108,85 @@ describe('AdminPage events list', () => {
     fetchAnalytics.mockResolvedValueOnce(bundle({ events: manyEvents }))
     renderPage()
 
-    // Not scoped by section title: "Events" is also a headline tile, and the ambiguity is
-    // the point of querying by the row text instead.
     expect(await screen.findByText('Event 0')).toBeInTheDocument()
     expect(screen.queryByText('Event 15')).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByText('Show all 20'))
     expect(screen.getByText('Event 15')).toBeInTheDocument()
     expect(screen.getByText('Show fewer')).toBeInTheDocument()
+  })
+})
+
+describe('AdminPage range filter', () => {
+  // A window with a real previous window to compare against, so the delta chips have
+  // something to draw and their ABSENCE on the Today range is a real assertion.
+  const busy = bundle({
+    overview: {
+      ...EMPTY_OVERVIEW,
+      tz: 'UTC',
+      series: [
+        { date: '2026-08-23', events: 900, browsers: 90, users: 6 },
+        { date: '2026-08-24', events: 800, browsers: 80, users: 5 },
+      ],
+      totals: { events: 1700, browsers: 170, users: 12, signed_in_browsers: 34 },
+      prev:   { events: 1000, browsers: 100, users: 10, signed_in_browsers: 20 },
+      active: { today: 41, week: 300, month: 900 },
+    },
+    events: [{ event: 'wpbl_searched', events: 50, browsers: 9, users: 2, prev_events: 25, prev_browsers: 5 }],
+  })
+
+  it('offers Today alongside the longer ranges, and asks the RPCs for one day', async () => {
+    fetchAnalytics.mockResolvedValue(busy)
+    renderPage()
+    await screen.findByText('Activity')
+
+    await userEvent.click(screen.getByText('Today'))
+    // days_back is the first argument of fetchAnalytics(days, league, tz).
+    // The mock is declared with no parameters (it only ever returns a bundle), so its
+    // recorded calls type as empty tuples. The arguments are real; the cast says so.
+    const calls = fetchAnalytics.mock.calls as unknown as unknown[][]
+    expect(calls[calls.length - 1][0]).toBe(1)
+  })
+
+  it('hides the change arrows on Today, because the window is a partial day', async () => {
+    fetchAnalytics.mockResolvedValue(busy)
+    renderPage()
+    await screen.findByText('Activity')
+
+    // 170 browsers against 100 is +70%, drawn on the tile and again on the event row.
+    expect(screen.getAllByText('+70%').length).toBeGreaterThan(0)
+
+    await userEvent.click(screen.getByText('Today'))
+    // Today-so-far against all of yesterday would read negative every morning, so the whole
+    // comparison stands down rather than showing a red arrow that means nothing.
+    expect(screen.queryByText('+70%')).not.toBeInTheDocument()
+    expect(screen.getByText(/partial day/)).toBeInTheDocument()
+  })
+
+  it('replaces the day chart with the day itself when there is only one day to plot', async () => {
+    fetchAnalytics.mockResolvedValue(bundle({
+      overview: {
+        ...EMPTY_OVERVIEW,
+        series: [{ date: '2026-08-25', events: 640, browsers: 88, users: 4 }],
+        totals: { events: 640, browsers: 88, users: 3, signed_in_browsers: 9 },
+      },
+    }))
+    renderPage()
+    // A one-point polyline is an invisible line over a triangle with the same date at both
+    // ends of the axis. The numbers say more than the shape does.
+    expect(await screen.findByText(/640 events · 88 browsers/)).toBeInTheDocument()
+    expect(screen.getByText(/at least two days/)).toBeInTheDocument()
+  })
+})
+
+describe('AdminPage retired cards', () => {
+  it('no longer carries the Discord funnel, whose numbers froze on Aug 19, 2026', async () => {
+    fetchAnalytics.mockResolvedValue(bundle())
+    renderPage()
+    await screen.findByText('Activity')
+
+    expect(screen.queryByText(/Discord invite/)).not.toBeInTheDocument()
+    // And the page must not be paying for the RPC behind it either.
+    expect(screen.queryByText(/Sessions that saw the card/)).not.toBeInTheDocument()
   })
 })

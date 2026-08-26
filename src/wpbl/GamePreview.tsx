@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { fetchWpblAllLines, getCachedWpblAllLines } from './api'
-import { TeamBadge, useWpblDark } from './ui'
-import { wpblAccent } from './constants'
+import { TeamBadge, useWpblDark, pressable, FOCUS_RING } from './ui'
+import { wpblAccent, wpblFullName } from './constants'
 import {
   computeWpblTeamStats, WPBL_TEAM_STAT_DEFS,
   type WpblTeamStatValue,
@@ -27,11 +27,14 @@ function ordinal(n: number): string {
 // Bar colors come from the shared team accent palette (constants.ts `wpblAccent`), which
 // exists for exactly this reason: the raw primaries are all near-black and unusable as
 // foreground. Keeping one source means a palette tweak lands everywhere at once.
-export function WpblGamePreview({ away, home, teams, games }: {
+export function WpblGamePreview({ away, home, teams, games, onOpenTeam }: {
   away: WpblTeam
   home: WpblTeam
   teams: WpblTeam[]
   games: WpblGame[]
+  /** Open a club's page from its chip. Optional so the preview still renders anywhere that
+   *  has nowhere to send the tap. */
+  onOpenTeam?: (team: WpblTeam) => void
 }) {
   const isDark = useWpblDark()
   const [lines, setLines] = useState(() => getCachedWpblAllLines())
@@ -164,11 +167,26 @@ export function WpblGamePreview({ away, home, teams, games }: {
 
   // Team chip — the club's badge (logo) plus its abbr in the bar color, so the row-side ↔
   // team ↔ color mapping is unmistakable without decoding a legend.
+  //
+  // And it opens the club. This card is a wall of the two teams' season numbers, so "how is
+  // Boston actually doing" is the obvious next question and the badge is the obvious thing to
+  // press for it. `pressable` rather than an anchor, like every other team target in the
+  // section: a club page is history state on /wpbl/teams rather than a URL of its own, so
+  // there is no href to give it.
   const teamChip = (team: WpblTeam, color: string, align: 'right' | 'left') => (
-    <Box sx={{
-      flex: 1, display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0,
-      flexDirection: align === 'right' ? 'row-reverse' : 'row',
-    }}>
+    <Box
+      {...(onOpenTeam ? pressable(() => onOpenTeam(team)) : {})}
+      aria-label={onOpenTeam ? `${wpblFullName(team)} team page` : undefined}
+      sx={{
+        flex: 1, display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0,
+        flexDirection: align === 'right' ? 'row-reverse' : 'row',
+        ...(onOpenTeam ? {
+          cursor: 'pointer', borderRadius: 1, mx: -0.5, px: 0.5, py: 0.25,
+          '&:hover': { bgcolor: 'action.hover' },
+          ...FOCUS_RING,
+        } : {}),
+      }}
+    >
       <TeamBadge team={team} size={18} />
       <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color, lineHeight: 1 }}>{team.abbr}</Typography>
     </Box>
