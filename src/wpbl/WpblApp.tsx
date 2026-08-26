@@ -26,8 +26,11 @@ import { useExperiments } from '../ExperimentsContext'
 import {
   WPBL_NAV, wpblPathFor, wpblViewFromPath, normalizeWpblView, WPBL_PATH_EVENT,
   wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug, isWpblPlayersIndex, wpblAppOwnsPath,
+  wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug,
   type WpblView,
 } from './routes'
+import { WpblLinkProvider, useWpblGameLink } from './LinkContext'
+import { wpblGameCard } from './ogCard'
 import { setDynamicSeo } from '../seo'
 
 // The two detail modals, split out of the section's chunk.
@@ -141,6 +144,7 @@ function ScheduleView({ teams, games, onOpenGame }: {
 }) {
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const isDark = useWpblDark()
+  const gameLink = useWpblGameLink()
   // Season-to-date record per team, so upcoming games can show each side's W-L.
   const recordById = useMemo(() => {
     const m = new Map<string, string>()
@@ -229,7 +233,10 @@ function ScheduleView({ teams, games, onOpenGame }: {
           const final = g.status === 'final' && g.home_score != null && g.away_score != null
           const live = g.status === 'live'
           return (
-            <Box key={g.id} onClick={() => onOpenGame(g)} sx={{
+            // Every card is a real <a href="/wpbl/games/<slug>">. This is the section's
+            // crawl path to all 41 recaps, and it was a bare onClick div: no href for a
+            // crawler, no tab stop for a keyboard, nothing to open in a new tab.
+            <Box key={g.id} {...gameLink(g, onOpenGame)} sx={{
               display: 'flex', alignItems: 'center', gap: 1, p: 1.25, cursor: 'pointer',
               // Completed games get a muted fill so past reads as visually settled vs. crisp upcoming cards.
               // action.hover is too faint against the dark paper, so use a stronger explicit tint there.
@@ -618,6 +625,22 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     const q = new URLSearchParams()
     if (s.game) q.set('game', s.game.id) // deep-linkable game center
 
+    // A game with nothing open on top of it owns the path, for the same reasons a player
+    // does: `?game=<uuid>` is one URL as far as seo.ts is concerned (it canonicalises a
+    // query back to the tab underneath, so a hundred shared game links do not read as a
+    // hundred near-duplicates of Schedule), which meant every recap the section has ever
+    // rendered was unindexable by design. It also gives the schedule cards an href, which
+    // is what makes them links a crawler can follow rather than onClick divs.
+    //
+    // A PLAYER opened from a game keeps the player's path and leaves the game on the query,
+    // unchanged from before: the deeper modal is the page, the one under it is state.
+    //
+    // Falls back to the query form while the schedule or the clubs are still in flight,
+    // since a slug cannot be proven unique without the whole schedule (see wpblGameSlug).
+    if (s.game && !s.player && games.length > 0 && teams.length > 0) {
+      return wpblGamePath(s.game, teams, games)
+    }
+
     // An open player takes over the path, so a player has ONE canonical URL no matter which
     // tab it was opened from. The alternative, ?player=<uuid> hanging off five different
     // tabs, is five near-duplicate URLs for one person, none of them readable.
@@ -637,7 +660,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
 
     const str = q.toString()
     return str ? `${wpblPathFor(s.view)}?${str}` : wpblPathFor(s.view)
-  }, [players])
+  }, [players, games, teams])
   // A ?player=<id> / ?game=<id> from a pasted or shared link, resolved once the data they
   // name has loaded. Both are read at mount only: a restored history snapshot already
   // carries the real objects, so the query string is the cold-start path.
@@ -650,6 +673,10 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // already carries the player object.
   const pendingPlayerSlug = useRef<string | null>(
     window.history.state?.wpbl ? null : wpblPlayerSlugFromPath(window.location.pathname),
+  )
+  /** The same, for /wpbl/games/<slug>. */
+  const pendingGameSlug = useRef<string | null>(
+    window.history.state?.wpbl ? null : wpblGameSlugFromPath(window.location.pathname),
   )
   // Every forward navigation = one history entry (apply state + push a matching snapshot).
   const push = useCallback((s: WpblSnap) => {
@@ -837,14 +864,24 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // Open the game named in a shared ?game=<id> link, once the schedule is available. A
   // final opens on its Recap tab by itself (see GameDetailModal), which is what the Discord
   // recap link is pointing at.
+  //
+  // Two spellings, as with a player: the canonical /wpbl/games/<slug> path, and the legacy
+  // ?game=<uuid> still carried by shared links, push payloads and the Discord bot's posts.
+  // A slug naming no game is left alone rather than falling back to the tab: the edge has
+  // already answered a real 404 for it, and rendering the section instead would turn a dead
+  // link into a soft 404. The slug needs the clubs as well as the schedule, because the
+  // matchup half of it is nicknames.
   useEffect(() => {
     const id = pendingGameId.current
-    if (!id || detailGame || games.length === 0) return
+    const slug = pendingGameSlug.current
+    if ((!id && !slug) || detailGame || games.length === 0) return
+    if (slug && teams.length === 0) return
     pendingGameId.current = null
-    const g = games.find(gm => gm.id === id)
+    pendingGameSlug.current = null
+    const g = slug ? findWpblGameBySlug(slug, games, teams) : games.find(gm => gm.id === id)
     if (!g) return
     openFromLink({ view, team: selectedTeam, game: g, player: detailPlayer })
-  }, [games, detailGame, view, selectedTeam, detailPlayer, openFromLink])
+  }, [games, teams, detailGame, view, selectedTeam, detailPlayer, openFromLink])
 
   // Open the player named by the URL, once the roster is available. Two spellings: the
   // canonical /wpbl/players/<slug> path, and the legacy ?player=<uuid> that shared links and
@@ -865,23 +902,42 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     openFromLink({ view, team: selectedTeam, game: detailGame, player: p })
   }, [players, detailPlayer, view, selectedTeam, detailGame, openFromLink])
 
-  // A player page is titled with the player's name, which ROUTES in seo.ts cannot know from
-  // the path. Register it here, and clear it the moment the modal closes so the tag cannot
-  // outlive the page it describes.
+  // A player page is titled with the player's name and a game page with its final score,
+  // neither of which ROUTES in seo.ts can know from the path. Register whichever one owns
+  // the page, and clear it the moment that modal closes so the tag cannot outlive the page
+  // it describes.
+  //
+  // ONE effect for both, in the same precedence urlFor uses. Two effects each calling
+  // setDynamicSeo(null) on the state they do not own would race on every commit: closing a
+  // player over a game would leave whichever ran last in charge, and the tags would end up
+  // describing the game or nothing depending on render order.
   useEffect(() => {
-    if (!detailPlayer || players.length === 0) return setDynamicSeo(null)
-    const team = teams.find(t => t.id === detailPlayer.team_id)
-    const club = team ? wpblFullName(team) : 'the WPBL'
-    setDynamicSeo({
-      path: wpblPlayerPath(detailPlayer, players),
-      seo: {
-        title: `${detailPlayer.name} Stats 2026 | WPBL | sportydolphin.fun`,
-        description:
-          `${detailPlayer.name} of the ${club}: 2026 Women's Pro Baseball League batting and pitching stats, game log, and season splits.`,
-      },
-    })
-    return () => setDynamicSeo(null)
-  }, [detailPlayer, players, teams])
+    if (detailPlayer && players.length > 0) {
+      const team = teams.find(t => t.id === detailPlayer.team_id)
+      const club = team ? wpblFullName(team) : 'the WPBL'
+      setDynamicSeo({
+        path: wpblPlayerPath(detailPlayer, players),
+        seo: {
+          title: `${detailPlayer.name} Stats 2026 | WPBL | sportydolphin.fun`,
+          description:
+            `${detailPlayer.name} of the ${club}: 2026 Women's Pro Baseball League batting and pitching stats, game log, and season splits.`,
+        },
+      })
+      return () => setDynamicSeo(null)
+    }
+    if (!detailPlayer && detailGame && games.length > 0 && teams.length > 0) {
+      // The same wording the edge function serves an unfurler, from the same module, so a
+      // crawler that renders the JS and one that only reads the HTML are told the same
+      // thing about the same URL.
+      const card = wpblGameCard(detailGame, teams)
+      setDynamicSeo({
+        path: wpblGamePath(detailGame, teams, games),
+        seo: { title: card.title, description: card.description },
+      })
+      return () => setDynamicSeo(null)
+    }
+    setDynamicSeo(null)
+  }, [detailPlayer, detailGame, players, games, teams])
 
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
@@ -1091,9 +1147,14 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   }, [liveGame?.id])
 
   return (
-    // Cap + center on wide screens (site convention); full width on mobile.
-    // On mobile, pull up to trim most of the app's top gutter (p:2) above the pill nav — the
-    // toolbar already sits right above it, so the extra gap just reads as dead space at rest.
+    // The roster the whole section links players by. It sits at the top because a slug needs
+    // the FULL roster to know whether a name is ambiguous, and a board holding only its own
+    // club's list would mint a bare slug for a name someone on another club also holds. See
+    // LinkContext.tsx.
+    <WpblLinkProvider roster={players} schedule={games} teams={teams}>
+    {/* Cap + center on wide screens (site convention); full width on mobile.
+        On mobile, pull up to trim most of the app's top gutter (p:2) above the pill nav: the
+        toolbar already sits right above it, so the extra gap just reads as dead space at rest. */}
     <Box sx={{ maxWidth: 720, mx: 'auto', mt: { xs: -1.5, sm: 0 } }}>
       {/* Section nav — shared SegControl pill bar, matching the MLB tab bar. */}
       {/* Tab bar stays put on mobile (sticky under the toolbar) so it doesn't scroll away
@@ -1220,5 +1281,6 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         </Suspense>
       )}
     </Box>
+    </WpblLinkProvider>
   )
 }

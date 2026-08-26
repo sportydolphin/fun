@@ -1,5 +1,6 @@
 /**
- * Regenerate public/sitemap.xml, including a URL for every WPBL player.
+ * Regenerate public/sitemap.xml, including a URL for every WPBL player and every game
+ * that has been played.
  *
  * The file used to be written by hand, which was fine for five URLs and is not fine for a
  * hundred and twenty. It was also quietly lying: every entry claimed `changefreq: hourly`
@@ -16,7 +17,10 @@
  */
 import { writeFileSync, readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { WPBL_VIEW_PATHS, WPBL_PLAYERS_BASE, wpblPlayerSlug, type WpblSluggable } from '../src/wpbl/routes'
+import {
+  WPBL_VIEW_PATHS, WPBL_PLAYERS_BASE, wpblPlayerSlug, type WpblSluggable,
+  wpblGameSlug, type WpblSluggableGame, type WpblSluggableTeam,
+} from '../src/wpbl/routes'
 import { slugifyName } from '../src/wpbl/slug'
 
 const SITE = 'https://sportydolphin.fun'
@@ -55,6 +59,40 @@ async function readRoster(): Promise<WpblSluggable[]> {
   return (await res.json()) as WpblSluggable[]
 }
 
+/**
+ * The schedule and the clubs, for the game URLs.
+ *
+ * FINALS ONLY. A scheduled game's page is a preview with no box score and no play-by-play,
+ * which is a thin page by anyone's definition and there are never more than a handful of
+ * them at once; submitting one only to have it become a different page a week later is
+ * churn for no gain. A game earns its entry by having been played, and the daily cron picks
+ * it up the morning after.
+ */
+async function readSchedule(): Promise<{ games: WpblSluggableGame[]; teams: WpblSluggableTeam[] }> {
+  const base = process.env.VITE_SUPABASE_URL
+  const key = process.env.VITE_SUPABASE_ANON_KEY
+  if (!base || !key) {
+    throw new Error('VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are required (try: node --env-file=.env)')
+  }
+  const read = async <T>(query: string): Promise<T[]> => {
+    const res = await fetch(`${base.replace(/\/+$/, '')}/rest/v1/${query}`, {
+      headers: { apikey: key, authorization: `Bearer ${key}`, accept: 'application/json' },
+    })
+    if (!res.ok) throw new Error(`postgrest ${res.status}`)
+    return (await res.json()) as T[]
+  }
+  const [games, teams] = await Promise.all([
+    // The WHOLE schedule, not just the finals: wpblGameSlug decides whether a slug needs
+    // disambiguating by looking at every game, so filtering first could hand a bare slug to
+    // a game that shares its date and matchup with one that has not been played yet.
+    read<WpblSluggableGame & { status: string | null }>(
+      'wpbl_games?select=id,game_date,home_team_id,away_team_id,status&order=game_date.asc',
+    ),
+    read<WpblSluggableTeam>('wpbl_teams?select=id,name'),
+  ])
+  return { games, teams }
+}
+
 function xml(entries: Entry[], lastmod: string): string {
   const urls = entries.map(e => `  <url>
     <loc>${SITE}${e.loc}</loc>
@@ -72,6 +110,7 @@ ${urls}
 }
 
 const roster = await readRoster()
+const schedule = await readSchedule()
 
 // Loud on purpose. A shared name is the one case where a player's URL is not simply their
 // name, and it is otherwise invisible: both players still get a working page, but at
@@ -94,12 +133,22 @@ const players: Entry[] = roster.map(p => ({
   priority: '0.7',
 }))
 
+const played = (schedule.games as (WpblSluggableGame & { status: string | null })[])
+  .filter(g => g.status === 'final')
+const gameEntries: Entry[] = played.map(g => ({
+  loc: `/wpbl/games/${wpblGameSlug(g, schedule.teams, schedule.games)}`,
+  // A final never changes again, bar a scoring correction. Monthly is the honest claim, and
+  // it is the difference between a crawler re-fetching 41 settled pages every day and not.
+  changefreq: 'monthly',
+  priority: '0.6',
+}))
+
 // Guard against the tab list and this file drifting apart. The test pins the sitemap's
 // CONTENTS, but only this can catch a tab that exists and was never given an entry.
 const missing = WPBL_VIEW_PATHS.filter(p => !STATIC.some(e => e.loc === p))
 if (missing.length) throw new Error(`WPBL tabs missing from STATIC: ${missing.join(', ')}`)
 
-const entries = [...STATIC, ...players]
+const entries = [...STATIC, ...players, ...gameEntries]
 
 // Rewrite ONLY when the set of URLs actually changed.
 //
@@ -119,5 +168,5 @@ if (existing && locsIn(existing) === wanted) {
 } else {
   const lastmod = new Date().toISOString().slice(0, 10)
   writeFileSync(OUT, xml(entries, lastmod), 'utf8')
-  console.log(`sitemap: ${entries.length} URLs (${players.length} players) -> public/sitemap.xml`)
+  console.log(`sitemap: ${entries.length} URLs (${players.length} players, ${gameEntries.length} games) -> public/sitemap.xml`)
 }

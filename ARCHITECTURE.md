@@ -101,6 +101,7 @@ flowchart LR
         mlb["/mlb<br/>MlbStats.tsx"]
         wpbl["/wpbl + /wpbl/{schedule,standings,stats,teams}<br/>wpbl/WpblApp.tsx"]
         wplayers["/wpbl/players<br/>+ /wpbl/players/&lt;slug&gt;"]
+        wgames["/wpbl/games/&lt;date&gt;-&lt;away&gt;-at-&lt;home&gt;"]
         api["/wpbl/api<br/>wpbl/ApiDocs.tsx"]
     end
 
@@ -526,14 +527,17 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
   above are both matched ahead of the fallback. **A new route in the `Route` union in
   [`src/App.tsx`](src/App.tsx) needs a line in both blocks here**, or it 404s in production
   and works fine in dev, since Vite serves the shell for everything. Check a build with
-  `npx wrangler pages dev dist`. The single wildcard, `/wpbl/players/*`, exists because the
-  valid slugs are rows in `wpbl_players`; the Pages Function 404s unknown ones first, which
-  is the only thing keeping that directory from being an infinite set of 200s.
+  `npx wrangler pages dev dist`. The two wildcards, `/wpbl/players/*` and `/wpbl/games/*`,
+  exist because the valid slugs are rows in `wpbl_players` and `wpbl_games`; the Pages
+  Function 404s unknown ones first, which is the only thing keeping those directories from
+  being an infinite set of 200s. Note there is deliberately no `/wpbl/games` line: there is
+  no games index, so the bare path falls through to the 404.
 - **`public/sitemap.xml` is generated** by `npm run sitemap`
-  ([`scripts/build-sitemap.ts`](scripts/build-sitemap.ts)): the static routes plus one URL
-  per player, read live from the roster. It warns loudly if two players share a slug, since
-  that is the one case where a player's URL is not simply their name. Re-run it when the
-  roster changes; a hand-edit is lost.
+  ([`scripts/build-sitemap.ts`](scripts/build-sitemap.ts)): the static routes, one URL per
+  player, and one per game that has been PLAYED, all read live. A scheduled game is left out
+  until it is final, because until then its page is a preview with no box score. It warns
+  loudly if two players share a slug, since that is the one case where a player's URL is not
+  simply their name. Re-run it when the roster or the results change; a hand-edit is lost.
 - **Edge functions:** `supabase functions deploy <name>` (manual). `wpbl-ingest` also
   announces a game to Discord the moment it sees it go final
   ([`announce-final.ts`](supabase/functions/wpbl-ingest/announce-final.ts)): the

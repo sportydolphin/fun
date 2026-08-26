@@ -15,6 +15,7 @@ import { wpblPortrait } from './portraits'
 import type { WpblTeam, WpblPlayer } from './types'
 import { scrollBehavior } from '../lib/motion'
 import { useSwipeNav } from '../AccessibilityContext'
+import { useWpblPlayerLink } from './LinkContext'
 
 // ─── Name shortening ────────────────────────────────────────────────────────────
 // Compact a full name to "F. Last" once it's long enough to crowd a tight WPBL layout
@@ -509,9 +510,10 @@ export function LeaderRow({ rank, player, name, teamId, value, unit, sub, accent
   // mechanism stays for a name genuinely too long to fit, since a cut-off name reads worse
   // than an abbreviated one.
   const shortName = useWpblName(18)
+  const playerLink = useWpblPlayerLink()
   return (
     <Box
-      onClick={clickable ? () => onOpen!(player!) : undefined}
+      {...(clickable ? playerLink(player!, onOpen) : {})}
       sx={{
         display: 'flex', alignItems: 'center', gap: 1.25, px: 0.5, py: 0.85,
         borderTop: rank === 1 ? 'none' : '1px solid', borderColor: 'divider',

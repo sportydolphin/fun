@@ -11,6 +11,7 @@ import {
 } from './stats'
 import { outsToIp } from './constants'
 import { useEraBasis } from './EraBasisContext'
+import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import LineupHistory from './LineupHistory'
 import PitchingUsage from './PitchingUsage'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblLineupHistoryRow, WpblPitchingUsageRow } from './types'
@@ -82,6 +83,7 @@ function ScheduleRow({ game, teamId, teamById, onOpenGame }: {
   teamById: Map<string, WpblTeam>
   onOpenGame: (g: WpblGame) => void
 }) {
+  const gameLink = useWpblGameLink()
   const home = game.home_team_id === teamId
   const opp = teamById.get(home ? game.away_team_id : game.home_team_id)
   const us = home ? game.home_score : game.away_score
@@ -91,7 +93,7 @@ function ScheduleRow({ game, teamId, teamById, onOpenGame }: {
   const win = final && (us as number) > (them as number)
   const loss = final && (us as number) < (them as number)
   return (
-    <Box {...pressable(() => onOpenGame(game))} sx={{
+    <Box {...gameLink(game, onOpenGame)} sx={{
       display: 'flex', alignItems: 'center', gap: 1, py: 0.85, cursor: 'pointer',
       borderTop: '1px solid', borderColor: 'divider', '&:first-of-type': { borderTop: 'none' },
       borderRadius: 1, '&:hover': { bgcolor: 'action.hover' }, ...FOCUS_RING,
@@ -133,12 +135,13 @@ function LeaderList({ label, rows, accent, onOpenPlayer }: {
   onOpenPlayer: (p: WpblPlayer) => void
 }) {
   const shortName = useWpblName()
+  const playerLink = useWpblPlayerLink()
   if (rows.length === 0) return null
   return (
     <Box sx={{ mb: 1.25, '&:last-of-type': { mb: 0 } }}>
       <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', mb: 0.4 }}>{label}</Typography>
       {rows.map((r, i) => (
-        <Box key={r.player.id} {...pressable(() => onOpenPlayer(r.player))} sx={{
+        <Box key={r.player.id} {...playerLink(r.player, onOpenPlayer)} sx={{
           display: 'flex', alignItems: 'center', gap: 0.75, py: 0.4, cursor: 'pointer',
           borderRadius: 1, '&:hover': { bgcolor: 'action.hover' }, ...FOCUS_RING,
         }}>
@@ -275,6 +278,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   const isDark = useWpblDark()
   const accent = wpblAccent(team.id, isDark)
   const shortName = useWpblName()
+  const playerLink = useWpblPlayerLink()
   const { fmtEra, fmtK, kLabel } = useEraBasis()
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
@@ -682,7 +686,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                   const pitcher = isPitcherPos(p.position) || (pit != null && pit.outs > 0 && (bat == null || bat.ab === 0))
                   const stats = pitcher ? pitcherStats(pit, fmtEra) : batterStats(bat)
                   return (
-                    <Box key={p.id} {...pressable(() => onOpenPlayer(p))} sx={{
+                    <Box key={p.id} {...playerLink(p, onOpenPlayer)} sx={{
                       display: 'flex', alignItems: 'center', gap: 1.25, py: 0.9, cursor: 'pointer',
                       borderTop: '1px solid', borderColor: 'divider',
                       borderRadius: 1, '&:hover': { bgcolor: 'action.hover' }, ...FOCUS_RING,

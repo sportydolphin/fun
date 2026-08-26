@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { APP_VERSION } from './version'
 import { ACCENT } from './mlb/constants'
 import { track, EVENTS } from './lib/analytics'
+import { WPBL_PLAYERS_INDEX } from './wpbl/routes'
 
 const KOFI_URL = 'https://ko-fi.com/sportydolphin'
 
@@ -77,6 +78,16 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
               onClick={() => track(EVENTS.DISCORD_JOINED, { from: 'footer' })}
               sx={linkSx}
             >Fan Discord</Box>
+            <Dot />
+            {/* The players index, and the reason it is HERE. It is the one page carrying a real
+                <a href> to each of the 118 player pages, and until this line nothing on the
+                site linked to it: the nav has no Players tab and the boards reach a player
+                through a modal. So every player URL sat in the sitemap with no internal link
+                pointing anywhere near it, which is the orphan-page shape Google discounts.
+                The footer is the proven door for exactly this: it is how /privacy and /terms
+                got found while /mlb did not. Keyword-shaped anchor text for the same reason
+                as the section switch above. */}
+            <Box component="a" href={WPBL_PLAYERS_INDEX} onClick={e => { e.preventDefault(); onNavigate(WPBL_PLAYERS_INDEX) }} sx={linkSx}>WPBL players</Box>
             <Dot />
             <Box component="a" href="/wpbl/api" onClick={e => { e.preventDefault(); onNavigate('/wpbl/api') }} sx={linkSx}>API for developers</Box>
             <Dot />

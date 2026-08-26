@@ -4,770 +4,890 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://sportydolphin.fun/wpbl</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>hourly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/standings</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/stats</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/schedule</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/teams</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/mlb</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>hourly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/api</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/privacy</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/terms</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.2</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/abigail-moore</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/addisyn-baird</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/adelaide-frank</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/adelaide-ziebart</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/alexia-jorge</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/alli-schroder</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/allie-bebbere</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/allie-lacey</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/alyssa-zettlemoyer</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/amanda-gianelloni</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/amira-hondras</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/andreanne-leblanc</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/angela-valenzuela</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/angelis-rivera</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/arwen-mccullough</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/ashton-lansdell</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/ayaka-yamamoto</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/ayami-sato</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/ayuri-shimano</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/bella-espinoza-molina</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/beth-greenwood</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/braidy-birdsall</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/brittany-apgar</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/brittany-womack</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/caitlin-eynon</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/celicia-wilken</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/chloe-atkinson</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/claire-eccles</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/claire-o-sullivan</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/clara-rice</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/denae-benites</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/denver-bryant</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/diana-ibarra</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/edith-de-leija</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/ela-day-bedard</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/elodie-ciamarro</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/elodie-o-sullivan</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/emi-saiki</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/emily-baxter</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://sportydolphin.fun/wpbl/players/estheoa-segovia</loc>
-    <lastmod>2026-08-21</lastmod>
+    <loc>https://sportydolphin.fun/wpbl/players/esthela-segovia</loc>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/flor-elena-valerio-montoya</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/gabrielle-haas</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/genevieve-hastings</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/gigi-schiano</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/hinano-beppu</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/hyeonah-kim</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/isabella-villarreal</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/jacqui-reynolds</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/jaida-lee</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/jamie-mackay</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/jill-albayati</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/joely-leguizamon</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/jordan-eyster</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/jua-park</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/juliette-kladko</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/kaelei-kajitani</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/kaija-bazzano</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/kailyn-bearpaw</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/kate-blunt</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/katherine-murphy</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/katie-reynolds</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/keira-izumi</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/kelsie-whitmore</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/kiley-ingram</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/kylee-lahners</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/laura-hirai</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/leah-cornish</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/lexi-hastings</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/liz-gilder</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/london-studer</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/luciana-moreno</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/luisa-hernandez</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/maddison-erwin</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/madison-willan</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/maggie-foxx</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/maika-dumais</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/maria-jose-valenzuela</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/mary-grace-o-neill</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/mckenna-huff</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/meaghan-houk</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/meggie-meidlinger</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/melissa-mayeux</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/micaela-minner</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/michelle-roche</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/milanyela-cortez</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/minseo-park</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/mo-ne-davis</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/molly-paddison</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/nadia-diaz</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/natsuki-yonetani</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/nicole-rivera-moats</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/niki-eckert</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/nylah-ramirez</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/olivia-bricker</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/paloma-benach</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/peyton-coria</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/raine-padgham</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/rakyung-kim</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/rio-obitsu</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/rocio-barajas</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/rosi-del-castillo</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/sabrina-robinson</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/sadie-zion</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/samantha-gutierrez</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/samaria-benitez</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/sarah-beaulieu</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/sarah-edwards</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/scrappy-hopkins</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/skylar-kaplan</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/stephanie-everett</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/suzu-narasaki</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/suzuka-yamamoto</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/sydney-barry</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/thaima-maximiliana</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/ticara-geldenhuis</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/trinity-curtis</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/valerie-perez</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://sportydolphin.fun/wpbl/players/zoe-falardeau</loc>
-    <lastmod>2026-08-21</lastmod>
+    <lastmod>2026-08-26</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-01-queens-at-heights</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-02-firebells-at-hunters</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-05-hunters-at-queens</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-06-heights-at-firebells</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-07-firebells-at-queens</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-08-queens-at-firebells</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-08-hunters-at-heights</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-09-heights-at-hunters</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-12-queens-at-firebells</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-13-hunters-at-heights</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-14-queens-at-firebells</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-15-firebells-at-heights</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-15-queens-at-hunters</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-16-hunters-at-heights</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-19-heights-at-firebells</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-20-heights-at-hunters</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-21-firebells-at-queens</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-22-heights-at-queens</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-22-firebells-at-hunters</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-23-queens-at-hunters</loc>
+    <lastmod>2026-08-26</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
   </url>
 </urlset>

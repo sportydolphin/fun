@@ -19,6 +19,7 @@ import seoSource from '../../seo.ts?raw'
 import {
   WPBL_NAV, WPBL_VIEW_PATHS, wpblPathFor, wpblViewFromPath, wpblAppOwnsPath, normalizeWpblView,
   wpblPlayerSlug, wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug,
+  wpblGameSlug, wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug,
 } from '../routes'
 
 describe('wpblViewFromPath', () => {
@@ -172,6 +173,97 @@ describe('player slugs', () => {
     it('leaves everyone else alone', () => {
       expect(wpblPlayerSlug(roster[0], twins)).toBe('denae-benites')
     })
+  })
+})
+
+describe('game slugs', () => {
+  const teams = [
+    { id: 'BOS', name: 'Hunters' },
+    { id: 'LA', name: 'Queens' },
+    { id: 'NY', name: 'Heights' },
+    { id: 'SF', name: 'Firebells' },
+  ]
+  const schedule = [
+    { id: 'aaaaaaaa-1111-4111-8111-111111111111', game_date: '2026-08-23', home_team_id: 'BOS', away_team_id: 'LA' },
+    { id: 'bbbbbbbb-2222-4222-8222-222222222222', game_date: '2026-08-22', home_team_id: 'LA', away_team_id: 'NY' },
+    { id: 'cccccccc-3333-4333-8333-333333333333', game_date: '2026-08-22', home_team_id: 'BOS', away_team_id: 'SF' },
+  ]
+
+  it('is the date and the matchup, away side first', () => {
+    expect(wpblGameSlug(schedule[0], teams, schedule)).toBe('2026-08-23-queens-at-hunters')
+  })
+
+  // Two games on one day is ordinary here: the league plays four clubs, so a game day is
+  // usually two games. They must not collide, and the pairing is what separates them.
+  it('separates two games played on the same day', () => {
+    expect(wpblGameSlug(schedule[1], teams, schedule)).toBe('2026-08-22-heights-at-queens')
+    expect(wpblGameSlug(schedule[2], teams, schedule)).toBe('2026-08-22-firebells-at-hunters')
+  })
+
+  it('round-trips through the path', () => {
+    const path = wpblGamePath(schedule[0], teams, schedule)
+    expect(path).toBe('/wpbl/games/2026-08-23-queens-at-hunters')
+    expect(findWpblGameBySlug(wpblGameSlugFromPath(path)!, schedule, teams)).toEqual(schedule[0])
+  })
+
+  it('is not fooled by neighbouring routes', () => {
+    expect(wpblGameSlugFromPath('/wpbl/games')).toBeNull()   // no index lives there
+    expect(wpblGameSlugFromPath('/wpbl/schedule')).toBeNull()
+    expect(wpblGameSlugFromPath('/wpbl/players/denae-benites')).toBeNull()
+    expect(wpblGameSlugFromPath('/wpbl/games/a/b')).toBeNull()
+  })
+
+  it('resolves nothing for a slug that names no game', () => {
+    expect(findWpblGameBySlug('2026-08-23-queens-at-queens', schedule, teams)).toBeNull()
+  })
+
+  // A club missing from `teams` must still produce a whole, stable slug rather than a hole
+  // in the middle of one. The id IS the abbreviation, so it is a reasonable stand-in.
+  it('falls back to the club id when a team is missing', () => {
+    expect(wpblGameSlug(schedule[0], [], schedule)).toBe('2026-08-23-la-at-bos')
+  })
+
+  // The league has never played a doubleheader, which makes this the case with no live
+  // example and so the one most likely to be got wrong. Same rule as a shared player name.
+  describe('when two games share a date and a matchup', () => {
+    const twinBill = [
+      { id: 'dddddddd-4444-4444-8444-444444444444', game_date: '2026-09-01', home_team_id: 'BOS', away_team_id: 'LA' },
+      { id: 'eeeeeeee-5555-4555-8555-555555555555', game_date: '2026-09-01', home_team_id: 'BOS', away_team_id: 'LA' },
+      ...schedule,
+    ]
+
+    it('gives each a distinct, stable URL', () => {
+      expect(wpblGameSlug(twinBill[0], teams, twinBill)).toBe('2026-09-01-queens-at-hunters-dddddddd')
+      expect(wpblGameSlug(twinBill[1], teams, twinBill)).toBe('2026-09-01-queens-at-hunters-eeeeeeee')
+    })
+
+    it('keeps both reachable', () => {
+      expect(findWpblGameBySlug(wpblGameSlug(twinBill[0], teams, twinBill), twinBill, teams)).toEqual(twinBill[0])
+      expect(findWpblGameBySlug(wpblGameSlug(twinBill[1], teams, twinBill), twinBill, teams)).toEqual(twinBill[1])
+    })
+
+    it('refuses the ambiguous bare slug instead of serving the wrong final score', () => {
+      expect(findWpblGameBySlug('2026-09-01-queens-at-hunters', twinBill, teams)).toBeNull()
+    })
+
+    it('leaves every other game alone', () => {
+      expect(wpblGameSlug(schedule[0], teams, twinBill)).toBe('2026-08-23-queens-at-hunters')
+    })
+  })
+
+  // The subtree needs a wildcard because the valid slugs are the schedule, which lives in
+  // the database. What keeps that from being a soft-404 hole is functions/wpbl, which
+  // resolves the slug and 404s anything naming no game before the rewrite is reached.
+  it('is routed in production, and only as a wildcard', () => {
+    expect(redirects).toMatch(/^\/wpbl\/games\/\*\s+\/\s+200\s*$/m)
+    // No bare /wpbl/games rule: there is no index there, so it must fall through to a 404.
+    expect(redirects).not.toMatch(/^\/wpbl\/games\s+\//m)
+  })
+
+  it('is a route the section claims for itself', () => {
+    expect(wpblAppOwnsPath('/wpbl/games/2026-08-23-queens-at-hunters')).toBe(true)
+    expect(wpblAppOwnsPath('/wpbl/games')).toBe(false)
+    expect(wpblAppOwnsPath('/wpbl/games/a/b')).toBe(false)
   })
 })
 

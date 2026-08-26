@@ -26,7 +26,9 @@ import type { WpblSeasonGame } from '../../src/wpbl/season'
 // app happily links to. routes.ts imports nothing but slug.ts, so it is safe at the edge.
 import {
   wpblPlayerSlug, wpblPlayerSlugFromPath, findWpblPlayerBySlug, type WpblSluggable,
+  wpblGameSlug, wpblGameSlugFromPath, findWpblGameBySlug,
 } from '../../src/wpbl/routes'
+import { wpblGameCard, type WpblCardGame, type WpblCardTeam } from '../../src/wpbl/ogCard'
 
 interface Env {
   // Pages exposes the project's environment variables to functions at runtime, so these
@@ -99,6 +101,36 @@ export async function onRequestGet(context: Ctx): Promise<Response> {
     return Response.redirect(to.toString(), 301)
   }
 
+  // ── Game pages ──────────────────────────────────────────────────────────────
+  //
+  // Canonical form is /wpbl/games/<date>-<away>-at-<home>; ?game=<uuid> is the spelling
+  // Game Center shipped with and the one still sitting in shared links, push payloads and
+  // the Discord bot's posts.
+  const gameSlug = wpblGameSlugFromPath(url.pathname)
+  const legacyGameId = url.searchParams.get('game')
+
+  // Same guard, same reason, as the players directory below: public/_redirects has to route
+  // this subtree with a wildcard because the valid slugs are the schedule, and Cloudflare's
+  // `*` matches across slashes. Without this /wpbl/games/a/b answers 200 with the app shell.
+  // /wpbl/games itself has no index and is not routed at all, so it 404s on its own.
+  if (gameSlug === null && url.pathname.replace(/\/+$/, '').startsWith('/wpbl/games/')) {
+    return notFound(context)
+  }
+
+  if (gameSlug !== null) {
+    let schedule: { games: WpblCardGame[]; teams: WpblCardTeam[] }
+    try {
+      schedule = await readSchedule(env)
+    } catch {
+      // Database unreachable. Same standing rule as the roster read: a page that renders
+      // beats a 404 on a game that exists.
+      return next()
+    }
+    const game = findWpblGameBySlug(gameSlug, schedule.games, schedule.teams)
+    if (!game) return notFound(context)
+    return withGameCard(context, game, schedule)
+  }
+
   // ── Player pages ────────────────────────────────────────────────────────────
   //
   // Canonical form is /wpbl/players/<slug>; ?player=<uuid> is the legacy spelling that
@@ -152,7 +184,50 @@ export async function onRequestGet(context: Ctx): Promise<Response> {
     return withCard(context, legacyPlayerId, url)
   }
 
+  // Deliberately last. A reader who opened a player FROM a game holds
+  // /wpbl/players/<slug>?game=<uuid>, where the PLAYER owns the page and the game is state
+  // laid on top of it; redirecting that to the game would throw away the page they shared.
+  // Everything with a player in it has already returned above, so reaching here means the
+  // game is the only thing this URL names.
+  if (legacyGameId && UUID_RE.test(legacyGameId)) {
+    try {
+      const schedule = await readSchedule(env)
+      const game = schedule.games.find(g => g.id === legacyGameId)
+      if (game) {
+        const to = new URL(url)
+        to.pathname = `/wpbl/games/${wpblGameSlug(game, schedule.teams, schedule.games)}`
+        to.searchParams.delete('game')
+        return Response.redirect(to.toString(), 301)
+      }
+    } catch { /* fall through to the un-redirected page */ }
+  }
+
   return next()
+}
+
+/** Fetch the page, then rewrite its Open Graph tags to describe this game. */
+async function withGameCard(
+  context: Ctx,
+  game: WpblCardGame,
+  schedule: { games: WpblCardGame[]; teams: WpblCardTeam[] },
+): Promise<Response> {
+  const page = await context.next()
+  if (!(page.headers.get('content-type') || '').includes('text/html')) return page
+
+  const card = wpblGameCard(game, schedule.teams)
+  return rewrite(page, {
+    ...card,
+    // Canonical, not the URL as requested: a trailing slash or an old ?game= spelling must
+    // not become the identity an unfurler or a crawler records for this page.
+    url: `${SITE}/wpbl/games/${wpblGameSlug(game, schedule.teams, schedule.games)}`,
+    // No per-game art, so index.html's default cover stays in place untouched. That is a
+    // deliberate omission rather than a gap to fill later: a face is what people share, a
+    // box score is not, and a generated image per game would be 41 of them a season for a
+    // card nobody looks at.
+    image: null,
+    imageAlt: '',
+    ogType: 'article',
+  })
 }
 
 /** Fetch the page, then rewrite its Open Graph tags to describe this player. */
@@ -166,7 +241,7 @@ async function withCard(context: Ctx, playerId: string, url: URL): Promise<Respo
   } catch {
     card = null // stale id, database hiccup, timeout: the static card is a fine fallback
   }
-  return card ? rewrite(page, card) : page
+  return card ? rewrite(page, { ...card, ogType: 'profile' }) : page
 }
 
 /** The site's real 404 page, with a real 404 status. */
@@ -208,9 +283,56 @@ async function readRoster(env: Env): Promise<WpblSluggable[]> {
   }
 }
 
+/**
+ * The whole schedule and the four clubs, which is what game-slug resolution needs.
+ *
+ * Whole, for the same reason the roster is read whole: a slug cannot be turned back into a
+ * query. It carries a date and two club NICKNAMES, and PostgREST has no relationship
+ * between "hunters" and the `BOS` sitting in the column. It is also the only way to tell a
+ * unique date-and-matchup from a shared one. Forty rows of seven short columns, plus four
+ * teams, both in flight at once.
+ */
+async function readSchedule(env: Env): Promise<{ games: WpblCardGame[]; teams: WpblCardTeam[] }> {
+  const base = env.VITE_SUPABASE_URL || env.SUPABASE_URL
+  const key = env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY
+  if (!base || !key) throw new Error('no supabase binding')
+
+  const abort = new AbortController()
+  const timer = setTimeout(() => abort.abort(), DATA_TIMEOUT_MS)
+  const read = async <T>(query: string): Promise<T[]> => {
+    const res = await fetch(`${base.replace(/\/+$/, '')}/rest/v1/${query}`, {
+      headers: { apikey: key, authorization: `Bearer ${key}`, accept: 'application/json' },
+      signal: abort.signal,
+    })
+    if (!res.ok) throw new Error(`postgrest ${res.status}`)
+    return (await res.json()) as T[]
+  }
+  try {
+    const [games, teams] = await Promise.all([
+      read<WpblCardGame>('wpbl_games?select=id,game_date,home_team_id,away_team_id,status,home_score,away_score'),
+      read<WpblCardTeam>('wpbl_teams?select=id,city,name'),
+    ])
+    return { games, teams }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 interface PlayerRow { id: string; name: string; position: string | null; team_id: string | null }
 interface TeamRow { id: string; city: string; name: string }
 interface Resolved extends WpblPlayerCard { url: string; image: string | null; imageAlt: string }
+
+/** What `rewrite` actually needs. A player card is one of these with a headshot; a game
+ *  card is one without, riding the site's default cover. */
+interface CardTags {
+  title: string
+  ogTitle: string
+  description: string
+  url: string
+  image: string | null
+  imageAlt: string
+  ogType: string
+}
 
 async function resolvePlayer(playerId: string, env: Env, url: URL): Promise<Resolved | null> {
   const base = env.VITE_SUPABASE_URL || env.SUPABASE_URL
@@ -294,9 +416,9 @@ async function cardUrl(path: string, env: Env, url: URL): Promise<string | null>
 // occurrence of a property: a second og:title further down the head would just be
 // ignored. index.html carries a full set of defaults, including the image tags, so
 // there is always something here to edit.
-function rewrite(page: Response, card: Resolved): Response {
+function rewrite(page: Response, card: CardTags): Response {
   const replacements: Record<string, string> = {
-    'og:type': 'profile',
+    'og:type': card.ogType,
     'og:title': card.ogTitle,
     'og:description': card.description,
     'og:url': card.url,

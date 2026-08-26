@@ -12,6 +12,7 @@ import {
   fetchWpblPhotos, getCachedWpblPhotos,
 } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
+import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, wpblFeatureName, CARD_BORDER } from './ui'
 import { LiveHero } from './Live'
 import PlayoffBracket from './PlayoffBracket'
@@ -39,6 +40,7 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine,
 // ─── Scoreboard ─────────────────────────────────────────────────────────────────
 
 function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, WpblTeam>; onOpen: () => void }) {
+  const gameLink = useWpblGameLink()
   const away = teams.get(game.away_team_id)
   const home = teams.get(game.home_team_id)
   const final = game.status === 'final' && game.home_score != null && game.away_score != null
@@ -85,7 +87,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
   )
 
   return (
-    <Box onClick={onOpen} sx={{
+    <Box {...gameLink(game, onOpen)} sx={{
       // 136, up 4 from the pre-date 132. The eyebrow's longest string went from
       // "Aug 15 · 7:05 PM" to "Final · Yesterday" — one character more, and uppercase letters
       // where the old one had narrow digits — so it needs a little more room than before and
@@ -469,6 +471,7 @@ function seasonSeries(games: WpblGame[], homeId: string, awayId: string): { home
 function NextGameCard({ games, teams, onOpenGame }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
 }) {
+  const gameLink = useWpblGameLink()
   const next = useMemo(() => {
     const now = Date.now()
     const upcoming = games
@@ -545,7 +548,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
           it above and below rather than dropping it in one hole. With the card nearly full it
           is a few pixels either side, but it keeps the card even if the series line drops out,
           which it does the first time two clubs meet. */}
-      <Box onClick={() => onOpenGame(g)} sx={{ cursor: 'pointer', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', borderRadius: 1, p: 0.5, mx: -0.5, '&:hover': { bgcolor: 'action.hover' } }}>
+      <Box {...gameLink(g, onOpenGame)} sx={{ cursor: 'pointer', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', borderRadius: 1, p: 0.5, mx: -0.5, '&:hover': { bgcolor: 'action.hover' } }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1 }}>
           {teamRow(away, 'AWAY')}
           {teamRow(home, 'HOME')}
@@ -649,6 +652,10 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
   label: string; rows: LeaderRow[]; teamById: Map<string, WpblTeam>; onOpenPlayer: (p: WpblPlayer) => void
   hideLabel?: boolean
 }) {
+  // Every leader name is a real <a href> to her page. These five rows are the section's most
+  // valuable link into a player page and were a div with an onClick, which no crawler follows
+  // and no keyboard reaches. See LinkContext.tsx.
+  const playerLink = useWpblPlayerLink()
   if (rows.length === 0) return null
   // A column rather than a plain block, so when Home stretches the Leaders card to match the one
   // beside it the leftover height is shared out between the rows instead of pooling as a slab
@@ -684,7 +691,7 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
         // the team abbreviation tucked into what was dead space beside the value.
         const isTop = i === 0
         return (
-          <Box key={r.player.id} onClick={() => onOpenPlayer(r.player)} sx={{
+          <Box key={r.player.id} {...playerLink(r.player, onOpenPlayer)} sx={{
             display: 'flex', alignItems: 'center', gap: isTop ? 1 : 0.75,
             py: isTop ? 0.55 : 0.4, cursor: 'pointer',
             borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },

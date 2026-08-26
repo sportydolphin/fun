@@ -97,3 +97,88 @@ const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' 
 // Pages function can't import — that module pulls in the team logos through
 // import.meta.glob, which only Vite understands.
 const outsToIp = (outs: number): string => `${Math.floor(outs / 3)}.${outs % 3}`
+
+// ─── Game cards ────────────────────────────────────────────────────────────────
+//
+// The same job for /wpbl/games/<slug>. No generated art: the player cards are worth their
+// pipeline because a face is the thing people share, and a box score is not. The site's
+// default 1200x630 cover carries these, so the words are the whole card.
+
+export interface WpblCardGame {
+  id: string
+  game_date: string
+  home_team_id: string
+  away_team_id: string
+  status: string | null
+  home_score: number | null
+  away_score: number | null
+}
+
+export interface WpblCardTeam { id: string; city: string; name: string }
+
+export interface WpblGameCard {
+  title: string
+  ogTitle: string
+  description: string
+}
+
+/** 'Aug 23, 2026' from '2026-08-23', parsed by hand rather than through Date.
+ *  `game_date` is a plain calendar date with no zone, and handing it to the Date
+ *  constructor reads it as UTC midnight, which renders as the day BEFORE anywhere west of
+ *  Greenwich. A share card that names the wrong day is worse than one that names none. */
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+export function wpblCardDate(date: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(date ?? ''))
+  if (!m) return ''
+  const month = MONTHS[Number(m[2]) - 1]
+  return month ? `${month} ${Number(m[3])}, ${m[1]}` : ''
+}
+
+export function wpblGameCard(game: WpblCardGame, teams: readonly WpblCardTeam[]): WpblGameCard {
+  const club = (id: string) => teams.find(t => t.id === id) ?? null
+  const home = club(game.home_team_id)
+  const away = club(game.away_team_id)
+  const homeNick = home?.name ?? game.home_team_id
+  const awayNick = away?.name ?? game.away_team_id
+  const homeFull = home ? `${home.city} ${home.name}` : game.home_team_id
+  const awayFull = away ? `${away.city} ${away.name}` : game.away_team_id
+  const when = wpblCardDate(game.game_date)
+  const dateTail = when ? `, ${when}` : ''
+
+  const final = game.status === 'final'
+    && typeof game.home_score === 'number' && typeof game.away_score === 'number'
+
+  if (!final) {
+    // Scheduled, or in progress. A live game's score changes minute to minute and an unfurl
+    // is cached by whoever fetched it, so a card claiming 3-1 in the fourth would still be
+    // saying that a week later. The matchup is the part that stays true.
+    const title = `${awayNick} at ${homeNick}${dateTail}: WPBL preview | sportydolphin.fun`
+    return {
+      title,
+      ogTitle: `${awayNick} at ${homeNick}${dateTail}`,
+      description:
+        `${awayFull} at ${homeFull}${dateTail} in the Women's Pro Baseball League. `
+        + 'Live score, lineups, box score and play-by-play.',
+    }
+  }
+
+  // Winner first, which is how a result is spoken and how every scoreboard prints it.
+  const homeWon = (game.home_score as number) > (game.away_score as number)
+  const winNick = homeWon ? homeNick : awayNick
+  const loseNick = homeWon ? awayNick : homeNick
+  const winFull = homeWon ? homeFull : awayFull
+  const loseFull = homeWon ? awayFull : homeFull
+  const hi = Math.max(game.home_score as number, game.away_score as number)
+  const lo = Math.min(game.home_score as number, game.away_score as number)
+  const tied = hi === lo
+
+  const line = tied ? `${awayNick} ${lo}, ${homeNick} ${hi}` : `${winNick} ${hi}, ${loseNick} ${lo}`
+  return {
+    title: `${line}${dateTail}: WPBL box score | sportydolphin.fun`,
+    ogTitle: `${line}${dateTail}`,
+    description: tied
+      ? `${awayFull} and ${homeFull} finished ${hi}–${lo}${dateTail}. Full box score, play-by-play and win probability.`
+      : `${winFull} beat the ${loseFull} ${hi}–${lo}${dateTail} in the Women's Pro Baseball League. `
+        + 'Full box score, play-by-play and win probability.',
+  }
+}

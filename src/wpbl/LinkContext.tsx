@@ -1,0 +1,109 @@
+import React, { createContext, useContext, useCallback, useMemo } from 'react'
+import {
+  wpblPlayerPath, wpblGamePath,
+  type WpblSluggable, type WpblSluggableGame, type WpblSluggableTeam,
+} from './routes'
+
+// Turns any Box/Typography that opens a player or a game into a real <a href>.
+//
+// WHY THIS EXISTS AT ALL. Every player name on the section was a div with an onClick and
+// nothing else, which fails three ways at once and none of them are visible in a browser:
+//
+//   - Googlebot does not fire click handlers, so a name that is only an onClick is invisible
+//     to it. This is the same failure that hid /mlb from Google for months (see the rule in
+//     CLAUDE.md), and the exposure here is larger: 118 player URLs sit in the sitemap and the
+//     only page that linked to any of them was /wpbl/players, which nothing linked to either.
+//   - A div is not focusable, so every one of those names was unreachable by keyboard. The
+//     Stats board had 33 player rows and 15 tab stops, all of them site chrome.
+//   - No href means no open-in-new-tab, no middle-click, no copy-link, no status bar preview.
+//
+// WHY A CONTEXT rather than a prop. The href is a SLUG, and both slug rules need the whole
+// list to decide whether one is ambiguous (see routes.ts). Threading the full roster to every
+// board that lists a player would mean a team page linking with its own 30-name roster, which
+// would happily mint a bare slug for a name that a player on ANOTHER club also holds: exactly
+// the silent wrong-player URL the slug rules exist to prevent. A game slug has the same shape
+// of hazard and the same answer. One provider holding the one roster and the one schedule is
+// what keeps both impossible.
+//
+// Modified clicks (cmd/ctrl/shift/alt, middle button) fall through to the browser untouched,
+// so open-in-new-tab behaves the way it does everywhere else.
+
+/** Props to spread onto whatever element opens a player or a game. */
+export interface WpblPlayerLinkProps {
+  component?: 'a'
+  href?: string
+  onClick?: (e: React.MouseEvent) => void
+  /** Anchors carry a default underline and link colour; every call site here paints its own.
+   *  Inline rather than in `sx`, so a call site's own `sx` cannot silently drop it. */
+  style?: React.CSSProperties
+}
+
+type LinkFor<T> = (subject: T | null | undefined, onOpen?: (p: never) => void) => WpblPlayerLinkProps
+
+interface LinkContextValue {
+  playerLink: LinkFor<WpblSluggable>
+  gameLink: LinkFor<WpblSluggableGame>
+}
+
+const LinkContext = createContext<LinkContextValue | null>(null)
+
+export function WpblLinkProvider({ roster, schedule, teams, children }: {
+  roster: readonly WpblSluggable[]
+  schedule: readonly WpblSluggableGame[]
+  teams: readonly WpblSluggableTeam[]
+  children: React.ReactNode
+}) {
+  // Before the data lands there is no honest slug to point at, so the element stays a plain
+  // onClick for those few hundred milliseconds rather than shipping an href that might name
+  // the wrong subject. A crawler waits for the render; a reader clicking that fast still
+  // gets the modal.
+  const build = useCallback(<T,>(subject: T | null | undefined, href: string | undefined, onOpen?: (p: never) => void): WpblPlayerLinkProps => {
+    if (!subject) return {}
+    const open = onOpen as ((p: T) => void) | undefined
+    if (!href) return open ? { onClick: () => open(subject) } : {}
+    return {
+      component: 'a',
+      href,
+      style: { textDecoration: 'none', color: 'inherit' },
+      onClick: (e: React.MouseEvent) => {
+        // Stopped first, and for modified clicks too. Some of these anchors sit inside a row
+        // that ALSO opens the player, so without this a plain click opens her twice (two
+        // history entries, one of them a dead Back) and a cmd-click opens a new tab AND the
+        // modal in the tab you were reading.
+        e.stopPropagation()
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+        e.preventDefault()
+        open?.(subject)
+      },
+    }
+  }, [])
+
+  const playerLink = useCallback<LinkFor<WpblSluggable>>((player, onOpen) => build(
+    player, player && roster.length > 0 ? wpblPlayerPath(player, roster) : undefined, onOpen,
+  ), [build, roster])
+
+  const gameLink = useCallback<LinkFor<WpblSluggableGame>>((game, onOpen) => build(
+    game,
+    game && schedule.length > 0 && teams.length > 0 ? wpblGamePath(game, teams, schedule) : undefined,
+    onOpen,
+  ), [build, schedule, teams])
+
+  const value = useMemo(() => ({ playerLink, gameLink }), [playerLink, gameLink])
+  return <LinkContext.Provider value={value}>{children}</LinkContext.Provider>
+}
+
+/**
+ * `playerLink(player, onOpen)` / `gameLink(game, onOpen)` → props to spread. Outside a
+ * provider both return a plain onClick, so a board rendered in a test or in isolation still
+ * works; it just is not a link.
+ */
+function useLinkFor<T>(pick: (v: LinkContextValue) => LinkFor<T>): LinkFor<T> {
+  const ctx = useContext(LinkContext)
+  const fallback = useMemo<LinkFor<T>>(() => (subject, onOpen) => (
+    subject && onOpen ? { onClick: () => (onOpen as (p: T) => void)(subject) } : {}
+  ), [])
+  return ctx ? pick(ctx) : fallback
+}
+
+export const useWpblPlayerLink = (): LinkFor<WpblSluggable> => useLinkFor(v => v.playerLink)
+export const useWpblGameLink = (): LinkFor<WpblSluggableGame> => useLinkFor(v => v.gameLink)

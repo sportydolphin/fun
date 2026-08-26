@@ -341,7 +341,7 @@ describe('digestMessage', () => {
 
   it('hangs the link on the title instead of printing the URL raw', () => {
     const message = digestMessage([hit()])!
-    expect(message).toContain('[WPBL live scores?](https://example.com/1)')
+    expect(message).toContain('[WPBL live scores?](<https://example.com/1>)')
   })
 
   it('will not let a stranger\'s title mint a masked link of its own', () => {
@@ -352,12 +352,12 @@ describe('digestMessage', () => {
     // reader sees where it goes, and that is the whole difference that matters here.
     const message = digestMessage([hit({ title: 'WPBL scores](https://not-us.example) free' })])!
     expect(message).not.toContain('](https://not-us.example)')
-    expect(message).toContain('](https://example.com/1)')
+    expect(message).toContain('](<https://example.com/1>)')
   })
 
   it('encodes parentheses in the URL, which would end the link early', () => {
     const message = digestMessage([hit({ url: 'https://example.com/a_(b)_c' })])!
-    expect(message).toContain('(https://example.com/a_%28b%29_c)')
+    expect(message).toContain('(<https://example.com/a_%28b%29_c>)')
   })
 
   it('prints a non-http reference plainly rather than masking it', () => {
@@ -366,6 +366,20 @@ describe('digestMessage', () => {
     const message = digestMessage([hit({ url: 'at://did:plc:xyz/app.bsky.feed.post/3labc' })])!
     expect(message).toContain('at://did:plc:xyz/app.bsky.feed.post/3labc')
     expect(message).not.toContain('](at://')
+  })
+
+  it('suppresses the link preview, so a digest is not five reposts of what it links', () => {
+    // Discord unfurls up to five embeds per message, so an unwrapped digest arrives as the
+    // posts themselves and the list you actually have to read scrolls off the top.
+    const message = digestMessage([hit()])!
+    expect(message).toContain('](<https://example.com/1>)')
+    expect(message).not.toContain('](https://example.com/1)')
+  })
+
+  it('carries no bold at all', () => {
+    // A digest is a list to scan, and bolding both the heading and every entry under it made
+    // the whole message shout evenly, which is the same as none of it standing out.
+    expect(digestMessage([hit()])!).not.toContain('**')
   })
 
   it('names the backlog rather than dropping it silently', () => {

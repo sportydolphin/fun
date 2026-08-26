@@ -10,6 +10,7 @@ import { GameHighlightCard } from './Highlights'
 import { GameStoryCard } from './Reading'
 import { GameRecapView, preloadWinProb } from './RecapCard'
 import { useExperiments } from '../ExperimentsContext'
+import { useWpblPlayerLink } from './LinkContext'
 import { ModalShell, SegNav, TapTip, TeamBadge, pressable, FOCUS_RING, useWpblDark, useWpblName, wpblFeatureName } from './ui'
 import SwipeableViews from './SwipeableViews'
 import { parsePlay, runsOnPlay } from './derive/playByPlay'
@@ -306,6 +307,7 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
   const isMobile = useMediaQuery('(max-width:600px)')
   const color = wpblAccent(team.id, isDark)
   const shortName = useWpblName()
+  const playerLink = useWpblPlayerLink()
   const batCols = BAT_COLS
   // Desktop keeps the shared viewport cap; the phone uses the tighter box budget.
   const boxName = (n: string) => (isMobile ? wpblFeatureName(n, BOX_NAME_MAX) : shortName(n))
@@ -323,7 +325,7 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
           {isSub && !isMobile && <Box component="span" aria-hidden sx={{ color: 'text.disabled', fontSize: '0.72rem', flexShrink: 0, lineHeight: 1 }}>↳</Box>}
           <Typography
             component="span"
-            onClick={clickable ? () => onOpenPlayer!(p!) : undefined}
+            {...(clickable ? playerLink(p!, onOpenPlayer) : {})}
             sx={{ fontSize: isMobile ? '0.74rem' : '0.86rem', fontWeight: 600, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...(clickable ? { cursor: 'pointer', '&:hover': { color } } : {}) }}
           >
             {p ? boxName(p.name) : '—'}
@@ -449,6 +451,7 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
   const shortName = useWpblName()
+  const playerLink = useWpblPlayerLink()
   // Every name the feed uses in this game, longest first so "Elodie Ciamarro" is replaced
   // before a bare "Ciamarro" could match part of it. Built from the plays themselves rather
   // than the roster, so a name only shortens when it is genuinely a player in this game.
@@ -573,8 +576,9 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
                             // runner-only play leaves it null and nothing here is clickable.
                             const batter = p.batter_id ? names.get(p.batter_id) : undefined
                             const open = batter && onOpenPlayer ? () => onOpenPlayer(batter) : undefined
+                            const link = batter && open ? playerLink(batter, onOpenPlayer) : {}
                             return (
-                              <Box component="span" {...pressable(open)} sx={{
+                              <Box component="span" {...('href' in link ? link : pressable(open))} sx={{
                                 fontWeight: 700,
                                 ...(open ? {
                                   ...FOCUS_RING, cursor: 'pointer', borderRadius: 0.5,

@@ -21,6 +21,7 @@ import type { EraBasis } from './stats'
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import { useExperiments } from '../ExperimentsContext'
+import { useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
 import { useEraBasis } from './EraBasisContext'
 // Two of the five Stats groups, behind their own chunks. Hitting and Pitching are what the
 // tab opens on; Tracking (the TrackMan boards) and Draft (the draft-value model) are each a
@@ -226,6 +227,9 @@ interface Row {
   totals: WpblBattingTotals | WpblPitchingTotals
   qualified: boolean
   onClick?: () => void
+  /** Players only: the props that make this row's name a real <a href> to her page.
+   *  A team row has no URL to point at, so it stays a plain onClick. */
+  link?: WpblPlayerLinkProps
 }
 
 // Break the table out of the 720px page column so every stat column is visible. The page
@@ -371,6 +375,7 @@ export default function WpblStatsView({
   // it let a 12-character "Jamie Mackay" through whole to be cut to "Jamie Mac…" while a
   // 13-character "Denae Benites" became "D. Benites". 0 abbreviates every phone row alike.
   const shortName = useWpblName(0)
+  const playerLink = useWpblPlayerLink()
   const isNarrow = useMediaQuery('(max-width:600px)')
   const experiments = useExperiments()
   const { basis: eraBasis, offLeague: eraOffLeague, setBasis: setEraBasis, fmtEra } = useEraBasis()
@@ -725,6 +730,7 @@ export default function WpblStatsView({
         label: shortName(s.player.name), fullName: s.player.name, sublabel: displayPositionFromIndex(s.player, positionIndex).label ?? undefined,
         totals: s.totals, qualified: s.qualified,
         onClick: () => onOpenPlayer(s.player),
+        link: playerLink(s.player, onOpenPlayer),
       }))
     }
 
@@ -740,7 +746,7 @@ export default function WpblStatsView({
       if (av !== bv) return sortAsc ? av - bv : bv - av
       return sample(b) - sample(a)
     })
-  }, [mode, side, players, lines, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, shortName, lobByGameTeam])
+  }, [mode, side, players, lines, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, shortName, lobByGameTeam])
 
   const teamChips = [...teams].sort((a, b) => a.abbr.localeCompare(b.abbr))
 
@@ -1334,7 +1340,11 @@ export default function WpblStatsView({
                           )}
                           {r.team && <TeamBadge team={r.team} size={20} />}
                           <Box sx={{ minWidth: 0, maxWidth: pinActive ? nameInnerMax : undefined }}>
-                            <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {/* The NAME is the link, not the row: a <tr> cannot be an <a>, and
+                                the row keeps its own onClick so the whole width stays a target.
+                                This is the anchor a crawler follows and the tab stop a keyboard
+                                lands on. */}
+                            <Typography {...r.link} sx={{ fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.15, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {teamsNarrow && r.shortLabel ? r.shortLabel : r.label}
                             </Typography>
                             {r.sublabel && <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', lineHeight: 1 }}>{r.sublabel}</Typography>}
@@ -1438,7 +1448,9 @@ function StatListRow({ row, rank, value, context, isTeam, first, total }: {
   // right, which is all it was ever carried by on a board this short.
   const marked = rank <= 3 && total > 6
   return (
-    <Box {...pressable(row.onClick)} sx={{
+    // A player row is an <a href> to her page; a team row has no URL, so it stays a
+    // `pressable` div (role=button, tab stop, Enter/Space). Both are keyboard reachable.
+    <Box {...(row.link?.href ? row.link : pressable(row.onClick))} sx={{
       ...FOCUS_RING,
       display: 'flex', alignItems: 'center', gap: 1.25, px: 1.25, py: 0.85,
       borderTop: first ? 'none' : '1px solid', borderColor: 'divider',

@@ -4,6 +4,29 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.51.0',
+    date:    '2026-08-26',
+    title:   'Every player and every game now has a link you can actually use',
+    changes: [
+      {
+        short: 'Player names are real links',
+        full:  'Tapping a player name has always opened her page, but it was not a link: there was no address behind it, so you could not open one in a new tab, copy its link, or reach it with a keyboard, and a search engine could not follow it at all. Every player name on the section is now a proper link to her page. Same tap, same page, but middle-click and cmd-click work, Tab reaches them, and the pages can finally be found.',
+      },
+      {
+        short: 'Games have their own page',
+        full:  'A game now lives at its own address, /wpbl/games/2026-08-23-queens-at-hunters, so you can paste a link to a recap and it says what it is before anyone opens it. Every card on the schedule is a link to one. Sharing a game unfurls with the final score and the date instead of the site’s generic card, and old links carrying ?game= still work, they just move to the new address.',
+      },
+      {
+        short: 'A link to the full player list, in the footer',
+        full:  'The page listing every player in the league was reachable only if you already knew its address. It is in the footer now, on every WPBL page, as “WPBL players”.',
+      },
+      {
+        short: 'Bluesky mention alerts got quieter',
+        full:  'The private Discord digest of who is talking about the site used to unfurl every Bluesky post it linked, so five mentions arrived as five copies of those posts with the actual list pushed off the top. The links no longer expand, and the headings are no longer shouted in bold.',
+      },
+    ],
+  },
+  {
     version: '1.50.0',
     date:    '2026-08-26',
     title:   'WPBL ERA now matches the league, with a setting to change it back',

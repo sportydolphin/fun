@@ -538,6 +538,75 @@ is retired.
 
 ## Shipped log
 
+### Aug 26, 2026: the section stops being a place with no links in it (v1.51.0)
+
+Found by auditing the live site rather than by reading the roadmap, which is the only reason
+it was found at all: nothing about it is visible in a browser.
+
+**Not one page on the section linked to a player page.** Zero `a[href^="/wpbl/players/"]` on
+Home, on Stats, on Schedule. Every player name was a `<div>` with an `onClick`, which fails in
+three directions at once and none of them show up when you use the site yourself. Googlebot
+does not fire click handlers, so 118 player URLs sat in the sitemap with nothing pointing at
+them. A `<div>` is not focusable, so the Stats board had 33 player rows and 15 tab stops, all
+of them site chrome. And no href means no open-in-new-tab, no middle click, no copy link.
+
+This is the failure `CLAUDE.md` already carries a rule about, from the time `/mlb` went
+undiscovered by Google for months while `/privacy` and `/terms`, which the footer links
+properly, were found. The rule was written and then not applied to the section that is the
+site. `linkTo()` in [`App.tsx`](src/App.tsx) had never once been used inside `src/wpbl/`.
+
+**And the one page that did it right was an orphan.** `/wpbl/players` carries a real anchor to
+all 118, and its own `h1`, and is in the sitemap. Nothing linked to *it* either: no Players
+tab in the nav, no footer entry. Home's 28 anchors were site chrome, the five tabs, and
+**thirteen outbound links to a Substack**. The section linked out to somebody else's blog
+thirteen times from its front page and to its own 119 player pages zero times.
+
+**Games had no URL at all.** Game Center was deep-linkable as `?game=<uuid>` from the start,
+which is not the same thing as being a page: [`seo.ts`](src/seo.ts) canonicalises a query back
+to the tab underneath on purpose, so a hundred shared game links do not read as a hundred
+near-duplicates of Schedule. The consequence was that every recap the section has ever
+rendered was, by design, unindexable, and the schedule cards were bare `onClick` divs because
+there was no href to give them. That is 41 pages a season, each with a unique title and a
+final score, on a section whose stated remaining constraint is inbound links, and it is the
+part of the [inaugural-season archive](#2-the-inaugural-season-archive-) that survives Sep 22.
+
+**What shipped.** [`LinkContext.tsx`](src/wpbl/LinkContext.tsx), one provider, two hooks:
+`playerLink(player, onOpen)` and `gameLink(game, onOpen)`, each returning the props that turn
+any Box into a real anchor. Applied to Home's leaders, the Stats table and its mobile list,
+team rosters and leader lists, the box score, play-by-play, the shared `LeaderRow` behind the
+Pitches and Run value boards, every schedule card, the scoreboard chips, Next game, Last game
+and Full recap. Plus a `WPBL players` link in the footer, which is the door that worked last
+time.
+
+Games got the player-page treatment in full: `/wpbl/games/2026-08-23-queens-at-hunters`, a
+real 404 at the edge for a slug naming no game, per-game `og:` tags, a 301 from the old
+`?game=<uuid>`, and one sitemap entry per game that has been PLAYED.
+
+Four things here are worth not undoing:
+
+- **The link helper is a CONTEXT, not a prop.** Both slug rules need the whole list to judge
+  whether one is ambiguous. A team page linking with its own 30-name roster would happily mint
+  a bare slug for a name a player on another club also holds, which is the silent wrong-player
+  URL the slug rules exist to prevent. One provider holding the one roster and the one
+  schedule is what keeps that impossible.
+- **It stops propagation before the modifier check.** Several of these anchors sit inside a row
+  that also opens the same thing. Without it a plain click pushes two history entries, the
+  second a dead Back, and a cmd-click opens a new tab AND the modal in the tab you were reading.
+- **A player opened from a game keeps the PLAYER's path**, with the game left on the query.
+  The edge's `?game=` redirect is deliberately the last thing in the handler for that reason:
+  run it earlier and `/wpbl/players/<slug>?game=<uuid>` bounces to the game, throwing away the
+  page somebody shared.
+- **Before the data lands, the element stays a plain onClick** rather than shipping an href
+  that might name the wrong subject. A crawler waits for the render; a reader clicking that
+  fast still gets the modal.
+
+**Still open from the same audit**, in rough order: player and team pages have no `h1` of
+their own (a player page currently renders Home's, "Women's Pro Baseball League", and the
+player's name is not a heading at all, on 119 of the sitemap's 148 URLs); same-day games
+reorder between loads because [`api.ts`](src/wpbl/api.ts) sorts the schedule by `game_date`
+alone and `start_time` is right there; and the notification badge leaves a bare "0" in the
+accessibility tree.
+
 ### Aug 26, 2026: ERA per 9, because the league says so (v1.50.0)
 
 A WPBL game is seven innings and this site divided ERA by seven, which is defensible and,

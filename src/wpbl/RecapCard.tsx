@@ -6,6 +6,7 @@ import { fetchWpblGameLines, fetchWpblGameRecapPlays } from './api'
 import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, wpblNameStages } from './ui'
 import { WPBL_ACCENT, relativeDayLabel, wpblFullName } from './constants'
 import { GameHighlightCard } from './Highlights'
+import { useWpblGameLink } from './LinkContext'
 
 const MEDAL = ['🥇', '🥈', '🥉']
 
@@ -275,6 +276,7 @@ export function LastGameCard({ games, teams, players, onOpenGame }: {
   players: WpblPlayer[]
   onOpenGame: (g: WpblGame) => void
 }) {
+  const gameLink = useWpblGameLink()
   const game = useMemo(() => latestFinal(games), [games])
   const [data, setData] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[]; plays: WpblRecapPlay[] } | null>(null)
 
@@ -315,7 +317,7 @@ export function LastGameCard({ games, teams, players, onOpenGame }: {
       subtitle={dateLabel}
       fill
       action={
-        <Typography onClick={() => onOpenGame(game)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
+        <Typography {...gameLink(game, onOpenGame)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
           Full recap
         </Typography>
       }

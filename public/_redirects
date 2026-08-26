@@ -55,6 +55,12 @@
 # anything that names nobody, BEFORE this rule is ever reached. Delete that check and every
 # typo under /wpbl/players/ silently becomes an indexable page again.
 /wpbl/players/*  /  200
+# The second wildcard, and the same exception for the same reason: a game URL is
+# /wpbl/games/<date>-<away>-at-<home>, and the set of valid slugs is the schedule, which
+# lives in the database. functions/wpbl/[[tab]].ts resolves it and answers a real 404 for
+# anything naming no game, BEFORE this rule is reached. Note there is deliberately no
+# /wpbl/games line above: there is no games index, so the bare path falls through to 404.
+/wpbl/games/*    /  200
 /mlb           /  200
 /privacy       /  200
 /terms         /  200

@@ -759,9 +759,9 @@ export const byUrgency = (a, b) =>
 const SOURCE_LABEL = { reddit: 'Reddit', bluesky: 'Bluesky' }
 
 const SECTIONS = [
-  { kind: 'question', heading: '🎯 **Someone is asking where to follow along**' },
-  { kind: 'link', heading: '🔗 **Someone mentioned sportydolphin**' },
-  { kind: 'mention', heading: '💬 **WPBL talk, no question attached**' },
+  { kind: 'question', heading: '🎯 Someone is asking where to follow along' },
+  { kind: 'link', heading: '🔗 Someone mentioned sportydolphin' },
+  { kind: 'mention', heading: '💬 WPBL talk, no question attached' },
 ]
 
 /**
@@ -787,16 +787,22 @@ const safeExcerpt = (text, max) => excerptOf(text, max).replace(/[`@\[\]]/g, ' '
  * as plain text and the link itself pointing somewhere short of where it meant to. Anything
  * that is not plainly http(s) falls back to the bare string, because a masked link is only
  * honest when the reader could have seen the destination.
+ *
+ * The URL is wrapped in angle brackets, which is Discord's suppress-preview marker, and
+ * they go INSIDE the parens so the masked link still renders. Without them every hit
+ * unfurls into a full embed card, so a digest of five Bluesky posts arrives as five copies
+ * of those posts: the channel becomes the thing it was meant to point at, and the digest
+ * that has to be read scrolls off the top of it.
  */
 function maskedLink(label, url) {
   const href = String(url ?? '')
   if (!/^https?:\/\/[^\s]+$/.test(href)) return `${label} ${href}`.trim()
-  return `[${label}](${href.replace(/\(/g, '%28').replace(/\)/g, '%29')})`
+  return `[${label}](<${href.replace(/\(/g, '%28').replace(/\)/g, '%29')}>)`
 }
 
 function hitLine(hit) {
   const where = [SOURCE_LABEL[hit.source] ?? hit.source, hit.author].filter(Boolean).join(' · ')
-  const lines = [`• **${maskedLink(safeExcerpt(hit.title ?? hit.excerpt, 90), hit.url)}** _(${where})_`]
+  const lines = [`• ${maskedLink(safeExcerpt(hit.title ?? hit.excerpt, 90), hit.url)} _(${where})_`]
   if (hit.title && hit.excerpt) lines.push(`  > ${safeExcerpt(hit.excerpt, 180)}`)
   return lines.join('\n')
 }

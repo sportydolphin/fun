@@ -1,7 +1,10 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, it, expect } from 'vitest'
-import { wpblPlayerCard, type WpblCardBatting, type WpblCardPitching } from '../ogCard'
+import {
+  wpblPlayerCard, wpblGameCard, wpblCardDate,
+  type WpblCardBatting, type WpblCardPitching, type WpblCardGame,
+} from '../ogCard'
 
 // The link-preview card for /wpbl?player=<id>. Worth pinning down here because the only
 // other way to read it is to paste a link into a chat app and see what comes back: the
@@ -121,5 +124,59 @@ describe('the generated share cards', () => {
     expect(start).toBeGreaterThan(0)
     expect(buf.readUInt16LE(start + 3) & 0x3fff).toBe(1200)
     expect(buf.readUInt16LE(start + 5) & 0x3fff).toBe(630)
+  })
+})
+
+// ─── Game cards ────────────────────────────────────────────────────────────────
+
+describe('wpblGameCard', () => {
+  const teams = [
+    { id: 'BOS', city: 'Boston', name: 'Hunters' },
+    { id: 'LA', city: 'Los Angeles', name: 'Queens' },
+  ]
+  const game = (o: Partial<WpblCardGame> = {}): WpblCardGame => ({
+    id: 'g1', game_date: '2026-08-23', home_team_id: 'BOS', away_team_id: 'LA',
+    status: 'final', home_score: 7, away_score: 3, ...o,
+  })
+
+  it('leads a final with the winner, the way a result is spoken', () => {
+    const card = wpblGameCard(game(), teams)
+    expect(card.ogTitle).toBe('Hunters 7, Queens 3, Aug 23, 2026')
+    expect(card.title).toContain('WPBL box score')
+    expect(card.description).toContain('Boston Hunters beat the Los Angeles Queens 7–3')
+  })
+
+  it('leads a final with the winner even when the away side won', () => {
+    const card = wpblGameCard(game({ home_score: 3, away_score: 7 }), teams)
+    expect(card.ogTitle).toBe('Queens 7, Hunters 3, Aug 23, 2026')
+  })
+
+  // An unfurl is fetched once and cached by whoever fetched it, so a card claiming a live
+  // score would still be claiming it a week later. The matchup is the part that stays true.
+  it('names the matchup rather than the score for a game not yet final', () => {
+    for (const status of ['scheduled', 'live', null]) {
+      const card = wpblGameCard(game({ status }), teams)
+      expect(card.ogTitle).toBe('Queens at Hunters, Aug 23, 2026')
+      expect(card.title).toContain('WPBL preview')
+    }
+  })
+
+  it('does not claim a result when the feed has sent no score', () => {
+    const card = wpblGameCard(game({ home_score: null, away_score: null }), teams)
+    expect(card.ogTitle).toBe('Queens at Hunters, Aug 23, 2026')
+  })
+
+  it('falls back to the club id rather than leaving a hole', () => {
+    expect(wpblGameCard(game(), []).ogTitle).toBe('BOS 7, LA 3, Aug 23, 2026')
+  })
+
+  // game_date is a plain calendar date with no zone. Handing it to the Date constructor
+  // reads it as UTC midnight, which renders as the day BEFORE anywhere west of Greenwich,
+  // so a card would name the wrong day for most of the league's own audience.
+  it('reads the date as a calendar date, not as UTC midnight', () => {
+    expect(wpblCardDate('2026-08-01')).toBe('Aug 1, 2026')
+    expect(wpblCardDate('2026-01-01')).toBe('Jan 1, 2026')
+    expect(wpblCardDate('2026-12-31')).toBe('Dec 31, 2026')
+    expect(wpblCardDate('nonsense')).toBe('')
   })
 })

@@ -142,7 +142,106 @@ export function findWpblPlayerBySlug<T extends WpblSluggable>(
  * over it, and App.tsx routes it separately.
  */
 export const wpblAppOwnsPath = (pathname: string): boolean =>
-  wpblViewFromPath(pathname) !== null || wpblPlayerSlugFromPath(pathname) !== null
+  wpblViewFromPath(pathname) !== null
+  || wpblPlayerSlugFromPath(pathname) !== null
+  || wpblGameSlugFromPath(pathname) !== null
+
+// ─── Game pages ───────────────────────────────────────────────────────────────
+//
+// Game Center was deep-linkable as `?game=<uuid>` from the start, which is not the same
+// thing as having a page. seo.ts canonicalises a query string back to the tab underneath on
+// purpose (a hundred shared game links must not read as a hundred near-duplicates of
+// Schedule), so every game recap on the section was, by design, unindexable and unlinkable:
+// the schedule cards were bare onClick divs because there was no href to give them.
+//
+// A game gets the same treatment a player got. One canonical path, readable, with the date
+// and both clubs in it, so a pasted link says what it is before anyone opens it. That also
+// makes 41 recaps the only content on the section that is worth anything after Sep 22.
+
+export const WPBL_GAMES_BASE = '/wpbl/games'
+
+/** What a game needs to have to get a URL. Structural, like WpblSluggable: a full row, a
+ *  schedule entry, or the four columns the edge function reads all satisfy it. */
+export interface WpblSluggableGame {
+  id: string
+  /** 'YYYY-MM-DD'. The date is the first thing in the slug because it is what sorts, what
+   *  disambiguates a rematch, and what a reader scans for. */
+  game_date: string
+  home_team_id: string
+  away_team_id: string
+}
+
+/** Just enough of a club to name it in a URL. */
+export interface WpblSluggableTeam { id: string; name: string }
+
+/** Club nickname, slugged: 'Hunters' → 'hunters'. Falls back to the team id (which IS the
+ *  abbreviation) so a game whose club is missing from `teams` still gets a stable slug
+ *  rather than a hole in the middle of one. */
+function teamSlug(teamId: string, teams: readonly WpblSluggableTeam[]): string {
+  const t = teams.find(x => x.id === teamId)
+  return slugifyName(t?.name ?? teamId) || teamId.toLowerCase()
+}
+
+/** The date-and-matchup part, before any disambiguation. Away first, the way a box score
+ *  and every scoreboard on the site already read it. */
+function gameSlugBase(game: WpblSluggableGame, teams: readonly WpblSluggableTeam[]): string {
+  const date = String(game.game_date ?? '').slice(0, 10)
+  return `${date}-${teamSlug(game.away_team_id, teams)}-at-${teamSlug(game.home_team_id, teams)}`
+}
+
+/**
+ * The canonical slug for a game, which is its date and matchup unless that is ambiguous.
+ *
+ * Date plus an ordered pair of clubs separates every game the league has scheduled,
+ * including the postseason, where a best-of-five is five dates for one pairing. The one
+ * shape it does NOT separate is a true doubleheader, which the league has not played and may
+ * never; the rule is here because "unique by date and matchup" is a property of the current
+ * schedule rather than something the format guarantees, and the failure it would cause is
+ * the silent kind. So exactly as with a shared player name, when a base slug IS shared every
+ * game holding it takes the id-suffixed form and the bare slug resolves to nobody. Serving a
+ * 404 for a genuinely ambiguous URL is recoverable; quietly serving the wrong game, with the
+ * wrong final score under a title naming the right one, is not.
+ *
+ * `schedule` is required for that reason: uniqueness cannot be judged from one row.
+ */
+export function wpblGameSlug(
+  game: WpblSluggableGame,
+  teams: readonly WpblSluggableTeam[],
+  schedule: readonly WpblSluggableGame[],
+): string {
+  const base = gameSlugBase(game, teams)
+  const shared = schedule.filter(g => gameSlugBase(g, teams) === base).length > 1
+  return shared ? `${base}-${game.id.slice(0, 8)}` : base
+}
+
+export function wpblGamePath(
+  game: WpblSluggableGame,
+  teams: readonly WpblSluggableTeam[],
+  schedule: readonly WpblSluggableGame[],
+): string {
+  return `${WPBL_GAMES_BASE}/${wpblGameSlug(game, teams, schedule)}`
+}
+
+/** The slug a pathname names, or null if it is not a game URL. One segment only, for the
+ *  same reason as a player: /wpbl/games/a/b is a typo, not a game. */
+export function wpblGameSlugFromPath(pathname: string): string | null {
+  const p = pathname.replace(/\/+$/, '')
+  if (!p.startsWith(`${WPBL_GAMES_BASE}/`)) return null
+  const rest = p.slice(WPBL_GAMES_BASE.length + 1)
+  return rest && !rest.includes('/') ? decodeURIComponent(rest) : null
+}
+
+/** Resolve a slug back to a game, or null. Null covers both "no such game" and "that date
+ *  and matchup is shared, so the bare slug does not identify one". */
+export function findWpblGameBySlug<T extends WpblSluggableGame>(
+  slug: string,
+  schedule: readonly T[],
+  teams: readonly WpblSluggableTeam[],
+): T | null {
+  const want = slug.toLowerCase()
+  const hits = schedule.filter(g => wpblGameSlug(g, teams, schedule) === want)
+  return hits.length === 1 ? hits[0] : null
+}
 
 /** The players index, which exists mainly so every player page has something linking to it. */
 export const WPBL_PLAYERS_INDEX = WPBL_PLAYERS_BASE
