@@ -96,36 +96,38 @@ describe('lineScoreBlock', () => {
   })
 })
 
+const GAME_URL = 'https://sportydolphin.fun/wpbl/games/2026-08-22-heights-at-hunters'
+
 describe('buildRecapMessage', () => {
   it('never pings the channel', () => {
-    expect(buildRecapMessage(game(), recap(), TEAMS).allowed_mentions).toEqual({ parse: [] })
+    expect(buildRecapMessage(game(), recap(), TEAMS, GAME_URL).allowed_mentions).toEqual({ parse: [] })
   })
 
   // The BLANK line is the assertion, not incidental to it. Discord draws a code block as a
   // filled box, and a single newline puts that box hard against the last line of the blurb.
   it('leads with the headline and carries the blurb a clear line above the box score', () => {
-    const { embeds: [e] } = buildRecapMessage(game(), recap(), TEAMS)
+    const { embeds: [e] } = buildRecapMessage(game(), recap(), TEAMS, GAME_URL)
     expect(e.title).toBe('Hunters top Heights')
     expect(e.description.startsWith('The Hunters held on for a 6-1 win.\n\n```')).toBe(true)
   })
 
-  it('links at the game, not the section — the Recap tab opens straight from Discord', () => {
-    expect(buildRecapMessage(game(), recap(), TEAMS).embeds[0].url)
-      .toBe('https://sportydolphin.fun/wpbl?game=g1')
+  it('links at the URL it is handed, so the embed cannot invent one of its own', () => {
+    expect(buildRecapMessage(game(), recap(), TEAMS, GAME_URL).embeds[0].url)
+      .toBe(GAME_URL)
   })
 
   it('takes its accent colour from the winner', () => {
-    expect(buildRecapMessage(game(), recap(), TEAMS).embeds[0].color).toBe(0x2e5f3a)
+    expect(buildRecapMessage(game(), recap(), TEAMS, GAME_URL).embeds[0].color).toBe(0x2e5f3a)
   })
 
   it('drops sections it has nothing to say in', () => {
-    const bare = buildRecapMessage(game(), recap({ stars: [], decisions: [], feats: [] }), TEAMS)
+    const bare = buildRecapMessage(game(), recap({ stars: [], decisions: [], feats: [] }), TEAMS, GAME_URL)
     expect(bare.embeds[0].fields).toEqual([])
   })
 
   it('notes extra innings in the footer, and stays quiet at the regulation seven', () => {
-    expect(buildRecapMessage(game({ innings: 9 }), recap(), TEAMS).embeds[0].footer.text).toContain('9 innings')
-    expect(buildRecapMessage(game(), recap(), TEAMS).embeds[0].footer.text).not.toContain('innings')
+    expect(buildRecapMessage(game({ innings: 9 }), recap(), TEAMS, GAME_URL).embeds[0].footer.text).toContain('9 innings')
+    expect(buildRecapMessage(game(), recap(), TEAMS, GAME_URL).embeds[0].footer.text).not.toContain('innings')
   })
 })
 
@@ -139,26 +141,26 @@ describe('embedColor', () => {
 
 describe('recapMessageFingerprint', () => {
   it('is stable for the same game, so a quiet run sends nothing', () => {
-    expect(recapMessageFingerprint(buildRecapMessage(game(), recap(), TEAMS)))
-      .toBe(recapMessageFingerprint(buildRecapMessage(game(), recap(), TEAMS)))
+    expect(recapMessageFingerprint(buildRecapMessage(game(), recap(), TEAMS, GAME_URL)))
+      .toBe(recapMessageFingerprint(buildRecapMessage(game(), recap(), TEAMS, GAME_URL)))
   })
 
   it('changes when a corrected box score changes what the reader would see', () => {
-    const before = recapMessageFingerprint(buildRecapMessage(game(), recap(), TEAMS))
+    const before = recapMessageFingerprint(buildRecapMessage(game(), recap(), TEAMS, GAME_URL))
     // The kind of revision the feed actually issues after a final: a hit reclassified as
     // an error.
     const corrected = recap({ teamLine: [
       { teamId: 'BOS', name: 'Boston Hunters', r: 6, h: 10, e: 0 },
       { teamId: 'NY', name: 'New York Heights', r: 1, h: 8, e: 3 },
     ] })
-    expect(recapMessageFingerprint(buildRecapMessage(game(), corrected, TEAMS))).not.toBe(before)
+    expect(recapMessageFingerprint(buildRecapMessage(game(), corrected, TEAMS, GAME_URL))).not.toBe(before)
   })
 })
 
 describe('recapMessageHash', () => {
   it('is the fingerprint, hashed — the same message hashes the same every time', async () => {
-    const a = await recapMessageHash(buildRecapMessage(game(), recap(), TEAMS))
-    const b = await recapMessageHash(buildRecapMessage(game(), recap(), TEAMS))
+    const a = await recapMessageHash(buildRecapMessage(game(), recap(), TEAMS, GAME_URL))
+    const b = await recapMessageHash(buildRecapMessage(game(), recap(), TEAMS, GAME_URL))
     expect(a).toBe(b)
     expect(a).toMatch(/^[0-9a-f]{32}$/)
   })
@@ -167,8 +169,8 @@ describe('recapMessageHash', () => {
     // The edge function posts a final the moment the ingest sees it; the scheduled job then
     // compares this hash to decide whether to edit. Both compute it here, so an unchanged
     // game must produce an unchanged hash or the job would re-edit a fresh message forever.
-    const before = await recapMessageHash(buildRecapMessage(game(), recap(), TEAMS))
-    const after = await recapMessageHash(buildRecapMessage(game(), recap({ headline: 'Hunters rout Heights' }), TEAMS))
+    const before = await recapMessageHash(buildRecapMessage(game(), recap(), TEAMS, GAME_URL))
+    const after = await recapMessageHash(buildRecapMessage(game(), recap({ headline: 'Hunters rout Heights' }), TEAMS, GAME_URL))
     expect(after).not.toBe(before)
   })
 })

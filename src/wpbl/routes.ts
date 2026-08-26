@@ -18,7 +18,13 @@
 // The one exception to the no-imports rule. slug.ts is itself dependency-free, and it is
 // deliberately the single definition of name-to-slug shared by the app and the Pages
 // Function, so re-deriving it here is exactly the drift that file exists to prevent.
-import { slugifyName } from './slug'
+//
+// THE `.ts` IS LOAD-BEARING. This module is now reached from Deno inside `wpbl-ingest`
+// (announce-final.ts builds a game's URL for the Discord recap), and Deno resolves a local
+// specifier literally: extensionless, it simply does not find the file, and the ingest's
+// announce step fails at import time. Vite and esbuild both accept the explicit extension,
+// and tsconfig has `allowImportingTsExtensions`, so it costs the other two builds nothing.
+import { slugifyName } from './slug.ts'
 
 export type WpblView = 'home' | 'schedule' | 'standings' | 'stats' | 'teams'
 

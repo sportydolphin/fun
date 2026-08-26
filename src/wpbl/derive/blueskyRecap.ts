@@ -58,8 +58,12 @@ export function finalTag(recap: GameRecap): string {
  * On the 20 finals to Aug 23 the untrimmed post ran 228 to 308 graphemes, so this fires rarely
  * and matters absolutely when it does: over the cap is not a long post, it is no post.
  */
-export function buildBlueskyPost(game: WpblGame, recap: GameRecap, teams: Map<string, WpblTeam>): BlueskyPost {
-  const url = `${SITE}/wpbl?game=${game.id}`
+export function buildBlueskyPost(game: WpblGame, recap: GameRecap, teams: Map<string, WpblTeam>, gameUrl: string): BlueskyPost {
+  // Required, and passed in rather than built here, for the reasons on buildRecapMessage.
+  // It matters more on this side: these posts are public and crawlable, so each one is an
+  // inbound link to a distinct page, and inbound links are the one thing the section cannot
+  // ship its way out of. Pointed at the legacy `?game=` spelling they all land on a 301.
+  const url = gameUrl
   const score = `${recap.winner.name} ${recap.winnerScore}, ${recap.loser.name} ${recap.loserScore} (${finalTag(recap)})`
   const stars = recap.stars.slice(0, 2).map(s => `${s.name} ${s.statline}`)
 

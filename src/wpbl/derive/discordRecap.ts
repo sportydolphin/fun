@@ -102,7 +102,16 @@ export function lineScoreBlock(game: WpblGame, recap: GameRecap, teams: Map<stri
 }
 
 /** The whole message for one finished game. */
-export function buildRecapMessage(game: WpblGame, recap: GameRecap, teams: Map<string, WpblTeam>): DiscordRecapMessage {
+/**
+ * `gameUrl` is REQUIRED rather than built here, and required rather than optional.
+ *
+ * Built here it would have to be `/wpbl?game=<uuid>`, which is all this module has the
+ * inputs for: the canonical `/wpbl/games/<date>-<away>-at-<home>` needs the whole schedule
+ * to know whether that slug is ambiguous, and a wording function has no business holding a
+ * schedule. Optional, and a caller that forgot it would silently go on posting the legacy
+ * URL, which still resolves (the edge 301s it) and so would never look broken.
+ */
+export function buildRecapMessage(game: WpblGame, recap: GameRecap, teams: Map<string, WpblTeam>, gameUrl: string): DiscordRecapMessage {
   const fields: DiscordEmbedField[] = []
   if (recap.stars.length) {
     fields.push({
@@ -126,7 +135,7 @@ export function buildRecapMessage(game: WpblGame, recap: GameRecap, teams: Map<s
     allowed_mentions: { parse: [] },
     embeds: [{
       title: recap.headline,
-      url: `${SITE}/wpbl?game=${game.id}`,   // opens the game center, on its Recap tab
+      url: gameUrl,   // the game's own page, which opens on its Recap tab
       color: embedColor(teams.get(recap.winner.id)),
       // A BLANK line before the fence, not just a newline. Discord draws a code block as a
       // filled box with a border, and one newline puts that box hard against the last line of

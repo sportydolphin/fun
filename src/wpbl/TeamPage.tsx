@@ -12,6 +12,7 @@ import {
 import { outsToIp } from './constants'
 import { useEraBasis } from './EraBasisContext'
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
+import { useWpblHeadingTag } from './PageHeading'
 import LineupHistory from './LineupHistory'
 import PitchingUsage from './PitchingUsage'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblLineupHistoryRow, WpblPitchingUsageRow } from './types'
@@ -279,6 +280,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   const accent = wpblAccent(team.id, isDark)
   const shortName = useWpblName()
   const playerLink = useWpblPlayerLink()
+  const headingTag = useWpblHeadingTag()
   const { fmtEra, fmtK, kLabel } = useEraBasis()
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
@@ -477,7 +479,10 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
         <TeamBadge team={team} size={52} />
         <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ fontSize: '1.25rem', fontWeight: 900, lineHeight: 1.1 }}>{wpblFullName(team)}</Typography>
+          {/* The page's heading. A selected club replaces the Teams grid, which is why that
+              grid's own h1 is not also on screen; this drops to a plain div if a player or
+              game modal opens over it. See PageHeading.tsx. */}
+          <Typography component={headingTag} sx={{ fontSize: '1.25rem', fontWeight: 900, lineHeight: 1.1, m: 0 }}>{wpblFullName(team)}</Typography>
           <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{recordText}</Typography>
         </Box>
       </Box>

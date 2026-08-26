@@ -538,6 +538,56 @@ is retired.
 
 ## Shipped log
 
+### Aug 26, 2026: every page says what it is, and the recaps point at one (v1.51.1)
+
+The two loose ends the [linking audit](#aug-26-2026-the-section-stops-being-a-place-with-no-links-in-it-v1510)
+left, both of them the same shape: a page that exists and does not identify itself.
+
+**No page drawn as a modal had a heading of its own.** A player page, a team page and now a
+game page are real pages with their own URL, title, canonical and sitemap entry, drawn over
+whichever tab they were opened from. The tab underneath kept rendering its `<h1>`, and the
+modal rendered none, so **139 of the sitemap's 168 URLs** answered "what is this page about"
+with "Women's Pro Baseball League", and the player's own name was not a heading of any level.
+That is the first thing a screen reader announces on arrival and near the top of what a
+crawler reads.
+
+The fix is **not a second `<h1>`**. It is that the tab stops claiming to be the page when it
+is not: [`PageHeading.tsx`](src/wpbl/PageHeading.tsx) holds one flag, the five tab titles
+render as a plain `div` while a modal owns the page (keeping every pixel of their styling),
+and the modal supplies the one heading. Verified at every step of tab → team → player and
+back: exactly one `h1`, always naming the page you are on.
+
+Game Center's is **deliberately not drawn**. It shows no written headline on purpose, because
+the line score sits at the top of the sheet with the winner in bold and "Hunters beat Queens"
+above it would spend 87px of a phone restating it (the reasoning is in
+[`RecapCard.tsx`](src/wpbl/RecapCard.tsx), next to the omission). That is right for the design
+and left the page with no heading at all, so it gets a clipped one matching its `<title>` word
+for word. Clipped rather than `display: none`, which would take it back out of the
+accessibility tree and undo the point of it.
+
+**The recap posters were still on the old URL.** Bluesky and Discord both posted
+`/wpbl?game=<uuid>`, which since the morning only reaches the game through a 301. The Bluesky
+half is the one that matters: those posts are public and crawlable, so each finished game is
+an inbound link to a distinct page, and inbound links are the one input
+[§3](#3-seo-follow-through-️-the-code-half-is-done-links-are-the-brake) says cannot be
+shipped. Spent on a redirect they are worth less than they cost to make.
+
+`buildRecapMessage` and `buildBlueskyPost` now take the URL as a **required** argument rather
+than building it. Built there it could only ever be the uuid form, since the canonical slug
+needs the whole schedule to know it is unambiguous and a wording function has no business
+holding a schedule. Required rather than optional because a caller that forgot it would go on
+posting a URL that still resolves, and so would never look broken.
+
+**One trap this walked into, now pinned.** `routes.ts` entered the Deno import graph for the
+first time (the ingest's announce step builds the game's URL), carrying an extensionless
+`import { slugifyName } from './slug'`. Deno resolves a local specifier literally, so that is
+a file that does not exist, and it would have failed at import time in a job nobody watches
+while Vite, esbuild and `npm run test` all stayed green. Deno is not a dev dependency, so
+there is no local reproduction either.
+[`__tests__/denoGraph.test.ts`](src/wpbl/__tests__/denoGraph.test.ts) now walks the graph from
+the ingest entry and fails on any extensionless runtime import, which is the check that rule
+in `CLAUDE.md` never had.
+
 ### Aug 26, 2026: the section stops being a place with no links in it (v1.51.0)
 
 Found by auditing the live site rather than by reading the roadmap, which is the only reason

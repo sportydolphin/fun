@@ -22,6 +22,7 @@ import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import { useExperiments } from '../ExperimentsContext'
 import { useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
+import { useWpblHeadingTag } from './PageHeading'
 import { useEraBasis } from './EraBasisContext'
 // Two of the five Stats groups, behind their own chunks. Hitting and Pitching are what the
 // tab opens on; Tracking (the TrackMan boards) and Draft (the draft-value model) are each a
@@ -376,6 +377,7 @@ export default function WpblStatsView({
   // 13-character "Denae Benites" became "D. Benites". 0 abbreviates every phone row alike.
   const shortName = useWpblName(0)
   const playerLink = useWpblPlayerLink()
+  const headingTag = useWpblHeadingTag()
   const isNarrow = useMediaQuery('(max-width:600px)')
   const experiments = useExperiments()
   const { basis: eraBasis, offLeague: eraOffLeague, setBasis: setEraBasis, fmtEra } = useEraBasis()
@@ -927,7 +929,7 @@ export default function WpblStatsView({
           of the thing below. It lines up with the left edge of the board now. Same measure as
           the table (`fullBleedSx`), not the bar's, which is deliberately wider still and gives
           the difference back as padding, so the two agree on where content starts. */}
-      <Typography component="h1" sx={{
+      <Typography component={headingTag} sx={{
         ...fullBleedSx,
         fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, mb: 1,
       }}>

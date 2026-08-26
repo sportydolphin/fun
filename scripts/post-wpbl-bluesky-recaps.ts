@@ -52,6 +52,7 @@ import { Resvg } from '@resvg/resvg-js'
 import subsetFont from 'subset-font'
 import { buildRecap, leagueRecapContext } from '../src/wpbl/derive/recap'
 import { buildBlueskyPost, boxScoreCard, cardCharset, linkFacets, graphemes } from '../src/wpbl/derive/blueskyRecap'
+import { wpblGamePath } from '../src/wpbl/routes'
 import type { WpblGame, WpblTeam, WpblBattingLine, WpblPitchingLine, WpblGamePlay } from '../src/wpbl/types'
 
 // ─── Config ─────────────────────────────────────────────────────────────────
@@ -273,7 +274,11 @@ async function main() {
       (id: string) => nameById.get(id) ?? 'Unknown', ctx)
     if (!recap) { console.warn(`⚠️   ${game.id}: no recap could be built, skipping.`); continue }
 
-    const post = buildBlueskyPost(game, recap, teams)
+    // Schemeless on purpose: the post TEXT reads better without a scheme and `linkFacets`
+    // puts the https back on the target. This is the game's own page rather than the legacy
+    // ?game=<uuid>, which would spend every one of these public links on a 301.
+    const url = `sportydolphin.fun${wpblGamePath(game, [...teams.values()], games as WpblGame[])}`
+    const post = buildBlueskyPost(game, recap, teams, url)
     const png = await renderCard(boxScoreCard(game, recap, teams))
 
     if (DRY_RUN) {

@@ -983,7 +983,10 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
           <PlayerPortrait name={player.name} teamId={player.team_id} square size={84} />
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-              <Typography sx={{ fontSize: { xs: '1.2rem', sm: '1.4rem' }, fontWeight: 800, lineHeight: 1.15, color: '#fff' }}>
+              {/* The page's <h1>. A player page is a modal over a tab but it is a real page
+                  with its own URL and title, and the tab underneath stops rendering an h1
+                  while this is open; see PageHeading.tsx. */}
+              <Typography component="h1" sx={{ fontSize: { xs: '1.2rem', sm: '1.4rem' }, fontWeight: 800, lineHeight: 1.15, color: '#fff', m: 0 }}>
                 {player.name}
               </Typography>
               {twoWay && (

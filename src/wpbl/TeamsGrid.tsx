@@ -6,6 +6,7 @@ import { TeamBadge, pressable, FOCUS_RING, CARD_BORDER, useWpblDark } from './ui
 import { fmtSigned } from './stats'
 import HeadToHead from './HeadToHead'
 import type { WpblTeam, WpblGame, WpblStandingRow } from './types'
+import { useWpblHeadingTag } from './PageHeading'
 
 /**
  * The Teams tab's landing screen: one card per club, in standings order.
@@ -253,12 +254,13 @@ export default function TeamsGrid({ teams, games, onSelect }: {
     () => new Map(teams.map(t => [t.id, fixtureFor(t.id, games, byId)])),
     [teams, games, byId])
   const ranked = rows.some(r => r.wins + r.losses > 0)
+  const headingTag = useWpblHeadingTag()
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {/* The page's one <h1>: /wpbl/teams. A selected team renders TeamPage instead, which
           carries the club name as its own heading. */}
-      <Typography component="h1" sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+      <Typography component={headingTag} sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2 }}>
         WPBL Teams
       </Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>

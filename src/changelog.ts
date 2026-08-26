@@ -4,6 +4,21 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.51.1',
+    date:    '2026-08-26',
+    title:   'Every page now says what it is',
+    changes: [
+      {
+        short: 'A player page is headed by the player, not by the league',
+        full:  'Player pages, team pages and game pages are drawn over whichever tab you opened them from, and the heading of that tab was still the heading of the page: every player page announced itself as “Women’s Pro Baseball League”, and the player’s own name was not a heading at all. That is what a screen reader reads out on arrival and what a search engine reads first. Each of those pages now carries its own name, and Game Center has one for the first time, matching the score line in its title.',
+      },
+      {
+        short: 'Shared game recaps link straight to the game',
+        full:  'The Bluesky and Discord posts for a finished game pointed at the old address, which now only reaches the game through a redirect. They point at the game’s own page, so the link says the final score and the date before anyone opens it.',
+      },
+    ],
+  },
+  {
     version: '1.51.0',
     date:    '2026-08-26',
     title:   'Every player and every game now has a link you can actually use',

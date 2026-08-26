@@ -11,6 +11,8 @@ import { GameStoryCard } from './Reading'
 import { GameRecapView, preloadWinProb } from './RecapCard'
 import { useExperiments } from '../ExperimentsContext'
 import { useWpblPlayerLink } from './LinkContext'
+import { WpblVisuallyHiddenH1 } from './PageHeading'
+import { wpblGameCard } from './ogCard'
 import { ModalShell, SegNav, TapTip, TeamBadge, pressable, FOCUS_RING, useWpblDark, useWpblName, wpblFeatureName } from './ui'
 import SwipeableViews from './SwipeableViews'
 import { parsePlay, runsOnPlay } from './derive/playByPlay'
@@ -1231,6 +1233,12 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
         flex: { xs: '1 1 0%', sm: '0 1 auto' },
         maxHeight: { xs: 'none', sm: '100%' },
       }}>
+        {/* The page's <h1>, matching the <title> word for word, and not drawn. Game Center
+            deliberately shows no written headline (the line score below says it better; the
+            reasoning is in RecapCard next to the omission), which left a real page with its
+            own URL carrying no heading at all for a screen reader or a crawler. */}
+        <WpblVisuallyHiddenH1>{wpblGameCard(game, teams).ogTitle}</WpblVisuallyHiddenH1>
+
         {/* Score header — one combined scoreboard for a played game (teams + line + R/H/E),
             or a plain name matchup for an unplayed one. */}
         <Box sx={{ flexShrink: 0, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>

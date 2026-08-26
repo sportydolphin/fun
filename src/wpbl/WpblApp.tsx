@@ -30,6 +30,7 @@ import {
   type WpblView,
 } from './routes'
 import { WpblLinkProvider, useWpblGameLink } from './LinkContext'
+import { WpblHeadingOwnerProvider, useWpblHeadingTag } from './PageHeading'
 import { wpblGameCard } from './ogCard'
 import { setDynamicSeo } from '../seo'
 
@@ -145,6 +146,7 @@ function ScheduleView({ teams, games, onOpenGame }: {
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const isDark = useWpblDark()
   const gameLink = useWpblGameLink()
+  const headingTag = useWpblHeadingTag()
   // Season-to-date record per team, so upcoming games can show each side's W-L.
   const recordById = useMemo(() => {
     const m = new Map<string, string>()
@@ -289,8 +291,9 @@ function ScheduleView({ teams, games, onOpenGame }: {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
-      {/* The page's one <h1>: /wpbl/schedule, named for what someone would search. */}
-      <Typography component="h1" sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, mb: 0.25 }}>
+      {/* The page's one <h1>: /wpbl/schedule, named for what someone would search. Demoted to
+          a plain div while a game or player modal is the page; see PageHeading.tsx. */}
+      <Typography component={headingTag} sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, mb: 0.25 }}>
         WPBL Schedule
       </Typography>
       {lead.map(renderDate)}
@@ -304,6 +307,7 @@ function StandingsView({ teams, games, onOpenTeam }: {
   teams: WpblTeam[]; games: WpblGame[]; onOpenTeam?: (t: WpblTeam) => void
 }) {
   const rows = useMemo(() => computeStandings(teams, games), [teams, games])
+  const headingTag = useWpblHeadingTag()
   // Opt-in, like the bracket on Home. It reads nothing the table below it does not, and it is
   // the one card here that makes a forward-looking claim ("8 to lock 1st") rather than
   // reporting a result, so off stays the shipped view.
@@ -323,7 +327,7 @@ function StandingsView({ teams, games, onOpenTeam }: {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
     {/* The page's one <h1>. This is /wpbl/standings, a distinct route with its own title, so
         it gets a heading that names the term someone would search ("WPBL standings"). */}
-    <Typography component="h1" sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+    <Typography component={headingTag} sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2 }}>
       WPBL Standings
     </Typography>
     <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden' }}>
@@ -1152,6 +1156,9 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     // club's list would mint a bare slug for a name someone on another club also holds. See
     // LinkContext.tsx.
     <WpblLinkProvider roster={players} schedule={games} teams={teams}>
+    {/* While a player or game modal is open it IS the page, so the tab underneath stops
+        rendering an <h1> and the modal supplies it. See PageHeading.tsx. */}
+    <WpblHeadingOwnerProvider owned={!detailPlayer && !detailGame}>
     {/* Cap + center on wide screens (site convention); full width on mobile.
         On mobile, pull up to trim most of the app's top gutter (p:2) above the pill nav: the
         toolbar already sits right above it, so the extra gap just reads as dead space at rest. */}
@@ -1281,6 +1288,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         </Suspense>
       )}
     </Box>
+    </WpblHeadingOwnerProvider>
     </WpblLinkProvider>
   )
 }

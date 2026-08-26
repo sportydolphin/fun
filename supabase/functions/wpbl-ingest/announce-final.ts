@@ -18,6 +18,9 @@
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { buildRecap, leagueRecapContext } from '../../../src/wpbl/derive/recap.ts'
 import { buildRecapMessage, recapMessageHash } from '../../../src/wpbl/derive/discordRecap.ts'
+// `.ts` because Deno resolves local specifiers literally. routes.ts carries the same
+// extension on its own import for this reason; see the note there.
+import { wpblGamePath } from '../../../src/wpbl/routes.ts'
 
 export async function announceFinal(db: SupabaseClient, gameUuid: string): Promise<void> {
   const webhook = Deno.env.get('DISCORD_RECAP_WEBHOOK_URL') ?? ''
@@ -58,7 +61,10 @@ export async function announceFinal(db: SupabaseClient, gameUuid: string): Promi
       return
     }
 
-    const message = buildRecapMessage(game as any, recap, teams as any)
+    // The game's own page. `allGames` is already in hand above, and it has to be: a slug is
+    // only unambiguous relative to the whole schedule.
+    const url = `https://sportydolphin.fun${wpblGamePath(game as any, [...(teams as any).values()], (allGames ?? []) as any)}`
+    const message = buildRecapMessage(game as any, recap, teams as any, url)
     const res = await fetch(`${webhook}?wait=true`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

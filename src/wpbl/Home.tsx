@@ -13,6 +13,7 @@ import {
 } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
+import { useWpblHeadingTag } from './PageHeading'
 import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, wpblFeatureName, CARD_BORDER } from './ui'
 import { LiveHero } from './Live'
 import PlayoffBracket from './PlayoffBracket'
@@ -1109,6 +1110,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   onViewTracking: () => void
 }) {
   const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
+  const headingTag = useWpblHeadingTag()
 
   // Leaders + tracking data, fetched here so only the home view pays for it. Seeded from the
   // shared session cache so swiping back to Home (the default tab, so the most re-entered)
@@ -1243,7 +1245,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
               search) while the <title> in seo.ts leads with "WPBL Stats"; between them the
               home page covers both the brand term and the acronym people actually type. Every
               other WPBL tab is a separate route with its own h1. */}
-          <Typography component="h1" sx={{ fontSize: '1.05rem', fontWeight: 600, letterSpacing: '-0.3px', lineHeight: 1.15 }}>
+          <Typography component={headingTag} sx={{ fontSize: '1.05rem', fontWeight: 600, letterSpacing: '-0.3px', lineHeight: 1.15 }}>
             Women's Pro Baseball League
           </Typography>
         </Box>

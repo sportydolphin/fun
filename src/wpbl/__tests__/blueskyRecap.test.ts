@@ -42,12 +42,16 @@ const recap = (over: Partial<GameRecap> = {}): GameRecap => ({
   ...over,
 } as GameRecap)
 
+// Schemeless, the way the sender builds it: the post text reads better without a scheme and
+// `linkFacets` puts the https back on the link target.
+const GAME_URL = 'sportydolphin.fun/wpbl/games/2026-08-22-queens-at-hunters'
+
 describe('the post fits', () => {
   it('stays under the cap and keeps the score and the link', () => {
-    const post = buildBlueskyPost(game(), recap(), teams)
+    const post = buildBlueskyPost(game(), recap(), teams, GAME_URL)
     expect(graphemes(post.text)).toBeLessThanOrEqual(POST_LIMIT)
     expect(post.text).toContain('Hunters 7, Queens 3 (F)')
-    expect(post.text).toContain('sportydolphin.fun/wpbl?game=g1')
+    expect(post.text).toContain(GAME_URL)
   })
 
   it('drops the stars before the narrative when it has to', () => {
@@ -57,7 +61,7 @@ describe('the post fits', () => {
       blurb: `The Hunters pulled away for a 7-3 win. ${'x'.repeat(170)}`,
       stars: [{ playerId: 'p1', name: 'Someone With A Long Name', teamId: BOS.id, kind: 'bat', statline: '4-5, 2 HR, 6 RBI', score: 9 }],
     })
-    const post = buildBlueskyPost(game(), long, teams)
+    const post = buildBlueskyPost(game(), long, teams, GAME_URL)
     expect(graphemes(post.text)).toBeLessThanOrEqual(POST_LIMIT)
     expect(post.text).toContain('The Hunters pulled away')
     expect(post.text).not.toContain('Someone With A Long Name')
@@ -68,11 +72,11 @@ describe('the post fits', () => {
     // worth publishing. Cut by grapheme: slicing mid-character puts a replacement glyph in
     // public, and only ever on the players with accents in their names.
     const huge = recap({ blurb: `Maïka Dumais ${'y'.repeat(400)}` })
-    const post = buildBlueskyPost(game(), huge, teams)
+    const post = buildBlueskyPost(game(), huge, teams, GAME_URL)
     expect(graphemes(post.text)).toBeLessThanOrEqual(POST_LIMIT)
     expect(post.text).toContain('Maïka Dumais')
     expect(post.text).toContain('…')
-    expect(post.text).toContain('sportydolphin.fun/wpbl?game=g1')
+    expect(post.text).toContain(GAME_URL)
   })
 
   it('counts graphemes, not UTF-16 units', () => {

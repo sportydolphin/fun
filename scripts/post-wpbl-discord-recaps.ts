@@ -40,6 +40,7 @@ import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
 import { buildRecap, leagueRecapContext } from '../src/wpbl/derive/recap'
 import { buildRecapMessage, recapMessageHash } from '../src/wpbl/derive/discordRecap'
+import { wpblGamePath } from '../src/wpbl/routes'
 import type { WpblGame, WpblTeam, WpblBattingLine, WpblPitchingLine, WpblGamePlay } from '../src/wpbl/types'
 
 // ─── Config ─────────────────────────────────────────────────────────────────
@@ -242,7 +243,10 @@ async function main(): Promise<void> {
     const recap = buildRecap(game, teams, battingBy.get(game.id) ?? [], pitchingBy.get(game.id) ?? [],
       playsBy.get(game.id) ?? [], nameOf, ctx)
     if (!recap) continue
-    const payload = buildRecapMessage(game, recap, teams)
+    // The game's own page, not the legacy ?game=<uuid>, which now only reaches it through a
+    // 301. The whole schedule goes in because a slug is only unambiguous relative to it.
+    const url = `${SITE}${wpblGamePath(game, [...teams.values()], games)}`
+    const payload = buildRecapMessage(game, recap, teams, url)
     const hash = await recapMessageHash(payload)
     const existing = posts.get(game.id)
 
