@@ -484,8 +484,10 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
 
 **The league.** Inaugural season Aug 1 – Sep 6, 2026, postseason Sep 9 – Sep 22. Four teams
 (Boston Hunters, LA Queens, NY Heights, SF Firebells), 30 regular-season games (15 each), all
-at one hub venue (Robin Roberts Stadium, Springfield IL). **Seven-inning games**: ERA is
-computed over 7, not 9. **Postseason:** all four teams qualify · semifinals best-of-3 ·
+at one hub venue (Robin Roberts Stadium, Springfield IL). **Seven-inning games**, but ERA is
+computed over **9**, because the league publishes it that way and so does everyone reprinting
+it (see the Aug 26 log entry; a reader can switch to 7 in Settings, and nothing that leaves the
+site does). **Postseason:** all four teams qualify · semifinals best-of-3 ·
 finals best-of-5, so 7–11 games follow Sep 6 (up to 8 more for a finalist).
 
 **The published postseason schedule.** Every game 7:30 p.m. ET on ESPN+. An asterisk is

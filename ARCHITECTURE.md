@@ -129,7 +129,10 @@ flowchart LR
 ```
 
 - **Shared shell:** toolbar with search bridge, theme (`ThemeContext`), units
-  (`UnitsContext`), auth (`AuthContext`), accessibility prefs
+  (`UnitsContext`), the WPBL innings basis for ERA
+  ([`EraBasisContext`](src/wpbl/EraBasisContext.tsx): mounted in the shell rather than in
+  `/wpbl` because the Settings dialog is shell chrome and has to reach it from either
+  section), auth (`AuthContext`), accessibility prefs
   ([`AccessibilityContext`](src/AccessibilityContext.tsx): text scale and a swipe-navigation
   opt-out), MLB⇆WPBL switch, `--app-zoom` desktop scaling.
 - **WPBL tab pager:** [`src/wpbl/SwipeableViews.tsx`](src/wpbl/SwipeableViews.tsx),
@@ -562,6 +565,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - Brand icons (favicon, home screen, install tiles, social card) → [`scripts/make-brand-icons.py`](scripts/make-brand-icons.py), from [`public/logo.png`](public/logo.png)
 - Player share cards, and why og:image is not the headshot → [`scripts/make-wpbl-share-cards.py`](scripts/make-wpbl-share-cards.py), from [`src/wpbl/portraits/`](src/wpbl/portraits/) plus the club colours in [`src/wpbl/constants.ts`](src/wpbl/constants.ts). **Rerun it after a trade**: the club on the art is the club the roster named the day it was generated
 - Scoring validation + our play corrections → [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md)
+- What ERA is divided by, and why a seven-inning league gets 9 → `ERA_BASIS_CANONICAL` in [`src/wpbl/stats.ts`](src/wpbl/stats.ts) (stored value, never a setting) with the reader's override in [`src/wpbl/EraBasisContext.tsx`](src/wpbl/EraBasisContext.tsx) (display only). The reasoning and the sources it was checked against are the Aug 26, 2026 entry in [`ROADMAP-WPBL.md`](ROADMAP-WPBL.md)
 - Which position a player is listed at (the season overrides the roster) → [`src/wpbl/positions.ts`](src/wpbl/positions.ts), shared by the site, the unfurl card and the Discord bot
 - Which CLUB a player counted for (the line overrides the roster, because people get traded) → the `team_id` on each box-score line and play; the rules that recognise a trade are `tradeMatch` / `teamMoveWins` in [`supabase/functions/wpbl-ingest/names.ts`](supabase/functions/wpbl-ingest/names.ts), and `wpbl_merge_players(keep, dupe)` folds a duplicate back into one person
 - iOS / App Store plan, and the Universal Links file already live ahead of the app → [`docs/IOS.md`](docs/IOS.md), [`public/.well-known/apple-app-site-association`](public/.well-known/apple-app-site-association)

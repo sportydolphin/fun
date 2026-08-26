@@ -108,6 +108,27 @@ Each of these has already cost someone a debugging session, and none of them fai
   where a missed column means the season aggregates silently cannot see it. `tsc` catches
   none of this.
 
+- **`era` and `k9` are stored per NINE innings, and a WPBL game is seven.** The league
+  publishes per 9 and so does everyone reprinting it, so that is what the aggregates hold
+  (`ERA_BASIS_CANONICAL` in [`src/wpbl/stats.ts`](src/wpbl/stats.ts)). A reader who prefers
+  the honest denominator flips a setting and the app rescales at DISPLAY time
+  (`scaleToBasis`), which is safe only because both stats are linear in the multiplier, so
+  no sort, rank or comparison moves. **Do not reintroduce a per-7 value into an aggregate.**
+  The OG share cards and the Discord `/player` card read the stored number and deliberately
+  have no parameter to opt in: a per-7 value in `sumPitching` silently republishes figures
+  that disagree with the league, to people who never opened the site. Two functions each
+  holding their own basis is the other failure, where a leaderboard and the player page it
+  opens disagree and neither is wrong. `__tests__/eraBasis.test.ts` pins both.
+
+- **`--app-header-h` / `--wpbl-nav-h` are LAYOUT pixels, not what the rect measures.** Both
+  are spent as a sticky `top`, and `/wpbl` and `/mlb` sit inside a `zoom: 1.4` wrapper at
+  `md` (`DESKTOP_ZOOM`). A sticky `top` there resolves BEFORE the zoom;
+  `getBoundingClientRect()` reports AFTER it. Publish the raw rect height and whatever sticks
+  below pins 40% too far down, opening a band the page scrolls through in full view, with
+  nothing in the console. `offsetHeight` gets the units right and rounds to a whole pixel,
+  which leaves a sub-pixel crack doing the same thing one device pixel at a time. It has
+  regressed once each way: divide the rect height by `--app-zoom` and you get both.
+
 - **Modules shared with Deno carry `.ts` on their imports.** The recap engine
   ([`recap.ts`](src/wpbl/derive/recap.ts), [`discordRecap.ts`](src/wpbl/derive/discordRecap.ts))
   is loaded by three builds: Vite, the esbuild bundle behind `npm run discord-recaps`, and
