@@ -1,6 +1,7 @@
 import {
   aggregateBatting, aggregatePitching, wpblQualifiers, fmtRate, fmtTwo,
-  type WpblQualifiers,
+  scaleToBasis, kRateLabel, ERA_BASIS_CANONICAL,
+  type WpblQualifiers, type EraBasis,
 } from './stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
 
@@ -66,19 +67,19 @@ export const WPBL_BAT_RANK_DEFS: WpblStatRankDef[] = [
   { key: 'k%',  label: 'K%',  group: 'batting', better: 'low'  },
 ]
 
-/** K/7 rather than K/9: WPBL games are seven innings, and `sumPitching` already computes it
- *  on that basis. K/BB is the control stat that ERA and WHIP both blur. */
+/** K/BB is the control stat that ERA and WHIP both blur. The K rate's label is not fixed
+ *  here: the reader's innings basis names it, via `kRateLabel`. */
 export const WPBL_PIT_RANK_DEFS: WpblStatRankDef[] = [
   { key: 'era',  label: 'ERA',  group: 'pitching', better: 'low'  },
   { key: 'whip', label: 'WHIP', group: 'pitching', better: 'low'  },
-  { key: 'k7',   label: 'K/7',  group: 'pitching', better: 'high' },
+  { key: 'k9',   label: 'K/9',  group: 'pitching', better: 'high' },
   { key: 'kbb',  label: 'K/BB', group: 'pitching', better: 'high' },
 ]
 
 const FORMAT: Record<string, (n: number) => string> = {
   avg: fmtRate, obp: fmtRate, slg: fmtRate, ops: fmtRate,
   hr: n => String(Math.round(n)), 'k%': n => `${(n * 100).toFixed(1)}%`,
-  era: fmtTwo, whip: fmtTwo, k7: n => n.toFixed(1), kbb: n => n.toFixed(2),
+  era: fmtTwo, whip: fmtTwo, k9: n => n.toFixed(1), kbb: n => n.toFixed(2),
 }
 
 export interface WpblPlayerRanks {
@@ -111,6 +112,9 @@ export function computeWpblPlayerRanks(
   games: WpblGame[],
   battingLines: WpblBattingLine[],
   pitchingLines: WpblPitchingLine[],
+  /** What the printed ERA and K rate are shown on. Ordering is basis-invariant, so this
+   *  only reaches the `display` strings. */
+  basis: EraBasis = ERA_BASIS_CANONICAL,
 ): WpblPlayerRanks {
   const qualifiers = wpblQualifiers(teams, games)
   if (!qualifiers.active) {
@@ -143,16 +147,23 @@ export function computeWpblPlayerRanks(
   }
   const pitValue = (key: string, t: (typeof pitSeasons)[number]['totals']): number | null => {
     switch (key) {
-      case 'era':  return t.era
+      // Rescaled, so the printed value under the strip matches the hero stat above it. The
+      // ORDER cannot move: both stats are linear in the basis, so every pitcher is scaled by
+      // the same factor and the rank is the rank either way.
+      case 'era':  return scaleToBasis(t.era, basis)
       case 'whip': return t.whip
-      case 'k7':   return t.k7
+      case 'k9':   return scaleToBasis(t.k9, basis)
       case 'kbb':  return t.kbb
       default:     return null
     }
   }
 
   const batting = rankOne(playerId, batField, WPBL_BAT_RANK_DEFS, batValue)
-  const pitching = rankOne(playerId, pitField, WPBL_PIT_RANK_DEFS, pitValue)
+  // The K rate's heading moves with the basis, so it is stamped here rather than left on the
+  // def: the strip prints `label` verbatim, and "K/9" over a per-7 number is the one label on
+  // the page that can be flatly wrong rather than merely imprecise.
+  const pitDefs = WPBL_PIT_RANK_DEFS.map(d => d.key === 'k9' ? { ...d, label: kRateLabel(basis) } : d)
+  const pitching = rankOne(playerId, pitField, pitDefs, pitValue)
 
   const inBatField = batField.some(s => s.player.id === playerId)
   const inPitField = pitField.some(s => s.player.id === playerId)

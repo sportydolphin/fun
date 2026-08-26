@@ -19,6 +19,7 @@ import {
   aggregateBatting, aggregatePitching, wpblQualifiers, fmtRate, fmtTwo, fmtSigned,
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
+import { useEraBasis } from './EraBasisContext'
 import { track, EVENTS } from '../lib/analytics'
 // The dismissal key and the dev-only undo. Their own module so the dev settings menu can reach
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
@@ -1106,6 +1107,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   // shared session cache so swiping back to Home (the default tab, so the most re-entered)
   // repaints instantly instead of flashing every card's skeleton and re-pulling all three
   // datasets.
+  const { fmtEra } = useEraBasis()
   const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
@@ -1205,10 +1207,10 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   ], [batSeasons, qual])
 
   const pitchingBlocks = useMemo(() => [
-    { label: 'ERA',        short: 'ERA', sortKey: 'era', rows: topPit(pitSeasons, t => (t.era == null ? null : -t.era), t => fmtTwo(t.era), t => !qual.active || t.outs >= qual.minOuts, LEADER_ROWS, t => `${outsToIp(t.outs)} IP`) },
+    { label: 'ERA',        short: 'ERA', sortKey: 'era', rows: topPit(pitSeasons, t => (t.era == null ? null : -t.era), t => fmtEra(t.era), t => !qual.active || t.outs >= qual.minOuts, LEADER_ROWS, t => `${outsToIp(t.outs)} IP`) },
     { label: 'Strikeouts', short: 'K',   sortKey: 'so',  rows: topPit(pitSeasons, t => t.so, t => String(t.so), t => t.so > 0, LEADER_ROWS, t => `${outsToIp(t.outs)} IP`) },
     { label: 'Innings',    short: 'IP',  sortKey: 'ip',  rows: topPit(pitSeasons, t => t.outs, t => outsToIp(t.outs), t => t.outs > 0) },
-  ], [pitSeasons, qual])
+  ], [pitSeasons, qual, fmtEra])
 
   const hasLines = lines.batting.length > 0 || lines.pitching.length > 0
 

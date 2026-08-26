@@ -4,6 +4,33 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.50.0',
+    date:    '2026-08-26',
+    title:   'WPBL ERA now matches the league, with a setting to change it back',
+    changes: [
+      {
+        short: 'ERA is per nine innings, the same as the official WPBL site',
+        full:  'A WPBL game is seven innings, so this site divided ERA by seven, which is what NCAA softball, high school baseball and every other seven-inning competition does. The league itself divides by nine, and so does everyone who reprints its numbers, which meant a pitcher could read 2.58 here and 3.32 on the league site with nothing to explain the gap. ERA and the strikeout rate now match the league. Nothing about who leads the league has changed: every pitcher moved by the same proportion, so the order of every leaderboard is exactly what it was.',
+      },
+      {
+        short: 'You can switch back to per seven innings',
+        full:  'Settings, under App, has a WPBL ERA basis choice. Per 9 matches the league and is the default; per 7 is the honest per-game rate, since a WPBL pitcher is never throwing those last two innings. The choice follows you across the Stats board, team pages, player pages and the game comparison card, and the strikeout column renames itself K/7 or K/9 to match. Shared links and the Discord bot always use the league\u2019s per 9, since whoever is reading those never chose anything.',
+      },
+      {
+        short: 'Less chrome above the stats boards',
+        full:  'The Run value and Pitch by pitch boards each carried a heading naming the board a second time, in different words, directly under the tab that already named it. Both are gone; the sentence explaining what the numbers mean stays. The rule under the Hitting/Pitching switch has gone with them: it was meant to appear only once the bar was pinned and something was scrolling under it, and had been showing permanently since the page gained its own title.',
+      },
+      {
+        short: 'The stats page lines up on a desktop, and stops leaking as you scroll',
+        full:  'Two things on /wpbl/stats. Its heading sat in the narrower column every other page uses while everything under it ran wider, so on a desktop it started about 120 pixels right of the board it was the title of; it lines up with the board now. And on a desktop the control bar was pinning 27 pixels below the toolbar rather than against it, so scrolling showed a band of the page sliding through the gap between them. The two edges meet.',
+      },
+      {
+        short: 'A note on the pitching board says what changed',
+        full:  'The first time you open the pitching stats after this, one line above the board explains the change and offers the switch, so a number that moved overnight is not left to be discovered. Dismiss it and it stays dismissed. If you do pick per 7, the foot of the board says so from then on, since your ERA no longer matches the one the league publishes.',
+      },
+    ],
+  },
+  {
     version: '1.49.0',
     date:    '2026-08-26',
     title:   'The player page, and everywhere a club name should have been a link',

@@ -222,17 +222,17 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer }: {
       {/* One line, and it has to carry the unit on its own: every number below is "runs" in a
           sense nobody uses at the ballpark, and a reader who takes +19.0 for runs scored has
           been misled by us rather than confused by the stat. */}
+      {/* No heading. The board tab directly above already says "Run value", and a second
+          title under it named the same board twice in two different sets of words, which
+          reads as two things rather than as one. The sentence stays: it is the part that
+          says what the numbers mean, and it has to, since every figure below is "runs" in a
+          sense nobody uses at the ballpark. */}
       <Box sx={{ maxWidth: '70ch' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-          <Typography component="h2" sx={{ fontSize: { xs: '1rem', sm: '1.1rem' }, fontWeight: 800, lineHeight: 1.2 }}>
-            What a play is worth
-          </Typography>
-          {/* The board is behind the experiments switch, and a reader who turned that on weeks
-              ago has no way to tell which of the things in front of them is the one that may
-              be wrong tomorrow. */}
-          <ExperimentalChip />
-        </Box>
-        <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mt: 0.5, lineHeight: 1.5 }}>
+        {/* The board is behind the experiments switch, and a reader who turned that on weeks
+            ago has no way to tell which of the things in front of them is the one that may
+            be wrong tomorrow. */}
+        <ExperimentalChip />
+        <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mt: 0.75, lineHeight: 1.5 }}>
           Every play leaves a team better or worse off than it was. Run value is that
           difference, counted in runs, from this league's own {table.games} games.
         </Typography>

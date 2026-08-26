@@ -10,6 +10,7 @@ import {
   type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import { outsToIp } from './constants'
+import { useEraBasis } from './EraBasisContext'
 import LineupHistory from './LineupHistory'
 import PitchingUsage from './PitchingUsage'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblLineupHistoryRow, WpblPitchingUsageRow } from './types'
@@ -274,6 +275,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   const isDark = useWpblDark()
   const accent = wpblAccent(team.id, isDark)
   const shortName = useWpblName()
+  const { fmtEra, fmtK, kLabel } = useEraBasis()
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
 
@@ -380,10 +382,10 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   // and the row ragged — and innings is a leaderboard worth having on its own merits: it's
   // the workload number, and nothing else on the page says who is carrying the staff.
   const pitLeaders = useMemo(() => [
-    { label: 'ERA', rows: top(pitSeasons, t => t.era != null && t.outs > 0 ? -t.era : null, t => fmtTwo(t.era), t => t.outs) },
+    { label: 'ERA', rows: top(pitSeasons, t => t.era != null && t.outs > 0 ? -t.era : null, t => fmtEra(t.era), t => t.outs) },
     { label: 'Strikeouts', rows: top(pitSeasons, t => t.so > 0 ? t.so : null, t => String(t.so), t => t.outs) },
     { label: 'Innings', rows: top(pitSeasons, t => t.outs > 0 ? t.outs : null, t => outsToIp(t.outs), t => t.so) },
-  ], [pitSeasons])
+  ], [pitSeasons, fmtEra])
 
   // Head-to-head. In a four-team league every club plays every other constantly, so a bare
   // "4–3 · 2nd" hides the shape of the record: a team can be unbeaten against two opponents
@@ -570,13 +572,13 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                     <SectionLabel>Pitching</SectionLabel>
                     {/* Mirrors the batting block: four rates on top, four counting stats
                         below. No W–L here — that is the record, and the record is already
-                        the first thing on the page, under the team name. K/7 and K/BB earn
+                        the first thing on the page, under the team name. The K rate and K/BB earn
                         those slots instead: this league walks a great many batters, so
                         command is the thing the raw totals hide. */}
                     <StatTiles items={[
-                      { label: 'ERA', value: fmtTwo(teamPit.era) },
+                      { label: 'ERA', value: fmtEra(teamPit.era) },
                       { label: 'WHIP', value: fmtTwo(teamPit.whip) },
-                      { label: 'K/7', value: fmtTwo(teamPit.k7) },
+                      { label: kLabel, value: fmtK(teamPit.k9) },
                       { label: 'K/BB', value: fmtTwo(teamPit.kbb) },
                       { label: 'IP', value: outsToIp(teamPit.outs) },
                       { label: 'SO', value: String(teamPit.so) },
@@ -678,7 +680,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                   const pit = pitByPid.get(p.id)
                   const bat = batByPid.get(p.id)
                   const pitcher = isPitcherPos(p.position) || (pit != null && pit.outs > 0 && (bat == null || bat.ab === 0))
-                  const stats = pitcher ? pitcherStats(pit) : batterStats(bat)
+                  const stats = pitcher ? pitcherStats(pit, fmtEra) : batterStats(bat)
                   return (
                     <Box key={p.id} {...pressable(() => onOpenPlayer(p))} sx={{
                       display: 'flex', alignItems: 'center', gap: 1.25, py: 0.9, cursor: 'pointer',
@@ -756,11 +758,11 @@ function batterStats(t: WpblBattingTotals | undefined): { label: string; value: 
     { label: 'RBI', value: String(t.rbi) },
   ]
 }
-function pitcherStats(t: WpblPitchingTotals | undefined): { label: string; value: string }[] {
+function pitcherStats(t: WpblPitchingTotals | undefined, fmtEra: (v: number | null) => string): { label: string; value: string }[] {
   if (!t || t.outs === 0) return [{ label: 'IP', value: '—' }, { label: 'ERA', value: '—' }, { label: 'SO', value: '—' }]
   return [
     { label: 'IP', value: outsToIp(t.outs) },
-    { label: 'ERA', value: fmtTwo(t.era) },
+    { label: 'ERA', value: fmtEra(t.era) },
     { label: 'SO', value: String(t.so) },
   ]
 }

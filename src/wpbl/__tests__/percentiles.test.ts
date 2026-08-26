@@ -136,8 +136,8 @@ describe('computeWpblPlayerRanks: direction', () => {
 
   it('keeps high-is-good stats pointing the other way in the same strip', () => {
     const r = computeWpblPlayerRanks('ace', players, TEAMS, GAMES, [], lines)
-    expect(r.pitching.find(x => x.key === 'k7')!.rank).toBe(1)
-    expect(r.pitching.find(x => x.key === 'k7')!.pct).toBe(1)
+    expect(r.pitching.find(x => x.key === 'k9')!.rank).toBe(1)
+    expect(r.pitching.find(x => x.key === 'k9')!.pct).toBe(1)
   })
 
   it('inverts strikeouts for a hitter, where fewer is better', () => {

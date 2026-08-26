@@ -17,6 +17,43 @@ import { countsInStandings, regularSeasonLines, type WpblSeasonGame } from './se
 // already hold. The filtering itself fails open (see season.ts), so a partial schedule
 // over-counts rather than blanking the page.
 
+// ─── The innings basis for ERA and K/9 ────────────────────────────────────────
+//
+// A WPBL game is seven innings, so the honest per-game rate is per 7, which is what every
+// other seven-inning competition publishes: NCAA and NAIA softball, Athletes Unlimited, and
+// high school baseball on MaxPreps all scale to their own game length, and Little League
+// scales to 6. This site used to as well.
+//
+// **The league does not.** womensprobaseballleague.com publishes per 9, verified against its
+// own stat page rather than assumed (2 ER in 10.0 IP is printed as 1.80, which is only per 9),
+// and so does every third party that reprints it. MLB set the same precedent for its own
+// seven-inning doubleheaders in 2020 and 2021: the game got shorter and the denominator did
+// not. So per 9 is what a reader sees for these pitchers everywhere else, and a site showing
+// 2.58 against an official 3.32 for the same arm is not the better source, it is the one that
+// looks broken. Per 9 is also, on the league's own framing, the *baseball* convention: scaling
+// to 7 quietly files a pro baseball league under the softball scoreboard.
+//
+// So: STORED PER 9, ALWAYS, everywhere, including the OG share cards and the Discord bot,
+// which are read next to league numbers by people who did not choose anything. A reader who
+// prefers the honest denominator flips one setting and the app rescales at DISPLAY time
+// (`scaleToBasis`), because both stats are linear in the multiplier and nothing that sorts,
+// ranks or compares can move when they are rescaled together. Do not reintroduce a per-7
+// value into an aggregate: the moment two functions each hold their own basis, a leaderboard
+// and the player page it opens can disagree and neither is wrong.
+export type EraBasis = 7 | 9
+
+/** What `era` and `k9` are stored on. Not a setting: see above. */
+export const ERA_BASIS_CANONICAL: EraBasis = 9
+
+/** The heading a strikeout-rate column carries, which moves with the basis. ERA and WHIP
+ *  keep their names: only this one spells its denominator out loud. */
+export const kRateLabel = (basis: EraBasis): string => `K/${basis}`
+
+/** Rescale a stored per-9 rate to what the reader asked to see. Null passes through. */
+export function scaleToBasis(v: number | null, basis: EraBasis): number | null {
+  return v == null ? null : (v * basis) / ERA_BASIS_CANONICAL
+}
+
 // Season stat aggregation from box-score lines. Rates are null when the denominator
 // is zero (no AB / no IP) so the UI can show a dash instead of NaN.
 
@@ -76,9 +113,14 @@ export function sumFielding(lines: WpblFieldingLine[]): WpblFieldingTotals {
 
 export interface WpblPitchingTotals {
   g: number; outs: number; h: number; r: number; er: number; bb: number; so: number; hr: number
-  w: number; l: number; s: number; era: number | null; whip: number | null
-  /** Strikeouts per 7 innings — the league's game length, same basis as `era`. */
-  k7: number | null
+  w: number; l: number; s: number
+  /** Earned runs per NINE innings, always, whatever the reader has the site set to. See
+   *  `ERA_BASIS_CANONICAL`: everything downstream scales this one number, so there is exactly
+   *  one place a per-7 figure can come from and no way for two surfaces to disagree. */
+  era: number | null
+  whip: number | null
+  /** Strikeouts per nine innings, canonical for the same reason `era` is. */
+  k9: number | null
   /** Strikeout-to-walk ratio. Null when nobody has walked, since the ratio has no value. */
   kbb: number | null
 }
@@ -97,16 +139,15 @@ function sumPitchingRaw(lines: WpblPitchingLine[]): WpblPitchingTotals {
     else if (l.decision === 'S') t.s++
   }
   const ip = t.outs / 3
-  // WPBL games are 7 innings, so ERA is earned runs per 7 IP (not the 9 of MLB).
-  const era = ip > 0 ? (t.er * 7) / ip : null
+  // Per NINE, which is not the length of a WPBL game. See ERA_BASIS_CANONICAL for why the
+  // stored number is the league's basis rather than the honest one.
+  const era = ip > 0 ? (t.er * ERA_BASIS_CANONICAL) / ip : null
   const whip = ip > 0 ? (t.bb + t.h) / ip : null
-  // Per 7 for the same reason ERA is: a per-9 rate would overstate every WPBL pitcher by
-  // about a third, because they are never pitching those last two innings.
-  const k7 = ip > 0 ? (t.so * 7) / ip : null
+  const k9 = ip > 0 ? (t.so * ERA_BASIS_CANONICAL) / ip : null
   // Null, not Infinity, on a staff that hasn't issued a walk — the ratio genuinely doesn't
   // exist, and fmtTwo renders null as an em dash rather than a nonsense number.
   const kbb = t.bb > 0 ? t.so / t.bb : null
-  return { ...t, era, whip, k7, kbb }
+  return { ...t, era, whip, k9, kbb }
 }
 
 // ─── Rate-stat qualifiers ──────────────────────────────────────────────────────
@@ -226,7 +267,7 @@ export function aggregatePitching(players: WpblPlayer[], lines: WpblPitchingLine
 // the same box-score lines the leaders read, so it needs no extra fetch beyond what Home
 // already caches.
 
-export type WpblTeamStatKey = 'avg' | 'obp' | 'slg' | 'ops' | 'rpg' | 'hr' | 'era' | 'whip' | 'k7'
+export type WpblTeamStatKey = 'avg' | 'obp' | 'slg' | 'ops' | 'rpg' | 'hr' | 'era' | 'whip' | 'k9'
 
 export interface WpblTeamStatValue {
   display: string
@@ -243,7 +284,7 @@ export interface WpblTeamStatDef {
   better: 'high' | 'low'
 }
 
-// Render order for the comparison table. K/7 (not K/9) because WPBL games are 7 innings.
+// Render order for the comparison table. The K label is not fixed here: see `teamStatLabel`.
 export const WPBL_TEAM_STAT_DEFS: WpblTeamStatDef[] = [
   { key: 'avg',  label: 'AVG',  group: 'hitting',  better: 'high' },
   { key: 'obp',  label: 'OBP',  group: 'hitting',  better: 'high' },
@@ -253,7 +294,7 @@ export const WPBL_TEAM_STAT_DEFS: WpblTeamStatDef[] = [
   { key: 'rpg',  label: 'R/G',  group: 'hitting',  better: 'high' },
   { key: 'era',  label: 'ERA',  group: 'pitching', better: 'low'  },
   { key: 'whip', label: 'WHIP', group: 'pitching', better: 'low'  },
-  { key: 'k7',   label: 'K/7',  group: 'pitching', better: 'high' },
+  { key: 'k9',   label: 'K/9',  group: 'pitching', better: 'high' },
 ]
 
 // Per-team, per-stat ranked values for every team that has logged box-score lines. A team
@@ -265,6 +306,9 @@ export function computeWpblTeamStats(
   games: WpblGame[],
   batting: WpblBattingLine[],
   pitching: WpblPitchingLine[],
+  /** What ERA and K/9 are shown on. Defaults to the league's basis, so a caller that has no
+   *  reader to ask (a share card, a bot) gets the league's numbers without opting in. */
+  basis: EraBasis = ERA_BASIS_CANONICAL,
 ): Map<string, WpblTeamSeasonStats> {
   // Regular-season games each team has played, the denominator for R/G. It has to move in
   // step with the numerator, or a finalist's runs end up divided by a regular-season count.
@@ -301,10 +345,12 @@ export function computeWpblTeamStats(
     if (gp > 0) put('rpg', t.id, bt.r / gp)
 
     const pt = sumPitchingRaw(pitByTeam.get(t.id) ?? [])
-    put('era', t.id, pt.era)
+    // Rescaled here rather than at the render site because this map holds FORMATTED strings
+    // as well as numbers, and formatting a per-9 value under a K/7 heading is the exact
+    // mismatch the setting exists to avoid.
+    put('era', t.id, scaleToBasis(pt.era, basis))
     put('whip', t.id, pt.whip)
-    // K/7 — strikeouts per 7 innings (a full WPBL game), from innings-in-outs.
-    if (pt.outs > 0) put('k7', t.id, (pt.so * 21) / pt.outs)
+    put('k9', t.id, scaleToBasis(pt.k9, basis))
   }
 
   const fmt: Record<WpblTeamStatKey, (n: number) => string> = {
@@ -313,7 +359,7 @@ export function computeWpblTeamStats(
     hr: n => String(Math.round(n)),
     era: n => n.toFixed(2),
     whip: n => n.toFixed(2),
-    k7: n => n.toFixed(1),
+    k9: n => n.toFixed(1),
   }
 
   const out = new Map<string, WpblTeamSeasonStats>()

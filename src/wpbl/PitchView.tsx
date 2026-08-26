@@ -293,14 +293,15 @@ export default function WpblPitchView({ side, teams, games, trackedVisible, onOp
           outcome chart each ran the width of the page for a line and a half of content apiece,
           which on a desktop is a lot of empty measure and a first leaderboard pushed down for
           no reason. Side by side they read as one header block and cost half the height. */}
+      {/* No heading, same reasoning as the Run value board: the tab above says "Pitch by
+          pitch" and a second title saying it again in other words reads as a second thing.
+          The coverage claim it used to carry is in the tiles' own subtitles ("across all 16
+          games"), which is where a reader checking it would look anyway. */}
       <Box>
-        <Typography component="h2" sx={{ fontSize: { xs: '1rem', sm: '1.1rem' }, fontWeight: 800, lineHeight: 1.2 }}>
-          Every pitch, every game
-        </Typography>
         <Box sx={{
           // Stretch, not start: the two columns are one header block, so the shorter of them
           // fills the row instead of leaving a hole below it. See StatStrip.
-          mt: 1, display: 'grid', alignItems: 'stretch',
+          display: 'grid', alignItems: 'stretch',
           gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(0, 1.15fr)' },
           gap: { xs: 1.5, md: 2.5 },
         }}>

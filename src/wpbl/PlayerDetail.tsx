@@ -3,6 +3,8 @@ import { Box, Typography, CircularProgress, type Theme } from '@mui/material'
 import { fetchWpblPlayerLines, fetchWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllLines, type WpblPitchLoc } from './api'
 import { sumBatting, sumPitching, sumFielding, fmtRate, fmtTwo } from './stats'
 import { computeWpblPlayerRanks, ordinal, type WpblStatRank, type WpblPlayerRanks } from './percentiles'
+import { useEraBasis } from './EraBasisContext'
+import type { EraBasis } from './stats'
 import { wpblAccent, wpblColor, wpblSecondary, wpblFullName, outsToIp } from './constants'
 import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, SegNav, useWpblDark } from './ui'
 import SwipeableViews from './SwipeableViews'
@@ -45,9 +47,13 @@ const STAT_FULL: Record<string, string> = {
   IP: 'Innings pitched', ER: 'Earned runs', P: 'Pitches thrown', DEC: 'Decision (W/L/S/H)', OPP: 'Opponent',
   POS: 'Position played that game', FPCT: 'Fielding percentage', PO: 'Putouts', A: 'Assists', E: 'Errors', DP: 'Double plays',
   PB: 'Passed balls', SBA: 'Stolen bases allowed',
-  'K/7': 'Strikeouts per seven innings, a full WPBL game', 'K/BB': 'Strikeouts per walk',
+  'K/9': 'Strikeouts per nine innings', 'K/7': 'Strikeouts per seven innings, a full WPBL game',
+  'K/BB': 'Strikeouts per walk',
 }
-const statFull = (k: string): string => STAT_FULL[k] ?? k
+// ERA is the one abbreviation whose meaning is incomplete without its denominator, and this
+// tooltip is where a reader is already asking what a column is. Everything else is fixed.
+const statFull = (k: string, basis: EraBasis): string =>
+  k === 'ERA' ? `Earned run average, per ${basis}` : STAT_FULL[k] ?? k
 
 /**
  * Where she played THAT game, off the box-score line.
@@ -101,6 +107,7 @@ function HeroStat({ value, label, rank, primary, onDark }: {
    *  light mode. */
   onDark?: boolean
 }) {
+  const { basis: eraBasis } = useEraBasis()
   return (
     <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
       {/* One width for both rows, so the two numbers right-align into a column and the two
@@ -114,7 +121,7 @@ function HeroStat({ value, label, rank, primary, onDark }: {
       }}>
         {value}
       </Typography>
-      <TapTip title={statFull(label)} popperZIndex={TIP_Z} sx={{ flexShrink: 0 }}>
+      <TapTip title={statFull(label, eraBasis)} popperZIndex={TIP_Z} sx={{ flexShrink: 0 }}>
         <Typography sx={{
           fontSize: primary ? '0.75rem' : '0.68rem', fontWeight: 800, textTransform: 'uppercase',
           // 0.80 on the band, not 0.72. The band hero sits in the last 216px of the wash,
@@ -196,6 +203,7 @@ export const gridColumns = (n: number, cap: number): number => {
 }
 
 function StatGrid({ items }: { items: [string, string | number][] }) {
+  const { basis: eraBasis } = useEraBasis()
   // A column count that DIVIDES the item count rather than a fixed four and six. Ten batting
   // chips in six columns is 6 + 4, so the row ends in two dead cells and the block reads as a
   // grid that failed to fill rather than as a stat line.
@@ -220,7 +228,7 @@ function StatGrid({ items }: { items: [string, string | number][] }) {
       gap: 0.75,
     }}>
       {items.map(([label, value]) => (
-        <TapTip key={label} title={statFull(label)} popperZIndex={TIP_Z}
+        <TapTip key={label} title={statFull(label, eraBasis)} popperZIndex={TIP_Z}
           sx={{ textAlign: 'center', borderRadius: 1.5, bgcolor: 'action.hover', py: 0.6, px: 0.4, minWidth: 0 }}>
           <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>{label}</Typography>
           <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', lineHeight: 1.25 }}>{value}</Typography>
@@ -240,6 +248,7 @@ function StatGrid({ items }: { items: [string, string | number][] }) {
 function PercentileStrip({ ranks, of, color, noun }: {
   ranks: WpblStatRank[]; of: number; color: string; noun: string
 }) {
+  const { basis: eraBasis } = useEraBasis()
   if (ranks.length === 0) return null
   return (
     <Box sx={{ mt: 1.75 }}>
@@ -247,7 +256,7 @@ function PercentileStrip({ ranks, of, color, noun }: {
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.55 }}>
         {ranks.map(r => (
           <Box key={r.key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <TapTip title={statFull(r.label)} popperZIndex={TIP_Z} sx={{ width: 38, flexShrink: 0 }}>
+            <TapTip title={statFull(r.label, eraBasis)} popperZIndex={TIP_Z} sx={{ width: 38, flexShrink: 0 }}>
               <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>
                 {r.label}
               </Typography>
@@ -389,6 +398,7 @@ function GameLogTable({ title, statHeaders, rows, best, accent }: {
   best?: Set<string>
   accent: string
 }) {
+  const { basis: eraBasis } = useEraBasis()
   // Column index → the value to mark, for the columns that have one. Computed once for the
   // table rather than per cell, which would be O(rows²) down a forty-game log.
   const marks = useMemo(() => {
@@ -419,7 +429,7 @@ function GameLogTable({ title, statHeaders, rows, best, accent }: {
               <Box component="th" sx={{ ...thSx, textAlign: 'left' }}>Date</Box>
               <Box component="th" sx={{ ...thSx, textAlign: 'left' }}>Opp</Box>
               {statHeaders.map(h => (
-                <TapTip key={h} title={statFull(h)} component="th" popperZIndex={TIP_Z} sx={thSx}>{h}</TapTip>
+                <TapTip key={h} title={statFull(h, eraBasis)} component="th" popperZIndex={TIP_Z} sx={thSx}>{h}</TapTip>
               ))}
             </Box>
           </Box>
@@ -492,6 +502,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   onOpenGame?: (game: WpblGame) => void
 }) {
   const isDark = useWpblDark()
+  const { basis: eraBasis, fmtEra } = useEraBasis()
   const team = useMemo(() => teams.find(t => t.id === player.team_id), [teams, player.team_id])
 
   // The same canonical URL the section writes to the address bar when a player page is open
@@ -581,9 +592,9 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
 
   const ranks = useMemo(
     () => leagueLines
-      ? computeWpblPlayerRanks(player.id, players, teams, games, leagueLines.batting, leagueLines.pitching)
+      ? computeWpblPlayerRanks(player.id, players, teams, games, leagueLines.batting, leagueLines.pitching, eraBasis)
       : null,
-    [leagueLines, player.id, players, teams, games])
+    [leagueLines, player.id, players, teams, games, eraBasis])
 
   // Lead with the skill the player is actually here for. Position codes carry the signal —
   // any pitcher role contains a 'P' (RHP/LHP/P/SP/RP), and no position-player code does — so
@@ -697,7 +708,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     // ERA leads and WHIP follows, on the same reasoning as OPS over AVG: ERA is the number
     // anyone asks for and WHIP is the one that says whether it is real.
     <>
-      <HeroStat value={fmtTwo(pt.era)} label="ERA" primary onDark={onDark}
+      <HeroStat value={fmtEra(pt.era)} label="ERA" primary onDark={onDark}
         rank={ranks?.pitching.find(x => x.key === 'era')} />
       <HeroStat value={fmtTwo(pt.whip)} label="WHIP" onDark={onDark}
         rank={ranks?.pitching.find(x => x.key === 'whip')} />
@@ -749,7 +760,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
         {pitchingCameo && (
           <Typography sx={{ fontSize: '0.76rem', color: 'text.secondary', mt: 1.5, fontVariantNumeric: 'tabular-nums' }}>
             <Box component="span" sx={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, fontSize: '0.7rem', mr: 0.75 }}>Also pitched</Box>
-            {fmtTwo(pt.era)} ERA over {outsToIp(pt.outs)} IP, {pt.so} K
+            {fmtEra(pt.era)} ERA over {outsToIp(pt.outs)} IP, {pt.so} K
           </Typography>
         )}
         {ranks && (ranks.batReason === 'ok'

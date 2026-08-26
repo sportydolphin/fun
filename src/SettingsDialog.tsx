@@ -22,6 +22,7 @@ import {
 import { getCachedAllGamesPref, fetchAllGamesPref, setAllGamesPref } from './wpbl/reminders'
 import { ModalShell, pressable, FOCUS_RING } from './wpbl/ui'
 import { useUnits, type UnitSystem } from './UnitsContext'
+import { useEraBasis, type EraBasis } from './wpbl/EraBasisContext'
 import { useExperimentsSetting } from './ExperimentsContext'
 import { useAuth } from './AuthContext'
 import { passwordProblem } from './lib/passwordPolicy'
@@ -566,6 +567,7 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
 
   const { changePassword, hasPassword } = useAuth()
   const { units, setUnits } = useUnits()
+  const { basis: eraBasis, setBasis: setEraBasis } = useEraBasis()
   const { experiments, setExperiments } = useExperimentsSetting()
   const { swipeNav, setSwipeNav, textScale, setTextScale, reduceMotion, setReduceMotion } = useAccessibilitySettings()
 
@@ -852,6 +854,26 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
                 />
               }
             />
+            {/* WPBL only, because it is the only section whose pitching rates we compute
+                ourselves; MLB's arrive from StatsAPI already divided. The hint names the
+                league site on purpose: a reader who came here from a number they saw there
+                should be able to tell which of the two they are looking at without doing the
+                arithmetic. */}
+            {isWpbl && (
+              <Row
+                title="WPBL ERA basis"
+                hint={eraBasis === 9
+                  ? 'Per 9 innings, matching the official WPBL site and MLB. Also sets the strikeout rate.'
+                  : 'Per 7 innings, the length of a WPBL game. Lower than the ERA the official WPBL site shows for the same pitcher.'}
+                control={
+                  <PillGroup
+                    options={[{ key: 9 as EraBasis, label: 'Per 9' }, { key: 7 as EraBasis, label: 'Per 7' }]}
+                    value={eraBasis}
+                    onChange={setEraBasis}
+                  />
+                }
+              />
+            )}
             <Row
               title="Experimental features"
               hint="Try designs that are still being worked on. They may be rough, change without warning, or disappear. Nothing here affects your data."

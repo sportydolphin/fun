@@ -70,6 +70,9 @@ function describeSeason(
 
   const tail = 'Full stat line, game log, and fielding.'
   if (pitcherFirst) {
+    // ERA here is the league's per-9, always, and this function deliberately has no way to
+    // ask for anything else. The reader of an unfurled card did not open the site and never
+    // chose a basis; what they DID do is see a number somewhere that came from the league.
     const t = sumPitching(pitching as WpblPitchingLine[], games)
     const record = t.w || t.l ? `${t.w}-${t.l}, ` : ''
     const saves = t.s ? `, ${t.s} SV` : ''

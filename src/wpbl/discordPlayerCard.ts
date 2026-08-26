@@ -79,6 +79,8 @@ export function buildPlayerReply(
       `${bt.h}-for-${bt.ab}, ${bt.r} R, ${bt.hr} HR, ${bt.rbi} RBI, ${bt.bb} BB, ${bt.so} SO, ${bt.sb} SB`,
     ].join('\n'),
   })
+  // Per-9 ERA, same reasoning as the OG cards: a card posted into a channel is read by
+  // people who never touched the site's settings, next to the league's own numbers.
   const pitchingField = () => ({
     name: `Pitching · ${pt.g} G`,
     value: [

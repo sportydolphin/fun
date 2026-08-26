@@ -17,8 +17,11 @@ import {
   type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
+import type { EraBasis } from './stats'
 import { track, EVENTS } from '../lib/analytics'
+import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import { useExperiments } from '../ExperimentsContext'
+import { useEraBasis } from './EraBasisContext'
 // Two of the five Stats groups, behind their own chunks. Hitting and Pitching are what the
 // tab opens on; Tracking (the TrackMan boards) and Draft (the draft-value model) are each a
 // separate sub-tab with its own layout and neither is reachable without a deliberate tap.
@@ -370,6 +373,13 @@ export default function WpblStatsView({
   const shortName = useWpblName(0)
   const isNarrow = useMediaQuery('(max-width:600px)')
   const experiments = useExperiments()
+  const { basis: eraBasis, offLeague: eraOffLeague, setBasis: setEraBasis, fmtEra } = useEraBasis()
+  // Read ONCE, not on every render: `shouldShowBadge` reads localStorage, and re-reading it
+  // each pass would put the note back the moment anything else on the board re-rendered.
+  // Kept on until the reader acts, including across a switch to Hitting and back, so it is
+  // still there if they went looking for the setting first.
+  const [eraNoteOpen, setEraNoteOpen] = useState(() => shouldShowBadge('era-per-9'))
+  const dismissEraNote = () => { markBadgeSeen('era-per-9'); setEraNoteOpen(false) }
   const scrollRef = useRef<HTMLDivElement>(null)
   // Horizontal-scroll edges — drive the frozen-column shadow (not at start) and the
   // right-edge fade (not at end), so it's obvious the table scrolls sideways.
@@ -392,6 +402,7 @@ export default function WpblStatsView({
   const [expanded, setExpanded] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
   const barRef = useRef<HTMLDivElement>(null)
+  const stuckMarkRef = useRef<HTMLDivElement>(null)
   const [barStuck, setBarStuck] = useState(false)
   const [sortOpen, setSortOpen] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -404,15 +415,21 @@ export default function WpblStatsView({
   // The 5 AB / 3 IP qualifier only defaults on once every team has played 2+ games;
   // before that it would hide nearly everyone, so the complete table shows by default.
   // Is the control bar holding content under itself? Sticky gives no way to ask, so compare
-  // the bar with the box it lives in: it is the first thing in that box, so the two tops agree
-  // until the bar is pinned and the box has scrolled on without it. Cheaper than reading the
+  // the bar with a zero-height marker sitting immediately above it: the two tops agree until
+  // the bar is pinned and the page has scrolled on without it. Cheaper than reading the
   // resolved `top` off the CSS variables on every scroll event, and it needs no threshold.
+  //
+  // The marker exists because this used to compare against the bar's PARENT, on the reasoning
+  // that the bar was the first thing in it. The page-level <h1> above it broke that silently
+  // in v1.49.0: the parent's top then sits a heading's height higher, so the comparison was
+  // true at rest and the bar wore its pinned edge permanently, on a page nobody had scrolled.
+  // Anchoring to a sibling means anything added above the bar cannot do that again.
   useEffect(() => {
     const onScroll = () => {
       const el = barRef.current
-      const box = el?.parentElement
-      if (!el || !box) return
-      setBarStuck(el.getBoundingClientRect().top > box.getBoundingClientRect().top + 0.5)
+      const mark = stuckMarkRef.current
+      if (!el || !mark) return
+      setBarStuck(el.getBoundingClientRect().top > mark.getBoundingClientRect().top + 0.5)
     }
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
@@ -560,6 +577,11 @@ export default function WpblStatsView({
     }
     const cols = [...PIT_COLS]
     const eraIdx = cols.findIndex(c => c.key === 'era')
+    // ERA is stored per 9 and shown on whatever the reader chose (see stats.ts). Swapped in
+    // here rather than in PIT_COLS because that list is a module constant with no reader to
+    // ask. `value` is left on the stored number on purpose: the sort is identical either way,
+    // and leaving it alone keeps ERA+ below reading the same figure the league does.
+    cols[eraIdx] = { ...cols[eraIdx], display: t => fmtEra(t.era) }
     cols.splice(eraIdx + 1, 0, {
       key: 'eraPlus', label: 'ERA+',
       value: eraPlus,
@@ -567,7 +589,7 @@ export default function WpblStatsView({
       rate: true,
     })
     return cols
-  }, [lines.pitching])
+  }, [lines.pitching, fmtEra])
 
   const cols = (side === 'hitting' ? hitCols : pitCols) as Col<WpblBattingTotals | WpblPitchingTotals>[]
   const activeCol = cols.find(c => c.key === sortKey) ?? cols[0]
@@ -811,7 +833,12 @@ export default function WpblStatsView({
           capped ? `${LIST_CAP} of ${rows.length} ${noun}` : `${rows.length} ${noun}`,
           ...filterWords,
           '2026 season',
-        ].join(' · ')}
+          // Only when the reader has moved OFF the league's basis, and only on the pitching
+          // side. Their ERA no longer matches the one the league publishes, and that is worth
+          // a permanent three words at the foot rather than relying on a note they dismissed
+          // weeks ago. On the league's own basis it would be noise on every board.
+          side === 'pitching' && eraOffLeague ? `ERA per ${eraBasis}` : null,
+        ].filter(Boolean).join(' · ')}
         {!listView && ' · tap a column to sort'}
       </Typography>
       {/* The way into the grid and back out. At the foot rather than in the control bar: it is
@@ -885,8 +912,19 @@ export default function WpblStatsView({
     <Box>
       {/* The page's one <h1>: /wpbl/stats, the section's most-searched term. It sits above the
           sticky control bar and scrolls away with the content, leaving the bar to pin as
-          before; the bar's top offset is unaffected because this is not sticky itself. */}
-      <Typography component="h1" sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, mb: 1 }}>
+          before; the bar's top offset is unaffected because this is not sticky itself.
+
+          FULL BLEED, like everything under it. This tab is the one place in the section whose
+          content is wider than the page column, and the heading was still in that column: on a
+          desktop it started 119px right of the board tabs directly beneath it and of the table
+          under those, so it read as floating at no particular margin rather than as the title
+          of the thing below. It lines up with the left edge of the board now. Same measure as
+          the table (`fullBleedSx`), not the bar's, which is deliberately wider still and gives
+          the difference back as padding, so the two agree on where content starts. */}
+      <Typography component="h1" sx={{
+        ...fullBleedSx,
+        fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, mb: 1,
+      }}>
         WPBL Stats
       </Typography>
       {/* The control bar, pinned. A 36-row table used to scroll every control off the top,
@@ -895,19 +933,24 @@ export default function WpblStatsView({
           toolbar is sticky only on desktop, the section nav only on mobile), so the sum lands
           it just below the chrome on both without either breakpoint being special-cased here.
           Above the table's own sticky header, which pins inside the scroll box below it. */}
+      {/* Where the bar sits when nothing is pinning it. Zero height, no paint; see the
+          barStuck effect for what reads it. */}
+      <Box ref={stuckMarkRef} aria-hidden sx={{ height: 0 }} />
       <Box ref={barRef} sx={{
         position: 'sticky',
         top: 'calc(var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px))',
         zIndex: 6,
         bgcolor: 'background.default',
         pt: 1,
-        transition: 'box-shadow 0.2s, border-color 0.2s',
-        // An EDGE once it is holding something under it. Without one, rows slid up and
-        // vanished into an unexplained band of page colour below the pills, which reads as the
-        // table being eaten rather than as a bar it is passing behind. The nav above already
-        // does exactly this when it pins; this is the same treatment, so the two behave alike.
-        borderBottom: '1px solid',
-        borderColor: barStuck ? 'divider' : 'transparent',
+        transition: 'box-shadow 0.2s',
+        // An EDGE once it is holding something under it, and NOTHING before that. Without any
+        // edge, rows slide up and vanish into an unexplained band of page colour below the
+        // pills, which reads as the table being eaten rather than as a bar it is passing
+        // behind. The shadow alone carries that now: this also drew a hairline, which put a
+        // hard rule directly under the Hitting/Pitching pills and, on the boards that lead
+        // with prose rather than a table, sat across the page above the first sentence with
+        // nothing above it to separate. Two rules within 70px of each other (the board tabs
+        // draw the other) is one more than the hierarchy needs.
         boxShadow: barStuck ? '0 4px 12px rgba(0,0,0,0.06)' : 'none',
         // Four pixels of the same paint above the top edge, for the seam with the bar above.
         // Two sticky bars meeting at a shared offset agree only to within a rounding error,
@@ -974,14 +1017,39 @@ export default function WpblStatsView({
           third visual language on purpose: underline tabs are pages, this is a two-way switch
           that applies to whichever page you are on, and chips are filters. The row keeps its
           shape on every board (the right-hand controls just empty out), so the bar no longer
-          grows and shrinks under a sticky header as you move between boards. */}
+          grows and shrinks under a sticky header as you move between boards. Emptying them out
+          is not enough on its own to hold that height on a phone: see the switch below. */}
       {source !== 'draft' && (
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, rowGap: 1, pb: 1.5 }}>
-        <PillGroup
-          options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
-          value={side}
-          onChange={v => switchSide(v as Side)}
-        />
+      <Box sx={{
+        display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, rowGap: 1, pb: 1.5,
+      }}>
+        {/* Two things, both about the switch staying put as the reader moves between boards.
+            The note above claims the row keeps its shape on every board; on a desktop that was
+            already true, because the switch is the tallest thing in it and nothing else is.
+            On a phone it was not.
+
+            HEIGHT. The Sort/Filters pair on the right is 34 high against this switch's 28.7,
+            so the row stood 34 on Players and Teams and 28.7 on every board without that pair,
+            and moving between them nudged the switch and the whole board under it by five
+            pixels, under a bar that is otherwise pinned still. Reserving the taller height
+            HERE rather than on the row is deliberate: the row carries its own bottom padding,
+            so a min-height on it has to know that padding to mean anything, and would go quietly
+            wrong the day the padding changed.
+
+            WIDTH. It sits next to a pair that refuses to shrink, so on a narrow phone the flex
+            algorithm took the overflow out of the only item that could give: this one. A long
+            sort label ("Sort ERA+") is enough to do it, and the switch came out a few pixels
+            narrower on the season boards than on the others. Wrapping is the better failure. */}
+        <Box sx={{
+          flexShrink: 0, display: 'flex', alignItems: 'center',
+          minHeight: isNarrow ? 34 : undefined,
+        }}>
+          <PillGroup
+            options={[{ value: 'hitting', label: 'Hitting' }, { value: 'pitching', label: 'Pitching' }]}
+            value={side}
+            onChange={v => switchSide(v as Side)}
+          />
+        </Box>
 
         {/* Phones: the two controls that do the work, stating what they are set to. Desktop
             keeps the chips inline, where there is room for the whole filter set at once and
@@ -1042,6 +1110,17 @@ export default function WpblStatsView({
       </Box>
       )}
       </Box>
+
+      {/* Only on the season pitching board: it is the surface the numbers actually moved on,
+          and the one a reader would be comparing against the league site. Tracked and Pitches
+          are velocities and locations, which have no denominator to argue about. */}
+      {eraNoteOpen && side === 'pitching' && source === 'season' && (
+        <EraBasisNote
+          basis={eraBasis}
+          onSetBasis={b => { setEraBasis(b); dismissEraNote() }}
+          onDismiss={dismissEraNote}
+        />
+      )}
 
       {/* Tracked and Pitches each render their own boards (league tiles + ranked leaders)
           rather than the shared table: a different shape of data, not more columns. Both read
@@ -1114,6 +1193,7 @@ export default function WpblStatsView({
           </Box>
           {visibleRows.map((r, i) => (
             <StatListRow key={r.key} row={r} rank={i + 1} first={i === 0} isTeam={mode === 'teams'}
+              total={visibleRows.length}
               value={cellText(activeCol, r.totals)}
               context={contextCols.map(c => `${cellText(c, r.totals)} ${c.label}`).join(' · ')} />
           ))}
@@ -1311,7 +1391,7 @@ export default function WpblStatsView({
       )}
 
       {sortOpen && (
-        <SortSheet cols={cols} sortKey={sortKey} side={side} bestFirst={bestFirst}
+        <SortSheet cols={cols} sortKey={sortKey} side={side} eraBasis={eraBasis} bestFirst={bestFirst}
           onPick={pickSort}
           onDirection={best => setSortAsc(best ? bestAsc : !bestAsc)}
           onClose={() => setSortOpen(false)} />
@@ -1339,14 +1419,24 @@ export default function WpblStatsView({
 // The player's position, which the table shows under the name, gives its line to the three
 // context stats. A leaderboard answers "how good", and the card behind one tap answers
 // everything else, position included.
-function StatListRow({ row, rank, value, context, isTeam, first }: {
+function StatListRow({ row, rank, value, context, isTeam, first, total }: {
   row: Row
   rank: number
   value: string
   context: string
   isTeam: boolean
   first: boolean
+  /** How many rows are on screen. Only used to decide whether marking a top three says
+   *  anything: see the rank digit below. */
+  total: number
 }) {
+  // A top-three mark is a claim that three rows stand out from the rest, so it needs a rest to
+  // stand out FROM. The teams board is four clubs, where it lit 1, 2 and 3 and left 4 grey,
+  // which does not read as "these three lead" — it reads as the Hunters' number having failed
+  // to render. Nothing is marked when the marked group would not be a clear minority, so the
+  // four clubs get one colour and the ranking is carried by the order and the number on the
+  // right, which is all it was ever carried by on a board this short.
+  const marked = rank <= 3 && total > 6
   return (
     <Box {...pressable(row.onClick)} sx={{
       ...FOCUS_RING,
@@ -1361,7 +1451,7 @@ function StatListRow({ row, rank, value, context, isTeam, first }: {
       <Box sx={{
         width: 18, flexShrink: 0, textAlign: 'center', fontSize: '0.8rem', fontWeight: 800,
         fontVariantNumeric: 'tabular-nums',
-        color: rank <= 3 ? 'var(--wpbl-accent-fg)' : 'text.disabled',
+        color: marked ? 'var(--wpbl-accent-fg)' : 'text.disabled',
       }}>{rank}</Box>
 
       {isTeam
@@ -1502,19 +1592,72 @@ function SheetGroup({ title, children }: { title: string; children: React.ReactN
 // is three screenfuls of scrolling, and two columns is one and a bit, with every tile still
 // 165px wide on the narrowest phone.
 //
+// ─── "The ERA changed" notice ─────────────────────────────────────────────────
+//
+// A one-line note above the pitching board, not a dialog. The change is worth telling a
+// returning reader about (their ace's ERA moved by about a third overnight, and a number
+// moving with no explanation is how a site loses trust), but it is worth exactly one line:
+// a modal on tab-open makes every reader dismiss something before they can look at the board
+// they came for, including the majority who never saw the old number and have nothing to
+// reconcile. Interrupting them to explain a change they did not witness is worse than silence.
+//
+// It carries the SETTING rather than a link to Settings. The only reader who cares enough to
+// read this is the one who might want the old basis back, and making them go and find it in a
+// dialog two taps away is where they give up. Dismissing and switching are the same size of
+// gesture on purpose.
+//
+// Retires on the badge store's expiry (see lib/seen.ts): by the end of the feed nobody
+// arriving has seen a per-7 number here, so the note and its key can be deleted together.
+function EraBasisNote({ basis, onSetBasis, onDismiss }: {
+  basis: EraBasis
+  onSetBasis: (b: EraBasis) => void
+  onDismiss: () => void
+}) {
+  const action = (label: string, onClick: () => void) => (
+    <Box component="span" {...pressable(onClick)} sx={{
+      ...FOCUS_RING, cursor: 'pointer', borderRadius: 0.5, fontWeight: 800, whiteSpace: 'nowrap',
+      color: 'text.primary', textDecoration: 'underline', textUnderlineOffset: 2,
+    }}>{label}</Box>
+  )
+  return (
+    <Box sx={{
+      mx: { xs: 1.5, sm: 0 }, mb: 1.5, px: 1.5, py: 1.15, borderRadius: 2,
+      border: '1px solid', borderColor: 'divider', borderLeft: `3px solid ${WPBL_ACCENT}`,
+      display: 'flex', alignItems: 'baseline', gap: 1.25,
+    }}>
+      <Typography sx={{ fontSize: '0.76rem', color: 'text.secondary', lineHeight: 1.5, flex: 1, minWidth: 0 }}>
+        {basis === 9
+          ? <>ERA and the strikeout rate are now <b>per 9 innings</b>, matching the official WPBL site. They used to be per 7. </>
+          : <>ERA and the strikeout rate are <b>per 7 innings</b>, the length of a WPBL game. The official WPBL site uses per 9. </>}
+        {basis === 9
+          ? action('Show per 7', () => onSetBasis(7))
+          : action('Show per 9', () => onSetBasis(9))}
+        {' · '}
+        {action('Dismiss', onDismiss)}
+      </Typography>
+    </Box>
+  )
+}
+
 // Direction is named rather than described. "Ascending" is a fact about the sort and "best
 // first" is what the reader wants, and the two are opposites for ERA and WHIP, which is
 // exactly where getting it wrong is least forgivable.
-function SortSheet({ cols, sortKey, side, bestFirst, onPick, onDirection, onClose }: {
+function SortSheet({ cols, sortKey, side, eraBasis, bestFirst, onPick, onDirection, onClose }: {
   cols: Col<WpblBattingTotals | WpblPitchingTotals>[]
   sortKey: string
   side: Side
+  eraBasis: EraBasis
   bestFirst: boolean
   onPick: (c: Col<WpblBattingTotals | WpblPitchingTotals>) => void
   onDirection: (bestFirst: boolean) => void
   onClose: () => void
 }) {
-  const names = side === 'pitching' ? PIT_NAMES : HIT_NAMES
+  // ERA carries its denominator here and nowhere else on the board. This sheet is the one
+  // place a reader is already asking what a stat means, so it is the cheapest place to answer
+  // "which ERA is this" without putting a number on every column heading.
+  const names = side === 'pitching'
+    ? { ...PIT_NAMES, era: `Earned run average, per ${eraBasis}` }
+    : HIT_NAMES
   const groups: [string, Col<WpblBattingTotals | WpblPitchingTotals>[]][] = [
     ['Rate stats', cols.filter(c => c.rate)],
     ['Counting stats', cols.filter(c => !c.rate)],

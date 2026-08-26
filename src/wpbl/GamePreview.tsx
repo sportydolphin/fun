@@ -7,6 +7,7 @@ import {
   computeWpblTeamStats, WPBL_TEAM_STAT_DEFS,
   type WpblTeamStatValue,
 } from './stats'
+import { useEraBasis } from './EraBasisContext'
 import type { WpblTeam, WpblGame } from './types'
 
 // The WPBL game-preview matchup card — the analogue of the MLB app's GamePreview
@@ -37,6 +38,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam }: {
   onOpenTeam?: (team: WpblTeam) => void
 }) {
   const isDark = useWpblDark()
+  const { basis: eraBasis, kLabel } = useEraBasis()
   const [lines, setLines] = useState(() => getCachedWpblAllLines())
   const [failed, setFailed] = useState(false)
 
@@ -50,8 +52,8 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam }: {
   }, [])
 
   const stats = useMemo(
-    () => (lines ? computeWpblTeamStats(teams, games, lines.batting, lines.pitching) : null),
-    [lines, teams, games],
+    () => (lines ? computeWpblTeamStats(teams, games, lines.batting, lines.pitching, eraBasis) : null),
+    [lines, teams, games, eraBasis],
   )
 
   const awayStats = stats?.get(away.id)
@@ -140,7 +142,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam }: {
           fontSize: '0.56rem', fontWeight: 800, color: 'text.secondary',
           textTransform: 'uppercase', letterSpacing: 0.4, lineHeight: 1,
         }}>
-          {def.label}
+          {def.key === 'k9' ? kLabel : def.label}
         </Typography>
         {bar(h, homeBetter, homeColor, 'home')}
         {valueCell(h, homeBetter, homeColor, 'left')}

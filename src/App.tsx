@@ -11,6 +11,7 @@ import { DevSettings, MobilePreviewHost } from './dev/DevSettings'
 import { isInsideDeviceFrame } from './mlb/dev/devDevice'
 import { AuthProvider, useAuth } from './AuthContext'
 import { UnitsProvider } from './UnitsContext'
+import { EraBasisProvider } from './wpbl/EraBasisContext'
 import { ExperimentsProvider } from './ExperimentsContext'
 import { AccessibilityProvider } from './AccessibilityContext'
 import { PENDING_USERNAME_PREFIX } from './AuthContext'
@@ -431,19 +432,26 @@ function AppInner() {
   // Publish the toolbar's pinned height as --app-header-h, so anything further down the page
   // that wants to stick can sit below it without hard-coding a number that would drift.
   // Reads the computed position rather than the breakpoint: the bar is only sticky on
-  // desktop, and a static bar scrolls away, contributing nothing to pin beneath. Measured
-  // with offsetHeight — unzoomed layout pixels, the same space a sticky `top` threshold is
-  // resolved in inside the --app-zoom wrapper this bar lives in.
+  // desktop, and a static bar scrolls away, contributing nothing to pin beneath.
   const headerRef = useRef<HTMLElement>(null)
   useEffect(() => {
     const el = headerRef.current
     const publish = () => {
       const pinned = el && getComputedStyle(el).position === 'sticky'
-      // The rect height rather than offsetHeight, which rounds: see the note on --wpbl-nav-h
-      // in WpblApp. A rounded-up height leaves a sub-pixel gap under this bar for whatever
-      // sticks below it, and content scrolls through it.
+      // IN LAYOUT PIXELS, WHICH IS NOT WHAT THE RECT MEASURES. This value is spent as a
+      // sticky `top`, and a `top` inside the --app-zoom wrapper is resolved before the zoom
+      // is applied; `getBoundingClientRect()` reports after it. On /wpbl and /mlb at md the
+      // wrapper zooms 1.4, so publishing the rect height sent the Stats bar 40% too far down
+      // and it pinned 27px BELOW this toolbar, with the page scrolling up through the band
+      // between them in full view. Divide it back out and the two edges meet.
+      //
+      // `offsetHeight` is the other way to get layout pixels and is what this used to read,
+      // but it rounds to a whole pixel, which leaves a sub-pixel crack under the bar for
+      // whatever sticks below it (see the note on --wpbl-nav-h in WpblApp). This keeps the
+      // fraction and fixes the zoom, which the two previous versions each had one of.
+      const zoom = Number(getComputedStyle(el ?? document.body).getPropertyValue('--app-zoom')) || 1
       document.documentElement.style.setProperty(
-        '--app-header-h', pinned ? `${el!.getBoundingClientRect().height}px` : '0px')
+        '--app-header-h', pinned ? `${el!.getBoundingClientRect().height / zoom}px` : '0px')
     }
     publish()
     const ro = new ResizeObserver(publish)
@@ -1436,11 +1444,13 @@ export default function App() {
   return (
     <AuthProvider>
       <UnitsProvider>
-        <ExperimentsProvider>
-          <AccessibilityProvider>
-            <AppInner />
-          </AccessibilityProvider>
-        </ExperimentsProvider>
+        <EraBasisProvider>
+          <ExperimentsProvider>
+            <AccessibilityProvider>
+              <AppInner />
+            </AccessibilityProvider>
+          </ExperimentsProvider>
+        </EraBasisProvider>
       </UnitsProvider>
     </AuthProvider>
   )

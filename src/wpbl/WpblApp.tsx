@@ -571,8 +571,15 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
       // below this one's bottom edge and the page scrolled through the crack: one device
       // pixel of a stats row, running along under the nav the whole way down. Fractional CSS
       // pixels are what the browser is laying out in, so hand it those.
+      //
+      // Divided by --app-zoom for the same reason --app-header-h is: this is spent as a
+      // sticky `top`, which resolves in layout pixels, and the rect is in visual ones. Zoom
+      // is 1 wherever THIS bar is the sticky one (it pins on mobile, the wrapper zooms at md
+      // and up), so today the division changes nothing here. It is here so the two halves of
+      // the same sum cannot drift apart the day either of those conditions moves.
+      const zoom = Number(getComputedStyle(el ?? document.body).getPropertyValue('--app-zoom')) || 1
       document.documentElement.style.setProperty(
-        '--wpbl-nav-h', pinned ? `${el!.getBoundingClientRect().height}px` : '0px')
+        '--wpbl-nav-h', pinned ? `${el!.getBoundingClientRect().height / zoom}px` : '0px')
     }
     publish()
     const ro = new ResizeObserver(publish)

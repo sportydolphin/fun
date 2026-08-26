@@ -536,6 +536,55 @@ is retired.
 
 ## Shipped log
 
+### Aug 26, 2026: ERA per 9, because the league says so (v1.50.0)
+
+A WPBL game is seven innings and this site divided ERA by seven, which is defensible and,
+until now, wrong for the only reason that matters.
+
+**What the sources actually say.** Every other seven-inning competition scales to its own game
+length: NCAA softball (checked against the ACC's own 2026 cumulative stats, Florida State 159
+ER in 400.1 IP printed as 2.78, which is only per 7), Athletes Unlimited, and, decisively for
+the "but this is baseball" objection, seven-inning **high school baseball** on MaxPreps (3 ER
+in 1.0 IP printed as 21.00). Little League scales to 6. The two exceptions are MLB, which kept
+per 9 through its 2020 and 2021 seven-inning doubleheaders, and **the WPBL itself**, which
+publishes per 9 (Albayati, 2 ER in 10.0 IP, printed 1.80). So the honest denominator is 7 and
+the published one is 9.
+
+**We follow the league.** Not because it is more correct, but because the alternative is
+losing the argument in public: every WPBL number a fan meets anywhere else is per 9, so 2.58
+here against an official 3.32 makes us the source that looks broken rather than the source
+that is right. There is a second reason worth keeping: scaling to 7 is the *softball*
+convention, and the league publishes per 9 precisely because it is positioning itself on
+baseball's scale. Adopting per 7 quietly files a pro baseball league under the wrong
+scoreboard.
+
+**The setting exists because per 7 is still the better stat.** Settings → App → WPBL ERA
+basis. It reaches the Stats board, team pages, player pages, the percentile strip and the game
+comparison card, and renames the strikeout column K/7 or K/9 with it.
+
+Three things hold this together and are worth not undoing:
+
+- **The stored number is per 9, always** (`ERA_BASIS_CANONICAL` in
+  [`stats.ts`](src/wpbl/stats.ts)). Rescaling happens at DISPLAY time via `scaleToBasis`. The
+  moment two aggregates each carry their own basis, a leaderboard and the player page it opens
+  can disagree and neither is wrong.
+- **Nothing that leaves the site asks.** OG share cards and the Discord `/player` card read the
+  stored value and have no parameter to opt in. Their reader never chose anything and is
+  holding the league's number.
+- **Rescaling can never move an order.** Both stats are linear in the basis, so every pitcher
+  scales by the same factor. `__tests__/eraBasis.test.ts` pins that: same ranks, same
+  percentiles, only the printed figure moves, and WHIP and K/BB (no denominator to rescale)
+  do not move at all.
+
+The one-line notice above the pitching board is deliberately **not** a dialog. The change is
+worth telling a returning reader about, since their ace's ERA moved by a third overnight, but
+a modal on tab-open makes everyone dismiss something before reaching the board, including the
+majority who never saw the old number. It carries the setting itself rather than a link to
+Settings, expires with the feed via [`lib/seen.ts`](src/lib/seen.ts), and a reader who picks
+per 7 gets "ERA per 7" in the board's footer permanently, since from then on their number
+disagrees with the league's.
+
+
 ### Aug 25, 2026: the player page stops being a data dump
 
 Measured on a 375px phone before touching anything, because the complaint was about mobile and

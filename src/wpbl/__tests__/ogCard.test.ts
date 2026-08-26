@@ -52,8 +52,11 @@ describe('wpblPlayerCard', () => {
   it('leads a pitcher with ERA, WHIP, and the workload', () => {
     const lines = [pit({ outs: 15, h: 3, er: 1, bb: 1, so: 7, decision: 'W' }), pit({ outs: 6, h: 2, er: 0, bb: 0, so: 3 })]
     const card = wpblPlayerCard(pitcher, HEIGHTS, [], lines, GAMES)
-    // ERA is per SEVEN innings here — WPBL games are 7 innings (see sumPitching).
-    expect(card.description).toBe('1-0, 1.00 ERA and 0.86 WHIP with 10 K in 7.0 IP over 2 games. Full stat line, game log, and fielding.')
+    // Per NINE, and pinned here on purpose. A share card is read by someone who did not open
+    // the site and never chose a basis, next to whatever number the league published, so it
+    // must not follow the ERA setting: `wpblPlayerCard` takes no basis and this is the test
+    // that fails if somebody threads one through it.
+    expect(card.description).toBe('1-0, 1.29 ERA and 0.86 WHIP with 10 K in 7.0 IP over 2 games. Full stat line, game log, and fielding.')
   })
 
   it('still leads with pitching when a pitcher has also taken at-bats', () => {

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
-import { aggregateBatting, aggregatePitching, fmtRate, fmtTwo } from './stats'
+import { aggregateBatting, aggregatePitching, fmtRate, fmtTwo, scaleToBasis } from './stats'
+import { useEraBasis } from './EraBasisContext'
 import { CARD_BORDER } from './ui'
 import type { WpblPlayer, WpblBattingLine, WpblPitchingLine } from './types'
 import { regularSeasonLines, type WpblSeasonGame } from './season'
@@ -290,6 +291,7 @@ export default function WpblDraftValue({ players, batting, pitching, games: sche
   games: WpblSeasonGame[]
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
+  const { basis: eraBasis } = useEraBasis()
   const [cut, setCut] = useState<Cut>('all')
 
   // The two floors the "meaningful sample" cut applies. Deliberately low — this is a
@@ -327,7 +329,10 @@ export default function WpblDraftValue({ players, batting, pitching, games: sche
       if (x == null || totals.era == null || ip === 0) continue
       if (cut === 'sample' && ip < MIN_IP) continue
       pit.push({
-        x, y: totals.era, weight: ip, name: player.name, player,
+        // Scaled here, at the point the model's y-axis is built, because the axis carries an
+        // ERA label and its ticks are drawn from these values: an unscaled point would put a
+        // per-9 number under a chart the rest of the section is showing per 7.
+        x, y: scaleToBasis(totals.era, eraBasis) as number, weight: ip, name: player.name, player,
         round: player.draft_round as number,
         sample: `${Math.floor(ip)}.${totals.outs % 3} IP`,
       })
@@ -336,7 +341,7 @@ export default function WpblDraftValue({ players, batting, pitching, games: sche
       hitters: bat, pitchers: pit, roundSize: size, roundCount: lastRound,
       drafted: draftedCount, gamesPlayed: games,
     }
-  }, [players, batting, pitching, cut])
+  }, [players, batting, pitching, cut, eraBasis])
 
   return (
     <Box>
