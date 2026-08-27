@@ -202,6 +202,10 @@ export const gridColumns = (n: number, cap: number): number => {
   return Math.min(cap, 4)
 }
 
+/** A counting stat that is actually zero, which the grid dims. Deliberately NOT falsy: `'—'`
+ *  is absent rather than zero, and `.000` is a measured rate, not an empty box. */
+const isZeroStat = (v: string | number): boolean => v === 0 || v === '0'
+
 function StatGrid({ items }: { items: [string, string | number][] }) {
   const { basis: eraBasis } = useEraBasis()
   // A column count that DIVIDES the item count rather than a fixed four and six. Ten batting
@@ -231,7 +235,18 @@ function StatGrid({ items }: { items: [string, string | number][] }) {
         <TapTip key={label} title={statFull(label, eraBasis)} popperZIndex={TIP_Z}
           sx={{ textAlign: 'center', borderRadius: 1.5, bgcolor: 'action.hover', py: 0.6, px: 0.4, minWidth: 0 }}>
           <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>{label}</Typography>
-          <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', lineHeight: 1.25 }}>{value}</Typography>
+          {/* A zero is dimmed to the weight of its own label. Half a batting grid is zeros for
+              most of the roster (a 6 AB line reads 1 · 3 · 1 · 0 · 0 · 3 · 1 · 1 · 0 · 4), and
+              at full weight the eye has to read all ten boxes to find the five that say
+              anything. The box stays, at its full size: dropping the empty ones would reflow
+              the grid per player and cost the column count that `gridColumns` exists to keep,
+              and "no triples" is a fact worth being able to look up rather than one to hide.
+              Only a true numeric zero dims. A rate that happens to read `.000` is a real
+              measurement of something and keeps its weight. */}
+          <Typography sx={{
+            fontSize: '0.95rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', lineHeight: 1.25,
+            ...(isZeroStat(value) ? { color: 'text.disabled' } : {}),
+          }}>{value}</Typography>
         </TapTip>
       ))}
     </Box>
@@ -284,15 +299,144 @@ function PercentileStrip({ ranks, of, color, noun }: {
   )
 }
 
-/** Why there is no strip. One short line: saying nothing reads as a bug, and the two
- *  paragraphs this replaced spent more words explaining the absence of a number than the
- *  number would have been worth. */
-function NoRanks({ reason }: { reason: WpblPlayerRanks['batReason'] }) {
+/**
+ * What stands where the percentile strip would be, for a player who is not ranked yet.
+ *
+ * This was one grey sentence, "Below the qualifying bar for league ranks", and the trouble
+ * with it was not the wording. The strip is the best thing on this page, and it vanishes for
+ * exactly the players a reader can least place on their own: a qualified hitter gets four bars
+ * and a population, a 6 AB hitter got a refusal. Measured, the rail went from 337px of content
+ * to 203px, so the card is visibly emptier the less the reader already knows.
+ *
+ * A refusal that shows its own arithmetic is not a refusal. The bar here is the same 6px in
+ * the same four-column geometry as `PercentileStrip` (label, value, bar, right-hand figure)
+ * deliberately: the two states are the same object at two points in a season, so the block
+ * does not move or change shape on the day a player qualifies. It is progress toward the bar,
+ * NOT a percentile, which is why the right-hand figure is the threshold rather than a rank.
+ *
+ * 'season-young' keeps the sentence. There is no bar to draw against a threshold the season
+ * has not set yet, and a meter reading "0 of 0" would be worse than the words.
+ */
+function RankProgress({ reason, have, need, unit, fmt, noun, color }: {
+  reason: WpblPlayerRanks['batReason']
+  /** Raw units (at-bats, or outs recorded) so the fraction is exact; `fmt` handles display. */
+  have: number; need: number
+  unit: string
+  /** Outs print as innings, at-bats print as themselves. */
+  fmt: (n: number) => string
+  noun: string
+  color: string
+}) {
   if (reason === 'ok' || reason === 'no-data') return null
-  const text = reason === 'season-young'
-    ? 'League ranks appear once the season is a few games old.'
-    : 'Below the qualifying bar for league ranks.'
-  return <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 1.75 }}>{text}</Typography>
+  if (reason === 'season-young') {
+    return <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 1.75 }}>League ranks appear once the season is a few games old.</Typography>
+  }
+  if (need <= 0) return null
+  const pct = Math.max(0, Math.min(1, have / need))
+  return (
+    <Box sx={{ mt: 1.75 }}>
+      <Typography sx={sectionSx}>Toward league ranks</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography sx={{ width: 38, flexShrink: 0, fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>
+          {unit}
+        </Typography>
+        <Typography sx={{ width: 44, flexShrink: 0, fontSize: '0.78rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+          {fmt(have)}
+        </Typography>
+        <Box sx={{ flex: 1, minWidth: 0, height: 6, borderRadius: 999, bgcolor: 'action.hover', overflow: 'hidden' }}>
+          <Box sx={{ width: `${Math.round(pct * 100)}%`, height: '100%', bgcolor: color, borderRadius: 999 }} />
+        </Box>
+        <Typography sx={{ width: 34, flexShrink: 0, textAlign: 'right', fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>
+          {fmt(need)}
+        </Typography>
+      </Box>
+      {/* Says what the bar is FOR, in the same slot where the strip prints its population. */}
+      <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.6 }}>
+        {fmt(Math.max(0, need - have))} more {unit} to rank against qualified {noun}.
+      </Typography>
+    </Box>
+  )
+}
+
+/**
+ * The last few games, in the band's own empty middle.
+ *
+ * WHY HERE. The band is a three-part row, portrait then bio then hero, and the bio is the
+ * flexible one. Measured on a 1440px window, the bio box is 471px holding a widest line of
+ * 187 (the name), so 283px of the card's most colourful surface was empty by construction:
+ * the single largest uncommitted area on the page, sitting where the club's wash is strongest.
+ * This costs no height at all, which matters more than it sounds: the desktop card already
+ * runs 893px against a 900px viewport at ten games, so anything that grew the page would be
+ * paid for out of the reading list at the bottom.
+ *
+ * WHAT IT IS FOR. Season totals answer "how good", and this answers "lately", which is the
+ * question the totals cannot reach and the one a game log answers only if you read it. It is
+ * also the honest thing to show a player the rest of the card cannot say much about: a 6 AB
+ * hitter has no percentile and a rate stat that is mostly noise, but "1-3, 2-4, 0-2" is simply
+ * what happened.
+ *
+ * CHRONOLOGICAL, oldest at the left, which is the one place in this file that disagrees with
+ * the game log's newest-first order and does so on purpose. A form line is read as a shape
+ * over time and time runs left to right; the log is a lookup table, where the row anyone wants
+ * is last night's and it belongs at the top. Different jobs, different orders.
+ */
+function FormStrip({ title, games }: { title: string; games: { opp: string; value: string }[] }) {
+  if (games.length === 0) return null
+  return (
+    // `lg` only. Below it the band is barely wide enough for the name, which is the same width
+    // at which the hero stands down to `paneHero`.
+    // WIDTH IS A BUDGET SHARED WITH THE NAME, and this side loses. The band's row is portrait,
+    // bio, this, hero, and only the bio flexes: at five cells spelled "vs BOS" the strip took
+    // 227px, the bio fell to 225, and "#20 · C · B/T R/R · 23 yrs" wrapped to a second line,
+    // which grew the band by 23px on every player whose meta line is long. A block that claims
+    // to cost no height has to actually cost none, so the cells carry the squeezed spelling
+    // (see `oppLabel().short`), the gap is one step tighter, and `maxWidth` caps the whole
+    // thing well short of what five cells could ask for.
+    <Box sx={{ display: { xs: 'none', lg: 'block' }, flexShrink: 0, minWidth: 0, px: 1.5, maxWidth: 200 }}>
+      {/* 0.72 white, the floor the band's wash is budgeted for. See BAND_WASH: these sit at
+          roughly 55-80% across, where the wash is well short of its strongest point, so they
+          clear the bar with more room than the hero's own labels do. */}
+      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'rgba(255,255,255,0.72)', mb: 0.6 }}>
+        {title}
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 1 }}>
+        {games.map((g, i) => (
+          <Box key={i} sx={{ textAlign: 'center', minWidth: 0 }}>
+            <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'rgba(255,255,255,0.75)', whiteSpace: 'nowrap' }}>
+              {g.opp}
+            </Typography>
+            <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, color: '#fff', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
+              {g.value}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  )
+}
+
+/**
+ * The other half of a player who is mostly one thing: a hitter's mop-up inning, a pitcher's
+ * stray at-bats. Below the cameo thresholds this does not earn a tab (see `twoWay`), so it
+ * folds into the primary pane.
+ *
+ * It was a run of grey 0.76rem text under the stat grid, which put "also pitched a shutout
+ * inning" in the visual register of a footnote while a player one out over the same bar got a
+ * whole Batting/Pitching pager. The fact is small; it is not incidental. Same frame as
+ * `FieldingLine` deliberately, minus the disclosure: both are one honest line about a part of
+ * the season the hero is not describing, and drawing them alike is what makes the pane read
+ * as a set of blocks rather than as a stat card with sentences after it.
+ */
+function CameoBlock({ label, text, color }: { label: string; text: string; color: string }) {
+  return (
+    <Box sx={{
+      mt: 2, border: '1px solid', borderColor: 'divider', borderLeft: `3px solid ${color}`,
+      borderRadius: 2, px: 1.5, py: 1, display: 'flex', alignItems: 'baseline', gap: 1.25,
+    }}>
+      <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, flexShrink: 0 }}>{label}</Typography>
+      <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{text}</Typography>
+    </Box>
+  )
 }
 
 /**
@@ -615,9 +759,26 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   const twoWay = hasBatting && hasPitching && !battingCameo && !pitchingCameo
 
   // Sample-size meta for each pane, flagged as thin below a rough one-week-ish bar.
+  //
+  // THE RETRACTION SITS WITH THE CLAIM. This line runs directly under the hero, and the hero
+  // is the largest type on the card: a 6 AB player's `1.292` is set at 2rem. The card already
+  // disowned that number, but it did it in `NoRanks`, 10px grey, a column away and 200px down,
+  // which is not a caveat a reader meets before they have believed the number. Naming the
+  // actual bar here is also worth more than the words "small sample" were: it says how far off
+  // she is and what she is off from, in the same glance as the figure it qualifies.
+  //
+  // The league's own bar is preferred over the local one whenever ranks have loaded, so this
+  // line and the rail below it cannot disagree about whether she counts. `BAT_SMALL_AB` and
+  // `PIT_SMALL_OUTS` stay as the fallback for the window before `fetchWpblAllLines` lands and
+  // for a season too young to have set a bar at all, where there is no number to name yet.
   const BAT_SMALL_AB = 25, PIT_SMALL_OUTS = 30 // < ~25 AB / < 10.0 IP reads as small sample
-  const battingMeta = `${bt.g} G · ${bt.ab} AB${bt.ab < BAT_SMALL_AB ? ' · small sample' : ''}`
-  const pitchingMeta = `${pt.g} G · ${outsToIp(pt.outs)} IP${pt.outs < PIT_SMALL_OUTS ? ' · small sample' : ''}`
+  const qual = ranks?.qualifiers
+  const battingMeta = `${bt.g} G · ${bt.ab} AB`
+    + (ranks?.batReason === 'below-bar' && qual ? ` · ${qual.minAb} AB to qualify`
+      : bt.ab < BAT_SMALL_AB ? ' · small sample' : '')
+  const pitchingMeta = `${pt.g} G · ${outsToIp(pt.outs)} IP`
+    + (ranks?.pitReason === 'below-bar' && qual ? ` · ${outsToIp(qual.minOuts)} IP to qualify`
+      : pt.outs < PIT_SMALL_OUTS ? ' · small sample' : '')
 
   // The control only exists for a genuine two-way player. Everyone else gets her own numbers
   // with no chrome: a lone pill that cannot be switched away from is worse than no pill.
@@ -642,15 +803,20 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // club would ask "was Los Angeles at home?" of a New York game she played in July — neither
   // side matches, so the label falls through to naming her own team and the row reads "@ NY"
   // for a game she played for New York. The line always knows; the roster row only knows now.
-  const oppLabel = (gameId: string, lineTeam: string | null): { date: string; text: string } => {
+  const oppLabel = (gameId: string, lineTeam: string | null): { date: string; text: string; short: string } => {
     const g = gameById.get(gameId)
-    if (!g) return { date: '', text: '' }
+    if (!g) return { date: '', text: '', short: '' }
     const forTeam = lineTeam ?? player.team_id
     const isHome = g.home_team_id === forTeam
     const oppId = isHome ? g.away_team_id : g.home_team_id
     const opp = teamById.get(oppId)
     const date = new Date(`${g.game_date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })
-    return { date, text: `${isHome ? 'vs' : '@'} ${opp?.abbr ?? oppId}` }
+    const abbr = opp?.abbr ?? oppId
+    // `short` is the same fact with the spaces squeezed out, for the band's form strip, which
+    // is competing for width with the name beside it rather than sitting in a table column.
+    // Home is unmarked and away carries the '@', which is the shortest spelling that still
+    // says which it was.
+    return { date, text: `${isHome ? 'vs' : '@'} ${abbr}`, short: `${isHome ? '' : '@'}${abbr}` }
   }
 
   // The lead columns of one game-log row, plus what tapping it does. Every log builds its
@@ -683,6 +849,18 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
       const db = gameById.get(b.game_id)?.game_date ?? ''
       return db.localeCompare(da)
     })
+
+  // The band's form strip: the last few games for whichever role is on screen, oldest first.
+  // Reversed off `newestFirst` rather than sorted again, so the two can never disagree about
+  // which game is the most recent (a doubleheader shares a date, and only a stable sort of the
+  // same list keeps them in the same relative order in both places).
+  const FORM_GAMES = 5
+  const formGames = (r: Role): { opp: string; value: string }[] =>
+    r === 'pitching'
+      ? newestFirst(pitching).slice(0, FORM_GAMES).reverse()
+        .map(l => ({ opp: oppLabel(l.game_id, l.team_id).short, value: outsToIp(l.outs) }))
+      : newestFirst(battingReal).slice(0, FORM_GAMES).reverse()
+        .map(l => ({ opp: oppLabel(l.game_id, l.team_id).short, value: `${l.h}-${l.ab}` }))
 
   // Posts naming this player, newest first (the query already orders that way).
   const writtenAbout = useMemo(
@@ -758,14 +936,13 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
         {/* G and AB are on the sample line above, so they are not repeated here. */}
         <StatGrid items={[['R', bt.r], ['H', bt.h], ['2B', bt.doubles], ['3B', bt.triples], ['HR', bt.hr], ['RBI', bt.rbi], ['BB', bt.bb], ['SO', bt.so], ['SB', bt.sb], ['TB', bt.tb]]} />
         {pitchingCameo && (
-          <Typography sx={{ fontSize: '0.76rem', color: 'text.secondary', mt: 1.5, fontVariantNumeric: 'tabular-nums' }}>
-            <Box component="span" sx={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, fontSize: '0.7rem', mr: 0.75 }}>Also pitched</Box>
-            {fmtEra(pt.era)} ERA over {outsToIp(pt.outs)} IP, {pt.so} K
-          </Typography>
+          <CameoBlock label="Also pitched" color={color}
+            text={`${fmtEra(pt.era)} ERA over ${outsToIp(pt.outs)} IP, ${pt.so} K`} />
         )}
         {ranks && (ranks.batReason === 'ok'
           ? <PercentileStrip ranks={ranks.batting} of={ranks.batOf} color={color} noun="batters" />
-          : <NoRanks reason={ranks.batReason} />)}
+          : <RankProgress reason={ranks.batReason} have={bt.ab} need={ranks.qualifiers.minAb}
+              unit="AB" fmt={String} noun="batters" color={color} />)}
       </>
     ),
     log: (
@@ -787,14 +964,13 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
         {/* G and IP are on the sample line above. */}
         <StatGrid items={[['H', pt.h], ['R', pt.r], ['ER', pt.er], ['BB', pt.bb], ['SO', pt.so], ['HR', pt.hr]]} />
         {battingCameo && (
-          <Typography sx={{ fontSize: '0.76rem', color: 'text.secondary', mt: 1.5, fontVariantNumeric: 'tabular-nums' }}>
-            <Box component="span" sx={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, fontSize: '0.7rem', mr: 0.75 }}>Also batted</Box>
-            {fmtRate(bt.avg)}/{fmtRate(bt.obp)}/{fmtRate(bt.slg)}, {bt.h}-for-{bt.ab}{bt.hr ? `, ${bt.hr} HR` : ''}
-          </Typography>
+          <CameoBlock label="Also batted" color={color}
+            text={`${fmtRate(bt.avg)}/${fmtRate(bt.obp)}/${fmtRate(bt.slg)}, ${bt.h}-for-${bt.ab}${bt.hr ? `, ${bt.hr} HR` : ''}`} />
         )}
         {ranks && (ranks.pitReason === 'ok'
           ? <PercentileStrip ranks={ranks.pitching} of={ranks.pitOf} color={color} noun="pitchers" />
-          : <NoRanks reason={ranks.pitReason} />)}
+          : <RankProgress reason={ranks.pitReason} have={pt.outs} need={ranks.qualifiers.minOuts}
+              unit="IP" fmt={outsToIp} noun="pitchers" color={color} />)}
       </>
     ),
     log: (
@@ -1021,6 +1197,16 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
               </Typography>
             )}
           </Box>
+          {/* Fills the band's own slack, and takes the role the hero is showing so a two-way
+              player's form line follows her tab rather than contradicting the numbers beside
+              it. Costs no height: the band's height is set by the 84px portrait. */}
+          {showBandHero && (() => {
+            // `roles[roleIndex]`, not `role`: the same expression the hero beside it uses, so
+            // the two cannot fall out of step for a two-way player mid-swipe.
+            const r = roles[roleIndex]
+            const g = formGames(r)
+            return <FormStrip title={`Last ${g.length} · ${r === 'pitching' ? 'IP' : 'H-AB'}`} games={g} />
+          })()}
           {/* The headline numbers, on the band, at the width where the band has room for them.
               This gradient used to run most of the way across to nothing: a club colour with a
               portrait at one end and empty space at the other, while the two numbers a reader

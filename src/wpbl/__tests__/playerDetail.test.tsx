@@ -224,13 +224,86 @@ describe('PlayerDetail: league ranks', () => {
   })
 
   // Drawing a short bar for someone with four at-bats would claim she is bad rather than
-  // that we do not know yet.
-  it('explains itself instead of ranking a player below the qualifying bar', async () => {
+  // that we do not know yet. What stands in its place is progress TOWARD the bar, which is a
+  // different measurement and must never be mistaken for the percentile strip: same geometry,
+  // opposite meaning, so this pins that the strip's own heading is absent.
+  it('shows progress toward the bar instead of ranking a player below it', async () => {
     lines.batting = [bat({ ab: 4, h: 2, tb: 3 })]
     show(player())
     await waitFor(() => expect(battingShown()).toBe(true))
-    expect(screen.getByText(/Below the qualifying bar/)).toBeInTheDocument()
+    expect(screen.getByText(/Toward league ranks/i)).toBeInTheDocument()
+    expect(screen.getByText(/more AB to rank against qualified batters/i)).toBeInTheDocument()
     expect(screen.queryByText(/Against the league/i)).not.toBeInTheDocument()
+  })
+
+  // The retraction has to reach the reader who only looks at the big number. It used to live
+  // only in the rail, a column away from a 2rem figure it was disowning, so the sample line
+  // under the hero now names the bar itself. Pinned because the two are computed in different
+  // places (`battingMeta` and `RankProgress`) off the same `ranks.qualifiers`, and a change to
+  // one that misses the other puts a card in the state this was built to end: shouting a
+  // number in one block and disowning it in another.
+  it('names the qualifying bar on the hero sample line, not only in the rail', async () => {
+    lines.batting = [bat({ ab: 4, h: 2, tb: 3 })]
+    show(player())
+    await waitFor(() => expect(battingShown()).toBe(true))
+    expect(screen.getAllByText(/AB to qualify/).length).toBeGreaterThan(0)
+  })
+})
+
+// The band's form strip. Its ORDER is the thing worth a test: it is the one list on this page
+// that runs oldest-first, against a game log two columns away that runs newest-first, and both
+// are built from the same `newestFirst` helper. A reversal here is silent by construction,
+// because either order renders a plausible-looking row of five games, and the only reader who
+// would catch it is one who already knows how the last week went.
+describe('PlayerDetail: the form strip', () => {
+  // GAMES run g0 (Aug 1) to g9 (Aug 10), so the fixture's own chronology is the assertion.
+  const week = () => [
+    bat({ game_id: 'g5', ab: 4, h: 1 }),
+    bat({ game_id: 'g6', ab: 3, h: 0 }),
+    bat({ game_id: 'g7', ab: 5, h: 3 }),
+    bat({ game_id: 'g8', ab: 4, h: 2 }),
+    bat({ game_id: 'g9', ab: 4, h: 4 }),
+  ]
+
+  const stripValues = (container: HTMLElement) => {
+    const head = Array.from(container.querySelectorAll('*'))
+      .find(el => el.children.length === 0 && /^Last \d+ · /.test(el.textContent ?? ''))
+    // The heading's parent is the strip; the cells are the second child's children, each of
+    // which is an opponent over a value.
+    const cells = head?.parentElement?.lastElementChild
+    return Array.from(cells?.children ?? []).map(c => c.lastElementChild?.textContent ?? '')
+  }
+
+  it('runs oldest to newest, the opposite of the game log beside it', async () => {
+    lines.batting = week()
+    const { container } = show(player())
+    await waitFor(() => expect(battingShown()).toBe(true))
+    // Aug 6 through Aug 10, in that order. The log's own first row is the newest, Aug 10.
+    expect(stripValues(container)).toEqual(['1-4', '0-3', '3-5', '2-4', '4-4'])
+    expect(logRows(container)[0].textContent).toContain('Aug 10')
+  })
+
+  it('shows only the last five, keeping the most recent rather than the first played', async () => {
+    lines.batting = [bat({ game_id: 'g0', ab: 4, h: 4 }), ...week()]
+    const { container } = show(player())
+    await waitFor(() => expect(battingShown()).toBe(true))
+    const values = stripValues(container)
+    expect(values).toHaveLength(5)
+    expect(values[values.length - 1]).toBe('4-4')   // Aug 10, the newest
+    expect(values[0]).toBe('1-4')                    // Aug 6, not the Aug 1 game
+  })
+
+  it('follows the role tab for a two-way player', async () => {
+    lines.batting = week()
+    lines.pitching = [pit({ game_id: 'g9', outs: 12, so: 5 }), pit({ game_id: 'g8', outs: 9 })]
+    const { container } = show(player())
+    await waitFor(() => expect(battingShown()).toBe(true))
+    expect(screen.getByText(/Last \d+ · H-AB/)).toBeInTheDocument()
+    fireEvent.click(rolePills().find(el => el.textContent === 'Pitching')!)
+    await waitFor(() => expect(pitchingShown()).toBe(true))
+    expect(screen.getByText(/Last \d+ · IP/)).toBeInTheDocument()
+    // Innings, not outs: 12 outs is 4.0 IP and 9 is 3.0, oldest first.
+    expect(stripValues(container)).toEqual(['3.0', '4.0'])
   })
 })
 
