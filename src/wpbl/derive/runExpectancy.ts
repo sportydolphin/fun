@@ -1,6 +1,6 @@
 import { regularSeasonLines, type WpblSeasonGame } from '../season'
 import { runsOnPlay } from './playByPlay'
-import type { WpblGame, WpblPlayer, WpblRunValuePlay } from '../types'
+import type { WpblBattingLine, WpblGame, WpblPlayer, WpblRunValuePlay } from '../types'
 
 /** What this module needs to know about a game: whether it counts, whether it has finished,
  *  who was on the other side of it, and how it came out. A play names only the batting club,
@@ -577,12 +577,143 @@ export function runValueLeaders(
 }
 
 /** One decimal place and an explicit sign, which is how a run value is always written. */
-export function fmtRunValue(v: number | null | undefined): string {
+/**
+ * What the running game is worth to the league, priced on its own run environment.
+ *
+ * THE POINT OF THIS, AND WHY IT IS NOT A RATE. A stolen-base percentage says how often it
+ * worked, never whether it was worth trying. Those are different questions and they come apart
+ * here: a base gained is worth a little and an out given away is worth a lot, so the rate that
+ * breaks even depends entirely on how much a run costs, and in a league scoring fifteen a game
+ * an out is dear. The league runs at 82% and needs 86%, which no rate on any other board could
+ * show, and which is only computable because the run-expectancy table exists.
+ *
+ * Priced from the PLAY ROWS rather than the box score's SB and CS columns, because the price is
+ * a property of the state the play changed, and only the play knows that. A double steal is one
+ * row and one price, which is right: it moved the bases once. It also means the attempt count
+ * here is a shade under the box score's, which is why nothing on this card prints a league SB
+ * total beside a player's.
+ */
+export interface StealEconomy {
+  /** Attempts, as priced: rows, not runners, so a double steal counts once. */
+  steals: number
+  caught: number
+  /** Runs added by the steals, and lost to the outs (negative), and the two together. */
+  gained: number
+  lost: number
+  net: number
+  /** What one of each is worth on average. `perCaught` is negative. */
+  perSteal: number
+  perCaught: number
+  /** The share of attempts that has to succeed for the running game to be worth nothing at
+   *  all, and the share that actually did. Null when there is not one of each yet, or when a
+   *  steal is somehow not worth anything, which would make the question meaningless. */
+  breakEven: number | null
+  successRate: number | null
+}
+
+export function stealEconomy(values: PlayRunValue[]): StealEconomy {
+  let steals = 0, caught = 0, gained = 0, lost = 0
+  for (const v of values) {
+    if (v.play.event_type === 'stolen_base') { steals++; gained += v.value }
+    else if (v.play.event_type === 'caught_stealing') { caught++; lost += v.value }
+  }
+  const perSteal = steals > 0 ? gained / steals : 0
+  const perCaught = caught > 0 ? lost / caught : 0
+  const spread = perSteal - perCaught
+  return {
+    steals, caught, gained, lost, net: gained + lost, perSteal, perCaught,
+    breakEven: steals > 0 && caught > 0 && perSteal > 0 && spread > 0 ? -perCaught / spread : null,
+    successRate: steals + caught > 0 ? steals / (steals + caught) : null,
+  }
+}
+
+/**
+ * What each KIND of play has been worth this season: the league's own linear weights.
+ *
+ * The same numbers everyone quotes from the majors (a walk is worth about .3 of a run, a home
+ * run about 1.4) computed on a seven-inning league that scores fifteen a game, where they are
+ * not the same numbers. It is one `reduce` over values that are already computed, and until
+ * now nothing showed it.
+ *
+ * A CURATED LIST, NOT EVERY `event_type`. The feed's vocabulary includes `unknown`, which is
+ * 383 substitutions and runner advances, and several labels that mean the same thing to a
+ * reader. A card that ranks "what a play is worth" cannot have a row called "unknown" on it,
+ * and an allow-list also means a label the feed invents next week is left off rather than
+ * shown raw. Anything named here that has not happened yet is simply absent from the result.
+ */
+export interface EventValue { event: string; label: string; n: number; total: number; per: number }
+
+/** The events worth showing, in the order a reader thinks about them, with the words the
+ *  narrative would use rather than the feed's snake_case. */
+const EVENT_LABELS: readonly (readonly [string, string])[] = [
+  ['home_run', 'Home run'], ['triple', 'Triple'], ['double', 'Double'], ['single', 'Single'],
+  ['walk', 'Walk'], ['hit_by_pitch', 'Hit by pitch'], ['wild_pitch', 'Wild pitch'],
+  ['stolen_base', 'Stolen base'], ['sacrifice', 'Sacrifice'],
+  ['fielders_choice', "Fielder's choice"], ['groundout', 'Groundout'], ['flyout', 'Flyout'],
+  ['popup', 'Pop up'], ['lineout', 'Lineout'], ['strikeout', 'Strikeout'],
+  ['caught_stealing', 'Caught stealing'],
+]
+
+export function eventValues(values: PlayRunValue[], minPlays = 10): EventValue[] {
+  const byEvent = new Map<string, { n: number; total: number }>()
+  for (const v of values) {
+    const k = v.play.event_type
+    if (!k) continue
+    const e = byEvent.get(k) ?? { n: 0, total: 0 }
+    e.n++; e.total += v.value; byEvent.set(k, e)
+  }
+  const out: EventValue[] = []
+  for (const [event, label] of EVENT_LABELS) {
+    const e = byEvent.get(event)
+    if (!e || e.n < minPlays) continue
+    out.push({ event, label, n: e.n, total: e.total, per: e.total / e.n })
+  }
+  return out.sort((a, b) => b.per - a.per)
+}
+
+/** The runners themselves, from the box scores rather than the play log.
+ *
+ *  `wpbl_batting_lines` carries SB and CS per player per game and the play log names the
+ *  runner only inside its prose, so this is the column that already exists against a sentence
+ *  that would have to be parsed. It also keeps a player's steal count here identical to the
+ *  one on the Players board, which is where a reader will go to check it.
+ *
+ *  Takes the schedule for the reason every aggregate here does: a line carries a `game_id` and
+ *  cannot say by itself whether its game counts. */
+export interface RunnerLine { player: WpblPlayer | null; name: string; sb: number; cs: number }
+
+export function topRunners(
+  lines: Pick<WpblBattingLine, 'game_id' | 'player_id' | 'sb' | 'cs'>[],
+  games: WpblSeasonGame[],
+  players: WpblPlayer[],
+  limit = 5,
+): RunnerLine[] {
+  const byId = new Map(players.map(p => [p.id, p]))
+  const rows = new Map<string, RunnerLine>()
+  for (const l of regularSeasonLines(lines, games)) {
+    const sb = l.sb ?? 0, cs = l.cs ?? 0
+    if (sb === 0 && cs === 0) continue
+    const player = byId.get(l.player_id) ?? null
+    let row = rows.get(l.player_id)
+    if (!row) rows.set(l.player_id, row = { player, name: player?.name ?? '', sb: 0, cs: 0 })
+    row.sb += sb; row.cs += cs
+  }
+  return [...rows.values()]
+    .filter(r => r.name)
+    .sort((a, b) => (b.sb + b.cs) - (a.sb + a.cs) || b.sb - a.sb)
+    .slice(0, limit)
+}
+
+/** `digits` is 2 for the value of ONE play, where the whole point is often the gap between two
+ *  of them: a strikeout and a groundout are -0.52 and -0.43, and at one decimal that reading
+ *  is a rounding artefact. Season totals stay at 1, where a second decimal is noise. */
+export function fmtRunValue(v: number | null | undefined, digits: 1 | 2 = 1): string {
   if (v == null || !Number.isFinite(v)) return '—'
-  const r = Math.round(v * 10) / 10
+  const scale = digits === 2 ? 100 : 10
+  const r = Math.round(v * scale) / scale
   // Keeps "-0.0" off the board, which reads as a measurement of nothing.
   const z = Object.is(r, -0) ? 0 : r
-  return `${z > 0 ? '+' : ''}${z.toFixed(1)}`
+  return `${z > 0 ? '+' : ''}${z.toFixed(digits)}`
 }
 
 /** Two decimals, no sign: the table's own cells are expectations, not changes. */

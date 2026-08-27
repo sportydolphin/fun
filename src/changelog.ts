@@ -4,6 +4,21 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.52.1',
+    date:    '2026-08-27',
+    title:   'A Findings board on the Stats tab',
+    changes: [
+      {
+        short: 'A new Findings board on the Stats tab',
+        full:  'The boards on the Stats tab are all ways of cutting the same numbers: by player, by team, by pitch. Findings is a different thing, one question and one answer per card, written to be read once rather than sorted. It opens with what every kind of play is worth in runs, and more will land there rather than as more tabs across the top.',
+      },
+      {
+        short: 'All that stealing is not quite paying for itself, if you turn experimental features on',
+        full:  'The WPBL runs constantly, about four attempts a game, and it works 82% of the time, which sounds like a lot. Whether it is worth doing is a different question, and it depends on what a base is worth against what an out costs. A stolen base moves a team about 0.12 of a run closer to scoring here; getting thrown out costs 0.76, because outs are the thing a team runs out of. In a league scoring fifteen a game, that trade has to come off 86 times in 100 just to break even, against roughly 72 in the majors, where runs are harder to come by. So the season\u2019s steals have earned 7.4 runs, the times caught have cost 9.9, and the running game has been worth about 2 runs less than nothing. The new card shows the two rates against each other, and names who is actually doing the running: Denae Benites is 11 for 11. It is behind the experimental features switch in Settings while it settles, since it is a verdict rather than a measurement and it rests on 13 caught stealings.',
+      },
+    ],
+  },
+  {
     version: '1.52.0',
     date:    '2026-08-27',
     title:   'Run value is on the Stats tab for everyone',

@@ -305,6 +305,31 @@ MLB section).
 
 ---
 
+## Where new things go (decided Aug 27, 2026)
+
+The section has four nouns: games, clubs, players, and **the league itself**. The fourth has
+never had a home, which is why the media shelf sits on Home and the archive, the primer, the
+glossary and the map have nowhere to be. Two containers, decided rather than drifted into:
+
+- **Findings**, a chip on the Stats tab, for anything computed from the play log that ends in an
+  answer: the steal economy, what a play is worth, what a count is worth, spray tendencies. One
+  chip, however many cards. Shipped Aug 27. Rules for its cards are in the log entry above.
+- **`/wpbl/league`**, for the durable half that is not a number: where the 118 players come
+  from, the primer and glossary (#4), the inaugural-season archive (#2), the media shelf
+  **moved off Home**, this-day, the awards ballot, the puzzle. All of it still works in
+  February, which is more than the rest of the section can say. **Built and held back on Aug
+  27**, not shipped: the page and the move both work, and the page wants another pass first.
+
+**The league page gets no nav pill yet, deliberately.** It ships as a real path with real
+sub-URLs, linked from the footer and one card on Home, and earns a sixth pill from the events or
+does not get one. Two reasons: the top pills are already the least reachable place on an 812px
+phone and the sixth used to sit off-screen entirely (see the note in
+[`BottomNav.tsx`](src/wpbl/BottomNav.tsx)), and the footer is a proven crawl path, since it is
+how Google found `/privacy` and `/terms` while `/mlb` sat undiscovered for months. Promoting it
+later costs four lines; demoting it after it disappoints costs a redirect and an apology.
+
+---
+
 ## The data-mining backlog (Aug 20, 2026)
 
 Everything above was scoped from what the section is *missing*. This list came from the other
@@ -387,7 +412,10 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
   matchup edges, every game log. Six durable indexable pages from data already held.
 - **Where they come from** 🎯. `hometown` on 118 players and `birth_date` on 65: a league map,
   an age curve, youngest and oldest. Indexable prose and images for a section that has almost
-  none, which feeds SEO (#3).
+  none, which feeds SEO (#3). **Coverage recheck Aug 27: `hometown` is on all 118 and
+  `birth_date` on 106**, and the tail is the story: USA 64, Canada 18, then Mexico, Australia
+  and Japan on 9 each, South Korea 4, and one player each from Venezuela, the UK, France,
+  Puerto Rico and Curacao. Ages 18 to 40, median 24.
 - **Rolling form** 🎯. A last-5-game OPS sparkline per player. Nothing on the section answers
   "who is hot right now".
 - **Fielding in the Stats tab** 🔬. 303 fielding lines, computed in `stats.ts` already, surfaced
@@ -395,6 +423,29 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
   #7, restated here because the data audit reached it independently.)
 - **Errors behind the pitcher** 🔬. Unearned runs and errors charged while each pitcher was on,
   from fielding lines plus narratives. Nobody else covering this league will have it.
+- **What every kind of play is worth** 🔬. The league's own linear weights, already computed by
+  `playRunValues` and never shown: home run +1.55, double +0.82, single +0.54, walk +0.34,
+  groundout -0.43, strikeout -0.52, double play -0.97, and the sacrifice bunt at **-0.00 runs
+  across 14 attempts**. One small table settles "should they bunt" and "is a strikeout worse
+  than a groundout" for this league rather than by analogy to the majors. (Data audit, Aug 27.)
+- **What a single pitch is worth** 🔬🎯. Counts reconstruct cleanly from `pitch_sequence`, 5,657
+  pitches, and nothing uses them: after 1-0 a hitter reaches base 48.4% of the time, after 0-1
+  37.2%. **Eleven points of on-base on one pitch.** League first-pitch strike rate is 53.6%,
+  and per-pitcher it separates (Kelsie Whitmore 72.0%, Gigi Schiano 43.2%), though only nine
+  pitchers have faced 60 batters. `derive/pitches.ts` decodes the letters already and stops
+  short of the count. (Data audit, Aug 27.)
+- **Direction on every batted ball, from the prose** 🔬. 973 of 1,489 plate appearances name a
+  fielder or a field in the narrative ("grounded out to 3b", "singled through the left side"),
+  which crossed with `event_type` (groundout / flyout / popup / lineout) is a batted-ball
+  profile for the whole season with no new ingest. Ground rates separate pitchers cleanly:
+  Jill Albayati 69.2% on the ground, Raine Padgham 34.4%. Per batter it is thin, ~26 located
+  balls for a regular, so this is a pitcher and team surface before it is the spray chart
+  above. (Data audit, Aug 27.)
+- **One ballpark, all season** 🎯. Worth confirming and then saying somewhere: the feed names a
+  venue on 2 of 30 rows and RetroWPBL names one park on all 15 it covers, and they are the same
+  Springfield ground. If that holds, "home" in this league means batting last and nothing else,
+  which is context for every home/away number on the section. The record is consistent with it:
+  the home side is 8-21 and scores fewer runs, 7.33 to 7.57. (Data audit, Aug 27.)
 - **The season in 30 seconds** 🎯. Each club's W-L path and run differential over time as one
   chart, from 30 game rows. Makes a good share image.
 
@@ -537,6 +588,61 @@ is retired.
 ---
 
 ## Shipped log
+
+### Aug 27, 2026: a Findings board, and the steal that does not pay (v1.52.1)
+
+The section had no answer to a question anyone watching this league asks by the third inning:
+they run constantly, is it working? A stolen-base percentage cannot answer it. 82% sounds like
+a lot and says nothing about whether the attempt was a good idea, because that depends on what
+a base is worth against what an out costs, and this league's run environment is not the one
+those instincts were built in.
+
+Priced on the league's own run-expectancy table: a steal is worth **+0.12 runs**, a caught
+stealing **-0.76**, so the break-even success rate here is **86%**, against roughly 72% in the
+majors. Outs are dear when a half-inning is worth 1.08 runs. The league runs at 82%, so the
+season's running game is **-2.4 runs**: +7.4 from 60 steals, -9.9 from 13 caught.
+
+That is the first thing on the section that is genuinely an *analysis* rather than a
+presentation of the feed, and it is only computable because the run-value table exists, which
+is the argument for having built it. The card carries no jargon at all (no "run expectancy",
+no "linear weights", no "break-even rate" as a phrase), states the two prices in runs, and
+draws the two rates against each other so the shortfall is visible before the words are read.
+Hitting side only: the catcher's half of the same story wants the fielding lines and a
+different sentence.
+
+**AND IT IS A BOARD, NOT A CARD ON ANOTHER BOARD.** It shipped inside Run value and moved out
+within the hour, because the Stats row had started carrying two different kinds of thing.
+Players, Teams, Pitch by pitch, Run value and Tracked are one axis, *how do you want the numbers
+cut*: they sort, they filter, and they mean nothing the day the feed stops. A finding is the
+other kind: one question, one answer, read once, still true in February. Giving each finding its
+own chip is what would break that row, on a phone first, so there is **one chip for all of them
+and it never grows again**. Six chips is the width the row already reached whenever Tracked
+showed.
+
+**The steal card went out behind the experiments switch, and the play-value card went to
+everyone.** That split is most of the argument for a container rather than a chip per finding:
+one is a table of measurements a reader can check against a game they watched, the other is a
+verdict about how the league plays drawn from 73 attempts, 13 of them caught, and only one of
+those needs to sit for a while. Neither decision moved anything in the row above. Play values
+lead the board for the same reason: the prices should be seen before the argument built on them.
+
+Three rules for anything that lands there, all three from the traffic rather than from taste:
+**name players and make them tappable** (return rate runs 7.8% / 35.7% / 76.5% by whether a
+browser opened a player page and Game Center on day one, so a card that states a fact and names
+nobody is doing half its job); **no jargon, ever**; and **not on Home** (the reading rail was
+seen by 575 browsers and clicked by 39, and Home needs to get shorter rather than longer).
+
+Second card in with it: **what every kind of play is worth**, the league's own linear weights,
+home run +1.55 down to caught stealing -0.76, with the two surprises stated in a sentence that
+is assembled from the rows rather than written into the copy, since both are facts about a
+season still being played. A strikeout costs 0.09 of a run more than a groundout. The sacrifice,
+14 of them, has been worth 0.0 runs all season.
+
+`stealEconomy()` and `topRunners()` are in
+[`derive/runExpectancy.ts`](src/wpbl/derive/runExpectancy.ts). The runner list comes from the
+box scores' `sb`/`cs` rather than the play log, so a player's number here matches the Players
+board exactly, and the play log's own attempt count (a double steal is one row and one price)
+never appears next to it.
 
 ### Aug 27, 2026: Run value comes out from behind the flag (v1.52.0)
 

@@ -29,6 +29,7 @@ import { useEraBasis } from './EraBasisContext'
 const WpblTrackingView = lazy(() => import('./TrackingView'))
 const WpblPitchView = lazy(() => import('./PitchView'))
 const WpblRunValueView = lazy(() => import('./RunValueView'))
+const WpblFindingsView = lazy(() => import('./FindingsView'))
 const WpblDraftValue = lazy(() => import('./DraftValue'))
 
 // Complete season stat table for the WPBL — a sortable board of every hitting and
@@ -61,12 +62,12 @@ const WpblDraftValue = lazy(() => import('./DraftValue'))
 // 'draft' sits on neither axis on purpose: it's a one-off analysis of the draft class that
 // spans both sides at once, so it's reached from a card under the table instead.
 type Side = 'hitting' | 'pitching'
-type Source = 'season' | 'tracked' | 'pitches' | 'runs' | 'draft'
+type Source = 'season' | 'tracked' | 'pitches' | 'runs' | 'findings' | 'draft'
 type Mode = 'players' | 'teams'
 
 // The deep-link contract, unchanged — Home's leader cards ask for 'hitting'/'pitching' with a
 // column, and a legacy ?view=tracking URL asks for 'tracking'. Resolved onto the axes above.
-type Group = 'hitting' | 'pitching' | 'tracking' | 'pitches' | 'runs' | 'draft'
+type Group = 'hitting' | 'pitching' | 'tracking' | 'pitches' | 'runs' | 'findings' | 'draft'
 
 // Whether this page-load has already logged an arrival at Stats. Module scope rather than a
 // ref inside the component, because the pager unmounts the pane on the way out of the tab:
@@ -79,6 +80,7 @@ function axesOf(g: Group): { side?: Side; source: Source } {
   if (g === 'tracking') return { source: 'tracked' }
   if (g === 'pitches') return { source: 'pitches' }
   if (g === 'runs') return { source: 'runs' }
+  if (g === 'findings') return { source: 'findings' }
   if (g === 'draft') return { source: 'draft' }
   return { side: g, source: 'season' }
 }
@@ -762,6 +764,11 @@ export default function WpblStatsView({
     // likely to misread it; what it needed was the sentence above the table saying what a
     // "run" means here, not a flag almost nobody flips.
     { key: 'runs', label: 'Run value', badge: newBoardBadge },
+    // ONE CHIP FOR EVERY FINDING, however many get written. The row was starting to carry two
+    // different kinds of thing: the boards beside this are ways to cut the numbers, and what
+    // is behind this chip is answers. Giving each answer its own chip is what would break the
+    // row, on a phone first. See FindingsView.tsx.
+    { key: 'findings', label: 'Findings' },
     // Hidden while the league has published radar for barely any games, and kept for the
     // session once a link has opened it anyway. See trackedOffered.
     ...(trackedOffered ? [{ key: 'tracked', label: 'Tracked' }] : []),
@@ -1026,7 +1033,7 @@ export default function WpblStatsView({
           shape on every board (the right-hand controls just empty out), so the bar no longer
           grows and shrinks under a sticky header as you move between boards. Emptying them out
           is not enough on its own to hold that height on a phone: see the switch below. */}
-      {source !== 'draft' && (
+      {source !== 'draft' && source !== 'findings' && (
       <Box sx={{
         display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, rowGap: 1, pb: 1.5,
       }}>
@@ -1145,6 +1152,10 @@ export default function WpblStatsView({
       ) : source === 'pitches' ? (
         <Suspense fallback={<SubViewFallback />}>
           <WpblPitchView side={side} teams={teams} games={games} trackedVisible={trackedOffered} onOpenPlayer={onOpenPlayer} />
+        </Suspense>
+      ) : source === 'findings' ? (
+        <Suspense fallback={<SubViewFallback />}>
+          <WpblFindingsView games={games} battingLines={lines.batting} onOpenPlayer={onOpenPlayer} />
         </Suspense>
       ) : source === 'runs' ? (
         // Full-bleed, like the season table and unlike the other boards. Its two columns are a

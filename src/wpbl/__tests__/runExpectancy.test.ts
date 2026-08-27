@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   baseCode, buildRunExpectancy, playRunValues, biggestSwings, runValueLeaders, reOf, fmtRunValue,
-  type RunValueGame,
+  stealEconomy, topRunners,
+  type PlayRunValue, type RunValueGame,
 } from '../derive/runExpectancy'
 import type { WpblRunValuePlay } from '../types'
 
@@ -363,5 +364,70 @@ describe('formatting', () => {
     expect(fmtRunValue(-0.04)).toBe('0.0')
     expect(fmtRunValue(-2.5)).toBe('-2.5')
     expect(fmtRunValue(null)).toBe('—')
+  })
+})
+
+describe('the running game', () => {
+  // The card this feeds says "it has to work 86% of the time to be worth doing", and that
+  // number is the whole point of it: a stolen-base percentage cannot say whether running was a
+  // good idea, only how often it came off. Hand-checkable numbers here, since a break-even rate
+  // computed the wrong way round still looks like a plausible percentage.
+  const value = (event: string, v: number): PlayRunValue => ({
+    play: { event_type: event } as PlayRunValue['play'],
+    runs: 0, outs: 0, bases: 0, before: 0, after: 0, fieldingTeamId: null, value: v,
+  })
+
+  it('prices the attempts and works out what rate would break even', () => {
+    // Four steals at +0.10, one out at -0.80. Break-even: 0.80 / (0.10 + 0.80).
+    const e = stealEconomy([
+      ...Array.from({ length: 4 }, () => value('stolen_base', 0.1)),
+      value('caught_stealing', -0.8),
+      value('single', 0.5),          // and nothing else counts toward it
+    ])
+    expect(e.steals).toBe(4)
+    expect(e.caught).toBe(1)
+    expect(e.gained).toBeCloseTo(0.4, 6)
+    expect(e.lost).toBeCloseTo(-0.8, 6)
+    expect(e.net).toBeCloseTo(-0.4, 6)
+    expect(e.successRate).toBeCloseTo(0.8, 6)
+    expect(e.breakEven).toBeCloseTo(0.8 / 0.9, 6)
+    // The point of the card: running 80% of the time is not enough when it needs 89%.
+    expect(e.successRate!).toBeLessThan(e.breakEven!)
+  })
+
+  // The card is a comparison of two rates. With nothing to compare it renders nothing, so the
+  // absent half has to be null rather than a zero that would draw as a bar at the far left.
+  it('has no break-even rate until it has seen both outcomes', () => {
+    expect(stealEconomy([value('stolen_base', 0.1)]).breakEven).toBeNull()
+    expect(stealEconomy([value('caught_stealing', -0.8)]).breakEven).toBeNull()
+    expect(stealEconomy([]).successRate).toBeNull()
+  })
+})
+
+describe('who runs', () => {
+  const line = (player_id: string, sb: number, cs: number, game_id = 'g1') =>
+    ({ game_id, player_id, sb, cs })
+  const roster = [
+    { id: 'p1', name: 'Fast One' }, { id: 'p2', name: 'Fast Two' },
+  ] as Parameters<typeof topRunners>[2]
+
+  it('adds a runner up across her games and ranks by attempts', () => {
+    const rows = topRunners(
+      [line('p1', 2, 0), line('p1', 1, 1), line('p2', 1, 0)],
+      [game()], roster)
+    expect(rows.map(r => [r.name, r.sb, r.cs])).toEqual([['Fast One', 3, 1], ['Fast Two', 1, 0]])
+  })
+
+  // Same contract as every other season aggregate. A postseason steal is not a season steal,
+  // and this one would otherwise be the only number on the board that quietly included one.
+  it('leaves the postseason out', () => {
+    const rows = topRunners(
+      [line('p1', 2, 0), line('p1', 5, 0, 'post')],
+      [game(), game('post', { game_type: 'semifinal' })], roster)
+    expect(rows[0].sb).toBe(2)
+  })
+
+  it('ignores a line where nobody ran', () => {
+    expect(topRunners([line('p1', 0, 0)], [game()], roster)).toEqual([])
   })
 })
