@@ -28,6 +28,10 @@ What each family is for:
   favicon.ico, icon.svg  the tab strip and Google's results, both around 16px, where
                          the lockup cannot survive and a zoomed dolphin is used instead.
   og-cover.png           the social card.
+  play-feature-graphic.png
+                         the 1024x500 banner on the Play Store listing. Not served to
+                         anyone by the site; it lives here so it regenerates with the
+                         rest of the set when the logo changes.
   badge-96.png           the Android notification badge, a stencil cut from the alpha.
 """
 
@@ -37,6 +41,7 @@ from io import BytesIO
 from PIL import Image, ImageDraw, ImageFilter, ImageOps
 
 NAVY = (15, 23, 42, 255)          # #0f172a: theme_color, background_color, the dark shell
+BLACK = (0, 0, 0, 255)            # the Play feature graphic only, which is not a shell surface
 MASTER = "public/logo.png"
 OUT = "public/"
 
@@ -175,6 +180,20 @@ def main() -> None:
     h = round(w * art.height / art.width)
     card.alpha_composite(art.resize((w, h), Image.LANCZOS), ((1200 - w) // 2, (630 - h) // 2))
     card.convert("RGB").save(f"{OUT}og-cover.png")
+
+    # The Play Store feature graphic. 1024x500 is fixed by Google and the format must be
+    # JPEG or 24-bit PNG with NO alpha, which is why this one is flattened to RGB rather
+    # than saved like the tiles. It is wider than the social card (2.05:1 against 1.90:1),
+    # so the lockup is held to 64% of the width: Play crops this asset differently across
+    # surfaces and overlays a play button on its centre wherever a promo video exists, and
+    # anything run to the edges is what gets eaten. The ground is black rather than the
+    # shell navy because this one is never seen next to the app: it sits in Play's own
+    # chrome, where the navy reads as a washed-out rectangle rather than as our colour.
+    feature = Image.new("RGBA", (1024, 500), BLACK)
+    w = round(1024 * 0.64)
+    h = round(w * art.height / art.width)
+    feature.alpha_composite(art.resize((w, h), Image.LANCZOS), ((1024 - w) // 2, (500 - h) // 2))
+    feature.convert("RGB").save(f"{OUT}play-feature-graphic.png")
 
     # The notification badge is flattened to a stencil by the OS, which reads the alpha
     # channel and throws the colours away, so the plate has to drop out and leave only
