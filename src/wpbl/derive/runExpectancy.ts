@@ -3,9 +3,12 @@ import { runsOnPlay } from './playByPlay'
 import type { WpblGame, WpblPlayer, WpblRunValuePlay } from '../types'
 
 /** What this module needs to know about a game: whether it counts, whether it has finished,
- *  and who was on the other side of it. A play names only the batting club, so the pitcher's
- *  club is the other one in the pair. */
-export type RunValueGame = WpblSeasonGame & Pick<WpblGame, 'status' | 'home_team_id' | 'away_team_id'>
+ *  who was on the other side of it, and how it came out. A play names only the batting club,
+ *  so the pitcher's club is the other one in the pair; the score is what lets the last
+ *  half-inning of a finished game be measured at all (see `halfInningEndings`). */
+export type RunValueGame = WpblSeasonGame &
+  Pick<WpblGame, 'status' | 'home_team_id' | 'away_team_id' | 'home_score' | 'away_score'
+    | 'home_line' | 'away_line'>
 
 /**
  * Run expectancy, and what each play was worth, from our own play log.
@@ -125,8 +128,8 @@ export function reOf(table: ReTable, outs: number, bases: BaseCode): number | nu
   return table.cells[outs][bases].re
 }
 
-/** A half-inning's plays, in order, with the two facts every caller below needs about how
- *  it ended. They are different questions and the answers differ: see `groupHalfInnings`. */
+/** A half-inning's plays, in order, with the facts every caller below needs about how it
+ *  ended. They are different questions and the answers differ: see `groupHalfInnings`. */
 interface HalfInning {
   gameId: string
   plays: WpblRunValuePlay[]
@@ -134,32 +137,162 @@ interface HalfInning {
   last: boolean
   /** Whether the game it belongs to has finished. */
   gameFinal: boolean
+  /** Whether the runs that followed each state here might NOT all be in the log, which is
+   *  what makes a half-inning unmeasurable. Only ever true of a `last`, and only when the
+   *  evidence in `halfInningEndings` fails to rule it out. */
+  censored: boolean
+}
+
+/** Where a game's play log is missing runs, as precisely as the feed's own numbers can say. */
+interface GameEnding {
+  final: boolean
+  /** Both scores published. Without them nothing here can be evaluated: not whether runs are
+   *  missing, and not whether the home side won while batting. */
+  scored: boolean
+  /** `${half}|${inning}` for each half-inning whose log is SHORT of its line-score cell. */
+  shortHalves: Set<string>
+  /** A side whose missing runs could not be pinned on any inning: the line score and the log
+   *  agree with each other and both fall short of the final score. Nothing says where, so the
+   *  whole of that side's half-innings go, and only that side's. */
+  unplaced: { top: boolean; bottom: boolean }
+  /** The home side finished level or ahead, so a bottom half it was batting in may have been
+   *  cut short by the game being won or called rather than by a third out. */
+  homeNotBeaten: boolean
+}
+
+const halfKey = (half: string | null, inning: number) =>
+  `${half === 'bottom' ? 'bottom' : 'top'}|${inning}`
+
+/**
+ * Where each game's log is missing runs, using the feed's own three views of the same game.
+ *
+ * A RECONCILIATION, NOT A GUESS, and done at two levels because the feed publishes both. The
+ * line score gives runs per inning per side, so a half-inning whose logged runs fall short of
+ * its own cell is missing rows, and it is the only half-inning we know that about. Whatever
+ * gap is left between the log and the FINAL score after those shortfalls are accounted for is
+ * missing from somewhere nobody can name, and that is the only case that costs a whole side of
+ * a game. One half-inning in the season is in the first class (Aug 20, top of the 7th, the
+ * hit-by-pitch with the bases loaded that RetroWPBL has and the feed does not) and none is in
+ * the second.
+ *
+ * Being able to place a gap is what lets the rest of a damaged game stay. The Aug 20 log goes
+ * blank from the middle of the 5th, fourteen rows with no batter, no event and outs frozen at
+ * 0, and every one of its other half-innings still reconciles cell by cell.
+ *
+ * SHORT, not merely different. A half-inning whose log has MORE runs than its line-score cell
+ * is not censored: the runs that followed each state in it are all present, which is the only
+ * property the table needs. That also keeps a correction from being self-defeating, since a
+ * correction adding a run the feed never scored would otherwise disqualify the inning it fixed.
+ *
+ * It is deliberately NOT "did the last play make the third out". The log does not state the
+ * outs a play made, so that question can only be answered by classifying `event_type`, which
+ * gets the ordinary endings right and then quietly drops the inning that ended on a double
+ * play or on a runner thrown out stretching, both of which the feed files under the batter's
+ * own result. Those are innings with runners on base, so excluding them would bias the exact
+ * cells they belong to, which is the failure this whole rule exists to avoid.
+ */
+function halfInningEndings(
+  plays: WpblRunValuePlay[],
+  games: RunValueGame[],
+): Map<string, GameEnding> {
+  const logged = new Map<string, Map<string, number>>()
+  for (const p of plays) {
+    let byHalf = logged.get(p.game_id)
+    if (!byHalf) logged.set(p.game_id, byHalf = new Map())
+    const k = halfKey(p.half, p.inning)
+    byHalf.set(k, (byHalf.get(k) ?? 0) + runsOnPlay(p))
+  }
+
+  const out = new Map<string, GameEnding>()
+  for (const g of games) {
+    const byHalf = logged.get(g.id) ?? new Map<string, number>()
+    const shortHalves = new Set<string>()
+    const unplaced = { top: false, bottom: false }
+
+    for (const half of ['top', 'bottom'] as const) {
+      const line = half === 'bottom' ? g.home_line : g.away_line
+      const score = half === 'bottom' ? g.home_score : g.away_score
+      let inLog = 0
+      for (const [k, runs] of byHalf) if (k.startsWith(`${half}|`)) inLog += runs
+
+      let missing = 0
+      for (const cell of line ?? []) {
+        const k = halfKey(half, cell.inning)
+        const short = (cell.runs ?? 0) - (byHalf.get(k) ?? 0)
+        if (short > 0) { shortHalves.add(k); missing += short }
+      }
+
+      // Positive evidence only. No score published (an older row, or a caller holding a slice
+      // of the season) leaves this false, and the game keeps the old behaviour of losing just
+      // its last half-inning. Wrong in the safe direction: a smaller table, not a biased one.
+      if (score != null) unplaced[half] = score - inLog - missing > 0
+    }
+
+    out.set(g.id, {
+      final: g.status === 'final',
+      scored: g.home_score != null && g.away_score != null,
+      shortHalves,
+      unplaced,
+      homeNotBeaten: (g.home_score ?? 0) >= (g.away_score ?? 0),
+    })
+  }
+  return out
 }
 
 /**
  * Split the play log into half-innings, in order, and say how each one sits in its game.
  *
- * HOW AN INNING ENDED IS TWO QUESTIONS, and they are decided without reading outs off the
- * last play, which the data does not state. Every half-inning followed by another one in the
- * same game ended with three outs; the only one that might not is a game's last.
+ * HOW AN INNING ENDED IS TWO QUESTIONS, and neither is decided by reading outs off the last
+ * play, which the data does not state. Every half-inning followed by another one in the same
+ * game ended with three outs; the only one that might not is a game's last.
  *
  * For VALUING a play, what matters is whether the inning is over at all: a walk-off ends it
  * as surely as a third out, and in both cases nothing more could be expected, so zero is
  * right. `gameFinal` answers that, and it is why the schedule is consulted here beyond the
  * postseason filter at all.
  *
- * For MEASURING the table, that is not enough. A walk-off inning stops because the winning
- * run scored, so its runs are censored by the end of the GAME rather than by the inning, and
- * averaging it in drags every state it contains downward. There is no column saying which of
- * the two happened, so the table drops every game's last half-inning rather than guessing:
- * about one in fourteen, applied uniformly, which is cheap next to a bias that would land
- * hardest on exactly the late high-leverage states the boards are most about.
+ * For MEASURING the table the question is narrower: are all the runs that followed each state
+ * actually in the log? A walk-off inning stops because the winning run scored, so its runs are
+ * censored by the end of the GAME rather than by the inning, and averaging it in drags every
+ * state it contains downward.
+ *
+ * This used to answer that by dropping EVERY game's last half-inning, and that was not merely
+ * cautious, it was BIASED, in the direction nobody was watching. Whether a half-inning ends a
+ * game is not independent of the runs in it: a top of the 7th ends the game only if the side
+ * batting failed to catch up, and a bottom of the 7th is followed by another inning only if
+ * the game was still level after it. So the old rule kept the top 7ths that scored (0.75 runs
+ * against 0.38 for the ones it dropped) and, for bottom 7ths, kept two half-innings in the
+ * whole season, both of them scoreless by definition, to stand for every bottom of the 7th
+ * played. The table came out about 4% high overall: 1.13 runs a half-inning against 1.08
+ * measured on all of them, and 3.20 against 3.00 with the bases loaded and nobody out.
+ *
+ * The fix for a conditioned sample is not a better condition, it is to stop conditioning:
+ * measure every half-inning whose runs are all in the log, last or not. So a last half-inning
+ * is now measured when three things together rule censoring out:
+ *
+ *   1. the game is FINAL and its score is published, so nothing about it is still to come and
+ *      there is something to check it against;
+ *   2. no runs are missing from it or from its side of that game (`halfInningEndings`);
+ *   3. it is a top half, or a bottom half the home side LOST. A walk-off is the one ending
+ *      that stops a half-inning with runs still owed to it, and it takes the home side
+ *      batting and finishing level or ahead. Stated as "the home side was beaten" rather than
+ *      "the last play scored" so that a game called early with the home side up falls out
+ *      too: same censoring, different cause.
+ *
+ * The season's first 21 games contain no walk-off at all, so in practice every last
+ * half-inning is now measured, and the table went from 265 half-innings to 283 and from 1,407
+ * plate appearances to 1,467. What is NOT measured, across the whole season, is one
+ * half-inning: the top of the 7th on Aug 20, where the line score has a run the play log does
+ * not. If the postseason produces a walk-off it comes out on evidence rather than on suspicion.
  *
  * Order is not assumed. The rows are sorted by (game, sequence) on the way in, because every
  * number below is a walk forward through an inning and a caller handing them over in some
  * other order would produce a plausible table rather than an error.
  */
-function groupHalfInnings(plays: WpblRunValuePlay[], finalGames: Set<string>): HalfInning[] {
+function groupHalfInnings(
+  plays: WpblRunValuePlay[],
+  endings: Map<string, GameEnding>,
+): HalfInning[] {
   const sorted = [...plays].sort((a, b) =>
     a.game_id === b.game_id ? a.sequence - b.sequence : (a.game_id < b.game_id ? -1 : 1))
 
@@ -169,7 +302,10 @@ function groupHalfInnings(plays: WpblRunValuePlay[], finalGames: Set<string>): H
   for (const p of sorted) {
     const k = `${p.game_id}|${p.inning}|${p.half}`
     if (k !== key) {
-      current = { gameId: p.game_id, plays: [], last: false, gameFinal: finalGames.has(p.game_id) }
+      current = {
+        gameId: p.game_id, plays: [], last: false, censored: false,
+        gameFinal: endings.get(p.game_id)?.final ?? false,
+      }
       out.push(current)
       key = k
     }
@@ -179,6 +315,23 @@ function groupHalfInnings(plays: WpblRunValuePlay[], finalGames: Set<string>): H
   const lastOf = new Map<string, HalfInning>()
   for (const h of out) lastOf.set(h.gameId, h)
   for (const h of lastOf.values()) h.last = true
+
+  for (const h of out) {
+    const e = endings.get(h.gameId)
+    const bottom = h.plays[0]?.half === 'bottom'
+    // Missing runs, as narrowly as they can be placed: this half-inning is short of its own
+    // line-score cell, or its SIDE of this game is short by runs no inning will own up to.
+    // Everything else in a damaged game still counts, which is the whole point of asking the
+    // line score rather than only the final score.
+    if (e && (e.shortHalves.has(halfKey(bottom ? 'bottom' : 'top', h.plays[0]?.inning ?? 0)) ||
+              e.unplaced[bottom ? 'bottom' : 'top'])) { h.censored = true; continue }
+    if (!h.last) continue
+    // In progress: this half-inning has not finished, whatever the score says. And with no
+    // score published there is no way to tell a walk-off from a third out, so the last
+    // half-inning of such a game stays out, which is where every game was before any of this.
+    if (!e?.final || !e.scored) { h.censored = true; continue }
+    h.censored = bottom && e.homeNotBeaten
+  }
   return out
 }
 
@@ -187,13 +340,6 @@ function runsToEnd(plays: WpblRunValuePlay[]): number[] {
   const out = new Array<number>(plays.length + 1).fill(0)
   for (let i = plays.length - 1; i >= 0; i--) out[i] = out[i + 1] + runsOnPlay(plays[i])
   return out.slice(0, plays.length)
-}
-
-/** The games whose plays may be measured at all: regular season, and how each one ended. */
-function seasonContext(games: RunValueGame[]) {
-  const final = new Set<string>()
-  for (const g of games) if (g.status === 'final') final.add(g.id)
-  return final
 }
 
 /**
@@ -206,9 +352,10 @@ function seasonContext(games: RunValueGame[]) {
  * high. The baserunning rows still contribute their runs to the totals; they just do not each
  * open a new observation.
  *
- * The half-inning a game stopped in the middle of is left out entirely: its runs are censored
- * by the final out of the game rather than by the inning, so counting it would drag every
- * state it contains downward.
+ * A half-inning a game stopped in the middle of is left out entirely: its runs are censored by
+ * the end of the game rather than by the inning, so counting it would drag every state it
+ * contains downward. Which last half-innings those actually are is `groupHalfInnings`, and it
+ * is a narrower set than "all of them", which is what this used to assume.
  *
  * EXTRA INNINGS ARE LEFT OUT TOO, and that one is not obvious. This league starts them with a
  * runner already on second, and the feed records the placement as its own row whose base state
@@ -224,7 +371,7 @@ export function buildRunExpectancy(
   games: RunValueGame[],
 ): ReTable {
   const inSeason = regularSeasonLines(plays, games)
-  const halves = groupHalfInnings(inSeason, seasonContext(games))
+  const halves = groupHalfInnings(inSeason, halfInningEndings(inSeason, games))
 
   const sums = Array.from({ length: 3 }, () => new Array<number>(8).fill(0))
   const counts = Array.from({ length: 3 }, () => new Array<number>(8).fill(0))
@@ -234,7 +381,8 @@ export function buildRunExpectancy(
   const gameIds = new Set<string>()
 
   for (const h of halves) {
-    if (h.last) continue
+    // Not "is it the last one" but "could it be short of runs": see `groupHalfInnings`.
+    if (h.censored) continue
     if ((h.plays[0]?.inning ?? 0) > REGULATION_INNINGS) continue
     measuredHalves++
     gameIds.add(h.gameId)
@@ -242,7 +390,14 @@ export function buildRunExpectancy(
     runs += rest[0] ?? 0
     for (let i = 0; i < h.plays.length; i++) {
       const p = h.plays[i]
-      if (!p.pitch_sequence) continue
+      // A PITCH SEQUENCE ALONE IS NOT A PLATE APPEARANCE. The feed serves rows with a pitch
+      // sequence and nothing else on it: no batter, no event, no narrative, outs frozen where
+      // the last real row left them. Aug 20 has thirteen of them across the 6th and 7th, and
+      // read as PAs they were thirteen observations of "nobody on, nobody out, no runs
+      // followed" in the cell the whole board leans on. A row that names no batter is not a
+      // trip to the plate, and the runner-advance rows that legitimately name none are not
+      // either.
+      if (!p.pitch_sequence || !p.batter_name) continue
       const outs = p.outs
       if (outs == null || outs < 0 || outs > 2) continue
       const bases = baseCode(p)
@@ -307,7 +462,7 @@ export function playRunValues(
   table: ReTable,
 ): PlayRunValue[] {
   const inSeason = regularSeasonLines(plays, games)
-  const halves = groupHalfInnings(inSeason, seasonContext(games))
+  const halves = groupHalfInnings(inSeason, halfInningEndings(inSeason, games))
   const sides = new Map(games.map(g => [g.id, [g.home_team_id, g.away_team_id]] as const))
   const out: PlayRunValue[] = []
 

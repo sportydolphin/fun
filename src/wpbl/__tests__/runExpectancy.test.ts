@@ -22,9 +22,13 @@ const play = (over: Partial<WpblRunValuePlay> = {}): WpblRunValuePlay => ({
   ...over,
 })
 
+// Scoreless by default, and that is not a detail. A last half-inning is measured only once
+// the log has been reconciled against the published score, so a fixture that states no score
+// proves nothing and keeps the old behaviour of dropping it. Every test below that wants one
+// measured says what the game finished.
 const game = (id = 'g1', over: Partial<RunValueGame> = {}): RunValueGame => ({
   id, game_type: 'regular', counts_in_standings: true, status: 'final',
-  home_team_id: 'BOS', away_team_id: 'SF', ...over,
+  home_team_id: 'BOS', away_team_id: 'SF', home_score: null, away_score: null, ...over,
 })
 
 const games = [game()]
@@ -36,9 +40,10 @@ const threeUp = (inning: number, gameId = 'g1'): WpblRunValuePlay[] =>
 /**
  * The innings given, plus one more nobody cares about.
  *
- * Every game's last half-inning is left out of the table (it is the only one that might have
- * stopped for a reason other than three outs), so a fixture that wants two innings measured
- * has to play a third. Making that explicit here keeps it out of every test's arithmetic.
+ * A game's last half-inning is the only one that might have stopped for a reason other than
+ * three outs, and these fixtures publish no score for it to be checked against, so it is
+ * dropped. A fixture that wants two innings measured therefore has to play a third. Making
+ * that explicit here keeps it out of every test's arithmetic.
  */
 function withSpareInning(innings: WpblRunValuePlay[][], gameId = 'g1'): WpblRunValuePlay[] {
   const out: WpblRunValuePlay[] = []
@@ -90,9 +95,10 @@ describe('the run expectancy table', () => {
     expect(reOf(t, 0, 0)).toBeCloseTo(0.5, 6)    // (1 + 0) / 2
   })
 
-  // The inning a game ends in is censored by the end of the GAME rather than by three outs,
-  // and no column says which happened, so it is dropped rather than guessed at.
-  it('leaves out the half-inning the game ended in', () => {
+  // The inning a game ends in may be censored by the end of the GAME rather than by three
+  // outs. With no score published there is nothing to check the log against, so it is dropped
+  // rather than guessed at.
+  it('leaves out the half-inning the game ended in when nothing proves it complete', () => {
     const plays = [
       ...threeUp(1),
       play({ inning: 2, half: 'bottom', sequence: 50, outs: 0, event_type: 'home_run', runs_scored: 0 }),
@@ -122,6 +128,105 @@ describe('the run expectancy table', () => {
     const t = buildRunExpectancy(withSpareInning([threeUp(1)]), games)
     expect(reOf(t, 0, 7)).toBeNull()
     expect(t.cells[0][7].n).toBe(0)
+  })
+
+  // THE OTHER SIDE OF THAT RULE, and the reason it is worth having: almost every last
+  // half-inning IS complete, and dropping them all took a 7th inning out of every game, which
+  // is where the states the boards are most about live.
+  it('measures the last half-inning once the log reconciles with the box score', () => {
+    // Away score in the 1st, home go quietly, game over: the last half ended at three outs.
+    const plays = [
+      play({ inning: 1, half: 'top', outs: 0, event_type: 'home_run', runs_scored: 0 }),
+      play({ inning: 1, half: 'top', outs: 0 }),
+      play({ inning: 1, half: 'top', outs: 1 }),
+      play({ inning: 1, half: 'top', outs: 2 }),
+      ...[0, 1, 2].map(outs => play({ inning: 1, half: 'bottom', outs })),
+    ]
+    const t = buildRunExpectancy(plays, [game('g1', { away_score: 1, home_score: 0 })])
+    expect(t.halfInnings).toBe(2)
+  })
+
+  // Runs missing from a side of a game that no inning will own up to: no line score here, so
+  // there is nothing to place them with. That side of the game goes, and only that side. The
+  // home half-innings are untouched, since a run the away side never got credited cannot be
+  // hiding in them.
+  it('drops the side of a game whose runs the log cannot account for', () => {
+    const plays = [
+      play({ inning: 1, half: 'top', outs: 0, event_type: 'home_run', runs_scored: 0 }),
+      play({ inning: 1, half: 'top', outs: 0 }),
+      play({ inning: 1, half: 'top', outs: 1 }),
+      play({ inning: 1, half: 'top', outs: 2 }),
+      ...[0, 1, 2].map(outs => play({ inning: 1, half: 'bottom', outs })),
+    ]
+    const t = buildRunExpectancy(plays, [game('g1', { away_score: 2, home_score: 0 })])
+    expect(t.halfInnings).toBe(1)       // the home half survives; the away half does not
+    expect(t.pa).toBe(3)                // the three home trips, none of the four away ones
+  })
+
+  // The one ending that really is censored. The home side stops batting the moment it goes
+  // ahead, so whatever that state was still worth never gets on the board.
+  it('drops the bottom half the home side won in', () => {
+    const plays = [
+      ...[0, 1, 2].map(outs => play({ inning: 1, half: 'top', outs })),
+      play({ inning: 1, half: 'bottom', outs: 0, event_type: 'home_run', runs_scored: 0 }),
+    ]
+    const t = buildRunExpectancy(plays, [game('g1', { away_score: 0, home_score: 1 })])
+    expect(t.halfInnings).toBe(1)
+    expect(t.runsPerHalfInning).toBe(0)
+  })
+
+  // Same rule seen from the other end: a game called off with the home side ahead has the
+  // same shape as a walk-off (home batting, home not beaten) and is censored for the same
+  // reason, even though nobody won it with a swing.
+  it('drops a bottom half the home side merely led in', () => {
+    const plays = [
+      ...[0, 1, 2].map(outs => play({ inning: 1, half: 'top', outs })),
+      play({ inning: 1, half: 'bottom', outs: 0, event_type: 'home_run', runs_scored: 1 }),
+      play({ inning: 1, half: 'bottom', outs: 0 }),
+    ]
+    const t = buildRunExpectancy(plays, [game('g1', { away_score: 0, home_score: 2 })])
+    expect(t.halfInnings).toBe(1)
+  })
+
+  // The line score places a gap that the final score alone cannot, which is what keeps the
+  // other thirteen half-innings of a damaged game in the table.
+  it('drops only the half-inning the line score says is short', () => {
+    const plays = [
+      ...[0, 1, 2].map(outs => play({ inning: 1, half: 'top', outs })),
+      ...[0, 1, 2].map(outs => play({ inning: 1, half: 'bottom', outs })),
+      // The away side scored in the 2nd per the line score, and the log has no such row.
+      ...[0, 1, 2].map(outs => play({ inning: 2, half: 'top', outs })),
+      ...[0, 1, 2].map(outs => play({ inning: 2, half: 'bottom', outs })),
+      ...[0, 1, 2].map(outs => play({ inning: 3, half: 'top', outs })),
+    ]
+    const t = buildRunExpectancy(plays, [game('g1', {
+      away_score: 1, home_score: 0,
+      away_line: [{ inning: 1, runs: 0 }, { inning: 2, runs: 1 }, { inning: 3, runs: 0 }],
+      home_line: [{ inning: 1, runs: 0 }, { inning: 2, runs: 0 }],
+    })])
+    expect(t.halfInnings).toBe(4)       // five half-innings, less the 2nd on top
+    expect(t.pa).toBe(12)
+  })
+
+  // Absence of a score is not evidence of a broken log. Every fixture in this file above here
+  // publishes no score, so if "unknown" were treated as "short" they would all be measuring an
+  // empty table and passing for the wrong reason.
+  it('keeps measuring a game whose score is not published', () => {
+    const t = buildRunExpectancy(withSpareInning([threeUp(1), threeUp(2)]), games)
+    expect(t.halfInnings).toBe(2)
+  })
+
+  // A row can carry a pitch sequence and still not be a plate appearance: the feed serves
+  // blank ones, and a runner advancing carries the pitches of the play it happened on.
+  it('does not count a row with no batter as a plate appearance', () => {
+    const plays = withSpareInning([[
+      play({ outs: 0, event_type: 'single' }),
+      play({ outs: 0, first_base: 'R', batter_name: null, event_type: null, narrative: '' }),
+      play({ outs: 0, first_base: 'R' }), play({ outs: 1, first_base: 'R' }), play({ outs: 2, first_base: 'R' }),
+    ]])
+    const t = buildRunExpectancy(plays, games)
+    expect(t.pa).toBe(4)                // five rows, one of them blank
+    expect(t.cells[0][1].n).toBe(1)     // the one real trip with a man on first and nobody out
   })
 
   // Same contract as every other season aggregate: a postseason game must not reach it.

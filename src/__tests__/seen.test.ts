@@ -8,8 +8,8 @@ import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 
 // Whichever badge is registered today: these test the mechanism, not the release. When the
 // last one is retired and BADGES is empty, this file goes with it.
-const KEY = 'pitches-v147'
-const BEFORE_EXPIRY = new Date('2026-08-21T12:00:00Z')
+const KEY = 'runs-v152'
+const BEFORE_EXPIRY = new Date('2026-08-27T12:00:00Z')
 const AFTER_EXPIRY = new Date('2026-10-01T12:00:00Z')
 
 describe('shouldShowBadge', () => {

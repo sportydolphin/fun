@@ -19,14 +19,20 @@
 /** Registered badges. Add an entry when shipping something worth pointing at, and delete it
  *  (plus its call site) once the date has passed. */
 const BADGES = {
-  // The Pitch by pitch board in v1.47.0, which is a source chip inside the Stats tab rather
+  // The Run value board coming out from behind the experimental-features switch in v1.52.0.
+  // Like the Pitch by pitch dot it replaces, it is a source chip inside the Stats tab rather
   // than a tab of its own, so this one dot is drawn TWICE: on the Stats pill to get the reader
   // into the tab, and on the chip to get them the rest of the way. It is therefore retired by
   // opening the BOARD, not by opening the tab. Clearing it at the tab would put out the chip's
   // dot before anyone had seen it, which is the half that does the actual pointing.
   // Expires with the postseason: a dot advertising a stats board is stale the moment the feed
   // stops producing stats for it.
-  'pitches-v147': new Date('2026-09-22T23:59:59Z'),
+  //
+  // Only one of these at a time in the nav. 'pitches-v147' pointed at the Pitch by pitch board
+  // and was pulled by hand here rather than left to lapse: two dots in a five-tab nav is one
+  // more than a nudge can afford, and both would have landed on the same Stats pill anyway,
+  // where the second one says nothing the first did not.
+  'runs-v152': new Date('2026-09-22T23:59:59Z'),
   // Not a dot: this one gates a one-line notice above the WPBL pitching board saying ERA
   // moved from per 7 to per 9. It is here rather than in its own store because the question
   // is identical ("has this reader been told yet") and the expiry matters more here than

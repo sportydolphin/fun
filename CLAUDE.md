@@ -221,8 +221,7 @@ units):
 
 - **WPBL** (`/wpbl`, the default): Women's Pro Baseball League. Scoreboard, schedule,
   standings, stats, TrackMan, Game Center, auto recaps, Hall of Firsts, push reminders.
-  Run value (the league's own run-expectancy table, built from our own plays; behind the
-  experiments switch while it settles).
+  Run value (the league's own run-expectancy table, built from our own plays).
   Mirrored from the league feed into Supabase by the `wpbl-ingest` edge function. The feed
   stops Sep 22, 2026 (regular season ends Sep 6; the postseason runs Sep 9 to Sep 22).
 - **MLB** (`/mlb`): deeper and StatsAPI-driven. Game Center, personalized home feed, a

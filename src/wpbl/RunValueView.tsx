@@ -10,7 +10,6 @@ import {
 } from './derive/runExpectancy'
 import { wpblAccentFg } from './constants'
 import { SectionCard, LeaderRow, PlayerPortrait, ExpandRow, useWpblDark, useWpblName } from './ui'
-import { ExperimentalChip } from '../ExperimentsContext'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 
 // The run-value board: what each situation in a game is worth, and which plays moved furthest
@@ -219,22 +218,16 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer }: {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 } }}>
-      {/* One line, and it has to carry the unit on its own: every number below is "runs" in a
-          sense nobody uses at the ballpark, and a reader who takes +19.0 for runs scored has
-          been misled by us rather than confused by the stat. */}
-      {/* No heading. The board tab directly above already says "Run value", and a second
-          title under it named the same board twice in two different sets of words, which
-          reads as two things rather than as one. The sentence stays: it is the part that
-          says what the numbers mean, and it has to, since every figure below is "runs" in a
-          sense nobody uses at the ballpark. */}
+      {/* ONE SENTENCE, AND NO HEADING. The board tab directly above already says "Run value",
+          so a title under it named the same board twice in two sets of words. What has to stay
+          is the unit: every figure below is "runs" in a sense nobody uses at the ballpark, and
+          a reader who takes +19.0 for runs scored has been misled by us rather than confused by
+          the stat. That is also the whole of what the experimental flag was protecting people
+          from, which is why this line, not the flag, is what the board now ships with. */}
       <Box sx={{ maxWidth: '70ch' }}>
-        {/* The board is behind the experiments switch, and a reader who turned that on weeks
-            ago has no way to tell which of the things in front of them is the one that may
-            be wrong tomorrow. */}
-        <ExperimentalChip />
-        <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mt: 0.75, lineHeight: 1.5 }}>
-          Every play leaves a team better or worse off than it was. Run value is that
-          difference, counted in runs, from this league's own {table.games} games.
+        <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', lineHeight: 1.5 }}>
+          Run value is how much better or worse off a play left a team, counted in runs,
+          from this league's own {table.games} games.
         </Typography>
       </Box>
 
@@ -256,9 +249,10 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer }: {
       </SectionCard>
 
       {/* The 24 situations the whole board is priced off, shut. It is the most expert-looking
-          thing on the section and the least necessary: the two sentences above quote the only
-          two cells anybody needs, and this is here for the reader who wants to check them.
-          Width-capped, because four columns spread across 1,100px stop reading as a grid. */}
+          thing on the section and the least necessary: the line at the top says what a run
+          value is, and this is here for the reader who wants to see where the numbers come
+          from. Width-capped, because four columns spread across 1,100px stop reading as a
+          grid. */}
       <Box sx={{ maxWidth: { md: 560 } }}>
         <SectionCard title="What every situation is worth"
           subtitle="Runs a team goes on to score from here to the end of the inning, on average. The small number is how many times it has come up."
@@ -267,14 +261,19 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer }: {
         </SectionCard>
       </Box>
 
+      {/* Fine print, and it was four sentences of it. Only one carries a surprise: a steal
+          moves the table but nobody's total, because the feed names the batter standing there
+          rather than the runner who ran, so the caught stealing that ended an inning is priced
+          to nobody. The rest are house rules a reader can assume (a walk-off inning stops when
+          the winning run scores rather than at three outs, so it cannot say what the inning
+          went on to be worth; an inning short of its own line score is missing rows; the
+          postseason is out of every season number on the section),
+          and spent at length here they buried the one thing worth reading. */}
       <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', px: 1, lineHeight: 1.55, maxWidth: '70ch' }}>
-        Worked out from the play-by-play, which records the outs and the runners every play
-        started with.
-        {' '}Steals and wild pitches shape the table but are left out of the player totals,
-        since the feed names the batter standing there rather than the runner who ran.
-        {' '}The inning a game ends on is left out, because it stopped when the game did rather
-        than at three outs.
-        {' '}Postseason games are left out, like every other season number here.
+        Built from every play's outs and runners. Steals and wild pitches move the table but not
+        player totals: the feed names the batter, not the runner. Every complete inning counts;
+        walk-offs, the postseason, and an inning the league's own line score says is missing
+        runs do not.
       </Typography>
     </Box>
   )

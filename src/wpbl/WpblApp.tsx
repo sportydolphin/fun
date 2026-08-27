@@ -511,41 +511,43 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const [statsFocus, setStatsFocus] = useState<WpblStatsFocus>(
     () => (seedTracking() ? { group: 'tracking', token: 1 } : { group: 'hitting', token: 0 }))
 
-  // "Something new here" dot for the Pitch by pitch board, which lives one level deeper than a
+  // "Something new here" dot for the Run value board, which lives one level deeper than a
   // tab: it is drawn on the Stats pill AND on the chip inside it, and only opening the board
   // retires it (see the note in lib/seen.ts). Cleared from StatsView, which is the only thing
   // that knows the reader actually got there. Read once at mount: shouldShowBadge() consults
   // localStorage and an expiry date, and neither changes under us mid-session.
   //
-  // The Teams tab carried the same dot for the v1.45.0 rebuild and no longer does. It was
-  // pulled by hand rather than left to expire on Aug 31; the registration went with it, which
-  // is what lib/seen.ts means by deleting a badge and its call site together.
-  const [pitchesBadge, setPitchesBadge] = useState(() => shouldShowBadge('pitches-v147'))
+  // Two tabs have carried this dot before and neither does now: Teams for the v1.45.0 rebuild,
+  // Pitch by pitch for v1.47.0. Each was pulled by hand rather than left to expire, and each
+  // registration went with its call site, which is what lib/seen.ts means by deleting a badge
+  // in one go. One dot at a time: a second would land on this same Stats pill and say nothing
+  // the first had not.
+  const [runsBadge, setRunsBadge] = useState(() => shouldShowBadge('runs-v152'))
   // Impression, logged once per mount rather than per render, so the click-through rate has
   // an honest denominator. Without this half of the point is lost: a nudge you cannot
   // measure is a nudge you will be guessing about next time.
-  const pitchesBadgeLogged = useRef(false)
+  const runsBadgeLogged = useRef(false)
   useEffect(() => {
-    if (!pitchesBadge || pitchesBadgeLogged.current) return
-    pitchesBadgeLogged.current = true
-    track(EVENTS.NEW_BADGE_SHOWN, { badge: 'pitches-v147' })
-  }, [pitchesBadge])
+    if (!runsBadge || runsBadgeLogged.current) return
+    runsBadgeLogged.current = true
+    track(EVENTS.NEW_BADGE_SHOWN, { badge: 'runs-v152' })
+  }, [runsBadge])
   // Guarded by a ref rather than by the state it sets, for two reasons: the callback stays
   // referentially stable (StatsView calls it from an effect, and a changing identity would
   // re-run that effect on every retirement), and the click is tracked OUTSIDE a state updater,
   // which React is free to run twice.
-  const pitchesBadgeLive = useRef(pitchesBadge)
-  const retirePitchesBadge = useCallback((via: string) => {
-    if (!pitchesBadgeLive.current) return
-    pitchesBadgeLive.current = false
-    track(EVENTS.NEW_BADGE_CLICKED, { badge: 'pitches-v147', via })
-    markBadgeSeen('pitches-v147')
-    setPitchesBadge(false)
+  const runsBadgeLive = useRef(runsBadge)
+  const retireRunsBadge = useCallback((via: string) => {
+    if (!runsBadgeLive.current) return
+    runsBadgeLive.current = false
+    track(EVENTS.NEW_BADGE_CLICKED, { badge: 'runs-v152', via })
+    markBadgeSeen('runs-v152')
+    setRunsBadge(false)
   }, [])
 
   // Which tabs are wearing a dot. Kept as a function rather than inlined into both navs, so a
   // future badge is added in one place and the two navs cannot disagree.
-  const navBadge = (key: string): boolean => key === 'stats' && pitchesBadge
+  const navBadge = (key: string): boolean => key === 'stats' && runsBadge
 
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [games, setGames] = useState<WpblGame[]>([])
@@ -1226,7 +1228,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
                   case 'home':      return <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromHome} onViewStats={openStats} onViewTracking={openTracking} />
                   case 'schedule':  return <ScheduleView teams={teams} games={games} onOpenGame={openGame} active={view === 'schedule'} />
                   case 'standings': return <StandingsView teams={teams} games={games} onOpenTeam={selectTeamFromStandings} />
-                  case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} active={view === 'stats'} newBoardBadge={pitchesBadge} onNewBoardSeen={retirePitchesBadge} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromStats} />
+                  case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} active={view === 'stats'} newBoardBadge={runsBadge} onNewBoardSeen={retireRunsBadge} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromStats} />
                   case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeamFromTeams} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenStats={openStats} />
                 }
               })()

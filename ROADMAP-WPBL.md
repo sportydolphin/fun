@@ -44,7 +44,7 @@ played. Nothing yet exists that makes `/wpbl` worth opening in November.
 standings, leaders, highlights rail, reading rail, archive rail, Discord invite) ·
 Schedule · Standings (W/L/PCT/GB/L10/STRK/DIFF, H2H tiebreak) · Stats, one row of board tabs
 (Players, a ranked list on a phone and the full table on a desktop, with a Sort sheet, a
-Filters sheet and a team cut · Teams · Pitch by pitch · Run value, experiments only · Tracked,
+Filters sheet and a team cut · Teams · Pitch by pitch · Run value · Tracked,
 hidden until the league publishes radar again · Draft) · Teams (ranked club cards with
 record, form, run differential and next game, plus a head-to-head grid) → team pages (record,
 results, opponent splits, season totals, leaders, roster with inline stats, lineup-history
@@ -537,6 +537,83 @@ is retired.
 ---
 
 ## Shipped log
+
+### Aug 27, 2026: Run value comes out from behind the flag (v1.52.0)
+
+The board [shipped Aug 22](#aug-22-2026-what-every-play-was-worth) behind the
+experimental-features switch while its numbers settled. They have. Five days of the table
+holding steady against the season's own plays, and the one thing the flag was actually
+protecting against is not something a flag fixes: every figure on it is "runs" in a sense
+nobody uses at the ballpark, and a reader who takes +19.0 for runs scored has been misled by
+us. That is a job for the sentence above the table, which is there, rather than for a switch
+almost nobody flips. Same reasoning that brought the [postseason
+bracket](#aug-24-2026-the-postseason-gets-odds-not-another-standings-table) out.
+
+So the `useExperiments()` gate in `StatsView` is gone and the board is the fifth tab in the
+row for everyone, which is also what the row's comment has claimed for a while. The
+`ExperimentalChip` on the board goes with it.
+
+**The "new here" dot moved with it, and there is still only one.** It was on Pitch by pitch
+(`pitches-v147`, shipped Aug 21); it is on Run value now (`runs-v152`). Both dots draw twice,
+on the Stats pill and on the chip inside the tab, and both retire on reaching the BOARD rather
+than the tab, so keeping both would have put two dots on the same pill saying the same thing.
+The old registration in [`lib/seen.ts`](src/lib/seen.ts) went with its call site, per the rule
+in that file, so nothing is left behind that could light it up again. Expiry is Sep 22 with
+the postseason: a dot advertising a stats board is stale the moment the feed stops producing
+stats for it.
+
+The impression/click events (`NEW_BADGE_SHOWN` / `NEW_BADGE_CLICKED`) carry the badge key, so
+the pitches numbers stay comparable rather than being overwritten by the new one.
+
+**And the table it prices everything off was 4% high, which the flag would never have caught.**
+Asked whether the blanket "drop every game's last half-inning" rule could be sharper, the
+answer turned out to be that the rule was not merely conservative, it was biased. Whether a
+half-inning ends a game is not independent of the runs scored in it: a top of the 7th ends the
+game only if the side batting failed to catch up, and a bottom of the 7th is followed by
+another inning only if the game was still level after it. So the old sample kept the top 7ths
+that scored (0.75 runs against 0.38 for the ones it dropped) and, for bottom 7ths, kept exactly
+two half-innings from the whole season, both scoreless by construction, to represent every
+bottom of the 7th played.
+
+The fix is not a cleverer condition, it is to stop conditioning: measure every half-inning
+whose runs are all present, last or not. "All present" is a reconciliation rather than a guess,
+totalling the log's runs per side and comparing them with the published score, which is what
+separates the game that ends in the bottom of the 6th on a fly ball with nobody out (missing
+rows, no missing runs, perfectly measurable) from the two games whose logs are a run short of
+their own box score. A walk-off is still excluded, stated as "the home side was beaten" so a
+game called early with the home side up falls out for the same reason.
+
+**And the same check found rows the table should never have been measuring.** Reconciling every
+log against its box score turned up two games that do not add up, and RetroWPBL's independent
+transcription said exactly what each was missing.
+
+**Aug 15, LA at Boston** was a run short because the 3rd-inning row read "Lexi Hastings stole
+second; Beth Greenwood stole home" with `runs_scored = 0`. Before a correction could be written
+the league re-scored it as "scored on a fielding error" with the run on it, the mirror picked
+that up on its next pass, and the game reconciled by itself. The correction that was about to be
+written would have been laid over the new reading and made it a two-run play. That is now the
+standing warning in [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md) §9: re-read the row
+immediately before correcting it, and prefer waiting a day on anything the league might re-score.
+
+**Aug 20, New York at Boston** is the real damage: from the middle of the 5th the feed's rows go
+blank, no batter, no event, no narrative, outs frozen at 0, fourteen of them. Read as plate
+appearances they were fourteen observations of "nobody on, nobody out, no runs followed" in the
+cell the whole board leans on. A row that names no batter is no longer a plate appearance, which
+disposes of those.
+
+The missing RUN is a different question, and the answer is the line score, which the feed
+publishes per inning per side and which nothing here had used. **The reconciliation is per
+half-inning now, not per game:** a half-inning short of its own line-score cell is out, a side
+short by runs no inning will own up to takes that side of that game with it, and everything else
+in a damaged game stays. Across the whole season that excludes exactly one half-inning, the top
+of the 7th on Aug 20. An earlier draft dropped both games entirely and cost 119 honest plate
+appearances to place two runs.
+
+265 measured half-innings became 283 and 1,407 plate appearances became 1,467. Bases loaded and
+nobody out went from 3.20 to 3.00, the league's runs per half-inning from 1.13 to 1.08, and every
+player's season total moved with them. None of it is baked into a build: the reconciliation runs
+in the browser over corrected plays, so a re-ingest or a correction puts a half-inning back with
+no code change, which is exactly what Aug 15 did while this was being written.
 
 ### Aug 26, 2026: every page says what it is, and the recaps point at one (v1.51.1)
 

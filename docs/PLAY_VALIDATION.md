@@ -260,4 +260,51 @@ Closing that needs a second, independently produced transcription of the same ga
 `github.com/exu6jh/RetroWPBL` is one: hand-written Retrosheet `.EVW` files with a batter id on
 every plate appearance. **It carries no licence, so it is all rights reserved by default and
 must not be ingested or republished.** Reading it to check our own rows is a different act from
-redistributing it, but the clean move is to ask the author first.
+redistributing it; the author granted permission for our use on Aug 21, 2026 (ARCHITECTURE §10),
+and `sync-wpbl-retro` mirrors only the `info` records. The play records stay unmirrored on
+purpose: their value is as a check, and a second copy of the play-by-play would be a second
+truth.
+
+---
+
+## 9. What the RetroWPBL check has found (Aug 27, 2026)
+
+Run as a check rather than a mirror, on the two games whose play-log runs disagree with their
+own box score. Both were found by totalling the log per side and comparing it with the published
+score, which is a stronger check than anything in §3 because it needs no rule about baseball at
+all, and both were then explained line by line against RetroWPBL.
+
+**Aug 15, LA at Boston. Found, diagnosed, and then fixed by the league before anything was
+written.** The 3rd-inning row read *"Lexi Hastings stole second; Beth Greenwood stole home"* and
+carried `runs_scored = 0`, leaving BOS on 3 in the box score and 2 in the log; RetroWPBL scores
+the same moment `SBH;SB2`, a run. Within the hour the same row read *"Lexi Hastings stole
+second; Beth Greenwood scored on a fielding error"* with `runs_scored = 1`, and the game
+reconciled on its own.
+
+**That is the standing lesson about corrections, not a footnote to this one.** `wpbl_game_plays`
+is a mirror rewritten every couple of minutes (§6), so the league re-scoring a play reaches us
+by itself. A correction written against the old reading would have survived the rewrite, been
+laid over the new one, and made a one-run play into a two-run play, in a table nobody looks at
+twice. **Re-read the row immediately before writing a correction for it**, and prefer waiting a
+day on anything the league might re-score itself. The overlay is for what the feed will not
+fix, not for what it has not fixed yet.
+
+**Aug 20, New York at Boston (NY 9 in the box, 8 in the log).** From sequence 63, in the middle
+of the 5th, the feed's rows go blank: no batter, no event type, no narrative, `outs` frozen at
+0, fourteen of them across the 5th, 6th and 7th. RetroWPBL has all three innings in full,
+including the 7th-inning hit-by-pitch with the bases loaded that is the missing run. **The
+overlay cannot fix this one**: its correctable fields do not include `outs` or the bases, so the
+base-out state of those rows is unrecoverable from our side. A re-ingest is the only fix, and
+only if the feed has since filled them in.
+
+This is also why the run-value table now reconciles per HALF-INNING against the line score
+(`halfInningEndings` in [`runExpectancy.ts`](../src/wpbl/derive/runExpectancy.ts)) rather than
+per game against the final score. The gap is in the top of the 7th and the line score says so,
+so that one half-inning sits out and the other thirteen of a badly damaged game still count.
+Fourteen blank rows carrying a pitch sequence were also being read as fourteen plate appearances
+with nobody on and nobody out, in the most-populated cell on the board; a row that names no
+batter is no longer a plate appearance.
+
+**Both come back on their own if the feed fills them in.** The reconciliation runs in the
+browser, over corrected plays, every time the board is opened: nothing is baked into a build, so
+a re-ingest or a correction puts a half-inning back with no code change. Aug 15 is the proof.

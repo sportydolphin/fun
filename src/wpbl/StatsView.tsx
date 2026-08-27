@@ -20,7 +20,6 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine 
 import type { EraBasis } from './stats'
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
-import { useExperiments } from '../ExperimentsContext'
 import { useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
 import { useWpblHeadingTag } from './PageHeading'
 import { useEraBasis } from './EraBasisContext'
@@ -354,7 +353,7 @@ export default function WpblStatsView({
   teams: WpblTeam[]
   games: WpblGame[]
   focus?: WpblStatsFocus
-  /** Draw the "new here" dot on the Pitch by pitch chip. The same badge is on the Stats pill
+  /** Draw the "new here" dot on the Run value chip. The same badge is on the Stats pill
    *  one level up; this is the half that points the rest of the way. */
   newBoardBadge?: boolean
   /** Called once the reader has actually reached that board, by any route. Owned by WpblApp,
@@ -379,7 +378,6 @@ export default function WpblStatsView({
   const playerLink = useWpblPlayerLink()
   const headingTag = useWpblHeadingTag()
   const isNarrow = useMediaQuery('(max-width:600px)')
-  const experiments = useExperiments()
   const { basis: eraBasis, offLeague: eraOffLeague, setBasis: setEraBasis, fmtEra } = useEraBasis()
   // Read ONCE, not on every render: `shouldShowBadge` reads localStorage, and re-reading it
   // each pass would put the note back the moment anything else on the board re-rendered.
@@ -456,7 +454,7 @@ export default function WpblStatsView({
   // Any route onto the board counts, not just a tap on the chip: a ?view= link and the back
   // button both land here without going through switchSource.
   useEffect(() => {
-    if (source === 'pitches') onNewBoardSeen?.('board')
+    if (source === 'runs') onNewBoardSeen?.('board')
   }, [source, onNewBoardSeen])
   const [trackedSeen, setTrackedSeen] = useState(seedAxes.source === 'tracked')
   useEffect(() => { if (source === 'tracked') setTrackedSeen(true) }, [source])
@@ -758,11 +756,12 @@ export default function WpblStatsView({
   const boards: { key: string; label: string; badge?: boolean }[] = [
     { key: 'players', label: 'Players' },
     { key: 'teams', label: 'Teams' },
-    { key: 'pitches', label: 'Pitch by pitch', badge: newBoardBadge },
-    // Behind the experiments switch while it settles. Kept in the row for anyone already on
-    // it, so a ?view=runs link both renders the board and lights its own tab rather than
-    // landing on a page with nothing selected.
-    ...(experiments || source === 'runs' ? [{ key: 'runs', label: 'Run value' }] : []),
+    { key: 'pitches', label: 'Pitch by pitch' },
+    // Live for everyone. It spent its first weeks behind the experimental-features switch,
+    // which meant the board most likely to be misread was shown only to the readers least
+    // likely to misread it; what it needed was the sentence above the table saying what a
+    // "run" means here, not a flag almost nobody flips.
+    { key: 'runs', label: 'Run value', badge: newBoardBadge },
     // Hidden while the league has published radar for barely any games, and kept for the
     // session once a link has opened it anyway. See trackedOffered.
     ...(trackedOffered ? [{ key: 'tracked', label: 'Tracked' }] : []),

@@ -4,6 +4,21 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.52.0',
+    date:    '2026-08-27',
+    title:   'Run value is on the Stats tab for everyone',
+    changes: [
+      {
+        short: 'Run value now counts the innings that ended games',
+        full:  'The table every run value is priced off was built from every half-inning except the one each game ended on, since an inning cut short by a walk-off cannot say what it would have gone on to be worth. That threw out the honest ones with the walk-offs, and it was not a fair sample of what it kept: a 7th inning ends a game only when the side batting failed to catch up, so the innings that scored stayed in and the innings that did not were dropped. The league has not had a walk-off yet, and the innings that really are cut short can be told from the rest by checking the play log against the published score. That same check turned up a game missing a run, and the league\u2019s own line score says which inning it is missing it from, so that one half-inning sits out and the rest of the game still counts. The bases-loaded-nobody-out cell reads 3.0 runs rather than 3.2, and every player total moved a little with it.',
+      },
+      {
+        short: 'The Run value board no longer needs experimental features turned on',
+        full:  'Every play leaves a team better or worse off than it was, and the Run value board prices that difference in runs: who has created and saved the most across the season, worked out from this league’s own games rather than from anyone else’s. It shipped behind the experimental features switch while the numbers settled, which meant the board most likely to be misread was being shown only to the readers least likely to misread it. It is the fifth board on the Stats tab now, next to Pitch by pitch, for anyone who opens it. The line above the table is the part that matters on arrival: every figure there is “runs” in a sense nobody uses at the ballpark, so +19.0 is not runs scored.',
+      },
+    ],
+  },
+  {
     version: '1.51.1',
     date:    '2026-08-26',
     title:   'Every page now says what it is',
