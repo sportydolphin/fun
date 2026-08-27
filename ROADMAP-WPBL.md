@@ -538,6 +538,39 @@ is retired.
 
 ## Shipped log
 
+### Aug 27, 2026: the rate qualifier counts trips to the plate, not at-bats
+
+The bar for a batting rate title was `AB >= 2.0 x team games`. AB is the wrong unit and had
+been all season: it throws away every walk, so gating OPS on it charges a patient hitter for
+the half of the stat that is OBP. Two hitters twenty games in, one with 38 AB and 20 BB and
+one with 45 AB and none: the first has played more, and the old bar qualified only the second.
+The pitching side never had this problem, because outs are outs.
+
+So the bar is plate appearances now, and the number is MLB's rather than one of ours:
+3.1 PA per team game scaled to a seven-inning game, `3.1 x 7/9 = 2.4`, with a floor of 6.
+That is the same rule the pitching bar already used (`1.0 IP x 7/9`, the 0.8 IP behind
+`QUALIFY_OUTS_PER_GAME`), so the two sides finally come from one place. The check on 2.4 is
+that it is the same share of full-time play MLB's is: a team gets roughly 30 PA in seven
+innings, a lineup slot is worth about 3.3 a game, and 2.4 is 73% of that, which is what 3.1
+is of a nine-inning slot's 4.2.
+
+It is a redistribution rather than a loosening. For a hitter walking at the league rate the
+line moves up about 6% in AB terms; for a high-walk hitter it moves down, and for someone who
+never walks it moves up hard. That is the correction, not a side effect.
+
+**PA has one definition now, and it includes sac bunts.** Three call sites had each derived
+their own `ab + bb + hbp + sf`, copied from OBP's denominator, and all three had therefore
+dropped `sh`, which the feed does report and OBP excludes on purpose. `plateAppearances()` in
+[`stats.ts`](src/wpbl/stats.ts) is the one copy, `sh` rides on the batting totals to feed it,
+and the Stats PA column, the K% percentile and both qualifier checks read it. The column was
+under-reporting bunters by a trip or two a season; the K% denominator was too, which read as
+a shade high a strikeout rate on exactly the players least likely to have one.
+
+The two `2.4`s in the constants are a coincidence of units, one PA and one OUTS, and there is
+a comment saying so: folding them into a single constant would make the next change to either
+silently move both. `__tests__/qualifiers.test.ts` pins the bar, the floor, the min-games
+gate, both sacrifice cases and the walker the old bar excluded.
+
 ### Aug 27, 2026: Run value comes out from behind the flag (v1.52.0)
 
 The board [shipped Aug 22](#aug-22-2026-what-every-play-was-worth) behind the

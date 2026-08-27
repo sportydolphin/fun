@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress, type Theme } from '@mui/material'
 import { fetchWpblPlayerLines, fetchWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllLines, type WpblPitchLoc } from './api'
-import { sumBatting, sumPitching, sumFielding, fmtRate, fmtTwo } from './stats'
+import { sumBatting, sumPitching, sumFielding, plateAppearances, fmtRate, fmtTwo } from './stats'
 import { computeWpblPlayerRanks, ordinal, type WpblStatRank, type WpblPlayerRanks } from './percentiles'
 import { useEraBasis } from './EraBasisContext'
 import type { EraBasis } from './stats'
@@ -319,7 +319,7 @@ function PercentileStrip({ ranks, of, color, noun }: {
  */
 function RankProgress({ reason, have, need, unit, fmt, noun, color }: {
   reason: WpblPlayerRanks['batReason']
-  /** Raw units (at-bats, or outs recorded) so the fraction is exact; `fmt` handles display. */
+  /** Raw units (plate appearances, or outs recorded) so the fraction is exact; `fmt` handles display. */
   have: number; need: number
   unit: string
   /** Outs print as innings, at-bats print as themselves. */
@@ -774,7 +774,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   const BAT_SMALL_AB = 25, PIT_SMALL_OUTS = 30 // < ~25 AB / < 10.0 IP reads as small sample
   const qual = ranks?.qualifiers
   const battingMeta = `${bt.g} G · ${bt.ab} AB`
-    + (ranks?.batReason === 'below-bar' && qual ? ` · ${qual.minAb} AB to qualify`
+    + (ranks?.batReason === 'below-bar' && qual ? ` · ${qual.minPa} PA to qualify`
       : bt.ab < BAT_SMALL_AB ? ' · small sample' : '')
   const pitchingMeta = `${pt.g} G · ${outsToIp(pt.outs)} IP`
     + (ranks?.pitReason === 'below-bar' && qual ? ` · ${outsToIp(qual.minOuts)} IP to qualify`
@@ -941,8 +941,8 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
         )}
         {ranks && (ranks.batReason === 'ok'
           ? <PercentileStrip ranks={ranks.batting} of={ranks.batOf} color={color} noun="batters" />
-          : <RankProgress reason={ranks.batReason} have={bt.ab} need={ranks.qualifiers.minAb}
-              unit="AB" fmt={String} noun="batters" color={color} />)}
+          : <RankProgress reason={ranks.batReason} have={plateAppearances(bt)} need={ranks.qualifiers.minPa}
+              unit="PA" fmt={String} noun="batters" color={color} />)}
       </>
     ),
     log: (
