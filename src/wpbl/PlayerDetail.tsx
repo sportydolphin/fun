@@ -1112,14 +1112,19 @@ const LEFT_RAIL = 320
  * at 0.75, and on desktop the band hero's stat label at 0.80 and its sample line at 0.76. Each
  * value below is the largest that clears that with a step of headroom, and they measure:
  *
- *   BOS 0x7a (48%) 4.80:1 · LA 0x8f (56%) 5.12:1 · NY 0x61 (38%) 4.84:1 · SF 0x8f (56%) 4.89:1
+ *   BOS 0x7a (48%) 4.80:1 · LA 0x98 (60%) 4.78:1 · NY 0x61 (38%) 4.84:1 · SF 0x8f (56%) 4.89:1
  *
  * The ceilings before headroom are 51 / 62 / 41 / 61 percent, so there is not much left in any of
- * them. Change a club's colours in constants.ts, or lift the wash, and these have to be re-solved
+ * them. LA was the outlier at 0x8f/5.12, a good half-step short of its own ceiling and so visibly
+ * less gold than the other three clubs are their colour; 0x98 lands it on the same ~4.8 as BOS and
+ * NY, which is what "a step of headroom" is worth here. It is now within three points of failing:
+ * 0xa0 (63%) measures 4.50 and does not clear.
+ *
+ * Change a club's colours in constants.ts, or lift the wash, and these have to be re-solved
  * against those three text opacities, or the smallest lines on the card quietly stop being
  * readable on one club and nobody reports it.
  */
-const BAND_WASH: Record<string, number> = { BOS: 0x7a, LA: 0x8f, NY: 0x61, SF: 0x8f }
+const BAND_WASH: Record<string, number> = { BOS: 0x7a, LA: 0x98, NY: 0x61, SF: 0x8f }
 /** For a club not in the table: the tightest of the four, which is safe for any secondary. */
 const BAND_WASH_FLOOR = 0x61
 
