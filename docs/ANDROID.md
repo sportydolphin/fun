@@ -21,10 +21,24 @@ to say correctly.
    as the policy URL, and `/delete-account` as the Data safety data-deletion URL.
 5. Closed testing: 12 testers, 14 continuous days. The long pole, worth starting first.
 
-One loose end: Google's Digital Asset Links API was still returning a cached negative from
-before the file existed, while the file itself answered 200 over every transport tried
-(IPv6, HTTP/1.1, TLS 1.2, Googlebot UA, trailing-dot host) and the phone verified it. Cosmetic,
-but recheck before relying on it.
+~~One loose end: Google's Digital Asset Links API was still returning a cached negative from
+before the file existed.~~ **Cleared Aug 27, 2026.** All three fingerprints now answer
+`linked: true` against `assetlinks:check`. The negative was the cache expiring, exactly as
+expected, and nothing about the file changed in between.
+
+**What that window cost, and the thing to know before debugging a URL bar again.** Chrome, not
+the app, verifies the association, and it does so at install and launch and then CACHES the
+verdict. A build installed while the API was still answering negative keeps that answer, so
+the bar stays up on that device no matter how correct the file becomes afterwards. Server-side
+correctness is not retroactive. Uninstall and reinstall is the fix; clearing Chrome's storage
+is the follow-up. Check the server end first anyway, since it takes one request:
+
+```
+curl -sG https://digitalassetlinks.googleapis.com/v1/assetlinks:check   --data-urlencode 'source.web.site=https://sportydolphin.fun'   --data-urlencode 'relation=delegate_permission/common.handle_all_urls'   --data-urlencode 'target.androidApp.packageName=fun.sportydolphin.app'   --data-urlencode 'target.androidApp.certificate.sha256Fingerprint=<one of the three>'
+```
+
+`linked: true` there means the fault is on the device, not in the file, which is the fork the
+whole diagnosis turns on.
 
 The "Status" line under each step below says where that step is.
 
