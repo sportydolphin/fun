@@ -116,6 +116,7 @@ flowchart LR
     subgraph Legal["Legal"]
         priv["/privacy"]
         terms["/terms"]
+        del["/delete-account<br/>Play data-deletion URL"]
     end
 
     subgraph Owner["Owner only"]

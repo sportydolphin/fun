@@ -60,6 +60,7 @@ const PoopGame = lazy(() => import('./PoopGame'))
 // Both legal pages come from one module, so these two share a chunk.
 const PrivacyPolicy = lazy(() => import('./LegalPages').then(m => ({ default: m.PrivacyPolicy })))
 const TermsOfService = lazy(() => import('./LegalPages').then(m => ({ default: m.TermsOfService })))
+const DeleteAccount = lazy(() => import('./LegalPages').then(m => ({ default: m.DeleteAccount })))
 
 // Dialogs. Each is mounted only after it has been opened once (see `useOpenedOnce`), so its
 // chunk is fetched on the click that needs it. SettingsDialog is the expensive one: it pulls
@@ -90,7 +91,7 @@ const DIALOG_FALLBACK = null
 // The WPBL tabs (/wpbl/schedule and friends) are routes too; they live in wpbl/routes.ts
 // because seo.ts and WpblApp need the same list. Adding one there means adding a line in
 // public/_redirects as well, or it 404s in production and works fine in dev.
-type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame' | '/mlb' | '/wpbl' | '/wpbl/api' | '/privacy' | '/terms' | '/admin'
+type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame' | '/mlb' | '/wpbl' | '/wpbl/api' | '/privacy' | '/terms' | '/delete-account' | '/admin'
 
 /** A WPBL tab page. `/wpbl/api` is a sibling route, not a tab, so it is not one of these. */
 const isWpblTab = (p: string) => wpblViewFromPath(p) !== null
@@ -1335,6 +1336,16 @@ function AppInner() {
             {backBtn}
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               <TermsOfService />
+            </Suspense>
+          </Box>
+        )}
+        {/* No auth gate, deliberately, and not a tempting one to add: the reader this page is
+            for is the one who can no longer sign in. See DeleteAccount in LegalPages. */}
+        {path === '/delete-account' && (
+          <Box>
+            {backBtn}
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <DeleteAccount />
             </Suspense>
           </Box>
         )}

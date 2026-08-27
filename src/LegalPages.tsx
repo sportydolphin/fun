@@ -110,9 +110,12 @@ export function PrivacyPolicy() {
 
       <H>Keeping and deleting your data</H>
       <P>
-        Your account data is kept while your account exists. You can delete your account from the
-        account menu, or email {CONTACT_EMAIL} to ask for your account and its data to be removed.
-        You can also clear the browser-stored preferences at any time by clearing your browser data.
+        Your account data is kept while your account exists. You can delete your account and
+        everything attached to it at any time: see{' '}
+        <Box component="a" href="/delete-account" sx={{ color: 'primary.main', textDecoration: 'none' }}>Delete your account and data</Box>,
+        which covers both the in-app route and how to ask by email if you can no longer sign in,
+        and lists exactly what is removed and what is kept. You can also clear the
+        browser-stored preferences at any time by clearing your browser data.
       </P>
 
       <H>Children</H>
@@ -131,6 +134,108 @@ export function PrivacyPolicy() {
       <P>
         {SITE} is an independent fan project. It is not affiliated with, endorsed by, or
         sponsored by Major League Baseball, the Women's Pro Baseball League, or any team.
+      </P>
+    </LegalLayout>
+  )
+}
+
+/**
+ * The account-and-data deletion page, at its own URL.
+ *
+ * WHY IT IS A PAGE AND NOT A PARAGRAPH IN THE PRIVACY POLICY. Google Play's Data safety form
+ * takes a "data deletion request" URL, and the requirement it has to satisfy is that someone
+ * who is NOT signed in, and may not even have the app installed any more, can land on it cold
+ * and find out how to get their data removed. A section of /privacy does not answer that: it
+ * is one heading down a long page, and it is not a link that can be pasted into a store form
+ * or an email. So this route exists to be a destination.
+ *
+ * IT MUST STAY REACHABLE WITHOUT AN ACCOUNT. No auth gate, no modal, no redirect to sign-in.
+ * That is the whole point of it: the reader most likely to need this page is exactly the one
+ * who has lost access to the account, and a page that asks them to sign in first to ask for
+ * deletion is a page that fails the only case it was built for.
+ *
+ * KEEP IT TRUE. Everything under "What deleting removes" is what
+ * `supabase/functions/delete-account/index.ts` actually does, table by table, and everything
+ * under "What is kept" is what it deliberately leaves behind. If that function grows a table
+ * or stops clearing one, this page becomes a false statement about personal data on a URL
+ * handed to an app store. Change them together.
+ */
+export function DeleteAccount() {
+  return (
+    <LegalLayout title="Delete your account and data">
+      <P>
+        You can delete your {SITE} account and the data attached to it at any time, and you do
+        not need anyone's permission to do it. There are two ways, below. Both remove the same
+        things.
+      </P>
+
+      <H>Delete it yourself, right now</H>
+      <P>
+        This is immediate and does not wait on anybody.
+      </P>
+      <Bullets items={[
+        <>Sign in at <Box component="a" href="/" sx={{ color: 'primary.main', textDecoration: 'none' }}>{SITE}</Box>.</>,
+        <>Open the account menu, then <b>Settings</b>.</>,
+        <>Scroll to <b>Danger zone</b> and choose <b>Delete account</b>.</>,
+        <>Type <b>DELETE</b> to confirm.</>,
+      ]} />
+      <P>
+        The account is gone as soon as that finishes. There is no grace period and no undo, so
+        do not do this expecting to change your mind.
+      </P>
+
+      <H>Or ask by email</H>
+      <P>
+        Use this if you cannot sign in: you have lost access to the Google account you signed up
+        with, you no longer have the app, or the steps above will not work for you.
+      </P>
+      <P>
+        Email <Box component="a" href={`mailto:${CONTACT_EMAIL}?subject=Delete%20my%20account`} sx={{ color: 'primary.main', textDecoration: 'none' }}>{CONTACT_EMAIL}</Box> with
+        the subject <b>Delete my account</b>, and say which email address the account uses. Send
+        it from that address if you still can, since that is the quickest way to confirm the
+        account is yours. If you cannot, say so and there will be another way to check.
+      </P>
+      <P>
+        Requests are handled within <b>30 days</b>, and in practice much sooner. You will get a
+        reply confirming when it is done.
+      </P>
+
+      <H>What deleting removes</H>
+      <P>
+        All of this goes, permanently:
+      </P>
+      <Bullets items={[
+        <>Your sign-in record, including the email address and any linked Google sign-in.</>,
+        <>Your username, and with it your name on any leaderboard.</>,
+        <>Your saved preferences: followed teams and players, notification settings, theme and units, recent searches.</>,
+        <>Your prediction history and prediction stats, including any streak or leaderboard standing.</>,
+        <>Your push notification subscriptions, so the site stops sending to your devices.</>,
+      ]} />
+
+      <H>What is kept, and why</H>
+      <P>
+        Two things survive, and neither is tied to you afterwards:
+      </P>
+      <Bullets items={[
+        <><b>Anonymous usage counts.</b> Records of which pages and features were used have the
+          account link stripped out, and what is left is a count with nobody attached. Deleting
+          them outright would silently change historical totals for activity that really did
+          happen.</>,
+        <><b>Any feedback or bug report you sent.</b> The message text is kept so a reported bug
+          does not vanish before it is fixed, but your name, account link and reply-to address
+          are removed from it. If you would rather the message itself went too, say so in your
+          email and it will be deleted.</>,
+      ]} />
+      <P>
+        Nothing is kept that identifies you, and nothing is ever sold or shared. See the{' '}
+        <Box component="a" href="/privacy" sx={{ color: 'primary.main', textDecoration: 'none' }}>Privacy Policy</Box> for
+        what is collected in the first place.
+      </P>
+
+      <H>Uninstalling the app is not the same thing</H>
+      <P>
+        Removing the app from a phone stops that device using it, but it does not delete the
+        account or anything stored against it. Use one of the two routes above.
       </P>
     </LegalLayout>
   )

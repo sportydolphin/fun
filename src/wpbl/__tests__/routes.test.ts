@@ -293,6 +293,29 @@ describe('every tab page is discoverable and distinct', () => {
   })
 })
 
+// /delete-account is the URL given to Google Play's Data safety form as the data deletion
+// request link, which makes it the one route on this site whose 404 would be a compliance
+// problem rather than a broken page. It is also invisible in `npm run dev`, which serves the
+// SPA shell for any path: the omission only shows in production, on a URL an app store is
+// checking. Pinned in all three places a static route has to be spelled.
+describe('/delete-account, the store-facing route', () => {
+  it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
+    expect(redirects).toMatch(/^\/delete-account\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/delete-account\/\s+\/delete-account\s+301\s*$/m)
+  })
+
+  it('has its own title and description in seo.ts', () => {
+    expect(seoSource).toContain("'/delete-account'")
+    expect(seoSource).toMatch(/'\/delete-account':\s*\{[^}]*title:/)
+  })
+
+  // Indexable, unlike /admin. A deletion page nobody can find fails the reason it exists.
+  it('is not noindexed', () => {
+    const entry = seoSource.slice(seoSource.indexOf("'/delete-account'"))
+    expect(entry.slice(0, entry.indexOf('}'))).not.toContain('noindex')
+  })
+})
+
 describe('the shell claims no canonical of its own', () => {
   // index.html is served verbatim for every route (see the _redirects rewrites), so any
   // canonical written into it is claimed by every URL on the site. One did: it pointed at

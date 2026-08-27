@@ -29,6 +29,7 @@
 /mlb/          /mlb       301
 /privacy/      /privacy   301
 /terms/        /terms     301
+/delete-account/ /delete-account 301
 /admin/        /admin     301
 /cups/         /cups      301
 /stopwatch/    /stopwatch 301
@@ -64,6 +65,7 @@
 /mlb           /  200
 /privacy       /  200
 /terms         /  200
+/delete-account /  200
 /admin         /  200
 /cups          /  200
 /stopwatch     /  200

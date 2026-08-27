@@ -50,6 +50,23 @@ Deno.serve(async (req) => {
     admin.from('prediction_stats').delete().eq('user_id', user.id),
     admin.from('game_predictions').delete().eq('user_id', user.id),
     admin.from('push_subscriptions').delete().eq('user_id', user.id),
+
+    // ANONYMISED, NOT DELETED, and these two are the reason this list is not just the
+    // cascade. `events.user_id` and `feedback.user_id` are plain uuid columns with NO foreign
+    // key to auth.users (see scripts/create_events.sql, scripts/create_feedback.sql), so
+    // deleting the auth user does not touch them: before this, every deleted account left its
+    // id sitting in the analytics log and on any note it had sent, which is personal data
+    // surviving a deletion request. Nulling the column severs that link.
+    //
+    // Nulled rather than deleted because both tables treat a null user_id as a first-class
+    // value already (signed-out visitor, anonymous sender), so the rows stay honest as counts
+    // and reports without belonging to anybody. Deleting the events would silently rewrite
+    // historical totals for activity that did happen, and deleting the feedback would lose an
+    // open bug report; neither is what the person asked for. `feedback.email` goes too: it is
+    // a reply-to the sender typed in, and someone deleting their account is not asking to be
+    // written to. /delete-account states all of this, so change the two together.
+    admin.from('events').update({ user_id: null }).eq('user_id', user.id),
+    admin.from('feedback').update({ user_id: null, email: null }).eq('user_id', user.id),
   ])
 
   const { error: deleteErr } = await admin.auth.admin.deleteUser(user.id)

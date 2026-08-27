@@ -44,6 +44,7 @@ const STATIC: Entry[] = [
   { loc: '/wpbl/api', changefreq: 'weekly', priority: '0.5' },
   { loc: '/privacy', changefreq: 'yearly', priority: '0.2' },
   { loc: '/terms', changefreq: 'yearly', priority: '0.2' },
+  { loc: '/delete-account', changefreq: 'yearly', priority: '0.2' },
 ]
 
 async function readRoster(): Promise<WpblSluggable[]> {

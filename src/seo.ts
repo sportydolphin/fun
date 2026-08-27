@@ -87,6 +87,13 @@ const ROUTES: Record<string, Seo> = {
     title: 'Terms of Service | sportydolphin.fun',
     description: 'The terms for using sportydolphin.fun.',
   },
+  // The URL handed to Google Play's Data safety form as the data deletion request link. It
+  // is indexable on purpose: a deletion page nobody can find is the failure mode this route
+  // exists to avoid.
+  '/delete-account': {
+    title: 'Delete your account and data | sportydolphin.fun',
+    description: 'How to delete your sportydolphin.fun account, what deleting removes, and what is kept.',
+  },
 }
 
 // ─── Routes whose tags are not knowable from the path alone ───────────────────

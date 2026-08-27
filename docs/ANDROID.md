@@ -17,8 +17,8 @@ to say correctly.
 3. ~~**Add Google's app signing key fingerprint to `assetlinks.json`.**~~ **Done Aug 26, 2026**,
    and it turned out to be two keys rather than one: Play App Signing now issues a
    quantum-ready hybrid pair. See §3 below. This was the last code change in this repo.
-4. Listing assets: feature graphic 1024x500, two phone screenshots, descriptions, and
-   `/privacy` as the policy URL.
+4. Listing assets: feature graphic 1024x500, two phone screenshots, descriptions, `/privacy`
+   as the policy URL, and `/delete-account` as the Data safety data-deletion URL.
 5. Closed testing: 12 testers, 14 continuous days. The long pole, worth starting first.
 
 One loose end: Google's Digital Asset Links API was still returning a cached negative from
@@ -312,6 +312,19 @@ emits is apex already: canonical, `og:url`, sitemap, JSON-LD.
 - **Data safety form.** It must match reality: the app collects an email address and a Google
   account id through Supabase Auth, and site analytics through the `events` table. Declaring
   less than is collected is the kind of thing that gets an app pulled.
+- **Data deletion URL: `https://sportydolphin.fun/delete-account`.** The Data safety form asks
+  for one separately from the privacy policy URL, and what it has to satisfy is that somebody
+  who is *not* signed in, and may no longer have the app, can land on it cold and find out how
+  to get their data removed. So the page has no auth gate, and adding one would break the only
+  case it exists for. It carries both routes (in-app Settings, and email for anyone locked
+  out), what deletion removes, and what is kept.
+
+  **It is a factual claim about personal data, on a URL an app store is checking.** Everything
+  it lists comes from [`supabase/functions/delete-account/index.ts`](../supabase/functions/delete-account/index.ts)
+  table by table. If that function grows a table or stops clearing one, the page becomes false.
+  Change them together. Note that `events` and `feedback` are *anonymised* there rather than
+  deleted, because neither has a foreign key to `auth.users` and so neither cascades: before
+  Aug 27, 2026 a deleted account left its id in the analytics log and on any note it had sent.
 
 ## iOS
 
