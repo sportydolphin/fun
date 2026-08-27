@@ -108,6 +108,16 @@ Each of these has already cost someone a debugging session, and none of them fai
   where a missed column means the season aggregates silently cannot see it. `tsc` catches
   none of this.
 
+- **The rate-title bar is PLATE APPEARANCES, and a new leaderboard that gates on `ab`
+  will look completely right.** `wpblQualifiers` returns `minPa` (MLB's 3.1 per team game
+  scaled to seven innings, so 2.4, floor 6) alongside `minOuts`, and every gate runs through
+  `plateAppearances()` in [`stats.ts`](src/wpbl/stats.ts), which is also the only correct PA
+  sum: `sh` is on the feed's line and is deliberately NOT in OBP's denominator, so anything
+  copied from that denominator drops it. The bar was at-bats until Aug 27, 2026, which gated
+  a stat half made of OBP on a count that throws away every walk, and quietly kept the
+  league's most patient hitters off the OPS board. `__tests__/qualifiers.test.ts` pins the
+  constants; nothing can pin a NEW call site that reaches for `t.ab` instead.
+
 - **`era` and `k9` are stored per NINE innings, and a WPBL game is seven.** The league
   publishes per 9 and so does everyone reprinting it, so that is what the aggregates hold
   (`ERA_BASIS_CANONICAL` in [`src/wpbl/stats.ts`](src/wpbl/stats.ts)). A reader who prefers
@@ -184,7 +194,13 @@ Each of these has already cost someone a debugging session, and none of them fai
   Worker (the build log says `workers/scripts/fun/versions`). It is still the best local
   check for routing and status codes, but it accepts input the real deploy refuses, so a
   green local run is evidence and not proof. Watch the actual Cloudflare build after a push
-  that touches `_redirects`, `_routes.json` or `functions/`.
+  that touches `_redirects`, `_routes.json` or `functions/`, **and watch the one on `main`**:
+  the `Workers Builds: fun` check on a branch PR has been red on every PR observed (a
+  docs-only one in July, another on Aug 27), completing in the same second it starts, against
+  the *production* Worker service, while `Cloudflare Pages` passes on the same commit and
+  deploys a preview. A red Workers check on a PR is therefore evidence of nothing, which is
+  the more expensive half: it trains you to ignore the one signal this rule is asking you to
+  read.
 - **`public/sitemap.xml` is generated.** `npm run sitemap` rebuilds it from the roster (one
   URL per player). A hand-edit is lost on the next run.
 - **The one wildcard in `_redirects` is `/wpbl/players/*`,** because the valid slugs live in
