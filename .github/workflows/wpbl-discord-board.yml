@@ -13,7 +13,17 @@ on:
     # was the inaugural year and a 2027 schedule could start much earlier, and a window that
     # clips a real season fails silently, which is far worse than a few idle runs in March.
     # `workflow_dispatch` still covers an out-of-season run.
-    - cron: '*/15 14-23,0-3 * 3-10 *'
+    #
+    # The night half runs to 06:59 UTC (1:59am Central) and the extra three hours are NOT
+    # slack, they are the whole correctness margin. A 6:30pm Central game goes final around
+    # 02:15 UTC, and the board only drops it once a run sees `status = final`, so every
+    # corrective tick has to land AFTER that. GitHub drops most `*/15` ticks on this repo
+    # (measured median gap 38 minutes against a declared 15), so an 03:59 UTC close left
+    # one usable hour and some nights nothing landed in it: the board sat on a finished
+    # game marked "live now" until 14:00 UTC, ~13 hours, with every workflow run green.
+    # That is the failure this width buys off. Do not trim it back toward the last first
+    # pitch: the window has to outlast the last FINAL, plus however many ticks GitHub eats.
+    - cron: '*/15 14-23,0-6 * 3-10 *'
   workflow_dispatch:   # run on demand from the Actions tab (use this for the first, creating run)
 
 # One board writer at a time; skip a tick rather than racing two edits.
