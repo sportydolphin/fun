@@ -14,9 +14,9 @@ to say correctly.
 
 1. Register the developer account, $25 once.
 2. Upload the `.aab`.
-3. **Add Google's app signing key fingerprint to `assetlinks.json`.** Until this lands, users
-   installing from Play see a URL bar even though a sideloaded APK does not, because Play
-   re-signs with its own key. This is the one remaining code change in this repo.
+3. ~~**Add Google's app signing key fingerprint to `assetlinks.json`.**~~ **Done Aug 26, 2026**,
+   and it turned out to be two keys rather than one: Play App Signing now issues a
+   quantum-ready hybrid pair. See §3 below. This was the last code change in this repo.
 4. Listing assets: feature graphic 1024x500, two phone screenshots, descriptions, and
    `/privacy` as the policy URL.
 5. Closed testing: 12 testers, 14 continuous days. The long pole, worth starting first.
@@ -106,20 +106,32 @@ The file lives at `public/.well-known/assetlinks.json` and is pinned by
 directory survives `npm run build` into `dist/`, and nothing shadows it: `_routes.json` only
 gates the Pages Functions, and `_redirects` has no `/*` rule.
 
-It must end up listing **two** fingerprints, and stopping at one is the most common way
-people ship a TWA with a visible URL bar:
+It lists **three** fingerprints, and stopping short is the most common way people ship a TWA
+with a visible URL bar. **Done**, all three added Aug 26, 2026:
 
-1. the **upload key**, the `android.keystore` Bubblewrap generated. **Done**, added
-   Aug 21, 2026.
-2. the **app signing key**, which Google generates and holds under Play App Signing. Its
-   fingerprint does not exist until the first bundle has been uploaded. Read it from Play
-   Console under Release ▸ Setup ▸ App integrity and paste it in as a second entry.
+1. the **upload key**, the `android.keystore` Bubblewrap generated. Only the sideloaded APK
+   is signed with it, so this entry buys nothing in production and keeps on-device testing
+   honest.
+2. Play's **classical app signing key**, an RSA 4096 key Google generates and holds under
+   Play App Signing. Enforced on Android 13 to 16.
+3. Play's **post-quantum app signing key** (ML-DSA-65), issued alongside it as a
+   quantum-ready hybrid pair. Enforced on Android 17 and above.
 
-**The trap in between:** with only the upload key listed, the sideloaded
-`app-release-signed.apk` verifies fine, because that is the key it was signed with. The build
-Play serves is re-signed with Google's key and will show the URL bar. So testing the APK on a
-device proves nothing about the version users get, and the symptom only appears after
-release.
+Neither 2 nor 3 exists until the first bundle has been uploaded. Both are read afterwards
+from Play Console under Protected with Play ▸ Play Store protection ▸ Manage Play app
+signing, where they appear as separate entries under **App signing key certificate**. (The
+**App integrity** page this used to live on was retired in 2026. "Protected with Play" is the
+same page renamed, and app signing sits under Play Store protection rather than under
+Automatic protection, which is an unrelated feature.)
+
+**Two traps, one behind the other.** With only the upload key listed, the sideloaded
+`app-release-signed.apk` verifies fine, because that is the key it was signed with, while the
+build Play serves is re-signed and shows the URL bar. So testing the APK on a device proves
+nothing about the version users get. Then, having fixed that, taking only the key labelled
+"classical" reproduces the same failure one Android version further out: correct on every
+phone anyone is holding today, wrong on Android 17, and surfacing months later as a
+stranger's bug report. Google's own guidance is that all of the hybrid signing fingerprints
+have to be registered everywhere a fingerprint is registered, `assetlinks.json` included.
 
 Verify a deployed change with Google's own checker rather than by eye, since a cached or
 mis-typed file fails silently:
