@@ -1,5 +1,5 @@
 import {
-  aggregateBatting, aggregatePitching, wpblQualifiers, fmtRate, fmtTwo,
+  aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances, fmtRate, fmtTwo,
   scaleToBasis, kRateLabel, ERA_BASIS_CANONICAL,
   type WpblQualifiers, type EraBasis,
 } from './stats'
@@ -124,7 +124,7 @@ export function computeWpblPlayerRanks(
   const batSeasons = aggregateBatting(players, battingLines, games)
   const pitSeasons = aggregatePitching(players, pitchingLines, games)
 
-  const batField = batSeasons.filter(s => s.totals.ab >= qualifiers.minAb)
+  const batField = batSeasons.filter(s => plateAppearances(s.totals) >= qualifiers.minPa)
   const pitField = pitSeasons.filter(s => s.totals.outs >= qualifiers.minOuts)
 
   const batValue = (key: string, t: (typeof batSeasons)[number]['totals']): number | null => {
@@ -134,12 +134,10 @@ export function computeWpblPlayerRanks(
       case 'slg': return t.slg
       case 'ops': return t.ops
       case 'hr':  return t.hr
-      // K% over plate appearances. `sh` is not carried on the totals, so a sacrifice bunt is
-      // missing from the denominator and a bunter's rate reads a shade high: a fraction of a
-      // percentage point on a player with one or two of them, against a stat whose whole
-      // point is the difference between 12% and 25%.
+      // K% over plate appearances, sac bunts included: the denominator used to drop them and
+      // a bunter's rate read a shade high.
       case 'k%': {
-        const pa = t.ab + t.bb + t.hbp + t.sf
+        const pa = plateAppearances(t)
         return pa > 0 ? t.so / pa : null
       }
       default:    return null

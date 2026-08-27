@@ -18,7 +18,7 @@ import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblD
 import { LiveHero } from './Live'
 import PlayoffBracket from './PlayoffBracket'
 import {
-  aggregateBatting, aggregatePitching, wpblQualifiers, fmtRate, fmtTwo, fmtSigned,
+  aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances, fmtRate, fmtTwo, fmtSigned,
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import { useEraBasis } from './EraBasisContext'
@@ -1206,11 +1206,11 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   const batSeasons = useMemo(() => aggregateBatting(players, lines.batting, games), [players, lines.batting, games])
   const pitSeasons = useMemo(() => aggregatePitching(players, lines.pitching, games), [players, lines.pitching, games])
 
-  // Only enforce the 5 AB / 3 IP rate qualifier once every team has played 2+ games.
+  // Only enforce the PA / IP rate qualifier once every team has played 2+ games.
   const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])
 
   const battingBlocks = useMemo(() => [
-    { label: 'OPS',       short: 'OPS', sortKey: 'ops', rows: topBat(batSeasons, t => t.ops, t => fmtRate(t.ops), t => !qual.active || t.ab >= qual.minAb, LEADER_ROWS, t => `${t.ab} AB`) },
+    { label: 'OPS',       short: 'OPS', sortKey: 'ops', rows: topBat(batSeasons, t => t.ops, t => fmtRate(t.ops), t => !qual.active || plateAppearances(t) >= qual.minPa, LEADER_ROWS, t => `${plateAppearances(t)} PA`) },
     { label: 'Home runs', short: 'HR',  sortKey: 'hr',  rows: topBat(batSeasons, t => t.hr,  t => String(t.hr), t => t.hr > 0) },
     { label: 'RBI',       short: 'RBI', sortKey: 'rbi', rows: topBat(batSeasons, t => t.rbi, t => String(t.rbi), t => t.rbi > 0) },
   ], [batSeasons, qual])

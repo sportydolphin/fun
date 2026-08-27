@@ -223,7 +223,7 @@ describe('PlayerDetail: league ranks', () => {
     expect(screen.getByText(/Against 1 qualified batters/)).toBeInTheDocument()
   })
 
-  // Drawing a short bar for someone with four at-bats would claim she is bad rather than
+  // Drawing a short bar for someone with four trips to the plate would claim she is bad rather than
   // that we do not know yet. What stands in its place is progress TOWARD the bar, which is a
   // different measurement and must never be mistaken for the percentile strip: same geometry,
   // opposite meaning, so this pins that the strip's own heading is absent.
@@ -232,7 +232,7 @@ describe('PlayerDetail: league ranks', () => {
     show(player())
     await waitFor(() => expect(battingShown()).toBe(true))
     expect(screen.getByText(/Toward league ranks/i)).toBeInTheDocument()
-    expect(screen.getByText(/more AB to rank against qualified batters/i)).toBeInTheDocument()
+    expect(screen.getByText(/more PA to rank against qualified batters/i)).toBeInTheDocument()
     expect(screen.queryByText(/Against the league/i)).not.toBeInTheDocument()
   })
 
@@ -246,7 +246,7 @@ describe('PlayerDetail: league ranks', () => {
     lines.batting = [bat({ ab: 4, h: 2, tb: 3 })]
     show(player())
     await waitFor(() => expect(battingShown()).toBe(true))
-    expect(screen.getAllByText(/AB to qualify/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/PA to qualify/).length).toBeGreaterThan(0)
   })
 })
 

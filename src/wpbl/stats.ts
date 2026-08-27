@@ -59,7 +59,11 @@ export function scaleToBasis(v: number | null, basis: EraBasis): number | null {
 
 export interface WpblBattingTotals {
   g: number; ab: number; r: number; h: number; doubles: number; triples: number; hr: number
-  rbi: number; bb: number; so: number; sb: number; hbp: number; cs: number; sf: number; tb: number
+  rbi: number; bb: number; so: number; sb: number; hbp: number; cs: number; sf: number
+  /** Sac hits (bunts). Carried only so `plateAppearances` can be right: nothing displays it.
+   *  It is not in OBP's denominator and must not be added to one. */
+  sh: number
+  tb: number
   avg: number | null; obp: number | null; slg: number | null; ops: number | null
   /**
    * Runners left on base — **team rows only**, filled in by the caller from the game row.
@@ -75,10 +79,11 @@ export function sumBatting(lines: WpblBattingLine[], games: WpblSeasonGame[]): W
 /** The arithmetic alone, on lines already known to be in scope. Internal, so the grouping
  *  helpers below can filter once for the whole league instead of once per player. */
 function sumBattingRaw(lines: WpblBattingLine[]): WpblBattingTotals {
-  const t = { g: lines.length, ab: 0, r: 0, h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, bb: 0, so: 0, sb: 0, hbp: 0, cs: 0, sf: 0 }
+  const t = { g: lines.length, ab: 0, r: 0, h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, bb: 0, so: 0, sb: 0, hbp: 0, cs: 0, sf: 0, sh: 0 }
   for (const l of lines) {
     t.ab += l.ab; t.r += l.r; t.h += l.h; t.doubles += l.doubles; t.triples += l.triples; t.hr += l.hr
-    t.rbi += l.rbi; t.bb += l.bb; t.so += l.so; t.sb += l.sb; t.hbp += l.hbp; t.cs += l.cs; t.sf += l.sf
+    t.rbi += l.rbi; t.bb += l.bb; t.so += l.so; t.sb += l.sb; t.hbp += l.hbp; t.cs += l.cs
+    t.sf += l.sf; t.sh += l.sh
   }
   const singles = t.h - t.doubles - t.triples - t.hr
   const tb = singles + 2 * t.doubles + 3 * t.triples + 4 * t.hr
@@ -150,27 +155,51 @@ function sumPitchingRaw(lines: WpblPitchingLine[]): WpblPitchingTotals {
   return { ...t, era, whip, k9, kbb }
 }
 
+/** Trips to the plate: the honest measure of how much someone has played, and the unit
+ *  every rate qualifier below is set in. AB throws away walks, and G counts a pinch-hitter's
+ *  one swing as a full day.
+ *
+ *  Summed the way OBP's denominator is (see `sumBatting`) plus sac hits, which OBP leaves
+ *  out on purpose and playing time does not. Exported because three call sites had each
+ *  derived their own copy of this and all three had dropped `sh`, which the feed does
+ *  report. */
+export function plateAppearances(t: Pick<WpblBattingTotals, 'ab' | 'bb' | 'hbp' | 'sf' | 'sh'>): number {
+  return t.ab + t.bb + t.hbp + t.sf + t.sh
+}
+
 // ─── Rate-stat qualifiers ──────────────────────────────────────────────────────
 // A fixed threshold (the old flat 5 AB / 3 IP) stops meaning anything the moment the
 // season moves past its first week: five games in, 5 AB is one game's work, so the OPS
 // board fills with 4-for-5 cameos and the ERA board with three relievers tied at 0.00.
 // So the bar SCALES with how far the season has actually gone, the way a real rate title
-// does — MLB requires 3.1 PA per team game and 1 IP per team game.
+// does: MLB requires 3.1 PA per team game and 1 IP per team game.
 //
-// Ours are deliberately gentler than MLB's: it's a ~6-week inaugural season with 7-inning
-// games and short outings, and an over-strict bar leaves the boards empty. The floors keep
-// the opening days sane, and we scale off the LEAST-played team so a club with a game in
-// hand can't push its own players below the line.
+// Both of ours are that rule with the one honest adjustment applied, 7 innings instead of 9.
+// 3.1 x 7/9 = 2.41 PA, and 1.0 x 7/9 = 0.78 IP, rounded to 0.8. The check on the batting
+// number is that it is the same share of full-time play MLB's is: a team gets roughly 30
+// plate appearances in a 7-inning game, so one lineup slot is worth about 3.3 a game, and
+// 2.4 is 73% of that, which is what 3.1 is of a nine-inning slot's 4.2.
+//
+// THE BATTING BAR IS PLATE APPEARANCES, NOT AT-BATS, and the unit is the whole point. AB
+// discards every walk, so gating OPS (half of which is OBP) on it charges a patient hitter
+// for the thing the stat exists to reward: 40 AB with 18 BB is more playing time than 55 AB
+// with none, and the AB bar qualified only the second. The pitching side was already in
+// MLB's unit; this side was not, for no reason anyone recorded.
+//
+// The floors keep the opening days sane, and we scale off the LEAST-played team so a club
+// with a game in hand can't push its own players below the line.
 export const QUALIFY_MIN_GAMES = 2      // every team must have played this many before the bar applies
-export const QUALIFY_AB_PER_GAME = 2.0  // ~a regular's at-bats in a 7-inning game
-export const QUALIFY_OUTS_PER_GAME = 2.4 // 0.8 IP per team game (MLB's 1.0, scaled to 7 innings)
-export const QUALIFY_FLOOR_AB = 5
+// The two 2.4s below are a coincidence and must not be folded into one constant: one is
+// plate appearances per team game, the other is OUTS per team game (0.8 IP).
+export const QUALIFY_PA_PER_GAME = 2.4  // MLB's 3.1 per team game, scaled to a 7-inning game
+export const QUALIFY_OUTS_PER_GAME = 2.4 // 0.8 IP per team game (MLB's 1.0, scaled the same way)
+export const QUALIFY_FLOOR_PA = 6
 export const QUALIFY_FLOOR_OUTS = 9     // 3 IP
 
 export interface WpblQualifiers {
   active: boolean    // whether to apply the bar at all
   teamGames: number  // games played by the least-played team
-  minAb: number      // at-bats needed for a batting rate title
+  minPa: number      // plate appearances needed for a batting rate title
   minOuts: number    // outs recorded needed for a pitching rate title
 }
 
@@ -191,7 +220,7 @@ function gamesPlayed(games: WpblGame[]): Map<string, number> {
 }
 
 export function wpblQualifiers(teams: WpblTeam[], games: WpblGame[]): WpblQualifiers {
-  const inactive = { active: false, teamGames: 0, minAb: 0, minOuts: 0 }
+  const inactive = { active: false, teamGames: 0, minPa: 0, minOuts: 0 }
   if (teams.length === 0) return inactive
   const played = gamesPlayed(games)
   const teamGames = Math.min(...teams.map(t => played.get(t.id) ?? 0))
@@ -199,7 +228,7 @@ export function wpblQualifiers(teams: WpblTeam[], games: WpblGame[]): WpblQualif
   return {
     active: true,
     teamGames,
-    minAb: Math.max(QUALIFY_FLOOR_AB, Math.round(QUALIFY_AB_PER_GAME * teamGames)),
+    minPa: Math.max(QUALIFY_FLOOR_PA, Math.round(QUALIFY_PA_PER_GAME * teamGames)),
     minOuts: Math.max(QUALIFY_FLOOR_OUTS, Math.round(QUALIFY_OUTS_PER_GAME * teamGames)),
   }
 }

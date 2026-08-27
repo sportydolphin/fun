@@ -13,7 +13,7 @@ import {
 } from './ui'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import {
-  aggregateBatting, aggregatePitching, sumBatting, sumPitching, wpblQualifiers, fmtRate, fmtTwo,
+  aggregateBatting, aggregatePitching, sumBatting, sumPitching, wpblQualifiers, plateAppearances, fmtRate, fmtTwo,
   type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
@@ -112,11 +112,8 @@ const HIT_COLS: Col<WpblBattingTotals>[] = [
   { key: '3b',  label: '3B',  value: t => t.triples },
   { key: 'bb',  label: 'BB',  value: t => t.bb },
   { key: 'so',  label: 'SO',  value: t => t.so },
-  // Trips to the plate, which is the honest measure of how much someone has played: AB drops
-  // every walk, and G counts a pinch-hitter's one swing as a full day. Summed the way OBP's
-  // denominator is (see sumBatting), so the two always agree. Sacrifice bunts are missing
-  // from it because the feed does not report them, which costs a handful of PA a season.
-  { key: 'pa',  label: 'PA',  value: t => t.ab + t.bb + t.hbp + t.sf },
+  // Trips to the plate, and the unit the qualifier is set in. See `plateAppearances`.
+  { key: 'pa',  label: 'PA',  value: t => plateAppearances(t) },
   { key: 'ab',  label: 'AB',  value: t => t.ab },
   { key: 'g',   label: 'G',   value: t => t.g },
 ]
@@ -419,7 +416,7 @@ export default function WpblStatsView({
     fetchWpblTrackedGameCount().then(n => { if (!cancelled) setTrackedGames(n) }).catch(() => {})
     return () => { cancelled = true }
   }, [])
-  // The 5 AB / 3 IP qualifier only defaults on once every team has played 2+ games;
+  // The PA / IP qualifier only defaults on once every team has played 2+ games;
   // before that it would hide nearly everyone, so the complete table shows by default.
   // Is the control bar holding content under itself? Sticky gives no way to ask, so compare
   // the bar with a zero-height marker sitting immediately above it: the two tops agree until
@@ -719,7 +716,7 @@ export default function WpblStatsView({
       })
     } else {
       const seasons = side === 'hitting'
-        ? aggregateBatting(players, lines.batting, games).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.ab >= qual.minAb }))
+        ? aggregateBatting(players, lines.batting, games).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: plateAppearances(s.totals) >= qual.minPa }))
         : aggregatePitching(players, lines.pitching, games).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.outs >= qual.minOuts }))
       let list = seasons
       if (teamId) list = list.filter(s => s.player.team_id === teamId)
@@ -737,9 +734,10 @@ export default function WpblStatsView({
     }
 
     const val = (r: Row) => activeCol.value(r.totals)
-    // Ties break toward the bigger sample — innings pitched (outs) for pitching, at-bats
-    // for hitting — regardless of sort direction (more is always the better tiebreak).
-    const sample = (r: Row) => side === 'pitching' ? (r.totals as WpblPitchingTotals).outs : (r.totals as WpblBattingTotals).ab
+    // Ties break toward the bigger sample, innings pitched (outs) for pitching and plate
+    // appearances for hitting, regardless of sort direction (more is always the better
+    // tiebreak). Both are the unit that side's qualifier is set in.
+    const sample = (r: Row) => side === 'pitching' ? (r.totals as WpblPitchingTotals).outs : plateAppearances(r.totals as WpblBattingTotals)
     return built.sort((a, b) => {
       const av = val(a), bv = val(b)
       if (av == null && bv == null) return sample(b) - sample(a)
@@ -1421,7 +1419,7 @@ export default function WpblStatsView({
       {filtersOpen && (
         <FilterSheet teams={teamChips} teamId={teamId} onTeam={filterTeam}
           qualified={qualified} onQualified={toggleQualified}
-          side={side} minAb={qual.minAb} minIp={outsToIp(qual.minOuts)}
+          side={side} minPa={qual.minPa} minIp={outsToIp(qual.minOuts)}
           onClose={() => setFiltersOpen(false)} />
       )}
 
@@ -1719,14 +1717,14 @@ function SortSheet({ cols, sortKey, side, eraBasis, bestFirst, onPick, onDirecti
 // It says what qualified MEANS, which the chip never did: a word a reader either knows or is
 // excluded by, set against a bar that moves with the season (see wpblQualifiers), so nobody
 // could have known it from memory either.
-function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, side, minAb, minIp, onClose }: {
+function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, side, minPa, minIp, onClose }: {
   teams: WpblTeam[]
   teamId: string | null
   onTeam: (id: string | null) => void
   qualified: boolean
   onQualified: () => void
   side: Side
-  minAb: number
+  minPa: number
   minIp: string
   onClose: () => void
 }) {
@@ -1749,7 +1747,7 @@ function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, side, minA
         <SheetGroup title="Who to include">
           <Box sx={rows}>
             <OptionRow label="Qualified" on={qualified}
-              hint={side === 'pitching' ? `${minIp} innings pitched or more` : `${minAb} at-bats or more`}
+              hint={side === 'pitching' ? `${minIp} innings pitched or more` : `${minPa} plate appearances or more`}
               onClick={() => { if (!qualified) onQualified() }} />
             <OptionRow label="Everyone" on={!qualified}
               hint={side === 'pitching'
