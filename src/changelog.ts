@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.52.2',
+    date:    '2026-08-27',
+    title:   'Leaderboards count trips to the plate, not at-bats',
+    changes: [
+      {
+        short: 'A walk now counts toward qualifying for a rate title',
+        full:  'To appear on a leaderboard for a rate stat like OPS you have to have played enough, and the bar for that was counting at-bats. An at-bat is not a trip to the plate: it leaves out every walk. So a hitter who had been to the plate 24 times and walked in 5 of them counted as less of a regular than one who had been up 20 times and never walked, which is backwards, and it is exactly the wrong way round for OPS, half of which is on-base percentage. The bar is plate appearances now, set at the same share of a full-time job that Major League Baseball uses, adjusted for a seven-inning game. Three players join the OPS board and one drops off it: the one who dropped had not walked once all season.',
+      },
+    ],
+  },
+  {
     version: '1.52.1',
     date:    '2026-08-27',
     title:   'A Findings board on the Stats tab',
