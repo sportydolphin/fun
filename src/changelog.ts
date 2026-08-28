@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.52.3',
+    date:    '2026-08-27',
+    title:   'Every stat the league sends is now on the boards',
+    changes: [
+      {
+        short: 'Sixteen stats the feed reports and nothing here showed',
+        full:  'The league publishes more on a box-score line than the stat boards were adding up, and the rest was quietly discarded on the way in: it looked exactly like a stat the league does not report. Hitting gains caught stealing (a steal total on its own cannot say whether the running worked, in a league that runs this much), total bases, hit by pitch, grounded into a double play, and both sacrifices. Pitching gains batters faced, pitches, games started, hit batters, wild pitches, balks, strikeouts per walk, and the share of pitches thrown for strikes, plus strikeouts per nine innings, which the site had been working out all season and showing nowhere. Player pages carry the same additions, and the ones that would be a column of zeroes for most players appear only once they have happened.',
+      },
+    ],
+  },
+  {
     version: '1.52.2',
     date:    '2026-08-27',
     title:   'Leaderboards count trips to the plate, not at-bats',

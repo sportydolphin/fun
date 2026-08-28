@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
-  wpblQualifiers, plateAppearances, sumBatting,
+  wpblQualifiers, plateAppearances, sumBatting, sumPitching,
   QUALIFY_PA_PER_GAME, QUALIFY_OUTS_PER_GAME, QUALIFY_FLOOR_PA, QUALIFY_MIN_GAMES,
 } from '../stats'
-import type { WpblBattingLine, WpblGame, WpblTeam } from '../types'
+import type { WpblBattingLine, WpblPitchingLine, WpblGame, WpblTeam } from '../types'
 
 // The batting rate qualifier is in PLATE APPEARANCES, and this file exists to keep it there.
 // It was at-bats for most of the inaugural season, which is a unit that throws away every
@@ -86,5 +86,54 @@ describe('wpblQualifiers', () => {
 
     expect(plateAppearances(hacker)).toBeLessThan(q.minPa)
     expect(hacker.ab).toBeGreaterThanOrEqual(2.0 * q.teamGames)  // the old bar let her in
+  })
+})
+
+// ─── What the feed sends, and what the totals kept ──────────────────────────────────────
+//
+// Every column below arrives on every line and is selected by `BATTING_LINE_COLUMNS` /
+// `PITCHING_LINE_COLUMNS`, so it was already in the browser: the sums simply threw it away,
+// and the boards could not show what nobody had added up. That is a silent kind of gap. It
+// looks like the feed does not report the stat, and nothing errors.
+describe('the totals keep everything the line carries', () => {
+  const bat = (o: Partial<WpblBattingLine> = {}): WpblBattingLine => ({
+    id: Math.random().toString(36).slice(2), game_id: 'g0', player_id: 'p1', team_id: 'SF',
+    batting_order: 1, position: 'CF',
+    ab: 0, r: 0, h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, bb: 0, so: 0,
+    hbp: 0, sb: 0, cs: 0, sf: 0, sh: 0, ibb: 0, gdp: 0, ...o,
+  } as WpblBattingLine)
+
+  const pit = (o: Partial<WpblPitchingLine> = {}): WpblPitchingLine => ({
+    id: Math.random().toString(36).slice(2), game_id: 'g0', player_id: 'p1', team_id: 'SF',
+    outs: 0, h: 0, r: 0, er: 0, bb: 0, so: 0, hr: 0, decision: null,
+    bf: 0, pitches: 0, strikes: 0, gs: 0, hbp: 0, ibb: 0, wp: 0, bk: 0, ...o,
+  } as WpblPitchingLine)
+
+  it('sums the double plays, hit by pitches and caught stealings on a hitting line', () => {
+    const t = sumBatting([bat({ ab: 4, gdp: 1, hbp: 1, cs: 1 }), bat({ ab: 3, gdp: 1 })], [])
+    expect([t.gdp, t.hbp, t.cs]).toEqual([2, 1, 1])
+  })
+
+  it('sums the work a pitching line describes, not only the damage', () => {
+    const t = sumPitching([
+      pit({ outs: 9, bf: 12, pitches: 50, strikes: 30, gs: 1, hbp: 1, wp: 2, bk: 1 }),
+      pit({ outs: 3, bf: 5, pitches: 20, strikes: 10 }),
+    ], [])
+    expect([t.bf, t.pitches, t.strikes, t.gs, t.hbp, t.wp, t.bk]).toEqual([17, 70, 40, 1, 1, 2, 1])
+    expect(t.strikePct).toBeCloseTo(40 / 70, 6)
+  })
+
+  // An older mirrored row can carry null where a fresh one carries 0, and a single null would
+  // otherwise turn the whole league's total into NaN, which renders as a blank column rather
+  // than as an error anyone would notice.
+  it('survives a line with the newer columns missing', () => {
+    const t = sumPitching([pit({ outs: 3, bf: null as unknown as number, pitches: null as unknown as number })], [])
+    expect(Number.isNaN(t.bf)).toBe(false)
+    expect(t.bf).toBe(0)
+    expect(t.strikePct).toBeNull()
+  })
+
+  it('has no strike rate before a pitch is thrown', () => {
+    expect(sumPitching([], []).strikePct).toBeNull()
   })
 })

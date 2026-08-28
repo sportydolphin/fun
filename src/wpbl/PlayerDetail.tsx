@@ -47,6 +47,9 @@ const STAT_FULL: Record<string, string> = {
   IP: 'Innings pitched', ER: 'Earned runs', P: 'Pitches thrown', DEC: 'Decision (W/L/S/H)', OPP: 'Opponent',
   POS: 'Position played that game', FPCT: 'Fielding percentage', PO: 'Putouts', A: 'Assists', E: 'Errors', DP: 'Double plays',
   PB: 'Passed balls', SBA: 'Stolen bases allowed',
+  CS: 'Caught stealing', HBP: 'Hit by pitch', GDP: 'Grounded into a double play',
+  SF: 'Sacrifice flies', SH: 'Sacrifice bunts', PA: 'Plate appearances',
+  BF: 'Batters faced', GS: 'Games started', WP: 'Wild pitches', BK: 'Balks',
   'K/9': 'Strikeouts per nine innings', 'K/7': 'Strikeouts per seven innings, a full WPBL game',
   'K/BB': 'Strikeouts per walk',
 }
@@ -492,6 +495,8 @@ function FieldingLine({ ft, color }: { ft: ReturnType<typeof sumFielding>; color
  * every mark spent on it is one more piece of colour competing with the four-hit night.
  */
 const BATTING_BEST = new Set(['R', 'H', '2B', '3B', 'HR', 'RBI', 'SB', 'TB'])
+// Not BF or P: facing more batters is not a better outing, it is a longer one, and marking a
+// pitcher's highest pitch count as her best day would read as praise for being left in.
 const PITCHING_BEST = new Set(['IP', 'SO'])
 
 /**
@@ -934,7 +939,15 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
       <>
         {paneHero('batting')}
         {/* G and AB are on the sample line above, so they are not repeated here. */}
-        <StatGrid items={[['R', bt.r], ['H', bt.h], ['2B', bt.doubles], ['3B', bt.triples], ['HR', bt.hr], ['RBI', bt.rbi], ['BB', bt.bb], ['SO', bt.so], ['SB', bt.sb], ['TB', bt.tb]]} />
+        {/* CS beside SB (a steal total alone cannot say whether the running worked), and the
+            four trips AB does not count. All five are on the feed's line and none of them was
+            shown here. The two sacrifices and GDP appear only once they have happened: a
+            column of zeroes on a player who has never bunted is noise, and this grid is read
+            on a phone. */}
+        <StatGrid items={[['R', bt.r], ['H', bt.h], ['2B', bt.doubles], ['3B', bt.triples], ['HR', bt.hr], ['RBI', bt.rbi], ['BB', bt.bb], ['SO', bt.so], ['SB', bt.sb], ['CS', bt.cs], ['TB', bt.tb], ['HBP', bt.hbp],
+          ...(bt.gdp ? [['GDP', bt.gdp] as [string, number]] : []),
+          ...(bt.sf ? [['SF', bt.sf] as [string, number]] : []),
+          ...(bt.sh ? [['SH', bt.sh] as [string, number]] : [])]} />
         {pitchingCameo && (
           <CameoBlock label="Also pitched" color={color}
             text={`${fmtEra(pt.era)} ERA over ${outsToIp(pt.outs)} IP, ${pt.so} K`} />
@@ -962,7 +975,14 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
       <>
         {paneHero('pitching')}
         {/* G and IP are on the sample line above. */}
-        <StatGrid items={[['H', pt.h], ['R', pt.r], ['ER', pt.er], ['BB', pt.bb], ['SO', pt.so], ['HR', pt.hr]]} />
+        {/* BF and P say how much work the year was, which nothing on this card could say
+            before: it could tell you what she gave up and not how many batters she faced.
+            GS separates a starter from a reliever. HBP, WP and BK show up only when they
+            have happened, like the batting card's sacrifices. */}
+        <StatGrid items={[['H', pt.h], ['R', pt.r], ['ER', pt.er], ['BB', pt.bb], ['SO', pt.so], ['HR', pt.hr], ['BF', pt.bf], ['P', pt.pitches], ['GS', pt.gs],
+          ...(pt.hbp ? [['HBP', pt.hbp] as [string, number]] : []),
+          ...(pt.wp ? [['WP', pt.wp] as [string, number]] : []),
+          ...(pt.bk ? [['BK', pt.bk] as [string, number]] : [])]} />
         {battingCameo && (
           <CameoBlock label="Also batted" color={color}
             text={`${fmtRate(bt.avg)}/${fmtRate(bt.obp)}/${fmtRate(bt.slg)}, ${bt.h}-for-${bt.ab}${bt.hr ? `, ${bt.hr} HR` : ''}`} />

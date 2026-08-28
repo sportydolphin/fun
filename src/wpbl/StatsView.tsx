@@ -13,7 +13,8 @@ import {
 } from './ui'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import {
-  aggregateBatting, aggregatePitching, sumBatting, sumPitching, wpblQualifiers, plateAppearances, fmtRate, fmtTwo,
+  aggregateBatting, aggregatePitching, sumBatting, sumPitching, wpblQualifiers, plateAppearances,
+  kRateLabel, scaleToBasis, fmtRate, fmtTwo,
   type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
@@ -108,10 +109,21 @@ const HIT_COLS: Col<WpblBattingTotals>[] = [
   { key: 'r',   label: 'R',   value: t => t.r },
   { key: 'h',   label: 'H',   value: t => t.h },
   { key: 'sb',  label: 'SB',  value: t => t.sb },
+  // CS beside SB, because a steal total on its own cannot say whether the running was any
+  // good, and this league runs constantly. Same reason the Findings board prices it.
+  { key: 'cs',  label: 'CS',  value: t => t.cs },
   { key: '2b',  label: '2B',  value: t => t.doubles },
   { key: '3b',  label: '3B',  value: t => t.triples },
+  { key: 'tb',  label: 'TB',  value: t => t.tb },
   { key: 'bb',  label: 'BB',  value: t => t.bb },
   { key: 'so',  label: 'SO',  value: t => t.so },
+  // The rest of the trips to the plate that AB does not count. All four arrive on every line
+  // and were shown nowhere: HBP is 54 of them this season, GDP 28, and the two sacrifices
+  // are how a bunt or a fly ball shows up at all.
+  { key: 'hbp', label: 'HBP', value: t => t.hbp },
+  { key: 'gdp', label: 'GDP', value: t => t.gdp },
+  { key: 'sf',  label: 'SF',  value: t => t.sf },
+  { key: 'sh',  label: 'SH',  value: t => t.sh },
   // Trips to the plate, and the unit the qualifier is set in. See `plateAppearances`.
   { key: 'pa',  label: 'PA',  value: t => plateAppearances(t) },
   { key: 'ab',  label: 'AB',  value: t => t.ab },
@@ -131,6 +143,18 @@ const PIT_COLS: Col<WpblPitchingTotals>[] = [
   { key: 'er',   label: 'ER',   value: t => t.er },
   { key: 'bb',   label: 'BB',   value: t => t.bb },
   { key: 'hr',   label: 'HR',   value: t => t.hr },
+  { key: 'hbp',  label: 'HBP',  value: t => t.hbp },
+  { key: 'wp',   label: 'WP',   value: t => t.wp },
+  { key: 'bk',   label: 'BK',   value: t => t.bk },
+  // How much work the outing WAS, as opposed to what it gave up. Every one of these is on
+  // the feed's line and none of them was summed anywhere before Aug 27: the board could say
+  // a pitcher allowed two runs and not that she faced nine batters or threw ninety pitches.
+  { key: 'kbb',  label: 'K/BB', value: t => t.kbb, display: t => fmtTwo(t.kbb), rate: true },
+  { key: 'strikePct', label: 'STR%', value: t => t.strikePct,
+    display: t => (t.strikePct == null ? '—' : `${Math.round(t.strikePct * 100)}%`), rate: true },
+  { key: 'bf',   label: 'BF',   value: t => t.bf },
+  { key: 'p',    label: 'P',    value: t => t.pitches },
+  { key: 'gs',   label: 'GS',   value: t => t.gs },
   { key: 'g',    label: 'G',    value: t => t.g },
 ]
 
@@ -155,14 +179,18 @@ function defaultSort(side: Side, key?: string): { key: string; asc: boolean } {
 const HIT_NAMES: Record<string, string> = {
   avg: 'Batting average', obp: 'On-base', slg: 'Slugging', ops: 'On-base plus slugging',
   opsPlus: 'OPS vs the league', hr: 'Home runs', rbi: 'Runs batted in', r: 'Runs', h: 'Hits',
-  sb: 'Stolen bases', '2b': 'Doubles', '3b': 'Triples', bb: 'Walks', so: 'Strikeouts',
-  ab: 'At-bats', g: 'Games',
+  sb: 'Stolen bases', cs: 'Caught stealing', '2b': 'Doubles', '3b': 'Triples',
+  tb: 'Total bases', bb: 'Walks', so: 'Strikeouts', hbp: 'Hit by pitch',
+  gdp: 'Grounded into a double play', sf: 'Sacrifice flies', sh: 'Sacrifice bunts',
+  pa: 'Plate appearances', ab: 'At-bats', g: 'Games',
 }
 const PIT_NAMES: Record<string, string> = {
   era: 'Earned run average', whip: 'Walks + hits per inning', eraPlus: 'ERA vs the league',
   w: 'Wins', l: 'Losses', sv: 'Saves', so: 'Strikeouts', ip: 'Innings pitched',
   h: 'Hits allowed', r: 'Runs allowed', er: 'Earned runs', bb: 'Walks',
-  hr: 'Home runs allowed', g: 'Games',
+  hr: 'Home runs allowed', hbp: 'Batters hit by a pitch', wp: 'Wild pitches', bk: 'Balks',
+  kbb: 'Strikeouts per walk', strikePct: 'Share of pitches thrown for strikes',
+  bf: 'Batters faced', p: 'Pitches thrown', gs: 'Games started', g: 'Games',
 }
 
 /** A column's text for one row. Was written out three times: the pinned cell, the scrolling
@@ -586,6 +614,16 @@ export default function WpblStatsView({
     // ask. `value` is left on the stored number on purpose: the sort is identical either way,
     // and leaving it alone keeps ERA+ below reading the same figure the league does.
     cols[eraIdx] = { ...cols[eraIdx], display: t => fmtEra(t.era) }
+    // K/9 belongs beside ERA for the same reason ERA is swapped in here: it is STORED per nine
+    // and shown on whatever the reader chose, so its label is not knowable in a module
+    // constant. `value` stays on the stored number, which sorts identically.
+    const soIdx = cols.findIndex(c => c.key === 'so')
+    cols.splice(soIdx + 1, 0, {
+      key: 'k9', label: kRateLabel(eraBasis),
+      value: t => t.k9,
+      display: t => fmtTwo(scaleToBasis(t.k9, eraBasis)),
+      rate: true,
+    })
     cols.splice(eraIdx + 1, 0, {
       key: 'eraPlus', label: 'ERA+',
       value: eraPlus,
@@ -593,7 +631,7 @@ export default function WpblStatsView({
       rate: true,
     })
     return cols
-  }, [lines.pitching, fmtEra])
+  }, [lines.pitching, fmtEra, eraBasis])
 
   const cols = (side === 'hitting' ? hitCols : pitCols) as Col<WpblBattingTotals | WpblPitchingTotals>[]
   const activeCol = cols.find(c => c.key === sortKey) ?? cols[0]
