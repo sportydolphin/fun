@@ -60,9 +60,12 @@ export function scaleToBasis(v: number | null, basis: EraBasis): number | null {
 export interface WpblBattingTotals {
   g: number; ab: number; r: number; h: number; doubles: number; triples: number; hr: number
   rbi: number; bb: number; so: number; sb: number; hbp: number; cs: number; sf: number
-  /** Sac hits (bunts). Carried only so `plateAppearances` can be right: nothing displays it.
-   *  It is not in OBP's denominator and must not be added to one. */
+  /** Sac hits (bunts). Carried so `plateAppearances` can be right, and shown beside SF on the
+   *  board. It is not in OBP's denominator and must not be added to one. */
   sh: number
+  /** Grounded into a double play. On the feed's line since the start and summed by nothing
+   *  until Aug 27; 28 of them in the first 21 games. */
+  gdp: number
   tb: number
   avg: number | null; obp: number | null; slg: number | null; ops: number | null
   /**
@@ -79,11 +82,11 @@ export function sumBatting(lines: WpblBattingLine[], games: WpblSeasonGame[]): W
 /** The arithmetic alone, on lines already known to be in scope. Internal, so the grouping
  *  helpers below can filter once for the whole league instead of once per player. */
 function sumBattingRaw(lines: WpblBattingLine[]): WpblBattingTotals {
-  const t = { g: lines.length, ab: 0, r: 0, h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, bb: 0, so: 0, sb: 0, hbp: 0, cs: 0, sf: 0, sh: 0 }
+  const t = { g: lines.length, ab: 0, r: 0, h: 0, doubles: 0, triples: 0, hr: 0, rbi: 0, bb: 0, so: 0, sb: 0, hbp: 0, cs: 0, sf: 0, sh: 0, gdp: 0 }
   for (const l of lines) {
     t.ab += l.ab; t.r += l.r; t.h += l.h; t.doubles += l.doubles; t.triples += l.triples; t.hr += l.hr
     t.rbi += l.rbi; t.bb += l.bb; t.so += l.so; t.sb += l.sb; t.hbp += l.hbp; t.cs += l.cs
-    t.sf += l.sf; t.sh += l.sh
+    t.sf += l.sf; t.sh += l.sh; t.gdp += l.gdp ?? 0
   }
   const singles = t.h - t.doubles - t.triples - t.hr
   const tb = singles + 2 * t.doubles + 3 * t.triples + 4 * t.hr
@@ -119,6 +122,13 @@ export function sumFielding(lines: WpblFieldingLine[]): WpblFieldingTotals {
 export interface WpblPitchingTotals {
   g: number; outs: number; h: number; r: number; er: number; bb: number; so: number; hr: number
   w: number; l: number; s: number
+  /** All five arrive on every pitching line and were summed by nothing until Aug 27, which
+   *  left the boards unable to say how much work an outing was, only what it gave up.
+   *  `gs` separates a starter from a reliever, which nothing else here does. */
+  bf: number; pitches: number; strikes: number; gs: number; hbp: number; wp: number; bk: number
+  /** Share of pitches thrown for strikes. The one rate the pitch counts make possible, and
+   *  the closest thing to a command number the box score can give. Null before a pitch. */
+  strikePct: number | null
   /** Earned runs per NINE innings, always, whatever the reader has the site set to. See
    *  `ERA_BASIS_CANONICAL`: everything downstream scales this one number, so there is exactly
    *  one place a per-7 figure can come from and no way for two surfaces to disagree. */
@@ -136,9 +146,13 @@ export function sumPitching(lines: WpblPitchingLine[], games: WpblSeasonGame[]):
 
 /** The arithmetic alone; see `sumBattingRaw`. */
 function sumPitchingRaw(lines: WpblPitchingLine[]): WpblPitchingTotals {
-  const t = { g: lines.length, outs: 0, h: 0, r: 0, er: 0, bb: 0, so: 0, hr: 0, w: 0, l: 0, s: 0 }
+  const t = { g: lines.length, outs: 0, h: 0, r: 0, er: 0, bb: 0, so: 0, hr: 0, w: 0, l: 0, s: 0, bf: 0, pitches: 0, strikes: 0, gs: 0, hbp: 0, wp: 0, bk: 0 }
   for (const l of lines) {
     t.outs += l.outs; t.h += l.h; t.r += l.r; t.er += l.er; t.bb += l.bb; t.so += l.so; t.hr += l.hr
+    // Nullish-coalesced, unlike the fields above: these are newer columns on the feed's line
+    // and an older mirrored row can carry null where a fresh one carries 0.
+    t.bf += l.bf ?? 0; t.pitches += l.pitches ?? 0; t.strikes += l.strikes ?? 0
+    t.gs += l.gs ?? 0; t.hbp += l.hbp ?? 0; t.wp += l.wp ?? 0; t.bk += l.bk ?? 0
     if (l.decision === 'W') t.w++
     else if (l.decision === 'L') t.l++
     else if (l.decision === 'S') t.s++
@@ -152,7 +166,8 @@ function sumPitchingRaw(lines: WpblPitchingLine[]): WpblPitchingTotals {
   // Null, not Infinity, on a staff that hasn't issued a walk — the ratio genuinely doesn't
   // exist, and fmtTwo renders null as an em dash rather than a nonsense number.
   const kbb = t.bb > 0 ? t.so / t.bb : null
-  return { ...t, era, whip, k9, kbb }
+  const strikePct = t.pitches > 0 ? t.strikes / t.pitches : null
+  return { ...t, era, whip, k9, kbb, strikePct }
 }
 
 /** Trips to the plate: the honest measure of how much someone has played, and the unit
