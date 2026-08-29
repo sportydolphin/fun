@@ -14,12 +14,13 @@
 import { describe, it, expect } from 'vitest'
 import indexHtml from '../../../index.html?raw'
 import redirects from '../../../public/_redirects?raw'
+import footerSource from '../../SiteFooter.tsx?raw'
 import sitemap from '../../../public/sitemap.xml?raw'
 import seoSource from '../../seo.ts?raw'
 import {
   WPBL_NAV, WPBL_VIEW_PATHS, wpblPathFor, wpblViewFromPath, wpblAppOwnsPath, normalizeWpblView,
   wpblPlayerSlug, wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug,
-  wpblGameSlug, wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug,
+  wpblGameSlug, wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug, isWpblLeaguePage,
 } from '../routes'
 
 describe('wpblViewFromPath', () => {
@@ -298,6 +299,44 @@ describe('every tab page is discoverable and distinct', () => {
 // problem rather than a broken page. It is also invisible in `npm run dev`, which serves the
 // SPA shell for any path: the omission only shows in production, on a URL an app store is
 // checking. Pinned in all three places a static route has to be spelled.
+// A real page that is deliberately NOT a tab, which is the shape most likely to be spelled in
+// three of the four places and forgotten in the fourth. It is absent from WPBL_NAV on purpose,
+// so every loop above that keeps the tabs honest skips it entirely.
+describe('/wpbl/league, a page without a tab', () => {
+  it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
+    expect(redirects).toMatch(/^\/wpbl\/league\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/league\/\s+\/wpbl\/league\s+301\s*$/m)
+  })
+
+  it('has its own title and description in seo.ts', () => {
+    expect(seoSource).toContain("'/wpbl/league': {")
+    expect(seoSource).toMatch(/'\/wpbl\/league':\s*\{[^}]*title:/)
+  })
+
+  it('is in the sitemap', () => {
+    expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/league</loc>')
+  })
+
+  // The predicate the shell renders on, and the one the tab router must NOT claim: reading it
+  // as a view would send /wpbl/league to the pager, which would land on Home and leave the
+  // address bar saying otherwise.
+  it('is recognised as itself and not as a tab', () => {
+    expect(isWpblLeaguePage('/wpbl/league')).toBe(true)
+    expect(isWpblLeaguePage('/wpbl/league/')).toBe(true)
+    expect(isWpblLeaguePage('/wpbl/leagues')).toBe(false)
+    expect(isWpblLeaguePage('/wpbl/league/extra')).toBe(false)
+    expect(wpblViewFromPath('/wpbl/league')).toBeNull()
+    expect(wpblAppOwnsPath('/wpbl/league')).toBe(false)
+  })
+
+  // It has no nav pill by design, so the footer is the only way in for a reader and the only
+  // link a crawler can follow. Losing it turns the page into an orphan without breaking it,
+  // which is a failure nothing else here would notice.
+  it('is linked from the site footer', () => {
+    expect(footerSource).toContain('WPBL_LEAGUE_PAGE')
+  })
+})
+
 describe('/delete-account, the store-facing route', () => {
   it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
     expect(redirects).toMatch(/^\/delete-account\s+\/\s+200\s*$/m)

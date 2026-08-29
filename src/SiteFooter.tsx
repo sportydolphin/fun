@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { APP_VERSION } from './version'
 import { ACCENT } from './mlb/constants'
 import { track, EVENTS } from './lib/analytics'
-import { WPBL_PLAYERS_INDEX } from './wpbl/routes'
+import { WPBL_PLAYERS_INDEX, WPBL_LEAGUE_PAGE } from './wpbl/routes'
 
 const KOFI_URL = 'https://ko-fi.com/sportydolphin'
 
@@ -88,6 +88,8 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
                 got found while /mlb did not. Keyword-shaped anchor text for the same reason
                 as the section switch above. */}
             <Box component="a" href={WPBL_PLAYERS_INDEX} onClick={e => { e.preventDefault(); onNavigate(WPBL_PLAYERS_INDEX) }} sx={linkSx}>WPBL players</Box>
+            <Dot />
+            <Box component="a" href={WPBL_LEAGUE_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_LEAGUE_PAGE) }} sx={linkSx}>The league</Box>
             <Dot />
             <Box component="a" href="/wpbl/api" onClick={e => { e.preventDefault(); onNavigate('/wpbl/api') }} sx={linkSx}>API for developers</Box>
             <Dot />

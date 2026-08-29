@@ -50,6 +50,13 @@ export const EVENTS = {
   // says whether folding three rails into one buried the other two.
   WPBL_SHELF_SEGMENT:     'wpbl_shelf_segment',     // switched shelf segment, props {segment}
   WPBL_SHELF_COLLAPSED:   'wpbl_shelf_collapsed',   // toggled the shelf shut or open, props {collapsed}
+  // The shelf moved to /wpbl/league on Aug 27 and Home keeps one line pointing at it. Both
+  // halves are measured because the move is a bet, not a certainty: 575 browsers saw the shelf
+  // on Home and 39 clicked it, so this asks whether a link converts better than the thing
+  // itself did. If SHOWN is large and OPENED is tiny, the answer is that Home was never the
+  // problem and the shelf should come back.
+  WPBL_LEAGUE_CARD_SHOWN: 'wpbl_league_card_shown', // Home's league card rendered, once per mount
+  WPBL_LEAGUE_CARD_OPEN:  'wpbl_league_card_open',  // tapped through to /wpbl/league, props {from}
   // The Stats tab, which is the most-viewed surface in the section and was, until these,
   // entirely unmeasured below the tab itself. Its axes (Hitting/Pitching × Season/Tracked,
   // Players/Teams, and Draft) never touch the URL, so Cloudflare cannot see them and the

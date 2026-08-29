@@ -255,6 +255,18 @@ export const WPBL_PLAYERS_INDEX = WPBL_PLAYERS_BASE
 export const isWpblPlayersIndex = (pathname: string) =>
   pathname.replace(/\/+$/, '') === WPBL_PLAYERS_BASE
 
+// ─── The league page ──────────────────────────────────────────────────────────
+//
+// A real path and NOT a tab, which is a deliberate middle state rather than an oversight: it
+// is spelled in _redirects, seo.ts and the sitemap like every other page, and it is absent
+// from WPBL_NAV, so the pills and the mobile pager never grow a sixth destination. It earns
+// one from the events or it does not get one. Reached from the footer, which is the link
+// Google actually followed to /privacy and /terms.
+export const WPBL_LEAGUE_PAGE = `${WPBL_BASE}/league`
+
+export const isWpblLeaguePage = (pathname: string) =>
+  pathname.replace(/\/+$/, '') === WPBL_LEAGUE_PAGE
+
 /**
  * Fired by WpblApp after it pushes a history entry, so the shell can re-read the path.
  *

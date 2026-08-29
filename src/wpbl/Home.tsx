@@ -7,12 +7,10 @@ import { getCachedAllGamesPref, fetchAllGamesPref, setAllGamesPref } from './rem
 import {
   fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllTracking, computeStandings, countsInStandings,
   getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblAllTracking, wpblHomeCacheAgeMs,
-  fetchWpblVideos, getCachedWpblVideos,
-  fetchWpblArticles, getCachedWpblArticles,
-  fetchWpblPhotos, getCachedWpblPhotos,
 } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
+import { WPBL_LEAGUE_PAGE, WPBL_PATH_EVENT } from './routes'
 import { useWpblHeadingTag } from './PageHeading'
 import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, wpblFeatureName, CARD_BORDER } from './ui'
 import { LiveHero } from './Live'
@@ -27,7 +25,6 @@ import { track, EVENTS } from '../lib/analytics'
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
 import { DISCORD_DISMISS_KEY, DISCORD_DEV_SHOW_EVENT } from './discordInvite'
 import { LastGameCard } from './RecapCard'
-import MediaShelf from './MediaShelf'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblTrackRow, WpblVideo, WpblArticle, WpblPhoto } from './types'
 
 // WPBL home dashboard (Phase 2). Mirrors the MLB home: a full-width scoreboard strip
@@ -1099,6 +1096,61 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
 // The feed-mirror ingest freshness indicator lives in the site Admin panel now
 // (consolidated with the payroll/contract freshness) — see AdminPanel's "WPBL Ingest".
 
+/**
+ * One line on Home pointing at /wpbl/league, where Reading, Highlights and the archive went.
+ *
+ * IT MEASURES ITSELF, and that is not boilerplate. The Discord card taught this the hard way:
+ * it was retired on Aug 19 and took its own impression event with it, so the 554 browsers whose
+ * only event was that card became unmeasurable the same day. Anything that lands on Home now
+ * carries its own impression, and this one has a specific question to answer. The shelf was
+ * seen by 575 browsers and clicked by 39. If this card is shown as often and opened less, the
+ * move was wrong and the shelf should come back rather than the link being made louder.
+ */
+function LeagueCard() {
+  const shown = useRef(false)
+  useEffect(() => {
+    if (shown.current) return
+    shown.current = true
+    track(EVENTS.WPBL_LEAGUE_CARD_SHOWN)
+  }, [])
+
+  // Modified clicks fall through untouched, so open-in-new-tab still works; the rest is the
+  // section's own navigation, copied from WpblApp's `push`. /wpbl/league is an App-level route
+  // rather than a tab, so there is no view to switch to: push the entry and tell the shell the
+  // path moved, which is what makes it re-read and swap in the page.
+  const go = (e: React.MouseEvent) => {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+    e.preventDefault()
+    track(EVENTS.WPBL_LEAGUE_CARD_OPEN, { from: 'home' })
+    window.history.pushState({ ...window.history.state, wpbl: undefined }, '', WPBL_LEAGUE_PAGE)
+    window.dispatchEvent(new Event(WPBL_PATH_EVENT))
+  }
+
+  return (
+    <Box
+      component="a"
+      href={WPBL_LEAGUE_PAGE}
+      onClick={go}
+      sx={{
+        display: 'flex', alignItems: 'center', gap: 1.5, textDecoration: 'none',
+        border: '1px solid', borderColor: CARD_BORDER, borderRadius: 3,
+        bgcolor: 'background.paper', px: 2, py: 1.75,
+        '&:hover': { borderColor: 'var(--wpbl-accent-solid)' },
+      }}
+    >
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, color: 'text.primary' }}>
+          The league
+        </Typography>
+        <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mt: 0.25 }}>
+          Where all 118 players are from, plus the reading, the highlight reels and the archive.
+        </Typography>
+      </Box>
+      <Box aria-hidden sx={{ color: 'text.disabled', fontSize: '1.2rem', flexShrink: 0 }}>›</Box>
+    </Box>
+  )
+}
+
 export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPlayer, onOpenTeam, onViewStats, onViewTracking }: {
   teams: WpblTeam[]
   games: WpblGame[]
@@ -1121,9 +1173,6 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
   const [tracking, setTracking] = useState<WpblTrackRow[]>(() => getCachedWpblAllTracking() ?? [])
-  const [videos, setVideos] = useState<WpblVideo[]>(() => getCachedWpblVideos() ?? [])
-  const [articles, setArticles] = useState<WpblArticle[]>(() => getCachedWpblArticles() ?? [])
-  const [photos, setPhotos] = useState<WpblPhoto[]>(() => getCachedWpblPhotos() ?? [])
   const [loadingLeaders, setLoadingLeaders] = useState(() => wpblHomeCacheAgeMs() === Infinity)
   // Discord invite dismissal, read once. Owned here (not inside DiscordCard) so a dismissed
   // invite unmounts the card entirely and leaves no empty wrapper taking up row-gap.
@@ -1152,32 +1201,6 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
         setPlayers(p); setLines(l); setTracking(tr); setLoadingLeaders(false)
       })
       .catch(() => { if (!cancelled) setLoadingLeaders(false) })
-    return () => { cancelled = true }
-  }, [])
-
-  // Highlights are their own small read (the wpbl_videos mirror), deduped + cached by the
-  // api layer, so a swipe-back repaints from cache and this just revalidates in the
-  // background. Kept separate from the leaders load so it can't gate or flash those cards.
-  useEffect(() => {
-    let cancelled = false
-    fetchWpblVideos().then(v => { if (!cancelled) setVideos(v) }).catch(() => { /* keep last-good */ })
-    return () => { cancelled = true }
-  }, [])
-
-  // The reading feed, on the same terms as the highlights above: its own small cached read,
-  // kept out of the leaders load so a slow Substack sync can never gate or flash those cards.
-  useEffect(() => {
-    let cancelled = false
-    fetchWpblArticles().then(a => { if (!cancelled) setArticles(a) }).catch(() => { /* keep last-good */ })
-    return () => { cancelled = true }
-  }, [])
-
-  // The archive gallery, on the same terms again. This one is the least urgent read on the
-  // page by a distance: the table is a curated set that changes when someone approves a
-  // photograph, which is weeks apart, so it must never be able to gate anything else.
-  useEffect(() => {
-    let cancelled = false
-    fetchWpblPhotos().then(p => { if (!cancelled) setPhotos(p) }).catch(() => { /* keep last-good */ })
     return () => { cancelled = true }
   }, [])
 
@@ -1393,14 +1416,17 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
       {/* Reading, Highlights and the Archive, in one full-width card under the feed.
 
           Outside the columns on purpose, and full width on purpose. These are horizontal strips,
-          the one thing on this page that turns width into content: the same card height shows
-          five or six cards across the page instead of three in a column. Stacked as three
-          separate cards they were 1415px of a 2125px left column, against 838px on the right.
+          THE SHELF ITSELF MOVED. Reading, Highlights and Archive now live on /wpbl/league, and
+          what is left here is one line pointing at them. Two reasons, both measured: 575
+          browsers saw the shelf and 39 clicked it, so it was not earning three screens of the
+          page it sat on; and 670 of 2,037 browsers fired exactly one event on Home, which is a
+          page that needs to get SHORTER before it gets anything else. The card carries its own
+          impression event so the trade can be read later rather than assumed.
 
           Last on the page at both breakpoints, which is also the right editorial answer during
           a season: everything above is about games that just happened or are about to. */}
       <Box sx={{ mt: 1.5 }}>
-        <MediaShelf articles={articles} videos={videos} photos={photos} teams={teams} />
+        <LeagueCard />
       </Box>
 
     </Box>

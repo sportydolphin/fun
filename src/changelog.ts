@@ -4,6 +4,33 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.53.0',
+    date:    '2026-08-29',
+    title:   'A page for the league itself, and the working behind the numbers',
+    changes: [
+      {
+        short: 'A page for the league itself, starting with where its players are from',
+        full:  'Everything on this section is a game, a club or a player, so anything about the league as a whole had nowhere to live. /wpbl/league is that page, and it opens with the one fact about the WPBL that needs no season to be true: all 118 players and the towns they come from, by country. Sixty-four from the United States, eighteen from Canada, nine each from Mexico, Australia and Japan, four from South Korea, and one each from Venezuela, the United Kingdom, France, Puerto Rico and Curacao. The youngest player in the league is 18 and the oldest is 40. It is in the footer, and every name on it opens that player\u2019s page. Each country folds, and one press closes the lot if you would rather read the eleven totals on their own.',
+      },
+      {
+        short: 'Reading, highlights and the archive moved off the home page',
+        full:  'The home page carried three screens of reading, video and photography under everything else, and almost nobody got there: it was seen by 575 visitors and opened by 39. All three are about the league rather than about today\u2019s games, so they now live on the league page with the roster, and the home page carries one line pointing at them. The home page is shorter for it, which is the point.',
+      },
+      {
+        short: 'The play-value card now shows its working, on a real play',
+        full:  'The Findings board prices sixteen kinds of play in runs, and said nothing about where any of those numbers came from. Open \u201cHow this is worked out\u2019 under it and there is a real play from this season taken through the arithmetic: the inning it happened in, what the batter came up to, what she left behind, and the runs it put on the board, adding up to what that play was worth. The example is picked rather than written: it is always the play closest to the average for its kind, so the sum lands on the number in the row above it. Every figure on the card is measured from this league\u2019s own games.',
+      },
+      {
+        short: 'The watch parties for all eleven postseason games are up on Discord',
+        full:  'Every game of the bracket has a Discord event already, named for its slot (\u201cSemifinal A Game 1\u2019) rather than for clubs nobody knows yet, because an event is only worth having if you can RSVP to it in advance. Each one renames itself as the bracket fills in, follows a first pitch that moves, and disappears if a series is clinched before it is needed.',
+      },
+      {
+        short: 'The per-7 ERA notice says how to switch back',
+        full:  'Switching the pitching boards to a seven-inning ERA is a change you can undo, and the note that offers the switch now says where: Settings, any time. That note can be dismissed and eventually retires on its own, so a reader who had switched could otherwise be left on numbers that disagree with the official WPBL site with nothing on screen explaining why.',
+      },
+    ],
+  },
+  {
     version: '1.52.3',
     date:    '2026-08-27',
     title:   'Every stat the league sends is now on the boards',

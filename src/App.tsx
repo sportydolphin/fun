@@ -22,7 +22,7 @@ import { supabase } from './lib/supabase'
 import { useSeo } from './seo'
 // Import-free by design, so naming it here does not drag the lazy WPBL chunk into the
 // entry bundle. See the note at the top of that file.
-import { wpblViewFromPath, wpblPlayerSlugFromPath, isWpblPlayersIndex, wpblAppOwnsPath, WPBL_PATH_EVENT } from './wpbl/routes'
+import { wpblViewFromPath, wpblPlayerSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, wpblAppOwnsPath, WPBL_PATH_EVENT } from './wpbl/routes'
 import { track, EVENTS } from './lib/analytics'
 import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from './lib/usernames'
 import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
@@ -43,6 +43,7 @@ const WpblApp = lazy(() => import('./wpbl/WpblApp'))
 // The flat players list at /wpbl/players. Its own chunk and its own route: it is a plain
 // page, not one of the section's tabs, so it has no business waking WpblApp's state machine.
 const WpblPlayersIndex = lazy(() => import('./wpbl/PlayersIndex'))
+const WpblLeaguePage = lazy(() => import('./wpbl/LeaguePage'))
 const WpblApiDocs = lazy(() => import('./wpbl/ApiDocs'))
 // The owner's dashboard. Its own route rather than a dialog: charts and tables need the
 // room, and it pulls in the analytics RPC layer that nobody else should ever download.
@@ -102,7 +103,8 @@ const isWpblPlayerPage = (p: string) => wpblPlayerSlugFromPath(p) !== null || is
  *  Defined in routes.ts because WpblApp's popstate handler has to agree with it. */
 const rendersWpblApp = wpblAppOwnsPath
 /** Anything that should read as "the reader is in the WPBL section". */
-const isWpblSection = (p: string) => rendersWpblApp(p) || p === '/wpbl/api'
+const isWpblSection = (p: string) =>
+  rendersWpblApp(p) || p === '/wpbl/api' || isWpblLeaguePage(p) || isWpblPlayersIndex(p)
 
 const LOCK_PASSWORD = 'sportydolphin'
 const LOCKED_PATHS = new Set(['/cups', '/weights'])
@@ -1281,6 +1283,11 @@ function AppInner() {
         {isWpblPlayersIndex(path) && (
           <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
             <WpblPlayersIndex onNavigate={navigate} />
+          </Suspense>
+        )}
+        {isWpblLeaguePage(path) && (
+          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+            <WpblLeaguePage onNavigate={navigate} />
           </Suspense>
         )}
         {rendersWpblApp(path) && (

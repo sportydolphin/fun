@@ -436,6 +436,11 @@ export interface PlayRunValue {
   before: number
   /** Zero when the play ended the half-inning: nothing more could be expected from it. */
   after: number
+  /** The state the play handed on, or null when it ended the half-inning. Carried so a surface
+   *  can NAME that state ("runners on 1st and 3rd, 1 out") instead of only pricing it: the
+   *  number on its own explains nothing to a reader meeting this for the first time. */
+  afterBases: BaseCode | null
+  afterOuts: number | null
   /** The club in the field, worked out from the schedule. The play itself names only the club
    *  batting, and a pitcher's leaderboard row has to show the club she was pitching for. */
   fieldingTeamId: string | null
@@ -478,19 +483,27 @@ export function playRunValues(
       const before = reOf(table, outs, bases)
       if (before == null) continue
       let after = 0
+      let afterBases: BaseCode | null = null
+      let afterOuts: number | null = null
       if (next) {
         const nOuts = next.outs
         if (nOuts == null || nOuts < 0 || nOuts > 2) continue
-        const a = reOf(table, nOuts, baseCode(next))
+        const nBases = baseCode(next)
+        const a = reOf(table, nOuts, nBases)
         if (a == null) continue
         after = a
+        afterBases = nBases
+        afterOuts = nOuts
       }
       const runs = runsOnPlay(p)
       const pair = sides.get(p.game_id)
       const fieldingTeamId = pair && p.team_id
         ? (p.team_id === pair[0] ? pair[1] : p.team_id === pair[1] ? pair[0] : null)
         : null
-      out.push({ play: p, runs, outs, bases, before, after, fieldingTeamId, value: runs + after - before })
+      out.push({
+        play: p, runs, outs, bases, before, after, afterBases, afterOuts, fieldingTeamId,
+        value: runs + after - before,
+      })
     }
   }
   return out
@@ -669,6 +682,67 @@ export function eventValues(values: PlayRunValue[], minPlays = 10): EventValue[]
     out.push({ event, label, n: e.n, total: e.total, per: e.total / e.n })
   }
   return out.sort((a, b) => b.per - a.per)
+}
+
+/**
+ * One real play, worked through, for the card that explains where these numbers come from.
+ *
+ * A FORMULA IS NOT AN EXPLANATION. "Runs scored, plus what it left behind, minus what it
+ * started with" is three abstractions to a reader who has never met any of them, and the
+ * version of this card that shipped first was exactly that: correct, and readable only by
+ * somebody who already knew. A named player, in a real inning, with the two situations spelled
+ * out in words and the arithmetic landing on a number that is visibly on the row above, is the
+ * same sentence with everything concrete.
+ *
+ * CHOSEN, NOT FROZEN. The alternative is picking a good play by hand and pasting its numbers
+ * into the copy, which is a lie waiting to happen: the run-expectancy table moves under it
+ * every time a game is ingested, so a hardcoded 1.15 stops matching the table the rest of the
+ * card is drawn from, and nothing anywhere would report it. Every number in the example comes
+ * from the same pass over the season as the rows.
+ *
+ * WHY THE MOST TYPICAL ONE RATHER THAN THE BIGGEST. The nearest play to its own event's
+ * average is the play that teaches the row above it. A grand slam is a better story and a
+ * worse lesson: the reader learns what the extreme of the scale looks like, then reads a row
+ * saying a home run is worth +1.54 and has been given no way to connect the two. The biggest
+ * swings already have a board of their own on the Run value tab.
+ */
+export interface WorkedExample {
+  value: PlayRunValue
+  /** The row on the card this example belongs to, so the two can be quoted together. */
+  event: EventValue
+}
+
+/** The events a first example should be drawn from: plainly named, and things a fan pictures
+ *  instantly. A strikeout would work arithmetically and opens the explanation on a negative
+ *  number, which is a harder first read than a hit. */
+const TEACHABLE: readonly string[] = ['single', 'double', 'triple', 'home_run', 'walk']
+
+export function workedExample(values: PlayRunValue[], rows: EventValue[]): WorkedExample | null {
+  const byEvent = new Map(rows.map(r => [r.event, r]))
+  let best: WorkedExample | null = null
+  let bestGap = Infinity
+  for (const v of values) {
+    const type = v.play.event_type
+    if (!type || !TEACHABLE.includes(type)) continue
+    // A plate appearance the feed names a batter for. Steals and wild pitches carry whoever
+    // happened to be at the plate rather than the runner who did it (see `biggestSwings`), so
+    // an example built from one would caption the wrong person's name.
+    if (!v.play.pitch_sequence || !v.play.batter_name) continue
+    // The play has to have SCORED something: with all three terms non-zero the arithmetic
+    // demonstrates the whole formula, where a runs-of-zero example silently teaches a
+    // two-term one. Nothing falls back to a scoreless play, because a season with none of
+    // these has no example worth printing either.
+    if (v.runs < 1) continue
+    const event = byEvent.get(type)
+    if (!event) continue
+    const gap = Math.abs(v.value - event.per)
+    // Ties broken on the play's own identity rather than on iteration order, so the card shows
+    // the same play on every render and to every reader.
+    const tie = best && gap === bestGap
+      && `${v.play.game_id}|${v.play.sequence}` < `${best.value.play.game_id}|${best.value.play.sequence}`
+    if (gap < bestGap || tie) { best = { value: v, event }; bestGap = gap }
+  }
+  return best
 }
 
 /** The runners themselves, from the box scores rather than the play log.

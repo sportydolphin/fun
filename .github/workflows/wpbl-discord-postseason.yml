@@ -1,0 +1,80 @@
+name: WPBL Discord postseason events
+
+# Reconciles the bracket's Discord watch-party events against the feed: names each one for
+# the clubs that actually made the round, follows a rescheduled first pitch, and deletes
+# the games a clinched series will never play (a best-of-3 that goes 2-0 otherwise leaves a
+# Game 3 event in the server, with an RSVP list, that Discord will remind people about).
+#
+# It is a no-op outside the postseason: with no event named like a bracket slot in the
+# guild, the script prints that and exits. That is why the schedule is a plain seasonal
+# window rather than the exact bracket dates, which move every year.
+#
+# Cadence: every three hours. A series clinches at the END of a game, usually around 02:00
+# UTC, and the event it kills is the next day's, so anything slower than a few hours leaves
+# a dead game sitting at the top of the watch-party list for a morning. Anything faster
+# just spends API calls: nothing else in the postseason changes hour to hour.
+#
+# Dormant until configured: needs DISCORD_BOT_TOKEN (a secret) and DISCORD_GUILD_ID (a
+# variable). The app must be IN the guild with **Manage Events**; the webhooks the rest of
+# the Discord jobs use cannot touch scheduled events at all. Without the token every run
+# skips cleanly rather than failing, so there are no red-X emails out of season.
+on:
+  schedule:
+    - cron: '15 */3 * 9,10 *'   # every 3 hours through Sep and Oct. :15 to miss the board's :00 tick.
+  workflow_dispatch:
+
+# The job commits the refreshed event-link map back to the repo.
+permissions:
+  contents: write
+
+concurrency:
+  group: wpbl-discord-postseason
+  cancel-in-progress: false
+
+jobs:
+  sync-postseason-events:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+      DISCORD_GUILD_ID:  ${{ vars.DISCORD_GUILD_ID }}
+      SUPABASE_URL:      ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Skip when not configured
+        if: env.DISCORD_BOT_TOKEN == '' || env.DISCORD_GUILD_ID == ''
+        run: echo "DISCORD_BOT_TOKEN / DISCORD_GUILD_ID not set, skipping."
+
+      # Same trick as the board workflow: install only the two packages this script
+      # imports, at the versions pinned in package.json, instead of the whole frontend.
+      - name: Install dependencies
+        if: env.DISCORD_BOT_TOKEN != '' && env.DISCORD_GUILD_ID != ''
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','ws'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Sync postseason events
+        if: env.DISCORD_BOT_TOKEN != '' && env.DISCORD_GUILD_ID != ''
+        run: node scripts/sync-wpbl-discord-postseason.mjs --apply
+
+      # The board reads this file out of the checkout, so a link the sync just worked out
+      # only reaches Discord once it is on main. It changes a handful of times a
+      # postseason, and never when nothing happened, so this is not a commit per run.
+      - name: Commit the event map if it changed
+        if: env.DISCORD_BOT_TOKEN != '' && env.DISCORD_GUILD_ID != ''
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add scripts/wpbl-event-urls.json
+          if git diff --cached --quiet; then
+            echo "Event map unchanged."
+          else
+            git commit -m "WPBL: postseason watch-party links follow the bracket"
+            git push
+          fi

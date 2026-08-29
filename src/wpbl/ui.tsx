@@ -766,7 +766,7 @@ export function ExpandRow({ expanded, moreLabel, onToggle, flush }: {
 
 // Disclosure chevron, drawn from a rotated border corner rather than pulled from an icon
 // font — the same approach as the highlights play triangle, and it animates for free.
-function Chevron({ open }: { open: boolean }) {
+export function Chevron({ open }: { open: boolean }) {
   return (
     <Box sx={{
       width: 22, height: 22, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',

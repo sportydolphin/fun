@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   baseCode, buildRunExpectancy, playRunValues, biggestSwings, runValueLeaders, reOf, fmtRunValue,
-  stealEconomy, topRunners,
-  type PlayRunValue, type RunValueGame,
+  stealEconomy, topRunners, workedExample,
+  type EventValue, type PlayRunValue, type RunValueGame,
 } from '../derive/runExpectancy'
 import type { WpblRunValuePlay } from '../types'
 
@@ -374,7 +374,8 @@ describe('the running game', () => {
   // computed the wrong way round still looks like a plausible percentage.
   const value = (event: string, v: number): PlayRunValue => ({
     play: { event_type: event } as PlayRunValue['play'],
-    runs: 0, outs: 0, bases: 0, before: 0, after: 0, fieldingTeamId: null, value: v,
+    runs: 0, outs: 0, bases: 0, before: 0, after: 0, afterBases: null, afterOuts: null,
+    fieldingTeamId: null, value: v,
   })
 
   it('prices the attempts and works out what rate would break even', () => {
@@ -429,5 +430,72 @@ describe('who runs', () => {
 
   it('ignores a line where nobody ran', () => {
     expect(topRunners([line('p1', 0, 0)], [game()], roster)).toEqual([])
+  })
+})
+
+describe('the worked example', () => {
+  // The card explains itself with one real play, and which play it picks is the whole of
+  // whether that explanation teaches anything. Every rule here exists because the obvious
+  // alternative produces an example that is correct and useless.
+  const ex = (over: Partial<PlayRunValue> & { event: string; value: number }): PlayRunValue => ({
+    play: {
+      game_id: 'g1', sequence: 1, event_type: over.event, batter_name: 'A Batter',
+      pitch_sequence: 'BBX',
+    } as PlayRunValue['play'],
+    runs: 1, outs: 0, bases: 0, before: 0.5, after: 0.5,
+    afterBases: 0, afterOuts: 0, fieldingTeamId: null,
+    ...over,
+  } as PlayRunValue)
+
+  const row = (event: string, per: number): EventValue =>
+    ({ event, label: event, n: 50, total: per * 50, per })
+
+  it('takes the most typical play of its kind, not the biggest', () => {
+    // A grand slam is the better story and the worse lesson: it teaches the extreme of the
+    // scale, next to a row saying a home run is worth +1.5.
+    const best = workedExample([
+      ex({ event: 'home_run', value: 3.2, runs: 4 }),
+      ex({ event: 'home_run', value: 1.5 }),
+      ex({ event: 'home_run', value: 0.9 }),
+    ], [row('home_run', 1.52)])
+    expect(best?.value.value).toBe(1.5)
+  })
+
+  it('will not use a play that scored nothing', () => {
+    // With runs at zero the arithmetic on screen silently demonstrates a two-term formula, and
+    // the reader is left to guess where the first line went.
+    const best = workedExample([
+      ex({ event: 'single', value: 0.4, runs: 0 }),
+      ex({ event: 'single', value: 0.9 }),
+    ], [row('single', 0.4)])
+    expect(best?.value.runs).toBe(1)
+  })
+
+  it('will not caption a play the feed names the wrong person on', () => {
+    // A steal carries whoever was standing at the plate rather than the runner who did it, so
+    // an example built from one puts the wrong name over the sentence.
+    expect(workedExample([ex({ event: 'stolen_base', value: 0.2 })], [row('stolen_base', 0.2)]))
+      .toBeNull()
+    expect(workedExample([ex({ event: 'single', value: 0.5, play: {
+      game_id: 'g1', sequence: 2, event_type: 'single', batter_name: 'A Batter',
+      pitch_sequence: null,
+    } as PlayRunValue['play'] })], [row('single', 0.5)])).toBeNull()
+  })
+
+  it('shows the same play to everybody when two are equally typical', () => {
+    const rows = [row('single', 0.5)]
+    const pair = (a: string, b: string) => workedExample([
+      ex({ event: 'single', value: 0.4, play: { game_id: a, sequence: 1, event_type: 'single',
+        batter_name: 'A', pitch_sequence: 'X' } as PlayRunValue['play'] }),
+      ex({ event: 'single', value: 0.6, play: { game_id: b, sequence: 1, event_type: 'single',
+        batter_name: 'B', pitch_sequence: 'X' } as PlayRunValue['play'] }),
+    ], rows)?.value.play.game_id
+    // Same two plays, either way round the season hands them over: same answer.
+    expect(pair('g1', 'g2')).toBe('g1')
+    expect(pair('g2', 'g1')).toBe('g1')
+  })
+
+  it('has nothing to show before the season produces one', () => {
+    expect(workedExample([], [row('single', 0.5)])).toBeNull()
   })
 })

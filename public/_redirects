@@ -26,6 +26,7 @@
 /wpbl/stats/     /wpbl/stats      301
 /wpbl/teams/     /wpbl/teams      301
 /wpbl/players/   /wpbl/players    301
+/wpbl/league/    /wpbl/league     301
 /mlb/          /mlb       301
 /privacy/      /privacy   301
 /terms/        /terms     301
@@ -49,6 +50,8 @@
 /wpbl/stats      /  200
 /wpbl/teams      /  200
 /wpbl/players    /  200
+# Not a tab, on purpose: see the note on WPBL_LEAGUE_PAGE in src/wpbl/routes.ts.
+/wpbl/league     /  200
 # The one wildcard in this file, and the exception that proves the rule. A player URL is
 # /wpbl/players/<slug>, and the set of valid slugs lives in the database, so it cannot be
 # enumerated here. The soft-404 hole it would otherwise open is closed one layer up instead:

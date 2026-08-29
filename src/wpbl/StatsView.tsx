@@ -1666,6 +1666,13 @@ function SheetGroup({ title, children }: { title: string; children: React.ReactN
 // dialog two taps away is where they give up. Dismissing and switching are the same size of
 // gesture on purpose.
 //
+// THE PER-7 SIDE ALSO NAMES SETTINGS, because that is the branch a reader only reaches by
+// having changed something, and this note is the only thing on the section that says the
+// choice is theirs. It is dismissible and it retires on the badge store's expiry, so a reader
+// who switched to per 7 and then lost the line would be left on numbers that disagree with the
+// league's own site with nothing on screen saying where that came from or how to undo it. Two
+// clauses is cheap; a reader who thinks the site is simply wrong is not.
+//
 // Retires on the badge store's expiry (see lib/seen.ts): by the end of the feed nobody
 // arriving has seen a per-7 number here, so the note and its key can be deleted together.
 function EraBasisNote({ basis, onSetBasis, onDismiss }: {
@@ -1688,7 +1695,7 @@ function EraBasisNote({ basis, onSetBasis, onDismiss }: {
       <Typography sx={{ fontSize: '0.76rem', color: 'text.secondary', lineHeight: 1.5, flex: 1, minWidth: 0 }}>
         {basis === 9
           ? <>ERA and the strikeout rate are now <b>per 9 innings</b>, matching the official WPBL site. They used to be per 7. </>
-          : <>ERA and the strikeout rate are <b>per 7 innings</b>, the length of a WPBL game. The official WPBL site uses per 9. </>}
+          : <>ERA and the strikeout rate are <b>per 7 innings</b>, the length of a WPBL game. The official WPBL site uses per 9, and Settings will put you back on it whenever you want. </>}
         {basis === 9
           ? action('Show per 7', () => onSetBasis(7))
           : action('Show per 9', () => onSetBasis(9))}

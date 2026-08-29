@@ -61,6 +61,14 @@ const ROUTES: Record<string, Seo> = {
     description:
       "Every player in the 2026 Women's Pro Baseball League, by club, with a stats page for each: the Firebells, Queens, Hunters and Heights rosters in one list.",
   },
+  // The league as a subject rather than as a set of games. Written for the query it can
+  // plausibly win, which is not "WPBL stats" (every other page here competes for that) but
+  // where the players are from, a question no other site covering this league answers at all.
+  '/wpbl/league': {
+    title: "The WPBL: where its players come from | sportydolphin.fun",
+    description:
+      "Hometowns for all 118 players in the 2026 Women's Pro Baseball League, by country, with a page for each: how a four-club league drew players from eleven countries.",
+  },
   '/wpbl/api': {
     title: "WPBL API — Women's Pro Baseball League data feed | sportydolphin.fun",
     description:

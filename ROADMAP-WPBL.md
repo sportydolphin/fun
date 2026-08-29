@@ -559,6 +559,12 @@ cover it.
 Note the two dark days, Sep 15 and Sep 18, and that Championship G3 skips Friday. Anything
 that infers "the season is over" from a gap in the schedule has to survive a two-day one.
 
+**The Discord watch parties for all eleven are already up**, named for the slot rather than
+the clubs (`Semifinal A Game 1`), because an event is only worth having if it exists early
+enough to RSVP to and nobody knows the matchups yet. `wpbl-discord-postseason` renames each
+one as the bracket fills in, follows a first pitch that moves, and deletes the asterisked
+games a clinched series never plays. See [`docs/DISCORD.md`](docs/DISCORD.md).
+
 **Architecture, pivoted twice.** It began as owner hand-entry with Supabase as the source
 of truth. In Aug 2026 the league published a public JSON feed at
 `stats.womensprobaseballleague.com/v1`, so the model flipped to a **feed mirror**: the
@@ -588,6 +594,60 @@ is retired.
 ---
 
 ## Shipped log
+
+### Aug 29, 2026: showing the working, and eleven countries that fold (v1.53.0)
+
+Two surfaces that were correct and unreadable, plus the one line that tells a reader a setting
+is theirs to undo.
+
+**"How this is worked out", on the play-value card.** The card prices sixteen kinds of play in
+runs and said nothing about where any of it came from, which is the shape a number has to be in
+before somebody decides the site is guessing. It now carries a disclosure at its foot with a
+real play worked through: the inning, the feed's own sentence for it, and the three terms as a
+ledger with both situations named in words. `workedExample()` picks it, and the picking is the
+part that matters: it takes the play NEAREST ITS OWN EVENT'S AVERAGE, so the sum lands within a
+hundredth of the row above it and a reader can see the single play and the season number are
+the same thing. A grand slam is the better story and the worse lesson. It also requires a play
+that scored, so all three terms are non-zero and the arithmetic on screen is the whole formula
+rather than a two-term version of it.
+
+Everything in it is computed. A hand-picked play with its numbers pasted into the copy is a lie
+waiting to happen: the expectancy table shifts with every game ingested, so a written-down 1.15
+quietly stops matching the table the rest of the card is drawn from, and nothing anywhere would
+report it. Five tests in `__tests__/runExpectancy.test.ts` pin the picker (typical over biggest,
+no scoreless play, no steal, same play for every reader on a tie, null before the season has
+one). `PlayRunValue` gained `afterBases` / `afterOuts` for it, so a surface can NAME the state
+it prices instead of only showing its number.
+
+**A disclosure rather than a tooltip, and that is about the phone.** The obvious build is an
+info glyph on the heading. `TapTip`'s touch path closes itself after four seconds, which puts a
+reading deadline on the only explanation the card offers, and this is four sentences and a
+ledger rather than the definition of a word.
+
+**No other league in it.** [`RunValueView.tsx`](src/wpbl/RunValueView.tsx) settled the same
+question in the same words ("say where they come from, not what they are unlike") and the card's
+own lead sentence has stopped comparing too. A fan of this league can do nothing with a
+comparison to the majors, and it invites the section to be read as a measurement of another
+league rather than a record of this one.
+
+**The eleven countries on /wpbl/league fold, and they open by default.** Collapsed-by-default
+was the obvious call and it is wrong twice over: the roster IS the page, and six of the eleven
+countries hold four players or fewer, so folding them saves a reader nothing and costs a tap.
+What is actually long is the USA at 64, and a per-country toggle plus "Collapse all" hands that
+reader the short version in one press (5,500px to 1,929px).
+
+**A closed country is hidden, never unmounted, and that is load-bearing.** This page is 118
+player anchors and the crawl path they make is the reason it exists; returning `null` for a
+closed country deletes them from the document a crawler reads while looking identical to
+anybody who opened the page. `display: none` keeps them. The fold state holds the CLOSED set
+rather than the open one, so a twelfth country arriving in a trade renders open like the rest
+instead of being silently hidden. `__tests__/leaguePage.test.tsx` pins both.
+
+**The ERA note now says the choice is reversible.** The per-7 half of the notice above the
+pitching board is the branch a reader only reaches by having changed something, and the notice
+is dismissible and retires on the badge store's expiry. A reader who switched and then lost the
+line was left on numbers that disagree with the league's own site, with nothing on screen saying
+where that came from or how to undo it. It names Settings now.
 
 ### Aug 27, 2026: the rate qualifier counts trips to the plate, not at-bats
 
@@ -621,6 +681,58 @@ The two `2.4`s in the constants are a coincidence of units, one PA and one OUTS,
 a comment saying so: folding them into a single constant would make the next change to either
 silently move both. `__tests__/qualifiers.test.ts` pins the bar, the floor, the min-games
 gate, both sacrifice cases and the walker the old bar excluded.
+
+### Aug 27, 2026: /wpbl/league, and the map that is not a map (v1.52.1)
+
+The fourth noun gets its page. Everything in the section is a game, a club or a player, so the
+league as a subject had nowhere to be: the media shelf ended up on Home and the primer, the
+glossary, the archive and this had nowhere at all.
+
+**First tenant: where the 118 players are from.** `hometown` is filled in on every one of them,
+which makes it the most complete column the feed publishes and the only one that still says
+something in February. Sixty-four from the USA, 18 from Canada, 9 each from Mexico, Australia
+and Japan, 4 from South Korea, and one each from Venezuela, the UK, France, Puerto Rico and
+Curacao. Youngest 18, oldest 40, median 24.
+
+**It is not a map, and that is a decision.** There are no coordinates anywhere in the payload
+and no honest way to invent them: "Ontario, California, USA" and "Oakville, Ontario, Canada"
+share a word and are 2,000 miles apart, so any lookup keyed on this string eventually puts a
+player in the wrong hemisphere on a picture that looks authoritative. A ranked list of countries
+carries the same fact, reads on a phone, and is text a crawler can index, which a projected SVG
+is not. If real coordinates ever arrive, the derive layer is already the right shape for it.
+
+**118 anchors is the other half of the point.** Same argument as
+[`PlayersIndex.tsx`](src/wpbl/PlayersIndex.tsx): a player page is reached in-app through a tab
+and a modal, which is no link at all to a crawler. This is a second flat page of real `<a>`
+elements pointing at every player, and its h2/h3 structure gives each country a heading of its
+own.
+
+**No nav pill, per the decision above.** Footer link only, which is the door Google actually
+used for `/privacy` and `/terms`. Spelled in all five places a non-tab route has to be:
+`routes.ts`, `_redirects` (200 and the trailing-slash 301), `seo.ts`, `build-sitemap.ts`, and
+the footer, with a `routes.test.ts` block pinning every one of them, since the tab loops that
+keep the others honest skip it by design. Verified against the real thing rather than the dev
+server: `npx wrangler pages dev dist` answers 200 for `/wpbl/league`, 301 for the trailing
+slash, and **404 for `/wpbl/leagues`**, which is the soft-404 hole staying shut.
+
+**Second tenant, the same day: the media shelf moved here off Home.** Reading, Highlights and
+the archive are about the league rather than about today's games, none of them needs a live
+feed, and on Home they were the bottom three screens of the page: **575 browsers saw the shelf
+and 39 clicked it.** They sit above the roster here, because 118 rows is a wall and anything
+under it is unreachable in practice.
+
+What Home keeps is **one line**, and it carries its own impression event
+(`wpbl_league_card_shown` / `wpbl_league_card_open`). That is not boilerplate: the Discord card
+was retired on Aug 19 and took its own impression with it, so the 554 browsers whose only event
+was that card became unmeasurable the same day. This move is a bet and the events are how it
+gets read. **If the card is shown as often as the shelf was and opened less, the move was wrong
+and the shelf comes back**, rather than the link being made louder.
+
+It also does the thing the traffic actually asked for. 670 of 2,037 browsers fired exactly one
+event on Home; a page in that state needs to get shorter before it gets anything else, and every
+previous idea for Home has added to it.
+
+Next tenants, in order: the primer and glossary (#4), then the archive (#2), then this-day.
 
 ### Aug 27, 2026: a Findings board, and the steal that does not pay (v1.52.1)
 
