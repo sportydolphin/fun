@@ -219,30 +219,42 @@ function PlayValueCard({ rows, table, worked, workedDate, accent }: {
           const good = r.per >= 0
           return (
             <Box key={r.event} sx={{
-              display: 'grid', gridTemplateColumns: '1fr 88px', alignItems: 'center',
-              gap: 1, py: 0.6, borderTop: '1px solid', borderColor: 'divider',
+              py: 0.85, borderTop: '1px solid', borderColor: 'divider',
               '&:first-of-type': { borderTop: 0 },
             }}>
-              <Box>
+              {/* THE BAR GETS THE WHOLE ROW, and that is a phone measurement rather than a
+                  taste. Beside a reserved 88px number column the track was 213px of a 309px
+                  card, and a bar drawn from the centre spends half of whatever it is given, so
+                  the entire chart lived in 106px on a 375px screen: sixteen plays separated by
+                  a few pixels each, which is a decoration rather than a reading. Full width is
+                  309px of track and 154px of swing, and the same change is worth 380px on the
+                  desktop card. The number moves up beside the label, where it is still a column
+                  to check the bars against. */}
+              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, mb: 0.5 }}>
                 <Typography component="span" sx={{ fontSize: '0.86rem', fontWeight: 700 }}>{r.label}</Typography>
-                <Typography component="span" sx={{ fontSize: '0.75rem', color: 'text.disabled' }}> {r.n}</Typography>
-                {/* The bar is the reading, the number is the check. Drawn from the centre so
-                    the sign is a direction rather than a minus sign to notice. */}
-                <Box sx={{ position: 'relative', height: 5, mt: 0.4, bgcolor: 'action.hover', borderRadius: 3 }}>
-                  <Box sx={{
-                    position: 'absolute', top: 0, bottom: 0, borderRadius: 3,
-                    left: good ? '50%' : `${50 - Math.abs(r.per) / widest * 50}%`,
-                    width: `${Math.abs(r.per) / widest * 50}%`,
-                    bgcolor: good ? accent : 'text.disabled',
-                  }} />
-                </Box>
+                <Typography component="span" sx={{ fontSize: '0.75rem', color: 'text.disabled' }}>{r.n}</Typography>
+                <Typography sx={{
+                  ml: 'auto', fontSize: '0.86rem', fontWeight: 800,
+                  fontVariantNumeric: 'tabular-nums', color: good ? accent : 'text.secondary',
+                }}>
+                  {fmtRunValue(r.per, 2)}
+                </Typography>
               </Box>
-              <Typography sx={{
-                fontSize: '0.86rem', fontWeight: 800, textAlign: 'right',
-                fontVariantNumeric: 'tabular-nums', color: good ? accent : 'text.secondary',
-              }}>
-                {fmtRunValue(r.per, 2)}
-              </Typography>
+              {/* The bar is the reading, the number is the check. Drawn from the centre so
+                  the sign is a direction rather than a minus sign to notice. */}
+              <Box sx={{ position: 'relative', height: 6, bgcolor: 'action.hover', borderRadius: 3 }}>
+                <Box sx={{
+                  position: 'absolute', top: 0, bottom: 0, borderRadius: 3,
+                  left: good ? '50%' : `${50 - Math.abs(r.per) / widest * 50}%`,
+                  width: `${Math.abs(r.per) / widest * 50}%`,
+                  bgcolor: good ? accent : 'text.disabled',
+                }} />
+                {/* NO ZERO LINE, and it was tried. Every bar in the list starts at the
+                    centre, so the shared edge running down all fifteen rows already IS the
+                    axis, and a tick drawn on top of it either cuts the fill in half or paints
+                    in the card's own colour and disappears. Which side of zero a row sits on is
+                    said three ways over: the direction it grows, its colour, and its number. */}
+              </Box>
             </Box>
           )
         })}

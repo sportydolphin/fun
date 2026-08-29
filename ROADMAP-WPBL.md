@@ -619,6 +619,15 @@ no scoreless play, no steal, same play for every reader on a tie, null before th
 one). `PlayRunValue` gained `afterBases` / `afterOuts` for it, so a surface can NAME the state
 it prices instead of only showing its number.
 
+**The bars on that card now take the whole row, which is also a phone measurement.** Beside a
+reserved 88px number column the track was 213px of a 309px card, and a bar drawn from the
+centre spends half of whatever it is given, so the entire chart lived in 106px on a 375px
+screen: fifteen plays a few pixels apart, which is a decoration rather than a reading. The
+number moved up beside the label and the bar took the row: 309px of track and 154px of swing on
+a phone, 654px on the desktop card. No zero line, and one was tried: every bar starts at the
+centre, so the shared edge running down all fifteen rows already is the axis, and a tick drawn
+over it either cuts the fill or paints in the card's own colour and vanishes.
+
 **A disclosure rather than a tooltip, and that is about the phone.** The obvious build is an
 info glyph on the heading. `TapTip`'s touch path closes itself after four seconds, which puts a
 reading deadline on the only explanation the card offers, and this is four sentences and a
