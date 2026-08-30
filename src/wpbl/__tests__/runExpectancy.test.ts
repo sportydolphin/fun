@@ -495,6 +495,56 @@ describe('the worked example', () => {
     expect(pair('g2', 'g1')).toBe('g1')
   })
 
+  // A HOME RUN FIRST, whatever the arithmetic says. It is the one play a fan pictures with
+  // nothing explained, its typical case is a two-run shot with a runner on first (all three
+  // ledger terms distinct and none zero), and it is the top row of the table the example lands
+  // on. A marginally more typical single is not worth trading that for.
+  it('prefers a home run over a more typical single', () => {
+    const best = workedExample([
+      ex({ event: 'single', value: 0.5 }),          // exactly its own average
+      ex({ event: 'home_run', value: 1.9 }),        // well off its own average
+    ], [row('single', 0.5), row('home_run', 1.5)])
+    expect(best?.event.event).toBe('home_run')
+  })
+
+  it('falls back down the list when the better kind has none to show', () => {
+    // A season young enough to have no home run still gets an example.
+    const best = workedExample([ex({ event: 'single', value: 0.5 })], [row('single', 0.5)])
+    expect(best?.event.event).toBe('single')
+  })
+
+  // BEING TYPICAL AND BEING LEGIBLE ARE DIFFERENT PROPERTIES, and only the first was being
+  // selected for. Ranked on the arithmetic alone this card picked a single on which the batter
+  // took an extra base on the throw, a runner was thrown out at third, and a third runner
+  // scored: three events in one sentence, under three numbers the reader has just met.
+  const withNarrative = (event: string, value: number, narrative: string, gameId = 'g1') =>
+    ex({ event, value, play: {
+      game_id: gameId, sequence: 1, event_type: event, batter_name: 'A Batter',
+      pitch_sequence: 'X', narrative,
+    } as PlayRunValue['play'] })
+
+  it('skips a play whose sentence has more than one thing happening in it', () => {
+    const best = workedExample([
+      withNarrative('home_run', 1.5, 'A Batter singled to right center, advanced to second on the throw, RBI; B Runner advanced to second, out at third rf to ss; C Runner scored.'),
+      withNarrative('home_run', 1.9, 'A Batter homered to left center, 2 RBI; B Runner scored.', 'g2'),
+    ], [row('home_run', 1.5)])
+    // The second is further from the average and is the one a reader can follow.
+    expect(best?.value.play.game_id).toBe('g2')
+  })
+
+  it('skips an unearned run, which is a scoring distinction the example does not need', () => {
+    const best = workedExample([
+      withNarrative('home_run', 1.5, 'A Batter homered to left field, unearned, 2 RBI; B Runner scored, unearned.'),
+      withNarrative('home_run', 2.1, 'A Batter homered to left center, 2 RBI; B Runner scored.', 'g2'),
+    ], [row('home_run', 1.5)])
+    expect(best?.value.play.game_id).toBe('g2')
+  })
+
+  it('still uses a play the feed sent no sentence for, since silence is not confusing', () => {
+    expect(workedExample([ex({ event: 'home_run', value: 1.5 })], [row('home_run', 1.5)]))
+      .not.toBeNull()
+  })
+
   it('has nothing to show before the season produces one', () => {
     expect(workedExample([], [row('single', 0.5)])).toBeNull()
   })

@@ -1,0 +1,316 @@
+import { useEffect, useMemo, useRef } from 'react'
+import { Box, Typography } from '@mui/material'
+import { SectionCard, PlayerPortrait, TeamBadge, useWpblDark, wpblFeatureName, CARD_BORDER } from './ui'
+import { wpblAccent, relativeDayShort } from './constants'
+import { useWpblPlayerLink } from './LinkContext'
+import { fmtMvpRuns, type MvpCandidate, type MvpRace as MvpRaceData } from './derive/mvpRace'
+import { countsInStandings } from './season'
+import { track, EVENTS } from '../lib/analytics'
+import type { WpblGame, WpblPlayer } from './types'
+
+/**
+ * Two players, one number, and the season it took to get there.
+ *
+ * WHY A RACE AND NOT A LEADERBOARD. There is already a board that ranks everybody by run
+ * value, one tab away, and a sixth ranked list on Home would be the section's fourth way to
+ * sort the same names. What no surface here does is tell a STORY across the season, and a
+ * two-horse race is the smallest thing that has one: a lead, a margin, and the dates it
+ * changed hands. The chart is the point of the card, not decoration on top of it.
+ *
+ * WHY TWO AND NOT FIVE. A five-name list is a leaderboard again, and the curves would be
+ * unreadable at this size. Two curves can be told apart at 84px tall on a phone; four cannot,
+ * and the fill between them, which is the margin and the single most legible thing in the
+ * chart, only has a meaning while there are exactly two.
+ *
+ * EVERY NAME IS A REAL `<a href>` to her page. The traffic read says opening a player page is
+ * the retention event and that Home is where readers are lost, so a Home card whose whole
+ * subject is two players has to be two links, not two divs with click handlers. See
+ * LinkContext.tsx.
+ *
+ * IT CARRIES ITS OWN IMPRESSION EVENT, because the last thing measured on Home was a card
+ * being seen and not used, and the card that told us so has since been retired. Anything new
+ * here has to be able to answer the same question about itself.
+ */
+
+/** Chart height in px. Tall enough to separate two curves that spend a season within a few
+ *  runs of each other, short enough that the card does not push the page down a screen. */
+const CHART_H = 84
+
+/** Below this the chart is noise: two curves off three data points is not a race, it is two
+ *  line segments. The card hides itself rather than drawing a shape it cannot support. */
+const MIN_DATES = 5
+
+/** Games left in the regular season, league-wide. The card's one forward-looking number, and
+ *  the thing that decides whether a 3.9-run lead is safe or nothing at all. */
+function gamesLeft(games: WpblGame[]): number {
+  return games.filter(g => g.status !== 'final' && countsInStandings(g)).length
+}
+
+/** How the split reads under a name. A pure hitter says nothing about the mound and a pure
+ *  pitcher says nothing about the plate: printing "arm +0.0" for someone who has never thrown
+ *  a pitch invents a zero that is really an absence, and it is the two-way line that has to
+ *  stand out, so the one-sided rows must not be dressed to look like it. */
+function splitLabel(c: MvpCandidate): string {
+  if (c.twoWay) return `${fmtMvpRuns(c.bat)} bat · ${fmtMvpRuns(c.arm)} arm`
+  if (c.bf > 0 && c.pa === 0) return `${c.bf} batters faced`
+  if (c.pa > 0 && c.bf === 0) return `${c.pa} plate appearances`
+  // Both sides, but not enough of one to be called two-way. Say the larger half and let the
+  // total carry the rest, rather than implying a two-way case she does not have.
+  return Math.abs(c.bat) >= Math.abs(c.arm)
+    ? `${fmtMvpRuns(c.bat)} bat · ${c.pa} PA`
+    : `${fmtMvpRuns(c.arm)} arm · ${c.bf} BF`
+}
+
+function CandidateRow({ c, rank, color, dashed, onOpenPlayer }: {
+  c: MvpCandidate; rank: number; color: string; dashed: boolean
+  onOpenPlayer: (p: WpblPlayer) => void
+}) {
+  const playerLink = useWpblPlayerLink()
+  // A candidate the play log named but the roster cannot resolve still gets a row, because
+  // dropping her would silently reorder the race. She just is not a link.
+  const link = c.player ? playerLink(c.player, onOpenPlayer) : {}
+  return (
+    <Box {...link} sx={{
+      display: 'flex', alignItems: 'center', gap: 1, py: 0.5, px: 0.5, mx: -0.5,
+      borderRadius: 1, cursor: c.player ? 'pointer' : 'default',
+      ...(c.player ? { '&:hover': { bgcolor: 'action.hover' } } : {}),
+    }}>
+      {/* The swatch ties the row to its curve below, and is the chart's only legend. Matches
+          the stroke exactly, dash included, because when both candidates play for the same
+          club the colours are identical and the dash is the whole distinction. */}
+      <Box aria-hidden sx={{
+        width: 3, alignSelf: 'stretch', borderRadius: 2, flexShrink: 0,
+        ...(dashed
+          ? { backgroundImage: `repeating-linear-gradient(to bottom, ${color} 0 4px, transparent 4px 7px)` }
+          : { bgcolor: color }),
+      }} />
+      <PlayerPortrait name={c.name} teamId={c.teamId} size={rank === 1 ? 38 : 32} />
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
+          <Typography sx={{
+            fontSize: rank === 1 ? '0.95rem' : '0.88rem', fontWeight: rank === 1 ? 800 : 700,
+            lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {wpblFeatureName(c.name, 18)}
+          </Typography>
+          {/* The one badge worth spending width on. A player carrying both halves of this
+              number is the reason the metric adds them up, and nothing else on the row says
+              so: her total looks like any other total. */}
+          {c.twoWay && (
+            <Typography sx={{
+              flexShrink: 0, fontSize: '0.55rem', fontWeight: 800, letterSpacing: 0.4,
+              textTransform: 'uppercase', px: 0.5, py: '1px', borderRadius: 0.75,
+              border: '1px solid', borderColor: color, color,
+            }}>Two-way</Typography>
+          )}
+        </Box>
+        <Typography sx={{
+          fontSize: '0.66rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.25,
+          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        }}>
+          {splitLabel(c)}
+        </Typography>
+      </Box>
+      <Typography sx={{
+        fontSize: rank === 1 ? '1.15rem' : '1rem', fontWeight: 900, flexShrink: 0,
+        fontVariantNumeric: 'tabular-nums', color: rank === 1 ? 'text.primary' : 'text.secondary',
+      }}>
+        {fmtMvpRuns(c.total)}
+      </Typography>
+    </Box>
+  )
+}
+
+/** The two cumulative curves, with the margin between them shaded.
+ *
+ *  `preserveAspectRatio="none"` stretches the box to the card's width, which is what lets the
+ *  curves use the whole row. Everything drawn in here has to survive that: strokes opt out
+ *  with `vectorEffect`, and the end-of-line markers are HTML dots positioned in percentages
+ *  rather than SVG circles, which would come out as ellipses. Same reasoning, and the same
+ *  fix, as the win-probability chart. */
+function RaceChart({ race, colors, dashed }: {
+  race: MvpRaceData; colors: [string, string]; dashed: boolean
+}) {
+  const [a, b] = race.top
+  const n = race.dates.length
+
+  const { path, x, y, lo, hi } = useMemo(() => {
+    const all = [...a.curve, ...b.curve, 0]
+    const min = Math.min(...all), max = Math.max(...all)
+    // Pad so a curve never runs along the very edge of the box, and guard the degenerate case
+    // where every value is identical and the span is zero.
+    const span = Math.max(max - min, 1)
+    const lo = min - span * 0.12, hi = max + span * 0.12
+    const x = (i: number) => (n <= 1 ? 0 : (i / (n - 1)) * 100)
+    const y = (v: number) => 100 - ((v - lo) / (hi - lo)) * 100
+    const path = (c: number[]) => c.map((v, i) => `${x(i)},${y(v)}`).join(' ')
+    return { path, x, y, lo, hi }
+  }, [a.curve, b.curve, n])
+
+  // The margin, as a closed shape: down one curve and back along the other. This is the
+  // single most readable thing in the chart, because the race IS the gap, and it pinches to nothing
+  // exactly where the lead changed hands. Neutral rather than either club's colour on
+  // purpose: it belongs to both of them, and colouring it would assert an owner that flips
+  // mid-season.
+  const gap = `${a.curve.map((v, i) => `${x(i)},${y(v)}`).join(' L ')} L ${b.curve.map((v, i) => `${x(i)},${y(v)}`).reverse().join(' L ')} Z`
+
+  return (
+    <Box sx={{ position: 'relative', height: CHART_H, mt: 0.75 }}>
+      <Box component="svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden
+        sx={{ display: 'block', width: '100%', height: '100%', overflow: 'visible' }}>
+        <path d={`M ${gap}`} fill="currentColor" opacity={0.14} />
+        {/* Zero, drawn only when it is actually in frame. A season where both candidates have
+            been above water throughout has no use for a line at the bottom of the box, and
+            drawing one there would read as an axis the curves are sitting on. */}
+        {lo < 0 && hi > 0 && (
+          <line x1={0} x2={100} y1={y(0)} y2={y(0)} stroke="currentColor" strokeOpacity={0.3}
+            strokeWidth={1} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+        )}
+        {race.lastLeadChange != null && (
+          <line x1={x(race.lastLeadChange)} x2={x(race.lastLeadChange)} y1={0} y2={100}
+            stroke="currentColor" strokeOpacity={0.35} strokeWidth={1}
+            vectorEffect="non-scaling-stroke" />
+        )}
+        <polyline points={path(b.curve)} fill="none" stroke={colors[1]} strokeWidth={2}
+          strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke"
+          {...(dashed ? { strokeDasharray: '5 3' } : {})} />
+        <polyline points={path(a.curve)} fill="none" stroke={colors[0]} strokeWidth={2.5}
+          strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      </Box>
+      {/* Where each curve has got to. HTML, not SVG: see the note above the component. */}
+      {[a, b].map((c, i) => (
+        <Box key={c.key} aria-hidden sx={{
+          position: 'absolute', left: '100%', top: `${Math.min(Math.max(y(c.curve[n - 1]), 4), 96)}%`,
+          transform: 'translate(-50%, -50%)',
+          width: i === 0 ? 9 : 7, height: i === 0 ? 9 : 7, borderRadius: '50%',
+          bgcolor: colors[i], border: '2px solid', borderColor: 'background.paper',
+        }} />
+      ))}
+    </Box>
+  )
+}
+
+export default function MvpRaceCard({ race, games, onOpenPlayer, onViewBoard }: {
+  race: MvpRaceData
+  games: WpblGame[]
+  onOpenPlayer: (p: WpblPlayer) => void
+  /** Through to the Run value board, which is where this number comes from and the only place
+   *  a reader can see the rest of the field. */
+  onViewBoard: () => void
+}) {
+  const dark = useWpblDark()
+  const [a, b] = race.top
+  const left = gamesLeft(games)
+
+  const colors = useMemo<[string, string]>(
+    () => [wpblAccent(a?.teamId, dark), wpblAccent(b?.teamId, dark)], [a?.teamId, b?.teamId, dark])
+  // Two clubmates would otherwise get the same stroke and the chart would be one colour with
+  // two lines in it. The runner-up dashes instead. Compared as resolved colours rather than
+  // team ids, because that is what actually collides on screen.
+  const dashed = colors[0] === colors[1]
+
+  // One impression per mount, with the shape of the race on it, so "was this card worth the
+  // room" is answerable later from `events` rather than from an opinion.
+  const sent = useRef(false)
+  useEffect(() => {
+    if (sent.current) return
+    sent.current = true
+    track(EVENTS.WPBL_MVP_SHOWN, {
+      leader: a.player?.id ?? null, lead: Math.round(race.lead * 10) / 10,
+      leadChanges: race.leadChanges, twoWay: a.twoWay || b.twoWay, gamesLeft: left,
+    })
+  }, [])
+
+  const openPlayer = (p: WpblPlayer, rank: number) => {
+    track(EVENTS.WPBL_MVP_PLAYER, { playerId: p.id, rank })
+    onOpenPlayer(p)
+  }
+
+  // The caption is the card's sentence, and it says the one thing the chart cannot: what the
+  // margin means against what is left to play. A lead of 3.9 with six games to go is a very
+  // different claim from the same lead with one.
+  const changed = race.lastLeadChange != null ? race.dates[race.lastLeadChange] : null
+  const margin = race.lead === 0
+    ? `${a.name.split(' ').pop()} and ${b.name.split(' ').pop()} are level`
+    : `${a.name.split(' ').pop()} leads by ${fmtMvpRuns(race.lead).replace('+', '')}`
+  const caption = left > 0
+    ? `${margin}, with ${left} game${left === 1 ? '' : 's'} left in the season.`
+    : `${margin}. The regular season is over.`
+  // Where the number comes from, kept out of the subtitle because it wrapped to three lines
+  // there and squeezed the "Full board" link into a column two words wide. Down here it is
+  // also nearer the thing it qualifies: the reader has seen the totals and the chart by now
+  // and is in a position to want the provenance rather than to be handed it first.
+  //
+  // ONE LINE ON A PHONE. It said "…, the table behind the Run value board" and wrapped to two,
+  // which is 17px spent naming a board the "Full board" link in this card's own header already
+  // opens. The clause that has to survive is where the number is measured from, because that is
+  // the part a reader cannot get anywhere else on this card.
+  const PROVENANCE = 'Priced on the league’s own run expectancy.'
+
+  return (
+    <SectionCard
+      title="MVP race"
+      subtitle="Runs created at the plate plus runs saved on the mound"
+      action={
+        <Typography
+          onClick={e => { e.stopPropagation(); onViewBoard() }}
+          sx={{
+            fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+            color: 'var(--wpbl-accent-fg)', '&:hover': { textDecoration: 'underline' },
+          }}
+        >Full board</Typography>
+      }
+    >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+        <CandidateRow c={a} rank={1} color={colors[0]} dashed={false} onOpenPlayer={p => openPlayer(p, 1)} />
+        <CandidateRow c={b} rank={2} color={colors[1]} dashed={dashed} onOpenPlayer={p => openPlayer(p, 2)} />
+      </Box>
+
+      <RaceChart race={race} colors={colors} dashed={dashed} />
+
+      {/* The axis, such as it is: two dates and, when the lead has changed hands, the day it
+          did. A full tick axis on an 84px chart would cost more room than it explains. */}
+      <Box sx={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mt: 0.5,
+        fontVariantNumeric: 'tabular-nums',
+      }}>
+        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled' }}>
+          {relativeDayShort(race.dates[0])}
+        </Typography>
+        {changed && (
+          <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.secondary' }}>
+            lead changed {relativeDayShort(changed)}
+          </Typography>
+        )}
+        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled' }}>
+          {relativeDayShort(race.dates[race.dates.length - 1])}
+        </Typography>
+      </Box>
+
+      <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: CARD_BORDER }}>
+        <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
+          {caption}
+        </Typography>
+        <Typography sx={{ fontSize: '0.66rem', fontWeight: 500, color: 'text.disabled', lineHeight: 1.4, mt: 0.25 }}>
+          {PROVENANCE}
+        </Typography>
+      </Box>
+    </SectionCard>
+  )
+}
+
+/** Whether there is a race worth drawing at all.
+ *
+ *  Exported so Home can decide without building the card, and so the rule lives next to the
+ *  card rather than in the page's JSX where the next person to edit the layout would have to
+ *  reverse-engineer it. */
+export function mvpRaceIsWorthDrawing(race: MvpRaceData | null): race is MvpRaceData {
+  return !!race
+    && race.top.length === 2
+    && race.dates.length >= MIN_DATES
+    // A "race" where the leader has cost her team runs is not one. Early in a season that is
+    // a real state, and the honest response is to say nothing rather than to crown somebody.
+    && race.top[0].total > 0
+}
+
+export { CHART_H as MVP_CHART_H, MIN_DATES as MVP_MIN_DATES }

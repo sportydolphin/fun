@@ -654,7 +654,12 @@ export function TapTip({ title, children, sx, component, popperZIndex }: {
 export function SectionCard({ icon, title, subtitle, action, collapsed, onToggleCollapse, fill, bare, children }: {
   icon?: React.ReactNode
   title: string
-  subtitle?: string
+  /** A node rather than a string, so a card can put a live figure in here without a second
+   *  line of its own. Next game spends it on the countdown: the clock was a full headline row
+   *  under the team rows, and on a phone a whole row is a lot to pay for six characters that
+   *  belong beside the kickoff time anyway. Keep it to one line; this slot is 0.72rem and the
+   *  header does not grow. */
+  subtitle?: React.ReactNode
   action?: React.ReactNode
   /** Pass with `onToggleCollapse` to make the card collapsible. Owned by the caller, so it
    *  can persist the choice; the card itself stays presentational. */

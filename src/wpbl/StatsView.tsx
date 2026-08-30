@@ -424,6 +424,10 @@ export default function WpblStatsView({
   // velocity boards — so seed those rather than dropping it somewhere it has never been.
   const [side, setSide] = useState<Side>(seedAxes.side ?? (seedAxes.source === 'tracked' ? 'pitching' : 'hitting'))
   const [source, setSource] = useState<Source>(seedAxes.source)
+  // One-shot: "open Run value with its explanation already unfolded". Set only by the Findings
+  // play-value card's "how this is worked out" row, which is a promise of an explanation and
+  // would otherwise hand the reader a leaderboard with the answer folded shut below it.
+  const [openRunValueHow, setOpenRunValueHow] = useState(false)
   const [mode, setMode] = useState<Mode>('players')
   const [teamId, setTeamId] = useState<string | null>(null)
   // One row and one integer (see fetchWpblTrackedGameCount), read so the chip row can decide
@@ -658,6 +662,10 @@ export default function WpblStatsView({
   const switchSource = (s: Source) => {
     if (s !== source) logBoard('source', { source: s })
     setSource(s)
+    // Any ordinary board change clears the request to open Run value's explainer, so tapping
+    // the Run value chip yourself gets whatever you last chose. Only the Findings link below
+    // sets it, immediately after calling this.
+    setOpenRunValueHow(false)
   }
   const switchMode = (m: Mode) => {
     if (m !== mode) logBoard('mode', { mode: m })
@@ -1191,7 +1199,11 @@ export default function WpblStatsView({
         </Suspense>
       ) : source === 'findings' ? (
         <Suspense fallback={<SubViewFallback />}>
-          <WpblFindingsView games={games} battingLines={lines.batting} onOpenPlayer={onOpenPlayer} />
+          {/* The play-value card's "how this is worked out" row lands on Run value, which owns
+              the explanation now. Same tab, one board across, so it is a source switch rather
+              than a navigation. */}
+          <WpblFindingsView games={games} battingLines={lines.batting} onOpenPlayer={onOpenPlayer}
+            onOpenRunValue={() => { switchSource('runs'); setOpenRunValueHow(true) }} />
         </Suspense>
       ) : source === 'runs' ? (
         // Full-bleed, like the season table and unlike the other boards. Its two columns are a
@@ -1200,7 +1212,8 @@ export default function WpblStatsView({
         // full-bleed itself.
         <Box sx={fullBleedSx}>
           <Suspense fallback={<SubViewFallback />}>
-            <WpblRunValueView side={side} teams={teams} games={games} onOpenPlayer={onOpenPlayer} />
+            <WpblRunValueView side={side} teams={teams} games={games} onOpenPlayer={onOpenPlayer}
+              openExplainer={openRunValueHow} />
           </Suspense>
         </Box>
       ) : rows.length === 0 ? (

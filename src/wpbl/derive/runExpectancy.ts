@@ -712,29 +712,70 @@ export interface WorkedExample {
   event: EventValue
 }
 
-/** The events a first example should be drawn from: plainly named, and things a fan pictures
- *  instantly. A strikeout would work arithmetically and opens the explanation on a negative
- *  number, which is a harder first read than a hit. */
-const TEACHABLE: readonly string[] = ['single', 'double', 'triple', 'home_run', 'walk']
+/**
+ * The events an example may be drawn from, BEST FIRST, and the order is the whole rule.
+ *
+ * A home run leads it because it is the one play a fan pictures with nothing explained: the
+ * ball leaves, the runners score, the bases are empty. Its narrative is almost always a single
+ * clause naming the batter, where it went and who else scored, and the typical one turns out to
+ * be a two-run shot with a runner on first, which is the richest possible ledger: all three
+ * terms distinct and none of them zero. It is also the top row of the event table, so the
+ * reader has just met the number the example lands on.
+ *
+ * The rest are a fallback for a season too young to have hit one, in descending order of how
+ * much happens on them. A strikeout would work arithmetically and opens the explanation on a
+ * negative number, which is a harder first read than a hit, so it is not on the list at all.
+ */
+const TEACHABLE: readonly string[] = ['home_run', 'double', 'triple', 'single', 'walk']
 
-export function workedExample(values: PlayRunValue[], rows: EventValue[]): WorkedExample | null {
-  const byEvent = new Map(rows.map(r => [r.event, r]))
+/**
+ * A narrative simple enough to teach from: one thing happening, said once.
+ *
+ * THIS EXISTS BECAUSE OF A REAL PICK. Ranked on the arithmetic alone, the card chose "Edith De
+ * Leija singled to right center, advanced to second on the throw, RBI (1-2 FBK); Kate Blunt
+ * advanced to second, out at third rf to ss; Hyeonah Kim scored." That is a perfectly typical
+ * single and a hopeless example: three separate things happen, one of them is a runner being
+ * thrown out at third, and the reader is being asked to hold all of it in their head while
+ * checking three numbers they have just been introduced to. The arithmetic was right and the
+ * example still failed, because being typical and being legible are different properties and
+ * only one of them was being selected for.
+ *
+ * "Unearned" is rejected for the same reason at smaller scale: it is a scoring distinction that
+ * has nothing to do with what the play was worth, and a reader meeting it here will stop to
+ * wonder whether it should.
+ *
+ * AN ABSENT NARRATIVE PASSES, because this rejects sentences that say too much and a missing
+ * one says nothing at all. The card captions those off the batter and the event instead, which
+ * is thin but never confusing, and rejecting them would mean a feed that stopped sending prose
+ * silently took the whole explanation off the page.
+ */
+function isTeachableNarrative(narrative: string | null | undefined): boolean {
+  if (!narrative) return true
+  const t = narrative.toLowerCase()
+  // Each of these is a SECOND event sharing the sentence: a runner retired somewhere, a
+  // fielding mistake, or the batter taking a base the hit did not give him.
+  if (/\bout at\b|\bthrown out\b|\bunearned\b|\berror\b|\badvanced to\b|\bpicked off\b/.test(t)) return false
+  // One trailing "X scored" clause is the normal shape and reads fine. Two or more is a list.
+  return (t.match(/;/g)?.length ?? 0) <= 1
+}
+
+/** The most typical play of one kind, or null if that kind has none worth showing. */
+function typicalOf(
+  values: PlayRunValue[], event: EventValue,
+): WorkedExample | null {
   let best: WorkedExample | null = null
   let bestGap = Infinity
   for (const v of values) {
-    const type = v.play.event_type
-    if (!type || !TEACHABLE.includes(type)) continue
+    if (v.play.event_type !== event.event) continue
     // A plate appearance the feed names a batter for. Steals and wild pitches carry whoever
     // happened to be at the plate rather than the runner who did it (see `biggestSwings`), so
     // an example built from one would caption the wrong person's name.
     if (!v.play.pitch_sequence || !v.play.batter_name) continue
     // The play has to have SCORED something: with all three terms non-zero the arithmetic
     // demonstrates the whole formula, where a runs-of-zero example silently teaches a
-    // two-term one. Nothing falls back to a scoreless play, because a season with none of
-    // these has no example worth printing either.
+    // two-term one.
     if (v.runs < 1) continue
-    const event = byEvent.get(type)
-    if (!event) continue
+    if (!isTeachableNarrative(v.play.narrative)) continue
     const gap = Math.abs(v.value - event.per)
     // Ties broken on the play's own identity rather than on iteration order, so the card shows
     // the same play on every render and to every reader.
@@ -743,6 +784,20 @@ export function workedExample(values: PlayRunValue[], rows: EventValue[]): Worke
     if (gap < bestGap || tie) { best = { value: v, event }; bestGap = gap }
   }
   return best
+}
+
+export function workedExample(values: PlayRunValue[], rows: EventValue[]): WorkedExample | null {
+  const byEvent = new Map(rows.map(r => [r.event, r]))
+  // First kind that can produce one wins, rather than the best across all of them: the ranking
+  // is a preference about what makes a good lesson, and a marginally more typical single is not
+  // worth trading a home run for.
+  for (const type of TEACHABLE) {
+    const event = byEvent.get(type)
+    if (!event) continue
+    const found = typicalOf(values, event)
+    if (found) return found
+  }
+  return null
 }
 
 /** The runners themselves, from the box scores rather than the play log.

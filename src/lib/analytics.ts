@@ -77,6 +77,11 @@ export const EVENTS = {
   // card's bounce went unmeasured for exactly that reason when it was retired.
   WPBL_BRACKET_SHOWN:  'wpbl_bracket_shown',  // bracket rendered, props {settled, started, gamesLeft, from}
   WPBL_BRACKET_TEAM:   'wpbl_bracket_team',   // opened a club from the bracket, props {teamId, seed, from}
+  // Home's MVP race. The impression is the point of the pair: the card costs a play-log fetch
+  // Home had otherwise stopped paying for, so "is it seen" and "is it tapped" have to be
+  // answerable before the next person decides whether that fetch is earning its keep.
+  WPBL_MVP_SHOWN:      'wpbl_mvp_shown',      // MVP race rendered, props {leader, lead, leadChanges, twoWay, gamesLeft}
+  WPBL_MVP_PLAYER:     'wpbl_mvp_player',     // opened a candidate from the card, props {playerId, rank}
 
   // Highlights, the third segment of Home's media shelf. It shipped with no events at all
   // while Reading and Archive each had an impression, a click-through and an off-site click,

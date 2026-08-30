@@ -6,6 +6,7 @@ import { pushSupported, pushConfigured, notificationPermission } from '../lib/pu
 import { getCachedAllGamesPref, fetchAllGamesPref, setAllGamesPref } from './reminders'
 import {
   fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblAllTracking, computeStandings, countsInStandings,
+  fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays,
   getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblAllTracking, wpblHomeCacheAgeMs,
 } from './api'
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
@@ -25,6 +26,10 @@ import { track, EVENTS } from '../lib/analytics'
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
 import { DISCORD_DISMISS_KEY, DISCORD_DEV_SHOW_EVENT } from './discordInvite'
 import { LastGameCard } from './RecapCard'
+import MvpRaceCard, { mvpRaceIsWorthDrawing } from './MvpRace'
+import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
+import { mvpRace } from './derive/mvpRace'
+import type { WpblRunValuePlay } from './types'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblTrackRow, WpblVideo, WpblArticle, WpblPhoto } from './types'
 
 // WPBL home dashboard (Phase 2). Mirrors the MLB home: a full-width scoreboard strip
@@ -268,21 +273,25 @@ function Countdown({ target }: { target: number }) {
     const p = (n: number) => String(n).padStart(2, '0')
     return d > 0 ? `${d}d ${p(h)}h ${p(m)}m` : `${p(h)}h ${p(m)}m ${p(s)}s`
   })()
-  // Sized and weighted as Last Game's headline, because it occupies the same slot in the
-  // same shape of card: the one sentence that says what this game IS right now. It was a
-  // chip in the header's top-right, which is where a card puts an afterthought, and the
-  // clock is the only thing Next game knows that nothing else on the page does.
+  // IN THE HEADER LINE, BESIDE THE START TIME, rather than as a headline row of its own.
   //
-  // `tabular-nums` on the digits alone. The whole line would set "First pitch in" on a
-  // monospace grid too, and the seconds place re-renders every tick, so without it the
-  // sentence would twitch sideways once a second.
+  // It used to be a full row under the team rows, at Last Game's headline size, and the note
+  // here argued for that on the grounds that the clock is the only thing Next game knows that
+  // nothing else on the page does. That is still true and it is not what the row cost: a whole
+  // line, plus its margin, is 26px of a 239px card and a phone was already scrolling three
+  // screens of Home. The earlier objection was to the header's top-right CHIP slot, which is
+  // where a card puts an afterthought. This is the subtitle, directly under the title, which is
+  // the line that says what this game is; "Today · 4:30 PM · 15h 35m" is one fact in three
+  // parts and reads better together than split across the card. The accent colour stays, so the
+  // live figure is still the thing the eye lands on.
+  //
+  // `tabular-nums` on the digits alone. The whole line would set the date and time on a
+  // monospace grid too, and the seconds place re-renders every tick, so without it the line
+  // would twitch sideways once a second.
   return (
-    <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>
-      {diff <= 0 ? 'Starting soon' : <>
-        First pitch in{' '}
-        <Box component="span" sx={{ color: 'var(--wpbl-accent-fg)', fontVariantNumeric: 'tabular-nums' }}>{label}</Box>
-      </>}
-    </Typography>
+    <Box component="span" sx={{ color: 'var(--wpbl-accent-fg)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+      {diff <= 0 ? 'starting soon' : label}
+    </Box>
   )
 }
 
@@ -403,16 +412,27 @@ function GameReminderRow({ game, away, home, startMs }: {
   // through to sign-in (a switch has nothing to toggle yet).
   const blocked = !!user && (!supported || !configured || perm === 'denied')
 
-  let hint: string
-  if (!supported)            hint = 'This browser can’t do notifications.'
-  else if (!configured)      hint = 'Notifications aren’t set up on this deployment yet.'
-  else if (perm === 'denied') hint = 'Blocked. Turn notifications on for this site in your browser settings.'
-  // Kept short on purpose: at 320px the switch leaves about 182px for this line, and a
-  // two-line hint under a two-line title makes the row lurch every time it changes.
-  else if (!user)            hint = 'Sign in to get a heads-up.'
-  else if (busy)             hint = 'Working…'
-  else if (on)               hint = 'On · 30 min before each game.'
-  else                       hint = 'A push before every WPBL game.'
+  // ONE LINE, AND THE SECOND ONE HAS TO EARN ITSELF.
+  //
+  // This row was a title over a hint in every state, 56px of a 239px card, and in the ordinary
+  // states the hint was saying what the switch beside it already said: "On · 30 min before each
+  // game" next to a switch that is visibly on. A switch is the control AND the status, so
+  // spending a second line restating it is spending a line on nothing, on the surface where a
+  // phone already scrolls three screens.
+  //
+  // So the second line appears only when there is something the switch cannot say: an error, a
+  // browser that has blocked us, a deployment with no push configured, or a signed-out reader
+  // who needs to know a tap does something other than toggle. Those are exactly the states
+  // where the extra height is the point, and they are the minority of visits.
+  //
+  // The TITLE carries the cadence instead, since it had room: "Remind me 30 min before every
+  // game" is the whole offer in one line, and the switch answers it.
+  let note = ''
+  if (err)                    note = err
+  else if (!supported)        note = 'This browser can’t do notifications.'
+  else if (!configured)       note = 'Notifications aren’t set up on this deployment yet.'
+  else if (perm === 'denied') note = 'Blocked. Turn notifications on for this site in your browser settings.'
+  else if (!user)             note = 'Sign in to get a heads-up.'
 
   const Icon = on ? NotificationsActiveOutlined : NotificationsNoneOutlined
 
@@ -427,10 +447,14 @@ function GameReminderRow({ game, away, home, startMs }: {
     >
       <Icon sx={{ fontSize: '1.15rem', flexShrink: 0, color: on ? WPBL_ACCENT : 'text.disabled' }} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.2 }}>Reminders for every game</Typography>
-        <Typography sx={{ fontSize: '0.7rem', color: err ? 'error.main' : 'text.secondary', mt: 0.15, lineHeight: 1.35 }}>
-          {err || hint}
+        <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.25 }}>
+          {busy ? 'Working…' : 'Remind me 30 min before every game'}
         </Typography>
+        {note && (
+          <Typography sx={{ fontSize: '0.7rem', color: err ? 'error.main' : 'text.secondary', mt: 0.15, lineHeight: 1.35 }}>
+            {note}
+          </Typography>
+        )}
       </Box>
       {user && (
         <Switch
@@ -438,7 +462,7 @@ function GameReminderRow({ game, away, home, startMs }: {
           checked={on}
           disabled={busy || blocked || !ready}
           onChange={e => handleToggle(e.target.checked)}
-          sx={{ flexShrink: 0 }}
+          sx={{ flexShrink: 0, my: -0.5 }}
         />
       )}
     </Box>
@@ -536,7 +560,15 @@ function NextGameCard({ games, teams, onOpenGame }: {
   }
 
   return (
-    <SectionCard title="Next game" subtitle={`${dateLabel}${timeLabel ? ` · ${timeLabel}` : ''}`} fill>
+    <SectionCard
+      title="Next game"
+      /* Date, start time and countdown on one line. The countdown was a row of its own under
+         the team rows; see the note on Countdown for why it moved up rather than away. */
+      subtitle={<>
+        {dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}{' · '}<Countdown target={next.ms} />
+      </>}
+      fill
+    >
       {/* Laid out as LastGameCard is, tier for tier: the two team rows, then one line at
           headline weight saying what the game is right now, then a quieter line of context,
           then a rule and the row you can act on. Everything inside the clickable block is a
@@ -551,9 +583,8 @@ function NextGameCard({ games, teams, onOpenGame }: {
           {teamRow(away, 'AWAY')}
           {teamRow(home, 'HOME')}
         </Box>
-        <Countdown target={next.ms} />
         {seriesLabel && (
-          <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: 0.5, lineHeight: 1.35 }}>
+          <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', lineHeight: 1.35 }}>
             {seriesLabel}
           </Typography>
         )}
@@ -1158,7 +1189,10 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   onOpenGame: (g: WpblGame) => void
   onOpenPlayer: (p: WpblPlayer) => void
   onOpenTeam: (t: WpblTeam) => void
-  onViewStats: (group: 'hitting' | 'pitching', sortKey?: string) => void
+  // 'runs' is here for the MVP card's "Full board" link: the number it draws comes off the
+  // Run value board, so that is the only honest place to send someone who wants the rest of
+  // the field. `openStats` in WpblApp already takes the wider group type.
+  onViewStats: (group: 'hitting' | 'pitching' | 'runs', sortKey?: string) => void
   onViewTracking: () => void
 }) {
   const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
@@ -1174,6 +1208,19 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
     () => getCachedWpblAllLines() ?? { batting: [], pitching: [] })
   const [tracking, setTracking] = useState<WpblTrackRow[]>(() => getCachedWpblAllTracking() ?? [])
   const [loadingLeaders, setLoadingLeaders] = useState(() => wpblHomeCacheAgeMs() === Infinity)
+  // The play log, for the MVP race alone, and DELIBERATELY NOT in the fetch below.
+  //
+  // Home stopped pulling play-by-play when the Hall of Firsts came off, and that was the most
+  // expensive read on the section: this brings it back, so it has to be brought back on terms
+  // that cannot cost the page its first paint. 2,265 rows is about 80KB gzipped and a second
+  // or so on a phone, against a page where 670 of 2,037 browsers fired exactly one event and
+  // left. So it is a SEPARATE effect that starts after the ones above and blocks nothing:
+  // every card on Home renders on its own schedule, and the MVP card simply is not there
+  // until its data is, which is the one card on the page nobody is waiting for.
+  //
+  // The fetcher is the same session-cached one the Run value board uses, so a reader who
+  // opens both pays once, in whichever order they happen to visit.
+  const [plays, setPlays] = useState<WpblRunValuePlay[]>(() => getCachedWpblAllRunValuePlays() ?? [])
   // Discord invite dismissal, read once. Owned here (not inside DiscordCard) so a dismissed
   // invite unmounts the card entirely and leaves no empty wrapper taking up row-gap.
   const [discordDismissed, setDiscordDismissed] = useState(() => {
@@ -1201,6 +1248,17 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
         setPlayers(p); setLines(l); setTracking(tr); setLoadingLeaders(false)
       })
       .catch(() => { if (!cancelled) setLoadingLeaders(false) })
+    return () => { cancelled = true }
+  }, [])
+
+  // The MVP race's data, on its own. Failure is silent and the card just never appears, which
+  // is the right outcome for a card that is a bonus rather than the page: nothing above it
+  // depends on this resolving.
+  useEffect(() => {
+    let cancelled = false
+    fetchWpblAllRunValuePlays()
+      .then(p => { if (!cancelled) setPlays(p) })
+      .catch(() => { /* no card, no error state: see above */ })
     return () => { cancelled = true }
   }, [])
 
@@ -1250,6 +1308,19 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   // StandingsCard: both call `computeStandings` on the same two arrays, so they cannot
   // disagree, and hoisting it would put the table's data in the page's scope for one consumer.
   const standingsRows = useMemo(() => computeStandings(teams, games), [teams, games])
+
+  // The MVP race. Two passes over the play log (the run-expectancy table, then every play
+  // priced against it), memoised on the three arrays they read, because this is the most
+  // arithmetic any card on Home does and none of it is cheap enough to redo on a repaint.
+  //
+  // The postseason is already out: both functions run their input through `regularSeasonLines`
+  // themselves, which is also why this cannot disagree with the Run value board about which
+  // games counted.
+  const race = useMemo(() => {
+    if (plays.length === 0 || players.length === 0) return null
+    const table = buildRunExpectancy(plays, games)
+    return mvpRace(playRunValues(plays, games, table), players, games)
+  }, [plays, players, games])
 
   // New-tracking batch banner: fires when the set of tracked games grows since last seen.
   const { newCount: newTrackingCount, ack: ackTracking } = useNewTrackingBatch(tracking)
@@ -1399,6 +1470,27 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
           />
         </Box>
       </Box>
+
+      {/* The MVP race. Full width and outside the grid above for the same reason the bracket
+          is: the two columns up there share their row boundaries through subgrid, and a third
+          card of a different shape would break that.
+
+          ABOVE the bracket, which is the one editorial call in this block. The bracket is a
+          projection until Sep 9 and draws four clubs; this draws two players, and the traffic
+          read says a player page is the retention event and that Home is where readers are
+          lost. Between a card that makes two names tappable now and a card that predicts a
+          series in a fortnight, the names go first.
+
+          It renders when its own fetch lands, which is after everything above it. That is a
+          deliberate reflow low on the page rather than a skeleton holding a slot: nothing here
+          is above the fold on a phone, and a placeholder for a card that may not qualify to
+          appear at all would reserve room for nothing. */}
+      {mvpRaceIsWorthDrawing(race) && (
+        <Box sx={{ mt: 1.5 }}>
+          <MvpRaceCard race={race} games={games} onOpenPlayer={onOpenPlayer}
+            onViewBoard={() => onViewStats('runs')} />
+        </Box>
+      )}
 
       {/* The postseason bracket. Full width and outside the grid above on purpose: three
           series boxes side by side need the room, and the two columns up there share row

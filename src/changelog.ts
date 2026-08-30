@@ -4,6 +4,37 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.54.0',
+    date:    '2026-08-30',
+    title:   'The MVP race, on one number a hitter and a pitcher can share',
+    changes: [
+      {
+        short: 'An MVP race on the home page, with the season it took to get there',
+        full:  'Nothing on the section said who is having the best season, because there was no single number a hitter and a pitcher could both be measured on. There is now: runs created at the plate plus runs saved on the mound, both priced against the league’s own run expectancy, which is the same table behind the Run value board. The card draws the top two and the whole season between them, so you can see the lead as it moves rather than only where it ended up. Both names open that player’s page.',
+      },
+      {
+        short: 'Kelsie Whitmore leads it by counting both halves of what she does',
+        full:  'She is second in the league in runs created at the plate and has saved four and a half more on the mound, and adding the two puts her ahead of a hitter who leads her on the batting board. That is the whole argument for the metric: a two-way player is undercounted by any leaderboard that only reads one side of the ball, and this is the first surface here that reads both. The card marks her as two-way and shows the split, so the total is never a number you have to take on trust.',
+      },
+      {
+        short: 'Run value now explains itself in one place, in three steps',
+        full:  'Where these numbers come from was explained in two halves on two different boards, and neither half was whole: Run value showed the table of what every situation is worth, Findings showed one play worked through and the formula, and nothing on either said the other existed. It is one idea, so it is now one card on the Run value board, built in the order the idea is: every situation is already worth something before a pitch is thrown, a play is worth what it changed about that, and here is one real play from this season with the arithmetic line by line. The Findings card keeps its sixteen measurements and links across. It is still folded shut by default, because the players are what the board is for.',
+      },
+      {
+        short: 'The next-game card gives a phone two lines back',
+        full:  'The countdown to first pitch was a row of its own under the team names; it now sits beside the start time in the card’s own header line, where it reads as one fact in three parts instead of two. The reminder row underneath had a title and a line of explanation in every state, and in the ordinary ones that second line was telling you what the switch beside it already showed. It is one line now, and the explanation appears only when there is something the switch cannot say: notifications blocked, push unavailable, or a reader who needs to sign in first.',
+      },
+      {
+        short: 'The worked example now adds up on screen',
+        full:  'The three numbers in the example are rounded to a hundredth of a run and the total was rounded separately, so a reader who did the addition could land a hundredth away from the answer printed underneath it. On the one card whose whole job is being checkable, that is the worst place for it. The total is now the sum of the three numbers shown.',
+      },
+      {
+        short: 'The lead changed hands on Aug 28, and the chart says so',
+        full:  'Denae Benites led the race from the first game of the season through Aug 27. The card shades the margin between the two lines, so the day it pinched to nothing and crossed is the one thing you cannot miss on it, and the date is written under the chart rather than left to be read off an axis.',
+      },
+    ],
+  },
+  {
     version: '1.53.0',
     date:    '2026-08-29',
     title:   'A page for the league itself, and the working behind the numbers',

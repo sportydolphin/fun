@@ -41,7 +41,7 @@ played. Nothing yet exists that makes `/wpbl` worth opening in November.
 ## Where the section stands
 
 **Live surfaces:** Home (scoreboard strip, last-game recap card, next-game card + countdown,
-standings, leaders, highlights rail, reading rail, archive rail, Discord invite) ·
+standings, leaders, MVP race, bracket, Discord invite) ·
 Schedule · Standings (W/L/PCT/GB/L10/STRK/DIFF, H2H tiebreak) · Stats, one row of board tabs
 (Players, a ranked list on a phone and the full table on a desktop, with a Sort sheet, a
 Filters sheet and a team cut · Teams · Pitch by pitch · Run value · Tracked,
@@ -67,7 +67,8 @@ against the rules of baseball and our own corrections are applied as a read-time
 **What it does NOT have:** predictions/pick'em on the site itself (the Discord game is not the
 same thing), a season WPA leaderboard or any ranking of games by how much they moved (the win
 model that would feed both is live, and `excitement` is computed on every game and drawn
-nowhere), daily standouts, a league primer or stat glossary, series records anywhere but the
+nowhere), any credit for baserunning in a player's season value (the MVP race prices the plate
+and the mound and a steal is neither), daily standouts, a league primer or stat glossary, series records anywhere but the
 bracket, and almost nothing that survives Sep 22 (the Commons archive gallery and the Run value
 board are the two exceptions, and neither is a reason to visit twice).
 
@@ -594,6 +595,75 @@ is retired.
 ---
 
 ## Shipped log
+
+### Aug 30, 2026: the MVP race, and one number a hitter and a pitcher can share (v1.54.0)
+
+**Also this release: run value explains itself in one place.** The explanation was in two
+halves on two boards and neither was whole. Run value carried the 24-situation grid and a
+paragraph of fine print; Findings carried the leadoff anchor, one play worked through in a
+ledger, and the formula in words. Neither mentioned the other, so a reader who wanted to know
+where a number came from got the table without the arithmetic on one tab and the arithmetic
+without the table on the other. It is one idea and it is now one shut card on Run value, in the
+order the idea is built: **(1)** every situation is already worth something, with the grid as
+its evidence rather than as a spreadsheet with a caption, **(2)** a play is worth what it
+changed, with the formula set as three named terms, **(3)** one real play, with those same
+three terms as a ledger. The term labels are one constant (`TERMS`) read by both the formula
+and the ledger, because they were two hand-written copies and had already drifted: matching
+them is the entire lesson. Findings keeps its sixteen measurements and links across, and the
+link opens the card rather than dropping the reader on a leaderboard with the answer folded
+away.
+
+**The worked example did not add up, and now does.** Its three terms print to a hundredth and
+the total was rounded from full precision, so +1.00, +1.18 and −1.63 sat under a total reading
++0.56. Both numbers were right and the reader had no way to know that, which on the one card
+whose job is being checkable is the worst possible place for it. The total is now the sum of
+the rounded terms. Every board still shows `fmtRunValue(v.value, 2)`; only this ledger trades
+the last digit for adding up.
+
+A Home card drawing the top two by **runs added: runs created at the plate plus runs saved on
+the mound**, both off `playRunValues` and so off the league's own run-expectancy table.
+`derive/mvpRace.ts` (pure) plus `MvpRace.tsx`, 18 tests in `__tests__/mvpRace.test.ts`.
+
+**The metric was the whole decision, and the cheap version was rejected on purpose.** Home
+already holds every box-score line, so a run estimator built from those would have needed no
+new fetch at all. It was prototyped: a Base Runs fit, calibrated so the model's league total
+matches the 365 runs actually scored, which is the honest way to derive linear weights for a
+run environment nobody else's table covers. It lands close but not on top of the truth. Against
+the league's own play-derived weights it prices a home run at **+1.33 against +1.55**, a single
+at +0.46 against +0.54, a walk at +0.27 against +0.34; the double is nearly exact at +0.84
+against +0.82. Shipping it would have put **two "runs added" figures for the same player on the
+same site**, ten to twenty percent apart, with neither of them wrong: the exact failure the ERA
+basis note in `stats.ts` exists to prevent, one board disagreeing with the page it opens. So
+the card pays for the play log instead and reads the number the Run value board already
+publishes. Verified against production: the board's hitting rows and the card's `bat` figures
+agree to the digit.
+
+**It brings play-by-play back to Home, which is the cost and it is deliberate.** That read came
+off when the Hall of Firsts did, and it was the most expensive one on the section. It returns
+as a SEPARATE effect that blocks nothing: 2,265 rows, ~80KB gzipped, on the same session-cached
+fetcher the Run value tab uses, so a reader who opens both pays once. Home's first paint is
+untouched and the card simply is not there until its data is. It carries `wpbl_mvp_shown` and
+`wpbl_mvp_player` precisely so the trade is answerable later, since the last thing measured on
+Home was a card being seen and not used and the card that told us so has been retired.
+
+**What it found.** Kelsie Whitmore is **second** in runs created (+18.4 to Denae Benites'
++18.6) and has saved +4.4 more on the mound, so on the combined number she leads +22.8 to
++18.6. Every leaderboard on the section reads one side of the ball and undercounts her; this is
+the first surface that reads both, and it is the argument for the metric rather than a
+by-product of it. The race also has a real shape: Benites led from Aug 1 to Aug 27 and Whitmore
+passed her on Aug 28, one lead change with six games left.
+
+**What it is not, and the card says so.** No replacement level, no positional adjustment, no
+fielding: this is not WAR and must never be labelled as such. Baserunning is out too, and not
+by choice, since a steal is a play row with no pitch sequence and so belongs to no plate
+appearance and is credited to nobody. In a league running as much as this one that is a real
+omission rather than a rounding one, and the natural next piece of work.
+
+**Still open**: it is regular-season only (both engine functions run their input through
+`regularSeasonLines`, so the postseason cannot leak in), which means from Sep 9 the card
+freezes on the final regular-season standing. Whether it should then become "the 2026 MVP" and
+move into the archive (#2), or start a second postseason race, is undecided and wants deciding
+before Sep 9.
 
 ### Aug 29, 2026: showing the working, and eleven countries that fold (v1.53.0)
 
