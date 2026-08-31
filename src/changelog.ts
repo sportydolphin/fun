@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.55.1',
+    date:    '2026-08-31',
+    title:   'Player of the game now comes from the team that won',
+    changes: [
+      {
+        short: 'The gold medal on a recap was sometimes going to the losing side',
+        full:  'The star on a game recap was picked purely on the box-score line, with no regard for who won, so a big game in a defeat could outrank every player on the winning team. It read badly wherever it happened: \u201cFirebells walk off Heights\u201d followed by a Heights player credited as the one who led the way. It had happened in 5 of the season\u2019s first 25 decided games. The medal now goes to the best performance on the winning side, and the other standouts still appear beneath it, including a big line in a loss. Aug 30 is the case that prompted it: Andr\u00e9anne Leblanc hit a two-out walk-off grand slam to win it 11-9 and the card was crediting somebody else.',
+      },
+    ],
+  },
+  {
     version: '1.55.0',
     date:    '2026-08-30',
     title:   'When a game stalls, the page says whose silence it is',

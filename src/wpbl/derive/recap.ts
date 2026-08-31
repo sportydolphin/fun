@@ -264,10 +264,44 @@ export function buildRecap(
       score: p.outs + p.so * 1.2 - p.er * 2 - p.h * 0.4 - p.bb * 0.4 + (p.decision === 'W' ? 2 : 0) + (p.decision === 'S' ? 3 : 0) }))
     .filter(s => s.score >= 8)
   const seen = new Set<string>()
-  const stars = [...batStars, ...pitchStars]
+  const ranked = [...batStars, ...pitchStars]
     .sort((x, y) => y.score - x.score)
     .filter(s => (seen.has(s.playerId) ? false : (seen.add(s.playerId), true)))
-    .slice(0, 3)
+
+  // ── THE PLAYER OF THE GAME COMES FROM THE TEAM THAT WON. ───────────────────────────────
+  //
+  // `stars[0]` is not "the best line in the box score", whatever the ranking above measures.
+  // It is the gold medal on the Home card, the first medal in the Discord box score, and the
+  // name the blurb puts in "X led the way" directly after a sentence about the winner. Filled
+  // from the losing side it does not read as a generous mention, it reads as a mistake:
+  // "Firebells walk off Heights. Denae Benites led the way" is a Heights player credited for
+  // a Firebells win.
+  //
+  // It happened in 5 of the season's first 25 decided finals, a fifth of them, and the
+  // arithmetic is ordinary rather than exotic: the league's best hitter plays for a club that
+  // loses a lot, so her line beats every winner's on a regular basis. Aug 30 is the clearest
+  // case. Andréanne Leblanc hit a two-out walk-off grand slam to win it 11-9, and the card
+  // credited Benites, who went 1-for-4 in the loss with a bigger RBI total.
+  //
+  // The pitching filter above has taken this position since it was written: a losing arm
+  // cannot be a star at all (only a save escapes). This is the same rule applied to the half
+  // of the ranking that never got it.
+  //
+  // ONLY THE LEAD SLOT IS PROMOTED, and the rest stay in score order on purpose. Sorting the
+  // whole list winner-first would fill all three places from the winning side, since a winning
+  // team always has three batters who scored or drove one in, and that quietly deletes the
+  // thing worth reporting about the loser: on Aug 22 it would have dropped Ashton Lansdell's
+  // 15-point game off the card entirely. Promote the winner to the medal, leave the rest of
+  // the board honest.
+  //
+  // NO TUNING CONSTANT, deliberately. A weighting factor on losing lines would need defending
+  // every time somebody looked at it, and would still leave the top slot wrong whenever a big
+  // enough game beat the multiplier.
+  const leadIdx = ranked.findIndex(s => s.teamId === winner.id)
+  const stars = (leadIdx > 0
+    ? [ranked[leadIdx], ...ranked.filter((_, i) => i !== leadIdx)]
+    : ranked   // already a winner, or (never seen) nobody on the winning side qualified
+  ).slice(0, 3)
 
   // ── Narrative blurb: how it unfolded (the decisive swing is always the winner's), then the
   // day's biggest bat or arm. ─────────────────────────────────────────────────────────────
