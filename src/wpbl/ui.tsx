@@ -108,6 +108,59 @@ export function useWpblDark(): boolean {
 // near-black or page-matching primaries stay defined), with the bundled logo on top:
 // full-bleed for finished lockups (Boston), centered for transparent knockouts, or
 // the abbreviation when no logo exists.
+// ─── Form dots ──────────────────────────────────────────────────────────────────
+
+// Green/red for a result, from the section's themed positive/negative tokens (styles.css).
+// Literals here would fail contrast in one mode or the other (the dark-mode pair measures
+// 2.28 and 3.76 against a light background) and these have to read as a 9px shape in both.
+export const WPBL_WIN = 'var(--wpbl-pos)'
+export const WPBL_LOSS = 'var(--wpbl-neg)'
+
+const DOT = 9
+const RING = 2
+
+/**
+ * A run of results as dots, oldest first: the same left-to-right order a schedule reads, and
+ * the same order every form guide in sport uses.
+ *
+ * A win is SOLID GREEN and a loss is a RED RING. Colour alone would have been the only thing
+ * telling the two apart, and red/green is precisely the pair that around one man in twelve
+ * cannot separate. Everywhere else in the section the colour is redundant ("+26", "W4", "4–3"
+ * all say it in text as well), and this strip must not be the exception. Filled-versus-hollow
+ * survives greyscale, deuteranopia and a glance from arm's length.
+ *
+ * No opacity ramp for recency, either. It was competing with the fill/ring distinction for
+ * the same few pixels and left the older rings too faint to read as rings at all.
+ *
+ * Only as many dots as there are games: five grey placeholders on opening week would suggest
+ * a team had lost five, which is the one thing the strip must never imply.
+ *
+ * ONE STRIP FOR THE SECTION. It was TeamsGrid's until Home's next-game card wanted the same
+ * thing, and two form strips is how a section ends up with a green tick on one page and a
+ * team-coloured pip on another meaning the same result. `gap` is the only thing a caller
+ * tunes, because a longer run needs a tighter rhythm and nothing else about a result changes
+ * with where it is drawn.
+ */
+export function FormDots({ recent, gap = 4 }: { recent: ('W' | 'L')[]; gap?: number }) {
+  if (recent.length === 0) return null
+  return (
+    <Box
+      role="img"
+      aria-label={`Last ${recent.length}, oldest first: ${recent.join(' ')}`}
+      sx={{ display: 'flex', alignItems: 'center', gap: `${gap}px`, flexShrink: 0 }}
+    >
+      {recent.map((r, i) => (
+        <Box key={i} sx={{
+          width: DOT, height: DOT, borderRadius: '50%', boxSizing: 'border-box', flexShrink: 0,
+          ...(r === 'W'
+            ? { bgcolor: WPBL_WIN }
+            : { border: `${RING}px solid ${WPBL_LOSS}` }),
+        }} />
+      ))}
+    </Box>
+  )
+}
+
 export function TeamBadge({ team, size = 34 }: { team: Pick<WpblTeam, 'id' | 'abbr'>; size?: number }) {
   const logo = wpblLogo(team.id)
   const fill = wpblLogoFill(team.id)

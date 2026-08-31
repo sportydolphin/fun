@@ -19,6 +19,13 @@ import type { WpblTeam, WpblGame } from './types'
 
 const CURRENT_SEASON = 2026
 
+/** The three rows the compact cut keeps: how many runs a club scores, how well it hits, how
+ *  many runs it gives up. Score, hit, prevent: the shortest honest description of a baseball
+ *  team, and the three a reader can hold in their head between the team rows above and the
+ *  first pitch. The full nine live one tap away in Game Center, which is where somebody who
+ *  wants WHIP has already gone. */
+const COMPACT_KEYS = ['rpg', 'ops', 'era'] as const
+
 function ordinal(n: number): string {
   const suffix = n % 100 >= 11 && n % 100 <= 13 ? 'th'
     : n % 10 === 1 ? 'st' : n % 10 === 2 ? 'nd' : n % 10 === 3 ? 'rd' : 'th'
@@ -28,7 +35,7 @@ function ordinal(n: number): string {
 // Bar colors come from the shared team accent palette (constants.ts `wpblAccent`), which
 // exists for exactly this reason: the raw primaries are all near-black and unusable as
 // foreground. Keeping one source means a palette tweak lands everywhere at once.
-export function WpblGamePreview({ away, home, teams, games, onOpenTeam }: {
+export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact }: {
   away: WpblTeam
   home: WpblTeam
   teams: WpblTeam[]
@@ -36,6 +43,16 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam }: {
   /** Open a club's page from its chip. Optional so the preview still renders anywhere that
    *  has nowhere to send the tap. */
   onOpenTeam?: (team: WpblTeam) => void
+  /** Three rows instead of nine, one line per value instead of two, and no chrome of its own:
+   *  no card padding, no legend, no footnote, no group rules. For Home's Next game card, which
+   *  is a card already and supplies all of that, and which has room for a tale of the tape but
+   *  not for a second card's worth of it.
+   *
+   *  It also renders NOTHING rather than an empty state. In GameDetail this component IS the
+   *  pane, so "this game hasn't been played yet" is the answer to the reader's question; on
+   *  Home it is the last block of a card that has already said plenty, and a card that grows a
+   *  paragraph of apology on the season's first day is worse than one that simply stops. */
+  compact?: boolean
 }) {
   const isDark = useWpblDark()
   const { basis: eraBasis, kLabel } = useEraBasis()
@@ -63,6 +80,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam }: {
   // Nothing to compare yet (opening days, neither club has logged a line) — say so plainly
   // rather than drawing empty tracks.
   if (!loading && (failed || (!awayStats && !homeStats))) {
+    if (compact) return null
     return (
       <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
         <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, mb: 0.5 }}>This game hasn't been played yet</Typography>
@@ -96,9 +114,15 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam }: {
           }}>
             {v?.display ?? '—'}
           </Typography>
-          <Typography sx={{ fontSize: '0.5rem', fontWeight: 600, color: 'text.disabled', lineHeight: 1.2 }}>
-            {v ? ordinal(v.rank) : ''}
-          </Typography>
+          {/* The league rank under the value, and the first thing the compact cut drops: it is
+              a second line on every cell, so it is a third of the block's height, and it is the
+              detail a reader goes to Game Center for. The bar already says the same thing in
+              the only resolution that matters at this size, which is longer or shorter. */}
+          {!compact && (
+            <Typography sx={{ fontSize: '0.5rem', fontWeight: 600, color: 'text.disabled', lineHeight: 1.2 }}>
+              {v ? ordinal(v.rank) : ''}
+            </Typography>
+          )}
         </>
       )}
     </Box>
@@ -134,7 +158,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam }: {
     const homeBetter = !!a && !!h && h.rank < a.rank
 
     return (
-      <Box key={def.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, py: 0.4 }}>
+      <Box key={def.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, py: compact ? 0.25 : 0.4 }}>
         {valueCell(a, awayBetter, awayColor, 'right')}
         {bar(a, awayBetter, awayColor, 'away')}
         <Typography sx={{
@@ -193,6 +217,24 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam }: {
       <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color, lineHeight: 1 }}>{team.abbr}</Typography>
     </Box>
   )
+
+  // The compact cut: three rows, and everything a host card already provides is left to it.
+  // No padding of its own, no legend (the two team rows directly above it carry the badges in
+  // the same club colours these bars use), no season footnote, no group rules for three stats
+  // that do not need dividing into two groups.
+  if (compact) {
+    return (
+      <Box>
+        <Typography sx={{
+          fontSize: '0.6rem', fontWeight: 800, color: 'text.secondary',
+          textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1, mb: 0.5,
+        }}>
+          Season so far
+        </Typography>
+        {COMPACT_KEYS.map(k => WPBL_TEAM_STAT_DEFS.find(d => d.key === k)).map(d => d && row(d))}
+      </Box>
+    )
+  }
 
   return (
     <Box sx={{ px: 2, py: 1.5 }}>

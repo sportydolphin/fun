@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react'
-import { Box, Typography } from '@mui/material'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Box, Typography, useMediaQuery } from '@mui/material'
 import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark } from './ui'
 import { wpblAccent } from './constants'
 import { buildBracket, seriesDateLine } from './derive/bracket'
@@ -40,6 +40,10 @@ import type { WpblGame, WpblStandingRow, WpblTeam } from './types'
  *  or team page is the section's retention event by a tenfold margin, and Home is where the
  *  traffic says readers are lost. */
 type OpenTeam = (t: WpblTeam) => void
+
+/** Whether the reader has opened the bracket on a phone. Only ever read on xs; see the note in
+ *  the component for why the default is shut there and open everywhere else. */
+const BRACKET_OPEN_KEY = 'wpbl:bracketOpen'
 
 function SeriesTeamRow({ entrant, series, leading, onOpenTeam, from, placeholder }: {
   entrant: BracketEntrant
@@ -257,8 +261,46 @@ export function BracketDiagram({ bracket, odds, onOpenTeam, from }: {
         fontSize: '0.56rem', fontWeight: 900, letterSpacing: 0.7, textTransform: 'uppercase',
         color: 'text.disabled', textAlign: 'center', mt: 0.25,
       }}>The winners meet in the</Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+      {/* THE TITLE ODDS LIVE IN THIS COLUMN NOW, NOT IN A BAND UNDER THE DIAGRAM.
+          The two semifinal boxes stack to about 465px while the championship is one 95px box,
+          so this half of the card was blank for 156px above it and 209px below: 365px of empty
+          rectangle, roughly half the card's height, with a 183px strip sitting in a band of its
+          own underneath the whole thing. Moving the strip into the lower hole fills most of it
+          and takes ~200px off the card in the same move.
+
+          ONE COPY, WHICH IS WHY IT MOVED INTO THE DIAGRAM RATHER THAN BEING DRAWN TWICE BEHIND
+          A `display` SWITCH. On a phone this column is just the next block in the stack, so the
+          strip lands directly under the championship box, which is exactly where it already
+          was. Two copies would have been simpler to write and would have put every club in the
+          page twice, where a crawler, a text extractor and `getByText` all see both.
+
+          `1fr auto 1fr` IS THE WHOLE TRICK AT sm+, and a flex column with the strip appended is
+          not the same thing. The connector's elbow points at 50% of this column's height, so the
+          championship box has to STAY at 50% or the hairline lands in mid-air; append the strip
+          to a centred column and the box rides up by half the strip's height. Equal fr rows
+          above and below put the box back exactly on centre whatever the strip measures, and
+          because an `fr` row still floors at its content, an oversized strip (Large text, a
+          longer club name) grows the card instead of overlapping anything. */}
+      <Box sx={{
+        flex: 1, minWidth: 0,
+        display: { xs: 'flex', sm: 'grid' },
+        flexDirection: 'column', gap: { xs: 1.5, sm: 0 },
+        alignItems: { xs: 'stretch', sm: 'center' },
+        gridTemplateRows: { sm: '1fr auto 1fr' },
+      }}>
+        {/* The upper `1fr`. An empty element rather than a `gridRow: 2` on the box below it,
+            so the three rows stay in DOM order and the phone's flex fallback needs no
+            renumbering: it is display:none there and contributes nothing at all. */}
+        <Box aria-hidden sx={{ display: { xs: 'none', sm: 'block' } }} />
         <SeriesBox series={bracket.championship} odds={odds?.championship ?? undefined} onOpenTeam={onOpenTeam} from={from} />
+        {/* Pinned to the bottom of its row from sm up, so the strip's last bar finishes level
+            with the second semifinal: that is what makes the two halves read as one block
+            rather than as a box with something parked under it. */}
+        {odds && (
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', minWidth: 0 }}>
+            <TitleOddsStrip odds={odds} onOpenTeam={onOpenTeam} />
+          </Box>
+        )}
       </Box>
     </Box>
   )
@@ -275,7 +317,12 @@ function TitleOddsStrip({ odds, onOpenTeam }: {
   if (odds.title.length === 0) return null
   const decided = odds.title.some(t => t.p >= 1)
   return (
-    <Box sx={{ mt: 1.5 }}>
+    // NO TOP MARGIN OF ITS OWN. It lives inside the diagram's right-hand column now, where a
+    // margin would be spacing at one breakpoint and a hole at the other: on a phone the
+    // column's own `gap` supplies it, and at sm+ the strip is bottom-aligned in an `fr` row
+    // where any margin only pushes it off that edge. `width: 100%` because it is a flex child
+    // there rather than a block in the card's flow.
+    <Box sx={{ width: '100%', minWidth: 0 }}>
       <Typography sx={{
         fontSize: '0.56rem', fontWeight: 900, letterSpacing: 0.7, textTransform: 'uppercase',
         color: 'text.disabled', mb: 0.75,
@@ -339,6 +386,31 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, from = 'home' 
     return Math.round(seeds.reduce((n, s) => n + s.remaining, 0) / 2)
   }, [rows, games])
 
+  // COLLAPSED BY DEFAULT ON A PHONE, EXPANDED EVERYWHERE ELSE.
+  //
+  // This is 709px on a 375px screen and it arrives at 57% scroll depth: 30% of a Home page that
+  // is already 2.9 screens, on a section where 670 of 2,037 browsers fire exactly one event and
+  // leave. It is also the one card here nobody needs on every visit, because a bracket in
+  // August moves on the days a series is decided and not otherwise.
+  //
+  // WHAT COLLAPSES IS THE DRAWING, NOT THE ANSWER. The subtitle carries the leader and its
+  // number while the card is shut, so a reader who never opens it still gets the headline the
+  // bracket exists to deliver, in one line instead of eleven. A collapse that hides the point
+  // along with the picture is just a card nobody opens.
+  //
+  // `noSsr` because the alternative is a first paint at 709px that snaps shut a frame later,
+  // which is worse than either state. The choice persists, so opening it once is not a decision
+  // the reader re-makes on every visit; a phone that cannot write localStorage simply gets the
+  // default back each time.
+  const isPhone = useMediaQuery('(max-width:599.95px)', { noSsr: true })
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem(BRACKET_OPEN_KEY) === '1' } catch { return false }
+  })
+  const toggle = () => setOpen(v => {
+    try { localStorage.setItem(BRACKET_OPEN_KEY, v ? '0' : '1') } catch { /* private mode, non-fatal */ }
+    return !v
+  })
+
   const logged = useRef(false)
   useEffect(() => {
     if (logged.current || !bracket) return
@@ -360,13 +432,25 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, from = 'home' 
     : bracket.settled ? 'Seeds are set. Semifinals begin Sep 9.'
     : 'The bracket and title odds as they stand today.'
 
+  // The one line the card is worth while it is shut: who is favourite, and by how much. It
+  // replaces the subtitle rather than joining it, because the subtitle above describes the
+  // PICTURE ("the bracket and title odds as they stand today"), and a description of a picture
+  // nobody can see is the least useful line available. A crowned champion already IS the
+  // headline, so that one stands.
+  const favourite = odds?.title[0]
+  const shutSubtitle = bracket.champion || !favourite ? subtitle
+    : `${favourite.team.name} ${fmtOdds(favourite.p)} to win it all`
+
+  const collapsed = isPhone && !open
+
   return (
     <SectionCard
       title={bracket.started ? 'Postseason' : 'Road to the title'}
-      subtitle={subtitle}
+      subtitle={collapsed ? shutSubtitle : subtitle}
+      collapsed={isPhone ? collapsed : undefined}
+      onToggleCollapse={isPhone ? toggle : undefined}
     >
       <BracketDiagram bracket={bracket} odds={odds} onOpenTeam={onOpenTeam} from={from} />
-      {odds && <TitleOddsStrip odds={odds} onOpenTeam={onOpenTeam} />}
       {odds && !bracket.champion && (
         <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', mt: 1, lineHeight: 1.45 }}>
           Odds blend each club’s run differential with its head-to-head results, then

@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
 import { computeStandings } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, relativeDayShort } from './constants'
-import { TeamBadge, pressable, FOCUS_RING, CARD_BORDER, useWpblDark } from './ui'
+import { TeamBadge, pressable, FOCUS_RING, CARD_BORDER, useWpblDark, FormDots, WPBL_WIN as WIN, WPBL_LOSS as LOSS } from './ui'
 import { fmtSigned } from './stats'
 import HeadToHead from './HeadToHead'
 import type { WpblTeam, WpblGame, WpblStandingRow } from './types'
@@ -21,52 +21,6 @@ import { useWpblHeadingTag } from './PageHeading'
  * to the table: GB, L10 and the season run totals. Two views of four teams only justify
  * themselves if they answer different questions.
  */
-
-// Green/red for a result, from the section's themed positive/negative tokens (styles.css).
-// Literals here would fail contrast in one mode or the other (the dark-mode pair measures
-// 2.28 and 3.76 against a light background) and these have to read as a 9px shape in both.
-const WIN = 'var(--wpbl-pos)'
-const LOSS = 'var(--wpbl-neg)'
-
-const DOT = 9
-const DOT_GAP = 4
-const RING = 2
-
-/**
- * Last-five results as dots, oldest first: the same left-to-right order a schedule reads,
- * and the same order every form guide in sport uses.
- *
- * A win is SOLID and a loss is a RING. Colour alone would have been the only thing telling
- * the two apart, and red/green is precisely the pair that around one man in twelve cannot
- * separate. Everywhere else in the section the colour is redundant ("+26", "W4", "4–3" all
- * say it in text as well), and this strip must not be the exception. Filled-versus-hollow
- * survives greyscale, deuteranopia and a glance from arm's length.
- *
- * No opacity ramp for recency, either. It was competing with the fill/ring distinction for
- * the same few pixels and left the older rings too faint to read as rings at all.
- *
- * Only as many dots as there are games: five grey placeholders on opening week would suggest
- * a team had lost five, which is the one thing the strip must never imply.
- */
-function FormDots({ recent }: { recent: ('W' | 'L')[] }) {
-  if (recent.length === 0) return null
-  return (
-    <Box
-      role="img"
-      aria-label={`Last ${recent.length}, oldest first: ${recent.join(' ')}`}
-      sx={{ display: 'flex', alignItems: 'center', gap: `${DOT_GAP}px`, flexShrink: 0 }}
-    >
-      {recent.map((r, i) => (
-        <Box key={i} sx={{
-          width: DOT, height: DOT, borderRadius: '50%', boxSizing: 'border-box',
-          ...(r === 'W'
-            ? { bgcolor: WIN }
-            : { border: `${RING}px solid ${LOSS}` }),
-        }} />
-      ))}
-    </Box>
-  )
-}
 
 /** Chronological order for a team's games: date, then wall-clock start so a doubleheader's
  *  two games don't swap. Mirrors the ordering `computeStandings` uses, kept local because

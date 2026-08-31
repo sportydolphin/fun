@@ -596,6 +596,88 @@ is retired.
 
 ## Shipped log
 
+### Aug 31, 2026: Home spends the desktop it is on, and the next game earns its card (v1.57.0)
+
+Measured before anything was touched, at 1440x900 and at 375px, in the running app.
+
+**The finding under most of the rest: Home was 1,008px wide on every monitor.** WpblApp caps the
+section at `maxWidth: 720` LAYOUT px and the desktop `zoom: 1.4` renders that as 1,008, so the
+page never widened past a 1024px window: 216px of dead margin per side at 1440, **456px at
+1920**. Two 496px columns, a bracket that could not be drawn at a bracket's proportions, and a
+leaders board whose names had to be shortened, all of it downstream of one number. Home now
+breaks out with the same device StatsView's table already uses, `min(900px, calc(100vw /
+var(--app-zoom,1) - 24px))`, capping at 1,260 rendered px. The viewport term makes it a no-op at
+1024 and below, so it widens only where there is margin to spend. **Applied to the whole page,
+not the grid alone**: the scoreboard and the h1 share the cards' column, and a grid 250px wider
+than the strip above it reads as a mistake. Other tabs are untouched, so /wpbl and /wpbl/teams
+now differ in width; widening the section is the obvious follow-up and was deliberately not done
+here.
+
+**The four cards were paired by HEIGHT, not by meaning, and it cost the page its best card.**
+Next game (314) sat with Leaders (264) purely because they fit; Last Game (382) with the MVP race
+(390). At 1440x900 row 2 begins at y=734, so the MVP race, the only card on Home that cannot be
+got from another tab, rendered entirely below the fold. It now leads the right column and Leaders
+follows it. That only works because both short cards were given something to do (below), and the
+two are keyed in a two-element array rather than rendered in sequence: the race's play log is
+fetched last on purpose, so the two swap slots about a second after first paint, and without keys
+React reconciles by position, sees a different component type in slot 1 and **remounts Leaders**,
+resetting the reader's pill selection under them. Rows now match exactly: 495/495 and 358/358,
+zero injected stretch, against 58px before.
+
+**Next game went from a countdown to a preview.** A form strip (the section's own `FormDots`,
+moved from TeamsGrid into `ui.tsx` so there is one of them: green solid for a win, a red RING for
+a loss, which survives the eight percent of men who cannot separate the two hues) and a three-row
+cut of `WpblGamePreview` behind a new `compact` prop. **`FORM_DOTS = 15` is a WIDTH, not a fact
+about the schedule**: at 320px, 32px of page gutter and 32px of card padding leave 256, the club
+abbreviation and the streak take 78 with their gaps, and 178 remain, which at a 9px dot on a 3px
+pitch is `12n - 3 <= 178`, so 15. Change the dot or the gap and redo that. The row ends in the
+streak rather than the W-L, because at 15 dots the W-L became a straight duplicate of the record
+three lines above it in the same right-hand column. The card is 495px against the MVP race's 390
+natural, and the race's chart absorbs the difference, which is what its `fill` is for.
+
+**`LEADER_ROWS` is 3 on a phone and 5 from md up, and the split is not a preference.** Leaders
+against Last Game at three names is a 118px hole; at five it is 45. The board is built at five and
+CSS drops rows 4 and 5 below md, so there is no breakpoint state to get wrong on first paint, the
+ranks are numbered off the full list either way, and all five player links stay in the page for a
+crawler. This constant has now gone 5 -> 3 -> both; it follows the pairing, and the pairing is in
+the note beside it.
+
+**Three columns of leaders does not fit, and the measurement is why.** Asked for and not shipped.
+A compact leader row needs ~105px for the name (125 for "Andréanne Leblanc") plus ~117px of rank,
+badge, sample and value. The card body is 412 LAYOUT px at 1440: three columns give **129px
+each**, which clips every name, and two give 200px, which fits only by dropping the "50 PA"
+sample that stops a 12-AB cameo topping a rate board. Buying the room means a wider cap
+(`HOME_WIDE_W` 900 -> 1050 gives 157px per column) and even that only reaches two.
+
+**The bracket's right half was blank for 365px, about half the card.** The two semifinals stack to
+~465px against one 95px championship box, and the 183px title-odds strip sat in a band underneath
+the whole thing. The strip moved into that column. **`1fr auto 1fr` is the whole trick and a flex
+column with the strip appended is not the same thing**: the connector's elbow points at 50% of the
+column, so appending the strip to a centred column rides the championship box up by half the
+strip's height and the hairline lands in mid-air. Equal `fr` rows put it back on centre whatever
+the strip measures (verified: champ centre 1520.0 against semis centre 1519.5), and an `fr` row
+floors at its content, so an oversized strip grows the card rather than overlapping. One copy,
+not two behind a `display` switch: on a phone that column is simply the next block, so the strip
+lands where it already was. 764px -> 647px.
+
+**The bracket starts folded on a phone, with its answer in the subtitle.** 709px at 57% scroll
+depth on a page where 670 of 2,037 browsers fire exactly one event. What collapses is the drawing;
+the subtitle carries "Firebells 75% to win it all" while it is shut, and the choice persists.
+`noSsr` on the media query, because the alternative is a 709px first paint that snaps closed a
+frame later.
+
+**Two real bugs found on the way, both invisible and both about pixels that are not the same
+pixel.** The scoreboard's placement subtracted a `getBoundingClientRect` value (visual px) from
+`scrollLeft` (layout px), which inside the zoom wrapper undershot the scroll by a factor of 1.4:
+the same trap as `--app-header-h`, one axis over, and it is why the strip opened with 51px of the
+older game showing against the 32 the code asked for. It divides by `--app-zoom` now. And the
+edge fade was a fixed 24px stopping 6px above the bottom, which over a 51px clipped chip left the
+score column legible and a bright corner of it floating below the mask. The fade is now measured
+against the chip it has to cover (`leadClip`) and runs the full height.
+
+**Where it ended.** Desktop 1,008 -> 1,260 wide, 2,193 -> 2,224 tall with both rows exact. Phone
+**2,381 -> 1,871px, 2.93 screens -> 2.30**, having ADDED the form strip and the season comparison.
+
 ### Aug 31, 2026: the feed list was truncating, and a whole game fell through it
 
 **A game went missing from the site while the ingest reported perfect health.** Aug 30, NY@SF.

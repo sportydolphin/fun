@@ -4,6 +4,41 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.57.0',
+    date:    '2026-08-31',
+    title:   'The next game says a lot more, and home uses the screen it is on',
+    changes: [
+      {
+        short: 'The next-game card now shows form and a season comparison',
+        full:  'It had two clubs, two records and a countdown, and about a third of it was blank. It now carries each club\u2019s season as a run of dots, oldest on the left, green for a win and a red ring for a loss, with the current streak beside it once it reaches three. Under that are three bars comparing the two on runs per game, OPS and ERA, which is the same comparison Game Center draws for a game that has not been played, cut down to the three that matter. Between them they answer the two things anyone asks before a first pitch: how good are these clubs, and how are they going right now.',
+      },
+      {
+        short: 'The bracket folds away on a phone, with its answer left showing',
+        full:  'Road to the title was 709 pixels on a 375-pixel phone, 30% of the page, arriving more than halfway down. It now starts folded there, and the line under the title carries the headline the card exists to deliver, currently \u201cFirebells 75% to win it all\u201d, so a reader who never opens it still gets the answer. Opening it is remembered. On a wider screen it is unchanged and open, as before.',
+      },
+      {
+        short: 'Home is a quarter shorter on a phone and uses the full width on a desktop',
+        full:  'The phone page went from about 2,380 pixels to 1,870, a fifth shorter than it was even after adding the form strip and the season comparison. On a desktop the page had been capped at 1,008 pixels wide on every monitor, which left 216 pixels of empty margin on each side at 1440 and 456 at 1920; it now grows to 1,260, so the cards are wider, the leader names have room and the bracket is drawn at a size worth drawing.',
+      },
+      {
+        short: 'The MVP race moves above the fold, and the four cards line up exactly',
+        full:  'The cards were paired by how tall they happened to be rather than by what they are, which put the MVP race in the second row, starting 734 pixels down a 900-pixel screen. It is the one card here you cannot get from another tab, so it now leads the right-hand column beside the next game, with the leaders board below it. Both rows match to the pixel, with no card stretched to fill a gap.',
+      },
+      {
+        short: 'The leaders board shows five names on a wide screen, three on a phone',
+        full:  'Three names left the board 50 pixels short of the card beside it, and the difference was being spent as extra space between the names. Five fills the row on a desktop; a phone keeps three, because that page is the one that needs to get shorter rather than taller.',
+      },
+      {
+        short: 'The scoreboard no longer opens on two bare numerals in the corner',
+        full:  'The strip starts at the most recent result, and the game before that one was cut off at the left edge showing only its score column: a \u201c6\u201d over a \u201c10\u201d with no badge or club beside them, which read as something broken rather than as a hint that there is more to scroll. The soft edge over it is now measured against the card it has to cover instead of being a fixed 24 pixels, and it reaches the bottom of the strip, where a bright corner of that card used to sit below it.',
+      },
+      {
+        short: 'The postseason odds moved into the empty half of the bracket',
+        full:  'The two semifinal boxes stack to about twice the height of the single championship box, so the right-hand half of that card was blank above and below it while the title odds sat in a band of their own underneath the whole thing. They now sit beside the championship, which fills the gap and takes about 120 pixels off the card. The championship box stays exactly on centre, so the line joining it to the semifinals still points where it should.',
+      },
+    ],
+  },
+  {
     version: '1.55.1',
     date:    '2026-08-31',
     title:   'Player of the game now comes from the team that won',

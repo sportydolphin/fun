@@ -13,7 +13,7 @@ import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameS
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { WPBL_LEAGUE_PAGE, WPBL_PATH_EVENT } from './routes'
 import { useWpblHeadingTag } from './PageHeading'
-import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, wpblFeatureName, CARD_BORDER } from './ui'
+import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, wpblFeatureName, CARD_BORDER, FormDots, WPBL_WIN, WPBL_LOSS } from './ui'
 import { LiveHero } from './Live'
 import PlayoffBracket from './PlayoffBracket'
 import {
@@ -27,6 +27,7 @@ import { track, EVENTS } from '../lib/analytics'
 import { DISCORD_DISMISS_KEY, DISCORD_DEV_SHOW_EVENT } from './discordInvite'
 import { LastGameCard } from './RecapCard'
 import FeedDelayNote from './FeedDelayNote'
+import { WpblGamePreview } from './GamePreview'
 import MvpRaceCard, { mvpRaceIsWorthDrawing } from './MvpRace'
 import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
 import { mvpRace } from './derive/mvpRace'
@@ -40,6 +41,35 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine,
 
 // Rate-leader qualifiers live in stats.ts (`wpblQualifiers`) and scale with the season, so
 // the OPS and ERA boards can't fill up with one-game cameos as the schedule goes on.
+
+// Home breaks out of the section's 720px page column on a wide screen.
+//
+// WITHOUT THIS THE PAGE IS 1008px WIDE ON EVERY MONITOR. WpblApp caps the whole section at 720
+// LAYOUT px, and the desktop `zoom: 1.4` renders that as 1008: 216px of dead margin per side at
+// 1440 and 456px at 1920, where the two card columns, the leader boards and the bracket's shape
+// are all fixed at whatever fits inside it. Every spacing complaint on this page started there.
+//
+// Same device as StatsView's full-bleed table (see FULL_BLEED_W), `--app-zoom` division and all:
+// `vw` is NOT shrunk by `zoom`, so the viewport term has to be divided by it or the box comes
+// out 40% too wide. The cap is a LAYOUT length too, so 900 renders as 1260.
+//
+// The viewport term is what makes this safe rather than a step change: below the cap the width
+// tracks the screen less the app's own 16px gutters, which is what the page was already doing,
+// so this is a no-op at 1024 and only starts widening once there is margin to spend. It also
+// keeps the 24px of slack that stops `100vw` (which counts a classic scrollbar) from giving the
+// whole site a horizontal scrollbar.
+//
+// APPLIED TO THE WHOLE PAGE, not to the grid alone. The scoreboard, the h1 and the league row
+// are the same column as the cards, and a grid that is 250px wider than the strip above it
+// reads as a mistake, not as emphasis. `xs` opts out: the page already fills a phone, and the
+// transform would only fight the gutter SwipeableViews hands each pane.
+const HOME_WIDE_W = 'min(900px, calc(100vw / var(--app-zoom, 1) - 24px))'
+const homeWideSx = {
+  width: { xs: 'auto', md: HOME_WIDE_W },
+  position: 'relative',
+  left: { xs: 0, md: '50%' },
+  transform: { xs: 'none', md: 'translateX(-50%)' },
+} as const
 
 // ─── Scoreboard ─────────────────────────────────────────────────────────────────
 
@@ -134,11 +164,37 @@ function Scoreboard({ games, teams, onOpenGame }: {
   // cut-off card reads as "swipe for more" rather than a clipped card.
   const [atStart, setAtStart] = useState(true)
   const [atEnd, setAtEnd] = useState(true)
+  // THE LEFT FADE IS AS WIDE AS THE CHIP IT HAS TO COVER, measured rather than guessed.
+  //
+  // A fixed 24px mask against a 190px chip is not a fade, it is a 24px vignette with a clipped
+  // card behind it: the strip opened showing the right-hand 51px of the previous-but-one game,
+  // which is that chip's SCORE COLUMN and nothing else, so the page began with two bare
+  // numerals stacked in the corner with no badge or club beside them. It reads as a rendering
+  // fault, and it is the one thing on the strip a reader cannot act on.
+  //
+  // Widening the mask to a constant would only move the problem, because the clipped amount is
+  // not constant: the placement below aims the anchor 16px in, but once the rest of the season
+  // fits on screen the strip is pinned at max scroll and the leading chip is cut wherever the
+  // arithmetic leaves it. So the mask asks the chip. `leadClip` is how much of the first
+  // partially-scrolled chip is showing; the fade holds solid across it and softens over the
+  // gap after it, which is why the anchor beside it stays perfectly clear at any width.
+  const [leadClip, setLeadClip] = useState(0)
   const syncEdges = useCallback(() => {
     const c = scrollRef.current
     if (!c) return
     setAtStart(c.scrollLeft <= 1)
     setAtEnd(c.scrollLeft + c.clientWidth >= c.scrollWidth - 1)
+    // Rects, so this is in the same visual pixels the fade's `width` is spent in. (The
+    // placement below wants layout pixels and divides; see the note there.)
+    const left = c.getBoundingClientRect().left
+    let clip = 0
+    for (const chip of Array.from(c.children)) {
+      const r = chip.getBoundingClientRect()
+      // The first chip whose left edge is off-screen but whose right edge is not: the cut one.
+      if (r.left < left - 0.5 && r.right > left) { clip = r.right - left; break }
+      if (r.left >= left - 0.5) break
+    }
+    setLeadClip(clip)
   }, [])
 
   // The reader taking the strip over. Set from real input only, never from onScroll — that
@@ -200,8 +256,23 @@ function Scoreboard({ games, teams, onOpenGame }: {
       // Inset the previous game (anchor) from the left edge rather than flush against it, so the
       // edge-fade lands on the older game peeking behind it — the previous game stays fully in
       // view. No inset when it's already the first chip (nothing to its left to peek).
-      const inset = anchorIndex > 0 ? 32 : 0
-      const delta = anchor.getBoundingClientRect().left - el.getBoundingClientRect().left - inset
+      //
+      // SIXTEEN, NOT THIRTY-TWO, AND THE SLIVER IS THE POINT. A chip is 190px wide with its
+      // score column hard against its right edge, so ANY wide peek shows that column and nothing
+      // else: the strip opened on two bare numerals, "6" over "10", with no badge and no club
+      // beside them, which reads as a rendering fault rather than as "there is more this way".
+      // 16 is the 8px gap plus the older chip's own 8px of padding, so what peeks is a blank
+      // card edge under the fade. The affordance survives; the clipped digits do not.
+      const inset = anchorIndex > 0 ? 16 : 0
+      // THE RECT IS IN VISUAL PIXELS AND `scrollLeft` IS IN LAYOUT PIXELS, and on /wpbl those
+      // are not the same pixel: the section sits inside a `zoom: 1.4` wrapper at md, which
+      // getBoundingClientRect reports AFTER and scrollLeft counts BEFORE. Spending the raw
+      // difference undershot the scroll by a factor of the zoom, which is why the desktop strip
+      // opened with 51px of the older game showing against the 32 the line above asked for. The
+      // same trap as `--app-header-h`, one axis over. `--app-zoom` is 1 off desktop, so this is
+      // exact everywhere rather than a desktop special case.
+      const zoom = parseFloat(getComputedStyle(el).getPropertyValue('--app-zoom')) || 1
+      const delta = (anchor.getBoundingClientRect().left - el.getBoundingClientRect().left) / zoom - inset
       if (Math.abs(delta) > 0.5) el.scrollLeft += delta
       syncEdges()
     }
@@ -234,10 +305,24 @@ function Scoreboard({ games, teams, onOpenGame }: {
           {strip.map(g => <GameChip key={g.id} game={g} teams={teams} onOpen={() => onOpenGame(g)} />)}
         </Box>
         {!atStart && (
-          <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 6, width: 24, pointerEvents: 'none', background: t => `linear-gradient(to right, ${t.palette.background.default}, transparent)` }} />
+          /* Solid across the clipped chip, then a soft edge over the 11px gap that follows it,
+             with a 24px floor so a strip scrolled to a clean chip boundary still gets the plain
+             vignette this always was.
+
+             FULL HEIGHT. Both fades stopped 6px short of the bottom, which was invisible while
+             they were 24px of vignette over a chip's midriff and became a defect the moment the
+             left one had a whole clipped card to cover: the chip's bottom corner sat in that
+             6px band, below the mask, as a bright stub floating under the strip with nothing
+             above it. The scroller's own `pb` is 4px of padding with nothing drawn in it, and
+             the scrollbar is hidden, so there is nothing down there for the mask to spare. */
+          <Box sx={{
+            position: 'absolute', left: 0, top: 0, bottom: 0, pointerEvents: 'none',
+            width: `${Math.max(24, leadClip + 12)}px`,
+            background: t => `linear-gradient(to right, ${t.palette.background.default} 0%, ${t.palette.background.default} ${Math.round(100 * leadClip / Math.max(24, leadClip + 12))}%, transparent 100%)`,
+          }} />
         )}
         {!atEnd && (
-          <Box sx={{ position: 'absolute', right: 0, top: 0, bottom: 6, width: 24, pointerEvents: 'none', background: t => `linear-gradient(to left, ${t.palette.background.default}, transparent)` }} />
+          <Box sx={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 24, pointerEvents: 'none', background: t => `linear-gradient(to left, ${t.palette.background.default}, transparent)` }} />
         )}
         {/* Hover-to-scroll zones over each edge (desktop only; touch keeps swipe). */}
         {!atStart && (
@@ -491,6 +576,45 @@ function seasonSeries(games: WpblGame[], homeId: string, awayId: string): { home
   return homeWins + awayWins === 0 ? null : { homeWins, awayWins }
 }
 
+// HOW MANY RESULTS THE FORM STRIP DRAWS, AND WHY IT IS FIFTEEN.
+//
+// It is the whole season, and it is also the most that provably fits. A WPBL regular season is
+// 15 games a club, so today this shows every one of them and the strip is a season at a glance
+// rather than a peephole onto the last five, which is what it was and which left two thirds of
+// the row empty on a desktop.
+//
+// The number is a WIDTH, though, not a fact about the schedule, so it is derived from the
+// narrowest screen the site supports rather than from the fixture list. At 320px: 32px of page
+// gutter and 32px of card padding leave 256, the club abbreviation and the record take 78
+// between them with their gaps, and 178 remain. At a 9px dot on a 3px pitch that is
+// `12n - 3 <= 178`, so 15. A longer season would show its most recent 15, which is still a form
+// guide; a wider dot or a fatter gap would silently push the record off the row, so change
+// either of those and redo this arithmetic.
+const FORM_DOTS = 15
+
+/** A club's last `n` decided results before `beforeMs`, oldest first, as won/lost.
+ *
+ *  Filtered exactly as `seasonSeries` and `computeStandings` are, decisive regular-season
+ *  finals only, for the same reason: this sits two rows above a record that comes out of
+ *  `computeStandings`, and a form strip counting games that record does not is a card
+ *  disagreeing with itself.
+ *
+ *  Ordered by start time rather than by date alone, because the feed publishes a timezone twin
+ *  of every game (see the ingest note) and two rows sharing a date have to break their tie on
+ *  something stable or the strip reshuffles between paints.
+ */
+function recentForm(games: WpblGame[], teamId: string, beforeMs: number, n = FORM_DOTS): boolean[] {
+  return games
+    .filter(g => g.status === 'final' && g.home_score != null && g.away_score != null
+      && g.home_score !== g.away_score && countsInStandings(g)
+      && (g.home_team_id === teamId || g.away_team_id === teamId))
+    .map(g => ({ g, ms: gameStartMs(g.game_date, g.start_time) ?? 0 }))
+    .filter(x => x.ms < beforeMs)
+    .sort((a, b) => a.ms - b.ms || a.g.id.localeCompare(b.g.id))
+    .slice(-n)
+    .map(({ g }) => (g.home_score! > g.away_score! ? g.home_team_id : g.away_team_id) === teamId)
+}
+
 function NextGameCard({ games, teams, onOpenGame }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
 }) {
@@ -560,6 +684,66 @@ function NextGameCard({ games, teams, onOpenGame }: {
     )
   }
 
+
+  // FORM, AND IT IS HERE TO BE READ, NOT TO FILL THE CARD, though it does both.
+  //
+  // Next game is the shortest card in the grid and now shares a stretched row with the MVP
+  // race, so whatever it does not say it says as blank space: at three lines it was holding a
+  // 76px band of nothing between the season-series line and the reminder rule. The record on
+  // each team row answers "how good are they"; nothing on the card answered "how are they
+  // going", which is the other half of what anyone asks before a game and the half a 4-8 club
+  // on a four-game run is most misrepresented by.
+  //
+  // A block of its own rather than pips tucked into the team rows above. Those rows are
+  // deliberately identical to LastGameCard's, tier for tier, and a strip of dots is the width
+  // that tips "San Francisco Firebells" onto a second line at 320px: the row would silently
+  // double in height on exactly one matchup, which is the failure that row's own note already
+  // refuses. Down here both clubs line up under one label and the phone gets it too.
+  //
+  // THE SECTION'S FORM STRIP, NOT A SECOND ONE. It drew its own dots for a while, in the club's
+  // accent at two opacities, and that was wrong twice over: a green tick on the Teams page and
+  // a red pip here meant the same result, and within this card the away club's win and the home
+  // club's loss could be the same hue at different alphas, which is the one distinction the
+  // strip exists to make. `FormDots` is green-solid for a win and a red RING for a loss, so the
+  // two survive greyscale and the eight percent of men who cannot separate red from green; see
+  // its note in ui.tsx. Tighter gap than the Teams page spends, because that strip draws five
+  // results in a table row and this one draws a season.
+  const formRow = (t: WpblTeam | undefined) => {
+    if (!t) return null
+    const results = recentForm(games, t.id, next.ms)
+    if (results.length === 0) return null
+    // The run the club is on right now: the trailing results that all agree.
+    let streak = 0
+    for (let i = results.length - 1; i >= 0 && results[i] === results[results.length - 1]; i--) streak++
+    const streakWon = results[results.length - 1]
+    return (
+      <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.9 }}>
+        <Typography sx={{ width: 30, flexShrink: 0, fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.3, color: 'text.secondary' }}>{t.abbr}</Typography>
+        <Box sx={{ flex: 1, minWidth: 0, display: 'flex' }}>
+          <FormDots recent={results.map(won => (won ? 'W' : 'L'))} gap={3} />
+        </Box>
+        {/* THE STREAK, NOT THE RECORD. This row ended with the club's W–L over the games drawn,
+            which was fine while it drew five and became a straight duplicate the moment it drew
+            the season: "8–4" sat here in the same right-hand column as the "8–4" on the team row
+            three lines above, saying one number twice in one card. The streak is the fact a strip
+            of dots is slowest to yield and the one this card did not already have.
+
+            Three and up, which is the Teams page's rule for the same strip and the same reason:
+            below three it is something the last two dots already say, and at three it is the
+            headline about the club. A row with no run simply ends at its dots, there too. */}
+        {streak >= 3 && (
+          <Typography sx={{
+            flexShrink: 0, fontSize: '0.68rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+            color: streakWon ? WPBL_WIN : WPBL_LOSS,
+          }}>
+            {streakWon ? 'W' : 'L'}{streak}
+          </Typography>
+        )}
+      </Box>
+    )
+  }
+  const formRows = [formRow(away), formRow(home)].filter(Boolean)
+
   return (
     <SectionCard
       title="Next game"
@@ -588,6 +772,30 @@ function NextGameCard({ games, teams, onOpenGame }: {
           <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', lineHeight: 1.35 }}>
             {seriesLabel}
           </Typography>
+        )}
+        {/* Inside the clickable block with the rest: form is a fact about the two clubs in
+            THIS game, so it opens the same game the rows above it do. */}
+        {formRows.length > 0 && (
+          <Box sx={{ mt: 1.25 }}>
+            <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.secondary', mb: 0.5 }}>
+              Form
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>{formRows}</Box>
+          </Box>
+        )}
+        {/* The tale of the tape: three diverging bars, the same component Game Center draws for
+            an unplayed game, cut down to a block (see its `compact` note). Form says how the
+            two clubs are GOING and this says how good they have been, which are the two halves
+            of the only question anyone asks before a first pitch, and neither was on the card.
+
+            NO EXTRA FETCH. It reads the season lines out of the same session cache Home has
+            already filled for the leaders, so on this page it is arithmetic on data in hand.
+            It renders nothing at all until there is something to compare, so the season's
+            opening days get the card as it was rather than an empty frame. */}
+        {away && home && (
+          <Box sx={{ mt: 1.25 }}>
+            <WpblGamePreview away={away} home={home} teams={[...teams.values()]} games={games} compact />
+          </Box>
         )}
       </Box>
       {/* Once the countdown in the header has run out and nothing has happened, this is the
@@ -676,7 +884,13 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
         const isTop = i === 0
         return (
           <Box key={r.player.id} {...playerLink(r.player, onOpenPlayer)} sx={{
-            display: 'flex', alignItems: 'center', gap: isTop ? 1 : 0.75,
+            // Rows past third exist in the DOM at every width and are dropped below md. `none`
+            // rather than a media query in JS: the count is then a fact about the stylesheet,
+            // so first paint cannot disagree with the second, and the ranks above are numbered
+            // off the full list either way. It also keeps all five in the page for a crawler,
+            // which is five player links out of Home instead of three.
+            display: { xs: i < LEADER_ROWS ? 'flex' : 'none', md: 'flex' },
+            alignItems: 'center', gap: isTop ? 1 : 0.75,
             py: isTop ? 0.55 : 0.4, cursor: 'pointer',
             borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },
           }}>
@@ -724,25 +938,31 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
   )
 }
 
-// How many names a Home leader board lists.
+// How many names a Home leader board lists: three on a phone, five from md up.
 //
-// BACK TO THREE, BECAUSE THE PAIRING CHANGED. It was five, and the note here said why: Leaders
-// used to sit beside Last Game in a shared-height row, three names left it about 90px short of
-// its neighbour, and two more leaders were a better way to spend that gap than 90px of margin.
-// That argument was sound and its premise is gone. Leaders now pairs with Next game, which is
-// the SHORTEST card in the grid, so the two extra rows stopped filling a hole and started
-// digging one on the other side: at five, Leaders set the row and left Next game holding the
-// slack instead.
+// THE NUMBER FOLLOWS THE LAYOUT, and it has now gone 5 -> 3 -> both. Five was right when
+// Leaders shared a stretched row with Last Game and three left it 90px short. Three was right
+// when the columns were re-paired by height and Leaders sat beside Next game, the shortest card
+// in the grid, where the two extra rows stopped filling a hole and started digging one. It is
+// beside Last Game again (see the note in the right-hand column), so the 90px is back, and two
+// more leaders are still a better way to spend it than 90px of margin.
 //
-// So the number follows the layout rather than the other way round, which is the right
-// direction for it. Three is also what the card wants on its own: a podium reads at a glance
-// where a five-row board asks to be scanned, and everything below third is one tap away on the
-// Stats tab that "View all" opens.
+// SPLIT BY BREAKPOINT THIS TIME, because the two arguments were never actually in conflict:
+// the hole is a desktop problem and the height is a phone one. Home is 2.9 screens on a phone
+// and 670 of 2,037 browsers fire exactly one event on it, so the two rows that fix a desktop
+// row boundary are the last thing that page needs. Three is also what the card wants on its
+// own where space is scarce: a podium reads at a glance where a five-row board asks to be
+// scanned, and everything below third is one tap away on the Stats tab "View all" opens.
+//
+// ONE BOARD, HIDDEN BY CSS, rather than two counts computed from a media query. The boards are
+// built at the wide count and StatBlock drops rows 4 and 5 below md, so there is no breakpoint
+// state to get wrong on first paint and the ranks are numbered off the full list either way.
 const LEADER_ROWS = 3
+const LEADER_ROWS_WIDE = 5
 
 // Pick the top `n` by `value` (higher is better; negate inside for ascending stats),
 // after an optional qualifier filter.
-function topBat(list: WpblBatSeason[], value: (t: WpblBattingTotals) => number | null, display: (t: WpblBattingTotals) => string, qualify?: (t: WpblBattingTotals) => boolean, n = LEADER_ROWS, meta?: (t: WpblBattingTotals) => string): LeaderRow[] {
+function topBat(list: WpblBatSeason[], value: (t: WpblBattingTotals) => number | null, display: (t: WpblBattingTotals) => string, qualify?: (t: WpblBattingTotals) => boolean, n = LEADER_ROWS_WIDE, meta?: (t: WpblBattingTotals) => string): LeaderRow[] {
   return list
     .filter(x => (qualify ? qualify(x.totals) : true) && value(x.totals) != null)
     // Ties break toward the bigger sample (more at-bats).
@@ -750,7 +970,7 @@ function topBat(list: WpblBatSeason[], value: (t: WpblBattingTotals) => number |
     .slice(0, n)
     .map(x => ({ player: x.player, display: display(x.totals), meta: meta?.(x.totals) }))
 }
-function topPit(list: WpblPitSeason[], value: (t: WpblPitchingTotals) => number | null, display: (t: WpblPitchingTotals) => string, qualify?: (t: WpblPitchingTotals) => boolean, n = LEADER_ROWS, meta?: (t: WpblPitchingTotals) => string): LeaderRow[] {
+function topPit(list: WpblPitSeason[], value: (t: WpblPitchingTotals) => number | null, display: (t: WpblPitchingTotals) => string, qualify?: (t: WpblPitchingTotals) => boolean, n = LEADER_ROWS_WIDE, meta?: (t: WpblPitchingTotals) => string): LeaderRow[] {
   return list
     .filter(x => (qualify ? qualify(x.totals) : true) && value(x.totals) != null)
     // Ties (e.g. equal ERA) break toward more innings pitched.
@@ -839,8 +1059,14 @@ function LeadersCard({ title, groups, loading, hasData, teamById, onOpenPlayer }
 
   // Reserve the tallest board's height so stepping between a 3-row and a 2-row category
   // doesn't jolt the card. The #1 row is a taller hero (~48px); each of the rest ~26px.
-  const maxRows = shown.length ? Math.max(...shown.map(b => b.rows.length)) : 3
-  const reservePx = 48 + Math.max(0, maxRows - 1) * 26
+  //
+  // Per breakpoint, because the board itself is: StatBlock draws five rows from md up and three
+  // below it, and a single reserve would either leave 52px of dead card under a phone's third
+  // name or let the desktop board outgrow its own floor. `rows.length` is the built count, so
+  // it is capped to what is actually visible at each width.
+  const maxRows = shown.length ? Math.max(...shown.map(b => b.rows.length)) : LEADER_ROWS
+  const rowsPx = (n: number) => 48 + Math.max(0, n - 1) * 26
+  const reservePx = { xs: `${rowsPx(Math.min(maxRows, LEADER_ROWS))}px`, md: `${rowsPx(maxRows)}px` }
 
   return (
     <SectionCard
@@ -903,7 +1129,7 @@ function LeadersCard({ title, groups, loading, hasData, teamById, onOpenPlayer }
             // two cards in its row and the row now stretches both to a shared height, so the
             // difference has to land somewhere: below the last leader, inside the board, is
             // the only place it reads as margin rather than as a gap in the card.
-            sx={{ minHeight: `${reservePx}px`, flex: 1 }}
+            sx={{ minHeight: reservePx, flex: 1 }}
           >
             <StatBlock key={shown[idx].label} label={shown[idx].label} rows={shown[idx].rows} teamById={teamById} onOpenPlayer={onOpenPlayer} hideLabel />
           </Box>
@@ -1254,14 +1480,14 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])
 
   const battingBlocks = useMemo(() => [
-    { label: 'OPS',       short: 'OPS', sortKey: 'ops', rows: topBat(batSeasons, t => t.ops, t => fmtRate(t.ops), t => !qual.active || plateAppearances(t) >= qual.minPa, LEADER_ROWS, t => `${plateAppearances(t)} PA`) },
+    { label: 'OPS',       short: 'OPS', sortKey: 'ops', rows: topBat(batSeasons, t => t.ops, t => fmtRate(t.ops), t => !qual.active || plateAppearances(t) >= qual.minPa, LEADER_ROWS_WIDE, t => `${plateAppearances(t)} PA`) },
     { label: 'Home runs', short: 'HR',  sortKey: 'hr',  rows: topBat(batSeasons, t => t.hr,  t => String(t.hr), t => t.hr > 0) },
     { label: 'RBI',       short: 'RBI', sortKey: 'rbi', rows: topBat(batSeasons, t => t.rbi, t => String(t.rbi), t => t.rbi > 0) },
   ], [batSeasons, qual])
 
   const pitchingBlocks = useMemo(() => [
-    { label: 'ERA',        short: 'ERA', sortKey: 'era', rows: topPit(pitSeasons, t => (t.era == null ? null : -t.era), t => fmtEra(t.era), t => !qual.active || t.outs >= qual.minOuts, LEADER_ROWS, t => `${outsToIp(t.outs)} IP`) },
-    { label: 'Strikeouts', short: 'K',   sortKey: 'so',  rows: topPit(pitSeasons, t => t.so, t => String(t.so), t => t.so > 0, LEADER_ROWS, t => `${outsToIp(t.outs)} IP`) },
+    { label: 'ERA',        short: 'ERA', sortKey: 'era', rows: topPit(pitSeasons, t => (t.era == null ? null : -t.era), t => fmtEra(t.era), t => !qual.active || t.outs >= qual.minOuts, LEADER_ROWS_WIDE, t => `${outsToIp(t.outs)} IP`) },
+    { label: 'Strikeouts', short: 'K',   sortKey: 'so',  rows: topPit(pitSeasons, t => t.so, t => String(t.so), t => t.so > 0, LEADER_ROWS_WIDE, t => `${outsToIp(t.outs)} IP`) },
     { label: 'Innings',    short: 'IP',  sortKey: 'ip',  rows: topPit(pitSeasons, t => t.outs, t => outsToIp(t.outs), t => t.outs > 0) },
   ], [pitSeasons, qual, fmtEra])
 
@@ -1289,8 +1515,23 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   const { newCount: newTrackingCount, ack: ackTracking } = useNewTrackingBatch(tracking)
   const viewTracking = () => { ackTracking(); onViewTracking() }
 
+  // Built here rather than inline because the right column renders its two cards in one of two
+  // ORDERS (see the note there), and the same element has to be the same element in both so its
+  // key can carry it across the swap without a remount.
+  const leadersCard = (
+    <LeadersCard
+      key="leaders"
+      title="Leaders"
+      groups={[
+        { key: 'hitting', label: 'Batting', blocks: battingBlocks, onViewAll: sortKey => onViewStats('hitting', sortKey) },
+        { key: 'pitching', label: 'Pitching', blocks: pitchingBlocks, onViewAll: sortKey => onViewStats('pitching', sortKey) },
+      ]}
+      loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer}
+    />
+  )
+
   return (
-    <Box>
+    <Box sx={homeWideSx}>
       {/* Slim league header. On mobile it's just the title; on wider screens the club chips
           sit inline to the right. */}
       <Box sx={{
@@ -1434,42 +1675,40 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
           display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
           gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
         }}>
-          {/* LEADERS FIRST, SO ROW 1 IS THE TWO SHORT CARDS AND ROW 2 IS THE TWO TALL ONES.
-              The columns share row boundaries through subgrid, so the pairing is the layout:
-              whichever card is taller in a row sets it and its neighbour is stretched to match.
-              With the MVP race up here it set row 1 at 279px against Next game's natural 214
-              and left 65px of visible dead air in the middle of Next game, which is the gap you
-              could see between the season-series line and the reminder row.
+          {/* THE MVP RACE LEADS THIS COLUMN, SO IT IS THE ONE SEASON CARD ABOVE THE FOLD.
+              It used to be second, and the ordering was picked purely on height: Next game
+              (214) with Leaders (~200), then Last Game (256) with the MVP race (279), which
+              paired the cards by how tall they happened to be rather than by what they are.
+              That was the right call when the alternative was a 65px hole in Next game, and it
+              cost the page the thing it is least able to spare. At 1440x900 the second row
+              starts at y=734, so the MVP race was rendering entirely below the fold: the ONE
+              card on Home that cannot be got from another tab, drawn where a reader who does
+              not scroll never meets it. Leaders is a summary of the Stats tab two taps away.
 
-              Sorted by height instead, the rows pair up on their own: Next game (214) with
-              Leaders (~200 at three names), then Last Game (256) with the MVP race (279). The
-              stretch left in each row is single figures rather than a hole, and no card had to
-              be squeezed to get there.
+              The pairing still works, because the two cards that were short have both been
+              given something to do: Next game now carries each club's recent form, and Leaders
+              draws every category at once from md up instead of one behind a chip. Row 1 is
+              Next game against the MVP race and row 2 is Last Game against Leaders, and the
+              stretch in each is single figures again. If either of those is reverted, put this
+              back to Leaders-first or the hole comes with it.
 
-              THIS IS WHY LEADER_ROWS WENT BACK TO THREE, and the two changes only make sense
-              together: see the note on that constant. `fill` on both, because every card in
-              this grid is. */}
-          <LeadersCard
-            title="Leaders"
-            groups={[
-              { key: 'hitting', label: 'Batting', blocks: battingBlocks, onViewAll: sortKey => onViewStats('hitting', sortKey) },
-              { key: 'pitching', label: 'Pitching', blocks: pitchingBlocks, onViewAll: sortKey => onViewStats('pitching', sortKey) },
-            ]}
-            loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer}
-          />
-          {/* It spends whatever slack the row gives it on the chart, which is the one child
-              that gets better with height; see the note on RaceChart's `fill`. */}
-          {mvpRaceIsWorthDrawing(race)
-            ? (
-              <MvpRaceCard race={race} games={games} onOpenPlayer={onOpenPlayer}
-                onViewBoard={() => onViewStats('runs')} fill />
-            )
-            : (
-              // Nothing to draw yet (a season too young, or the play log still in flight).
-              // An empty grid cell rather than a skeleton: the row simply collapses to
-              // whatever Next game needs, and Leaders moves up to meet it.
-              <Box />
-            )}
+              KEYED, because the MVP race appears about a second after first paint (its play log
+              is deliberately fetched last) and these two swap SLOTS when it does. Without keys
+              React reconciles by position, sees a different component type in slot 1, and
+              remounts Leaders: the reader's pill selection resets under them one second in. */}
+          {(mvpRaceIsWorthDrawing(race)
+            ? [
+              /* It spends whatever slack the row gives it on the chart, which is the one child
+                 that gets better with height; see the note on RaceChart's `fill`. */
+              <MvpRaceCard key="mvp" race={race} games={games} onOpenPlayer={onOpenPlayer}
+                onViewBoard={() => onViewStats('runs')} fill />,
+              leadersCard,
+            ]
+            // Nothing to draw yet (a season too young, or the play log still in flight).
+            // Leaders takes row 1 and an empty grid cell takes row 2, which is the layout this
+            // column had before the race existed: the row collapses to whatever Next game
+            // needs rather than reserving a slot for a card that may never arrive.
+            : [leadersCard, <Box key="mvp-empty" />])}
         </Box>
       </Box>
 
