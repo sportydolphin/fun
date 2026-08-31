@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.55.0',
+    date:    '2026-08-30',
+    title:   'When a game stalls, the page says whose silence it is',
+    changes: [
+      {
+        short: 'A note when the league\u2019s feed stops publishing mid-game',
+        full:  'On Aug 30 a game passed its first pitch and nothing moved. Our own mirror was polling every two minutes with no errors; the league\u2019s record had been frozen since thirty-five minutes before the game was due to start. Nothing on the page said so, so anyone who opened it was told by omission that this site was broken. There is now a note on the next-game card and in Game Center naming the source and the time of its last update, so you can see where the silence is rather than guess. It appears only once first pitch has passed, and it checks our own sync first: if we are the ones who have stopped, it says that instead, in the same place and the same words.',
+      },
+    ],
+  },
+  {
     version: '1.54.0',
     date:    '2026-08-30',
     title:   'The MVP race, on one number a hitter and a pitcher can share',

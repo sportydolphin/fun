@@ -19,6 +19,7 @@ import { parsePlay, runsOnPlay } from './derive/playByPlay'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, speedUnit } from '../lib/units'
 import { prettyType } from './tracking'
+import FeedDelayNote from './FeedDelayNote'
 import type {
   WpblTeam, WpblGame, WpblPlayer, WpblBattingLine, WpblPitchingLine,
   WpblGamePlay, WpblPitchTracking, WpblVideo, WpblArticle, WpblGameDetails,
@@ -1260,6 +1261,14 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
           {final && story && (
             <Box sx={{ px: 2, mt: 1.5 }}><GameStoryCard article={story} /></Box>
           )}
+        </Box>
+
+        {/* Why the game is not moving, when it is not. Directly under the matchup and above the
+            live banner, because it explains the thing the reader is staring at: a scoreboard
+            that has not changed. Renders null in the ordinary case and ticks itself, so it can
+            appear during a session that started before first pitch. */}
+        <Box sx={{ flexShrink: 0, px: 2, pt: 1.25 }}>
+          <FeedDelayNote game={game} />
         </Box>
 
         {/* Live situation banner (inning / count / bases / matchup) */}

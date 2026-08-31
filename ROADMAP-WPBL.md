@@ -596,6 +596,46 @@ is retired.
 
 ## Shipped log
 
+### Aug 30, 2026: the page says whose silence it is (v1.55.0)
+
+**A stale-feed notice, written from a live outage.** At 23:30Z the NY@SF game passed first
+pitch and nothing moved. Diagnosis: `wpbl_ingest_runs` firing every two minutes, `ok: true`,
+`error_count: 0`, last run seconds earlier; the league's own boxscore frozen at
+`source_updated_at == fetched_at == 21:54:31Z`, thirty-five minutes BEFORE a first pitch it
+never acknowledged, and nothing in the whole 50-game feed updated since. The league's own
+website agreed. **Our stack was working perfectly and every reader was being told, by
+omission, that it was not.**
+
+`derive/feedHealth.ts` + `FeedDelayNote.tsx`, on Home's next-game card and in Game Center.
+Three things to keep:
+
+- **It reads OUR clock before theirs, and that ordering is the feature.** `updated_at` is
+  written on every ingest pass whether or not anything changed, so a fresh one proves our cron
+  is alive; `source_updated_at` is the league's own stamp. Only "ours fresh, theirs stale"
+  licenses pointing upstream. Check theirs first and the notice blames the league every time
+  our own cron dies: confidently wrong, aimed at somebody else, and reassuring to the one
+  person who could fix it. There is a test named for exactly that.
+- **First pitch is the gate and it is not optional.** A game three days out has a month-old
+  `source_updated_at` by construction, because nothing has touched the row since the schedule
+  was published. Without the gate every future game on the calendar reports a broken feed.
+- **It names the source and the timestamp rather than making a claim.** "No update from the
+  WPBL feed since 2:54 PM, 2h 04m ago" lets a reader work out where the silence is without
+  being told how to feel about it, and the second sentence exists to stop them refreshing. When
+  it is ours it says "Our data is behind" in the same slot with the same weight: a notice that
+  can only ever blame somebody else is a disclaimer, and readers learn to discount it.
+
+Amber, not red, and no warning triangle: the page is working, the data is late, and there is
+nothing for the reader to do. It ticks its own 30-second clock, because the entire state is
+"nothing is arriving" and nothing else would ever re-render it into view.
+
+21 tests: 14 on the logic in `__tests__/feedHealth.test.ts`, 7 pinning the copy in
+`__tests__/feedDelayNote.test.tsx`.
+
+**Still open**: nothing surfaces this league-wide (a feed stalled between games shows nowhere),
+and the ingest's own health has no reader-facing surface at all. Worth settling before the
+postseason, when a stalled feed costs more than a regular-season Sunday.
+
+
 ### Aug 30, 2026: the MVP race, and one number a hitter and a pitcher can share (v1.54.0)
 
 **Also this release: run value explains itself in one place.** The explanation was in two

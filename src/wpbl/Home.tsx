@@ -26,6 +26,7 @@ import { track, EVENTS } from '../lib/analytics'
 // the undo without dragging this file into the main bundle. See discordInvite.ts.
 import { DISCORD_DISMISS_KEY, DISCORD_DEV_SHOW_EVENT } from './discordInvite'
 import { LastGameCard } from './RecapCard'
+import FeedDelayNote from './FeedDelayNote'
 import MvpRaceCard, { mvpRaceIsWorthDrawing } from './MvpRace'
 import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
 import { mvpRace } from './derive/mvpRace'
@@ -589,6 +590,15 @@ function NextGameCard({ games, teams, onOpenGame }: {
           </Typography>
         )}
       </Box>
+      {/* Once the countdown in the header has run out and nothing has happened, this is the
+          card that owes the reader an explanation: it is the one that promised a first pitch.
+          Compact, because the full second sentence belongs on Game Center where there is room
+          and where somebody has gone looking for detail. Outside the clickable block above,
+          which is all facts about the game itself. */}
+      <Box sx={{ mt: 1 }}>
+        <FeedDelayNote game={g} compact />
+      </Box>
+
       <GameReminderRow game={g} away={away} home={home} startMs={next.ms} />
     </SectionCard>
   )

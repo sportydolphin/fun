@@ -13,7 +13,7 @@
 // every change when the reader clicks "View all changes"). Write plainly, no em dashes and
 // no marketing voice, just say what changed.
 
-export const APP_VERSION = '1.54.0'
+export const APP_VERSION = '1.55.0'
 
 export interface ChangelogChange {
   short: string
