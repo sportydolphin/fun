@@ -676,6 +676,69 @@ nothing for the reader to do. It ticks its own 30-second clock, because the enti
 and the ingest's own health has no reader-facing surface at all. Worth settling before the
 postseason, when a stalled feed costs more than a regular-season Sunday.
 
+### Aug 30, 2026: Home gets shorter, and the standings table comes off it (v1.56.0)
+
+Measured first, on a 375px phone. Home was **2,423px, three full screens**: Road to the title
+709 (29%), MVP race 341, Last Game 257, Leaders 241, Next game 239, Standings 224, scoreboard
+113, league card 96, Discord 76.
+
+**The standings table is removed rather than moved.** It is a whole tab, two taps away in a nav
+that is on screen the entire time, and Home was redrawing it in miniature underneath: 224px
+spent on the one card every reader already knows where to find. `StandingsCard` is deleted;
+`computeStandings` is still called in Home for the bracket, so the postseason card is unchanged.
+
+**The MVP race takes the quadrant.** On desktop it pairs with Next game across the subgrid and
+with Leaders down the column, which is the column headed "the season's numbers" and the same
+kind of claim about the same season. On mobile it moves from fifth on the page to third.
+
+**A CARD IN THAT GRID PAYS FOR ITS HEIGHT TWICE, which is the thing to know before adding
+another one.** The two columns share row boundaries through subgrid, so the taller card in a row
+sets the row and its neighbour is stretched to match. Dropped in at its full-width height of
+341px, the MVP race made row 1 341 against row 2's 256 and left Next game (214 natural) holding
+**127px of dead space**. It is not a bug in either card and no amount of `fill` fixes it: `fill`
+only decides where slack lands inside a card, and the card that sets the row gets none. The fix
+was to make the tall card shorter, at 338px wide, which is what it is actually drawn at in there
+and not the width it was designed against:
+
+- the subtitle to one line ("Runs added at the plate and on the mound"), since "Full board" eats
+  about 55px of the header and leaves it ~243
+- the summary to one line, dropping "in the season", which carried nothing
+- the provenance line dropped outright: the run-value explainer is one card on one board now
+  (v1.54.0) and this card's own header links to it
+- portraits 38/32 to 32/28 and the row padding in
+
+**341px to 279px, against a 256px row 2**, and then the pairing itself was wrong. The MVP race
+sat in row 1 beside Next game, which is the SHORTEST card in the grid (214 natural), so it still
+set the row and still left ~65px of visible dead air in the middle of Next game.
+
+**Sorting the pairs by height fixes it with no squeezing at all.** Leaders moved up to row 1 and
+the MVP race down to row 2, and `LEADER_ROWS` went back to **3**: it had been raised to 5 only
+because Leaders used to sit beside Last Game and came up ~90px short, a premise that the move
+deletes. Measured after: **row 1 = 224/224 (Next game, Leaders), row 2 = 279/279 (Last Game, MVP
+race)** at 1280. Both rows match to the pixel. The `LeaderStatSkeleton` turns out to have drawn a
+hero plus two rows all along, so at three it now reserves exactly the loaded height instead of
+under-reserving it.
+
+**The cost, and it is real**: mobile is one column in DOM order, so the MVP race moves from third
+on the page to fourth, behind Leaders. Fixing that would need `order` at one breakpoint, and the
+layout note in `Home.tsx` rejects that explicitly (a second numbering scheme to keep in step with
+DOM order by hand, which is what removing `order` from this grid was worth). Not worth reopening
+for one slot.
+
+**Two trims on the next-game card, both mobile-first.** The countdown was a headline row under
+the team names and is now in the card's subtitle beside the start time: "Today · 4:30 PM ·
+15h 32m" is one fact in three parts, and the note previously defending that row was arguing
+against the header's top-right CHIP slot, which is not where it went. `SectionCard.subtitle` is a
+`ReactNode` for it. The reminder row had a title over a hint in every state, and in the ordinary
+ones the hint restated the switch beside it. One line now; the second appears only for something
+a switch cannot say (blocked, unsupported, unconfigured, signed out).
+
+**Result: 2,423px to 2,087px, 2.98 screens to 2.57**, with nothing hidden behind a tap.
+
+**Still the biggest thing on the page: Road to the title at 709px**, untouched here. Collapsing
+it on mobile, compacting its series boxes, or moving it to Standings beside the seeding race are
+all still open, and it is worth settling before Sep 9 turns it from a projection into a record.
+
 
 ### Aug 30, 2026: the MVP race, and one number a hitter and a pitcher can share (v1.54.0)
 

@@ -71,7 +71,7 @@ function CandidateRow({ c, rank, color, dashed, onOpenPlayer }: {
   const link = c.player ? playerLink(c.player, onOpenPlayer) : {}
   return (
     <Box {...link} sx={{
-      display: 'flex', alignItems: 'center', gap: 1, py: 0.5, px: 0.5, mx: -0.5,
+      display: 'flex', alignItems: 'center', gap: 1, py: 0.3, px: 0.5, mx: -0.5,
       borderRadius: 1, cursor: c.player ? 'pointer' : 'default',
       ...(c.player ? { '&:hover': { bgcolor: 'action.hover' } } : {}),
     }}>
@@ -84,7 +84,7 @@ function CandidateRow({ c, rank, color, dashed, onOpenPlayer }: {
           ? { backgroundImage: `repeating-linear-gradient(to bottom, ${color} 0 4px, transparent 4px 7px)` }
           : { bgcolor: color }),
       }} />
-      <PlayerPortrait name={c.name} teamId={c.teamId} size={rank === 1 ? 38 : 32} />
+      <PlayerPortrait name={c.name} teamId={c.teamId} size={rank === 1 ? 32 : 28} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
           <Typography sx={{
@@ -128,8 +128,10 @@ function CandidateRow({ c, rank, color, dashed, onOpenPlayer }: {
  *  with `vectorEffect`, and the end-of-line markers are HTML dots positioned in percentages
  *  rather than SVG circles, which would come out as ellipses. Same reasoning, and the same
  *  fix, as the win-probability chart. */
-function RaceChart({ race, colors, dashed }: {
+function RaceChart({ race, colors, dashed, fill }: {
   race: MvpRaceData; colors: [string, string]; dashed: boolean
+  /** Grow into whatever height the card has spare, rather than sitting at CHART_H. */
+  fill?: boolean
 }) {
   const [a, b] = race.top
   const n = race.dates.length
@@ -155,7 +157,18 @@ function RaceChart({ race, colors, dashed }: {
   const gap = `${a.curve.map((v, i) => `${x(i)},${y(v)}`).join(' L ')} L ${b.curve.map((v, i) => `${x(i)},${y(v)}`).reverse().join(' L ')} Z`
 
   return (
-    <Box sx={{ position: 'relative', height: CHART_H, mt: 0.75 }}>
+    <Box sx={{
+      position: 'relative', mt: 0.75,
+      // `flexGrow` rather than `flex: 1`, deliberately. SectionCard's filled body sets
+      // `flexShrink: 0` on every direct child so a leader board cannot be squashed, and
+      // `flex: 1` would be asking for a shrink it is not going to get while also zeroing the
+      // basis. Growing from a real basis needs neither. The SVG is 100% x 100% with
+      // `preserveAspectRatio="none"` and the end markers are positioned in percentages, so
+      // every part of this scales to whatever height it ends up with.
+      ...(fill
+        ? { flexGrow: 1, flexBasis: CHART_H, minHeight: CHART_H }
+        : { height: CHART_H }),
+    }}>
       <Box component="svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden
         sx={{ display: 'block', width: '100%', height: '100%', overflow: 'visible' }}>
         <path d={`M ${gap}`} fill="currentColor" opacity={0.14} />
@@ -190,13 +203,17 @@ function RaceChart({ race, colors, dashed }: {
   )
 }
 
-export default function MvpRaceCard({ race, games, onOpenPlayer, onViewBoard }: {
+export default function MvpRaceCard({ race, games, onOpenPlayer, onViewBoard, fill }: {
   race: MvpRaceData
   games: WpblGame[]
   onOpenPlayer: (p: WpblPlayer) => void
   /** Through to the Run value board, which is where this number comes from and the only place
    *  a reader can see the rest of the field. */
   onViewBoard: () => void
+  /** Take the height the container gives, for Home's paired columns. The slack goes to the
+   *  chart: a race drawn taller is a race easier to read, which is not true of the rows above
+   *  it or the sentence below. */
+  fill?: boolean
 }) {
   const dark = useWpblDark()
   const [a, b] = race.top
@@ -233,24 +250,27 @@ export default function MvpRaceCard({ race, games, onOpenPlayer, onViewBoard }: 
   const margin = race.lead === 0
     ? `${a.name.split(' ').pop()} and ${b.name.split(' ').pop()} are level`
     : `${a.name.split(' ').pop()} leads by ${fmtMvpRuns(race.lead).replace('+', '')}`
+  // ONE LINE, at both widths this card is drawn at. In Home's two-column grid the card is
+  // 338px and the caption gets ~306 of that; "…, with 6 games left in the season." ran to two
+  // and every one of those 20px was charged twice, once here and once to the card stretched to
+  // match this one's height. "in the season" was the part carrying no information.
   const caption = left > 0
-    ? `${margin}, with ${left} game${left === 1 ? '' : 's'} left in the season.`
+    ? `${margin} with ${left} game${left === 1 ? '' : 's'} left.`
     : `${margin}. The regular season is over.`
   // Where the number comes from, kept out of the subtitle because it wrapped to three lines
   // there and squeezed the "Full board" link into a column two words wide. Down here it is
   // also nearer the thing it qualifies: the reader has seen the totals and the chart by now
   // and is in a position to want the provenance rather than to be handed it first.
-  //
-  // ONE LINE ON A PHONE. It said "…, the table behind the Run value board" and wrapped to two,
-  // which is 17px spent naming a board the "Full board" link in this card's own header already
-  // opens. The clause that has to survive is where the number is measured from, because that is
-  // the part a reader cannot get anywhere else on this card.
-  const PROVENANCE = 'Priced on the league’s own run expectancy.'
 
   return (
     <SectionCard
+      fill={fill}
       title="MVP race"
-      subtitle="Runs created at the plate plus runs saved on the mound"
+      /* SHORT ENOUGH FOR ONE LINE, and the width it has to fit is smaller than it looks: in
+         Home's two-column grid this card is 338 CSS px wide, and the "Full board" link takes
+         about 55 of them, so the subtitle gets ~243px. The long version wrapped to two lines
+         and those 15px came straight off the card's neighbour, which is stretched to match it. */
+      subtitle="Runs added at the plate and on the mound"
       action={
         <Typography
           onClick={e => { e.stopPropagation(); onViewBoard() }}
@@ -266,7 +286,7 @@ export default function MvpRaceCard({ race, games, onOpenPlayer, onViewBoard }: 
         <CandidateRow c={b} rank={2} color={colors[1]} dashed={dashed} onOpenPlayer={p => openPlayer(p, 2)} />
       </Box>
 
-      <RaceChart race={race} colors={colors} dashed={dashed} />
+      <RaceChart race={race} colors={colors} dashed={dashed} fill={fill} />
 
       {/* The axis, such as it is: two dates and, when the lead has changed hands, the day it
           did. A full tick axis on an 84px chart would cost more room than it explains. */}
@@ -287,14 +307,17 @@ export default function MvpRaceCard({ race, games, onOpenPlayer, onViewBoard }: 
         </Typography>
       </Box>
 
-      <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: CARD_BORDER }}>
-        <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4 }}>
-          {caption}
-        </Typography>
-        <Typography sx={{ fontSize: '0.66rem', fontWeight: 500, color: 'text.disabled', lineHeight: 1.4, mt: 0.25 }}>
-          {PROVENANCE}
-        </Typography>
-      </Box>
+      {/* NO PROVENANCE LINE ANY MORE. It said where the number is priced from, which was worth
+          a line while this card was the only place that explained itself; the run-value
+          explainer now lives in one place and the "Full board" link in this card's own header
+          is the way there. A second line repeating it cost 17px of a card whose height is paid
+          for twice, once here and once in the card stretched to match it. */}
+      <Typography sx={{
+        mt: 1, pt: 1, borderTop: '1px solid', borderColor: CARD_BORDER,
+        fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4,
+      }}>
+        {caption}
+      </Typography>
     </SectionCard>
   )
 }

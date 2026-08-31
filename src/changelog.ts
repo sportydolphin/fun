@@ -26,6 +26,29 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
   },
   {
+    version: '1.56.0',
+    date:    '2026-08-30',
+    title:   'A shorter home page, and the MVP race gets a proper slot',
+    changes: [
+      {
+        short: 'The standings table is off the home page, where it was a second copy',
+        full:  'Standings is a tab of its own, in the row that is on screen the whole time you are here, and the home page was redrawing it underneath in miniature. On a phone that was 224 pixels spent on the one card everybody already knows how to find, on a page that ran to three full screens. It is gone from home and unchanged where it lives.',
+      },
+      {
+        short: 'The MVP race takes that place, and gets room to draw the race',
+        full:  'On a wide screen it now sits beside the next game rather than below everything, in the column with the leaders, which is the other card making a claim about the season. On a phone it moves up above the leaders, out of the part of the page most readers never reached. It also lost about sixty pixels on the way: a shorter line under the title, tighter rows, and a one-line summary at the foot, because in that layout its height is paid for twice, once by itself and once by the card stretched to match it.',
+      },
+      {
+        short: 'Leaders is back to a top three, and the cards line up',
+        full:  'The four cards on a wide screen sit in two rows that share their heights, so the taller card in a row stretches the one beside it. The MVP race was paired with the next game, which is the shortest card there, and left a visible band of empty space in the middle of it. The leaders board moves up into that spot instead and drops back to three names, which is what it was before it was padded out to five to fill a gap in a pairing that no longer exists. Both rows now match to within a few pixels, and nothing had to be squeezed to get there.',
+      },
+      {
+        short: 'The home page is a fifth shorter on a phone',
+        full:  'Between the standings coming off, the countdown moving into the next-game header and the reminder row losing a line it did not need, the page went from about three screens to two and a half on a 375-pixel phone. Nothing was hidden behind a tap to get there.',
+      },
+    ],
+  },
+  {
     version: '1.54.0',
     date:    '2026-08-30',
     title:   'The MVP race, on one number a hitter and a pitcher can share',

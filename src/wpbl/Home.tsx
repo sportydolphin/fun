@@ -603,61 +603,6 @@ function NextGameCard({ games, teams, onOpenGame }: {
     </SectionCard>
   )
 }
-
-// ─── Standings card ─────────────────────────────────────────────────────────────
-
-function StandingsCard({ teams, games, onOpenTeam }: {
-  teams: WpblTeam[]; games: WpblGame[]; onOpenTeam: (t: WpblTeam) => void
-}) {
-  const rows = useMemo(() => computeStandings(teams, games), [teams, games])
-  return (
-    <SectionCard title="Standings" fill>
-      <Box sx={{ display: 'flex', px: 0.5, pb: 0.5, fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.secondary' }}>
-        <Box sx={{ flex: 1 }}>Team</Box>
-        <Box sx={{ width: 32, textAlign: 'right' }}>W</Box>
-        <Box sx={{ width: 32, textAlign: 'right' }}>L</Box>
-        <Box sx={{ width: 40, textAlign: 'right' }}>GB</Box>
-        <Box sx={{ width: 48, textAlign: 'right' }}>Diff</Box>
-      </Box>
-      {rows.map(r => {
-        const diff = r.runsFor - r.runsAgainst
-        return (
-          <Box key={r.team.id} onClick={() => onOpenTeam(r.team)} sx={{
-            display: 'flex', alignItems: 'center', px: 0.5, py: 0.85, cursor: 'pointer',
-            borderTop: '1px solid', borderColor: 'divider', fontVariantNumeric: 'tabular-nums',
-            borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },
-            // Share out whatever height the row's other card forces on this one. A table
-            // absorbs that as taller rows, not as a slab under the last club: the rules stay
-            // attached to the rows they belong to and the whole thing just breathes. `py` is
-            // still the floor, so nothing collapses when there is no slack to share.
-            flex: 1,
-          }}>
-            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-              <TeamBadge team={r.team} size={24} />
-              {/* Nickname only ("Queens", "Firebells") — the badge already carries the
-                  city, and the full "Los Angeles Queens" overflows the narrow column on
-                  mobile, truncating to the least-useful half ("Los Ang…"). */}
-              <Typography sx={{ fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.team.name}</Typography>
-            </Box>
-            <Box sx={{ width: 32, textAlign: 'right', fontWeight: 700, fontSize: '0.85rem' }}>{r.wins}</Box>
-            <Box sx={{ width: 32, textAlign: 'right', fontWeight: 700, fontSize: '0.85rem' }}>{r.losses}</Box>
-            {/* Same rendering as the full Standings tab (WpblApp.tsx): a dash for whoever is
-                top rather than a "0.0", and one decimal for the half-game a lopsided pair of
-                records produces. Sitting between L and Diff keeps the column order the two
-                tables share. */}
-            <Box sx={{ width: 40, textAlign: 'right', fontSize: '0.85rem', color: 'text.secondary' }}>
-              {r.gamesBack === 0 ? '—' : r.gamesBack.toFixed(1)}
-            </Box>
-            <Box sx={{ width: 48, textAlign: 'right', fontSize: '0.85rem', color: diff > 0 ? 'var(--wpbl-pos)' : diff < 0 ? 'var(--wpbl-neg)' : 'text.secondary' }}>
-              {fmtSigned(diff)}
-            </Box>
-          </Box>
-        )
-      })}
-    </SectionCard>
-  )
-}
-
 // ─── Leaders ────────────────────────────────────────────────────────────────────
 
 interface LeaderRow {
@@ -779,13 +724,21 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
   )
 }
 
-// How many names a Home leader board lists. Five rather than three because Home pairs this
-// card with Last Game in a shared-height row, and three names left the card about 90px short
-// of the one beside it. That gap had to be filled with something, and two more leaders is the
-// only filling that is worth a reader's time: the alternative was 90px of margin. Five also
-// happens to be the shape of a leaderboard people expect. Raising it further starts to make
-// Leaders the taller card in the row, which just moves the gap into Last Game.
-const LEADER_ROWS = 5
+// How many names a Home leader board lists.
+//
+// BACK TO THREE, BECAUSE THE PAIRING CHANGED. It was five, and the note here said why: Leaders
+// used to sit beside Last Game in a shared-height row, three names left it about 90px short of
+// its neighbour, and two more leaders were a better way to spend that gap than 90px of margin.
+// That argument was sound and its premise is gone. Leaders now pairs with Next game, which is
+// the SHORTEST card in the grid, so the two extra rows stopped filling a hole and started
+// digging one on the other side: at five, Leaders set the row and left Next game holding the
+// slack instead.
+//
+// So the number follows the layout rather than the other way round, which is the right
+// direction for it. Three is also what the card wants on its own: a podium reads at a glance
+// where a five-row board asks to be scanned, and everything below third is one tap away on the
+// Stats tab that "View all" opens.
+const LEADER_ROWS = 3
 
 // Pick the top `n` by `value` (higher is better; negate inside for ascending stats),
 // after an optional qualifier filter.
@@ -1463,13 +1416,39 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
           <LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} />
         </Box>
 
-        {/* The season's numbers. */}
+        {/* The season's numbers.
+
+            THE STANDINGS TABLE USED TO LEAD THIS COLUMN AND HAS BEEN REMOVED, not moved: it is
+            a whole tab of its own, two taps from here in the nav that is on screen the entire
+            time, and Home was redrawing it in miniature underneath. That is 224px on a phone
+            spent on the one card every reader already knows where to find, on a page measured
+            at three full screens. The MVP race takes the quadrant, which is a better trade than
+            it looks: it is the only card here that cannot be got anywhere else, and in the
+            column headed "the season's numbers" it sits with Leaders, which is the same kind of
+            claim about the same season.
+
+            Home still computes `computeStandings` for the bracket below, so nothing about the
+            postseason card changed. */}
         <Box sx={{
           minWidth: 0, gap: 1.5,
           display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
           gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
         }}>
-          <StandingsCard teams={teams} games={games} onOpenTeam={onOpenTeam} />
+          {/* LEADERS FIRST, SO ROW 1 IS THE TWO SHORT CARDS AND ROW 2 IS THE TWO TALL ONES.
+              The columns share row boundaries through subgrid, so the pairing is the layout:
+              whichever card is taller in a row sets it and its neighbour is stretched to match.
+              With the MVP race up here it set row 1 at 279px against Next game's natural 214
+              and left 65px of visible dead air in the middle of Next game, which is the gap you
+              could see between the season-series line and the reminder row.
+
+              Sorted by height instead, the rows pair up on their own: Next game (214) with
+              Leaders (~200 at three names), then Last Game (256) with the MVP race (279). The
+              stretch left in each row is single figures rather than a hole, and no card had to
+              be squeezed to get there.
+
+              THIS IS WHY LEADER_ROWS WENT BACK TO THREE, and the two changes only make sense
+              together: see the note on that constant. `fill` on both, because every card in
+              this grid is. */}
           <LeadersCard
             title="Leaders"
             groups={[
@@ -1478,29 +1457,21 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
             ]}
             loading={loadingLeaders} hasData={hasLines} teamById={teamMap} onOpenPlayer={onOpenPlayer}
           />
+          {/* It spends whatever slack the row gives it on the chart, which is the one child
+              that gets better with height; see the note on RaceChart's `fill`. */}
+          {mvpRaceIsWorthDrawing(race)
+            ? (
+              <MvpRaceCard race={race} games={games} onOpenPlayer={onOpenPlayer}
+                onViewBoard={() => onViewStats('runs')} fill />
+            )
+            : (
+              // Nothing to draw yet (a season too young, or the play log still in flight).
+              // An empty grid cell rather than a skeleton: the row simply collapses to
+              // whatever Next game needs, and Leaders moves up to meet it.
+              <Box />
+            )}
         </Box>
       </Box>
-
-      {/* The MVP race. Full width and outside the grid above for the same reason the bracket
-          is: the two columns up there share their row boundaries through subgrid, and a third
-          card of a different shape would break that.
-
-          ABOVE the bracket, which is the one editorial call in this block. The bracket is a
-          projection until Sep 9 and draws four clubs; this draws two players, and the traffic
-          read says a player page is the retention event and that Home is where readers are
-          lost. Between a card that makes two names tappable now and a card that predicts a
-          series in a fortnight, the names go first.
-
-          It renders when its own fetch lands, which is after everything above it. That is a
-          deliberate reflow low on the page rather than a skeleton holding a slot: nothing here
-          is above the fold on a phone, and a placeholder for a card that may not qualify to
-          appear at all would reserve room for nothing. */}
-      {mvpRaceIsWorthDrawing(race) && (
-        <Box sx={{ mt: 1.5 }}>
-          <MvpRaceCard race={race} games={games} onOpenPlayer={onOpenPlayer}
-            onViewBoard={() => onViewStats('runs')} />
-        </Box>
-      )}
 
       {/* The postseason bracket. Full width and outside the grid above on purpose: three
           series boxes side by side need the room, and the two columns up there share row
