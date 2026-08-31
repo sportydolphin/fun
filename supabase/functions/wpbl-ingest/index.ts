@@ -711,12 +711,46 @@ Deno.serve(async (req) => {
     }
 
     // Feed schedule.
-    const listRes = await fetch(`${FEED}/games`)
+    //
+    // `?limit=` IS NOT OPTIONAL, AND THE BARE READ LIES. `GET /v1/games` caps at 50 rows and
+    // says nothing about it: no error, no flag, just a short array beside a `count` field that
+    // reports the real total. On Aug 30, 2026 the season crossed that line. The feed held 56
+    // records, we read 50, and the six it withheld included the ONLY copy of that night's
+    // NY@SF game that the league ever finished (SF 11-9, full line score, published while the
+    // copy we could see sat frozen at "Not Started" from before first pitch).
+    //
+    // Nothing detected it. The ingest logged `ok: true` with zero errors every two minutes for
+    // the entire game, because a truncated list is a perfectly valid list: every row in it
+    // ingested cleanly. The game simply did not exist as far as this function was concerned,
+    // and the site told readers the league had gone quiet.
+    //
+    // Same failure as the PostgREST 1000-row cap in the app (see `fetchAllPaged` in
+    // src/wpbl/api.ts), and it fails the same way: silently, and worse the longer the season
+    // runs, because the twins mean the row count grows at roughly twice the schedule.
+    //
+    // So: ask for more than can exist, then CHECK the answer against `count` and refuse to
+    // proceed on a short read. Erroring out is deliberate. A partial schedule here does not
+    // degrade gracefully; it deletes. The phantom-suppression pass below reasons about which
+    // copies of a matchup exist, so a missing real copy makes a live game look like an
+    // unplayed phantom beside nothing, and phantoms get their rows DELETED. Reading a short
+    // list quietly is how a working game disappears from the site.
+    const LIST_LIMIT = 1000
+    const listRes = await fetch(`${FEED}/games?limit=${LIST_LIMIT}`)
     if (!listRes.ok) {
       await logRun(false, 0, 0, [`feed /games → ${listRes.status}`])
       return json({ error: `feed /games → ${listRes.status}` }, 502)
     }
-    const feedGames: any[] = (await listRes.json()).games ?? []
+    const listJson = await listRes.json()
+    const feedGames: any[] = listJson.games ?? []
+    // `count` is the feed's own total. Trust it over our row count, and stop if they disagree:
+    // continuing would run the delete-happy dedupe over a schedule we know is incomplete.
+    const feedCount = Number(listJson.count)
+    if (Number.isFinite(feedCount) && feedGames.length < feedCount) {
+      const msg = `feed /games truncated: ${feedGames.length} of ${feedCount} (limit ${LIST_LIMIT})`
+      console.error(`[wpbl-ingest] ${msg}`)
+      await logRun(false, 0, 0, [msg])
+      return json({ error: msg }, 502)
+    }
 
     // Phantom-duplicate suppression. The feed carries the same game more than once, and both
     // grouping keys below use the CORRECTED first pitch (correctedStart) so the timezone-tag

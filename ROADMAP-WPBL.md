@@ -596,6 +596,47 @@ is retired.
 
 ## Shipped log
 
+### Aug 31, 2026: the feed list was truncating, and a whole game fell through it
+
+**A game went missing from the site while the ingest reported perfect health.** Aug 30, NY@SF.
+Our first diagnosis was wrong and is worth recording as wrong: the ingest was polling every two
+minutes with `ok: true` and zero errors, the copy of the game we could see sat frozen at "Not
+Started" from thirty-five minutes before first pitch, and the conclusion drawn was "the league
+is not publishing, nothing to fix on our side." **The league published it.** SF 11-9, full line
+score, at 02:08Z, to a record we never read.
+
+**`GET /v1/games` caps at 50 rows and does not say so.** It returns a short array beside a
+`count` field carrying the real total. The feed held 56; we read 50; the six withheld included
+`gstfxmwv1zkcza31`, the only copy of that game the league ever finished. The row count grows at
+roughly twice the schedule because of the timezone twins, so the season simply crossed the cap
+mid-August and games began falling off the end.
+
+Same failure as the PostgREST 1000-row cap the app already guards with `fetchAllPaged`, and it
+fails the same way: no error, just less. Now in `CLAUDE.md` traps.
+
+**The fix passes `?limit=1000` and checks the answer against `count`, erroring on a short
+read** rather than continuing. Erroring is the deliberate part: a partial schedule here does not
+degrade, it deletes. The phantom-suppression pass reasons about which copies of a matchup exist,
+so a missing real copy makes a played game look like an unplayed phantom beside nothing, and
+phantoms get their rows removed.
+
+Deployed at 03:24Z; the 03:26 pass went from 25 games to 30, dropped the stale row as a phantom
+and ingested the real one in full: 24 batting lines, 6 pitching, 19 fielding, 94 plays, and the
+recap engine wrote "Firebells walk off Heights" off the back of it.
+
+**What this says about the stale-feed notice shipped hours earlier (v1.55.0).** It fired on this
+game and blamed the league, and the league was not at fault. Its rule is "our clock fresh plus
+theirs stale means theirs", and that is sound only while we are polling the RIGHT record. Here
+we were faithfully rewriting a row the league had abandoned, so our clock looked healthy by
+construction. The notice is still correct for a genuine upstream stall and stays, but it cannot
+detect a game we never discovered, and nothing else can either.
+
+**Still open, and now clearly the bigger gap**: `wpbl_ingest_runs` reports on what the ingest
+DID, never on what it should have found. A run that silently sees six fewer games than exist is
+indistinguishable from a healthy one. Worth a check comparing the feed's `count` against our own
+row count per date before the postseason.
+
+
 ### Aug 30, 2026: the page says whose silence it is (v1.55.0)
 
 **A stale-feed notice, written from a live outage.** At 23:30Z the NY@SF game passed first

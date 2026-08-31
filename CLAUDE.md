@@ -98,6 +98,18 @@ Each of these has already cost someone a debugging session, and none of them fai
   TrackMan backfill, mode `all`), every one of those is honest evidence of where she was
   *then*, and without the guard her club is whichever game the loop happened to touch last.
   `wpbl_merge_players(keep, dupe)` is the tool for the duplicates no rule can catch.
+- **The league feed's `/games` list caps at 50 and says nothing about it.** `GET /v1/games`
+  returns a short array beside a `count` field holding the real total, exactly like the
+  PostgREST cap above and just as quietly. The season crossed 50 on Aug 30, 2026 (56 records:
+  the timezone twins mean rows grow at roughly twice the schedule) and the six it withheld
+  included **the only copy of that night's game the league ever finished**, SF 11-9 NY with a
+  full line score. `wpbl-ingest` logged `ok: true`, `error_count: 0` every two minutes right
+  through it, because a truncated list is a perfectly valid list and every row in it ingested
+  cleanly. The game simply did not exist to us, and the site told readers the league had gone
+  quiet. **Always pass `?limit=`, and compare the row count against `count` before proceeding.**
+  A short read must ERROR rather than degrade: the phantom-suppression pass reasons about which
+  copies of a matchup exist, so a missing real copy makes a played game look like an unplayed
+  phantom next to nothing, and phantoms get their rows DELETED.
 - **The live poll reads a hand-listed half of `wpbl_games`, and the two halves must
   partition the table.** `LIVE_GAME_COLUMNS` in [`src/wpbl/api.ts`](src/wpbl/api.ts) names
   every column that can change mid-game; the poll merges those over the row it already holds,
