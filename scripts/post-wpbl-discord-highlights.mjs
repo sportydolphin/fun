@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 /**
- * post-wpbl-discord-highlights.mjs — posts each new WPBL game highlight reel into the fan
- * server's highlights channel, once, as it appears on the league's YouTube channel.
+ * post-wpbl-discord-highlights.mjs: posts each new WPBL highlight into the fan server's
+ * highlights channel, once, as it appears on the league's YouTube channel.
+ *
+ * TWO STREAMS, ONE CHANNEL. The league publishes game highlight REELS ("WPBL Highlights: Boston
+ * Hunters @ San Francisco Firebells") and SHORTS, which are single-play vertical clips with
+ * titles like "FIRST WPBL WALK-OFF" and "Denae Benites GRAND SLAM". Both are highlights and
+ * both belong in the channel. They are separate streams here only because each is seeded
+ * independently: see below.
  *
  * It does not talk to YouTube. scripts/sync-wpbl-youtube.mjs already mirrors the channel's
  * uploads into `wpbl_videos` (classifying each one and resolving highlight titles to the
@@ -9,42 +15,51 @@
  * have not posted, send them, remember that we did. Running it as the step after the sync
  * in the same workflow means a reel reaches Discord in the same pass that discovers it.
  *
- * Why a webhook (not a bot): send-only HTTP, no token, no gateway, nothing to keep running
- * — the same reasoning as update-wpbl-discord-board.mjs and post-wpbl-discord-recaps.ts.
+ * Why a webhook (not a bot): send-only HTTP, no token, no gateway, nothing to keep running.
+ * The same reasoning as update-wpbl-discord-board.mjs and post-wpbl-discord-recaps.ts.
  * This one posts to its OWN channel, so it takes its own webhook URL
  * (DISCORD_HIGHLIGHTS_WEBHOOK_URL) rather than sharing the recap channel's.
  *
  * Why plain JS and not TypeScript like the recap poster: that one is TS so it can import
  * the site's recap engine and render a box score identically in both places. A highlight
- * message is a line of text and a URL — there is nothing to share, so there is nothing to
- * bundle.
+ * message is a line of text and a URL, so there is nothing to share and nothing to bundle.
  *
  * The message is deliberately just a title line and a bare YouTube URL: Discord unfurls
  * that URL into a playable inline player, which is the entire point of a highlights
  * channel. Nothing else links out, because a second link draws its own embed card and the
  * two cards compete for the reader's attention.
  *
- * It never backfills. The first run against an empty posts table posts only the newest
- * reel and quietly records every older one as handled, so switching the job on puts one
- * video in the channel rather than a season of them.
+ * IT NEVER BACKFILLS, AND THAT IS PER STREAM. The first run that sees a stream posts only its
+ * newest item and quietly records every older one as handled, so switching something on puts
+ * one video in the channel rather than a season of them. Per stream rather than per job,
+ * because the job had already been posting reels for a fortnight when Shorts were added: a
+ * single job-wide flag would have read "not a first run" and dumped every Short in the window
+ * into the channel at once. `wpbl_discord_highlight_posts.stream` is what remembers which
+ * streams the job has met. Add a third and it seeds itself the same way.
  *
  * Usage:
  *   npm run discord-highlights -- --dry-run   # render to stdout, post nothing
  *   npm run discord-highlights                # post whatever is new
- *   npm run discord-highlights -- --seed      # record every reel as handled, post nothing
+ *   npm run discord-highlights -- --seed      # record everything as handled, post nothing
  *
  * Required env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DISCORD_HIGHLIGHTS_WEBHOOK_URL.
  * The service-role key is required to post: wpbl_videos is public, but
- * wpbl_discord_highlight_posts is service-role only and any other key reads it as empty —
+ * wpbl_discord_highlight_posts is service-role only and any other key reads it as empty,
  * which this job would take to mean "nothing posted yet" and repost the lot. --dry-run
  * sends nothing, so it runs on the anon key and says what it cannot see.
  */
 
 import { createClient } from '@supabase/supabase-js'
 // supabase-js builds a realtime client even though nothing here subscribes, and Node < 22
-// has no global WebSocket — so it needs `ws` handed to it or it throws at construction.
+// has no global WebSocket, so it needs `ws` handed to it or it throws at construction.
 // Same line, same reason, as the sibling Discord/reminder scripts.
 import ws from 'ws'
+import { pathToFileURL } from 'node:url'
+
+// Run only when invoked directly. Imported (by the tests, which exercise the stream split and
+// the message building without a database or a webhook) this file must define and not do.
+const IS_ENTRYPOINT = process.argv[1] != null
+  && import.meta.url === pathToFileURL(process.argv[1]).href
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 
@@ -57,35 +72,39 @@ const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
 const SEED = args.has('--seed')
 
-// How far back an unposted reel stays eligible. The league uploads a game's highlights
-// within a day or so of the final, and the sync only carries the recent window anyway —
-// this is the guard that stops a reel the job somehow missed from surfacing in the channel
-// a fortnight late, looking like news.
+// How far back an unposted video stays eligible, in either stream. The league uploads a game's
+// reel within a day or so of the final and its Shorts within hours, and the sync only carries
+// the recent window anyway. This is the guard that stops something the job somehow missed from
+// surfacing in the channel a fortnight late, looking like news.
 const WINDOW_DAYS = 4
 
 // A normal run posts zero or one video. The gap only matters on a first seeding run.
 const SEND_GAP_MS = 400
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('❌  Set SUPABASE_URL (or VITE_SUPABASE_URL) and a Supabase key before running')
-  process.exit(1)
-}
-if (!WEBHOOK_URL && !DRY_RUN && !SEED) {
-  console.error('❌  Set DISCORD_HIGHLIGHTS_WEBHOOK_URL (the full https://discord.com/api/webhooks/<id>/<token> for the highlights channel)')
-  process.exit(1)
-}
-if (!SERVICE_KEY && !DRY_RUN) {
-  console.error('❌  Posting needs SUPABASE_SERVICE_ROLE_KEY: wpbl_discord_highlight_posts is service-role only, and with any other key this job cannot tell what it has already posted.')
-  process.exit(1)
-}
-if (!SERVICE_KEY) {
-  console.warn('⚠️   No service-role key — wpbl_discord_highlight_posts is invisible to this key, so every video below will read as new regardless of what has actually been posted.')
+if (IS_ENTRYPOINT) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    console.error('❌  Set SUPABASE_URL (or VITE_SUPABASE_URL) and a Supabase key before running')
+    process.exit(1)
+  }
+  if (!WEBHOOK_URL && !DRY_RUN && !SEED) {
+    console.error('❌  Set DISCORD_HIGHLIGHTS_WEBHOOK_URL (the full https://discord.com/api/webhooks/<id>/<token> for the highlights channel)')
+    process.exit(1)
+  }
+  if (!SERVICE_KEY && !DRY_RUN) {
+    console.error('❌  Posting needs SUPABASE_SERVICE_ROLE_KEY: wpbl_discord_highlight_posts is service-role only, and with any other key this job cannot tell what it has already posted.')
+    process.exit(1)
+  }
+  if (!SERVICE_KEY) {
+    console.warn('⚠️   No service-role key, so wpbl_discord_highlight_posts is invisible to this key and every video below will read as new regardless of what has actually been posted.')
+  }
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-  realtime: { transport: ws },
-})
+const supabase = SUPABASE_URL && SUPABASE_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+      realtime: { transport: ws },
+    })
+  : null
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
@@ -112,9 +131,40 @@ async function createMessage(payload) {
   return await res.json()
 }
 
+// ─── Streams ────────────────────────────────────────────────────────────────
+//
+// One channel, two kinds of thing, and each is seeded independently the first time the job
+// meets it. The names here are also the values stored in wpbl_discord_highlight_posts.stream,
+// so renaming one silently re-seeds it: the job would see a stream it has never handled, post
+// the newest item and record the rest, which is loud but not wrong. Renaming both at once would
+// repost the newest of each.
+
+export const STREAMS = {
+  // What the sync made of the TITLE. The league's reels announce themselves: "WPBL Highlights:
+  // Boston Hunters @ San Francisco Firebells | August 28, 2026".
+  reel: { label: 'highlight reel', matches: (v) => v.kind === 'highlight' },
+  // The SHAPE of the upload, which no title reveals. `is_short` comes from sync-wpbl-youtube's
+  // probe of youtube.com/shorts/<id>; null there means undetermined, and `=== true` is what
+  // keeps an undetermined video out of the channel rather than guessing it in.
+  short: { label: 'Short', matches: (v) => v.is_short === true },
+}
+
+/**
+ * Which stream a video belongs to, or null for neither.
+ *
+ * REEL WINS A TIE, and the tie is real: the league could publish a game recap as a Short, and
+ * two streams claiming one video would post it twice. Reel wins because its message is the
+ * richer one, carrying the matchup and the date that the Short message has no way to know.
+ */
+export function streamOf(video) {
+  if (STREAMS.reel.matches(video)) return 'reel'
+  if (STREAMS.short.matches(video)) return 'short'
+  return null
+}
+
 // ─── Message ────────────────────────────────────────────────────────────────
 
-/** "2026-08-13" → "August 13" — the date the game was played, not the upload date. */
+/** "2026-08-13" becomes "August 13": the date the game was played, not the upload date. */
 function prettyDate(iso) {
   if (!iso) return null
   const [y, m, d] = iso.split('-').map(Number)
@@ -152,30 +202,67 @@ function headline(video, game, teams) {
  * The final score stays out for the same kind of reason: a scoreline above the player
  * spoils the video for someone who came to watch it.
  */
-function buildMessage(video, game, teams) {
-  const lines = [`🎬 **Highlights — ${headline(video, game, teams)}**`]
-  // Bare URL, last, on its own line: this is the one Discord expands into the player.
-  lines.push(`https://www.youtube.com/watch?v=${video.video_id}`)
+export function buildMessage(video, game, teams) {
   return {
     // A highlight should never ping a channel.
     allowed_mentions: { parse: [] },
-    content: lines.join('\n'),
+    content: streamOf(video) === 'short'
+      ? shortContent(video)
+      : reelContent(video, game, teams),
   }
+}
+
+function reelContent(video, game, teams) {
+  // Bare URL, last, on its own line: this is the one Discord expands into the player.
+  return `🎬 **Highlights: ${headline(video, game, teams)}**\nhttps://www.youtube.com/watch?v=${video.video_id}`
+}
+
+/**
+ * A Short says what it is in its own title, so the message gets out of the way.
+ *
+ * There is no matchup line and no date. The sync does not parse a Short's title (there is no
+ * "<away> @ <home> | <date>" in "FIRST WPBL WALK-OFF"), and inventing one from the upload time
+ * would be a guess printed as a fact. The title IS the headline the league wrote.
+ *
+ * The /shorts/ URL rather than /watch, though both unfurl to the same video: YouTube's oEmbed
+ * reports the /shorts/ form as portrait and the /watch form as landscape, so this is what makes
+ * Discord render the player in the shape the clip was filmed in rather than in a letterboxed
+ * 16:9 box. Swap the two if the tall player turns out to eat too much of the channel.
+ */
+function shortContent(video) {
+  return `🎥 **${video.title}**\nhttps://www.youtube.com/shorts/${video.video_id}`
 }
 
 // ─── Data ───────────────────────────────────────────────────────────────────
 
-/** Has this job ever recorded anything? An empty table means a first run, which posts only
- *  the newest reel (see the header). */
-async function hasAnyPost() {
-  const { data, error } = await supabase.from('wpbl_discord_highlight_posts').select('video_id').limit(1)
-  // Same reasoning as loadPosts: a dry run has to work before the migration is applied,
-  // and "no table" is simply "nothing posted yet" when we are sending nothing.
-  if (error) {
-    if (DRY_RUN) return false
-    throw new Error(`Reading wpbl_discord_highlight_posts failed (has the migration run?): ${error.message}`)
+/**
+ * Which streams this job has ever recorded anything for.
+ *
+ * A stream missing from this set is a first run for that stream, which posts only its newest
+ * item. Asked of the whole table rather than of the few-day window on purpose: after a week
+ * with no Shorts the window holds none, and a window-based answer would call an established
+ * stream new again and drop everything but the newest item without posting it.
+ */
+async function streamsAlreadyHandled() {
+  const handled = new Set()
+  // One `limit(1)` per stream rather than one read of the whole table. PostgREST silently caps
+  // a bare select at 1000 rows, and this table gains a row per video forever: once the first
+  // 1000 were all reels, a whole-table read would answer "we have never posted a Short" and
+  // re-seed a stream that had been running for a year. Two indexed existence checks cannot.
+  for (const stream of Object.keys(STREAMS)) {
+    const { data, error } = await supabase
+      .from('wpbl_discord_highlight_posts').select('video_id').eq('stream', stream).limit(1)
+    // Same reasoning as loadPosts: a dry run has to work before the migration is applied,
+    // and "no table" is simply "nothing posted yet" when we are sending nothing.
+    if (error) {
+      if (DRY_RUN) return new Set()
+      throw new Error(`Reading wpbl_discord_highlight_posts failed (has the migration run?): ${error.message}`)
+    }
+    if ((data ?? []).length > 0) handled.add(stream)
   }
-  return (data ?? []).length > 0
+  // Rows written before the column existed default to 'reel', so they answer for the reels
+  // they actually were.
+  return handled
 }
 
 async function loadPosts(videoIds) {
@@ -185,10 +272,10 @@ async function loadPosts(videoIds) {
     .select('video_id')
     .in('video_id', videoIds)
   if (error) {
-    // A dry run is the thing you want to do BEFORE applying the migration — it sends
+    // A dry run is the thing you want to do BEFORE applying the migration: it sends
     // nothing, so it can just report every video as new. A real run cannot.
     if (DRY_RUN) {
-      console.warn(`⚠️   No wpbl_discord_highlight_posts yet (${error.message}) — treating every video as new.`)
+      console.warn(`⚠️   No wpbl_discord_highlight_posts yet (${error.message}); treating every video as new.`)
       return new Set()
     }
     throw new Error(`Reading wpbl_discord_highlight_posts failed (has the migration run?): ${error.message}`)
@@ -210,15 +297,19 @@ async function main() {
   // handled, and anything it leaves out would post on the next real run.
   let query = supabase
     .from('wpbl_videos')
-    .select('video_id, title, published_at, kind, game_id, away_hint, home_hint, game_date_hint')
-    .eq('kind', 'highlight')
+    .select('video_id, title, published_at, kind, is_short, game_id, away_hint, home_hint, game_date_hint')
+    // Either stream. `is_short.is.true` and not `is_short.not.is.false`: an undetermined probe
+    // leaves the column null, and null must stay out of the channel rather than being guessed in.
+    .or('kind.eq.highlight,is_short.is.true')
     .order('published_at', { ascending: true })
   if (!SEED) query = query.gte('published_at', cutoff)
 
   const { data: videoRows, error: vidErr } = await query
   if (vidErr) throw new Error(`Loading wpbl_videos failed: ${vidErr.message}`)
-  const videos = videoRows ?? []
-  if (!videos.length) { console.log('No highlight reels in the window — nothing to do.'); return }
+  // streamOf is the authority, not the query: a row the filter let through but no stream claims
+  // would otherwise reach buildMessage and be posted as a reel with no matchup.
+  const videos = (videoRows ?? []).filter(v => streamOf(v) != null)
+  if (!videos.length) { console.log('Nothing new in the window; nothing to do.'); return }
 
   const { data: teamRows, error: teamErr } = await supabase.from('wpbl_teams').select('id, city, name, abbr')
   if (teamErr) throw new Error(`Loading teams failed: ${teamErr.message}`)
@@ -237,19 +328,27 @@ async function main() {
 
   const posted = await loadPosts(videos.map(v => v.video_id))
 
-  // A first run has no history to reason from, so it takes the newest reel only. Every run
-  // after this one can trust the table: an unposted highlight is simply new.
-  const firstRun = !(await hasAnyPost())
-  const newestId = videos[videos.length - 1]?.video_id
-  if (firstRun && !SEED) {
-    console.log(`First run — posting only the newest reel, recording ${videos.length - 1} older one(s) as handled.`)
+  // A stream with no history has nothing to reason from, so it takes its newest item only.
+  // Every run after that can trust the table: an unposted video in a known stream is simply new.
+  // Per stream, because when Shorts were added the job had been posting reels for a fortnight,
+  // and a job-wide flag would have read "not a first run" and emptied the whole window into the
+  // channel at once.
+  const handled = await streamsAlreadyHandled()
+  const newestOf = new Map()
+  for (const v of videos) newestOf.set(streamOf(v), v.video_id)   // ascending, so last wins
+  const isFirstRun = (stream) => !handled.has(stream)
+  for (const stream of new Set(videos.map(streamOf))) {
+    if (!isFirstRun(stream) || SEED) continue
+    const n = videos.filter(v => streamOf(v) === stream).length
+    console.log(`First run for ${STREAMS[stream].label}s: posting only the newest, recording ${n - 1} older one(s) as handled.`)
   }
 
   let sent = 0, seeded = 0, skipped = 0
   for (const video of videos) {
     if (posted.has(video.video_id)) { skipped++; continue }
+    const stream = streamOf(video)
     const game = video.game_id ? games.get(video.game_id) ?? null : null
-    const holdBack = SEED || (firstRun && video.video_id !== newestId)
+    const holdBack = SEED || (isFirstRun(stream) && video.video_id !== newestOf.get(stream))
     const payload = buildMessage(video, game, teams)
 
     if (DRY_RUN) {
@@ -258,20 +357,22 @@ async function main() {
       continue
     }
     if (holdBack) {
-      await savePost({ video_id: video.video_id, message_id: null, game_id: video.game_id, title: video.title })
+      await savePost({ video_id: video.video_id, message_id: null, game_id: video.game_id, title: video.title, stream })
       seeded++
       continue
     }
 
     const msg = await createMessage(payload)
-    await savePost({ video_id: video.video_id, message_id: msg.id, game_id: video.game_id, title: video.title })
+    await savePost({ video_id: video.video_id, message_id: msg.id, game_id: video.game_id, title: video.title, stream })
     sent++
     console.log(`✅  Posted ${video.title}`)
     await sleep(SEND_GAP_MS)
   }
 
-  if (DRY_RUN) console.log('\n(dry run — nothing was sent)')
+  if (DRY_RUN) console.log('\n(dry run: nothing was sent)')
   else console.log(`Done: ${sent} posted, ${skipped} already posted${seeded ? `, ${seeded} recorded without posting` : ''}.`)
 }
 
-main().catch(err => { console.error('❌ ', err.message); process.exit(1) })
+if (IS_ENTRYPOINT) {
+  main().catch(err => { console.error('❌ ', err.message); process.exit(1) })
+}

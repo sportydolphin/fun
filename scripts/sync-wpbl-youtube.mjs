@@ -34,6 +34,12 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
+import { pathToFileURL } from 'node:url'
+
+// Run only when invoked directly. Imported (by the tests, which exercise the Short probe's
+// reading of a response without touching YouTube) this file must define and not do.
+const IS_ENTRYPOINT = process.argv[1] != null
+  && import.meta.url === pathToFileURL(process.argv[1]).href
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 
@@ -58,14 +64,16 @@ const UPLOADS_PLAYLIST = 'UU' + CHANNEL_ID.slice(2)
 const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36'
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
+if (IS_ENTRYPOINT && (!SUPABASE_URL || !SUPABASE_KEY)) {
   console.error('❌  Set SUPABASE_URL (or VITE_SUPABASE_URL) and SUPABASE_SERVICE_ROLE_KEY before running')
   process.exit(1)
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-})
+const supabase = SUPABASE_URL && SUPABASE_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  : null
 
 // ─── XML feed parsing ─────────────────────────────────────────────────────────
 // The feed is small, well-formed Atom with a fixed shape, so a couple of scoped regexes
@@ -113,6 +121,42 @@ function classify(title) {
   if (/\bhighlights?\b/.test(t) && MATCHUP_SEP.test(t)) return 'highlight'
   if (/\bpodcast\b|\bepisode\b|\bep\.?\s*\d|dialogues?\b/.test(t)) return 'podcast'
   return 'other'
+}
+
+/**
+ * Is this upload a YouTube Short?
+ *
+ * `classify()` above reads the title, which is all it can do and all it needs to do: the
+ * league's titles announce a highlight reel. Nothing in a title says "vertical", though. Their
+ * Shorts are called "FIRST WPBL WALK-OFF" and "Denae Benites GRAND SLAM", and the same `other`
+ * bucket also holds three-hour full-game replays and sit-down features, so no keyword separates
+ * them. The one exact signal is the URL: youtube.com/shorts/<id> answers 200 for a Short and
+ * 303s to /watch for everything else.
+ *
+ * ONLY AN UNAMBIGUOUS ANSWER COUNTS. Returning null (rather than false) on a 404, a 429, a 5xx
+ * or a network error is the whole safety design. YouTube already bot-gates this script from
+ * GitHub's datacenter IPs, which is why the RSS path has a browser UA and a retry, and a probe
+ * that read a gate as "not a Short" would silently and permanently exclude a clip from the
+ * Discord channel. Null means "ask again next run", and the caller never overwrites a value it
+ * already has with one.
+ */
+export async function probeIsShort(videoId, fetchImpl = fetch) {
+  try {
+    const res = await fetchImpl(`https://www.youtube.com/shorts/${videoId}`, {
+      method: 'HEAD',
+      redirect: 'manual',
+      headers: { 'User-Agent': BROWSER_UA, Accept: 'text/html' },
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (res.status === 200) return true
+    // 301/302/303/307/308 to /watch is YouTube saying "this is an ordinary video".
+    if (res.status >= 300 && res.status < 400) {
+      return (res.headers.get('location') ?? '').includes('/watch') ? false : null
+    }
+    return null
+  } catch {
+    return null
+  }
 }
 
 const MONTHS = {
@@ -283,9 +327,24 @@ async function main() {
   const gameByKey = new Map()
   for (const g of games ?? []) gameByKey.set(`${g.game_date}|${g.away_team_id}|${g.home_team_id}`, g.id)
 
+  // What we already know about these ids, so the probe below runs on new uploads only. Two
+  // reasons this matters. The sync runs 20 times a day over the same ~15 videos, so probing
+  // blind would be 300 requests a day to a host that already bot-gates us. And the upsert
+  // rewrites every column it names: re-probing and getting null from a gated request would
+  // ERASE a Short we had correctly identified, which is worse than never having identified it.
+  const { data: knownRows, error: knownErr } = await supabase
+    .from('wpbl_videos').select('video_id, is_short').in('video_id', entries.map(e => e.videoId))
+  if (knownErr) throw new Error(`Loading known videos failed: ${knownErr.message}`)
+  const knownShort = new Map((knownRows ?? []).map(r => [r.video_id, r.is_short]))
+
   const rows = []
   for (const e of entries) {
     const kind = classify(e.title)
+    // A highlight reel and a podcast are never Shorts, so their answer is free. Everything else
+    // is asked once, ever, and the answer is remembered.
+    const isShort = kind === 'highlight' || kind === 'podcast'
+      ? false
+      : knownShort.get(e.videoId) ?? await probeIsShort(e.videoId)
     let away = null, home = null, date = null, gameId = null
     if (kind === 'highlight') {
       ({ away, home, date } = parseMatchup(e.title, resolveTeam))
@@ -306,9 +365,12 @@ async function main() {
       away_hint: away,
       home_hint: home,
       game_date_hint: date,
+      is_short: isShort,
       updated_at: new Date().toISOString(),
     })
-    const tag = kind === 'highlight' ? (gameId ? `→ game ${gameId.slice(0, 8)}` : '→ (no game match)') : `[${kind}]`
+    const tag = kind === 'highlight'
+      ? (gameId ? `→ game ${gameId.slice(0, 8)}` : '→ (no game match)')
+      : `[${kind}${isShort === true ? ', short' : isShort == null ? ', short?' : ''}]`
     console.log(`  • ${e.title}  ${tag}`)
   }
 
@@ -318,4 +380,6 @@ async function main() {
   console.log(`✅  Upserted ${rows.length} videos (${matched} matched to a game)`)
 }
 
-main().catch(err => { console.error('❌ ', err.message); process.exit(1) })
+if (IS_ENTRYPOINT) {
+  main().catch(err => { console.error('❌ ', err.message); process.exit(1) })
+}

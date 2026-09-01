@@ -7,7 +7,7 @@ token, no gateway, nothing to keep running:
 |---|---|---|---|
 | **Watch-party board** | wherever you point its webhook | [`scripts/update-wpbl-discord-board.mjs`](../scripts/update-wpbl-discord-board.mjs) | One message, edited forever. Always shows the next few games with live countdowns. |
 | **Box scores** | a different channel | [`supabase/functions/wpbl-ingest/announce-final.ts`](../supabase/functions/wpbl-ingest/announce-final.ts) and [`scripts/post-wpbl-discord-recaps.ts`](../scripts/post-wpbl-discord-recaps.ts) | One message per finished game, edited in place if the stats are corrected later. |
-| **Highlight reels** | the highlights channel | [`scripts/post-wpbl-discord-highlights.mjs`](../scripts/post-wpbl-discord-highlights.mjs) | One message per YouTube highlight reel, posted once and never touched again. |
+| **Highlights** | the highlights channel | [`scripts/post-wpbl-discord-highlights.mjs`](../scripts/post-wpbl-discord-highlights.mjs) | One message per league game highlight reel **and per YouTube Short**, posted once and never touched again. |
 | **Shop feed** | a shop channel | [`scripts/watch-wpbl-restock.mjs`](../scripts/watch-wpbl-restock.mjs) | New merch and restocks across the whole Shopify store, plus new memorabilia lots on The Realest, batched into one message per run. Never pings. |
 | **Shortlist alerts** | a private channel | the same script | A loud `@everyone` when something on the `wpbl_restock_watch` shortlist comes back. |
 | **Mention watch** | a private channel | [`scripts/watch-wpbl-mentions.mjs`](../scripts/watch-wpbl-mentions.mjs) | One digest per run of the public posts where somebody is asking where to follow a WPBL game. Threads to go and answer, not content for the server. |
@@ -85,7 +85,7 @@ season of finished games stays silent. The scheduled job's first run against an 
 `wpbl_discord_recap_posts` posts only the most recently completed game and records the rest
 as handled. Switching this on puts one game in the channel, not a season.
 
-### The highlight reels
+### The highlights: reels and Shorts
 
 The league uploads a highlights reel per game to YouTube. `wpbl-youtube-sync` already
 mirrors that channel into `wpbl_videos` twice an hour, classifying each upload and
@@ -106,8 +106,56 @@ and had to come out. The **final score is also deliberately absent**: the recap 
 already carries box scores, and a scoreline above the player spoils the video for anyone
 who came to watch. Both are one edit away in `buildMessage` if you disagree.
 
-**It doesn't backfill** either: the first run against an empty table posts only the newest
-reel and records the rest as handled.
+#### Shorts are the second stream
+
+The league also posts Shorts: single-play vertical clips titled "FIRST WPBL WALK-OFF",
+"Denae Benites GRAND SLAM", "Closed with a K!", plus the odd short interview. They are all
+highlights, so they all go to the same channel.
+
+**A Short is identified by its shape, not by its title, and that is the whole difficulty.**
+`classify()` reads titles, and no title says "vertical": "FIRST WPBL WALK-OFF" carries no
+keyword that a three-hour full-game replay ("WPBL: Boston Hunters @ New York Heights") and a
+sit-down feature ("Ticara Geldenhuis | Australian Legend") do not also lack. The one exact
+signal is the URL. `youtube.com/shorts/<id>` answers **200** for a Short and **303s to
+/watch** for anything else, so `sync-wpbl-youtube.mjs` probes it once per upload and stores
+the answer in `wpbl_videos.is_short`.
+
+**`is_short` null means "we have not determined this", never "no".** YouTube bot-gates this
+repo from GitHub's datacenter IPs already, which is why the RSS path carries a browser
+user-agent and a retry, so only a 200 or a redirect to `/watch` is recorded. A 404, a 429, a
+consent interstitial or a dropped connection all leave the column null and are retried on the
+next sync. The poster requires `is_short = true`, so an undetermined video is silently missed
+rather than wrongly posted, and a miss is much the better failure: guessing null in is how a
+three-hour replay ends up in a highlights channel.
+
+The probe runs **only on uploads we have no answer for**. The sync sees the same ~15 videos
+every run, so probing blind would be hundreds of requests a day to a host that is already
+suspicious of us. More importantly the upsert rewrites every column it names, so re-probing
+and getting null back from a gated request would **erase** a Short we had correctly
+identified. Existing rows from before this shipped stay null forever, which costs nothing:
+they are all far outside the poster's four-day window.
+
+A Short's message is its own title and the `/shorts/` URL, nothing else. There is no matchup
+line, because there is no matchup in "Denae Benites GRAND SLAM" to parse and a date taken from
+the upload time would be a guess printed as a fact. The `/shorts/` form rather than `/watch`
+is deliberate: both unfurl to the same video, but YouTube's oEmbed reports the `/shorts/` one
+as **portrait**, so Discord renders the player in the shape the clip was filmed in. If the tall
+player turns out to eat too much of the channel, swapping it for `watch?v=` is one line in
+`shortContent`.
+
+#### It doesn't backfill, and that is per stream
+
+The first run that sees a stream posts only its **newest** item and records the rest as
+handled. This is per stream rather than per job, and the distinction is not academic: the job
+had been posting reels for a fortnight when Shorts were added, so a job-wide "have we ever
+posted anything" flag would have answered yes and emptied the whole four-day window of Shorts
+into the channel in one go. `wpbl_discord_highlight_posts.stream` (`'reel'` or `'short'`,
+defaulting to `'reel'` so the existing rows answer for the reels they were) is what remembers
+which streams the job has met. Add a third and it seeds itself the same way.
+
+That question is asked of the whole posts table, never of the few-day window. After a quiet
+week the window holds no Shorts at all, and a window-based answer would call an established
+stream new again and drop everything but its newest item without posting it.
 
 ### The birthdays
 
@@ -733,8 +781,8 @@ npm run discord-recaps -- --seed      # record every final as handled, post noth
 
 ```bash
 npm run discord-highlights -- --dry-run   # render, send nothing (anon key is fine)
-npm run discord-highlights                # post whatever reels are new
-npm run discord-highlights -- --seed      # record every reel as handled, post nothing
+npm run discord-highlights                # post whatever reels and Shorts are new
+npm run discord-highlights -- --seed      # record everything as handled, post nothing
 ```
 
 ```bash
@@ -1036,8 +1084,14 @@ which bundles each function exactly as Cloudflare will and fails loudly instead 
   channel is something a webhook cannot do (a webhook is bound to one channel and a round can
   run in any of them). Without it the winner row is still written, with `announced_at` null,
   and `/predict winner` posts it as its own reply.
-- **What counts as a highlight** is `classify()` in
-  [`scripts/sync-wpbl-youtube.mjs`](../scripts/sync-wpbl-youtube.mjs): a title containing
-  "highlight(s)" *and* a matchup separator (`@` or `vs.`). Single-play clips ("Kelsie
-  Whitmore 1st WPBL homer") and full-game uploads ("WPBL: Boston Hunters @ New York
-  Heights") are `other` and are not posted.
+- **What counts as a highlight** is now two questions, answered by two different things.
+  `classify()` in [`scripts/sync-wpbl-youtube.mjs`](../scripts/sync-wpbl-youtube.mjs) reads
+  the title for a **reel**: "highlight(s)" *and* a matchup separator (`@` or `vs.`).
+  `probeIsShort()` in the same file asks YouTube for the **shape**, which is what catches the
+  single-play clips ("Kelsie Whitmore 1st WPBL homer") that `classify()` files as `other`.
+  Full-game uploads ("WPBL: Boston Hunters @ New York Heights") are `other` and not a Short,
+  so they are still never posted, which is the case worth keeping working: they are three
+  hours long and they sit in the same bucket as the clips.
+- **A tie goes to the reel.** If the league ever publishes a game recap as a Short it matches
+  both streams, and `streamOf()` gives it to the reel so it cannot be posted twice. The reel
+  message is the richer one, carrying the matchup and date a Short message has no way to know.
