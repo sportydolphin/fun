@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { computeStandings } from '../api'
-import { seedingRace, semifinalLabel, bracketIsSet, magicOver } from '../derive/seeding'
+import { seedingRace, semifinalLabel, bracketIsSet, magicOver, swingGames } from '../derive/seeding'
 import type { WpblGame, WpblStandingRow, WpblTeam } from '../types'
 
 // The seeding race is the only frame the last regular-season games have. All four clubs
@@ -130,6 +130,39 @@ describe('seedingRace', () => {
     expect(race(MID)[3].magic).toBeNull()
   })
 
+  // What the bottom seed has instead. The card used to print a sentence here ("Can still reach
+  // 3rd"), which was the one cell in the column not answering the column's question and the
+  // longest string on the card. The climb is the same magic number asked about a different
+  // seed, so it is priced by the same function.
+  it('prices the bottom seed\u2019s climb to the best seed it can still reach', () => {
+    const rows = race([
+      { id: 'SF', w: 8, l: 4, left: 3 },
+      { id: 'LA', w: 7, l: 6, left: 2 },
+      { id: 'NY', w: 6, l: 7, left: 2 },
+      { id: 'BOS', w: 4, l: 8, left: 3 },
+    ])
+    const bos = rows[3]
+    // BOS tops out at 7 wins. LA already has 7 and SF 8, so only NY (ceiling 8) is catchable.
+    expect(bos.bestPossible).toBe(3)
+    // Which costs NY's ceiling of 8, minus BOS's 4, plus one: three BOS wins and two NY losses,
+    // exactly the whole of what both clubs have left.
+    expect(bos.climbMagic).toBe(5)
+  })
+
+  // A club already in the best seat it can reach has nothing to climb to, and printing a
+  // climb number beside a defence number would put two answers in one cell.
+  it('has no climb number for a club that cannot move up', () => {
+    const rows = race(MID)
+    // The top seed, which has nowhere to go.
+    expect(rows[0].climbMagic).toBeNull()
+    // And the third seed, which is the more interesting null: LA tops out at 8 wins and NY
+    // already HAS 8, so LA can tie NY and can never pass it outright. Its ceiling is the seed
+    // it is standing in, and the cell shows what it has to defend rather than a climb it
+    // cannot make.
+    expect(rows[2].climbMagic).toBeNull()
+    expect(rows.map(r => r.climbMagic != null)).toEqual([false, true, false, true])
+  })
+
   // Locking the top seed means holding off all three; locking second means holding off two,
   // so it can be clinched while the top seed is still live.
   it('prices the top seed against every rival and second against the cheapest two', () => {
@@ -211,5 +244,62 @@ describe('seedingRace', () => {
       expect(r.worstPossible).toBe(4)
     }
     expect(bracketIsSet(rows)).toBe(false)
+  })
+})
+
+// The line under the table, which is the only thing on the card that says WHEN the order gets
+// decided rather than what it would take. Both conditions are load-bearing and both are about
+// keeping a game off this line rather than putting one on it.
+describe('swingGames', () => {
+  const SPEC: Spec[] = [
+    { id: 'SF', w: 8, l: 4, left: 0 },
+    { id: 'LA', w: 7, l: 6, left: 0 },
+    { id: 'NY', w: 6, l: 7, left: 0 },
+    { id: 'BOS', w: 4, l: 8, left: 0 },
+  ]
+  // `remaining` is read off the schedule, so a scenario is the records plus real fixtures.
+  const withGames = (games: WpblGame[]) => swingGames(seedingRace(SPEC.map(rowFor), games), games)
+
+  it('names a game between two clubs arguing over the same seed', () => {
+    const g = game('LA', 'NY', null, null)
+    expect(withGames([g]).map(s => s.game.id)).toEqual([g.id])
+  })
+
+  it('ignores a game between clubs two seeds apart, which decides no single seat', () => {
+    expect(withGames([game('SF', 'NY', null, null)])).toEqual([])
+  })
+
+  // The point of the strictness: in the last week most of the remaining fixtures are dead
+  // rubbers as far as the ORDER goes, and a line naming one of those is worse than no line.
+  it('ignores a pair whose order is already settled outright', () => {
+    // NY tops out at 6 wins here, below BOS's current 7, so third and fourth are decided
+    // however this game goes.
+    const decided: Spec[] = [
+      { id: 'SF', w: 9, l: 3, left: 0 },
+      { id: 'LA', w: 8, l: 4, left: 0 },
+      { id: 'BOS', w: 7, l: 5, left: 1 },
+      { id: 'NY', w: 5, l: 7, left: 1 },
+    ]
+    const g = game('BOS', 'NY', null, null)
+    expect(swingGames(seedingRace(decided.map(rowFor), [g]), [g])).toEqual([])
+  })
+
+  it('drops games that have been played and games outside the regular season', () => {
+    const played = game('LA', 'NY', 5, 4)
+    const post = { ...game('LA', 'NY', null, null), game_type: 'semifinal', counts_in_standings: false }
+    expect(withGames([played, post])).toEqual([])
+  })
+
+  // Date order, because the card prints the first one and counts the rest. Compared as strings:
+  // these are naive calendar days, and turning one into a Date moves it a day in half the world.
+  it('returns them oldest first', () => {
+    const later = { ...game('SF', 'LA', null, null), game_date: '2026-09-05' }
+    const sooner = { ...game('LA', 'NY', null, null), game_date: '2026-09-03' }
+    expect(withGames([later, sooner]).map(s => s.game.game_date)).toEqual(['2026-09-03', '2026-09-05'])
+  })
+
+  it('marks which club is the better seed, whoever is at home', () => {
+    const s = withGames([game('NY', 'LA', null, null)])[0]
+    expect([s.higher.team.id, s.lower.team.id]).toEqual(['LA', 'NY'])
   })
 })

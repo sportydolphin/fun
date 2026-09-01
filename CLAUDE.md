@@ -183,7 +183,10 @@ Each of these has already cost someone a debugging session, and none of them fai
   started wrapping a name onto two lines. **Ornament** stays raw px: hairline borders, the 6px
   live dot, a 4px scrollbar. The failure is silent in every direction, and `tsc` sees none of
   it: the only check that works is opening the page and looking for a box whose content is
-  wider than it is, at more than one text scale.
+  wider than it is, at more than one text scale. **Which is why anything behind the experiments
+  flag is exempt from that check by construction, and has to be swept separately.** The seeding
+  race sat out the whole rebuild for exactly this reason and carried four of these bugs into
+  September; turning the flag on and looking is the only way to find the next one.
 
 - **`--app-header-h` / `--wpbl-nav-h` are the pinned chrome's height, in plain screen pixels.**
   Both are spent as a sticky `top`. Use the **rect**, never `offsetHeight`: it rounds to a whole

@@ -4,12 +4,15 @@
 > Companion doc: **[ROADMAP.md](ROADMAP.md)**: the MLB section, which runs on its own
 > calendar and its own priorities. Nothing here blocks anything there.
 > Tags: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra
-> Last checked against production: **Aug 22, 2026** (18 of 30 regular-season games final;
-> the clock below is counted from the live schedule, not from memory).
-> Last realigned: **Aug 20, 2026**, against traffic data for the first time (see
-> "What the traffic says"), and revised again later the same day when 1b turned out not to be
-> blocked (see its entry). The seeding race and the bracket are both opt-in behind the
-> experiments flag; before that Aug 17, 2026. Teams tab, Settings and an accessibility pass shipped
+> Last checked against production: **Sep 1, 2026** (25 of 30 regular-season games final, 5 left,
+> and the feed carries no postseason row yet; the clock below is counted from the live schedule,
+> not from memory).
+> Last realigned: **Sep 1, 2026**, when the desktop rebuild (#0) finished and shipped as v1.58.0,
+> which empties the top of the list five days before the regular season ends. Before that
+> **Aug 20, 2026**, against traffic data for the first time (see "What the traffic says"), revised
+> again later the same day when 1b turned out not to be blocked (see its entry). The bracket came
+> out from behind the experiments flag and is live for everyone; the seeding race is still behind
+> it; before that Aug 17, 2026. Teams tab, Settings and an accessibility pass shipped
 > as v1.45.0 (see the shipped log); favourite-team + theming remains built and parked (see
 > "Parked, with reasons"); before that, split out of `ROADMAP.md` and reprioritized around
 > the season clock (see the realignment log at the end).
@@ -18,9 +21,19 @@
 
 ## The clock: read this before prioritizing anything
 
-**12 games left. The last regular-season game is Sep 6, 2026, just over two weeks out, and the
-postseason runs Sep 9 to Sep 22** (schedule in Background, below). Then the league's feed goes
-quiet and this section has no new data until spring 2027.
+**5 games left. The last regular-season game is Sep 6, 2026, five days out, and the postseason
+runs Sep 9 to Sep 22** (schedule in Background, below). Then the league's feed goes quiet and
+this section has no new data until spring 2027.
+
+**As of Sep 1 the mirror holds 30 rows and every one of them reads `game_type: regular`,
+`counts_in_standings: true`.** No postseason game exists in the feed yet, so the one dependency
+#1 and #1b both isolate is still unanswered, and it stays unanswered until the semifinals appear
+(the dates were published, the seeds are not set until Sep 6). Two things follow. Anything that
+must behave differently in the postseason cannot be verified before it runs live, so it should
+fail toward the regular-season reading rather than toward blank (`season.ts` already does; new
+code has to be written the same way). And **the day the first semifinal row lands is a
+scheduled task, not a surprise**: read `game_type` and `counts_in_standings` on it before
+trusting any season total on the site.
 
 So the real deadline is Sep 22, not Sep 6, and the last two weeks of it are the highest-stakes
 baseball the league will play. A season-locked feature that only just misses Sep 6 may still be
@@ -28,8 +41,9 @@ worth finishing; one that misses Sep 22 is a year late.
 
 That single fact should grade every item below:
 
-- **Season-locked**: needs live games to be worth building, and has ~3 weeks to earn its
-  keep. Build it now or lose a year.
+- **Season-locked**: needs live games to be worth building, and has three weeks to earn its
+  keep, of which only five days still have regular-season baseball in them. Build it now or
+  lose a year.
 - **Durable**: still worth something on Oct 1. Safe to build late, but the *data* some of
   it needs must be captured while the season is running.
 
@@ -52,8 +66,8 @@ and pitching-usage grids, all under a pinned club switcher) · Game Center (reca
 probability graph any moment of the game can be read off, box score, play-by-play, pitch data) ·
 Player pages at `/wpbl/players/<slug>` (batting/pitching/fielding cards, game log,
 pitch-location maps, shareable links that unfurl) · search · live polling · push reminders · a fan Discord integration
-(board, final-score box scores, YouTube highlight reels, `/player` slash command, giveaway
-draw).
+(board, final-score box scores, YouTube highlight reels and Shorts, `/player` slash command,
+giveaway draw, shop restock and auction-lot watchers).
 
 **Data:** the `wpbl-ingest` edge function mirrors the league's public feed
 (`stats.womensprobaseballleague.com/v1`) into Supabase on a 2-minute cron: games,
@@ -116,9 +130,32 @@ more than it looks. The primer (#4) and SEO (#3) hold, aimed at a cold audience 
 
 ## Next: in priority order
 
-### 0. The desktop rebuild: Home, and the 1.4x zoom that shaped it 🎯⚙️: **in progress, started Aug 31, 2026**
+**Read this first, Sep 1.** #0 shipped, which empties the top of the list with five regular-season
+days left. The numbers below are stable references and are not renumbered; the order to work them
+in now is:
 
-The active track. A Home redesign and the retirement of the desktop `zoom` are one job rather
+1. ~~**#1c, today or not at all.**~~ ✅ *Done Sep 1: the flag came off and the card was audited
+   against a real browser on the way out, which found four scale bugs the desktop rebuild's sweep
+   could not have found, because a flagged card never renders. See the log.*
+2. **#1b's open half, before Sep 9.** Series records on the schedule and in Game Center, and
+   series-aware recap and Discord wording. Seven to eleven games of series baseball arrive on
+   Sep 9 and every surface that describes a game is still single-game shaped.
+3. **The postseason arrival check** (#1, and the note in the clock). Not a build: the mirror still
+   holds nothing but `regular` / `true`, so the first semifinal row is where we find out whether
+   the feed marks the postseason at all, and every season total on the site rides on it.
+4. **#5 daily standouts**, which is the one item whose value does not fall off on Sep 6, and
+   which puts tappable player names on Home. Then **#2 the archive**, the only durable item, whose
+   season-capture half has to happen before Sep 22.
+
+### 0. The desktop rebuild: Home, and the 1.4x zoom that shaped it 🎯⚙️: ✅ **shipped Aug 31, 2026 as v1.58.0** (see the log)
+
+Started and finished Aug 31, in five phases plus the shell. Kept in full rather than cut down to a
+log entry, because the three kinds of fixed length it establishes (rem for boxes holding type,
+`chromePx()` for structure, raw px for ornament) now bind everything new in the section, and the
+reasoning for which is which is here rather than in the diff. `/mlb` still runs the 1.4 zoom on
+its own subtree and takes its turn separately; that is the deliberate price recorded below.
+
+What it was. A Home redesign and the retirement of the desktop `zoom` are one job rather
 than two, because the zoom is what forced most of Home's layout decisions in the first place:
 `HOME_WIDE_W` exists only to break back out of a column the zoom had already shrunk, and the
 scoreboard's placement, its edge fades and the bracket's connector have each been wrong at
@@ -216,8 +253,7 @@ holding type follow it.
    What stayed in px, deliberately: every dot, badge, avatar and icon square; the `minHeight: 48`
    touch minimum; the scoreboard's 24px fades and 40px hover zones; the sheet grabber; the page
    column caps, which are phase 3's business.
-3. **Set the desktop ramp, move the caps, flip the zoom off.** *Mechanism done Aug 31; the
-   number is still open.*
+3. **Set the desktop ramp, move the caps, flip the zoom off.** ✅ *Done Aug 31, settled at 1.25.*
 
    **TWO SCALES, NOT ONE, AND THEY CARRY DIFFERENT DEPENDENCIES.** `--app-type` is spent on the
    root font size, so it moves every `rem`: the type, and the boxes phase 2 taught to follow it.
@@ -368,7 +404,7 @@ season record" or "has been played"; confirm what the feed actually puts in `gam
 a postseason game (unknown until the first one lands, and the semis start right after
 Sep 6).
 
-### 1b. Series state 🎯: ✅ **the bracket shipped Aug 20, 2026, behind the experiments flag** (see the log). The rest is open
+### 1b. Series state 🎯: ✅ **the bracket shipped Aug 20, 2026 and is now live for everyone** (see the log). The rest is open
 
 Postseason baseball is series-shaped and **almost nothing in the section models a series**.
 The schedule, recaps and the Discord poster are all single-game shaped. "SF leads 2–1" is the
@@ -387,9 +423,11 @@ team pair reconstructs every series record with no new field, whatever the feed 
 **Done**: `derive/bracket.ts` (pairings from the standings order, series records from grouped
 postseason games, championship slot, champion) and the Home card that draws it. Before Sep 6
 it is a projection that moves with the standings; from Sep 9 the same boxes carry real series.
-**Opt-in from Settings**, so turning it on is the remaining step, exactly as it was for 1c.
-Note the flag has to earn its keep faster here than it did there: an opt-in card is seen by
-almost nobody, and this one has three weeks before the thing it draws stops being a projection.
+**The flag came off**, and what took it off was the odds rather than a decision to be braver: a
+bare projected bracket is a third view of the standings, and the same boxes carrying a price on
+each series are the section's one forward-looking surface. The hedge moved into the card's own
+footnote, which is what a bracket-shaped guess needs and what a switch almost nobody flips never
+was. Reasoning is in the header comment of `PlayoffBracket.tsx`.
 
 **Odds, added Aug 24** (see the log): the bracket card now prices each series and the title from
 season run differential, with an elimination flag, which is the "something new" the postseason
@@ -404,7 +442,7 @@ schedule and Game Center still do not carry it. None of these are blocked, by th
 the bracket stays empty and every season total is wrong, which is the exposure #1 already
 carries (see `season.ts`) rather than a new one. Confirm it the day the first semifinal lands.
 
-### 1c. The seeding race 🎯: ✅ **shipped Aug 20, 2026, behind the experiments flag** (see the log)
+### 1c. The seeding race 🎯: ✅ **shipped Aug 20, 2026; live for everyone Sep 1** (see the log)
 
 All four clubs qualify, so a clinch tracker is pointless and stays parked. **Seeding is not
 pointless**: the standings order sets the semifinals 1v4 and 2v3, and it is the only thing
@@ -414,14 +452,15 @@ number, the cushion over the seed below, a magic number to lock a seed, and the 
 each seed would draw. All derived from `computeStandings`, so it needed no new data and no
 new request. **Opt-in from Settings**: it is the first thing on the section to make a
 forward-looking claim rather than report a result, and a number like "8 to lock 1st" is worth
-being wrong in front of a handful of volunteers first. Turning it on is the remaining step,
-and it now shares that step with the bracket (1b), since both sit behind the same switch.
+being wrong in front of a handful of volunteers first.
 
-The flag did come off briefly on Aug 20 and went back on the same day. Worth recording only
-because the argument for taking it off still stands and will have to be answered again: an
-opt-in card is seen by almost nobody, so the caution buys little signal, and there are three
-weeks left for either card to be worth anything. Whatever settles that, it should settle it
-for both at once rather than one at a time.
+**THE FLAG CAME OFF ON SEP 1, with five games left to live** (v1.59.0, see the log). The argument
+was the expiry: the bracket (1b) is durable through Sep 22 and beyond, and a card whose whole
+subject is what the remaining REGULAR-season games decide is worth nothing after Sep 6. An
+experiment nobody can see is not being tested, it is just unread. The magic numbers were checked
+against the live table before the switch and the arithmetic holds: SF need 2 to lock first, LA
+and NY 2 apiece for second and third, BOS 5 to climb to third, which is every game both clubs
+have left.
 
 ### 2. The inaugural-season archive 🔬🎯: *the only durable item on this list*
 
@@ -475,8 +514,10 @@ none of.
 ### 5. Daily standouts: Home card 🎯
 
 A "top performers" card for the latest game day, built from box lines Home already fetches.
-Mirrors the MLB TopPerformers/Spotlight pattern. Low effort, and there are 12 games
-left for it to pay off.
+Mirrors the MLB TopPerformers/Spotlight pattern. Low effort, and it is the one item here whose
+value does NOT fall off on Sep 6: a game day is a game day, and the postseason has 7 to 11 more
+of them, each one carrying more weight than any regular-season day did. As of Sep 1 that is 5
+regular-season days plus the postseason, against the 12 games this entry was written against.
 
 ### 6. Win probability in Game Center 🔬
 
@@ -796,6 +837,154 @@ is retired.
 ---
 
 ## Shipped log
+
+### Sep 1, 2026: the seeding race comes out from behind the flag, and what an unrendered card hides (v1.59.0)
+
+Built Aug 20, opt-in ever since, and with five regular-season games left the caution had stopped
+being caution. The bracket on Home had already come out; this had not, and the two are not
+symmetric: the bracket is worth something through Sep 22 and into the archive, while a card whose
+subject is *what the remaining regular-season games decide* is worth nothing on Sep 7. An
+experiment nobody can see is not being tested.
+
+**THE AUDIT IS THE PART WORTH RECORDING, because it is a fault line the desktop rebuild could not
+have caught.** Phase 2 of that rebuild worked by rendering each surface and looking for boxes
+whose content had outgrown them, which is the only method that finds this class of bug. A card
+behind the experiments flag never renders, so this one was not in the sweep's fourteen files and
+kept raw px around type that is now 25% larger on a desktop. Four separate failures, all
+invisible to `tsc` and to all 1,059 tests:
+
+- The cushion column, 132px holding a string that wants 140, and 156 at the reader's Large text
+  setting. Set `nowrap`, so it spilled left into the record beside it rather than wrapping.
+- The status column, 116px holding "Can still reach 3rd" at 121. That one wrapped, which made
+  the bottom row 2.5px taller than the other three and left its cell ragged.
+- The header's badge spacer, a bare `width: 26` against a `TeamBadge` that scales itself through
+  `--app-chrome` to 32.5. So the CLUB header sat 6.5px left of the club names for the whole life
+  of the card.
+- The semifinal column on a phone, where the 18px letter chip squeezed the opponent until
+  "vs BOS" ellipsised to "vs B...". BOS is the league's only three-letter abbreviation, so
+  exactly one row of four looked broken.
+
+**And one worse thing that only shows at 320px: the club names were gone entirely.** Five fixed
+columns left the flex club column 5px, so the rows rendered as a seed number, a record and a
+matchup with no club attached. An ellipsis at least says something was cut. Fixed by dropping the
+record column below `sm`, which costs nothing: this card renders directly under the standings
+table, which carries the same four records in the same order a finger's width above it.
+
+Every width is now in rem, sized against its longest possible string measured rather than
+guessed, so the whole set holds at the desktop scale times the reader's text scale at once.
+Verified at 320, 390, 1024 and 1440, in both themes, at both text scales: no overflow anywhere,
+all four rows exactly equal height.
+
+**Two changes to what the card says, both from reading it rather than from measuring it.**
+
+The bottom club's cell read "Can still reach 3rd", a sentence in a column of numbers, answering a
+different question from the three rows above it. It now reads **"5 to reach 3rd"**, priced by the
+same `magicOver` the other rows use, just asked about `bestPossible` instead of the seed held.
+Two formulas for "what does this club still need" would eventually disagree in front of a reader.
+The ordinal came off the other three at the same time ("2 to lock", not "2 to lock 2nd"): the
+seed being defended is the number at the left end of the same row, so the row was saying it twice.
+
+**And the card now names the game that decides it**, which is the one thing a column of magic
+numbers structurally cannot say. `swingGames()` returns the remaining fixtures between two clubs
+who are ADJACENT in the table and whose order is still open in the same outright, no-tiebreak
+sense the magic numbers use. Today that is exactly one, and the line reads "Thu, Sep 3: Heights
+at Queens is the only game left between two clubs still disputing a seed." Both conditions exist
+to keep games OFF that line: adjacency because ranking a 1-versus-3 game against the rest needs a
+win model this does not have, and openness because the last week is mostly dead rubbers as far as
+the ORDER goes, and naming one of those is worse than naming nothing.
+
+Also: once the order is final the "To lock" column is removed rather than turned into four
+identical "Seed set" cells under a header that has stopped asking anything, and the footnote's
+sentence about the A and B labels renders only where those labels do, since the letters are
+hidden on the narrowest phones so the opponent can stay whole.
+
+### Aug 31, 2026: the section is drawn at its real size on a desktop (v1.58.0)
+
+Item 0 above carries the phases and the measurements. What shipped, in one place:
+
+**`zoom: 1.4` is gone from `/wpbl`.** It moved down onto the MLB view, which still runs it, and
+two CSS variables replaced it on this side. `--app-type` is spent on the root font size, so it
+moves every `rem`, and it multiplies with the reader's Large text setting. `--app-chrome` is
+spent on px that is not type: MUI's whole spacing scale, badges, portraits, the toolbar logo,
+and every structural length through `chromePx()`. It deliberately excludes the text scale,
+because a tap target that grows with the text size is a worse tap target.
+
+**The scale landed at 1.4 to prove the flip, then moved to 1.25.** 1.4 was never a desktop
+decision: it was the number that stopped a phone column looking lost on a monitor, and it
+magnified the margins along with the content. With the page columns now set independently
+(`HOME_WIDE_W` 1260, `FULL_BLEED_W` 1540, the section column `chromePx(720)`), the scale only
+has to size what is inside them. 1.25 puts body copy at 16px, which is seven scoreboard games
+instead of six and two more cards above the fold in the same pixels. One constant,
+`WPBL_DESKTOP_SCALE` in App.tsx.
+
+**The shared toolbar had to be solved separately, and it is the one place `zoom` is right.**
+The bar is shared with `/mlb`, and the two sections are scaled by different mechanisms, so
+neither could reach it without reaching the other. `--app-shell` scales the `AppBar` alone and
+only where the root is not already doing it. Measured on both routes afterwards: bar 61px,
+logo 40px, search box 325px. Before this, switching to MLB shrank the whole bar 25%, on a
+control that lives in that bar.
+
+**Two things this cost, both worth knowing in September.** The before-and-after screenshots
+were taken against live data rather than a frozen season, because the phase was pulled forward
+from October deliberately. And `/mlb` now reads slightly top-light, since the shell is retuned
+at real scale while that section keeps its 1.4 on its own subtree. That is the price of not
+splitting the header in two, and it was taken knowingly.
+
+**Nothing in the suite can catch any of this.** All 1,009 tests pass at 1.4 and at 1: jsdom has
+no layout engine, so not one of them measures anything. Every bug in this whole track was found
+by opening the page, including the one phase 4 caught, where a `maxWidth: 840` that used to
+render at 1176 rendered at 840 against type that had stayed large, and the player dialog wrapped
+a name onto two lines.
+
+### Aug 31, 2026: every Short the league posts, in the highlights channel
+
+The league publishes single-play vertical clips ("FIRST WPBL WALK-OFF", "Denae Benites GRAND
+SLAM") and none of them reached Discord. The reason is the interesting part: **a Short is
+identified by its shape, and the shape is not in the title.** `classify()` reads titles, and a
+walk-off clip carries no keyword that a three-hour full-game replay and a sit-down feature do
+not equally lack. Any keyword rule wide enough to catch the clips eventually drops a replay into
+the channel. The one exact signal is the URL, since `youtube.com/shorts/<id>` answers 200 for a
+Short and redirects to `/watch` for everything else, so the sync probes it once per upload into
+`wpbl_videos.is_short`.
+
+**Null in that column means undetermined, never no.** YouTube bot-gates this repo from GitHub's
+IPs, so a 429 or a consent interstitial has to leave the column unanswered for a later run
+rather than record a no. The poster requires `is_short = true`, which makes an undetermined
+video a quiet miss instead of a wrong post. The probe also only runs where there is no stored
+answer: the sync sees the same videos twenty times a day and the upsert rewrites every column it
+names, so re-probing into a gated null would erase a Short already identified correctly.
+
+**Seeding is per stream, and a job-wide flag would have flooded the channel.** The safety rule
+is that a stream the job has never posted gets its newest item posted and the rest recorded as
+handled. Reels had been posting for a fortnight, so "have we ever posted anything" would have
+answered yes and emptied four days of Shorts at once.
+`wpbl_discord_highlight_posts.stream` is what remembers, asked with one `limit(1)` per stream:
+that table gains a row per video forever, and once the first 1000 rows are all reels, a bare
+select would decide we had never posted a Short and re-seed a stream that had been running for
+a year. Same PostgREST cap as everywhere else on this page.
+
+### Aug 31, 2026: the merch watcher learns a second shop, where every lot is one of one
+
+The league sells in two places, and the second is a marketplace rather than a shop. That
+difference decided the design: the 190 lots on The Realest are game-used bases, game-worn
+jerseys, nameplates and lineup cards, each unique, so nothing can ever come back into stock and
+a restock diff is dead code against it. The only event worth a message is **a lot id nobody has
+seen before**, which is why it got its own table and its own pass rather than a second flavour
+of the Shopify one.
+
+**Hourly, not every ten minutes**, because lots arrive in batch drops weeks apart, and because
+`api.therealest.com/robots.txt` is `Disallow: /`. On an API subdomain that normally means "stay
+out of the index" and their site allows `/`, but it is still their stated wish, so the watcher
+asks as rarely as it usefully can, identifies itself, and has an off switch that is one
+repository variable and no deploy: `WPBL_AUCTION_WATCH=off` the day they ask.
+
+**The two sources must not be able to answer for each other.** `wpbl_shop_watch_runs` grows a
+`source` column and every health query filters on it, because a Shopify check succeeding every
+ten minutes would otherwise cover for an auction watcher that died in July, which is the one
+thing that table exists to make visible. Their API carries both traps this repo keeps meeting:
+`limit` caps at 100 with the real total in `pagination.total`, so a short read errors rather
+than degrading into a channel that reads as a slow month, and prices are decimal strings, so a
+round "250" read as an integer quotes a game-used base at $2.50.
 
 ### Aug 31, 2026: Home spends the desktop it is on, and the next game earns its card (v1.57.0)
 

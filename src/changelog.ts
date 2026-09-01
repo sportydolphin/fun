@@ -4,6 +4,29 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.59.0',
+    date:    '2026-09-01',
+    title:   'The seeding race is on the standings page for everyone',
+    changes: [
+      {
+        short: 'What the last five games actually decide, under the standings table',
+        full:  'All four clubs are already in the postseason, so the table has been showing a race for a place nobody can miss. What the remaining games decide is the ORDER, which sets the semifinals: first plays fourth and second plays third. There is now a card under the table giving each club its seed, how many wins or rivals\u2019 losses it still needs to lock that seed, and the club it would draw in the semifinals. It had been available only to readers who had turned experimental features on, which with five games left was nobody who needed it.',
+      },
+      {
+        short: 'It names the one game left that can still move the order',
+        full:  'A magic number says what a club needs and never says when it gets settled. The card now names the remaining games between two clubs who are next to each other in the table and whose order is still genuinely open, which as of today is exactly one: Heights at Queens on Sep 3. A game between clubs already separated is left off, however good the fixture, because it cannot change anybody\u2019s seed.',
+      },
+      {
+        short: 'The bottom club gets a number instead of a sentence',
+        full:  'It used to read \u201cCan still reach 3rd\u201d, which answered a different question from the rest of the column and was the longest line on the card. It now reads \u201c5 to reach 3rd\u201d, counted the same way as every other row: the Hunters need their own wins plus the Heights\u2019 losses to add up to five, which is every game both clubs have left.',
+      },
+      {
+        short: 'The card fits the phone it is on again',
+        full:  'It was built before the section was redrawn at desktop scale and had kept fixed pixel widths around text that is now a quarter larger, so a column overflowed, a row wrapped onto two lines and \u201cvs BOS\u201d was cut to \u201cvs B\u201d. On a 320-pixel phone the club names had been squeezed out altogether. Every column now scales with the text, including at the Large text setting, and the record column steps aside on a phone since the table directly above it carries the same four records.',
+      },
+    ],
+  },
+  {
     version: '1.58.0',
     date:    '2026-08-31',
     title:   'The WPBL section is drawn at its real size on a desktop',

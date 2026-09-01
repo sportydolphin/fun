@@ -33,6 +33,11 @@ export interface WpblSeedRow {
   /** Wins-plus-rival-losses still needed to lock THIS seed or better. 0 = already locked.
    *  null for the bottom seed, where "no worse than fourth" is not a thing to clinch. */
   magic: number | null
+  /** The same number for the BEST seed still reachable, which is the only figure the bottom
+   *  seed has: it holds nothing, so "N to lock 4th" is vacuous while "N to reach 3rd" is the
+   *  whole of its remaining season. null when the club is already in the best seat it can
+   *  reach, where `magic` is the number that matters instead. Never both on screen at once. */
+  climbMagic: number | null
   /** The best seed still mathematically reachable, and the worst it can still fall to.
    *  bestPossible === worstPossible means this exact seed is settled. */
   bestPossible: number
@@ -98,15 +103,23 @@ export function seedingRace(rows: WpblStandingRow[], games: WpblGame[]): WpblSee
     // per-rival magic numbers and read off the (N - k)th smallest: the cheapest set of rivals
     // that gets there. For the seed this club currently holds, k = seed, so it needs to hold off
     // (N - seed) clubs, which for the bottom seed is none, hence null rather than a vacuous 0.
-    const needed = base.length - me.seed
-    const magic = needed <= 0 ? null
-      : others.map(o => magicOver(me.row, o)).sort((a, b) => a - b)[needed - 1] ?? null
+    const perRival = others.map(o => magicOver(me.row, o)).sort((a, b) => a - b)
+    const magicFor = (k: number) => {
+      const needed = base.length - k
+      return needed <= 0 ? null : perRival[needed - 1] ?? null
+    }
+    const magic = magicFor(me.seed)
 
     // Ceiling and floor, on the same "outright, no tiebreak" footing as the magic number. Best
     // case: this club wins out, everyone else loses out, and a rival can still finish ahead if its
     // CURRENT wins already match that ceiling. Worst case is the mirror image.
     const bestPossible = 1 + others.filter(o => o.row.wins >= me.maxWins).length
     const worstPossible = 1 + others.filter(o => o.maxWins >= me.row.wins).length
+
+    // The climb is priced with the same function as the defence, deliberately: two formulas for
+    // "what does this club still need" would eventually disagree in front of a reader, and the
+    // question is the same one asked about a different seed.
+    const climbMagic = bestPossible < me.seed ? magicFor(bestPossible) : null
 
     const gb = (ahead: typeof me, behind: typeof me) =>
       ((ahead.row.wins - behind.row.wins) + (behind.row.losses - ahead.row.losses)) / 2
@@ -125,6 +138,7 @@ export function seedingRace(rows: WpblStandingRow[], games: WpblGame[]): WpblSee
       aheadOfNext: next ? gb(me, next) : null,
       behindPrev: prev ? gb(prev, me) : null,
       magic,
+      climbMagic,
       bestPossible,
       worstPossible,
       opponent: base.find(o => o.seed === oppSeed)?.row.team ?? null,
@@ -150,4 +164,50 @@ export function semifinalLabel(seed: number): string | null {
  *  of this module takes everywhere and does not affect the answer here. */
 export function bracketIsSet(seeds: WpblSeedRow[]): boolean {
   return seeds.length > 0 && seeds.every(s => s.bestPossible === s.worstPossible)
+}
+
+/** A remaining game between two clubs directly disputing a seed line. */
+export interface WpblSwingGame {
+  game: WpblGame
+  /** The two clubs, better seed first. Both are in the standings order the card renders. */
+  higher: WpblSeedRow
+  lower: WpblSeedRow
+}
+
+/**
+ * The games left that can still move the order, which is the fact a magic number cannot carry.
+ *
+ * A column of magic numbers says what each club needs and never says WHEN it gets decided. In a
+ * four-club league most of the answer is one date: two of the clubs disputing a seed line play
+ * each other, and that game settles more than any other night left.
+ *
+ * TWO CONDITIONS, AND BOTH ARE DELIBERATELY STRICT.
+ *
+ * ADJACENT in the standings, so this means "these two are arguing over the same seat". A game
+ * between the 1 and 3 seeds can matter too, but there is no honest way to rank it against the
+ * rest without a win model, and the point of this line is to name a game rather than to grade
+ * every game. Adjacency is the one relationship a reader can check against the table above.
+ *
+ * OPEN, in the same outright sense the magic numbers use: neither club has yet clinched
+ * finishing ahead of the other. `magicOver` at 0 in either direction means the order between
+ * them is already settled and the game, whoever wins it, decides nothing about their pairing.
+ * That is what keeps a dead rubber off this line in the last week, which is exactly when the
+ * line is most likely to be read.
+ */
+export function swingGames(seeds: WpblSeedRow[], games: WpblGame[]): WpblSwingGame[] {
+  const bySeed = new Map(seeds.map(s => [s.team.id, s]))
+  const out: WpblSwingGame[] = []
+  for (const g of games) {
+    if (isPlayed(g) || !countsInStandings(g)) continue
+    const a = bySeed.get(g.home_team_id), b = bySeed.get(g.away_team_id)
+    if (!a || !b || Math.abs(a.seed - b.seed) !== 1) continue
+    const [higher, lower] = a.seed < b.seed ? [a, b] : [b, a]
+    if (magicOver(higher, lower) === 0 || magicOver(lower, higher) === 0) continue
+    out.push({ game: g, higher, lower })
+  }
+  // Date order, because the first one is the one being asked about. `game_date` is a plain
+  // YYYY-MM-DD, which sorts correctly as a string and avoids parsing it into a Date at all:
+  // the feed's dates are naive local days and constructing a Date from one shifts it a day in
+  // half the world's timezones.
+  return out.sort((x, y) => x.game.game_date.localeCompare(y.game.game_date))
 }

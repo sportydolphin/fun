@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
-import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark } from './ui'
-import { wpblAccentFg, wpblFullName } from './constants'
-import { seedingRace, semifinalLabel, bracketIsSet } from './derive/seeding'
+import { SectionCard, TeamBadge, pressable, FOCUS_RING, chromePx, useWpblDark } from './ui'
+import { wpblAccentFg, wpblFullName, relativeDayLabel } from './constants'
+import { seedingRace, semifinalLabel, bracketIsSet, swingGames } from './derive/seeding'
 import type { WpblSeedRow } from './derive/seeding'
-import { ExperimentalChip } from '../ExperimentsContext'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblGame, WpblStandingRow, WpblTeam } from './types'
 
@@ -31,21 +30,48 @@ import type { WpblGame, WpblStandingRow, WpblTeam } from './types'
  * one is per club and quantitative, a magic number and a cushion; that one is per series and
  * spatial. Which is why this card is no longer titled "The bracket" when the order settles,
  * even though it once was: there is a real bracket on the section now, and only one thing can
- * carry that name. Both sit behind the same experiments flag, so a reader who turns the switch
- * on gets the pair of them, which is the arrangement the naming has to survive.
+ * carry that name. The bracket came out from behind the experiments flag first and this
+ * followed on Sep 1, five days before the race it describes stops existing: an opt-in card is
+ * seen by almost nobody, and a countdown nobody sees is not a cautious countdown, it is an
+ * unread one.
  */
 
 const ORDINALS = ['', '1st', '2nd', '3rd', '4th']
 const ordinal = (n: number) => ORDINALS[n] ?? `${n}th`
 
 /** Column widths, shared by the header and every row so the cells line up as a table without
- *  being one. Named because the alignment breaks silently the moment two of them disagree. */
-const W_SEED = { xs: 14, sm: 18 }
+ *  being one. Named because the alignment breaks silently the moment two of them disagree.
+ *
+ *  IN REM, BECAUSE EVERY ONE OF THEM RESERVES ROOM FOR A STRING. This card was written before
+ *  the desktop rebuild and was invisible to its sweep, because the sweep worked by rendering
+ *  each surface and looking at it, and this one was behind the experiments flag. So it kept
+ *  raw px around type that now renders 25% larger on a desktop, and every column was a little
+ *  too small in exactly the way that trap describes: the cushion overflowed its box by 8px,
+ *  the status cell wrapped "Can still reach 3rd" onto two lines and made one row taller than
+ *  the other three, and the header's badge spacer sat 6.5px left of the badges it was spacing
+ *  for, since the badge scales and a bare number does not. At the reader's Large text setting
+ *  the same three were out by 24, 19 and more.
+ *
+ *  The badge is the exception and is not here: `TeamBadge` scales its own px through
+ *  --app-chrome, so the header's spacer has to be `chromePx(W_BADGE)` to match it rather than
+ *  a rem width that would follow the type instead. */
+const W_SEED = '1rem'
 const W_BADGE = 26
-const W_RECORD = { xs: 42, sm: 52 }
-const W_CUSHION = 132
-const W_STATUS = { xs: 92, sm: 116 }
-const W_SEMI = { xs: 58, sm: 112 }
+const W_RECORD = '2.4rem'
+const W_CUSHION = '8rem'
+const W_STATUS = '5.2rem'
+const W_SEMI = { xs: '3rem', sm: '6.2rem' }
+
+/*  Each of the five is the widest string it will ever hold plus a little, measured rather than
+ *  guessed: the record 2.4 against 2.1 for a two-digit "11-4", the status 5.2 against 4.9 for
+ *  "5 to reach 3rd", the semifinal 6.2 against 5.8 for "vs Firebells" plus its letter, the
+ *  cushion 8 against 7.6 for "1.5 ahead of Firebells". They were all a size larger to begin
+ *  with, and the slack came out of the CLUB column, which is the flex one: at the desktop scale
+ *  times the reader's Large text setting the four fixed columns had squeezed it to 187px against
+ *  the 210 "San Francisco Firebells" needs, so the longest club name in the league ellipsised.
+ *  The phone has its own version of that fight and it is settled a column at a time rather than
+ *  a pixel at a time: the badge goes below sm, the cushion below md, the record below sm.
+ *  Since every width here is in rem, that budget holds at every text scale at once. */
 
 /** How far clear of the seed below, named: "0.5 ahead of Queens". A bare games-back figure in
  *  a cell always begs "behind whom?", and the club it means is never the one the Standings
@@ -66,13 +92,24 @@ function cushionLabel(s: WpblSeedRow, below: WpblSeedRow | undefined): string {
  *  reading "8 to lock Nth" is the shape this column has for most of a season, and setting the
  *  whole phrase at one size made the only part that differs the hardest part to find. */
 function seedStatus(s: WpblSeedRow): { count: number | null; text: string; strong: boolean } {
-  if (s.bestPossible === s.worstPossible) return { count: null, text: `${ordinal(s.seed)} seed set`, strong: true }
+  if (s.bestPossible === s.worstPossible) return { count: null, text: 'Seed set', strong: true }
   // magic 0 means it cannot fall below where it sits, but can still climb.
   if (s.magic === 0) return { count: null, text: `No worse than ${ordinal(s.seed)}`, strong: true }
-  if (s.magic != null) return { count: s.magic, text: `to lock ${ordinal(s.seed)}`, strong: false }
-  // Bottom seed, still able to climb: it has nothing to defend, so the only live fact is how
-  // high it can still get.
-  return { count: null, text: `Can still reach ${ordinal(s.bestPossible)}`, strong: false }
+  // "to lock", not "to lock 2nd": the seed this club is defending is the number at the left end
+  // of the same row, so the ordinal was the row saying its own seed twice. It is kept in the
+  // two states where it is NOT the club's current seed and so is really telling you something:
+  // the floor a club has already secured, and the climb below.
+  if (s.magic != null) return { count: s.magic, text: 'to lock', strong: false }
+  // Bottom seed, still able to climb: it has nothing to defend, so the live fact is what it
+  // would take to climb out. A NUMBER rather than the sentence this used to print ("Can still
+  // reach 3rd"), for two reasons. It was the one cell in the column that answered a different
+  // question in a different shape, so the column could not be read down. And it was the longest
+  // string on the card by a distance, which is what made it the first thing to wrap when the
+  // desktop scale arrived.
+  if (s.climbMagic != null) return { count: s.climbMagic, text: `to reach ${ordinal(s.bestPossible)}`, strong: false }
+  // Unreachable in a four-club league: no climb and no seed to defend means the range has
+  // already closed, which the first branch catches. Here so the shape is total.
+  return { count: null, text: `${ordinal(s.seed)} seed set`, strong: true }
 }
 
 export default function SeedingRace({ rows, games, onOpenTeam }: {
@@ -84,6 +121,7 @@ export default function SeedingRace({ rows, games, onOpenTeam }: {
   const dark = useWpblDark()
   const seeds = useMemo(() => seedingRace(rows, games), [rows, games])
   const settled = bracketIsSet(seeds)
+  const swings = useMemo(() => swingGames(seeds, games), [seeds, games])
   // Each remaining game sits on two clubs' cards, so the sum double-counts. Rounded rather
   // than halved outright: a scheduled game against a club missing from `rows` would otherwise
   // put half a game on the screen.
@@ -117,10 +155,6 @@ export default function SeedingRace({ rows, games, onOpenTeam }: {
   return (
     <SectionCard
       title={settled ? 'Final seeding' : 'Seeding race'}
-      // Opt-in, and the card has to say which one it is: it looks exactly like the shipped
-      // cards it sits between, and someone who turned the switch on weeks ago should not have
-      // to remember.
-      action={<ExperimentalChip />}
       subtitle={settled
         ? 'The order is final. Semifinals are best-of-three, the championship best-of-five.'
         : `All four clubs reach the postseason, so the last ${left} game${left === 1 ? '' : 's'} only decide the bracket.`}
@@ -130,13 +164,14 @@ export default function SeedingRace({ rows, games, onOpenTeam }: {
           one 9px line of label is cheaper than explaining either in prose underneath. */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 0.5, pb: 0.5 }}>
         <Box sx={{ width: W_SEED, flexShrink: 0 }} />
-        <Box sx={{ width: W_BADGE, flexShrink: 0, display: { xs: 'none', sm: 'block' } }} />
+        <Box sx={{ width: chromePx(W_BADGE), flexShrink: 0, display: { xs: 'none', sm: 'block' } }} />
         <Typography sx={{ ...micro, flex: 1, minWidth: 0 }}>Club</Typography>
-        <Typography sx={{ ...micro, width: W_RECORD, textAlign: 'right' }}>W-L</Typography>
+        <Typography sx={{ ...micro, width: W_RECORD, textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>W-L</Typography>
         <Box sx={{ width: W_CUSHION, flexShrink: 0, display: { xs: 'none', md: 'block' } }} />
-        <Typography sx={{ ...micro, width: W_STATUS, textAlign: 'right' }}>
-          {settled ? 'Seed' : 'To lock'}
-        </Typography>
+        {/* The whole column goes once the order is final, rather than turning into four
+            identical "Seed set" cells under a header that has stopped asking anything. What is
+            worth reading then is who plays whom, and the club column takes the freed room. */}
+        {!settled && <Typography sx={{ ...micro, width: W_STATUS, textAlign: 'right' }}>To lock</Typography>}
         <Typography sx={{ ...micro, width: W_SEMI, textAlign: 'right' }}>Semifinal</Typography>
       </Box>
 
@@ -175,9 +210,16 @@ export default function SeedingRace({ rows, games, onOpenTeam }: {
                 <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>{s.team.name}</Box>
               </Typography>
 
+              {/* OFF THE PHONE, and it is the one column here that can go without losing
+                  anything: this card renders directly under the standings table, which carries
+                  the same four records in the same order a finger's width above it. At 320px
+                  the five fixed columns left the flex club column 5px, so the rows rendered
+                  with no club names at all, which is a worse failure than any missing column:
+                  an ellipsis tells you something was cut, an empty cell does not. */}
               <Typography sx={{
                 fontSize: '0.85rem', fontWeight: 700, width: W_RECORD, flexShrink: 0,
                 textAlign: 'right', fontVariantNumeric: 'tabular-nums',
+                display: { xs: 'none', sm: 'block' },
               }}>{s.wins}-{s.losses}</Typography>
 
               {/* The cushion over the seed below. First column to drop as the card narrows: it
@@ -189,8 +231,8 @@ export default function SeedingRace({ rows, games, onOpenTeam }: {
               }}>{cushion || '—'}</Typography>
 
               <Box sx={{
-                width: W_STATUS, flexShrink: 0, display: 'flex', alignItems: 'baseline',
-                justifyContent: 'flex-end', gap: 0.5,
+                width: W_STATUS, flexShrink: 0, display: settled ? 'none' : 'flex',
+                alignItems: 'baseline', justifyContent: 'flex-end', gap: 0.5,
               }}>
                 {status.count != null && (
                   <Typography sx={{
@@ -223,8 +265,17 @@ export default function SeedingRace({ rows, games, onOpenTeam }: {
                 )}
                 {semi && (
                   <Box sx={{
-                    width: 18, height: 18, borderRadius: 0.75, flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    // A box around a letter, so rem: left at 18 raw px it kept its mobile size
+                    // against type a quarter larger, and squeezed the club abbreviation beside
+                    // it until "vs BOS" ellipsised to "vs B...". BOS is the league's only
+                    // three-letter abbreviation, so exactly one row looked broken.
+                    width: '1.15rem', height: '1.15rem', borderRadius: 0.75, flexShrink: 0,
+                    // AND IT IS THE LAST THING TO GO ON A NARROW PHONE, ahead of the opponent
+                    // beside it. The letter exists to pair two rows that a seed-ordered list
+                    // never puts together, and on four rows each naming its opponent a reader
+                    // can already do that pairing. The opponent cannot be reconstructed from
+                    // anything on the card, so at 320px the letter pays for it.
+                    display: { xs: 'none', sm: 'flex' }, alignItems: 'center', justifyContent: 'center',
                     bgcolor: 'action.selected',
                   }}>
                     <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: 'text.secondary', lineHeight: 1 }}>
@@ -238,10 +289,40 @@ export default function SeedingRace({ rows, games, onOpenTeam }: {
         })}
       </Box>
 
-      <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 1.25, lineHeight: 1.45 }}>
+      {/* WHEN it gets decided, which is the one thing a column of magic numbers cannot say.
+          Four rows of "2 to lock Nth" tell a reader what each club needs and leave them with no
+          idea which night to watch, and in a four-club league the answer is usually a single
+          date: the two clubs arguing over a seat play each other. Sits above the footnote and
+          below the table, because it is a reading OF the table rather than a note about how to
+          read it. Silent when there is no such game left, which is the common case in a week
+          made of cross-matchups, rather than reaching for a second-best game to fill the line. */}
+      {!settled && swings.length > 0 && (() => {
+        const first = swings[0]
+        const home = seeds.find(s => s.team.id === first.game.home_team_id)
+        const away = seeds.find(s => s.team.id === first.game.away_team_id)
+        if (!home || !away) return null
+        const when = relativeDayLabel(first.game.game_date)
+        const fixture = `${away.team.name} at ${home.team.name}`
+        return (
+          <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 1.25, lineHeight: 1.5 }}>
+            <Box component="span" sx={{ fontWeight: 700, color: 'text.primary' }}>{when}: {fixture}</Box>
+            {swings.length === 1
+              ? ' is the only game left between two clubs still disputing a seed.'
+              : ` is the first of ${swings.length} games left between clubs still disputing a seed.`}
+          </Typography>
+        )
+      })()}
+
+      <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 1, lineHeight: 1.45 }}>
         {settled
-          ? 'Semifinals begin Sep 9. A and B are our labels for the two pairings, not the league’s.'
+          ? 'Semifinals begin Sep 9.'
           : 'A club’s number counts its own wins plus its rivals’ losses: at zero that seed is locked outright, with no tiebreak needed. Semifinals begin Sep 9, pairing seeds 1v4 and 2v3.'}
+        {/* Only where the letters are. They are hidden on the narrowest phones so the opponent
+            abbreviation can stay whole, and a footnote explaining a mark that is not on the
+            screen reads as a rendering fault rather than as a note. */}
+        <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+          {' '}A and B are our labels for the two pairings, not the league’s.
+        </Box>
       </Typography>
     </SectionCard>
   )

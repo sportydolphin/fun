@@ -308,10 +308,6 @@ function StandingsView({ teams, games, onOpenTeam }: {
 }) {
   const rows = useMemo(() => computeStandings(teams, games), [teams, games])
   const headingTag = useWpblHeadingTag()
-  // Opt-in, like the bracket on Home. It reads nothing the table below it does not, and it is
-  // the one card here that makes a forward-looking claim ("8 to lock 1st") rather than
-  // reporting a result, so off stays the shipped view.
-  const experiments = useExperiments()
   if (teams.length === 0) {
     return <EmptyState title="No teams yet" hint="Standings appear once teams and results are added." />
   }
@@ -397,8 +393,14 @@ function StandingsView({ teams, games, onOpenTeam }: {
       {/* The table says who is ahead; this says what being ahead is FOR. All four clubs
           qualify, so the order is the entire stake of the remaining games, and the table on
           its own reads as a race for a place nobody can miss. Sits directly under it, in the
-          same order, so a club can be carried from one to the other by eye. */}
-      {played && experiments && <SeedingRace rows={rows} games={games} onOpenTeam={onOpenTeam} />}
+          same order, so a club can be carried from one to the other by eye.
+
+          LIVE FOR EVERYONE from Sep 1, with five regular-season games left. It was opt-in
+          because it is the first thing on the section to make a forward-looking claim, and the
+          flag was the right caution in August. It stopped being right in September: this card
+          is the only thing on the page with an expiry date on it, and an experiment nobody can
+          see is not being tested. */}
+      {played && <SeedingRace rows={rows} games={games} onOpenTeam={onOpenTeam} />}
     </Box>
   )
 }
