@@ -1,0 +1,55 @@
+name: WPBL Mirror Drift Check
+
+# Re-reads every completed game from the league feed and compares it with our mirror, then
+# re-ingests anything that has moved.
+#
+# WHY A SEPARATE JOB. `wpbl-ingest` runs every two minutes but stops re-reading a game once
+# it is stored final. The only gate that reopens one is the late-TrackMan backfill, which
+# covers finals under 21 days old that still have no tracking rows, so corrections have been
+# reaching us purely because the league's pitch tracking is stalled. The league revises box
+# scores well past that window (an Aug 3 game was last revised Aug 21, an Aug 8 game Aug 24),
+# and nothing in the games list says so: its `updated_at` freezes at `completed_at` while the
+# boxscore's own `source_updated_at` keeps moving.
+#
+# THIS JOB IS ALLOWED TO FAIL, unlike the validator beside it. It goes red only when drift
+# survived a repair attempt, which means re-ingesting did not reconcile the two and a person
+# has to look. Drift that repairs cleanly is the normal case and passes green.
+#
+# 07:30 UTC is half an hour ahead of the play-by-play validator, so that run reads whatever
+# this one has just corrected rather than reporting yesterday's findings against fresh data.
+
+on:
+  schedule:
+    - cron: '30 7 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: wpbl-drift-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Only `pg` is needed; `npm ci` would pull the whole frontend toolchain this script
+      # never imports. Same approach as the validator and the reminder workflows.
+      - name: Install dependency
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['pg'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Check the mirror against the feed
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          # Repair posts { gameId } to wpbl-ingest, one game per call. The service-role key is
+          # the function's own auth; the script never writes to the tables itself, because the
+          # edge function owns every rule about how a game becomes rows.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/check-wpbl-drift.mjs --repair

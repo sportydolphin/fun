@@ -163,23 +163,37 @@ const sql = {
       and o.last_seq <> l.game_last
     order by g.game_date, o.inning`,
 
-  // ─── 4a. A home run not flagged as a scoring play ─────────────────────────────
+  // ─── 4a. Runs on a home run against the runners who were on ───────────────────
   //
-  // NOTE, because this check originally claimed far more than it should have. `runs_scored = 0`
-  // on a home run is CORRECT: the field counts the runners who crossed and never the batter,
-  // so a solo shot reads 0 by design (see runsOnPlay in src/wpbl/derive/playByPlay.ts). Ten
-  // rows were reported here as a feed bug on that misreading. They were not.
+  // THE SAME MISREADING HAS NOW COST TWO CHECKS, so it is worth being blunt about. `runs_scored`
+  // counts the runners who crossed and never the batter, so a solo home run reads 0 BY DESIGN
+  // (see runsOnPlay in src/wpbl/derive/playByPlay.ts). This check first flagged those rows as a
+  // feed bug, which they were not. It was then rewritten to flag `is_scoring_play` being false
+  // on the same rows, described as a label-only problem the feed had. That was the same mistake
+  // wearing a different hat: measured Sep 1, 2026 over 2,000-odd plays, `is_scoring_play` is
+  // exactly `runs_scored > 0` with zero exceptions. It is not an independent flag the league can
+  // get wrong, it is a restatement, so "unflagged home run" means "solo home run" and nothing
+  // else. Seventeen of them were sitting in the findings, ten of those accepted into the
+  // baseline as real.
   //
-  // What survives is only the label: `is_scoring_play` is false on those same rows, and a home
-  // run is a scoring play by any definition. Low severity, because nothing downstream reads
-  // that flag for a total.
+  // What is worth checking is the arithmetic the field DOES claim: the runners it counts have to
+  // be the runners standing on the bases. That currently disagrees nowhere, which is the point.
+  // A check that fires on every solo home run has no power to tell a good game from a bad one;
+  // this one is quiet until a run genuinely fails to add up.
   homeRuns: `
     select g.game_date::text as game_date, t.abbr as team, p.inning, p.half,
-           p.batter_name, p.runs_scored, left(p.narrative, 60) as narrative
+           p.batter_name, p.runs_scored,
+           (case when coalesce(p.first_base, '')  <> '' then 1 else 0 end
+          + case when coalesce(p.second_base, '') <> '' then 1 else 0 end
+          + case when coalesce(p.third_base, '')  <> '' then 1 else 0 end) as runners_on,
+           left(p.narrative, 60) as narrative
     from wpbl_game_plays p
     join wpbl_games g on g.id = p.game_id
     left join wpbl_teams t on t.id = p.team_id
-    where p.event_type = 'home_run' and p.is_scoring_play is not true
+    where p.event_type = 'home_run'
+      and coalesce(p.runs_scored, 0) <> (case when coalesce(p.first_base, '')  <> '' then 1 else 0 end
+                                       + case when coalesce(p.second_base, '') <> '' then 1 else 0 end
+                                       + case when coalesce(p.third_base, '')  <> '' then 1 else 0 end)
     order by g.game_date, p.sequence`,
 
   // ─── 4b. Runs in the play log against the final score ─────────────────────────
@@ -263,9 +277,9 @@ const CHECKS = [
   { key: 'runs', severity: 'medium',
     title: 'Runs in the play log against the final score',
     note: 'Counts the batter on a home run. A gap here is a real lead, not the old systematic bias.' },
-  { key: 'homeRuns', severity: 'low',
-    title: 'Home runs not flagged as scoring plays',
-    note: 'Label only. runs_scored = 0 on a solo home run is correct by design, not an error.' },
+  { key: 'homeRuns', severity: 'medium',
+    title: 'Home runs whose runs do not match the runners on base',
+    note: 'runs_scored excludes the batter, so it must equal the number of occupied bases. A solo home run reading 0 is correct and is not flagged.' },
   { key: 'pitchers', severity: 'low',
     title: 'Pitchers in one view and not the other' },
 ]

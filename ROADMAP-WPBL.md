@@ -755,8 +755,15 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
   its health to `/admin` (Clean / N new / Stale / Failed). It deliberately never fails the
   job, so nothing shouts: the state to act on is **Stale**, meaning the run went missing.
   New findings get either a correction in `wpbl_play_corrections` or a baseline update.
-  57 findings are currently accepted as known. See
-  [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md).
+  **44 findings accepted as known, re-triaged Sep 1, 2026** (was 57 from Aug 17). See
+  [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md). The one finding in there that a
+  human could still act on is the **Aug 20 NY at BOS** game, where the league's own play log
+  is short about a dozen NY plate appearances, never records an out in either of the last two
+  top halves, and lands a run under the final score. Everything else is the ordinary scoring
+  sloppiness the baseline exists to hold.
+- **Watch that the drift check stays green.** `wpbl-drift-check` runs at 07:30 UTC and, unlike
+  the validator beside it, is allowed to fail: red means a game the feed and the mirror
+  disagree about did not reconcile when re-ingested, which is the one case needing a person.
 - **Periodic dupe / orphan audit** of players and games; the ingest has produced duplicate
   roster rows before (bad decode, tz-twin games) and each was caught by hand.
 - **Birth dates: 65 of 118 players.** The community sheet does not cover everyone.
@@ -837,6 +844,56 @@ is retired.
 ---
 
 ## Shipped log
+
+### Sep 1, 2026: the mirror learns to notice the league editing its own history
+
+Two questions that turned out to be one: why the admin panel's scoring chip kept climbing (42
+new findings, from 0 in mid-August), and whether the league's own corrections were reaching us.
+
+**The chip was a backlog counter, not an error rate.** The baseline was written Aug 17 covering
+games through Aug 16, and nothing had re-triaged it since, so every game played in the fortnight
+after contributed. Nothing had gone wrong; the number was just measuring the wrong thing by then.
+
+**Seven of the 42 were a check that could never be right.** `homeRuns` flagged home runs where
+`is_scoring_play` was not true, described in its own comment as a label-only feed bug that
+survived an earlier false alarm about `runs_scored = 0` on solo shots. It was the same false
+alarm: across every stored play, `is_scoring_play` is *exactly* `runs_scored > 0`, so the flag
+is a restatement of the field rather than an independent claim the league can get wrong, and
+"unflagged home run" only ever meant "solo home run". Ten of those had been accepted into the
+baseline as real league errors. The check now compares `runs_scored` against the number of
+occupied bases, which is the arithmetic the field genuinely asserts, and finds nothing anywhere.
+
+**The corrections HAVE been reaching us, by luck.** A game is never re-read once it is stored
+final: the every-two-minutes pass is `mode: "active"` with no `force`, and the only gate that
+reopens a final is the late-TrackMan backfill, which covers games under 21 days old that still
+have zero tracking rows. That gate catches almost everything today only because the league's
+pitch tracking is stalled, so nearly every final qualifies. It stops the day tracking resumes,
+and it never reaches past 21 days at all. The league revises box scores well past that: an Aug 3
+game was last revised Aug 21, an Aug 8 game Aug 24.
+
+And the games list will not tell you. Its per-game `updated_at` looks like exactly the revision
+stamp this needs, and on a completed game it just equals `completed_at` and never moves again,
+while the boxscore's own `source_updated_at` marches on for weeks. Worse, a pure score correction
+propagates on its own, because the list carries `presto_data.score` and the ingest folds it onto
+the row every pass, so the failure is not a stale game, it is a game whose scoreboard disagrees
+with its own line score and player lines.
+
+So `scripts/check-wpbl-drift.mjs` re-reads every completed game from the feed and compares the
+whole payload the boxscore owns: line-score totals, play count, and the batting and pitching
+lines both as team totals and as a sorted multiset of individual lines, which is what catches a
+hit moved between two players without changing any team number. Drift is repaired by posting
+`{ gameId }` to `wpbl-ingest`, one game per call rather than one `force` pass over all of them:
+a single invocation walking sixty finals would die at the same place every night, and everything
+after that place would never be swept. Then it re-reads and re-compares, because a repair that
+ran cleanly and changed nothing is the interesting case. Nightly at 07:30 UTC, half an hour ahead
+of the validator so that run reads corrected data.
+
+**Today's answer: no drift, on any of the 25 completed games.** Better evidence than that,
+though: of the 47 non-`homeRuns` findings the Aug 17 baseline accepted, **38 no longer reproduce**,
+across games from Aug 1 to Aug 15, with the validator's checks untouched in between. Findings can
+only vanish if the underlying rows changed, and the rows only change when the feed does. The
+league has been quietly re-scoring its opening fortnight, and all of it arrived. What is missing
+was never the corrections; it was any way to know.
 
 ### Sep 1, 2026: the seeding race comes out from behind the flag, and what an unrendered card hides (v1.59.0)
 

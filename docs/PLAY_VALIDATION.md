@@ -63,7 +63,7 @@ video pass, not as a list of confirmed errors.**
 | `paCounts` | medium | The batter is in the log but short or long a trip. Catches what `missingBatters` cannot, since that one is all-or-nothing. |
 | `outs` | medium | A half-inning that never reaches a two-out state, so the third out has nothing before it. |
 | `runs` | medium | Runs in the play log against the final score. |
-| `homeRuns` | low | A home run with `is_scoring_play` not true. Label only; nothing downstream reads that flag for a total. |
+| `homeRuns` | medium | A home run whose `runs_scored` does not equal the number of occupied bases. The field excludes the batter, so those two have to agree. |
 | `pitchers` | low | A pitcher in one view and not the other. |
 
 Three of these were wrong when first written, and the reasons are worth keeping:
@@ -78,7 +78,7 @@ Three of these were wrong when first written, and the reasons are worth keeping:
   15 of 28 team-games and never once over. "Has a gap" therefore said nothing. The cause was the
   runs semantics below; fixing that took it from 15 flagged team-games to 1, and that one is a
   real lead.
-- **`homeRuns` claimed a feed bug that was not one.** See below.
+- **`homeRuns` claimed a feed bug that was not one, twice.** See below.
 
 `battingOrder` deliberately excludes two benign cases: the same slot twice in a row, which is a
 substitution taking over mid-slot, and slot 10, where the feed parks pitchers who never bat.
@@ -105,8 +105,14 @@ It is also a trap, and it has caught every piece of code that read the field:
   whole gap.
 - The **validator's home-run check** reported ten rows as a feed bug for carrying
   `runs_scored = 0` while their own narrative read "homered ... RBI". The data was
-  self-consistent and the check was wrong. Only the `is_scoring_play` label survives as a
-  finding.
+  self-consistent and the check was wrong. It was then rewritten to flag the `is_scoring_play`
+  label on those same rows, and **that was the same mistake wearing a different hat.** Measured
+  Sep 1, 2026 across every stored play, `is_scoring_play` is exactly `runs_scored > 0` with zero
+  exceptions: it is a restatement of the field, not an independent flag the league can get
+  wrong, so "home run not flagged as a scoring play" only ever meant "solo home run". Seventeen
+  were in the findings by then and ten had been accepted into the baseline as real. The check now
+  compares `runs_scored` with the number of occupied bases, which is the arithmetic the field
+  actually claims, and finds nothing.
 - **`firsts.ts` mis-dated a first RBI.** The Hall of Firsts tested `runs_scored > 0`, so a solo
   home run did not count as an RBI even though it credits the batter with one. Claire
   O'Sullivan's first RBI showed as an Aug 16 sacrifice when it was actually an Aug 15 solo home
@@ -267,7 +273,7 @@ truth.
 
 ---
 
-## 9. What the RetroWPBL check has found (Aug 27, 2026)
+## 9. What the RetroWPBL check has found (Aug 27, re-run Sep 1, 2026)
 
 Run as a check rather than a mirror, on the two games whose play-log runs disagree with their
 own box score. Both were found by totalling the log per side and comparing it with the published
@@ -308,3 +314,28 @@ batter is no longer a plate appearance.
 **Both come back on their own if the feed fills them in.** The reconciliation runs in the
 browser, over corrected plays, every time the board is opened: nothing is baked into a build, so
 a re-ingest or a correction puts a half-inning back with no code change. Aug 15 is the proof.
+
+**Aug 20 has NOT come back.** Checked Sep 1: still 18 blank rows across the tops of the 5th, 6th
+and 7th, and still the only game in the season with any. `check-wpbl-drift` reports the mirror
+identical to the feed, so this is what the league is serving, not something we lost.
+
+### Aug 29, New York at LA (LA 10 in the box, 9 in the log). Found Sep 1, 2026.
+
+A third one, and the cleanest yet: bottom of the 1st, two out, bases loaded, Caitlin Eynon
+doubles down the left-field line for **2 RBI**. The row carries `runs_scored = 1`, and its
+narrative ends:
+
+> ... Sarah Edwards advanced to third; Jamie Mackay scored; Samaria Benitez Samaria Benitez.
+
+The verb is missing from Benitez's clause, her name is printed twice in its place, and
+`runs_scored` counts the "X scored" clauses (§4), so the feed counts one run where its own RBI
+count says two. The next row's bases agree with the transcription and not with the
+number: Benitez is gone from third.
+
+RetroWPBL scores the same plate appearance `D7/L.3-H(RBI);2-H(RBI);1-3`. Two runners home, which
+is the missing run, and it is a text-generation fault rather than a scoring judgement.
+
+**This one the overlay CAN fix**, unlike Aug 20: `runs_scored` and `narrative` are both
+correctable fields, and `source = 'external'` is exactly "a second transcription agreed". Note
+that correcting it will not quiet the validator, which reads `wpbl_game_plays` directly with no
+overlay, so the finding stays in the baseline either way.

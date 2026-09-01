@@ -57,7 +57,10 @@ Each of these has already cost someone a debugging session, and none of them fai
   every reader of the field so far, including a validator, a Game Center badge and the Hall
   of Firsts. Call `runsOnPlay()` in
   [`src/wpbl/derive/playByPlay.ts`](src/wpbl/derive/playByPlay.ts) instead of reading the
-  column.
+  column. **`is_scoring_play` is not a second opinion on this, it is the same number**: across
+  every stored play it is exactly `runs_scored > 0`, so "a home run the feed forgot to flag"
+  only ever means "a solo home run". A validator check spent two rewrites finding that out and
+  put ten of them in the accepted baseline as real league errors.
 - **"Read every row" needs explicit paging.** PostgREST silently caps a bare `.select()` at
   1000 rows: no error, just a short array. Any fetch that means "all of them" must page
   with `.range()` *and* carry a deterministic `.order()`, or Postgres can return the same
@@ -110,6 +113,20 @@ Each of these has already cost someone a debugging session, and none of them fai
   A short read must ERROR rather than degrade: the phantom-suppression pass reasons about which
   copies of a matchup exist, so a missing real copy makes a played game look like an unplayed
   phantom next to nothing, and phantoms get their rows DELETED.
+
+- **A game goes read-only once it is stored final, and the league keeps editing it.** The
+  every-two-minutes pass is `mode: "active"` with no `force`, so it never re-reads a final; the
+  only gate that reopens one is the late-TrackMan backfill, which covers finals under 21 days old
+  that still have zero tracking rows. Every correction that has reached us therefore arrived as a
+  SIDE EFFECT of the league's pitch tracking being stalled, and stops the day it resumes. The
+  league revises box scores long after the fact (an Aug 3 game last revised Aug 21, an Aug 8 game
+  Aug 24), and **the `/games` list will not tell you**: its `updated_at` freezes at `completed_at`
+  on a completed game while the boxscore's own `source_updated_at` marches on, so the only way to
+  learn a game changed is to fetch the boxscore and compare. Worse, a pure SCORE correction does
+  propagate on its own, because the list carries `presto_data.score` and the ingest folds it onto
+  the row every pass: the scoreboard moves and the box score under it does not, so the game page
+  contradicts itself rather than simply going stale.
+  [`scripts/check-wpbl-drift.mjs`](scripts/check-wpbl-drift.mjs) is what closes this, nightly.
 - **The live poll reads a hand-listed half of `wpbl_games`, and the two halves must
   partition the table.** `LIVE_GAME_COLUMNS` in [`src/wpbl/api.ts`](src/wpbl/api.ts) names
   every column that can change mid-game; the poll merges those over the row it already holds,
