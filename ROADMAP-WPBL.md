@@ -151,8 +151,11 @@ in now is:
    them. See the entry. What it was really reaching for became **#5b**.*
 5. **#5b: Home's one player name should open the player.** Two lines, and it is the only item on
    this list aimed straight at the measured retention gradient.
-6. **#2 the archive**, the only durable item, whose season-capture half has to happen before
-   Sep 22. Then **#4 the primer**, cheap and aimed at an audience that is entirely first-time
+6. **#2 the archive**, scoped Sep 1 and smaller than it looked: the mirror is already complete
+   against the feed, so there is no capture pass to write and the whole build can wait for the
+   winter. What cannot wait is a **verified backup**, because on Sep 22 the mirror stops being a
+   cache and becomes the only copy of the season we control. See the scope under #2.
+7. **#4 the primer**, cheap, durable, and aimed at an audience that is entirely first-time
    visitors.
 
 ### 5b. Home's star name opens the game, not the player 🎯
@@ -509,6 +512,57 @@ Two reasons to start now rather than in September:
   from feed fields that may not persist, has to be snapshotted while the games are running.
 - It is the natural home for the multi-season support that has been deferred since Phase 3
   (see Parked). Building the archive is what makes 2027 a second season rather than a reset.
+
+#### Scoped Sep 1, 2026, and the first bullet above is mostly wrong
+
+The item has been carrying a deadline it does not have. Audited against the live feed and the
+live mirror, field by field:
+
+**THE MIRROR IS ALREADY COMPLETE AGAINST THE FEED.** Every field the feed publishes on a game,
+a box-score line or a play has a column in `wpbl_games` / `wpbl_batting_lines` /
+`wpbl_pitching_lines` / `wpbl_fielding_lines` / `wpbl_game_plays`, down to `pitch_sequence`,
+`pitch_events`, `fouls`, `balls`, `strikes`, `home_lob`, `sf`, `sh`, `ibb`, `gdp`, `tb`. Today
+that is 30 games, 610 batting lines, 142 pitching lines, 469 fielding lines and 2,358 plays. The
+ingest has been snapshotting continuously since August; there is no separate capture pass to
+write. Three things in the feed are NOT mirrored and none is worth a column: the venue's postal
+address (one venue, all season), each club's and player's `profile_url` on the league's own site
+(which dies with the site either way), and the `wins/losses/record/streak` fields on `/teams`,
+which the league publishes empty and we compute ourselves anyway.
+
+**SO EVERY HEADLINE FEATURE OF THIS ITEM IS RECOMPUTABLE FOREVER**, and none of it has to be
+built before Sep 22. Frozen leaderboards, single-season and single-game records, the complete
+game log, the Hall of Firsts, run expectancy, win probability, the MVP race, `excitement`, each
+club's arc: all of it derives from stored plays and stored box lines. Nothing reads live state
+that is not also written to the play log. The archive is a build-whenever job.
+
+**WHAT IS ACTUALLY AT RISK, in order.** Not the feed's own data. The things AROUND it, all of
+them partial and all of them owned by somebody else:
+
+- **TrackMan: 2 of 25 finals.** 766 pitch rows, from a batch the league published once and
+  stopped. Not a coverage gap we can close, and `wpbl-tracking-watch` runs daily **year-round**
+  (checked: no season window), so a resumption in November is still caught. Nothing to do.
+- **RetroWPBL: 20 of 25 finals**, a stranger's hand transcription, incomplete, and **no licence,
+  so all rights reserved by default**. `wpbl-retro-sync` is also year-round. The licence is the
+  problem, not the clock: it can be read to check our own rows and cannot be republished, which
+  bars it from an archive that is meant to be the public record. Asking the author is the only
+  path and it is not a September job.
+- **YouTube: 20 of 25 finals have a linked video**, plus 112 unlinked clips. We hold ids and
+  titles, never the video, and rehosting is neither possible nor right. Channel deletion is the
+  rot and it cannot be mitigated. What CAN be checked is whether the metadata we keep reads as a
+  record on its own once the embed is dead.
+- **Five finals have no video and no Retro detail at all.** The box score is the whole record of
+  those games. Worth knowing before someone promises "the definitive record".
+- **One of 119 players has no bundled portrait**, and 118 do. Team logos are bundled too, so the
+  art does not depend on anyone else's server.
+
+**AND THE ONE REAL DEADLINE, WHICH IS NOT ON THIS LIST AT ALL.** Everything above says the
+inaugural season survives as long as the mirror does. The mirror is one Supabase project. When
+the feed goes quiet on Sep 22 there is no longer a source to re-ingest from, so from that date
+the database stops being a cache of someone else's data and becomes **the only copy of the
+WPBL's first season that we control**, and a dropped table or a lapsed project takes it with no
+recovery path. A verified export, restored somewhere once to prove it restores, is worth more
+than every feature in this entry and is a fraction of the work. **That is the September job.**
+Everything else here can wait for the winter, which is also when it has an audience.
 
 Worth noting as evidence of demand: `github.com/exu6jh/RetroWPBL` is a stranger
 hand-transcribing WPBL play-by-play into Retrosheet format, game by game, from the same
