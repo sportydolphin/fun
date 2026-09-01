@@ -49,9 +49,9 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine,
 // 1440 and 456px at 1920, where the two card columns, the leader boards and the bracket's shape
 // are all fixed at whatever fits inside it. Every spacing complaint on this page started there.
 //
-// Same device as StatsView's full-bleed table (see FULL_BLEED_W), `--app-zoom` division and all:
-// `vw` is NOT shrunk by `zoom`, so the viewport term has to be divided by it or the box comes
-// out 40% too wide. The cap is a LAYOUT length too, so 900 renders as 1260.
+// Same device as StatsView's full-bleed table (see FULL_BLEED_W). Both used to divide the
+// viewport term by `--app-zoom`, because `vw` is not shrunk by `zoom` while a CSS length is;
+// with the zoom gone the two agree and neither divides.
 //
 // The viewport term is what makes this safe rather than a step change: below the cap the width
 // tracks the screen less the app's own 16px gutters, which is what the page was already doing,
@@ -267,15 +267,13 @@ function Scoreboard({ games, teams, onOpenGame }: {
       // 16 is the 8px gap plus the older chip's own 8px of padding, so what peeks is a blank
       // card edge under the fade. The affordance survives; the clipped digits do not.
       const inset = anchorIndex > 0 ? 16 : 0
-      // THE RECT IS IN VISUAL PIXELS AND `scrollLeft` IS IN LAYOUT PIXELS, and on /wpbl those
-      // are not the same pixel: the section sits inside a `zoom: 1.4` wrapper at md, which
-      // getBoundingClientRect reports AFTER and scrollLeft counts BEFORE. Spending the raw
-      // difference undershot the scroll by a factor of the zoom, which is why the desktop strip
-      // opened with 51px of the older game showing against the 32 the line above asked for. The
-      // same trap as `--app-header-h`, one axis over. `--app-zoom` is 1 off desktop, so this is
-      // exact everywhere rather than a desktop special case.
-      const zoom = parseFloat(getComputedStyle(el).getPropertyValue('--app-zoom')) || 1
-      const delta = (anchor.getBoundingClientRect().left - el.getBoundingClientRect().left) / zoom - inset
+      // A rect and `scrollLeft` are the same pixel again, so this is plain subtraction. It was
+      // not: the section used to sit in a `zoom: 1.4` wrapper, which getBoundingClientRect
+      // reports AFTER and scrollLeft counts BEFORE, so the raw difference undershot the scroll
+      // by a factor of the zoom and the strip opened 51px off. The zoom is gone (ROADMAP-WPBL
+      // item 0), and with it the whole class of bug. Do not reintroduce a scale here that only
+      // one of these two terms can see.
+      const delta = anchor.getBoundingClientRect().left - el.getBoundingClientRect().left - inset
       if (Math.abs(delta) > 0.5) el.scrollLeft += delta
 
       // AT MAX SCROLL THE CUT CHIP MOVES TO THE RIGHT-HAND EDGE, because a chip cut on its left
@@ -300,7 +298,7 @@ function Scoreboard({ games, teams, onOpenGame }: {
         for (const chip of Array.from(el.children)) {
           const r = chip.getBoundingClientRect()
           if (r.right <= edge + 0.5) continue    // already scrolled past; not the leading chip
-          const cut = (edge - r.left) / zoom
+          const cut = edge - r.left
           if (cut > 0.5) el.scrollLeft -= cut
           break
         }

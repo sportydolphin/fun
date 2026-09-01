@@ -6,7 +6,7 @@ import { computeWpblPlayerRanks, ordinal, type WpblStatRank, type WpblPlayerRank
 import { useEraBasis } from './EraBasisContext'
 import type { EraBasis } from './stats'
 import { wpblAccent, wpblColor, wpblSecondary, wpblFullName, outsToIp } from './constants'
-import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, SegNav, useWpblDark } from './ui'
+import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, SegNav, useWpblDark, chromePx } from './ui'
 import SwipeableViews from './SwipeableViews'
 import { WrittenAbout } from './Reading'
 import { PitchLocationCard } from './PitchLocation'
@@ -399,7 +399,7 @@ function FormStrip({ title, games }: { title: string; games: { opp: string; valu
     // line beside it, and that line is type. Held in px it stopped scaling the moment the
     // reader enlarged the text, so the five cells overflowed their own box at 1.375 while the
     // bio they are competing with grew as intended. 12.5rem is the 200px it has always been.
-    <Box sx={{ display: { xs: 'none', lg: 'block' }, flexShrink: 0, minWidth: 0, px: 1.5, maxWidth: '12.5rem' }}>
+    <Box sx={{ display: { xs: 'none', md: 'block' }, flexShrink: 0, minWidth: 0, px: 1.5, maxWidth: '12.5rem' }}>
       {/* 0.72 white, the floor the band's wash is budgeted for. See BAND_WASH: these sit at
           roughly 55-80% across, where the wash is well short of its strongest point, so they
           clear the bar with more room than the hero's own labels do. */}
@@ -575,7 +575,7 @@ function GameLogTable({ title, statHeaders, rows, best, accent }: {
           meant to close, just on the other side. Below `lg` there is only one column and the
           pane already scrolls, so a scroller inside a scroller would buy nothing and cost a
           touch gesture. */}
-      <Box sx={{ overflowX: 'auto', maxHeight: { lg: LOG_MAX_H }, overflowY: { lg: 'auto' } }}>
+      <Box sx={{ overflowX: 'auto', maxHeight: { md: chromePx(LOG_MAX_H) }, overflowY: { md: 'auto' } }}>
         <Box component="table" sx={{ width: '100%', minWidth: 'max-content', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
           <Box component="thead">
             <Box component="tr">
@@ -931,7 +931,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
    *  centred and should not be: there it is one half of a two-part row, and its axis is the
    *  right edge it shares with the card. */
   const paneHero = (r: Role) => (
-    <Box sx={{ mb: 1.75, maxWidth: HERO_BLOCK_W, mx: 'auto', display: { xs: 'block', lg: 'none' } }}>{heroBlock(r, false)}</Box>
+    <Box sx={{ mb: 1.75, maxWidth: chromePx(HERO_BLOCK_W), mx: 'auto', display: { xs: 'block', md: 'none' } }}>{heroBlock(r, false)}</Box>
   )
 
   // Each pane in two halves, because a desktop dialog puts them side by side: `season` is what
@@ -1058,12 +1058,12 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
       <Box key={r} sx={{ px: 2, pt: 2, pb: 2 }}>
         <Box sx={{
           display: 'grid',
-          gridTemplateColumns: twoCol ? { xs: '1fr', lg: `minmax(0, ${LEFT_RAIL}px) minmax(0, 1fr)` } : '1fr',
+          gridTemplateColumns: twoCol ? { xs: '1fr', md: `minmax(0, ${chromePx(LEFT_RAIL)}) minmax(0, 1fr)` } : '1fr',
           columnGap: 2.5,
           alignItems: 'start',
           // A lone column stretched across a desktop dialog reads as a stat line pulled to fit
           // rather than as a column, so it keeps a measure of its own.
-          ...(twoCol ? {} : { maxWidth: { lg: 560 } }),
+          ...(twoCol ? {} : { maxWidth: { md: chromePx(560) } }),
         }}>
           <Box sx={{ minWidth: 0 }}>
             {pane.season}
@@ -1074,7 +1074,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
           </Box>
           {/* The right rail's first block carries a top margin for the stacked layout, where it
               follows the season facts. Alongside them it has to start level with them instead. */}
-          <Box sx={{ minWidth: 0, '& > :first-of-type': { mt: { lg: 0 } } }}>
+          <Box sx={{ minWidth: 0, '& > :first-of-type': { mt: { md: 0 } } }}>
             {pane.log}
           </Box>
           {/* The reading list runs UNDER both columns rather than inside one of them. It is the
@@ -1088,7 +1088,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
               someone who has been written about but has not logged a game is exactly the case
               where this is the most interesting thing on the page. Renders nothing when nobody
               has written about her, which is most of the roster. */}
-          <Box sx={{ minWidth: 0, gridColumn: { lg: '1 / -1' } }}>
+          <Box sx={{ minWidth: 0, gridColumn: { md: '1 / -1' } }}>
             <WrittenAbout articles={writtenAbout} title={`Written about ${player.name}`} wide />
           </Box>
         </Box>
@@ -1100,10 +1100,12 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     <ModalShell
       eyebrow={team ? wpblFullName(team) : 'Player'}
       onClose={onClose}
-      // Wide enough at `lg` for the two-column pane below, and unchanged everywhere else. It
+      // Wide enough at `md` for the two-column pane below, and unchanged everywhere else. It
       // is a fixed pair rather than a value derived from the content so the dialog cannot
-      // resize under the reader as the season totals land.
-      maxWidth={{ xs: 640, lg: 840 }}
+      // resize under the reader as the season totals land. Through `chromePx` because the
+      // pair was chosen while the section ran a 1.4 `zoom`: spent raw it is the same number
+      // against 40% larger type, which is what wrapped this player's name onto two lines.
+      maxWidth={{ xs: chromePx(640), md: chromePx(840) }}
       zIndex={1600}
       actions={<CopyLinkButton url={shareUrl} title={`Copy a link to ${player.name}`} />}
       // A sheet on a phone, like Game Center: this opens from a roster row, a leaderboard, a
@@ -1241,7 +1243,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
               (see `paneHero`) and this renders nothing. The role is the one on screen, so a
               two-way player's band follows her tab. */}
           {showBandHero && (
-            <Box sx={{ display: { xs: 'none', lg: 'block' }, width: HERO_BLOCK_W, flexShrink: 0 }}>
+            <Box sx={{ display: { xs: 'none', md: 'block' }, width: chromePx(HERO_BLOCK_W), flexShrink: 0 }}>
               {heroBlock(roles[roleIndex], true)}
             </Box>
           )}
@@ -1308,7 +1310,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
 // itself wants: the widest log is the hitting line, which measures ~440px once POS joins it,
 // and 320 leaves it ~453. Any wider here and the table falls back to its horizontal scroll on
 // a desktop dialog, which is the one place there is plainly room for it not to.
-const LEFT_RAIL = 320
+const LEFT_RAIL = 320   // spent through chromePx; see its note
 /**
  * How much of each club's secondary the band's wash reaches at its far edge, 0-255.
  *

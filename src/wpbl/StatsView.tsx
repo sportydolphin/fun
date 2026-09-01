@@ -262,24 +262,19 @@ interface Row {
 // Break the table out of the 720px page column so every stat column is visible. The page
 // is horizontally centered, so centering a viewport-wide box on it reads as full-bleed.
 // Zoom-aware: inside the desktop `zoom` wrapper vw units aren't shrunk, so divide by
-// --app-zoom (defaults to 1 off desktop). Capped so it doesn't sprawl on huge monitors.
+// Capped so it doesn't sprawl on huge monitors.
 const FULL_BLEED_W = 'min(1540px, calc(100vw - 24px))'
 
-// The chrome pinned above this view, expressed in THIS subtree's pixels.
+// The chrome pinned above this view.
 //
 // Exactly one of the two terms is non-zero at a time: the toolbar is sticky only on desktop,
 // the section nav only on mobile, so the sum lands just below the chrome on both without
 // either breakpoint being special-cased at the call sites.
 //
-// THE DIVISION IS THE HALF THAT IS TEMPORARY. --app-header-h is now published in real screen
-// pixels by a toolbar that sits OUTSIDE the desktop `zoom` (see App.tsx), while a sticky `top`
-// in here is resolved BEFORE this section's zoom is applied. Spend it raw and the bar pins 40%
-// too far down, opening a band the page scrolls through in full view: the same defect the
-// publisher used to carry at its own end, moved one step along. --wpbl-nav-h is already in
-// these pixels and is zero wherever the zoom is not 1, so dividing the whole sum is correct
-// for both terms rather than only for one. When /wpbl drops its zoom (ROADMAP-WPBL item 0,
-// phase 3) the divisor is 1 and this collapses back to the plain sum.
-const PINNED_CHROME = 'calc((var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px)) / var(--app-zoom, 1))'
+// It divided by `--app-zoom` for one commit, while the toolbar had left the zoom and this
+// section had not. Both are out now, so a published rect and a sticky `top` are the same
+// pixel and the sum is spent as it arrives.
+const PINNED_CHROME = 'calc(var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px))'
 const fullBleedSx = {
   width: FULL_BLEED_W,
   position: 'relative',
@@ -1319,11 +1314,12 @@ export default function WpblStatsView({
 
               560px is where the two meet, and is picked rather than guessed: it is the height
               at which the first subtraction still leaves about eight rows, which is the point
-              below which a scroll-box stops being a table. The query reads the RAW viewport
-              while the calc reads the zoomed one, which agree on a phone (`--app-zoom` is 1
-              below md) and diverge only on a short desktop window, where the query is late and
-              the box merely comes out shorter than it could be. That is the safe direction:
-              the unsafe one is a box taller than the gap, and the query cannot cause it. */}
+              below which a scroll-box stops being a table. The query and the calc now read the
+              same viewport: they used to diverge on desktop, where the calc was inside the
+              1.4 `zoom` and the query was not, which made the query late and the box merely
+              shorter than it could be. That was the safe direction and it no longer happens at
+              all. The unsafe direction, a box taller than the gap, was never reachable from
+              here. */}
           <Box ref={scrollRef} sx={{
             overflowX: 'auto', overflowY: 'auto', overscrollBehavior: 'contain',
             maxHeight: 'calc(100dvh - 260px)',

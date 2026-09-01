@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ModalShell, TeamBadge, CARD_BORDER, useRailPaging, RailArrow, RailScroller } from './ui'
+import { ModalShell, TeamBadge, CARD_BORDER, useRailPaging, RailArrow, RailScroller, chromePx } from './ui'
 import { readMinutes, authorPhoto, AUTHOR_BIO, AUTHOR_NAME, PUBLICATION_NAME, PUBLICATION_URL } from './derive/articles'
 import type { WpblArticle, WpblTeam } from './types'
 import { track, EVENTS } from '../lib/analytics'
@@ -311,7 +311,7 @@ function ArchiveRow({ article, teamById }: { article: WpblArticle; teamById: Map
       {/* Fixed width, height taken from the row. `minHeight` keeps the shortest rows from
           squeezing the cover into a letterbox slot. */}
       <Box sx={{
-        position: 'relative', width: 96, flexShrink: 0, minHeight: 62,
+        position: 'relative', width: chromePx(96), flexShrink: 0, minHeight: chromePx(62),
         borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover',
       }}>
         {article.cover_url && (
@@ -392,7 +392,7 @@ export function GameStoryCard({ article }: { article: WpblArticle }) {
         '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
       }}
     >
-      <Box sx={{ position: 'relative', width: 108, flexShrink: 0, aspectRatio: '16 / 9', borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover' }}>
+      <Box sx={{ position: 'relative', width: chromePx(108), flexShrink: 0, aspectRatio: '16 / 9', borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover' }}>
         {article.cover_url && (
           <Box component="img" src={article.cover_url} alt="" loading="lazy"
             sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />

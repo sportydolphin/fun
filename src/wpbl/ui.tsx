@@ -161,6 +161,21 @@ export function FormDots({ recent, gap = 4 }: { recent: ('W' | 'L')[]; gap?: num
   )
 }
 
+/** A structural pixel length, scaled by the desktop chrome scale.
+ *
+ *  STRUCTURE SCALES, ORNAMENT DOES NOT, and that line is where the `zoom` removal actually
+ *  costs something. `zoom: 1.4` scaled every length in the section for free; ordinary CSS has
+ *  no equivalent, so each px length either says it scales or stays at its written size. The
+ *  ones that MUST scale are the ones that decide how much fits: column widths, rail widths, a
+ *  dialog's cap. Left at their written size those boxes silently shrink 40% relative to the
+ *  type inside them, which is how the player dialog went from one line for a name to two.
+ *
+ *  Ornament is deliberately left alone: hairline borders, the 6px live dot, a 4px scrollbar.
+ *  At this scale they are a pixel or two either way, and a 1px border that stays 1px is
+ *  sharper than one the zoom used to render at 1.4.
+ */
+export const chromePx = (px: number) => `calc(${px}px * var(--app-chrome, 1))`
+
 export function TeamBadge({ team, size = 34 }: { team: Pick<WpblTeam, 'id' | 'abbr'>; size?: number }) {
   const logo = wpblLogo(team.id)
   const fill = wpblLogoFill(team.id)
@@ -1167,7 +1182,9 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
   onClose: () => void
   /** Responsive object as well as a plain number, because a modal that is the right size for
    *  a phone sheet is not the right size for a desktop dialog. Handed straight to `sx`. */
-  maxWidth?: number | Record<string, number>
+  /** px number, or a breakpoint map. Strings allowed so a caller can hand over a
+   *  `chromePx()` calc, which is how any width that used to ride the zoom is spelled now. */
+  maxWidth?: number | string | Record<string, number | string>
   zIndex?: number
   actions?: React.ReactNode   // rendered just left of the close button
   footer?: React.ReactNode    // sticky bottom bar

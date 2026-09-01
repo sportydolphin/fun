@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ModalShell, TeamBadge, CARD_BORDER, useRailPaging, RailArrow, RailScroller } from './ui'
+import { ModalShell, TeamBadge, CARD_BORDER, useRailPaging, RailArrow, RailScroller, chromePx } from './ui'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblVideo, WpblTeam } from './types'
 
@@ -209,7 +209,7 @@ export function GameHighlightCard({ video }: { video: WpblVideo }) {
           '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
         }}
       >
-        <Box sx={{ position: 'relative', width: 108, flexShrink: 0, aspectRatio: '16 / 9', borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover' }}>
+        <Box sx={{ position: 'relative', width: chromePx(108), flexShrink: 0, aspectRatio: '16 / 9', borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover' }}>
           {video.thumbnail_url && (
             <Box component="img" src={video.thumbnail_url} alt="" loading="lazy"
               sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />

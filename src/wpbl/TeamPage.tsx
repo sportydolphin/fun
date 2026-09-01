@@ -28,7 +28,9 @@ const isPitcherPos = (pos: string | null | undefined) => /P$/i.test((pos ?? '').
 
 // Width of the result/kickoff column in the Results card. One number so the W/L letter, the
 // score and the scheduled time all land on the same axis.
-const SCORE_COL_W = 72
+// 4.5rem is the 72px it has always been. A text column, so it follows the type: see the
+// three kinds of fixed size in ROADMAP-WPBL item 0, phase 2.
+const SCORE_COL_W = '4.5rem'
 
 // A block of centered stat tiles (value over a small caps label), laid out on a fixed
 // four-column grid.

@@ -142,18 +142,42 @@ Each of these has already cost someone a debugging session, and none of them fai
   holding their own basis is the other failure, where a leaderboard and the player page it
   opens disagree and neither is wrong. `__tests__/eraBasis.test.ts` pins both.
 
-- **`--app-header-h` / `--wpbl-nav-h` are published in SCREEN pixels, and a consumer inside a
-  zoomed section has to divide.** Both are spent as a sticky `top`, which resolves BEFORE any
-  `zoom` on the subtree, while `getBoundingClientRect()` reports AFTER it. **As of Aug 31,
-  2026 the toolbar is no longer zoomed** (`zoom` moved off the app root down to the content
-  box; see item 0 in [ROADMAP-WPBL.md](ROADMAP-WPBL.md)), so the publisher has nothing to
-  divide out and hands over the raw rect. The division moved to the spending end:
-  `PINNED_CHROME` in [`StatsView.tsx`](src/wpbl/StatsView.tsx) divides the sum by its own
-  `--app-zoom`, which is 1.4 while `/wpbl` still runs the zoom and 1 the moment it stops.
-  Get either end wrong and whatever sticks below pins 40% too far down, opening a band the
-  page scrolls through in full view, with nothing in the console. Use the **rect**, never
-  `offsetHeight`: it rounds to a whole pixel and leaves a sub-pixel crack doing the same thing
-  one device pixel at a time. This has now regressed three times, once in each direction.
+- **`/wpbl` renders at a DESKTOP SCALE in CSS, not under a `zoom`, and there are two scales.**
+  Until Aug 31, 2026 the whole app sat inside `zoom: 1.4` at `md`, which split it into two
+  pixel units nothing in the type system tells apart and cost five shipped bugs. `/wpbl` is
+  out (`/mlb` is not yet: it still runs `DESKTOP_ZOOM`, which is why the scale is keyed on
+  `:root[data-app-scale='wpbl']`, set per route in App.tsx). **Never put both on one element**,
+  a root font-size ramp on top of a zoom compounds. The two scales, in `styles.css`:
+  **`--app-type`** is spent on the root font size, so it moves every `rem` (the type, and the
+  boxes that reserve room for type) and it MULTIPLIES with `--sd-text-scale`, the reader's
+  Large text setting. **`--app-chrome`** is spent on px that is not type: MUI's whole `spacing`
+  scale, `TeamBadge` / `PlayerPortrait`, the toolbar logo, and every structural length via
+  `chromePx()` in [`ui.tsx`](src/wpbl/ui.tsx). It deliberately EXCLUDES the text scale, because
+  a tap target that grows with the reader's text size is a worse tap target. `AccessibilityContext`
+  must keep PUBLISHING `--sd-text-scale` rather than setting `font-size` itself: an inline style
+  beats the stylesheet, so setting it there gives a Large-text reader the MOBILE type size on a
+  desktop. See item 0 in [ROADMAP-WPBL.md](ROADMAP-WPBL.md).
+
+- **A fixed px size in `/wpbl` is one of three things, and only two of them scale.** Ordinary
+  CSS has no equivalent of `zoom`, so every length now says what it is. A box **reserving room
+  for a string or a number** goes in `rem` (a rank column, a club-name column, the scoreboard
+  chip): it must grow with the type or it clips, and this is the one that bites, because a box
+  sized in px around a font sized in rem looks perfectly right until someone enlarges the text.
+  **Structure** goes through `chromePx()` (rail widths, a dialog's cap, a card's flex basis):
+  left raw it silently shrinks 40% against the type inside it, which is how the player dialog
+  started wrapping a name onto two lines. **Ornament** stays raw px: hairline borders, the 6px
+  live dot, a 4px scrollbar. The failure is silent in every direction, and `tsc` sees none of
+  it: the only check that works is opening the page and looking for a box whose content is
+  wider than it is, at more than one text scale.
+
+- **`--app-header-h` / `--wpbl-nav-h` are the pinned chrome's height, in plain screen pixels.**
+  Both are spent as a sticky `top`. Use the **rect**, never `offsetHeight`: it rounds to a whole
+  pixel, and a bar 43.67px tall publishing itself as 44 leaves a sub-pixel crack under it that
+  the page scrolls through, one device pixel of a stats row at a time. Consumers add them and
+  spend the sum (`PINNED_CHROME` in [`StatsView.tsx`](src/wpbl/StatsView.tsx)); exactly one is
+  non-zero at a time, since the toolbar is sticky only on desktop and the section nav only on
+  mobile. This has regressed three times, once in each direction, every time by a scale being
+  applied at one end of the sum and not the other.
 
 - **Modules shared with Deno carry `.ts` on their imports.** The recap engine
   ([`recap.ts`](src/wpbl/derive/recap.ts), [`discordRecap.ts`](src/wpbl/derive/discordRecap.ts))

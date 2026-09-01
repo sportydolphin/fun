@@ -61,8 +61,13 @@ export interface GameGridRow {
 // Defaults suit the lineup grid; the pitching grid overrides both, because its cells hold a
 // pitch count rather than a position-and-slot string and it can therefore be much tighter.
 // Sized from measured text at 375px, not guessed: see each caller.
-const DEFAULT_NAME_W = 128
-const DEFAULT_COL_W = 66
+// In REM, not px. Both are the width of a cell holding text, so they have to move with the
+// type: under the old `zoom` they did for free, and spent as px against a 1.4 desktop scale
+// the grid would keep a phone's column widths under 40% larger numerals. Kept as numbers
+// rather than calc strings because the track's own minimum is arithmetic over them.
+// 8rem and 4.125rem are the 128px and 66px they have always been at the default root size.
+const DEFAULT_NAME_W = 8
+const DEFAULT_COL_W = 4.125
 
 /** How far past its minimum a column may grow to soak up spare width. A cell holds at most
  *  "DH/LF (8)" or "102*", so past roughly double the minimum the extra is just air between
@@ -95,8 +100,8 @@ export default function GameGrid({ columns, rows, renderCell, colWidth, nameWidt
   // that minimum and the same rule spends the surplus on the columns instead of leaving it
   // blank to the right of the card.
   const colSize = {
-    flexGrow: 1, flexShrink: 0, flexBasis: COL_W,
-    minWidth: COL_W, maxWidth: COL_W * GROW_CAP,
+    flexGrow: 1, flexShrink: 0, flexBasis: `${COL_W}rem`,
+    minWidth: `${COL_W}rem`, maxWidth: `${COL_W * GROW_CAP}rem`,
   }
 
   // Open at the RIGHT edge, i.e. the most recent game.
@@ -165,7 +170,7 @@ export default function GameGrid({ columns, rows, renderCell, colWidth, nameWidt
           name width for THIS breakpoint: under-counting it (the desktop name column is wider)
           let `width: 100%` win when the real content was wider still, so the grid overflowed
           its own inner box and clipped the leftmost column against the pinned names. */}
-      <Box sx={{ minWidth: { xs: NAME_W.xs + columns.length * COL_W, sm: NAME_W.sm + columns.length * COL_W }, width: '100%', display: 'inline-block' }}>
+      <Box sx={{ minWidth: { xs: `${NAME_W.xs + columns.length * COL_W}rem`, sm: `${NAME_W.sm + columns.length * COL_W}rem` }, width: '100%', display: 'inline-block' }}>
 
         <Box sx={{ display: 'flex', alignItems: 'flex-end' }}>
           {/* TRAP 2: alignSelf:stretch is load-bearing on this spacer. With no children it

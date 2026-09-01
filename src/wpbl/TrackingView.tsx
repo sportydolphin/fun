@@ -7,7 +7,7 @@ import {
 import { aggregateTracking } from './tracking'
 import type { TrackingBoard, VeloLeader, SpinLeader, PitchHit, BattedBall } from './tracking'
 import { WPBL_ACCENT } from './constants'
-import { SectionCard, LeaderRow, CARD_BORDER, useWpblName } from './ui'
+import { SectionCard, LeaderRow, CARD_BORDER, useWpblName, chromePx } from './ui'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, fmtDistance, speedUnit, distanceUnit } from '../lib/units'
 import type { WpblTeam, WpblPlayer } from './types'
@@ -23,7 +23,7 @@ function BestTile({ label, value, unit, name, accent }: {
   const shortName = useWpblName()
   return (
     <Box sx={{
-      flex: 1, minWidth: 130, p: 1.25, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
+      flex: 1, minWidth: chromePx(130), p: 1.25, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
       background: `linear-gradient(135deg, ${accent}1f 0%, transparent 70%)`,
     }}>
       <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, color: 'text.secondary' }}>{label}</Typography>

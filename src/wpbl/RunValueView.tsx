@@ -9,7 +9,7 @@ import {
   fmtRe, fmtRunValue, playRunValues, runValueLeaders, type ReTable, type WorkedExample,
 } from './derive/runExpectancy'
 import { wpblAccentFg } from './constants'
-import { SectionCard, LeaderRow, PlayerPortrait, ExpandRow, useWpblDark, useWpblName } from './ui'
+import { SectionCard, LeaderRow, PlayerPortrait, ExpandRow, useWpblDark, useWpblName, chromePx } from './ui'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 
 // The run-value board: what each situation in a game is worth, and which plays moved furthest
@@ -87,7 +87,7 @@ function ReGrid({ table, accent }: { table: ReTable; accent: string }) {
     <Box sx={{ overflowX: 'auto', display: 'flex' }}>
       <Box sx={{
         display: 'grid', gridTemplateColumns: 'auto repeat(3, minmax(56px, 1fr))',
-        flex: 1, minWidth: 250,
+        flex: 1, minWidth: chromePx(250),
       }}>
         <Box />
         {[0, 1, 2].map(o => (

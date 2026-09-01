@@ -44,7 +44,9 @@ import type { WpblBattingLine, WpblGame, WpblPlayer } from './types'
 
 /** Cards read; they do not span. The rest of this tab is full-bleed tables, and prose set to
  *  1,200px is prose nobody finishes. */
-const READ_WIDTH = { maxWidth: 760 }
+// 47.5rem is the 760px it has always been. A reading column is measured in characters, so
+// it has to move with the type or the measure changes under the desktop scale.
+const READ_WIDTH = { maxWidth: '47.5rem' }
 
 /**
  * THE CARD THAT ARGUES FOR THE BOARD, AND THE ONE STILL BEHIND THE SWITCH.

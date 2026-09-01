@@ -62,7 +62,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
   }
 
   return (
-    <Box sx={{ maxWidth: 900, mx: 'auto', px: { xs: 2, sm: 3 }, pb: 6 }}>
+    <Box sx={{ maxWidth: '56.25rem', mx: 'auto', px: { xs: 2, sm: 3 }, pb: 6 }}>
       <Box
         component="a"
         href="/wpbl"

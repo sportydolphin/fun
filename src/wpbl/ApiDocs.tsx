@@ -99,7 +99,7 @@ function Note({ title, children }: { title: string; children: React.ReactNode })
 
 export default function WpblApiDocs() {
   return (
-    <Box sx={{ maxWidth: 760, mx: 'auto', px: { xs: 2, sm: 3 }, pb: 6 }}>
+    <Box sx={{ maxWidth: '47.5rem', mx: 'auto', px: { xs: 2, sm: 3 }, pb: 6 }}>
       <Typography component="h1" sx={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.4px', mb: 0.5 }}>
         Getting WPBL data
       </Typography>
