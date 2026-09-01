@@ -332,9 +332,9 @@ function ToolbarSuggestionsDropdown({ suggestions, onSelect, recents, onSelectRe
     <Paper elevation={8} sx={{
       position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
       zIndex: 1500, borderRadius: 2.5, overflow: 'hidden', minWidth: 260,
-      // Plain 70vh: this panel hangs off the toolbar, which is no longer inside the desktop
-      // `zoom`, so a viewport unit and a CSS length agree here again.
-      maxHeight: '70vh', overflowY: 'auto',
+      // Divided by the toolbar's own scale: this panel hangs inside it, and `zoom` does not
+      // shrink viewport units, so a raw 70vh would resolve to 87% of the screen at 1.25.
+      maxHeight: 'calc(70vh / var(--app-shell, 1))', overflowY: 'auto',
     }}>
       {recents.length > 0 && renderRecents()}
       {recents.length > 0 && (teamPlayers.length > 0 || trending.length > 0) && <Divider sx={{ mt: 0.5 }} />}
@@ -385,7 +385,9 @@ function ToolbarRecentRowsDropdown({ rows, onSelect, onClear }: {
     <Paper elevation={8} sx={{
       position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
       zIndex: 1500, borderRadius: 2.5, overflow: 'hidden', minWidth: 260,
-      maxHeight: '70vh', overflowY: 'auto',
+      // Divided by the toolbar's own scale: this panel hangs inside it, and `zoom` does not
+      // shrink viewport units, so a raw 70vh would resolve to 87% of the screen at 1.25.
+      maxHeight: 'calc(70vh / var(--app-shell, 1))', overflowY: 'auto',
     }}>
       <Box sx={{ px: 1.5, pt: 1, pb: 0.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled' }}>
@@ -464,6 +466,11 @@ function AppInner() {
     root.style.setProperty('--app-scale-desktop', String(WPBL_DESKTOP_SCALE))
     if (isWpblSection(path)) root.setAttribute('data-app-scale', 'wpbl')
     else root.removeAttribute('data-app-scale')
+    // The toolbar scales on BOTH sections, so switching between them moves nothing above the
+    // content. Separate from the attribute above because the two sections are scaled by
+    // different means and only the shell is shared; see the note in styles.css.
+    if (path === '/mlb' || isWpblSection(path)) root.setAttribute('data-shell-scale', '1')
+    else root.removeAttribute('data-shell-scale')
   }, [path])
 
   const headerRef = useRef<HTMLElement>(null)
@@ -697,6 +704,11 @@ function AppInner() {
     <Box>
       <AppBar
         ref={headerRef}
+        // Scaled as one piece; see --app-shell in styles.css for why this is a `zoom` when the
+        // rest of the rebuild was about removing one. --app-header-h needs no adjustment for
+        // it: the publisher hands over a rect, which is already the on-screen height, and that
+        // is exactly what a consumer outside this bar spends.
+        style={{ zoom: 'var(--app-shell, 1)' }}
         // On mobile the top bar scrolls away (static) rather than sticking — the MLB/WPBL
         // toggle + search are rarely needed mid-scroll, and a single sticky bar (the WPBL
         // tab menu, pinned below) avoids the two-bar gap collapsing as you scroll.
@@ -741,7 +753,11 @@ function AppInner() {
           },
         }}
       >
-        <Toolbar variant="dense" sx={{ minHeight: 48, py: 0.5 }}>
+        {/* The bar's own height is STRUCTURE, so it takes --app-chrome like the logo does. Left
+            raw it was the one thing in here that did not scale on the section whose root
+            carries the scale, and the bar came out 10px shorter there than on the other one:
+            the two sections are supposed to be indistinguishable above the content. */}
+        <Toolbar variant="dense" sx={{ minHeight: 'calc(48px * var(--app-chrome, 1))', py: 0.5 }}>
           {/* Close button — mobile search mode only */}
           {!isDesktop && mobileSearchExpanded && (
             <IconButton size="small" aria-label="Close search" onClick={() => { setMobileSearchExpanded(false); setSearchQuery('') }} sx={{ mr: 0.5, flexShrink: 0 }}>
@@ -772,9 +788,10 @@ function AppInner() {
                 src="/logo-mark.png"
                 alt="sportydolphin"
                 sx={{
-                  // Art, so it rides --app-chrome with the badges rather than the root font
-                  // size. Without this the mark stayed at 32px while the wordmark beside it
-                  // scaled to 28px type on a scaled route, and the lockup came apart.
+                  // Art, so it rides --app-chrome like every other badge. That covers the
+                  // section whose root is scaled; on the other one the bar's own `zoom` covers
+                  // it instead, and --app-chrome is 1 there. Exactly one of the two applies, so
+                  // the mark lands at the same size on both and never scales twice.
                   display: 'block', height: `calc(${BRAND_LOGO_H}px * var(--app-chrome, 1))`, width: 'auto',
                   cursor: 'pointer', userSelect: 'none',
                   ...(mode === 'dark' && { filter: 'invert(1)' }),
@@ -798,10 +815,11 @@ function AppInner() {
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 display: 'none',
                 [`@media (min-width:${BRAND_WORDMARK_MIN}px)`]: { display: 'block' },
-                // Take it back off between the two thresholds when the route is scaled: there
-                // the lockup is 1.4x wider and would ellipsise into the search box instead.
+                // Take it back off between the two thresholds wherever the bar is scaled:
+                // there the lockup is that much wider in the pixels the query counts, and it
+                // would ellipsise into the search box instead.
                 [`@media (max-width:${BRAND_WORDMARK_MIN_SCALED - 0.05}px)`]: {
-                  'html[data-app-scale] &': { display: 'none' },
+                  'html[data-shell-scale] &': { display: 'none' },
                 },
               }}
             >
@@ -911,7 +929,8 @@ function AppInner() {
             }}>
               <Box sx={{
                 position: 'relative',
-                width: isDesktop ? 260 : undefined,
+                // Structure, same as the bar's height: this is a fixed box holding a field.
+                width: isDesktop ? 'calc(260px * var(--app-chrome, 1))' : undefined,
                 flex: !isDesktop ? 1 : undefined,
                 mx: isDesktop ? 1.5 : 0,
               }}>

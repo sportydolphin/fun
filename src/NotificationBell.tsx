@@ -153,9 +153,9 @@ export function NotificationBell({ onNavigate }: { onNavigate: (url: string) => 
             left: { xs: 8, sm: 'auto' },
             right: { xs: 8, sm: 0 },
             width: { xs: 'auto', sm: 300 },
-            // Plain 70vh: this panel hangs off the toolbar, which is no longer inside the
-            // desktop `zoom`, so a viewport unit and a CSS length agree here again.
-            maxHeight: '70vh', overflowY: 'auto',
+            // Divided by the toolbar's own scale: this panel hangs inside it, and `zoom` does
+            // not shrink viewport units, so a raw 70vh would resolve to 87% of the screen.
+            maxHeight: 'calc(70vh / var(--app-shell, 1))', overflowY: 'auto',
           }}>
             <Box sx={{
               px: 1.5, py: 1, display: 'flex', alignItems: 'center', gap: 1,

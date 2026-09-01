@@ -30,6 +30,7 @@
   --sd-text-scale: 1;
   --app-type: 1;
   --app-chrome: 1;
+  --app-shell: 1;
   /* A percentage, so the reader's own browser default font size is still the baseline. At the
      two scales' default of 1 this is exactly 100%, i.e. untouched. */
   font-size: calc(100% * var(--sd-text-scale) * var(--app-type));
@@ -59,6 +60,33 @@
     --app-type: var(--app-scale-desktop, 1);
     --app-chrome: var(--app-scale-desktop, 1);
   }
+}
+
+/* ── The shared toolbar's scale, which is a THIRD one and has to be ────────────
+   The toolbar is shared by /wpbl and /mlb, and those two are scaled by different means: /wpbl
+   by the two variables above, /mlb still by `zoom: 1.4` on its own subtree. Neither can reach
+   the toolbar without reaching the other section too. Everything above lives on :root, and
+   /mlb has 212 raw px dimensions that read no variable at all, so scaling the root to fix the
+   toolbar would leave every one of those 40% adrift inside a zoom that had to be lowered to
+   compensate.
+
+   So the toolbar carries its own scale, and spends it as `zoom`. That is the property this
+   whole rebuild exists to remove, and it is the right tool HERE for the reasons it was the
+   wrong one there: what made it harmful in a section was 51 rect and scroll call sites and 37
+   breakpoints reading a viewport the layout no longer matched. A chrome bar has neither. It
+   has exactly three lengths that can tell the difference, the `70vh` caps on the panels that
+   hang off it, and those divide it back out explicitly.
+
+   The payoff is that the bar is IDENTICAL across the two sections, so switching between them
+   moves nothing above the content. */
+@media (min-width: 900px) {
+  /* `:not([data-app-scale])` is the whole subtlety. On /wpbl the root variables ALREADY scale
+     this bar: its type rides the root font size and its padding and logo ride --app-chrome,
+     because both of those are inherited from :root and the bar is inside the document like
+     everything else. Applying the zoom there too would scale it twice, which it did, and the
+     wordmark came out half again too big. So the bar's own scale is only for the section the
+     root scale cannot reach. Either way it lands at the same size, which is the point. */
+  :root[data-shell-scale]:not([data-app-scale]) { --app-shell: var(--app-scale-desktop, 1); }
 }
 
 /* These defaults are what the page shows BEFORE React mounts and pushes the active

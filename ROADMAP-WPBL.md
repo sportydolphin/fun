@@ -269,6 +269,16 @@ holding type follow it.
    symptom would be a wordmark ellipsising into the search box in one narrow band of widths
    nobody thinks to check.
 
+3b. **The shared toolbar, scaled on both sections.** ✅ *Done Aug 31.* Until this, switching
+   WPBL to MLB shrank the whole bar 25%, because only WPBL's root carried the scale. A third
+   variable, `--app-shell`, scales the `AppBar` on its own and only where the root is not
+   already doing it. It spends it as `zoom`, which is the right tool for a chrome bar and the
+   wrong one for a section: see the CLAUDE.md entry. Two raw px in the bar had to become
+   structure for the two paths to agree, the `Toolbar` minHeight and the search box width.
+   Measured on both routes: bar 61px, logo 40px, search box 325px, wordmark within 1.7%. The
+   only residual is MUI's own hardcoded 5px `IconButton` padding, worth 2.5px on a 40px control,
+   left alone rather than chased with a global theme override.
+
 4. **Delete the compensations.** ✅ *Done Aug 31.* Every `--app-zoom` division in the section is
    gone: the scoreboard's anchor placement is plain subtraction again, the nav-height publisher
    hands over its rect, `PINNED_CHROME` spends the sum as it arrives. `PlayerDetail` drops back

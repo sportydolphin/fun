@@ -158,6 +158,21 @@ Each of these has already cost someone a debugging session, and none of them fai
   beats the stylesheet, so setting it there gives a Large-text reader the MOBILE type size on a
   desktop. See item 0 in [ROADMAP-WPBL.md](ROADMAP-WPBL.md).
 
+- **The shared toolbar has its OWN scale, and it is a `zoom`, deliberately.** The bar is shared
+  by `/wpbl` and `/mlb`, and those two are scaled by different means, so neither section's
+  mechanism can reach it without reaching the other section too. Everything above lives on
+  `:root`, and `/mlb` has 212 raw px dimensions that read no variable, so scaling the root to
+  fix the bar would leave all of those adrift. `--app-shell` in `styles.css` therefore scales
+  the `AppBar` on its own, and applies **only where the root is not already scaling it**
+  (`:root[data-shell-scale]:not([data-app-scale])`); applied on both, the bar scaled twice and
+  the wordmark came out half again too big. `zoom` is right here for the reasons it was wrong
+  in a section: what made it harmful there was 51 rect and scroll call sites and 37 breakpoints
+  reading a viewport the layout no longer matched, and a chrome bar has neither. It has three
+  lengths that can tell: the `70vh` caps on the panels hanging off it, which divide it back out.
+  `--app-header-h` needs nothing, since it publishes a rect (on-screen pixels) and is spent
+  outside the bar where those are the same pixels. The point of all of it is that the bar
+  measures the same on both sections, so switching moves nothing above the content.
+
 - **A fixed px size in `/wpbl` is one of three things, and only two of them scale.** Ordinary
   CSS has no equivalent of `zoom`, so every length now says what it is. A box **reserving room
   for a string or a number** goes in `rem` (a rank column, a club-name column, the scoreboard
