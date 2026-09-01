@@ -262,6 +262,15 @@ holding type follow it.
    pixels. Lower starts to read as small on a page where a lot of the type is 0.6-0.8rem by
    design.
 
+   **Two kinds of column, and the difference is what the content can do with width.** The
+   section column (Schedule, Standings, Teams) is a READING column: it tracks the scale via
+   `chromePx(720)`, because what a text column is measured against is its own type. Pinning it
+   at a fixed screen width, which it was for one commit, made every row 12% wider than the
+   words in it: a club name on the left of a Teams card with its record marooned at the right,
+   a schedule row with a gulf between the matchup and the time. Home and the stats table BREAK
+   OUT of that column and keep fixed widths (1260 and 1540) on purpose, because they have
+   somewhere to put the extra room: another scoreboard chip, more stat columns.
+
    The number lives in one place, `WPBL_DESKTOP_SCALE` in App.tsx, published as
    `--app-scale-desktop`. CSS keeps the breakpoint, because a media query is the one thing JS
    should not be deciding. The toolbar's second wordmark threshold is DERIVED from it rather

@@ -7,7 +7,7 @@ import {
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
 import { wpblPortrait } from './portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from './positions'
-import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER } from './ui'
+import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, chromePx } from './ui'
 import { useSearchBridge, updateSearchBridge, setSearchQuery } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import { getWpblRecents, mergeWpblRecent, setWpblRecents, type WpblRecentItem } from './recentSearches'
@@ -1168,9 +1168,17 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     {/* Cap + center on wide screens (site convention); full width on mobile.
         On mobile, pull up to trim most of the app's top gutter (p:2) above the pill nav: the
         toolbar already sits right above it, so the extra gap just reads as dead space at rest. */}
-    {/* 1008 is the 720 layout px this was times the 1.4 it rendered at, so the column keeps the
-        width on screen it has always had now that the zoom is gone. */}
-    <Box sx={{ maxWidth: { xs: 720, md: 1008 }, mx: 'auto', mt: { xs: -1.5, sm: 0 } }}>
+    {/* THE COLUMN TRACKS THE SCALE, it is not a fixed screen width.
+        It was pinned at 1008 for one commit, on the reasoning that 720 layout px under the old
+        1.4 zoom rendered at 1008 and the column should keep the width it had. That is the wrong
+        invariant. What a text column is designed against is its own type, and the scale moved
+        to 1.25 while 1008 stayed put, so every row in here got 12% wider than the words in it:
+        club names on the left of a Teams card with their record marooned at the far right, a
+        schedule row with a gulf between the matchup and the time. Home and the stats table
+        break out of this column on purpose and DO spend extra width, on another chip and more
+        columns; a list has nothing to spend it on. `chromePx` keeps the ratio the design was
+        drawn at whatever the scale becomes. */}
+    <Box sx={{ maxWidth: { xs: 720, md: chromePx(720) }, mx: 'auto', mt: { xs: -1.5, sm: 0 } }}>
       {/* Section nav — shared SegControl pill bar, matching the MLB tab bar. */}
       {/* Tab bar stays put on mobile (sticky under the toolbar) so it doesn't scroll away
           when swiping to a tab or when the schedule snaps to the next game. */}
