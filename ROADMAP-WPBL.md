@@ -123,7 +123,9 @@ prioritized against measurement rather than judgement. Counting rules in
 **What this reorders.** Daily standouts (#5) and the seeding race (#1c) move up, not because
 they are cheap but because they are the only two items that put a player-page entry point on
 the screen where the audience is currently lost. Anything that makes a name tappable is worth
-more than it looks. The primer (#4) and SEO (#3) hold, aimed at a cold audience returning at
+more than it looks. *(#5 was dropped on Sep 1 as a card the section already has. The reasoning
+in this paragraph survived it and became #5b, which is the same aim at a fraction of the cost:
+Home's one player name currently opens a box score.)* The primer (#4) and SEO (#3) hold, aimed at a cold audience returning at
 12 to 20%.
 
 ---
@@ -144,11 +146,24 @@ in now is:
    the feed's own marking four times a day through the postseason and fails loudly on a
    disagreement. The answer to what the feed actually sends still arrives on Sep 9; what changed
    is that it now arrives as an email rather than as somebody remembering to look.*
-4. **#5 daily standouts**, which is the one item whose value does not fall off on Sep 6, and
-   which puts tappable player names on Home. Then **#2 the archive**, the only durable item, whose
-   season-capture half has to happen before Sep 22.
+4. ~~**#5 daily standouts.**~~ ❌ *Dropped Sep 1: this league plays one game a day, so the day's
+   standouts and that game's stars are the same three players, and `LastGameCard` already draws
+   them. See the entry. What it was really reaching for became **#5b**.*
+5. **#5b: Home's one player name should open the player.** Two lines, and it is the only item on
+   this list aimed straight at the measured retention gradient.
+6. **#2 the archive**, the only durable item, whose season-capture half has to happen before
+   Sep 22. Then **#4 the primer**, cheap and aimed at an audience that is entirely first-time
+   visitors.
 
-   With 2 and 3 closed these two are the whole list, and 5 is the one to start.
+### 5b. Home's star name opens the game, not the player 🎯
+
+Split out of #5 when that was dropped, because it is the half of it that was right.
+`LastGameCard` renders one star and passes `onClick={() => onOpenGame(game)}`, so the single
+player name on `/wpbl` opens a box score. `GameRecapView` two hundred lines up does it correctly,
+passing `onOpenPlayer(p)`, so the wiring and the lookup from a `RecapStar` back to a
+`WpblPlayer` both already exist. Worth checking at the same time whether the card should show
+all three stars rather than one: it shows one because of a layout constraint (it shares a
+stretched row with Leaders), which is a real reason and may still be the right answer.
 
 ### 0. The desktop rebuild: Home, and the 1.4x zoom that shaped it 🎯⚙️: ✅ **shipped Aug 31, 2026 as v1.58.0** (see the log)
 
@@ -529,13 +544,30 @@ plus a glossary of the stat abbreviations. Every visitor to a brand-new league i
 first-time visitor. Doubles as indexable prose, which the section currently has almost
 none of.
 
-### 5. Daily standouts: Home card 🎯
+### 5. Daily standouts: Home card 🎯: ❌ **dropped Sep 1, 2026. It is a card the section already has**
 
-A "top performers" card for the latest game day, built from box lines Home already fetches.
-Mirrors the MLB TopPerformers/Spotlight pattern. Low effort, and it is the one item here whose
-value does NOT fall off on Sep 6: a game day is a game day, and the postseason has 7 to 11 more
-of them, each one carrying more weight than any regular-season day did. As of Sep 1 that is 5
-regular-season days plus the postseason, against the 12 games this entry was written against.
+A "top performers" card for the latest game day, built from box lines Home already fetches,
+mirroring the MLB TopPerformers/Spotlight pattern. Cheap, durable past Sep 6, and it kept moving
+up this list on the strength of the retention gradient.
+
+**The premise was imported from MLB and does not survive contact with this schedule.** A daily
+standouts card is worth building where a game day holds fifteen games and nobody can watch them
+all, so a digest of the day beats any one box score. This league plays **one game a day**: 24 of
+the 27 game days to Sep 1 had exactly one, all five remaining regular-season days have one, and
+every postseason date has one by construction, since the bracket never runs two series on the
+same night. So "the standouts of the day" and "the stars of that game" are the same three
+players, computed from the same box lines, and `LastGameCard` on Home is already drawing them
+from `buildRecap`. It would have been a second card restating the first, and the MLB pattern it
+mirrors is the reason that was not obvious.
+
+**What was actually right about it, and is now its own job.** The reason it kept climbing was the
+traffic finding above: a browser that opens a player page returns at 76.5%, against 7.8% for one
+that opens neither a player page nor Game Center, and Home is where most of them are lost. The
+card was a means to putting a tappable player name in front of them. Home HAS one and it does not
+go to the player: `LastGameCard` renders `recap.stars[0]` alone, and its name and portrait are
+wired to `onOpenGame`, so the one player name on the section's landing page opens a box score
+instead of the page the gradient is about. That is a two-line fix and a much better use of the
+same reasoning than a new card, so it is filed as its own item rather than lost with this one.
 
 ### 6. Win probability in Game Center 🔬
 
