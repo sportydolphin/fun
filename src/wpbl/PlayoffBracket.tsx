@@ -63,7 +63,9 @@ function SeriesTeamRow({ entrant, series, leading, onOpenTeam, from, placeholder
   if (!team) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.9, px: 1, py: 0.85, minWidth: 0 }}>
-        <Box sx={{ width: 14, flexShrink: 0 }} />
+        {/* Holds the seed column's place on a row that has no seed yet. Same rem as the
+            real one below, so an undecided slot lines up with a decided one at any text size. */}
+        <Box sx={{ width: '0.875rem', flexShrink: 0 }} />
         <Box sx={{
           width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
           border: '1px dashed', borderColor: 'divider',
@@ -93,7 +95,7 @@ function SeriesTeamRow({ entrant, series, leading, onOpenTeam, from, placeholder
       }}
     >
       <Typography sx={{
-        width: 14, flexShrink: 0, fontSize: '0.68rem', fontWeight: 800,
+        width: '0.875rem', flexShrink: 0, fontSize: '0.68rem', fontWeight: 800,
         color: 'text.disabled', fontVariantNumeric: 'tabular-nums',
       }}>{seed ?? ''}</Typography>
       <TeamBadge team={team} size={22} />
@@ -107,7 +109,7 @@ function SeriesTeamRow({ entrant, series, leading, onOpenTeam, from, placeholder
           Aug 20 would read as a series that has been played and finished nil-nil. */}
       {series.played > 0 && (
         <Typography sx={{
-          fontSize: '0.9rem', fontWeight: 800, flexShrink: 0, minWidth: 12, textAlign: 'right',
+          fontSize: '0.9rem', fontWeight: 800, flexShrink: 0, minWidth: '0.75rem', textAlign: 'right',
           fontVariantNumeric: 'tabular-nums',
           color: leading ? 'text.primary' : 'text.secondary',
         }}>{wins}</Typography>
@@ -142,7 +144,7 @@ function SeriesOddsBar({ series, odds }: { series: BracketSeries; odds: SeriesOd
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
         <Typography sx={{
           fontSize: '0.6rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
-          color: homeAccent, minWidth: 26,
+          color: homeAccent, minWidth: '1.625rem',
         }}>{fmtOdds(odds.homeWinP)}</Typography>
         <Box sx={{ flex: 1, height: 6, borderRadius: 3, overflow: 'hidden', display: 'flex', bgcolor: 'action.hover' }}>
           <Box sx={{ width: `${odds.homeWinP * 100}%`, bgcolor: homeAccent }} />
@@ -150,7 +152,7 @@ function SeriesOddsBar({ series, odds }: { series: BracketSeries; odds: SeriesOd
         </Box>
         <Typography sx={{
           fontSize: '0.6rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
-          color: awayAccent, minWidth: 26, textAlign: 'right',
+          color: awayAccent, minWidth: '1.625rem', textAlign: 'right',
         }}>{fmtOdds(odds.awayWinP)}</Typography>
       </Box>
       {seasonLine && (
@@ -397,10 +399,13 @@ function TitleOddsStrip({ odds, onOpenTeam }: {
             >
               <TeamBadge team={t.team} size={20} />
               {/* Fixed name column so every bar starts at the same x and the four read as one
-                  chart. Wide enough for the longest club nickname; ellipsis is only a backstop
-                  for the Large text setting. */}
+                  chart. 5.75rem is the 92px it has always been at the default root size, in rem
+                  now because it is reserving room for a STRING: at a larger text size the pixel
+                  version stayed put while the nickname in it grew, and the ellipsis it kept as
+                  a backstop became the normal rendering. Wide enough for the longest club
+                  nickname at any scale; the ellipsis is a backstop again. */}
               <Typography sx={{
-                width: 92, flexShrink: 0, fontSize: '0.82rem', fontWeight: 700,
+                width: '5.75rem', flexShrink: 0, fontSize: '0.82rem', fontWeight: 700,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}>{t.team.name}</Typography>
               {/* The bar fills the row: name on the left, percentage on the right, no gap
@@ -409,7 +414,7 @@ function TitleOddsStrip({ odds, onOpenTeam }: {
                 <Box sx={{ width: `${Math.max(t.p * 100, t.p > 0 ? 2 : 0)}%`, height: '100%', bgcolor: accent }} />
               </Box>
               <Typography sx={{
-                width: 40, flexShrink: 0, fontSize: '0.8rem', fontWeight: 800,
+                width: '2.5rem', flexShrink: 0, fontSize: '0.8rem', fontWeight: 800,
                 fontVariantNumeric: 'tabular-nums', textAlign: 'right',
                 color: t.p >= 1 ? accent : 'text.primary',
               }}>{fmtOdds(t.p)}</Typography>

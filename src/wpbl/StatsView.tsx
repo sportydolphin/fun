@@ -1411,7 +1411,7 @@ export default function WpblStatsView({
                               arrowed in the header — the rank digit restates all of that and
                               costs 24px that a nickname needs to render whole. */}
                           {!teamsNarrow && (
-                            <Typography sx={{ width: 18, textAlign: 'right', flexShrink: 0, fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled' }}>{i + 1}</Typography>
+                            <Typography sx={{ width: '1.125rem', textAlign: 'right', flexShrink: 0, fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled' }}>{i + 1}</Typography>
                           )}
                           {r.team && <TeamBadge team={r.team} size={20} />}
                           <Box sx={{ minWidth: 0, maxWidth: pinActive ? nameInnerMax : undefined }}>
@@ -1536,7 +1536,12 @@ function StatListRow({ row, rank, value, context, isTeam, first, total }: {
       '@media (hover: hover)': { '&:hover': row.onClick ? { bgcolor: 'action.hover' } : undefined },
     }}>
       <Box sx={{
-        width: 18, flexShrink: 0, textAlign: 'center', fontSize: '0.8rem', fontWeight: 800,
+        // 1.125rem is the 18px this has always been at the default root size, in rem because it
+        // reserves room for a NUMBER the reader can enlarge. At a 1.375 text scale a two-digit
+        // rank wants 20px, and this column was the FIRST thing in the section to overflow its
+        // box: nothing else clips until well past it. See AccessibilityContext's note on how
+        // far that setting is allowed to go.
+        width: '1.125rem', flexShrink: 0, textAlign: 'center', fontSize: '0.8rem', fontWeight: 800,
         fontVariantNumeric: 'tabular-nums',
         color: marked ? 'var(--wpbl-accent-fg)' : 'text.disabled',
       }}>{rank}</Box>

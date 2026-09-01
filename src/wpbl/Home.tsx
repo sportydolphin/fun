@@ -122,11 +122,18 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
 
   return (
     <Box {...gameLink(game, onOpen)} sx={{
-      // 136, up 4 from the pre-date 132. The eyebrow's longest string went from
-      // "Aug 15 · 7:05 PM" to "Final · Yesterday" — one character more, and uppercase letters
-      // where the old one had narrow digits — so it needs a little more room than before and
-      // nowhere near as much as it first looked like it did.
-      flexShrink: 0, width: 136, cursor: 'pointer',
+      // 8.5rem, which is the 136px this has always been at the default root size. It went up
+      // 4 from the pre-date 132 when the eyebrow's longest string became "Final · Yesterday"
+      // rather than "Aug 15 · 7:05 PM": one character more, in uppercase letters where the old
+      // one had narrow digits.
+      //
+      // IN rem BECAUSE THE WIDTH IS DECIDED BY A STRING. Every chip has to be the same width
+      // or the strip loses its rhythm, so this cannot be `max-content`; but a fixed pixel box
+      // holding text that the reader can enlarge is a clipped eyebrow waiting to happen, and
+      // it is exactly what caps the Large text setting at 1.125 (see AccessibilityContext).
+      // rem keeps the box and its contents on one scale. Art and tap targets on this card stay
+      // in px: they are not holding type and must not grow with it.
+      flexShrink: 0, width: '8.5rem', cursor: 'pointer',
       borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
       p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
       transition: 'border-color 0.15s', '&:hover': { borderColor: 'text.disabled' },
@@ -727,7 +734,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
     const streakWon = results[results.length - 1]
     return (
       <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.9 }}>
-        <Typography sx={{ width: 30, flexShrink: 0, fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.3, color: 'text.secondary' }}>{t.abbr}</Typography>
+        <Typography sx={{ width: '1.875rem', flexShrink: 0, fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.3, color: 'text.secondary' }}>{t.abbr}</Typography>
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex' }}>
           <FormDots recent={results.map(won => (won ? 'W' : 'L'))} gap={3} />
         </Box>
@@ -903,7 +910,7 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
             py: isTop ? 0.55 : 0.4, cursor: 'pointer',
             borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },
           }}>
-            <Typography sx={{ width: 14, flexShrink: 0, textAlign: 'center', fontSize: isTop ? '0.8rem' : '0.7rem', fontWeight: 800, color: RANK_MEDAL[rank - 1] ?? 'text.disabled' }}>{rank}</Typography>
+            <Typography sx={{ width: '0.875rem', flexShrink: 0, textAlign: 'center', fontSize: isTop ? '0.8rem' : '0.7rem', fontWeight: 800, color: RANK_MEDAL[rank - 1] ?? 'text.disabled' }}>{rank}</Typography>
             {isTop
               ? <PlayerPortrait name={r.player.name} teamId={r.player.team_id} size={38} />
               : (team && <TeamBadge team={team} size={18} />)}
@@ -939,7 +946,7 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
                 </Typography>
               )}
             </Box>
-            <Typography sx={{ fontSize: isTop ? '1.05rem' : '0.82rem', fontWeight: isTop ? 900 : 800, fontVariantNumeric: 'tabular-nums', minWidth: 40, textAlign: 'right', flexShrink: 0 }}>{r.display}</Typography>
+            <Typography sx={{ fontSize: isTop ? '1.05rem' : '0.82rem', fontWeight: isTop ? 900 : 800, fontVariantNumeric: 'tabular-nums', minWidth: '2.5rem', textAlign: 'right', flexShrink: 0 }}>{r.display}</Typography>
           </Box>
         )
       })}

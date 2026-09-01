@@ -581,7 +581,7 @@ export function LeaderRow({ rank, player, name, teamId, value, unit, sub, accent
         },
       }}
     >
-      <Box sx={{ width: 18, textAlign: 'center', fontSize: '0.8rem', fontWeight: 800, color: rank <= 3 ? accent : 'text.disabled', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{rank}</Box>
+      <Box sx={{ width: '1.125rem', textAlign: 'center', fontSize: '0.8rem', fontWeight: 800, color: rank <= 3 ? accent : 'text.disabled', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{rank}</Box>
       <PlayerPortrait name={name} teamId={teamId} size={32} />
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>

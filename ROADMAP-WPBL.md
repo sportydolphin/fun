@@ -152,16 +152,39 @@ So the shell is retuned once at real scale and serves both, MLB keeps its 1.4x o
 subtree, and `/mlb` reads slightly top-light until it takes its turn. That last part is the
 price, and it is deliberate.
 
-**A TYPE RAMP ALONE WILL NOT DO IT, AND THE CODEBASE ALREADY PROVED THAT.** The obvious
-replacement is to drop the zoom and raise the root font size instead, which would scale the 454
-`rem` font sizes in `src/wpbl` for free. The Large text setting already does exactly that, and
-`AccessibilityContext.tsx` records where it stops: 1.125 is described there as the largest step
-the dense numeric tables hold before their fixed-width columns clip. A 1.4 ramp is well past a
-ceiling the project has already found, and the reason is the 113 hardcoded px dimensions and 43
-`size={n}` props that a root font size does not touch. Raise the type and the columns clip,
-because the columns are px and the text is rem. So converting those 156 values is not a
-nicety, it is the job. It is also the payoff: the same pass lifts the Large text ceiling, which
-today is set by a coupling nobody chose.
+**WHAT A TYPE RAMP DOES AND DOES NOT COST, MEASURED Aug 31 RATHER THAN ASSUMED.** The obvious
+replacement is to drop the zoom and raise the root font size instead, which scales the 454 `rem`
+font sizes in `src/wpbl` for free. The first version of this entry said a blanket px-to-rem
+conversion of all 156 fixed sizes was therefore "the job", on the strength of the note in
+`AccessibilityContext.tsx` calling 1.125 the largest step the dense tables hold. Both halves of
+that were wrong, and the correction is what shaped phase 2.
+
+**Wrong the first way: a blanket conversion would break the Large text setting rather than
+free it.** That setting exists precisely to scale TYPE and leave layout alone; its own note
+rejects browser zoom because zoom reflows the wide grids into something other than what the
+reader had. Put every dimension in `rem` and the setting becomes browser zoom. So the fixed
+sizes are not one pile. They are three, and only the first belongs in `rem`:
+
+- **Boxes reserving room for a string or a number.** A rank column, a club-name column, a
+  scoreboard chip. These MUST grow with the type or they clip, and growing them is not
+  "scaling the layout", it is the box doing its job.
+- **Art and tap targets.** Badges, avatars, the dashed placeholder circle, a 24px close
+  control, the `minHeight: 48` touch minimum. These are not holding type and must not follow
+  it. A tap target that grows with the text size is a worse tap target.
+- **Layout constants.** The scoreboard's 24px edge fades, its 40px hover zones, the sheet
+  grabber. Nothing to do with type at any scale.
+
+**Wrong the second way: the 1.125 ceiling is a caution, not a measurement.** Scanning every
+leaf element on the Stats board at 1024px wide for overflow: **nothing clips at 1.125, and
+nothing clips at 1.25.** The first thing in the whole section to overflow its box is the
+`width: 18` rank column, and it goes at **1.375**, needing 20px for a two-digit rank. Three
+call sites (`StatsView` twice, `ui.tsx` once). With those three in `rem` the scan is clean
+through 1.625, which is as far as it was taken.
+
+So the accessibility payoff is real but far smaller and far more targeted than first written:
+it is a handful of narrow numeric columns, not 156 values. What actually justifies the phase is
+the first bullet above, because a type-only desktop ramp in phase 3 only works if the boxes
+holding type follow it.
 
 **The phases.** Each leaves the site working; none is a long-lived branch.
 
@@ -170,10 +193,14 @@ today is set by a coupling nobody chose.
    (tuned against the zoomed toolbar), the three `70vh` menu caps, and the `--app-header-h`
    publisher. Five compensation sites become dead and get deleted. Visible on `/mlb`, not on
    `/wpbl`.
-2. **Convert WPBL's fixed sizing to rem.** 113 px dimensions and 43 badge sizes across 26
-   files. Do it with the zoom STILL ON, so every file can be checked against an unchanged
-   rendering, and land it grouped by file rather than as one sweep. Verify at Large text 1,
-   1.125 and 1.25 as you go, since this is the phase that changes that.
+2. **Put the text-sized boxes in rem, and only those.** Not 156 values: the subset that
+   reserves room for a string or a number, judged per site against the three kinds above. Do it
+   with the zoom STILL ON, so every file can be checked against a rendering that must not move
+   at the default text size, and land it grouped by file rather than as one sweep. The check
+   that matters is the overflow scan at 1, 1.25 and 1.375, not eyeballing.
+   *Started Aug 31: `Home` (chip, abbr, rank, stat value), `PlayoffBracket` (seed, score, both
+   odds columns, club name), `StatsView` and `ui.tsx` (rank columns). Verified identical at
+   100% and clean through 162.5%.*
 3. **Set the desktop ramp, move the caps, flip the zoom off.** The visible moment, and where
    the Home redesign lands. Body text renders at 17.9px today and would land at 12.8px with the
    zoom gone and nothing else changed, so the ramp has to make that up. `HOME_WIDE_W` goes 900
