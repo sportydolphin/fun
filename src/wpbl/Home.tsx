@@ -1673,7 +1673,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
           gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
         }}>
           <NextGameCard games={games} teams={teamMap} onOpenGame={onOpenGame} />
-          <LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} />
+          <LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} onOpenPlayer={onOpenPlayer} />
         </Box>
 
         {/* The season's numbers.
