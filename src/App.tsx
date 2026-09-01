@@ -1417,7 +1417,7 @@ function AppInner() {
           {rendersWpblApp(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               {/* On mobile the WPBL tabs swipe, so the footer rides inside each tab pane (see
-                  WpblApp) instead of sitting shared below them — the shared one is suppressed
+                  WpblApp) instead of sitting shared below them. The shared one is suppressed
                   just below. Desktop keeps the app-level footer. */}
               <WpblApp renderFooter={() => (
                 <SiteFooter
@@ -1483,7 +1483,7 @@ function AppInner() {
         </Box>
 
         {/* On mobile WPBL the footer rides inside each swipeable tab pane (WpblApp's
-            renderFooter) so it doesn't reflow when tabs of different heights swap — so skip
+            renderFooter) so it doesn't reflow when tabs of different heights swap, so skip
             the shared one there. Everywhere else (incl. desktop WPBL) it renders here. */}
         {!(rendersWpblApp(path) && !isDesktop) && (
           <SiteFooter

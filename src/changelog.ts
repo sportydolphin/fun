@@ -4,6 +4,33 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.58.0',
+    date:    '2026-08-31',
+    title:   'The WPBL section is drawn at its real size on a desktop',
+    changes: [
+      {
+        short: 'More fits on a desktop screen, at a normal text size',
+        full:  'The section used to be drawn by magnifying the phone layout 40%, which made everything bigger including the margins. It is now laid out for the screen it is on: body text sits at 16px, the size most of the web reads at, and the space that frees up goes into content rather than padding. The scoreboard shows seven games where it showed six, and two more cards clear the fold on the home page.',
+      },
+      {
+        short: 'The toolbar no longer changes size when you switch leagues',
+        full:  'The bar at the top was a different size on MLB than on WPBL, so flipping between them moved everything under it. It is now identical on both, and the row of tabs beneath it starts at the same place either way, so switching leagues moves nothing above the content.',
+      },
+      {
+        short: 'Schedule, Standings and Teams are no longer stretched',
+        full:  'Those three pages are lists, and their column had grown wider than the words in it: a club name on the left of a card with its record marooned at the far right, a schedule row with a gulf between the matchup and the time. The column is now sized against the type again. Home and the stats table keep their full width, because unlike a list they have somewhere to put it: another scoreboard game, more stat columns.',
+      },
+      {
+        short: 'Large text can go further before anything clips',
+        full:  'The Large text setting in Accessibility was capped at a modest step because the fixed-width numeric columns did not grow with the type and started cutting off two-digit ranks. Those columns now follow the text, so the setting has room to go further, and it still scales the type rather than reflowing the whole layout the way browser zoom does.',
+      },
+      {
+        short: 'Switching leagues no longer blanks the page for a moment',
+        full:  'Each league section is loaded on demand, so the first switch left a gap where the tabs had been. The other section is now fetched quietly in the background before you ask for it.',
+      },
+    ],
+  },
+  {
     version: '1.57.0',
     date:    '2026-08-31',
     title:   'The next game says a lot more, and home uses the screen it is on',

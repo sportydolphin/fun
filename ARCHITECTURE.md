@@ -137,7 +137,9 @@ flowchart LR
   `/wpbl` because the Settings dialog is shell chrome and has to reach it from either
   section), auth (`AuthContext`), accessibility prefs
   ([`AccessibilityContext`](src/AccessibilityContext.tsx): text scale and a swipe-navigation
-  opt-out), MLB⇆WPBL switch, `--app-zoom` desktop scaling.
+  opt-out), MLB⇆WPBL switch, and desktop scaling: `--app-type` / `--app-chrome` on `/wpbl`,
+  `--app-shell` on the toolbar, and the legacy `--app-zoom` still on `/mlb` (see the traps in
+  CLAUDE.md and item 0 in ROADMAP-WPBL.md).
 - **WPBL tab pager:** [`src/wpbl/SwipeableViews.tsx`](src/wpbl/SwipeableViews.tsx),
   finger-tracking mobile swipe with keep-alive + idle neighbor pre-warming. Two scroll
   models via its `mode` prop: `window` for the section's own tabs (the page scrolls; each
