@@ -35,10 +35,29 @@
   font-size: calc(100% * var(--sd-text-scale) * var(--app-type));
 }
 
+/* 1.25, NOT THE 1.4 THE `zoom` USED, AND THAT IS THE ONE DELIBERATE DESIGN CHANGE IN THE WHOLE
+   REBUILD. The zoom's number was never chosen for a desktop; it was chosen to blow a phone
+   column up until it stopped looking lost, and it magnified everything equally, margins
+   included. Now that the column caps are set independently (1260 on Home, 1540 on the stats
+   table) the scale only has to size the CONTENT inside them, and 1.25 puts body copy at 16px,
+   which is the size the rest of the web reads at.
+
+   What that buys is width. At 1.4 the scoreboard showed six games and the Last Game card sat
+   on the fold; at 1.25 it shows seven and two more cards clear the fold, in the same pixels.
+   Lower still starts to read as small on a stats page, where a lot of the type is already
+   0.6-0.8rem by design.
+
+   One number, and moving it moves the section coherently: type, spacing, badges, rails and
+   dialog widths all hang off these two. It lives in App.tsx as WPBL_DESKTOP_SCALE and arrives
+   here as --app-scale-desktop, because the toolbar's wordmark threshold is derived from the
+   same number and a second copy of it in this file could disagree with the first. The
+   BREAKPOINT stays here: a media query is the one thing JS should not be deciding, since it
+   would have to be told about a resize and an orientation change is exactly when that is least
+   trustworthy. */
 @media (min-width: 900px) {
   :root[data-app-scale='wpbl'] {
-    --app-type: 1.4;
-    --app-chrome: 1.4;
+    --app-type: var(--app-scale-desktop, 1);
+    --app-chrome: var(--app-scale-desktop, 1);
   }
 }
 

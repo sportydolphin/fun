@@ -254,17 +254,33 @@ holding type follow it.
    The wordmark threshold needed a second value (960 unscaled, 1350 scaled) because the same
    lockup is 1.4x wider in viewport pixels on a scaled route.
 
-   **Still open: whether 1.4 is the number.** It is the zoom's number, and the zoom's whole
-   problem was that it magnified a phone layout rather than spending the desktop width. A lower
-   ramp with wider columns is the redesign; 1.4 is the faithful port. That call, and the Home
-   redesign on top of it, is the rest of this item.
-4. **Delete the compensations.** The 7 WPBL `--app-zoom` sites, the divisions in both
-   sticky-offset publishers, and the 37 `md`/`lg` breakpoints that move back to the tier they
-   actually mean (25 of those are in `Home.tsx` and `PlayerDetail.tsx`). The 51 rect and scroll
-   sites need no edits, only the loss of their warnings. **Update the `--app-header-h` trap in
-   CLAUDE.md**: it stays true for `/mlb` and stops being true for `/wpbl`, and a half-true rule
-   is worse than either.
+   **Settled at 1.25**, after landing at 1.4 to prove the flip and then moving it. 1.4 was
+   never a desktop decision: it was the number that stopped a phone column looking lost, and it
+   magnified everything equally, margins included. With the column caps now set independently
+   the scale only has to size the CONTENT inside them, and 1.25 puts body copy at 16px. At 1728
+   that is seven scoreboard games instead of six and two more cards above the fold, in the same
+   pixels. Lower starts to read as small on a page where a lot of the type is 0.6-0.8rem by
+   design.
 
+   The number lives in one place, `WPBL_DESKTOP_SCALE` in App.tsx, published as
+   `--app-scale-desktop`. CSS keeps the breakpoint, because a media query is the one thing JS
+   should not be deciding. The toolbar's second wordmark threshold is DERIVED from it rather
+   than written down, since a hardcoded pair would drift the first time the scale moved and the
+   symptom would be a wordmark ellipsising into the search box in one narrow band of widths
+   nobody thinks to check.
+
+4. **Delete the compensations.** ✅ *Done Aug 31.* Every `--app-zoom` division in the section is
+   gone: the scoreboard's anchor placement is plain subtraction again, the nav-height publisher
+   hands over its rect, `PINNED_CHROME` spends the sum as it arrives. `PlayerDetail` drops back
+   from `lg` to `md`, which it only used because `md` meant 900px of screen but 643px of layout
+   inside the zoom. CLAUDE.md's trap is rewritten rather than patched: the old one described two
+   pixel units, which is no longer the hazard.
+
+   **The regression this phase caught.** Phase 3 re-derived the page columns and missed every
+   structural length INSIDE them: a `maxWidth: 840` that used to render at 1176 rendered at 840
+   against type that was still larger. The player dialog wrapped a name onto two lines. Found by
+   opening the page, which is the only thing that finds it. `chromePx()` in `ui.tsx` now carries
+   that kind, and the three kinds are written up in CLAUDE.md.
 **Verification, because nothing in the suite can catch this.** All 1,009 tests pass at 1.4 or
 at 1: jsdom has no layout engine and none of them measure anything. Every zoom bug so far was
 found by a person looking at the page, so that has to be the plan rather than the accident.

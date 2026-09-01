@@ -118,13 +118,20 @@ const BRAND_LOGO_H = 32
 // toolbar have room to show the lockup whole. What changed is what "the toolbar" measures.
 //
 // On an unscaled route it gets the viewport in the same pixels the media query counts, so the
-// test is met at 960. On a route running the desktop scale (--app-type, see styles.css) the
-// same lockup is 1.4x wider in those pixels, so it needs 1350, which is the number this was
-// for the whole time the 1.4 `zoom` was doing the scaling. Both are raw px queries rather than
-// theme breakpoints for the original reason: theme breakpoints match the real viewport, and
-// what is being asked about here is the toolbar's own width.
+// test is met at 960. On a route running the desktop scale the same lockup is that much wider
+// in those pixels, so the second threshold is simply the first times the scale: DERIVED rather
+// than written down, because the two would otherwise drift the first time the scale moves, and
+// the symptom would be a wordmark ellipsising into the search box at one narrow band of widths
+// that nobody thinks to check. Both are raw px queries rather than theme breakpoints for the
+// original reason: theme breakpoints match the real viewport, and what is being asked about
+// here is the toolbar's own width.
 const BRAND_WORDMARK_MIN = 960
-const BRAND_WORDMARK_MIN_SCALED = 1350
+/** How much larger /wpbl renders at md and up, now that it is scaled in CSS rather than under
+ *  `zoom: 1.4`. Published as --app-scale-desktop for styles.css to spend on --app-type and
+ *  --app-chrome; the breakpoint itself stays in CSS. Moving this one number moves the whole
+ *  section, the threshold below included. */
+export const WPBL_DESKTOP_SCALE = 1.25
+const BRAND_WORDMARK_MIN_SCALED = Math.ceil(BRAND_WORDMARK_MIN * WPBL_DESKTOP_SCALE)
 
 function navigate(to: string) {
   window.history.pushState({}, '', to)
@@ -454,6 +461,7 @@ function AppInner() {
   // two never overlap.
   useEffect(() => {
     const root = document.documentElement
+    root.style.setProperty('--app-scale-desktop', String(WPBL_DESKTOP_SCALE))
     if (isWpblSection(path)) root.setAttribute('data-app-scale', 'wpbl')
     else root.removeAttribute('data-app-scale')
   }, [path])
