@@ -116,6 +116,93 @@ more than it looks. The primer (#4) and SEO (#3) hold, aimed at a cold audience 
 
 ## Next: in priority order
 
+### 0. The desktop rebuild: Home, and the 1.4x zoom that shaped it 🎯⚙️: **in progress, started Aug 31, 2026**
+
+The active track. A Home redesign and the retirement of the desktop `zoom` are one job rather
+than two, because the zoom is what forced most of Home's layout decisions in the first place:
+`HOME_WIDE_W` exists only to break back out of a column the zoom had already shrunk, and the
+scoreboard's placement, its edge fades and the bracket's connector have each been wrong at
+least once for the same underlying reason.
+
+**What the zoom is.** `zoom: 1.4` on the app root at `md` and up, covering `/mlb` and `/wpbl`
+together (`DESKTOP_ZOOM` in `mlb/constants.ts`). It was a one-line answer to a real problem:
+a 720px mobile-first column reads tiny and lost on a 1440 monitor. It is not a browser
+compatibility problem, and `zoom` has been standard since Firefox 126. This is a
+maintainability job with an accessibility payoff attached.
+
+**What it costs.** It splits the app into two pixel units that nothing in the type system tells
+apart. CSS lengths, `scrollLeft` and `offsetHeight` are layout pixels; `getBoundingClientRect`,
+viewport units and media queries are visual pixels, 1.4x larger. Every line crossing between
+them has to divide by `--app-zoom`, and forgetting is silent: no error, no failing test. As of
+Aug 31 that is 14 lines across 6 files that exist only to divide it back out (7 in WPBL, 5 in
+the shared shell, 2 in MLB), sitting on top of 51 rect and scroll call sites in 8 WPBL files
+that live in the same hazard. It has produced at least five shipped bugs: `--app-header-h`
+twice in opposite directions, the scoreboard anchor, the scoreboard fade, and `PlayerDetail`
+having to write `lg` where it means `md`. Two more artefacts: the page pops 40% larger in one
+step when a window crosses 900px, and the zoom multiplies with the reader's own browser zoom,
+so someone already at 125% because they need it lands at 175%.
+
+**THE SHELL DECISION, TAKEN Aug 31: the wrapper moves DOWN onto the MLB view, it does not move
+away.** The header, search, bell and account menu are inside the same wrapper and shared with
+`/mlb`, so nothing can happen to the zoom on one section without happening to them on both.
+Un-zooming the shell only on `/wpbl` is a one-liner and is worse than the bug it fixes: the
+header would change size when you toggle MLB and WPBL, on a control that lives in the header.
+Doing both sections at once is the only fully coherent end state and roughly doubles the work.
+So the shell is retuned once at real scale and serves both, MLB keeps its 1.4x on its own
+subtree, and `/mlb` reads slightly top-light until it takes its turn. That last part is the
+price, and it is deliberate.
+
+**A TYPE RAMP ALONE WILL NOT DO IT, AND THE CODEBASE ALREADY PROVED THAT.** The obvious
+replacement is to drop the zoom and raise the root font size instead, which would scale the 454
+`rem` font sizes in `src/wpbl` for free. The Large text setting already does exactly that, and
+`AccessibilityContext.tsx` records where it stops: 1.125 is described there as the largest step
+the dense numeric tables hold before their fixed-width columns clip. A 1.4 ramp is well past a
+ceiling the project has already found, and the reason is the 113 hardcoded px dimensions and 43
+`size={n}` props that a root font size does not touch. Raise the type and the columns clip,
+because the columns are px and the text is rem. So converting those 156 values is not a
+nicety, it is the job. It is also the payoff: the same pass lifts the Large text ceiling, which
+today is set by a coupling nobody chose.
+
+**The phases.** Each leaves the site working; none is a long-lived branch.
+
+1. **Move the wrapper, retune the shell.** `zoom` comes off the app root and goes onto the MLB
+   view. Retune the toolbar at real scale: logo, the `BRAND_WORDMARK_MIN` raw-px threshold
+   (tuned against the zoomed toolbar), the three `70vh` menu caps, and the `--app-header-h`
+   publisher. Five compensation sites become dead and get deleted. Visible on `/mlb`, not on
+   `/wpbl`.
+2. **Convert WPBL's fixed sizing to rem.** 113 px dimensions and 43 badge sizes across 26
+   files. Do it with the zoom STILL ON, so every file can be checked against an unchanged
+   rendering, and land it grouped by file rather than as one sweep. Verify at Large text 1,
+   1.125 and 1.25 as you go, since this is the phase that changes that.
+3. **Set the desktop ramp, move the caps, flip the zoom off.** The visible moment, and where
+   the Home redesign lands. Body text renders at 17.9px today and would land at 12.8px with the
+   zoom gone and nothing else changed, so the ramp has to make that up. `HOME_WIDE_W` goes 900
+   to about 1260 and `FULL_BLEED_W` 1100 to about 1540, both stopping their division. Budget a
+   taste pass: density opinions only surface once this lands.
+4. **Delete the compensations.** The 7 WPBL `--app-zoom` sites, the divisions in both
+   sticky-offset publishers, and the 37 `md`/`lg` breakpoints that move back to the tier they
+   actually mean (25 of those are in `Home.tsx` and `PlayerDetail.tsx`). The 51 rect and scroll
+   sites need no edits, only the loss of their warnings. **Update the `--app-header-h` trap in
+   CLAUDE.md**: it stays true for `/mlb` and stops being true for `/wpbl`, and a half-true rule
+   is worse than either.
+
+**Verification, because nothing in the suite can catch this.** All 1,009 tests pass at 1.4 or
+at 1: jsdom has no layout engine and none of them measure anything. Every zoom bug so far was
+found by a person looking at the page, so that has to be the plan rather than the accident.
+A screenshot pass over the five tabs plus the four detail screens, at 640, 1024 and 1440, in
+both themes. Plus three measured invariants checked in a real browser, all three being known
+regressions: the header and nav sticky offsets meeting with no crack, the scoreboard anchor
+landing on a chip boundary at max scroll, and the bracket connector's stubs hitting the box
+centres.
+
+**On the timing.** This was scoped for after Sep 22, when the feed stops and the data freezes,
+because phase 2's whole safety net is "the rendering did not change" and that net is weaker
+while the scoreboard updates every two minutes. Brought forward deliberately on Aug 31 and
+folded into the Home redesign. What that costs: the before-and-after screenshots are being
+taken against moving data, so phase 2 needs more care per file than it would have in October,
+and phase 3 lands during the run-up to the postseason. Worth knowing if something looks off in
+mid-September.
+
 ### 1. Postseason data hygiene ⚙️: ✅ **shipped Aug 20, 2026** (see the log). Kept here until the first postseason game confirms what the feed sends
 
 **Dates published Aug 24** and now carried on the bracket card (`POSTSEASON_SCHEDULE` in

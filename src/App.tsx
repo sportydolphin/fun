@@ -114,7 +114,11 @@ const SESSION_KEY = 'sdUnlocked'
 // two read as one unit, and the wordmark is held back until the viewport can show it
 // without the ellipsis biting into it. See the toolbar brand block for the math.
 const BRAND_LOGO_H = 32
-const BRAND_WORDMARK_MIN = 1350
+// 960, down from 1350, because the toolbar is no longer inside the 1.4 zoom. The lockup
+// wants ~308px and the test has not changed: it is "does the toolbar have ~964px to split".
+// What changed is that the toolbar now gets the viewport in the same pixels the query counts,
+// instead of the viewport divided by the zoom, so the same test is met 1.4x earlier.
+const BRAND_WORDMARK_MIN = 960
 
 function navigate(to: string) {
   window.history.pushState({}, '', to)
@@ -315,9 +319,9 @@ function ToolbarSuggestionsDropdown({ suggestions, onSelect, recents, onSelectRe
     <Paper elevation={8} sx={{
       position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
       zIndex: 1500, borderRadius: 2.5, overflow: 'hidden', minWidth: 260,
-      // Divide by --app-zoom so this stays within the viewport under the desktop
-      // `zoom` (which doesn't shrink viewport units). Defaults to 1 → unchanged.
-      maxHeight: 'calc(70vh / var(--app-zoom, 1))', overflowY: 'auto',
+      // Plain 70vh: this panel hangs off the toolbar, which is no longer inside the desktop
+      // `zoom`, so a viewport unit and a CSS length agree here again.
+      maxHeight: '70vh', overflowY: 'auto',
     }}>
       {recents.length > 0 && renderRecents()}
       {recents.length > 0 && (teamPlayers.length > 0 || trending.length > 0) && <Divider sx={{ mt: 0.5 }} />}
@@ -368,7 +372,7 @@ function ToolbarRecentRowsDropdown({ rows, onSelect, onClear }: {
     <Paper elevation={8} sx={{
       position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
       zIndex: 1500, borderRadius: 2.5, overflow: 'hidden', minWidth: 260,
-      maxHeight: 'calc(70vh / var(--app-zoom, 1))', overflowY: 'auto',
+      maxHeight: '70vh', overflowY: 'auto',
     }}>
       <Box sx={{ px: 1.5, pt: 1, pb: 0.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'text.disabled' }}>
@@ -441,20 +445,20 @@ function AppInner() {
     const el = headerRef.current
     const publish = () => {
       const pinned = el && getComputedStyle(el).position === 'sticky'
-      // IN LAYOUT PIXELS, WHICH IS NOT WHAT THE RECT MEASURES. This value is spent as a
-      // sticky `top`, and a `top` inside the --app-zoom wrapper is resolved before the zoom
-      // is applied; `getBoundingClientRect()` reports after it. On /wpbl and /mlb at md the
-      // wrapper zooms 1.4, so publishing the rect height sent the Stats bar 40% too far down
-      // and it pinned 27px BELOW this toolbar, with the page scrolling up through the band
-      // between them in full view. Divide it back out and the two edges meet.
+      // PUBLISHED IN REAL SCREEN PIXELS, AND A CONSUMER INSIDE A ZOOMED SECTION HAS TO
+      // DIVIDE. The toolbar is no longer inside the `zoom` wrapper (it moved down to the
+      // content box), so a rect and a CSS length are the same pixel here and there is
+      // nothing left to divide out at this end. That is not true at the other end: a section
+      // still running a `zoom` resolves its sticky `top` BEFORE the zoom, so it has to spend
+      // this over its own `--app-zoom`. StatsView does exactly that, and the day the last
+      // section drops its zoom the division there becomes a no-op and goes.
       //
-      // `offsetHeight` is the other way to get layout pixels and is what this used to read,
-      // but it rounds to a whole pixel, which leaves a sub-pixel crack under the bar for
-      // whatever sticks below it (see the note on --wpbl-nav-h in WpblApp). This keeps the
-      // fraction and fixes the zoom, which the two previous versions each had one of.
-      const zoom = Number(getComputedStyle(el ?? document.body).getPropertyValue('--app-zoom')) || 1
+      // The rect rather than `offsetHeight`, which rounds to a whole pixel: a bar 43.67px
+      // tall published itself as 44 and left a sub-pixel crack under it for whatever sticks
+      // below (see --wpbl-nav-h in WpblApp). Fractional CSS pixels are what the browser is
+      // laying out in, so hand it those.
       document.documentElement.style.setProperty(
-        '--app-header-h', pinned ? `${el!.getBoundingClientRect().height / zoom}px` : '0px')
+        '--app-header-h', pinned ? `${el!.getBoundingClientRect().height}px` : '0px')
     }
     publish()
     const ro = new ResizeObserver(publish)
@@ -662,15 +666,9 @@ function AppInner() {
   const openApp = useCallback((path: string) => handleTileClick({ path }), [handleTileClick])
 
   return (
-    // Desktop-only content scale (see DESKTOP_ZOOM). Applied at the app root on the
-    // /mlb and /wpbl routes so the toolbar scales together with the view; the `--app-zoom`
-    // var inherits into the subtree for viewport-relative sizing that `zoom` can't
-    // compensate. Portaled MUI Dialogs/Snackbar render outside this box (in body),
-    // so they stay at native scale. Mobile (xs) and other routes stay at 1.
-    <Box sx={{
-      '--app-zoom': { xs: '1', md: (path === '/mlb' || isWpblSection(path)) ? String(DESKTOP_ZOOM) : '1' },
-      zoom: 'var(--app-zoom)',
-    }}>
+    // Plain root. The desktop scale moved down to the content box below the toolbar; the
+    // note there says why.
+    <Box>
       <AppBar
         ref={headerRef}
         // On mobile the top bar scrolls away (static) rather than sticking — the MLB/WPBL
@@ -1234,141 +1232,158 @@ function AppInner() {
           app root (not inside a section) so the device toggle covers MLB and WPBL. */}
       {import.meta.env.DEV && !isInsideDeviceFrame && <MobilePreviewHost />}
 
-      <Box sx={{ p: 2 }}>
-        {path === '/cups' && (
-          <Box>
-            {backBtn}
-            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <CupsGame />
-            </Suspense>
-          </Box>
-        )}
-        {path === '/stopwatch' && (
-          <Box>
-            {backBtn}
-            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <Stopwatch />
-            </Suspense>
-          </Box>
-        )}
-        {path === '/weights' && (
-          <Box>
-            {backBtn}
-            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <WeightGame />
-            </Suspense>
-          </Box>
-        )}
-        {path === '/poop' && (
-          <Box>
-            {backBtn}
-            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <PoopGame />
-            </Suspense>
-          </Box>
-        )}
-        {path === '/testgame' && (
-          <Box>
-            {backBtn}
-            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <TestGame />
-            </Suspense>
-          </Box>
-        )}
-        {path === '/mlb' && (
-          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-            <MlbStats />
-          </Suspense>
-        )}
-        {isWpblPlayersIndex(path) && (
-          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-            <WpblPlayersIndex onNavigate={navigate} />
-          </Suspense>
-        )}
-        {isWpblLeaguePage(path) && (
-          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-            <WpblLeaguePage onNavigate={navigate} />
-          </Suspense>
-        )}
-        {rendersWpblApp(path) && (
-          <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-            {/* On mobile the WPBL tabs swipe, so the footer rides inside each tab pane (see
-                WpblApp) instead of sitting shared below them — the shared one is suppressed
-                just below. Desktop keeps the app-level footer. */}
-            <WpblApp renderFooter={() => (
-              <SiteFooter
-                onOpenChangelog={() => setChangelogOpen(true)}
-                onOpenFeedback={() => setFeedbackOpen(true)}
-                onNavigate={navigate}
-                isWpbl
-              />
-            )} />
-          </Suspense>
-        )}
-        {path === '/wpbl/api' && (
-          <Box>
-            {/* Align the back control to the docs column (same maxWidth/px as WpblApiDocs)
-                so on desktop it sits by the content, not stranded at the far-left page edge. */}
-            <Box sx={{ maxWidth: 760, mx: 'auto', px: { xs: 2, sm: 3 }, mb: 2 }}>
-              <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
+      {/* THE DESKTOP SCALE LIVES BELOW THE TOOLBAR NOW, NOT AT THE APP ROOT.
+        It used to wrap the whole app so the toolbar scaled with the view, which is a real
+        thing to want and is why it sat up there. What it cost is that the shell and both
+        sections shared one `zoom`, so nothing could be un-zoomed without un-zooming
+        everything: see item 0 in ROADMAP-WPBL.md. Dropping it one level leaves the toolbar
+        at real scale, where a rect and a CSS length are the same pixel again, and leaves
+        every section exactly as it was.
+
+        `--app-zoom` still inherits into the subtree for viewport-relative sizing that `zoom`
+        cannot compensate. It is now UNSET above this box, which is the point: code in the
+        shell reads 1 and means it. Portaled Dialogs, Menus and the Snackbar render in `body`
+        and were never inside this, zoom or no zoom. */}
+      <Box sx={{
+        '--app-zoom': { xs: '1', md: (path === '/mlb' || isWpblSection(path)) ? String(DESKTOP_ZOOM) : '1' },
+        zoom: 'var(--app-zoom)',
+      }}>
+        <Box sx={{ p: 2 }}>
+          {path === '/cups' && (
+            <Box>
+              {backBtn}
+              <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+                <CupsGame />
+              </Suspense>
             </Box>
-            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <WpblApiDocs />
-            </Suspense>
-          </Box>
-        )}
-        {path === '/admin' && authLoading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
-        )}
-        {path === '/admin' && !authLoading && isAdmin && (
-          <Box>
-            <Box sx={{ maxWidth: 860, mx: 'auto', px: { xs: 1.5, sm: 3 }, mb: 2 }}>
-              <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
+          )}
+          {path === '/stopwatch' && (
+            <Box>
+              {backBtn}
+              <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+                <Stopwatch />
+              </Suspense>
             </Box>
+          )}
+          {path === '/weights' && (
+            <Box>
+              {backBtn}
+              <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+                <WeightGame />
+              </Suspense>
+            </Box>
+          )}
+          {path === '/poop' && (
+            <Box>
+              {backBtn}
+              <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+                <PoopGame />
+              </Suspense>
+            </Box>
+          )}
+          {path === '/testgame' && (
+            <Box>
+              {backBtn}
+              <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+                <TestGame />
+              </Suspense>
+            </Box>
+          )}
+          {path === '/mlb' && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <AdminPage apps={otherApps} isAppLocked={isAppLocked} onOpenApp={openApp} />
+              <MlbStats />
             </Suspense>
-          </Box>
-        )}
-        {path === '/privacy' && (
-          <Box>
-            {backBtn}
+          )}
+          {isWpblPlayersIndex(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <PrivacyPolicy />
+              <WpblPlayersIndex onNavigate={navigate} />
             </Suspense>
-          </Box>
-        )}
-        {path === '/terms' && (
-          <Box>
-            {backBtn}
+          )}
+          {isWpblLeaguePage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <TermsOfService />
+              <WpblLeaguePage onNavigate={navigate} />
             </Suspense>
-          </Box>
-        )}
-        {/* No auth gate, deliberately, and not a tempting one to add: the reader this page is
-            for is the one who can no longer sign in. See DeleteAccount in LegalPages. */}
-        {path === '/delete-account' && (
-          <Box>
-            {backBtn}
+          )}
+          {rendersWpblApp(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-              <DeleteAccount />
+              {/* On mobile the WPBL tabs swipe, so the footer rides inside each tab pane (see
+                  WpblApp) instead of sitting shared below them — the shared one is suppressed
+                  just below. Desktop keeps the app-level footer. */}
+              <WpblApp renderFooter={() => (
+                <SiteFooter
+                  onOpenChangelog={() => setChangelogOpen(true)}
+                  onOpenFeedback={() => setFeedbackOpen(true)}
+                  onNavigate={navigate}
+                  isWpbl
+                />
+              )} />
             </Suspense>
-          </Box>
+          )}
+          {path === '/wpbl/api' && (
+            <Box>
+              {/* Align the back control to the docs column (same maxWidth/px as WpblApiDocs)
+                  so on desktop it sits by the content, not stranded at the far-left page edge. */}
+              <Box sx={{ maxWidth: 760, mx: 'auto', px: { xs: 2, sm: 3 }, mb: 2 }}>
+                <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
+              </Box>
+              <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+                <WpblApiDocs />
+              </Suspense>
+            </Box>
+          )}
+          {path === '/admin' && authLoading && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+          )}
+          {path === '/admin' && !authLoading && isAdmin && (
+            <Box>
+              <Box sx={{ maxWidth: 860, mx: 'auto', px: { xs: 1.5, sm: 3 }, mb: 2 }}>
+                <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
+              </Box>
+              <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+                <AdminPage apps={otherApps} isAppLocked={isAppLocked} onOpenApp={openApp} />
+              </Suspense>
+            </Box>
+          )}
+          {path === '/privacy' && (
+            <Box>
+              {backBtn}
+              <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+                <PrivacyPolicy />
+              </Suspense>
+            </Box>
+          )}
+          {path === '/terms' && (
+            <Box>
+              {backBtn}
+              <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+                <TermsOfService />
+              </Suspense>
+            </Box>
+          )}
+          {/* No auth gate, deliberately, and not a tempting one to add: the reader this page is
+              for is the one who can no longer sign in. See DeleteAccount in LegalPages. */}
+          {path === '/delete-account' && (
+            <Box>
+              {backBtn}
+              <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+                <DeleteAccount />
+              </Suspense>
+            </Box>
+          )}
+        </Box>
+
+        {/* On mobile WPBL the footer rides inside each swipeable tab pane (WpblApp's
+            renderFooter) so it doesn't reflow when tabs of different heights swap — so skip
+            the shared one there. Everywhere else (incl. desktop WPBL) it renders here. */}
+        {!(rendersWpblApp(path) && !isDesktop) && (
+          <SiteFooter
+            onOpenChangelog={() => setChangelogOpen(true)}
+            onOpenFeedback={() => setFeedbackOpen(true)}
+            onNavigate={navigate}
+            isWpbl={path.startsWith('/wpbl')}
+          />
         )}
       </Box>
-
-      {/* On mobile WPBL the footer rides inside each swipeable tab pane (WpblApp's
-          renderFooter) so it doesn't reflow when tabs of different heights swap — so skip
-          the shared one there. Everywhere else (incl. desktop WPBL) it renders here. */}
-      {!(rendersWpblApp(path) && !isDesktop) && (
-        <SiteFooter
-          onOpenChangelog={() => setChangelogOpen(true)}
-          onOpenFeedback={() => setFeedbackOpen(true)}
-          onNavigate={navigate}
-          isWpbl={path.startsWith('/wpbl')}
-        />
-      )}
 
       {feedbackMounted && (
         <Suspense fallback={DIALOG_FALLBACK}>

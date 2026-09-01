@@ -142,14 +142,18 @@ Each of these has already cost someone a debugging session, and none of them fai
   holding their own basis is the other failure, where a leaderboard and the player page it
   opens disagree and neither is wrong. `__tests__/eraBasis.test.ts` pins both.
 
-- **`--app-header-h` / `--wpbl-nav-h` are LAYOUT pixels, not what the rect measures.** Both
-  are spent as a sticky `top`, and `/wpbl` and `/mlb` sit inside a `zoom: 1.4` wrapper at
-  `md` (`DESKTOP_ZOOM`). A sticky `top` there resolves BEFORE the zoom;
-  `getBoundingClientRect()` reports AFTER it. Publish the raw rect height and whatever sticks
-  below pins 40% too far down, opening a band the page scrolls through in full view, with
-  nothing in the console. `offsetHeight` gets the units right and rounds to a whole pixel,
-  which leaves a sub-pixel crack doing the same thing one device pixel at a time. It has
-  regressed once each way: divide the rect height by `--app-zoom` and you get both.
+- **`--app-header-h` / `--wpbl-nav-h` are published in SCREEN pixels, and a consumer inside a
+  zoomed section has to divide.** Both are spent as a sticky `top`, which resolves BEFORE any
+  `zoom` on the subtree, while `getBoundingClientRect()` reports AFTER it. **As of Aug 31,
+  2026 the toolbar is no longer zoomed** (`zoom` moved off the app root down to the content
+  box; see item 0 in [ROADMAP-WPBL.md](ROADMAP-WPBL.md)), so the publisher has nothing to
+  divide out and hands over the raw rect. The division moved to the spending end:
+  `PINNED_CHROME` in [`StatsView.tsx`](src/wpbl/StatsView.tsx) divides the sum by its own
+  `--app-zoom`, which is 1.4 while `/wpbl` still runs the zoom and 1 the moment it stops.
+  Get either end wrong and whatever sticks below pins 40% too far down, opening a band the
+  page scrolls through in full view, with nothing in the console. Use the **rect**, never
+  `offsetHeight`: it rounds to a whole pixel and leaves a sub-pixel crack doing the same thing
+  one device pixel at a time. This has now regressed three times, once in each direction.
 
 - **Modules shared with Deno carry `.ts` on their imports.** The recap engine
   ([`recap.ts`](src/wpbl/derive/recap.ts), [`discordRecap.ts`](src/wpbl/derive/discordRecap.ts))

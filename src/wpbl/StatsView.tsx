@@ -264,6 +264,22 @@ interface Row {
 // Zoom-aware: inside the desktop `zoom` wrapper vw units aren't shrunk, so divide by
 // --app-zoom (defaults to 1 off desktop). Capped so it doesn't sprawl on huge monitors.
 const FULL_BLEED_W = 'min(1100px, calc(100vw / var(--app-zoom, 1) - 24px))'
+
+// The chrome pinned above this view, expressed in THIS subtree's pixels.
+//
+// Exactly one of the two terms is non-zero at a time: the toolbar is sticky only on desktop,
+// the section nav only on mobile, so the sum lands just below the chrome on both without
+// either breakpoint being special-cased at the call sites.
+//
+// THE DIVISION IS THE HALF THAT IS TEMPORARY. --app-header-h is now published in real screen
+// pixels by a toolbar that sits OUTSIDE the desktop `zoom` (see App.tsx), while a sticky `top`
+// in here is resolved BEFORE this section's zoom is applied. Spend it raw and the bar pins 40%
+// too far down, opening a band the page scrolls through in full view: the same defect the
+// publisher used to carry at its own end, moved one step along. --wpbl-nav-h is already in
+// these pixels and is zero wherever the zoom is not 1, so dividing the whole sum is correct
+// for both terms rather than only for one. When /wpbl drops its zoom (ROADMAP-WPBL item 0,
+// phase 3) the divisor is 1 and this collapses back to the plain sum.
+const PINNED_CHROME = 'calc((var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px)) / var(--app-zoom, 1))'
 const fullBleedSx = {
   width: FULL_BLEED_W,
   position: 'relative',
@@ -987,16 +1003,14 @@ export default function WpblStatsView({
       </Typography>
       {/* The control bar, pinned. A 36-row table used to scroll every control off the top,
           leaving no way to change side, source or filter without scrolling back up. It offsets
-          by --app-header-h + --wpbl-nav-h: exactly one of those is non-zero at a time (the
-          toolbar is sticky only on desktop, the section nav only on mobile), so the sum lands
-          it just below the chrome on both without either breakpoint being special-cased here.
-          Above the table's own sticky header, which pins inside the scroll box below it. */}
+          by PINNED_CHROME, whose note explains both terms and the division. Above the table's
+          own sticky header, which pins inside the scroll box below it. */}
       {/* Where the bar sits when nothing is pinning it. Zero height, no paint; see the
           barStuck effect for what reads it. */}
       <Box ref={stuckMarkRef} aria-hidden sx={{ height: 0 }} />
       <Box ref={barRef} sx={{
         position: 'sticky',
-        top: 'calc(var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px))',
+        top: PINNED_CHROME,
         zIndex: 6,
         bgcolor: 'background.default',
         pt: 1,
@@ -1233,7 +1247,7 @@ export default function WpblStatsView({
         // meant. The control bar above is sticky, so the sort control stays reachable anyway.
         <Box ref={listRef} sx={{
           border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden',
-          scrollMarginTop: 'calc(var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px) + 104px)',
+          scrollMarginTop: `calc(${PINNED_CHROME} + 104px)`,
           ...fullBleedSx,
         }}>
           {/* A one-line header, the way the grid has one. The big number on the right was the
@@ -1316,7 +1330,7 @@ export default function WpblStatsView({
             '@media (max-height: 560px)': {
               maxHeight: `calc(
                 100dvh / var(--app-zoom, 1)
-                - var(--app-header-h, 0px) - var(--wpbl-nav-h, 0px) - 100px
+                - ${PINNED_CHROME} - 100px
               )`,
             },
           }}>
