@@ -166,7 +166,11 @@ export function TeamBadge({ team, size = 34 }: { team: Pick<WpblTeam, 'id' | 'ab
   const fill = wpblLogoFill(team.id)
   return (
     <Box sx={{
-      width: size, height: size, borderRadius: '50%', flexShrink: 0,
+      // ART, SO IT FOLLOWS --app-chrome AND NOT THE ROOT FONT SIZE. Every caller passes a pixel
+      // number, and one calc here scales all 43 of them on desktop without any of them growing
+      // when a reader turns Large text on: a club badge is not type.
+      width: `calc(${size}px * var(--app-chrome, 1))`, height: `calc(${size}px * var(--app-chrome, 1))`,
+      borderRadius: '50%', flexShrink: 0,
       bgcolor: wpblColor(team.id),
       border: `2px solid ${wpblSecondary(team.id)}`,
       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
@@ -197,7 +201,9 @@ export function PlayerPortrait({ name, teamId, size = 40, square }: {
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
   return (
     <Box sx={{
-      width: size, height: size, borderRadius: square ? `${Math.round(size * 0.18)}px` : '50%', flexShrink: 0,
+      // Same as TeamBadge: art scales with the chrome, not with the reader's text size.
+      width: `calc(${size}px * var(--app-chrome, 1))`, height: `calc(${size}px * var(--app-chrome, 1))`,
+      borderRadius: square ? `calc(${Math.round(size * 0.18)}px * var(--app-chrome, 1))` : '50%', flexShrink: 0,
       bgcolor: wpblColor(teamId),
       border: `2px solid ${wpblSecondary(teamId)}`,
       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',

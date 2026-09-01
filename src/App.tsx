@@ -114,11 +114,17 @@ const SESSION_KEY = 'sdUnlocked'
 // two read as one unit, and the wordmark is held back until the viewport can show it
 // without the ellipsis biting into it. See the toolbar brand block for the math.
 const BRAND_LOGO_H = 32
-// 960, down from 1350, because the toolbar is no longer inside the 1.4 zoom. The lockup
-// wants ~308px and the test has not changed: it is "does the toolbar have ~964px to split".
-// What changed is that the toolbar now gets the viewport in the same pixels the query counts,
-// instead of the viewport divided by the zoom, so the same test is met 1.4x earlier.
+// TWO THRESHOLDS, BECAUSE THE TOOLBAR IS NOW TWO SIZES. The test never changed: does the
+// toolbar have room to show the lockup whole. What changed is what "the toolbar" measures.
+//
+// On an unscaled route it gets the viewport in the same pixels the media query counts, so the
+// test is met at 960. On a route running the desktop scale (--app-type, see styles.css) the
+// same lockup is 1.4x wider in those pixels, so it needs 1350, which is the number this was
+// for the whole time the 1.4 `zoom` was doing the scaling. Both are raw px queries rather than
+// theme breakpoints for the original reason: theme breakpoints match the real viewport, and
+// what is being asked about here is the toolbar's own width.
 const BRAND_WORDMARK_MIN = 960
+const BRAND_WORDMARK_MIN_SCALED = 1350
 
 function navigate(to: string) {
   window.history.pushState({}, '', to)
@@ -440,6 +446,18 @@ function AppInner() {
   // that wants to stick can sit below it without hard-coding a number that would drift.
   // Reads the computed position rather than the breakpoint: the bar is only sticky on
   // desktop, and a static bar scrolls away, contributing nothing to pin beneath.
+  // WPBL renders at the desktop scale in styles.css rather than under a `zoom`, and that scale
+  // keys on this attribute. An attribute rather than a class so it cannot collide with one, and
+  // on the ROOT because --app-type is spent on the root font size, which is the only place a
+  // `rem` will look. MLB is deliberately absent: it still runs the zoom, and a root font size
+  // ramp on top of a 1.4 zoom would compound. Exactly one section is mounted at a time, so the
+  // two never overlap.
+  useEffect(() => {
+    const root = document.documentElement
+    if (isWpblSection(path)) root.setAttribute('data-app-scale', 'wpbl')
+    else root.removeAttribute('data-app-scale')
+  }, [path])
+
   const headerRef = useRef<HTMLElement>(null)
   useEffect(() => {
     const el = headerRef.current
@@ -746,7 +764,10 @@ function AppInner() {
                 src="/logo-mark.png"
                 alt="sportydolphin"
                 sx={{
-                  display: 'block', height: BRAND_LOGO_H, width: 'auto',
+                  // Art, so it rides --app-chrome with the badges rather than the root font
+                  // size. Without this the mark stayed at 32px while the wordmark beside it
+                  // scaled to 28px type on a scaled route, and the lockup came apart.
+                  display: 'block', height: `calc(${BRAND_LOGO_H}px * var(--app-chrome, 1))`, width: 'auto',
                   cursor: 'pointer', userSelect: 'none',
                   ...(mode === 'dark' && { filter: 'invert(1)' }),
                 }}
@@ -769,6 +790,11 @@ function AppInner() {
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                 display: 'none',
                 [`@media (min-width:${BRAND_WORDMARK_MIN}px)`]: { display: 'block' },
+                // Take it back off between the two thresholds when the route is scaled: there
+                // the lockup is 1.4x wider and would ellipsise into the search box instead.
+                [`@media (max-width:${BRAND_WORDMARK_MIN_SCALED - 0.05}px)`]: {
+                  'html[data-app-scale] &': { display: 'none' },
+                },
               }}
             >
               sportydolphin
@@ -1245,7 +1271,7 @@ function AppInner() {
         shell reads 1 and means it. Portaled Dialogs, Menus and the Snackbar render in `body`
         and were never inside this, zoom or no zoom. */}
       <Box sx={{
-        '--app-zoom': { xs: '1', md: (path === '/mlb' || isWpblSection(path)) ? String(DESKTOP_ZOOM) : '1' },
+        '--app-zoom': { xs: '1', md: path === '/mlb' ? String(DESKTOP_ZOOM) : '1' },
         zoom: 'var(--app-zoom)',
       }}>
         <Box sx={{ p: 2 }}>

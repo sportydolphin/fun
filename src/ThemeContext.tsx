@@ -123,6 +123,13 @@ export const useTheme = () => {
 const createAppTheme = (mode: ThemeMode, skin: ThemeSkin): Theme => {
   const p = SKINS[skin][mode];
   return createTheme({
+    // Every `p`, `m` and `gap` in the app, times the desktop chrome scale. This is what used to
+    // come free with `zoom`, and it has to be here rather than at 500 call sites: padding that
+    // stays at its phone value while the type around it grows 40% is not a smaller design, it
+    // is a cramped one. MUI's default 8px base is preserved at a scale of 1, so mobile and
+    // every unscaled route render exactly as before. Nothing in this codebase reads
+    // `theme.spacing()` in JS, so returning a calc() string is safe.
+    spacing: (factor: number) => `calc(${factor * 8}px * var(--app-chrome, 1))`,
     palette: {
       mode,
       primary: {

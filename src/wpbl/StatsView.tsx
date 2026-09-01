@@ -263,7 +263,7 @@ interface Row {
 // is horizontally centered, so centering a viewport-wide box on it reads as full-bleed.
 // Zoom-aware: inside the desktop `zoom` wrapper vw units aren't shrunk, so divide by
 // --app-zoom (defaults to 1 off desktop). Capped so it doesn't sprawl on huge monitors.
-const FULL_BLEED_W = 'min(1100px, calc(100vw / var(--app-zoom, 1) - 24px))'
+const FULL_BLEED_W = 'min(1540px, calc(100vw - 24px))'
 
 // The chrome pinned above this view, expressed in THIS subtree's pixels.
 //
@@ -305,7 +305,7 @@ const fullBleedSx = {
 // wanted: the nav above goes full-bleed on xs alone (`mx: { xs: -2, sm: 0 }`), so above sm
 // there is no mismatch to correct.
 const FULL_BLEED_GUTTER = 12
-const BAR_W = `min(${1100 + 2 * FULL_BLEED_GUTTER}px, calc(100vw / var(--app-zoom, 1)))`
+const BAR_W = `min(${1540 + 2 * FULL_BLEED_GUTTER}px, calc(100vw))`
 const fullBleedStickySx = {
   width: { xs: BAR_W, sm: FULL_BLEED_W },
   marginLeft: { xs: `calc(50% - (${BAR_W}) / 2)`, sm: `calc(50% - (${FULL_BLEED_W}) / 2)` },
@@ -1326,12 +1326,9 @@ export default function WpblStatsView({
               the unsafe one is a box taller than the gap, and the query cannot cause it. */}
           <Box ref={scrollRef} sx={{
             overflowX: 'auto', overflowY: 'auto', overscrollBehavior: 'contain',
-            maxHeight: 'calc(100dvh / var(--app-zoom, 1) - 260px)',
+            maxHeight: 'calc(100dvh - 260px)',
             '@media (max-height: 560px)': {
-              maxHeight: `calc(
-                100dvh / var(--app-zoom, 1)
-                - ${PINNED_CHROME} - 100px
-              )`,
+              maxHeight: `calc(100dvh - ${PINNED_CHROME} - 100px)`,
             },
           }}>
             <Box component="table" sx={{ borderCollapse: 'collapse', minWidth: '100%', fontVariantNumeric: 'tabular-nums' }}>

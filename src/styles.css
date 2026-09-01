@@ -10,6 +10,38 @@
   src: url('/fonts/InterVariable.woff2') format('woff2');
 }
 
+/* ── The desktop scale, which replaced `zoom: 1.4` ──────────────────────────────
+   Two variables rather than one, because they carry different dependencies.
+
+   --app-type is spent on the ROOT FONT SIZE, so it moves every `rem` in the app: the type
+   itself, and the boxes that reserve room for type (roadmap item 0, phase 2). It multiplies
+   with --sd-text-scale, the reader's own Large text setting, because those two genuinely
+   compose: a reader who wants larger text on a desktop wants it larger than desktop already is.
+
+   --app-chrome is spent on everything measured in pixels that is not type: MUI's spacing scale,
+   badges, portraits. It deliberately does NOT include --sd-text-scale. Large text is supposed to
+   scale the type and leave the structure alone, and a tap target that grows with the text size
+   is a worse tap target.
+
+   Set only at md and up, and only on the routes that opt in, which is what `zoom` did. The
+   difference is that these are ordinary CSS lengths, so `getBoundingClientRect()` and a CSS
+   `top` finally agree: no half of the app measuring in one pixel and spending in another. */
+:root {
+  --sd-text-scale: 1;
+  --app-type: 1;
+  --app-chrome: 1;
+  /* A percentage, so the reader's own browser default font size is still the baseline. At the
+     two scales' default of 1 this is exactly 100%, i.e. untouched. */
+  font-size: calc(100% * var(--sd-text-scale) * var(--app-type));
+}
+
+@media (min-width: 900px) {
+  :root[data-app-scale='wpbl'] {
+    --app-type: 1.4;
+    --app-chrome: 1.4;
+  }
+}
+
 /* These defaults are what the page shows BEFORE React mounts and pushes the active
    skin's colors into --bg-color/--card-bg. Kept in sync with the shipped default skin
    (charcoal, see ThemeContext SKINS) so a hard refresh doesn't flash a different shade

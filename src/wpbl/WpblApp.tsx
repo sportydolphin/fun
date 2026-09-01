@@ -1170,7 +1170,9 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     {/* Cap + center on wide screens (site convention); full width on mobile.
         On mobile, pull up to trim most of the app's top gutter (p:2) above the pill nav: the
         toolbar already sits right above it, so the extra gap just reads as dead space at rest. */}
-    <Box sx={{ maxWidth: 720, mx: 'auto', mt: { xs: -1.5, sm: 0 } }}>
+    {/* 1008 is the 720 layout px this was times the 1.4 it rendered at, so the column keeps the
+        width on screen it has always had now that the zoom is gone. */}
+    <Box sx={{ maxWidth: { xs: 720, md: 1008 }, mx: 'auto', mt: { xs: -1.5, sm: 0 } }}>
       {/* Section nav — shared SegControl pill bar, matching the MLB tab bar. */}
       {/* Tab bar stays put on mobile (sticky under the toolbar) so it doesn't scroll away
           when swiping to a tab or when the schedule snaps to the next game. */}

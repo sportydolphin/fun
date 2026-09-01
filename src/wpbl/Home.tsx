@@ -63,7 +63,12 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine,
 // are the same column as the cards, and a grid that is 250px wider than the strip above it
 // reads as a mistake, not as emphasis. `xs` opts out: the page already fills a phone, and the
 // transform would only fight the gutter SwipeableViews hands each pane.
-const HOME_WIDE_W = 'min(900px, calc(100vw / var(--app-zoom, 1) - 24px))'
+// 1260 is the 900 layout px this asked for times the 1.4 it was rendered at, so the column is
+// the same WIDTH ON SCREEN it has been; what changed is that it is now the number it says. The
+// `vw` term no longer divides by anything, because `vw` and a CSS length are finally the same
+// pixel here. The 24px of slack still stops `100vw` (which counts a classic scrollbar) from
+// giving the whole site a horizontal scrollbar.
+const HOME_WIDE_W = 'min(1260px, calc(100vw - 24px))'
 const homeWideSx = {
   width: { xs: 'auto', md: HOME_WIDE_W },
   position: 'relative',

@@ -216,11 +216,48 @@ holding type follow it.
    What stayed in px, deliberately: every dot, badge, avatar and icon square; the `minHeight: 48`
    touch minimum; the scoreboard's 24px fades and 40px hover zones; the sheet grabber; the page
    column caps, which are phase 3's business.
-3. **Set the desktop ramp, move the caps, flip the zoom off.** The visible moment, and where
-   the Home redesign lands. Body text renders at 17.9px today and would land at 12.8px with the
-   zoom gone and nothing else changed, so the ramp has to make that up. `HOME_WIDE_W` goes 900
-   to about 1260 and `FULL_BLEED_W` 1100 to about 1540, both stopping their division. Budget a
-   taste pass: density opinions only surface once this lands.
+3. **Set the desktop ramp, move the caps, flip the zoom off.** *Mechanism done Aug 31; the
+   number is still open.*
+
+   **TWO SCALES, NOT ONE, AND THEY CARRY DIFFERENT DEPENDENCIES.** `--app-type` is spent on the
+   root font size, so it moves every `rem`: the type, and the boxes phase 2 taught to follow it.
+   It multiplies with `--sd-text-scale`, because a reader who wants larger text on a desktop
+   wants it larger than desktop already is. `--app-chrome` is spent on everything measured in px
+   that is not type: MUI's whole spacing scale (one `spacing` function in the theme, since
+   nothing reads `theme.spacing()` in JS), badges and portraits (one calc each in `TeamBadge`
+   and `PlayerPortrait`, covering all 43 call sites), and the toolbar logo. It deliberately
+   excludes `--sd-text-scale`: Large text scales type and leaves structure alone, and a tap
+   target that grows with the text size is a worse tap target.
+
+   Both are set at md+ on `:root[data-app-scale='wpbl']`, an attribute App.tsx sets per route.
+   **MLB must stay out of it**: it still runs the zoom, and a root font-size ramp on top of a
+   1.4 zoom compounds. Exactly one section is mounted at a time, so the two never overlap.
+
+   `AccessibilityContext` had to stop setting `font-size` directly and publish its factor
+   instead, because an inline style beats the stylesheet: left as it was, a reader on Large text
+   would have got the MOBILE type size on a desktop. It also turned out `--sd-text-scale` was
+   already being published for "the fixed-width numeric columns that have to grow with their
+   contents", with a comment pointing at usages that never existed. Phase 2 did that job with
+   rem instead.
+
+   Caps re-derived, all stopping their `/ var(--app-zoom)`: `HOME_WIDE_W` 900 to **1260**,
+   `FULL_BLEED_W` 1100 to **1540**, `BAR_W` to match, the section column 720 to **1008**. Each
+   is the old layout number times the 1.4 it was rendered at, so every column is the same width
+   on screen it has always been.
+
+   **The ramp is at 1.4, which reproduces today's rendering exactly, and that was the point of
+   landing it there**: it makes the flip verifiable rather than a matter of taste. Verified at
+   1728: no `zoom` anywhere, root font size 22.4px, Home column 1260, scoreboard chip 190.4px,
+   toolbar logo 44.8px, all identical to the zoomed rendering. Sticky offsets meet exactly
+   (header bottom 56.98, control bar top 56.98). Zero overflow on Home, Schedule, Standings,
+   Teams and Stats at both text scales, including the new combined maximum of 1.4 x 1.125.
+   The wordmark threshold needed a second value (960 unscaled, 1350 scaled) because the same
+   lockup is 1.4x wider in viewport pixels on a scaled route.
+
+   **Still open: whether 1.4 is the number.** It is the zoom's number, and the zoom's whole
+   problem was that it magnified a phone layout rather than spending the desktop width. A lower
+   ramp with wider columns is the redesign; 1.4 is the faithful port. That call, and the Home
+   redesign on top of it, is the rest of this item.
 4. **Delete the compensations.** The 7 WPBL `--app-zoom` sites, the divisions in both
    sticky-offset publishers, and the 37 `md`/`lg` breakpoints that move back to the tier they
    actually mean (25 of those are in `Home.tsx` and `PlayerDetail.tsx`). The 51 rect and scroll

@@ -88,18 +88,19 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
     try { localStorage.setItem(TEXT_KEY, s) } catch { /* choice just isn't kept */ }
   }, [])
 
-  // Scale the ROOT font size, which is what every `rem` on the site resolves against, so
-  // type grows and the px-measured boxes around it don't. Published as a variable too, for
-  // the handful of fixed-width numeric columns that have to grow with their contents or clip
-  // them (see --sd-text-scale usages).
+  // Publish the factor and let styles.css compose it. The root font-size is
+  // `calc(100% * var(--sd-text-scale) * var(--app-type))` there, so this multiplies with the
+  // desktop scale instead of fighting it: setting `font-size` here directly, as this used to,
+  // is an inline style and would beat the stylesheet outright, which would have made a reader
+  // on Large text get the MOBILE type size on a desktop.
+  //
+  // Still a percentage at the far end, so the browser's own "default font size" setting stays
+  // the baseline, and at a factor of 1 the product is exactly 100%.
+  //
+  // What this scales is every `rem`: the type, and the boxes that reserve room for type. The
+  // px-measured structure around them does not move, which is the whole point of the setting.
   useEffect(() => {
-    const factor = TEXT_SCALE_FACTOR[textScale]
-    const root = document.documentElement
-    root.style.setProperty('--sd-text-scale', String(factor))
-    // Only touch font-size away from the default, so the browser's own "default font size"
-    // setting still wins for anyone who has changed it there.
-    if (factor === 1) root.style.removeProperty('font-size')
-    else root.style.fontSize = `${factor * 100}%`
+    document.documentElement.style.setProperty('--sd-text-scale', String(TEXT_SCALE_FACTOR[textScale]))
   }, [textScale])
 
   // Mark the document when the reader has forced motion off, so the mirrored rule in
