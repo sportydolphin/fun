@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
+import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
 import { createPortal } from 'react-dom'
 import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, List, ListItemButton, Divider } from '@mui/material'
 import { Brightness4, Brightness7, AccountCircle, Search, Close } from '@mui/icons-material'
@@ -36,10 +36,31 @@ import { ADMIN_EMAIL } from './lib/admin'
 
 // The MLB feature is by far the largest part of the app — code-split it so the
 // landing page and other projects don't ship its ~entire view tree up front.
-const MlbStats = lazy(() => import('./MlbStats'))
+const loadMlb = () => import('./MlbStats')
+const MlbStats = lazy(loadMlb)
 // WPBL — a separate top-level league section (its own data + views). Lazy so it
 // stays out of the MLB and landing bundles.
-const WpblApp = lazy(() => import('./wpbl/WpblApp'))
+const loadWpbl = () => import('./wpbl/WpblApp')
+const WpblApp = lazy(loadWpbl)
+
+/** Pull the OTHER section's chunk in before it is asked for.
+ *
+ *  THE SWITCH USED TO GO BLANK FOR A THIRD OF A SECOND. Both sections are lazy, so flipping the
+ *  league switch unmounted one section's tab bar, showed a spinner while the other's chunk came
+ *  over the wire, and then mounted the new bar: measured at 330ms one way and 580ms the other,
+ *  on localhost. What a reader sees is the pill bar under the toolbar vanishing and coming back
+ *  somewhere slightly different, which reads as the page jumping even though nothing moved.
+ *
+ *  The module registry caches by specifier, so calling the same dynamic import ahead of time
+ *  makes React.lazy resolve on the spot and the switch render in one commit with no fallback.
+ *  Called on hover and focus, which covers a mouse and a keyboard, and once on an idle callback
+ *  after the current section settles, which covers touch, where there is no hover to wait for.
+ *  Failures are swallowed on purpose: this is a prefetch, and the real import will report any
+ *  problem properly when the reader actually goes there. */
+function preloadSection(path: string) {
+  const p = isWpblSection(path) ? loadMlb() : loadWpbl()
+  p.catch(() => {})
+}
 // The flat players list at /wpbl/players. Its own chunk and its own route: it is a plain
 // page, not one of the section's tabs, so it has no business waking WpblApp's state machine.
 const WpblPlayersIndex = lazy(() => import('./wpbl/PlayersIndex'))
@@ -461,7 +482,17 @@ function AppInner() {
   // `rem` will look. MLB is deliberately absent: it still runs the zoom, and a root font size
   // ramp on top of a 1.4 zoom would compound. Exactly one section is mounted at a time, so the
   // two never overlap.
-  useEffect(() => {
+  //
+  // A LAYOUT EFFECT, AND THAT IS THE WHOLE FIX FOR THE JUMP ON A SECTION SWITCH. A plain
+  // `useEffect` is passive: React runs it AFTER the browser has painted. The render that
+  // changes `path` also changes the content box's `--app-zoom` in the same commit, so with the
+  // attributes arriving a beat later there was one painted frame holding the NEW section's
+  // zoom against the OLD section's root scale. Going to /mlb that frame is a 1.4 zoom on top
+  // of a 1.25 root, and the tab bar under the toolbar drew half again too big before snapping
+  // back; going the other way it drew unscaled and grew. Running before paint closes the
+  // window completely, because the attributes then land in the same frame as the zoom they
+  // belong with. Same reasoning as the scoreboard's placement in Home.tsx.
+  useLayoutEffect(() => {
     const root = document.documentElement
     root.style.setProperty('--app-scale-desktop', String(WPBL_DESKTOP_SCALE))
     if (isWpblSection(path)) root.setAttribute('data-app-scale', 'wpbl')
@@ -471,6 +502,18 @@ function AppInner() {
     // different means and only the shell is shared; see the note in styles.css.
     if (path === '/mlb' || isWpblSection(path)) root.setAttribute('data-shell-scale', '1')
     else root.removeAttribute('data-shell-scale')
+  }, [path])
+
+  // Touch has no hover to prefetch on, so warm the other section once the current one has
+  // settled. `requestIdleCallback` where it exists (not in Safari), a timeout otherwise, and
+  // only for the two routes that have another section to go to.
+  useEffect(() => {
+    if (path !== '/mlb' && !isWpblSection(path)) return
+    const run = () => preloadSection(path)
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
+    if (ric) { const id = ric(run, { timeout: 3000 }); return () => (window as unknown as { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback?.(id) }
+    const t = window.setTimeout(run, 1500)
+    return () => window.clearTimeout(t)
   }, [path])
 
   const headerRef = useRef<HTMLElement>(null)
@@ -833,6 +876,10 @@ function AppInner() {
                 anywhere on it flips to the other league. */}
             <Box
               ref={leagueSwitchRef}
+              // Warm the other section before the click; see preloadSection.
+              onMouseEnter={() => preloadSection(path)}
+              onFocus={() => preloadSection(path)}
+              onPointerDown={() => preloadSection(path)}
               onClick={() => {
                 // Every WPBL tab and /wpbl/api count as the WPBL side, so flipping from any
                 // of them goes to MLB.
@@ -1301,7 +1348,17 @@ function AppInner() {
         '--app-zoom': { xs: '1', md: path === '/mlb' ? String(DESKTOP_ZOOM) : '1' },
         zoom: 'var(--app-zoom)',
       }}>
-        <Box sx={{ p: 2 }}>
+        {/* The top padding is pinned in SCREEN pixels, which the sides are not.
+            This box is shared by both sections and they are scaled by different means, so a
+            single `p: 2` resolved to two different heights: 16px times --app-chrome on /wpbl,
+            and 16px times MLB's 1.4 zoom on /mlb. 20 against 22.4, which put the tab bar under
+            the toolbar 2.4px lower on one section than the other and made switching look like
+            the bar hopped. Dividing by whatever zoom this box is under lands it at 20 screen
+            pixels either way, and 20 is where both sections land anyway once /mlb takes its own
+            turn at the 1.25 scale: this only gets it there early. Desktop only, so a phone keeps
+            the ordinary 16px, and the sides keep ordinary spacing too, since nothing lines up
+            across the switch horizontally and so nothing there can jump. */}
+        <Box sx={{ px: 2, py: { xs: 2, md: 'calc(20px / var(--app-zoom, 1))' } }}>
           {path === '/cups' && (
             <Box>
               {backBtn}
