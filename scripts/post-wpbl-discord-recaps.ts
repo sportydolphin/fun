@@ -39,6 +39,7 @@ import { createClient } from '@supabase/supabase-js'
 // @ts-expect-error — no types installed for `ws`; it is only handed to supabase-js below.
 import ws from 'ws'
 import { buildRecap, leagueRecapContext } from '../src/wpbl/derive/recap'
+import { seriesContexts } from '../src/wpbl/derive/series'
 import { buildRecapMessage, recapMessageHash } from '../src/wpbl/derive/discordRecap'
 import { wpblGamePath } from '../src/wpbl/routes'
 import type { WpblGame, WpblTeam, WpblBattingLine, WpblPitchingLine, WpblGamePlay } from '../src/wpbl/types'
@@ -238,10 +239,14 @@ async function main(): Promise<void> {
   const newestId = eligible[eligible.length - 1]?.id
   if (firstRun) console.log(`First run — posting only the most recent final, recording ${eligible.length - 1} older one(s) as handled.`)
 
+  // One pass over the postseason for the whole run, rather than regrouping the schedule per
+  // game. Empty all regular season, so nothing about an ordinary run changes.
+  const series = seriesContexts(games, teams)
+
   let posted = 0, updated = 0, unchanged = 0, seeded = 0
   for (const game of eligible) {
     const recap = buildRecap(game, teams, battingBy.get(game.id) ?? [], pitchingBy.get(game.id) ?? [],
-      playsBy.get(game.id) ?? [], nameOf, ctx)
+      playsBy.get(game.id) ?? [], nameOf, ctx, series.get(game.id) ?? null)
     if (!recap) continue
     // The game's own page, not the legacy ?game=<uuid>, which now only reaches it through a
     // 301. The whole schedule goes in because a slug is only unambiguous relative to it.

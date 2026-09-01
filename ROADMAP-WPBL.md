@@ -137,15 +137,18 @@ in now is:
 1. ~~**#1c, today or not at all.**~~ ✅ *Done Sep 1: the flag came off and the card was audited
    against a real browser on the way out, which found four scale bugs the desktop rebuild's sweep
    could not have found, because a flagged card never renders. See the log.*
-2. **#1b's open half, before Sep 9.** Series records on the schedule and in Game Center, and
-   series-aware recap and Discord wording. Seven to eleven games of series baseball arrive on
-   Sep 9 and every surface that describes a game is still single-game shaped.
-3. **The postseason arrival check** (#1, and the note in the clock). Not a build: the mirror still
-   holds nothing but `regular` / `true`, so the first semifinal row is where we find out whether
-   the feed marks the postseason at all, and every season total on the site rides on it.
+2. ~~**#1b's open half, before Sep 9.**~~ ✅ *Done Sep 1: series records on the schedule and in
+   Game Center, and series-aware recap, Discord and Bluesky wording. See the log.*
+3. ~~**The postseason arrival check** (#1, and the note in the clock).~~ ✅ *Done Sep 1, as a job
+   rather than as a diary note: `wpbl-postseason-check` compares the published calendar against
+   the feed's own marking four times a day through the postseason and fails loudly on a
+   disagreement. The answer to what the feed actually sends still arrives on Sep 9; what changed
+   is that it now arrives as an email rather than as somebody remembering to look.*
 4. **#5 daily standouts**, which is the one item whose value does not fall off on Sep 6, and
    which puts tappable player names on Home. Then **#2 the archive**, the only durable item, whose
    season-capture half has to happen before Sep 22.
+
+   With 2 and 3 closed these two are the whole list, and 5 is the one to start.
 
 ### 0. The desktop rebuild: Home, and the 1.4x zoom that shaped it 🎯⚙️: ✅ **shipped Aug 31, 2026 as v1.58.0** (see the log)
 
@@ -404,6 +407,14 @@ season record" or "has been played"; confirm what the feed actually puts in `gam
 a postseason game (unknown until the first one lands, and the semis start right after
 Sep 6).
 
+**The last of those is now watched rather than remembered** (Sep 1, see the log).
+`scripts/check-wpbl-postseason.ts` reads the league's published dates out of
+`POSTSEASON_SCHEDULE` and the feed's marking through `countsInStandings`, and fails when they
+disagree in either direction. It runs four times a day through September and October and is the
+one job in the repo that is MEANT to go red. What it must never become is a filter: a
+regular-season game postponed into the Sep 7-8 gap would vanish from the standings, which is why
+the date raises an alarm a person reads and never decides what counts.
+
 ### 1b. Series state 🎯: ✅ **the bracket shipped Aug 20, 2026 and is now live for everyone** (see the log). The rest is open
 
 Postseason baseball is series-shaped and **almost nothing in the section models a series**.
@@ -433,9 +444,16 @@ was. Reasoning is in the header comment of `PlayoffBracket.tsx`.
 season run differential, with an elimination flag, which is the "something new" the postseason
 needed rather than a third view of the standings. `derive/seriesOdds.ts`.
 
-**Still open**: series records on the schedule and Game Center, series-aware recap and Discord
-wording. The clinched/eliminated state is partly done (the bracket's elimination flag); the
-schedule and Game Center still do not carry it. None of these are blocked, by the same argument.
+**The rest shipped Sep 1** (see the log). `derive/series.ts` answers the question every surface
+other than the bracket has, which is the opposite way round from `buildBracket`: given ONE game,
+what series is it, which game of it, and what is the record. The schedule carries "Semifinal ·
+Game 2 · Firebells lead 1-0", Game Center adds what a win would settle, and the recap engine
+takes the series as an optional argument so the site card, the Discord embed and the Bluesky post
+all say a championship was won on the night one is.
+
+**Still open**: nothing on this item that is not waiting on Sep 9. The clinched/eliminated state
+is carried by the bracket's flag and by Game Center's "Winner takes the series"; a club knocked
+OUT is not named as such anywhere, which is a wording gap rather than a missing derive.
 
 **The one real dependency**, now isolated: the feed must mark postseason games at all, through
 `game_type` or `counts_in_standings`. If it marks neither, those games read as regular season,
@@ -837,6 +855,87 @@ is retired.
 ---
 
 ## Shipped log
+
+### Sep 1, 2026: the postseason is series-shaped, and so is the section now
+
+Eight days before the first semifinal. Two things, and the small one is the more important.
+
+**THE SMALL ONE: a job that is meant to fail.** `countsInStandings` fails OPEN by design, and
+the price of that design has always been a dated one: if the feed marks a semifinal as nothing in
+particular, the site folds up to eleven postseason games into every leaderboard, every player
+page, the OG cards and the Discord `/player` card, the bracket sits empty while the games it
+draws are being played, and **nothing anywhere goes red**. The plan for that was a note in this
+file saying to look on Sep 9. `wpbl-postseason-check` replaces the note. It compares the league's
+own published dates, read out of `POSTSEASON_SCHEDULE` rather than restated, against the feed's
+marking read through `countsInStandings` itself, and exits 1 when the two disagree in either
+direction: a postseason game we are counting, or a regular-season game we are not. Four times a
+day through September and October.
+
+It is the only job in the repo whose red X is the product. The play-by-play validator next to it
+reports 57 known findings a night and therefore always exits 0, because a job that is red every
+morning is a job nobody reads; this one is silent all season and goes red once. Both policies are
+right and the difference between them is worth keeping straight, so each file says why it has the
+one it has.
+
+**And it must never become a filter.** The obvious move the day it fires is to have the app treat
+the date as authoritative. That would drop a rained-out regular-season game made up in the Sep 7-8
+gap out of the standings with no evidence it was ever there, which is the single-venue league's
+most likely schedule accident. A date is good enough to raise an alarm a person then reads. It is
+not good enough to decide what counts.
+
+**THE LARGE ONE: `derive/series.ts`.** Postseason baseball is series-shaped and almost nothing in
+the section was. "SF leads 2-1" is the unit a fan tracks, and a best-of-five clincher would have
+been recapped to a public Discord channel and a public Bluesky feed as "the Firebells top the
+Queens", on the night the league crowned its first champion.
+
+`buildBracket` already grouped postseason games by pairing, but it answers "draw me the bracket"
+and takes the standings to do it. Every other surface has the opposite question: given ONE game,
+which series, which game of it, what is the record. So the format definitions moved DOWN into a
+module that needs only a schedule, and bracket.ts now imports them rather than the other way
+about. `BEST_OF` stated twice is how a semifinal ends up needing three wins on one screen and two
+on another.
+
+- **No series id, still.** The pair of team ids identifies a series uniquely inside a four-club
+  bracket, which is what unblocked this item in the first place. The ROUND needs no id either and
+  no dates: a club that reaches the championship plays in two pairings and one knocked out in the
+  semifinals plays in one, so the championship is the pairing both of whose clubs appear twice.
+  Dates were the obvious alternative and are the wrong one, because a postseason game is
+  rescheduled far more often than a regular-season one and a semifinal that slid past the
+  championship's published start would relabel itself.
+- **A final reports the series INCLUDING itself and a preview EXCLUDING itself**, which is what a
+  box score and a schedule row respectively mean, off one slice with no second code path.
+- **Schedule** carries "Semifinal · Game 2" and the record. The record only: what a win would
+  clinch is broadcast copy and belongs where there is room for it. **Game Center** has that room
+  and carries both, so an unplayed decider reads "Winner takes the series" rather than naming one
+  club as if only it had something at stake.
+- **The recap engine takes the series as an OPTIONAL argument**, unlike the season aggregates
+  where an omitted schedule silently over-counts and the parameter is therefore required. The
+  worst a missing series does here is leave a sentence unsaid. The sentence closes the blurb,
+  which is the highest-leverage place to put it: the site card, the Discord embed and the Bluesky
+  post all render the blurb, so one change reached all three. A clinched series also goes to the
+  FRONT of the feats, ahead of a three-homer game, which is the one night it outranks one.
+- **The Deno fast path words it too.** `announce-final` inside `wpbl-ingest` usually posts before
+  the hourly job and owns the message, so leaving the series to the job would have meant every
+  postseason recap being silently corrected by an edit minutes later. That put `series.ts` and
+  `season.ts` into the Deno import graph, and `denoGraph.test.ts` now names both so a refactor
+  cannot quietly take the `.ts` extension check with them.
+- **Nothing changes for a regular-season game, and that is pinned.** `recapMessageFingerprint`
+  is the whole rendered message, so a footer that grew unconditionally would have re-edited all
+  thirty already-posted recaps on the next pass. A test renders one both ways and compares.
+
+Everything fails toward the regular-season reading, as anything written before Sep 9 has to:
+with no game marked postseason, every function returns null and every surface renders exactly as
+it does today.
+
+**Verified against a simulated postseason**, since there is no real one to look at: three real
+club pairings temporarily marked as series, then the schedule and Game Center read at 320, 390
+and 1440, both themes, text scale 1 and 1.125. No clipping, no row taller than its neighbours, no
+horizontal page scroll. 1,095 tests pass, 28 of them new.
+
+One thing deliberately left alone: `gameNumber` is not clamped to `bestOf`. "Game 4 of 3" on
+screen means the pairing has picked up a game that is not part of the series, which in this mirror
+means a duplicated row, and the same duplication is inflating the record beside it. Clamping
+would hide a real fault behind a plausible number.
 
 ### Sep 1, 2026: the seeding race comes out from behind the flag, and what an unrendered card hides (v1.59.0)
 

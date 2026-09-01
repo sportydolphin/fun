@@ -1,0 +1,67 @@
+name: WPBL postseason marking check
+
+# Fails when the league's published postseason calendar and the feed's own game_type /
+# counts_in_standings disagree about whether a game is a postseason game.
+#
+# This is the tripwire under the one thing about the postseason nobody can verify in advance.
+# countsInStandings() in src/wpbl/season.ts fails OPEN by design, so a semifinal the feed does
+# not mark is counted as regular season: every leaderboard, every player page, the OG cards
+# and the Discord /player card silently fold in up to 11 postseason games, the bracket stays
+# empty, and nothing anywhere goes red. See the header of the script for why the date is only
+# ever allowed to raise an alarm and never to decide what counts.
+#
+# THIS JOB IS MEANT TO FAIL LOUDLY, which is the opposite of the play-by-play validator
+# beside it. That one reports dozens of known findings every night, so a red X there would be
+# noise and it deliberately always exits 0. This one is silent on every ordinary day and goes
+# red exactly once, on the day a person is needed. Do not "fix" a red run by relaxing the
+# check: read what the feed actually sent (the run prints it) and widen countsInStandings.
+#
+# Cadence: four times a day through September and October. The first postseason row can appear
+# at any point once the seeds are set, and being told within six hours is soon enough for a
+# problem whose fix is a one-line regex; anything faster just spends minutes on a check that
+# has nothing to say. The window matches the postseason rather than running year-round,
+# because outside it there is no calendar to disagree with.
+
+on:
+  schedule:
+    - cron: '40 */6 * 9,10 *'   # :40 so it does not land on the hour with everything else
+  workflow_dispatch:
+
+concurrency:
+  group: wpbl-postseason-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      # Reads only, against a public-read table, so this is the anon key the client bundle
+      # already ships. The service-role key would buy nothing and risk plenty.
+      VITE_SUPABASE_URL:      ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # A WARNING and not a failure, but a warning rather than the usual quiet echo: a
+      # tripwire nobody wired up is worse than no tripwire, because it reads as covered. A
+      # red X here would be a config problem crying the wolf this job exists to cry.
+      - name: Warn when not configured
+        if: env.VITE_SUPABASE_ANON_KEY == ''
+        run: echo "::warning::VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are not set, so the postseason marking check did NOT run."
+
+      # Only esbuild, which bundles the check together with the two modules it shares with the
+      # app (season.ts for the predicate, bracket.ts for the published dates). Sharing them is
+      # the point: a check that restated either rule would drift from the code it is guarding.
+      - name: Install the bundler
+        if: env.VITE_SUPABASE_ANON_KEY != ''
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['esbuild'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Check the postseason marking
+        if: env.VITE_SUPABASE_ANON_KEY != ''
+        run: npm run check-postseason

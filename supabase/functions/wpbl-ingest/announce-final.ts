@@ -18,6 +18,7 @@
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { buildRecap, leagueRecapContext } from '../../../src/wpbl/derive/recap.ts'
 import { buildRecapMessage, recapMessageHash } from '../../../src/wpbl/derive/discordRecap.ts'
+import { seriesContext } from '../../../src/wpbl/derive/series.ts'
 // `.ts` because Deno resolves local specifiers literally. routes.ts carries the same
 // extension on its own import for this reason; see the note there.
 import { wpblGamePath } from '../../../src/wpbl/routes.ts'
@@ -49,10 +50,17 @@ export async function announceFinal(db: SupabaseClient, gameUuid: string): Promi
     ])
     const nameById = new Map((players.data ?? []).map((p: any) => [p.id, p.name]))
 
+    // The series this game belongs to, so the fast path words a clincher the same way the
+    // scheduled job would. It has to be worked out HERE and not left to that job: this poster
+    // usually gets there first and owns the message, and a recap posted without the series
+    // would be silently corrected minutes later by an edit nobody asked for. `allGames` is
+    // already in hand for the URL below, and a series record needs the whole schedule for the
+    // same reason a slug does.
     const recap = buildRecap(
       game as any, teams as any, (batting.data ?? []) as any, (pitching.data ?? []) as any,
       (plays.data ?? []) as any, (id: string) => nameById.get(id) ?? '—',
       leagueRecapContext((allGames ?? []) as any),
+      seriesContext(game as any, (allGames ?? []) as any, teams as any),
     )
     // A tie, or a score the feed hasn't settled yet: release the claim so a later pass —
     // by either poster — can take it once the game is properly resolved.

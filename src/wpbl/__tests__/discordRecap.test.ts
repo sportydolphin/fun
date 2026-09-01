@@ -40,6 +40,8 @@ const recap = (o: Partial<GameRecap> = {}): GameRecap => ({
   ],
   feats: [],
   flags: { shutout: false, blowout: false, oneRun: false, walkOff: false, comeback: false, extras: false },
+  // A regular-season game, which is what every existing case here is.
+  series: null,
   ...o,
 })
 

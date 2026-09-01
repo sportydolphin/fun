@@ -47,6 +47,11 @@ describe('the wpbl-ingest import graph', () => {
     // below would pass by walking nothing at all.
     expect(graph.files.length).toBeGreaterThan(5)
     expect(graph.files.some(f => f.includes('discordRecap'))).toBe(true)
+    // derive/series.ts joined the graph when the Discord recap became series-aware, and it
+    // pulled season.ts in behind it. Named here so a future refactor that drops the import
+    // does not quietly take the extension check with it.
+    expect(graph.files.some(f => f.includes('derive/series'))).toBe(true)
+    expect(graph.files.some(f => f.endsWith('wpbl/season.ts'))).toBe(true)
   })
 
   it('carries a .ts on every runtime import, because Deno will not add one', () => {

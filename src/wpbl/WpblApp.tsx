@@ -13,6 +13,7 @@ import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import { getWpblRecents, mergeWpblRecent, setWpblRecents, type WpblRecentItem } from './recentSearches'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import { fmtSigned } from './stats'
+import { seriesContexts } from './derive/series'
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import WpblHome from './Home'
@@ -147,6 +148,10 @@ function ScheduleView({ teams, games, onOpenGame }: {
   const isDark = useWpblDark()
   const gameLink = useWpblGameLink()
   const headingTag = useWpblHeadingTag()
+  // The postseason is series-shaped and this list was not: a best-of-three read as three
+  // unrelated games between the same two clubs. Empty all regular season, and empty for as
+  // long as the feed marks no game as postseason, so nothing here changes shape on its own.
+  const series = useMemo(() => seriesContexts(games, byId), [games, byId])
   // Season-to-date record per team, so upcoming games can show each side's W-L.
   const recordById = useMemo(() => {
     const m = new Map<string, string>()
@@ -234,18 +239,22 @@ function ScheduleView({ teams, games, onOpenGame }: {
           const away = byId.get(g.away_team_id)
           const final = g.status === 'final' && g.home_score != null && g.away_score != null
           const live = g.status === 'live'
+          const ser = series.get(g.id)
           return (
             // Every card is a real <a href="/wpbl/games/<slug>">. This is the section's
             // crawl path to all 41 recaps, and it was a bare onClick div: no href for a
             // crawler, no tab stop for a keyboard, nothing to open in a new tab.
             <Box key={g.id} {...gameLink(g, onOpenGame)} sx={{
-              display: 'flex', alignItems: 'center', gap: 1, p: 1.25, cursor: 'pointer',
+              // A column, so a postseason game can carry a series strip under the matchup.
+              // The matchup and the status keep their own row inside it and are unchanged.
+              display: 'flex', flexDirection: 'column', gap: 0.5, p: 1.25, cursor: 'pointer',
               // Completed games get a muted fill so past reads as visually settled vs. crisp upcoming cards.
               // action.hover is too faint against the dark paper, so use a stronger explicit tint there.
               borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
               bgcolor: final ? (isDark ? 'rgba(255,255,255,0.09)' : 'action.hover') : 'background.paper',
               transition: 'border-color 0.15s', '&:hover': { borderColor: 'text.disabled' },
             }}>
+             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
               <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {[away, home].map((t, i) => {
                   const score = i === 0 ? g.away_score ?? 0 : g.home_score ?? 0
@@ -281,6 +290,28 @@ function ScheduleView({ teams, games, onOpenGame }: {
                   {live ? '● Live' : final ? `Final${g.innings && g.innings !== 7 ? `/${g.innings}` : ''}` : formatGameTime(g.game_date, g.start_time) || 'TBD'}
                 </Typography>
               </Box>
+             </Box>
+              {/* "Semifinal · Game 2" and the record, which is the unit a fan tracks in
+                  October and the one thing three rows between the same two clubs cannot say
+                  for themselves. The record only, not what a win would clinch: that is
+                  broadcast copy and it belongs on the game's own page, where there is room
+                  for it. Wraps rather than truncates, because the club names in it are as
+                  long as the row is wide on a small phone. */}
+              {ser && (
+                <Box sx={{
+                  display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
+                  pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
+                }}>
+                  <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: WPBL_ACCENT }}>
+                    {ser.label} · Game {ser.gameNumber}
+                  </Typography>
+                  {ser.line && (
+                    <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary' }}>
+                      {ser.line}
+                    </Typography>
+                  )}
+                </Box>
+              )}
             </Box>
           )
         })}

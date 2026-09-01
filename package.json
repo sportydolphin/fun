@@ -30,6 +30,7 @@
     "sitemap": "esbuild scripts/build-sitemap.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/build-sitemap.mjs && node --env-file-if-exists=.env node_modules/.cache/build-sitemap.mjs",
     "subset-font": "node scripts/subset-inter.mjs",
     "validate-pbp": "node --env-file=.env scripts/validate-wpbl-pbp.mjs",
+    "check-postseason": "esbuild scripts/check-wpbl-postseason.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-check-postseason.mjs && node --env-file-if-exists=.env node_modules/.cache/wpbl-check-postseason.mjs",
     "restock-watch": "node --env-file=.env scripts/watch-wpbl-restock.mjs",
     "commons-sync": "node --env-file=.env scripts/sync-wpbl-commons.mjs",
     "tracking-watch": "node --env-file=.env scripts/watch-wpbl-tracking.mjs",

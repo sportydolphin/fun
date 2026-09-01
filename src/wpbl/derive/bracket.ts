@@ -1,6 +1,11 @@
 import type { WpblGame, WpblStandingRow, WpblTeam } from '../types'
 import { countsInStandings } from '../season'
 import { seedingRace, SEMIFINAL_PAIRS, bracketIsSet } from './seeding'
+// The format and the pairing key live in series.ts, which is the module every OTHER surface
+// reads (a schedule row, a Game Center header, a recap), and re-exported here so this file
+// stays the one import a bracket needs. Stated in one place because "best of three" appearing
+// twice is how a semifinal ends up needing three wins on one screen and two on another.
+import { BEST_OF, winsNeeded, pairKey, type BracketRound } from './series'
 
 // The postseason bracket: who plays whom, and how far each series has got.
 //
@@ -25,8 +30,8 @@ import { seedingRace, SEMIFINAL_PAIRS, bracketIsSet } from './seeding'
 //
 // Pure: standings rows and the schedule in, plain shapes out. No supabase, no React.
 
-/** Semifinals are best-of-three, the championship best-of-five (format confirmed Aug 16). */
-export const BEST_OF: Record<BracketRound, number> = { semifinal: 3, championship: 5 }
+export { BEST_OF, winsNeeded }
+export type { BracketRound }
 
 /**
  * The postseason calendar, as the league published it on Aug 24, 2026.
@@ -103,11 +108,6 @@ export function seriesDateLine(round: BracketRound, key: string | null): string 
   }).join(', ')
 }
 
-export type BracketRound = 'semifinal' | 'championship'
-
-/** Games a club must win to take the series: 2 of 3, 3 of 5. */
-export const winsNeeded = (round: BracketRound): number => Math.floor(BEST_OF[round] / 2) + 1
-
 export interface BracketEntrant {
   /** Null while the slot is still being decided, which is the championship before both
    *  semifinals have a winner. */
@@ -148,9 +148,6 @@ export interface WpblBracket {
 
 const isPlayed = (g: WpblGame): boolean =>
   g.status === 'final' && g.home_score != null && g.away_score != null
-
-/** An unordered pair of team ids, as a stable key. */
-const pairKey = (a: string, b: string): string => [a, b].sort().join('|')
 
 /**
  * Wins per club within each postseason pairing.

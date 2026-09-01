@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import { Box, Typography } from '@mui/material'
 import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblGamePlay, WpblRecapPlay, WpblVideo } from './types'
 import { buildRecap, leagueRecapContext, type GameRecap, type RecapStar } from './derive/recap'
+import { seriesContext } from './derive/series'
 import { fetchWpblGameLines, fetchWpblGameRecapPlays } from './api'
 import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, wpblNameStages } from './ui'
 import { WPBL_ACCENT, relativeDayLabel, wpblFullName } from './constants'
@@ -183,8 +184,11 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
 }) {
   const nameOf = useMemo(() => (id: string) => names.get(id)?.name ?? '—', [names])
   const ctx = useMemo(() => leagueRecapContext(games), [games])
-  const recap = useMemo(() => buildRecap(game, teams, batting, pitching, plays, nameOf, ctx),
-    [game, teams, batting, pitching, plays, nameOf, ctx])
+  // Both of these need the whole schedule and neither can be worked out from the game alone:
+  // the verbs calibrate to the league's run environment, the series to the games around it.
+  const series = useMemo(() => seriesContext(game, games, teams), [game, games, teams])
+  const recap = useMemo(() => buildRecap(game, teams, batting, pitching, plays, nameOf, ctx, series),
+    [game, teams, batting, pitching, plays, nameOf, ctx, series])
   const [starsRef, starsWidth] = useFitKey()
   if (!recap) return null
 
@@ -295,8 +299,9 @@ export function LastGameCard({ games, teams, players, onOpenGame }: {
   }, [players])
 
   const ctx = useMemo(() => leagueRecapContext(games), [games])
-  const recap = useMemo(() => game ? buildRecap(game, teams, data?.batting ?? [], data?.pitching ?? [], data?.plays ?? [], nameOf, ctx) : null,
-    [game, teams, data, nameOf, ctx])
+  const series = useMemo(() => game ? seriesContext(game, games, teams) : null, [game, games, teams])
+  const recap = useMemo(() => game ? buildRecap(game, teams, data?.batting ?? [], data?.pitching ?? [], data?.plays ?? [], nameOf, ctx, series) : null,
+    [game, teams, data, nameOf, ctx, series])
 
   const [starRef, starWidth] = useFitKey()
   if (!game || !recap) return null

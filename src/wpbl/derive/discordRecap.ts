@@ -130,6 +130,13 @@ export function buildRecapMessage(game: WpblGame, recap: GameRecap, teams: Map<s
   }
 
   const extras = (game.innings ?? 7) !== 7 ? ` · ${game.innings} innings` : ''
+  // Which game of which series, in the footer where the date already sits: it is filing
+  // information rather than news, and the news (who leads, who just won it) is in the blurb
+  // and the first of the fields. Added ONLY when the game is a postseason one, so every
+  // regular-season recap renders byte for byte as before. That matters more than it looks:
+  // recapMessageFingerprint is the whole message, so a footer that changed unconditionally
+  // would make the scheduled job re-edit all 30 already-posted recaps on its next pass.
+  const round = recap.series ? ` · ${recap.series.label} Game ${recap.series.gameNumber} of ${recap.series.bestOf}` : ''
   return {
     // A recap should never ping a channel, however it is worded.
     allowed_mentions: { parse: [] },
@@ -143,7 +150,7 @@ export function buildRecapMessage(game: WpblGame, recap: GameRecap, teams: Map<s
       // bottom of it. The blank line is the only spacing control an embed description has.
       description: `${recap.blurb}\n\n${lineScoreBlock(game, recap, teams)}`,
       fields,
-      footer: { text: `WPBL · ${game.game_date}${extras} · sportydolphin.fun` },
+      footer: { text: `WPBL${round} · ${game.game_date}${extras} · sportydolphin.fun` },
     }],
   }
 }
