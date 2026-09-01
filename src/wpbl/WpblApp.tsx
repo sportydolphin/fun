@@ -13,6 +13,7 @@ import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import { getWpblRecents, mergeWpblRecent, setWpblRecents, type WpblRecentItem } from './recentSearches'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import { fmtSigned } from './stats'
+import { seriesContexts } from './derive/series'
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import WpblHome from './Home'
@@ -147,6 +148,10 @@ function ScheduleView({ teams, games, onOpenGame }: {
   const isDark = useWpblDark()
   const gameLink = useWpblGameLink()
   const headingTag = useWpblHeadingTag()
+  // The postseason is series-shaped and this list was not: a best-of-three read as three
+  // unrelated games between the same two clubs. Empty all regular season, and empty for as
+  // long as the feed marks no game as postseason, so nothing here changes shape on its own.
+  const series = useMemo(() => seriesContexts(games, byId), [games, byId])
   // Season-to-date record per team, so upcoming games can show each side's W-L.
   const recordById = useMemo(() => {
     const m = new Map<string, string>()
@@ -234,18 +239,22 @@ function ScheduleView({ teams, games, onOpenGame }: {
           const away = byId.get(g.away_team_id)
           const final = g.status === 'final' && g.home_score != null && g.away_score != null
           const live = g.status === 'live'
+          const ser = series.get(g.id)
           return (
             // Every card is a real <a href="/wpbl/games/<slug>">. This is the section's
             // crawl path to all 41 recaps, and it was a bare onClick div: no href for a
             // crawler, no tab stop for a keyboard, nothing to open in a new tab.
             <Box key={g.id} {...gameLink(g, onOpenGame)} sx={{
-              display: 'flex', alignItems: 'center', gap: 1, p: 1.25, cursor: 'pointer',
+              // A column, so a postseason game can carry a series strip under the matchup.
+              // The matchup and the status keep their own row inside it and are unchanged.
+              display: 'flex', flexDirection: 'column', gap: 0.5, p: 1.25, cursor: 'pointer',
               // Completed games get a muted fill so past reads as visually settled vs. crisp upcoming cards.
               // action.hover is too faint against the dark paper, so use a stronger explicit tint there.
               borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
               bgcolor: final ? (isDark ? 'rgba(255,255,255,0.09)' : 'action.hover') : 'background.paper',
               transition: 'border-color 0.15s', '&:hover': { borderColor: 'text.disabled' },
             }}>
+             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
               <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 {[away, home].map((t, i) => {
                   const score = i === 0 ? g.away_score ?? 0 : g.home_score ?? 0
@@ -281,6 +290,28 @@ function ScheduleView({ teams, games, onOpenGame }: {
                   {live ? '● Live' : final ? `Final${g.innings && g.innings !== 7 ? `/${g.innings}` : ''}` : formatGameTime(g.game_date, g.start_time) || 'TBD'}
                 </Typography>
               </Box>
+             </Box>
+              {/* "Semifinal · Game 2" and the record, which is the unit a fan tracks in
+                  October and the one thing three rows between the same two clubs cannot say
+                  for themselves. The record only, not what a win would clinch: that is
+                  broadcast copy and it belongs on the game's own page, where there is room
+                  for it. Wraps rather than truncates, because the club names in it are as
+                  long as the row is wide on a small phone. */}
+              {ser && (
+                <Box sx={{
+                  display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
+                  pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
+                }}>
+                  <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: WPBL_ACCENT }}>
+                    {ser.label} · Game {ser.gameNumber}
+                  </Typography>
+                  {ser.line && (
+                    <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary' }}>
+                      {ser.line}
+                    </Typography>
+                  )}
+                </Box>
+              )}
             </Box>
           )
         })}
@@ -324,6 +355,23 @@ function StandingsView({ teams, games, onOpenTeam }: {
   // and 2.875rem are the 34px and 46px they have always been at the default root size.
   const NUM = 2.125, WIDE = 2.875
   const col = (rem: number) => `${rem}rem`
+  // Below this the eight columns do not fit, and `tableLayout: 'fixed'` spends the shortfall
+  // entirely on the one column without a width: at 320 the club name was left 4.8px, so the
+  // table rendered as a badge and a single letter and three of the four clubs read alike.
+  // GB and DIFF go rather than a few pixels off each of the others, because they are the two
+  // a reader can rebuild from what is beside them (GB from the W-L columns, the run
+  // differential from the team page), and because shaving all seven only moves the clipping
+  // to the next text scale.
+  //
+  // A px threshold, and deliberately above the widest phone rather than at the 371px where
+  // it starts to fit: a media query cannot read `--sd-text-scale`, so the one number here has
+  // to clear the Large-text case too (every rem in the row is 12.5% wider, which puts the
+  // same row back over the edge at 408px). The alternative, a breakpoint that holds only at
+  // the default text size, fails silently and only for the readers who most need the setting.
+  const FITS_ALL = '@media (min-width:420px)'
+  // Applied to both the header cell and the body cell of a dropped column: they are separate
+  // elements, and a column hidden in one and not the other shifts every cell after it by one.
+  const dropNarrow = { display: 'none', [FITS_ALL]: { display: 'table-cell' } }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -340,8 +388,8 @@ function StandingsView({ teams, games, onOpenTeam }: {
             <Box component="th" sx={{ ...th, width: col(NUM) }}>W</Box>
             <Box component="th" sx={{ ...th, width: col(NUM) }}>L</Box>
             <Box component="th" sx={{ ...th, width: col(WIDE) }}>PCT</Box>
-            <Box component="th" sx={{ ...th, width: col(NUM) }}>GB</Box>
-            <Box component="th" sx={{ ...th, width: col(WIDE) }}>DIFF</Box>
+            <Box component="th" sx={{ ...th, width: col(NUM), ...dropNarrow }}>GB</Box>
+            <Box component="th" sx={{ ...th, width: col(WIDE), ...dropNarrow }}>DIFF</Box>
             <Box component="th" sx={{ ...th, width: col(WIDE), display: { xs: 'none', sm: 'table-cell' } }}>L10</Box>
             <Box component="th" sx={{ ...th, width: col(NUM + 0.5), pr: 1.25 }}>STRK</Box>
           </Box>
@@ -367,11 +415,11 @@ function StandingsView({ teams, games, onOpenTeam }: {
                 <Box component="td" sx={{ ...td, fontWeight: 700 }}>{r.wins}</Box>
                 <Box component="td" sx={{ ...td, fontWeight: 700 }}>{r.losses}</Box>
                 <Box component="td" sx={td}>{fmtPct(r.pct, gp)}</Box>
-                <Box component="td" sx={{ ...td, color: 'text.secondary' }}>{r.gamesBack === 0 ? '—' : r.gamesBack.toFixed(1)}</Box>
+                <Box component="td" sx={{ ...td, color: 'text.secondary', ...dropNarrow }}>{r.gamesBack === 0 ? '—' : r.gamesBack.toFixed(1)}</Box>
                 {(() => {
                   const diff = r.runsFor - r.runsAgainst
                   const diffColor = gp === 0 ? 'text.disabled' : diff > 0 ? 'var(--wpbl-pos)' : diff < 0 ? 'var(--wpbl-neg)' : 'text.secondary'
-                  return <Box component="td" sx={{ ...td, color: diffColor, fontWeight: 600 }}>{gp === 0 ? '—' : fmtSigned(diff)}</Box>
+                  return <Box component="td" sx={{ ...td, color: diffColor, fontWeight: 600, ...dropNarrow }}>{gp === 0 ? '—' : fmtSigned(diff)}</Box>
                 })()}
                 <Box component="td" sx={{ ...td, display: { xs: 'none', sm: 'table-cell' }, color: gp === 0 ? 'text.disabled' : l10Color, fontWeight: 600 }}>
                   {gp === 0 ? '—' : `${l10.wins}-${l10.losses}`}

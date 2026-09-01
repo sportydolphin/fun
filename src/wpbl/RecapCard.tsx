@@ -2,11 +2,12 @@ import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import { Box, Typography } from '@mui/material'
 import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblGamePlay, WpblRecapPlay, WpblVideo } from './types'
 import { buildRecap, leagueRecapContext, type GameRecap, type RecapStar } from './derive/recap'
+import { seriesContext } from './derive/series'
 import { fetchWpblGameLines, fetchWpblGameRecapPlays } from './api'
 import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, wpblNameStages } from './ui'
 import { WPBL_ACCENT, relativeDayLabel, wpblFullName } from './constants'
 import { GameHighlightCard } from './Highlights'
-import { useWpblGameLink } from './LinkContext'
+import { useWpblGameLink, useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
 
 const MEDAL = ['🥇', '🥈', '🥉']
 
@@ -91,16 +92,23 @@ function FittedName({ name, className, sx, fitKey }: {
   )
 }
 
-function StarRow({ star, medal, name, teamId, portraitSize = 30, medalSize = 20, fitKey, onClick }: {
+function StarRow({ star, medal, name, teamId, portraitSize = 30, medalSize = 20, fitKey, link }: {
   star: RecapStar; medal: string; name: string; teamId: string | null
-  portraitSize?: number; medalSize?: number; fitKey?: number; onClick?: () => void
+  portraitSize?: number; medalSize?: number; fitKey?: number
+  /** Spread from `playerLink(player, onOpenPlayer)`, so the row is a real
+   *  <a href="/wpbl/players/…> rather than a Box with a click handler. Googlebot does not
+   *  fire click handlers, and these are the only player names on the section's landing page:
+   *  see the linkTo() note in CLAUDE.md, and `/mlb` sitting undiscovered for months. Empty
+   *  when there is no player to point at, which leaves the row inert exactly as before. */
+  link?: WpblPlayerLinkProps
 }) {
+  const tappable = !!(link?.href || link?.onClick)
   // `name` is always the full name — the portrait headshot is keyed on it, and it stays the
   // hover title whenever the visible label has been shortened.
   return (
-    <Box onClick={onClick}
-      sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.6, cursor: onClick ? 'pointer' : 'default',
-        '&:hover': onClick ? { '& .starname': { textDecoration: 'underline' } } : undefined }}>
+    <Box {...link}
+      sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.6, cursor: tappable ? 'pointer' : 'default',
+        '&:hover': tappable ? { '& .starname': { textDecoration: 'underline' } } : undefined }}>
       <Box sx={{ fontSize: medalSize * 0.05 + 'rem', width: medalSize / 16 + 'rem', textAlign: 'center', flexShrink: 0 }}>{medal}</Box>
       <PlayerPortrait name={name} teamId={teamId} size={portraitSize} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -182,9 +190,13 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
   onOpenPlayer?: (p: WpblPlayer) => void
 }) {
   const nameOf = useMemo(() => (id: string) => names.get(id)?.name ?? '—', [names])
+  const playerLink = useWpblPlayerLink()
   const ctx = useMemo(() => leagueRecapContext(games), [games])
-  const recap = useMemo(() => buildRecap(game, teams, batting, pitching, plays, nameOf, ctx),
-    [game, teams, batting, pitching, plays, nameOf, ctx])
+  // Both of these need the whole schedule and neither can be worked out from the game alone:
+  // the verbs calibrate to the league's run environment, the series to the games around it.
+  const series = useMemo(() => seriesContext(game, games, teams), [game, games, teams])
+  const recap = useMemo(() => buildRecap(game, teams, batting, pitching, plays, nameOf, ctx, series),
+    [game, teams, batting, pitching, plays, nameOf, ctx, series])
   const [starsRef, starsWidth] = useFitKey()
   if (!recap) return null
 
@@ -228,7 +240,7 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
               return (
                 <Box key={s.playerId} data-star-col="" sx={{ minWidth: 0, flex: { xs: '0 1 auto', sm: '1 1 auto' } }}>
                   <StarRow star={s} medal={MEDAL[i] ?? '⭐'} name={s.name} teamId={s.teamId} fitKey={starsWidth}
-                    onClick={p && onOpenPlayer ? () => onOpenPlayer(p) : undefined} />
+                    link={playerLink(p, onOpenPlayer)} />
                 </Box>
               )
             })}
@@ -270,13 +282,17 @@ function latestFinal(games: WpblGame[]): WpblGame | null {
     : (b.start_time ?? '').localeCompare(a.start_time ?? ''))[0]
 }
 
-export function LastGameCard({ games, teams, players, onOpenGame }: {
+export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }: {
   games: WpblGame[]
   teams: Map<string, WpblTeam>
   players: WpblPlayer[]
   onOpenGame: (g: WpblGame) => void
+  /** The star's own page. Optional only so the card still renders somewhere without one; on
+   *  Home it is always passed, and it is the point of the star being here. */
+  onOpenPlayer?: (p: WpblPlayer) => void
 }) {
   const gameLink = useWpblGameLink()
+  const playerLink = useWpblPlayerLink()
   const game = useMemo(() => latestFinal(games), [games])
   const [data, setData] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[]; plays: WpblRecapPlay[] } | null>(null)
 
@@ -289,14 +305,13 @@ export function LastGameCard({ games, teams, players, onOpenGame }: {
     return () => { cancelled = true }
   }, [game?.id])
 
-  const nameOf = useMemo(() => {
-    const byId = new Map(players.map(p => [p.id, p.name]))
-    return (id: string) => byId.get(id) ?? '—'
-  }, [players])
+  const byPlayerId = useMemo(() => new Map(players.map(p => [p.id, p])), [players])
+  const nameOf = useMemo(() => (id: string) => byPlayerId.get(id)?.name ?? '—', [byPlayerId])
 
   const ctx = useMemo(() => leagueRecapContext(games), [games])
-  const recap = useMemo(() => game ? buildRecap(game, teams, data?.batting ?? [], data?.pitching ?? [], data?.plays ?? [], nameOf, ctx) : null,
-    [game, teams, data, nameOf, ctx])
+  const series = useMemo(() => game ? seriesContext(game, games, teams) : null, [game, games, teams])
+  const recap = useMemo(() => game ? buildRecap(game, teams, data?.batting ?? [], data?.pitching ?? [], data?.plays ?? [], nameOf, ctx, series) : null,
+    [game, teams, data, nameOf, ctx, series])
 
   const [starRef, starWidth] = useFitKey()
   if (!game || !recap) return null
@@ -339,7 +354,16 @@ export function LastGameCard({ games, teams, players, onOpenGame }: {
               still gets the same fit key, so a name shortened on a narrow phone comes back when
               the phone turns. */}
           <Box ref={starRef} sx={{ mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-            <StarRow star={recap.stars[0]} medal="🥇" name={recap.stars[0].name} teamId={recap.stars[0].teamId} portraitSize={44} medalSize={30} fitKey={starWidth} onClick={() => onOpenGame(game)} />
+            {/* THE STAR OPENS THE PLAYER, NOT THE GAME. It used to open the game, which is the
+                one thing on this card already reachable three other ways: the score rows, the
+                card's own "Full recap" and the scoreboard strip above it. Meanwhile this is the
+                ONLY player name on /wpbl, and opening a player page is the retention event on
+                the whole section (a browser that opens one returns at 76.5%, against 7.8% for
+                one that opens neither that nor Game Center; see the traffic notes in
+                ROADMAP-WPBL.md). It is also now a real anchor, so it is a crawl path from the
+                landing page to a player page rather than a click handler Googlebot cannot see. */}
+            <StarRow star={recap.stars[0]} medal="🥇" name={recap.stars[0].name} teamId={recap.stars[0].teamId} portraitSize={44} medalSize={30} fitKey={starWidth}
+              link={playerLink(byPlayerId.get(recap.stars[0].playerId), onOpenPlayer)} />
           </Box>
         </Box>
       )}

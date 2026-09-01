@@ -51,6 +51,7 @@ import ws from 'ws'
 import { Resvg } from '@resvg/resvg-js'
 import subsetFont from 'subset-font'
 import { buildRecap, leagueRecapContext } from '../src/wpbl/derive/recap'
+import { seriesContexts } from '../src/wpbl/derive/series'
 import { buildBlueskyPost, boxScoreCard, cardCharset, linkFacets, graphemes } from '../src/wpbl/derive/blueskyRecap'
 import { wpblGamePath } from '../src/wpbl/routes'
 import type { WpblGame, WpblTeam, WpblBattingLine, WpblPitchingLine, WpblGamePlay } from '../src/wpbl/types'
@@ -267,11 +268,15 @@ async function main() {
   const pbp = groupBy((plays ?? []) as (WpblGamePlay & { game_id: string })[])
 
   const session = DRY_RUN ? null : await login()
+  // These posts are public and permanent, which is exactly why the series belongs in them: a
+  // championship decider going out to a feed as "the Firebells top the Queens" is the failure
+  // this is here to stop.
+  const series = seriesContexts(games as WpblGame[], teams)
 
   for (const game of due) {
     const recap = buildRecap(
       game, teams, bat.get(game.id) ?? [], pit.get(game.id) ?? [], (pbp.get(game.id) ?? []) as any,
-      (id: string) => nameById.get(id) ?? 'Unknown', ctx)
+      (id: string) => nameById.get(id) ?? 'Unknown', ctx, series.get(game.id) ?? null)
     if (!recap) { console.warn(`⚠️   ${game.id}: no recap could be built, skipping.`); continue }
 
     // Schemeless on purpose: the post TEXT reads better without a scheme and `linkFacets`

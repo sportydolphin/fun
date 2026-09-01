@@ -3,7 +3,8 @@ import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { track, EVENTS } from '../lib/analytics'
 import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblGameDetails, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllRunValuePlays, LIVE_POLL_MS } from './api'
-import { wpblAccent, wpblFullName, outsToIp, playedInnings, formatGameTime, relativeDayLabel } from './constants'
+import { WPBL_ACCENT, wpblAccent, wpblFullName, outsToIp, playedInnings, formatGameTime, relativeDayLabel } from './constants'
+import { seriesContext } from './derive/series'
 import { LiveBanner, useLiveGame } from './Live'
 import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
@@ -1121,6 +1122,10 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
 
   const final = game.status === 'final' && game.home_score != null && game.away_score != null
   const live = game.status === 'live'
+  // Which postseason series this is, and where it stands. Null for every regular-season game,
+  // and null when the caller passed no schedule: a series record cannot be read off one row,
+  // so a partial schedule gets nothing rather than a record computed from part of a series.
+  const series = useMemo(() => seriesContext(game, games, byId), [game, games, byId])
   const hasLines = lines.batting.length > 0 || lines.pitching.length > 0
   const awayWon = final && (game.away_score ?? 0) > (game.home_score ?? 0)
   const homeWon = final && (game.home_score ?? 0) > (game.away_score ?? 0)
@@ -1249,6 +1254,29 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
             <Box sx={{ px: 2, pt: 2, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
               {scoreLine(away, game.away_score, awayWon)}
               {scoreLine(home, game.home_score, homeWon)}
+            </Box>
+          )}
+          {/* The series this game belongs to. Postseason baseball is series-shaped and this
+              header was not: a best-of-five clincher read as a 4-2 win and nothing else.
+              Above the venue because it is the second thing about the game after the score,
+              and the one thing on this header the score cannot say.
+
+              Both readings are here, unlike the schedule row which shows the record alone:
+              `line` is where the series stands (after this game once it is final, entering it
+              while it is not) and `stakes` is what a win would settle. This is the surface
+              someone opens to watch a game on, so what is at stake is the point of being
+              here. */}
+          {series && (
+            <Box sx={{ px: 2, mt: 1.25, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 1 }}>
+              <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: WPBL_ACCENT }}>
+                {series.label} · Game {series.gameNumber} of {series.bestOf}
+              </Typography>
+              {series.line && (
+                <Typography sx={{ fontSize: '0.8rem', fontWeight: 700 }}>{series.line}</Typography>
+              )}
+              {series.stakes && (
+                <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, color: 'text.secondary' }}>{series.stakes}</Typography>
+              )}
             </Box>
           )}
           {game.venue && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', px: 2, mt: 1 }}>{game.venue}</Typography>}

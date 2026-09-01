@@ -123,7 +123,9 @@ prioritized against measurement rather than judgement. Counting rules in
 **What this reorders.** Daily standouts (#5) and the seeding race (#1c) move up, not because
 they are cheap but because they are the only two items that put a player-page entry point on
 the screen where the audience is currently lost. Anything that makes a name tappable is worth
-more than it looks. The primer (#4) and SEO (#3) hold, aimed at a cold audience returning at
+more than it looks. *(#5 was dropped on Sep 1 as a card the section already has. The reasoning
+in this paragraph survived it and became #5b, which is the same aim at a fraction of the cost:
+Home's one player name currently opens a box score.)* The primer (#4) and SEO (#3) hold, aimed at a cold audience returning at
 12 to 20%.
 
 ---
@@ -137,15 +139,34 @@ in now is:
 1. ~~**#1c, today or not at all.**~~ ✅ *Done Sep 1: the flag came off and the card was audited
    against a real browser on the way out, which found four scale bugs the desktop rebuild's sweep
    could not have found, because a flagged card never renders. See the log.*
-2. **#1b's open half, before Sep 9.** Series records on the schedule and in Game Center, and
-   series-aware recap and Discord wording. Seven to eleven games of series baseball arrive on
-   Sep 9 and every surface that describes a game is still single-game shaped.
-3. **The postseason arrival check** (#1, and the note in the clock). Not a build: the mirror still
-   holds nothing but `regular` / `true`, so the first semifinal row is where we find out whether
-   the feed marks the postseason at all, and every season total on the site rides on it.
-4. **#5 daily standouts**, which is the one item whose value does not fall off on Sep 6, and
-   which puts tappable player names on Home. Then **#2 the archive**, the only durable item, whose
-   season-capture half has to happen before Sep 22.
+2. ~~**#1b's open half, before Sep 9.**~~ ✅ *Done Sep 1: series records on the schedule and in
+   Game Center, and series-aware recap, Discord and Bluesky wording. See the log.*
+3. ~~**The postseason arrival check** (#1, and the note in the clock).~~ ✅ *Done Sep 1, as a job
+   rather than as a diary note: `wpbl-postseason-check` compares the published calendar against
+   the feed's own marking four times a day through the postseason and fails loudly on a
+   disagreement. The answer to what the feed actually sends still arrives on Sep 9; what changed
+   is that it now arrives as an email rather than as somebody remembering to look.*
+4. ~~**#5 daily standouts.**~~ ❌ *Dropped Sep 1: this league plays one game a day, so the day's
+   standouts and that game's stars are the same three players, and `LastGameCard` already draws
+   them. See the entry. What it was really reaching for became **#5b**.*
+5. **#5b: Home's one player name should open the player.** Two lines, and it is the only item on
+   this list aimed straight at the measured retention gradient.
+6. **#2 the archive**, scoped Sep 1 and smaller than it looked: the mirror is already complete
+   against the feed, so there is no capture pass to write and the whole build can wait for the
+   winter. Its one dated half, a verified export of the season, ~~cannot wait~~ ✅ *shipped
+   Sep 1*. See the scope under #2.
+7. **#4 the primer**, cheap, durable, and aimed at an audience that is entirely first-time
+   visitors.
+
+### 5b. Home's star name opens the game, not the player 🎯
+
+Split out of #5 when that was dropped, because it is the half of it that was right.
+`LastGameCard` renders one star and passes `onClick={() => onOpenGame(game)}`, so the single
+player name on `/wpbl` opens a box score. `GameRecapView` two hundred lines up does it correctly,
+passing `onOpenPlayer(p)`, so the wiring and the lookup from a `RecapStar` back to a
+`WpblPlayer` both already exist. Worth checking at the same time whether the card should show
+all three stars rather than one: it shows one because of a layout constraint (it shares a
+stretched row with Leaders), which is a real reason and may still be the right answer.
 
 ### 0. The desktop rebuild: Home, and the 1.4x zoom that shaped it 🎯⚙️: ✅ **shipped Aug 31, 2026 as v1.58.0** (see the log)
 
@@ -404,6 +425,14 @@ season record" or "has been played"; confirm what the feed actually puts in `gam
 a postseason game (unknown until the first one lands, and the semis start right after
 Sep 6).
 
+**The last of those is now watched rather than remembered** (Sep 1, see the log).
+`scripts/check-wpbl-postseason.ts` reads the league's published dates out of
+`POSTSEASON_SCHEDULE` and the feed's marking through `countsInStandings`, and fails when they
+disagree in either direction. It runs four times a day through September and October and is the
+one job in the repo that is MEANT to go red. What it must never become is a filter: a
+regular-season game postponed into the Sep 7-8 gap would vanish from the standings, which is why
+the date raises an alarm a person reads and never decides what counts.
+
 ### 1b. Series state 🎯: ✅ **the bracket shipped Aug 20, 2026 and is now live for everyone** (see the log). The rest is open
 
 Postseason baseball is series-shaped and **almost nothing in the section models a series**.
@@ -433,9 +462,16 @@ was. Reasoning is in the header comment of `PlayoffBracket.tsx`.
 season run differential, with an elimination flag, which is the "something new" the postseason
 needed rather than a third view of the standings. `derive/seriesOdds.ts`.
 
-**Still open**: series records on the schedule and Game Center, series-aware recap and Discord
-wording. The clinched/eliminated state is partly done (the bracket's elimination flag); the
-schedule and Game Center still do not carry it. None of these are blocked, by the same argument.
+**The rest shipped Sep 1** (see the log). `derive/series.ts` answers the question every surface
+other than the bracket has, which is the opposite way round from `buildBracket`: given ONE game,
+what series is it, which game of it, and what is the record. The schedule carries "Semifinal ·
+Game 2 · Firebells lead 1-0", Game Center adds what a win would settle, and the recap engine
+takes the series as an optional argument so the site card, the Discord embed and the Bluesky post
+all say a championship was won on the night one is.
+
+**Still open**: nothing on this item that is not waiting on Sep 9. The clinched/eliminated state
+is carried by the bracket's flag and by Game Center's "Winner takes the series"; a club knocked
+OUT is not named as such anywhere, which is a wording gap rather than a missing derive.
 
 **The one real dependency**, now isolated: the feed must mark postseason games at all, through
 `game_type` or `counts_in_standings`. If it marks neither, those games read as regular season,
@@ -477,6 +513,58 @@ Two reasons to start now rather than in September:
 - It is the natural home for the multi-season support that has been deferred since Phase 3
   (see Parked). Building the archive is what makes 2027 a second season rather than a reset.
 
+#### Scoped Sep 1, 2026, and the first bullet above is mostly wrong
+
+The item has been carrying a deadline it does not have. Audited against the live feed and the
+live mirror, field by field:
+
+**THE MIRROR IS ALREADY COMPLETE AGAINST THE FEED.** Every field the feed publishes on a game,
+a box-score line or a play has a column in `wpbl_games` / `wpbl_batting_lines` /
+`wpbl_pitching_lines` / `wpbl_fielding_lines` / `wpbl_game_plays`, down to `pitch_sequence`,
+`pitch_events`, `fouls`, `balls`, `strikes`, `home_lob`, `sf`, `sh`, `ibb`, `gdp`, `tb`. Today
+that is 30 games, 610 batting lines, 142 pitching lines, 469 fielding lines and 2,358 plays. The
+ingest has been snapshotting continuously since August; there is no separate capture pass to
+write. Three things in the feed are NOT mirrored and none is worth a column: the venue's postal
+address (one venue, all season), each club's and player's `profile_url` on the league's own site
+(which dies with the site either way), and the `wins/losses/record/streak` fields on `/teams`,
+which the league publishes empty and we compute ourselves anyway.
+
+**SO EVERY HEADLINE FEATURE OF THIS ITEM IS RECOMPUTABLE FOREVER**, and none of it has to be
+built before Sep 22. Frozen leaderboards, single-season and single-game records, the complete
+game log, the Hall of Firsts, run expectancy, win probability, the MVP race, `excitement`, each
+club's arc: all of it derives from stored plays and stored box lines. Nothing reads live state
+that is not also written to the play log. The archive is a build-whenever job.
+
+**WHAT IS ACTUALLY AT RISK, in order.** Not the feed's own data. The things AROUND it, all of
+them partial and all of them owned by somebody else:
+
+- **TrackMan: 2 of 25 finals.** 766 pitch rows, from a batch the league published once and
+  stopped. Not a coverage gap we can close, and `wpbl-tracking-watch` runs daily **year-round**
+  (checked: no season window), so a resumption in November is still caught. Nothing to do.
+- **RetroWPBL: 20 of 25 finals**, a stranger's hand transcription, incomplete, and **no licence,
+  so all rights reserved by default**. `wpbl-retro-sync` is also year-round. The licence is the
+  problem, not the clock: it can be read to check our own rows and cannot be republished, which
+  bars it from an archive that is meant to be the public record. Asking the author is the only
+  path and it is not a September job.
+- **YouTube: 20 of 25 finals have a linked video**, plus 112 unlinked clips. We hold ids and
+  titles, never the video, and rehosting is neither possible nor right. Channel deletion is the
+  rot and it cannot be mitigated. What CAN be checked is whether the metadata we keep reads as a
+  record on its own once the embed is dead.
+- **Five finals have no video and no Retro detail at all.** The box score is the whole record of
+  those games. Worth knowing before someone promises "the definitive record".
+- **One of 119 players has no bundled portrait**, and 118 do. Team logos are bundled too, so the
+  art does not depend on anyone else's server.
+
+**AND THE ONE REAL DEADLINE, WHICH WAS NOT ON THIS LIST AT ALL** (built Sep 1, see the log). Everything above says the
+inaugural season survives as long as the mirror does. The mirror is one Supabase project. When
+the feed goes quiet on Sep 22 there is no longer a source to re-ingest from, so from that date
+the database stops being a cache of someone else's data and becomes **the only copy of the
+WPBL's first season that we control**, and a dropped table or a lapsed project takes it with no
+recovery path. A verified export is worth more than every feature in this entry and is a fraction of the
+work. **That was the September job, and it is done**: `npm run archive` writes the season to
+`archive/wpbl-2026/` and a weekly job commits it when it moved. Everything else here can wait
+for the winter, which is also when it has an audience.
+
 Worth noting as evidence of demand: `github.com/exu6jh/RetroWPBL` is a stranger
 hand-transcribing WPBL play-by-play into Retrosheet format, game by game, from the same
 public feed we already mirror in far more depth. People want the historical record.
@@ -511,13 +599,30 @@ plus a glossary of the stat abbreviations. Every visitor to a brand-new league i
 first-time visitor. Doubles as indexable prose, which the section currently has almost
 none of.
 
-### 5. Daily standouts: Home card 🎯
+### 5. Daily standouts: Home card 🎯: ❌ **dropped Sep 1, 2026. It is a card the section already has**
 
-A "top performers" card for the latest game day, built from box lines Home already fetches.
-Mirrors the MLB TopPerformers/Spotlight pattern. Low effort, and it is the one item here whose
-value does NOT fall off on Sep 6: a game day is a game day, and the postseason has 7 to 11 more
-of them, each one carrying more weight than any regular-season day did. As of Sep 1 that is 5
-regular-season days plus the postseason, against the 12 games this entry was written against.
+A "top performers" card for the latest game day, built from box lines Home already fetches,
+mirroring the MLB TopPerformers/Spotlight pattern. Cheap, durable past Sep 6, and it kept moving
+up this list on the strength of the retention gradient.
+
+**The premise was imported from MLB and does not survive contact with this schedule.** A daily
+standouts card is worth building where a game day holds fifteen games and nobody can watch them
+all, so a digest of the day beats any one box score. This league plays **one game a day**: 24 of
+the 27 game days to Sep 1 had exactly one, all five remaining regular-season days have one, and
+every postseason date has one by construction, since the bracket never runs two series on the
+same night. So "the standouts of the day" and "the stars of that game" are the same three
+players, computed from the same box lines, and `LastGameCard` on Home is already drawing them
+from `buildRecap`. It would have been a second card restating the first, and the MLB pattern it
+mirrors is the reason that was not obvious.
+
+**What was actually right about it, and is now its own job.** The reason it kept climbing was the
+traffic finding above: a browser that opens a player page returns at 76.5%, against 7.8% for one
+that opens neither a player page nor Game Center, and Home is where most of them are lost. The
+card was a means to putting a tappable player name in front of them. Home HAS one and it does not
+go to the player: `LastGameCard` renders `recap.stars[0]` alone, and its name and portrait are
+wired to `onOpenGame`, so the one player name on the section's landing page opens a box score
+instead of the page the gradient is about. That is a two-line fix and a much better use of the
+same reasoning than a new card, so it is filed as its own item rather than lost with this one.
 
 ### 6. Win probability in Game Center 🔬
 
@@ -894,6 +999,152 @@ across games from Aug 1 to Aug 15, with the validator's checks untouched in betw
 only vanish if the underlying rows changed, and the rows only change when the feed does. The
 league has been quietly re-scoring its opening fortnight, and all of it arrived. What is missing
 was never the corrections; it was any way to know.
+
+Sits next to the archive entry below, which checked the other half of the same question: that one
+established the mirror holds a column for every field the feed publishes, this one that the values
+in those columns are still the values the feed is serving. Schema coverage and freshness are
+different failures, and the archive is only worth what both are worth.
+### Sep 1, 2026: the season, in files, because on Sep 22 there is nothing to re-ingest from
+
+Written while scoping #2, which turned out to be a much smaller item than filed with one part
+of it that was not on the list at all.
+
+**THE MIRROR IS ALREADY COMPLETE AGAINST THE FEED**, checked field by field: every field the
+feed publishes on a game, a box line or a play has a column, down to `pitch_sequence`,
+`pitch_events`, `fouls`, `balls`, `strikes`, `lob`, `sf`, `sh`, `ibb`, `gdp`, `tb`. So the
+entry's "capture during the season" half is mostly imaginary, the ingest has been doing it since
+August, and every headline feature of the archive derives from stored plays and stored box lines
+and is recomputable in 2030. The full scope is under #2.
+
+**What that leaves is a category nobody had written down.** Until Sep 22 these tables are a
+CACHE: every row is re-fetchable from the league, and losing the database costs a re-ingest.
+After Sep 22 there is nothing to re-ingest from, and the same tables become the only copy of the
+league's first season we control, with no announcement and no visible change. A dropped table or
+a bad migration on Sep 23 is unrecoverable and looks like any other Tuesday.
+
+`npm run archive` writes it to `archive/wpbl-2026/`, one plain JSON file per table, and a weekly
+job commits it when the data moved. Git is the store because it is versioned, already mirrored
+off-site, keeps every past export reachable, and shows in a diff exactly what changed.
+
+**IT READS THROUGH THE ANON KEY, AND THAT IS A SECURITY PROPERTY RATHER THAN A SHORTCUT.** The
+files go in a repository, so the one thing the export must be incapable of is picking up a row
+that was not already public. Reading as the anonymous client hands that decision to RLS, using
+the same policies that decide what the website serves: a table with no public policy exports
+empty, and a table added to the list by mistake cannot leak. A service-role key would have
+exported `events`, `feedback` and `wpbl_predict_*`. The cost of the choice is that this is NOT a
+database backup and must never be described as one; auth, analytics, feedback, push and the
+prediction game are outside it, and project-level backups are a separate Supabase decision.
+
+**The failure an archive cannot survive is the short read**, because it looks exactly like
+success. PostgREST caps a bare select at 1000 rows silently, so every table is paged over its
+own PRIMARY KEY (half of them key on the feed's id rather than a uuid, so this could not be
+assumed) and the run FAILS rather than writing a plausible partial file over a complete one.
+
+**And it is verified rather than assumed.** `--check` re-reads every table and compares it
+against both the file on disk and the digest in the manifest, so it catches a truncated file, a
+hand-edit, and a database that has moved on. Tested by deleting a row from an exported file and
+confirming it reports ALTERED, then restoring it and confirming it goes green: an untested
+backup is a rumour, and a verifier that has never failed is the same rumour with more steps.
+
+**One thing found on the way, and fixed the same day.** `wpbl_player_team_changes` held
+**13,644 rows encoding 18 distinct facts about 3 players**, growing about 2,900 rows a day
+forever, because the ingest re-reads old box scores continuously and the insert was not
+idempotent. It was half the archive by bytes and would have churned 4.7MB into git every week
+for no new information, long after the season ended. Nothing on the site reads the table, which
+is why three weeks of it went unnoticed: the cost was not a wrong number on a page, it was an
+audit log too noisy to audit with. Migration `20260901204532` collapsed it to 18 (earliest
+detection wins, since that is the moment the move could first have been known) and put a unique
+index under it; the ingest now upserts with `ignoreDuplicates`. **The dedupe also had to teach
+`wpbl_merge_players` about the new constraint**, because it re-points this table's rows at the
+kept player and two players logging the same move out of the same box score is precisely what a
+mergeable pair looks like: left alone, the next merge would have failed on a constraint added
+weeks earlier, during a rare manual operation nobody rehearses.
+
+4,707 rows across 14 tables, 4.56MB. The four that ARE the season are `wpbl_games`,
+`wpbl_batting_lines`, `wpbl_pitching_lines` and `wpbl_game_plays`: rows rather than computed
+standings, because a derived number preserves one reading of the season and the rows preserve
+all of them.
+
+### Sep 1, 2026: the postseason is series-shaped, and so is the section now
+
+Eight days before the first semifinal. Two things, and the small one is the more important.
+
+**THE SMALL ONE: a job that is meant to fail.** `countsInStandings` fails OPEN by design, and
+the price of that design has always been a dated one: if the feed marks a semifinal as nothing in
+particular, the site folds up to eleven postseason games into every leaderboard, every player
+page, the OG cards and the Discord `/player` card, the bracket sits empty while the games it
+draws are being played, and **nothing anywhere goes red**. The plan for that was a note in this
+file saying to look on Sep 9. `wpbl-postseason-check` replaces the note. It compares the league's
+own published dates, read out of `POSTSEASON_SCHEDULE` rather than restated, against the feed's
+marking read through `countsInStandings` itself, and exits 1 when the two disagree in either
+direction: a postseason game we are counting, or a regular-season game we are not. Four times a
+day through September and October.
+
+It is the only job in the repo whose red X is the product. The play-by-play validator next to it
+reports 57 known findings a night and therefore always exits 0, because a job that is red every
+morning is a job nobody reads; this one is silent all season and goes red once. Both policies are
+right and the difference between them is worth keeping straight, so each file says why it has the
+one it has.
+
+**And it must never become a filter.** The obvious move the day it fires is to have the app treat
+the date as authoritative. That would drop a rained-out regular-season game made up in the Sep 7-8
+gap out of the standings with no evidence it was ever there, which is the single-venue league's
+most likely schedule accident. A date is good enough to raise an alarm a person then reads. It is
+not good enough to decide what counts.
+
+**THE LARGE ONE: `derive/series.ts`.** Postseason baseball is series-shaped and almost nothing in
+the section was. "SF leads 2-1" is the unit a fan tracks, and a best-of-five clincher would have
+been recapped to a public Discord channel and a public Bluesky feed as "the Firebells top the
+Queens", on the night the league crowned its first champion.
+
+`buildBracket` already grouped postseason games by pairing, but it answers "draw me the bracket"
+and takes the standings to do it. Every other surface has the opposite question: given ONE game,
+which series, which game of it, what is the record. So the format definitions moved DOWN into a
+module that needs only a schedule, and bracket.ts now imports them rather than the other way
+about. `BEST_OF` stated twice is how a semifinal ends up needing three wins on one screen and two
+on another.
+
+- **No series id, still.** The pair of team ids identifies a series uniquely inside a four-club
+  bracket, which is what unblocked this item in the first place. The ROUND needs no id either and
+  no dates: a club that reaches the championship plays in two pairings and one knocked out in the
+  semifinals plays in one, so the championship is the pairing both of whose clubs appear twice.
+  Dates were the obvious alternative and are the wrong one, because a postseason game is
+  rescheduled far more often than a regular-season one and a semifinal that slid past the
+  championship's published start would relabel itself.
+- **A final reports the series INCLUDING itself and a preview EXCLUDING itself**, which is what a
+  box score and a schedule row respectively mean, off one slice with no second code path.
+- **Schedule** carries "Semifinal · Game 2" and the record. The record only: what a win would
+  clinch is broadcast copy and belongs where there is room for it. **Game Center** has that room
+  and carries both, so an unplayed decider reads "Winner takes the series" rather than naming one
+  club as if only it had something at stake.
+- **The recap engine takes the series as an OPTIONAL argument**, unlike the season aggregates
+  where an omitted schedule silently over-counts and the parameter is therefore required. The
+  worst a missing series does here is leave a sentence unsaid. The sentence closes the blurb,
+  which is the highest-leverage place to put it: the site card, the Discord embed and the Bluesky
+  post all render the blurb, so one change reached all three. A clinched series also goes to the
+  FRONT of the feats, ahead of a three-homer game, which is the one night it outranks one.
+- **The Deno fast path words it too.** `announce-final` inside `wpbl-ingest` usually posts before
+  the hourly job and owns the message, so leaving the series to the job would have meant every
+  postseason recap being silently corrected by an edit minutes later. That put `series.ts` and
+  `season.ts` into the Deno import graph, and `denoGraph.test.ts` now names both so a refactor
+  cannot quietly take the `.ts` extension check with them.
+- **Nothing changes for a regular-season game, and that is pinned.** `recapMessageFingerprint`
+  is the whole rendered message, so a footer that grew unconditionally would have re-edited all
+  thirty already-posted recaps on the next pass. A test renders one both ways and compares.
+
+Everything fails toward the regular-season reading, as anything written before Sep 9 has to:
+with no game marked postseason, every function returns null and every surface renders exactly as
+it does today.
+
+**Verified against a simulated postseason**, since there is no real one to look at: three real
+club pairings temporarily marked as series, then the schedule and Game Center read at 320, 390
+and 1440, both themes, text scale 1 and 1.125. No clipping, no row taller than its neighbours, no
+horizontal page scroll. 1,095 tests pass, 28 of them new.
+
+One thing deliberately left alone: `gameNumber` is not clamped to `bestOf`. "Game 4 of 3" on
+screen means the pairing has picked up a game that is not part of the series, which in this mirror
+means a duplicated row, and the same duplication is inflating the record beside it. Clamping
+would hide a real fault behind a plausible number.
 
 ### Sep 1, 2026: the seeding race comes out from behind the flag, and what an unrendered card hides (v1.59.0)
 

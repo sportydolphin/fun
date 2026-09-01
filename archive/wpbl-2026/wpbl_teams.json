@@ -1,0 +1,50 @@
+[
+ {
+  "abbr": "BOS",
+  "api_id": "9f08or2mffx81409",
+  "city": "Boston",
+  "color": "#2e5e3a",
+  "color_secondary": null,
+  "created_at": "2026-07-30T06:06:54.957675+00:00",
+  "id": "BOS",
+  "logo_url": null,
+  "name": "Hunters",
+  "sort_order": 1
+ },
+ {
+  "abbr": "LA",
+  "api_id": "v4gisr4rbgmn67b0",
+  "city": "Los Angeles",
+  "color": "#6b2fa0",
+  "color_secondary": null,
+  "created_at": "2026-07-30T06:06:54.957675+00:00",
+  "id": "LA",
+  "logo_url": null,
+  "name": "Queens",
+  "sort_order": 2
+ },
+ {
+  "abbr": "NY",
+  "api_id": "fttth861nft1j2s7",
+  "city": "New York",
+  "color": "#1d3461",
+  "color_secondary": null,
+  "created_at": "2026-07-30T06:06:54.957675+00:00",
+  "id": "NY",
+  "logo_url": null,
+  "name": "Heights",
+  "sort_order": 3
+ },
+ {
+  "abbr": "SF",
+  "api_id": "vhubhz8li07tmgq8",
+  "city": "San Francisco",
+  "color": "#c8402b",
+  "color_secondary": null,
+  "created_at": "2026-07-30T06:06:54.957675+00:00",
+  "id": "SF",
+  "logo_url": null,
+  "name": "Firebells",
+  "sort_order": 4
+ }
+]

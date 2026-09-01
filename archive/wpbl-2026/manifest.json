@@ -1,0 +1,94 @@
+{
+  "season": 2026,
+  "league": "Women's Pro Baseball League",
+  "source": "https://sportydolphin.fun — mirrored from stats.womensprobaseballleague.com",
+  "note": "The public record of the WPBL inaugural season. Plain JSON arrays of rows, one file per table, keys sorted. NOT a database backup: it is what the anonymous client can read, which is what the website serves. See scripts/export-wpbl-archive.ts.",
+  "exported_at": "2026-09-01T20:48:51.579Z",
+  "total_rows": 4707,
+  "tables": [
+    {
+      "table": "wpbl_teams",
+      "rows": 4,
+      "sha256": "16e2015f2ebdbdfc",
+      "bytes": 1016
+    },
+    {
+      "table": "wpbl_players",
+      "rows": 119,
+      "sha256": "4b0d19ef4f6052b3",
+      "bytes": 65555
+    },
+    {
+      "table": "wpbl_games",
+      "rows": 30,
+      "sha256": "001cad56cc0b2ecc",
+      "bytes": 46847
+    },
+    {
+      "table": "wpbl_batting_lines",
+      "rows": 610,
+      "sha256": "c6727aa621f616e8",
+      "bytes": 308837
+    },
+    {
+      "table": "wpbl_pitching_lines",
+      "rows": 142,
+      "sha256": "644a658b0156e51d",
+      "bytes": 65980
+    },
+    {
+      "table": "wpbl_fielding_lines",
+      "rows": 469,
+      "sha256": "0153356983ffdad4",
+      "bytes": 145010
+    },
+    {
+      "table": "wpbl_game_plays",
+      "rows": 2358,
+      "sha256": "39b795f5ba20d692",
+      "bytes": 2519388
+    },
+    {
+      "table": "wpbl_pitch_tracking",
+      "rows": 766,
+      "sha256": "5a9ea10cf7237656",
+      "bytes": 1277582
+    },
+    {
+      "table": "wpbl_play_corrections",
+      "rows": 0,
+      "sha256": "37517e5f3dc66819",
+      "bytes": 3
+    },
+    {
+      "table": "wpbl_player_team_changes",
+      "rows": 18,
+      "sha256": "13f13af6fed124be",
+      "bytes": 6177
+    },
+    {
+      "table": "wpbl_videos",
+      "rows": 132,
+      "sha256": "0ed9d0935c921e3a",
+      "bytes": 59533
+    },
+    {
+      "table": "wpbl_articles",
+      "rows": 23,
+      "sha256": "728e6586a974cea0",
+      "bytes": 23512
+    },
+    {
+      "table": "wpbl_game_details",
+      "rows": 20,
+      "sha256": "205889a9ef5a6309",
+      "bytes": 12832
+    },
+    {
+      "table": "wpbl_photos",
+      "rows": 16,
+      "sha256": "95fb295d797d8045",
+      "bytes": 27979
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+name: WPBL season archive
+
+# Writes the public record of the WPBL season to archive/wpbl-2026/ and commits it when it
+# changed.
+#
+# WHY IT EXISTS. Until Sep 22, 2026 the WPBL tables are a cache: every row can be re-fetched
+# from the league's feed, and losing them costs a re-ingest. When the feed goes quiet there is
+# nothing left to re-ingest from, and the same tables silently become the only copy of the
+# league's first season we control. This puts a second copy somewhere with permanent history.
+# The reasoning, and what this deliberately does NOT cover, is in the script's header.
+#
+# IT IS NOT A DATABASE BACKUP. It reads through the anon key, so it holds exactly what the
+# website already serves in public and nothing else: no auth, no analytics, no feedback, no
+# push subscriptions, no prediction game. Project-level backups and point-in-time recovery are
+# a Supabase setting and a separate decision.
+#
+# WEEKLY, AND WHY NOT DAILY. A push to main is a deploy, so a job that commits on every run
+# would ship a deploy a day for nothing (the same reasoning as build-sitemap). It commits only
+# on a real content diff, so during the season that is roughly one deploy a week, and after
+# Sep 22 the data stops changing and this stops committing entirely. Sunday evening UTC is
+# after every game of the weekend has gone final and been ingested.
+#
+# Year-round on purpose. The point of it arrives when the season is over.
+
+on:
+  schedule:
+    - cron: '0 22 * * 0'
+  workflow_dispatch:
+
+# The job commits the export back to the repository.
+permissions:
+  contents: write
+
+concurrency:
+  group: wpbl-archive
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VITE_SUPABASE_URL:      ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # A warning rather than a quiet echo, and rather than a failure. An archive job nobody
+      # wired up reads as covered when it is not, and that is the whole risk this addresses;
+      # but a red X for a missing secret would be a config problem wearing the costume of data
+      # loss.
+      - name: Warn when not configured
+        if: env.VITE_SUPABASE_ANON_KEY == ''
+        run: echo "::warning::VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY are not set, so the season archive did NOT run."
+
+      - name: Install the bundler
+        if: env.VITE_SUPABASE_ANON_KEY != ''
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['esbuild'].map(k=>k+'@'+d[k]).join(' ')")
+
+      # Fails if any table reads short of the row count the server reports for it, rather than
+      # writing a plausible-looking partial archive over a complete one. That is the one failure
+      # mode an archive cannot survive, because it looks exactly like success.
+      - name: Export the season
+        if: env.VITE_SUPABASE_ANON_KEY != ''
+        run: npm run archive
+
+      - name: Commit it if it changed
+        if: env.VITE_SUPABASE_ANON_KEY != ''
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # The manifest carries an exported_at that changes on every run, so it is only worth
+          # committing alongside a table that actually moved. Staging the tables first and
+          # checking THOSE is what keeps a quiet week from producing a commit and a deploy.
+          git add archive/wpbl-2026/*.json
+          git reset -q archive/wpbl-2026/manifest.json
+          if git diff --cached --quiet; then
+            echo "Season archive unchanged."
+            git checkout -- archive/wpbl-2026/manifest.json
+          else
+            git add archive/wpbl-2026/manifest.json
+            git commit -m "WPBL archive: the season as of $(date -u +%Y-%m-%d)"
+            git push
+          fi

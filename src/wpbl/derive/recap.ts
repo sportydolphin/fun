@@ -5,6 +5,11 @@ import type { WpblGame, WpblTeam, WpblBattingLine, WpblPitchingLine, WpblRecapPl
 // resolution, so they stay extensionless like the rest of the app.
 import { outsToIp, playedInnings } from '../innings.ts'
 import { classifyPa } from './matchups.ts'
+// TYPE ONLY, and it has to stay that way. The caller works the series out and hands it in,
+// which keeps this module's runtime dependencies exactly as they were: a recap is a reading
+// of ONE game, and a series record is a fact about the games around it, so a wording engine
+// has no business holding a schedule. (The same argument as gameUrl on buildRecapMessage.)
+import type { SeriesContext } from './series'
 
 // Auto game-recap engine. Pure: a game + its box lines + play-by-play in, a structured recap
 // out (no supabase / React), so GameDetail renders the full version, Home renders a compact
@@ -35,6 +40,10 @@ export interface GameRecap {
   teamLine: [RecapTeamLine, RecapTeamLine]  // [away, home]
   feats: string[]           // auto-detected highlights (multi-HR, no-hitter, cycle, …)
   flags: { shutout: boolean; blowout: boolean; oneRun: boolean; walkOff: boolean; comeback: boolean; extras: boolean }
+  /** The postseason series this game belongs to, when it is one. Null for every regular-season
+   *  game, which is every game the section has had until Sep 9, 2026, so every renderer that
+   *  ignores this field goes on behaving exactly as it did. */
+  series: SeriesContext | null
 }
 
 // ── League context ────────────────────────────────────────────────────────────────────────
@@ -179,6 +188,12 @@ export function buildRecap(
   plays: WpblRecapPlay[],
   nameOf: (playerId: string) => string,
   ctx: RecapLeagueContext = DEFAULT_RECAP_CONTEXT,
+  /** Worked out by the caller (seriesContext in derive/series.ts), because it needs the whole
+   *  schedule. OPTIONAL, and defaulting to null, so a caller that has no schedule in hand
+   *  produces the recap it always produced rather than a wrong one: unlike the season
+   *  aggregates, where an omitted schedule silently over-counts and the argument is therefore
+   *  required, the worst a missing series does here is leave a sentence unsaid. */
+  series: SeriesContext | null = null,
 ): GameRecap | null {
   if (game.status !== 'final' || game.home_score == null || game.away_score == null || game.home_score === game.away_score) return null
   const away = teams.get(game.away_team_id), home = teams.get(game.home_team_id)
@@ -375,7 +390,11 @@ export function buildRecap(
         ` ${top.name} went ${top.statline} on the mound.`,
         ` ${top.name} handled it from the mound: ${top.statline}.`,
       ], game.id, 'star')
-  const blurb = flow + starLine
+  // The series state closes the paragraph, which puts it in front of every reader of a recap
+  // at once: the site's card, the Discord embed and the Bluesky post all render the blurb.
+  // Last rather than first because the game is still what the paragraph is about, and a
+  // clincher's own sentence lands harder after the account of how it was won.
+  const blurb = flow + starLine + (series?.sentence ? ` ${series.sentence}` : '')
 
   // ── Decisions (W / L / S) with their lines. ────────────────────────────────────────────
   const decisions: RecapDecision[] = []
@@ -408,5 +427,14 @@ export function buildRecap(
     else if (p.gs === 1 && p.outs >= innings * 3 && pitching.filter(pp => pp.team_id === p.team_id).length === 1) feats.push(`${nameOf(p.player_id)}: complete game`)
   }
 
-  return { winner, loser, winnerScore, loserScore, margin, innings, headline, blurb, stars, decisions, teamLine, feats: feats.slice(0, 5), flags }
+  // A clinched series goes to the FRONT of the feats, ahead of a three-homer game. It is the
+  // only entry in the list that is not about this game, and on the one night it appears it is
+  // the most important thing that happened in the league.
+  if (series?.clinched && series.seriesWinner) {
+    feats.unshift(series.round === 'championship'
+      ? `🏆 ${series.seriesWinner.name} win the WPBL championship!`
+      : `${series.seriesWinner.name} win the semifinal ${Math.max(series.homeWins, series.awayWins)}-${Math.min(series.homeWins, series.awayWins)}`)
+  }
+
+  return { winner, loser, winnerScore, loserScore, margin, innings, headline, blurb, stars, decisions, teamLine, feats: feats.slice(0, 5), flags, series }
 }
