@@ -164,37 +164,28 @@ function Scoreboard({ games, teams, onOpenGame }: {
   // cut-off card reads as "swipe for more" rather than a clipped card.
   const [atStart, setAtStart] = useState(true)
   const [atEnd, setAtEnd] = useState(true)
-  // THE LEFT FADE IS AS WIDE AS THE CHIP IT HAS TO COVER, measured rather than guessed.
+  // BOTH FADES ARE THE SAME PLAIN 24px VIGNETTE, and the left one is not allowed to grow to
+  // cover the chip behind it.
   //
-  // A fixed 24px mask against a 190px chip is not a fade, it is a 24px vignette with a clipped
-  // card behind it: the strip opened showing the right-hand 51px of the previous-but-one game,
-  // which is that chip's SCORE COLUMN and nothing else, so the page began with two bare
-  // numerals stacked in the corner with no badge or club beside them. It reads as a rendering
-  // fault, and it is the one thing on the strip a reader cannot act on.
+  // It was, for one version: the mask measured the clipped leading chip and held SOLID across
+  // the whole of it, on the theory that half a game card reads as a rendering fault. What that
+  // actually buys is worse than the thing it was hiding, in two ways a static mock never shows.
+  // At rest the strip is pinned at max scroll (once the rest of the season fits on screen there
+  // is nowhere further to go), the leading chip is cut wherever that arithmetic leaves it, and
+  // the band covering it is then ~90px of flat background between the page's left margin and
+  // the first legible chip: the scoreboard reads as inset from a column every other block on
+  // Home fills. And in motion the width tracks the clip, so a chip is fully hidden the instant
+  // its left edge crosses the edge and reappears whole on the way back. Chips do not scroll off
+  // this strip, they blink out of it.
   //
-  // Widening the mask to a constant would only move the problem, because the clipped amount is
-  // not constant: the placement below aims the anchor 16px in, but once the rest of the season
-  // fits on screen the strip is pinned at max scroll and the leading chip is cut wherever the
-  // arithmetic leaves it. So the mask asks the chip. `leadClip` is how much of the first
-  // partially-scrolled chip is showing; the fade holds solid across it and softens over the
-  // gap after it, which is why the anchor beside it stays perfectly clear at any width.
-  const [leadClip, setLeadClip] = useState(0)
+  // A partly scrolled card under a soft edge is what every scroll strip on the web looks like,
+  // it is what the right-hand side of THIS one has always looked like, and it is the half
+  // nobody has ever complained about. The two sides are now the same 24px in both directions.
   const syncEdges = useCallback(() => {
     const c = scrollRef.current
     if (!c) return
     setAtStart(c.scrollLeft <= 1)
     setAtEnd(c.scrollLeft + c.clientWidth >= c.scrollWidth - 1)
-    // Rects, so this is in the same visual pixels the fade's `width` is spent in. (The
-    // placement below wants layout pixels and divides; see the note there.)
-    const left = c.getBoundingClientRect().left
-    let clip = 0
-    for (const chip of Array.from(c.children)) {
-      const r = chip.getBoundingClientRect()
-      // The first chip whose left edge is off-screen but whose right edge is not: the cut one.
-      if (r.left < left - 0.5 && r.right > left) { clip = r.right - left; break }
-      if (r.left >= left - 0.5) break
-    }
-    setLeadClip(clip)
   }, [])
 
   // The reader taking the strip over. Set from real input only, never from onScroll — that
@@ -274,6 +265,34 @@ function Scoreboard({ games, teams, onOpenGame }: {
       const zoom = parseFloat(getComputedStyle(el).getPropertyValue('--app-zoom')) || 1
       const delta = (anchor.getBoundingClientRect().left - el.getBoundingClientRect().left) / zoom - inset
       if (Math.abs(delta) > 0.5) el.scrollLeft += delta
+
+      // AT MAX SCROLL THE CUT CHIP MOVES TO THE RIGHT-HAND EDGE, because a chip cut on its left
+      // is the one thing on this strip that reads as broken.
+      //
+      // Once the rest of the season fits on screen the anchor cannot reach its inset: the strip
+      // runs out of scroll first and stops wherever the arithmetic left it, which put a game
+      // cut through the middle at the leading edge. A chip cut on the LEFT loses its date, its
+      // badges and its clubs and keeps only the score column, so the page opened with two bare
+      // numerals stacked in the corner. Cut the same chip on the RIGHT and it keeps the eyebrow,
+      // both badges and both abbreviations and loses only the scores, which reads as a card
+      // continuing past the edge, which is what it is. So give back the part-chip: one whole
+      // game more on the left, the last scheduled game part-shown under the trailing fade.
+      //
+      // Only at max scroll. Everywhere else the placement above is deliberately leaving an 8px
+      // sliver of the older game peeking under the fade, and "uncut the leading chip" would
+      // undo it. Re-running is still idempotent: the next pass pushes back to max and lands
+      // here again, in the same frame, so nothing is ever painted mid-way.
+      const maxScroll = el.scrollWidth - el.clientWidth
+      if (maxScroll > 0 && el.scrollLeft >= maxScroll - 0.5) {
+        const edge = el.getBoundingClientRect().left
+        for (const chip of Array.from(el.children)) {
+          const r = chip.getBoundingClientRect()
+          if (r.right <= edge + 0.5) continue    // already scrolled past; not the leading chip
+          const cut = (edge - r.left) / zoom
+          if (cut > 0.5) el.scrollLeft -= cut
+          break
+        }
+      }
       syncEdges()
     }
 
@@ -304,22 +323,12 @@ function Scoreboard({ games, teams, onOpenGame }: {
         }} data-swipe-ignore="true">
           {strip.map(g => <GameChip key={g.id} game={g} teams={teams} onOpen={() => onOpenGame(g)} />)}
         </Box>
+        {/* FULL HEIGHT, both of them. They used to stop 6px short of the bottom; the scroller's
+            own `pb` is 4px of padding with nothing drawn in it and the scrollbar is hidden, so
+            there is nothing down there for a mask to spare, and the gap left the bottom corner
+            of a chip lit under the fade. */}
         {!atStart && (
-          /* Solid across the clipped chip, then a soft edge over the 11px gap that follows it,
-             with a 24px floor so a strip scrolled to a clean chip boundary still gets the plain
-             vignette this always was.
-
-             FULL HEIGHT. Both fades stopped 6px short of the bottom, which was invisible while
-             they were 24px of vignette over a chip's midriff and became a defect the moment the
-             left one had a whole clipped card to cover: the chip's bottom corner sat in that
-             6px band, below the mask, as a bright stub floating under the strip with nothing
-             above it. The scroller's own `pb` is 4px of padding with nothing drawn in it, and
-             the scrollbar is hidden, so there is nothing down there for the mask to spare. */
-          <Box sx={{
-            position: 'absolute', left: 0, top: 0, bottom: 0, pointerEvents: 'none',
-            width: `${Math.max(24, leadClip + 12)}px`,
-            background: t => `linear-gradient(to right, ${t.palette.background.default} 0%, ${t.palette.background.default} ${Math.round(100 * leadClip / Math.max(24, leadClip + 12))}%, transparent 100%)`,
-          }} />
+          <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 24, pointerEvents: 'none', background: t => `linear-gradient(to right, ${t.palette.background.default}, transparent)` }} />
         )}
         {!atEnd && (
           <Box sx={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 24, pointerEvents: 'none', background: t => `linear-gradient(to left, ${t.palette.background.default}, transparent)` }} />

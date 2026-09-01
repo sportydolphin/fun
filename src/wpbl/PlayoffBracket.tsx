@@ -223,22 +223,44 @@ function SeriesBox({ series, odds, onOpenTeam, from }: {
   )
 }
 
-/** The elbow joining the two semifinals to the championship. Drawn only from `sm` up, where
- *  the three boxes sit side by side and the line has something to connect; stacked on a phone
- *  the boxes are already in reading order and a connector would be decoration. */
-function Connector() {
+/** One row's worth of the elbow joining the two semifinals to the championship. Drawn only
+ *  from `sm` up, where the three boxes sit side by side and the line has something to connect;
+ *  stacked on a phone the boxes are already in reading order and a connector would be
+ *  decoration.
+ *
+ *  THREE PIECES, ONE PER BRACKET ROW, BECAUSE ONLY THE GRID KNOWS WHERE THE BOXES ARE. The
+ *  elbow used to be a single stretched box putting its stubs at 25% and 75% of its own height,
+ *  which was right only because the semifinal boxes were stretched to a quarter of the column
+ *  each: a quarter WAS their centre. That stretch is what left a band of empty card under both
+ *  semifinals, which is the thing this is undoing. With the boxes back at their natural height
+ *  the quarters point at nothing, so each stub now lives in the same grid row as the box it
+ *  comes out of and sits at 50% of THAT row, which is that box's centre whatever it measures.
+ *
+ *  The championship's stub is at 50% of the middle row, and lands on the box because the
+ *  right-hand column centres it over the same three rows. That also makes the middle row the
+ *  only place the two halves have to agree, rather than four percentages that all have to. */
+function ConnectorPiece({ row }: { row: 1 | 2 | 3 }) {
+  const line = { borderColor: 'divider' } as const
   return (
     <Box aria-hidden sx={{
       display: { xs: 'none', sm: 'block' }, position: 'relative',
-      width: 22, flexShrink: 0, alignSelf: 'stretch',
+      gridColumn: 2, gridRow: row,
     }}>
-      {/* Two horizontal stubs out of the semifinals, a vertical spine joining them, and one
-          stub into the championship. Percentages rather than fixed offsets so the elbow tracks
-          the boxes whatever height the club names force on them. */}
-      <Box sx={{ position: 'absolute', left: 0, width: '50%', top: '25%', borderTop: '1px solid', borderColor: 'divider' }} />
-      <Box sx={{ position: 'absolute', left: 0, width: '50%', top: '75%', borderTop: '1px solid', borderColor: 'divider' }} />
-      <Box sx={{ position: 'absolute', left: '50%', top: '25%', height: '50%', borderLeft: '1px solid', borderColor: 'divider' }} />
-      <Box sx={{ position: 'absolute', left: '50%', width: '50%', top: '50%', borderTop: '1px solid', borderColor: 'divider' }} />
+      {/* Stub out of the semifinal in this row, at that box's vertical centre. */}
+      {row !== 2 && (
+        <Box sx={{ position: 'absolute', left: 0, width: '50%', top: '50%', borderTop: '1px solid', ...line }} />
+      )}
+      {/* The spine, in the piece of it this row owns: from the box's centre to the edge facing
+          the middle, and straight through in the middle row. */}
+      <Box sx={{
+        position: 'absolute', left: '50%', borderLeft: '1px solid', ...line,
+        top: row === 1 ? '50%' : 0,
+        bottom: row === 3 ? '50%' : 0,
+      }} />
+      {/* Stub into the championship, on the spine's midpoint. */}
+      {row === 2 && (
+        <Box sx={{ position: 'absolute', left: '50%', width: '50%', top: '50%', borderTop: '1px solid', ...line }} />
+      )}
     </Box>
   )
 }
@@ -247,13 +269,35 @@ export function BracketDiagram({ bracket, odds, onOpenTeam, from }: {
   bracket: WpblBracket; odds?: WpblPostseasonOdds | null; onOpenTeam?: OpenTeam; from: string
 }) {
   return (
-    <Box sx={{ display: 'flex', alignItems: 'stretch', gap: { xs: 1, sm: 0 } , flexDirection: { xs: 'column', sm: 'row' } }}>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, minWidth: 0 }}>
-        {bracket.semifinals.map((s, i) => (
-          <SeriesBox key={s.label} series={s} odds={odds?.semifinals[i]} onOpenTeam={onOpenTeam} from={from} />
-        ))}
-      </Box>
-      <Connector />
+    /* ONE GRID AT sm+, NOT A ROW OF COLUMNS, AND THE MIDDLE ROW IS WHAT CHANGED.
+       The two halves of this diagram are different heights: the semifinals stack to their own
+       content while the right-hand column is a centred championship with the title odds under
+       it, which is always the taller of the two. As a flex row that difference was paid by the
+       semifinal boxes, which stretched to fill the column and ended up with 40-odd px of blank
+       card below their last line each. Rows of `auto 1fr auto` pay it out of the GAP between
+       the two boxes instead, which is where a bracket wants its slack anyway: the boxes keep
+       their natural height and the championship sits in the space that opens between them.
+
+       Grid also gives the elbow something to measure against; see ConnectorPiece. DOM order is
+       still the phone's reading order (semifinal A, semifinal B, the connector pieces which are
+       display:none there, the label, then the championship), so the `xs` flex column needs no
+       ordering of its own. */
+    <Box sx={{
+      display: { xs: 'flex', sm: 'grid' },
+      flexDirection: 'column', alignItems: 'stretch', gap: { xs: 1, sm: 0 },
+      gridTemplateColumns: { sm: '1fr 22px 1fr' },
+      // `minmax` so the two boxes cannot touch if the right column ever comes out shorter
+      // than they do: the middle row is slack, not structure.
+      gridTemplateRows: { sm: 'auto minmax(8px, 1fr) auto' },
+    }}>
+      {bracket.semifinals.map((s, i) => (
+        <Box key={s.label} sx={{ display: 'flex', minWidth: 0, gridColumn: 1, gridRow: i === 0 ? 1 : 3 }}>
+          <SeriesBox series={s} odds={odds?.semifinals[i]} onOpenTeam={onOpenTeam} from={from} />
+        </Box>
+      ))}
+      <ConnectorPiece row={1} />
+      <ConnectorPiece row={2} />
+      <ConnectorPiece row={3} />
       {/* On a phone the championship follows the two semifinals in a column, so it gets a word
           instead of a line: without one it reads as a third semifinal. */}
       <Typography sx={{
@@ -280,11 +324,18 @@ export function BracketDiagram({ bracket, odds, onOpenTeam, from }: {
           to a centred column and the box rides up by half the strip's height. Equal fr rows
           above and below put the box back exactly on centre whatever the strip measures, and
           because an `fr` row still floors at its content, an oversized strip (Large text, a
-          longer club name) grows the card instead of overlapping anything. */}
+          longer club name) grows the card instead of overlapping anything.
+
+          THE `rowGap` IS THE CLEARANCE UNDER THE FINAL, and it has to be a gap rather than a
+          margin on the strip. The strip is bottom-aligned in an `fr` row that floors at its own
+          content, so with no gap the row is exactly the strip and its heading started one pixel
+          under the championship's border: the title odds read as part of the final's box rather
+          than as the answer to it. Padding the strip would have grown the mirror row above by
+          the same amount and bought nothing, since that row is already empty. */}
       <Box sx={{
-        flex: 1, minWidth: 0,
+        minWidth: 0, gridColumn: 3, gridRow: '1 / 4',
         display: { xs: 'flex', sm: 'grid' },
-        flexDirection: 'column', gap: { xs: 1.5, sm: 0 },
+        flexDirection: 'column', gap: { xs: 1.5, sm: 0 }, rowGap: { sm: 2 },
         alignItems: { xs: 'stretch', sm: 'center' },
         gridTemplateRows: { sm: '1fr auto 1fr' },
       }}>
