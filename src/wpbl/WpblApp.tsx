@@ -324,6 +324,23 @@ function StandingsView({ teams, games, onOpenTeam }: {
   // and 2.875rem are the 34px and 46px they have always been at the default root size.
   const NUM = 2.125, WIDE = 2.875
   const col = (rem: number) => `${rem}rem`
+  // Below this the eight columns do not fit, and `tableLayout: 'fixed'` spends the shortfall
+  // entirely on the one column without a width: at 320 the club name was left 4.8px, so the
+  // table rendered as a badge and a single letter and three of the four clubs read alike.
+  // GB and DIFF go rather than a few pixels off each of the others, because they are the two
+  // a reader can rebuild from what is beside them (GB from the W-L columns, the run
+  // differential from the team page), and because shaving all seven only moves the clipping
+  // to the next text scale.
+  //
+  // A px threshold, and deliberately above the widest phone rather than at the 371px where
+  // it starts to fit: a media query cannot read `--sd-text-scale`, so the one number here has
+  // to clear the Large-text case too (every rem in the row is 12.5% wider, which puts the
+  // same row back over the edge at 408px). The alternative, a breakpoint that holds only at
+  // the default text size, fails silently and only for the readers who most need the setting.
+  const FITS_ALL = '@media (min-width:420px)'
+  // Applied to both the header cell and the body cell of a dropped column: they are separate
+  // elements, and a column hidden in one and not the other shifts every cell after it by one.
+  const dropNarrow = { display: 'none', [FITS_ALL]: { display: 'table-cell' } }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -340,8 +357,8 @@ function StandingsView({ teams, games, onOpenTeam }: {
             <Box component="th" sx={{ ...th, width: col(NUM) }}>W</Box>
             <Box component="th" sx={{ ...th, width: col(NUM) }}>L</Box>
             <Box component="th" sx={{ ...th, width: col(WIDE) }}>PCT</Box>
-            <Box component="th" sx={{ ...th, width: col(NUM) }}>GB</Box>
-            <Box component="th" sx={{ ...th, width: col(WIDE) }}>DIFF</Box>
+            <Box component="th" sx={{ ...th, width: col(NUM), ...dropNarrow }}>GB</Box>
+            <Box component="th" sx={{ ...th, width: col(WIDE), ...dropNarrow }}>DIFF</Box>
             <Box component="th" sx={{ ...th, width: col(WIDE), display: { xs: 'none', sm: 'table-cell' } }}>L10</Box>
             <Box component="th" sx={{ ...th, width: col(NUM + 0.5), pr: 1.25 }}>STRK</Box>
           </Box>
@@ -367,11 +384,11 @@ function StandingsView({ teams, games, onOpenTeam }: {
                 <Box component="td" sx={{ ...td, fontWeight: 700 }}>{r.wins}</Box>
                 <Box component="td" sx={{ ...td, fontWeight: 700 }}>{r.losses}</Box>
                 <Box component="td" sx={td}>{fmtPct(r.pct, gp)}</Box>
-                <Box component="td" sx={{ ...td, color: 'text.secondary' }}>{r.gamesBack === 0 ? '—' : r.gamesBack.toFixed(1)}</Box>
+                <Box component="td" sx={{ ...td, color: 'text.secondary', ...dropNarrow }}>{r.gamesBack === 0 ? '—' : r.gamesBack.toFixed(1)}</Box>
                 {(() => {
                   const diff = r.runsFor - r.runsAgainst
                   const diffColor = gp === 0 ? 'text.disabled' : diff > 0 ? 'var(--wpbl-pos)' : diff < 0 ? 'var(--wpbl-neg)' : 'text.secondary'
-                  return <Box component="td" sx={{ ...td, color: diffColor, fontWeight: 600 }}>{gp === 0 ? '—' : fmtSigned(diff)}</Box>
+                  return <Box component="td" sx={{ ...td, color: diffColor, fontWeight: 600, ...dropNarrow }}>{gp === 0 ? '—' : fmtSigned(diff)}</Box>
                 })()}
                 <Box component="td" sx={{ ...td, display: { xs: 'none', sm: 'table-cell' }, color: gp === 0 ? 'text.disabled' : l10Color, fontWeight: 600 }}>
                   {gp === 0 ? '—' : `${l10.wins}-${l10.losses}`}
