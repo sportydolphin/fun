@@ -77,18 +77,6 @@ interface Table { name: string; order: string }
  *   wpbl_*_watch*,        it is the one set of tables here that keeps growing forever.
  *   wpbl_shop_*,          merchandise and auction listings. Someone else's catalogue.
  *   wpbl_auction_lots
- *
- * AND ONE THAT BELONGS HERE AND IS LEFT OUT ANYWAY, `wpbl_player_team_changes`. It is the trade
- * log, and the fact it records (which club a player was on for a given GAME, as opposed to
- * today) is exactly the kind of thing an archive exists for. But the insert is not idempotent:
- * the ingest re-reads old box scores continuously and re-detects the same move every pass, so
- * as of Sep 1, 2026 the table holds **13,644 rows encoding 18 distinct facts about 3 players**,
- * and it grows by about 2,900 rows a day forever, including long after the season is over. That
- * is 4.7MB of near-identical JSON, rewritten on every run, in a repository whose whole value
- * here is that its history is permanent. It goes in once the table has a unique index on
- * (player_id, game_id, from_team_id, to_team_id) and has been collapsed to the 18 rows it
- * actually means. Nothing is lost meanwhile: the resolved outcome, which club a player is on
- * and since when, is on `wpbl_players` (`api_ids`, `team_as_of`) and is archived above.
  */
 const TABLES: Table[] = [
   // The league itself.
@@ -105,8 +93,13 @@ const TABLES: Table[] = [
   // is exactly why it is worth keeping: nobody else has a copy either.
   { name: 'wpbl_pitch_tracking', order: 'activity_id' },
   // Our own work on top of the feed, and the part that would be hardest to reproduce: the
-  // hand-made scoring corrections that no re-ingest could ever bring back.
+  // hand-made scoring corrections that no re-ingest could ever bring back, and the trade log,
+  // which is the only record of which club a player was on for a given GAME as opposed to
+  // today. The log was excluded when this file was written, because the ingest's insert was not
+  // idempotent and it held 13,644 rows encoding 18 facts; the 20260901204532 migration made the
+  // write conflict-safe and collapsed it, which is what let it in.
   { name: 'wpbl_play_corrections', order: 'id' },
+  { name: 'wpbl_player_team_changes', order: 'id' },
   // Context the feed does not carry. Links rather than content: the videos live on YouTube and
   // the articles on Substack, so this preserves what was published and when, not the thing
   // itself, and it is the record that survives either of those going away.
@@ -245,7 +238,15 @@ async function check(): Promise<void> {
     // ...and it still matches the database.
     const live = serialise(await readAll(t))
     const same = digest(live) === was.sha256
-    console.log(`  ${same ? 'ok      ' : 'STALE   '} ${t.name}${same ? '' : ` (live has ${JSON.parse(live).length} rows, archive has ${was.rows})`}`)
+    // Say WHICH kind of stale. A row count is the obvious thing to print and it is silent in
+    // the common case: a game row whose score or `updated_at` moved leaves the count identical,
+    // so "live has 30 rows, archive has 30" was the whole report on the only difference there
+    // was. Rows gained or lost and rows edited are different situations and read differently.
+    const liveRows = (JSON.parse(live) as unknown[]).length
+    const why = liveRows === was.rows
+      ? `${was.rows} rows, but their contents differ`
+      : `live has ${liveRows} rows, archive has ${was.rows}`
+    console.log(`  ${same ? 'ok      ' : 'STALE   '} ${t.name}${same ? '' : ` (${why})`}`)
     if (!same) bad++
   }
 

@@ -48,7 +48,8 @@ year, which is why the archive is a set of rows rather than a set of computed st
 derived number preserves one reading of the season, the rows preserve all of them.
 
 Beside them: the rosters and clubs, fielding lines, the one batch of TrackMan pitch tracking the
-league ever published, our own play corrections, and the links to videos, articles and photos
+league ever published, our own play corrections, the trade log (the only record of which club a
+player was on for a given GAME rather than today), and the links to videos, articles and photos
 published elsewhere. The script's header says what is left out and why, table by table.
 
 ## Restoring from it

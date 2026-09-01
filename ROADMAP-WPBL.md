@@ -985,16 +985,21 @@ hand-edit, and a database that has moved on. Tested by deleting a row from an ex
 confirming it reports ALTERED, then restoring it and confirming it goes green: an untested
 backup is a rumour, and a verifier that has never failed is the same rumour with more steps.
 
-**One thing found on the way and deliberately left out of the export.**
-`wpbl_player_team_changes` holds **13,644 rows encoding 18 distinct facts about 3 players**, and
-grows about 2,900 rows a day, forever, because the ingest re-reads old box scores continuously
-and the insert is not idempotent. It was half the archive by bytes and would have churned 4.7MB
-into git every week for no new information, long after the season ended. The fact it records is
-archive-worthy and the table will go in once it has a unique index on
-(player_id, game_id, from_team_id, to_team_id) and has been collapsed. Nothing is lost meanwhile:
-the resolved outcome lives on `wpbl_players` (`api_ids`, `team_as_of`) and is archived.
+**One thing found on the way, and fixed the same day.** `wpbl_player_team_changes` held
+**13,644 rows encoding 18 distinct facts about 3 players**, growing about 2,900 rows a day
+forever, because the ingest re-reads old box scores continuously and the insert was not
+idempotent. It was half the archive by bytes and would have churned 4.7MB into git every week
+for no new information, long after the season ended. Nothing on the site reads the table, which
+is why three weeks of it went unnoticed: the cost was not a wrong number on a page, it was an
+audit log too noisy to audit with. Migration `20260901204532` collapsed it to 18 (earliest
+detection wins, since that is the moment the move could first have been known) and put a unique
+index under it; the ingest now upserts with `ignoreDuplicates`. **The dedupe also had to teach
+`wpbl_merge_players` about the new constraint**, because it re-points this table's rows at the
+kept player and two players logging the same move out of the same box score is precisely what a
+mergeable pair looks like: left alone, the next merge would have failed on a constraint added
+weeks earlier, during a rare manual operation nobody rehearses.
 
-4,689 rows across 13 tables, 4.55MB. The four that ARE the season are `wpbl_games`,
+4,707 rows across 14 tables, 4.56MB. The four that ARE the season are `wpbl_games`,
 `wpbl_batting_lines`, `wpbl_pitching_lines` and `wpbl_game_plays`: rows rather than computed
 standings, because a derived number preserves one reading of the season and the rows preserve
 all of them.

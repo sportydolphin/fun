@@ -418,7 +418,20 @@ class PlayerResolver {
     }
     this.pending.clear()
     if (this.moves.length) {
-      const { error } = await this.db.from('wpbl_player_team_changes').insert(this.moves)
+      // UPSERT, NOT INSERT, and `ignoreDuplicates` so a move already logged is left exactly as
+      // it was. This loop re-reads old box scores constantly (the 2-minute cron, `force`, the
+      // TrackMan backfill, mode `all`) and re-detects the same move every time, so a plain
+      // insert appended a fresh row per pass: by Sep 1, 2026 that was 13,644 rows holding 18
+      // distinct facts and growing ~2,900 a day, forever. Nothing reads the table on the site,
+      // which is why it went unnoticed for three weeks. The unique index it conflicts on is in
+      // the 20260901204532 migration; keeping the FIRST row matters, because `detected_at` is
+      // then the moment the move could first have been known rather than the last time the
+      // loop came round.
+      const { error } = await this.db.from('wpbl_player_team_changes')
+        .upsert(this.moves, {
+          onConflict: 'player_id,game_id,from_team_id,to_team_id',
+          ignoreDuplicates: true,
+        })
       if (error) console.warn('[wpbl-ingest] team-change log failed', error.message)
       this.moves = []
     }
