@@ -247,7 +247,7 @@ function Panel({ spec, onOpenPlayer }: { spec: PanelSpec; onOpenPlayer?: (p: Wpb
         <Box sx={{
           position: 'absolute', top: 0, right: 0, px: 1, py: 0.5, borderRadius: 1,
           bgcolor: 'background.paper', border: '1px solid', borderColor: CARD_BORDER,
-          boxShadow: 2, pointerEvents: 'none', maxWidth: 240,
+          boxShadow: 2, pointerEvents: 'none', maxWidth: '15rem',
         }}>
           <Typography sx={{ fontSize: '0.78rem', fontWeight: 800 }}>{hover.name}</Typography>
           <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary' }}>

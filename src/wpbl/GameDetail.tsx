@@ -530,7 +530,7 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
               }}
             >
               <Box className="pbpChevron" sx={{
-                fontSize: '0.6rem', color: 'text.disabled', width: 12, flexShrink: 0,
+                fontSize: '0.6rem', color: 'text.disabled', width: '0.75rem', flexShrink: 0,
                 transition: 'transform 0.15s', transform: open ? 'rotate(90deg)' : 'none',
               }}>▶</Box>
               {team && <TeamBadge team={team} size={18} />}
@@ -800,7 +800,7 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false }: { t
   const speeds = pitches.map(p => p.release_speed!).filter(v => v > 0)
   const spins = pitches.map(p => p.spin_rate_rpm).filter((v): v is number => v != null && v > 0)
   const tile = (label: string, value: string) => (
-    <Box sx={{ textAlign: 'center', flex: 1, minWidth: 68 }}>
+    <Box sx={{ textAlign: 'center', flex: 1, minWidth: '4.25rem' }}>
       <Typography sx={{ fontSize: '1.15rem', fontWeight: 800, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
       <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>{label}</Typography>
     </Box>
@@ -858,12 +858,12 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false }: { t
                 borderRadius: 1, bgcolor: live && i === 0 ? 'action.hover' : 'transparent',
               }}>
                 {/* Velocity + unit */}
-                <Box sx={{ flexShrink: 0, width: 64, fontVariantNumeric: 'tabular-nums' }}>
+                <Box sx={{ flexShrink: 0, width: '4rem', fontVariantNumeric: 'tabular-nums' }}>
                   <Typography component="span" sx={{ fontSize: '1rem', fontWeight: 800 }}>{fmtSpeed(p.velo, units)}</Typography>
                   <Typography component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color: 'text.disabled', ml: 0.3 }}>{unit}</Typography>
                 </Box>
                 {/* Pitch type chip */}
-                <Box sx={{ flexShrink: 0, minWidth: 62 }}>
+                <Box sx={{ flexShrink: 0, minWidth: '3.875rem' }}>
                   {p.type && (
                     <Box component="span" sx={{ px: 0.75, py: 0.15, borderRadius: 1, bgcolor: 'action.selected', fontSize: '0.64rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
                       {p.type}
@@ -939,8 +939,8 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false }: { t
       <Box sx={{ fontVariantNumeric: 'tabular-nums' }}>
         {fastest.map((p, i) => (
           <Box key={p.activity_id} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 0.55, borderTop: i === 0 ? 'none' : '1px solid', borderColor: 'divider', fontSize: '0.82rem' }}>
-            <Box sx={{ width: 18, color: 'text.disabled', fontSize: '0.72rem', flexShrink: 0 }}>{i + 1}</Box>
-            <Box sx={{ width: 52, fontWeight: 800, flexShrink: 0 }}>{fmtSpeed(p.release_speed, units)}</Box>
+            <Box sx={{ width: '1.125rem', color: 'text.disabled', fontSize: '0.72rem', flexShrink: 0 }}>{i + 1}</Box>
+            <Box sx={{ width: '3.25rem', fontWeight: 800, flexShrink: 0 }}>{fmtSpeed(p.release_speed, units)}</Box>
             <Box sx={{ flex: 1, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shortName(labelFor(p))}</Box>
             <Box sx={{ color: 'text.secondary', fontSize: '0.75rem', flexShrink: 0 }}>{p.spin_rate_rpm != null ? `${Math.round(p.spin_rate_rpm)} rpm` : ''}</Box>
           </Box>

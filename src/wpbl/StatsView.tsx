@@ -1343,7 +1343,7 @@ export default function WpblStatsView({
                   {pinActive && (
                     <Box component="th" data-swipe-handle="" onClick={() => clickHeader(activeCol)} sx={{
                       ...thBase, position: 'sticky', left: nameW, zIndex: 5, touchAction: 'pan-y',
-                      textAlign: 'center', cursor: 'pointer', minWidth: 50, px: 0.5,
+                      textAlign: 'center', cursor: 'pointer', minWidth: '3.125rem', px: 0.5,
                       color: 'var(--wpbl-accent-fg)',
                       backgroundImage: `linear-gradient(${WPBL_ACCENT}24, ${WPBL_ACCENT}24)`,
                       borderRight: '1px solid', borderColor: 'divider',
@@ -1362,7 +1362,7 @@ export default function WpblStatsView({
                       <Box component="th" key={c.key} onClick={() => clickHeader(c)}
                         data-active={active ? 'true' : undefined}
                         sx={{
-                          ...thBase, textAlign: 'center', cursor: 'pointer', minWidth: 38,
+                          ...thBase, textAlign: 'center', cursor: 'pointer', minWidth: '2.375rem',
                           color: active ? 'var(--wpbl-accent-fg)' : 'text.disabled',
                           // The sorted column's tint rides on backgroundImage over the opaque
                           // paper thBase already sets. As a bgcolor it *replaced* that paper

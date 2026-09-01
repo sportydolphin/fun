@@ -99,10 +99,10 @@ function ScheduleRow({ game, teamId, teamById, onOpenGame }: {
       borderTop: '1px solid', borderColor: 'divider', '&:first-of-type': { borderTop: 'none' },
       borderRadius: 1, '&:hover': { bgcolor: 'action.hover' }, ...FOCUS_RING,
     }}>
-      <Typography sx={{ width: 46, fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled', flexShrink: 0 }}>
+      <Typography sx={{ width: '2.875rem', fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled', flexShrink: 0 }}>
         {new Date(`${game.game_date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })}
       </Typography>
-      <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', width: 16, flexShrink: 0 }}>{home ? 'vs' : '@'}</Typography>
+      <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled', width: '1rem', flexShrink: 0 }}>{home ? 'vs' : '@'}</Typography>
       {opp && <TeamBadge team={opp} size={22} />}
       <Typography sx={{ flex: 1, minWidth: 0, fontSize: '0.85rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {opp ? opp.name : '—'}
@@ -114,7 +114,7 @@ function ScheduleRow({ game, teamId, teamById, onOpenGame }: {
           total width on scheduled rows lines the kickoff times up with the scores above. */}
       {final ? (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0, width: SCORE_COL_W }}>
-          <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, width: 14, textAlign: 'center', flexShrink: 0, color: win ? 'success.main' : loss ? 'error.main' : 'text.secondary' }}>
+          <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, width: '0.875rem', textAlign: 'center', flexShrink: 0, color: win ? 'success.main' : loss ? 'error.main' : 'text.secondary' }}>
             {win ? 'W' : loss ? 'L' : 'T'}
           </Typography>
           <Typography sx={{ flex: 1, fontSize: '0.85rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums', textAlign: 'right' }}>{us}–{them}</Typography>
@@ -146,10 +146,10 @@ function LeaderList({ label, rows, accent, onOpenPlayer }: {
           display: 'flex', alignItems: 'center', gap: 0.75, py: 0.4, cursor: 'pointer',
           borderRadius: 1, '&:hover': { bgcolor: 'action.hover' }, ...FOCUS_RING,
         }}>
-          <Typography sx={{ width: 14, fontSize: '0.7rem', fontWeight: 800, color: i === 0 ? accent : 'text.disabled' }}>{i + 1}</Typography>
+          <Typography sx={{ width: '0.875rem', fontSize: '0.7rem', fontWeight: 800, color: i === 0 ? accent : 'text.disabled' }}>{i + 1}</Typography>
           <PlayerPortrait name={r.player.name} teamId={r.player.team_id} size={20} />
           <Typography sx={{ flex: 1, fontSize: '0.82rem', fontWeight: i === 0 ? 700 : 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(r.player.name)}</Typography>
-          <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', minWidth: 40, textAlign: 'right' }}>{r.value}</Typography>
+          <Typography sx={{ fontSize: '0.82rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', minWidth: '2.5rem', textAlign: 'right' }}>{r.value}</Typography>
         </Box>
       ))}
     </Box>
@@ -696,14 +696,14 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                       borderTop: '1px solid', borderColor: 'divider',
                       borderRadius: 1, '&:hover': { bgcolor: 'action.hover' }, ...FOCUS_RING,
                     }}>
-                      <Typography sx={{ width: 26, textAlign: 'center', flexShrink: 0, fontSize: '0.72rem', fontWeight: 800, color: accent }}>
+                      <Typography sx={{ width: '1.625rem', textAlign: 'center', flexShrink: 0, fontSize: '0.72rem', fontWeight: 800, color: accent }}>
                         {displayPositionFromIndex(p, positionIndex).label || '—'}
                       </Typography>
                       <PlayerPortrait name={p.name} teamId={p.team_id} size={34} />
                       <Typography sx={{ flex: 1, fontSize: '0.88rem', fontWeight: 600, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shortName(p.name)}</Typography>
                       <Box sx={{ display: 'flex', gap: 1.5, flexShrink: 0 }}>
                         {stats.map(s => (
-                          <Box key={s.label} sx={{ textAlign: 'right', minWidth: 34 }}>
+                          <Box key={s.label} sx={{ textAlign: 'right', minWidth: '2.125rem' }}>
                             <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{s.value}</Typography>
                             <Typography sx={{ fontSize: '0.54rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.3, color: 'text.disabled' }}>{s.label}</Typography>
                           </Box>

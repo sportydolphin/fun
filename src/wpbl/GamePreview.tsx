@@ -103,9 +103,9 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
 
   // value + rank stacked on the outer edge, bar growing inward from it.
   const valueCell = (v: WpblTeamStatValue | undefined, better: boolean, color: string, align: 'right' | 'left') => (
-    <Box sx={{ width: 44, flexShrink: 0, textAlign: align }}>
+    <Box sx={{ width: '2.75rem', flexShrink: 0, textAlign: align }}>
       {loading ? (
-        <Box sx={{ ...shimmer, width: 32, height: '0.8rem', ml: align === 'right' ? 'auto' : 0 }} />
+        <Box sx={{ ...shimmer, width: '2rem', height: '0.8rem', ml: align === 'right' ? 'auto' : 0 }} />
       ) : (
         <>
           <Typography sx={{
@@ -162,7 +162,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
         {valueCell(a, awayBetter, awayColor, 'right')}
         {bar(a, awayBetter, awayColor, 'away')}
         <Typography sx={{
-          flexShrink: 0, width: 38, textAlign: 'center',
+          flexShrink: 0, width: '2.375rem', textAlign: 'center',
           fontSize: '0.56rem', fontWeight: 800, color: 'text.secondary',
           textTransform: 'uppercase', letterSpacing: 0.4, lineHeight: 1,
         }}>

@@ -101,7 +101,7 @@ function StarRow({ star, medal, name, teamId, portraitSize = 30, medalSize = 20,
     <Box onClick={onClick}
       sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.6, cursor: onClick ? 'pointer' : 'default',
         '&:hover': onClick ? { '& .starname': { textDecoration: 'underline' } } : undefined }}>
-      <Box sx={{ fontSize: medalSize * 0.05 + 'rem', width: medalSize, textAlign: 'center', flexShrink: 0 }}>{medal}</Box>
+      <Box sx={{ fontSize: medalSize * 0.05 + 'rem', width: medalSize / 16 + 'rem', textAlign: 'center', flexShrink: 0 }}>{medal}</Box>
       <PlayerPortrait name={name} teamId={teamId} size={portraitSize} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <FittedName name={name} className="starname" fitKey={fitKey} sx={{ fontSize: '0.85rem', fontWeight: 700 }} />

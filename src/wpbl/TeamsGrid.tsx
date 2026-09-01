@@ -135,7 +135,7 @@ function TeamCard({ row, rank, ranked, fixture, onOpen }: {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
         {ranked && (
           <Typography sx={{
-            width: 14, flexShrink: 0, textAlign: 'center',
+            width: '0.875rem', flexShrink: 0, textAlign: 'center',
             fontSize: '0.78rem', fontWeight: 800, color: 'text.disabled', fontVariantNumeric: 'tabular-nums',
           }}>
             {rank}

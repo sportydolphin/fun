@@ -255,7 +255,7 @@ function ScheduleView({ teams, games, onOpenGame }: {
                   <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
                     {/* Winner caret on finals — fixed-width slot keeps both rows' badges aligned. */}
                     {final && (
-                      <Box sx={{ width: 7, flexShrink: 0, mx: -0.5, textAlign: 'center', fontSize: '0.8rem', lineHeight: 1, color: wpblAccent(t.id, isDark) }}>{won ? '▸' : ''}</Box>
+                      <Box sx={{ width: '0.4375rem', flexShrink: 0, mx: -0.5, textAlign: 'center', fontSize: '0.8rem', lineHeight: 1, color: wpblAccent(t.id, isDark) }}>{won ? '▸' : ''}</Box>
                     )}
                     <TeamBadge team={t} size={26} />
                     {/* Away is the top row, home the bottom — a muted "@" prefix on the home team
@@ -265,7 +265,7 @@ function ScheduleView({ teams, games, onOpenGame }: {
                       {wpblFullName(t)}
                     </Typography>
                     {(final || live) ? (
-                      <Typography sx={{ flexShrink: 0, minWidth: 18, textAlign: 'right', fontSize: '0.95rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: final && !won ? 'text.disabled' : 'text.primary' }}>
+                      <Typography sx={{ flexShrink: 0, minWidth: '1.125rem', textAlign: 'right', fontSize: '0.95rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: final && !won ? 'text.disabled' : 'text.primary' }}>
                         {score}
                       </Typography>
                     ) : recordById.get(t.id) && (
@@ -276,7 +276,7 @@ function ScheduleView({ teams, games, onOpenGame }: {
                   </Box>
                 )})}
               </Box>
-              <Box sx={{ flexShrink: 0, textAlign: 'right', minWidth: 58, whiteSpace: 'nowrap' }}>
+              <Box sx={{ flexShrink: 0, textAlign: 'right', minWidth: '3.625rem', whiteSpace: 'nowrap' }}>
                 <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: live ? '#ef4444' : final ? 'text.secondary' : WPBL_ACCENT }}>
                   {live ? '● Live' : final ? `Final${g.innings && g.innings !== 7 ? `/${g.innings}` : ''}` : formatGameTime(g.game_date, g.start_time) || 'TBD'}
                 </Typography>
@@ -321,7 +321,13 @@ function StandingsView({ teams, games, onOpenTeam }: {
   const fmtPct = (pct: number, gp: number) => gp === 0 ? '—' : pct.toFixed(3).replace(/^0\./, '.')
   const th = { py: 0.85, px: 0.4, fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 0.4, color: 'text.secondary', textAlign: 'right' as const, whiteSpace: 'nowrap' as const }
   const td = { py: 1, px: 0.4, fontSize: '0.85rem', textAlign: 'right' as const, fontVariantNumeric: 'tabular-nums' as const, whiteSpace: 'nowrap' as const }
-  const NUM = 34, WIDE = 46
+  // The numeric columns, in rem rather than px because `tableLayout: 'fixed'` means these
+  // widths are the whole story: a cell wider than its column does not push it out, it spills.
+  // At a 1.5 text scale the px versions had PCT and STRK overflowing by 2px, which on a
+  // tabular-nums figure reads as a rendering fault rather than as text being large. 2.125rem
+  // and 2.875rem are the 34px and 46px they have always been at the default root size.
+  const NUM = 2.125, WIDE = 2.875
+  const col = (rem: number) => `${rem}rem`
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -335,13 +341,13 @@ function StandingsView({ teams, games, onOpenTeam }: {
         <Box component="thead">
           <Box component="tr" sx={{ bgcolor: 'action.hover' }}>
             <Box component="th" sx={{ ...th, textAlign: 'left', pl: 1.25 }}>Team</Box>
-            <Box component="th" sx={{ ...th, width: NUM }}>W</Box>
-            <Box component="th" sx={{ ...th, width: NUM }}>L</Box>
-            <Box component="th" sx={{ ...th, width: WIDE }}>PCT</Box>
-            <Box component="th" sx={{ ...th, width: NUM }}>GB</Box>
-            <Box component="th" sx={{ ...th, width: WIDE }}>DIFF</Box>
-            <Box component="th" sx={{ ...th, width: WIDE, display: { xs: 'none', sm: 'table-cell' } }}>L10</Box>
-            <Box component="th" sx={{ ...th, width: NUM + 8, pr: 1.25 }}>STRK</Box>
+            <Box component="th" sx={{ ...th, width: col(NUM) }}>W</Box>
+            <Box component="th" sx={{ ...th, width: col(NUM) }}>L</Box>
+            <Box component="th" sx={{ ...th, width: col(WIDE) }}>PCT</Box>
+            <Box component="th" sx={{ ...th, width: col(NUM) }}>GB</Box>
+            <Box component="th" sx={{ ...th, width: col(WIDE) }}>DIFF</Box>
+            <Box component="th" sx={{ ...th, width: col(WIDE), display: { xs: 'none', sm: 'table-cell' } }}>L10</Box>
+            <Box component="th" sx={{ ...th, width: col(NUM + 0.5), pr: 1.25 }}>STRK</Box>
           </Box>
         </Box>
         <Box component="tbody">

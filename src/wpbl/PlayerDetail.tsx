@@ -274,18 +274,18 @@ function PercentileStrip({ ranks, of, color, noun }: {
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.55 }}>
         {ranks.map(r => (
           <Box key={r.key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <TapTip title={statFull(r.label, eraBasis)} popperZIndex={TIP_Z} sx={{ width: 38, flexShrink: 0 }}>
+            <TapTip title={statFull(r.label, eraBasis)} popperZIndex={TIP_Z} sx={{ width: '2.375rem', flexShrink: 0 }}>
               <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>
                 {r.label}
               </Typography>
             </TapTip>
-            <Typography sx={{ width: 44, flexShrink: 0, fontSize: '0.78rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+            <Typography sx={{ width: '2.75rem', flexShrink: 0, fontSize: '0.78rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
               {r.display}
             </Typography>
             <Box sx={{ flex: 1, minWidth: 0, height: 6, borderRadius: 999, bgcolor: 'action.hover', overflow: 'hidden' }}>
               <Box sx={{ width: `${Math.round(r.pct * 100)}%`, height: '100%', bgcolor: color, borderRadius: 999 }} />
             </Box>
-            <Typography sx={{ width: 34, flexShrink: 0, textAlign: 'right', fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>
+            <Typography sx={{ width: '2.125rem', flexShrink: 0, textAlign: 'right', fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>
               {ordinal(r.rank)}
             </Typography>
           </Box>
@@ -340,16 +340,16 @@ function RankProgress({ reason, have, need, unit, fmt, noun, color }: {
     <Box sx={{ mt: 1.75 }}>
       <Typography sx={sectionSx}>Toward league ranks</Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Typography sx={{ width: 38, flexShrink: 0, fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>
+        <Typography sx={{ width: '2.375rem', flexShrink: 0, fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>
           {unit}
         </Typography>
-        <Typography sx={{ width: 44, flexShrink: 0, fontSize: '0.78rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+        <Typography sx={{ width: '2.75rem', flexShrink: 0, fontSize: '0.78rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
           {fmt(have)}
         </Typography>
         <Box sx={{ flex: 1, minWidth: 0, height: 6, borderRadius: 999, bgcolor: 'action.hover', overflow: 'hidden' }}>
           <Box sx={{ width: `${Math.round(pct * 100)}%`, height: '100%', bgcolor: color, borderRadius: 999 }} />
         </Box>
-        <Typography sx={{ width: 34, flexShrink: 0, textAlign: 'right', fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>
+        <Typography sx={{ width: '2.125rem', flexShrink: 0, textAlign: 'right', fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>
           {fmt(need)}
         </Typography>
       </Box>
@@ -395,7 +395,11 @@ function FormStrip({ title, games }: { title: string; games: { opp: string; valu
     // to cost no height has to actually cost none, so the cells carry the squeezed spelling
     // (see `oppLabel().short`), the gap is one step tighter, and `maxWidth` caps the whole
     // thing well short of what five cells could ask for.
-    <Box sx={{ display: { xs: 'none', lg: 'block' }, flexShrink: 0, minWidth: 0, px: 1.5, maxWidth: 200 }}>
+    // The cap is in rem for the same reason the budget exists: it is measured against the bio
+    // line beside it, and that line is type. Held in px it stopped scaling the moment the
+    // reader enlarged the text, so the five cells overflowed their own box at 1.375 while the
+    // bio they are competing with grew as intended. 12.5rem is the 200px it has always been.
+    <Box sx={{ display: { xs: 'none', lg: 'block' }, flexShrink: 0, minWidth: 0, px: 1.5, maxWidth: '12.5rem' }}>
       {/* 0.72 white, the floor the band's wash is budgeted for. See BAND_WASH: these sit at
           roughly 55-80% across, where the wash is well short of its strongest point, so they
           clear the bar with more room than the hero's own labels do. */}

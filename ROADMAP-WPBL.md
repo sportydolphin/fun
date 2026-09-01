@@ -198,9 +198,24 @@ holding type follow it.
    with the zoom STILL ON, so every file can be checked against a rendering that must not move
    at the default text size, and land it grouped by file rather than as one sweep. The check
    that matters is the overflow scan at 1, 1.25 and 1.375, not eyeballing.
-   *Started Aug 31: `Home` (chip, abbr, rank, stat value), `PlayoffBracket` (seed, score, both
-   odds columns, club name), `StatsView` and `ui.tsx` (rank columns). Verified identical at
-   100% and clean through 162.5%.*
+   *Done Aug 31, 47 sites across 14 files.* `Home`, `PlayoffBracket`, `StatsView`, `ui`,
+   `TeamPage`, `GameDetail`, `PlayerDetail`, `GamePreview`, `WpblApp`, `TeamsGrid`, `RecapCard`,
+   `DraftValue`. Three kinds of site the first pass would have missed, all found by sweeping the
+   rendered page rather than by reading the source: **glyph boxes** whose font was already in rem
+   while the box was in px (the winner caret, the recap medal, which was the first thing on Home
+   to overflow); **`tableLayout: 'fixed'` columns** in the standings, where a cell wider than its
+   column does not push it out, it spills; and **budgets measured against type**, like the player
+   band's `maxWidth: 200` form strip, which is sized against the bio line beside it and so has to
+   scale with it.
+
+   Sweep result, every leaf element checked for overflow at 1024 and 1440: Home, Schedule,
+   Standings, Stats and the player page are clean through **150%**. Teams still truncates two
+   club names at 137.5%, and that one is correct: they are `flex` + `ellipsis` with no fixed
+   width, so the container is the constraint and the ellipsis is the designed backstop.
+
+   What stayed in px, deliberately: every dot, badge, avatar and icon square; the `minHeight: 48`
+   touch minimum; the scoreboard's 24px fades and 40px hover zones; the sheet grabber; the page
+   column caps, which are phase 3's business.
 3. **Set the desktop ramp, move the caps, flip the zoom off.** The visible moment, and where
    the Home redesign lands. Body text renders at 17.9px today and would land at 12.8px with the
    zoom gone and nothing else changed, so the ramp has to make that up. `HOME_WIDE_W` goes 900
