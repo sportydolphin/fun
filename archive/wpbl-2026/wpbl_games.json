@@ -1,0 +1,2758 @@
+[
+ {
+  "api_game_id": "zpp9h33tj77csmoq",
+  "away_batting_order": 1,
+  "away_errors": 1,
+  "away_hits": 11,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 1
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 1
+   },
+   {
+    "inning": 4,
+    "runs": 1
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 1
+   }
+  ],
+  "away_lob": 10,
+  "away_pitcher_id": null,
+  "away_score": 4,
+  "away_team_id": "LA",
+  "counts_in_standings": true,
+  "created_at": "2026-08-27T22:16:05.844432+00:00",
+  "game_date": "2026-08-27",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 1,
+  "home_hits": 17,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 3
+   },
+   {
+    "inning": 2,
+    "runs": 5
+   },
+   {
+    "inning": 3,
+    "runs": 1
+   },
+   {
+    "inning": 4,
+    "runs": 3
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 6,
+  "home_pitcher_id": null,
+  "home_score": 12,
+  "home_team_id": "NY",
+  "id": "0158d1a6-1af9-41b5-8ea0-4400dbaaa928",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-28T01:56:27+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:05.218+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "qik38y6p8336rqzc",
+  "away_batting_order": 1,
+  "away_errors": 1,
+  "away_hits": 7,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 1
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 2
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "away_lob": 6,
+  "away_pitcher_id": null,
+  "away_score": 3,
+  "away_team_id": "SF",
+  "counts_in_standings": true,
+  "created_at": "2026-08-07T22:18:07.022258+00:00",
+  "game_date": "2026-08-07",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 1,
+  "home_hits": 14,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 3
+   },
+   {
+    "inning": 3,
+    "runs": 4
+   },
+   {
+    "inning": 4,
+    "runs": 1
+   },
+   {
+    "inning": 5,
+    "runs": 1
+   },
+   {
+    "inning": 6,
+    "runs": 3
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 6,
+  "home_pitcher_id": null,
+  "home_score": 12,
+  "home_team_id": "LA",
+  "id": "034d04aa-77de-4eda-9218-80be303b14a6",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-24T02:33:01+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:00.833+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "2xvrxw34p2zcs393",
+  "away_batting_order": 1,
+  "away_errors": 0,
+  "away_hits": 0,
+  "away_line": [],
+  "away_lob": 0,
+  "away_pitcher_id": null,
+  "away_score": null,
+  "away_team_id": "SF",
+  "counts_in_standings": true,
+  "created_at": "2026-08-03T17:48:24.491911+00:00",
+  "game_date": "2026-09-02",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 0,
+  "home_hits": 0,
+  "home_line": [],
+  "home_lob": 0,
+  "home_pitcher_id": null,
+  "home_score": null,
+  "home_team_id": "BOS",
+  "id": "089ee418-57d4-467e-952b-2ac26b6ca8d8",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-07-25T01:43:37+00:00",
+  "start_time": "6:30 PM",
+  "status": "scheduled",
+  "status_detail": "Not Started",
+  "updated_at": "2026-09-01T20:32:06.645+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "awbrugq1q63c3uph",
+  "away_batting_order": 1,
+  "away_errors": 2,
+  "away_hits": 12,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 3
+   },
+   {
+    "inning": 3,
+    "runs": 1
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 1
+   },
+   {
+    "inning": 6,
+    "runs": 1
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "away_lob": 7,
+  "away_pitcher_id": null,
+  "away_score": 6,
+  "away_team_id": "SF",
+  "counts_in_standings": true,
+  "created_at": "2026-08-21T22:12:04.719043+00:00",
+  "game_date": "2026-08-21",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 1,
+  "home_hits": 9,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 2
+   },
+   {
+    "inning": 3,
+    "runs": 1
+   },
+   {
+    "inning": 4,
+    "runs": 1
+   },
+   {
+    "inning": 5,
+    "runs": 1
+   },
+   {
+    "inning": 6,
+    "runs": 3
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 7,
+  "home_pitcher_id": null,
+  "home_score": 8,
+  "home_team_id": "LA",
+  "id": "0df01cc1-068e-413f-a2a1-bb19cede722c",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-22T01:47:26+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:03.699+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "sq38zkgwktwktgu1",
+  "away_batting_order": 1,
+  "away_errors": 0,
+  "away_hits": 0,
+  "away_line": [],
+  "away_lob": 0,
+  "away_pitcher_id": null,
+  "away_score": null,
+  "away_team_id": "NY",
+  "counts_in_standings": true,
+  "created_at": "2026-08-03T17:48:25.122924+00:00",
+  "game_date": "2026-09-03",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 0,
+  "home_hits": 0,
+  "home_line": [],
+  "home_lob": 0,
+  "home_pitcher_id": null,
+  "home_score": null,
+  "home_team_id": "LA",
+  "id": "15f34c69-2057-423c-acec-e56b8233ebb6",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-07-25T02:38:57+00:00",
+  "start_time": "6:30 PM",
+  "status": "scheduled",
+  "status_detail": "Not Started",
+  "updated_at": "2026-09-01T20:32:06.672+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "swof9w8fb4z5n6yz",
+  "away_batting_order": 1,
+  "away_errors": 2,
+  "away_hits": 16,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 2
+   },
+   {
+    "inning": 2,
+    "runs": 6
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 4
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "away_lob": 12,
+  "away_pitcher_id": null,
+  "away_score": 12,
+  "away_team_id": "SF",
+  "counts_in_standings": true,
+  "created_at": "2026-08-22T17:56:05.120256+00:00",
+  "game_date": "2026-08-22",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 2,
+  "home_hits": 8,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 2
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 3
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 13,
+  "home_pitcher_id": null,
+  "home_score": 5,
+  "home_team_id": "BOS",
+  "id": "1d30dbba-d3e3-453c-81cf-71f0ca1feed9",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-22T20:52:40+00:00",
+  "start_time": "1:00 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:04.015+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "8alsgvzc90ypwphl",
+  "away_batting_order": 1,
+  "away_errors": 2,
+  "away_hits": 10,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 2
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 2
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 2
+   },
+   {
+    "inning": 7,
+    "runs": 4
+   }
+  ],
+  "away_lob": 5,
+  "away_pitcher_id": null,
+  "away_score": 10,
+  "away_team_id": "LA",
+  "counts_in_standings": true,
+  "created_at": "2026-08-03T17:48:04.785258+00:00",
+  "game_date": "2026-08-01",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 1,
+  "home_hits": 12,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 5
+   },
+   {
+    "inning": 2,
+    "runs": 2
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 1
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 6,
+  "home_pitcher_id": null,
+  "home_score": 8,
+  "home_team_id": "NY",
+  "id": "280e43eb-0038-4150-9e5d-a22ce4f42653",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-08T15:34:22+00:00",
+  "start_time": "5:00 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:00.675+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "7sh6ncqvuaz87451",
+  "away_batting_order": 1,
+  "away_errors": 3,
+  "away_hits": 8,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 2
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 1
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "away_lob": 6,
+  "away_pitcher_id": null,
+  "away_score": 3,
+  "away_team_id": "LA",
+  "counts_in_standings": true,
+  "created_at": "2026-08-14T21:50:03.215049+00:00",
+  "game_date": "2026-08-14",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 0,
+  "home_hits": 16,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 3
+   },
+   {
+    "inning": 2,
+    "runs": 5
+   },
+   {
+    "inning": 3,
+    "runs": 2
+   },
+   {
+    "inning": 4,
+    "runs": 5
+   },
+   {
+    "inning": 5,
+    "runs": 1
+   },
+   {
+    "inning": 6,
+    "runs": 1
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 10,
+  "home_pitcher_id": null,
+  "home_score": 17,
+  "home_team_id": "SF",
+  "id": "2e6ccacd-0d51-4c22-90f4-aaaa21854e22",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-21T02:10:25+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:01.593+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "qk2oug9ikob2a1hl",
+  "away_batting_order": 1,
+  "away_errors": 2,
+  "away_hits": 15,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 1
+   },
+   {
+    "inning": 2,
+    "runs": 2
+   },
+   {
+    "inning": 3,
+    "runs": 7
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 1
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "away_lob": 11,
+  "away_pitcher_id": null,
+  "away_score": 11,
+  "away_team_id": "SF",
+  "counts_in_standings": true,
+  "created_at": "2026-08-03T17:48:07.825389+00:00",
+  "game_date": "2026-08-02",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 0,
+  "home_hits": 3,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 1
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 2
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 6,
+  "home_pitcher_id": null,
+  "home_score": 3,
+  "home_team_id": "BOS",
+  "id": "314779fa-bb88-4dec-be6c-3ebc70be977f",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-21T18:33:33+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:00.729+00:00",
+  "venue": "Robin Roberts"
+ },
+ {
+  "api_game_id": "kije6tnlnl71eocg",
+  "away_batting_order": 1,
+  "away_errors": 1,
+  "away_hits": 18,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 1
+   },
+   {
+    "inning": 3,
+    "runs": 3
+   },
+   {
+    "inning": 4,
+    "runs": 2
+   },
+   {
+    "inning": 5,
+    "runs": 3
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 2
+   }
+  ],
+  "away_lob": 13,
+  "away_pitcher_id": null,
+  "away_score": 11,
+  "away_team_id": "SF",
+  "counts_in_standings": true,
+  "created_at": "2026-08-15T16:40:03.812129+00:00",
+  "game_date": "2026-08-15",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 0,
+  "home_hits": 10,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 1
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 2
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 2
+   },
+   {
+    "inning": 7,
+    "runs": 1
+   }
+  ],
+  "home_lob": 9,
+  "home_pitcher_id": null,
+  "home_score": 6,
+  "home_team_id": "NY",
+  "id": "411d2f37-a42c-401e-afae-a083b77f9c4f",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-26T02:35:01+00:00",
+  "start_time": "1:00 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:01.896+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "gstfxmwv1zkcza31",
+  "away_batting_order": 1,
+  "away_errors": 2,
+  "away_hits": 7,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 5
+   },
+   {
+    "inning": 3,
+    "runs": 1
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 3
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "away_lob": 7,
+  "away_pitcher_id": null,
+  "away_score": 9,
+  "away_team_id": "NY",
+  "counts_in_standings": true,
+  "created_at": "2026-08-31T03:26:04.952924+00:00",
+  "game_date": "2026-08-30",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 4,
+  "home_hits": 12,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 1
+   },
+   {
+    "inning": 2,
+    "runs": 2
+   },
+   {
+    "inning": 3,
+    "runs": 1
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 7
+   }
+  ],
+  "home_lob": 9,
+  "home_pitcher_id": null,
+  "home_score": 11,
+  "home_team_id": "SF",
+  "id": "42a5249c-0307-46e4-8783-214a67988e14",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-09-01T12:37:19+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:06.307+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "rr37bu1ieptkbzhp",
+  "away_batting_order": 1,
+  "away_errors": 2,
+  "away_hits": 8,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 2
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "away_lob": 6,
+  "away_pitcher_id": null,
+  "away_score": 2,
+  "away_team_id": "LA",
+  "counts_in_standings": true,
+  "created_at": "2026-08-12T22:01:12.676041+00:00",
+  "game_date": "2026-08-12",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 0,
+  "home_hits": 12,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 1
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 2
+   },
+   {
+    "inning": 4,
+    "runs": 4
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 1
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 5,
+  "home_pitcher_id": null,
+  "home_score": 8,
+  "home_team_id": "SF",
+  "id": "5e444ff7-7b3c-4573-8f57-ed8ba3051ba9",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-21T02:09:57+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:00.938+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "dtksss0az7dpa97f",
+  "away_batting_order": 1,
+  "away_errors": 0,
+  "away_hits": 12,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 1
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 3
+   },
+   {
+    "inning": 5,
+    "runs": 4
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 1
+   }
+  ],
+  "away_lob": 10,
+  "away_pitcher_id": null,
+  "away_score": 9,
+  "away_team_id": "NY",
+  "counts_in_standings": true,
+  "created_at": "2026-08-20T21:44:04.342558+00:00",
+  "game_date": "2026-08-20",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 1,
+  "home_hits": 6,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 1
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 3
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 9,
+  "home_pitcher_id": null,
+  "home_score": 4,
+  "home_team_id": "BOS",
+  "id": "5e8d6ef8-0bcc-4976-82b0-7e1ee303348d",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-23T03:04:43+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:03.369+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "dmgjo870o24ty4q8",
+  "away_batting_order": 1,
+  "away_errors": 1,
+  "away_hits": 7,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 2
+   },
+   {
+    "inning": 6,
+    "runs": 7
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "away_lob": 8,
+  "away_pitcher_id": null,
+  "away_score": 9,
+  "away_team_id": "BOS",
+  "counts_in_standings": true,
+  "created_at": "2026-08-08T16:32:40.072606+00:00",
+  "game_date": "2026-08-08",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 2,
+  "home_hits": 9,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 1
+   },
+   {
+    "inning": 2,
+    "runs": 1
+   },
+   {
+    "inning": 3,
+    "runs": 2
+   },
+   {
+    "inning": 4,
+    "runs": 2
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 9,
+  "home_pitcher_id": null,
+  "home_score": 6,
+  "home_team_id": "NY",
+  "id": "5fbbf550-789c-46bb-88ea-c5fc9fa306b3",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-24T03:59:30+00:00",
+  "start_time": "1:00 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:00.862+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "mksw641s8uwrx6vp",
+  "away_batting_order": 1,
+  "away_errors": 1,
+  "away_hits": 8,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 3
+   },
+   {
+    "inning": 3,
+    "runs": 1
+   },
+   {
+    "inning": 4,
+    "runs": 2
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "away_lob": 5,
+  "away_pitcher_id": null,
+  "away_score": 6,
+  "away_team_id": "NY",
+  "counts_in_standings": true,
+  "created_at": "2026-08-29T23:22:05.714981+00:00",
+  "game_date": "2026-08-29",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 1,
+  "home_hits": 11,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 2
+   },
+   {
+    "inning": 2,
+    "runs": 3
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 1
+   },
+   {
+    "inning": 6,
+    "runs": 4
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 9,
+  "home_pitcher_id": null,
+  "home_score": 10,
+  "home_team_id": "LA",
+  "id": "6094cbe8-23fc-406b-ada8-5ad3df6ea1a4",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-30T01:58:22+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:05.971+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "ppkwakaltuvio20t",
+  "away_batting_order": 1,
+  "away_errors": 2,
+  "away_hits": 9,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 4
+   },
+   {
+    "inning": 5,
+    "runs": 4
+   },
+   {
+    "inning": 6,
+    "runs": 1
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   },
+   {
+    "inning": 8,
+    "runs": 0
+   }
+  ],
+  "away_lob": 8,
+  "away_pitcher_id": null,
+  "away_score": 9,
+  "away_team_id": "BOS",
+  "counts_in_standings": true,
+  "created_at": "2026-08-16T21:56:03.717601+00:00",
+  "game_date": "2026-08-16",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 1,
+  "home_hits": 8,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 3
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 1
+   },
+   {
+    "inning": 4,
+    "runs": 1
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 2
+   },
+   {
+    "inning": 8,
+    "runs": 0
+   }
+  ],
+  "home_lob": 5,
+  "home_pitcher_id": null,
+  "home_score": 7,
+  "home_team_id": "NY",
+  "id": "6b29774b-77a2-4eb2-9783-8ac6597392f3",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-26T18:29:07+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final - 8 innings",
+  "updated_at": "2026-09-01T20:32:02.726+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "5neiu4wgsg14irxu",
+  "away_batting_order": 1,
+  "away_errors": 0,
+  "away_hits": 0,
+  "away_line": [],
+  "away_lob": 0,
+  "away_pitcher_id": null,
+  "away_score": null,
+  "away_team_id": "SF",
+  "counts_in_standings": true,
+  "created_at": "2026-08-03T17:48:25.765983+00:00",
+  "game_date": "2026-09-04",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 0,
+  "home_hits": 0,
+  "home_line": [],
+  "home_lob": 0,
+  "home_pitcher_id": null,
+  "home_score": null,
+  "home_team_id": "NY",
+  "id": "7551c3a4-9d72-43c2-a4c2-b1c591fbe87b",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-07-25T01:44:28+00:00",
+  "start_time": "6:30 PM",
+  "status": "scheduled",
+  "status_detail": "Not Started",
+  "updated_at": "2026-09-01T20:32:06.7+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "n89hf3ji823n4p07",
+  "away_batting_order": 1,
+  "away_errors": 1,
+  "away_hits": 9,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 4
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 2
+   },
+   {
+    "inning": 8,
+    "runs": 2
+   }
+  ],
+  "away_lob": 10,
+  "away_pitcher_id": null,
+  "away_score": 8,
+  "away_team_id": "NY",
+  "counts_in_standings": true,
+  "created_at": "2026-08-22T22:56:05.744538+00:00",
+  "game_date": "2026-08-22",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 3,
+  "home_hits": 8,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 3
+   },
+   {
+    "inning": 4,
+    "runs": 1
+   },
+   {
+    "inning": 5,
+    "runs": 2
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   },
+   {
+    "inning": 8,
+    "runs": 1
+   }
+  ],
+  "home_lob": 5,
+  "home_pitcher_id": null,
+  "home_score": 7,
+  "home_team_id": "LA",
+  "id": "87110038-cdd1-4afc-a837-b2b12559dd27",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-23T03:05:23+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final - 8 innings",
+  "updated_at": "2026-09-01T20:32:04.286+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "20f8lv4g5kfttfg1",
+  "away_batting_order": 1,
+  "away_errors": 1,
+  "away_hits": 15,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 2
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 1
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 4
+   },
+   {
+    "inning": 6,
+    "runs": 5
+   },
+   {
+    "inning": 7,
+    "runs": 1
+   }
+  ],
+  "away_lob": 5,
+  "away_pitcher_id": null,
+  "away_score": 13,
+  "away_team_id": "LA",
+  "counts_in_standings": true,
+  "created_at": "2026-08-15T16:40:03.853756+00:00",
+  "game_date": "2026-08-15",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 4,
+  "home_hits": 4,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 1
+   },
+   {
+    "inning": 3,
+    "runs": 1
+   },
+   {
+    "inning": 4,
+    "runs": 1
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 3,
+  "home_pitcher_id": null,
+  "home_score": 3,
+  "home_team_id": "BOS",
+  "id": "8ba15acc-7874-4da5-b0db-b219e93e5b11",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-27T01:47:10+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:02.302+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "2accdtqwx8iaqw6z",
+  "away_batting_order": 1,
+  "away_errors": 0,
+  "away_hits": 0,
+  "away_line": [],
+  "away_lob": 0,
+  "away_pitcher_id": null,
+  "away_score": null,
+  "away_team_id": "LA",
+  "counts_in_standings": true,
+  "created_at": "2026-08-03T17:48:26.38336+00:00",
+  "game_date": "2026-09-05",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 0,
+  "home_hits": 0,
+  "home_line": [],
+  "home_lob": 0,
+  "home_pitcher_id": null,
+  "home_score": null,
+  "home_team_id": "BOS",
+  "id": "8bc16800-e143-4487-90ad-ba7cd3f3398f",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-07-25T02:00:57+00:00",
+  "start_time": "6:30 PM",
+  "status": "scheduled",
+  "status_detail": "Not Started",
+  "updated_at": "2026-09-01T20:32:06.722+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "19k396na7ad9r561",
+  "away_batting_order": 1,
+  "away_errors": 3,
+  "away_hits": 6,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 1
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 1
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 1
+   }
+  ],
+  "away_lob": 8,
+  "away_pitcher_id": null,
+  "away_score": 3,
+  "away_team_id": "LA",
+  "counts_in_standings": true,
+  "created_at": "2026-08-23T22:44:04.95976+00:00",
+  "game_date": "2026-08-23",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 1,
+  "home_hits": 4,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 2
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 4
+   },
+   {
+    "inning": 6,
+    "runs": 1
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 4,
+  "home_pitcher_id": null,
+  "home_score": 7,
+  "home_team_id": "BOS",
+  "id": "8d40b5fb-1db6-4db8-8b29-26c1299565f0",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-24T01:51:30+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:04.553+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "193phvm8rl9cf53w",
+  "away_batting_order": 1,
+  "away_errors": 2,
+  "away_hits": 12,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 5
+   },
+   {
+    "inning": 2,
+    "runs": 1
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 4
+   },
+   {
+    "inning": 6,
+    "runs": 1
+   }
+  ],
+  "away_lob": 8,
+  "away_pitcher_id": null,
+  "away_score": 11,
+  "away_team_id": "NY",
+  "counts_in_standings": true,
+  "created_at": "2026-08-19T23:04:04.39187+00:00",
+  "game_date": "2026-08-19",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 1,
+  "home_hits": 7,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 6
+   },
+   {
+    "inning": 2,
+    "runs": 2
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   }
+  ],
+  "home_lob": 5,
+  "home_pitcher_id": null,
+  "home_score": 8,
+  "home_team_id": "SF",
+  "id": "8f58026f-ef9c-4005-80b8-d4ade395350e",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-20T02:35:27+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final - 6 innings - Weather Delay",
+  "updated_at": "2026-09-01T20:32:03.029+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "yw5gv1ay5saolsy6",
+  "away_batting_order": 1,
+  "away_errors": 0,
+  "away_hits": 0,
+  "away_line": [],
+  "away_lob": 0,
+  "away_pitcher_id": null,
+  "away_score": null,
+  "away_team_id": "BOS",
+  "counts_in_standings": true,
+  "created_at": "2026-08-03T17:48:27.024799+00:00",
+  "game_date": "2026-09-06",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 0,
+  "home_hits": 0,
+  "home_line": [],
+  "home_lob": 0,
+  "home_pitcher_id": null,
+  "home_score": null,
+  "home_team_id": "SF",
+  "id": "ab26e7e0-9d16-4110-9e6d-342f76b61000",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-07-25T01:44:55+00:00",
+  "start_time": "6:30 PM",
+  "status": "scheduled",
+  "status_detail": "Not Started",
+  "updated_at": "2026-09-01T20:32:06.749+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "oxmfgfm084vlisfi",
+  "away_batting_order": 1,
+  "away_errors": 0,
+  "away_hits": 11,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 2
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 1
+   },
+   {
+    "inning": 5,
+    "runs": 3
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "away_lob": 11,
+  "away_pitcher_id": null,
+  "away_score": 6,
+  "away_team_id": "BOS",
+  "counts_in_standings": true,
+  "created_at": "2026-08-13T22:26:28.364105+00:00",
+  "game_date": "2026-08-13",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 2,
+  "home_hits": 8,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 1
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 11,
+  "home_pitcher_id": null,
+  "home_score": 1,
+  "home_team_id": "NY",
+  "id": "c1f9d46f-15aa-4f13-9635-d198008da25d",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-28T05:05:41+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:01.294+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "aqe6d881m2xt0khm",
+  "away_batting_order": 1,
+  "away_errors": 4,
+  "away_hits": 9,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 3
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 1
+   },
+   {
+    "inning": 7,
+    "runs": 2
+   }
+  ],
+  "away_lob": 8,
+  "away_pitcher_id": null,
+  "away_score": 6,
+  "away_team_id": "BOS",
+  "counts_in_standings": true,
+  "created_at": "2026-08-28T22:06:06.636582+00:00",
+  "game_date": "2026-08-28",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 2,
+  "home_hits": 11,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 1
+   },
+   {
+    "inning": 4,
+    "runs": 4
+   },
+   {
+    "inning": 5,
+    "runs": 6
+   },
+   {
+    "inning": 6,
+    "runs": 3
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 7,
+  "home_pitcher_id": null,
+  "home_score": 14,
+  "home_team_id": "SF",
+  "id": "c599bbdd-877f-4664-b2f5-924f484b88ec",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-29T02:11:53+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:05.531+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "tcvtrxvuqrl488nu",
+  "away_batting_order": 1,
+  "away_errors": 2,
+  "away_hits": 15,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 3
+   },
+   {
+    "inning": 4,
+    "runs": 4
+   },
+   {
+    "inning": 5,
+    "runs": 2
+   },
+   {
+    "inning": 6,
+    "runs": 4
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "away_lob": 10,
+  "away_pitcher_id": null,
+  "away_score": 13,
+  "away_team_id": "NY",
+  "counts_in_standings": true,
+  "created_at": "2026-08-06T23:01:54.84563+00:00",
+  "game_date": "2026-08-06",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 2,
+  "home_hits": 7,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 1
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 2
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 5
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 7,
+  "home_pitcher_id": null,
+  "home_score": 8,
+  "home_team_id": "SF",
+  "id": "c71418d4-d90a-486c-846f-6ab11b889034",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-22T01:58:11+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:00.806+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "v4tqgh11vbo55wl3",
+  "away_batting_order": 1,
+  "away_errors": 0,
+  "away_hits": 9,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 3
+   },
+   {
+    "inning": 2,
+    "runs": 2
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 1
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "away_lob": 7,
+  "away_pitcher_id": null,
+  "away_score": 6,
+  "away_team_id": "BOS",
+  "counts_in_standings": true,
+  "created_at": "2026-08-26T22:32:05.821123+00:00",
+  "game_date": "2026-08-26",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 0,
+  "home_hits": 8,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 4
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 1
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 3
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 9,
+  "home_pitcher_id": null,
+  "home_score": 8,
+  "home_team_id": "LA",
+  "id": "cb25e7d5-e72e-4182-9a5f-840ef8b2f47f",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-27T02:05:00+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:04.868+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "8m8qyyfytlcngh7s",
+  "away_batting_order": 1,
+  "away_errors": 2,
+  "away_hits": 6,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 2
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 1
+   }
+  ],
+  "away_lob": 8,
+  "away_pitcher_id": null,
+  "away_score": 3,
+  "away_team_id": "LA",
+  "counts_in_standings": true,
+  "created_at": "2026-08-08T17:03:11.260026+00:00",
+  "game_date": "2026-08-08",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 2,
+  "home_hits": 11,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 2
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 7
+   },
+   {
+    "inning": 5,
+    "runs": 1
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 7,
+  "home_pitcher_id": null,
+  "home_score": 10,
+  "home_team_id": "SF",
+  "id": "dd18f46e-9a39-4b98-ac2d-c7a0c383cf4b",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-22T02:15:24+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:00.885+00:00",
+  "venue": null
+ },
+ {
+  "api_game_id": "v7zr9elz0xc5lqbw",
+  "away_batting_order": 1,
+  "away_errors": 2,
+  "away_hits": 3,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 0
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 1
+   },
+   {
+    "inning": 4,
+    "runs": 0
+   },
+   {
+    "inning": 5,
+    "runs": 1
+   },
+   {
+    "inning": 6,
+    "runs": 1
+   },
+   {
+    "inning": 7,
+    "runs": 1
+   }
+  ],
+  "away_lob": 3,
+  "away_pitcher_id": null,
+  "away_score": 4,
+  "away_team_id": "BOS",
+  "counts_in_standings": true,
+  "created_at": "2026-08-03T17:48:09.588104+00:00",
+  "game_date": "2026-08-05",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 1,
+  "home_hits": 15,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 6
+   },
+   {
+    "inning": 2,
+    "runs": 2
+   },
+   {
+    "inning": 3,
+    "runs": 2
+   },
+   {
+    "inning": 4,
+    "runs": 1
+   },
+   {
+    "inning": 5,
+    "runs": 1
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   }
+  ],
+  "home_lob": 9,
+  "home_pitcher_id": null,
+  "home_score": 12,
+  "home_team_id": "LA",
+  "id": "e385b272-ccdf-4e61-8a12-8169d9888e67",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-12T22:48:05+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final",
+  "updated_at": "2026-09-01T20:32:00.767+00:00",
+  "venue": "Robin Roberts"
+ },
+ {
+  "api_game_id": "uqnlzivjhyjg4cj9",
+  "away_batting_order": 1,
+  "away_errors": 3,
+  "away_hits": 12,
+  "away_line": [
+   {
+    "inning": 1,
+    "runs": 1
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 2
+   },
+   {
+    "inning": 4,
+    "runs": 2
+   },
+   {
+    "inning": 5,
+    "runs": 0
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   },
+   {
+    "inning": 8,
+    "runs": 2
+   }
+  ],
+  "away_lob": 11,
+  "away_pitcher_id": null,
+  "away_score": 7,
+  "away_team_id": "NY",
+  "counts_in_standings": true,
+  "created_at": "2026-08-09T21:54:34.251274+00:00",
+  "game_date": "2026-08-09",
+  "game_type": "regular",
+  "home_batting_order": 1,
+  "home_errors": 2,
+  "home_hits": 11,
+  "home_line": [
+   {
+    "inning": 1,
+    "runs": 1
+   },
+   {
+    "inning": 2,
+    "runs": 0
+   },
+   {
+    "inning": 3,
+    "runs": 0
+   },
+   {
+    "inning": 4,
+    "runs": 1
+   },
+   {
+    "inning": 5,
+    "runs": 3
+   },
+   {
+    "inning": 6,
+    "runs": 0
+   },
+   {
+    "inning": 7,
+    "runs": 0
+   },
+   {
+    "inning": 8,
+    "runs": 1
+   }
+  ],
+  "home_lob": 13,
+  "home_pitcher_id": null,
+  "home_score": 6,
+  "home_team_id": "BOS",
+  "id": "ff507468-927d-4616-858b-48a2326eb722",
+  "innings": null,
+  "last_play_at": null,
+  "live_balls": 0,
+  "live_half": "top",
+  "live_inning": 1,
+  "live_outs": 0,
+  "live_state": null,
+  "live_strikes": 0,
+  "notes": null,
+  "runner_first": null,
+  "runner_second": null,
+  "runner_third": null,
+  "season_id": "c9sgab9f9yx00z75",
+  "source_updated_at": "2026-08-25T19:25:20+00:00",
+  "start_time": "6:30 PM",
+  "status": "final",
+  "status_detail": "Final - 8 innings",
+  "updated_at": "2026-09-01T20:32:00.914+00:00",
+  "venue": null
+ }
+]

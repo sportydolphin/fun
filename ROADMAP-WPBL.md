@@ -153,8 +153,8 @@ in now is:
    this list aimed straight at the measured retention gradient.
 6. **#2 the archive**, scoped Sep 1 and smaller than it looked: the mirror is already complete
    against the feed, so there is no capture pass to write and the whole build can wait for the
-   winter. What cannot wait is a **verified backup**, because on Sep 22 the mirror stops being a
-   cache and becomes the only copy of the season we control. See the scope under #2.
+   winter. Its one dated half, a verified export of the season, ~~cannot wait~~ ✅ *shipped
+   Sep 1*. See the scope under #2.
 7. **#4 the primer**, cheap, durable, and aimed at an audience that is entirely first-time
    visitors.
 
@@ -555,14 +555,15 @@ them partial and all of them owned by somebody else:
 - **One of 119 players has no bundled portrait**, and 118 do. Team logos are bundled too, so the
   art does not depend on anyone else's server.
 
-**AND THE ONE REAL DEADLINE, WHICH IS NOT ON THIS LIST AT ALL.** Everything above says the
+**AND THE ONE REAL DEADLINE, WHICH WAS NOT ON THIS LIST AT ALL** (built Sep 1, see the log). Everything above says the
 inaugural season survives as long as the mirror does. The mirror is one Supabase project. When
 the feed goes quiet on Sep 22 there is no longer a source to re-ingest from, so from that date
 the database stops being a cache of someone else's data and becomes **the only copy of the
 WPBL's first season that we control**, and a dropped table or a lapsed project takes it with no
-recovery path. A verified export, restored somewhere once to prove it restores, is worth more
-than every feature in this entry and is a fraction of the work. **That is the September job.**
-Everything else here can wait for the winter, which is also when it has an audience.
+recovery path. A verified export is worth more than every feature in this entry and is a fraction of the
+work. **That was the September job, and it is done**: `npm run archive` writes the season to
+`archive/wpbl-2026/` and a weekly job commits it when it moved. Everything else here can wait
+for the winter, which is also when it has an audience.
 
 Worth noting as evidence of demand: `github.com/exu6jh/RetroWPBL` is a stranger
 hand-transcribing WPBL play-by-play into Retrosheet format, game by game, from the same
@@ -941,6 +942,62 @@ is retired.
 ---
 
 ## Shipped log
+
+### Sep 1, 2026: the season, in files, because on Sep 22 there is nothing to re-ingest from
+
+Written while scoping #2, which turned out to be a much smaller item than filed with one part
+of it that was not on the list at all.
+
+**THE MIRROR IS ALREADY COMPLETE AGAINST THE FEED**, checked field by field: every field the
+feed publishes on a game, a box line or a play has a column, down to `pitch_sequence`,
+`pitch_events`, `fouls`, `balls`, `strikes`, `lob`, `sf`, `sh`, `ibb`, `gdp`, `tb`. So the
+entry's "capture during the season" half is mostly imaginary, the ingest has been doing it since
+August, and every headline feature of the archive derives from stored plays and stored box lines
+and is recomputable in 2030. The full scope is under #2.
+
+**What that leaves is a category nobody had written down.** Until Sep 22 these tables are a
+CACHE: every row is re-fetchable from the league, and losing the database costs a re-ingest.
+After Sep 22 there is nothing to re-ingest from, and the same tables become the only copy of the
+league's first season we control, with no announcement and no visible change. A dropped table or
+a bad migration on Sep 23 is unrecoverable and looks like any other Tuesday.
+
+`npm run archive` writes it to `archive/wpbl-2026/`, one plain JSON file per table, and a weekly
+job commits it when the data moved. Git is the store because it is versioned, already mirrored
+off-site, keeps every past export reachable, and shows in a diff exactly what changed.
+
+**IT READS THROUGH THE ANON KEY, AND THAT IS A SECURITY PROPERTY RATHER THAN A SHORTCUT.** The
+files go in a repository, so the one thing the export must be incapable of is picking up a row
+that was not already public. Reading as the anonymous client hands that decision to RLS, using
+the same policies that decide what the website serves: a table with no public policy exports
+empty, and a table added to the list by mistake cannot leak. A service-role key would have
+exported `events`, `feedback` and `wpbl_predict_*`. The cost of the choice is that this is NOT a
+database backup and must never be described as one; auth, analytics, feedback, push and the
+prediction game are outside it, and project-level backups are a separate Supabase decision.
+
+**The failure an archive cannot survive is the short read**, because it looks exactly like
+success. PostgREST caps a bare select at 1000 rows silently, so every table is paged over its
+own PRIMARY KEY (half of them key on the feed's id rather than a uuid, so this could not be
+assumed) and the run FAILS rather than writing a plausible partial file over a complete one.
+
+**And it is verified rather than assumed.** `--check` re-reads every table and compares it
+against both the file on disk and the digest in the manifest, so it catches a truncated file, a
+hand-edit, and a database that has moved on. Tested by deleting a row from an exported file and
+confirming it reports ALTERED, then restoring it and confirming it goes green: an untested
+backup is a rumour, and a verifier that has never failed is the same rumour with more steps.
+
+**One thing found on the way and deliberately left out of the export.**
+`wpbl_player_team_changes` holds **13,644 rows encoding 18 distinct facts about 3 players**, and
+grows about 2,900 rows a day, forever, because the ingest re-reads old box scores continuously
+and the insert is not idempotent. It was half the archive by bytes and would have churned 4.7MB
+into git every week for no new information, long after the season ended. The fact it records is
+archive-worthy and the table will go in once it has a unique index on
+(player_id, game_id, from_team_id, to_team_id) and has been collapsed. Nothing is lost meanwhile:
+the resolved outcome lives on `wpbl_players` (`api_ids`, `team_as_of`) and is archived.
+
+4,689 rows across 13 tables, 4.55MB. The four that ARE the season are `wpbl_games`,
+`wpbl_batting_lines`, `wpbl_pitching_lines` and `wpbl_game_plays`: rows rather than computed
+standings, because a derived number preserves one reading of the season and the rows preserve
+all of them.
 
 ### Sep 1, 2026: the postseason is series-shaped, and so is the section now
 
