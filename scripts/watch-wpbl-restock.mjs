@@ -37,12 +37,29 @@
  * robots.txt asks that checkout stay human, and buying on someone's behalf the instant a page
  * changes is not a thing to automate.
  *
+ * IT WATCHES TWO PLACES, AND THEY ARE NOT THE SAME KIND OF PLACE. Besides the Shopify store
+ * there is The Realest (therealest.com/wpbl), where the league auctions memorabilia: game-used
+ * bases, game-worn jerseys, locker nameplates, lineup cards, infield dirt. Every lot there is
+ * one of one, so there is no such thing as a restock and the only event is a NEW LOT. 187 of
+ * the 190 lots are already sold or ended; the three still open are buy-now.
+ *
+ * THE AUCTION SOURCE IS CHECKED HOURLY, NOT EVERY TEN MINUTES. Lots arrive in batch drops (70
+ * on Jul 28, 104 over Aug 4-5, 14 across the fortnight after, none since Aug 17), so ten-minute
+ * polling would be 144 requests a day to learn nothing twice a month. It is also not our host:
+ * api.therealest.com/robots.txt is `Disallow: /`, which on an API subdomain usually means "stay
+ * out of the search index" rather than "no clients", but it is still their stated wish, so the
+ * watcher identifies itself honestly and asks as rarely as it can. If they would rather it
+ * stopped, set WPBL_AUCTION_WATCH=off and it stops. The rate gate lives in the database rather
+ * than in the cron, because GitHub's schedule slips: an interval measured from the last attempt
+ * survives that, a second cron line does not.
+ *
  * Usage:
  *   npm run restock-watch                 # check, announce what changed
  *   npm run restock-watch -- --dry-run    # check and render; writes nothing, posts nothing
  *   npm run restock-watch -- --status     # what the snapshot holds, check nothing
  *   npm run restock-watch -- --test-post  # post a sample to both webhooks, to prove they work
- *   npm run restock-watch -- --reseed     # re-record the catalogue silently, announce nothing
+ *   npm run restock-watch -- --reseed     # re-record both catalogues silently, announce nothing
+ *   npm run restock-watch -- --auction-now  # check the auction house regardless of the gate
  *
  * Required env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY.
  *   DISCORD_RESTOCK_WEBHOOK_URL  the private channel; loud alerts for the shortlist.
@@ -82,14 +99,39 @@ const SHOP_MENTION = ''
 
 const SHOP_DOMAIN = process.env.WPBL_SHOP_DOMAIN ?? 'shop.womensprobaseballleague.com'
 
+// ─── The auction house: where, and how often ────────────────────────────────
+//
+// The Realest lists the league's memorabilia. `partner` is its own taxonomy rather than a text
+// search: q=WPBL matches 187 lots on the words in a title, partner=WPBL matches 190 on who
+// consigned them, which is the question actually being asked. Do not "simplify" it back to a
+// free-text query; a lot titled only "Opening Day Game-Used Rosin Bag" is the league's lot and
+// says WPBL nowhere.
+const REALEST_API = process.env.WPBL_AUCTION_API ?? 'https://api.therealest.com/v1'
+const REALEST_SITE = process.env.WPBL_AUCTION_SITE ?? 'https://therealest.com'
+const REALEST_PARTNER = process.env.WPBL_AUCTION_PARTNER ?? 'WPBL'
+// The API rejects anything above 100 with a 400, so 190 lots is two pages. The paging loop is
+// not optional politeness: see fetchLots, where a short read has to ERROR.
+const REALEST_PAGE_SIZE = 100
+// An off switch that does not need a deploy or a secret rotation, because the reason to reach
+// for it is "they asked us to stop" and that should take one variable.
+const AUCTION_ENABLED = (process.env.WPBL_AUCTION_WATCH ?? 'on').trim().toLowerCase() !== 'off'
+// Hourly, measured from the last ATTEMPT rather than the last success, so a source that is
+// failing is retried at the same slow rate rather than every ten minutes. 55 rather than 60
+// because GitHub's cron drifts, and a gate of exactly an hour against a tick that arrives at
+// 59m50s silently becomes a two-hour gate.
+const AUCTION_MIN_INTERVAL_MIN = Number(process.env.WPBL_AUCTION_INTERVAL_MIN ?? 55)
+
 const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
 const STATUS = args.has('--status')
 const TEST_POST = args.has('--test-post')
 const RESEED = args.has('--reseed')
+const AUCTION_NOW = args.has('--auction-now')
 
-// Be a courteous client: identify honestly rather than impersonating a browser, so the store
-// can see what we are and block us if they would rather we stopped.
+// Be a courteous client: identify honestly rather than impersonating a browser, so either host
+// can see what we are and block us if they would rather we stopped. That matters more for The
+// Realest than for the Shopify store, since its API subdomain's robots.txt is `Disallow: /`:
+// a watcher reaching it under a spoofed Chrome UA would be hiding, and this one is not.
 const USER_AGENT =
   'sportydolphin.fun shop watcher (+https://sportydolphin.fun; contact via the WPBL fan Discord)'
 const FETCH_TIMEOUT_MS = 20_000
@@ -267,7 +309,7 @@ export function shopFeedMessage({ newProducts, restocked }) {
       const sizes = sizeNames(variants)
       const price = money(variants[0]?.price_cents)
       const detail = [sizes.length ? sizes.join(', ') : null, price].filter(Boolean).join(' · ')
-      return bullet(`**${product.title}**${detail ? ` — ${detail}` : ''}\n  ${product.url}`)
+      return bullet(`**${product.title}**${detail ? ` · ${detail}` : ''}\n  ${product.url}`)
     })
     parts.push(`🔄 **Back in stock** (${restocked.length})\n${truncateList(lines).join('\n')}`)
   }
@@ -290,11 +332,11 @@ export function watchAlertMessage(watch, product, variants) {
   return lines.join('\n')
 }
 
-function outageMessage(hours, error) {
+function outageMessage(hours, error, { label = 'Shop watcher', missed = 'a restock' } = {}) {
   return [
-    `⚠️  **Shop watcher is blind.** No successful check for ${Math.floor(hours)}h.`,
+    `⚠️  **${label} is blind.** No successful check for ${Math.floor(hours)}h.`,
     `Last error: \`${String(error).slice(0, 300)}\``,
-    'It will keep trying and will say nothing more until it recovers. Worth a look, since a restock could pass unnoticed while this is broken.',
+    `It will keep trying and will say nothing more until it recovers. Worth a look, since ${missed} could pass unnoticed while this is broken.`,
   ].join('\n')
 }
 
@@ -314,6 +356,124 @@ export function mentionParse(mention) {
   if (/<@&\d+>/.test(m)) return ['roles']
   if (/<@!?\d+>/.test(m)) return ['users']
   return []
+}
+
+// ─── The auction house ──────────────────────────────────────────────────────
+//
+// A different kind of source, so a separate path rather than a second flavour of the Shopify
+// one. There are no variants and no `available`: every lot is one of one, so the only thing
+// that can happen to a lot after it is listed is that somebody buys it, and the only event
+// worth a message is a lot id nobody has seen before.
+
+const toCents = (amount) =>
+  amount == null || amount === '' ? null : Math.round(Number(amount) * 100)
+
+/** How the lot is being sold right now, or null when nothing is live. */
+const OFFER_LABEL = { buy_now: 'Buy now', auction: 'Bidding open', make_offer: 'Make offer' }
+
+/**
+ * The partner's lots, flattened to what the diff needs.
+ *
+ * Keyed on the API's uuid rather than the slug, for the same reason the shop is keyed on
+ * Shopify's numeric id: the slug is the URL segment, rebuilt from the title, so a corrected
+ * spelling would read as the old lot vanishing and a new one arriving.
+ */
+export function normaliseLots(payload, site = REALEST_SITE) {
+  const results = Array.isArray(payload?.results) ? payload.results : []
+  return results.map(r => {
+    const sale = r.current_auction ?? null
+    const live = sale?.status === 'open'
+    // Whatever number is true of the lot right now: its buy-now price while it is for sale,
+    // the standing bid on a live auction, otherwise what it went for. Every one of them is a
+    // decimal STRING ("249.99"), the same trap as Shopify's /products.json, so a round "250"
+    // becomes 250 cents the moment someone treats this as an integer.
+    const amount = live
+      ? (sale.buy_now_amount ?? sale.current_amount ?? sale.min_next_bid)
+      : (r.last_sold_amount ?? sale?.buy_now_amount)
+    return {
+      lot_id: String(r.id),
+      slug: r.slug,
+      name: r.name ?? r.full_name ?? r.slug,
+      offer_type: live ? (sale.type ?? null) : null,
+      price_cents: toCents(amount),
+      // The league's own posting time, not ours. Carried so a lot surfacing with a date_posted
+      // from a month ago is legible as a broken snapshot rather than as news.
+      date_posted: r.date_posted ?? r.created_at ?? null,
+      url: `${site}/item/${r.slug}`,
+    }
+  })
+}
+
+/**
+ * Every lot the partner has listed.
+ *
+ * A SHORT READ IS AN ERROR, not a smaller answer. The API caps `limit` at 100 and hands back
+ * the real total in `pagination.total`, exactly like the league feed's /games list and the
+ * PostgREST 1000-row cap: a truncated page is a perfectly valid page, so nothing fails, the
+ * missing lots simply never get announced and the channel reads as a quiet month. Comparing
+ * what we collected against the total is the only thing standing between that and silence.
+ */
+export async function fetchLots(fetchImpl = fetch, { partner = REALEST_PARTNER, site = REALEST_SITE } = {}) {
+  const lots = []
+  let total = null
+  for (let offset = 0; offset < 5_000; offset += REALEST_PAGE_SIZE) {
+    const url = `${REALEST_API}/search?offset=${offset}&limit=${REALEST_PAGE_SIZE}`
+      + `&partner=${encodeURIComponent(partner)}&sort_by=date_desc&is_qa=false`
+    const res = await fetchImpl(url, {
+      headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    })
+    if (!res.ok) throw new Error(`The Realest returned ${res.status} for ${url}`)
+    const payload = await res.json()
+    const batch = normaliseLots(payload, site)
+    const reported = Number(payload?.pagination?.total)
+    if (Number.isFinite(reported)) total = reported
+    lots.push(...batch)
+    // Stop on a short page, and stop the moment we hold as many as the total claims. Without
+    // the second condition the only exit is the 5,000 offset cap, so an API that answered a
+    // full page forever would get fifty requests a run out of a watcher whose whole posture is
+    // asking as little as possible.
+    if (batch.length < REALEST_PAGE_SIZE) break
+    if (Number.isFinite(total) && lots.length >= total) break
+  }
+  if (!Number.isFinite(total)) {
+    throw new Error('The Realest answered without a pagination.total, so there is nothing to check the row count against and a truncated read would look exactly like a complete one.')
+  }
+  if (total === 0 || lots.length === 0) {
+    throw new Error(`The Realest reports ${total} lots for partner "${partner}", which is never right for this partner and is far likelier to be a renamed filter than an emptied shelf.`)
+  }
+  if (lots.length !== total) {
+    throw new Error(`Read ${lots.length} of the ${total} lots The Realest says exist. A prefix would silently never announce the rest, so this errors rather than degrades.`)
+  }
+  return lots
+}
+
+/**
+ * Which lots are new.
+ *
+ * Pure and tested, same as diffCatalog and for the same reason. Note there is no restock half:
+ * a sold lot is gone for good, so the only false positive available here is announcing the
+ * whole catalogue twice, which is what announced_new_at exists to prevent.
+ */
+export function diffLots(live, known, { seeding = false } = {}) {
+  const seen = new Map((known ?? []).map(l => [String(l.lot_id), l]))
+  // Covers both "never seen" and "recorded but never announced", which is every row the seeding
+  // run writes.
+  const newLots = live.filter(l => {
+    const prev = seen.get(String(l.lot_id))
+    return !prev || prev.announced_new_at == null
+  })
+  return seeding ? { newLots: [] } : { newLots }
+}
+
+/** One quiet message per run, into the same shop channel. Null when nothing is new. */
+export function auctionFeedMessage(newLots) {
+  if (!newLots.length) return null
+  const lines = newLots.map(l => {
+    const facts = [OFFER_LABEL[l.offer_type], money(l.price_cents)].filter(Boolean)
+    return bullet([`**${l.name}**`, ...facts].join(' · ') + `\n  ${l.url}`)
+  })
+  return `🏟️ **New on The Realest** (${newLots.length})\n${truncateList(lines).join('\n')}`
 }
 
 // ─── Discord ────────────────────────────────────────────────────────────────
@@ -390,15 +550,78 @@ async function saveSnapshot(live, { announcedNewIds }) {
   }
 }
 
+// ─── The auction snapshot ───────────────────────────────────────────────────
+
+// 190 lots today. Same read cap and same reasoning as SNAPSHOT_LIMIT: a truncated snapshot here
+// cannot invent a restock, but it would re-announce every lot it forgot, which is one message
+// containing the entire catalogue.
+const LOTS_LIMIT = 5000
+
+async function loadLots() {
+  const r = await supabase.from('wpbl_auction_lots').select('lot_id,announced_new_at').limit(LOTS_LIMIT)
+  if (r.error) throw new Error(`Could not read the auction snapshot: ${r.error.message}`)
+  const rows = r.data ?? []
+  if (rows.length >= LOTS_LIMIT) {
+    throw new Error(`The auction snapshot hit the ${LOTS_LIMIT}-row read cap, so it is a prefix rather than the whole thing. Diffing against a prefix would announce most of the catalogue as new. Page this read before letting the job run again.`)
+  }
+  return rows
+}
+
+async function saveLots(live, known) {
+  const now = new Date().toISOString()
+  const alreadyAnnounced = new Map((known ?? []).map(l => [String(l.lot_id), l.announced_new_at]))
+  // Everything present is marked announced once it has been through a real run, seeding
+  // included: that is what stops the seeded catalogue reading as 190 new lots next time. A lot
+  // that already carries a stamp keeps its original one, so the column goes on meaning "when we
+  // announced this" rather than "when we last looked". The field is on EVERY row rather than
+  // conditionally spread, because PostgREST rejects a bulk upsert whose objects do not all
+  // share a key set.
+  const rows = live.map(l => ({
+    lot_id: l.lot_id, slug: l.slug, name: l.name, offer_type: l.offer_type,
+    price_cents: l.price_cents, date_posted: l.date_posted,
+    last_seen_at: now, announced_new_at: alreadyAnnounced.get(l.lot_id) ?? now,
+  }))
+  for (let i = 0; i < rows.length; i += 200) {
+    const r = await supabase.from('wpbl_auction_lots').upsert(rows.slice(i, i + 200), { onConflict: 'lot_id' })
+    if (r.error) throw new Error(`Could not save lots: ${r.error.message}`)
+  }
+}
+
+// ─── Run health ─────────────────────────────────────────────────────────────
+
 async function recordRun(fields) {
   const r = await supabase.from('wpbl_shop_watch_runs').insert(fields)
   if (r.error) console.error(`Could not record the run: ${r.error.message}`)
 }
 
-async function lastGoodRun() {
-  const { data } = await supabase.from('wpbl_shop_watch_runs')
-    .select('ran_at,ok').eq('ok', true).order('ran_at', { ascending: false }).limit(1)
+// Always filtered by source. The two watchers share this table, and a Shopify check succeeding
+// every ten minutes would otherwise keep an auction watcher that died in July looking healthy
+// forever, which is the exact failure the table exists to make visible.
+async function lastRun(source, { okOnly = false, oldest = false } = {}) {
+  let q = supabase.from('wpbl_shop_watch_runs').select('ran_at,ok').eq('source', source)
+  if (okOnly) q = q.eq('ok', true)
+  const { data } = await q.order('ran_at', { ascending: oldest }).limit(1)
   return data?.[0] ?? null
+}
+
+// No default source. The whole point of the column is that one watcher cannot answer for the
+// other, and a default is how that quietly stops being true.
+const lastGoodRun = (source) => lastRun(source, { okOnly: true })
+
+/**
+ * How long this source has been failing, for the outage notice.
+ *
+ * Measured from the last SUCCESS, falling back to the first run ever recorded for the source,
+ * falling back to now. Both fallbacks matter: hoursSince(null) is Infinity, so without them a
+ * source that has never once succeeded reports "no successful check for Infinityh" and shouts
+ * about it on its very first failing attempt, which is precisely the deploy-day blip nobody
+ * wants a channel woken for.
+ */
+async function blindHours(source) {
+  const good = await lastGoodRun(source)
+  if (good) return hoursSince(good.ran_at)
+  const first = await lastRun(source, { oldest: true })
+  return hoursSince(first?.ran_at ?? new Date().toISOString())
 }
 
 // ─── Main ───────────────────────────────────────────────────────────────────
@@ -421,13 +644,24 @@ async function main() {
 
   if (STATUS) {
     const inStock = snapshot.variants.filter(v => v.available).length
-    console.log(`Snapshot: ${snapshot.products.length} products, ${snapshot.variants.length} variants, ${inStock} in stock.`)
+    console.log(`Shop:    ${snapshot.products.length} products, ${snapshot.variants.length} variants, ${inStock} in stock.`)
+    console.log(`         last successful run: ${(await lastGoodRun('shop'))?.ran_at ?? 'never'}`)
     console.log(`Shortlist (loud alerts): ${snapshot.watches.map(w => w.label ?? w.product_handle).join(', ') || 'none'}`)
-    const last = await lastGoodRun()
-    console.log(`Last successful run: ${last?.ran_at ?? 'never'}`)
+    const lots = await loadLots()
+    console.log(`Auction: ${lots.length} lots recorded${AUCTION_ENABLED ? '' : ' (watch is OFF)'}.`)
+    console.log(`         last successful run: ${(await lastGoodRun('auction'))?.ran_at ?? 'never'}`)
     return
   }
 
+  // Two independent sources, deliberately sequential and deliberately not sharing a failure.
+  // The shop pass returns early on a store outage, so folding the auction check into it would
+  // mean a Shopify 503 silently stopping the other watcher too.
+  await runShopWatch(snapshot)
+  await runAuctionWatch()
+}
+
+/** The Shopify store: new merch, restocks, and the loud shortlist alerts. */
+async function runShopWatch(snapshot) {
   const seeding = RESEED || snapshot.products.length === 0
 
   let live
@@ -440,13 +674,12 @@ async function main() {
       // A failed check is not a failed job: the store 503s, a deploy blips, and the next run
       // ten minutes later is the retry. But silence is the dangerous state for a watcher, so
       // once the outage is old enough we say so, once.
-      const last = await lastGoodRun()
-      const blindFor = hoursSince(last?.ran_at)
+      const blindFor = await blindHours('shop')
       if (blindFor >= ERROR_QUIET_HOURS) {
         await post(SHOP_WEBHOOK, outageMessage(blindFor, message), SHOP_MENTION).catch(e =>
           console.error(`   Could not post the outage notice either: ${e.message}`))
       }
-      await recordRun({ ok: false, error: message.slice(0, 500) })
+      await recordRun({ source: 'shop', ok: false, error: message.slice(0, 500) })
     }
     // Exit 0: this is an expected, self-healing condition, and a red X every ten minutes
     // teaches everyone to ignore the job.
@@ -523,9 +756,76 @@ async function main() {
       .in('id', announcedWatchIds)
   }
   await recordRun({
-    ok: true, products_seen: live.length,
+    source: 'shop', ok: true, products_seen: live.length,
     new_products: newProducts.length, restocks: restocked.length,
   })
+}
+
+/**
+ * The Realest: new lots, quietly, into the same shop channel.
+ *
+ * No shortlist and no loud half. A lot is one of one, so "tell me when this one comes back" is
+ * not a thing that can be true here, and the giveaway-cap problem the shortlist exists for
+ * cannot arise.
+ */
+async function runAuctionWatch() {
+  if (!AUCTION_ENABLED) {
+    console.log('Auction watch: off (WPBL_AUCTION_WATCH=off).')
+    return
+  }
+
+  // The rate gate, measured from the last ATTEMPT rather than the last success, so a source
+  // that is failing gets retried hourly rather than every ten minutes. --auction-now and
+  // --dry-run bypass it: both are a person asking on purpose, and neither is the cron.
+  if (!AUCTION_NOW && !DRY_RUN) {
+    const last = await lastRun('auction')
+    const mins = hoursSince(last?.ran_at) * 60
+    if (mins < AUCTION_MIN_INTERVAL_MIN) {
+      console.log(`Auction watch: checked ${Math.round(mins)}m ago, next in ${Math.ceil(AUCTION_MIN_INTERVAL_MIN - mins)}m.`)
+      return
+    }
+  }
+
+  const known = await loadLots()
+  const seeding = RESEED || known.length === 0
+
+  let live
+  try {
+    live = await fetchLots()
+  } catch (err) {
+    const message = String(err?.message ?? err)
+    console.error(`⚠️   ${message}`)
+    if (!DRY_RUN) {
+      const blindFor = await blindHours('auction')
+      if (blindFor >= ERROR_QUIET_HOURS) {
+        await post(SHOP_WEBHOOK, outageMessage(blindFor, message, {
+          label: 'Auction watcher', missed: 'a new lot',
+        }), SHOP_MENTION).catch(e => console.error(`   Could not post the outage notice either: ${e.message}`))
+      }
+      await recordRun({ source: 'auction', ok: false, error: message.slice(0, 500) })
+    }
+    // Exit 0 for the same reason the shop pass does: this is expected and self-healing, and a
+    // red X teaches everyone to ignore the job.
+    return
+  }
+
+  const { newLots } = diffLots(live, known, { seeding })
+  console.log(`Auction house: ${live.length} lots.` + (seeding
+    ? ` ${RESEED ? 'Reseeding' : 'First run'}: recording them and announcing nothing.`
+    : ` New: ${newLots.length}`))
+
+  const feed = auctionFeedMessage(newLots)
+  if (feed) {
+    await post(SHOP_WEBHOOK, feed, SHOP_MENTION)
+    if (!DRY_RUN) console.log('Posted the new-lot feed.')
+  }
+
+  // Same rule as the shop pass: a dry run writes NOTHING, because recording what it saw would
+  // move the snapshot past the change and the real run would then have nothing to announce.
+  if (DRY_RUN) { console.log('Dry run: nothing written for the auction house.'); return }
+
+  await saveLots(live, known)
+  await recordRun({ source: 'auction', ok: true, products_seen: live.length, new_products: newLots.length })
 }
 
 if (IS_ENTRYPOINT) {
@@ -534,7 +834,14 @@ if (IS_ENTRYPOINT) {
     if (!DRY_RUN && supabase) {
       // ok:false matters: lastGoodRun() is what the outage warning measures from, so recording
       // a crash as a good run would leave the watcher permanently unable to notice it is dead.
-      await recordRun({ ok: false, error: String(err?.message ?? err).slice(0, 500) }).catch(() => {})
+      //
+      // Recorded against BOTH sources, because a crash out here (a snapshot read hitting its
+      // row cap, a write failing) cannot say which pass it killed, and attributing it to one
+      // would leave the other reporting a clean run it never actually completed.
+      const error = String(err?.message ?? err).slice(0, 500)
+      for (const source of ['shop', 'auction']) {
+        await recordRun({ source, ok: false, error }).catch(() => {})
+      }
     }
     process.exit(1)
   })

@@ -8,7 +8,7 @@ token, no gateway, nothing to keep running:
 | **Watch-party board** | wherever you point its webhook | [`scripts/update-wpbl-discord-board.mjs`](../scripts/update-wpbl-discord-board.mjs) | One message, edited forever. Always shows the next few games with live countdowns. |
 | **Box scores** | a different channel | [`supabase/functions/wpbl-ingest/announce-final.ts`](../supabase/functions/wpbl-ingest/announce-final.ts) and [`scripts/post-wpbl-discord-recaps.ts`](../scripts/post-wpbl-discord-recaps.ts) | One message per finished game, edited in place if the stats are corrected later. |
 | **Highlight reels** | the highlights channel | [`scripts/post-wpbl-discord-highlights.mjs`](../scripts/post-wpbl-discord-highlights.mjs) | One message per YouTube highlight reel, posted once and never touched again. |
-| **Shop feed** | a shop channel | [`scripts/watch-wpbl-restock.mjs`](../scripts/watch-wpbl-restock.mjs) | New merch and restocks across the whole store, batched into one message per run. Never pings. |
+| **Shop feed** | a shop channel | [`scripts/watch-wpbl-restock.mjs`](../scripts/watch-wpbl-restock.mjs) | New merch and restocks across the whole Shopify store, plus new memorabilia lots on The Realest, batched into one message per run. Never pings. |
 | **Shortlist alerts** | a private channel | the same script | A loud `@everyone` when something on the `wpbl_restock_watch` shortlist comes back. |
 | **Mention watch** | a private channel | [`scripts/watch-wpbl-mentions.mjs`](../scripts/watch-wpbl-mentions.mjs) | One digest per run of the public posts where somebody is asking where to follow a WPBL game. Threads to go and answer, not content for the server. |
 | **Birthdays** | a birthdays channel | [`scripts/post-wpbl-discord-birthdays.ts`](../scripts/post-wpbl-discord-birthdays.ts) | One message on the mornings someone on the roster has a birthday, and nothing on the mornings nobody does. |
@@ -158,8 +158,9 @@ the schedule finds the day taken and stops.
 
 ### The shop feed and the shortlist alerts
 
-`wpbl-restock-watch` runs every 10 minutes and mirrors the league's Shopify catalogue, then
-announces what changed. It started as one question, since the giveaway winner chose a cap that
+`wpbl-restock-watch` runs every 10 minutes and mirrors **two** places the league sells things,
+then announces what changed. The Shopify store is checked on every run; The Realest, where the
+league auctions memorabilia, is checked hourly and is described further down. It started as one question, since the giveaway winner chose a cap that
 was out of stock and the shop has no back-in-stock notification of its own; asking that about
 the whole store is the same job with a snapshot behind it.
 
@@ -203,7 +204,58 @@ like a watcher that has died. Every run is recorded in `wpbl_shop_watch_runs`, a
 stops answering for six hours the job says so in the shop channel. That does not cover the job
 never starting at all: see the limitations at the end of this doc.
 
-The shortlist is a table, so adding something worth shouting about is an insert:
+#### The Realest: new memorabilia lots
+
+The league also consigns memorabilia to [The Realest](https://therealest.com/wpbl): game-used
+bases, game-worn jerseys, locker nameplates, lineup cards, infield dirt. It is a marketplace
+rather than a shop, and the difference decides the whole design.
+
+**Every lot is one of one, so there is no restock.** 187 of the 190 lots are already sold or
+ended and the three still open are buy-now. Nothing can come back, so the only event worth a
+message is a `lot_id` nobody has seen before, and it goes quietly into the shop channel with no
+loud half and no shortlist. The snapshot lives in `wpbl_auction_lots`, and the first run records
+all 190 and announces none of them, the same as the Shopify seeding run.
+
+**New lots arrive in batch drops, not a trickle.** 70 on Jul 28, 104 over Aug 4 and 5, 14 across
+the fortnight after, none since Aug 17. That is why this source is checked hourly rather than
+every ten minutes: ten-minute polling would be 144 requests a day to learn nothing twice a month.
+The gate is a database check against the last **attempt** in `wpbl_shop_watch_runs`, not a second
+cron line, because GitHub's schedule slips and two cron lines would collide on the hour and fire
+the workflow twice.
+
+**`api.therealest.com/robots.txt` is `Disallow: /`.** On an API subdomain that normally means
+"keep out of the search index" rather than "no clients", and the site itself allows `/`, but it
+is still their stated wish and the watcher is built to respect it: hourly rather than constant,
+an honest `User-Agent` naming the site and a contact rather than a spoofed browser, and an off
+switch that takes one setting and no deploy. Set the repository **variable** `WPBL_AUCTION_WATCH`
+to `off` and that half stops; the Shopify half is untouched. Use it the moment they ask.
+
+The alternatives were all worse, and are worth recording so nobody re-litigates them: the
+server-rendered `/wpbl` page carries only 12 curated links, the search page renders its results
+client-side so its HTML is empty, and the sitemap is regenerated only every few days and does not
+label which of its ~4,400 items are the league's.
+
+**Two traps in the API.** `limit` caps at 100 (anything larger is a 400), and the real count comes
+back in `pagination.total`: a truncated page is a valid page, so a short read is compared against
+that total and **errors** rather than degrading, exactly as with the league feed's `/games` list.
+And prices are decimal **strings** (`"249.99"`), so a round `"250"` read as an integer becomes
+$2.50 and the channel quotes a game-used base at pocket money.
+
+Ask for `partner=WPBL`, never `q=WPBL`. The partner is who consigned the lot; the text match is
+three lots short, because a lot titled only "Opening Day Game-Used Rosin Bag" says WPBL nowhere.
+
+**It never bids.** Same rule as the shop, and more so.
+
+```bash
+npm run restock-watch -- --dry-run       # both sources; writes nothing, posts nothing
+npm run restock-watch -- --auction-now   # check The Realest now, ignoring the hourly gate
+```
+
+#### The shortlist
+
+The shortlist is Shopify-only, for the same reason there is no loud alert on the auction side:
+"tell me when this one comes back" cannot be true of a one-of-one lot. It is a table, so adding
+something worth shouting about is an insert:
 
 ```sql
 insert into wpbl_restock_watch (product_handle, variant_id, label, note)

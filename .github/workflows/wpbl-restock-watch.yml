@@ -13,9 +13,21 @@ name: WPBL Shop Restock Watch
 #                                  shortlist. That is the giveaway cap.
 # The shortlist lives in the database rather than here, so adding an item is an insert.
 #
-# It notifies a human and stops there. It never carts and never checks out: the store's own
-# robots.txt asks that checkout stay human, and this would be the wrong thing to automate on
-# someone's behalf regardless.
+# TWO SOURCES, ONE JOB. Besides the Shopify store it watches The Realest
+# (therealest.com/wpbl), where the league auctions memorabilia: game-used bases, game-worn
+# jerseys, locker nameplates, lineup cards, infield dirt. Every lot there is one of one, so
+# there are no restocks and the only announcement is a NEW LOT, quietly, in the shop channel.
+#
+# THE AUCTION SOURCE IS GATED TO HOURLY, IN THE SCRIPT AND NOT HERE. Lots arrive in batch drops
+# weeks apart, and api.therealest.com/robots.txt is `Disallow: /`, so the watcher asks as rarely
+# as it usefully can. The gate is a database check against the last attempt rather than a second
+# cron line, because GitHub's schedule slips: an interval survives that, and two cron lines that
+# collide on the hour would fire this workflow twice. Set WPBL_AUCTION_WATCH=off to stop that
+# half without touching the shop half.
+#
+# It notifies a human and stops there. It never carts, never bids and never checks out: the
+# Shopify store's own robots.txt asks that checkout stay human, and this would be the wrong
+# thing to automate on someone's behalf regardless. Bidding on a lot doubly so.
 #
 # EVERY 10 MINUTES, WITH EYES OPEN. GitHub's cron is best-effort and slips under load, so the
 # real cadence is "about every 10 minutes, sometimes 25". That is fine for this: the job
@@ -42,7 +54,11 @@ on:
         type: boolean
         default: false
       reseed:
-        description: 'Re-record the catalogue silently (announce nothing). Use after a deliberate change.'
+        description: 'Re-record both catalogues silently (announce nothing). Use after a deliberate change.'
+        type: boolean
+        default: false
+      auction_now:
+        description: 'Check The Realest on this run, ignoring the hourly gate.'
         type: boolean
         default: false
 
@@ -80,4 +96,8 @@ jobs:
           # Optional. A user or role mention, e.g. "<@123456789012345678>", so the alert
           # reaches a phone instead of waiting to be noticed.
           DISCORD_RESTOCK_MENTION: ${{ secrets.DISCORD_RESTOCK_MENTION }}
-        run: node scripts/watch-wpbl-restock.mjs ${{ inputs.test_post && '--test-post' || '' }} ${{ inputs.reseed && '--reseed' || '' }}
+          # The off switch for the auction half, as a repository VARIABLE rather than a secret:
+          # the reason to reach for it is "The Realest asked us to stop", and that should take
+          # one setting and no deploy. Anything other than "off" leaves it on.
+          WPBL_AUCTION_WATCH: ${{ vars.WPBL_AUCTION_WATCH }}
+        run: node scripts/watch-wpbl-restock.mjs ${{ inputs.test_post && '--test-post' || '' }} ${{ inputs.reseed && '--reseed' || '' }} ${{ inputs.auction_now && '--auction-now' || '' }}

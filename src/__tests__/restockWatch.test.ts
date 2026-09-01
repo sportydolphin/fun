@@ -5,6 +5,7 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   diffCatalog, shopFeedMessage, watchAlertMessage, normaliseCatalog, mentionParse,
   fetchCatalog, hoursSince,
+  diffLots, normaliseLots, fetchLots, auctionFeedMessage,
 } from '../../scripts/watch-wpbl-restock.mjs'
 
 // The shop watcher runs every 10 minutes over 78 products and 271 variants, 241 of them sold
@@ -290,5 +291,196 @@ describe('mentionParse', () => {
 describe('hoursSince', () => {
   it('treats a missing timestamp as infinitely long ago, so a never-run watcher warns', () => {
     expect(hoursSince(null)).toBe(Infinity)
+  })
+})
+
+// ─── The Realest ────────────────────────────────────────────────────────────
+//
+// The second source, and a different shape of thing: 190 one-of-one memorabilia lots rather
+// than a catalogue with stock levels. There is no restock to miss here, so the failures worth
+// pinning are the other two: announcing the whole catalogue (the seeding run, or a snapshot
+// that came back short) and announcing nothing at all (a truncated read, which the API makes
+// look exactly like a complete one).
+
+type Lot = { lot_id: string; slug: string; name: string; offer_type: string | null; price_cents: number | null; date_posted: string | null; url: string }
+
+/** A row in the shape the API returns, so normaliseLots is exercised on the real payload. */
+const apiLot = (id: string, over: Record<string, unknown> = {}) => ({
+  id, slug: `lot-${id}`, name: `Lot ${id}`,
+  date_posted: '2026-08-17T18:35:07.000Z', last_sold_amount: null,
+  current_auction: null, ...over,
+})
+
+const lotsPage = (n: number, total: number, offset = 0) => ({
+  ok: true, status: 200,
+  json: async () => ({
+    results: Array.from({ length: n }, (_, i) => apiLot(`u${offset + i}`)),
+    pagination: { total, limit: 100, offset },
+  }),
+})
+
+/** A snapshot row, in the shape loadLots() returns. */
+const knownLot = (lot_id: string, announced = true) =>
+  ({ lot_id, announced_new_at: announced ? '2026-08-20T00:00:00Z' : null })
+
+describe('normaliseLots', () => {
+  it('reads the price as dollars, not cents', () => {
+    // The same trap as Shopify's /products.json: these are decimal STRINGS, so a round "250"
+    // read as an integer lands as $2.50 and the channel quotes a game-used base at pocket money.
+    const [lot] = normaliseLots({ results: [apiLot('a', {
+      current_auction: { status: 'open', type: 'buy_now', buy_now_amount: '250' },
+    })] })
+    expect(lot.price_cents).toBe(25000)
+  })
+
+  it('quotes the live price while a lot is for sale', () => {
+    const [lot] = normaliseLots({ results: [apiLot('a', {
+      last_sold_amount: '99.00',
+      current_auction: { status: 'open', type: 'buy_now', buy_now_amount: '249.99' },
+    })] })
+    expect(lot.price_cents).toBe(24999)
+    expect(lot.offer_type).toBe('buy_now')
+  })
+
+  it('quotes what it went for once the sale has ended, and offers nothing', () => {
+    // 187 of the 190 lots are in this state, so it is the common case rather than the edge one.
+    const [lot] = normaliseLots({ results: [apiLot('a', {
+      last_sold_amount: '870.00',
+      current_auction: { status: 'done', type: 'buy_now', buy_now_amount: '249.99' },
+    })] })
+    expect(lot.price_cents).toBe(87000)
+    expect(lot.offer_type).toBeNull()
+  })
+
+  it('survives a lot that has never had a price', () => {
+    const [lot] = normaliseLots({ results: [apiLot('a')] })
+    expect(lot.price_cents).toBeNull()
+  })
+
+  it('keys on the uuid, not the slug, so a retitled lot is not a new one', () => {
+    const [lot] = normaliseLots({ results: [apiLot('a', { slug: 'renamed' })] })
+    expect(lot.lot_id).toBe('a')
+    expect(lot.url).toContain('/item/renamed')
+  })
+})
+
+describe('fetchLots', () => {
+  it('pages until it has as many lots as the API says exist', async () => {
+    const f = vi.fn()
+      .mockResolvedValueOnce(lotsPage(100, 190, 0))
+      .mockResolvedValueOnce(lotsPage(90, 190, 100))
+    const out = await fetchLots(f as never)
+    expect(f).toHaveBeenCalledTimes(2)
+    expect(out).toHaveLength(190)
+  })
+
+  it('stops asking once it holds as many as the total claims', async () => {
+    // The short-page exit is not enough on its own: an API answering a full page forever would
+    // otherwise be asked fifty times a run, by a watcher whose whole posture is asking rarely.
+    const f = vi.fn(async () => lotsPage(100, 100, 0))
+    await fetchLots(f as never)
+    expect(f).toHaveBeenCalledTimes(1)
+  })
+
+  it('throws when it read fewer lots than pagination.total claims', async () => {
+    // The whole reason the total is checked. A truncated page is a valid page, so without this
+    // the missing lots are simply never announced and the channel reads as a quiet month.
+    const f = vi.fn()
+      .mockResolvedValueOnce(lotsPage(100, 190, 0))
+      .mockResolvedValue(lotsPage(0, 190, 100))
+    await expect(fetchLots(f as never)).rejects.toThrow(/Read 100 of the 190/)
+  })
+
+  it('throws when the API stops reporting a total at all', async () => {
+    const noTotal = { ok: true, status: 200, json: async () => ({ results: [apiLot('a')] }) }
+    await expect(fetchLots(vi.fn(async () => noTotal) as never))
+      .rejects.toThrow(/pagination\.total/)
+  })
+
+  it('throws on an empty catalogue rather than reporting the shelf as bare', async () => {
+    const empty = { ok: true, status: 200, json: async () => ({ results: [], pagination: { total: 0 } }) }
+    await expect(fetchLots(vi.fn(async () => empty) as never)).rejects.toThrow(/never right/)
+  })
+
+  it('throws on an API error rather than reporting no lots', async () => {
+    await expect(fetchLots(vi.fn(async () => ({ ok: false, status: 503 })) as never)).rejects.toThrow(/503/)
+  })
+
+  it('identifies itself honestly instead of spoofing a browser', async () => {
+    // It matters more here than on the Shopify store: api.therealest.com/robots.txt is
+    // Disallow: /, so a watcher arriving under a fake Chrome UA would be hiding.
+    const f = vi.fn(async () => lotsPage(1, 1, 0))
+    await fetchLots(f as never)
+    const ua = (f.mock.calls[0] as unknown as [string, { headers: Record<string, string> }])[1].headers['User-Agent']
+    expect(ua).toContain('sportydolphin.fun')
+    expect(ua).not.toMatch(/Mozilla/)
+  })
+
+  it('asks for the partner rather than the words "WPBL" in a title', async () => {
+    // partner=WPBL is who consigned the lot; q=WPBL is a text match, and it misses the lots
+    // titled only "Opening Day Game-Used Rosin Bag".
+    const f = vi.fn(async () => lotsPage(1, 1, 0))
+    await fetchLots(f as never)
+    expect((f.mock.calls[0] as unknown as [string])[0]).toContain('partner=WPBL')
+  })
+})
+
+describe('diffLots', () => {
+  const live: Lot[] = normaliseLots({ results: [apiLot('a'), apiLot('b'), apiLot('c')] })
+
+  it('announces a lot id it has never seen', () => {
+    expect(diffLots(live, [knownLot('a'), knownLot('b')]).newLots.map(l => l.lot_id)).toEqual(['c'])
+  })
+
+  it('says nothing when the catalogue has not moved', () => {
+    expect(diffLots(live, live.map(l => knownLot(l.lot_id))).newLots).toEqual([])
+  })
+
+  it('announces nothing at all while seeding', () => {
+    // Otherwise the first run is one message containing all 190 lots.
+    expect(diffLots(live, [], { seeding: true }).newLots).toEqual([])
+  })
+
+  it('announces a recorded but never-announced lot, which is every row seeding wrote', () => {
+    expect(diffLots(live, live.map(l => knownLot(l.lot_id, false))).newLots).toHaveLength(3)
+  })
+
+  it('does not re-announce a lot just because it sold', () => {
+    // The only state change a lot can undergo. It must not read as news.
+    const sold = normaliseLots({ results: [apiLot('a', { last_sold_amount: '870.00' })] })
+    expect(diffLots(sold, [knownLot('a')]).newLots).toEqual([])
+  })
+})
+
+describe('auctionFeedMessage', () => {
+  const lots = (n: number) => normaliseLots({
+    results: Array.from({ length: n }, (_, i) => apiLot(`u${i}`, {
+      current_auction: { status: 'open', type: 'buy_now', buy_now_amount: '249.99' },
+    })),
+  })
+
+  it('says nothing when nothing is new', () => {
+    expect(auctionFeedMessage([])).toBeNull()
+  })
+
+  it('carries the name, the price and the link', () => {
+    const out = auctionFeedMessage(lots(1)) as string
+    expect(out).toContain('Lot u0')
+    expect(out).toContain('$249.99')
+    expect(out).toContain('/item/lot-u0')
+  })
+
+  it('does not ping anyone', () => {
+    const out = auctionFeedMessage(lots(1)) as string
+    expect(out).not.toContain('@everyone')
+    expect(out).not.toContain('@here')
+  })
+
+  it('truncates a drop day instead of blowing the 2000 character limit', () => {
+    // The real drops were 70 lots on Jul 28 and 104 over Aug 4-5, so this is the normal case
+    // for this source rather than a hypothetical one.
+    const out = auctionFeedMessage(lots(70)) as string
+    expect(out).toContain('and 58 more')
+    expect(out.length).toBeLessThan(2000)
   })
 })
