@@ -25,6 +25,10 @@
 /wpbl/standings/ /wpbl/standings  301
 /wpbl/stats/     /wpbl/stats      301
 /wpbl/teams/     /wpbl/teams      301
+/wpbl/teams/firebells/ /wpbl/teams/firebells 301
+/wpbl/teams/queens/    /wpbl/teams/queens    301
+/wpbl/teams/heights/   /wpbl/teams/heights   301
+/wpbl/teams/hunters/   /wpbl/teams/hunters   301
 /wpbl/players/   /wpbl/players    301
 /wpbl/league/    /wpbl/league     301
 /mlb/          /mlb       301
@@ -49,6 +53,16 @@
 /wpbl/standings  /  200
 /wpbl/stats      /  200
 /wpbl/teams      /  200
+# ONE LINE PER CLUB, AND DELIBERATELY NOT A WILDCARD. The two wildcards below exist because a
+# player slug and a game slug live in the database and cannot be enumerated here; a club slug
+# can, because there are four of them. Written out, an unknown /wpbl/teams/<anything> matches
+# nothing and falls through to the real 404 with no edge-function check standing behind it,
+# which is the arrangement this file prefers everywhere it is possible. A fifth club means a
+# line here, exactly like a sixth tab does, and routes.test.ts fails until it is added.
+/wpbl/teams/firebells /  200
+/wpbl/teams/queens    /  200
+/wpbl/teams/heights   /  200
+/wpbl/teams/hunters   /  200
 /wpbl/players    /  200
 # Not a tab, on purpose: see the note on WPBL_LEAGUE_PAGE in src/wpbl/routes.ts.
 /wpbl/league     /  200

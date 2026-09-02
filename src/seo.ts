@@ -54,6 +54,32 @@ const ROUTES: Record<string, Seo> = {
     description:
       "All four Women's Pro Baseball League clubs: rosters, team stats, and results for the Firebells, Queens, Hunters and Heights.",
   },
+  // ONE PAGE PER CLUB, WRITTEN OUT RATHER THAN REGISTERED AT RUNTIME. A player page gets its
+  // tags through setDynamicSeo because there are 118 of them and their names arrive with a
+  // fetch; there are four clubs, they are not going to change mid-season, and a static entry
+  // needs no JavaScript to have run. Each targets the query a club can actually win, which is
+  // its own name plus what a reader wants under it, rather than "WPBL stats", where these
+  // would only compete with /wpbl/stats and with each other.
+  '/wpbl/teams/firebells': {
+    title: "San Francisco Firebells: 2026 roster, stats & results | sportydolphin.fun",
+    description:
+      "The San Francisco Firebells in the 2026 Women's Pro Baseball League: full roster, team batting and pitching, every result, and how they have fared against each rival.",
+  },
+  '/wpbl/teams/queens': {
+    title: "Los Angeles Queens: 2026 roster, stats & results | sportydolphin.fun",
+    description:
+      "The Los Angeles Queens in the 2026 Women's Pro Baseball League: full roster, team batting and pitching, every result, and how they have fared against each rival.",
+  },
+  '/wpbl/teams/heights': {
+    title: "New York Heights: 2026 roster, stats & results | sportydolphin.fun",
+    description:
+      "The New York Heights in the 2026 Women's Pro Baseball League: full roster, team batting and pitching, every result, and how they have fared against each rival.",
+  },
+  '/wpbl/teams/hunters': {
+    title: "Boston Hunters: 2026 roster, stats & results | sportydolphin.fun",
+    description:
+      "The Boston Hunters in the 2026 Women's Pro Baseball League: full roster, team batting and pitching, every result, and how they have fared against each rival.",
+  },
   // The flat roster. Its own page mostly so the 118 player pages have something linking to
   // them, but it is a real destination too, and "WPBL players" is a term people type.
   '/wpbl/players': {

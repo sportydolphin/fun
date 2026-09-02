@@ -28,6 +28,7 @@ import {
   WPBL_NAV, wpblPathFor, wpblViewFromPath, normalizeWpblView, WPBL_PATH_EVENT,
   wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug, isWpblPlayersIndex, wpblAppOwnsPath,
   wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug,
+  wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug,
   type WpblView,
 } from './routes'
 import { WpblLinkProvider, useWpblGameLink } from './LinkContext'
@@ -532,7 +533,14 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     const s = (window.history.state?.wpbl ?? null) as WpblSnap | null
     if (s) return { ...s, view: normalizeView(s.view).view }
     const v = viewFromLocation()
-    return v == null ? HOME_SNAP : { ...HOME_SNAP, view: normalizeView(v).view }
+    if (v != null) return { ...HOME_SNAP, view: normalizeView(v).view }
+    // /wpbl/teams/<slug> is the Teams tab with a club chosen, and `viewFromLocation` says
+    // null for it because it is not a tab path. Left at that fallback the section seeds on
+    // HOME, the very first replaceState rewrites the address bar to /wpbl, and the club that
+    // then resolves out of the path has had its own URL thrown away before it arrives. The
+    // club itself cannot be seeded here (the roster has not loaded), only the tab.
+    if (wpblTeamSlugFromPath(window.location.pathname)) return { ...HOME_SNAP, view: 'teams' }
+    return HOME_SNAP
   }
   // A legacy ?view=tracking (or a restored snapshot) should open Stats already on the
   // tracking group — token 1 so the panel treats it as a real request on first mount.
@@ -718,7 +726,21 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
       return `${path}?${q.toString()}`
     }
 
+    // A CLUB SELECTED ON ITS OWN TAB OWNS THE PATH. Selecting one opens roughly 2,800px of
+    // content (results, team stats, lineup history, pitching usage, both leader boards, the
+    // roster) that had no URL at all until Sep 2, 2026: unindexable, unlinkable, and with no
+    // href to give the cards, which is why they were role="button" divs.
+    //
+    // Only on the Teams tab, because `selectedTeam` deliberately rides along through a tab
+    // switch: a reader who picks a club and swipes to Stats is on Stats, and the path has to
+    // say so. Below the game and player branches above for the same reason those are ordered
+    // that way, the deeper modal being the page and what is under it being state.
     const str = q.toString()
+    if (s.view === 'teams' && s.team && !s.game && !s.player && teams.length > 0) {
+      const path = wpblTeamPath(s.team, teams)
+      return str ? `${path}?${str}` : path
+    }
+
     return str ? `${wpblPathFor(s.view)}?${str}` : wpblPathFor(s.view)
   }, [players, games, teams])
   // A ?player=<id> / ?game=<id> from a pasted or shared link, resolved once the data they
@@ -737,6 +759,11 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   /** The same, for /wpbl/games/<slug>. */
   const pendingGameSlug = useRef<string | null>(
     window.history.state?.wpbl ? null : wpblGameSlugFromPath(window.location.pathname),
+  )
+  /** And for /wpbl/teams/<slug>, which selects a club on the Teams tab rather than opening a
+   *  modal, so it is applied with the tab itself rather than through `openFromLink`. */
+  const pendingTeamSlug = useRef<string | null>(
+    window.history.state?.wpbl ? null : wpblTeamSlugFromPath(window.location.pathname),
   )
   // Every forward navigation = one history entry (apply state + push a matching snapshot).
   const push = useCallback((s: WpblSnap) => {
@@ -961,6 +988,38 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     if (!p) return
     openFromLink({ view, team: selectedTeam, game: detailGame, player: p })
   }, [players, detailPlayer, view, selectedTeam, detailGame, openFromLink])
+
+  // A cold load on /wpbl/teams/<slug>: select that club once the clubs are in.
+  //
+  // `replaceState` rather than `openFromLink`, which is the whole difference between this and
+  // the player effect above. A club is not a modal over a tab, it is the tab in a particular
+  // state, so there is nothing for Back to unwind to and nothing to seat an entry under: the
+  // reader is already where the URL says. Pushing here would make Back a no-op that appears
+  // to do nothing, which is the trap openFromLink exists to avoid in the other direction.
+  //
+  // A slug that names no club is left alone rather than falling back to the bare tab. The
+  // edge never sees these (they are enumerated in _redirects, so an unknown one is a real 404
+  // before the app loads), but a stale link from a renamed club should not quietly render the
+  // Teams tab under a URL claiming to be a club that no longer exists.
+  useEffect(() => {
+    if (teams.length === 0) return
+    const slug = pendingTeamSlug.current
+    if (!slug) return
+    pendingTeamSlug.current = null
+    const t = findWpblTeamBySlug(slug, teams)
+    if (!t) return
+    setSelectedTeam(t)
+    setView('teams')
+    // Stamp the entry the shell already created, which was seated before the clubs loaded and
+    // so carries `team: null`. Without this the club is on screen and absent from the
+    // snapshot, and the first Back or a refresh drops it while the address bar still names it.
+    const snap: WpblSnap = { view: 'teams', team: t, game: null, player: null }
+    // The club's own path, NOT `window.location.href`: anything that ran before the roster
+    // landed has already had a chance to rewrite the bar, and re-stamping whatever is in it
+    // would make that rewrite permanent. This is the one place that knows the URL is right.
+    window.history.replaceState({ ...window.history.state, wpbl: snap }, '', wpblTeamPath(t, teams))
+    window.dispatchEvent(new Event(WPBL_PATH_EVENT))
+  }, [teams])
 
   // A player page is titled with the player's name and a game page with its final score,
   // neither of which ROUTES in seo.ts can know from the path. Register whichever one owns

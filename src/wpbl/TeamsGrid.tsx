@@ -2,7 +2,8 @@ import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
 import { computeStandings } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, relativeDayShort } from './constants'
-import { TeamBadge, pressable, FOCUS_RING, CARD_BORDER, useWpblDark, FormDots, WPBL_WIN as WIN, WPBL_LOSS as LOSS } from './ui'
+import { TeamBadge, FOCUS_RING, CARD_BORDER, useWpblDark, FormDots, WPBL_WIN as WIN, WPBL_LOSS as LOSS } from './ui'
+import { useWpblTeamLink } from './LinkContext'
 import { fmtSigned } from './stats'
 import HeadToHead from './HeadToHead'
 import type { WpblTeam, WpblGame, WpblStandingRow } from './types'
@@ -111,15 +112,22 @@ function TeamCard({ row, rank, ranked, fixture, onOpen }: {
   fixture: Fixture
   onOpen: () => void
 }) {
+  const teamLink = useWpblTeamLink()
   const isDark = useWpblDark()
   const accent = wpblAccent(row.team.id, isDark)
   const gp = row.wins + row.losses
   const diff = row.runsFor - row.runsAgainst
   // .571, dropping the leading zero the way a batting line is written.
   const pct = gp > 0 ? row.pct.toFixed(3).replace(/^0\./, '.') : null
+  const link = teamLink(row.team, onOpen)
 
   return (
-    <Box {...pressable(onOpen)} sx={{
+    // A REAL ANCHOR NOW, NOT A role="button" DIV. There was no href to give this until clubs
+    // got their own URLs on Sep 2, 2026, and the card was honest about it. Now there is one,
+    // and this is the only link on the page a crawler can follow to a club, which is the hub
+    // that leads it to eighteen player pages. Same treatment, same reasons, as every player
+    // name on the section: see the note at the top of LinkContext.tsx.
+    <Box {...link} sx={{
       ...FOCUS_RING,
       display: 'flex', flexDirection: 'column', gap: 0.9,
       p: 1.5, pl: 1.25, cursor: 'pointer',

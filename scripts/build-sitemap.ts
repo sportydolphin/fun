@@ -20,6 +20,7 @@ import { resolve } from 'node:path'
 import {
   WPBL_VIEW_PATHS, WPBL_PLAYERS_BASE, wpblPlayerSlug, type WpblSluggable,
   wpblGameSlug, type WpblSluggableGame, type WpblSluggableTeam,
+  WPBL_TEAMS_BASE, teamSlug,
 } from '../src/wpbl/routes'
 import { slugifyName } from '../src/wpbl/slug'
 
@@ -137,6 +138,16 @@ const players: Entry[] = roster.map(p => ({
   priority: '0.7',
 }))
 
+// One entry per club, derived from the schedule's own team list rather than a literal, so the
+// sitemap cannot name a club the game URLs do not. High priority and weekly: a club page is a
+// season-long destination whose numbers move every day, and it is the hub that gives a crawler
+// a path to eighteen player pages it would otherwise reach only from the flat index.
+const teamEntries: Entry[] = (schedule.teams as WpblSluggableTeam[]).map(t => ({
+  loc: `${WPBL_TEAMS_BASE}/${teamSlug(t.id, schedule.teams)}`,
+  changefreq: 'daily',
+  priority: '0.8',
+}))
+
 const played = (schedule.games as (WpblSluggableGame & { status: string | null })[])
   .filter(g => g.status === 'final')
 const gameEntries: Entry[] = played.map(g => ({
@@ -152,7 +163,7 @@ const gameEntries: Entry[] = played.map(g => ({
 const missing = WPBL_VIEW_PATHS.filter(p => !STATIC.some(e => e.loc === p))
 if (missing.length) throw new Error(`WPBL tabs missing from STATIC: ${missing.join(', ')}`)
 
-const entries = [...STATIC, ...players, ...gameEntries]
+const entries = [...STATIC, ...teamEntries, ...players, ...gameEntries]
 
 // Rewrite ONLY when the set of URLs actually changed.
 //
@@ -172,5 +183,5 @@ if (existing && locsIn(existing) === wanted) {
 } else {
   const lastmod = new Date().toISOString().slice(0, 10)
   writeFileSync(OUT, xml(entries, lastmod), 'utf8')
-  console.log(`sitemap: ${entries.length} URLs (${players.length} players, ${gameEntries.length} games) -> public/sitemap.xml`)
+  console.log(`sitemap: ${entries.length} URLs (${teamEntries.length} clubs, ${players.length} players, ${gameEntries.length} games) -> public/sitemap.xml`)
 }

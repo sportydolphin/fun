@@ -21,7 +21,12 @@ import {
   WPBL_NAV, WPBL_VIEW_PATHS, wpblPathFor, wpblViewFromPath, wpblAppOwnsPath, normalizeWpblView,
   wpblPlayerSlug, wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug,
   wpblGameSlug, wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug, isWpblLeaguePage,
+  wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug, teamSlug,
 } from '../routes'
+// The real club list, so the four files below are pinned against what the app actually ships
+// rather than against four strings copied into this test. A fifth club fails every assertion
+// in the block until its line, its tags and its sitemap entry exist.
+import { WPBL_TEAMS } from '../constants'
 
 describe('wpblViewFromPath', () => {
   it('maps the section root to Home', () => {
@@ -302,6 +307,75 @@ describe('every tab page is discoverable and distinct', () => {
 // A real page that is deliberately NOT a tab, which is the shape most likely to be spelled in
 // three of the four places and forgotten in the fourth. It is absent from WPBL_NAV on purpose,
 // so every loop above that keeps the tabs honest skips it entirely.
+describe('team pages, one per club', () => {
+  const clubs = Object.values(WPBL_TEAMS)
+
+  it('slugs a club the same way a game URL already does', () => {
+    // /wpbl/games/2026-08-30-heights-at-firebells and /wpbl/teams/firebells have to name the
+    // club identically, or the two URL shapes disagree about who the Firebells are.
+    for (const t of clubs) {
+      expect(wpblTeamPath(t, clubs)).toBe(`/wpbl/teams/${teamSlug(t.id, clubs)}`)
+    }
+    expect(wpblTeamPath(WPBL_TEAMS.SF, clubs)).toBe('/wpbl/teams/firebells')
+    expect(wpblTeamPath(WPBL_TEAMS.BOS, clubs)).toBe('/wpbl/teams/hunters')
+  })
+
+  it('gives every club a 200 rewrite and a trailing-slash 301', () => {
+    for (const t of clubs) {
+      const slug = teamSlug(t.id, clubs)
+      expect(redirects).toMatch(new RegExp(`^/wpbl/teams/${slug}\\s+/\\s+200\\s*$`, 'm'))
+      expect(redirects).toMatch(new RegExp(`^/wpbl/teams/${slug}/\\s+/wpbl/teams/${slug}\\s+301\\s*$`, 'm'))
+    }
+  })
+
+  // Enumerated rather than matched by a wildcard, which is the whole reason no edge-function
+  // check stands behind these. If someone ever "tidies" the four lines into /wpbl/teams/*,
+  // every typo under that directory becomes an indexable soft 404 with nothing to catch it.
+  it('does not rely on a wildcard for teams', () => {
+    expect(redirects).not.toMatch(/^\/wpbl\/teams\/\*/m)
+  })
+
+  it('gives every club its own title and description', () => {
+    for (const t of clubs) {
+      const path = `/wpbl/teams/${teamSlug(t.id, clubs)}`
+      expect(seoSource).toContain(`'${path}': {`)
+      expect(seoSource).toMatch(new RegExp(`'${path}':\\s*\\{[^}]*title:`))
+    }
+  })
+
+  it('puts every club in the sitemap', () => {
+    for (const t of clubs) {
+      expect(sitemap).toContain(`<loc>https://sportydolphin.fun/wpbl/teams/${teamSlug(t.id, clubs)}</loc>`)
+    }
+  })
+
+  it('reads a club back out of its path, and refuses what is not one', () => {
+    expect(wpblTeamSlugFromPath('/wpbl/teams/firebells')).toBe('firebells')
+    expect(wpblTeamSlugFromPath('/wpbl/teams/firebells/')).toBe('firebells')
+    // The tab itself is not a club, the same way the players index is not a player.
+    expect(wpblTeamSlugFromPath('/wpbl/teams')).toBeNull()
+    expect(wpblTeamSlugFromPath('/wpbl/players/x')).toBeNull()
+    // Cloudflare's `*` matches across slashes; this must not.
+    expect(wpblTeamSlugFromPath('/wpbl/teams/a/b')).toBeNull()
+  })
+
+  it('resolves a slug to a club and nothing else to anything', () => {
+    expect(findWpblTeamBySlug('queens', clubs)?.id).toBe('LA')
+    expect(findWpblTeamBySlug('QUEENS', clubs)?.id).toBe('LA')
+    expect(findWpblTeamBySlug('yankees', clubs)).toBeNull()
+    expect(findWpblTeamBySlug('', clubs)).toBeNull()
+  })
+
+  // The section has to claim the path or a Back onto a club page is dropped: the address bar
+  // moves and the page does not, which is the bug player pages had before wpblAppOwnsPath
+  // learned about them.
+  it('is a path the section owns, and is not mistaken for a tab', () => {
+    expect(wpblAppOwnsPath('/wpbl/teams/hunters')).toBe(true)
+    expect(wpblViewFromPath('/wpbl/teams/hunters')).toBeNull()
+    expect(wpblViewFromPath('/wpbl/teams')).toBe('teams')
+  })
+})
+
 describe('/wpbl/league, a page without a tab', () => {
   it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
     expect(redirects).toMatch(/^\/wpbl\/league\s+\/\s+200\s*$/m)

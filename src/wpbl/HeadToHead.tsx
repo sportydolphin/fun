@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
-import { SectionCard, TeamBadge, pressable, FOCUS_RING } from './ui'
+import { SectionCard, TeamBadge, FOCUS_RING } from './ui'
+import { useWpblTeamLink } from './LinkContext'
 import { headToHead } from './derive/matchups'
 import type { WpblTeam, WpblGame, WpblStandingRow } from './types'
 
@@ -38,6 +39,7 @@ export default function HeadToHead({ rows, games, onSelect, title = 'Head to hea
 }) {
   const grid = useMemo(() => headToHead(games), [games])
   const teams = rows.map(r => r.team)
+  const teamLink = useWpblTeamLink()
 
   const head = {
     fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase' as const, letterSpacing: 0.4,
@@ -86,7 +88,9 @@ export default function HeadToHead({ rows, games, onSelect, title = 'Head to hea
               <Box component="th" scope="row" sx={{ p: 0 }}>
                 {/* The row label is also the way into that club's page: the badge is right
                     there, and a reader who has just spotted a 0–3 wants to go look. */}
-                <Box {...pressable(() => onSelect(rowTeam))} sx={{
+                {/* The label is the second way into a club, and now the second crawlable one:
+                    a reader who has just spotted an 0-3 wants to go and look. */}
+                <Box {...teamLink(rowTeam, () => onSelect(rowTeam))} sx={{
                   ...FOCUS_RING,
                   display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer',
                   borderRadius: 1, py: 0.4, '&:hover': { bgcolor: 'action.hover' },

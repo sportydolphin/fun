@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useCallback, useMemo } from 'react'
 import {
-  wpblPlayerPath, wpblGamePath,
+  wpblPlayerPath, wpblGamePath, wpblTeamPath,
   type WpblSluggable, type WpblSluggableGame, type WpblSluggableTeam,
 } from './routes'
 
@@ -43,6 +43,7 @@ type LinkFor<T> = (subject: T | null | undefined, onOpen?: (p: never) => void) =
 interface LinkContextValue {
   playerLink: LinkFor<WpblSluggable>
   gameLink: LinkFor<WpblSluggableGame>
+  teamLink: LinkFor<WpblSluggableTeam>
 }
 
 const LinkContext = createContext<LinkContextValue | null>(null)
@@ -88,7 +89,15 @@ export function WpblLinkProvider({ roster, schedule, teams, children }: {
     onOpen,
   ), [build, schedule, teams])
 
-  const value = useMemo(() => ({ playerLink, gameLink }), [playerLink, gameLink])
+  // A club needs the whole list for the same reason the other two do, though for a weaker
+  // reason: `teamSlug` falls back to the abbreviation for a club the list does not carry, and
+  // a card linking with its own club alone would mint '/wpbl/teams/sf' where every other link
+  // on the site says '/wpbl/teams/firebells'.
+  const teamLink = useCallback<LinkFor<WpblSluggableTeam>>((team, onOpen) => build(
+    team, team && teams.length > 0 ? wpblTeamPath(team, teams) : undefined, onOpen,
+  ), [build, teams])
+
+  const value = useMemo(() => ({ playerLink, gameLink, teamLink }), [playerLink, gameLink, teamLink])
   return <LinkContext.Provider value={value}>{children}</LinkContext.Provider>
 }
 
@@ -107,3 +116,4 @@ function useLinkFor<T>(pick: (v: LinkContextValue) => LinkFor<T>): LinkFor<T> {
 
 export const useWpblPlayerLink = (): LinkFor<WpblSluggable> => useLinkFor(v => v.playerLink)
 export const useWpblGameLink = (): LinkFor<WpblSluggableGame> => useLinkFor(v => v.gameLink)
+export const useWpblTeamLink = (): LinkFor<WpblSluggableTeam> => useLinkFor(v => v.teamLink)

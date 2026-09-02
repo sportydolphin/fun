@@ -151,6 +151,7 @@ export const wpblAppOwnsPath = (pathname: string): boolean =>
   wpblViewFromPath(pathname) !== null
   || wpblPlayerSlugFromPath(pathname) !== null
   || wpblGameSlugFromPath(pathname) !== null
+  || wpblTeamSlugFromPath(pathname) !== null
 
 // ─── Game pages ───────────────────────────────────────────────────────────────
 //
@@ -182,8 +183,13 @@ export interface WpblSluggableTeam { id: string; name: string }
 
 /** Club nickname, slugged: 'Hunters' → 'hunters'. Falls back to the team id (which IS the
  *  abbreviation) so a game whose club is missing from `teams` still gets a stable slug
- *  rather than a hole in the middle of one. */
-function teamSlug(teamId: string, teams: readonly WpblSluggableTeam[]): string {
+ *  rather than a hole in the middle of one.
+ *
+ *  EXPORTED because it now names two URL shapes rather than one: the club in a game slug
+ *  ('...-heights-at-firebells') and the club's own page ('/wpbl/teams/firebells'). Two
+ *  spellings of one club would be the shape of drift slug.ts exists to prevent, and would
+ *  show up as a team page that a game link cannot agree with. */
+export function teamSlug(teamId: string, teams: readonly WpblSluggableTeam[]): string {
   const t = teams.find(x => x.id === teamId)
   return slugifyName(t?.name ?? teamId) || teamId.toLowerCase()
 }
@@ -254,6 +260,52 @@ export const WPBL_PLAYERS_INDEX = WPBL_PLAYERS_BASE
 
 export const isWpblPlayersIndex = (pathname: string) =>
   pathname.replace(/\/+$/, '') === WPBL_PLAYERS_BASE
+
+// ─── Team pages ───────────────────────────────────────────────────────────────
+//
+// Selecting a club on the Teams tab opens roughly 2,800px of content: results, team stats,
+// lineup history, pitching usage, both leader boards and the full roster. Until Sep 2, 2026
+// none of it had a URL. It could not be indexed, it could not be linked from a recap or from
+// the Discord bot, and there was no way to send anyone to "the Firebells page" because there
+// was no such page. The cards were bare role="button" divs for the honest reason that there
+// was no href to give them, which is the same state /wpbl games were in before they got one.
+//
+// Four clubs is four more indexable pages, and each one is a hub: a roster of ~18 names is a
+// crawl path to the player pages that are the section's retention event, which Googlebot can
+// otherwise only reach from Home's single star row and the players index.
+//
+// The slug is the nickname, the same one `teamSlug` already puts in every game URL, so
+// /wpbl/games/2026-08-30-heights-at-firebells and /wpbl/teams/firebells name the club the
+// same way. Unlike players and games there is no ambiguity rule here: there are four clubs,
+// their nicknames differ, and if the league ever adds a club that collides the fix belongs in
+// slugifyName rather than in a disambiguation suffix nobody would ever see.
+
+export const WPBL_TEAMS_BASE = '/wpbl/teams'
+
+export function wpblTeamPath(team: WpblSluggableTeam, teams: readonly WpblSluggableTeam[]): string {
+  return `${WPBL_TEAMS_BASE}/${teamSlug(team.id, teams)}`
+}
+
+/** The slug a pathname names, or null if it is not a team URL. `/wpbl/teams` itself is the
+ *  tab and returns null, the same way the players index is not a player. */
+export function wpblTeamSlugFromPath(pathname: string): string | null {
+  const p = pathname.replace(/\/+$/, '')
+  if (!p.startsWith(`${WPBL_TEAMS_BASE}/`)) return null
+  const rest = p.slice(WPBL_TEAMS_BASE.length + 1)
+  // One segment only: /wpbl/teams/a/b is a typo, not a club. Cloudflare's `*` matches across
+  // slashes, so without this the wildcard in _redirects would make every such typo an
+  // indexable page, which is the hole /wpbl/players/* was patched for.
+  return rest && !rest.includes('/') ? decodeURIComponent(rest) : null
+}
+
+/** Resolve a slug back to a club, or null when it names none. */
+export function findWpblTeamBySlug<T extends WpblSluggableTeam>(
+  slug: string,
+  teams: readonly T[],
+): T | null {
+  const want = slug.toLowerCase()
+  return teams.find(t => teamSlug(t.id, teams) === want) ?? null
+}
 
 // ─── The league page ──────────────────────────────────────────────────────────
 //
