@@ -16,7 +16,7 @@ import { fmtSigned } from './stats'
 import { seriesContexts } from './derive/series'
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
-import WpblHome from './Home'
+import WpblHome, { WpblHomeSkeleton } from './Home'
 import WpblStatsView, { type WpblStatsFocus } from './StatsView'
 import TeamPage from './TeamPage'
 import TeamsGrid from './TeamsGrid'
@@ -108,9 +108,13 @@ const NAV = WPBL_NAV
 
 // ─── Shared bits ──────────────────────────────────────────────────────────────
 
-// Shown while the first teams/schedule read is in flight. Roughly mirrors the Home
-// layout (header strip, scoreboard, two-column card stack) so the initial render
-// approximates the final page instead of a centered spinner popping into a full page.
+// Shown while the first teams/schedule read is in flight, for every tab EXCEPT Home, which
+// has its own (WpblHomeSkeleton, beside the layout it copies).
+//
+// This one used to serve Home as well and could not: it is drawn inside the section's 720px
+// page column, and Home is the single view that breaks out of that column, so the placeholder
+// and the page it stood in for were never the same width or anywhere near the same height.
+// Everything else here IS a 720px view, which is what is left.
 function ViewSkeleton() {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
@@ -1329,7 +1333,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         pb: bottomNav ? `calc(${BOTTOM_NAV_SPACE} + env(safe-area-inset-bottom, 0px))` : 0,
       }}>
       {loading
-        ? <ViewSkeleton />
+        ? (view === 'home' ? <WpblHomeSkeleton /> : <ViewSkeleton />)
         : (
           // One panel per nav tab, in NAV order, so mobile can swipe between them (the
           // active one — and, mid-swipe, its neighbour — are the only ones mounted). The

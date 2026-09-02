@@ -1023,34 +1023,51 @@ function topPit(list: WpblPitSeason[], value: (t: WpblPitchingTotals) => number 
 // data loads and doesn't grow/jump when the data lands. Replaces the old centered
 // spinner (which was much shorter than the loaded card, causing the page to shift).
 
-// Shaped like the loaded LeadersCard — a chip row, then a tall #1 hero (portrait + two
-// text lines) over two compact rows — so the card reserves its final height and doesn't
-// jump when data lands.
+/**
+ * Every measurement in here is taken from the loaded card rather than picked to look right,
+ * because the whole job of this component is to be the same height as the thing that replaces
+ * it. Three of them were not, and each one moved the card when the data landed:
+ *
+ * - the selector row was ONE group of chips at a flat 22px. The loaded card carries TWO
+ *   (Batting/Pitching on the left, the statistic on the right) and a PillGroup is
+ *   `chromePx(28)` plus its 3px of padding, so the row is 34px on a phone and 41 on desktop.
+ * - the board drew three names. StatBlock draws FIVE from md up (see LEADER_ROWS_WIDE) and
+ *   hides the last two below it, in CSS, for the reasons in its own note. Copying the same
+ *   `display` per row is what keeps this honest at both widths without a media query.
+ * - the art is `chromePx`, matching PlayerPortrait and TeamBadge, which take the desktop
+ *   chrome scale and not the reader's text size. A raw 38 here was a portrait 9px smaller
+ *   than the one it stood in for on every desktop.
+ */
 function LeaderStatSkeleton() {
   return (
     <Box>
-      {/* Chip row */}
-      <Box sx={{ display: 'flex', gap: 0.75, mb: 1.25 }}>
-        {[36, 30, 34].map((w, i) => <Skeleton key={i} variant="rounded" width={w} height={22} sx={{ borderRadius: 999 }} />)}
+      {/* The two selector groups, opposite ends of one row, as the loaded card draws them. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1.25 }}>
+        {[150, 140].map(w => (
+          <Skeleton key={w} variant="rounded" width={chromePx(w)} height={chromePx(28)}
+            sx={{ borderRadius: 999, my: '3px', maxWidth: '48%' }} />
+        ))}
       </Box>
       {/* #1 hero */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.55 }}>
-        <Skeleton variant="text" width={10} sx={{ fontSize: '0.8rem' }} />
-        <Skeleton variant="circular" width={38} height={38} />
-        <Box sx={{ flex: 1 }}>
-          <Skeleton variant="text" width="55%" sx={{ fontSize: '0.95rem' }} />
-          <Skeleton variant="text" width="40%" sx={{ fontSize: '0.66rem' }} />
+        <Skeleton variant="text" width="0.875rem" sx={{ fontSize: '0.8rem' }} />
+        <Skeleton variant="circular" width={chromePx(38)} height={chromePx(38)} sx={{ flexShrink: 0 }} />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Skeleton variant="text" width="55%" sx={{ fontSize: '0.95rem', lineHeight: 1.15 }} />
+          <Skeleton variant="text" width="40%" sx={{ fontSize: '0.66rem', lineHeight: 1.2 }} />
         </Box>
-        <Skeleton variant="text" width={40} sx={{ fontSize: '1.05rem' }} />
+        <Skeleton variant="text" width="2.5rem" sx={{ fontSize: '1.05rem', flexShrink: 0 }} />
       </Box>
-      {/* #2 / #3 compact rows */}
-      {[1, 2].map(i => (
-        <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, py: 0.4 }}>
-          <Skeleton variant="text" width={10} sx={{ fontSize: '0.7rem' }} />
-          <Skeleton variant="circular" width={18} height={18} />
-          <Skeleton variant="text" sx={{ flex: 1, fontSize: '0.82rem' }} />
-          <Skeleton variant="text" width={24} sx={{ fontSize: '0.68rem' }} />
-          <Skeleton variant="text" width={32} sx={{ fontSize: '0.82rem' }} />
+      {/* Ranks 2 to 5, the last two hidden below md exactly as StatBlock hides them. */}
+      {Array.from({ length: LEADER_ROWS_WIDE - 1 }, (_, i) => (
+        <Box key={i} sx={{
+          display: { xs: i + 1 < LEADER_ROWS ? 'flex' : 'none', md: 'flex' },
+          alignItems: 'center', gap: 0.75, py: 0.4,
+        }}>
+          <Skeleton variant="text" width="0.875rem" sx={{ fontSize: '0.7rem' }} />
+          <Skeleton variant="circular" width={chromePx(18)} height={chromePx(18)} sx={{ flexShrink: 0 }} />
+          <Skeleton variant="text" sx={{ flex: 1, fontSize: '0.82rem', lineHeight: 1.15 }} />
+          <Skeleton variant="text" width="2.5rem" sx={{ fontSize: '0.82rem', flexShrink: 0 }} />
         </Box>
       ))}
     </Box>
@@ -1421,6 +1438,173 @@ function LeagueCard() {
   )
 }
 
+// ─── The page's loading placeholder ───────────────────────────────────────────────
+
+// Four clubs, and a scoreboard strip long enough to run off the right edge at any width the
+// page is drawn at. The loaded strip always does, and a placeholder that stops short of the
+// edge announces itself as a placeholder.
+const SKELETON_CLUB_CHIPS = [0, 1, 2, 3]
+const SKELETON_GAME_CHIPS = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+
+/**
+ * A card that is not here yet: the SectionCard chrome with its title bar, over a reserved
+ * body.
+ *
+ * `minHeight` is in **rem**, deliberately, and it is the house rule rather than a preference:
+ * a box reserving room for content made of type has to grow with the type or the reserve is
+ * only correct at one text scale. Every number below is a measurement of the loaded card
+ * divided by the root size it was measured at, which is why the phone and desktop figures
+ * collapse to the same value wherever a card's height is set purely by its own text.
+ */
+function CardSkeleton({ minHeight, titleWidth = '7rem', lines = 3 }: {
+  minHeight: string | { xs: string; md: string }
+  titleWidth?: string
+  /** Faint body rows. A card outline with nothing but a title bar in it reads as a card that
+   *  failed rather than one that is loading. */
+  lines?: number
+}) {
+  return (
+    <Box aria-hidden sx={{
+      borderRadius: 3, overflow: 'hidden', minHeight,
+      border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
+    }}>
+      <Box sx={{ px: 2, pt: 1.25, pb: 1 }}>
+        <Skeleton variant="text" width={titleWidth} sx={{ fontSize: '0.95rem', lineHeight: 1.2 }} />
+      </Box>
+      {lines > 0 && (
+        <Box sx={{ px: 2, pb: 1.5 }}>
+          {Array.from({ length: lines }, (_, i) => (
+            <Skeleton key={i} variant="text" width={['85%', '65%', '75%', '55%'][i % 4]}
+              sx={{ fontSize: '0.82rem', lineHeight: 1.6 }} />
+          ))}
+        </Box>
+      )}
+    </Box>
+  )
+}
+
+/**
+ * Home, before its first read lands.
+ *
+ * IT IS A COPY OF HOME'S LAYOUT, NOT A STACK OF GREY BARS, and it lives beside the page it
+ * mirrors so the two are edited together. The generic section skeleton it replaced was drawn
+ * for the 720px page column every other tab uses, and Home is the one view that breaks out of
+ * that column (see homeWideSx): it painted 900px wide and centred, and the page then arrived
+ * 1260px wide and 180px further left, so the whole thing jumped sideways on every cold load.
+ * It was also about 570px tall against a page of roughly 1830, which put the footer a third of
+ * the way up the screen and then dropped it 1,200px. Every block below therefore reuses the
+ * real element's own wrapper and spacing rather than approximating them.
+ *
+ * The Discord invite is read from the same key the card is, because it is 57px of the mobile
+ * stack and reserving it for someone who dismissed it months ago is the same mistake in the
+ * other direction.
+ *
+ * A skeleton is still an approximation, and the reserves are deliberately FLOORS: content that
+ * comes in taller pushes the page down, which is the failure that costs nothing, while a
+ * reserve nobody fills leaves a hole. That is also why the postseason bracket is drawn here at
+ * all: it is the tallest block on the page on a desktop, and a season where it does not render
+ * is a season with no finals in it, which is over in the first week.
+ */
+export function WpblHomeSkeleton() {
+  let discordDismissed = false
+  try { discordDismissed = localStorage.getItem(DISCORD_DISMISS_KEY) === '1' } catch { /* storage off */ }
+
+  return (
+    // Announced, because everything inside it is an empty div: a screen reader landing here
+    // during the read otherwise finds a page with no heading, no landmark and nothing to say
+    // for itself, which is indistinguishable from a page that failed. `role="status"` and a
+    // label give it one line to read, and `aria-busy` tells AT the subtree is mid-update.
+    <Box role="status" aria-busy="true" aria-label="Loading the Women's Pro Baseball League home page" sx={homeWideSx}>
+      {/* The h1 row, and the club chips that sit beside it from sm up. Same flex, same gaps,
+          so the heading lands on the pixel it is about to occupy. */}
+      <Box sx={{
+        display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
+        alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 }, mb: 1.5,
+      }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Skeleton variant="text" width="16rem" sx={{ fontSize: '1.05rem', lineHeight: 1.15, maxWidth: '100%' }} />
+        </Box>
+        <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
+          {SKELETON_CLUB_CHIPS.map(i => (
+            <Skeleton key={i} variant="rounded" sx={{
+              borderRadius: 999, width: chromePx(58),
+              // The chip is a 24px badge with 3px of padding and a hairline either side. Two of
+              // those three are ornament and stay raw; only the badge scales.
+              height: `calc(24px * var(--app-chrome, 1) + 8px)`,
+            }} />
+          ))}
+        </Box>
+      </Box>
+
+      {/* Scoreboard: its heading, then the chip strip. The chips are built from the same box
+          GameChip is (8.5rem wide, p:1, a 20px badge per row) rather than given a height, so
+          the strip tracks both the desktop chrome scale and the reader's text size the way the
+          real one does. */}
+      <Box sx={{ mb: 1.5 }}>
+        <Skeleton variant="text" width="6.5rem" sx={{ fontSize: '0.95rem', lineHeight: 1.2, mb: 1 }} />
+        <Box sx={{ display: 'flex', gap: 1, pb: 0.5, overflow: 'hidden' }}>
+          {SKELETON_GAME_CHIPS.map(i => (
+            <Box key={i} sx={{
+              flexShrink: 0, width: '8.5rem', p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
+              borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
+            }}>
+              <Skeleton variant="text" width="70%" sx={{ fontSize: MICRO_TEXT }} />
+              {[0, 1].map(r => (
+                <Box key={r} sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                  <Skeleton variant="circular" width={chromePx(20)} height={chromePx(20)} sx={{ flexShrink: 0 }} />
+                  <Skeleton variant="text" sx={{ flex: 1, fontSize: '0.8rem' }} />
+                </Box>
+              ))}
+            </Box>
+          ))}
+        </Box>
+      </Box>
+
+      {!discordDismissed && (
+        <Box sx={{ display: { xs: 'block', md: 'none' }, mt: 1.5 }}>
+          <CardSkeleton minHeight="3.55rem" titleWidth="6rem" lines={0} />
+        </Box>
+      )}
+
+      {/* The two card columns. Same grid, same 1fr 1fr, same single 1.5 gap and the same
+          subgrid rows as the loaded page. The ratio here was 1.4fr 1fr with two different
+          gaps, which is a layout Home has not had for some time. */}
+      <Box sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+        gridTemplateRows: { md: 'auto auto' },
+        mt: 1.5, gap: 1.5,
+      }}>
+        <Box sx={{
+          minWidth: 0, gap: 1.5,
+          display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
+          gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
+        }}>
+          <CardSkeleton minHeight="20rem" titleWidth="6rem" lines={5} />
+          {/* Last Game and the bracket are both COLLAPSED on a phone by default, which is why
+              their two reserves are so far apart: 3.45rem is the header of a shut card. */}
+          <CardSkeleton minHeight={{ xs: '3.45rem', md: '16rem' }} titleWidth="6rem" lines={0} />
+        </Box>
+        <Box sx={{
+          minWidth: 0, gap: 1.5,
+          display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
+          gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
+        }}>
+          <CardSkeleton minHeight={{ xs: '17.6rem', md: '20rem' }} titleWidth="5.5rem" lines={4} />
+          <CardSkeleton minHeight={{ xs: '12.1rem', md: '16rem' }} titleWidth="4.5rem" lines={4} />
+        </Box>
+      </Box>
+
+      <Box sx={{ mt: 1.5 }}>
+        <CardSkeleton minHeight={{ xs: '3.45rem', md: '30.5rem' }} titleWidth="8rem" lines={0} />
+      </Box>
+      <Box sx={{ mt: 1.5 }}>
+        <CardSkeleton minHeight={{ xs: '6rem', md: '4.7rem' }} titleWidth="5rem" lines={1} />
+      </Box>
+    </Box>
+  )
+}
+
 export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPlayer, onOpenTeam, onViewStats, onViewTracking }: {
   teams: WpblTeam[]
   games: WpblGame[]
@@ -1460,6 +1644,10 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   // The fetcher is the same session-cached one the Run value board uses, so a reader who
   // opens both pays once, in whichever order they happen to visit.
   const [plays, setPlays] = useState<WpblRunValuePlay[]>(() => getCachedWpblAllRunValuePlays() ?? [])
+  // Whether that read has ANSWERED yet, which is not the same question as whether it returned
+  // anything, and the right column's ordering turns on the difference. See the note at the
+  // bottom of the column.
+  const [playsSettled, setPlaysSettled] = useState(() => getCachedWpblAllRunValuePlays() != null)
   // Discord invite dismissal, read once. Owned here (not inside DiscordCard) so a dismissed
   // invite unmounts the card entirely and leaves no empty wrapper taking up row-gap.
   const [discordDismissed, setDiscordDismissed] = useState(() => {
@@ -1496,8 +1684,8 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   useEffect(() => {
     let cancelled = false
     fetchWpblAllRunValuePlays()
-      .then(p => { if (!cancelled) setPlays(p) })
-      .catch(() => { /* no card, no error state: see above */ })
+      .then(p => { if (!cancelled) { setPlays(p); setPlaysSettled(true) } })
+      .catch(() => { if (!cancelled) setPlaysSettled(true) /* no card, no error state: see above */ })
     return () => { cancelled = true }
   }, [])
 
@@ -1755,11 +1943,20 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
                 onViewBoard={() => onViewStats('runs')} fill />,
               leadersCard,
             ]
-            // Nothing to draw yet (a season too young, or the play log still in flight).
-            // Leaders takes row 1 and an empty grid cell takes row 2, which is the layout this
-            // column had before the race existed: the row collapses to whatever Next game
-            // needs rather than reserving a slot for a card that may never arrive.
-            : [leadersCard, <Box key="mvp-empty" />])}
+            // STILL IN FLIGHT IS NOT THE SAME AS NOTHING TO DRAW, and treating them alike was
+            // worth a second reflow on every cold load. The play log is fetched last and on
+            // purpose (it is the one read allowed to be slow), so for the second or so after
+            // the page paints there is no race yet, and the branch below put Leaders in row 1
+            // for exactly that long, then moved it to row 2 when the race arrived. The reader
+            // gets the page, starts on the leader board, and it slides 400px down the screen
+            // under them. Holding the slot costs a placeholder and settles the layout once.
+            : !playsSettled
+              ? [<CardSkeleton key="mvp" minHeight={{ xs: '17.6rem', md: '20rem' }} titleWidth="5.5rem" lines={4} />, leadersCard]
+              // Answered, and there is genuinely no race to draw (a season too young). Leaders
+              // takes row 1 and an empty grid cell takes row 2, which is the layout this column
+              // had before the race existed: the row collapses to whatever Next game needs
+              // rather than reserving a slot for a card that is never coming.
+              : [leadersCard, <Box key="mvp-empty" />])}
         </Box>
       </Box>
 
