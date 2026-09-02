@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
-import { SectionCard, PlayerPortrait, TeamBadge, useWpblDark, FittedName, CARD_BORDER } from './ui'
+import { SectionCard, PlayerPortrait, TeamBadge, useWpblDark, FittedName, CARD_BORDER, MICRO_TEXT } from './ui'
 import { wpblAccent, relativeDayShort, WPBL_TEAMS } from './constants'
 import { useWpblPlayerLink } from './LinkContext'
 import { fmtMvpRuns, type MvpCandidate, type MvpRace as MvpRaceData } from './derive/mvpRace'
@@ -390,15 +390,15 @@ export default function MvpRaceCard({ race, games, batSeasons, pitSeasons, onOpe
         display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mt: 0.5,
         fontVariantNumeric: 'tabular-nums',
       }}>
-        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled' }}>
+        <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 700, color: 'text.disabled' }}>
           {relativeDayShort(race.dates[0])}
         </Typography>
         {changed && (
-          <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.secondary' }}>
+          <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 700, color: 'text.secondary' }}>
             lead changed {relativeDayShort(changed)}
           </Typography>
         )}
-        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled' }}>
+        <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 700, color: 'text.disabled' }}>
           {relativeDayShort(race.dates[race.dates.length - 1])}
         </Typography>
       </Box>

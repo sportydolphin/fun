@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { fetchWpblAllLines, getCachedWpblAllLines } from './api'
-import { TeamBadge, useWpblDark, pressable, FOCUS_RING } from './ui'
+import { TeamBadge, useWpblDark, pressable, FOCUS_RING, MICRO_TEXT } from './ui'
 import { wpblAccent, wpblFullName } from './constants'
 import {
   computeWpblTeamStats, WPBL_TEAM_STAT_DEFS,
@@ -163,7 +163,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
         {bar(a, awayBetter, awayColor, 'away')}
         <Typography sx={{
           flexShrink: 0, width: '2.375rem', textAlign: 'center',
-          fontSize: '0.56rem', fontWeight: 800, color: 'text.secondary',
+          fontSize: MICRO_TEXT, fontWeight: 800, color: 'text.secondary',
           textTransform: 'uppercase', letterSpacing: 0.4, lineHeight: 1,
         }}>
           {def.key === 'k9' ? kLabel : def.label}
@@ -239,7 +239,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
   return (
     <Box sx={{ px: 2, py: 1.5 }}>
       <Typography sx={{
-        fontSize: '0.58rem', fontWeight: 700, color: 'text.disabled',
+        fontSize: MICRO_TEXT, fontWeight: 700, color: 'text.disabled',
         textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1, mb: 1,
       }}>
         Season Comparison
@@ -248,14 +248,14 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
       {/* Legend: which color is which club */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
         {teamChip(away, awayColor, 'right')}
-        <Typography sx={{ fontSize: '0.54rem', fontWeight: 700, color: 'text.disabled', flexShrink: 0, lineHeight: 1 }}>VS</Typography>
+        <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 700, color: 'text.disabled', flexShrink: 0, lineHeight: 1 }}>VS</Typography>
         {teamChip(home, homeColor, 'left')}
       </Box>
 
       {groupBlock('hitting', 'Offense')}
       {groupBlock('pitching', 'Pitching')}
 
-      <Typography sx={{ fontSize: '0.52rem', color: 'text.disabled', mt: 1, textAlign: 'center', lineHeight: 1.5 }}>
+      <Typography sx={{ fontSize: MICRO_TEXT, color: 'text.disabled', mt: 1, textAlign: 'center', lineHeight: 1.5 }}>
         {CURRENT_SEASON} season · bar length = rank in the league, longer is better
       </Typography>
     </Box>

@@ -279,6 +279,27 @@ export function FormDots({ recent, gap = 4 }: { recent: ('W' | 'L')[]; gap?: num
  */
 export const chromePx = (px: number) => `calc(${px}px * var(--app-chrome, 1))`
 
+/**
+ * The floor for the smallest labels: eyebrows, chart axes, footnotes.
+ *
+ * A PHONE NOW READS THE SMALLEST TYPE IN THE APP, which is the opposite of what anyone wants
+ * and nobody chose it. `--app-type` is 1.25 at 900px and up and 1 below, so every rem is 20%
+ * smaller on a phone than on a desktop, and the sizes underneath were picked back when the two
+ * were the same. Measured on Home at 375px: "SEASON SO FAR" and the MVP chart's axis labels
+ * came out at 9.6px, the date line at 10.1px. Nothing regressed; the desktop got bigger and the
+ * phone stayed where it was, which reads as the same bug from the reader's side.
+ *
+ * 0.68rem is 10.9px on a phone and 13.6px on a desktop. It is a FLOOR and not a size: anything
+ * already larger keeps what it has, and the two ornament-scale marks that are not really read as
+ * text (the 0.55rem TWO-WAY chip, the 6px live dot) are deliberately left alone.
+ *
+ * Raising the root on mobile instead was the other option and was rejected: every rem-sized BOX
+ * would move with it, including the string budgets that were just measured against the current
+ * scale (the reminder row's 183px, the MVP name's fit), and one of those failing by a pixel is
+ * exactly the class of bug this section keeps paying for.
+ */
+export const MICRO_TEXT = '0.68rem'
+
 export function TeamBadge({ team, size = 34 }: { team: Pick<WpblTeam, 'id' | 'abbr'>; size?: number }) {
   const logo = wpblLogo(team.id)
   const fill = wpblLogoFill(team.id)
@@ -501,6 +522,18 @@ export function PillGroup({ options, value, onChange, mb }: {
             sx={{
               ...FOCUS_RING,
               px: 1.5, py: 0.4, borderRadius: 999, cursor: 'pointer',
+              // A FLOOR UNDER THE TAP TARGET. These were 23px tall, one pixel under WCAG 2.2's
+              // 24px minimum, and they sit shoulder to shoulder inside one pill, so the spacing
+              // exception that forgives a small target does not apply. `minHeight` rather than
+              // more padding: the pill's proportions stay as drawn, and the box still grows on
+              // its own if the reader's text needs more room than the floor.
+              //
+              // `chromePx` and not a bare number, and not rem. It is structure, so it takes the
+              // desktop chrome scale; and it deliberately does NOT take the reader's text scale,
+              // because a target that grows with the type is not a better target, it is a moving
+              // one. That is the whole reason --app-chrome excludes --sd-text-scale.
+              minHeight: chromePx(28),
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.3,
               whiteSpace: 'nowrap', userSelect: 'none', transition: 'all 0.15s',
               bgcolor: on ? 'var(--wpbl-accent-solid)' : 'transparent',

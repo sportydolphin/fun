@@ -13,7 +13,7 @@ import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameS
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { WPBL_LEAGUE_PAGE, WPBL_PATH_EVENT } from './routes'
 import { useWpblHeadingTag } from './PageHeading'
-import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, wpblFeatureName, CARD_BORDER, FormDots, WPBL_WIN, WPBL_LOSS } from './ui'
+import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, FormDots, WPBL_WIN, WPBL_LOSS, MICRO_TEXT } from './ui'
 import { LiveHero } from './Live'
 import PlayoffBracket from './PlayoffBracket'
 import {
@@ -144,7 +144,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
       transition: 'border-color 0.15s', '&:hover': { borderColor: 'text.disabled' },
     }}>
       <Typography sx={{
-        fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5,
+        fontSize: MICRO_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5,
         color: live ? '#ef4444' : 'text.secondary',
         // Never wrap: a second line here would make finals taller than upcoming chips and
         // break the strip's alignment. Ellipsis is the backstop for an unforeseen long label.
@@ -700,7 +700,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
             320px. A row that silently doubles in height on one matchup is worse than a name
             that runs out of room on the narrowest phone we support. */}
         <Typography noWrap sx={{ flex: 1, minWidth: 0, fontSize: '0.9rem', fontWeight: 600 }}>{t ? wpblFullName(t) : '?'}</Typography>
-        <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, color: 'text.secondary', flexShrink: 0 }}>{side}</Typography>
+        <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 700, color: 'text.secondary', flexShrink: 0 }}>{side}</Typography>
         {record && (
           <Typography sx={{ fontSize: '1rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'text.secondary', flexShrink: 0 }}>
             {record}
@@ -866,13 +866,18 @@ const RANK_MEDAL = ['var(--wpbl-medal-1)', 'var(--wpbl-medal-2)', 'var(--wpbl-me
 // names in FULL; the shared useWpblName() cap (12 on a phone) is tuned for dense tables and
 // would abbreviate here for no reason.
 //
-// Sized from the measured boxes, taking the tightest: the leader hero is 220px on mobile and
-// 210px on desktop at 14.4px type; ranks 2–3 are 219px at 13.12px. The longest name on any
-// roster ("Flor Elena Valerio Montoya", 26 chars) needs 187px / 199px / 170px respectively —
-// so 26 clears every current name in every slot, with the desktop hero the binding case.
-// Past that, wpblFeatureName() degrades to "F. Rest" and then "F. Surname" instead of
-// letting a name be ellipsed mid-word.
-const FEATURE_NAME_MAX = 26
+// THIS USED TO BE A CHARACTER BUDGET AND THE BUDGET WAS RIGHT WHEN IT WAS WRITTEN. It carried
+// the measurement it was derived from: the hero box is 220px on mobile and 210px on desktop,
+// ranks 2-3 are 219px, and the longest name on any roster ("Flor Elena Valerio Montoya", 26
+// characters) needed 187 / 199 / 170px, so 26 cleared every name in every slot. All true, and
+// none of it survives contact with a reader who turns Large text on, because the box was
+// measured in pixels and the budget spends characters. "Kelsie Whitmore" is fifteen of them: it
+// passed the budget untouched and CSS clipped it to "Kelsie Whit…" at 320px, on the row the
+// card exists to show. The MVP race had the identical bug six rows further down the page.
+//
+// `FittedName` renders the name and asks the browser whether it fit, so it steps down to
+// "K. Whitmore" instead. There is nothing left to tune and nothing to re-measure when the type
+// scale next moves.
 
 function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
   label: string; rows: LeaderRow[]; teamById: Map<string, WpblTeam>; onOpenPlayer: (p: WpblPlayer) => void
@@ -899,7 +904,7 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
       mb: 1.25, '&:last-of-type': { mb: 0 },
       ...(spread ? { height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' } : {}),
     }}>
-      {!hideLabel && <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.secondary', mb: 0.4 }}>{label}</Typography>}
+      {!hideLabel && <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.secondary', mb: 0.4 }}>{label}</Typography>}
       {rows.map((r, i) => {
         const team = teamById.get(r.player.team_id)
         // Rank by the number the reader can actually SEE. Ties on a counting board (two players
@@ -939,9 +944,9 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
                 and its own number. The name is the only part allowed to shrink. */}
             <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 0.6 }}>
               <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontSize: isTop ? '0.95rem' : '0.82rem', fontWeight: isTop ? 800 : 700, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {wpblFeatureName(r.player.name, FEATURE_NAME_MAX)}
-              </Typography>
+              <FittedName name={r.player.name} wrapperSx={{ minWidth: 0 }} sx={{
+                fontSize: isTop ? '0.95rem' : '0.82rem', fontWeight: isTop ? 800 : 700, lineHeight: 1.15,
+              }} />
               {isTop && team && (
                 <Typography sx={{ fontSize: '0.66rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {/* "San Francisco Firebells · 6.0 IP" overruns this line on desktop, so when
@@ -1311,14 +1316,18 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
           <path fill="#fff" d="M20.317 4.3698a19.7913 19.7913 0 0 0-4.8851-1.5152.0741.0741 0 0 0-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 0 0-.0785-.037 19.7363 19.7363 0 0 0-4.8852 1.515.0699.0699 0 0 0-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 0 0 .0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 0 0 .0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 0 0-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 0 1-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 0 1 .0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 0 1 .0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 0 1-.0066.1276 12.2986 12.2986 0 0 1-1.873.8914.0766.0766 0 0 0-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 0 0 .0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 0 0 .0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 0 0-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z" />
         </Box>
       </Box>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, lineHeight: 1.2, color: 'text.primary' }}>
-          Join the WPBL fan Discord
-        </Typography>
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 0.2 }}>
-          Live game chats and more.
-        </Typography>
-      </Box>
+      {/* ONE LINE, AND THE SECOND ONE WAS PAYING FOR ITSELF OUT OF THE FOLD. This card sits
+          third on a phone, between the scoreboard and the first thing about a game, and at two
+          lines it was 76px of the 812 a reader gets before scrolling. "Live game chats and
+          more." is what a Discord is; the title already says which one and the button already
+          says what tapping does. Wrapping is off for the same reason it is off on the reminder
+          row: a title that grows a second line puts the height straight back, and this one is a
+          hair under its budget at 320px with the Join button beside it. */}
+      <Typography noWrap sx={{
+        flex: 1, minWidth: 0, fontSize: '0.9rem', fontWeight: 800, lineHeight: 1.2, color: 'text.primary',
+      }}>
+        Fan Discord
+      </Typography>
       <Box sx={{ flexShrink: 0, px: 1.5, py: 0.6, borderRadius: 999, bgcolor: DISCORD_BLURPLE, color: '#fff', fontSize: '0.75rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
         Join
       </Box>
@@ -1327,11 +1336,18 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
         role="button"
         aria-label="Dismiss Discord invite"
         sx={{
-          // Pulled back out of the padding by half its own slack. The ✕ is an 8px glyph
-          // centred in a 22px thumb target, so left at the padding line the MARK sits 24px
-          // from the card edge against the avatar's 17px, and the row looks heavier on the
-          // left than the right. The target keeps its full size; only the box moves.
-          flexShrink: 0, width: 22, height: 22, ml: 0.25, mr: -0.75,
+          // 28px, not 22: WCAG 2.2 wants 24 as a floor and this is the one control on the card
+          // whose only job is to make the card go away, which is a bad thing to have to aim at
+          // twice. Sized through `chromePx` because a tap target is structure and must not ride
+          // the reader's text scale.
+          //
+          // The negative margin is the older half of this and still applies: the ✕ is an 8px
+          // glyph in a much larger box, so left at the padding line the MARK sits further from
+          // the card edge than the avatar does on the left and the row looks lopsided. The pull
+          // grew with the box, by half the 6px the box gained, so the glyph stays where it was
+          // and only the target around it got bigger. Measured, not computed: see the note in
+          // ROADMAP-WPBL for why optical alignment here is checked by looking.
+          flexShrink: 0, width: chromePx(28), height: chromePx(28), ml: 0, mr: -1,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           borderRadius: '50%', color: 'text.disabled', fontSize: '0.8rem', lineHeight: 1,
           '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },

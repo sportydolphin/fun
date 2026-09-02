@@ -363,7 +363,18 @@ number: Benitez is gone from third.
 RetroWPBL scores the same plate appearance `D7/L.3-H(RBI);2-H(RBI);1-3`. Two runners home, which
 is the missing run, and it is a text-generation fault rather than a scoring judgement.
 
-**This one the overlay CAN fix**, unlike Aug 20: `runs_scored` and `narrative` are both
-correctable fields, and `source = 'external'` is exactly "a second transcription agreed". Note
-that correcting it will not quiet the validator, which reads `wpbl_game_plays` directly with no
-overlay, so the finding stays in the baseline either way.
+**Corrected on Sep 2, 2026**, and it is the first correction this project has written: two rows
+in `wpbl_play_corrections` for `(game_id, sequence 10)`, one moving `runs_scored` from 1 to 2 and
+one repairing the narrative's missing verb, both `source = 'external'`. With the overlay applied
+the game reconciles exactly, LA reading 10 in the play log against 10 on the board.
+
+The row was re-read against the live feed immediately before writing, five days after the game,
+per the standing lesson above: Aug 15 fixed itself within the hour and a correction written
+against the old reading would have survived the rewrite and doubled the run. This one had not
+moved, and a duplicated name is a text-generation fault rather than a scoring judgement anyone
+is going to revisit.
+
+It does not quiet the validator, which reads `wpbl_game_plays` directly with no overlay, so the
+finding stays in the baseline. That is the right behaviour: the mirror still carries the feed's
+version, and the day the league fixes it at source is the day the finding should disappear on
+its own.
