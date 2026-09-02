@@ -4,6 +4,45 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.60.0',
+    date:    '2026-09-02',
+    title:   'Player cards say more, and every one of them is the same shape',
+    changes: [
+      {
+        short: 'The line above the stats says something the stats cannot',
+        full:  'That one line of English is there to give you the RELATIONSHIPS between the numbers, which is the thing a grid of boxes cannot show. Two of its endings had drifted into restating a single box: Maïka Dumais’s card read “5 stolen bases” directly above a box reading SB 5. It now says the things that take two numbers to see, like five steals without being caught once, or seven runs scored from ten times on base. It can also say two of them now instead of one, so a player outside the league rankings gets a fuller sentence rather than a shorter one.',
+      },
+      {
+        short: 'Players who have not qualified yet get a league ranking',
+        full:  'Rate stats like batting average need a minimum number of plate appearances before they mean anything, which is why a player short of that bar got no rankings at all: the part of her card that places her against the league simply vanished, for exactly the player you are least able to place yourself. Counting stats have no such problem. Five stolen bases is five stolen bases whether they came in nine games or forty. Cards now rank those, so Dumais’s page can say she is 3rd in the WPBL in steals, which it had no way to tell you before.',
+      },
+      {
+        short: 'The stat boxes are the same size on every player’s card',
+        full:  'The grid used to choose its column count by looking for a number that divided evenly into however many boxes it had, and the number of boxes changes from player to player, because a stat that has never happened is left off. So the boxes changed size depending on whether someone had been hit by a pitch. Kelsie Whitmore’s two tabs showed the same grid at two noticeably different sizes, one tap apart. Every card is now two rows of six, and a short last row is allowed.',
+      },
+      {
+        short: 'A pitcher’s card is not padded out around a short game log',
+        full:  'On a wide screen the card puts season stats on the left and the game log on the right, and the right-hand column had been sized for a batting log. Pitchers appear in far fewer games and their log has fewer columns, so every pitching card was stretching an eleven-column table across space it did not want while the column beside it ran much longer. The game log now takes the width it actually needs. Whitmore’s card lost 40% of its scrolling.',
+      },
+      {
+        short: 'Fielding stats say which positions they cover',
+        full:  'A fielding line covers every position a player has taken, and there is no way to split it: the league’s data does not record which position each play came at. On a two-way player that made the pitching tab misleading, since Whitmore’s 21 putouts are catches in centre field and a pitcher does not make 21 putouts in five relief appearances. The line now ends with the positions those numbers came from.',
+      },
+      {
+        short: 'How close she is to qualifying, rather than the bar itself',
+        full:  'Under the headline number a card said “29 PA to qualify” while a meter further down said “1 more PA”. Both were true and they were different numbers for one fact, and the bigger of the two sat under the biggest type on the card, where it reads as something still owed. It now names the gap, so a player one plate appearance from the leaderboards is told so.',
+      },
+      {
+        short: 'One ranking list instead of two, and no stat ranked twice',
+        full:  'League rankings were briefly split across two blocks with two headings that meant the same thing in English and differed only by which players they compared against. They are one list again. The summary line has also stopped naming a ranking that the list underneath was already showing with its value and its bar.',
+      },
+      {
+        short: 'Pitch locations sit under the game log now',
+        full:  'The pitch plot was the first thing in the right-hand column, which put the least complete thing on the card at the top of it. League pitch tracking only ever reached a handful of games, so that card usually reads something like “44 pitches, 1 of 5 games”. The full record of every appearance comes first, and the plot sits underneath it.',
+      },
+    ],
+  },
+  {
     version: '1.59.0',
     date:    '2026-09-01',
     title:   'The seeding race is on the standings page for everyone',

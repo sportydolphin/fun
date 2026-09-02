@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { displayPosition, primaryPosition, buildPositionIndex, MIN_FIELDED_GAMES } from '../positions'
+import { displayPosition, primaryPosition, positionsPlayed, buildPositionIndex, MIN_FIELDED_GAMES } from '../positions'
 
 // The roster files a position once and the season then disagrees with it. This decides when the
 // season wins. It has two ways to be wrong: leave a player labelled at a position she has not
@@ -125,5 +125,40 @@ describe('buildPositionIndex', () => {
     expect(index.get('zettlemoyer')).toEqual({ position: '3b', games: 6, fielded: 6 })
     expect(index.has('gutierrez')).toBe(false) // tied
     expect(index.has('lahners')).toBe(false)   // too few
+  })
+})
+
+// `positionsPlayed` answers a different question from everything above, and the difference is
+// the whole reason it is a separate function: `primaryPosition` asks "what position IS she",
+// which has to count one game once, and this asks "where did these fielding numbers come
+// from", which has to count every place she stood.
+describe('positionsPlayed', () => {
+  it('counts BOTH halves of a game she moved in, unlike the vote', () => {
+    const lines = [{ position: 'p/cf' }]
+    // The vote takes the first token only, so a utility player cannot out-vote a regular.
+    expect(primaryPosition(Array.from({ length: 4 }, () => ({ position: 'p/cf' })))?.position).toBe('p')
+    // The scope note takes both, because she really did field at both and both are in the sum.
+    expect(positionsPlayed(lines)).toEqual(['cf', 'p'])
+  })
+
+  // Kelsie Whitmore's real season, which is what found the bug: her pitching pane presented
+  // 21 putouts as a pitcher's fielding line, and they are catches in centre field.
+  it('puts the most-played position first', () => {
+    const lines = [...at('cf', 6), ...Array.from({ length: 4 }, () => ({ position: 'p/cf' }))]
+    expect(positionsPlayed(lines)).toEqual(['cf', 'p'])
+  })
+
+  // A tie must not reorder itself between two renders of the same card.
+  it('breaks a tie the same way every time', () => {
+    const one = positionsPlayed([...at('ss', 3), ...at('1b', 3)])
+    expect(one).toEqual(['1b', 'ss'])
+    expect(positionsPlayed([...at('1b', 3), ...at('ss', 3)])).toEqual(one)
+  })
+
+  // DH, PH and PR are batting roles rather than places on the field, and a fielding line that
+  // named them would be claiming she fielded in a game she did not take the field in.
+  it('ignores the batting-only roles', () => {
+    expect(positionsPlayed([...at('dh', 5), ...at('ph', 2), ...at('cf', 1)])).toEqual(['cf'])
+    expect(positionsPlayed([...at('dh', 5)])).toEqual([])
   })
 })

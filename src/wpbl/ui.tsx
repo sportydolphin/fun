@@ -1564,3 +1564,99 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
     </Box>
   )
 }
+
+/**
+ * The player card's secondary block: a rule of the club's colour, a label, a line of summary,
+ * and optionally something that opens.
+ *
+ * WHY IT IS ONE COMPONENT NOW. Three of these grew independently on the same card and picked
+ * three different answers to the same questions. `CameoBlock` was a static line, `FieldingLine`
+ * opened with a `+` that turned into a `−`, and `PitchLocationCard` opened with a rotating
+ * chevron; their labels were set at 0.72rem, 0.72rem and 0.76rem, their summaries at 0.8, 0.8
+ * and 0.68, and the pitch card right-aligned its summary while the other two set theirs
+ * directly after the label. Two of them were on screen at once, one in each column, so the
+ * differences read as meaning something. They did not.
+ *
+ * A `+` is the wrong glyph for this anyway: it says "add" where the control reveals, and it is
+ * the one of the two that cannot show its own state without being read. A chevron points at
+ * where the content will appear and rotates to say it is already there.
+ *
+ * `meta` is the right-hand slot, for something true of the whole block rather than a value in
+ * it. Fielding spends it on the positions those numbers came from, which is the difference
+ * between a fielding line and a claim about her glove at the position the tab implies.
+ */
+export function AccentPanel({ label, summary, meta, accent, defaultOpen = false, ariaLabel, children, sx }: {
+  label: string
+  /** The gist, beside the label. Carries the block when it is closed, so it has to stand alone. */
+  summary?: React.ReactNode
+  /** Right-aligned, before the disclosure. Scope rather than value. */
+  meta?: React.ReactNode
+  accent: string
+  defaultOpen?: boolean
+  ariaLabel?: string
+  /** Omit entirely for a block with nothing to open, which then draws no control at all. */
+  children?: React.ReactNode
+  sx?: SxProps<Theme>
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  const canOpen = children != null
+  return (
+    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden', ...sx }}>
+      <Box
+        {...(canOpen ? {
+          onClick: () => setOpen(o => !o),
+          onKeyDown: (e: React.KeyboardEvent) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(o => !o) }
+          },
+          role: 'button', tabIndex: 0, 'aria-expanded': open,
+          // The summary joins the label when it is plain text, because a screen reader meeting
+          // "Pitch locations, collapsed" has been told nothing about whether it is worth
+          // opening, and "44 pitches, 1 of 5 games" is the whole of that decision.
+          'aria-label': ariaLabel ?? [
+            label, typeof summary === 'string' ? summary : null, open ? 'Collapse' : 'Expand',
+          ].filter(Boolean).join('. ') + '.',
+        } : {})}
+        sx={{
+          display: 'flex', alignItems: 'baseline', gap: 1.25, px: 1.5, py: 1,
+          // ORDER MATTERS AND IT IS NOT OBVIOUS. A shorthand `borderColor` would repaint the
+          // left edge too, so the club's rule came out the divider's grey and the panel lost
+          // the only thing tying it to the team. The long-hand bottom colour leaves the left
+          // edge alone. Caught by reading the computed style, not by looking: at a glance a
+          // 3px grey rule still reads as a deliberate border.
+          borderBottom: open ? '1px solid' : 'none',
+          borderBottomColor: 'divider',
+          borderLeft: `3px solid ${accent}`,
+          ...(canOpen ? { cursor: 'pointer', ...TAPPABLE } : {}),
+          '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: -2 },
+        }}
+      >
+        <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, flexShrink: 0 }}>
+          {label}
+        </Typography>
+        {summary != null && (
+          <Typography component="div" sx={{ fontSize: '0.8rem', color: 'text.secondary', fontVariantNumeric: 'tabular-nums', minWidth: 0 }}>
+            {summary}
+          </Typography>
+        )}
+        {meta != null && (
+          <Typography component="div" sx={{ ml: 'auto', pl: 1, fontSize: '0.7rem', fontWeight: 700, letterSpacing: 0.3, color: 'text.disabled', flexShrink: 0 }}>
+            {meta}
+          </Typography>
+        )}
+        {canOpen && (
+          /* Alignment is the reason this is a box and not a glyph: the row is baseline-aligned
+             so the label and the summary sit on one line, and a triangle has no baseline to
+             align to. `alignSelf: center` takes it out of that and centres it on the row. */
+          <Box sx={{
+            flexShrink: 0, width: 0, height: 0, alignSelf: 'center',
+            ...(meta == null ? { ml: 'auto' } : { ml: 1 }),
+            borderStyle: 'solid', borderWidth: '5px 4px 0 4px',
+            borderColor: 'currentColor transparent transparent transparent', color: 'text.disabled',
+            transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s',
+          }} />
+        )}
+      </Box>
+      {canOpen && open && <Box sx={{ px: 1.5, pb: 1.5, pt: 1.25 }}>{children}</Box>}
+    </Box>
+  )
+}

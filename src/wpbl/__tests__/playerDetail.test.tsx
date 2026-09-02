@@ -80,6 +80,26 @@ const show = (p: WpblPlayer, onOpenGame?: (g: WpblGame) => void) => render(
   <PlayerDetailModal player={p} teams={TEAMS} games={GAMES} players={[p]} onClose={() => {}} onOpenGame={onOpenGame} />,
 )
 
+/**
+ * The same card, but inside a league big enough to be ranked against.
+ *
+ * The counting strip refuses a field under `COUNT_RANK_MIN_FIELD`, and it is right to: a
+ * one-player league makes a hitter with four at-bats its leader in hits. So a test about the
+ * strip has to supply a league, and the filler is deliberately BETTER than the subject at
+ * everything except the one stat under test, so a passing assertion is about that stat rather
+ * than about her being the only person here.
+ */
+const showInLeague = (p: WpblPlayer, subjectLines: WpblBattingLine[]) => {
+  const others = Array.from({ length: 14 }, (_, i) => player({ id: `filler${i}`, name: `Filler ${i}` }))
+  lines.batting = [
+    ...subjectLines,
+    ...others.map(o => bat({ player_id: o.id, ab: 40, h: 20, tb: 30, r: 15, rbi: 15, bb: 8, doubles: 5 })),
+  ]
+  return render(
+    <PlayerDetailModal player={p} teams={TEAMS} games={GAMES} players={[p, ...others]} onClose={() => {}} />,
+  )
+}
+
 /** The game log's body rows, which is where a game is opened from. */
 const logRows = (container: HTMLElement) => Array.from(container.querySelectorAll('tbody tr'))
 
@@ -223,30 +243,98 @@ describe('PlayerDetail: league ranks', () => {
     expect(screen.getByText(/Against 1 qualified batters/)).toBeInTheDocument()
   })
 
-  // Drawing a short bar for someone with four trips to the plate would claim she is bad rather than
-  // that we do not know yet. What stands in its place is progress TOWARD the bar, which is a
-  // different measurement and must never be mistaken for the percentile strip: same geometry,
-  // opposite meaning, so this pins that the strip's own heading is absent.
+  // Drawing a short bar for someone with four trips to the plate would claim she is bad rather
+  // than that we do not know yet. What stands in its place is progress TOWARD the bar, which is
+  // a different measurement and must never be mistaken for the percentile strip: same geometry,
+  // opposite meaning.
+  //
+  // Asserted on the RATE ROWS rather than on the block's heading, which is the change the
+  // counting strip forced. That heading is now shared by the counting block, so "the heading is
+  // absent" stopped meaning "she is not being ranked on rates" and started meaning "she leads
+  // nothing either", which is a different claim that this test was never about. OBP and SLG
+  // exist only in the percentile strip, so they are the honest witnesses.
   it('shows progress toward the bar instead of ranking a player below it', async () => {
     lines.batting = [bat({ ab: 4, h: 2, tb: 3 })]
     show(player())
     await waitFor(() => expect(battingShown()).toBe(true))
-    expect(screen.getByText(/Toward league ranks/i)).toBeInTheDocument()
+    expect(screen.getByText(/Toward qualifying/i)).toBeInTheDocument()
     expect(screen.getByText(/more PA to rank against qualified batters/i)).toBeInTheDocument()
+    expect(screen.queryByText('OBP')).not.toBeInTheDocument()
+    expect(screen.queryByText('SLG')).not.toBeInTheDocument()
+  })
+
+  // The counting strip is the reason a below-bar card is no longer a card with no comparison
+  // anywhere on it. `RankProgress` shows the arithmetic of the refusal, which is better than
+  // the refusal, but it is still a refusal; a COUNT is not subject to the objection the bar
+  // exists for, since a short sample can only deflate one. So this player gets the meter AND a
+  // league position, and the two must be able to coexist.
+  it('still gives a below-bar player a league position, off her counting totals', async () => {
+    // Three steals in four at-bats: nowhere near qualifying, and nobody else has stolen one.
+    showInLeague(player(), [bat({ ab: 4, h: 2, tb: 3, sb: 3 })])
+    await waitFor(() => expect(battingShown()).toBe(true))
+    expect(screen.getByText(/Toward qualifying/i)).toBeInTheDocument()
+    expect(screen.getByText(/Against the league/i)).toBeInTheDocument()
+    expect(screen.getByText(/who have played/i)).toBeInTheDocument()
+  })
+
+  // ONE COMPARISON BLOCK PER CARD, which is the shape this settled into after briefly being
+  // two. A qualified player's counting rows merge into the strip she already had, under its
+  // one population line; a below-bar player's are what is left of that block when there are no
+  // rate rows to merge into. Either way "Against the league" appears once, and a card never
+  // shows two strips whose headings mean the same sentence in English.
+  it('never shows two ranking blocks on one card', async () => {
+    showInLeague(player(), [bat({ ab: 4, h: 2, tb: 3, sb: 3 })])
+    await waitFor(() => expect(screen.getByText(/who have played/i)).toBeInTheDocument())
+    expect(screen.getAllByText(/^Against the league$/i)).toHaveLength(1)
+    // And exactly one population line, so the two can never disagree about the field. Anchored,
+    // because `RankProgress`'s own sentence ends "...to rank against qualified batters." and an
+    // unanchored match catches it, which is a different string saying a different thing.
+    expect(screen.queryByText(/^Against \d+ qualified batters\.$/)).not.toBeInTheDocument()
+    expect(screen.getAllByText(/^Against \d+ batters who have played\.$/)).toHaveLength(1)
+  })
+
+  // The population line is the one thing separating the two strips on a card that shows both,
+  // and they are DIFFERENT FIELDS: everyone who has played against the qualified. Worded the
+  // same way, "Against 68 qualified batters" three rows under "Against 31 qualified batters"
+  // reads as a bug in one of them rather than as two honest numbers.
+  it('does not call the counting field qualified', async () => {
+    showInLeague(player(), [bat({ ab: 4, h: 2, tb: 3, sb: 3 })])
+    await waitFor(() => expect(screen.getByText(/who have played/i)).toBeInTheDocument())
+    expect(screen.getByText(/who have played/i).textContent).not.toMatch(/qualified/i)
+  })
+
+  // Drawing an empty block for the great majority of the roster would cost every card a
+  // heading and a grey line to say nothing. Most players lead nothing; most cards must not
+  // change at all.
+  it('draws nothing for a player who leads nothing', async () => {
+    showInLeague(player(), [bat({ ab: 4, h: 1, tb: 1 })])
+    await waitFor(() => expect(battingShown()).toBe(true))
     expect(screen.queryByText(/Against the league/i)).not.toBeInTheDocument()
   })
 
   // The retraction has to reach the reader who only looks at the big number. It used to live
   // only in the rail, a column away from a 2rem figure it was disowning, so the sample line
-  // under the hero now names the bar itself. Pinned because the two are computed in different
-  // places (`battingMeta` and `RankProgress`) off the same `ranks.qualifiers`, and a change to
-  // one that misses the other puts a card in the state this was built to end: shouting a
-  // number in one block and disowning it in another.
-  it('names the qualifying bar on the hero sample line, not only in the rail', async () => {
+  // under the hero names it too. Pinned because the two are computed in different places
+  // (`battingMeta` and `RankProgress`) off the same `ranks.qualifiers`, and a change to one
+  // that misses the other puts a card in the state this was built to end: shouting a number in
+  // one block and disowning it in another.
+  //
+  // AND THEY MUST BE THE SAME NUMBER, which is the half this test did not check and the bug it
+  // did not catch. The sample line printed the THRESHOLD and the rail printed the DISTANCE to
+  // it, both true and neither the same figure, so a player one plate appearance short of the
+  // leaderboard was told "29 PA to qualify" under her headline and "1 more PA" at the foot of
+  // the rail. Under a 2rem number the threshold reads as a quantity owed, which is why the
+  // sample line is the one that changed. Asserting on the digits rather than the wording is
+  // deliberate: the wording is free to improve, the agreement is not.
+  it('names the same shortfall on the hero sample line as in the rail', async () => {
     lines.batting = [bat({ ab: 4, h: 2, tb: 3 })]
     show(player())
     await waitFor(() => expect(battingShown()).toBe(true))
-    expect(screen.getAllByText(/PA to qualify/).length).toBeGreaterThan(0)
+    const onHero = screen.getAllByText(/\d+ PA from qualifying/)
+    expect(onHero.length).toBeGreaterThan(0)
+    const gap = (el: HTMLElement, re: RegExp) => (el.textContent ?? '').match(re)?.[1]
+    const inRail = screen.getByText(/more PA to rank against qualified batters/i)
+    expect(gap(onHero[0], /(\d+) PA from qualifying/)).toBe(gap(inRail, /(\d+) more PA/))
   })
 })
 
@@ -444,22 +532,49 @@ describe('PlayerDetail: the game log', () => {
 })
 
 // jsdom does no layout, so the grid itself cannot be measured here (the widths in the comments
-// on StatGrid were taken on a real phone). What CAN be pinned is the rule those widths were
-// chosen to serve: a stat grid never ends in dead cells.
+// on StatGrid were taken on a real phone). What CAN be pinned is the property those widths
+// exist to protect, and it is no longer "a stat grid never ends in dead cells". It is that the
+// TILE IS THE SAME SIZE on every card, which means the column count has to stop moving.
 describe('gridColumns', () => {
-  it('divides the item count where it can', () => {
-    expect(gridColumns(10, 6)).toBe(5)  // the batting chips: two rows of five, not 6 + 4
-    expect(gridColumns(6, 6)).toBe(6)   // the pitching chips: one row
+  // The tile count varies by player, because the grid drops stats that have never happened.
+  // Every count the real roster produces has to come back the same, or the geometry is a
+  // function of whether she has ever been hit by a pitch.
+  it('gives the same column count to every tile count the roster produces', () => {
+    // 8 to 13 covers every batting and pitching grid in the league as of Sep 2, 2026.
+    const cols = [8, 9, 10, 11, 12].map(n => gridColumns(n, 6))
+    expect(cols).toEqual([6, 6, 6, 6, 6])
+  })
+
+  // The regression this replaced, kept as a named case because it is the one a reader saw:
+  // Whitmore's two panes, one tap apart, at 60px and 94px tiles in the same rail.
+  it('does not change shape between a player\'s two panes', () => {
+    expect(gridColumns(12, 6)).toBe(gridColumns(11, 6)) // her batting grid and her pitching grid
+  })
+
+  // The single exception, and the only raggedness still worth avoiding. A last row holding one
+  // tile reads as a mistake; a last row holding three reads as a margin.
+  it('steps down only to avoid a last row of one', () => {
+    expect(gridColumns(13, 6)).toBe(5)   // 6 + 6 + 1 would orphan a tile; 5 + 5 + 3 does not
+    expect(13 % 5).not.toBe(1)
+  })
+
+  // Never orphans a tile, far past any size this grid reaches, which is why the implementation
+  // searches rather than stepping once. Stepping once is not sufficient: `n % 6` and `n % 5`
+  // are both 1 at 31, 61 and every 30 after. Searching down to four holds to 60; at 61 every
+  // count in range leaves a remainder of 1 at once, because 61 is one more than a multiple of
+  // 60. A stat grid cannot reach either bound, and this pins the real one so the next person
+  // does not re-derive it from a comment that sounded right.
+  it('never orphans a tile, well past any size it will meet', () => {
+    for (let n = 7; n <= 60; n++) {
+      const c = gridColumns(n, 6)
+      expect(c).toBeLessThanOrEqual(6)
+      expect(c).toBeGreaterThanOrEqual(4)
+      expect(n % c).not.toBe(1)
+    }
+  })
+
+  it('gives a small grid a single row', () => {
     expect(gridColumns(4, 6)).toBe(4)   // fielding, collapsed
-    expect(gridColumns(9, 6)).toBe(3)
-  })
-
-  it('falls back to four when nothing divides', () => {
-    expect(gridColumns(7, 6)).toBe(4)   // fielding with DP, PB and SBA
-    expect(gridColumns(11, 6)).toBe(4)
-  })
-
-  it('never exceeds the cap', () => {
-    for (let n = 1; n <= 24; n++) expect(gridColumns(n, 6)).toBeLessThanOrEqual(6)
+    expect(gridColumns(6, 6)).toBe(6)
   })
 })

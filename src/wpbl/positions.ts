@@ -95,6 +95,35 @@ export function primaryPosition(lines: readonly PositionedLine[]): PrimaryPositi
 }
 
 /**
+ * Every place on the field she has actually stood, most-played first.
+ *
+ * A DIFFERENT QUESTION from `primaryPosition`, and it counts differently on purpose. That one
+ * asks "what position is she", so it takes only the FIRST token of "p/cf" and counts one game
+ * once, or a utility player who moves around a lot would out-vote a regular. This asks "where
+ * have these fielding numbers come from", and the answer to that is BOTH: she pitched and she
+ * played centre field in the same game, and both are in the totals.
+ *
+ * IT EXISTS BECAUSE A FIELDING LINE CARRIES NO POSITION. The feed's fielding row is
+ * `game_id, po, a, e, dp, pb, sba` and nothing else, so a season's fielding cannot be split by
+ * position at all, by us or by anyone. On a card with role tabs that silence reads as a claim:
+ * Kelsie Whitmore's pitching pane showed "1.000 FPCT · 21 PO · 0 A · 0 E" under the heading
+ * "Fielding", and a pitcher with 21 putouts in five appearances does not happen. They are
+ * catches in centre field. The numbers were right and the pane made them mean something false,
+ * so the fix is to name the positions rather than to divide numbers we cannot divide.
+ */
+export function positionsPlayed(lines: readonly PositionedLine[]): string[] {
+  const counts = new Map<string, number>()
+  for (const line of lines) {
+    for (const raw of String(line.position ?? '').split('/')) {
+      const pos = raw.trim().toLowerCase()
+      if (FIELDING.has(pos)) counts.set(pos, (counts.get(pos) ?? 0) + 1)
+    }
+  }
+  // Count descending, then alphabetical, so a tie does not reorder itself between renders.
+  return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([p]) => p)
+}
+
+/**
  * Whether the roster's label already says what the season says.
  *
  * The two vocabularies do not match and never will. The roster files handedness on pitchers

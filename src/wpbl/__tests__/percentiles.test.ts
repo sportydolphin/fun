@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { computeWpblPlayerRanks, ordinal } from '../percentiles'
+import {
+  computeWpblPlayerRanks, ordinal, bestCountingRanks,
+  COUNT_RANK_BAR, COUNT_RANK_ROWS, COUNT_RANK_MIN_FIELD, WPBL_PIT_COUNT_RANK_DEFS,
+  type WpblStatRank,
+} from '../percentiles'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from '../types'
 
 // A percentile is a claim about a population, and every trap here is a way of getting the
@@ -237,6 +241,128 @@ describe('computeWpblPlayerRanks: edges', () => {
     ]
     const r = computeWpblPlayerRanks('b', players, TEAMS, GAMES, lines, [])
     expect(r.batting.find(x => x.key === 'avg')!.pct).toBeCloseTo(0.5, 5)
+  })
+})
+
+// ─── the counting strip ──────────────────────────────────────────────────────────────────────
+//
+// A different question from everything above, and the whole file's opening argument does not
+// apply to it. A rate off nine at-bats is not a fact, which is why the qualifying bar exists.
+// A COUNT off nine at-bats is a fact: a short sample can only deflate it, never inflate it.
+// The bugs here are therefore the opposite ones: ranking a count inside the qualified field,
+// which silently deletes the players this is for, and printing a stat twice on one card.
+
+describe('computeWpblPlayerRanks: counting ranks', () => {
+  // The point of the feature in one test. She is below the bar, so `batting` is empty and the
+  // card falls back to `RankProgress`; her steals are still 1st in the WPBL and the card had
+  // no way to say so before.
+  it('ranks a below-bar player, who gets no rate strip at all', () => {
+    const players = [player('a'), player('b'), player('c')]
+    const lines = [
+      bat('a', { ab: 6, h: 2, tb: 2, sb: 9 }),   // nowhere near qualifying
+      bat('b', { ab: 40, h: 12, tb: 16, sb: 4 }),
+      bat('c', { ab: 40, h: 10, tb: 14, sb: 1 }),
+    ]
+    const r = computeWpblPlayerRanks('a', players, TEAMS, GAMES, lines, [])
+    expect(r.batReason).toBe('below-bar')
+    expect(r.batting).toHaveLength(0)
+    const sb = r.battingCounts.find(x => x.label === 'SB')
+    expect(sb).toMatchObject({ rank: 1, of: 3, display: '9' })
+  })
+
+  // THE POPULATION FOLLOWS THE PLAYER, and this pair is the reason there is one comparison
+  // block on the card rather than two. Counts were briefly always ranked against everyone who
+  // had played, which is defensible on its own and produced a card carrying "Against the
+  // league" over 31 qualified batters and, three rows below, a second identically-drawn strip
+  // headed "Where she ranks" over 68. Two headings meaning the same sentence, differing by a
+  // population a reader has no reason to be tracking.
+  it('ranks a qualified player against the field she is already being shown against', () => {
+    const players = [player('a'), player('b'), player('c')]
+    const lines = [
+      bat('a', { ab: 40, h: 12, tb: 16, hr: 3 }),
+      bat('b', { ab: 40, h: 10, tb: 14, hr: 1 }),
+      bat('c', { ab: 5, h: 4, tb: 16, hr: 4 }), // below the bar, and out-homers both of them
+    ]
+    const r = computeWpblPlayerRanks('a', players, TEAMS, GAMES, lines, [])
+    expect(r.batReason).toBe('ok')
+    // One population, so the merged strip can print one line under it.
+    expect(r.batCountOf).toBe(r.batOf)
+    expect(r.batCountOf).toBe(2)
+    expect(r.battingCounts.find(x => x.label === 'HR')).toMatchObject({ rank: 1, of: 2 })
+  })
+
+  // And the other half of the same rule. The qualified field is the one field a below-bar
+  // player is definitionally not in, so hers is everyone who has played.
+  it('ranks a below-bar player against everyone who has played', () => {
+    const players = [player('a'), player('b'), player('c')]
+    const lines = [
+      bat('a', { ab: 5, h: 4, tb: 16, hr: 4 }),
+      bat('b', { ab: 40, h: 12, tb: 16, hr: 3 }),
+      bat('c', { ab: 40, h: 10, tb: 14, hr: 1 }),
+    ]
+    const r = computeWpblPlayerRanks('a', players, TEAMS, GAMES, lines, [])
+    expect(r.batReason).toBe('below-bar')
+    expect(r.batOf).toBe(2)
+    expect(r.batCountOf).toBe(3)
+    expect(r.battingCounts.find(x => x.label === 'HR')).toMatchObject({ rank: 1, of: 3 })
+  })
+
+  // Innings are ranked on OUTS and displayed as innings, because thirds of an inning do not
+  // compare as decimals: 6.2 IP is 20 outs, and 6.2 is not two thirds of the way to seven.
+  it('ranks innings on outs and prints them as innings', () => {
+    const players = [player('a'), player('b')]
+    const lines = [pit('a', { outs: 20, so: 8 }), pit('b', { outs: 19, so: 9 })]
+    const r = computeWpblPlayerRanks('a', players, TEAMS, GAMES, [], lines)
+    expect(r.pitchingCounts.find(x => x.label === 'IP')).toMatchObject({ rank: 1, display: '6.2' })
+  })
+
+  // `G` was in this list for a day and put "G 6 · 4th of 38" at the top of a reliever's card,
+  // which is a fact about how often a manager called the bullpen. The test a stat has to pass
+  // is not "does it reward playing time" (they all do) but "did she do it".
+  it('does not rank appearances', () => {
+    expect(WPBL_PIT_COUNT_RANK_DEFS.map(d => d.label)).not.toContain('G')
+  })
+})
+
+describe('bestCountingRanks', () => {
+  const rank = (label: string, rank: number, value: number): WpblStatRank => ({
+    key: `c_${label}`, label, group: 'batting', better: 'high',
+    display: String(value), value, rank, of: 60, pct: 1,
+  })
+
+  it('caps the strip, best first', () => {
+    const out = bestCountingRanks([rank('RBI', 2, 30), rank('H', 1, 26), rank('R', 3, 20)])
+    expect(out).toHaveLength(COUNT_RANK_ROWS)
+    expect(out.map(r => r.label)).toEqual(['H', 'RBI'])
+  })
+
+  // THE ONE THAT WAS A REAL BUG, and it was masked by an unrelated sort. HR is a counting stat
+  // that lives in the RATE defs as well (a home-run total is meant to reward playing time), so
+  // a qualified home-run leader can be ranked twice on one card, against two different fields,
+  // with two different ordinals, three rows apart.
+  it('never repeats a stat the rate strip is already drawing', () => {
+    const counts = [rank('HR', 1, 9), rank('RBI', 1, 30), rank('H', 1, 26)]
+    const shown = [{ ...rank('HR', 1, 9), key: 'hr' }]
+    expect(bestCountingRanks(counts, shown).map(r => r.label)).toEqual(['RBI', 'H'])
+  })
+
+  it('says nothing for a player who leads nothing, rather than an empty block', () => {
+    expect(bestCountingRanks([rank('H', COUNT_RANK_BAR + 1, 4)])).toEqual([])
+  })
+
+  // Half the league has no triples, so they are all tied for 1st on zero. "1st in the WPBL in
+  // 3B" off no triples at all is the most confident wrong thing this strip could say.
+  it('will not call a five-way tie on zero a league lead', () => {
+    expect(bestCountingRanks([rank('3B', 1, 0)])).toEqual([])
+  })
+
+  // An absolute bar of 5 says nothing without a field to be 5th of. In a field of six it is
+  // next to last, and in a field of one it makes a hitter with four at-bats the league leader
+  // in hits, which is how a one-player test fixture found this.
+  it('will not rank anyone in a field too small to have a middle', () => {
+    const small = { ...rank('H', 1, 4), of: COUNT_RANK_MIN_FIELD - 1 }
+    expect(bestCountingRanks([small])).toEqual([])
+    expect(bestCountingRanks([{ ...small, of: COUNT_RANK_MIN_FIELD }])).toHaveLength(1)
   })
 })
 

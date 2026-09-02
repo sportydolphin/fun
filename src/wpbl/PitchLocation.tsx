@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, speedUnit } from '../lib/units'
 import type { WpblPitchLoc } from './api'
-import { chromePx, TAPPABLE } from './ui'
+import { chromePx, AccentPanel } from './ui'
 
 // Pitch-location plots for a pitcher: one combined strike zone (all pitches, colored by
 // pitch type) plus small multiples — a mini zone per pitch type. Locations come from the
@@ -99,7 +99,6 @@ export function PitchLocationCard({ rows, accent, gamesPitched }: { rows: WpblPi
   // Complete = tracking reaches every game the pitcher has appeared in (the up-to-date,
   // genuinely useful case). Those open by default; partial/stale samples start collapsed.
   const complete = gamesPitched != null && gamesPitched > 0 && trackedGames >= gamesPitched
-  const [open, setOpen] = useState(complete)
 
   if (total === 0) return null
 
@@ -116,32 +115,20 @@ export function PitchLocationCard({ rows, accent, gamesPitched }: { rows: WpblPi
   }
 
   return (
-    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden', mb: 2 }}>
-      {/* Tappable header toggles the plot. Collapsed by default so it never dominates the
-          page; the summary (pitch count + game coverage) carries the gist without expanding. */}
-      <Box
-        onClick={() => setOpen(o => !o)}
-        role="button"
-        aria-expanded={open}
-        aria-label={`Pitch locations — ${summary}. ${open ? 'Collapse' : 'Expand'}.`}
-        sx={{
-          display: 'flex', alignItems: 'center', gap: 1, px: 1.75, py: 0.9, cursor: 'pointer',
-          borderBottom: open ? '1px solid' : 'none', borderColor: 'divider', borderLeft: `3px solid ${accent}`,
-          ...TAPPABLE,
-        }}
-      >
-        <Typography sx={{ fontSize: '0.76rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, flexShrink: 0 }}>Pitch locations</Typography>
-        <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', ml: 'auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{summary}</Typography>
-        {/* Chevron: points down when collapsed, flips up when open. */}
-        <Box sx={{
-          flexShrink: 0, width: 0, height: 0, ml: 0.25,
-          borderStyle: 'solid', borderWidth: '5px 4px 0 4px',
-          borderColor: 'currentColor transparent transparent transparent', color: 'text.disabled',
-          transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s',
-        }} />
-      </Box>
-
-      {open && <Box sx={{ px: 1.75, py: 1.5 }}>
+    // The shared secondary-block treatment, so this and the fielding line stop being two
+    // answers to one question. It used to draw its own: a 0.76rem label against their 0.72, a
+    // 0.68rem summary against their 0.8, right-aligned where theirs sat beside the label. Two
+    // of them are on screen at once, one per column, and the differences read as meaning
+    // something. `defaultOpen` is the one behaviour that stays its own: tracking that reaches
+    // every game she has pitched is worth opening, and a sample of one game in five is not.
+    <AccentPanel
+      label="Pitch locations"
+      summary={summary}
+      accent={accent}
+      defaultOpen={complete}
+      sx={{ mb: 2 }}
+    >
+      <>
         <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mb: 1 }}>Catcher&apos;s view</Typography>
         {/* Combined zone, all pitches colored by type */}
         <Box sx={{ maxWidth: chromePx(210), mx: 'auto' }}>
@@ -178,7 +165,7 @@ export function PitchLocationCard({ rows, accent, gamesPitched }: { rows: WpblPi
             })}
           </Box>
         )}
-      </Box>}
-    </Box>
+      </>
+    </AccentPanel>
   )
 }

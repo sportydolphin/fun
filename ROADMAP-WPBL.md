@@ -950,6 +950,237 @@ is retired.
 
 ## Shipped log
 
+### Sep 2, 2026: one treatment for the card's secondary blocks, and the sample stops outranking the record
+
+The last of the audit. The player card had three accent-ruled blocks that grew independently and
+picked three different answers to the same questions. `CameoBlock` was a static line,
+`FieldingLine` opened with a `+` that became a `−`, and `PitchLocationCard` opened with a
+rotating chevron. Their labels were set at 0.72rem, 0.72rem and 0.76rem, their summaries at 0.8,
+0.8 and 0.68, and the pitch card right-aligned its summary where the other two set theirs beside
+the label. Two of them are on screen at once on a desktop card, one per column, so the
+differences read as meaning something. They did not.
+
+`AccentPanel` in [`ui.tsx`](src/wpbl/ui.tsx) is now the one of them. A block with nothing to open
+passes no children and draws no control, which is what a cameo is. The chevron won over the `+`
+on the merits: a plus says "add" where the control reveals, and it is the one of the two that
+cannot show its own state without being read.
+
+**The chevron is centred and everything else is baseline-aligned**, which is worth writing down
+because it looks like a mistake in the source. The header row is `alignItems: baseline` so the
+label and the summary sit on one line at two sizes, and a CSS triangle is a zero-by-zero box with
+borders and therefore has no baseline to align to. `alignSelf: center` takes it out of that.
+
+**And the accent nearly died in the merge.** The panel set `borderLeft: 3px solid <club>` and then
+`borderColor: 'divider'` for the open state's bottom rule, and the shorthand repainted the left
+edge too, so every panel came out with a grey rule and the only thing tying the block to the club
+was gone. It was found by reading `borderLeftColor` off the computed style rather than by looking
+at it, which is the point worth keeping: a 3px grey rule still reads as a deliberate border at a
+glance. The bottom edge is now set long-hand.
+
+**The pitch plot moved under the game log.** It was the first thing in the right-hand column,
+which put the least complete thing on the card at the top of it: league pitch tracking reaches a
+handful of games, so the card's own summary line reads "44 pitches · 1 of 5 games", and every
+endpoint carrying that data went API-key gated on Sep 1, 2026, so the gap is not going to close. A
+complete record of every appearance outranks a sample of one of them. This also settles the last
+audit item on its own: the column now opens with a section heading, the same idiom the left rail
+opens with, instead of a bordered card sitting above a plain heading.
+
+### Sep 2, 2026: the card stops saying a rank twice, and stops calling centre field a pitcher's glove
+
+Two more from the same audit, one cosmetic and one that had the card stating something untrue.
+
+**A pitcher with 21 putouts does not happen.** Kelsie Whitmore's PITCHING pane carried
+"Fielding · 1.000 FPCT · 21 PO · 0 A · 0 E" under an ERA, and 21 putouts across five relief
+appearances is not a thing anyone does from the mound. They are catches in centre field. The
+numbers were right and the pane made them mean something false: fielding belongs to the PLAYER
+(the comment on its placement says so and is correct), and on a card with role tabs a
+player-level block reads as scoped to the tab you are on.
+
+It cannot be fixed by splitting, because there is nothing to split. The feed's fielding row is
+`game_id, po, a, e, dp, pb, sba` and carries **no position at all**, so a season's fielding is
+undividable by us or by anyone. So the block names its scope instead: the collapsed line now
+ends in the positions those numbers came from, "CF, P", most-played first, and only on a card
+that has role tabs, since a single-role card has no tab implying otherwise.
+
+`positionsPlayed` in [`positions.ts`](src/wpbl/positions.ts) is a second counting rule beside
+`primaryPosition` and differs from it deliberately: the vote takes only the FIRST token of
+"p/cf", because a game has to count once or a utility player out-votes a regular, and this takes
+BOTH, because she really did field at both and both are in the sum.
+
+The two codes sit in the row's flexible gap rather than extending the heading, and that was
+measured rather than assumed: on a 375px phone the collapsed row has 46px of slack once the
+heading, the stat line and the disclosure are in. "CF, P" needs 29 of it. "FIELDING, EVERY
+POSITION" would need 114 more than exists. Hence also the cap at two codes, with an ellipsis
+carrying the rest.
+
+**And the summary line named a rank the strip was already drawing.** It opened with the best
+rank the hero was not showing, so Whitmore's read "5th in the league in K/BB, and 63% of her
+pitches for strikes" while the strip about 110px below drew "K/BB 1.40 5th" with a bar. The
+strip's version is strictly better: it has the value and the bar as well as the ordinal.
+
+This was structural rather than a near-miss to patch with an exclusion list. The rank clause
+could only fire for a QUALIFIED player, since an unranked one has no ranks to offer, and a
+qualified player always has the strip. So every rank the sentence could name was already being
+drawn, with more information, a little lower. The clause is gone, and its slot goes back to the
+relationships, which are the thing nothing else on the page says.
+
+Checked for the regression it looked like it might be, and it is not one: of the 16 qualified
+pitchers, **7 had a summary line before today and 8 have one now.** The strike-rate clause that
+replaced the save total more than covered what the rank clause was carrying.
+
+### Sep 2, 2026: the stat grid stops changing shape, and the game log stops being stretched
+
+A visual audit of Kelsie Whitmore's pitching card, which read as off balance and slightly
+overwhelming. Two causes, both measurable, both structural rather than particular to her.
+
+**The stat grid's geometry was a function of whether she had hit a batter.** `gridColumns` took
+the widest column count that DIVIDES the tile count, so that the last row would always be full.
+The trouble is that the tile count is not a constant: the grid drops a stat that has never
+happened, so it runs 8 to 13 tiles depending on triples, hit-by-pitches, bunts, wild pitches and
+double plays. Feeding a varying count into "the widest divisor" made the geometry vary with it.
+Measured across the roster: the same block rendered at **four different column counts across the
+38 pitchers** (3, 4, 5 and 6) and **six different shapes across the 63 batters**, and nine batters
+landed on 13 tiles, which divides by nothing, fell back to four columns, and left a last row
+holding **one tile**.
+
+The clearest case was one player and one tap. Whitmore's batting grid was 12 tiles at six columns,
+so 60px tiles; her pitching grid was 11 tiles at four columns, so 94px tiles, in the same 400px
+rail. A 57% jump in the size of every box between two panes of one card, because a home run total
+divides by six and a wild pitch pushed the other one to a prime.
+
+So the rule inverted: **take the cap, and let the last row be short.** A part-empty last row is
+invisible when every tile is the same size; a tile that changes size between two players, or two
+taps, is visible immediately. The one raggedness still worth avoiding is a last row holding a
+single tile, which reads as a mistake rather than a margin, so the count steps down when the
+remainder would be exactly one. That is 13 tiles and nothing else in range. Both panes of every
+card are now a two-row grid of six.
+
+The search that does the stepping is a loop rather than a single step, and the comment says why at
+some length, because the obvious justification is wrong: `n % c` and `n % (c - 1)` are both 1
+whenever n is one more than a multiple of `c(c - 1)`, so a single step orphans a tile at 31.
+Searching down to four holds to 60. Neither bound is reachable by a stat grid; the loop costs
+nothing and the note means nobody has to re-derive it from a claim that sounded right.
+
+**And the game log column was sized for a batting card.** `LEFT_RAIL`'s own note says the 320 was
+"set by what is left for the game log beside it: the widest log is the hitting line". That is a
+batting measurement, applied to both panes. Measured: a batting log wants 561px and got 579, which
+is the fit the constant was chosen for; a **pitching log wants 454 and got the same 579**, so 125px
+went into stretching an eleven-column numeric table whose widest column is 93px, while the rail
+beside it ran 484px tall against the log column's 303.
+
+That void is structural, not one card's bad luck: **a pitching game log has a median of 4 rows
+against a batting log's 9, and 35 of the league's 38 pitchers have six rows or fewer.** Every
+pitching card was inheriting a column sized for a log that does not exist. The log track is now
+`max-content`, which asks the table its natural width instead of guessing it, and the rail keeps a
+floor and takes everything above it. Below the floor the log gives way and scrolls, which it was
+already built to do.
+
+Whitmore's pitching card, before and after: grid 4 columns and three rows to **six and two**, log
+column 579 to **454 with no stretch**, rail height 484 to **400**, the void 181px to **97**, and
+the page's own scroll 210px to **126**. Her batting card was already balanced and stays so.
+
+Checked at 375px and at 1440, in both themes, and at the Large text setting, where six columns
+come out at 52px tiles with nothing clipped, which is the same measurement the original six-column
+note recorded.
+
+### Sep 2, 2026: the player card stops reading itself back, and finds the comparison it was refusing
+
+Started from one line on Maïka Dumais's card. Under a 2rem OPS it said **"5 stolen bases."**, and
+five stolen bases is a tile two inches below it. `derive/playerSummary.ts` exists to say the
+things the tiles cannot, which are the RELATIONSHIPS between them, and its last two fallbacks
+were doing the exact opposite: `sb >= 5` and `hr >= 3` each restated a single tile as though it
+were an insight. A summary whose only clause is a number already on screen is worse than no
+summary; it spends the one line of English on the page saying nothing and teaches a reader to
+skip that line next time.
+
+**What replaced them are relationships.** Steals against caught-stealing ("5 stolen bases without
+being caught", "9 steals in 12 tries"), home runs as a rate off at-bats, and runs scored against
+times on base, which is three tiles the card never related to each other. The clause cap also
+moved: the sentence takes two clauses and a rank used to occupy one of them, so an UNRANKED
+player could only ever get one, and she is the reader who can least place a player on her own.
+Now up to four candidates are offered in priority order and the best two are joined. Every clause
+is a noun phrase, deliberately, because they have to be interchangeable in both slots.
+
+The pitching side had an exact twin: **"4 saves."**, printed three lines under a sample line that
+already reads `6 G · 10.0 IP · 1-0 · 4 SV`. It is gone, and what took its place is strike
+percentage, which is the one number on a pitching card with nowhere else to live: the grid shows
+`P` and never shows `strikes`. The K/BB clause also picked up a `so >= 6` guard, having been
+willing to call three strikeouts against one walk a season.
+
+**Every threshold was measured rather than guessed**, over the 49 batters with 12+ AB and 25
+pitchers with 15+ outs then in the mirror, and the measurements are in the comments so the next
+person re-measures instead of nudging. Runs per time on base is the one that mattered: the median
+is 0.50, so the obvious bar of "more than half" would have fired for half the league and said
+nothing. It sits at 0.65, the 90th percentile. Net across the league: seven more batters get a
+sentence and none lost one; four more pitchers, one lost.
+
+**The qualifying line was giving one fact two numbers.** The sample line under the hero printed
+the THRESHOLD (`29 PA to qualify`) while the meter at the foot of the same rail printed the
+DISTANCE to it (`1 more PA`). Both true, neither the same figure, and the larger sat under the
+biggest type on the card where it reads as a quantity still owed. Twenty-nine of anything sounds
+like a season away in a league that plays fifteen games. The line now names the gap, which
+disowns the hero just as well and says the more interesting thing: she is one plate appearance
+from counting. The test that was supposed to protect this asserted the wording and not the
+agreement, so it now asserts the digits.
+
+**And the card had no comparison on it anywhere for the player who needs one most.** The
+percentile strip is the best thing on the page and it vanishes below the qualifying bar, for the
+good reason that there is no honest batting average off nine at-bats. But that reasoning is about
+RATES and was being applied to the whole card. A count cannot be inflated by a short sample, only
+deflated: Dumais is 3rd in the WPBL in steals off 28 plate appearances, and her page had no way
+to say it while shouting a .618 OPS it then spent two blocks disowning. `CountingStrip` ranks the
+counting totals against everyone who has played (68 batters, 38 pitchers) rather than the
+qualified field, which would have deleted exactly the players it is for.
+
+**It is a capped strip and not tile highlighting, and that was decided by measurement.** Accenting
+every counting tile in the league's top 3 lit **six of the ten tiles on each of the two leaders'
+cards and nothing at all on 53 of the 63** batters. A grid with six of ten tiles lit is a flat
+grid again, and emphasis that fires hardest on the two players a reader can already place is not
+emphasis. So: top 5, at most two rows, nothing at all when she leads nothing, which is most of the
+roster and the property that makes it safe to show to everyone rather than only to the unqualified.
+
+**And it is ONE comparison block, which it briefly was not.** The first working version ranked
+counts against everyone who had played, always, on the sound reasoning that a count needs no
+qualifying bar. What that produced on a qualified player's card was "Against the league" over four
+rate rows and 31 qualified batters, and three rows below it a second identically-drawn strip
+headed "Where she ranks" over two counting rows and 68. Two headings that mean the same sentence in
+English, over the same geometry, differing only by a population a reader has no reason to be
+holding. The split was encoding that a rate needs a bar and a count does not, which is a fact about
+the arithmetic and not one worth a second heading.
+
+So **the population follows the player**. A qualified batter is ranked on everything against the
+qualified field and her counting rows merge into the strip she already had, under its existing
+footnote. A batter below the bar has no rate rows to merge into, so hers are ranked against
+everyone who has played, which is precisely the field she IS in, and they appear under the same
+heading with the one population line that is true for her. Every card states its population once
+and no card shows two ranking blocks. `RankProgress` now sits UNDER that block rather than above
+it: a league position is a fact about her season and the meter is an administrative note
+explaining why the block is short, and for a while the note came first.
+
+Four things it learned on the way in, each of which shipped as a rule:
+
+- **`G` was rankable for a day** and put `G 6 · 4th of 38` at the top of a reliever's card, which
+  is a fact about how often a manager called the bullpen. The test is not "does it reward playing
+  time" (every counting stat does) but "did she do it".
+- **`HR` lives in both def lists**, so a qualified home-run leader could be ranked twice on one
+  card against two different fields with two different ordinals, three rows apart. Only an
+  unrelated sort was hiding it. `bestCountingRanks` now takes the rate strip's ranks and matches
+  on LABEL, because a collision here is a collision in what the reader sees.
+- **The tiebreak is the def order**, not the raw value. Benites is 1st in six of these at once and
+  the strip shows two; by value, 54 total bases beats 9 home runs because total bases is a bigger
+  kind of number, so the naturally-large stats would have won every tie forever and "led the WPBL
+  in home runs" would never once have printed.
+- **A field needs a middle.** An absolute bar of 5 says nothing in a field of six, and in a field
+  of one it made a hitter with four at-bats the league leader in hits, which is how a test fixture
+  found it.
+
+`RankProgress`'s heading moved from "Toward league ranks" to **"Toward qualifying"** as a
+consequence, and that one survived the merge: it sits directly under a ranking block, in the same
+geometry, and its right-hand column means the opposite thing (a threshold there, a rank above),
+with both bars near-full on the same card for entirely unrelated reasons. The geometry is shared
+on purpose and stays shared, so the headings have to carry the difference. It is also simply what
+the block is: progress toward qualifying, not a rank.
+
 ### Sep 1, 2026: the mirror learns to notice the league editing its own history
 
 Two questions that turned out to be one: why the admin panel's scoring chip kept climbing (42
