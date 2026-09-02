@@ -4,7 +4,7 @@ import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine,
 import { buildRecap, leagueRecapContext, type GameRecap, type RecapStar } from './derive/recap'
 import { seriesContext } from './derive/series'
 import { fetchWpblGameLines, fetchWpblGameRecapPlays } from './api'
-import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, wpblNameStages } from './ui'
+import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, FittedName } from './ui'
 import { WPBL_ACCENT, relativeDayLabel, wpblFullName } from './constants'
 import { GameHighlightCard } from './Highlights'
 import { useWpblGameLink, useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
@@ -12,85 +12,6 @@ import { useWpblGameLink, useWpblPlayerLink, type WpblPlayerLinkProps } from './
 const MEDAL = ['🥇', '🥈', '🥉']
 
 // ── Shared bits ─────────────────────────────────────────────────────────────────
-
-// A name that degrades instead of being cut off. It renders the full name, and only if the
-// browser actually truncates it does it fall back to "F. Last", then "F. Surname" — so the
-// name keeps every character the column can show rather than losing its end to an ellipsis.
-//
-// Measured, not budgeted by character count, because the three stars share one row on
-// desktop and each takes only the width its own name and statline need: how much room a
-// name gets depends on the other two, which no fixed budget can know. `fitKey` is the width
-// of the row that holds them all — a width no name can influence. Re-fitting keyed on that
-// (rather than on this element's own width, which shortening changes) is what keeps the
-// steps monotonic: within one row width a name only ever gets shorter, so it settles in at
-// most two passes instead of oscillating between two stages that each make the other fit.
-// Unclaimed width in the row that holds all three stars: what is left after every column
-// has taken what it needs. Read straight from the DOM at measure time rather than held in
-// state, so it is never a frame stale — a name is only allowed to grow back into space
-// that is genuinely free right now.
-//
-// Usually ~0 since the columns gained flex-grow and now share the surplus out among
-// themselves. That didn't make the grow-back below redundant, it moved where the room shows
-// up: the space this used to report as unclaimed is now inside the column's own clientWidth,
-// which is the other half of that comparison.
-function rowSlack(el: HTMLElement): number {
-  const col = el.closest('[data-star-col]')
-  const row = col?.parentElement
-  if (!row) return 0
-  const gap = parseFloat(getComputedStyle(row).columnGap) || 0
-  let used = gap * (row.children.length - 1)
-  for (const child of Array.from(row.children)) used += (child as HTMLElement).offsetWidth
-  return row.clientWidth - used
-}
-
-function FittedName({ name, className, sx, fitKey }: {
-  name: string; className?: string; sx?: object; fitKey?: number
-}) {
-  const ref = useRef<HTMLElement | null>(null)
-  const fullRef = useRef<HTMLElement | null>(null)
-  const stages = useMemo(() => wpblNameStages(name), [name])
-  const [stage, setStage] = useState(0)
-  const grew = useRef(false)
-
-  useLayoutEffect(() => { setStage(0); grew.current = false }, [name, fitKey])
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    // +1 absorbs sub-pixel rounding, which would otherwise abbreviate a name that fits.
-    if (el.scrollWidth > el.clientWidth + 1) {
-      // Shrink a step. This is also what walks back a growth that turned out not to fit,
-      // which is why growing needs no undo of its own.
-      if (stage < stages.length - 1) setStage(stage + 1)
-      return
-    }
-    // It fits — but all three names shrink together on the first pass, and shrinking two
-    // of them can leave enough room for the third to have kept its full form. Take it back
-    // when the measured full name fits in this column plus the row's unclaimed width. One
-    // attempt per name per row width: if two names claim the same slack at once, both
-    // overflow, both fall back on the next pass, and neither tries again.
-    const full = fullRef.current
-    if (stage > 0 && !grew.current && full && full.offsetWidth <= el.clientWidth + rowSlack(el)) {
-      grew.current = true
-      setStage(0)
-    }
-  })
-
-  return (
-    <Box sx={{ position: 'relative' }}>
-      <Typography ref={ref} className={className} noWrap title={stage > 0 ? name : undefined} sx={sx}>
-        {stages[stage]}
-      </Typography>
-      {/* The full name, measured but never seen or read aloud, and out of flow so it adds
-          nothing to the column's width. This is how a shortened name knows what it would
-          cost to come back. */}
-      {stage > 0 && (
-        <Typography ref={fullRef} aria-hidden noWrap sx={{ ...sx, position: 'absolute', top: 0, left: 0, visibility: 'hidden', pointerEvents: 'none' }}>
-          {stages[0]}
-        </Typography>
-      )}
-    </Box>
-  )
-}
 
 function StarRow({ star, medal, name, teamId, portraitSize = 30, medalSize = 20, fitKey, link }: {
   star: RecapStar; medal: string; name: string; teamId: string | null

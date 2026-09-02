@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
-import { SectionCard, PlayerPortrait, TeamBadge, useWpblDark, wpblFeatureName, CARD_BORDER } from './ui'
-import { wpblAccent, relativeDayShort } from './constants'
+import { SectionCard, PlayerPortrait, TeamBadge, useWpblDark, FittedName, CARD_BORDER } from './ui'
+import { wpblAccent, relativeDayShort, WPBL_TEAMS } from './constants'
 import { useWpblPlayerLink } from './LinkContext'
 import { fmtMvpRuns, type MvpCandidate, type MvpRace as MvpRaceData } from './derive/mvpRace'
 import { countsInStandings } from './season'
+import { fmtRate, type WpblBatSeason, type WpblPitSeason } from './stats'
+import { outsToIp } from './innings'
+import { useEraBasis } from './EraBasisContext'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblGame, WpblPlayer } from './types'
 
@@ -46,23 +49,97 @@ function gamesLeft(games: WpblGame[]): number {
   return games.filter(g => g.status !== 'final' && countsInStandings(g)).length
 }
 
-/** How the split reads under a name. A pure hitter says nothing about the mound and a pure
- *  pitcher says nothing about the plate: printing "arm +0.0" for someone who has never thrown
- *  a pitch invents a zero that is really an absence, and it is the two-way line that has to
- *  stand out, so the one-sided rows must not be dressed to look like it. */
-function splitLabel(c: MvpCandidate): string {
-  if (c.twoWay) return `${fmtMvpRuns(c.bat)} bat · ${fmtMvpRuns(c.arm)} arm`
-  if (c.bf > 0 && c.pa === 0) return `${c.bf} batters faced`
-  if (c.pa > 0 && c.bf === 0) return `${c.pa} plate appearances`
-  // Both sides, but not enough of one to be called two-way. Say the larger half and let the
-  // total carry the rest, rather than implying a two-way case she does not have.
-  return Math.abs(c.bat) >= Math.abs(c.arm)
-    ? `${fmtMvpRuns(c.bat)} bat · ${c.pa} PA`
-    : `${fmtMvpRuns(c.arm)} arm · ${c.bf} BF`
+/** Season box-score totals by player id, so a row can print the stat line a reader already
+ *  knows without re-aggregating anything. Home has both arrays in hand for the Leaders card;
+ *  handing them over rather than recomputing here is also what guarantees the two cards cannot
+ *  disagree about the same player, which is the bug this replaced. */
+export interface MvpStatLookup {
+  bat: Map<string, WpblBatSeason>
+  pit: Map<string, WpblPitSeason>
 }
 
-function CandidateRow({ c, rank, color, dashed, onOpenPlayer }: {
+/** Build it once per render of the card, not once per row. */
+export function mvpStatLookup(bat: WpblBatSeason[], pit: WpblPitSeason[]): MvpStatLookup {
+  return {
+    bat: new Map(bat.map(s => [s.player.id, s])),
+    pit: new Map(pit.map(s => [s.player.id, s])),
+  }
+}
+
+/** How the line under a name reads.
+ *
+ *  IT USED TO COUNT PLATE APPEARANCES AND IT MUST NOT AGAIN. This card derives its number from
+ *  the PLAY LOG, so its idea of a plate appearance is "a play naming this batter" — while every
+ *  other surface on Home counts the BOX SCORE, via `plateAppearances()`. Those two disagree
+ *  wherever the league's play log is damaged, and on Sep 1, 2026 they disagreed on screen: this
+ *  card said Denae Benites had 54 plate appearances and the Leaders card 200px below said 56,
+ *  both correct by their own definition, neither able to say so. The Aug 20 game is missing
+ *  eighteen of its plays at the source (docs/PLAY_VALIDATION.md §9) and it is New York's, so
+ *  every Heights hitter reads short here and nowhere else.
+ *
+ *  So the line carries the season the READER already knows instead: her actual stat line, taken
+ *  from the same box-score aggregates the Leaders card is built on, which cannot disagree with
+ *  them because it IS them. It is also the better line on its own merits, since a run-value
+ *  total says nothing about how it was earned.
+ *
+ *  A pure hitter still says nothing about the mound and a pure pitcher nothing about the plate:
+ *  printing "arm +0.0" for someone who has never thrown a pitch invents a zero that is really an
+ *  absence, and it is the two-way line that has to stand out, so the one-sided rows must not be
+ *  dressed to look like it. */
+function statLabel(c: MvpCandidate, stats: MvpStatLookup, fmtEra: (v: number | null) => string): string {
+  // The split IS the highlight for a two-way player: it is the whole reason the metric adds
+  // the two halves up, and no batting line can say it.
+  if (c.twoWay) return `${fmtMvpRuns(c.bat)} bat · ${fmtMvpRuns(c.arm)} arm`
+
+  const pitcherFirst = c.bf > 0 && (c.pa === 0 || Math.abs(c.arm) > Math.abs(c.bat))
+  const id = c.player?.id
+  const bat = id ? stats.bat.get(id) : undefined
+  const pit = id ? stats.pit.get(id) : undefined
+
+  const line = pitcherFirst
+    ? pitchingLine(pit, fmtEra) ?? battingLine(bat)
+    : battingLine(bat) ?? pitchingLine(pit, fmtEra)
+
+  // No season line to show means the roster could not resolve her, or every game she appears
+  // in is a postseason one the aggregates exclude. Her club is the one fact still in hand, and
+  // it is the same thing the Leaders card puts here for its own top row.
+  return line ?? (c.teamId ? WPBL_TEAMS[c.teamId]?.name ?? '' : '')
+}
+
+/** Three facts, chosen the way the recap's statline chooses them: lead with the rate everyone
+ *  reads a hitter by, then only what is actually true. A hitter with no home runs gets her
+ *  doubles rather than "0 HR", because a zero printed as a highlight is a worse line than the
+ *  next real thing. */
+function battingLine(s: WpblBatSeason | undefined): string | null {
+  if (!s || s.totals.ab === 0) return null
+  const t = s.totals
+  const parts = [fmtRate(t.avg)]
+  if (t.hr) parts.push(`${t.hr} HR`)
+  if (t.rbi) parts.push(`${t.rbi} RBI`)
+  if (!t.hr && t.doubles) parts.push(`${t.doubles} 2B`)
+  if (parts.length < 3 && t.sb) parts.push(`${t.sb} SB`)
+  if (parts.length < 3 && t.r) parts.push(`${t.r} R`)
+  return parts.slice(0, 3).join(' · ')
+}
+
+/** ERA through `fmtEra`, never `t.era` raw: the stored number is per NINE innings and a reader
+ *  who has set the site to a seven-inning basis must see the same figure here as on the board
+ *  this card links to. See ERA_BASIS_CANONICAL in stats.ts. */
+function pitchingLine(s: WpblPitSeason | undefined, fmtEra: (v: number | null) => string): string | null {
+  if (!s || s.totals.outs === 0) return null
+  const t = s.totals
+  const parts: string[] = []
+  if (t.w || t.l) parts.push(`${t.w}-${t.l}`)
+  if (t.era != null) parts.push(`${fmtEra(t.era)} ERA`)
+  if (t.so) parts.push(`${t.so} K`)
+  if (parts.length < 3) parts.push(`${outsToIp(t.outs)} IP`)
+  return parts.slice(0, 3).join(' · ')
+}
+
+function CandidateRow({ c, rank, color, dashed, stats, fmtEra, onOpenPlayer }: {
   c: MvpCandidate; rank: number; color: string; dashed: boolean
+  stats: MvpStatLookup
+  fmtEra: (v: number | null) => string
   onOpenPlayer: (p: WpblPlayer) => void
 }) {
   const playerLink = useWpblPlayerLink()
@@ -87,20 +164,32 @@ function CandidateRow({ c, rank, color, dashed, onOpenPlayer }: {
       <PlayerPortrait name={c.name} teamId={c.teamId} size={rank === 1 ? 32 : 28} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
-          <Typography sx={{
+          {/* MEASURED, NOT BUDGETED. This was `wpblFeatureName(c.name, 18)`, a character budget,
+              and "Kelsie Whitmore" is 15 characters: it passed the budget untouched and CSS then
+              clipped it to "Kelsie Whit…" — on the rank-1 row, which is the one row that also
+              carries the TWO-WAY badge, and on either row once a reader turns Large text on. The
+              leader's name is the one thing this card exists to say. `FittedName` steps down to
+              "K. Whitmore" instead, which is a name rather than a shrug. */}
+          <FittedName name={c.name} wrapperSx={{ minWidth: 0 }} sx={{
             fontSize: rank === 1 ? '0.95rem' : '0.88rem', fontWeight: rank === 1 ? 800 : 700,
-            lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>
-            {wpblFeatureName(c.name, 18)}
-          </Typography>
+            lineHeight: 1.15,
+          }} />
           {/* The one badge worth spending width on. A player carrying both halves of this
               number is the reason the metric adds them up, and nothing else on the row says
-              so: her total looks like any other total. */}
+              so: her total looks like any other total.
+
+              EXCEPT ON THE NARROWEST PHONE, where the name outranks it. Below 360px the row
+              cannot hold a name, this badge and the total at once, and the badge is the half
+              that can be spared: the line directly underneath is "+18.1 bat · +4.3 arm",
+              which IS the two-way case written out, so nothing is actually lost. Without this
+              the name spends its last stage and still gets cut, and "K. Whit…" is a worse
+              thing to know about the league's best player than that she also pitches. */}
           {c.twoWay && (
             <Typography sx={{
               flexShrink: 0, fontSize: '0.55rem', fontWeight: 800, letterSpacing: 0.4,
               textTransform: 'uppercase', px: 0.5, py: '1px', borderRadius: 0.75,
               border: '1px solid', borderColor: color, color,
+              '@media (max-width: 359px)': { display: 'none' },
             }}>Two-way</Typography>
           )}
         </Box>
@@ -108,7 +197,7 @@ function CandidateRow({ c, rank, color, dashed, onOpenPlayer }: {
           fontSize: '0.66rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.25,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
-          {splitLabel(c)}
+          {statLabel(c, stats, fmtEra)}
         </Typography>
       </Box>
       <Typography sx={{
@@ -203,9 +292,14 @@ function RaceChart({ race, colors, dashed, fill }: {
   )
 }
 
-export default function MvpRaceCard({ race, games, onOpenPlayer, onViewBoard, fill }: {
+export default function MvpRaceCard({ race, games, batSeasons, pitSeasons, onOpenPlayer, onViewBoard, fill }: {
   race: MvpRaceData
   games: WpblGame[]
+  /** The same season aggregates the Leaders card is built from. See MvpStatLookup: the line
+   *  under each name is her box-score stat line, and it comes from here so that it cannot
+   *  disagree with the card below it. */
+  batSeasons: WpblBatSeason[]
+  pitSeasons: WpblPitSeason[]
   onOpenPlayer: (p: WpblPlayer) => void
   /** Through to the Run value board, which is where this number comes from and the only place
    *  a reader can see the rest of the field. */
@@ -216,8 +310,10 @@ export default function MvpRaceCard({ race, games, onOpenPlayer, onViewBoard, fi
   fill?: boolean
 }) {
   const dark = useWpblDark()
+  const { fmtEra } = useEraBasis()
   const [a, b] = race.top
   const left = gamesLeft(games)
+  const stats = useMemo(() => mvpStatLookup(batSeasons, pitSeasons), [batSeasons, pitSeasons])
 
   const colors = useMemo<[string, string]>(
     () => [wpblAccent(a?.teamId, dark), wpblAccent(b?.teamId, dark)], [a?.teamId, b?.teamId, dark])
@@ -282,8 +378,8 @@ export default function MvpRaceCard({ race, games, onOpenPlayer, onViewBoard, fi
       }
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-        <CandidateRow c={a} rank={1} color={colors[0]} dashed={false} onOpenPlayer={p => openPlayer(p, 1)} />
-        <CandidateRow c={b} rank={2} color={colors[1]} dashed={dashed} onOpenPlayer={p => openPlayer(p, 2)} />
+        <CandidateRow c={a} rank={1} color={colors[0]} dashed={false} stats={stats} fmtEra={fmtEra} onOpenPlayer={p => openPlayer(p, 1)} />
+        <CandidateRow c={b} rank={2} color={colors[1]} dashed={dashed} stats={stats} fmtEra={fmtEra} onOpenPlayer={p => openPlayer(p, 2)} />
       </Box>
 
       <RaceChart race={race} colors={colors} dashed={dashed} fill={fill} />

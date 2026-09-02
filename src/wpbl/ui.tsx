@@ -7,7 +7,7 @@
 // to WPBL_ACCENT, so the league keeps its own color while the shape stays identical.
 // If you restyle a primitive here, mirror the change in the MLB file (and vice versa).
 
-import React, { useEffect, useCallback, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useCallback, useRef, useState } from 'react'
 import { Box, Typography, Tooltip, useTheme, useMediaQuery } from '@mui/material'
 import type { Theme, SxProps } from '@mui/material'
 import { WPBL_ACCENT, wpblAccentFg, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
@@ -63,14 +63,21 @@ function surnameOf(parts: string[]): string {
 // final net for that case. `maxLen` is a character budget, a deliberate proxy for width: it's
 // deterministic and costs no layout measurement, and callers size it from a measured box with
 // headroom to spare (see FEATURE_NAME_MAX in Home.tsx).
+//
+// IT CANNOT SEE A NEIGHBOUR OR THE READER'S TEXT SCALE, and that is the whole risk. A budget
+// counts glyphs against a box whose width is decided by everything ELSE on the row: the MVP
+// race passed 18 here, "Kelsie Whitmore" is 15, so it came through untouched and CSS clipped
+// it to "Kelsie Whit…" on the one row that also carries a TWO-WAY badge, and on any row at
+// all once a reader turns Large text on. Use `FittedName` wherever the row's other contents
+// can change; a budget is only safe in a box that owns its own width.
 export function wpblFeatureName(name: string, maxLen: number): string {
   const stages = wpblNameStages(name)
   return stages.find(stage => stage.length <= maxLen) ?? stages[stages.length - 1]
 }
 
 // The same three stages as a list, longest first, for callers that pick by MEASURED width
-// rather than a character budget — the recap's stars row renders each one and keeps the
-// longest that isn't truncated (see FittedName in RecapCard). Two-part names collapse
+// rather than a character budget — `FittedName` below renders each one and keeps the
+// longest that isn't truncated. Two-part names collapse
 // stages 2 and 3 into one entry, since "K. Whitmore" is both.
 export function wpblNameStages(name: string): string[] {
   const full = (name ?? '').trim()
@@ -80,6 +87,102 @@ export function wpblNameStages(name: string): string[] {
   const withRest = `${initial} ${parts.slice(1).join(' ')}`
   const surnameOnly = `${initial} ${surnameOf(parts)}`
   return withRest === surnameOnly ? [full, surnameOnly] : [full, withRest, surnameOnly]
+}
+
+// A name that degrades instead of being cut off. It renders the full name, and only if the
+// browser actually truncates it does it fall back to "F. Last", then "F. Surname" — so the
+// name keeps every character the column can show rather than losing its end to an ellipsis.
+//
+// Measured, not budgeted by character count, because the width a name gets is decided by
+// what sits NEXT to it: the recap's three stars share one row and each takes only what its
+// own name and statline need, and the MVP race's leader shares hers with a TWO-WAY badge.
+// No fixed budget can know either, nor that the reader has turned Large text on. `fitKey` is the width
+// of the row that holds them all — a width no name can influence. Re-fitting keyed on that
+// (rather than on this element's own width, which shortening changes) is what keeps the
+// steps monotonic: within one row width a name only ever gets shorter, so it settles in at
+// most two passes instead of oscillating between two stages that each make the other fit.
+// Unclaimed width in the row that holds all three stars: what is left after every column
+// has taken what it needs. Read straight from the DOM at measure time rather than held in
+// state, so it is never a frame stale — a name is only allowed to grow back into space
+// that is genuinely free right now.
+//
+// Usually ~0 since the columns gained flex-grow and now share the surplus out among
+// themselves. That didn't make the grow-back below redundant, it moved where the room shows
+// up: the space this used to report as unclaimed is now inside the column's own clientWidth,
+// which is the other half of that comparison.
+// Returns 0 outside the recap's star row, which is the right answer everywhere else: no
+// slack found means shrink-only, and a name that shrank a step simply stays shrunk.
+function rowSlack(el: HTMLElement): number {
+  const col = el.closest('[data-star-col]')
+  const row = col?.parentElement
+  if (!row) return 0
+  const gap = parseFloat(getComputedStyle(row).columnGap) || 0
+  let used = gap * (row.children.length - 1)
+  for (const child of Array.from(row.children)) used += (child as HTMLElement).offsetWidth
+  return row.clientWidth - used
+}
+
+export function FittedName({ name, className, sx, wrapperSx, fitKey }: {
+  name: string; className?: string; sx?: object; fitKey?: number
+  /** Styles for the positioning wrapper rather than the text. In practice this is one
+   *  property: see the `minWidth: 0` note above the return. */
+  wrapperSx?: object
+}) {
+  const ref = useRef<HTMLElement | null>(null)
+  const fullRef = useRef<HTMLElement | null>(null)
+  const stages = useMemo(() => wpblNameStages(name), [name])
+  const [stage, setStage] = useState(0)
+  const grew = useRef(false)
+
+  useLayoutEffect(() => { setStage(0); grew.current = false }, [name, fitKey])
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    // +1 absorbs sub-pixel rounding, which would otherwise abbreviate a name that fits.
+    if (el.scrollWidth > el.clientWidth + 1) {
+      // Shrink a step. This is also what walks back a growth that turned out not to fit,
+      // which is why growing needs no undo of its own.
+      if (stage < stages.length - 1) setStage(stage + 1)
+      return
+    }
+    // It fits — but all three names shrink together on the first pass, and shrinking two
+    // of them can leave enough room for the third to have kept its full form. Take it back
+    // when the measured full name fits in this column plus the row's unclaimed width. One
+    // attempt per name per row width: if two names claim the same slack at once, both
+    // overflow, both fall back on the next pass, and neither tries again.
+    const full = fullRef.current
+    if (stage > 0 && !grew.current && full && full.offsetWidth <= el.clientWidth + rowSlack(el)) {
+      grew.current = true
+      setStage(0)
+    }
+  })
+
+  // PASS `wrapperSx={{ minWidth: 0 }}` WHEN THE PARENT IS A FLEX ROW THAT HAS TO SQUEEZE THIS.
+  // A flex item defaults to `min-width: auto`, "never shrink below your content", so the
+  // wrapper grows to fit the full name, `clientWidth` keeps pace with `scrollWidth`, the
+  // truncation test above is never true, no stage is taken, and the ROW overflows instead of
+  // the name stepping down. That is what the MVP race hit: the name drove the TWO-WAY badge
+  // 10px into the total beside it.
+  //
+  // Opt-in rather than the default because it only means anything where a flex parent has to
+  // squeeze this. The recap's star columns take their width from the flex row that holds all
+  // three, and measure the same either way, so switching them is a change with no effect and
+  // no test to notice if that stopped being true. Left to the one caller that needs it.
+  return (
+    <Box sx={{ position: 'relative', ...wrapperSx }}>
+      <Typography ref={ref} className={className} noWrap title={stage > 0 ? name : undefined} sx={sx}>
+        {stages[stage]}
+      </Typography>
+      {/* The full name, measured but never seen or read aloud, and out of flow so it adds
+          nothing to the column's width. This is how a shortened name knows what it would
+          cost to come back. */}
+      {stage > 0 && (
+        <Typography ref={fullRef} aria-hidden noWrap sx={{ ...sx, position: 'absolute', top: 0, left: 0, visibility: 'hidden', pointerEvents: 'none' }}>
+          {stages[0]}
+        </Typography>
+      )}
+    </Box>
+  )
 }
 
 // Viewport-aware name shortener to drop into any WPBL list/table/tile. Horizontal space is
@@ -783,7 +886,15 @@ export function SectionCard({ icon, title, subtitle, action, collapsed, onToggle
       >
         {icon != null && <Box sx={{ fontSize: '1.1rem', lineHeight: 1, flexShrink: 0 }}>{icon}</Box>}
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>{title}</Typography>
+          {/* A REAL `h2`, because until Sep 1, 2026 this page had exactly one heading on it.
+              Every card title on every WPBL page comes through here, and all of them were
+              plain text: a screen reader landed on the `h1` and then had no way to skim the
+              page at all, since heading navigation is what skimming IS without sight. MUI's
+              Typography sets `margin: 0` on its root, and the size and weight are set here
+              rather than inherited from a variant, so the tag change moves nothing on screen.
+              The level is fixed at 2 on purpose: every consumer is a top-level section of a
+              page that owns the `h1`, and a prop for it would only invite a card to lie. */}
+          <Typography component="h2" sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>{title}</Typography>
           {subtitle && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.3 }}>{subtitle}</Typography>}
         </Box>
         {action != null && <Box onClick={e => e.stopPropagation()} sx={{ display: 'flex', flexShrink: 0 }}>{action}</Box>}

@@ -319,8 +319,11 @@ function Scoreboard({ games, teams, onOpenGame }: {
   return (
     <Box sx={{ mb: 1.5 }}>
       {/* Match the card-title treatment (Next game / Standings / Teams) so every section
-          on the feed announces itself the same way, instead of a lone tiny eyebrow. */}
-      <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2, mb: 1 }}>Scoreboard</Typography>
+          on the feed announces itself the same way, instead of a lone tiny eyebrow. That now
+          includes the TAG: the scoreboard is the only section on Home that is not a
+          SectionCard, so without this it would be the one section a screen reader could not
+          jump to, on a page where it is the first thing under the title. */}
+      <Typography component="h2" sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2, mb: 1 }}>Scoreboard</Typography>
       <Box sx={{ position: 'relative' }}>
         <Box ref={scrollRef} onScroll={syncEdges}
           onPointerDown={takeOver} onWheel={takeOver} onKeyDown={takeOver} sx={{
@@ -503,12 +506,10 @@ function GameReminderRow({ game, away, home, startMs }: {
         }}
       >
         <EventAvailableOutlined sx={{ fontSize: '1.15rem', flexShrink: 0, color: 'var(--wpbl-accent-fg)' }} />
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.2 }}>Add to calendar</Typography>
-          <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', mt: 0.15, lineHeight: 1.35 }}>
-            Saves the game with a 30-min heads-up before first pitch.
-          </Typography>
-        </Box>
+        <Typography noWrap title="Saves the game with a 30-min heads-up before first pitch."
+          sx={{ flex: 1, minWidth: 0, fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.2 }}>
+          Add to calendar
+        </Typography>
       </Box>
     )
   }
@@ -517,27 +518,37 @@ function GameReminderRow({ game, away, home, startMs }: {
   // through to sign-in (a switch has nothing to toggle yet).
   const blocked = !!user && (!supported || !configured || perm === 'denied')
 
-  // ONE LINE, AND THE SECOND ONE HAS TO EARN ITSELF.
+  // ONE LINE, IN EVERY STATE, AND THE STRING HAS A MEASURED BUDGET.
   //
-  // This row was a title over a hint in every state, 56px of a 239px card, and in the ordinary
-  // states the hint was saying what the switch beside it already said: "On · 30 min before each
-  // game" next to a switch that is visibly on. A switch is the control AND the status, so
-  // spending a second line restating it is spending a line on nothing, on the surface where a
-  // phone already scrolls three screens.
+  // This row used to be a title over a hint, and the hint was only supposed to appear when the
+  // switch could not speak for itself. It cost two lines anyway, because the TITLE wrapped:
+  // "Remind me 30 min before every game" measures 242px against the 241px this row has beside a
+  // switch on a 375px phone. One pixel, so it looked fine in a mock-up and wrapped on a real
+  // handset, and the reader never sees the fallback state that the second line was rationed for.
   //
-  // So the second line appears only when there is something the switch cannot say: an error, a
-  // browser that has blocked us, a deployment with no push configured, or a signed-out reader
-  // who needs to know a tap does something other than toggle. Those are exactly the states
-  // where the extra height is the point, and they are the minority of visits.
+  // The budget is 183px, measured in the running app: a 320px phone at the reader's Large text
+  // setting, minus the bell, the switch and two gaps. Every string below is measured against
+  // that, which is why they are as short as they are and why the offer no longer opens with
+  // "Remind me" — 195px for the "every game" half alone left nothing for the cadence. The
+  // switch is the verb now; the line says what it turns on. "Every game" became "All games"
+  // for 15px of headroom, because the version that fit EXACTLY is how this row got here.
+  // Anything over budget ellipsises rather than wrapping, so it cannot silently grow a second
+  // line again, and `title` carries the full sentence.
   //
-  // The TITLE carries the cadence instead, since it had room: "Remind me 30 min before every
-  // game" is the whole offer in one line, and the switch answers it.
-  let note = ''
-  if (err)                    note = err
-  else if (!supported)        note = 'This browser can’t do notifications.'
-  else if (!configured)       note = 'Notifications aren’t set up on this deployment yet.'
-  else if (perm === 'denied') note = 'Blocked. Turn notifications on for this site in your browser settings.'
-  else if (!user)             note = 'Sign in to get a heads-up.'
+  // The status REPLACES the offer instead of stacking under it. A reader whose browser has
+  // blocked notifications does not need to be told what she would get; she needs to know why
+  // the switch beside her is dead.
+  //
+  // (`!supported` and `!configured` are unreachable here: they return the calendar row above.)
+  let label = 'All games, 30 min early'
+  let hint  = 'A push reminder 30 minutes before every WPBL game.'
+  let tone: 'primary' | 'secondary' | 'error' = 'primary'
+  if (busy)                   { label = 'Working…'; tone = 'secondary' }
+  else if (err)               { label = err; hint = err; tone = 'error' }
+  else if (perm === 'denied') { label = 'Notifications blocked'; tone = 'secondary'
+                                hint = 'Turn notifications on for this site in your browser settings.' }
+  else if (!user)             { label = 'Sign in for reminders'; tone = 'secondary'
+                                hint = 'Web Push is tied to an account, so there is nobody to remind yet.' }
 
   const Icon = on ? NotificationsActiveOutlined : NotificationsNoneOutlined
 
@@ -551,16 +562,12 @@ function GameReminderRow({ game, away, home, startMs }: {
       }}
     >
       <Icon sx={{ fontSize: '1.15rem', flexShrink: 0, color: on ? WPBL_ACCENT : 'text.disabled' }} />
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.25 }}>
-          {busy ? 'Working…' : 'Remind me 30 min before every game'}
-        </Typography>
-        {note && (
-          <Typography sx={{ fontSize: '0.7rem', color: err ? 'error.main' : 'text.secondary', mt: 0.15, lineHeight: 1.35 }}>
-            {note}
-          </Typography>
-        )}
-      </Box>
+      <Typography noWrap title={hint} sx={{
+        flex: 1, minWidth: 0, fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.25,
+        color: tone === 'error' ? 'error.main' : tone === 'secondary' ? 'text.secondary' : 'text.primary',
+      }}>
+        {label}
+      </Typography>
       {user && (
         <Switch
           size="small"
@@ -738,9 +745,16 @@ function NextGameCard({ games, teams, onOpenGame }: {
     return (
       <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.9 }}>
         <Typography sx={{ width: '1.875rem', flexShrink: 0, fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.3, color: 'text.secondary' }}>{t.abbr}</Typography>
-        <Box sx={{ flex: 1, minWidth: 0, display: 'flex' }}>
+        {/* Dots and streak are ONE group, so the streak lands where the dots stop rather than
+            against the card's right edge. It reads as the end of the run it describes: the
+            three green dots and the W3 are the same fact, and a gutter between them made it
+            look like a separate column of its own. The consequence is that the two clubs' W3
+            and L4 no longer line up with each other, which is correct — they are ends of
+            strips of different lengths, and aligning them implied a comparison that a club
+            with fewer games played has not earned. `flex: 1` moves out here so the group takes
+            only the width it needs and the row's slack falls to the right of it. */}
+        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.6 }}>
           <FormDots recent={results.map(won => (won ? 'W' : 'L'))} gap={3} />
-        </Box>
         {/* THE STREAK, NOT THE RECORD. This row ended with the club's W–L over the games drawn,
             which was fine while it drew five and became a straight duplicate the moment it drew
             the season: "8–4" sat here in the same right-hand column as the "8–4" on the team row
@@ -750,14 +764,15 @@ function NextGameCard({ games, teams, onOpenGame }: {
             Three and up, which is the Teams page's rule for the same strip and the same reason:
             below three it is something the last two dots already say, and at three it is the
             headline about the club. A row with no run simply ends at its dots, there too. */}
-        {streak >= 3 && (
-          <Typography sx={{
-            flexShrink: 0, fontSize: '0.68rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
-            color: streakWon ? WPBL_WIN : WPBL_LOSS,
-          }}>
-            {streakWon ? 'W' : 'L'}{streak}
-          </Typography>
-        )}
+          {streak >= 3 && (
+            <Typography sx={{
+              flexShrink: 0, fontSize: '0.68rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+              color: streakWon ? WPBL_WIN : WPBL_LOSS,
+            }}>
+              {streakWon ? 'W' : 'L'}{streak}
+            </Typography>
+          )}
+        </Box>
       </Box>
     )
   }
@@ -794,13 +809,13 @@ function NextGameCard({ games, teams, onOpenGame }: {
         )}
         {/* Inside the clickable block with the rest: form is a fact about the two clubs in
             THIS game, so it opens the same game the rows above it do. */}
+        {/* NO "FORM" EYEBROW. It cost a line plus its margin on the card that is already the
+            reason a phone scrolls three screens, to name something the rows underneath show:
+            a club, then its results oldest to newest, then the run it is on. The strip is its
+            own caption. `FormDots` still carries the whole reading in its `aria-label`, so what
+            the eyebrow was doing for a screen reader was never coming from the eyebrow. */}
         {formRows.length > 0 && (
-          <Box sx={{ mt: 1.25 }}>
-            <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.secondary', mb: 0.5 }}>
-              Form
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>{formRows}</Box>
-          </Box>
+          <Box sx={{ mt: 1.25, display: 'flex', flexDirection: 'column', gap: 0.5 }}>{formRows}</Box>
         )}
         {/* The tale of the tape: three diverging bars, the same component Game Center draws for
             an unplayed game, cut down to a block (see its `compact` note). Form says how the
@@ -1719,7 +1734,8 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
             ? [
               /* It spends whatever slack the row gives it on the chart, which is the one child
                  that gets better with height; see the note on RaceChart's `fill`. */
-              <MvpRaceCard key="mvp" race={race} games={games} onOpenPlayer={onOpenPlayer}
+              <MvpRaceCard key="mvp" race={race} games={games}
+                batSeasons={batSeasons} pitSeasons={pitSeasons} onOpenPlayer={onOpenPlayer}
                 onViewBoard={() => onViewStats('runs')} fill />,
               leadersCard,
             ]
