@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, useMediaQuery } from '@mui/material'
 import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblGamePlay, WpblRecapPlay, WpblVideo } from './types'
 import { buildRecap, leagueRecapContext, type GameRecap, type RecapStar } from './derive/recap'
 import { seriesContext } from './derive/series'
@@ -10,6 +10,11 @@ import { GameHighlightCard } from './Highlights'
 import { useWpblGameLink, useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
 
 const MEDAL = ['🥇', '🥈', '🥉']
+
+/** Whether the reader has opened Last Game on a phone. Same spelling as the bracket's key, and
+ *  the same reasoning: the choice persists, so opening it once is not a decision to re-make on
+ *  every visit. */
+const LAST_GAME_OPEN_KEY = 'wpbl:lastGameOpen'
 
 // ── Shared bits ─────────────────────────────────────────────────────────────────
 
@@ -235,7 +240,30 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
     [game, teams, data, nameOf, ctx, series])
 
   const [starRef, starWidth] = useFitKey()
+
+  // FOLDED ON A PHONE, AND WHAT FOLDS IS THE DRAWING RATHER THAN THE ANSWER.
+  //
+  // This card is ~340px of an 812px phone, arriving under a scoreboard strip whose first tile is
+  // already this game's score, and a good part of what it spends that on is a preview of what
+  // "Full recap" opens: the headline, the blurb's first sentence, the star. Shut, the subtitle
+  // carries the headline, so a reader who never opens it still gets the sentence the card exists
+  // to deliver, and the score is one tile up in the scoreboard either way.
+  //
+  // The same pattern, key spelling and reasoning as Road to the title, deliberately: two cards
+  // on one page that fold differently is a worse page than either choice. `noSsr` for the reason
+  // it is there too, a first paint at full height that snaps shut a frame later being worse than
+  // either state. Desktop is untouched and open, where the two-column grid has the room.
+  const isPhone = useMediaQuery('(max-width:599.95px)', { noSsr: true })
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem(LAST_GAME_OPEN_KEY) === '1' } catch { return false }
+  })
+  const toggle = () => setOpen(v => {
+    try { localStorage.setItem(LAST_GAME_OPEN_KEY, v ? '0' : '1') } catch { /* private mode, non-fatal */ }
+    return !v
+  })
+
   if (!game || !recap) return null
+  const collapsed = isPhone && !open
   const away = teams.get(game.away_team_id), home = teams.get(game.home_team_id)
   const dateLabel = relativeDayLabel(game.game_date)
 
@@ -250,13 +278,22 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
   return (
     <SectionCard
       title="Last Game"
-      subtitle={dateLabel}
+      // The date says WHICH game and the headline says what happened in it. Open, the card
+      // itself is about to say the second, so the subtitle spends its line on the first; shut,
+      // the headline is the only thing left to carry the point, and "Last Game" plus a
+      // scoreboard tile directly above already answers which.
+      subtitle={collapsed ? recap.headline : dateLabel}
       fill
-      action={
+      collapsed={isPhone ? collapsed : undefined}
+      onToggleCollapse={isPhone ? toggle : undefined}
+      // Dropped while shut: a chevron and a link in one phone-width header is two controls
+      // competing for the same tap, and the chevron is the one that has to win, since the link
+      // leaves the page. Open, there is room and "Full recap" is the useful next step again.
+      action={collapsed ? undefined : (
         <Typography {...gameLink(game, onOpenGame)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
           Full recap
         </Typography>
-      }
+      )}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1 }}>
         {scoreRow(away, game.away_score, recap.winner.id === away?.id)}
