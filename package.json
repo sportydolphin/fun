@@ -31,6 +31,7 @@
     "subset-font": "node scripts/subset-inter.mjs",
     "validate-pbp": "node --env-file=.env scripts/validate-wpbl-pbp.mjs",
     "check-drift": "node --env-file=.env scripts/check-wpbl-drift.mjs",
+    "check-retro": "node --env-file=.env scripts/check-wpbl-retro-stats.mjs",
     "archive": "esbuild scripts/export-wpbl-archive.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-archive.mjs && node --env-file-if-exists=.env node_modules/.cache/wpbl-archive.mjs",
     "check-postseason": "esbuild scripts/check-wpbl-postseason.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-check-postseason.mjs && node --env-file-if-exists=.env node_modules/.cache/wpbl-check-postseason.mjs",
     "restock-watch": "node --env-file=.env scripts/watch-wpbl-restock.mjs",

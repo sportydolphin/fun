@@ -1,0 +1,52 @@
+name: WPBL RetroWPBL Stats Check
+
+# Audits our batting lines against RetroWPBL's hand-made transcription of the same games.
+#
+# WHY IT IS THE ONLY CHECK OF ITS KIND. Everything else that watches this data is downstream of
+# one feed: the drift checker compares our mirror with the league's API, and the play-by-play
+# validator tests that API against the rules of baseball. Neither can see an error the LEAGUE
+# made, because both are reading the league. RetroWPBL is one person watching the games and
+# writing Retrosheet files by hand, so it is the only source here that can disagree with the
+# feed and be right. See docs/PLAY_VALIDATION.md §8, which is the entry that says nothing could
+# catch two players swapped consistently through a game.
+#
+# Baseball Reference would be the obvious third opinion and is not usable as one: their network
+# answers 403 to automated fetchers and their terms forbid automated collection.
+#
+# BASELINED, like the play-by-play validator and for the same reason. Two people watching one
+# game will always disagree about something; run against everything it reports the same eighteen
+# findings every night and gets muted. It reports only what is NEW, and goes red when it finds
+# any, which is the signal worth interrupting someone for.
+#
+# 11:00 UTC, an hour after the retro sync at 10:00, so a game transcribed overnight is in place
+# before this reads it.
+
+on:
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: wpbl-retro-stats-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Only `pg`; `npm ci` would pull the whole frontend toolchain this script never imports.
+      - name: Install dependency
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['pg'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Compare our batting lines with RetroWPBL
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: node scripts/check-wpbl-retro-stats.mjs --baseline scripts/wpbl-retro-stats-baseline.json

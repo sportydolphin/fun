@@ -260,11 +260,34 @@ Everything above tests the data against the rules of baseball. That catches play
 missing, duplicated, or attributed to a batter who breaks the order.
 
 **It cannot catch two players swapped consistently through a game.** The order stays legal, the
-outs add up, and both box lines look ordinary. Nothing in the current design will see it.
+outs add up, and both box lines look ordinary. Nothing that reads only the feed will ever see
+it, which is why the answer had to come from outside the feed.
 
-Closing that needs a second, independently produced transcription of the same game.
-`github.com/exu6jh/RetroWPBL` is one: hand-written Retrosheet `.EVW` files with a batter id on
-every plate appearance. **It carries no licence, so it is all rights reserved by default and
+**Closed, partly, on Sep 2, 2026.** Closing it needs a second, independently produced
+transcription of the same game, and `scripts/check-wpbl-retro-stats.mjs` now runs one nightly:
+it derives per-batter PA, AB, H, 2B, 3B, HR, BB, SO and HBP from RetroWPBL's event files and
+diffs them against our box-score lines. A consistent swap shows up as exactly the shape it is,
+one batter short a plate appearance and another long one, in the same game. The Aug 27 NY at LA
+game is the first it found: a strikeout we charged to Amira Hondras and they charged to Mo'ne
+Davis, with the plate appearance moving the same way.
+
+It is partial on purpose. It compares the counting stats whose Retrosheet event maps to them
+without a judgement call, so it can see a plate appearance credited to the wrong batter but not
+a fielding play credited to the wrong glove, and it says nothing about pitching. 18 disagreements
+across 24 games are accepted in `scripts/wpbl-retro-stats-baseline.json`; the job reports only
+what is new.
+
+Baseball Reference added the WPBL to its register in Aug 2026 and would be the obvious third
+opinion. It is not usable as one: the whole Sports Reference network answers 403 to an automated
+fetcher and their terms forbid automated collection. There is also a question of what it would
+prove, since the league's games carry `provider: "presto"` and BR's register data may come from
+the same upstream, in which case agreement would show two parties ingesting one feed the same
+way rather than the feed being right. RetroWPBL is the only source here that is genuinely not
+downstream of it.
+
+**The terms it runs under have not changed, and they are the reason it reads rather than
+mirrors.** `github.com/exu6jh/RetroWPBL` is hand-written Retrosheet `.EVW` files with a batter id
+on every plate appearance. **It carries no licence, so it is all rights reserved by default and
 must not be ingested or republished.** Reading it to check our own rows is a different act from
 redistributing it; the author granted permission for our use on Aug 21, 2026 (ARCHITECTURE §10),
 and `sync-wpbl-retro` mirrors only the `info` records. The play records stay unmirrored on
