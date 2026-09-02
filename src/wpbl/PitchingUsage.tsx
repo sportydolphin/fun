@@ -56,11 +56,14 @@ export default function PitchingUsage({
         // leaves a 6px gutter so adjacent headers don't run together. That shows ~4.4 games on
         // a 375px screen. The column was 38 while this grid dropped the weekday to save the
         // room; carrying the same date label as the lineup grid is worth the half-column.
-        colWidth={44}
-        // 116 = widest abbreviated name (84) + the workload total (19) + gaps. At 112 the
-        // longest names clipped to "Jamie Mack…"; the extra 4px costs no column. Desktop gets
-        // 200 — 180 for a full name, matching the lineup grid, plus the workload total's slot.
-        nameWidth={{ xs: 116, sm: 200 }}
+        // REM, NOT PIXELS: 2.75rem is the 44px these notes measured. See the prop's own note
+        // in GameGrid for what passing the pixel number did to this card.
+        colWidthRem={2.75}
+        // 7.25rem (116px) = widest abbreviated name (84) + the workload total (19) + gaps. At
+        // 112 the longest names clipped to "Jamie Mack…"; the extra 4px costs no column.
+        // Desktop gets 12.5rem (200px): 180 for a full name, matching the lineup grid, plus
+        // the workload total's slot.
+        nameWidthRem={{ xs: 7.25, sm: 12.5 }}
         columns={games.map(g => ({
           id: g.id,
           title: formatGameColumn(g.date),

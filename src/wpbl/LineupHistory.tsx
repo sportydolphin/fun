@@ -44,13 +44,15 @@ export default function LineupHistory({
   return (
     <SectionCard title="Lineup history" subtitle={`Last ${games.length} games · position (spot)`}>
       <GameGrid
-        // Measured at 375px: widest cell "DH/LF (8)" is 51px and the widest header line
-        // (a pitcher surname) 43px, so 58 clears both. The name column holds an abbreviated
-        // name at 84px. Together that shows ~4 games before scrolling instead of ~3.
-        colWidth={58}
-        // Desktop gets 180: enough for "Gabrielle Haas" or "Suzuka Yamamoto" in full, which is
-        // most of the roster, so the fitter only has to abbreviate the genuine outliers.
-        nameWidth={{ xs: 92, sm: 180 }}
+        // REM, NOT PIXELS: 3.625rem is the 58px this was measured at, and passing the pixel
+        // number made the grid twenty times too wide. Measured at 375px, the widest cell
+        // "DH/LF (8)" is 51px and the widest header line (a pitcher surname) 43px, so 58
+        // clears both; in rem it now grows with the type instead of clipping at Large text.
+        colWidthRem={3.625}
+        // Desktop gets 11.25rem (the old 180px): enough for "Gabrielle Haas" or "Suzuka
+        // Yamamoto" in full, which is most of the roster, so the fitter only has to abbreviate
+        // the genuine outliers.
+        nameWidthRem={{ xs: 5.75, sm: 11.25 }}
         columns={games.map(g => ({
           id: g.id,
           title: formatGameColumn(g.date),

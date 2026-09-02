@@ -66,8 +66,8 @@ export interface GameGridRow {
 // the grid would keep a phone's column widths under 40% larger numerals. Kept as numbers
 // rather than calc strings because the track's own minimum is arithmetic over them.
 // 8rem and 4.125rem are the 128px and 66px they have always been at the default root size.
-const DEFAULT_NAME_W = 8
-const DEFAULT_COL_W = 4.125
+const DEFAULT_NAME_W = 8      // rem
+const DEFAULT_COL_W = 4.125   // rem
 
 /** How far past its minimum a column may grow to soak up spare width. A cell holds at most
  *  "DH/LF (8)" or "102*", so past roughly double the minimum the extra is just air between
@@ -75,24 +75,41 @@ const DEFAULT_COL_W = 4.125
  *  four enormous columns. Bites only while a team has played few games. */
 const GROW_CAP = 2
 
-export default function GameGrid({ columns, rows, renderCell, colWidth, nameWidth }: {
+export default function GameGrid({ columns, rows, renderCell, colWidthRem, nameWidthRem }: {
   columns: GameGridColumn[]
   rows: GameGridRow[]
   /** Return null for "did not appear" — the grid draws the placeholder dash itself. */
   renderCell: (rowId: string, columnId: string) => React.ReactNode
-  /** MINIMUM per-game column width — narrow enough to fit several on a phone before
-   *  scrolling. Where there is spare width (desktop) columns grow past it to fill, capped at
-   *  GROW_CAP× so an early-season grid of two games doesn't stretch into giant blocks. */
-  colWidth?: number
-  /** Pinned name column width. Responsive, because this is the one column that wants a
-   *  phone's frugality and a desktop's room for a whole name. */
-  nameWidth?: number | { xs: number; sm: number }
+  /** MINIMUM per-game column width, **IN REM**, narrow enough to fit several on a phone
+   *  before scrolling. Where there is spare width (desktop) columns grow past it to fill,
+   *  capped at GROW_CAP× so an early-season grid of two games doesn't stretch into giant
+   *  blocks.
+   *
+   *  THE UNIT IS IN THE NAME BECAUSE LEAVING IT OUT COST BOTH CALLERS. These were pixels
+   *  until the desktop rebuild's phase 4 moved them to rem, so that a box reserving room for
+   *  a string grows with the string (CLAUDE.md's rule). GameGrid was converted; LineupHistory
+   *  and PitchingUsage were not, and kept passing 58 and 44 and 180. Read as rem that is a
+   *  17,520px-wide grid, which then auto-scrolled to its right-hand edge and left every cell
+   *  off-screen: the two cards showed a column of player names beside an empty void, on a page
+   *  that had no URL and so was rarely opened. `tsc` cannot see a unit, so the name carries it. */
+  colWidthRem?: number
+  /** Pinned name column width, **in rem**. Responsive, because this is the one column that
+   *  wants a phone's frugality and a desktop's room for a whole name. */
+  nameWidthRem?: number | { xs: number; sm: number }
 }) {
-  const COL_W = colWidth ?? DEFAULT_COL_W
+  const COL_W = colWidthRem ?? DEFAULT_COL_W
   // The xs value drives the scroll threshold below; on wider screens there is spare room by
   // definition, so under-counting the name column there costs nothing.
-  const NAME_W = typeof nameWidth === 'number' ? { xs: nameWidth, sm: nameWidth }
-    : nameWidth ?? { xs: DEFAULT_NAME_W, sm: DEFAULT_NAME_W }
+  const NAME_W = typeof nameWidthRem === 'number' ? { xs: nameWidthRem, sm: nameWidthRem }
+    : nameWidthRem ?? { xs: DEFAULT_NAME_W, sm: DEFAULT_NAME_W }
+  // THE SAME NUMBER SPELLED FOR CSS, and it has to be spelled, because MUI's sizing transform
+  // reads a bare number over 1 as PIXELS. `width: NAME_W` was therefore 8px where the track's
+  // own minimum, built with a `${...}rem` template a few lines down, read the identical value
+  // as 8rem. The two disagreed by 16x inside one component: the column rendered as a sliver
+  // showing one letter per name while the track reserved room for the full width. With the old
+  // pixel call sites it went the other way and the sliver was the correct size, which is why
+  // this survived the conversion unnoticed.
+  const NAME_W_CSS = { xs: `${NAME_W.xs}rem`, sm: `${NAME_W.sm}rem` }
 
   // One sizing rule for both viewports. The track's `minWidth` is the phone's fixed layout,
   // so on a narrow screen there is no free space and `flexGrow` does nothing — columns stay
@@ -151,7 +168,7 @@ export default function GameGrid({ columns, rows, renderCell, colWidth, nameWidt
   const fadeSx = (side: 'left' | 'right') => ({
     position: 'absolute' as const, top: 0, bottom: 10, width: side === 'left' ? 22 : 26,
     pointerEvents: 'none' as const, zIndex: 3,
-    ...(side === 'left' ? { left: NAME_W } : { right: 0 }),
+    ...(side === 'left' ? { left: NAME_W_CSS } : { right: 0 }),
     background: (t: { palette: { background: { paper: string } } }) =>
       `linear-gradient(to ${side === 'left' ? 'right' : 'left'}, ${t.palette.background.paper}, ${t.palette.background.paper}00)`,
   })
@@ -177,7 +194,7 @@ export default function GameGrid({ columns, rows, renderCell, colWidth, nameWidt
               collapses to zero height, and the scrolled-under header labels show through
               beside the pinned names. */}
           <Box sx={{
-            width: NAME_W, flexShrink: 0, position: 'sticky', left: 0, zIndex: 2,
+            width: NAME_W_CSS, flexShrink: 0, position: 'sticky', left: 0, zIndex: 2,
             bgcolor: 'background.paper', alignSelf: 'stretch',
             borderRight: '1px solid', borderColor: 'divider',
           }} />
@@ -227,7 +244,7 @@ export default function GameGrid({ columns, rows, renderCell, colWidth, nameWidt
             }}
           >
             <Box sx={{
-              width: NAME_W, flexShrink: 0, position: 'sticky', left: 0, zIndex: 2,
+              width: NAME_W_CSS, flexShrink: 0, position: 'sticky', left: 0, zIndex: 2,
               bgcolor: 'background.paper', display: 'flex', alignItems: 'center',
               py: 0.55, pr: 0.5,
               borderRight: '1px solid', borderColor: 'divider',
