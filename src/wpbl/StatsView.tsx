@@ -352,14 +352,36 @@ const FROZEN_EDGE = {
 // Fixed width of the frozen Player column on mobile, so the pinned sort-value column can
 // sit flush against it with a constant `left` — no measurement to drift and let the two
 // frozen columns overlap the name when scrolled. Names ellipsize within it.
-const NAME_W = 150
-const NAME_INNER_MAX = 84 // NAME_W minus rank + badge + gaps + padding, so the column can't grow past NAME_W
+//
+// IN REM, because the column is reserving room for a name. These were raw pixels, which is the
+// unit CLAUDE.md reserves for ornament: a box sized in px around type sized in rem holds what
+// it used to hold while the text inside it grows. Two of these bit in one day, the game card's
+// own name column and the win probability caption, so these are converted on the way past
+// rather than left to be found later. They are NOT currently broken: the stats table shortens
+// names in JS before the CSS cap is reached, and measured at both text scales nothing here
+// ellipsizes. What was wrong was the unit, and with it the reason nothing ellipsizes.
+//
+// The same rem on `left` as on the width, and that is load-bearing rather than tidy. These two
+// numbers are the same number by construction (see the note above on the frozen columns' seam:
+// the pinned column's `left` is precisely the name cell's own offsetLeft), so they have to
+// scale together or the two frozen columns drift apart and overlap the name under a scroll.
+const NAME_W = '9.375rem'
+// NAME_W minus rank + badge + gaps + padding, so the column can't grow past NAME_W.
+//
+// An APPROXIMATION, deliberately on the safe side. What is subtracted is not all type: the
+// badge and the padding are chrome and hold still when the reader enlarges text, so the inner
+// budget should really grow by more than the type does, not exactly with it. Scaling it in
+// step therefore leaves it a few pixels tight at Large text, which spends one more character
+// of a name than it strictly must. That is the right direction to be wrong in: too small only
+// ellipsizes a hair early, while too large lets the column outgrow NAME_W and take the sticky
+// offset with it.
+const NAME_INNER_MAX = '5.25rem'
 // Teams mode gets a narrower frozen column. There are only four rows, each with a distinct
 // badge, and the nickname alone identifies them — so the width a player's full name needs is
 // dead space here, and every pixel of it is a stat column pushed off a phone screen.
 // No rank number in this mode (see the row), so the budget is padding + badge + gap + label.
-const TEAM_NAME_W = 104
-const TEAM_NAME_INNER_MAX = 62
+const TEAM_NAME_W = '6.5rem'
+const TEAM_NAME_INNER_MAX = '3.875rem'
 
 /** What the table should be showing, when it's opened from somewhere else (a Home leader
  *  card's "View all"). `token` increments on every such jump — see the effect below. */

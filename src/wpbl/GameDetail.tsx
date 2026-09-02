@@ -14,7 +14,7 @@ import { useExperiments } from '../ExperimentsContext'
 import { useWpblPlayerLink } from './LinkContext'
 import { WpblVisuallyHiddenH1 } from './PageHeading'
 import { wpblGameCard } from './ogCard'
-import { ModalShell, SegNav, TapTip, TeamBadge, pressable, FOCUS_RING, useWpblDark, useWpblName, wpblFeatureName, TAPPABLE } from './ui'
+import { ModalShell, SegNav, TapTip, TeamBadge, pressable, FOCUS_RING, useWpblDark, useWpblName, wpblFeatureName, chromePx, TAPPABLE } from './ui'
 import SwipeableViews from './SwipeableViews'
 import { parsePlay, runsOnPlay } from './derive/playByPlay'
 import { useUnits } from '../UnitsContext'
@@ -515,7 +515,18 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
     return <EmptyBody title="No play-by-play yet" hint="The feed's play log appears here once the game begins." />
   }
   return (
-    <Box sx={{ p: 2 }}>
+    /* A MEASURE, because this is a list and a list has nothing to spend extra width on.
+       The same rule and the same number as the section's own list pages in WpblApp: when the
+       card was 520px wide this pane took whatever it was given, and once the card grew to
+       1050 for the box score's sake, a collapsed half-inning became "TOP 1ST · NY BATTING" at
+       one end of a thousand pixels and "1 run" at the other. Schedule, Standings and Teams hit
+       exactly this in v1.58.0 and the answer was to size the column against its own type
+       again. Recap and Box Score deliberately do NOT take a measure: a win-probability chart
+       and two nine-column tables are the things that can actually use the room.
+
+       It leaves the expanded prose better off too, at roughly 50 characters a line rather than
+       66, which is nearer the middle of a comfortable measure than the top of it. */
+    <Box sx={{ p: 2, maxWidth: chromePx(720), mx: 'auto' }}>
       {groups.map(g => {
         const team = g.teamId ? teams.get(g.teamId) : undefined
         const open = expanded.has(g.key)
@@ -963,6 +974,29 @@ function EmptyBody({ title, hint }: { title: string; hint: string }) {
   )
 }
 
+/**
+ * One club's heading above its own box score, for the side-by-side layout at `lg`.
+ *
+ * Drawn to match the ACTIVE `TeamSwitch` tab exactly: same badge, same 0.94rem at weight 800,
+ * same 2px rule in the club's accent. They are the same object at two widths, one of which
+ * happens also to be a control, and a reader who widens the window should recognise what they
+ * were tapping a moment ago rather than meet a new thing.
+ */
+function TeamHeading({ team }: { team: WpblTeam }) {
+  const isDark = useWpblDark()
+  return (
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 0.75, pb: 0.75, mb: 0.75,
+      borderBottom: '2px solid', borderColor: wpblAccent(team.id, isDark),
+    }}>
+      <TeamBadge team={team} size={24} />
+      <Typography sx={{ fontSize: '0.94rem', fontWeight: 800, whiteSpace: 'nowrap', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {wpblFullName(team)}
+      </Typography>
+    </Box>
+  )
+}
+
 // ─── Team switch (underline tabs — deliberately distinct from the pill SegNav) ──
 function TeamSwitch({ away, home, value, onChange }: {
   away: WpblTeam; home: WpblTeam
@@ -1216,7 +1250,18 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
       // to any night of the season. A live game does not, because a live game is now.
       eyebrow={final ? `Final${game.innings && game.innings !== 7 ? ` / ${game.innings}` : ''} · ${dateLabel}` : live ? '● Live' : `${dateLabel}${game.start_time ? ` · ${formatGameTime(game.game_date, game.start_time)}` : ''}`}
       onClose={onClose}
-      maxWidth={520}
+      // THE SAME RAW-PIXEL BUG one level up, and then the width the card was actually asking
+      // for. 520 was a phone column that never learned the section is drawn a quarter larger on
+      // a desktop, so this dialog sat at 514px inside a 1440px window: 36% of the width, while
+      // running 860 to 1009px tall inside a 900px one. It overflowed vertically and had space
+      // to spare horizontally, which is the one combination a layout can always fix.
+      //
+      // `lg` rather than `md` for the wide step, because the wide step is what lets the box
+      // score put both clubs side by side, and two of those tables want about 474px each. At
+      // `md` the viewport itself is 900px and they would be squeezed back into a scroll. So
+      // the middle band gets the scale correction alone, which is already a quarter more room
+      // than it had, and `lg` gets the layout.
+      maxWidth={{ xs: chromePx(520), lg: chromePx(840) }}
       // A sheet on a phone: this is the most-opened surface in the section, every game row on
       // Home and Schedule leads here, and its only way out was a close button in the top right
       // corner, which is the furthest point on a phone from the thumb holding it. Now it comes
@@ -1331,17 +1376,53 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
                 t.value === 'recap' && away && home ? (
                   <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} video={final ? video : null} onOpenPlayer={onOpenPlayer} />
                 ) : t.value === 'box' && away && home ? (() => {
-                  const shown = boxTeam === 'home' ? home : away
+                  const box = (team: WpblTeam) => (
+                    <TeamBox
+                      team={team}
+                      batting={lines.batting.filter(b => b.team_id === team.id)}
+                      pitching={lines.pitching.filter(p => p.team_id === team.id)}
+                      names={names}
+                      onOpenPlayer={onOpenPlayer}
+                    />
+                  )
                   return (
                     <Box sx={{ px: 2, pb: 2, pt: 0 }}>
-                      <TeamSwitch away={away} home={home} value={boxTeam} onChange={setBoxTeam} />
-                      <TeamBox
-                        team={shown}
-                        batting={lines.batting.filter(b => b.team_id === shown.id)}
-                        pitching={lines.pitching.filter(p => p.team_id === shown.id)}
-                        names={names}
-                        onOpenPlayer={onOpenPlayer}
-                      />
+                      {/* BOTH CLUBS AT ONCE once there is room, and the switch goes away with
+                          them. A box score is two teams, and the reason this ever showed one is
+                          width: at 520px the second could only live behind a control. Reading
+                          one club's half of a game and then tapping to see who they did it to
+                          is a worse way to read a box score than having both in front of you,
+                          and comparing the two starting pitchers took two taps and a memory.
+
+                          CSS rather than a media-query hook, so both are always in the DOM.
+                          That costs a second table of about thirteen rows and buys two things:
+                          no flash of the wrong club while a JS query settles on first paint,
+                          and the browser's own find-in-page reaching a player on the club you
+                          are not currently looking at, which on a phone it could not. */}
+                      <Box sx={{ display: { xs: 'block', lg: 'none' } }}>
+                        <TeamSwitch away={away} home={home} value={boxTeam} onChange={setBoxTeam} />
+                      </Box>
+                      <Box sx={{
+                        display: 'grid', alignItems: 'start',
+                        gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, columnGap: 2.5,
+                      }}>
+                      {/* Measured at the reader's Large text setting: two of these tables at
+                          490px each is tight, and one of the four ends up about 8px over and
+                          scrolls inside its own wrapper. That is the escape hatch this table
+                          was built with and the failure it is supposed to have, and it is not
+                          the name column doing it: capping the name harder does not move it,
+                          because it is nine columns of numbers at 12.5% larger type. Not worth
+                          narrowing the default layout for everyone to avoid. */}
+                        {([['away', away], ['home', home]] as const).map(([side, team]) => (
+                          <Box key={side} sx={{ minWidth: 0, display: { xs: boxTeam === side ? 'block' : 'none', lg: 'block' } }}>
+                            {/* The heading only exists where the switch does not. Below `lg`
+                                the switch IS the heading, and drawing both would name the club
+                                twice inside forty pixels. */}
+                            <Box sx={{ display: { xs: 'none', lg: 'block' } }}><TeamHeading team={team} /></Box>
+                            {box(team)}
+                          </Box>
+                        ))}
+                      </Box>
                     </Box>
                   )
                 })() : t.value === 'plays' ? (
@@ -1433,7 +1514,32 @@ const denseNameSx = { width: '35%', maxWidth: 'none', px: 0.3 } as const
 // ellipsize, which is what wpblFeatureName documents as the final net, and they keep the
 // start of the surname, which is the part that identifies the player.
 const BOX_NAME_MAX = 11
-const NAME_W = 150 // cap for the shrink-to-fit name column (longer names ellipsize)
+/**
+ * Cap for the shrink-to-fit name column, IN REM, because it is reserving room for a name.
+ *
+ * It was 150 raw pixels, and that is the trap CLAUDE.md spells out: a box sized in px around
+ * type sized in rem looks perfectly right until the type changes size, and on `/wpbl` the type
+ * IS a different size, a quarter larger from `md` up. So the column went on holding what 150px
+ * held at 16px type while the names inside it grew, and three of them in a single Aug 30 box
+ * score came out clipped: "Natsuki Yon…", "Elodie Ciam…", "Claire O'Sulliv…". A box score whose
+ * first column is the player is the last place to lose the end of a surname.
+ *
+ * A rem, so it grows with the desktop ramp and with the reader's Large text setting, both of
+ * which make the names wider. The table does not get any wider to pay for it: the name column
+ * simply stops being starved by stat columns that had no use for the space.
+ *
+ * TEN, set against the whole roster rather than against the game that exposed the bug. All 119
+ * names were measured in this cell's own font at the desktop ramp, including the cell's 29px of
+ * padding and position badge: the median name needs 149px, the 90th percentile 183, and the
+ * longest 248. At 10rem, which is 200px there, 116 of the 119 fit. The three that do not are
+ * Flor Elena Valerio Montoya, Maria José Valenzuela and Bella Espinoza-Molina, and they
+ * ellipsize, which is what a cap is for and what this one already documented itself as doing.
+ *
+ * Going further has a price and buys little: 11rem would seat 118 of 119 and take another 20px
+ * off nine stat columns that are showing one and two digit numbers. Restoring the old 150px
+ * behaviour (9.375rem) would seat 110, which is where the clipping came from.
+ */
+const NAME_W = '10rem'
 // The name column is pinned (sticky-left) so scrolling right moves only the stat columns.
 // An opaque bg + right divider keep it legible over the stat cells sliding underneath.
 const stickyName = { position: 'sticky', left: 0, zIndex: 1, bgcolor: 'background.paper', borderRight: '1px solid', borderRightColor: 'divider' } as const

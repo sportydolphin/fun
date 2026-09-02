@@ -4,6 +4,37 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.61.0',
+    date:    '2026-09-02',
+    title:   'The game card uses the screen it is on, and shows both teams at once',
+    changes: [
+      {
+        short: 'The play you scrub to on the win probability chart is readable again',
+        full:  'Dragging along the chart names the play at that moment, and that line had been getting squashed. The caption box holding it was a fixed height set in pixels while the text inside it is sized to the reader, so on a desktop, or with Large text on, the box stayed put while the three lines in it needed more room. It did not overflow or cut off at the edge, which is why it went unnoticed: the top and bottom lines are pinned, so the line between them, which is the play itself, got squeezed to a third of its height on a desktop and to almost nothing with Large text. The box is measured against its own text now.',
+      },
+      {
+        short: 'Both teams’ box scores side by side on a wide screen',
+        full:  'A box score is two teams, and this one showed you one of them with a switch to see the other. That was a decision about width rather than about baseball: the card was a narrow column, and the second club could only live behind a control. On a wide screen both now sit next to each other and the switch is gone, so comparing the two starting pitchers is a glance instead of two taps and a memory. Phones and smaller windows keep the switch, which is right for them.',
+      },
+      {
+        short: 'Player names in the box score stopped being cut off',
+        full:  'The name column had a fixed size set when the section was drawn smaller, and it never grew when the type did, so it went on holding what it used to hold while the names inside it got bigger. In one Aug 30 box score that clipped three of them, including “Natsuki Yon…” and “Claire O’Sulliv…”. The column is measured against the type now and was sized against the whole roster: 116 of the league’s 119 names fit it outright. The table did not have to get any wider for that, the column had simply been starved by stat columns with no use for the room.',
+      },
+      {
+        short: 'The card is no longer a narrow strip on a big screen',
+        full:  'It was pinned to a width chosen for a phone column, so on a laptop it was using about a third of the window while running taller than the window itself: it scrolled vertically with room to spare on both sides. It now takes the width it needs, which is also what makes room for both teams.',
+      },
+      {
+        short: 'Play-by-play keeps a comfortable column',
+        full:  'The one part of the card that gains nothing from extra width is the play log, because it is a list. Left to stretch it would put “TOP 1ST · NY BATTING” at one end of the card and “1 run” at the other. It keeps a column sized against its own text, the same way Schedule, Standings and Teams do, while the box score and the recap take the full width because a table and a chart can use it.',
+      },
+      {
+        short: 'Stars of the game show their full names',
+        full:  'The three players named under the win probability chart were squeezed into a third of a narrow card each, so they read “A. Le…”, “D. Be…” and “L. G…”. They have room now.',
+      },
+    ],
+  },
+  {
     version: '1.60.0',
     date:    '2026-09-02',
     title:   'Player cards say more, and every one of them is the same shape',

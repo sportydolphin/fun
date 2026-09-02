@@ -950,6 +950,77 @@ is retired.
 
 ## Shipped log
 
+### Sep 2, 2026: the game card takes the width the section gave it, and shows both clubs
+
+**A third raw-pixel box, and the one that was actually breaking something.** Reported from the
+phone: you could not read the play when you dragged a finger along the win probability chart.
+`CAPTION_H` was 64 raw pixels, "measured at 375px", reserving room for three rows of type in a
+flex column with a fixed height. It never moved for the desktop ramp or for Large text.
+
+It did not clip, which is why it survived a rebuild and an audit. `mt: auto` on the note pins the
+top and bottom rows, so a deficit lands entirely on whatever is between them, and what is between
+them is the play. Measured on the Aug 30 Firebells game, the play's line went from the 25px it
+needs to **9px on a desktop and 4px with Large text on**: not cut off at the edge, cut in half
+lengthways, so a reader sees the top third of the letters. The label above it and the note below
+it looked perfect the whole time.
+
+Now `4.25rem`, and the quarter is not padding for its own sake. The natural height is a shade
+under 4rem at every scale measured (4.00 on a phone, 3.89 at Large text, 4.00 on a desktop, 3.87
+at both), so 4rem would fit by nothing at all, and fitting by nothing at all is how it got here.
+
+
+Same class of work as the player card, and it started from the same kind of measurement. The
+card was 514px wide inside a 1440px window, 36% of it, while running 860 to 1009px tall inside a
+900px one. It overflowed vertically and had space to spare horizontally, which is the one
+combination a layout can always fix.
+
+**Two raw-pixel caps around type that had grown a quarter.** `maxWidth={520}` on the shell and
+`NAME_W = 150` on the box score's name column were both chosen when the section was drawn at
+phone scale, and neither moved when `/wpbl` went to a real desktop size. The name column is the
+one that showed: it went on holding what 150px held at 16px type while the names inside it grew,
+and a single Aug 30 box score came out with "Natsuki Yon…", "Elodie Ciam…" and "Claire O'Sulliv…"
+clipped. The first column of a box score is the last place to lose the end of a surname.
+
+`NAME_W` is a rem now, and its value was set against the whole roster rather than against the
+game that exposed it: all 119 names measured in that cell's own font at the desktop ramp,
+including the cell's 29px of padding and position badge. The median name needs 149px, the 90th
+percentile 183, the longest 248. At 10rem, which is 200px there, **116 of 119 fit**, and the three
+that do not (Flor Elena Valerio Montoya, Maria José Valenzuela, Bella Espinoza-Molina) ellipsize,
+which is what the cap is for and what it already documented itself as doing. The table did not
+get any wider to pay for it; the name column simply stopped being starved by stat columns that
+had no use for the space.
+
+**And then the width bought something.** The box score showed one club at a time behind a switch,
+which was a decision about width rather than about baseball: at 520px the second club could only
+live behind a control. At `lg` both now sit side by side and the switch goes away with them, so
+comparing the two starting pitchers is a glance rather than two taps and a memory. Below `lg` it
+is exactly as it was.
+
+Rendered with CSS rather than a media-query hook, so both clubs are always in the DOM. That costs
+a second thirteen-row table and buys two things: no flash of the wrong club while a JS query
+settles on first paint, and the browser's own find-in-page reaching a player on the club you are
+not currently looking at, which on a phone it could not.
+
+**`lg` and not `md`, because two of those tables want about 474px each** and at `md` the viewport
+itself is only 900. So the middle band gets the scale correction alone, which is already a quarter
+more room than it had, and `lg` gets the layout. Three states, each right for its width: a phone
+sheet with the switch and abbreviated names, a 650px dialog with the switch and full names, and a
+1050px dialog with both clubs.
+
+**Play-by-play keeps a measure, and that is the same rule the section already settled.** It is a
+list, and a list has nothing to spend extra width on: stretched to the new card it put
+"TOP 1ST · NY BATTING" at one end of a thousand pixels and "1 run" at the other. Schedule,
+Standings and Teams hit exactly this in v1.58.0 and the answer was to size the column against its
+own type again, so this uses the same `chromePx(720)`. Recap and Box Score deliberately do not: a
+win-probability chart and two nine-column tables are the things that can use the room. The recap's
+three Stars of the Game were reading "A. Le…", "D. Be…" and "L. G…" and now have space.
+
+One edge left deliberately: at the reader's Large text setting, two side-by-side tables at 490px
+are tight and one of the four ends up about 8px over and scrolls inside its own wrapper. That is
+the escape hatch the table was built with. It is not the name column doing it, since capping the
+name harder does not move it, and narrowing the default layout for everyone to avoid it would be
+the wrong trade.
+
 ### Sep 2, 2026: one treatment for the card's secondary blocks, and the sample stops outranking the record
 
 The last of the audit. The player card had three accent-ruled blocks that grew independently and

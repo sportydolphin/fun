@@ -57,13 +57,31 @@ const AXIS_LABEL_H = 12
  * So the readout is a fixed box, and it always has something in it: an empty reserved gap
  * reads as something that failed to load.
  *
- * 64px is the whole of it, measured at 375px: the label row, ONE line of play, and the note.
- * It is a fixed height rather than a fitted one because the text changes under a moving
- * finger, and a box that resized as it did would be the one thing this card must never do.
- * That is also why the play is one line and not two: the height has to be the worst case, so
- * every game pays for the longest sentence any game could produce.
+ * A FIXED height rather than a fitted one, because the text changes under a moving finger and
+ * a box that resized as it did would be the one thing this card must never do. That is also
+ * why the play is one line and not two: the height has to be the worst case, so every game
+ * pays for the longest sentence any game could produce.
+ *
+ * IN REM, and that is the whole of the bug it used to have. It was 64 raw pixels, "measured at
+ * 375px", and it reserves room for three rows of TYPE, which is the one thing CLAUDE.md says
+ * must not be sized in px: the section is drawn a quarter larger from `md` up and the reader
+ * can add another eighth on top of that, and this box did not move for either. It did not
+ * clip, which is why it survived a rebuild. It is a flex column with a fixed height, so what
+ * it did instead was CRUSH THE MIDDLE ROW, and the middle row is the play.
+ *
+ * Measured on the Aug 30 Firebells game, the play's line went from the 25px it needs down to
+ * 9px on a desktop, and to 4px with Large text on. Not clipped at the edge, cut in half
+ * lengthways: the reader sees the top third of the letters and cannot read the sentence, which
+ * is the entire thing the chart is scrubbed for. The label row above it and the note below it
+ * both looked perfect throughout, because `mt: auto` on the note pins the two ends and leaves
+ * the slack, or the deficit, to whatever is between them.
+ *
+ * 4.25rem, not 4. The natural height is a shade under 4rem at every scale measured (4.00 on a
+ * phone, 3.89 at Large text, 4.00 on a desktop, 3.87 at both), which means 4rem would fit by
+ * nothing at all, and fitting by nothing at all is how this got here. The extra quarter is 4px
+ * on a phone and it is the difference between a rule and a coincidence.
  */
-const CAPTION_H = 64
+const CAPTION_H = '4.25rem'
 
 /** The plot's own height. Tall enough for the shape to read, short enough that the recap it
  *  sits inside is still a recap. The phone figure pays for the readout above it: Game Center
