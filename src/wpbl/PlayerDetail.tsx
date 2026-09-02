@@ -13,6 +13,7 @@ import { PitchLocationCard } from './PitchLocation'
 import { displayPosition } from './positions'
 import { wpblPlayerPath } from './routes'
 import { track, EVENTS } from '../lib/analytics'
+import { wpblBattingSummary, wpblPitchingSummary } from './derive/playerSummary'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblArticle } from './types'
 
 // Player page: profile, season totals aggregated from box-score lines, where those totals sit
@@ -263,10 +264,50 @@ function StatGrid({ items }: { items: [string, string | number][] }) {
  * first season does not support a red-to-blue scale that implies a settled distribution. The
  * population size is printed under the strip for the same reason. See percentiles.ts.
  */
-function PercentileStrip({ ranks, of, color, noun }: {
+/** The rank keys the hero already prints, per role, and therefore the ones the strip must not
+ *  print again. Kept here as one list because the bug it fixes was two places agreeing by
+ *  accident: the hero shows OPS and AVG with their ranks, the strip showed AVG, OBP, SLG, OPS,
+ *  HR and K% with theirs, and a reader met ".395 AVG 10th of 31" and "AVG .395 10th" twenty
+ *  pixels apart. Four of the six numbers in the block were the four already above it. What is
+ *  left is what the hero cannot say: OBP and SLG under the OPS that is their sum, plus HR and
+ *  K%. If the hero's pair ever changes, change it here in the same commit. */
+/**
+ * The summary sentence, or nothing at all.
+ *
+ * Rendered at body weight rather than as a caption: it is the first thing on the card that a
+ * reader can read instead of parse, and a grey 0.66rem line under a 2rem OPS would be styled
+ * as a footnote to the number it is there to explain. Nothing is drawn when the sentence is
+ * null, and no empty box is left where it would have been.
+ */
+function SummaryLine({ text }: { text: string | null }) {
+  if (!text) return null
+  return (
+    <Typography sx={{ fontSize: '0.82rem', lineHeight: 1.45, color: 'text.secondary', mb: 1.25 }}>
+      {text}
+    </Typography>
+  )
+}
+
+/** The best rank a role holds that the hero is not already printing. The sentence above the
+ *  grid may name it; the strip below draws all of them either way. */
+function bestNonHeroRank(ranks: WpblStatRank[] | undefined, role: 'batting' | 'pitching') {
+  const eligible = (ranks ?? []).filter(r => !HERO_RANK_KEYS[role].includes(r.key))
+  if (eligible.length === 0) return null
+  const best = eligible.reduce((a, b) => (b.rank < a.rank ? b : a))
+  return { label: best.label, rank: best.rank, of: best.of }
+}
+
+const HERO_RANK_KEYS: Record<'batting' | 'pitching', readonly string[]> = {
+  batting: ['ops', 'avg'],
+  pitching: ['era', 'whip'],
+}
+
+function PercentileStrip({ ranks: allRanks, of, color, noun, role }: {
   ranks: WpblStatRank[]; of: number; color: string; noun: string
+  role: 'batting' | 'pitching'
 }) {
   const { basis: eraBasis } = useEraBasis()
+  const ranks = allRanks.filter(r => !HERO_RANK_KEYS[role].includes(r.key))
   if (ranks.length === 0) return null
   return (
     <Box sx={{ mt: 1.75 }}>
@@ -948,7 +989,24 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             shown here. The two sacrifices and GDP appear only once they have happened: a
             column of zeroes on a player who has never bunted is noise, and this grid is read
             on a phone. */}
-        <StatGrid items={[['R', bt.r], ['H', bt.h], ['2B', bt.doubles], ['3B', bt.triples], ['HR', bt.hr], ['RBI', bt.rbi], ['BB', bt.bb], ['SO', bt.so], ['SB', bt.sb], ['CS', bt.cs], ['TB', bt.tb], ['HBP', bt.hbp],
+        {/* One line of English before the evidence. See derive/playerSummary.ts: it says the
+            things the tiles cannot, which are the RELATIONSHIPS between them, and it says
+            nothing at all when the sample cannot carry a sentence. */}
+        <SummaryLine text={wpblBattingSummary(bt, bestNonHeroRank(ranks?.batting, 'batting'))} />
+        {/* THE SAME RULE THE SACRIFICES AND GDP ALREADY FOLLOWED, applied to the rest of the
+            rare events. A tile reading 0 costs exactly as much room and attention as one
+            reading 17, and this grid is read on a phone: Andréanne Leblanc's showed 3B 0,
+            SB 0 and CS 0 at full strength beside H 17, five of thirteen tiles at nothing.
+            Triples and hit-by-pitches appear once they have happened. Steals are a PAIR,
+            because a steal total alone cannot say whether the running worked, so either both
+            show or neither does. Doubles stay unconditional: they are common enough that a
+            zero is a fact about the season rather than an absence of one. */}
+        <StatGrid items={[['R', bt.r], ['H', bt.h], ['2B', bt.doubles],
+          ...(bt.triples ? [['3B', bt.triples] as [string, number]] : []),
+          ['HR', bt.hr], ['RBI', bt.rbi], ['BB', bt.bb], ['SO', bt.so],
+          ...(bt.sb || bt.cs ? [['SB', bt.sb] as [string, number], ['CS', bt.cs] as [string, number]] : []),
+          ['TB', bt.tb],
+          ...(bt.hbp ? [['HBP', bt.hbp] as [string, number]] : []),
           ...(bt.gdp ? [['GDP', bt.gdp] as [string, number]] : []),
           ...(bt.sf ? [['SF', bt.sf] as [string, number]] : []),
           ...(bt.sh ? [['SH', bt.sh] as [string, number]] : [])]} />
@@ -957,7 +1015,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             text={`${fmtEra(pt.era)} ERA over ${outsToIp(pt.outs)} IP, ${pt.so} K`} />
         )}
         {ranks && (ranks.batReason === 'ok'
-          ? <PercentileStrip ranks={ranks.batting} of={ranks.batOf} color={color} noun="batters" />
+          ? <PercentileStrip ranks={ranks.batting} of={ranks.batOf} color={color} noun="batters" role="batting" />
           : <RankProgress reason={ranks.batReason} have={plateAppearances(bt)} need={ranks.qualifiers.minPa}
               unit="PA" fmt={String} noun="batters" color={color} />)}
       </>
@@ -979,6 +1037,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
       <>
         {paneHero('pitching')}
         {/* G and IP are on the sample line above. */}
+        <SummaryLine text={wpblPitchingSummary(pt, bestNonHeroRank(ranks?.pitching, 'pitching'))} />
         {/* BF and P say how much work the year was, which nothing on this card could say
             before: it could tell you what she gave up and not how many batters she faced.
             GS separates a starter from a reliever. HBP, WP and BK show up only when they
@@ -992,7 +1051,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
             text={`${fmtRate(bt.avg)}/${fmtRate(bt.obp)}/${fmtRate(bt.slg)}, ${bt.h}-for-${bt.ab}${bt.hr ? `, ${bt.hr} HR` : ''}`} />
         )}
         {ranks && (ranks.pitReason === 'ok'
-          ? <PercentileStrip ranks={ranks.pitching} of={ranks.pitOf} color={color} noun="pitchers" />
+          ? <PercentileStrip ranks={ranks.pitching} of={ranks.pitOf} color={color} noun="pitchers" role="pitching" />
           : <RankProgress reason={ranks.pitReason} have={pt.outs} need={ranks.qualifiers.minOuts}
               unit="IP" fmt={outsToIp} noun="pitchers" color={color} />)}
       </>
