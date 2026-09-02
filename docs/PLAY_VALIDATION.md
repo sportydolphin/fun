@@ -315,9 +315,14 @@ batter is no longer a plate appearance.
 browser, over corrected plays, every time the board is opened: nothing is baked into a build, so
 a re-ingest or a correction puts a half-inning back with no code change. Aug 15 is the proof.
 
-**Aug 20 has NOT come back.** Checked Sep 1: still 18 blank rows across the tops of the 5th, 6th
-and 7th, and still the only game in the season with any. `check-wpbl-drift` reports the mirror
-identical to the feed, so this is what the league is serving, not something we lost.
+**Aug 20 has NOT come back, and the damage is narrower than this entry first said.** Checked Sep 1
+against the live feed, row by row across all 96 plays: the mirror is identical to it, so this is
+what the league serves rather than something we lost. But only the tops of the **6th and 7th** are
+ruined, 13 rows with no batter, no narrative and `outs` stuck at 0. The 5th's five batter-less rows
+are ordinary substitution and baserunning events: they carry narratives ("Madison Willan scored."),
+`outs` of 2, and 4 runs between them. Counting all 18 together overstates it. `event_type` on the
+ruined rows is `unknown` rather than absent, which is the same value the feed uses for every
+pickoff and substitution, so it cannot be used to tell the two apart.
 
 ### Aug 29, New York at LA (LA 10 in the box, 9 in the log). Found Sep 1, 2026.
 

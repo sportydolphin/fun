@@ -71,6 +71,46 @@ const instant = (v) => {
   return Number.isFinite(t) ? t : null
 }
 
+/** One play, reduced to the feed-native fields the mirror stores, in a fixed order.
+ *
+ *  COUNTING PLAYS WAS NOT ENOUGH, and the gap was invisible for exactly the reason this whole
+ *  script exists. The first version compared `plays.length`, so a game the league RE-SCORED kept
+ *  the same number of rows and passed as "no drift" while every narrative under it changed. The
+ *  Aug 20 game is the reason it got noticed: its 6th and 7th are 13 rows with no batter, no
+ *  narrative and `outs` stuck at 0, and if the league ever repairs them the row count will not
+ *  move by one.
+ *
+ *  Resolver-derived columns are deliberately absent. `batter_id`, `pitcher_id` and `team_id` are
+ *  OURS, not the feed's: the feed sends its own ids and names and the ingest resolves them
+ *  against the roster, so comparing them would report a player merge as league drift. Names are
+ *  compared instead, which is what the feed actually publishes. `pitch_events` is left out too:
+ *  it is a nested array whose contents are already summarised by `pitch_sequence`, `balls`,
+ *  `strikes` and `fouls`, all four of which are here.
+ *
+ *  \u0001 as the separator because no narrative contains it, and the same string is built in SQL
+ *  by the query below so the two sides cannot drift apart in how they spell a row. */
+const playDigest = (p) => [
+  n(p.inning), s(p.half) === 'bottom' ? 'bottom' : 'top',
+  s(p.batter_name), s(p.pitcher_name), n(p.outs),
+  s(p.first_base), s(p.second_base), s(p.third_base), p.bases_loaded ? 1 : 0,
+  s(p.narrative), s(p.event_type), p.is_hit ? 1 : 0, p.is_scoring_play ? 1 : 0,
+  n(p.runs_scored), s(p.pitch_sequence), n(p.balls), n(p.strikes), n(p.fouls),
+].join('\u0001')
+
+/** Feed plays as sequence -> digest. */
+export function playMapFeed(box) {
+  return new Map((box.plays ?? []).map(p => [String(n(p.sequence)), playDigest(p)]))
+}
+
+/** Our plays as sequence -> digest, from the `play_digests` array the query builds. Each entry
+ *  is the sequence, then the same fields in the same order, joined the same way. */
+export function playMapOurs(row) {
+  return new Map((row.play_digests ?? []).map(entry => {
+    const ix = entry.indexOf('\u0001')
+    return [entry.slice(0, ix), entry.slice(ix + 1)]
+  }))
+}
+
 /** Everything the boxscore owns, reduced to comparable primitives. Built the same way from
  *  the feed's payload and from our rows, so a mismatch is drift rather than a shape
  *  difference. */
@@ -97,7 +137,6 @@ export function fingerprintFeed(box) {
     away_score: n(sides.away?.runs), home_score: n(sides.home?.runs),
     away_hits: n(sides.away?.hits), home_hits: n(sides.home?.hits),
     away_errors: n(sides.away?.errors), home_errors: n(sides.home?.errors),
-    plays: (box.plays ?? []).length,
     batting: bat.sort().join(' '), pitching: pit.sort().join(' '),
     source_updated_at: instant(box.source_updated_at),
   }
@@ -108,7 +147,6 @@ export function fingerprintOurs(row) {
     away_score: n(row.away_score), home_score: n(row.home_score),
     away_hits: n(row.away_hits), home_hits: n(row.home_hits),
     away_errors: n(row.away_errors), home_errors: n(row.home_errors),
-    plays: n(row.plays),
     batting: (row.batting ?? []).slice().sort().join(' '),
     pitching: (row.pitching ?? []).slice().sort().join(' '),
     source_updated_at: instant(row.source_updated_at),
@@ -130,6 +168,25 @@ export function diffGame(box, row) {
   // The boxscore only reaches this function once the feed calls it complete, so anything we
   // still hold as live or scheduled is drift in the field readers notice first.
   if (row.status !== 'final') diffs.push({ field: 'status', feed: 'final', ours: row.status })
+
+  // Play CONTENT, row by row, and the row COUNT with it: a separate `plays.length` field used to
+  // sit above this and became two fields reporting one fact the moment the digest arrived, which
+  // is the shape of bug this whole script exists to catch. Reported as the sequences that
+  // disagree rather than as two long strings: a repair names the half-inning it touched, and
+  // `--repair` re-ingests the game either way, so the message only has to say where to look.
+  const fp = playMapFeed(box), op = playMapOurs(row)
+  const seqs = [...new Set([...fp.keys(), ...op.keys()])].sort((a, b) => Number(a) - Number(b))
+  const changed = seqs.filter(q => fp.get(q) !== op.get(q))
+  if (changed.length) {
+    const only = (m, q) => (m.has(q) ? 'differs' : 'missing')
+    diffs.push({
+      field: 'play rows',
+      feed: `${fp.size} rows`,
+      ours: `${op.size} rows, ${changed.length} not matching at sequence ` +
+        changed.slice(0, 8).join(', ') + (changed.length > 8 ? ', …' : '') +
+        (changed.some(q => !op.has(q)) ? ` (${changed.filter(q => !op.has(q)).length} ${only(op, changed[0])} here)` : ''),
+    })
+  }
   return diffs
 }
 
@@ -138,11 +195,26 @@ const OURS_SQL = `
          g.away_team_id, g.home_team_id,
          g.away_score, g.home_score, g.away_hits, g.home_hits, g.away_errors, g.home_errors,
          g.source_updated_at,
-         (select count(*) from wpbl_game_plays p where p.game_id = g.id) as plays,
          (select array_agg(b.ab||'-'||b.r||'-'||b.h||'-'||b.rbi||'-'||b.bb||'-'||b.so||'-'||b.hr||'-'||b.doubles||'-'||b.triples||'-'||b.sb)
             from wpbl_batting_lines b where b.game_id = g.id) as batting,
          (select array_agg(p.outs||'-'||p.h||'-'||p.r||'-'||p.er||'-'||p.bb||'-'||p.so||'-'||p.hr)
-            from wpbl_pitching_lines p where p.game_id = g.id) as pitching
+            from wpbl_pitching_lines p where p.game_id = g.id) as pitching,
+         -- The same digest playDigest() builds in JS, in the same field order, joined by the
+         -- same separator, prefixed with the sequence. Keep the two in step: a column added on
+         -- one side and not the other reports every game in the league as drifted.
+         (select array_agg(
+              p.sequence || chr(1) || concat_ws(chr(1),
+                p.inning, p.half,
+                coalesce(p.batter_name, ''), coalesce(p.pitcher_name, ''), p.outs,
+                coalesce(p.first_base, ''), coalesce(p.second_base, ''), coalesce(p.third_base, ''),
+                case when p.bases_loaded then 1 else 0 end,
+                coalesce(p.narrative, ''), coalesce(p.event_type, ''),
+                case when p.is_hit then 1 else 0 end,
+                case when p.is_scoring_play then 1 else 0 end,
+                coalesce(p.runs_scored, 0), coalesce(p.pitch_sequence, ''),
+                coalesce(p.balls, 0), coalesce(p.strikes, 0), coalesce(p.fouls, 0))
+              order by p.sequence)
+            from wpbl_game_plays p where p.game_id = g.id) as play_digests
   from wpbl_games g`
 
 async function readOurs(url) {

@@ -4,6 +4,26 @@ import { describe, it, expect } from 'vitest'
 // drifted, which is the exact failure this checker exists to catch.
 import { diffGame } from '../../scripts/check-wpbl-drift.mjs'
 
+// A play as the feed sends it. Only the fields the digest reads are filled in.
+type Play = Record<string, unknown>
+const play = (seq: number, over: Play = {}): Play => ({
+  sequence: seq, inning: 1, half: 'top', batter_name: 'Ayuri Shimano', pitcher_name: 'Olivia Bricker',
+  outs: 0, first_base: '', second_base: '', third_base: '', bases_loaded: false,
+  narrative: 'Ayuri Shimano singled to left field (1-1 BF).', event_type: 'single',
+  is_hit: true, is_scoring_play: false, runs_scored: 0, pitch_sequence: 'BF',
+  balls: 1, strikes: 1, fouls: 0, ...over,
+})
+
+// The digest as the SQL builds it: the sequence, then the same fields in the same order, joined
+// by \u0001. Written out by hand rather than imported, so the field ORDER is pinned by something
+// other than the code under test.
+const digest = (p: Play): string => [
+  p.sequence, p.inning, p.half, p.batter_name, p.pitcher_name, p.outs,
+  p.first_base, p.second_base, p.third_base, p.bases_loaded ? 1 : 0,
+  p.narrative, p.event_type, p.is_hit ? 1 : 0, p.is_scoring_play ? 1 : 0,
+  p.runs_scored, p.pitch_sequence, p.balls, p.strikes, p.fouls,
+].join('\u0001')
+
 // This checker's whole value is that it can answer "yes, we are in sync" and be believed. A
 // comparison that silently matches everything answers that too, and looks identical from the
 // outside on a day when nothing has drifted, which is most days. So the cases below are all
@@ -12,7 +32,7 @@ import { diffGame } from '../../scripts/check-wpbl-drift.mjs'
 const box = (over: Record<string, unknown> = {}) => ({
   status: { complete: true },
   source_updated_at: '2026-08-24T02:33:01Z',
-  plays: new Array(96).fill({}),
+  plays: [play(1), play(2, { narrative: 'Ayuri Shimano scored.', event_type: 'unknown', is_hit: false })],
   teams: [
     {
       side: 'away',
@@ -42,7 +62,10 @@ const row = (over: Record<string, unknown> = {}) => ({
   away_score: 9, home_score: 4,
   away_hits: 12, home_hits: 7,
   away_errors: 1, home_errors: 0,
-  plays: 96,
+  play_digests: [
+    digest(play(1)),
+    digest(play(2, { narrative: 'Ayuri Shimano scored.', event_type: 'unknown', is_hit: false })),
+  ],
   batting: ['4-1-1-3-0-1-1-0-0-0', '3-0-1-0-1-1-0-0-0-1', '4-2-2-1-1-0-0-1-0-0'],
   pitching: ['21-12-9-8-3-4-1', '17-6-4-3-2-7-1'],
   source_updated_at: '2026-08-24 02:33:01+00',
@@ -63,8 +86,39 @@ describe('diffGame', () => {
     expect(diffGame(box(), row({ home_hits: 6 })).map(x => x.field)).toEqual(['home_hits'])
   })
 
-  it('sees plays added to or removed from the league play log', () => {
-    expect(diffGame(box(), row({ plays: 94 })).map(x => x.field)).toEqual(['plays'])
+  it('sees a play added to or removed from the league play log', () => {
+    const short = row({ play_digests: [digest(play(1))] })
+    const d = diffGame(box(), short)
+    expect(d.map(x => x.field)).toEqual(['play rows'])
+    expect(d[0].feed).toBe('2 rows')
+    expect(d[0].ours).toContain('1 rows')
+    expect(d[0].ours).toContain('sequence 2')
+  })
+
+  // THE ONE THE ROW COUNT COULD NOT SEE. A league re-score rewrites a narrative and leaves the
+  // number of rows alone, which is how the first version of this checker reported "no drift" on
+  // a game whose play log had changed under it.
+  it('sees a rewritten narrative on a play log of unchanged length', () => {
+    const rescored = row({
+      play_digests: [digest(play(1)), digest(play(2, { narrative: 'Ayuri Shimano scored on a fielding error.', event_type: 'unknown', is_hit: false }))],
+    })
+    const d = diffGame(box(), rescored)
+    expect(d.map(x => x.field)).toEqual(['play rows'])
+    expect(d[0].ours).toContain('1 not matching at sequence 2')
+  })
+
+  it('sees a base-out state repaired underneath an unchanged narrative', () => {
+    const repaired = row({ play_digests: [digest(play(1, { outs: 2 })), digest(play(2, { narrative: 'Ayuri Shimano scored.', event_type: 'unknown', is_hit: false }))] })
+    expect(diffGame(box(), repaired).map(x => x.field)).toEqual(['play rows'])
+  })
+
+  // Names, not ids: the ingest resolves the feed's players against our roster, so a merge or a
+  // trade changes `batter_id` here with nothing having changed at the league. Comparing ids
+  // would report our own bookkeeping as league drift, every night, until someone stopped reading.
+  it('ignores the resolver-derived columns entirely', () => {
+    const withIds = row()
+    ;(withIds as Record<string, unknown>).batter_id = 'some-uuid'
+    expect(diffGame(box(), withIds)).toEqual([])
   })
 
   // The reason the batting lines are compared as a multiset and not only as a team total: a
