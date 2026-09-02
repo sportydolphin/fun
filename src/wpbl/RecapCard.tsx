@@ -4,7 +4,7 @@ import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine,
 import { buildRecap, leagueRecapContext, type GameRecap, type RecapStar } from './derive/recap'
 import { seriesContext } from './derive/series'
 import { fetchWpblGameLines, fetchWpblGameRecapPlays } from './api'
-import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, FittedName, MICRO_TEXT } from './ui'
+import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, FittedName, MICRO_TEXT, TAPPABLE, hoverOnly, chromePx } from './ui'
 import { WPBL_ACCENT, relativeDayLabel, wpblFullName } from './constants'
 import { GameHighlightCard } from './Highlights'
 import { useWpblGameLink, useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
@@ -286,11 +286,23 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
       fill
       collapsed={isPhone ? collapsed : undefined}
       onToggleCollapse={isPhone ? toggle : undefined}
-      // Dropped while shut: a chevron and a link in one phone-width header is two controls
-      // competing for the same tap, and the chevron is the one that has to win, since the link
-      // leaves the page. Open, there is room and "Full recap" is the useful next step again.
-      action={collapsed ? undefined : (
-        <Typography {...gameLink(game, onOpenGame)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
+      // NO LINK IN THE HEADER ON A PHONE, AND HIDING IT WHILE SHUT WAS WORSE THAN LEAVING IT.
+      //
+      // The first version dropped "Full recap" only while collapsed, on the grounds that a
+      // chevron and a link in one phone-width header are two controls competing for one tap.
+      // That made it appear ON EXPAND, in the space the finger had just tapped: measured at
+      // 375px, the link lands at y 397-414 while the header that was tapped spans 379-432, and
+      // its right edge sits 10px from the chevron. Tap to open, tap again to close, and the
+      // second tap opens Game Center instead, because a new control grew under the thumb
+      // between them. A control that appears where a finger already is has to be treated as
+      // pressed, and this one navigates away from the page.
+      //
+      // So on a phone the header does one thing, for the whole of its width, always: it
+      // toggles. The recap link moves to the foot of the body, which is both far from the
+      // header and where a reader who has just read the blurb actually is. The desktop card
+      // has no collapse and no thumb, and keeps the header action it always had.
+      action={isPhone ? undefined : (
+        <Typography {...gameLink(game, onOpenGame)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', ...hoverOnly({ textDecoration: 'underline' }) }}>
           Full recap
         </Typography>
       )}
@@ -323,6 +335,23 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
             <StarRow star={recap.stars[0]} medal="🥇" name={recap.stars[0].name} teamId={recap.stars[0].teamId} portraitSize={44} medalSize={30} fitKey={starWidth}
               link={playerLink(byPlayerId.get(recap.stars[0].playerId), onOpenPlayer)} />
           </Box>
+        </Box>
+      )}
+      {/* The phone's copy of the header action, at the far end of the card. See the note on
+          `action` above: on a phone the header is the collapse toggle and nothing else, so this
+          is the only "Full recap" there, and it sits where a reader who has just finished the
+          blurb and the star already is. Full width, because at the bottom of a card there is
+          nothing to share the row with and a wider target is a better one. */}
+      {isPhone && (
+        <Box {...gameLink(game, onOpenGame)} sx={{
+          mt: 1.25, pt: 1, borderTop: '1px solid', borderColor: 'divider',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          cursor: 'pointer', borderRadius: 1, minHeight: chromePx(28),
+          fontSize: '0.78rem', fontWeight: 700, color: 'var(--wpbl-accent-fg)',
+          ...TAPPABLE,
+        }}>
+          Full recap
+          <Box component="span" aria-hidden sx={{ fontSize: '0.9rem', lineHeight: 1 }}>›</Box>
         </Box>
       )}
     </SectionCard>
