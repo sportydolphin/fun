@@ -433,7 +433,25 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer, ope
   const loaded = reOf(table, 0, 7)
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 } }}>
+    /* CAPPED AND CENTRED inside the full-bleed box StatsView puts this board in.
+       
+       The board is one list, and a list has nothing to spend width on: stretched to the whole
+       1416px it put a player's name at x=126 and her number at x=1309, which is not a row, it
+       is two columns that happen to share a border. Two of the three blocks in here already
+       knew that, the opening sentence capping itself at 70ch and the explainer at 620; only
+       the leaderboard filled the box.
+       
+       `chromePx(720)` is the section's own list measure, the same one Schedule, Standings and
+       Teams use and the same one the game card's play-by-play took. Centred rather than left,
+       because left is where this landed first and the board then hung off the left edge of the
+       page with a third of the width empty beside it.
+       
+       Centred here lands on exactly the page column's edges, since that column is the same
+       `chromePx(720)`. That is not a reason to drop the bleed and use the column instead: the
+       bleed is `calc(100vw - 24px)` below `sm`, which is WIDER than the column there, and
+       giving those 8px back clipped two leaderboard names at the Large text setting. The cap
+       simply never binds on a phone. */
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 }, maxWidth: chromePx(720), mx: 'auto' }}>
       {/* ONE SENTENCE, AND NO HEADING. The board tab directly above already says "Run value",
           so a title under it named the same board twice in two sets of words. What has to stay
           is the unit: every figure below is "runs" in a sense nobody uses at the ballpark, and

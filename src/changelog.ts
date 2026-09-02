@@ -4,6 +4,21 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.61.1',
+    date:    '2026-09-02',
+    title:   'The stats boards line up with their own controls',
+    changes: [
+      {
+        short: 'The Hitting/Pitching switch sits over the board it switches',
+        full:  'The row of controls under the board tabs is laid out for the widest thing on the page, which is the season stats table, so on Players and Teams the switch starts exactly level with the table\u2019s first column. On the boards whose content is a normal page-width column it was 255 pixels to the left of everything it applies to, hanging off the edge of the page while the board began a quarter of the way across. Pitch by pitch had read that way since it shipped. The switch now sits over whichever board it is switching, and the board tabs above it stay put, since those are what you press to change boards and should not move out from under the press.',
+      },
+      {
+        short: 'Its leaderboard is a list again, not two columns with a gap',
+        full:  'That board sits in a wide frame because the board beside it in the tabs is a stats table that needs every pixel. Its own content is one leaderboard, and it was being stretched to fill all of it: a player’s name sat at one end and her number at the other, about 1,200 pixels apart, which reads as two columns that happen to share a border rather than as a row. The list now keeps a sensible column width, the same one the schedule and standings pages use, and the board is centred on the page instead of pinned to its left edge with a third of the width empty beside it. Nothing changes on a phone, which was never wide enough for this to happen.',
+      },
+    ],
+  },
+  {
     version: '1.61.0',
     date:    '2026-09-02',
     title:   'The game card uses the screen it is on, and shows both teams at once',

@@ -9,7 +9,7 @@ import { trackingWorthShowing } from './tracking'
 import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
 import {
   TeamBadge, PlayerPortrait, ModalShell, SectionLabel, PillGroup, ExpandRow, NewDot,
-  CARD_BORDER, pressable, FOCUS_RING, useWpblName, hoverOnly, tappableIf } from './ui'
+  CARD_BORDER, pressable, FOCUS_RING, useWpblName, hoverOnly, tappableIf, chromePx } from './ui'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, wpblQualifiers, plateAppearances,
@@ -1110,6 +1110,26 @@ export default function WpblStatsView({
       {source !== 'draft' && source !== 'findings' && (
       <Box sx={{
         display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, rowGap: 1, pb: 1.5,
+        // THE SWITCH SITS OVER THE BOARD IT SWITCHES, which is not the same place on every
+        // board. This bar is full-bleed because the season table under it is, and on Players
+        // and Teams that is exactly right: the pills start level with the table's first
+        // column. On the boards whose content is the ordinary page column it was 255px to the
+        // left of everything it applies to, hanging off the edge of the page with the board
+        // beginning a quarter of the way across. Pitch by pitch has read that way since it
+        // shipped; Run value joined it when its own content stopped filling the bleed.
+        //
+        // Same `chromePx(720)` and the same centring as those boards use, so this is not a
+        // number to keep in step with them: it is the page column, and the row lands on the
+        // column's edges because that is what the column is. On a season board the cap is not
+        // applied at all and the row spans the bleed as before, which also keeps Sort and
+        // Filters hard against the table's right edge.
+        //
+        // It does mean the switch MOVES between boards, and the note above about the row
+        // keeping its shape was written about height rather than position. The trade is worth
+        // it: the row one nav above stays put, because that is the control you press to change
+        // boards and it cannot move out from under the press, while this one belongs to the
+        // board and follows it.
+        ...(source === 'season' ? {} : { maxWidth: chromePx(720), mx: 'auto', width: '100%' }),
       }}>
         {/* Two things, both about the switch staying put as the reader moves between boards.
             The note above claims the row keeps its shape on every board; on a desktop that was
@@ -1236,10 +1256,21 @@ export default function WpblStatsView({
             onOpenRunValue={() => { switchSource('runs'); setOpenRunValueHow(true) }} />
         </Suspense>
       ) : source === 'runs' ? (
-        // Full-bleed, like the season table and unlike the other boards. Its two columns are a
-        // table and a leaderboard side by side, which want the width; left in the 720px page
-        // column they sat visibly indented from the control bar directly above them, which is
-        // full-bleed itself.
+        // STILL FULL-BLEED, and the content inside it is capped and centred. The comment here
+        // used to justify the bleed by saying the board's two columns were a table and a
+        // leaderboard side by side, which wanted the width; that stopped being true when the
+        // how-it-works card came off the leaderboard's row. What is left is one sentence, one
+        // list and one collapsed explainer, and a list has nothing to spend width on.
+        //
+        // Dropping the bleed and letting the board sit in the page column looks identical on a
+        // desktop and is wrong on a PHONE, which is the part worth writing down. `FULL_BLEED_W`
+        // is `calc(100vw - 24px)` there, which is 351px on a 375px screen against the page
+        // column's 343: the bleed is the WIDER of the two below `sm`, not the narrower. Those
+        // 8px are real. Measured at the reader's Large text setting, losing them clipped two
+        // names off the leaderboard that fit before.
+        //
+        // So the box keeps the width at every size and `RunValueView` decides what to do with
+        // it: nothing on a phone, where the cap never binds, and a centred column on a desktop.
         <Box sx={fullBleedSx}>
           <Suspense fallback={<SubViewFallback />}>
             <WpblRunValueView side={side} teams={teams} games={games} onOpenPlayer={onOpenPlayer}

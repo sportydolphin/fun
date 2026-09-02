@@ -950,111 +950,52 @@ is retired.
 
 ## Shipped log
 
-### Sep 2, 2026: the game card takes the width the section gave it, and shows both clubs
+### Sep 2, 2026: the run value board keeps the width and stops filling it
 
-**A third raw-pixel box, and the one that was actually breaking something.** Reported from the
-phone: you could not read the play when you dragged a finger along the win probability chart.
-`CAPTION_H` was 64 raw pixels, "measured at 375px", reserving room for three rows of type in a
-flex column with a fixed height. It never moved for the desktop ramp or for Large text.
+**And the control row followed it, which turned out to be an older bug than this one.** The
+sticky bar is full-bleed because the season table under it is, and on Players and Teams that is
+exactly right: the Hitting/Pitching pills start level with the table's first column. On the
+boards whose content is the ordinary page column it sat 255px to the left of everything it
+applied to. Pitch by pitch has read that way since it shipped, at pills x=15 against content
+x=270; Run value only joined it when its own content stopped filling the bleed, which is what
+made it visible.
 
-It did not clip, which is why it survived a rebuild and an audit. `mt: auto` on the note pins the
-top and bottom rows, so a deficit lands entirely on whatever is between them, and what is between
-them is the play. Measured on the Aug 30 Firebells game, the play's line went from the 25px it
-needs to **9px on a desktop and 4px with Large text on**: not cut off at the edge, cut in half
-lengthways, so a reader sees the top third of the letters. The label above it and the note below
-it looked perfect the whole time.
+Row two now takes the same `chromePx(720)` and the same centring as those boards, so it is not a
+number to keep in step with them: it IS the page column. On a season board the cap is not applied
+and the row spans the bleed as before, which keeps Sort and Filters hard against the table's
+right edge. Row one, the board nav, deliberately does not move: it is the control you press to
+change boards and it cannot slide out from under the press.
 
-Now `4.25rem`, and the quarter is not padding for its own sake. The natural height is a shade
-under 4rem at every scale measured (4.00 on a phone, 3.89 at Large text, 4.00 on a desktop, 3.87
-at both), so 4rem would fit by nothing at all, and fitting by nothing at all is how it got here.
+The cost is that the switch now moves horizontally between boards, and the note on that row about
+it keeping its shape was written about height rather than position. Worth it: a control that
+hangs 255px off the side of what it controls is the worse of the two.
 
 
-Same class of work as the player card, and it started from the same kind of measurement. The
-card was 514px wide inside a 1440px window, 36% of it, while running 860 to 1009px tall inside a
-900px one. It overflowed vertically and had space to spare horizontally, which is the one
-combination a layout can always fix.
+Its `fullBleedSx` wrapper had two justifications in the comment and only one of them was still
+true. The board no longer has "two columns, a table and a leaderboard side by side": the
+how-it-works card came off that row and became a collapsed card underneath, so what is left is
+one sentence, one list and one explainer. A list has nothing to spend width on, and stretched
+across the full 1416px it put a player's name at x=126 and her number at x=1309, which is not a
+row, it is two columns that happen to share a border.
 
-**Two raw-pixel caps around type that had grown a quarter.** `maxWidth={520}` on the shell and
-`NAME_W = 150` on the box score's name column were both chosen when the section was drawn at
-phone scale, and neither moved when `/wpbl` went to a real desktop size. The name column is the
-one that showed: it went on holding what 150px held at 16px type while the names inside it grew,
-and a single Aug 30 box score came out with "Natsuki Yon…", "Elodie Ciam…" and "Claire O'Sulliv…"
-clipped. The first column of a box score is the last place to lose the end of a surname.
+Two of the three blocks already knew this, the sentence capping itself at `70ch` and the
+explainer at 620. Only the leaderboard filled the box. It now takes `chromePx(720)`, the
+section's own list measure, the same one Schedule, Standings and Teams use and the same one the
+game card's play-by-play took, and the whole board is CENTRED rather than left-aligned. Left is
+where this landed first and it was wrong: the board hung off the left edge with a third of the
+width empty beside it.
 
-`NAME_W` is a rem now, and its value was set against the whole roster rather than against the
-game that exposed it: all 119 names measured in that cell's own font at the desktop ramp,
-including the cell's 29px of padding and position badge. The median name needs 149px, the 90th
-percentile 183, the longest 248. At 10rem, which is 200px there, **116 of 119 fit**, and the three
-that do not (Flor Elena Valerio Montoya, Maria José Valenzuela, Bella Espinoza-Molina) ellipsize,
-which is what the cap is for and what it already documented itself as doing. The table did not
-get any wider to pay for it; the name column simply stopped being starved by stat columns that
-had no use for the space.
+**And the reason the bleed stays, which is the part worth writing down.** Centring a
+`chromePx(720)` column inside the bleed lands on exactly the page column's own edges, so
+dropping the bleed and using that column looks identical on a desktop. It is wrong on a PHONE.
+`FULL_BLEED_W` is `calc(100vw - 24px)` there, which is 351px on a 375px screen against the page
+column's 343: below `sm` the bleed is the WIDER of the two, not the narrower. Those 8px are
+real. Tried it, measured it at the reader's Large text setting, and it clipped two leaderboard
+names that fit before. So the box keeps the width at every size and the board decides what to do
+with it: nothing on a phone, where the cap never binds, and a centred column on a desktop.
 
-**And then the width bought something.** The box score showed one club at a time behind a switch,
-which was a decision about width rather than about baseball: at 520px the second club could only
-live behind a control. At `lg` both now sit side by side and the switch goes away with them, so
-comparing the two starting pitchers is a glance rather than two taps and a memory. Below `lg` it
-is exactly as it was.
-
-Rendered with CSS rather than a media-query hook, so both clubs are always in the DOM. That costs
-a second thirteen-row table and buys two things: no flash of the wrong club while a JS query
-settles on first paint, and the browser's own find-in-page reaching a player on the club you are
-not currently looking at, which on a phone it could not.
-
-**`lg` and not `md`, because two of those tables want about 474px each** and at `md` the viewport
-itself is only 900. So the middle band gets the scale correction alone, which is already a quarter
-more room than it had, and `lg` gets the layout. Three states, each right for its width: a phone
-sheet with the switch and abbreviated names, a 650px dialog with the switch and full names, and a
-1050px dialog with both clubs.
-
-**Play-by-play keeps a measure, and that is the same rule the section already settled.** It is a
-list, and a list has nothing to spend extra width on: stretched to the new card it put
-"TOP 1ST · NY BATTING" at one end of a thousand pixels and "1 run" at the other. Schedule,
-Standings and Teams hit exactly this in v1.58.0 and the answer was to size the column against its
-own type again, so this uses the same `chromePx(720)`. Recap and Box Score deliberately do not: a
-win-probability chart and two nine-column tables are the things that can use the room. The recap's
-three Stars of the Game were reading "A. Le…", "D. Be…" and "L. G…" and now have space.
-
-One edge left deliberately: at the reader's Large text setting, two side-by-side tables at 490px
-are tight and one of the four ends up about 8px over and scrolls inside its own wrapper. That is
-the escape hatch the table was built with. It is not the name column doing it, since capping the
-name harder does not move it, and narrowing the default layout for everyone to avoid it would be
-the wrong trade.
-
-### Sep 2, 2026: one treatment for the card's secondary blocks, and the sample stops outranking the record
-
-The last of the audit. The player card had three accent-ruled blocks that grew independently and
-picked three different answers to the same questions. `CameoBlock` was a static line,
-`FieldingLine` opened with a `+` that became a `−`, and `PitchLocationCard` opened with a
-rotating chevron. Their labels were set at 0.72rem, 0.72rem and 0.76rem, their summaries at 0.8,
-0.8 and 0.68, and the pitch card right-aligned its summary where the other two set theirs beside
-the label. Two of them are on screen at once on a desktop card, one per column, so the
-differences read as meaning something. They did not.
-
-`AccentPanel` in [`ui.tsx`](src/wpbl/ui.tsx) is now the one of them. A block with nothing to open
-passes no children and draws no control, which is what a cameo is. The chevron won over the `+`
-on the merits: a plus says "add" where the control reveals, and it is the one of the two that
-cannot show its own state without being read.
-
-**The chevron is centred and everything else is baseline-aligned**, which is worth writing down
-because it looks like a mistake in the source. The header row is `alignItems: baseline` so the
-label and the summary sit on one line at two sizes, and a CSS triangle is a zero-by-zero box with
-borders and therefore has no baseline to align to. `alignSelf: center` takes it out of that.
-
-**And the accent nearly died in the merge.** The panel set `borderLeft: 3px solid <club>` and then
-`borderColor: 'divider'` for the open state's bottom rule, and the shorthand repainted the left
-edge too, so every panel came out with a grey rule and the only thing tying the block to the club
-was gone. It was found by reading `borderLeftColor` off the computed style rather than by looking
-at it, which is the point worth keeping: a 3px grey rule still reads as a deliberate border at a
-glance. The bottom edge is now set long-hand.
-
-**The pitch plot moved under the game log.** It was the first thing in the right-hand column,
-which put the least complete thing on the card at the top of it: league pitch tracking reaches a
-handful of games, so the card's own summary line reads "44 pitches · 1 of 5 games", and every
-endpoint carrying that data went API-key gated on Sep 1, 2026, so the gap is not going to close. A
-complete record of every appearance outranks a sample of one of them. This also settles the last
-audit item on its own: the column now opens with a section heading, the same idiom the left rail
-opens with, instead of a bordered card sitting above a plain heading.
+The three blocks now measure 875, 858 and 546 in a column centred on the page, against 875, 1416
+and 620 hard against its left edge, and the gap inside a leaderboard row goes from 1183px to 668.
 
 ### Sep 2, 2026: the card stops saying a rank twice, and stops calling centre field a pitcher's glove
 
