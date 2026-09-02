@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
-import { SectionCard, TeamBadge, FOCUS_RING } from './ui'
+import { SectionCard, TeamBadge, FOCUS_RING, TAPPABLE } from './ui'
 import { useWpblTeamLink } from './LinkContext'
 import { headToHead } from './derive/matchups'
 import type { WpblTeam, WpblGame, WpblStandingRow } from './types'
@@ -93,7 +93,7 @@ export default function HeadToHead({ rows, games, onSelect, title = 'Head to hea
                 <Box {...teamLink(rowTeam, () => onSelect(rowTeam))} sx={{
                   ...FOCUS_RING,
                   display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer',
-                  borderRadius: 1, py: 0.4, '&:hover': { bgcolor: 'action.hover' },
+                  borderRadius: 1, py: 0.4, ...TAPPABLE,
                 }}>
                   <TeamBadge team={rowTeam} size={20} />
                   {/* The abbreviation is all a phone can hold. A wide screen has room the

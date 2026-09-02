@@ -286,3 +286,20 @@ h1 { margin: 0 0 8px 0; }
   transition-delay: 0ms !important;
   scroll-behavior: auto !important;
 }
+
+/* ── The grey box a phone draws on every tap ────────────────────────────────────
+   WebKit and Blink paint a translucent rectangle over whatever you touch, and on this app it
+   is wrong twice: it is a RECTANGLE over cards with a 12px radius, so it corners them, and it
+   fires on the card headers people tap most (Last Game, Road to the title), where the thing
+   being tapped is the whole 340px-wide header rather than a word.
+
+   Removed here rather than per component because there are 76 tappable boxes in the WPBL
+   section alone, and a highlight that only some of them suppress is worse than one nobody
+   does. What replaces it is a real pressed state, `TAPPABLE` in src/wpbl/ui.tsx, which tints
+   only while the finger is down and follows the element's own rounded corners.
+
+   `transparent` and not `rgba(0,0,0,0)`: some older Android WebViews treat a fully transparent
+   colour as "unset" and paint the default anyway, and the keyword is the spelling they honour. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}

@@ -277,6 +277,28 @@ export function FormDots({ recent, gap = 4 }: { recent: ('W' | 'L')[]; gap?: num
  *  At this scale they are a pixel or two either way, and a 1px border that stays 1px is
  *  sharper than one the zoom used to render at 1.4.
  */
+/**
+ * What a tappable box should feel like, on both kinds of pointer.
+ *
+ * A BARE `&:hover` IS A BUG ON A TOUCHSCREEN. A phone has no hover, so it applies the state on
+ * TAP and leaves it there: expand a card and its header stays tinted until you happen to touch
+ * something else, which reads as "still selected" or as a stuck control rather than as the
+ * momentary feedback it was written to be. That is what this app did on every card header.
+ *
+ * So hover is gated to devices that actually hover, and touch gets `:active` instead: the same
+ * tint, but only while the finger is down, which is the honest version of the same idea. The
+ * browser's own tap highlight is off (see styles.css), so without an `:active` this would be a
+ * control that gives no feedback at all, which is the other way to get this wrong.
+ *
+ * Spread it in place of a hover block: `sx={{ ...TAPPABLE, ...rest }}`.
+ */
+export const TAPPABLE = {
+  '@media (hover: hover) and (pointer: fine)': {
+    '&:hover': { bgcolor: 'action.hover' },
+  },
+  '&:active': { bgcolor: 'action.hover' },
+} as const
+
 export const chromePx = (px: number) => `calc(${px}px * var(--app-chrome, 1))`
 
 /**
@@ -914,7 +936,7 @@ export function SectionCard({ icon, title, subtitle, action, collapsed, onToggle
         }) : undefined}
         sx={{
           px: 2, pt: 1.25, pb: collapsed ? 1.25 : 1, display: 'flex', alignItems: 'center', gap: 1,
-          ...(collapsible ? { cursor: 'pointer', userSelect: 'none', '&:hover': { bgcolor: 'action.hover' } } : {}),
+          ...(collapsible ? { cursor: 'pointer', userSelect: 'none', ...TAPPABLE } : {}),
         }}
       >
         {icon != null && <Box sx={{ fontSize: '1.1rem', lineHeight: 1, flexShrink: 0 }}>{icon}</Box>}

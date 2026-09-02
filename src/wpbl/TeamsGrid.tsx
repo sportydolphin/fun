@@ -138,7 +138,11 @@ function TeamCard({ row, rank, ranked, fixture, onOpen }: {
       borderLeft: '3px solid', borderLeftColor: accent,
       bgcolor: 'background.paper',
       transition: 'border-color 0.15s',
-      '&:hover': { borderColor: accent },
+      // Gated, and given a touch equivalent: on a phone a bare :hover latches on tap, so the
+      // card a reader opened stayed ringed in its club colour behind them, reading as selected.
+      // Same tint, on the pointer that can actually express it.
+      '@media (hover: hover) and (pointer: fine)': { '&:hover': { borderColor: accent } },
+      '&:active': { borderColor: accent },
     }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
         {ranked && (

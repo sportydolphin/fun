@@ -13,7 +13,7 @@ import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameS
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { WPBL_LEAGUE_PAGE, WPBL_PATH_EVENT } from './routes'
 import { useWpblHeadingTag } from './PageHeading'
-import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, FormDots, WPBL_WIN, WPBL_LOSS, MICRO_TEXT } from './ui'
+import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, FormDots, WPBL_WIN, WPBL_LOSS, MICRO_TEXT, TAPPABLE } from './ui'
 import { LiveHero } from './Live'
 import PlayoffBracket from './PlayoffBracket'
 import {
@@ -502,7 +502,7 @@ function GameReminderRow({ game, away, home, startMs }: {
         sx={{
           mt: 0.75, pt: 1, borderTop: '1px solid', borderColor: 'divider',
           display: 'flex', alignItems: 'center', gap: 1,
-          cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },
+          cursor: 'pointer', borderRadius: 1, ...TAPPABLE,
         }}
       >
         <EventAvailableOutlined sx={{ fontSize: '1.15rem', flexShrink: 0, color: 'var(--wpbl-accent-fg)' }} />
@@ -558,7 +558,7 @@ function GameReminderRow({ game, away, home, startMs }: {
       sx={{
         mt: 0.75, pt: 1, borderTop: '1px solid', borderColor: 'divider',
         display: 'flex', alignItems: 'center', gap: 1,
-        ...(!user ? { cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: 'action.hover' } } : {}),
+        ...(!user ? { cursor: 'pointer', borderRadius: 1, ...TAPPABLE } : {}),
       }}
     >
       <Icon sx={{ fontSize: '1.15rem', flexShrink: 0, color: on ? WPBL_ACCENT : 'text.disabled' }} />
@@ -797,7 +797,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
           it above and below rather than dropping it in one hole. With the card nearly full it
           is a few pixels either side, but it keeps the card even if the series line drops out,
           which it does the first time two clubs meet. */}
-      <Box {...gameLink(g, onOpenGame)} sx={{ cursor: 'pointer', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', borderRadius: 1, p: 0.5, mx: -0.5, '&:hover': { bgcolor: 'action.hover' } }}>
+      <Box {...gameLink(g, onOpenGame)} sx={{ cursor: 'pointer', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', borderRadius: 1, p: 0.5, mx: -0.5, ...TAPPABLE }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1 }}>
           {teamRow(away, 'AWAY')}
           {teamRow(home, 'HOME')}
@@ -931,7 +931,7 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
             display: { xs: i < LEADER_ROWS ? 'flex' : 'none', md: 'flex' },
             alignItems: 'center', gap: isTop ? 1 : 0.75,
             py: isTop ? 0.55 : 0.4, cursor: 'pointer',
-            borderRadius: 1, '&:hover': { bgcolor: 'action.hover' },
+            borderRadius: 1, ...TAPPABLE,
           }}>
             <Typography sx={{ width: '0.875rem', flexShrink: 0, textAlign: 'center', fontSize: isTop ? '0.8rem' : '0.7rem', fontWeight: 800, color: RANK_MEDAL[rank - 1] ?? 'text.disabled' }}>{rank}</Typography>
             {isTop

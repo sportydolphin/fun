@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
-import { SectionCard, PlayerPortrait, TeamBadge, useWpblDark, FittedName, CARD_BORDER, MICRO_TEXT } from './ui'
+import { SectionCard, PlayerPortrait, TeamBadge, useWpblDark, FittedName, CARD_BORDER, MICRO_TEXT, TAPPABLE } from './ui'
 import { wpblAccent, relativeDayShort, WPBL_TEAMS } from './constants'
 import { useWpblPlayerLink } from './LinkContext'
 import { fmtMvpRuns, type MvpCandidate, type MvpRace as MvpRaceData } from './derive/mvpRace'
@@ -150,7 +150,7 @@ function CandidateRow({ c, rank, color, dashed, stats, fmtEra, onOpenPlayer }: {
     <Box {...link} sx={{
       display: 'flex', alignItems: 'center', gap: 1, py: 0.3, px: 0.5, mx: -0.5,
       borderRadius: 1, cursor: c.player ? 'pointer' : 'default',
-      ...(c.player ? { '&:hover': { bgcolor: 'action.hover' } } : {}),
+      ...(c.player ? TAPPABLE : {}),
     }}>
       {/* The swatch ties the row to its curve below, and is the chart's only legend. Matches
           the stroke exactly, dash included, because when both candidates play for the same
