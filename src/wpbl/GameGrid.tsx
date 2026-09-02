@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, useMediaQuery } from '@mui/material'
-import { pressable, FOCUS_RING, wpblNameStages } from './ui'
+import { pressable, FOCUS_RING, wpblNameStages, tappableIf } from './ui'
 
 /**
  * The scrolling game-by-game grid shared by the lineup-history and pitching-usage cards:
@@ -236,7 +236,7 @@ export default function GameGrid({ columns, rows, renderCell, colWidthRem, nameW
               display: 'flex', alignItems: 'stretch',
               borderTop: '1px solid', borderColor: 'divider',
               cursor: r.onClick ? 'pointer' : 'default',
-              '&:hover': r.onClick ? { bgcolor: 'action.hover' } : undefined,
+              ...tappableIf(r.onClick),
               // The row scrolls sideways inside the grid, so a focus ring drawn at its own
               // edges can sit off-screen. Keeping the pinned name column in view is what
               // makes tabbing through legible.

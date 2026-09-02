@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, speedUnit } from '../lib/units'
 import type { WpblPitchLoc } from './api'
-import { chromePx } from './ui'
+import { chromePx, TAPPABLE } from './ui'
 
 // Pitch-location plots for a pitcher: one combined strike zone (all pitches, colored by
 // pitch type) plus small multiples — a mini zone per pitch type. Locations come from the
@@ -127,7 +127,7 @@ export function PitchLocationCard({ rows, accent, gamesPitched }: { rows: WpblPi
         sx={{
           display: 'flex', alignItems: 'center', gap: 1, px: 1.75, py: 0.9, cursor: 'pointer',
           borderBottom: open ? '1px solid' : 'none', borderColor: 'divider', borderLeft: `3px solid ${accent}`,
-          '&:hover': { bgcolor: 'action.hover' },
+          ...TAPPABLE,
         }}
       >
         <Typography sx={{ fontSize: '0.76rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6, flexShrink: 0 }}>Pitch locations</Typography>

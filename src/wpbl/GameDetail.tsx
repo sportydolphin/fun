@@ -14,7 +14,7 @@ import { useExperiments } from '../ExperimentsContext'
 import { useWpblPlayerLink } from './LinkContext'
 import { WpblVisuallyHiddenH1 } from './PageHeading'
 import { wpblGameCard } from './ogCard'
-import { ModalShell, SegNav, TapTip, TeamBadge, pressable, FOCUS_RING, useWpblDark, useWpblName, wpblFeatureName } from './ui'
+import { ModalShell, SegNav, TapTip, TeamBadge, pressable, FOCUS_RING, useWpblDark, useWpblName, wpblFeatureName, TAPPABLE } from './ui'
 import SwipeableViews from './SwipeableViews'
 import { parsePlay, runsOnPlay } from './derive/playByPlay'
 import { useUnits } from '../UnitsContext'
@@ -244,7 +244,7 @@ function Scoreboard({ away, home, game, awayWon, homeWon, onOpenTeam }: {
               display: 'flex', width: 'fit-content', alignItems: 'center', gap: 0.75, minWidth: 0,
               ...(onOpenTeam ? {
                 cursor: 'pointer', borderRadius: 1, mx: -0.5, px: 0.5,
-                '&:hover': { bgcolor: 'action.hover' },
+                ...TAPPABLE,
                 ...FOCUS_RING,
               } : {}),
             }}
@@ -1147,7 +1147,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
           flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 1,
           ...(team && onOpenTeam ? {
             cursor: 'pointer', borderRadius: 1.5, mx: -0.75, px: 0.75, py: 0.25,
-            '&:hover': { bgcolor: 'action.hover' },
+            ...TAPPABLE,
             ...FOCUS_RING,
           } : {}),
         }}

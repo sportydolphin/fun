@@ -13,7 +13,7 @@ import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameS
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { WPBL_LEAGUE_PAGE, WPBL_PATH_EVENT } from './routes'
 import { useWpblHeadingTag } from './PageHeading'
-import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, FormDots, WPBL_WIN, WPBL_LOSS, MICRO_TEXT, TAPPABLE } from './ui'
+import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, FormDots, WPBL_WIN, WPBL_LOSS, MICRO_TEXT, TAPPABLE, hoverOnly } from './ui'
 import { LiveHero } from './Live'
 import PlayoffBracket from './PlayoffBracket'
 import {
@@ -141,7 +141,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
       flexShrink: 0, width: '8.5rem', cursor: 'pointer',
       borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
       p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
-      transition: 'border-color 0.15s', '&:hover': { borderColor: 'text.disabled' },
+      transition: 'border-color 0.15s', ...hoverOnly({ borderColor: 'text.disabled' }),
     }}>
       <Typography sx={{
         fontSize: MICRO_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5,
@@ -1230,7 +1230,7 @@ function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView
         borderRadius: 2, border: '1.5px solid', borderColor: WPBL_ACCENT,
         bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.015)',
         transition: 'background-color 0.15s',
-        '&:hover': { bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)' },
+        ...hoverOnly({ bgcolor: 'action.hover' }),
       }}
     >
       <Box sx={{ fontSize: '1.35rem', lineHeight: 1, flexShrink: 0 }}>📡</Box>
@@ -1252,7 +1252,7 @@ function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView
         sx={{
           flexShrink: 0, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center',
           borderRadius: '50%', color: 'text.secondary', fontSize: '0.85rem', lineHeight: 1,
-          '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+          ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }),
         }}
       >
         ✕
@@ -1305,10 +1305,10 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
         borderRadius: 3, border: '1.5px solid', borderColor: `${DISCORD_BLURPLE}66`,
         bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(88,101,242,0.09)' : 'rgba(88,101,242,0.06)',
         transition: 'background-color 0.15s, border-color 0.15s',
-        '&:hover': {
-          bgcolor: theme => theme.palette.mode === 'dark' ? 'rgba(88,101,242,0.18)' : 'rgba(88,101,242,0.12)',
+        ...hoverOnly({
+          bgcolor: 'rgba(88,101,242,0.18)',
           borderColor: DISCORD_BLURPLE,
-        },
+        }),
       }}
     >
       <Box sx={{ width: 34, height: 34, borderRadius: '50%', bgcolor: DISCORD_BLURPLE, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -1350,7 +1350,7 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
           flexShrink: 0, width: chromePx(28), height: chromePx(28), ml: 0, mr: -1,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           borderRadius: '50%', color: 'text.disabled', fontSize: '0.8rem', lineHeight: 1,
-          '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+          ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }),
         }}
       >
         ✕
@@ -1405,7 +1405,7 @@ function LeagueCard() {
         display: 'flex', alignItems: 'center', gap: 1.5, textDecoration: 'none',
         border: '1px solid', borderColor: CARD_BORDER, borderRadius: 3,
         bgcolor: 'background.paper', px: 2, py: 1.75,
-        '&:hover': { borderColor: 'var(--wpbl-accent-solid)' },
+        ...hoverOnly({ borderColor: 'var(--wpbl-accent-solid)' }),
       }}
     >
       <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -1612,7 +1612,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
                 cursor: 'pointer', userSelect: 'none',
                 border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
                 transition: 'border-color 0.15s, transform 0.1s',
-                '&:hover': { borderColor: wpblColor(t.id) },
+                ...hoverOnly({ borderColor: wpblColor(t.id) }),
                 '&:active': { transform: 'scale(0.94)' },
               }}
             >

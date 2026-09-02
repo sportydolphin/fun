@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ModalShell, CARD_BORDER, useRailPaging, RailArrow, RailScroller } from './ui'
+import { ModalShell, CARD_BORDER, useRailPaging, RailArrow, RailScroller, hoverOnly } from './ui'
 import type { WpblPhoto } from './types'
 import { track, EVENTS } from '../lib/analytics'
 
@@ -144,7 +144,7 @@ function RailCard({ photo, onOpen }: { photo: WpblPhoto; onOpen: () => void }) {
         flexShrink: 0, width: { xs: 232, sm: 248 }, cursor: 'pointer', scrollSnapAlign: 'start',
         borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: CARD_BORDER,
         bgcolor: 'background.paper', transition: 'transform 0.1s, border-color 0.15s',
-        '&:hover': { borderColor: 'text.disabled' },
+        ...hoverOnly({ borderColor: 'text.disabled' }),
         '&:active': { transform: 'scale(0.985)' },
         '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
       }}
@@ -277,7 +277,7 @@ export function PhotosGallery({ photos, onClose }: { photos: WpblPhoto[]; onClos
                     borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover',
                     border: '1px solid', borderColor: CARD_BORDER,
                     transition: 'border-color 0.15s, transform 0.1s',
-                    '&:hover': { borderColor: 'text.disabled' },
+                    ...hoverOnly({ borderColor: 'text.disabled' }),
                     '&:active': { transform: 'scale(0.99)' },
                     '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
                   }}

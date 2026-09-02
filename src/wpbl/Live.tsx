@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { fetchWpblGameLive, LIVE_POLL_MS } from './api'
 import { wpblAccent, wpblFullName } from './constants'
-import { TeamBadge, useWpblDark } from './ui'
+import { TeamBadge, useWpblDark, hoverOnly } from './ui'
 import type { WpblTeam, WpblGame, WpblLineScoreEntry, WpblLiveState } from './types'
 
 // Feed-driven live views. The official feed's boxscore `status` is mirrored onto the game
@@ -247,7 +247,7 @@ export function LiveHero({ game: seed, teams, onOpen }: { game: WpblGame; teams:
         <Box onClick={onOpen} sx={{
           display: 'inline-flex', alignItems: 'center', gap: 0.4, cursor: 'pointer',
           fontSize: '0.66rem', fontWeight: 800, color: '#fff', px: 1.1, py: 0.35, borderRadius: 999, bgcolor: LIVE_RED,
-          '&:hover': { bgcolor: '#dc2626' },
+          ...hoverOnly({ bgcolor: '#dc2626' }),
         }}>Game Center →</Box>
       </Box>
 

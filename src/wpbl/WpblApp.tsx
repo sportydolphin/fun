@@ -7,7 +7,7 @@ import {
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
 import { wpblPortrait } from './portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from './positions'
-import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, chromePx } from './ui'
+import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, chromePx, hoverOnly, tappableIf } from './ui'
 import { useSearchBridge, updateSearchBridge, setSearchQuery } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import { getWpblRecents, mergeWpblRecent, setWpblRecents, type WpblRecentItem } from './recentSearches'
@@ -253,7 +253,7 @@ function ScheduleView({ teams, games, onOpenGame }: {
               // action.hover is too faint against the dark paper, so use a stronger explicit tint there.
               borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
               bgcolor: final ? (isDark ? 'rgba(255,255,255,0.09)' : 'action.hover') : 'background.paper',
-              transition: 'border-color 0.15s', '&:hover': { borderColor: 'text.disabled' },
+              transition: 'border-color 0.15s', ...hoverOnly({ borderColor: 'text.disabled' }),
             }}>
              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
               <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -403,7 +403,7 @@ function StandingsView({ teams, games, onOpenTeam }: {
             return (
               <Box component="tr" key={r.team.id}
                 onClick={clickable ? () => onOpenTeam!(r.team) : undefined}
-                sx={{ borderTop: '1px solid', borderColor: 'divider', cursor: clickable ? 'pointer' : 'default', '&:hover': clickable ? { bgcolor: 'action.hover' } : undefined }}>
+                sx={{ borderTop: '1px solid', borderColor: 'divider', cursor: clickable ? 'pointer' : 'default', ...tappableIf(clickable) }}>
                 <Box component="td" sx={{ ...td, textAlign: 'left', pl: 1.25 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
                     <TeamBadge team={r.team} size={24} />

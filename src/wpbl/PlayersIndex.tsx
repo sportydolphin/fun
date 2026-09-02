@@ -15,7 +15,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblTeams, fetchWpblAllPlayers } from './api'
 import { wpblFullName } from './constants'
-import { TeamBadge, CARD_BORDER } from './ui'
+import { TeamBadge, CARD_BORDER, TAPPABLE, hoverOnly } from './ui'
 import { wpblPlayerPath } from './routes'
 import type { WpblTeam, WpblPlayer } from './types'
 
@@ -72,7 +72,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
           color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700,
           px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider',
           bgcolor: 'background.paper',
-          '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
+          ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }),
         }}
       >← Back to WPBL</Box>
 
@@ -123,7 +123,7 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
                     fontSize: '0.9rem', fontWeight: 600,
                     px: 1, py: 0.75, borderRadius: 1,
                     display: 'flex', alignItems: 'baseline', gap: 0.75,
-                    '&:hover': { bgcolor: 'action.hover' },
+                    ...TAPPABLE,
                   }}
                 >
                   <Box component="span">{p.name}</Box>

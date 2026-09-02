@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { fetchWpblAllLines, getCachedWpblAllLines } from './api'
-import { TeamBadge, useWpblDark, pressable, FOCUS_RING, MICRO_TEXT } from './ui'
+import { TeamBadge, useWpblDark, pressable, FOCUS_RING, MICRO_TEXT, TAPPABLE } from './ui'
 import { wpblAccent, wpblFullName } from './constants'
 import {
   computeWpblTeamStats, WPBL_TEAM_STAT_DEFS,
@@ -208,7 +208,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
         flexDirection: align === 'right' ? 'row-reverse' : 'row',
         ...(onOpenTeam ? {
           cursor: 'pointer', borderRadius: 1, mx: -0.5, px: 0.5, py: 0.25,
-          '&:hover': { bgcolor: 'action.hover' },
+          ...TAPPABLE,
           ...FOCUS_RING,
         } : {}),
       }}

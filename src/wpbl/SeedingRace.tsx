@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
-import { SectionCard, TeamBadge, pressable, FOCUS_RING, chromePx, useWpblDark } from './ui'
+import { SectionCard, TeamBadge, pressable, FOCUS_RING, chromePx, useWpblDark, tappableIf } from './ui'
 import { wpblAccentFg, wpblFullName, relativeDayLabel } from './constants'
 import { seedingRace, semifinalLabel, bracketIsSet, swingGames } from './derive/seeding'
 import type { WpblSeedRow } from './derive/seeding'
@@ -188,7 +188,7 @@ export default function SeedingRace({ rows, games, onOpenTeam }: {
                 display: 'flex', alignItems: 'center', gap: 0.75, px: 0.5, py: 0.85,
                 borderTop: '1px solid', borderColor: 'divider',
                 cursor: onOpenTeam ? 'pointer' : 'default',
-                '&:hover': onOpenTeam ? { bgcolor: 'action.hover' } : undefined,
+                ...tappableIf(onOpenTeam),
                 ...FOCUS_RING,
               }}
             >

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, useMediaQuery } from '@mui/material'
-import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark } from './ui'
+import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark, tappableIf } from './ui'
 import { wpblAccent } from './constants'
 import { buildBracket, seriesDateLine } from './derive/bracket'
 import type { BracketSeries, BracketEntrant, WpblBracket } from './derive/bracket'
@@ -87,7 +87,7 @@ function SeriesTeamRow({ entrant, series, leading, onOpenTeam, from, placeholder
       sx={{
         display: 'flex', alignItems: 'center', gap: 0.9, px: 1, py: 0.85, minWidth: 0,
         cursor: onOpenTeam ? 'pointer' : 'default',
-        '&:hover': onOpenTeam ? { bgcolor: 'action.hover' } : undefined,
+        ...tappableIf(onOpenTeam),
         // The club that is through, or ahead, carries the only weight in the box. Everything
         // else stays flat so the eye lands on it without reading the numbers.
         opacity: series.winner && series.winner.id !== team.id ? 0.5 : 1,
@@ -393,7 +393,7 @@ function TitleOddsStrip({ odds, onOpenTeam }: {
               sx={{
                 display: 'flex', alignItems: 'center', gap: 0.9, minWidth: 0,
                 cursor: onOpenTeam ? 'pointer' : 'default', borderRadius: 1, px: 0.5, py: 0.3,
-                '&:hover': onOpenTeam ? { bgcolor: 'action.hover' } : undefined,
+                ...tappableIf(onOpenTeam),
                 ...FOCUS_RING,
               }}
             >

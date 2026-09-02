@@ -6,7 +6,7 @@ import { computeWpblPlayerRanks, ordinal, type WpblStatRank, type WpblPlayerRank
 import { useEraBasis } from './EraBasisContext'
 import type { EraBasis } from './stats'
 import { wpblAccent, wpblColor, wpblSecondary, wpblFullName, outsToIp } from './constants'
-import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, SegNav, useWpblDark, chromePx } from './ui'
+import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, SegNav, useWpblDark, chromePx, TAPPABLE } from './ui'
 import SwipeableViews from './SwipeableViews'
 import { WrittenAbout } from './Reading'
 import { PitchLocationCard } from './PitchLocation'
@@ -469,7 +469,7 @@ function FieldingLine({ ft, color }: { ft: ReturnType<typeof sumFielding>; color
         role="button" tabIndex={0} aria-expanded={open}
         sx={{
           display: 'flex', alignItems: 'baseline', gap: 1.25, px: 1.5, py: 1, cursor: 'pointer',
-          '&:hover': { bgcolor: 'action.hover' },
+          ...TAPPABLE,
           '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: -2 },
         }}
       >
@@ -612,7 +612,7 @@ function GameLogTable({ title, statHeaders, rows, best, accent }: {
                 } : {})}
                 sx={r.onOpen ? {
                   cursor: 'pointer',
-                  '&:hover': { bgcolor: 'action.hover' },
+                  ...TAPPABLE,
                   // Inset, because an outline drawn outside a table row is clipped by the
                   // log's own scroller on the two rows that matter most, the first and last.
                   '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: '-2px' },

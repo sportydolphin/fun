@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { ModalShell, TeamBadge, CARD_BORDER, useRailPaging, RailArrow, RailScroller, chromePx } from './ui'
+import { ModalShell, TeamBadge, CARD_BORDER, useRailPaging, RailArrow, RailScroller, chromePx, hoverOnly } from './ui'
 import { readMinutes, authorPhoto, AUTHOR_BIO, AUTHOR_NAME, PUBLICATION_NAME, PUBLICATION_URL } from './derive/articles'
 import type { WpblArticle, WpblTeam } from './types'
 import { track, EVENTS } from '../lib/analytics'
@@ -93,7 +93,7 @@ function RailCard({ article, teamById }: { article: WpblArticle; teamById: Map<s
         flexShrink: 0, width: { xs: 232, sm: 248 }, scrollSnapAlign: 'start',
         borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: CARD_BORDER,
         bgcolor: 'background.paper', transition: 'transform 0.1s, border-color 0.15s',
-        '&:hover': { borderColor: 'text.disabled' },
+        ...hoverOnly({ borderColor: 'text.disabled' }),
         '&:active': { transform: 'scale(0.985)' },
         '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
       }}
@@ -181,7 +181,7 @@ export function AuthorByline({ compact, from }: { compact?: boolean; from: Readi
         display: 'flex', alignItems: 'center', gap: 1.25, textDecoration: 'none', color: 'inherit',
         p: 1, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
         transition: 'border-color 0.15s, background 0.15s',
-        '&:hover': { borderColor: 'text.disabled', bgcolor: 'action.hover' },
+        ...hoverOnly({ borderColor: 'text.disabled', bgcolor: 'action.hover' }),
         '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
       }}
     >
@@ -304,7 +304,7 @@ function ArchiveRow({ article, teamById }: { article: WpblArticle; teamById: Map
         p: 1.25, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER,
         bgcolor: 'background.paper',
         transition: 'border-color 0.15s, background 0.15s',
-        '&:hover': { borderColor: 'text.disabled', bgcolor: 'action.hover' },
+        ...hoverOnly({ borderColor: 'text.disabled', bgcolor: 'action.hover' }),
         '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
       }}
     >
@@ -387,7 +387,7 @@ export function GameStoryCard({ article }: { article: WpblArticle }) {
         display: 'flex', alignItems: 'center', gap: 1.25, textDecoration: 'none', color: 'inherit',
         p: 1, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
         transition: 'border-color 0.15s, background 0.15s',
-        '&:hover': { borderColor: 'text.disabled', bgcolor: 'action.hover' },
+        ...hoverOnly({ borderColor: 'text.disabled', bgcolor: 'action.hover' }),
         '&:active': { transform: 'scale(0.99)' },
         '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
       }}
@@ -461,7 +461,7 @@ export function WrittenAbout({ articles, title, limit = 5, from = 'player', wide
               display: 'block', textDecoration: 'none', color: 'inherit',
               p: 1, borderRadius: 1.5, border: '1px solid', borderColor: CARD_BORDER,
               transition: 'border-color 0.15s, background 0.15s',
-              '&:hover': { borderColor: 'text.disabled', bgcolor: 'action.hover' },
+              ...hoverOnly({ borderColor: 'text.disabled', bgcolor: 'action.hover' }),
               '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
             }}
           >

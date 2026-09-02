@@ -292,12 +292,20 @@ export function FormDots({ recent, gap = 4 }: { recent: ('W' | 'L')[]; gap?: num
  *
  * Spread it in place of a hover block: `sx={{ ...TAPPABLE, ...rest }}`.
  */
-export const TAPPABLE = {
-  '@media (hover: hover) and (pointer: fine)': {
-    '&:hover': { bgcolor: 'action.hover' },
-  },
-  '&:active': { bgcolor: 'action.hover' },
-} as const
+export function hoverOnly<T extends object>(styles: T) {
+  return {
+    '@media (hover: hover) and (pointer: fine)': { '&:hover': styles },
+    // The same styles while the finger is down. A touch device gets no hover and, since the
+    // browser's tap highlight is off (styles.css), would otherwise get no feedback at all.
+    '&:active': styles,
+  }
+}
+
+/** The common case: the standard row tint. */
+export const TAPPABLE = hoverOnly({ bgcolor: 'action.hover' })
+
+/** For rows that are only tappable sometimes ("open her page, if we resolved a player"). */
+export const tappableIf = (on: unknown) => (on ? TAPPABLE : {})
 
 export const chromePx = (px: number) => `calc(${px}px * var(--app-chrome, 1))`
 
@@ -681,8 +689,15 @@ export function RailArrow({ dir, show, onClick, label }: {
         boxShadow: '0 2px 8px rgba(0,0,0,0.28)', color: 'text.primary',
         opacity: show ? 1 : 0, pointerEvents: show ? 'auto' : 'none',
         transition: 'opacity 0.15s, background 0.15s',
-        '&:hover': { bgcolor: 'action.hover' },
-        '@media (hover: hover) and (pointer: fine)': { display: 'flex' },
+        // NOT `...TAPPABLE`, and the reason is one line down: this control only EXISTS on a
+        // hover-capable pointer, and its own media block carries that. Spreading TAPPABLE here
+        // writes the same media key and the `display: flex` below then overwrites it, silently
+        // dropping the hover it was added for. A touch device never sees this arrow, so there
+        // is no touch state to give it; the hover belongs inside the one gate it already has.
+        '@media (hover: hover) and (pointer: fine)': {
+          display: 'flex',
+          ...TAPPABLE,
+        },
       }}
     >
       <Box sx={{
@@ -756,7 +771,7 @@ export function LeaderRow({ rank, player, name, teamId, value, unit, sub, accent
         // leaderboard with a finger and whichever row you happened to start on stays lit for
         // the rest of the scroll, which reads as a selection nobody made.
         '@media (hover: hover)': {
-          '&:hover': clickable ? { bgcolor: 'action.hover' } : undefined,
+          ...tappableIf(clickable),
         },
       }}
     >
@@ -997,11 +1012,11 @@ export function ExpandRow({ expanded, moreLabel, onToggle, flush }: {
     <Box {...pressable(onToggle)} aria-expanded={expanded} sx={{
       ...FOCUS_RING,
       minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5,
-      cursor: 'pointer', userSelect: 'none', WebkitTapHighlightColor: 'transparent',
+      cursor: 'pointer', userSelect: 'none',
       ...(flush ? { mx: -2, mb: -1.5, mt: 0.5 } : {}),
       borderTop: '1px solid', borderColor: 'divider',
       fontSize: '0.78rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
-      '@media (hover: hover)': { '&:hover': { bgcolor: 'action.hover' } },
+      ...TAPPABLE,
     }}>
       {expanded ? 'Show fewer' : moreLabel}
       <Box component="span" sx={{ fontSize: '0.66rem' }}>{expanded ? '▴' : '▾'}</Box>
@@ -1113,7 +1128,7 @@ export function CopyLinkButton({ url, title = 'Copy link' }: { url: string; titl
         // Confirmation is the accent, failure is the theme's error colour, and idle recedes
         // to match the close button beside it.
         color: state === 'copied' ? wpblAccentFg(isDarkCopy) : state === 'failed' ? 'error.main' : 'text.disabled',
-        '&:hover': { bgcolor: 'action.hover', color: state === 'idle' ? 'text.primary' : undefined },
+        ...hoverOnly({ bgcolor: 'action.hover', color: state === 'idle' ? 'text.primary' : undefined }),
         transition: 'color 0.15s',
       }}
     >
@@ -1503,7 +1518,7 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
               flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', color: 'text.disabled',
-              '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+              ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }),
               ...FOCUS_RING,
             }}
           >

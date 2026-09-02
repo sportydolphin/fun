@@ -4,7 +4,7 @@ import { ArrowBackRounded, GridViewRounded } from '@mui/icons-material'
 import { fetchWpblRoster, fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, computeStandings } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
-import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, pressable, FOCUS_RING, useWpblDark, useWpblName, CARD_BORDER } from './ui'
+import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, pressable, FOCUS_RING, useWpblDark, useWpblName, CARD_BORDER, TAPPABLE, hoverOnly } from './ui'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, fmtRate, fmtTwo,
   type WpblBattingTotals, type WpblPitchingTotals,
@@ -99,7 +99,7 @@ function ScheduleRow({ game, teamId, teamById, onOpenGame }: {
     <Box {...gameLink(game, onOpenGame)} sx={{
       display: 'flex', alignItems: 'center', gap: 1, py: 0.85, cursor: 'pointer',
       borderTop: '1px solid', borderColor: 'divider', '&:first-of-type': { borderTop: 'none' },
-      borderRadius: 1, '&:hover': { bgcolor: 'action.hover' }, ...FOCUS_RING,
+      borderRadius: 1, ...TAPPABLE, ...FOCUS_RING,
     }}>
       <Typography sx={{ width: '2.875rem', fontSize: '0.7rem', fontWeight: 700, color: 'text.disabled', flexShrink: 0 }}>
         {new Date(`${game.game_date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })}
@@ -146,7 +146,7 @@ function LeaderList({ label, rows, accent, onOpenPlayer }: {
       {rows.map((r, i) => (
         <Box key={r.player.id} {...playerLink(r.player, onOpenPlayer)} sx={{
           display: 'flex', alignItems: 'center', gap: 0.75, py: 0.4, cursor: 'pointer',
-          borderRadius: 1, '&:hover': { bgcolor: 'action.hover' }, ...FOCUS_RING,
+          borderRadius: 1, ...TAPPABLE, ...FOCUS_RING,
         }}>
           <Typography sx={{ width: '0.875rem', fontSize: '0.7rem', fontWeight: 800, color: i === 0 ? accent : 'text.disabled' }}>{i + 1}</Typography>
           <PlayerPortrait name={r.player.name} teamId={r.player.team_id} size={20} />
@@ -195,7 +195,7 @@ function TeamRail({ teams, current, record, onSelect, onBack, onAllTeams }: {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     width: 32, height: 32, flexShrink: 0, borderRadius: '50%', cursor: 'pointer',
     color: 'text.secondary',
-    '&:hover': { bgcolor: 'action.hover', color: 'text.primary' },
+    ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }),
   }
 
   return (
@@ -242,7 +242,7 @@ function TeamRail({ teams, current, record, onSelect, onBack, onAllTeams }: {
                 // Dimmed so the active pill wins the row at a glance; full strength on touch
                 // or hover, which is also the only feedback a bare badge can give.
                 opacity: 0.55, transition: 'opacity 0.15s, background-color 0.15s',
-                '&:hover': { opacity: 1, bgcolor: 'action.hover' },
+                ...hoverOnly({ opacity: 1, bgcolor: 'action.hover' }),
               }}
             >
               <TeamBadge team={t} size={26} />
@@ -696,7 +696,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                     <Box key={p.id} {...playerLink(p, onOpenPlayer)} sx={{
                       display: 'flex', alignItems: 'center', gap: 1.25, py: 0.9, cursor: 'pointer',
                       borderTop: '1px solid', borderColor: 'divider',
-                      borderRadius: 1, '&:hover': { bgcolor: 'action.hover' }, ...FOCUS_RING,
+                      borderRadius: 1, ...TAPPABLE, ...FOCUS_RING,
                     }}>
                       <Typography sx={{ width: '1.625rem', textAlign: 'center', flexShrink: 0, fontSize: '0.72rem', fontWeight: 800, color: accent }}>
                         {displayPositionFromIndex(p, positionIndex).label || '—'}

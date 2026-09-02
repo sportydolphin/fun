@@ -165,6 +165,26 @@ const createAppTheme = (mode: ThemeMode, skin: ThemeSkin): Theme => {
       // the one-line version of it that fixes every call site at once.
       ...(mode === 'light' ? { text: { disabled: 'rgba(0,0,0,0.58)' } } : {}),
     },
+    components: {
+      // MUI'S OWN HOVER LATCHES ON TOUCH, exactly like the app's did. IconButton paints
+      // `--IconButton-hoverBg` on `:hover`, a phone applies that state on TAP, and the
+      // toolbar's search, bell, theme and account buttons then sat lit until you touched
+      // something else. Four round grey blobs across the top of the app, one per control the
+      // reader had most recently used.
+      //
+      // Fixed here rather than at the call sites because these come from MUI, not from us:
+      // there is no `sx` of ours to gate. The section's own controls use `hoverOnly` in
+      // src/wpbl/ui.tsx, and this is the same rule for the components we did not write.
+      MuiIconButton: {
+        styleOverrides: {
+          root: {
+            '@media (hover: none)': {
+              '&:hover': { backgroundColor: 'transparent' },
+            },
+          },
+        },
+      },
+    },
     typography: {
       // Self-hosted Inter (see @font-face in styles.css) leads the stack so headings get a
       // real 900 weight everywhere, not the Arial faux-bold fallback. System fonts follow

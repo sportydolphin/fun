@@ -10,7 +10,7 @@ import {
   type EventValue, type StealEconomy,
 } from './derive/runExpectancy'
 import { wpblAccentFg } from './constants'
-import { SectionCard, pressable, FOCUS_RING, useWpblDark } from './ui'
+import { SectionCard, pressable, FOCUS_RING, useWpblDark, TAPPABLE, hoverOnly } from './ui'
 import { useExperiments, ExperimentalChip } from '../ExperimentsContext'
 import type { WpblBattingLine, WpblGame, WpblPlayer } from './types'
 
@@ -142,7 +142,7 @@ function StealCard({ econ, runners, accent, onOpenPlayer }: {
                 ...(r.player ? FOCUS_RING : null),
                 px: 1.25, py: 0.5, borderRadius: 2, border: '1px solid', borderColor: 'divider',
                 fontSize: '0.8rem', cursor: r.player ? 'pointer' : 'default',
-                '&:hover': r.player ? { borderColor: accent } : undefined,
+                ...(r.player ? hoverOnly({ borderColor: accent }) : {}),
               }}>
                 <Box component="span" sx={{ fontWeight: 700 }}>{r.name}</Box>
                 <Box component="span" sx={{ color: 'text.disabled' }}> {r.sb} for {r.sb + r.cs}</Box>
@@ -267,7 +267,7 @@ function PlayValueCard({ rows, accent, onOpenRunValue }: {
             borderTop: '1px solid', borderColor: 'divider',
             cursor: 'pointer', userSelect: 'none', WebkitTapHighlightColor: 'transparent',
             fontSize: '0.75rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
-            '@media (hover: hover)': { '&:hover': { bgcolor: 'action.hover' } },
+            ...TAPPABLE,
           }}
         >
           <Box component="span" aria-hidden sx={{ fontSize: '0.85rem' }}>&#9432;</Box>

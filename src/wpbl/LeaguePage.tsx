@@ -21,7 +21,7 @@ import {
   getCachedWpblVideos, getCachedWpblArticles, getCachedWpblPhotos,
 } from './api'
 import MediaShelf from './MediaShelf'
-import { Chevron, FOCUS_RING, pressable } from './ui'
+import { Chevron, FOCUS_RING, pressable, TAPPABLE, hoverOnly } from './ui'
 import { byCountry, ageSpread, placeOf } from './derive/hometowns'
 import { wpblPlayerPath } from './routes'
 import type { WpblArticle, WpblPhoto, WpblPlayer, WpblTeam, WpblVideo } from './types'
@@ -100,7 +100,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
           color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700,
           px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider',
           bgcolor: 'background.paper',
-          '&:hover': { color: 'text.primary', borderColor: 'text.secondary' },
+          ...hoverOnly({ color: 'text.primary', borderColor: 'text.secondary' }),
         }}
       >← Back to WPBL</Box>
 
@@ -146,7 +146,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
                 cursor: 'pointer', userSelect: 'none', flexShrink: 0,
                 fontSize: '0.78rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)',
                 px: 1, py: 0.5, borderRadius: 1.5,
-                '@media (hover: hover)': { '&:hover': { bgcolor: 'action.hover' } },
+                ...TAPPABLE,
               }}
             >{allClosed ? 'Expand all' : 'Collapse all'}</Box>
           </Box>
@@ -167,7 +167,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
                   display: 'flex', alignItems: 'baseline', gap: 1, mb: 1, pb: 0.75,
                   borderBottom: '1px solid', borderColor: 'divider',
                   cursor: 'pointer', userSelect: 'none', WebkitTapHighlightColor: 'transparent',
-                  '@media (hover: hover)': { '&:hover': { borderColor: 'text.secondary' } },
+                  ...hoverOnly({ borderColor: 'text.secondary' }),
                 }}
               >
                 <Typography component="h3" sx={{ fontSize: '1.02rem', fontWeight: 700 }}>
@@ -231,7 +231,7 @@ export default function WpblLeaguePage({ onNavigate }: { onNavigate: (to: string
                         // height and every cell the same shape.
                         textDecoration: 'none', color: 'text.primary', borderRadius: 1.5,
                         px: 1, py: 0.6, display: 'block',
-                        '&:hover': { bgcolor: 'action.hover' },
+                        ...TAPPABLE,
                       }}
                     >
                       <Box component="span" sx={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, lineHeight: 1.35 }}>

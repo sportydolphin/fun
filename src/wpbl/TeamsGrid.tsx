@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
 import { computeStandings } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, relativeDayShort } from './constants'
-import { TeamBadge, FOCUS_RING, CARD_BORDER, useWpblDark, FormDots, WPBL_WIN as WIN, WPBL_LOSS as LOSS } from './ui'
+import { TeamBadge, FOCUS_RING, CARD_BORDER, useWpblDark, FormDots, WPBL_WIN as WIN, WPBL_LOSS as LOSS, hoverOnly } from './ui'
 import { useWpblTeamLink } from './LinkContext'
 import { fmtSigned } from './stats'
 import HeadToHead from './HeadToHead'
@@ -138,11 +138,9 @@ function TeamCard({ row, rank, ranked, fixture, onOpen }: {
       borderLeft: '3px solid', borderLeftColor: accent,
       bgcolor: 'background.paper',
       transition: 'border-color 0.15s',
-      // Gated, and given a touch equivalent: on a phone a bare :hover latches on tap, so the
-      // card a reader opened stayed ringed in its club colour behind them, reading as selected.
-      // Same tint, on the pointer that can actually express it.
-      '@media (hover: hover) and (pointer: fine)': { '&:hover': { borderColor: accent } },
-      '&:active': { borderColor: accent },
+      // On a phone a bare :hover latches on tap, so the card a reader opened stayed ringed in
+      // its club colour behind them, reading as selected rather than as opened.
+      ...hoverOnly({ borderColor: accent }),
     }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
         {ranked && (

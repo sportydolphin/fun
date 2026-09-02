@@ -9,8 +9,7 @@ import { trackingWorthShowing } from './tracking'
 import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
 import {
   TeamBadge, PlayerPortrait, ModalShell, SectionLabel, PillGroup, ExpandRow, NewDot,
-  CARD_BORDER, pressable, FOCUS_RING, useWpblName,
-} from './ui'
+  CARD_BORDER, pressable, FOCUS_RING, useWpblName, hoverOnly, tappableIf } from './ui'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, wpblQualifiers, plateAppearances,
@@ -1526,7 +1525,7 @@ function StatListRow({ row, rank, value, context, isTeam, first, total }: {
       WebkitTapHighlightColor: 'transparent',
       // Hover only where there is one. On a touch browser it sticks to whichever row the
       // scroll started on, which reads as a selection nobody made. Same guard as LeaderRow.
-      '@media (hover: hover)': { '&:hover': row.onClick ? { bgcolor: 'action.hover' } : undefined },
+      ...tappableIf(row.onClick),
     }}>
       <Box sx={{
         // 1.125rem is the 18px this has always been at the default root size, in rem because it
@@ -1591,7 +1590,7 @@ function OptionTile({ label, hint, on, onClick }: {
       border: '1px solid', transition: 'all 0.15s',
       borderColor: on ? WPBL_ACCENT : CARD_BORDER,
       bgcolor: on ? `${WPBL_ACCENT}14` : 'transparent',
-      '@media (hover: hover)': { '&:hover': { borderColor: WPBL_ACCENT } },
+      ...hoverOnly({ borderColor: WPBL_ACCENT }),
     }}>
       <Typography sx={{
         fontSize: '0.85rem', fontWeight: 800, lineHeight: 1.2,
@@ -1623,7 +1622,7 @@ function OptionRow({ label, hint, icon, on, onClick }: {
       border: '1px solid', transition: 'all 0.15s',
       borderColor: on ? WPBL_ACCENT : CARD_BORDER,
       bgcolor: on ? `${WPBL_ACCENT}14` : 'transparent',
-      '@media (hover: hover)': { '&:hover': { borderColor: WPBL_ACCENT } },
+      ...hoverOnly({ borderColor: WPBL_ACCENT }),
     }}>
       {icon}
       <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -1843,7 +1842,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
       borderColor: active ? WPBL_ACCENT : CARD_BORDER,
       color: active ? 'var(--wpbl-accent-fg)' : 'text.secondary',
       bgcolor: active ? `${WPBL_ACCENT}12` : 'transparent',
-      '&:hover': { borderColor: WPBL_ACCENT },
+      ...hoverOnly({ borderColor: WPBL_ACCENT }),
     }}>
       {children}
     </Box>
