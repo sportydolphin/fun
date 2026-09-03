@@ -952,6 +952,41 @@ is retired.
 
 ## Shipped log
 
+### Sep 3, 2026: a spec chart, and the two axes everybody would have picked are useless
+
+**Every team page had 562 x 137px of nothing to the right of the club name**, the widest empty
+run in the section, and nothing on the site answered "what KIND of team is this". The standings
+say who is winning and the team-stats card says how much of each thing they did; neither tells
+you that New York run on a quarter of their times on first while San Francisco almost never do.
+Six traits, drawn as the radial chart a video game would use: Power, Contact, Eye, Speed, Arms,
+Glove. A club's own page draws it solid against three faint outlines; the Teams tab overlays all
+four, where the comparison is the whole point.
+
+**ERA and fielding percentage were measured and dropped, in that order.** ERA separates the four
+clubs by nine per cent, 7.06 to 7.69: four spokes of the same length is a chart that says
+nothing. Fielding percentage is worse, .937 to .953. But the gap ERA hides is the defensive one,
+so Glove is unearned runs allowed per game, which runs 1.31 to 2.69, prices an error instead of
+counting it, and needs no new data because `r` minus `er` is already on the pitching line.
+
+**Every axis is a raw rate with direction applied at scoring time.** The first draft wrote
+Contact as "one minus K%" and put all four clubs between 46 and 53: the variation is real in a
+strikeout rate and vanishes as a share of a contact rate. Anything of that shape compresses the
+league into the middle of the ring.
+
+**Scaling is 50 = league average, and half a ring is 50% off it.** Speed clips at both ends, and
+that is the accepted cost of ONE window for every axis: widening it far enough for Speed (which
+varies 3.5x) flattens Contact (which varies 1.5x). The alternative, a window sized per axis from
+the league's own spread, is min-max scaling wearing a hat, and it would draw four dramatic
+shapes for a league where all four clubs were identical.
+
+**Two gates worth keeping.** Nothing renders until every club has played five games, checked
+across the LEAGUE rather than per club: the scores are ratios to the league average, so one club
+on two games does not only make its own shape noise, it drags the mean the other three are drawn
+against. And `teamSpecs` needs LEAGUE-WIDE lines, which is the trap on the page rather than in
+the module: the team page already held this club's lines pre-filtered, and handing those over
+produces a chart rather than an error. Pinned in `__tests__/teamSpec.test.ts`, along with the
+postseason filter, which would move the league average with nothing on screen to say so.
+
 ### Sep 3, 2026: the schedule runs to Sep 22, on seeds rather than on guesses
 
 **The schedule tab said the season ended on Sep 6.** `wpbl_games` stops there, because a game

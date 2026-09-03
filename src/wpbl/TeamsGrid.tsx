@@ -1,12 +1,14 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { computeStandings } from './api'
+import { computeStandings, fetchWpblAllLines } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, relativeDayShort } from './constants'
 import { TeamBadge, FOCUS_RING, CARD_BORDER, useWpblDark, FormDots, WPBL_WIN as WIN, WPBL_LOSS as LOSS, hoverOnly } from './ui'
 import { useWpblTeamLink } from './LinkContext'
 import { fmtSigned } from './stats'
 import HeadToHead from './HeadToHead'
-import type { WpblTeam, WpblGame, WpblStandingRow } from './types'
+import type { WpblTeam, WpblGame, WpblStandingRow, WpblBattingLine, WpblPitchingLine } from './types'
+import { TeamSpecRadar, TeamSpecPlaceholder } from './TeamSpecRadar'
+import { teamSpecs, specLeagueGames, TEAM_SPEC_AXES } from './derive/teamSpec'
 import { useWpblHeadingTag } from './PageHeading'
 
 /**
@@ -219,6 +221,23 @@ export default function TeamsGrid({ teams, games, onSelect }: {
     [teams, games, byId])
   const ranked = rows.some(r => r.wins + r.losses > 0)
   const headingTag = useWpblHeadingTag()
+  const isDark = useWpblDark()
+
+  // The spec chart needs league-wide box-score lines, which this page did not previously read.
+  // `fetchWpblAllLines` is cached and deduped, and the section warms it on open, so in practice
+  // this resolves from memory. Nothing else on the page waits for it: the card renders when it
+  // arrives and the four club cards above never blink.
+  const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] } | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetchWpblAllLines().then(l => { if (!cancelled) setLines(l) }).catch(() => { /* empty card */ })
+    return () => { cancelled = true }
+  }, [])
+  const teamIds = useMemo(() => teams.map(t => t.id), [teams])
+  const specs = useMemo(
+    () => lines ? teamSpecs(teamIds, lines.batting, lines.pitching, games) : null,
+    [lines, teamIds, games])
+  const specGames = useMemo(() => specLeagueGames(teamIds, games), [teamIds, games])
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -239,6 +258,40 @@ export default function TeamsGrid({ teams, games, onSelect }: {
           />
         ))}
       </Box>
+      {/* All four overlaid, which is the one place in the section they can be. A club's own
+          page draws its shape solid against three faint outlines, because there is a subject
+          there; here there is not, and the comparison IS the page. Sits with Head to head
+          rather than above the cards: both answer "how do these four differ", while the cards
+          answer "who is who". */}
+      {ranked && (
+        <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, p: 1.5 }}>
+          <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, mb: 0.25 }}>Club profiles</Typography>
+          <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mb: 1 }}>
+            {specs
+              ? `Each trait against the league average, through ${specs.minGames} games. The middle ring is average.`
+              : 'How each club scores on six traits.'}
+          </Typography>
+          {specs ? (
+            <>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mb: 0.5 }}>
+                {rows.map(r => (
+                  <Box key={r.team.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                    <Box sx={{ width: 10, height: 10, borderRadius: '2px', bgcolor: wpblAccent(r.team.id, isDark), flexShrink: 0 }} />
+                    <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: 'text.secondary' }}>{r.team.name}</Typography>
+                  </Box>
+                ))}
+              </Box>
+              <TeamSpecRadar specs={specs} teams={teams} radius={110} />
+              <Typography sx={{ fontSize: '0.66rem', color: 'text.disabled', mt: 0.5 }}>
+                {TEAM_SPEC_AXES.map(a => `${a.label}: ${a.stat}`).join(' · ')}
+              </Typography>
+            </>
+          ) : (
+            <TeamSpecPlaceholder minGames={specGames} ready={lines != null} />
+          )}
+        </Box>
+      )}
+
       {/* Only once there is a result to show. Before the first game it is sixteen dots, which
           is a worse answer than not asking the question. */}
       {ranked && <HeadToHead rows={rows} games={games} onSelect={onSelect} />}

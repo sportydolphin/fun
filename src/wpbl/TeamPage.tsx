@@ -11,6 +11,8 @@ import {
 } from './stats'
 import { outsToIp } from './constants'
 import { useEraBasis } from './EraBasisContext'
+import { TeamSpecRadar, TeamSpecReadout, TeamSpecPlaceholder } from './TeamSpecRadar'
+import { teamSpecs, specLeagueGames } from './derive/teamSpec'
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { useWpblHeadingTag } from './PageHeading'
 import LineupHistory from './LineupHistory'
@@ -283,7 +285,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   const shortName = useWpblName()
   const playerLink = useWpblPlayerLink()
   const headingTag = useWpblHeadingTag()
-  const { fmtEra, fmtK, kLabel } = useEraBasis()
+  const { fmtEra, fmtK, kLabel, scale: scaleK } = useEraBasis()
   const teamById = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
 
 
@@ -297,6 +299,10 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   // a trade. The roster list itself still uses `roster`: she does not play here any more.
   const [league, setLeague] = useState<WpblPlayer[]>([])
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] } | null>(null)
+  // The same fetch, UNFILTERED. The spec chart is a comparison against the league average, so a
+  // club's own lines cannot answer it: handed those, every axis reads 50 and the chart looks
+  // finished. `fetchWpblAllLines` is league-wide and cached, so this costs nothing extra.
+  const [allLines, setAllLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] } | null>(null)
   // Where each player has actually been playing. The roster's own labels go stale as a season
   // goes on, and a club list that says "C" beside someone who has played third all year is
   // wrong in the one place a reader goes to learn the shape of the team.
@@ -313,7 +319,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
 
   useEffect(() => {
     let cancelled = false
-    setRoster(null); setLines(null)
+    setRoster(null); setLines(null); setAllLines(null)
     setLineups([]); setUsage([])
     Promise.all([
       fetchWpblRoster(team.id), fetchWpblAllPlayers(), fetchWpblAllLines(),
@@ -321,7 +327,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
     ]).then(([r, all, l, lh, pu]) => {
       if (cancelled) return
       setLineups(lh); setUsage(pu)
-      setRoster(r); setLeague(all)
+      setRoster(r); setLeague(all); setAllLines(l)
       setLines({
         batting: l.batting.filter(x => x.team_id === team.id),
         pitching: l.pitching.filter(x => x.team_id === team.id),
@@ -354,6 +360,16 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   // exactly the people who played for it, current roster or not.
   const batSeasons = useMemo(() => lines ? aggregateBatting(league, lines.batting, games) : [], [league, lines, games])
   const pitSeasons = useMemo(() => lines ? aggregatePitching(league, lines.pitching, games) : [], [league, lines, games])
+  // The spec chart's six numbers, for every club, so this page can draw its own solid and the
+  // other three as faint outlines. League-wide input on purpose; see `allLines`.
+  const teamIds = useMemo(() => teams.map(t => t.id), [teams])
+  const specs = useMemo(
+    () => allLines ? teamSpecs(teamIds, allLines.batting, allLines.pitching, games) : null,
+    [allLines, teamIds, games])
+  // Only for the placeholder's "the league is on N" line, which is why it is computed even when
+  // `specs` came back null.
+  const specGames = useMemo(() => specLeagueGames(teamIds, games), [teamIds, games])
+
   const teamBat = useMemo(() => lines ? sumBatting(lines.batting, games) : null, [lines, games])
   const teamPit = useMemo(() => lines ? sumPitching(lines.pitching, games) : null, [lines, games])
 
@@ -478,7 +494,18 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
         />
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+      {/* Identity on the left, spec chart on the right.
+          The right of this block was 562 x 137px of nothing at a 1280px viewport, on every team
+          page, which is the widest empty run on the section. 137px is too short for six labelled
+          spokes, so the row is allowed to grow into it rather than the chart being squeezed into
+          the exact gap: the cards below move down about a hundred pixels and the space stops
+          being a hole. On a phone there is no gap to fill and it stacks under the chips. */}
+      <Box sx={{
+        display: 'grid', gap: 2, mb: 2, alignItems: 'center',
+        gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) auto' },
+      }}>
+       <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
         <TeamBadge team={team} size={52} />
         <Box sx={{ minWidth: 0 }}>
           {/* The page's heading. A selected club replaces the Teams grid, which is why that
@@ -487,10 +514,10 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
           <Typography component={headingTag} sx={{ fontSize: '1.25rem', fontWeight: 900, lineHeight: 1.1, m: 0 }}>{wpblFullName(team)}</Typography>
           <Typography sx={{ fontSize: '0.82rem', fontWeight: 700, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{recordText}</Typography>
         </Box>
-      </Box>
+        </Box>
 
       {headToHead.length > 0 && (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mb: 2 }}>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 2 }}>
           {headToHead.map(h => {
             const better = h.w > h.l
             const worse = h.w < h.l
@@ -519,6 +546,40 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
           })}
         </Box>
       )}
+       </Box>
+
+       {/* The chart, and the same six numbers as text beside it. The readout is not decoration:
+           a radar is a picture of six figures, and a `points` attribute is nothing to a screen
+           reader or a crawler, so this list is the accessible copy as well as the detail. */}
+       <Box sx={{
+         display: 'flex', alignItems: 'center', gap: 1.5,
+         justifyContent: { xs: 'center', md: 'flex-end' },
+         flexWrap: 'wrap',
+       }}>
+         {specs ? (
+           <>
+             {/* 260 rather than 230 because the box is drawn at whatever fraction of its own
+                 viewBox the container allows, and below about 0.85 the 12px axis labels stop
+                 being legible. The width comes out of the identity column, which is a name, a
+                 record and three chips in a 340px slot and has it to give. */}
+             <Box sx={{ width: { xs: 210, sm: 260 }, flexShrink: 0 }}>
+               <TeamSpecRadar specs={specs} teams={teams} focusId={team.id} radius={88} />
+             </Box>
+             <Box sx={{ minWidth: 132 }}>
+               <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.disabled', mb: 0.5 }}>
+                 Club / league
+               </Typography>
+               <TeamSpecReadout specs={specs} teamId={team.id} kLabel={kLabel}
+                 scaleK={v => scaleK(v) ?? v} />
+             </Box>
+           </>
+         ) : (
+           <Box sx={{ width: '100%', maxWidth: 340 }}>
+             <TeamSpecPlaceholder minGames={specGames} ready={allLines != null} />
+           </Box>
+         )}
+       </Box>
+      </Box>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
