@@ -68,12 +68,46 @@ export interface TeamSpecRadarProps {
  * vertical on a chart that is already fighting for it, so the box is deliberately not square.
  */
 const LABEL_GAP = 14
-const HPAD = 62
+/**
+ * Horizontal reserve, PER SIDE, because the six words are not the same length.
+ *
+ * The right-hand labels are "Contact" and "Eye", the left-hand ones "Glove" and "Arms", and at
+ * 12px bold the longest of those is 47px against 35. One HPAD for both therefore left 30px of
+ * air on the left and 17 on the right: the hexagon sat at the exact centre of its box while the
+ * INK did not, which reads as the chart being off-centre. Reserving each side for its own
+ * longest word puts the ink back in the middle. Both are measured with the widest value a
+ * number can be ("Steal attempts" is the longest stat name but never renders here; the values
+ * are at most six characters and always narrower than the word above them).
+ */
+const HPAD_L = 50
+const HPAD_R = 62
 const VPAD = 26
 
 /** Extra room when a label is two lines (trait over value) rather than one. The side labels
- *  gain nothing horizontally, since the value is always narrower than the word above it. */
-const VALUE_VPAD = 16
+ *  gain nothing horizontally, since the value is always narrower than the word above it.
+ *
+ *  8, not 16, since the blocks were centred: half a line came back the moment the top label
+ *  stopped needing a whole one below its anchor, and 16 left 13px of dead margin at each end of
+ *  a chart that is already the tallest thing on the phone layout. Measured after the change,
+ *  the outermost text clears the box by 5px top and 6px bottom. */
+const VALUE_VPAD = 8
+
+/**
+ * The distance between the two baselines of a label, and the drop from a point to the baseline
+ * of a single line centred on it.
+ *
+ * These exist because a two-line label has to be CENTRED ON ITS ANCHOR, and the first version
+ * was not: both baselines were placed downward from the anchor (`y + 4` and `y + 18`), so every
+ * block hung below the point it belonged to. That is invisible with one line and obvious with
+ * two, because the anchor itself moves radially: it is above the spoke on the upper axes and
+ * below it on the lower ones, so a block growing downward lands centred on Contact and Glove
+ * and 13.5px too low on Eye and Arms. Measured on a phone, block centre against spoke end:
+ * Power 14.5 above, Contact 0.5 above, Eye 13.5 BELOW, Speed 27.5 below, with 13px of air
+ * above the top label and 0 below the bottom one. A vertical `shift` on the top and bottom
+ * labels was papering over the same thing from the other end and is gone.
+ */
+const LINE = 14
+const CAP = 4
 
 /** A tap target around each label. 44px is the smallest thing a thumb reliably hits, and the
  *  words themselves are 34 to 58px wide by 14 tall, so the box has to be drawn rather than
@@ -88,9 +122,12 @@ export function TeamSpecRadar({
   const isDark = useWpblDark()
   const titleId = useId()
   const n = TEAM_SPEC_AXES.length
-  const w = (radius + (showLabels ? HPAD : 8)) * 2
+  const padL = showLabels ? HPAD_L : 8
+  const padR = showLabels ? HPAD_R : 8
+  const w = radius * 2 + padL + padR
   const h = (radius + (showLabels ? VPAD + (values ? VALUE_VPAD : 0) : 8)) * 2
-  const cx = w / 2
+  // NOT w / 2: the two reserves differ, so the ring's centre is offset from the box's.
+  const cx = radius + padL
   const cy = h / 2
 
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
@@ -169,23 +206,22 @@ export function TeamSpecRadar({
         // The two spokes on the vertical are centred; the four on the sides hang off their own
         // side, or a long word crosses back over the polygon it is labelling.
         const anchor = Math.abs(x - cx) < 1 ? 'middle' : x > cx ? 'start' : 'end'
-        const vertical = Math.abs(x - cx) < 1
-        // A two-line label on the vertical spokes has to clear the spoke's own end, so the top
-        // one lifts by a line and the bottom one drops by one. The side labels sit level with
-        // their spoke either way.
-        const shift = values && vertical ? (y < cy ? -7 : 7) : 0
         const on = selected === a.key
+        // Centred on the anchor, so a two-line block reaches as far above the point as below it
+        // and every label sits the same way round its own spoke. See LINE / CAP.
+        const stacked = values?.[a.key] != null
+        const first = y + CAP - (stacked ? LINE / 2 : 0)
         const label = (
           <>
-            <text x={x.toFixed(1)} y={(y + 4 + shift).toFixed(1)} textAnchor={anchor}
+            <text x={x.toFixed(1)} y={first.toFixed(1)} textAnchor={anchor}
               fontSize={12} fontWeight={700} fill={on ? focusColour ?? labelFill : labelFill}>
               {a.label}
             </text>
-            {values?.[a.key] && (
-              <text x={x.toFixed(1)} y={(y + 18 + shift).toFixed(1)} textAnchor={anchor}
+            {stacked && (
+              <text x={x.toFixed(1)} y={(first + LINE).toFixed(1)} textAnchor={anchor}
                 fontSize={12.5} fontWeight={800} fill={on ? focusColour ?? valueFill : valueFill}
                 style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {values[a.key]}
+                {values![a.key]}
               </text>
             )}
           </>
@@ -207,7 +243,7 @@ export function TeamSpecRadar({
                 from the text. Transparent, and never in the way when nothing can be tapped. */}
             <rect
               x={(anchor === 'start' ? x - 8 : anchor === 'end' ? x - HIT_W + 8 : x - HIT_W / 2).toFixed(1)}
-              y={(y + shift - HIT_H / 2 + (values ? 8 : 0)).toFixed(1)}
+              y={(y - HIT_H / 2).toFixed(1)}
               width={HIT_W} height={HIT_H} fill="transparent"
             />
             {label}
