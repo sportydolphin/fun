@@ -404,6 +404,41 @@ const BATTING_LINE_COLUMNS = [
   'sb', 'cs', 'sf', 'sh', 'ibb', 'gdp', 'tb', 'lob', 'sub_out',
 ].join(',')
 
+/**
+ * Merge a fresh pair of line reads over the last-good pair, ARRAY BY ARRAY.
+ *
+ * `fetchWpblAllPlayers` gets last-good right because it holds one array: an empty result with a
+ * good cache means the read failed, so the cache is left alone. Two arrays make that test
+ * ambiguous, and the first version of this asked `batting.length > 0 || pitching.length > 0`,
+ * i.e. "cache the pair unless BOTH failed". The two reads run in parallel and fail
+ * independently, so a run where only the batting read came up short cached a league with no
+ * batting at all: the Team stats card said "team stats appear once games are played" for a club
+ * that had played thirteen, and the spec chart drew four confident 50s across Power, Contact,
+ * Eye and Speed (the honest answer to "how far above an average of nothing") beside completely
+ * correct Arms and Glove. It looked finished and was half fiction. Seen on Sep 3, 2026.
+ *
+ * `complete` is false when either side came back short, and the caller uses it to leave the
+ * cache's timestamp alone so the next read RETRIES rather than serving the half it knows is
+ * missing for the whole freshness window.
+ *
+ * A genuinely empty league (no cache yet, pre-migration) still seeds, or every caller spins
+ * forever waiting for rows that do not exist.
+ */
+export function mergeBulkLines(fresh: WpblLinesResult, prev: WpblLinesResult | null): {
+  data: WpblLinesResult
+  complete: boolean
+} {
+  const complete = fresh.batting.length > 0 && fresh.pitching.length > 0
+  if (!prev) return { data: fresh, complete }
+  return {
+    data: {
+      batting: fresh.batting.length > 0 ? fresh.batting : prev.batting,
+      pitching: fresh.pitching.length > 0 ? fresh.pitching : prev.pitching,
+    },
+    complete,
+  }
+}
+
 export function fetchWpblAllLines(): Promise<WpblLinesResult> {
   if (isFresh(allLinesCache)) return Promise.resolve(allLinesCache!.data)
   return once('allLines', async () => {
@@ -417,12 +452,14 @@ export function fetchWpblAllLines(): Promise<WpblLinesResult> {
           .order('id', { ascending: true }).range(from, to) as unknown as
           PromiseLike<{ data: WpblPitchingLine[] | null; error: unknown }>),
     ])
-    const result = { batting, pitching }
-    // Keep last-good on a transient empty (see fetchWpblAllPlayers).
-    if (batting.length > 0 || pitching.length > 0 || allLinesCache == null) {
-      allLinesCache = { data: result, at: Date.now() }
+    const prevAt = allLinesCache?.at
+    const { data, complete } = mergeBulkLines({ batting, pitching }, allLinesCache?.data ?? null)
+    if (!complete && prevAt != null) {
+      console.warn(`[wpbl] fetchWpblAllLines came back short (batting ${batting.length}, pitching ${pitching.length}); serving last-good for the missing half and leaving the cache stale so the next read retries.`)
     }
-    return result
+    // A short read updates the DATA (it may still carry a fresher half) but not the clock.
+    allLinesCache = { data, at: complete || prevAt == null ? Date.now() : prevAt }
+    return data
   })
 }
 
