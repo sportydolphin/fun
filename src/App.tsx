@@ -23,6 +23,7 @@ import { useSeo } from './seo'
 // Import-free by design, so naming it here does not drag the lazy WPBL chunk into the
 // entry bundle. See the note at the top of that file.
 import { wpblViewFromPath, wpblPlayerSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, wpblAppOwnsPath, WPBL_PATH_EVENT } from './wpbl/routes'
+import { jerseyQuery } from './wpbl/playerSearch'
 import { track, EVENTS } from './lib/analytics'
 import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from './lib/usernames'
 import { setDeactivationHandler, resetActiveCache } from './lib/userActive'
@@ -553,11 +554,27 @@ function AppInner() {
   const hasSearchResults =
     bridge.playerResults.length > 0 || bridge.teamResults.length > 0 || bridge.resultRows.length > 0
 
+  /**
+   * Whether the typed query is enough to search on.
+   *
+   * Two characters everywhere, with one exception: on the WPBL section a single digit is a
+   * complete search, because it is a jersey number and no player's name contains one. Without
+   * this the section's number search worked for "#3" and silently did nothing for "7", which is
+   * the more natural way to type it. MLB keeps the two-character floor: its query is a network
+   * call, and one character there is a request for the whole league.
+   *
+   * Four places below asked `bridge.query.length >= 2` independently, and a fifth asked for the
+   * inverse to show the recents dropdown. They have to agree, or the results panel and the
+   * recents panel are open at the same time.
+   */
+  const querySearchable = useMemo(() => {
+    const q = bridge.query.trim()
+    return q.length >= 2 || (bridge.source === 'wpbl' && jerseyQuery(q) != null)
+  }, [bridge.query, bridge.source])
+
   useEffect(() => {
-    setToolbarDropdownOpen(
-      bridge.query.length >= 2 && (hasSearchResults || bridge.searching)
-    )
-  }, [bridge.query, hasSearchResults, bridge.searching])
+    setToolbarDropdownOpen(querySearchable && (hasSearchResults || bridge.searching))
+  }, [querySearchable, hasSearchResults, bridge.searching])
 
   const handleToolbarSelectPlayer = (p: PlayerBridgeItem) => {
     bridge.handleSelectPlayer?.(p)
@@ -990,7 +1007,7 @@ function AppInner() {
                   bgcolor: 'background.paper',
                   transition: 'border-color 0.2s',
                 }}>
-                  {bridge.searching && bridge.query.length >= 2
+                  {bridge.searching && querySearchable
                     ? <CircularProgress size={13} sx={{ color: 'text.disabled', flexShrink: 0 }} />
                     : <Search sx={{ fontSize: '0.9rem', color: 'text.disabled', flexShrink: 0 }} />
                   }
@@ -1001,7 +1018,7 @@ function AppInner() {
                     onChange={(e: any) => setSearchQuery(e.target.value)}
                     onFocus={() => {
                       setToolbarInputFocused(true)
-                      if (bridge.query.length >= 2) setToolbarDropdownOpen(true)
+                      if (querySearchable) setToolbarDropdownOpen(true)
                     }}
                     onKeyDown={(e: any) => {
                       if (e.key === 'Escape') {
@@ -1031,14 +1048,14 @@ function AppInner() {
 
                 {/* Recent + suggestions dropdown — shown when input is focused and query is empty.
                     WPBL drives its own generic recent rows; MLB keeps its richer suggestions view. */}
-                {toolbarInputFocused && bridge.query.length < 2 && bridge.source === 'wpbl' && bridge.recentRows.length > 0 && (
+                {toolbarInputFocused && !querySearchable && bridge.source === 'wpbl' && bridge.recentRows.length > 0 && (
                   <ToolbarRecentRowsDropdown
                     rows={bridge.recentRows}
                     onSelect={handleToolbarSelectRow}
                     onClear={() => bridge.clearRecentSearches?.()}
                   />
                 )}
-                {toolbarInputFocused && bridge.query.length < 2 && bridge.source !== 'wpbl' && (bridge.recentSearches.length > 0 || bridge.toolbarSuggestions.length > 0) && (
+                {toolbarInputFocused && !querySearchable && bridge.source !== 'wpbl' && (bridge.recentSearches.length > 0 || bridge.toolbarSuggestions.length > 0) && (
                   <ToolbarSuggestionsDropdown
                     suggestions={bridge.toolbarSuggestions}
                     onSelect={handleToolbarSelectSuggestion}
@@ -1053,7 +1070,7 @@ function AppInner() {
                 )}
 
                 {/* Search results dropdown */}
-                {toolbarDropdownOpen && bridge.query.length >= 2 && hasSearchResults && (
+                {toolbarDropdownOpen && querySearchable && hasSearchResults && (
                   <Paper elevation={8} sx={{
                     position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0,
                     zIndex: 1500, borderRadius: 2.5, overflow: 'hidden', minWidth: 240,

@@ -952,6 +952,39 @@ is retired.
 
 ## Shipped log
 
+### Sep 3, 2026: Speed counts steals, a jersey number is a search, and the team boards get a bar
+
+**Speed is now steals per time on first, not attempts.** It shipped as `sb + cs` on the
+reasoning that attempts measure how much a club RUNS independently of how well, which is the
+identity a spec chart is after. Two things are wrong with that. Every other axis is an outcome
+(extra bases produced, strikeouts taken, walks drawn, strikeouts recorded, runs allowed), so
+Speed was the only one counting tries. And a caught stealing is a lost runner and an out, so an
+attempts denominator drew a LONGER spoke for doing a bad thing more often: Los Angeles succeed
+on 72% of theirs, a running game that costs them runs, and their five CS were lengthening the
+axis. The ordering is identical either way (NY, BOS, LA, SF), so nothing was bought for it.
+
+**A jersey number is now a search**, in the header box and in the Discord bot's autocomplete,
+which share `searchPlayers`. It is a MODE rather than another scoring rule: no name contains a
+digit, so a numeric query can only mean one thing, which is what lets a single character be a
+complete search where a one-letter name fragment is not. "7" and "#7" both work, "07" is the
+same shirt as "7", and 21 of the league's numbers are worn by more than one player so it returns
+all of them, in league order. 49 of the 119 on the roster have no number and cannot be found
+this way. The search row now carries the number in its subtitle, because a search that CAN be a
+number has to show the thing it was asked about. The toolbar's four separate
+`query.length >= 2` gates became one `querySearchable`, which is what lets a single digit
+through on WPBL while MLB keeps its floor: MLB's query is a network call.
+
+**The team leader boards apply the league's qualifying bar to the two RATE lists.** OPS was
+gated on `ab > 0` and ERA on `outs > 0`, which is not a bar at all. On the live table that meant
+San Francisco's ERA leader was Andréanne Leblanc at 0.00 in ONE INNING, Los Angeles' was
+Isabella Villarreal at 0.00 in one inning, and Boston's OPS leader was a 19-PA cameo. Now
+`wpblQualifiers` supplies the same minimum the league boards use, gated through
+`plateAppearances()` and not at-bats, which is CLAUDE.md's standing trap: half of OPS is OBP, so
+an at-bat denominator throws away every walk and quietly keeps a club's most patient hitter off
+its own board. The bar is printed beside the label ("OPS min 31 PA", "ERA min 10.1 IP") so a
+reader who cannot find a .900 hitter is told why. The counting lists are deliberately NOT gated:
+nobody hits four home runs in a cameo, and a bar there would only hide a real leader.
+
 ### Sep 3, 2026: a team page you can reach the bottom of on a phone
 
 **4,259px down to 2,922, a third shorter**, on a 390px screen. The header was never the

@@ -7,6 +7,7 @@ import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, pressable, FOCUS_RING, useWpblDark, useWpblName, CARD_BORDER, TAPPABLE, hoverOnly } from './ui'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, fmtRate, fmtTwo,
+  wpblQualifiers, plateAppearances,
   type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import { outsToIp } from './constants'
@@ -133,8 +134,12 @@ function ScheduleRow({ game, teamId, teamById, onOpenGame }: {
 }
 
 // One "top N by stat" mini-list within the leaders card.
-function LeaderList({ label, rows, accent, onOpenPlayer }: {
+function LeaderList({ label, note, rows, accent, onOpenPlayer }: {
   label: string
+  /** The qualifying bar, on the lists that have one. Only the RATE stats do, so this appears
+   *  beside OPS and ERA and not beside home runs: a reader who cannot find a .900 hitter on
+   *  this board deserves to be told why rather than left to think the page is wrong. */
+  note?: string
   rows: { player: WpblPlayer; value: string }[]
   accent: string
   onOpenPlayer: (p: WpblPlayer) => void
@@ -144,7 +149,10 @@ function LeaderList({ label, rows, accent, onOpenPlayer }: {
   if (rows.length === 0) return null
   return (
     <Box sx={{ mb: 1.25, '&:last-of-type': { mb: 0 } }}>
-      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', mb: 0.4 }}>{label}</Typography>
+      <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.disabled', mb: 0.4 }}>
+        {label}
+        {note && <Box component="span" sx={{ ml: 0.75, fontWeight: 600, letterSpacing: 0.3, textTransform: 'none' }}>{note}</Box>}
+      </Typography>
       {rows.map((r, i) => (
         <Box key={r.player.id} {...playerLink(r.player, onOpenPlayer)} sx={{
           display: 'flex', alignItems: 'center', gap: 0.75, py: 0.4, cursor: 'pointer',
@@ -462,19 +470,40 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
       .slice(0, n)
       .map(x => ({ player: x.player, value: disp(x.totals) }))
 
+  /**
+   * The same qualifying bar the league boards use, applied to the two RATE lists here.
+   *
+   * OPS was gated on `ab > 0` and ERA on `outs > 0`, which is not a bar at all: one at-bat and
+   * one hit is a 2.000 OPS and the top of the team's board, and a reliever who recorded a single
+   * out without conceding leads it in ERA. Both are the leaderboard reading as a fact about the
+   * club when it is really a fact about a cameo.
+   *
+   * PLATE APPEARANCES, NOT AT-BATS, which is CLAUDE.md's standing trap and is why this goes
+   * through `plateAppearances()`: half of OPS is OBP, and a denominator of at-bats throws away
+   * every walk, so gating on `ab` quietly keeps the club's most patient hitter off its own
+   * board. `wpblQualifiers` returns zeroes before the season is far enough along for a bar to
+   * mean anything, which lets everyone through early on exactly as the league boards do.
+   *
+   * The counting lists (home runs, RBI, strikeouts, innings) are deliberately NOT gated. Nobody
+   * hits four home runs in a cameo, and a bar there would only hide a real leader.
+   */
+  const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])
+  const paNote = qual.active ? `min ${qual.minPa} PA` : undefined
+  const ipNote = qual.active ? `min ${outsToIp(qual.minOuts)} IP` : undefined
+
   const hitLeaders = useMemo(() => [
-    { label: 'OPS', rows: top(batSeasons, t => t.ab > 0 ? t.ops : null, t => fmtRate(t.ops), t => t.ab) },
+    { label: 'OPS', note: paNote, rows: top(batSeasons, t => plateAppearances(t) >= qual.minPa ? t.ops : null, t => fmtRate(t.ops), t => plateAppearances(t)) },
     { label: 'Home runs', rows: top(batSeasons, t => t.hr > 0 ? t.hr : null, t => String(t.hr), t => t.ab) },
     { label: 'RBI', rows: top(batSeasons, t => t.rbi > 0 ? t.rbi : null, t => String(t.rbi), t => t.ab) },
-  ], [batSeasons])
+  ], [batSeasons, qual, paNote])
   // Three lists, matching the hitting card. Two against three left the pitching card short
   // and the row ragged — and innings is a leaderboard worth having on its own merits: it's
   // the workload number, and nothing else on the page says who is carrying the staff.
   const pitLeaders = useMemo(() => [
-    { label: 'ERA', rows: top(pitSeasons, t => t.era != null && t.outs > 0 ? -t.era : null, t => fmtEra(t.era), t => t.outs) },
+    { label: 'ERA', note: ipNote, rows: top(pitSeasons, t => t.era != null && t.outs >= qual.minOuts && t.outs > 0 ? -t.era : null, t => fmtEra(t.era), t => t.outs) },
     { label: 'Strikeouts', rows: top(pitSeasons, t => t.so > 0 ? t.so : null, t => String(t.so), t => t.outs) },
     { label: 'Innings', rows: top(pitSeasons, t => t.outs > 0 ? t.outs : null, t => outsToIp(t.outs), t => t.so) },
-  ], [pitSeasons, fmtEra])
+  ], [pitSeasons, fmtEra, qual, ipNote])
 
   // Head-to-head. In a four-team league every club plays every other constantly, so a bare
   // "4–3 · 2nd" hides the shape of the record: a team can be unbeaten against two opponents
@@ -781,12 +810,12 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
               better besides: nobody scans hitting and pitching leaders in one pass. */}
           {hitLeaders.some(b => b.rows.length) && (
             <SectionCard title="Hitting leaders" subtitle="Season">
-              {hitLeaders.map(b => <LeaderList key={b.label} label={b.label} rows={b.rows} accent={accent} onOpenPlayer={onOpenPlayer} />)}
+              {hitLeaders.map(b => <LeaderList key={b.label} label={b.label} note={'note' in b ? b.note : undefined} rows={b.rows} accent={accent} onOpenPlayer={onOpenPlayer} />)}
             </SectionCard>
           )}
           {pitLeaders.some(b => b.rows.length) && (
             <SectionCard title="Pitching leaders" subtitle="Season">
-              {pitLeaders.map(b => <LeaderList key={b.label} label={b.label} rows={b.rows} accent={accent} onOpenPlayer={onOpenPlayer} />)}
+              {pitLeaders.map(b => <LeaderList key={b.label} label={b.label} note={'note' in b ? b.note : undefined} rows={b.rows} accent={accent} onOpenPlayer={onOpenPlayer} />)}
             </SectionCard>
           )}
 

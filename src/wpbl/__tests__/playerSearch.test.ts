@@ -123,3 +123,56 @@ describe('searchPlayers', () => {
     expect(confident('el')).toBe(false)
   })
 })
+
+// A jersey number is a search mode of its own, not another scoring rule, because no name
+// contains a digit and so a numeric query can only ever mean one thing. 21 of the league's
+// numbers are worn by more than one player, and 49 of 119 on the roster have no number at all.
+describe('searchPlayers by jersey number', () => {
+  const shirts = [
+    { name: 'Jua Park', jersey_number: '7' },
+    { name: 'Jaida Lee', jersey_number: '7' },
+    { name: 'Kelsie Whitmore', jersey_number: '3' },
+    { name: 'Denver Bryant', jersey_number: '02' },
+    { name: 'Unsigned Rookie', jersey_number: null },
+    { name: 'Blank Shirt', jersey_number: '' },
+  ]
+  const names = (q: string) => searchPlayers(q, shirts).map(h => h.player.name)
+
+  it('finds everyone wearing the number', () => {
+    expect(names('7').sort()).toEqual(['Jaida Lee', 'Jua Park'])
+  })
+
+  // One character is a real search here, where a one-letter name fragment is not: the site's
+  // header search will not answer under two characters, and this is why it makes an exception.
+  it('takes a single digit', () => {
+    expect(names('3')).toEqual(['Kelsie Whitmore'])
+  })
+
+  it('accepts a hash, because that is how a number is written everywhere else', () => {
+    expect(names('#7').sort()).toEqual(['Jaida Lee', 'Jua Park'])
+    expect(names('# 3')).toEqual(['Kelsie Whitmore'])
+  })
+
+  it('reads a leading zero as the same shirt', () => {
+    expect(names('2')).toEqual(['Denver Bryant'])
+    expect(names('02')).toEqual(['Denver Bryant'])
+  })
+
+  // With four #7s in the league the honest answer is the list. The Discord bot uses `confident`
+  // to decide between answering and offering a choice, so getting this wrong would have it pick
+  // one of four players and call it the answer.
+  it('is confident only when one person wears the number', () => {
+    expect(searchPlayers('7', shirts).every(h => h.confident)).toBe(false)
+    expect(searchPlayers('3', shirts)[0].confident).toBe(true)
+  })
+
+  it('cannot find a player who has not been issued a number', () => {
+    expect(searchPlayers('0', shirts)).toHaveLength(0)
+  })
+
+  // Three digits is not a jersey. Left to the name path, which finds nothing either, rather
+  // than silently matching a shirt by its first two characters.
+  it('does not treat a longer number as a jersey', () => {
+    expect(searchPlayers('1997', shirts)).toHaveLength(0)
+  })
+})

@@ -11,6 +11,9 @@
 // two names in either order, initials-plus-surname, a prefix of anything ("whit", "kels"),
 // and finally ordinary misspellings by edit distance. Accents are folded, so "Andreanne"
 // finds "Andréanne" and "Maika" finds "Maïka" without the reader hunting for the key.
+//
+// It also accepts a JERSEY NUMBER, which is a mode of its own rather than another scoring rule:
+// see `jerseyQuery`.
 
 /** Fold to a comparable form: no accents, no punctuation, single-spaced, lowercase. */
 export function normalizeName(name: string): string {
@@ -48,6 +51,31 @@ export function editDistance(a: string, b: string, max = 2): number {
   return prev[b.length] > max ? max + 1 : prev[b.length]
 }
 
+/**
+ * The number a query is asking for, or null if it is not asking for one.
+ *
+ * WHY THIS IS A SEPARATE MODE AND NOT ANOTHER SCORING RULE. Nobody's name contains a digit, so
+ * a numeric query and a name query never compete: "7" can only mean a jersey. Treating it as a
+ * mode means a single character is a legitimate search, where the name path needs two before it
+ * will answer, and it means "#7" works as well as "7", which is how a number gets written
+ * everywhere else.
+ *
+ * Two digits is the cap because that is what the league issues (the longest number on the
+ * roster is 2 characters), and it stops a stray year or a game id reading as a jersey.
+ */
+export function jerseyQuery(query: string): string | null {
+  const m = /^#?\s*(\d{1,2})$/.exec(query.trim())
+  // Compared as a number, so "07" and "7" are the same shirt.
+  return m ? String(Number(m[1])) : null
+}
+
+/** A player's number in the same comparable form. Null for the 49 of 119 on the roster who
+ *  have not been issued one, who simply cannot be found this way. */
+export function jerseyOf(player: { jersey_number?: string | null }): string | null {
+  const raw = (player.jersey_number ?? '').trim()
+  return /^\d{1,2}$/.test(raw) ? String(Number(raw)) : null
+}
+
 export interface SearchHit<T> {
   player: T
   score: number
@@ -64,7 +92,18 @@ const CONFIDENT_AT = 70
  * one answer, so the caller can tell "one obvious player" from "three people called Kim"
  * and respond differently.
  */
-export function searchPlayers<T extends { name: string }>(query: string, players: T[]): SearchHit<T>[] {
+export function searchPlayers<T extends { name: string; jersey_number?: string | null }>(
+  query: string, players: T[],
+): SearchHit<T>[] {
+  // A number is asked and answered before any name scoring runs. 21 of the league's numbers are
+  // worn by more than one player (one per club is the usual shape), so this is confident only
+  // when exactly one person wears it: with four #7s the honest answer is the list, not a guess.
+  const jersey = jerseyQuery(query)
+  if (jersey) {
+    const worn = players.filter(p => jerseyOf(p) === jersey)
+    return worn.map(player => ({ player, score: 100, confident: worn.length === 1 }))
+  }
+
   const q = normalizeName(query)
   if (!q) return []
   const qTokens = q.split(' ')

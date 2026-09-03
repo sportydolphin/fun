@@ -11,6 +11,7 @@ import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, chromePx, ho
 import { useSearchBridge, updateSearchBridge, setSearchQuery } from '../mlb/state/SearchBridgeContext'
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import { getWpblRecents, mergeWpblRecent, setWpblRecents, type WpblRecentItem } from './recentSearches'
+import { jerseyQuery, jerseyOf } from './playerSearch'
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import { fmtSigned } from './stats'
 import { seriesContexts } from './derive/series'
@@ -1191,7 +1192,14 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     return {
       key: `player-${p.id}`,
       title: p.name,
-      subtitle: [displayPositionFromIndex(p, positionIndex).label, team?.abbr].filter(Boolean).join(' · ') || undefined,
+      // The number goes in the subtitle because a search CAN now be a number: type 7 and four
+      // players come back, and without it the row that answered the question does not show the
+      // thing it was asked about. Costs six characters on every other search.
+      subtitle: [
+        jerseyOf(p) ? `#${jerseyOf(p)}` : null,
+        displayPositionFromIndex(p, positionIndex).label,
+        team?.abbr,
+      ].filter(Boolean).join(' · ') || undefined,
       avatar: {
         imageUrl: wpblPortrait(p.name) ?? undefined,
         fallbackText: initials,
@@ -1229,7 +1237,21 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // than filtering twice and being free to disagree. Counts are taken BEFORE the display slice:
   // "6 players" has to mean six, not "the cap".
   const matches = useMemo(() => {
-    const q = bridge.query.trim().toLowerCase()
+    const raw = bridge.query.trim()
+    // A jersey number, answered before the name path and on a SINGLE character: "7" is a real
+    // search and cannot mean anything else, since no name contains a digit. 21 of the league's
+    // numbers are worn by more than one player, so this returns all of them, in league order so
+    // the four #7s arrive grouped by club rather than alphabetically interleaved.
+    const jersey = jerseyQuery(raw)
+    if (jersey) {
+      const order = new Map(teams.map((t, i) => [t.id, i]))
+      const p = players
+        .filter(pl => jerseyOf(pl) === jersey)
+        .sort((a, b) => (order.get(a.team_id ?? '') ?? 99) - (order.get(b.team_id ?? '') ?? 99)
+          || a.name.localeCompare(b.name))
+      return { q: raw.toLowerCase(), players: p, teams: [] as WpblTeam[] }
+    }
+    const q = raw.toLowerCase()
     if (q.length < 2) return null
     const p = players.filter(pl => pl.name.toLowerCase().includes(q))
     const t = teams.filter(tm => `${tm.city} ${tm.name} ${tm.abbr}`.toLowerCase().includes(q))

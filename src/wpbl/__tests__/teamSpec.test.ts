@@ -168,6 +168,23 @@ describe('teamSpecs', () => {
     expect(teamSpecs(TEAMS, batting, pitching, games)).not.toBeNull()
   })
 
+  // Speed is STEALS per time on first, not attempts. It shipped as attempts and that credited a
+  // club for being thrown out: every other axis on this chart is an outcome, and a caught
+  // stealing is a lost runner and an out, so an attempts denominator drew a longer spoke for
+  // doing a bad thing more often.
+  it('does not reward a club for being caught stealing', () => {
+    const { games, ids } = season()
+    const { batting, pitching } = flatLines(ids)
+    // Two clubs run exactly as often. New York succeed; Los Angeles are thrown out every time.
+    const b = batting.map(l =>
+      l.team_id === 'NY' ? { ...l, sb: 2, cs: 0 } :
+      l.team_id === 'LA' ? { ...l, sb: 0, cs: 2 } : l)
+    const specs = teamSpecs(TEAMS, b, pitching, games)!
+    expect(specs.byTeam.get('NY')!.score.speed).toBeGreaterThan(specs.byTeam.get('LA')!.score.speed)
+    // And the club that only ever got caught is no faster than the clubs that never ran at all.
+    expect(specs.byTeam.get('LA')!.score.speed).toBe(specs.byTeam.get('SF')!.score.speed)
+  })
+
   it('survives a league that has done none of something', () => {
     const { games, ids } = season()
     const { batting, pitching } = flatLines(ids)

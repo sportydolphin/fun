@@ -48,7 +48,7 @@ export const TEAM_SPEC_AXES: TeamSpecAxis[] = [
   { key: 'power',   label: 'Power',   stat: 'ISO',            better: 'high' },
   { key: 'contact', label: 'Contact', stat: 'K%',             better: 'low'  },
   { key: 'eye',     label: 'Eye',     stat: 'BB%',            better: 'high' },
-  { key: 'speed',   label: 'Speed',   stat: 'Steal attempts', better: 'high' },
+  { key: 'speed',   label: 'Speed',   stat: 'Steals',         better: 'high' },
   { key: 'arms',    label: 'Arms',    stat: 'K/9',            better: 'high' },
   { key: 'glove',   label: 'Glove',   stat: 'Unearned R/G',   better: 'low'  },
 ]
@@ -91,8 +91,8 @@ export interface TeamSpecs {
  *
  * Half a ring is 50% off the mean in either direction, so a club twice as good as the league at
  * something is pegged at the rim rather than drawn off the page. Speed already clips at both
- * ends (New York attempt a steal on 23% of their times on first against a league 14.8%, San
- * Francisco on 6.6%), and that is the accepted cost of ONE window for every axis: widening it
+ * ends (New York steal on 20.7% of their times on first against a league 12.4%, San Francisco on
+ * 5.1%), and that is the accepted cost of ONE window for every axis: widening it
  * far enough for Speed flattens Contact, which genuinely varies a third as much.
  *
  * The alternative, a window sized per axis from the league's own spread, is min-max scaling
@@ -173,7 +173,16 @@ export function teamSpecs(
       power:   safe(tb - b.h, b.ab),
       contact: safe(b.so, pa),
       eye:     safe(b.bb, pa),
-      speed:   safe(b.sb + b.cs, onFirst),
+      // STEALS, NOT ATTEMPTS. This was `sb + cs` on the day it shipped, on the reasoning that
+      // attempts measure how much a club RUNS independently of how well, which is the identity
+      // a spec chart is after. Two things are wrong with that. Every other axis here is an
+      // outcome (extra bases produced, strikeouts taken, walks drawn, strikeouts recorded, runs
+      // allowed), so Speed was the only one counting tries. And a caught stealing is a lost
+      // runner and an out, so a denominator of attempts made the spoke LONGER for doing a bad
+      // thing more often: Los Angeles succeed on 72% of theirs, which is a running game that
+      // costs them runs, and their five CS were lengthening the axis. Ordering is unchanged by
+      // the switch (NY, BOS, LA, SF either way), so nothing was bought for it either.
+      speed:   safe(b.sb, onFirst),
       // Per NINE innings, matching what the league publishes and what every other pitching
       // aggregate here stores. A reader on the per-7 setting sees it rescaled at DISPLAY time,
       // which cannot move this chart: the score is a ratio to the league mean and both sides of
