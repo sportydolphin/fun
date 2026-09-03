@@ -855,16 +855,17 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
               }
             />
             {/* WPBL only, because it is the only section whose pitching rates we compute
-                ourselves; MLB's arrive from StatsAPI already divided. The hint names the
-                league site on purpose: a reader who came here from a number they saw there
-                should be able to tell which of the two they are looking at without doing the
-                arithmetic. */}
+                ourselves; MLB's arrive from StatsAPI already divided.
+
+                NO HINT, deliberately. It carried a sentence explaining which of the two matched
+                the official site, which earned its place while the default disagreed with the
+                league: a reader arriving from a number they had seen there needed telling which
+                one they were looking at. Since Sep 3, 2026 the default IS the league's, so the
+                sentence was explaining a discrepancy that no longer exists to the readers who
+                never had one. The pills say Per 7 and Per 9, which is the whole of it. */}
             {isWpbl && (
               <Row
                 title="WPBL ERA basis"
-                hint={eraBasis === 7
-                  ? 'Per 7 innings, the length of a WPBL game, matching the official WPBL site. Also sets the strikeout rate.'
-                  : 'Per 9 innings, the MLB convention. Higher than the ERA the official WPBL site shows for the same pitcher.'}
                 control={
                   <PillGroup
                     options={[{ key: 7 as EraBasis, label: 'Per 7' }, { key: 9 as EraBasis, label: 'Per 9' }]}
