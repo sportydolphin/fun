@@ -147,17 +147,22 @@ Each of these has already cost someone a debugging session, and none of them fai
   league's most patient hitters off the OPS board. `__tests__/qualifiers.test.ts` pins the
   constants; nothing can pin a NEW call site that reaches for `t.ab` instead.
 
-- **`era` and `k9` are stored per NINE innings, and a WPBL game is seven.** The league
-  publishes per 9 and so does everyone reprinting it, so that is what the aggregates hold
-  (`ERA_BASIS_CANONICAL` in [`src/wpbl/stats.ts`](src/wpbl/stats.ts)). A reader who prefers
-  the honest denominator flips a setting and the app rescales at DISPLAY time
-  (`scaleToBasis`), which is safe only because both stats are linear in the multiplier, so
-  no sort, rank or comparison moves. **Do not reintroduce a per-7 value into an aggregate.**
-  The OG share cards and the Discord `/player` card read the stored number and deliberately
-  have no parameter to opt in: a per-7 value in `sumPitching` silently republishes figures
-  that disagree with the league, to people who never opened the site. Two functions each
-  holding their own basis is the other failure, where a leaderboard and the player page it
-  opens disagree and neither is wrong. `__tests__/eraBasis.test.ts` pins both.
+- **`era` and `k9` are stored on whatever basis the LEAGUE publishes, and that changed once.**
+  It is per SEVEN as of Sep 3, 2026; it was per 9 before, and this file said so for months. The
+  one definition is `ERA_BASIS_CANONICAL` in [`src/wpbl/stats.ts`](src/wpbl/stats.ts), and it
+  feeds both the computation and the rescale, which is why the switch was a single line. A reader
+  who prefers the other convention flips a setting and the app rescales at DISPLAY time
+  (`scaleToBasis`), which is safe only because both stats are linear in the multiplier, so no
+  sort, rank or comparison moves. **Do not put a literal 7 or 9 into an aggregate.** The OG share
+  cards and the Discord `/player` card read the stored number and deliberately have no parameter
+  to opt in, so a hardcoded denominator silently republishes figures that disagree with the
+  league, to people who never opened the site. Two functions each holding their own basis is the
+  other failure, where a leaderboard and the player page it opens disagree and neither is wrong.
+  `__tests__/eraBasis.test.ts` pins both. **Nothing here can detect another switch**: the drift
+  checker compares plays against the feed, and the feed publishes WHIP but no ERA at all, so the
+  Sep 2026 change surfaced only because a reader mentioned it. If the numbers are ever disputed,
+  check the league's own stat page against a pitcher with a lot of innings, where the two bases
+  are far apart.
 
 - **`/wpbl` renders at a DESKTOP SCALE in CSS, not under a `zoom`, and there are two scales.**
   Until Aug 31, 2026 the whole app sat inside `zoom: 1.4` at `md`, which split it into two

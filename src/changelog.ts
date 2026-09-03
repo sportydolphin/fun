@@ -4,6 +4,25 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.63.0',
+    date:    '2026-09-03',
+    title:   'ERA is per seven innings now, because the league changed its mind',
+    changes: [
+      {
+        short: 'Every ERA and strikeout rate on the site just got lower',
+        full:  'A WPBL game is seven innings, but ERA has always been quoted per nine, which is the convention baseball uses everywhere else. This site followed the league rather than the arithmetic: showing 5.25 where the official site showed 6.75 for the same pitcher would have looked broken rather than better, whatever the maths said. In the first days of September the league switched its own stat page to per seven, and this now follows it there. Every earned run average and strikeout rate you see is about 22 per cent lower than it was yesterday, and matches what the league prints for the same pitcher. San Francisco’s staff reads 5.49 rather than 7.06, and Kelsie Whitmore 5.25 rather than 6.75. No pitcher moved up or down any leaderboard: dividing every number by the same figure cannot reorder them.',
+      },
+      {
+        short: 'The ERA setting still has both, with the two options swapped round',
+        full:  'Settings still lets you choose, and the choice now means the opposite of what it did. Per 7 is the default and matches the official WPBL site. Per 9 is there for anyone who wants to compare a WPBL pitcher against a major league one on the same footing, and is now the setting that disagrees with the league. If you had previously chosen per 7 because you preferred it, you were early, and nothing changes for you. One bug came with the swap and was caught before release: choosing per 9 would not have stuck across a reload, because the code that remembered the choice had only ever been taught to recognise the non-default answer.',
+      },
+      {
+        short: 'Where this could go wrong again',
+        full:  'Nothing on this site can detect a change like this. The nightly check that compares our copy of a game against the league’s reads plays, and the league’s data feed sends WHIP but no ERA at all, so a change of denominator on their side is invisible to every check here. This one was noticed because a reader mentioned it. If a pitching number ever looks wrong, the thing to compare against is the league’s own stat page, using a pitcher with plenty of innings, where the two ways of dividing are far apart.',
+      },
+    ],
+  },
+  {
     version: '1.62.0',
     date:    '2026-09-03',
     title:   'Every club gets a shape, and the schedule runs to the final',

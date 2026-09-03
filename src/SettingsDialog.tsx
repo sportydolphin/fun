@@ -862,12 +862,12 @@ export function SettingsDialog({ open, onClose, userId, email, currentUsername, 
             {isWpbl && (
               <Row
                 title="WPBL ERA basis"
-                hint={eraBasis === 9
-                  ? 'Per 9 innings, matching the official WPBL site and MLB. Also sets the strikeout rate.'
-                  : 'Per 7 innings, the length of a WPBL game. Lower than the ERA the official WPBL site shows for the same pitcher.'}
+                hint={eraBasis === 7
+                  ? 'Per 7 innings, the length of a WPBL game, matching the official WPBL site. Also sets the strikeout rate.'
+                  : 'Per 9 innings, the MLB convention. Higher than the ERA the official WPBL site shows for the same pitcher.'}
                 control={
                   <PillGroup
-                    options={[{ key: 9 as EraBasis, label: 'Per 9' }, { key: 7 as EraBasis, label: 'Per 7' }]}
+                    options={[{ key: 7 as EraBasis, label: 'Per 7' }, { key: 9 as EraBasis, label: 'Per 9' }]}
                     value={eraBasis}
                     onChange={setEraBasis}
                   />

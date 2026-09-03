@@ -952,6 +952,38 @@ is retired.
 
 ## Shipped log
 
+### Sep 3, 2026: the league moved to ERA per seven, and so did we
+
+**Reported by a reader and verified before touching anything.** On the league's own stat page all
+38 pitchers and all 4 clubs matched per 7, and the only two rows consistent with per 9 were the
+0.00 lines where both formulas agree. Kelsie Whitmore, 18 ER in 24.0 IP, printed as 5.25; per 9
+is 6.75. Their batting figures still matched ours exactly, so this was the denominator and not a
+data problem.
+
+**This inverted the standing trap in CLAUDE.md**, whose premise was "the league publishes per 9
+and so does everyone reprinting it, so that is what the aggregates hold". That premise was the
+entire justification for storing per 9, and it stopped being true.
+
+`ERA_BASIS_CANONICAL` went from 9 to 7, and that was genuinely one line, because whoever wrote it
+threaded the constant through BOTH the computation (`summarisePitching` multiplies by it) and the
+rescale (`scaleToBasis` divides by it). Six of the ten tests in `eraBasis.test.ts` passed
+unchanged through the switch, which is the evidence the mechanism was right even while the number
+was wrong. The four that failed were exactly the four pinning 9, and the OG card test failed on a
+literal string, which is what a pinned published string is for.
+
+**Two things the switch broke that nothing would have flagged.** The reader's setting could no
+longer store "per 9": `readStored` asked `=== '7' ? 7 : CANONICAL`, which worked only while 7 was
+the non-default, so the remaining choice silently snapped back on reload. It names both values
+now and survives a switch in either direction. And the spec chart's Arms axis had a literal `9`
+in it (mine, from this morning), which would have left one axis on the old denominator with
+nothing on screen to say so. It reads the constant now. The axis score is unmoved either way,
+since it is a ratio to the league mean and the multiplier cancels, which is a useful reminder
+that the chart cannot catch this class of error for you.
+
+**Nothing here can detect the next one.** The drift checker compares plays against the feed, and
+the feed publishes WHIP but no ERA at all. The check is the league's own stat page, against a
+pitcher with a lot of innings.
+
 ### Sep 3, 2026: Speed counts steals, a jersey number is a search, and the team boards get a bar
 
 **Speed is now steals per time on first, not attempts.** It shipped as `sb + cs` on the

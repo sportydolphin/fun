@@ -1,6 +1,6 @@
 import type { WpblBattingLine, WpblGame, WpblPitchingLine } from '../types'
 import { countsInStandings } from '../season'
-import { plateAppearances, sumBatting, sumPitching } from '../stats'
+import { plateAppearances, sumBatting, sumPitching, kRateLabel, ERA_BASIS_CANONICAL } from '../stats'
 
 // A club's identity as six numbers, drawn as the radial spec chart a video game would use.
 //
@@ -49,7 +49,7 @@ export const TEAM_SPEC_AXES: TeamSpecAxis[] = [
   { key: 'contact', label: 'Contact', stat: 'K%',             better: 'low'  },
   { key: 'eye',     label: 'Eye',     stat: 'BB%',            better: 'high' },
   { key: 'speed',   label: 'Speed',   stat: 'Steals',         better: 'high' },
-  { key: 'arms',    label: 'Arms',    stat: 'K/9',            better: 'high' },
+  { key: 'arms',    label: 'Arms',    stat: kRateLabel(ERA_BASIS_CANONICAL), better: 'high' },
   { key: 'glove',   label: 'Glove',   stat: 'Unearned R/G',   better: 'low'  },
 ]
 
@@ -183,11 +183,14 @@ export function teamSpecs(
       // costs them runs, and their five CS were lengthening the axis. Ordering is unchanged by
       // the switch (NY, BOS, LA, SF either way), so nothing was bought for it either.
       speed:   safe(b.sb, onFirst),
-      // Per NINE innings, matching what the league publishes and what every other pitching
-      // aggregate here stores. A reader on the per-7 setting sees it rescaled at DISPLAY time,
-      // which cannot move this chart: the score is a ratio to the league mean and both sides of
-      // it carry the same multiplier.
-      arms:    safe(9 * p.so, p.outs / 3),
+      // On the canonical basis, matching what the league publishes and what every other
+      // pitching aggregate here stores. Through the constant rather than a literal, which is
+      // what let the league's Sep 2026 switch from per 9 to per 7 be one line: a literal here
+      // would have left this one axis on the old denominator with nothing to say so. A reader
+      // on the other setting sees it rescaled at DISPLAY time, which cannot move the chart
+      // anyway, since the score is a ratio to the league mean and both sides of it carry the
+      // same multiplier.
+      arms:    safe(ERA_BASIS_CANONICAL * p.so, p.outs / 3),
       glove:   safe(p.r - p.er, gp),
     })
   }

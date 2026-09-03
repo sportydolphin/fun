@@ -22,34 +22,42 @@ import { countsInStandings, regularSeasonLines, type WpblSeasonGame } from './se
 // A WPBL game is seven innings, so the honest per-game rate is per 7, which is what every
 // other seven-inning competition publishes: NCAA and NAIA softball, Athletes Unlimited, and
 // high school baseball on MaxPreps all scale to their own game length, and Little League
-// scales to 6. This site used to as well.
+// scales to 6.
 //
-// **The league does not.** womensprobaseballleague.com publishes per 9, verified against its
-// own stat page rather than assumed (2 ER in 10.0 IP is printed as 1.80, which is only per 9),
-// and so does every third party that reprints it. MLB set the same precedent for its own
-// seven-inning doubleheaders in 2020 and 2021: the game got shorter and the denominator did
-// not. So per 9 is what a reader sees for these pitchers everywhere else, and a site showing
-// 2.58 against an official 3.32 for the same arm is not the better source, it is the one that
-// looks broken. Per 9 is also, on the league's own framing, the *baseball* convention: scaling
-// to 7 quietly files a pro baseball league under the softball scoreboard.
+// **The league now does too, and this file used to say the opposite.** Until early September
+// 2026 womensprobaseballleague.com published per 9, which is why everything here was stored
+// per 9: agreeing with the source a reader arrives from mattered more than being right on the
+// arithmetic, and a site showing 2.58 against an official 3.32 for the same arm looks broken
+// rather than better. Sometime in the first days of September the league switched, and this was
+// re-verified against its own stat page rather than assumed: on Sep 3, 2026 all 38 pitchers and
+// all 4 clubs on that page matched per 7 and only the two 0.00 lines were consistent with per 9
+// (Kelsie Whitmore, 18 ER in 24.0 IP, printed as 5.25, which is only per 7; per 9 is 6.75).
 //
-// So: STORED PER 9, ALWAYS, everywhere, including the OG share cards and the Discord bot,
-// which are read next to league numbers by people who did not choose anything. A reader who
-// prefers the honest denominator flips one setting and the app rescales at DISPLAY time
-// (`scaleToBasis`), because both stats are linear in the multiplier and nothing that sorts,
-// ranks or compares can move when they are rescaled together. Do not reintroduce a per-7
-// value into an aggregate: the moment two functions each hold their own basis, a leaderboard
-// and the player page it opens can disagree and neither is wrong.
+// So: STORED PER 7, ALWAYS, everywhere, including the OG share cards and the Discord bot, which
+// are read next to league numbers by people who did not choose anything. A reader who prefers
+// the old convention flips one setting and the app rescales at DISPLAY time (`scaleToBasis`),
+// because both stats are linear in the multiplier and nothing that sorts, ranks or compares can
+// move when they are rescaled together. Do not reintroduce a second basis into an aggregate:
+// the moment two functions each hold their own, a leaderboard and the player page it opens can
+// disagree and neither is wrong. That hazard is unchanged by which number is canonical.
+//
+// THE ONE THING TO CHECK IF THIS EVER LOOKS WRONG AGAIN is the league's own stat page, because
+// nothing we run can see this. The drift checker compares plays against the feed, and the feed
+// publishes WHIP but no ERA at all, so a change of denominator on their side is invisible to
+// every check here and surfaced only because a reader mentioned it.
 export type EraBasis = 7 | 9
 
-/** What `era` and `k9` are stored on. Not a setting: see above. */
-export const ERA_BASIS_CANONICAL: EraBasis = 9
+/** What `era` and `k9` are stored on, and what the league itself publishes. Not a setting:
+ *  see above. Changing this one number changes both the computation (`summarisePitching`
+ *  multiplies by it) and the rescale (`scaleToBasis` divides by it), which is why the switch
+ *  from 9 was a single line rather than a sweep. */
+export const ERA_BASIS_CANONICAL: EraBasis = 7
 
 /** The heading a strikeout-rate column carries, which moves with the basis. ERA and WHIP
  *  keep their names: only this one spells its denominator out loud. */
 export const kRateLabel = (basis: EraBasis): string => `K/${basis}`
 
-/** Rescale a stored per-9 rate to what the reader asked to see. Null passes through. */
+/** Rescale a stored canonical-basis rate to what the reader asked to see. Null passes through. */
 export function scaleToBasis(v: number | null, basis: EraBasis): number | null {
   return v == null ? null : (v * basis) / ERA_BASIS_CANONICAL
 }
@@ -134,7 +142,11 @@ export interface WpblPitchingTotals {
    *  one place a per-7 figure can come from and no way for two surfaces to disagree. */
   era: number | null
   whip: number | null
-  /** Strikeouts per nine innings, canonical for the same reason `era` is. */
+  /** Strikeouts per `ERA_BASIS_CANONICAL` innings, canonical for the same reason `era` is.
+   *  The field name is historical: it held a per-9 figure until Sep 3, 2026 and now holds a
+   *  per-7 one. Renaming it would touch the stats board, the percentile strip, the share cards
+   *  and the Discord card for no gain, since every label a reader sees comes from
+   *  `kRateLabel(basis)` and already moves on its own. */
   k9: number | null
   /** Strikeout-to-walk ratio. Null when nobody has walked, since the ratio has no value. */
   kbb: number | null
@@ -328,7 +340,10 @@ export interface WpblTeamStatDef {
   better: 'high' | 'low'
 }
 
-// Render order for the comparison table. The K label is not fixed here: see `teamStatLabel`.
+// Render order for the comparison table. The K label below is a PLACEHOLDER and never
+// reaches a screen: every consumer swaps it for `kRateLabel(basis)` at render, because the
+// denominator moves with the reader's setting. (This comment used to name a `teamStatLabel`
+// helper that does not exist and may never have.)
 export const WPBL_TEAM_STAT_DEFS: WpblTeamStatDef[] = [
   { key: 'avg',  label: 'AVG',  group: 'hitting',  better: 'high' },
   { key: 'obp',  label: 'OBP',  group: 'hitting',  better: 'high' },

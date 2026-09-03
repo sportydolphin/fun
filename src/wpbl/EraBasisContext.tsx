@@ -19,9 +19,22 @@ export type { EraBasis }
 
 const STORAGE_KEY = 'wpblEraBasis'
 
+/**
+ * Read the reader's choice, accepting EITHER basis by name.
+ *
+ * This used to ask `=== '7' ? 7 : CANONICAL`, which worked only while 7 was the non-default:
+ * it recognised the one value that was not the default and let everything else fall through.
+ * When the league switched to per 7 on Sep 3, 2026 and the canonical basis moved with it, that
+ * made the remaining choice unstorable. A reader picking "Per 9" wrote '9', `readStored` did not
+ * recognise it, and the setting silently snapped back on the next load. Nothing threw and the
+ * pill even looked right until you reloaded.
+ *
+ * Naming both values fixes it in whichever direction the league goes next.
+ */
 function readStored(): EraBasis {
   try {
-    return localStorage.getItem(STORAGE_KEY) === '7' ? 7 : ERA_BASIS_CANONICAL
+    const v = localStorage.getItem(STORAGE_KEY)
+    return v === '7' ? 7 : v === '9' ? 9 : ERA_BASIS_CANONICAL
   } catch { return ERA_BASIS_CANONICAL }
 }
 
@@ -29,15 +42,17 @@ interface EraBasisContextValue {
   basis: EraBasis
   setBasis: (b: EraBasis) => void
   /** True when the reader has moved off the league's own basis. Surfaces that sit next to a
-   *  league-published number use this to say so rather than silently disagreeing. */
+   *  league-published number use this to say so rather than silently disagreeing. Compares
+   *  against the constant, so it inverted on its own when the league switched: it means "not 7"
+   *  now and meant "not 9" before Sep 3, 2026. */
   offLeague: boolean
-  /** Stored per-9 rate → what to show. */
+  /** Stored canonical-basis rate → what to show. */
   scale: (v: number | null) => number | null
   /** ERA and other two-decimal rates, already scaled. Dash for null. */
   fmtEra: (v: number | null) => string
   /** Strikeout rate, one decimal, already scaled. Dash for null. */
   fmtK: (v: number | null) => string
-  /** "K/9" or "K/7". ERA and WHIP keep their names; only this one says its denominator. */
+  /** "K/7" or "K/9". ERA and WHIP keep their names; only this one says its denominator. */
   kLabel: string
 }
 
@@ -53,7 +68,7 @@ export function EraBasisProvider({ children }: { children: React.ReactNode }) {
   // reader flipping this in Settings very often has the Stats board open behind it.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) setBasisState(e.newValue === '7' ? 7 : ERA_BASIS_CANONICAL)
+      if (e.key === STORAGE_KEY) setBasisState(e.newValue === '7' ? 7 : e.newValue === '9' ? 9 : ERA_BASIS_CANONICAL)
     }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
