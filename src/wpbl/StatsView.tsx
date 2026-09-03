@@ -392,6 +392,14 @@ export interface WpblStatsFocus {
   mode?: Mode
   /** Pre-select the team filter chip (players mode only). null clears it. */
   teamId?: string | null
+  /** Force the Qualified filter on or off (players mode only). Left alone when omitted, so
+   *  an ordinary leader-card jump still lands on whatever the season default is.
+   *
+   *  FALSE IS THE INTERESTING ONE, and the team page's roster link is why it exists. That
+   *  card lists the whole roster, so "Full stats" landing on the qualified board dropped
+   *  most of the names the reader had just been looking at: the door out of a 30-player list
+   *  opened onto a 9-player one, with nothing on screen saying a filter had been applied. */
+  qualified?: boolean
   token: number     // 0 = nothing requested yet
 }
 
@@ -558,11 +566,13 @@ export default function WpblStatsView({
     const axes = axesOf(focus.group)
     if (axes.side) setSide(axes.side)
     setSource(axes.source)
-    // A link can also ask for the teams board, or for the player board already narrowed to
-    // one club — the two states the team page links into. Both are left alone when the link
-    // doesn't mention them, so an ordinary leader-card jump behaves exactly as before.
+    // A link can also ask for the teams board, for the player board already narrowed to one
+    // club, or for the qualified filter off — the states the team page links into. All three
+    // are left alone when the link doesn't mention them, so an ordinary leader-card jump
+    // behaves exactly as before.
     if (focus.mode) setMode(focus.mode)
     if (focus.teamId !== undefined) setTeamId(focus.teamId)
+    if (focus.qualified !== undefined) setQualified(focus.qualified)
     linkLogged.current = true
     logBoard('link', { side: axes.side, source: axes.source, mode: focus.mode })
     if (axes.source !== 'season') return // the tracked boards and draft have nothing to sort

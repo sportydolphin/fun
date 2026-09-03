@@ -286,7 +286,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   /** Jump to the Stats tab on a particular board. Optional so the page still renders
    *  standalone; the two links simply don't appear without it. */
   onOpenStats?: (group: 'hitting' | 'pitching', sortKey?: string,
-                 opts?: { mode?: 'players' | 'teams'; teamId?: string | null }) => void
+                 opts?: { mode?: 'players' | 'teams'; teamId?: string | null; qualified?: boolean }) => void
 }) {
   const isDark = useWpblDark()
   const accent = wpblAccent(team.id, isDark)
@@ -678,8 +678,15 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
              <Box sx={{ minWidth: 132 }}>
                {/* With the other three clubs gone from the chart, the middle ring is the only
                    thing left saying what the shape is measured against, so it has to be named.
-                   The readout under it is the same comparison in numbers. */}
-               <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.disabled', mb: 0.5 }}>
+                   The readout under it is the same comparison in numbers.
+
+                   RIGHT-ALIGNED, BECAUSE IT IS A COLUMN HEADING AND NOT A TITLE. The readout
+                   is a three-column grid and only the last of them holds the pair this names;
+                   left-aligned, the words "Club / League" sat over "Power" and "Contact",
+                   which are the axis names, and pointed at nothing. Both this and the value
+                   column are flush to the same right edge, so aligning it there parks it
+                   directly above the ".192 / .148" it is explaining. */}
+               <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.disabled', mb: 0.5, textAlign: 'right' }}>
                  Club / League
                </Typography>
                <TeamSpecReadout specs={specs} teamId={team.id} kLabel={kLabel}
@@ -830,8 +837,13 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
             action={onOpenStats ? (
               // The roster row shows three stats; this is the door to all of them, with the
               // team filter chip already set so you don't land in the whole league.
+              //
+              // AND QUALIFIED OFF, because this card is the whole roster and the board it
+              // opens should be too. Landing on the qualified board answered a question
+              // nobody asked here: most of the names the reader had just scrolled past were
+              // simply gone, and the only clue was a lit chip above the table.
               <CardLink label="Full stats" accent={accent}
-                onClick={() => onOpenStats('hitting', undefined, { mode: 'players', teamId: team.id })} />
+                onClick={() => onOpenStats('hitting', undefined, { mode: 'players', teamId: team.id, qualified: false })} />
             ) : undefined}
           >
             {visibleRoster.length === 0 ? (

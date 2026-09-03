@@ -555,7 +555,7 @@ function TeamsView({ teams, games, selected, onSelect, onOpenGame, onOpenPlayer,
   onOpenGame: (g: WpblGame) => void
   onOpenPlayer: (p: WpblPlayer) => void
   onOpenStats: (g: 'hitting' | 'pitching', sortKey?: string,
-                opts?: Pick<WpblStatsFocus, 'mode' | 'teamId'>) => void
+                opts?: Pick<WpblStatsFocus, 'mode' | 'teamId' | 'qualified'>) => void
 }) {
   if (teams.length === 0) {
     return <EmptyState title="No teams yet" hint="The four inaugural teams appear here once added." />
@@ -974,7 +974,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const openStats  = useCallback((
     g: WpblStatsFocus['group'],
     sortKey?: string,
-    opts?: Pick<WpblStatsFocus, 'mode' | 'teamId'>,
+    opts?: Pick<WpblStatsFocus, 'mode' | 'teamId' | 'qualified'>,
   ) => {
     setStatsFocus(f => ({ group: g, sortKey, ...opts, token: f.token + 1 }))
     selectTab('stats', 'link')
