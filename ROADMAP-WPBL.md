@@ -376,10 +376,12 @@ mid-September.
 
 ### 1. Postseason data hygiene ⚙️: ✅ **shipped Aug 20, 2026** (see the log). Kept here until the first postseason game confirms what the feed sends
 
-**Dates published Aug 24** and now carried on the bracket card (`POSTSEASON_SCHEDULE` in
-`derive/bracket.ts`): Semifinal A Sep 9, 11, 13* · Semifinal B Sep 10, 12, 14* · Championship
-Sep 16, 17, 19, 20*, 22*. They are a constant rather than rows, because a game row needs two
-clubs and the seeds are not set until Sep 6.
+**Dates published Aug 24** and now carried on the bracket card AND the schedule tab
+(`POSTSEASON_SCHEDULE` in `derive/bracket.ts`): Semifinal A Sep 9, 11, 13* · Semifinal B
+Sep 10, 12, 14* · Championship Sep 16, 17, 19, 20*, 22*. They are a constant rather than rows,
+because a game row needs two clubs and the seeds are not set until Sep 6. The schedule prints
+them through `postseasonScheduleRows` (Sep 3, see the log), naming a seed until that seed is
+locked and standing down the day the feed publishes a real game on the date.
 
 **Format** (confirmed Aug 16): all four teams qualify · semifinals **best-of-3** ·
 finals **best-of-5**. So **7–11 postseason games** land on top of a 30-game regular season,
@@ -949,6 +951,40 @@ is retired.
 ---
 
 ## Shipped log
+
+### Sep 3, 2026: the schedule runs to Sep 22, on seeds rather than on guesses
+
+**The schedule tab said the season ended on Sep 6.** `wpbl_games` stops there, because a game
+row needs two clubs and the seeds are not set until the last regular-season game, so the list
+had nothing to show past it while the bracket card two tabs away was already counting down to
+Sep 9. `postseasonScheduleRows` in `derive/bracket.ts` fills the gap from `POSTSEASON_SCHEDULE`,
+the calendar the league published on Aug 24, and the tab now runs through the championship's
+game 5 on Sep 22 with the off-days between.
+
+**A slot names a club only once that seed cannot move**, and prints "1 seed" until then. The
+bracket card is free to project because it reads as a projection; a schedule reads as fact, and
+a fan who screenshots "Firebells at Heights, Sep 9" on Sep 3 has been told something nobody
+knows. Seeds settle one at a time rather than waiting for the whole bracket, since the top seed
+usually locks days before the bottom two stop swapping.
+
+**The settle test is stricter than `bracketIsSet` and had to be.** Reusing
+`bestPossible === worstPossible` printed "Boston Hunters" in the 4 seed on Sep 2: those fields
+resolve a tie against the club being measured, which is right for the magic numbers they were
+written for, and wrong here, because Boston could still finish level with New York at 6-9 and
+take third on the tiebreak. A rival now counts as resolved only when one side is out of the
+other's reach, with the "neither has a game left" case closing it at the end of the season.
+Pinned in `__tests__/postseasonSchedule.test.ts`.
+
+**Nothing to delete later.** A row retires itself the day the feed carries a real postseason
+game on its date, and the date range takes the later of the feed's last game and the calendar's,
+so the handover happens on its own. If-necessary games are marked as such and disappear once the
+series they belong to is won, which is the one way this list could state something false rather
+than merely unknown. The cards are dashed, carry no score column and are not links, because
+there is no game page to open yet.
+
+**Not shown: home and away.** Every other card is "away @ home" because the feed says which is
+which. The league published dates and times, not venues, so these print as two rows in seed
+order with no `@`.
 
 ### Sep 3, 2026: the recaps were hours late, and it was never our scheduler
 

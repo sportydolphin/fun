@@ -262,3 +262,139 @@ export function buildBracket(rows: WpblStandingRow[], games: WpblGame[]): WpblBr
     champion: championship.winner,
   }
 }
+
+// ─── The postseason on the schedule ─────────────────────────────────────────
+
+/** One side of a postseason game before the feed has a row for it. */
+export interface PostseasonSlot {
+  /** The club, once this slot is decided. Null while it is still a projection. */
+  team: WpblTeam | null
+  /** What to print when `team` is null: "1 seed", "Semifinal A winner". */
+  label: string
+  /** The seed this slot is reserved for, so a card can show the number without parsing the
+   *  label. Null on the championship, whose slots are winners rather than seeds. */
+  seed: number | null
+}
+
+export interface PostseasonScheduleRow {
+  /** Stable across renders and independent of the clubs, which move. */
+  id: string
+  /** Central calendar date, matching `wpbl_games.game_date`. */
+  date: string
+  /** Central wall clock, matching `wpbl_games.start_time`. */
+  time: string
+  round: BracketRound
+  key: string | null
+  /** "Semifinal A", "Championship". */
+  label: string
+  gameNumber: number
+  ifNecessary: boolean
+  /** Higher seed first. NOT home and away: see the note in `postseasonScheduleRows`. */
+  first: PostseasonSlot
+  second: PostseasonSlot
+}
+
+/**
+ * The postseason as rows the schedule can print, before the feed has any games for it.
+ *
+ * WHY THE SCHEDULE NEEDS THESE AT ALL. `wpbl_games` ends on Sep 6 and will until the league
+ * publishes the bracket, so the section's own schedule said the season stopped there while the
+ * bracket card two tabs away was already counting down to Sep 9. These fill that gap from the
+ * calendar the league published, and they retire themselves: a row is dropped as soon as the
+ * feed carries a real postseason game on its date, so nothing has to be deleted later and the
+ * real row is always the one that wins.
+ *
+ * SEEDS, NOT PROJECTED CLUBS. A slot names a club only once that exact seed can no longer move
+ * (`bestPossible === worstPossible`, the same test `bracketIsSet` applies to the whole
+ * bracket), and prints "1 seed" until then. The bracket card is free to project because it
+ * reads as a projection; a schedule reads as fact, and a fan who screenshots "Firebells at
+ * Heights, Sep 9" on Sep 3 has been told something we do not know. The seed line is true on the
+ * day it is written and stays true.
+ *
+ * FIRST AND SECOND, NOT AWAY AND HOME. Every other card in the schedule is "away @ home"
+ * because the feed says which is which. Here nothing does: the league published dates and
+ * times, not venues, and a best-of-three does not simply give every game to the higher seed.
+ * So these print as two rows in seed order with no `@`, and the day the feed sends real rows
+ * they carry the real thing.
+ */
+export function postseasonScheduleRows(
+  rows: WpblStandingRow[],
+  games: WpblGame[],
+): PostseasonScheduleRow[] {
+  const seeds = seedingRace(rows, games)
+  if (seeds.length < 4) return []
+
+  // A seed names a club only when it cannot move any more. Per SEED, not per bracket: the top
+  // seed routinely locks days before the bottom two stop swapping, and holding every slot
+  // hostage to the last one would keep the board vague for no reason.
+  //
+  // DELIBERATELY STRICTER THAN `bestPossible === worstPossible`, which is what `bracketIsSet`
+  // asks and what this reached for first. Those two fields resolve a tie AGAINST the club being
+  // measured, which is the safe reading for the magic numbers they were written for and the
+  // wrong one here: on Sep 2, 2026 it collapsed Boston's range onto 4th and this list printed
+  // "Boston Hunters" in the 4 seed, while Boston could still finish level with New York at 6-9
+  // and take third on the tiebreak. Printing "4 seed" when the club is in fact known is a small
+  // loss. Printing a club in a slot it can still climb out of is the one thing this list exists
+  // not to do.
+  //
+  // A rival is RESOLVED against this club when one of them is out of reach of the other: either
+  // the rival's floor already beats this club's ceiling, or its ceiling already loses to this
+  // club's floor. Anything in between is a possible tie on the field. The last clause is what
+  // stops that being permanently unresolvable: once neither club has a game left there is no
+  // band, `computeStandings` has applied the tiebreaks, and the order it produced is the final
+  // one. Wins-only, like every comparison in seeding.ts, which the balanced schedule earns.
+  const settled = new Map<number, WpblTeam>()
+  for (const me of seeds) {
+    const open = seeds.some(o => o.team.id !== me.team.id
+      && o.wins <= me.maxWins && o.maxWins >= me.wins
+      && (o.remaining > 0 || me.remaining > 0))
+    if (!open) settled.set(me.seed, me.team)
+  }
+
+  // The dates the feed has already claimed. A published postseason game always beats the
+  // constant: it carries the clubs, the real time, and a page to open.
+  const feedDates = new Set<string>()
+  for (const g of games) if (!countsInStandings(g)) feedDates.add(g.game_date)
+
+  const bracket = buildBracket(rows, games)
+  const seedSlot = (seed: number): PostseasonSlot =>
+    ({ team: settled.get(seed) ?? null, label: `${seed} seed`, seed })
+
+  const out: PostseasonScheduleRow[] = []
+  const push = (
+    round: BracketRound, key: string | null, label: string,
+    first: PostseasonSlot, second: PostseasonSlot,
+    decided: boolean,
+  ) => {
+    for (const g of postseasonGames(round, key)) {
+      if (feedDates.has(g.date)) continue
+      // An if-necessary game that is no longer necessary. Once a series is won its game 3 (or
+      // its games 4 and 5) will not be played, and leaving them on the calendar is the one way
+      // this list can state something that is not merely unknown but false.
+      if (g.ifNecessary && decided) continue
+      out.push({
+        id: `ps:${round}:${key ?? '-'}:${g.game}`,
+        date: g.date, time: g.time, round, key, label,
+        gameNumber: g.game, ifNecessary: !!g.ifNecessary,
+        first, second,
+      })
+    }
+  }
+
+  SEMIFINAL_PAIRS.forEach(([hi, lo], i) => {
+    const key = String.fromCharCode(65 + i)
+    push('semifinal', key, `Semifinal ${key}`, seedSlot(hi), seedSlot(lo),
+      !!bracket?.semifinals[i]?.winner)
+  })
+
+  // The championship's slots are the semifinal winners, so they are unknown for a different
+  // reason than a seed is, and say so rather than borrowing a seed number they do not have.
+  const champSlot = (i: number): PostseasonSlot => ({
+    team: bracket?.semifinals[i]?.winner ?? null,
+    label: `Semifinal ${String.fromCharCode(65 + i)} winner`,
+    seed: null,
+  })
+  push('championship', null, 'Championship', champSlot(0), champSlot(1), !!bracket?.champion)
+
+  return out.sort((a, b) => a.date.localeCompare(b.date) || a.gameNumber - b.gameNumber)
+}

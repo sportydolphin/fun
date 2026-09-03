@@ -14,6 +14,7 @@ import { getWpblRecents, mergeWpblRecent, setWpblRecents, type WpblRecentItem } 
 import type { WpblTeam, WpblPlayer, WpblGame } from './types'
 import { fmtSigned } from './stats'
 import { seriesContexts } from './derive/series'
+import { postseasonScheduleRows, type PostseasonScheduleRow, type PostseasonSlot } from './derive/bracket'
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import WpblHome, { WpblHomeSkeleton } from './Home'
@@ -158,11 +159,22 @@ function ScheduleView({ teams, games, onOpenGame }: {
   // long as the feed marks no game as postseason, so nothing here changes shape on its own.
   const series = useMemo(() => seriesContexts(games, byId), [games, byId])
   // Season-to-date record per team, so upcoming games can show each side's W-L.
+  const standings = useMemo(() => computeStandings(teams, games), [teams, games])
   const recordById = useMemo(() => {
     const m = new Map<string, string>()
-    for (const r of computeStandings(teams, games)) m.set(r.team.id, `${r.wins}-${r.losses}`)
+    for (const r of standings) m.set(r.team.id, `${r.wins}-${r.losses}`)
     return m
-  }, [teams, games])
+  }, [standings])
+  // The postseason, from the calendar the league published, for as long as the feed has no
+  // rows of its own. Without this the schedule ended on Sep 6 while the bracket card two tabs
+  // away was already counting down to Sep 9. Each row retires itself the day a real game
+  // lands on its date; see postseasonScheduleRows.
+  const postRows = useMemo(() => postseasonScheduleRows(standings, games), [standings, games])
+  const postByDate = useMemo(() => {
+    const m = new Map<string, PostseasonScheduleRow[]>()
+    for (const r of postRows) m.set(r.date, [...(m.get(r.date) ?? []), r])
+    return m
+  }, [postRows])
   // Snap the schedule to the current point in the season when it opens: the next live or
   // upcoming game lands at the top, with the just-played games directly above it, instead
   // of starting on the season opener. Games are date-ascending, so the first non-final one
@@ -192,7 +204,13 @@ function ScheduleView({ teams, games, onOpenGame }: {
   const dates: string[] = []
   {
     const cursor = new Date(`${gameDates[0]}T00:00:00`)
-    const end = new Date(`${gameDates[gameDates.length - 1]}T00:00:00`)
+    // Runs to the last date anything is scheduled on, which past Sep 6 is the published
+    // postseason rather than the feed. Taking the later of the two keeps the calendar
+    // continuous in both directions: before the league draws the bracket the tail is the
+    // constant, and once it does the feed's own rows are the later date and take over.
+    const lastFeed = gameDates[gameDates.length - 1]
+    const lastPost = postRows.length ? postRows[postRows.length - 1].date : lastFeed
+    const end = new Date(`${(lastPost > lastFeed ? lastPost : lastFeed)}T00:00:00`)
     while (cursor <= end) {
       const y = cursor.getFullYear()
       const m = String(cursor.getMonth() + 1).padStart(2, '0')
@@ -201,6 +219,10 @@ function ScheduleView({ teams, games, onOpenGame }: {
       cursor.setDate(cursor.getDate() + 1)
     }
   }
+  // The first date the postseason occupies, which is where the divider goes. Taken from the
+  // rows rather than from a constant, so it moves on its own once the feed starts publishing
+  // real games and the placeholders retire.
+  const firstPostDate = postRows[0]?.date ?? null
   const anchorIdx = anchorDate ? Math.max(0, dates.indexOf(anchorDate)) : 0
   const start = Math.max(0, anchorIdx - 1) // include the previous game's date
   const lead = dates.slice(start)
@@ -217,10 +239,74 @@ function ScheduleView({ teams, games, onOpenGame }: {
     return rel ? `${rel} · ${md}` : d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
   }
 
+  // A postseason game the league has dated but not yet drawn. Deliberately a different object
+  // from a game card: dashed rather than solid, no score column, no link, and slots that name a
+  // seed rather than a club. A reader must not be able to mistake it for a fixture that exists.
+  const renderPostseason = (r: PostseasonScheduleRow) => {
+    const slot = (p: PostseasonSlot, i: number) => (
+      <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+        {p.team ? <TeamBadge team={p.team} size={26} /> : (
+          // The empty seat, sized exactly like a badge so a settled slot and an open one do not
+          // shift the row when the seeding locks mid-week.
+          <Box aria-hidden sx={{
+            width: 26, height: 26, flexShrink: 0, borderRadius: '50%',
+            border: '1px dashed', borderColor: CARD_BORDER,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '0.7rem', fontWeight: 800, color: 'text.disabled',
+          }}>{p.seed ?? ''}</Box>
+        )}
+        <Typography noWrap sx={{
+          fontSize: '0.9rem', fontWeight: p.team ? 600 : 500, flex: 1, minWidth: 0,
+          color: p.team ? 'text.primary' : 'text.secondary',
+        }}>
+          {p.team ? wpblFullName(p.team) : p.label}
+        </Typography>
+        {p.team && recordById.get(p.team.id) && (
+          <Typography sx={{ flexShrink: 0, fontSize: '0.72rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.disabled' }}>
+            {recordById.get(p.team.id)}
+          </Typography>
+        )}
+      </Box>
+    )
+    return (
+      <Box key={r.id} sx={{
+        display: 'flex', flexDirection: 'column', gap: 0.5, p: 1.25,
+        borderRadius: 2, border: '1px dashed', borderColor: CARD_BORDER, bgcolor: 'background.paper',
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {[r.first, r.second].map(slot)}
+          </Box>
+          <Box sx={{ flexShrink: 0, textAlign: 'right', minWidth: '3.625rem', whiteSpace: 'nowrap' }}>
+            {/* The league published Central wall-clock times, and formatGameTime converts them
+                to the reader's zone the same way it does for a feed game. */}
+            <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary' }}>
+              {formatGameTime(r.date, r.time) || r.time}
+            </Typography>
+          </Box>
+        </Box>
+        <Box sx={{
+          display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.75,
+          pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
+        }}>
+          <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: WPBL_ACCENT }}>
+            {r.label} · Game {r.gameNumber}
+          </Typography>
+          {/* Spelled out rather than left as the bracket's asterisk: there is no key beside a
+              schedule row to explain what the asterisk meant. */}
+          <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.disabled' }}>
+            {r.ifNecessary ? 'If necessary' : 'Scheduled'}
+          </Typography>
+        </Box>
+      </Box>
+    )
+  }
+
   const renderDate = (date: string) => {
     const dayGames = byDate.get(date)
+    const dayPost = postByDate.get(date)
     // Off-day: a slim dashed marker instead of game cards, so gaps between game days are visible.
-    if (!dayGames) {
+    if (!dayGames && !dayPost) {
       return (
         <Box key={date}>
           <SectionLabel>{dateLabel(date)}</SectionLabel>
@@ -237,9 +323,12 @@ function ScheduleView({ teams, games, onOpenGame }: {
     }
     return (
     <Box key={date}>
+      {/* One divider where the regular season stops, so a reader scrolling past Sep 6 is told
+          what the dashed cards below it are before meeting one. */}
+      {date === firstPostDate && <SectionLabel>Postseason</SectionLabel>}
       <SectionLabel>{dateLabel(date)}</SectionLabel>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {dayGames.map(g => {
+        {(dayGames ?? []).map(g => {
           const home = byId.get(g.home_team_id)
           const away = byId.get(g.away_team_id)
           const final = g.status === 'final' && g.home_score != null && g.away_score != null
@@ -320,6 +409,7 @@ function ScheduleView({ teams, games, onOpenGame }: {
             </Box>
           )
         })}
+        {(dayPost ?? []).map(renderPostseason)}
       </Box>
     </Box>
     )
