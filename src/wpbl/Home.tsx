@@ -567,7 +567,7 @@ function GameReminderRow({ game, away, home, startMs }: {
           states, and at the same 700 they were louder than the season-series line on a card
           whose subject is a baseball game. Same row, same size, one step down in weight. */}
       <Typography noWrap title={hint} sx={{
-        flex: 1, minWidth: 0, fontSize: '0.82rem', fontWeight: tone === 'primary' ? 700 : 600, lineHeight: 1.25,
+        flex: 1, minWidth: 0, fontSize: '0.8rem', fontWeight: tone === 'primary' ? 700 : 600, lineHeight: 1.25,
         color: tone === 'error' ? 'error.main' : tone === 'secondary' ? 'text.secondary' : 'text.primary',
       }}>
         {label}
@@ -645,6 +645,23 @@ function recentForm(games: WpblGame[], teamId: string, beforeMs: number, n = FOR
     .map(({ g }) => (g.home_score! > g.away_score! ? g.home_team_id : g.away_team_id) === teamId)
 }
 
+/**
+ * THE CARD'S TYPE SCALE, and it is short on purpose.
+ *
+ * A font audit on Sep 3, 2026 found TEN distinct sizes in this one card, six of them between
+ * 0.72rem and 0.85rem: 0.72, 0.75, 0.76, 0.80, 0.82, 0.85. Six steps a reader cannot tell apart,
+ * doing six different jobs, which is what "nothing quite lines up" actually looks like when you
+ * measure it. Sizes now come from this list and nowhere else:
+ *
+ *   1.2rem   the club names, the card's subject
+ *   0.95rem  the card title and the countdown, its two headlines
+ *   0.8rem   a sentence: the series line, the reminder row
+ *   0.72rem  a small number or a stat: records, the clock's date, the footer values
+ *   0.68rem  MICRO_TEXT, the all-caps labels
+ *   0.6rem   the footer's own caption
+ *
+ * Adding a seventh size is a decision, not a detail. Reach for the nearest step first.
+ */
 function NextGameCard({ games, teams, onOpenGame }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
 }) {
@@ -715,15 +732,35 @@ function NextGameCard({ games, teams, onOpenGame }: {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         {t && <TeamBadge team={t} size={30} />}
-        {/* Ellipsis as the final net: at 1.2rem a full club name is wider than it was, and a
-            row that silently doubles in height on one matchup is worse than a name that runs
-            out of room on the narrowest phone we support. */}
-        <Typography noWrap sx={{
-          minWidth: 0, fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.2px', lineHeight: 1.15,
-        }}>
-          {isHome && <Box component="span" sx={{ color: 'text.disabled', fontWeight: 600, fontSize: '0.85rem', mr: 0.4 }}>@</Box>}
-          {t ? wpblFullName(t) : '?'}
-        </Typography>
+        {/* THE "@" GETS A RESERVED SLOT ON BOTH ROWS. Inline, it pushed only the home club, so
+            the first glyph of "New York Heights" sat at x=68.5 and "Los Angeles Queens" at 89.3:
+            21px apart, on two 24px names stacked directly on each other, which is the most
+            visible misalignment a pair of rows can have. An empty slot on the away row costs a
+            small even indent that nobody can see; a 21px step between two headline names is the
+            first thing anybody sees.
+
+            In rem, not px, because the slot has to grow with the type it is reserving room for.
+
+            RAISED OFF THE BASELINE ON PURPOSE. Baseline-aligned, a small "@" beside 24px caps
+            sits about 4px low optically: the caps run from the baseline to cap height, and the
+            "@" bowl is centred near x-height, so their optical centres do not agree even though
+            their baselines do. `0.22em` of its own size is the correction, which scales with it. */}
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.45, minWidth: 0 }}>
+          <Box component="span" sx={{
+            width: '1.05rem', flexShrink: 0, fontSize: '0.8rem', fontWeight: 700, lineHeight: 1,
+            color: 'text.disabled', position: 'relative', bottom: '0.22em',
+          }}>
+            {isHome ? '@' : ''}
+          </Box>
+          {/* Ellipsis as the final net: at 1.2rem a full club name is wider than it was, and a
+              row that silently doubles in height on one matchup is worse than a name that runs
+              out of room on the narrowest phone we support. */}
+          <Typography noWrap sx={{
+            minWidth: 0, fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.2px', lineHeight: 1.15,
+          }}>
+            {t ? wpblFullName(t) : '?'}
+          </Typography>
+        </Box>
         {/* BESIDE THE NAME, NOT AGAINST THE CARD'S EDGE. Right-aligned it was 290px from the
             club it belongs to on a 623px card, floating in a column of its own with nothing
             else in it, which is what made a muted 0.75rem number look accidental rather than
@@ -731,7 +768,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
             LastGameCard keeps its right-aligned column and should: a score is a number the eye
             goes looking for down the edge of a card, and a record is not. */}
         {record && (
-          <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.disabled', flexShrink: 0 }}>
+          <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.disabled', flexShrink: 0 }}>
             {record}
           </Typography>
         )}
@@ -824,7 +861,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
           <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, color: WPBL_ACCENT, fontVariantNumeric: 'tabular-nums' }}>
             <Countdown target={next.ms} />
           </Typography>
-          <Typography sx={{ fontSize: '0.76rem', fontWeight: 600, color: 'text.secondary' }}>
+          <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary' }}>
             {dateLabel}{timeLabel ? `, ${timeLabel}` : ''}
           </Typography>
         </Box>

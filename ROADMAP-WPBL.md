@@ -989,6 +989,25 @@ column with nothing else in it, which is what made a muted 0.75rem number look a
 sits beside the name. LastGameCard keeps its right-aligned column, because a score IS a number
 the eye goes looking for down the edge of a card and a record is not.
 
+**A third pass, from a font and width audit.** The "@" was inline, so it pushed only the home
+club: the first glyph of "New York Heights" sat at x=68.5 and "Los Angeles Queens" at 89.3, 21px
+apart, on two 24px names stacked directly on each other. It has a reserved slot on both rows now
+and both names start at 94. It is also lifted 0.22em off the baseline, because a small "@" beside
+24px caps sits about 4px low optically: the caps run baseline to cap height while the "@" bowl is
+centred near x-height, so their baselines agree and their optical centres do not.
+
+The same audit found TEN distinct font sizes in this one card, six of them between 0.72rem and
+0.85rem: 0.72, 0.75, 0.76, 0.80, 0.82, 0.85. Six steps nobody can tell apart doing six different
+jobs, which is what "nothing quite lines up" looks like when you measure it. Six sizes now, each
+a real jump, and the scale is written down at the top of `NextGameCard` so the next size added
+has something to snap to.
+
+**The page-wide number, for whoever picks this up next: Home renders 20 distinct font sizes**,
+and about eight of them carry it (16.8px x54, 12.8 x76, 11.5 x43, 10.9 x45, 13.6 x28, 15.2 x11,
+13.1 x8, 9.6 x8). The other twelve are strays used between one and seven times, and seventeen
+pairs sit under 1px apart. Font family is clean (Inter throughout) and nothing overflows. That
+sweep is a page-wide job and was not done here.
+
 **The stretched grid row turned out not to be the problem.** Measured at 1360px: Next game and
 MVP race are both 390px and Last game and Leaders both 298px, so nothing is being padded to fill
 anything today. It is still fragile, since it is a coincidence of content rather than a rule, but
