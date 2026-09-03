@@ -31,6 +31,8 @@ import { WpblGamePreview } from './GamePreview'
 import MvpRaceCard, { mvpRaceIsWorthDrawing } from './MvpRace'
 import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
 import { mvpRace } from './derive/mvpRace'
+import { seriesContext } from './derive/series'
+import type { SeriesContext } from './derive/series'
 import type { WpblRunValuePlay } from './types'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblTrackRow, WpblVideo, WpblArticle, WpblPhoto } from './types'
 
@@ -745,6 +747,95 @@ function recentForm(games: WpblGame[], teamId: string, beforeMs: number, n = FOR
 }
 
 /**
+ * What Next game says about the fixture, under the clock: the series it belongs to, and the
+ * one sentence describing where that series stands.
+ *
+ * THE POSTSEASON IS A DIFFERENT SERIES, AND THIS CARD USED TO SHOW THE WRONG ONE.
+ * `seasonSeries` filters through `countsInStandings`, so it only ever counts regular-season
+ * meetings. From Sep 9 that made the loudest card on the page read "Season series tied 2-2"
+ * during a semifinal: the August head-to-head, on a card whose entire subject is the game
+ * about to be played, with no word of which game of the series it is or who leads it. The
+ * card directly BENEATH it got this right the whole time, because RecapCard has been
+ * series-aware since #1b shipped and Home is the surface that pass did not reach, so the two
+ * would have contradicted each other 200px apart.
+ *
+ * It fails toward the regular season by construction: `seriesContext` returns null for
+ * anything `countsInStandings` accepts, and that helper counts everything it does not
+ * recognise, so a feed that renames its game types gives this card exactly the reading it has
+ * today rather than a blank one.
+ *
+ * A PURE FUNCTION AND EXPORTED, WHICH IT WOULD NOT OTHERWISE NEED TO BE. This ships blind:
+ * the mirror holds no postseason row until the semifinals are seeded on Sep 6, so there is no
+ * way to open this card and look at it before the fortnight it was written for. The test is
+ * the only thing standing between "Home is series-aware" and finding out on Sep 9 that it is
+ * not, which is the same reasoning series.test.ts opens with.
+ */
+export function nextGameContext(
+  game: WpblGame,
+  games: WpblGame[],
+  teams: Map<string, WpblTeam>,
+  /** The game's start, for the form guide's cutoff. Held by the caller, which found the game
+   *  by sorting on it. */
+  startMs: number,
+): { postseason: SeriesContext | null; line: string } {
+  const home = teams.get(game.home_team_id)
+  const away = teams.get(game.away_team_id)
+  const postseason = seriesContext(game, games, teams)
+
+  const series = seasonSeries(games, game.home_team_id, game.away_team_id)
+  let seriesLabel: string | null = null
+  if (series && home && away) {
+    const { homeWins, awayWins } = series
+    // Nicknames, matching the standings table next to it rather than the full club names on
+    // the rows above: "Boston Hunters lead the season series" says the city twice in one card.
+    if (homeWins === awayWins) seriesLabel = `Season series tied ${homeWins}–${awayWins}`
+    else seriesLabel = `${homeWins > awayWins ? home.name : away.name} lead the season series `
+      + `${Math.max(homeWins, awayWins)}–${Math.min(homeWins, awayWins)}`
+  }
+
+  /**
+   * The two clubs' current runs, folded into the series line rather than drawn as their own
+   * block of dots.
+   *
+   * WHY THE DOTS WENT. This card had THREE stacked answers to one question, all at about the
+   * same weight: the season-series line, a strip of ten dots per club, and the tale of the
+   * tape. Three comparisons is not a hierarchy, it is a list, and the reader has no reason to
+   * start at any of them. The dots survive where they earn their space, on the Teams page,
+   * where they sit in a table row and the shape of a season is the column's whole job.
+   *
+   * The streak is the part a strip of dots is slowest to yield and the part this card actually
+   * wanted, so it is kept as words on a line that was already there. Three and up, which is the
+   * same bar the Teams page uses for the same fact: below three it is something the last two
+   * results already say, and at three it is the headline about the club.
+   *
+   * FORM IS STILL COMPUTED FROM THE SAME `recentForm`, so nothing here can disagree with the
+   * strip on the Teams page about what a club's run is.
+   */
+  const streakClause = (t: WpblTeam | undefined): string | null => {
+    if (!t) return null
+    const results = recentForm(games, t.id, startMs)
+    if (results.length === 0) return null
+    let streak = 0
+    for (let i = results.length - 1; i >= 0 && results[i] === results[results.length - 1]; i--) streak++
+    if (streak < 3) return null
+    return `${t.name} have ${results[results.length - 1] ? 'won' : 'lost'} ${streak}`
+  }
+  // The series first, because it is about the fixture; the runs after, because they are about
+  // the clubs. Joined rather than stacked: one sentence at one weight is a thing a reader
+  // finishes, where three lines at one weight is a thing they skip.
+  //
+  // IN THE POSTSEASON THE STREAKS COME OUT. `line` and `stakes` already name a club each, so
+  // keeping the form clauses gives "Firebells lead 1-0 · Firebells can clinch · Firebells have
+  // won 3", which is one club's name three times in a sentence that only says two things. The
+  // series record IS the form guide once the postseason starts, and it is the better one.
+  const contextLine = (postseason
+    ? [postseason.line, postseason.stakes]
+    : [seriesLabel, streakClause(away), streakClause(home)]
+  ).filter(Boolean).join(' · ')
+  return { postseason, line: contextLine }
+}
+
+/**
  * Sizes on this card come from `TYPE_SCALE`, like the rest of the page.
  *
  * The audit that produced that scale started here: this one card carried TEN distinct sizes,
@@ -784,18 +875,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
   const dateLabel = relativeDayLabel(g.game_date)
   const timeLabel = formatGameTime(g.game_date, g.start_time)
 
-  // Not memoised: one pass over a 30-game season, and Countdown holds its own tick state, so
-  // this card only re-renders when its data actually changes.
-  const series = seasonSeries(games, g.home_team_id, g.away_team_id)
-  let seriesLabel: string | null = null
-  if (series && home && away) {
-    const { homeWins, awayWins } = series
-    // Nicknames, matching the standings table next to it rather than the full club names on
-    // the rows above: "Boston Hunters lead the season series" says the city twice in one card.
-    if (homeWins === awayWins) seriesLabel = `Season series tied ${homeWins}–${awayWins}`
-    else seriesLabel = `${homeWins > awayWins ? home.name : away.name} lead the season series `
-      + `${Math.max(homeWins, awayWins)}–${Math.min(homeWins, awayWins)}`
-  }
+  const { postseason, line: contextLine } = nextGameContext(g, games, teams, next.ms)
 
   /**
    * The matchup, at headline weight, which it was not.
@@ -858,38 +938,6 @@ function NextGameCard({ games, teams, onOpenGame }: {
   }
 
 
-  /**
-   * The two clubs' current runs, folded into the series line rather than drawn as their own
-   * block of dots.
-   *
-   * WHY THE DOTS WENT. This card had THREE stacked answers to one question, all at about the
-   * same weight: the season-series line, a strip of ten dots per club, and the tale of the
-   * tape. Three comparisons is not a hierarchy, it is a list, and the reader has no reason to
-   * start at any of them. The dots survive where they earn their space, on the Teams page,
-   * where they sit in a table row and the shape of a season is the column's whole job.
-   *
-   * The streak is the part a strip of dots is slowest to yield and the part this card actually
-   * wanted, so it is kept as words on a line that was already there. Three and up, which is the
-   * same bar the Teams page uses for the same fact: below three it is something the last two
-   * results already say, and at three it is the headline about the club.
-   *
-   * FORM IS STILL COMPUTED FROM THE SAME `recentForm`, so nothing here can disagree with the
-   * strip on the Teams page about what a club's run is.
-   */
-  const streakClause = (t: WpblTeam | undefined): string | null => {
-    if (!t) return null
-    const results = recentForm(games, t.id, next.ms)
-    if (results.length === 0) return null
-    let streak = 0
-    for (let i = results.length - 1; i >= 0 && results[i] === results[results.length - 1]; i--) streak++
-    if (streak < 3) return null
-    return `${t.name} have ${results[results.length - 1] ? 'won' : 'lost'} ${streak}`
-  }
-  // The series first, because it is about the fixture; the runs after, because they are about
-  // the clubs. Joined rather than stacked: one sentence at one weight is a thing a reader
-  // finishes, where three lines at one weight is a thing they skip.
-  const contextLine = [seriesLabel, streakClause(away), streakClause(home)]
-    .filter(Boolean).join(' · ')
 
   return (
     <SectionCard
@@ -945,11 +993,32 @@ function NextGameCard({ games, teams, onOpenGame }: {
             {dateLabel}{timeLabel ? `, ${timeLabel}` : ''}
           </Typography>
         </Box>
+        {/* WHICH GAME OF WHICH SERIES, in the section's one wording for it: the Schedule row
+            says "Semifinal · Game 2" in the accent above the same record, and two surfaces
+            describing one series two ways is worse than either wording is good.
+
+            "of 3" is the one addition, and this is the card with room for it. A bare "Game 2"
+            leaves "Firebells lead 1-0" underneath meaning nothing in particular; against a
+            best-of-three it means the Firebells win tonight or play a decider, which is the
+            whole reason anyone is reading this card in October. `gameNumber` is deliberately
+            un-clamped upstream, so "Game 4 of 3" can appear and is a real signal (a doubled
+            row in the mirror), not a rendering fault to defend against here. */}
+        {postseason && (
+          <Typography sx={{
+            fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.4,
+            textTransform: 'uppercase', color: WPBL_ACCENT, mt: 1, lineHeight: 1.2,
+          }}>
+            {postseason.label} · Game {postseason.gameNumber} of {postseason.bestOf}
+          </Typography>
+        )}
         {/* Weight 600, not 400. This is the card's third fact, after who and when, and it was
             set lighter than everything around it: the one line carrying the story of the
-            fixture read as the quietest thing on a card whose footer is a stat table. */}
+            fixture read as the quietest thing on a card whose footer is a stat table.
+
+            Tightens under the series eyebrow, which is its own label rather than the block
+            above it: 12px from the clock, 4px from the two words naming what this line is. */}
         {contextLine && (
-          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary', lineHeight: 1.4, mt: 0.75 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary', lineHeight: 1.4, mt: postseason ? 0.4 : 0.75 }}>
             {contextLine}
           </Typography>
         )}
