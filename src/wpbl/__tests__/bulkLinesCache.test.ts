@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { mergeBulkLines } from '../api'
-import type { WpblBattingLine, WpblPitchingLine, WpblLinesResult } from '../types'
+import { mergeBulkLines, type WpblLinesResult } from '../api'
+import type { WpblBattingLine, WpblPitchingLine } from '../types'
 
 // The last-good rule for the league-wide box-score read, which holds TWO arrays fetched in
 // parallel. Everything here is about one asymmetry: a single-array cache can read "empty means

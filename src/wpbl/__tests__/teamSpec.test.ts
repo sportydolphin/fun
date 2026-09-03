@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { teamSpecs, specLeagueGames, formatSpecStat, TEAM_SPEC_AXES, TEAM_SPEC_MIN_GAMES } from '../derive/teamSpec'
+import {
+  teamSpecs, specLeagueGames, specRank, specHighlights, formatSpecStat,
+  TEAM_SPEC_AXES, TEAM_SPEC_MIN_GAMES,
+} from '../derive/teamSpec'
 import type { WpblBattingLine, WpblGame, WpblPitchingLine } from '../types'
 
 // The six numbers behind the team spec chart. Every score is a RATIO TO THE LEAGUE AVERAGE, and
@@ -171,6 +174,49 @@ describe('teamSpecs', () => {
     // Nobody has attempted a steal all year, so there is no average to be above or below.
     const specs = teamSpecs(TEAMS, batting.map(l => ({ ...l, sb: 0, cs: 0 })), pitching, games)!
     for (const row of specs.rows) expect(row.score.speed).toBe(50)
+  })
+})
+
+describe('specRank and specHighlights', () => {
+  // Ranked on the SCORE, not the raw stat, which is the whole reason one function covers all six
+  // axes: direction is already applied, so 1st is the FEWEST unearned runs on Glove and the MOST
+  // steal attempts on Speed. Ranking the raw numbers would silently invert the two low-is-good
+  // axes and hand the worst defence in the league a "1st of 4".
+  it('ranks a low-is-good axis the right way up', () => {
+    const { games, ids } = season()
+    const { batting, pitching } = flatLines(ids)
+    const sloppy = pitching.map(p => p.team_id === 'BOS' ? { ...p, r: 9, er: 4 } : p)
+    const specs = teamSpecs(TEAMS, batting, sloppy, games)!
+    expect(specRank(specs, 'BOS', 'glove')).toBe(4)
+    expect(specRank(specs, 'SF', 'glove')).toBe(1)
+    // And the raw number Boston is last on is the BIGGEST one, which is the trap.
+    expect(specs.byTeam.get('BOS')!.raw.glove).toBeGreaterThan(specs.byTeam.get('SF')!.raw.glove)
+  })
+
+  it('shares the better rank on a tie, as the leaderboards do', () => {
+    const { games, ids } = season()
+    const { batting, pitching } = flatLines(ids)
+    const specs = teamSpecs(TEAMS, batting, pitching, games)!
+    // Everyone is identical, so everyone is first.
+    for (const t of TEAMS) expect(specRank(specs, t, 'power')).toBe(1)
+  })
+
+  it('names a best and a weakest trait', () => {
+    const { games, ids } = season()
+    const { batting, pitching } = flatLines(ids)
+    const b = batting.map(l => l.team_id === 'NY' ? { ...l, sb: 3 } : l)
+    const p = pitching.map(l => l.team_id === 'NY' ? { ...l, so: 1 } : l)
+    const high = specHighlights(teamSpecs(TEAMS, b, p, games)!, 'NY')!
+    expect(high.best.key).toBe('speed')
+    expect(high.worst.key).toBe('arms')
+  })
+
+  // A club level on all six has no best and no worst, and naming one would be reading a tie as
+  // a fact. The caller prints "even across all six" instead.
+  it('returns nothing for a club that is level on every axis', () => {
+    const { games, ids } = season()
+    const { batting, pitching } = flatLines(ids)
+    expect(specHighlights(teamSpecs(TEAMS, batting, pitching, games)!, 'SF')).toBeNull()
   })
 })
 

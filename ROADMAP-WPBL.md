@@ -952,6 +952,41 @@ is retired.
 
 ## Shipped log
 
+### Sep 3, 2026: the spec chart gets the phone's whole column, and its table back as a tap
+
+**Measured on a 390px phone before the change: the chart drew at 210px inside a 358px column**,
+wasting 41% of the width, with a 121px six-row table under it naming the stat behind every spoke.
+That 210 was a desktop number leaking through: on a wide screen the readout sits BESIDE the
+chart, and on a phone there is nothing beside it.
+
+The phone layout now gives the chart the whole column and puts the club's own number under each
+trait name, which leaves the readout with nothing to say that the spokes are not already saying.
+The league value is the one thing lost, and it is not really lost: the middle ring IS the league
+average. **The hexagon is 58% bigger** (62px effective radius to 104) for 21px more block height.
+
+**One line replaces the table, and it has two states.** Untapped it names the club's best and
+weakest trait, which is the silhouette said out loud for a reader who does not parse charts.
+Tapped, it carries what the readout's middle column carried permanently: the stat, the league
+average, and the rank. The rank is the addition, because "1st of 4" is what a fan actually says
+and an ISO of .192 means nothing yet in a league playing its first season.
+
+`specHighlights` deliberately has no "is this strong ENOUGH" threshold. A threshold reads well
+for the two clubs at the ends of the league and produces nothing at all for the average one, and
+a summary line that is sometimes blank is worse than one that is sometimes unsurprising.
+`specRank` ranks on the SCORE rather than the raw stat, which is what lets one function serve all
+six axes: direction is already applied, so 1st is the fewest unearned runs on Glove and the most
+steal attempts on Speed. Ranking the raw numbers would quietly hand the worst defence in the
+league a "1st of 4". Pinned.
+
+The desktop layout is untouched: chart beside the six-row readout, no values on the spokes, no
+tap targets. Two layouts because a phone and a 1280px screen are not the same problem, and the
+`(max-width:600px)` split is the one Game Center and the pitch board already use.
+
+**Still to do, and the bigger half:** the page is 4,259px on that phone, and the header is only
+597 of it. Roster 953, Leaders ~800, Lineup history 646, Pitching usage 471. The two grids are
+horizontal scrollers inside a vertical one, which is the most awkward control there is on a
+touchscreen.
+
 ### Sep 3, 2026: a spec chart, and the two axes everybody would have picked are useless
 
 **Every team page had 562 x 137px of nothing to the right of the club name**, the widest empty

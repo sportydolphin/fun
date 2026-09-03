@@ -223,6 +223,39 @@ export function teamSpecs(
   return { rows, byTeam: new Map(rows.map(r => [r.teamId, r])), league, minGames }
 }
 
+/**
+ * Where a club sits on one axis, 1 = best. Ties share the better rank, as the leaderboards do.
+ *
+ * Ranked on the SCORE rather than the raw stat, which is what makes one function enough for all
+ * six: the score has already had direction applied, so 1st is the fewest unearned runs on Glove
+ * and the most steal attempts on Speed, and no caller has to remember which way an axis runs.
+ */
+export function specRank(specs: TeamSpecs, teamId: string, key: TeamSpecKey): number {
+  const mine = specs.byTeam.get(teamId)
+  if (!mine) return 0
+  return 1 + specs.rows.filter(r => r.score[key] > mine.score[key]).length
+}
+
+/**
+ * The club's strongest and weakest trait, for the one line that replaces the readout on a phone.
+ *
+ * Deliberately always returns both rather than applying a "is this strong ENOUGH" threshold. A
+ * threshold reads well for the two clubs at the ends of the league and produces nothing at all
+ * for the average one, and a summary line that is sometimes blank is worse than one that is
+ * sometimes unsurprising. Los Angeles being best at Control and worst at Speed is still the
+ * honest one-sentence version of Los Angeles.
+ */
+export function specHighlights(specs: TeamSpecs, teamId: string): { best: TeamSpecAxis; worst: TeamSpecAxis } | null {
+  const row = specs.byTeam.get(teamId)
+  if (!row) return null
+  const sorted = [...TEAM_SPEC_AXES].sort((a, b) => row.score[b.key] - row.score[a.key])
+  const best = sorted[0]
+  const worst = sorted[sorted.length - 1]
+  // A club that is identical on every axis has no best and no worst, and naming one would be
+  // reading a tie as a fact.
+  return best.key === worst.key || row.score[best.key] === row.score[worst.key] ? null : { best, worst }
+}
+
 /** The stat behind an axis, in the units a reader expects to see it in. `arms` is the one that
  *  moves with the reader's ERA-basis setting, so the caller passes the already-scaled value. */
 export function formatSpecStat(key: TeamSpecKey, value: number): string {

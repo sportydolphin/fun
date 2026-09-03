@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, CircularProgress } from '@mui/material'
+import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { ArrowBackRounded, GridViewRounded } from '@mui/icons-material'
 import { fetchWpblRoster, fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, computeStandings } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
@@ -11,8 +11,8 @@ import {
 } from './stats'
 import { outsToIp } from './constants'
 import { useEraBasis } from './EraBasisContext'
-import { TeamSpecRadar, TeamSpecReadout, TeamSpecPlaceholder } from './TeamSpecRadar'
-import { teamSpecs, specLeagueGames } from './derive/teamSpec'
+import { TeamSpecRadar, TeamSpecReadout, TeamSpecDetail, TeamSpecPlaceholder } from './TeamSpecRadar'
+import { teamSpecs, specLeagueGames, formatSpecStat, TEAM_SPEC_AXES, type TeamSpecKey } from './derive/teamSpec'
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { useWpblHeadingTag } from './PageHeading'
 import LineupHistory from './LineupHistory'
@@ -374,6 +374,22 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   // Only for the placeholder's "the league is on N" line, which is why it is computed even when
   // `specs` came back null.
   const specGames = useMemo(() => specLeagueGames(teamIds, games), [teamIds, games])
+  // The phone layout puts the club's numbers on the spokes and drops the readout beside the
+  // chart; see the `values` prop. Everything the readout used to say permanently is one tap
+  // away instead.
+  const narrow = useMediaQuery('(max-width:600px)')
+  const [specAxis, setSpecAxis] = useState<TeamSpecKey | null>(null)
+  // A tapped axis is about the club you tapped it on. Carrying it to the next club would show
+  // its Glove number under a heading the reader chose for somebody else.
+  useEffect(() => { setSpecAxis(null) }, [team.id])
+  const specValues = useMemo(() => {
+    if (!specs || !narrow) return null
+    const row = specs.byTeam.get(team.id)
+    if (!row) return null
+    return Object.fromEntries(TEAM_SPEC_AXES.map(a =>
+      [a.key, formatSpecStat(a.key, a.key === 'arms' ? (scaleK(row.raw[a.key]) ?? row.raw[a.key]) : row.raw[a.key])],
+    )) as Record<TeamSpecKey, string>
+  }, [specs, narrow, team.id, scaleK])
 
   const teamBat = useMemo(() => lines ? sumBatting(lines.batting, games) : null, [lines, games])
   const teamPit = useMemo(() => lines ? sumPitching(lines.pitching, games) : null, [lines, games])
@@ -561,13 +577,29 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
          justifyContent: { xs: 'center', md: 'flex-end' },
          flexWrap: 'wrap',
        }}>
-         {specs ? (
+         {specs ? narrow ? (
+           // PHONE. The chart takes the whole column and carries its own numbers, and the one
+           // line under it replaces the readout. Measured before the change on a 390px screen:
+           // the chart drew at 210px inside a 358px column, wasting 41% of the width, with a
+           // 121px table under it explaining what the spokes already showed. The chart is now
+           // 47% bigger for slightly LESS height than the pair used to take.
+           <Box sx={{ width: '100%' }}>
+             <TeamSpecRadar
+               specs={specs} teams={teams} focusId={team.id} radius={104}
+               values={specValues} selected={specAxis} onSelect={setSpecAxis}
+             />
+             <Box sx={{ mt: 0.75 }}>
+               <TeamSpecDetail specs={specs} teamId={team.id} selected={specAxis}
+                 kLabel={kLabel} scaleK={v => scaleK(v) ?? v} onClear={() => setSpecAxis(null)} />
+             </Box>
+           </Box>
+         ) : (
            <>
              {/* 260 rather than 230 because the box is drawn at whatever fraction of its own
                  viewBox the container allows, and below about 0.85 the 12px axis labels stop
                  being legible. The width comes out of the identity column, which is a name, a
                  record and three chips in a 340px slot and has it to give. */}
-             <Box sx={{ width: { xs: 210, sm: 260 }, flexShrink: 0 }}>
+             <Box sx={{ width: 260, flexShrink: 0 }}>
                <TeamSpecRadar specs={specs} teams={teams} focusId={team.id} radius={88} />
              </Box>
              <Box sx={{ minWidth: 132 }}>
