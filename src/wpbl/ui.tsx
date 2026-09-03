@@ -330,6 +330,61 @@ export const chromePx = (px: number) => `calc(${px}px * var(--app-chrome, 1))`
  */
 export const MICRO_TEXT = '0.68rem'
 
+/**
+ * THE TYPE SCALE. Every font size on a surface that has adopted this comes from here.
+ *
+ * WHY IT EXISTS. A font audit of Home on Sep 3, 2026 counted NINETEEN distinct text sizes across
+ * its three files, with seventeen pairs less than 1px apart on screen: 0.9 beside 0.88 beside
+ * 0.85 beside 0.82 beside 0.8, 0.75 beside 0.72 beside 0.7 beside 0.68 beside 0.66. Differences
+ * that small are not hierarchy, they are noise. Nobody chose them either: each one was a
+ * reasonable local decision, and 0.82 got picked over 0.8 a dozen times because there was
+ * nothing to snap to.
+ *
+ * The eight steps below cover every one of those nineteen, and no snap moved a size by more
+ * than nine per cent, which is the point: obeying a rule should tidy a page, not redesign it.
+ *
+ * `micro` is MICRO_TEXT and is only 0.04rem from `meta` on purpose. It is the ALL-CAPS step,
+ * and caps set at 0.68 read larger than lowercase at 0.72 because they have no descenders and
+ * fill the em: the pair is a label and its value, which is a real distinction rather than two
+ * neighbouring sizes.
+ *
+ * `src/wpbl/__tests__/typeScale.test.ts` fails on a raw rem literal in an adopted file, so the
+ * next size added has to be a decision about the scale rather than a number typed into an `sx`.
+ */
+export const TYPE_SCALE = {
+  /** Club names on Next game, the one thing a card is about. */
+  display: '1.2rem',
+  /** Section headings, and a leaderboard's first row. */
+  heading: '1.05rem',
+  /** Card titles and the countdown. */
+  title: '0.95rem',
+  /** A sentence: a recap line, a series line, a reminder. */
+  body: '0.8rem',
+  /** A number or a piece of meta beside something bigger. */
+  meta: '0.72rem',
+  /** All-caps labels. Same value as MICRO_TEXT, which predates this and is used section-wide. */
+  micro: MICRO_TEXT,
+  /** The smallest label that is still a label. */
+  caption: '0.6rem',
+  /** The floor. A league rank under a stat value, and nothing else. */
+  nano: '0.5rem',
+} as const
+
+/**
+ * Icon sizes, and they are a SEPARATE SCALE on purpose.
+ *
+ * MUI sizes an icon with `fontSize`, so an icon and a paragraph reach for the same CSS property
+ * and a naive audit reads a 1.35rem emoji as a heading. They are not the same problem: type
+ * sizes are a reading hierarchy and icon sizes are a fit against the text beside them. Keeping
+ * two names means the type test can insist on TYPE_SCALE without an allowlist of exceptions
+ * nobody would maintain.
+ */
+export const ICON_SIZE = {
+  lg: '1.35rem',
+  md: '1.15rem',
+  sm: '0.85rem',
+} as const
+
 export function TeamBadge({ team, size = 34 }: { team: Pick<WpblTeam, 'id' | 'abbr'>; size?: number }) {
   const logo = wpblLogo(team.id)
   const fill = wpblLogoFill(team.id)

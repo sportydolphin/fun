@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, useMediaQuery } from '@mui/material'
-import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark, tappableIf } from './ui'
+import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark, tappableIf, TYPE_SCALE } from './ui'
 import { wpblAccent } from './constants'
 import { buildBracket, seriesDateLine } from './derive/bracket'
 import type { BracketSeries, BracketEntrant, WpblBracket } from './derive/bracket'
@@ -70,7 +70,7 @@ function SeriesTeamRow({ entrant, series, leading, onOpenTeam, from, placeholder
           width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
           border: '1px dashed', borderColor: 'divider',
         }} />
-        <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled', flex: 1, minWidth: 0 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled', flex: 1, minWidth: 0 }}>
           {placeholder ?? 'Semifinal winner'}
         </Typography>
       </Box>
@@ -95,12 +95,12 @@ function SeriesTeamRow({ entrant, series, leading, onOpenTeam, from, placeholder
       }}
     >
       <Typography sx={{
-        width: '0.875rem', flexShrink: 0, fontSize: '0.68rem', fontWeight: 800,
+        width: '0.875rem', flexShrink: 0, fontSize: TYPE_SCALE.micro, fontWeight: 800,
         color: 'text.disabled', fontVariantNumeric: 'tabular-nums',
       }}>{seed ?? ''}</Typography>
       <TeamBadge team={team} size={22} />
       <Typography sx={{
-        flex: 1, minWidth: 0, fontSize: '0.8rem', lineHeight: 1.2,
+        flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, lineHeight: 1.2,
         fontWeight: leading ? 800 : 600,
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         color: leading ? wpblAccent(team.id, dark) : 'text.primary',
@@ -109,7 +109,7 @@ function SeriesTeamRow({ entrant, series, leading, onOpenTeam, from, placeholder
           Aug 20 would read as a series that has been played and finished nil-nil. */}
       {series.played > 0 && (
         <Typography sx={{
-          fontSize: '0.9rem', fontWeight: 800, flexShrink: 0, minWidth: '0.75rem', textAlign: 'right',
+          fontSize: TYPE_SCALE.title, fontWeight: 800, flexShrink: 0, minWidth: TYPE_SCALE.meta, textAlign: 'right',
           fontVariantNumeric: 'tabular-nums',
           color: leading ? 'text.primary' : 'text.secondary',
         }}>{wins}</Typography>
@@ -143,7 +143,7 @@ function SeriesOddsBar({ series, odds }: { series: BracketSeries; odds: SeriesOd
     <Box sx={{ px: 1, py: 0.6 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
         <Typography sx={{
-          fontSize: '0.6rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
           color: homeAccent, minWidth: '1.625rem',
         }}>{fmtOdds(odds.homeWinP)}</Typography>
         <Box sx={{ flex: 1, height: 6, borderRadius: 3, overflow: 'hidden', display: 'flex', bgcolor: 'action.hover' }}>
@@ -151,13 +151,13 @@ function SeriesOddsBar({ series, odds }: { series: BracketSeries; odds: SeriesOd
           <Box sx={{ flex: 1, bgcolor: awayAccent, opacity: 0.55 }} />
         </Box>
         <Typography sx={{
-          fontSize: '0.6rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
           color: awayAccent, minWidth: '1.625rem', textAlign: 'right',
         }}>{fmtOdds(odds.awayWinP)}</Typography>
       </Box>
       {seasonLine && (
         <Typography sx={{
-          fontSize: '0.55rem', fontWeight: 700, color: 'text.disabled', textAlign: 'center',
+          fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.disabled', textAlign: 'center',
           textTransform: 'uppercase', letterSpacing: 0.4, mt: 0.4,
         }}>{seasonLine}</Typography>
       )}
@@ -187,19 +187,19 @@ function SeriesBox({ series, odds, onOpenTeam, from }: {
         bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider',
       }}>
         <Typography sx={{
-          fontSize: '0.56rem', fontWeight: 900, letterSpacing: 0.7, textTransform: 'uppercase',
+          fontSize: TYPE_SCALE.caption, fontWeight: 900, letterSpacing: 0.7, textTransform: 'uppercase',
           color: isFinal ? 'var(--wpbl-medal-1)' : 'text.disabled', whiteSpace: 'nowrap',
         }}>{series.label}</Typography>
         {elim && (
           <Typography sx={{
-            fontSize: '0.5rem', fontWeight: 900, letterSpacing: 0.6, textTransform: 'uppercase',
+            fontSize: TYPE_SCALE.nano, fontWeight: 900, letterSpacing: 0.6, textTransform: 'uppercase',
             color: 'error.main', border: '1px solid', borderColor: 'error.main', borderRadius: 0.75,
             px: 0.5, py: 0.05, whiteSpace: 'nowrap', lineHeight: 1.3,
           }}>Elimination</Typography>
         )}
         <Box sx={{ flex: 1 }} />
         <Typography sx={{
-          fontSize: '0.6rem', fontWeight: 700, color: 'text.secondary', whiteSpace: 'nowrap',
+          fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', whiteSpace: 'nowrap',
           overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{series.summary}</Typography>
       </Box>
@@ -216,7 +216,7 @@ function SeriesBox({ series, odds, onOpenTeam, from }: {
           marks a game played only if the series is still alive. */}
       {series.status !== 'done' && dates && (
         <Typography sx={{
-          fontSize: '0.55rem', fontWeight: 600, color: 'text.disabled',
+          fontSize: TYPE_SCALE.caption, fontWeight: 600, color: 'text.disabled',
           px: 0.75, pt: 0.4, pb: 0.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{dates}</Typography>
       )}
@@ -304,7 +304,7 @@ export function BracketDiagram({ bracket, odds, onOpenTeam, from }: {
           instead of a line: without one it reads as a third semifinal. */}
       <Typography sx={{
         display: { xs: 'block', sm: 'none' },
-        fontSize: '0.56rem', fontWeight: 900, letterSpacing: 0.7, textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.caption, fontWeight: 900, letterSpacing: 0.7, textTransform: 'uppercase',
         color: 'text.disabled', textAlign: 'center', mt: 0.25,
       }}>The winners meet in the</Typography>
       {/* THE TITLE ODDS LIVE IN THIS COLUMN NOW, NOT IN A BAND UNDER THE DIAGRAM.
@@ -377,7 +377,7 @@ function TitleOddsStrip({ odds, onOpenTeam }: {
     // there rather than a block in the card's flow.
     <Box sx={{ width: '100%', minWidth: 0 }}>
       <Typography sx={{
-        fontSize: '0.56rem', fontWeight: 900, letterSpacing: 0.7, textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.caption, fontWeight: 900, letterSpacing: 0.7, textTransform: 'uppercase',
         color: 'text.disabled', mb: 0.75,
       }}>{decided ? 'Champion' : 'Chance to win it all'}</Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
@@ -405,7 +405,7 @@ function TitleOddsStrip({ odds, onOpenTeam }: {
                   a backstop became the normal rendering. Wide enough for the longest club
                   nickname at any scale; the ellipsis is a backstop again. */}
               <Typography sx={{
-                width: '5.75rem', flexShrink: 0, fontSize: '0.82rem', fontWeight: 700,
+                width: '5.75rem', flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 700,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}>{t.team.name}</Typography>
               {/* The bar fills the row: name on the left, percentage on the right, no gap
@@ -414,7 +414,7 @@ function TitleOddsStrip({ odds, onOpenTeam }: {
                 <Box sx={{ width: `${Math.max(t.p * 100, t.p > 0 ? 2 : 0)}%`, height: '100%', bgcolor: accent }} />
               </Box>
               <Typography sx={{
-                width: '2.5rem', flexShrink: 0, fontSize: '0.8rem', fontWeight: 800,
+                width: '2.5rem', flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 800,
                 fontVariantNumeric: 'tabular-nums', textAlign: 'right',
                 color: t.p >= 1 ? accent : 'text.primary',
               }}>{fmtOdds(t.p)}</Typography>
@@ -508,7 +508,7 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, from = 'home' 
     >
       <BracketDiagram bracket={bracket} odds={odds} onOpenTeam={onOpenTeam} from={from} />
       {odds && !bracket.champion && (
-        <Typography sx={{ fontSize: '0.62rem', color: 'text.disabled', mt: 1, lineHeight: 1.45 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 1, lineHeight: 1.45 }}>
           Odds blend each club’s run differential with its head-to-head results, then
           play the bracket out to a champion.
         </Typography>

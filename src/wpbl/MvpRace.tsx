@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
-import { SectionCard, PlayerPortrait, TeamBadge, useWpblDark, FittedName, CARD_BORDER, MICRO_TEXT, TAPPABLE } from './ui'
+import { SectionCard, PlayerPortrait, TeamBadge, useWpblDark, FittedName, CARD_BORDER, TAPPABLE, TYPE_SCALE } from './ui'
 import { wpblAccent, relativeDayShort, WPBL_TEAMS } from './constants'
 import { useWpblPlayerLink } from './LinkContext'
 import { fmtMvpRuns, type MvpCandidate, type MvpRace as MvpRaceData } from './derive/mvpRace'
@@ -171,7 +171,7 @@ function CandidateRow({ c, rank, color, dashed, stats, fmtEra, onOpenPlayer }: {
               leader's name is the one thing this card exists to say. `FittedName` steps down to
               "K. Whitmore" instead, which is a name rather than a shrug. */}
           <FittedName name={c.name} wrapperSx={{ minWidth: 0 }} sx={{
-            fontSize: rank === 1 ? '0.95rem' : '0.88rem', fontWeight: rank === 1 ? 800 : 700,
+            fontSize: rank === 1 ? TYPE_SCALE.title : TYPE_SCALE.body, fontWeight: rank === 1 ? 800 : 700,
             lineHeight: 1.15,
           }} />
           {/* The one badge worth spending width on. A player carrying both halves of this
@@ -186,7 +186,7 @@ function CandidateRow({ c, rank, color, dashed, stats, fmtEra, onOpenPlayer }: {
               thing to know about the league's best player than that she also pitches. */}
           {c.twoWay && (
             <Typography sx={{
-              flexShrink: 0, fontSize: '0.55rem', fontWeight: 800, letterSpacing: 0.4,
+              flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.4,
               textTransform: 'uppercase', px: 0.5, py: '1px', borderRadius: 0.75,
               border: '1px solid', borderColor: color, color,
               '@media (max-width: 359px)': { display: 'none' },
@@ -194,14 +194,14 @@ function CandidateRow({ c, rank, color, dashed, stats, fmtEra, onOpenPlayer }: {
           )}
         </Box>
         <Typography sx={{
-          fontSize: '0.66rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.25,
+          fontSize: TYPE_SCALE.micro, fontWeight: 600, color: 'text.secondary', lineHeight: 1.25,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         }}>
           {statLabel(c, stats, fmtEra)}
         </Typography>
       </Box>
       <Typography sx={{
-        fontSize: rank === 1 ? '1.15rem' : '1rem', fontWeight: 900, flexShrink: 0,
+        fontSize: rank === 1 ? TYPE_SCALE.display : TYPE_SCALE.title, fontWeight: 900, flexShrink: 0,
         fontVariantNumeric: 'tabular-nums', color: rank === 1 ? 'text.primary' : 'text.secondary',
       }}>
         {fmtMvpRuns(c.total)}
@@ -371,7 +371,7 @@ export default function MvpRaceCard({ race, games, batSeasons, pitSeasons, onOpe
         <Typography
           onClick={e => { e.stopPropagation(); onViewBoard() }}
           sx={{
-            fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+            fontSize: TYPE_SCALE.meta, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
             color: 'var(--wpbl-accent-fg)', '&:hover': { textDecoration: 'underline' },
           }}
         >Full board</Typography>
@@ -390,15 +390,15 @@ export default function MvpRaceCard({ race, games, batSeasons, pitSeasons, onOpe
         display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mt: 0.5,
         fontVariantNumeric: 'tabular-nums',
       }}>
-        <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 700, color: 'text.disabled' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled' }}>
           {relativeDayShort(race.dates[0])}
         </Typography>
         {changed && (
-          <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 700, color: 'text.secondary' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.secondary' }}>
             lead changed {relativeDayShort(changed)}
           </Typography>
         )}
-        <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 700, color: 'text.disabled' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled' }}>
           {relativeDayShort(race.dates[race.dates.length - 1])}
         </Typography>
       </Box>
@@ -410,7 +410,7 @@ export default function MvpRaceCard({ race, games, batSeasons, pitSeasons, onOpe
           for twice, once here and once in the card stretched to match it. */}
       <Typography sx={{
         mt: 1, pt: 1, borderTop: '1px solid', borderColor: CARD_BORDER,
-        fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4,
+        fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary', lineHeight: 1.4,
       }}>
         {caption}
       </Typography>

@@ -13,7 +13,7 @@ import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameS
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { WPBL_LEAGUE_PAGE, WPBL_PATH_EVENT } from './routes'
 import { useWpblHeadingTag } from './PageHeading'
-import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, MICRO_TEXT, TAPPABLE, hoverOnly } from './ui'
+import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, TAPPABLE, hoverOnly, TYPE_SCALE, ICON_SIZE } from './ui'
 import { LiveHero } from './Live'
 import PlayoffBracket from './PlayoffBracket'
 import {
@@ -107,16 +107,16 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
       {/* Winner caret — only on finals, where a fixed-width slot keeps both rows' badges aligned.
           Upcoming/live games omit the slot entirely so the badge sits flush left. */}
       {final && (
-        <Box sx={{ width: '0.4375rem', flexShrink: 0, mx: -0.45, textAlign: 'center', fontSize: '0.85rem', lineHeight: 1, color: wpblAccent(t?.id, isDark) }}>{won ? '▸' : ''}</Box>
+        <Box sx={{ width: '0.4375rem', flexShrink: 0, mx: -0.45, textAlign: 'center', fontSize: ICON_SIZE.sm, lineHeight: 1, color: wpblAccent(t?.id, isDark) }}>{won ? '▸' : ''}</Box>
       )}
       {t && <TeamBadge team={t} size={20} />}
       <Typography sx={{
-        flex: 1, fontSize: '0.8rem', fontWeight: won ? 800 : 600,
+        flex: 1, fontSize: TYPE_SCALE.body, fontWeight: won ? 800 : 600,
         color: won ? 'text.primary' : final ? 'text.secondary' : 'text.primary',
       }}>{t?.abbr ?? '?'}</Typography>
       {(final || live) && (
         <Typography sx={{
-          fontSize: '1.05rem', fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+          fontSize: TYPE_SCALE.heading, fontWeight: 800, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
           color: won ? 'text.primary' : final ? 'text.disabled' : 'text.primary',
         }}>
           {score ?? '—'}
@@ -144,7 +144,7 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
       transition: 'border-color 0.15s', ...hoverOnly({ borderColor: 'text.disabled' }),
     }}>
       <Typography sx={{
-        fontSize: MICRO_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5,
+        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5,
         color: live ? '#ef4444' : 'text.secondary',
         // Never wrap: a second line here would make finals taller than upcoming chips and
         // break the strip's alignment. Ellipsis is the backstop for an unforeseen long label.
@@ -323,7 +323,7 @@ function Scoreboard({ games, teams, onOpenGame }: {
           includes the TAG: the scoreboard is the only section on Home that is not a
           SectionCard, so without this it would be the one section a screen reader could not
           jump to, on a page where it is the first thing under the title. */}
-      <Typography component="h2" sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2, mb: 1 }}>Scoreboard</Typography>
+      <Typography component="h2" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2, mb: 1 }}>Scoreboard</Typography>
       <Box sx={{ position: 'relative' }}>
         <Box ref={scrollRef} onScroll={syncEdges}
           onPointerDown={takeOver} onWheel={takeOver} onKeyDown={takeOver} sx={{
@@ -505,9 +505,9 @@ function GameReminderRow({ game, away, home, startMs }: {
           cursor: 'pointer', borderRadius: 1, ...TAPPABLE,
         }}
       >
-        <EventAvailableOutlined sx={{ fontSize: '1.15rem', flexShrink: 0, color: 'var(--wpbl-accent-fg)' }} />
+        <EventAvailableOutlined sx={{ fontSize: ICON_SIZE.md, flexShrink: 0, color: 'var(--wpbl-accent-fg)' }} />
         <Typography noWrap title="Saves the game with a 30-min heads-up before first pitch."
-          sx={{ flex: 1, minWidth: 0, fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.2 }}>
+          sx={{ flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 700, lineHeight: 1.2 }}>
           Add to calendar
         </Typography>
       </Box>
@@ -561,13 +561,13 @@ function GameReminderRow({ game, away, home, startMs }: {
         ...(!user ? { cursor: 'pointer', borderRadius: 1, ...TAPPABLE } : {}),
       }}
     >
-      <Icon sx={{ fontSize: '1.15rem', flexShrink: 0, color: on ? WPBL_ACCENT : 'text.disabled' }} />
+      <Icon sx={{ fontSize: ICON_SIZE.md, flexShrink: 0, color: on ? WPBL_ACCENT : 'text.disabled' }} />
       {/* THE OFFER IS BOLD, A STATUS IS NOT. "All games, 30 min early" is a thing to do and
           carries the weight of one. "Notifications blocked" and "Sign in for reminders" are
           states, and at the same 700 they were louder than the season-series line on a card
           whose subject is a baseball game. Same row, same size, one step down in weight. */}
       <Typography noWrap title={hint} sx={{
-        flex: 1, minWidth: 0, fontSize: '0.8rem', fontWeight: tone === 'primary' ? 700 : 600, lineHeight: 1.25,
+        flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: tone === 'primary' ? 700 : 600, lineHeight: 1.25,
         color: tone === 'error' ? 'error.main' : tone === 'secondary' ? 'text.secondary' : 'text.primary',
       }}>
         {label}
@@ -646,21 +646,12 @@ function recentForm(games: WpblGame[], teamId: string, beforeMs: number, n = FOR
 }
 
 /**
- * THE CARD'S TYPE SCALE, and it is short on purpose.
+ * Sizes on this card come from `TYPE_SCALE`, like the rest of the page.
  *
- * A font audit on Sep 3, 2026 found TEN distinct sizes in this one card, six of them between
- * 0.72rem and 0.85rem: 0.72, 0.75, 0.76, 0.80, 0.82, 0.85. Six steps a reader cannot tell apart,
- * doing six different jobs, which is what "nothing quite lines up" actually looks like when you
- * measure it. Sizes now come from this list and nowhere else:
- *
- *   1.2rem   the club names, the card's subject
- *   0.95rem  the card title and the countdown, its two headlines
- *   0.8rem   a sentence: the series line, the reminder row
- *   0.72rem  a small number or a stat: records, the clock's date, the footer values
- *   0.68rem  MICRO_TEXT, the all-caps labels
- *   0.6rem   the footer's own caption
- *
- * Adding a seventh size is a decision, not a detail. Reach for the nearest step first.
+ * The audit that produced that scale started here: this one card carried TEN distinct sizes,
+ * six of them between 0.72rem and 0.85rem, which is six steps a reader cannot tell apart doing
+ * six different jobs. The scale, and the test that keeps a raw rem literal out of this file,
+ * live in ui.tsx.
  */
 function NextGameCard({ games, teams, onOpenGame }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
@@ -727,40 +718,30 @@ function NextGameCard({ games, teams, onOpenGame }: {
    * says, and the section has an idiom for it: away on top, "@" before the home club, which is
    * what every schedule row draws. Reusing it costs one glyph instead of two labels.
    */
-  const teamRow = (t: WpblTeam | undefined, isHome: boolean) => {
+  const teamRow = (t: WpblTeam | undefined) => {
     const record = t ? recordOf(t.id) : null
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         {t && <TeamBadge team={t} size={30} />}
-        {/* THE "@" GETS A RESERVED SLOT ON BOTH ROWS. Inline, it pushed only the home club, so
-            the first glyph of "New York Heights" sat at x=68.5 and "Los Angeles Queens" at 89.3:
-            21px apart, on two 24px names stacked directly on each other, which is the most
-            visible misalignment a pair of rows can have. An empty slot on the away row costs a
-            small even indent that nobody can see; a 21px step between two headline names is the
-            first thing anybody sees.
+        {/* NO "@", AND NOTHING IN ITS PLACE. It marked the home club, and it cost more than it
+            said: inline it pushed only one of the two names (21px apart, measured), and given a
+            reserved slot to fix that it became a column of mostly nothing on a card whose whole
+            point is two big names.
 
-            In rem, not px, because the slot has to grow with the type it is reserving room for.
-
-            RAISED OFF THE BASELINE ON PURPOSE. Baseline-aligned, a small "@" beside 24px caps
-            sits about 4px low optically: the caps run from the baseline to cap height, and the
-            "@" bowl is centred near x-height, so their optical centres do not agree even though
-            their baselines do. `0.22em` of its own size is the correction, which scales with it. */}
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.45, minWidth: 0 }}>
-          <Box component="span" sx={{
-            width: '1.05rem', flexShrink: 0, fontSize: '0.8rem', fontWeight: 700, lineHeight: 1,
-            color: 'text.disabled', position: 'relative', bottom: '0.22em',
-          }}>
-            {isHome ? '@' : ''}
-          </Box>
-          {/* Ellipsis as the final net: at 1.2rem a full club name is wider than it was, and a
-              row that silently doubles in height on one matchup is worse than a name that runs
-              out of room on the narrowest phone we support. */}
-          <Typography noWrap sx={{
-            minWidth: 0, fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.2px', lineHeight: 1.15,
-          }}>
-            {t ? wpblFullName(t) : '?'}
-          </Typography>
-        </Box>
+            Away on top, home underneath, which is the order the Scoreboard strip at the top of
+            this same page already uses with no marker at all, and the order every schedule in
+            the sport is written in. The full fixture with its "@" is one tap away on the game
+            page. What is lost is that a reader who does not know the convention cannot tell who
+            is at home from this card alone; what is gained is that the two club names line up. */}
+        {/* NOT `flex: 1`. The name takes the width it needs so the record can sit against it;
+            the spacer below eats the rest of the row. With flex on the name the record went
+            back to the card's right edge, which is the thing the record note underneath is
+            about. */}
+        <Typography noWrap sx={{
+          minWidth: 0, fontSize: TYPE_SCALE.display, fontWeight: 800, letterSpacing: '-0.2px', lineHeight: 1.15,
+        }}>
+          {t ? wpblFullName(t) : '?'}
+        </Typography>
         {/* BESIDE THE NAME, NOT AGAINST THE CARD'S EDGE. Right-aligned it was 290px from the
             club it belongs to on a 623px card, floating in a column of its own with nothing
             else in it, which is what made a muted 0.75rem number look accidental rather than
@@ -768,7 +749,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
             LastGameCard keeps its right-aligned column and should: a score is a number the eye
             goes looking for down the edge of a card, and a record is not. */}
         {record && (
-          <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.disabled', flexShrink: 0 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.disabled', flexShrink: 0 }}>
             {record}
           </Typography>
         )}
@@ -836,8 +817,8 @@ function NextGameCard({ games, teams, onOpenGame }: {
             two club rows are tight (they are one fact), the clock and the series line are one
             block about this fixture, and the rule below them opens the season context. */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          {teamRow(away, false)}
-          {teamRow(home, true)}
+          {teamRow(away)}
+          {teamRow(home)}
         </Box>
 
         {/* WHEN, AND IT IS SECOND ON PURPOSE. The countdown lived in the card's subtitle at
@@ -858,10 +839,10 @@ function NextGameCard({ games, teams, onOpenGame }: {
           px: 1, py: 0.55, mt: 1.5, borderRadius: 1.5,
           bgcolor: alpha(WPBL_ACCENT, isDark ? 0.14 : 0.09),
         }}>
-          <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, color: WPBL_ACCENT, fontVariantNumeric: 'tabular-nums' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, color: WPBL_ACCENT, fontVariantNumeric: 'tabular-nums' }}>
             <Countdown target={next.ms} />
           </Typography>
-          <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary' }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary' }}>
             {dateLabel}{timeLabel ? `, ${timeLabel}` : ''}
           </Typography>
         </Box>
@@ -869,7 +850,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
             set lighter than everything around it: the one line carrying the story of the
             fixture read as the quietest thing on a card whose footer is a stat table. */}
         {contextLine && (
-          <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4, mt: 0.75 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary', lineHeight: 1.4, mt: 0.75 }}>
             {contextLine}
           </Typography>
         )}
@@ -964,7 +945,7 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
       mb: 1.25, '&:last-of-type': { mb: 0 },
       ...(spread ? { height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' } : {}),
     }}>
-      {!hideLabel && <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.secondary', mb: 0.4 }}>{label}</Typography>}
+      {!hideLabel && <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, color: 'text.secondary', mb: 0.4 }}>{label}</Typography>}
       {rows.map((r, i) => {
         const team = teamById.get(r.player.team_id)
         // Rank by the number the reader can actually SEE. Ties on a counting board (two players
@@ -993,7 +974,7 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
             py: isTop ? 0.55 : 0.4, cursor: 'pointer',
             borderRadius: 1, ...TAPPABLE,
           }}>
-            <Typography sx={{ width: '0.875rem', flexShrink: 0, textAlign: 'center', fontSize: isTop ? '0.8rem' : '0.7rem', fontWeight: 800, color: RANK_MEDAL[rank - 1] ?? 'text.disabled' }}>{rank}</Typography>
+            <Typography sx={{ width: '0.875rem', flexShrink: 0, textAlign: 'center', fontSize: isTop ? TYPE_SCALE.body : TYPE_SCALE.meta, fontWeight: 800, color: RANK_MEDAL[rank - 1] ?? 'text.disabled' }}>{rank}</Typography>
             {isTop
               ? <PlayerPortrait name={r.player.name} teamId={r.player.team_id} size={38} />
               : (team && <TeamBadge team={team} size={18} />)}
@@ -1005,10 +986,10 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
             <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 0.6 }}>
               <Box sx={{ minWidth: 0 }}>
               <FittedName name={r.player.name} wrapperSx={{ minWidth: 0 }} sx={{
-                fontSize: isTop ? '0.95rem' : '0.82rem', fontWeight: isTop ? 800 : 700, lineHeight: 1.15,
+                fontSize: isTop ? TYPE_SCALE.title : TYPE_SCALE.body, fontWeight: isTop ? 800 : 700, lineHeight: 1.15,
               }} />
               {isTop && team && (
-                <Typography sx={{ fontSize: '0.66rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 600, color: 'text.secondary', lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {/* "San Francisco Firebells · 6.0 IP" overruns this line on desktop, so when
                       a sample is present the club drops its city — the portrait's team ring and
                       the roster context already carry that, and the sample is the new information. */}
@@ -1024,12 +1005,12 @@ function StatBlock({ label, rows, teamById, onOpenPlayer, hideLabel }: {
                   weight and letter-spacing this slot used to carry were for the team abbreviation
                   it once held ("LA", "BOS") — devices for uppercase labels, wrong for numerals. */}
               {!isTop && r.meta && (
-                <Typography sx={{ fontSize: '0.66rem', fontWeight: 600, color: 'text.secondary', flexShrink: 0 }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 600, color: 'text.secondary', flexShrink: 0 }}>
                   {r.meta}
                 </Typography>
               )}
             </Box>
-            <Typography sx={{ fontSize: isTop ? '1.05rem' : '0.82rem', fontWeight: isTop ? 900 : 800, fontVariantNumeric: 'tabular-nums', minWidth: '2.5rem', textAlign: 'right', flexShrink: 0 }}>{r.display}</Typography>
+            <Typography sx={{ fontSize: isTop ? TYPE_SCALE.heading : TYPE_SCALE.body, fontWeight: isTop ? 900 : 800, fontVariantNumeric: 'tabular-nums', minWidth: '2.5rem', textAlign: 'right', flexShrink: 0 }}>{r.display}</Typography>
           </Box>
         )
       })}
@@ -1110,13 +1091,13 @@ function LeaderStatSkeleton() {
       </Box>
       {/* #1 hero */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.55 }}>
-        <Skeleton variant="text" width="0.875rem" sx={{ fontSize: '0.8rem' }} />
+        <Skeleton variant="text" width="0.875rem" sx={{ fontSize: TYPE_SCALE.body }} />
         <Skeleton variant="circular" width={chromePx(38)} height={chromePx(38)} sx={{ flexShrink: 0 }} />
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Skeleton variant="text" width="55%" sx={{ fontSize: '0.95rem', lineHeight: 1.15 }} />
-          <Skeleton variant="text" width="40%" sx={{ fontSize: '0.66rem', lineHeight: 1.2 }} />
+          <Skeleton variant="text" width="55%" sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.15 }} />
+          <Skeleton variant="text" width="40%" sx={{ fontSize: TYPE_SCALE.micro, lineHeight: 1.2 }} />
         </Box>
-        <Skeleton variant="text" width="2.5rem" sx={{ fontSize: '1.05rem', flexShrink: 0 }} />
+        <Skeleton variant="text" width="2.5rem" sx={{ fontSize: TYPE_SCALE.heading, flexShrink: 0 }} />
       </Box>
       {/* Ranks 2 to 5, the last two hidden below md exactly as StatBlock hides them. */}
       {Array.from({ length: LEADER_ROWS_WIDE - 1 }, (_, i) => (
@@ -1124,10 +1105,10 @@ function LeaderStatSkeleton() {
           display: { xs: i + 1 < LEADER_ROWS ? 'flex' : 'none', md: 'flex' },
           alignItems: 'center', gap: 0.75, py: 0.4,
         }}>
-          <Skeleton variant="text" width="0.875rem" sx={{ fontSize: '0.7rem' }} />
+          <Skeleton variant="text" width="0.875rem" sx={{ fontSize: TYPE_SCALE.meta }} />
           <Skeleton variant="circular" width={chromePx(18)} height={chromePx(18)} sx={{ flexShrink: 0 }} />
-          <Skeleton variant="text" sx={{ flex: 1, fontSize: '0.82rem', lineHeight: 1.15 }} />
-          <Skeleton variant="text" width="2.5rem" sx={{ fontSize: '0.82rem', flexShrink: 0 }} />
+          <Skeleton variant="text" sx={{ flex: 1, fontSize: TYPE_SCALE.body, lineHeight: 1.15 }} />
+          <Skeleton variant="text" width="2.5rem" sx={{ fontSize: TYPE_SCALE.body, flexShrink: 0 }} />
         </Box>
       ))}
     </Box>
@@ -1191,7 +1172,7 @@ function LeadersCard({ title, groups, loading, hasData, teamById, onOpenPlayer }
       // Carry the board you're actually looking at into the full table — tapping "View all"
       // under the HR board should land on the table sorted by HR, not its default column.
       action={shown.length ? (
-        <Typography onClick={() => onViewAll(shown[idx]?.sortKey)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
+        <Typography onClick={() => onViewAll(shown[idx]?.sortKey)} sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', flexShrink: 0, '&:hover': { textDecoration: 'underline' } }}>
           View all
         </Typography>
       ) : undefined}
@@ -1199,7 +1180,7 @@ function LeadersCard({ title, groups, loading, hasData, teamById, onOpenPlayer }
       {loading ? (
         <LeaderStatSkeleton />
       ) : !hasData || shown.length === 0 ? (
-        <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', py: 1 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', py: 1 }}>
           Leaders appear once games are played.
         </Typography>
       ) : (
@@ -1310,16 +1291,16 @@ function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView
         ...hoverOnly({ bgcolor: 'action.hover' }),
       }}
     >
-      <Box sx={{ fontSize: '1.35rem', lineHeight: 1, flexShrink: 0 }}>📡</Box>
+      <Box sx={{ fontSize: ICON_SIZE.lg, lineHeight: 1, flexShrink: 0 }}>📡</Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.9rem', fontWeight: 800, lineHeight: 1.2 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1.2 }}>
           New pitch-tracking data just landed
         </Typography>
-        <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', mt: 0.2 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', mt: 0.2 }}>
           Velocity, spin &amp; exit velo for {count} new game{count === 1 ? '' : 's'} — tap to explore Ballpark Tracking.
         </Typography>
       </Box>
-      <Typography sx={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--wpbl-accent-fg)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'var(--wpbl-accent-fg)', flexShrink: 0, whiteSpace: 'nowrap' }}>
         View →
       </Typography>
       <Box
@@ -1328,7 +1309,7 @@ function NewTrackingBanner({ count, onView, onDismiss }: { count: number; onView
         aria-label="Dismiss"
         sx={{
           flexShrink: 0, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          borderRadius: '50%', color: 'text.secondary', fontSize: '0.85rem', lineHeight: 1,
+          borderRadius: '50%', color: 'text.secondary', fontSize: ICON_SIZE.sm, lineHeight: 1,
           ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }),
         }}
       >
@@ -1401,11 +1382,11 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
           row: a title that grows a second line puts the height straight back, and this one is a
           hair under its budget at 320px with the Join button beside it. */}
       <Typography noWrap sx={{
-        flex: 1, minWidth: 0, fontSize: '0.9rem', fontWeight: 800, lineHeight: 1.2, color: 'text.primary',
+        flex: 1, minWidth: 0, fontSize: TYPE_SCALE.title, fontWeight: 800, lineHeight: 1.2, color: 'text.primary',
       }}>
         Fan Discord
       </Typography>
-      <Box sx={{ flexShrink: 0, px: 1.5, py: 0.6, borderRadius: 999, bgcolor: DISCORD_BLURPLE, color: '#fff', fontSize: '0.75rem', fontWeight: 800, whiteSpace: 'nowrap' }}>
+      <Box sx={{ flexShrink: 0, px: 1.5, py: 0.6, borderRadius: 999, bgcolor: DISCORD_BLURPLE, color: '#fff', fontSize: TYPE_SCALE.meta, fontWeight: 800, whiteSpace: 'nowrap' }}>
         Join
       </Box>
       <Box
@@ -1426,7 +1407,7 @@ function DiscordCard({ onDismiss }: { onDismiss: () => void }) {
           // ROADMAP-WPBL for why optical alignment here is checked by looking.
           flexShrink: 0, width: chromePx(28), height: chromePx(28), ml: 0, mr: -1,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          borderRadius: '50%', color: 'text.disabled', fontSize: '0.8rem', lineHeight: 1,
+          borderRadius: '50%', color: 'text.disabled', fontSize: TYPE_SCALE.body, lineHeight: 1,
           ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }),
         }}
       >
@@ -1486,14 +1467,14 @@ function LeagueCard() {
       }}
     >
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, color: 'text.primary' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, color: 'text.primary' }}>
           The league
         </Typography>
-        <Typography sx={{ fontSize: '0.85rem', color: 'text.secondary', mt: 0.25 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.25 }}>
           Where all 118 players are from, plus the reading, the highlight reels and the archive.
         </Typography>
       </Box>
-      <Box aria-hidden sx={{ color: 'text.disabled', fontSize: '1.2rem', flexShrink: 0 }}>›</Box>
+      <Box aria-hidden sx={{ color: 'text.disabled', fontSize: TYPE_SCALE.display, flexShrink: 0 }}>›</Box>
     </Box>
   )
 }
@@ -1529,13 +1510,13 @@ function CardSkeleton({ minHeight, titleWidth = '7rem', lines = 3 }: {
       border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
     }}>
       <Box sx={{ px: 2, pt: 1.25, pb: 1 }}>
-        <Skeleton variant="text" width={titleWidth} sx={{ fontSize: '0.95rem', lineHeight: 1.2 }} />
+        <Skeleton variant="text" width={titleWidth} sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.2 }} />
       </Box>
       {lines > 0 && (
         <Box sx={{ px: 2, pb: 1.5 }}>
           {Array.from({ length: lines }, (_, i) => (
             <Skeleton key={i} variant="text" width={['85%', '65%', '75%', '55%'][i % 4]}
-              sx={{ fontSize: '0.82rem', lineHeight: 1.6 }} />
+              sx={{ fontSize: TYPE_SCALE.body, lineHeight: 1.6 }} />
           ))}
         </Box>
       )}
@@ -1582,7 +1563,7 @@ export function WpblHomeSkeleton() {
         alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 }, mb: 1.5,
       }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Skeleton variant="text" width="16rem" sx={{ fontSize: '1.05rem', lineHeight: 1.15, maxWidth: '100%' }} />
+          <Skeleton variant="text" width="16rem" sx={{ fontSize: TYPE_SCALE.heading, lineHeight: 1.15, maxWidth: '100%' }} />
         </Box>
         <Box sx={{ display: { xs: 'none', sm: 'flex' }, flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
           {SKELETON_CLUB_CHIPS.map(i => (
@@ -1601,18 +1582,18 @@ export function WpblHomeSkeleton() {
           the strip tracks both the desktop chrome scale and the reader's text size the way the
           real one does. */}
       <Box sx={{ mb: 1.5 }}>
-        <Skeleton variant="text" width="6.5rem" sx={{ fontSize: '0.95rem', lineHeight: 1.2, mb: 1 }} />
+        <Skeleton variant="text" width="6.5rem" sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.2, mb: 1 }} />
         <Box sx={{ display: 'flex', gap: 1, pb: 0.5, overflow: 'hidden' }}>
           {SKELETON_GAME_CHIPS.map(i => (
             <Box key={i} sx={{
               flexShrink: 0, width: '8.5rem', p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
               borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
             }}>
-              <Skeleton variant="text" width="70%" sx={{ fontSize: MICRO_TEXT }} />
+              <Skeleton variant="text" width="70%" sx={{ fontSize: TYPE_SCALE.micro }} />
               {[0, 1].map(r => (
                 <Box key={r} sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
                   <Skeleton variant="circular" width={chromePx(20)} height={chromePx(20)} sx={{ flexShrink: 0 }} />
-                  <Skeleton variant="text" sx={{ flex: 1, fontSize: '0.8rem' }} />
+                  <Skeleton variant="text" sx={{ flex: 1, fontSize: TYPE_SCALE.body }} />
                 </Box>
               ))}
             </Box>
@@ -1841,7 +1822,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
               search) while the <title> in seo.ts leads with "WPBL Stats"; between them the
               home page covers both the brand term and the acronym people actually type. Every
               other WPBL tab is a separate route with its own h1. */}
-          <Typography component={headingTag} sx={{ fontSize: '1.05rem', fontWeight: 600, letterSpacing: '-0.3px', lineHeight: 1.15 }}>
+          <Typography component={headingTag} sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 600, letterSpacing: '-0.3px', lineHeight: 1.15 }}>
             Women's Pro Baseball League
           </Typography>
         </Box>
@@ -1865,7 +1846,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
               }}
             >
               <TeamBadge team={t} size={24} />
-              <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: 0.3 }}>{t.abbr}</Typography>
+              <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, letterSpacing: 0.3 }}>{t.abbr}</Typography>
             </Box>
           ))}
         </Box>

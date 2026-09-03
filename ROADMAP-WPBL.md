@@ -952,6 +952,46 @@ is retired.
 
 ## Shipped log
 
+### Sep 3, 2026: the page obeys a type scale, and a test keeps it obeying
+
+**Home rendered 20 distinct font sizes, with 17 pairs less than a pixel apart on screen**: 0.9
+beside 0.88 beside 0.85 beside 0.82 beside 0.8, then 0.75 beside 0.72 beside 0.7 beside 0.68
+beside 0.66. Differences that small are not a hierarchy, they are noise, and nobody chose them:
+each was a reasonable local decision, and 0.82 got typed instead of 0.8 a dozen times because
+there was nothing to snap to.
+
+`TYPE_SCALE` in ui.tsx is eight steps (display, heading, title, body, meta, micro, caption,
+nano) and covers all nineteen values that were in use. **No snap moved a size by more than nine
+per cent**, which is the point: obeying a rule should tidy a page, not redesign it. Five files
+adopted it: Home, MvpRace, GamePreview, RecapCard, PlayoffBracket. At 1360px the page is now 11
+sizes with 4 near-pairs, and two of those four are the shared toolbar, which is not this page.
+
+**`ICON_SIZE` is a second scale on purpose.** MUI sizes an icon with `fontSize`, so an icon and
+a paragraph reach for the same CSS property and a naive audit reads a 1.35rem emoji as a
+heading. They are different problems, type sizes being a reading hierarchy and icon sizes being
+a fit against the text beside them, and two names are what let the test be absolute rather than
+carry an allowlist of "this one is a picture" exceptions nobody would maintain.
+
+**`micro` sits only 0.04rem from `meta` and that is deliberate.** It is the ALL-CAPS step, and
+caps at 0.68 read larger than lowercase at 0.72 because they have no descenders and fill the em.
+The pair is a label and its value, which is a real distinction rather than two neighbouring
+sizes. It is also MICRO_TEXT, which predates the scale and is used section-wide, aliased rather
+than duplicated so there is one value with one name.
+
+`__tests__/typeScale.test.ts` fails on a raw rem literal or a bare pixel number in an adopted
+file, so the next size added has to be an argument about the scale rather than a number typed
+into an `sx`. A computed size passes, because one derived from a prop cannot drift from the
+thing it is sized against. **The test was checked against a planted violation** rather than
+trusted for going green. Adoption is a per-file list, which is the honest record of how far this
+has got: the section is much bigger than Home and a single sweep of it is a change nobody could
+review.
+
+**Also: the "@" came off the Next game card.** It marked the home club and cost more than it
+said. Inline it pushed only one of the two names, 21px apart on two 24px names stacked on each
+other; given a reserved slot to fix that, it became a column of mostly nothing on a card whose
+point is two big names. Away on top and home underneath is what the Scoreboard strip at the top
+of the same page already does with no marker at all.
+
 ### Sep 3, 2026: Next game gets a hierarchy, because it did not have one
 
 **The two least important facts on the card were the loudest.** Measured on every text node in

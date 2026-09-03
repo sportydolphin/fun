@@ -4,7 +4,7 @@ import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine,
 import { buildRecap, leagueRecapContext, type GameRecap, type RecapStar } from './derive/recap'
 import { seriesContext } from './derive/series'
 import { fetchWpblGameLines, fetchWpblGameRecapPlays } from './api'
-import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, FittedName, MICRO_TEXT, TAPPABLE, hoverOnly, chromePx } from './ui'
+import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, FittedName, TAPPABLE, hoverOnly, chromePx, TYPE_SCALE } from './ui'
 import { WPBL_ACCENT, relativeDayLabel, wpblFullName } from './constants'
 import { GameHighlightCard } from './Highlights'
 import { useWpblGameLink, useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
@@ -38,7 +38,7 @@ function StarRow({ star, medal, name, teamId, portraitSize = 30, medalSize = 20,
       <Box sx={{ fontSize: medalSize * 0.05 + 'rem', width: medalSize / 16 + 'rem', textAlign: 'center', flexShrink: 0 }}>{medal}</Box>
       <PlayerPortrait name={name} teamId={teamId} size={portraitSize} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <FittedName name={name} className="starname" fitKey={fitKey} sx={{ fontSize: '0.85rem', fontWeight: 700 }} />
+        <FittedName name={name} className="starname" fitKey={fitKey} sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700 }} />
         {/* The statline is deliberately kept out of the column's intrinsic width, so the
             three columns are sized by their NAMES and a wordy stat line can't take room
             from a neighbour's name. A percentage min-width is ignored while the browser
@@ -51,7 +51,7 @@ function StarRow({ star, medal, name, teamId, portraitSize = 30, medalSize = 20,
               that has them to spare. Widening the column instead wouldn't work: the modal
               is capped at 520px and the row doesn't wrap, so three columns competing for
               statline width would only shrink each other back to truncating. */}
-          <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.35 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.35 }}>
             {star.statline}
           </Typography>
         </Box>
@@ -145,14 +145,14 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
           {recap.feats.map((f, i) => (
             <Box key={i} sx={{ px: 1, py: 0.4, borderRadius: 999, border: '1px solid', borderColor: CARD_BORDER,
-              fontSize: '0.72rem', fontWeight: 600, bgcolor: 'action.hover' }}>{f}</Box>
+              fontSize: TYPE_SCALE.meta, fontWeight: 600, bgcolor: 'action.hover' }}>{f}</Box>
           ))}
         </Box>
       )}
 
       {recap.stars.length > 0 && (
         <Box>
-          <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.25 }}>Stars of the game</Typography>
+          <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1.6, color: 'text.disabled', mb: 0.25 }}>Stars of the game</Typography>
           {/* Mobile: stack the three stars, each on its own full-width row so the name and
               statline show in full instead of all three cramming one line and truncating.
               Desktop lays them in one row, each star starting from the width its own name
@@ -178,9 +178,9 @@ export function GameRecapView({ game, teams, batting, pitching, plays, names, ga
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
           {recap.decisions.map(d => (
             <Box key={d.key}>
-              <Typography component="span" sx={{ fontSize: '0.72rem', fontWeight: 800, color: d.key === 'L' ? 'text.disabled' : WPBL_ACCENT }}>{d.key}</Typography>
-              <Typography component="span" sx={{ fontSize: '0.78rem', fontWeight: 600, ml: 0.5 }}>{d.name}</Typography>
-              <Typography component="span" sx={{ fontSize: '0.72rem', color: 'text.secondary', ml: 0.5 }}>{d.statline}</Typography>
+              <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color: d.key === 'L' ? 'text.disabled' : WPBL_ACCENT }}>{d.key}</Typography>
+              <Typography component="span" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, ml: 0.5 }}>{d.name}</Typography>
+              <Typography component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', ml: 0.5 }}>{d.statline}</Typography>
             </Box>
           ))}
         </Box>
@@ -270,8 +270,8 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
   const scoreRow = (team: WpblTeam | undefined, score: number | null, won: boolean) => team && (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
       <TeamBadge team={team} size={26} />
-      <Typography sx={{ flex: 1, fontSize: '0.9rem', fontWeight: won ? 800 : 600, color: won ? 'text.primary' : 'text.secondary' }}>{wpblFullName(team)}</Typography>
-      <Typography sx={{ fontSize: '1rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: won ? 'text.primary' : 'text.secondary' }}>{score}</Typography>
+      <Typography sx={{ flex: 1, fontSize: TYPE_SCALE.title, fontWeight: won ? 800 : 600, color: won ? 'text.primary' : 'text.secondary' }}>{wpblFullName(team)}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: won ? 'text.primary' : 'text.secondary' }}>{score}</Typography>
     </Box>
   )
 
@@ -302,7 +302,7 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
       // header and where a reader who has just read the blurb actually is. The desktop card
       // has no collapse and no thumb, and keeps the header action it always had.
       action={isPhone ? undefined : (
-        <Typography {...gameLink(game, onOpenGame)} sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', ...hoverOnly({ textDecoration: 'underline' }) }}>
+        <Typography {...gameLink(game, onOpenGame)} sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', ...hoverOnly({ textDecoration: 'underline' }) }}>
           Full recap
         </Typography>
       )}
@@ -311,8 +311,8 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
         {scoreRow(away, game.away_score, recap.winner.id === away?.id)}
         {scoreRow(home, game.home_score, recap.winner.id === home?.id)}
       </Box>
-      <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>{recap.headline}</Typography>
-      <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mt: 0.5, lineHeight: 1.35 }}>{recap.blurb}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2 }}>{recap.headline}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', mt: 0.5, lineHeight: 1.35 }}>{recap.blurb}</Typography>
       {recap.stars[0] && (
         // Pinned to the bottom edge: this card shares a stretched row with Leaders on Home, so
         // whichever of the two is shorter has slack to place. Above the star's rule is the
@@ -347,11 +347,11 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
           mt: 1.25, pt: 1, borderTop: '1px solid', borderColor: 'divider',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           cursor: 'pointer', borderRadius: 1, minHeight: chromePx(28),
-          fontSize: '0.78rem', fontWeight: 700, color: 'var(--wpbl-accent-fg)',
+          fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'var(--wpbl-accent-fg)',
           ...TAPPABLE,
         }}>
           Full recap
-          <Box component="span" aria-hidden sx={{ fontSize: '0.9rem', lineHeight: 1 }}>›</Box>
+          <Box component="span" aria-hidden sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1 }}>›</Box>
         </Box>
       )}
     </SectionCard>

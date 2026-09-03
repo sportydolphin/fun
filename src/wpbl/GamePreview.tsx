@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { fetchWpblAllLines, getCachedWpblAllLines } from './api'
-import { TeamBadge, useWpblDark, pressable, FOCUS_RING, MICRO_TEXT, TAPPABLE } from './ui'
+import { TeamBadge, useWpblDark, pressable, FOCUS_RING, TAPPABLE, TYPE_SCALE } from './ui'
 import { wpblAccent, wpblFullName } from './constants'
 import {
   computeWpblTeamStats, WPBL_TEAM_STAT_DEFS,
@@ -83,8 +83,8 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
     if (compact) return null
     return (
       <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
-        <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, mb: 0.5 }}>This game hasn't been played yet</Typography>
-        <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled' }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, mb: 0.5 }}>This game hasn't been played yet</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.disabled' }}>
           Season stats to compare appear once both clubs have played.
         </Typography>
       </Box>
@@ -115,7 +115,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
               defer to. The winner keeps its colour either way: that is the comparison, and
               dropping it would leave three bars saying nothing a glance can pick up. */}
           <Typography sx={{
-            fontSize: compact ? '0.72rem' : '0.82rem',
+            fontSize: compact ? TYPE_SCALE.meta : TYPE_SCALE.body,
             fontWeight: better ? (compact ? 700 : 900) : 600, lineHeight: 1.1,
             color: better ? color : 'text.secondary', fontVariantNumeric: 'tabular-nums',
           }}>
@@ -126,7 +126,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
               detail a reader goes to Game Center for. The bar already says the same thing in
               the only resolution that matters at this size, which is longer or shorter. */}
           {!compact && (
-            <Typography sx={{ fontSize: '0.5rem', fontWeight: 600, color: 'text.disabled', lineHeight: 1.2 }}>
+            <Typography sx={{ fontSize: TYPE_SCALE.nano, fontWeight: 600, color: 'text.disabled', lineHeight: 1.2 }}>
               {v ? ordinal(v.rank) : ''}
             </Typography>
           )}
@@ -172,7 +172,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
         {bar(a, awayBetter, awayColor, 'away')}
         <Typography sx={{
           flexShrink: 0, width: '2.375rem', textAlign: 'center',
-          fontSize: MICRO_TEXT, fontWeight: 800, color: 'text.secondary',
+          fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary',
           textTransform: 'uppercase', letterSpacing: 0.4, lineHeight: 1,
         }}>
           {def.key === 'k9' ? kLabel : def.label}
@@ -189,7 +189,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
     <Box sx={{ mt: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.4 }}>
         <Typography sx={{
-          fontSize: '0.5rem', fontWeight: 800, color: 'text.disabled',
+          fontSize: TYPE_SCALE.nano, fontWeight: 800, color: 'text.disabled',
           textTransform: 'uppercase', letterSpacing: 1, lineHeight: 1, flexShrink: 0,
         }}>
           {label}
@@ -223,7 +223,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
       }}
     >
       <TeamBadge team={team} size={18} />
-      <Typography sx={{ fontSize: '0.72rem', fontWeight: 800, color, lineHeight: 1 }}>{team.abbr}</Typography>
+      <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 800, color, lineHeight: 1 }}>{team.abbr}</Typography>
     </Box>
   )
 
@@ -238,7 +238,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
             rule plus a caption plus secondary-weight type is three ways of saying "new section"
             for a footer that only needs one. */}
         <Typography sx={{
-          fontSize: '0.6rem', fontWeight: 800, color: 'text.disabled',
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled',
           textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1, mb: 0.5,
         }}>
           Season so far
@@ -251,7 +251,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
   return (
     <Box sx={{ px: 2, py: 1.5 }}>
       <Typography sx={{
-        fontSize: MICRO_TEXT, fontWeight: 700, color: 'text.disabled',
+        fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled',
         textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1, mb: 1,
       }}>
         Season Comparison
@@ -260,14 +260,14 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
       {/* Legend: which color is which club */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
         {teamChip(away, awayColor, 'right')}
-        <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 700, color: 'text.disabled', flexShrink: 0, lineHeight: 1 }}>VS</Typography>
+        <Typography sx={{ fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled', flexShrink: 0, lineHeight: 1 }}>VS</Typography>
         {teamChip(home, homeColor, 'left')}
       </Box>
 
       {groupBlock('hitting', 'Offense')}
       {groupBlock('pitching', 'Pitching')}
 
-      <Typography sx={{ fontSize: MICRO_TEXT, color: 'text.disabled', mt: 1, textAlign: 'center', lineHeight: 1.5 }}>
+      <Typography sx={{ fontSize: TYPE_SCALE.micro, color: 'text.disabled', mt: 1, textAlign: 'center', lineHeight: 1.5 }}>
         {CURRENT_SEASON} season · bar length = rank in the league, longer is better
       </Typography>
     </Box>
