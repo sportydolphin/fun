@@ -719,16 +719,23 @@ function NextGameCard({ games, teams, onOpenGame }: {
             row that silently doubles in height on one matchup is worse than a name that runs
             out of room on the narrowest phone we support. */}
         <Typography noWrap sx={{
-          flex: 1, minWidth: 0, fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.2px', lineHeight: 1.15,
+          minWidth: 0, fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.2px', lineHeight: 1.15,
         }}>
           {isHome && <Box component="span" sx={{ color: 'text.disabled', fontWeight: 600, fontSize: '0.85rem', mr: 0.4 }}>@</Box>}
           {t ? wpblFullName(t) : '?'}
         </Typography>
+        {/* BESIDE THE NAME, NOT AGAINST THE CARD'S EDGE. Right-aligned it was 290px from the
+            club it belongs to on a 623px card, floating in a column of its own with nothing
+            else in it, which is what made a muted 0.75rem number look accidental rather than
+            deliberate. The slack now falls to the right of the pair instead of between them.
+            LastGameCard keeps its right-aligned column and should: a score is a number the eye
+            goes looking for down the edge of a card, and a record is not. */}
         {record && (
           <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.disabled', flexShrink: 0 }}>
             {record}
           </Typography>
         )}
+        <Box sx={{ flex: 1, minWidth: 0 }} />
       </Box>
     )
   }
@@ -786,7 +793,12 @@ function NextGameCard({ games, teams, onOpenGame }: {
           is a few pixels either side, but it keeps the card even if the series line drops out,
           which it does the first time two clubs meet. */}
       <Box {...gameLink(g, onOpenGame)} sx={{ cursor: 'pointer', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', borderRadius: 1, p: 0.5, mx: -0.5, ...TAPPABLE }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1 }}>
+        {/* THE GROUPS ARE THE RHYTHM. Gaps ran 15 / 5 / 10 / 10 / 24 down the card, which is
+            five different distances and no grouping: the countdown sat the same 10px from the
+            matchup above it as from the series line below, so it belonged to neither. Now the
+            two club rows are tight (they are one fact), the clock and the series line are one
+            block about this fixture, and the rule below them opens the season context. */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {teamRow(away, false)}
           {teamRow(home, true)}
         </Box>
@@ -800,8 +812,13 @@ function NextGameCard({ games, teams, onOpenGame }: {
             The absolute time sits beside it rather than above it, because "06h 37m" and
             "Today, 4:30 PM" are one answer to one question and were being read as two. */}
         <Box sx={{
-          display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 0.9,
-          px: 1, py: 0.6, mb: 1, borderRadius: 1.5,
+          // INLINE-FLEX, so it is as wide as what it says. Full-width it measured 581px around
+          // 245px of ink on a 623px card: 336px of empty tint, which reads as a half-finished
+          // progress bar rather than as a highlight. `alignSelf` because the parent is a column
+          // and a block child would stretch again whatever `display` says.
+          display: 'inline-flex', alignSelf: 'flex-start', maxWidth: '100%',
+          alignItems: 'baseline', flexWrap: 'wrap', columnGap: 0.9, rowGap: 0.2,
+          px: 1, py: 0.55, mt: 1.5, borderRadius: 1.5,
           bgcolor: alpha(WPBL_ACCENT, isDark ? 0.14 : 0.09),
         }}>
           <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, color: WPBL_ACCENT, fontVariantNumeric: 'tabular-nums' }}>
@@ -811,8 +828,11 @@ function NextGameCard({ games, teams, onOpenGame }: {
             {dateLabel}{timeLabel ? `, ${timeLabel}` : ''}
           </Typography>
         </Box>
+        {/* Weight 600, not 400. This is the card's third fact, after who and when, and it was
+            set lighter than everything around it: the one line carrying the story of the
+            fixture read as the quietest thing on a card whose footer is a stat table. */}
         {contextLine && (
-          <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', lineHeight: 1.4 }}>
+          <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: 'text.secondary', lineHeight: 1.4, mt: 0.75 }}>
             {contextLine}
           </Typography>
         )}
@@ -830,7 +850,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
             It renders nothing at all until there is something to compare, so the season's
             opening days get the card as it was rather than an empty frame. */}
         {away && home && (
-          <Box sx={{ mt: 1.25, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{ mt: 1.75, pt: 1.25, borderTop: '1px solid', borderColor: 'divider' }}>
             <WpblGamePreview away={away} home={home} teams={[...teams.values()]} games={games} compact />
           </Box>
         )}

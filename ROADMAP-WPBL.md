@@ -979,6 +979,21 @@ And a notification STATUS ("Notifications blocked") no longer carries the weight
 
 533px to 390 on desktop, 312 on a phone, and the read is who, then when, then the story.
 
+**A second pass the same day, on three things the first one left.** The countdown block was
+full width: 581px around 245px of ink on a 623px card, so 336px of it was empty tint and it read
+as a half-finished progress bar. It is inline now and 92% full. The vertical gaps ran 15 / 5 /
+10 / 10 / 24, five distances with no grouping, so the clock sat the same 10px from the matchup
+above as from the series line below and belonged to neither; they are 15 between groups and 5 to
+7 within now. And the record was right-aligned 290px from the club it belongs to, floating in a
+column with nothing else in it, which is what made a muted 0.75rem number look accidental: it
+sits beside the name. LastGameCard keeps its right-aligned column, because a score IS a number
+the eye goes looking for down the edge of a card and a record is not.
+
+**The stretched grid row turned out not to be the problem.** Measured at 1360px: Next game and
+MVP race are both 390px and Last game and Leaders both 298px, so nothing is being padded to fill
+anything today. It is still fragile, since it is a coincidence of content rather than a rule, but
+it is not what was wrong and it was not worth bundling in.
+
 `compact` on `WpblGamePreview` is typed down with it, which is safe because Next game is its
 only caller; Game Center's full-size block is untouched, since there it IS the page and has
 nothing to defer to.
