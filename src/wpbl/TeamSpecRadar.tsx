@@ -300,7 +300,7 @@ export function TeamSpecDetail({ specs, teamId, selected, kLabel, scaleK, onClea
           {shown(row.raw[selected])}
         </Typography>
         <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', fontVariantNumeric: 'tabular-nums' }}>
-          league {shown(specs.league[selected])}
+          League {shown(specs.league[selected])}
         </Typography>
         <Typography sx={{ fontSize: '0.72rem', fontWeight: 700, color: 'text.secondary', ml: 'auto', fontVariantNumeric: 'tabular-nums' }}>
           {ORDINAL[rank] ?? rank} of {specs.rows.length}

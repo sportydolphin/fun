@@ -680,7 +680,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                    thing left saying what the shape is measured against, so it has to be named.
                    The readout under it is the same comparison in numbers. */}
                <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.disabled', mb: 0.5 }}>
-                 Club / league
+                 Club / League
                </Typography>
                <TeamSpecReadout specs={specs} teamId={team.id} kLabel={kLabel}
                  scaleK={v => scaleK(v) ?? v} />
