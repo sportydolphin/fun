@@ -952,6 +952,41 @@ is retired.
 
 ## Shipped log
 
+### Sep 3, 2026: Next game gets a hierarchy, because it did not have one
+
+**The two least important facts on the card were the loudest.** Measured on every text node in
+it: the win-loss records were 16px/800, the largest and heaviest type on the card, ahead of its
+own title at 15.2/700 and the club names at 14.4/600. The eye landed on "6-7" and worked back to
+find out whose it was. The countdown, the only fact on the card that changes and the only reason
+to open the page twice before first pitch, was 11.5px, the second-smallest thing on it.
+
+**The cause was in the card's own comment**, which said the tale of the tape went in because the
+card "was holding a 76px band of nothing" next to a taller neighbour in a stretched grid row.
+Content added to fill a box has no priority order, and three separate answers to "how do these
+two compare" ended up stacked at one weight: the season-series line, a strip of ten dots per
+club, and the bars.
+
+Six changes. Club names to 1.2rem/800 and records to 0.75rem/600 in disabled ink, which is the
+order anyone reads them in. AWAY and HOME dropped for the section's own idiom, away on top and
+"@" before the home club, the way every schedule row already draws it. The countdown out of the
+subtitle and into a tinted block directly under the matchup, with the absolute time beside it,
+because "06h 37m" and "Today, 4:30 PM" are one answer and were being read as two. The two form
+strips folded into the series line as words ("Series tied 2-2 · Heights have won 3"), which
+keeps the part a row of dots is slowest to yield and drops the block; the dots stay on the Teams
+page, where they sit in a table and the shape of a season is the column's whole job. The bars
+below a hairline at footer weight, because at 900 in a club accent they out-punched the names.
+And a notification STATUS ("Notifications blocked") no longer carries the weight of the offer.
+
+533px to 390 on desktop, 312 on a phone, and the read is who, then when, then the story.
+
+`compact` on `WpblGamePreview` is typed down with it, which is safe because Next game is its
+only caller; Game Center's full-size block is untouched, since there it IS the page and has
+nothing to defer to.
+
+**Not done, and the bigger idea underneath:** the stretched grid row is still forcing paired
+cards to a shared height. Last game is 103px beside cards of 390 and 565. That is the next
+thing to look at, and it moves every card on the page rather than one.
+
 ### Sep 3, 2026: the league moved to ERA per seven, and so did we
 
 **Reported by a reader and verified before touching anything.** On the league's own stat page all

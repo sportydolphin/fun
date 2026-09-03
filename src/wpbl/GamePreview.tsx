@@ -108,8 +108,15 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
         <Box sx={{ ...shimmer, width: '2rem', height: '0.8rem', ml: align === 'right' ? 'auto' : 0 }} />
       ) : (
         <>
+          {/* THE COMPACT CUT IS A FOOTER AND IS TYPED LIKE ONE. At 0.82rem/900 in a club accent
+              these three values were the heaviest ink in Home's Next game card, ahead of the
+              club names the card is about; the only caller of `compact` is that card. Full size
+              is unchanged, because in Game Center this block IS the page and has nothing to
+              defer to. The winner keeps its colour either way: that is the comparison, and
+              dropping it would leave three bars saying nothing a glance can pick up. */}
           <Typography sx={{
-            fontSize: '0.82rem', fontWeight: better ? 900 : 600, lineHeight: 1.1,
+            fontSize: compact ? '0.72rem' : '0.82rem',
+            fontWeight: better ? (compact ? 700 : 900) : 600, lineHeight: 1.1,
             color: better ? color : 'text.secondary', fontVariantNumeric: 'tabular-nums',
           }}>
             {v?.display ?? '—'}
@@ -132,7 +139,9 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
   // position in the league range for that stat.
   const bar = (v: WpblTeamStatValue | undefined, better: boolean, color: string, side: 'away' | 'home') => (
     <Box sx={{
-      flex: 1, minWidth: 0, height: 8, borderRadius: 999, bgcolor: trackBg,
+      // 4px in the footer cut, 8 at full size. A 8px bar beside 0.72rem type is a chart with a
+      // caption; at 4 it reads as the rule it sits under.
+      flex: 1, minWidth: 0, height: compact ? 4 : 8, borderRadius: 999, bgcolor: trackBg,
       position: 'relative', overflow: 'hidden',
     }}>
       {!loading && v && (
@@ -225,8 +234,11 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
   if (compact) {
     return (
       <Box>
+        {/* Disabled ink, not secondary: the host card now puts a rule above this block, and a
+            rule plus a caption plus secondary-weight type is three ways of saying "new section"
+            for a footer that only needs one. */}
         <Typography sx={{
-          fontSize: '0.6rem', fontWeight: 800, color: 'text.secondary',
+          fontSize: '0.6rem', fontWeight: 800, color: 'text.disabled',
           textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1, mb: 0.5,
         }}>
           Season so far

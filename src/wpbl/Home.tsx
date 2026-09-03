@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Box, Typography, Skeleton, Switch } from '@mui/material'
+import { Box, Typography, Skeleton, Switch, alpha } from '@mui/material'
 import { NotificationsActiveOutlined, NotificationsNoneOutlined, EventAvailableOutlined } from '@mui/icons-material'
 import { useAuth } from '../AuthContext'
 import { pushSupported, pushConfigured, notificationPermission } from '../lib/push'
@@ -13,7 +13,7 @@ import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameS
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { WPBL_LEAGUE_PAGE, WPBL_PATH_EVENT } from './routes'
 import { useWpblHeadingTag } from './PageHeading'
-import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, FormDots, WPBL_WIN, WPBL_LOSS, MICRO_TEXT, TAPPABLE, hoverOnly } from './ui'
+import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, MICRO_TEXT, TAPPABLE, hoverOnly } from './ui'
 import { LiveHero } from './Live'
 import PlayoffBracket from './PlayoffBracket'
 import {
@@ -562,8 +562,12 @@ function GameReminderRow({ game, away, home, startMs }: {
       }}
     >
       <Icon sx={{ fontSize: '1.15rem', flexShrink: 0, color: on ? WPBL_ACCENT : 'text.disabled' }} />
+      {/* THE OFFER IS BOLD, A STATUS IS NOT. "All games, 30 min early" is a thing to do and
+          carries the weight of one. "Notifications blocked" and "Sign in for reminders" are
+          states, and at the same 700 they were louder than the season-series line on a card
+          whose subject is a baseball game. Same row, same size, one step down in weight. */}
       <Typography noWrap title={hint} sx={{
-        flex: 1, minWidth: 0, fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.25,
+        flex: 1, minWidth: 0, fontSize: '0.82rem', fontWeight: tone === 'primary' ? 700 : 600, lineHeight: 1.25,
         color: tone === 'error' ? 'error.main' : tone === 'secondary' ? 'text.secondary' : 'text.primary',
       }}>
         {label}
@@ -645,6 +649,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
 }) {
   const gameLink = useWpblGameLink()
+  const isDark = useWpblDark()
   const next = useMemo(() => {
     const now = Date.now()
     const upcoming = games
@@ -685,24 +690,42 @@ function NextGameCard({ games, teams, onOpenGame }: {
       + `${Math.max(homeWins, awayWins)}–${Math.min(homeWins, awayWins)}`
   }
 
-  // Deliberately the same row as LastGameCard's `scoreRow`: same badge size, same name size
-  // and weight, same trailing number in the same slot at the same size. The two cards sit one
-  // above the other in the same column, and the only honest difference between them is that
-  // one row's number is a final score and the other's is a record.
-  const teamRow = (t: WpblTeam | undefined, side: string) => {
+  /**
+   * The matchup, at headline weight, which it was not.
+   *
+   * IT USED TO BE THE SAME ROW AS LastGameCard's `scoreRow`, tier for tier, on the reasoning
+   * that the two cards sit in one column and should not disagree about how a club is drawn.
+   * That symmetry is given up here deliberately, because the two rows carry different weight
+   * of fact: LastGameCard's trailing number is the SCORE, which is the whole point of a game
+   * that has been played, and this one's is a win-loss record, which is the least important
+   * thing on a card about a game that has not.
+   *
+   * Measured before the change, every text node in this card: the records were 16px/800, the
+   * largest and heaviest text on it, ahead of the card's own title at 15.2/700 and the club
+   * names at 14.4/600. The eye landed on "6-7" and had to work back to find out whose it was.
+   * Names are now 1.2rem/800 and the record 0.75rem/600 in disabled ink, which is the order
+   * anyone reads them in.
+   *
+   * NO "AWAY" AND "HOME" WORDS. Two 10.9px caps per card for something the row order already
+   * says, and the section has an idiom for it: away on top, "@" before the home club, which is
+   * what every schedule row draws. Reusing it costs one glyph instead of two labels.
+   */
+  const teamRow = (t: WpblTeam | undefined, isHome: boolean) => {
     const record = t ? recordOf(t.id) : null
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        {t && <TeamBadge team={t} size={26} />}
-        {/* Ellipsis as the final net, which LastGameCard's otherwise-identical row does not
-            need: its trailing number is one or two digits, this one is a four-glyph record, and
-            those extra pixels are what tips "San Francisco Firebells" onto a second line at
-            320px. A row that silently doubles in height on one matchup is worse than a name
-            that runs out of room on the narrowest phone we support. */}
-        <Typography noWrap sx={{ flex: 1, minWidth: 0, fontSize: '0.9rem', fontWeight: 600 }}>{t ? wpblFullName(t) : '?'}</Typography>
-        <Typography sx={{ fontSize: MICRO_TEXT, fontWeight: 700, color: 'text.secondary', flexShrink: 0 }}>{side}</Typography>
+        {t && <TeamBadge team={t} size={30} />}
+        {/* Ellipsis as the final net: at 1.2rem a full club name is wider than it was, and a
+            row that silently doubles in height on one matchup is worse than a name that runs
+            out of room on the narrowest phone we support. */}
+        <Typography noWrap sx={{
+          flex: 1, minWidth: 0, fontSize: '1.2rem', fontWeight: 800, letterSpacing: '-0.2px', lineHeight: 1.15,
+        }}>
+          {isHome && <Box component="span" sx={{ color: 'text.disabled', fontWeight: 600, fontSize: '0.85rem', mr: 0.4 }}>@</Box>}
+          {t ? wpblFullName(t) : '?'}
+        </Typography>
         {record && (
-          <Typography sx={{ fontSize: '1rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'text.secondary', flexShrink: 0 }}>
+          <Typography sx={{ fontSize: '0.75rem', fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.disabled', flexShrink: 0 }}>
             {record}
           </Typography>
         )}
@@ -711,81 +734,46 @@ function NextGameCard({ games, teams, onOpenGame }: {
   }
 
 
-  // FORM, AND IT IS HERE TO BE READ, NOT TO FILL THE CARD, though it does both.
-  //
-  // Next game is the shortest card in the grid and now shares a stretched row with the MVP
-  // race, so whatever it does not say it says as blank space: at three lines it was holding a
-  // 76px band of nothing between the season-series line and the reminder rule. The record on
-  // each team row answers "how good are they"; nothing on the card answered "how are they
-  // going", which is the other half of what anyone asks before a game and the half a 4-8 club
-  // on a four-game run is most misrepresented by.
-  //
-  // A block of its own rather than pips tucked into the team rows above. Those rows are
-  // deliberately identical to LastGameCard's, tier for tier, and a strip of dots is the width
-  // that tips "San Francisco Firebells" onto a second line at 320px: the row would silently
-  // double in height on exactly one matchup, which is the failure that row's own note already
-  // refuses. Down here both clubs line up under one label and the phone gets it too.
-  //
-  // THE SECTION'S FORM STRIP, NOT A SECOND ONE. It drew its own dots for a while, in the club's
-  // accent at two opacities, and that was wrong twice over: a green tick on the Teams page and
-  // a red pip here meant the same result, and within this card the away club's win and the home
-  // club's loss could be the same hue at different alphas, which is the one distinction the
-  // strip exists to make. `FormDots` is green-solid for a win and a red RING for a loss, so the
-  // two survive greyscale and the eight percent of men who cannot separate red from green; see
-  // its note in ui.tsx. Tighter gap than the Teams page spends, because that strip draws five
-  // results in a table row and this one draws a season.
-  const formRow = (t: WpblTeam | undefined) => {
+  /**
+   * The two clubs' current runs, folded into the series line rather than drawn as their own
+   * block of dots.
+   *
+   * WHY THE DOTS WENT. This card had THREE stacked answers to one question, all at about the
+   * same weight: the season-series line, a strip of ten dots per club, and the tale of the
+   * tape. Three comparisons is not a hierarchy, it is a list, and the reader has no reason to
+   * start at any of them. The dots survive where they earn their space, on the Teams page,
+   * where they sit in a table row and the shape of a season is the column's whole job.
+   *
+   * The streak is the part a strip of dots is slowest to yield and the part this card actually
+   * wanted, so it is kept as words on a line that was already there. Three and up, which is the
+   * same bar the Teams page uses for the same fact: below three it is something the last two
+   * results already say, and at three it is the headline about the club.
+   *
+   * FORM IS STILL COMPUTED FROM THE SAME `recentForm`, so nothing here can disagree with the
+   * strip on the Teams page about what a club's run is.
+   */
+  const streakClause = (t: WpblTeam | undefined): string | null => {
     if (!t) return null
     const results = recentForm(games, t.id, next.ms)
     if (results.length === 0) return null
-    // The run the club is on right now: the trailing results that all agree.
     let streak = 0
     for (let i = results.length - 1; i >= 0 && results[i] === results[results.length - 1]; i--) streak++
-    const streakWon = results[results.length - 1]
-    return (
-      <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.9 }}>
-        <Typography sx={{ width: '1.875rem', flexShrink: 0, fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.3, color: 'text.secondary' }}>{t.abbr}</Typography>
-        {/* Dots and streak are ONE group, so the streak lands where the dots stop rather than
-            against the card's right edge. It reads as the end of the run it describes: the
-            three green dots and the W3 are the same fact, and a gutter between them made it
-            look like a separate column of its own. The consequence is that the two clubs' W3
-            and L4 no longer line up with each other, which is correct — they are ends of
-            strips of different lengths, and aligning them implied a comparison that a club
-            with fewer games played has not earned. `flex: 1` moves out here so the group takes
-            only the width it needs and the row's slack falls to the right of it. */}
-        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.6 }}>
-          <FormDots recent={results.map(won => (won ? 'W' : 'L'))} gap={3} />
-        {/* THE STREAK, NOT THE RECORD. This row ended with the club's W–L over the games drawn,
-            which was fine while it drew five and became a straight duplicate the moment it drew
-            the season: "8–4" sat here in the same right-hand column as the "8–4" on the team row
-            three lines above, saying one number twice in one card. The streak is the fact a strip
-            of dots is slowest to yield and the one this card did not already have.
-
-            Three and up, which is the Teams page's rule for the same strip and the same reason:
-            below three it is something the last two dots already say, and at three it is the
-            headline about the club. A row with no run simply ends at its dots, there too. */}
-          {streak >= 3 && (
-            <Typography sx={{
-              flexShrink: 0, fontSize: '0.68rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
-              color: streakWon ? WPBL_WIN : WPBL_LOSS,
-            }}>
-              {streakWon ? 'W' : 'L'}{streak}
-            </Typography>
-          )}
-        </Box>
-      </Box>
-    )
+    if (streak < 3) return null
+    return `${t.name} have ${results[results.length - 1] ? 'won' : 'lost'} ${streak}`
   }
-  const formRows = [formRow(away), formRow(home)].filter(Boolean)
+  // The series first, because it is about the fixture; the runs after, because they are about
+  // the clubs. Joined rather than stacked: one sentence at one weight is a thing a reader
+  // finishes, where three lines at one weight is a thing they skip.
+  const contextLine = [seriesLabel, streakClause(away), streakClause(home)]
+    .filter(Boolean).join(' · ')
 
   return (
     <SectionCard
       title="Next game"
-      /* Date, start time and countdown on one line. The countdown was a row of its own under
-         the team rows; see the note on Countdown for why it moved up rather than away. */
-      subtitle={<>
-        {dateLabel}{timeLabel ? ` · ${timeLabel}` : ''}{' · '}<Countdown target={next.ms} />
-      </>}
+      /* NO SUBTITLE. It carried the date, the time and the countdown, which are now a block of
+         their own under the matchup: they are the card's second-loudest fact and the subtitle
+         is its quietest slot. The title stays because it is the card's real `h2` and the only
+         thing a screen reader has to skim the page by. */
       fill
     >
       {/* Laid out as LastGameCard is, tier for tier: the two team rows, then one line at
@@ -799,35 +787,50 @@ function NextGameCard({ games, teams, onOpenGame }: {
           which it does the first time two clubs meet. */}
       <Box {...gameLink(g, onOpenGame)} sx={{ cursor: 'pointer', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', borderRadius: 1, p: 0.5, mx: -0.5, ...TAPPABLE }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1 }}>
-          {teamRow(away, 'AWAY')}
-          {teamRow(home, 'HOME')}
+          {teamRow(away, false)}
+          {teamRow(home, true)}
         </Box>
-        {seriesLabel && (
-          <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', lineHeight: 1.35 }}>
-            {seriesLabel}
+
+        {/* WHEN, AND IT IS SECOND ON PURPOSE. The countdown lived in the card's subtitle at
+            11.5px, the second-smallest text on the card, which is the wrong place for the only
+            fact here that changes and the only reason to open the page again before first
+            pitch. It does not need to be large so much as it needs to come straight after the
+            matchup: a ticking number already has all the salience it needs.
+
+            The absolute time sits beside it rather than above it, because "06h 37m" and
+            "Today, 4:30 PM" are one answer to one question and were being read as two. */}
+        <Box sx={{
+          display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: 0.9,
+          px: 1, py: 0.6, mb: 1, borderRadius: 1.5,
+          bgcolor: alpha(WPBL_ACCENT, isDark ? 0.14 : 0.09),
+        }}>
+          <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, color: WPBL_ACCENT, fontVariantNumeric: 'tabular-nums' }}>
+            <Countdown target={next.ms} />
+          </Typography>
+          <Typography sx={{ fontSize: '0.76rem', fontWeight: 600, color: 'text.secondary' }}>
+            {dateLabel}{timeLabel ? `, ${timeLabel}` : ''}
+          </Typography>
+        </Box>
+        {contextLine && (
+          <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', lineHeight: 1.4 }}>
+            {contextLine}
           </Typography>
         )}
-        {/* Inside the clickable block with the rest: form is a fact about the two clubs in
-            THIS game, so it opens the same game the rows above it do. */}
-        {/* NO "FORM" EYEBROW. It cost a line plus its margin on the card that is already the
-            reason a phone scrolls three screens, to name something the rows underneath show:
-            a club, then its results oldest to newest, then the run it is on. The strip is its
-            own caption. `FormDots` still carries the whole reading in its `aria-label`, so what
-            the eyebrow was doing for a screen reader was never coming from the eyebrow. */}
-        {formRows.length > 0 && (
-          <Box sx={{ mt: 1.25, display: 'flex', flexDirection: 'column', gap: 0.5 }}>{formRows}</Box>
-        )}
-        {/* The tale of the tape: three diverging bars, the same component Game Center draws for
-            an unplayed game, cut down to a block (see its `compact` note). Form says how the
-            two clubs are GOING and this says how good they have been, which are the two halves
-            of the only question anyone asks before a first pitch, and neither was on the card.
+        {/* The tale of the tape, BELOW A HAIRLINE AND AT FOOTER WEIGHT. Same component Game
+            Center draws for an unplayed game, cut down to a block (see its `compact` note).
+
+            It used to sit here at full strength and it was winning: at 900 weight in a club
+            accent the values out-punched the club NAMES at 14.4/600. That is backwards for a
+            card whose subject is the fixture. The rule and the quieter type make it what it
+            should always have been, the thing you read if you are still here rather than the
+            thing you meet first.
 
             NO EXTRA FETCH. It reads the season lines out of the same session cache Home has
             already filled for the leaders, so on this page it is arithmetic on data in hand.
             It renders nothing at all until there is something to compare, so the season's
             opening days get the card as it was rather than an empty frame. */}
         {away && home && (
-          <Box sx={{ mt: 1.25 }}>
+          <Box sx={{ mt: 1.25, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
             <WpblGamePreview away={away} home={home} teams={[...teams.values()]} games={games} compact />
           </Box>
         )}
