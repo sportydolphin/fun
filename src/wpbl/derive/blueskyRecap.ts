@@ -232,3 +232,46 @@ export function cardCharset(svg: string): string {
   const text = svg.match(/>([^<]*)</g)?.join('') ?? ''
   return [...new Set(text.replace(/[<>]/g, ''))].join('')
 }
+
+// ─── When a game is allowed to be posted ────────────────────────────────────
+
+/**
+ * Whether a final has settled long enough to publish.
+ *
+ * THE WINDOW IS MEASURED FROM THE LEAGUE'S CLOCK, NOT FROM WHEN WE NOTICED. It used to run
+ * from `first_final_at`, the moment the poster's own cron first saw the game final, and that
+ * quietly turned 45 minutes into most of a night. Two reasons, and only the second is obvious:
+ *
+ *   1. GitHub does not run the workflow when it is asked to. Over the thirty scheduled runs
+ *      before Sep 3, 2026, gaps against a cron asking for every 15 minutes ran from 130 to 452
+ *      minutes, and the repo's DAILY jobs landed four to eleven hours late as well, so this is
+ *      the whole repository's scheduling being deprioritised rather than anything about this
+ *      job. "When we first saw it" therefore means "whenever a runner happened to wake up".
+ *
+ *   2. A run that first sees a game can never also publish it, because it writes
+ *      `first_final_at = now()` and then measures zero minutes against it. So a post always
+ *      cost TWO of those gaps. Observed lag from final to post: 5.4, 5.7, 6.6, 9.8 and 12.2
+ *      hours, for a window that says 45 minutes.
+ *
+ * `source_updated_at` is when the FEED last touched the game, so on a final it is when the
+ * league finalised it or last corrected it, which is the exact event the window exists to wait
+ * out. One run can now both see a game and publish it, and a late correction pushes the post
+ * back rather than racing it.
+ *
+ * NEVER fall back to `updated_at`: that is our mirror's write time, and the nightly drift check
+ * re-touches every game, so a game's window would restart every night and the settle could
+ * never expire.
+ */
+export function isSettled(
+  game: Pick<WpblGame, 'source_updated_at'>,
+  firstFinalAt: string | null | undefined,
+  settleMinutes: number,
+  now: number = Date.now(),
+): boolean {
+  // The feed's stamp when there is one; otherwise the only other honest answer we hold.
+  const basis = game.source_updated_at ?? firstFinalAt
+  if (!basis) return false
+  const at = new Date(basis).getTime()
+  if (Number.isNaN(at)) return false
+  return (now - at) / 60_000 >= settleMinutes
+}

@@ -10,7 +10,7 @@
  *    PATCHes the ones whose text changed, so a late scoring correction fixes itself in the
  *    channel and nobody sees it happen. On Bluesky a post is published or deleted, in public,
  *    with nothing in between. So this job never re-sends, and instead WAITS: a game is posted
- *    only once it has been final, in our hands, for SETTLE_MINUTES. wpbl_play_corrections
+ *    only once the league's own stamp on it is SETTLE_MINUTES old. wpbl_play_corrections
  *    exists because the league's scoring has errors in it, and the recap wording is derived and
  *    has changed under us before. Publishing the instant a game ends is how you end up with a
  *    permanent public post of a box score the site itself no longer agrees with.
@@ -52,7 +52,7 @@ import { Resvg } from '@resvg/resvg-js'
 import subsetFont from 'subset-font'
 import { buildRecap, leagueRecapContext } from '../src/wpbl/derive/recap'
 import { seriesContexts } from '../src/wpbl/derive/series'
-import { buildBlueskyPost, boxScoreCard, cardCharset, linkFacets, graphemes } from '../src/wpbl/derive/blueskyRecap'
+import { buildBlueskyPost, boxScoreCard, cardCharset, isSettled, linkFacets, graphemes } from '../src/wpbl/derive/blueskyRecap'
 import { wpblGamePath } from '../src/wpbl/routes'
 import type { WpblGame, WpblTeam, WpblBattingLine, WpblPitchingLine, WpblGamePlay } from '../src/wpbl/types'
 
@@ -69,9 +69,14 @@ const DRY_RUN = args.has('--dry-run')
 const SEED = args.has('--seed')
 const NOW = args.has('--now')
 
-// How long a game must have been final, in our hands, before it is published. Long enough for
-// the ingest to have re-read the box score and for the nightly play validation to have run at
-// least once against it; short enough that the post still lands the same evening.
+// How long a game must have been final before it is published. Long enough for the ingest to
+// have re-read the box score and for a scoring correction to land; short enough that the post
+// still belongs to the evening the game was played.
+//
+// Measured from the LEAGUE's clock (`source_updated_at`), not from when this job first saw the
+// game. See `isSettled`, which carries the numbers: the old basis made this 45 minutes on
+// paper and 5 to 12 hours in practice, because GitHub runs the workflow hours late and the
+// old rule needed two runs to publish anything.
 const SETTLE_MINUTES = 45
 
 // How far back a final is still worth posting. Past this it is history, and a timeline that
@@ -104,7 +109,6 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 })
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
-const minutesSince = (iso: string) => (Date.now() - new Date(iso).getTime()) / 60_000
 
 // ─── Rendering the card ─────────────────────────────────────────────────────
 
@@ -238,9 +242,11 @@ async function main() {
 
   if (!candidates.length) { console.log('Nothing waiting.'); return }
 
-  // Phase one: note that we have seen it. Phase two, on a later run, publishes it. The gap is
-  // what lets a scoring correction land before the post exists, and a Bluesky post cannot be
-  // corrected afterwards.
+  // Record that we have seen it, before deciding whether it is due. This is no longer a phase
+  // that has to happen on an earlier run (see `isSettled`): a game whose final the league
+  // stamped an hour ago is written and published on this same pass. The row still matters as
+  // the fallback basis for a game the feed never stamped, and as the record that keeps a
+  // republish impossible.
   const unseen = candidates.filter(g => !rows.has(g.id))
   if (unseen.length && !DRY_RUN) {
     const { error } = await supabase.from('wpbl_bluesky_recap_posts')
@@ -248,13 +254,10 @@ async function main() {
     if (error) throw new Error(`Could not record the new finals: ${error.message}`)
     for (const g of unseen) rows.set(g.id, { game_id: g.id, first_final_at: new Date().toISOString() })
   }
-  if (unseen.length) console.log(`Saw ${unseen.length} new final(s); they settle for ${SETTLE_MINUTES} min before posting.`)
+  if (unseen.length) console.log(`Saw ${unseen.length} new final(s); each posts once ${SETTLE_MINUTES} min have passed since the league stamped it.`)
 
-  const due = candidates.filter(g => {
-    if (NOW || DRY_RUN) return true
-    const seenAt = rows.get(g.id)?.first_final_at
-    return seenAt != null && minutesSince(seenAt) >= SETTLE_MINUTES
-  })
+  const due = candidates.filter(g =>
+    NOW || DRY_RUN || isSettled(g, rows.get(g.id)?.first_final_at, SETTLE_MINUTES))
   if (!due.length) { console.log('Nothing settled yet.'); return }
 
   const ids = due.map(g => g.id)

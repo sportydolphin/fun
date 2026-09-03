@@ -950,6 +950,33 @@ is retired.
 
 ## Shipped log
 
+### Sep 3, 2026: the recaps were hours late, and it was never our scheduler
+
+**A Bluesky recap reached the timeline 5 to 12 hours after the game, against a window that says
+45 minutes.** Tonight's SF 8, BOS 5 went final in the mirror at 02:16Z; at 03:50Z the poster had
+not run since 00:40Z and there was no row for the game at all, so it had not even been seen.
+
+Two causes, and only the second is ours. GitHub does not honour `schedule` in this repository:
+the thirty scheduled runs before today came 130 to 452 minutes apart against a cron asking for
+every 15 minutes, and `wpbl-pbp-validation` (`0 8`) and `build-sitemap` (`40 6`) landed four to
+eleven hours late over the same week. Every run goes green, so nothing has ever flagged it, and
+no cron expression fixes it. On top of that the settle window ran from `first_final_at`, the
+moment this job first LOOKED at the game, and the run that first sees a game writes that
+timestamp and then measures zero minutes against it: publishing always cost two of those gaps.
+
+The window now runs from the league's own `source_updated_at`, which is the event it was always
+waiting out (finalised, or last corrected) rather than a fact about our cron. One run can now
+both see a game and publish it. And the trigger moved off GitHub's scheduler entirely:
+`wpbl_bluesky_nudge()` on pg_cron, which is punctual because it is ours, watches for a settled
+final every five minutes and fires a `repository_dispatch`. The `schedule:` line stays as the
+backstop for the day the token lapses, and nothing about the no-edit design changed: a post is
+still published once, never re-sent, and a late correction now pushes it back rather than racing
+it.
+
+One manual step, once: a fine-grained GitHub PAT in Supabase Vault as `github_dispatch_token`.
+Without it the nudge warns and returns 0 rather than failing, and recaps keep arriving on
+GitHub's own schedule, which is late but not broken.
+
 ### Sep 2, 2026: the run value board keeps the width and stops filling it
 
 **And the control row followed it, which turned out to be an older bug than this one.** The
