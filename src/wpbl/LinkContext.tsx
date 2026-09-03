@@ -114,6 +114,26 @@ function useLinkFor<T>(pick: (v: LinkContextValue) => LinkFor<T>): LinkFor<T> {
   return ctx ? pick(ctx) : fallback
 }
 
+/**
+ * Recolour a spread from `gameLink` / `playerLink` / `teamLink`.
+ *
+ * WHY THIS EXISTS AND `sx` DOES NOT WORK. `build` hands back an inline `style` carrying
+ * `color: 'inherit'`, and it has to: the props make a real `<a>`, and the UA stylesheet's
+ * link colour beats an inherited one, so without it every crawlable link in the section
+ * would come out browser-blue. But an inline style also beats the class `sx` compiles to,
+ * so a call site that spreads the link props and then asks for a colour in `sx` is silently
+ * overruled. Last Game's "Full recap" did exactly that for as long as it has been an anchor:
+ * it rendered in body text beside "Full board" and "View all" in the accent, same header
+ * slot, same size, same weight. Nothing warns, and the `sx` reads as if it worked.
+ *
+ * Props with no `style` are the pre-data case, where the element is a plain onClick and not
+ * a link at all. Those are returned untouched so the call site's own `sx` colour still
+ * applies, which is why every caller should keep it as well as passing a colour here.
+ */
+export function linkColor(props: WpblPlayerLinkProps, color: string): WpblPlayerLinkProps {
+  return props.style ? { ...props, style: { ...props.style, color } } : props
+}
+
 export const useWpblPlayerLink = (): LinkFor<WpblSluggable> => useLinkFor(v => v.playerLink)
 export const useWpblGameLink = (): LinkFor<WpblSluggableGame> => useLinkFor(v => v.gameLink)
 export const useWpblTeamLink = (): LinkFor<WpblSluggableTeam> => useLinkFor(v => v.teamLink)

@@ -68,6 +68,20 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine,
 // `vw` term no longer divides by anything, because `vw` and a CSS length are finally the same
 // pixel here. The 24px of slack still stops `100vw` (which counts a classic scrollbar) from
 // giving the whole site a horizontal scrollbar.
+/**
+ * The gap between one top-level block of Home and the next, in MUI spacing units.
+ *
+ * IT HAS TO BEAT THE GAP INSIDE A BLOCK, AND AT 1.5 IT BARELY DID. A section heading sits
+ * `mb: 1` above its own content, so at 1.5 the space separating "Scoreboard" from the league
+ * name above it was 15px against the 10px tying it to its own chips: a 1.5:1 ratio, which is
+ * not enough for proximity to group anything, and the whole top of the page read as one dense
+ * stack. 2.5 makes it 25px against 10px. Change this rather than a literal, and change
+ * nothing else: the loading skeleton mirrors these blocks pixel for pixel so the real
+ * heading lands where the placeholder was, and a literal left behind in one of the four
+ * places is a jump on first paint.
+ */
+const SECTION_GAP = 2.5
+
 const HOME_WIDE_W = 'min(1260px, calc(100vw - 24px))'
 const homeWideSx = {
   width: { xs: 'auto', md: HOME_WIDE_W },
@@ -402,7 +416,7 @@ function Scoreboard({ games, teams, onOpenGame }: {
 
   if (strip.length === 0) return null
   return (
-    <Box sx={{ mb: 1.5 }}>
+    <Box sx={{ mb: SECTION_GAP }}>
       {/* Match the card-title treatment (Next game / Standings / Teams) so every section
           on the feed announces itself the same way, instead of a lone tiny eyebrow. That now
           includes the TAG: the scoreboard is the only section on Home that is not a
@@ -1645,7 +1659,7 @@ export function WpblHomeSkeleton() {
           so the heading lands on the pixel it is about to occupy. */}
       <Box sx={{
         display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
-        alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 }, mb: 1.5,
+        alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 }, mb: SECTION_GAP,
       }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Skeleton variant="text" width="16rem" sx={{ fontSize: TYPE_SCALE.heading, lineHeight: 1.15, maxWidth: '100%' }} />
@@ -1666,7 +1680,7 @@ export function WpblHomeSkeleton() {
           GameChip is (8.5rem wide, p:1, a 20px badge per row) rather than given a height, so
           the strip tracks both the desktop chrome scale and the reader's text size the way the
           real one does. */}
-      <Box sx={{ mb: 1.5 }}>
+      <Box sx={{ mb: SECTION_GAP }}>
         <Skeleton variant="text" width="6.5rem" sx={{ fontSize: TYPE_SCALE.title, lineHeight: 1.2, mb: 1 }} />
         <Box sx={{ display: 'flex', gap: 1, pb: 0.5, overflow: 'hidden' }}>
           {SKELETON_GAME_CHIPS.map(i => (
@@ -1900,14 +1914,20 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
           sit inline to the right. */}
       <Box sx={{
         display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
-        alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 }, mb: 1.5,
+        alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 }, mb: SECTION_GAP,
       }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {/* The page's one <h1>. It carries the full league name (an exact match for that
               search) while the <title> in seo.ts leads with "WPBL Stats"; between them the
               home page covers both the brand term and the acronym people actually type. Every
               other WPBL tab is a separate route with its own h1. */}
-          <Typography component={headingTag} sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 600, letterSpacing: '-0.3px', lineHeight: 1.15 }}>
+          {/* WEIGHT 800, NOT 600. At 600 the page's one `h1` sat a step LIGHTER than the seven
+              `h2`s beneath it (0.95rem/700) while being only 0.1rem bigger, so it read as a
+              caption above "Scoreboard" rather than as the top of anything. Size alone does
+              not make a title on this page: the heaviest ink on it is the MVP number at
+              display/900 and the club names at display/800, and a title has to be in that
+              conversation to win. */}
+          <Typography component={headingTag} sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.15 }}>
             Women's Pro Baseball League
           </Typography>
         </Box>

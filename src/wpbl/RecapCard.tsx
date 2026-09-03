@@ -7,7 +7,7 @@ import { fetchWpblGameLines, fetchWpblGameRecapPlays } from './api'
 import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, FittedName, TAPPABLE, hoverOnly, chromePx, TYPE_SCALE } from './ui'
 import { WPBL_ACCENT, relativeDayLabel, wpblFullName } from './constants'
 import { GameHighlightCard } from './Highlights'
-import { useWpblGameLink, useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
+import { linkColor, useWpblGameLink, useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
 
 const MEDAL = ['🥇', '🥈', '🥉']
 
@@ -277,7 +277,9 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
 
   return (
     <SectionCard
-      title="Last Game"
+      // Sentence case, like every other card on Home: "Next game", "MVP race", "Road to the
+      // title". This was the one title-cased heading on the page.
+      title="Last game"
       // The date says WHICH game and the headline says what happened in it. Open, the card
       // itself is about to say the second, so the subtitle spends its line on the first; shut,
       // the headline is the only thing left to carry the point, and "Last Game" plus a
@@ -302,7 +304,7 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
       // header and where a reader who has just read the blurb actually is. The desktop card
       // has no collapse and no thumb, and keeps the header action it always had.
       action={isPhone ? undefined : (
-        <Typography {...gameLink(game, onOpenGame)} sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', ...hoverOnly({ textDecoration: 'underline' }) }}>
+        <Typography {...linkColor(gameLink(game, onOpenGame), 'var(--wpbl-accent-fg)')} sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', ...hoverOnly({ textDecoration: 'underline' }) }}>
           Full recap
         </Typography>
       )}
@@ -343,7 +345,7 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
           blurb and the star already is. Full width, because at the bottom of a card there is
           nothing to share the row with and a wider target is a better one. */}
       {isPhone && (
-        <Box {...gameLink(game, onOpenGame)} sx={{
+        <Box {...linkColor(gameLink(game, onOpenGame), 'var(--wpbl-accent-fg)')} sx={{
           mt: 1.25, pt: 1, borderTop: '1px solid', borderColor: 'divider',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           cursor: 'pointer', borderRadius: 1, minHeight: chromePx(28),
