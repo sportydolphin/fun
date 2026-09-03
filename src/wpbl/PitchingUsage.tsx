@@ -20,12 +20,17 @@ import type { WpblPitchingUsageRow, WpblPlayer } from './types'
  */
 
 export default function PitchingUsage({
-  rows, roster, accent, onOpenPlayer,
+  rows, roster, accent, onOpenPlayer, collapsed, onToggleCollapse,
 }: {
   rows: WpblPitchingUsageRow[]
   roster: WpblPlayer[]
   accent: string
   onOpenPlayer: (p: WpblPlayer) => void
+  /** Collapsed by the team page on a phone, where this grid is a sideways scroller inside a
+   *  vertical one and costs several hundred pixels of a page already five screens long. Owned
+   *  by the caller so the reader's choice survives a re-render; see SectionCard. */
+  collapsed?: boolean
+  onToggleCollapse?: () => void
 }) {
   const gridGames = useGridGames()
   const playerById = useMemo(() => new Map(roster.map(p => [p.id, p])), [roster])
@@ -34,7 +39,7 @@ export default function PitchingUsage({
 
   if (!games.length) {
     return (
-      <SectionCard title="Pitching usage" subtitle={`Last ${gridGames} games`}>
+      <SectionCard collapsed={collapsed} onToggleCollapse={onToggleCollapse} title="Pitching usage" subtitle={`Last ${gridGames} games`}>
         <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled', py: 1 }}>
           No pitching recorded yet.
         </Typography>
@@ -46,6 +51,8 @@ export default function PitchingUsage({
 
   return (
     <SectionCard
+      collapsed={collapsed}
+      onToggleCollapse={onToggleCollapse}
       title="Pitching usage"
       subtitle={`Last ${games.length} games · pitches (IP)`}
     >

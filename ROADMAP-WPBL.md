@@ -952,6 +952,38 @@ is retired.
 
 ## Shipped log
 
+### Sep 3, 2026: a team page you can reach the bottom of on a phone
+
+**4,259px down to 2,922, a third shorter**, on a 390px screen. The header was never the
+problem: it was 597 of that, and the two sideways grids plus the roster were 2,070.
+
+**Lineup history (646px) and Pitching usage (471px) collapse on a phone**, open above 600px
+where the page is two columns and the room exists. Both are horizontal scrollers inside a
+vertical one, which is the most awkward control there is on a touchscreen, and neither is what
+somebody opened a team page to see. `SectionCard` already had `collapsed`/`onToggleCollapse`
+with the state owned by the caller, so this is the card doing what it was built for. The
+collapsed header keeps its subtitle ("Last 6 games · position (spot)"), so what is behind it is
+still named.
+
+**The roster is WINDOWED to ten rather than collapsed, and the difference matters.**
+`SectionCard` renders `{!collapsed && children}`, so a collapsed section is gone from the DOM
+rather than hidden in it. Counted on New York's page: the roster carries 18 real
+`<a href="/wpbl/players/…">` links, the leader cards carry the other 18, and the two grids carry
+NONE, their cells being onClick-only. Googlebot crawls mobile-first. Collapsing the roster by
+default would therefore have taken 18 internal links per team page out of what Google renders,
+to save 953px, and this repo already lost `/mlb` to Google for months over exactly that kind of
+control. Ten rows keeps ten of the links, saves 352px, and expands in place because the roster
+is the last section on the page: there is nothing below it to jump.
+
+The initial collapsed state is read from `window.innerWidth` directly rather than from
+`useMediaQuery`, which returns false on the first render and corrects itself in an effect. That
+is fine for a layout swap and not fine for a collapse: a phone would paint both grids open and
+then snap them shut under the reader.
+
+**What is left, if this needs another pass:** the leader cards are now the second biggest block
+at 375px each. They are also 18 of the page's 36 player links, so the same reasoning applies to
+them as to the roster.
+
 ### Sep 3, 2026: the spec chart gets the phone's whole column, and its table back as a tap
 
 **Measured on a 390px phone before the change: the chart drew at 210px inside a 358px column**,

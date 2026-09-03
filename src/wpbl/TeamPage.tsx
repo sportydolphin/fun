@@ -412,6 +412,50 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
     [sortedRoster, statPlayerIds],
   )
 
+  /**
+   * The two sideways grids, collapsed on a phone.
+   *
+   * Measured on a 390px screen: the page is 4,259px, of which Lineup history is 646 and
+   * Pitching usage 471. Both are horizontal scrollers inside a vertical one, which is the
+   * most awkward control there is on a touchscreen, and neither is what a reader opened a
+   * team page to see. Above 600px they stay open: there the page is two columns and the room
+   * exists.
+   *
+   * COLLAPSING UNMOUNTS. `SectionCard` renders `{!collapsed && children}`, so a collapsed
+   * section is gone from the DOM rather than hidden in it. That is fine for exactly these two
+   * and is why the roster is NOT one of them: see `rosterLimit`.
+   */
+  const [openGrids, setOpenGrids] = useState<{ lineups: boolean; usage: boolean }>(() => {
+    // Read the width directly rather than waiting for `useMediaQuery`, which returns false on
+    // the first render and corrects itself in an effect. Fine for a layout swap, and not fine
+    // here: a phone would paint both grids open and then snap them shut under the reader.
+    const wide = typeof window === 'undefined' || window.innerWidth > 600
+    return { lineups: wide, usage: wide }
+  })
+  useEffect(() => { setOpenGrids({ lineups: !narrow, usage: !narrow }) }, [narrow, team.id])
+
+  /**
+   * How much of the roster to show before the reader asks for the rest.
+   *
+   * DELIBERATELY A WINDOW AND NOT A COLLAPSE, which is what the two grids above get. The
+   * roster is the only block on this page carrying real `<a href="/wpbl/players/…">` links (18
+   * of them on New York; the leader cards carry the other 18, and the two grids carry none,
+   * their cells being onClick-only). `SectionCard` unmounts a collapsed body, Googlebot crawls
+   * mobile-first, and CLAUDE.md has a standing note about `/mlb` sitting undiscovered for
+   * months because a control had no href. Collapsing this by default would take 18 internal
+   * links per team page out of what Google renders, to save 953px.
+   *
+   * Ten rows keeps ten of those links, saves most of the height, and expands in place rather
+   * than into a modal because the roster is the LAST section: nothing below it can jump.
+   */
+  const ROSTER_WINDOW = 10
+  const [rosterAll, setRosterAll] = useState(false)
+  useEffect(() => { setRosterAll(false) }, [team.id])
+  const rosterRows = useMemo(
+    () => (narrow && !rosterAll ? visibleRoster.slice(0, ROSTER_WINDOW) : visibleRoster),
+    [visibleRoster, narrow, rosterAll],
+  )
+
   const top = <T,>(list: { player: WpblPlayer; totals: T }[], val: (t: T) => number | null, disp: (t: T) => string, tie: (t: T) => number, n = 3) =>
     list.filter(x => val(x.totals) != null)
       .sort((a, b) => (val(b.totals) as number) - (val(a.totals) as number) || tie(b.totals) - tie(a.totals))
@@ -713,12 +757,16 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
 
           {/* How the manager has actually been filling out the card */}
           {roster && lineups.length > 0 && (
-            <LineupHistory rows={lineups} roster={league} accent={accent} onOpenPlayer={onOpenPlayer} />
+            <LineupHistory rows={lineups} roster={league} accent={accent} onOpenPlayer={onOpenPlayer}
+              collapsed={!openGrids.lineups}
+              onToggleCollapse={() => setOpenGrids(o => ({ ...o, lineups: !o.lineups }))} />
           )}
 
           {/* Who's been worked, and who's available */}
           {roster && usage.length > 0 && (
-            <PitchingUsage rows={usage} roster={league} accent={accent} onOpenPlayer={onOpenPlayer} />
+            <PitchingUsage rows={usage} roster={league} accent={accent} onOpenPlayer={onOpenPlayer}
+              collapsed={!openGrids.usage}
+              onToggleCollapse={() => setOpenGrids(o => ({ ...o, usage: !o.usage }))} />
           )}
 
           {/* Leaders, back in a two-column grid of their own. */}
@@ -747,7 +795,9 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
           {/* Roster with inline stats */}
           <SectionCard
             title="Roster"
-            subtitle={`${visibleRoster.length} players`}
+            subtitle={rosterRows.length < visibleRoster.length
+              ? `${rosterRows.length} of ${visibleRoster.length} players`
+              : `${visibleRoster.length} players`}
             action={onOpenStats ? (
               // The roster row shows three stats; this is the door to all of them, with the
               // team filter chip already set so you don't land in the whole league.
@@ -788,7 +838,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                   '& > :nth-of-type(2)': { borderTop: 'none' },
                 },
               }}>
-                {visibleRoster.map(p => {
+                {rosterRows.map(p => {
                   const pit = pitByPid.get(p.id)
                   const bat = batByPid.get(p.id)
                   const pitcher = isPitcherPos(p.position) || (pit != null && pit.outs > 0 && (bat == null || bat.ab === 0))
@@ -815,6 +865,27 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                     </Box>
                   )
                 })}
+              </Box>
+            )}
+            {/* The rest of the roster, in place. Not a modal, unlike Results: this is the last
+                section on the page, so there is nothing below it to be pushed out from under
+                the reader, and a modal would put ten player links behind a control Googlebot
+                does not press. */}
+            {rosterRows.length < visibleRoster.length && (
+              <Box
+                role="button"
+                tabIndex={0}
+                onClick={() => setRosterAll(true)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setRosterAll(true) } }}
+                sx={{
+                  mt: 1, py: 0.9, borderRadius: 1, textAlign: 'center', cursor: 'pointer',
+                  border: '1px solid', borderColor: CARD_BORDER,
+                  ...TAPPABLE, ...FOCUS_RING,
+                }}
+              >
+                <Typography sx={{ fontSize: '0.76rem', fontWeight: 700, color: accent }}>
+                  {`Show all ${visibleRoster.length}`}
+                </Typography>
               </Box>
             )}
           </SectionCard>
