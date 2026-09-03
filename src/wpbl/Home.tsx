@@ -203,12 +203,32 @@ function Scoreboard({ games, teams, onOpenGame }: {
    */
   const RECENT_FINALS = 3
   const UPCOMING = 4
-  // Anchor on the most recent final so that WHEN it does scroll it opens at the "now" boundary,
-  // previous game at the left edge and the next or live game beside it, rather than at an end.
+  /**
+   * The anchor is the NEXT game, not the last final, and that only matters where the strip
+   * scrolls, which is a phone.
+   *
+   * It used to open on the previous game, on the reasoning that landing at the "now" boundary
+   * shows you the result you just missed with what is coming beside it. What that reasoning did
+   * not account for is what sits underneath: Last Game and Next game are the next two cards down
+   * the page and render exactly those two fixtures in full. At 390px the strip shows 2.8 chips,
+   * so anchoring behind the boundary spent both legible slots echoing the two cards below it,
+   * and the four games nothing else on Home mentions were all off-screen to the right.
+   *
+   * Anchored ahead of it, the same strip reads today, then the rest of the week. One chip still
+   * overlaps Next game, which is unavoidable and fine: it is the fixture the whole page is about.
+   * The finals do not disappear, they sit one swipe to the left, which is where a result you have
+   * already been shown in a card belongs.
+   *
+   * Falls back to the last final when nothing is upcoming, which is the last day of a season and
+   * the one time a strip of results is the whole story.
+   */
   const { strip, anchorIndex } = useMemo(() => {
     const head = games.filter(g => g.status === 'final').slice(-RECENT_FINALS)
     const rest = games.filter(g => g.status !== 'final').slice(0, UPCOMING)
-    return { strip: [...head, ...rest], anchorIndex: head.length > 0 ? head.length - 1 : 0 }
+    return {
+      strip: [...head, ...rest],
+      anchorIndex: rest.length > 0 ? head.length : Math.max(0, head.length - 1),
+    }
   }, [games])
 
   // Edge-fade cues: show a soft mask on whichever side has more chips off-screen, so the
@@ -295,9 +315,9 @@ function Scoreboard({ games, teams, onOpenGame }: {
       const el = scrollRef.current
       const anchor = el?.children[anchorIndex] as HTMLElement | undefined
       if (!el || !anchor || takenOverRef.current) return
-      // Inset the previous game (anchor) from the left edge rather than flush against it, so the
-      // edge-fade lands on the older game peeking behind it — the previous game stays fully in
-      // view. No inset when it's already the first chip (nothing to its left to peek).
+      // Inset the anchor from the left edge rather than flush against it, so the edge fade lands
+      // on the chip peeking behind it and the anchor itself stays fully in view. No inset when
+      // it is already the first chip, since there is nothing to its left to peek.
       //
       // THE INSET IS THE FADE'S WIDTH, and that equality is the whole rule. A chip is wide with
       // its score column hard against its right edge, so ANY generous peek shows that column and

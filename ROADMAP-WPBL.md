@@ -992,6 +992,18 @@ carrying the score column: 16px of it is a legible digit hanging in the gradient
 club beside it, which is the "bare 6 over 10" the original note was written against. 8px is the
 card's own border, which is the hint without the fragment, and it costs the least indent.
 
+**And the anchor moved ahead of the now boundary.** It opened on the previous game, on the
+reasoning that landing at the boundary shows the result you just missed with what is coming
+beside it. What that did not account for is what sits underneath: Last Game and Next game are the
+next two cards down the page and render exactly those two fixtures in full. At 390px the strip
+shows 2.8 chips, so anchoring behind the boundary spent both legible slots echoing the two cards
+below it, and the four games nothing else on Home mentions were all off-screen to the right. It
+now opens on today and reads forward: Today, Sep 4, Sep 5. One chip still overlaps Next game,
+which is unavoidable and fine, since it is the fixture the whole page is about. The finals are one
+swipe left, which is where a result you have already been shown in a card belongs. It falls back
+to the last final when nothing is upcoming, which is the last day of a season and the one time a
+strip of results is the whole story.
+
 `syncEdges` also moved outside `place`, which returns early once the reader has taken the strip
 over. That guard is right for the placement and wrong for a pure reading of where the strip
 already is. **Not a bug anyone reported and not one reproducible here**: this harness's viewport
