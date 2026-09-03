@@ -162,13 +162,35 @@ function Scoreboard({ games, teams, onOpenGame }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  // The whole season, played games then everything still to come. It's a scroll strip, so
-  // length costs nothing and a reader who wants to look ahead to September can. Anchor on
-  // the most recent final so it still OPENS at the "now" boundary — previous game at the
-  // left edge, the next/live game right beside it — rather than at either end.
+  /**
+   * A WINDOW ROUND NOW, not the season. Three finished games, then what is still to come.
+   *
+   * IT USED TO BE ALL THIRTY, on the reasoning that a scroll strip costs nothing by length and
+   * a reader who wants to look ahead to September can. Measured at 1360px on Sep 3, 2026, what
+   * that actually built was 5,390px of chips in a 1,260px window: seven visible, twenty-three
+   * hidden, and the strip resting pinned at the far end with 4,130px behind it. The only thing
+   * advertising those was a 24px gradient over an invisible hover zone that glides at 8px a
+   * frame, so reaching the season opener meant holding a cursor still for 8.6 seconds, and a
+   * keyboard could not do it at all. The scroll was nominally there and practically unusable,
+   * and the fade was decorating that rather than solving it.
+   *
+   * Seven chips is 1,238px with the gaps, so at a desktop width the strip does not scroll,
+   * which means there is no fade and no hidden affordance to discover. A phone still scrolls
+   * it, where a swipe crosses the whole thing in one gesture and an edge fade is the right
+   * idiom. The season it no longer carries is the Schedule tab, whose nav pill is 40px above
+   * this strip.
+   *
+   * The caps are per SIDE on purpose. Capping the total would make the window lopsided at both
+   * ends of a season: in April every game is upcoming and no result would show, and in the last
+   * week there is one game left and the strip would be six weeks of old scores.
+   */
+  const RECENT_FINALS = 3
+  const UPCOMING = 4
+  // Anchor on the most recent final so that WHEN it does scroll it opens at the "now" boundary,
+  // previous game at the left edge and the next or live game beside it, rather than at an end.
   const { strip, anchorIndex } = useMemo(() => {
-    const head = games.filter(g => g.status === 'final')
-    const rest = games.filter(g => g.status !== 'final')
+    const head = games.filter(g => g.status === 'final').slice(-RECENT_FINALS)
+    const rest = games.filter(g => g.status !== 'final').slice(0, UPCOMING)
     return { strip: [...head, ...rest], anchorIndex: head.length > 0 ? head.length - 1 : 0 }
   }, [games])
 

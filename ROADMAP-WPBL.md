@@ -952,6 +952,32 @@ is retired.
 
 ## Shipped log
 
+### Sep 3, 2026: the Scoreboard stops being a season in a 1,260px window
+
+**The edge fade was the symptom.** Measured at 1360px: thirty chips at 170px is 5,390px of
+content in a 1,260px strip, seven visible and twenty-three hidden, resting pinned at the far end
+with 4,130px behind it. The only thing advertising those was a 24px gradient over an invisible
+hover zone that glides at 8px a frame, so reaching the season opener meant holding a cursor
+still for **8.6 seconds**, and a keyboard could not do it at all. The scroll was nominally there
+and practically unusable, and the fade was decorating that rather than solving it.
+
+The strip is a window round now: three finished games and the next four. Seven chips is 1,238px
+with the gaps, so at a desktop width **it does not scroll, which means there is no fade and no
+hidden affordance to discover**. The seven games on screen are the same seven that were on screen
+before, because the strip had been pinned at the end anyway: nothing was lost, only the wash over
+the leading card.
+
+Narrower still degrades honestly rather than reverting to the old problem. At 1024px, 250px is
+hidden and the hover glide crosses it in half a second; on a 390px phone the whole strip is 1.8
+screens against roughly thirteen before, which is one swipe, and the anchor still lands the last
+final 16px off the left edge.
+
+**The caps are per SIDE on purpose.** Capping the total would make the window lopsided at both
+ends of a season: in April every game is upcoming and no result would show, and in the last week
+one game is left and the strip would be six weeks of old scores.
+
+The season it no longer carries is the Schedule tab, whose nav pill sits 40px above this strip.
+
 ### Sep 3, 2026: San Francisco had clinched the top seed and the site did not know
 
 **The seeding card was wrong in two directions at once, from one blindness.** It read "1 to
