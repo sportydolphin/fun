@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync, existsSync } from 'node:fs'
-import { dirname, join, normalize, relative } from 'node:path'
+import { dirname, join, normalize, relative, sep } from 'node:path'
 
 // `wpbl-ingest` is a Deno edge function that reaches into src/wpbl/ for the recap engine, and
 // DENO RESOLVES A LOCAL SPECIFIER LITERALLY: `./slug` is not `./slug.ts`, it is a file that
@@ -14,9 +14,19 @@ import { dirname, join, normalize, relative } from 'node:path'
 // extensionless `import { slugifyName } from './slug'`.
 //
 // Type-only imports are exempt: `import type` is erased before Deno ever resolves it.
+//
+// EVERY PATH LEAVES HERE POSIX-SPELLED, and that is not cosmetic. `normalize` follows the
+// host, so on Windows the walk returns `src\wpbl\derive\series.ts` and an assertion
+// reading `includes('derive/series')` cannot match it. That made the guard below fail on
+// every Windows checkout and pass in CI, which is the wrong way round for a test whose
+// whole job is to fail on a machine that cannot run Deno: a red suite you learn to expect
+// is a red suite you stop reading. The walk itself keeps native paths, because `existsSync`
+// and `readFileSync` want those.
 
 const ENTRY = 'supabase/functions/wpbl-ingest/index.ts'
 const SPECIFIER = /^\s*(?:import|export)\s+(type\s+)?(?:[^'"]*?\sfrom\s+)?['"](\.[^'"]+)['"]/gm
+
+const toPosix = (p: string) => p.split(sep).join('/')
 
 function walk(entry: string): { files: string[]; extensionless: string[] } {
   const seen = new Set<string>()
@@ -30,13 +40,13 @@ function walk(entry: string): { files: string[]; extensionless: string[] } {
     for (const m of src.matchAll(SPECIFIER)) {
       const [, isType, spec] = m
       if (!spec.endsWith('.ts') && !spec.endsWith('.js')) {
-        if (!isType) extensionless.push(`${relative('.', file)} imports "${spec}"`)
+        if (!isType) extensionless.push(`${toPosix(relative('.', file))} imports "${spec}"`)
         continue
       }
       queue.push(normalize(join(dirname(file), spec)))
     }
   }
-  return { files: [...seen], extensionless }
+  return { files: [...seen].map(toPosix), extensionless }
 }
 
 describe('the wpbl-ingest import graph', () => {
