@@ -183,6 +183,20 @@ export function teamSpecs(
     })
   }
 
+  // A league that has played games and has no box-score lines is broken input, not a league
+  // that did nothing, and it must not be drawn.
+  //
+  // SEEN IN THE WILD. `fetchWpblAllLines` reads batting and pitching in parallel and keeps its
+  // last-good result only when BOTH come back empty, so a run where the batting read alone came
+  // up short cached a half-empty league. Every club's at-bats were zero, every batting mean was
+  // therefore zero, and the four offensive axes all scored exactly 50 (the honest answer to "how
+  // far above an average of nothing") beside completely correct pitching. The chart looked
+  // finished and was half fiction. The games gate above cannot catch this: the games were real,
+  // it was the lines that were missing.
+  const leagueAb = teamIds.reduce((n, id) => n + sumBatting(batting.filter(l => l.team_id === id), games).ab, 0)
+  const leagueOuts = teamIds.reduce((n, id) => n + sumPitching(pitching.filter(l => l.team_id === id), games).outs, 0)
+  if (leagueAb === 0 || leagueOuts === 0) return null
+
   const league = {} as Record<TeamSpecKey, number>
   for (const ax of TEAM_SPEC_AXES) {
     league[ax.key] = teamIds.reduce((s, id) => s + raws.get(id)![ax.key], 0) / teamIds.length

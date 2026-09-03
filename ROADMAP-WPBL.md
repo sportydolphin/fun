@@ -987,6 +987,22 @@ the module: the team page already held this club's lines pre-filtered, and handi
 produces a chart rather than an error. Pinned in `__tests__/teamSpec.test.ts`, along with the
 postseason filter, which would move the league average with nothing on screen to say so.
 
+**Revised the same day, on both counts.** The faint outlines of the other three clubs came off a
+club's own page: a spec chart is read as a silhouette and four overlapping ones have no
+silhouette. The league reference is the middle ring, which is the league average by
+construction, plus the club-versus-league readout beside it. And the page stopped clearing
+`allLines` when the team rail switches club: those lines are league-wide and identical for every
+club, so clearing them blanked the chart to "Loading." and back on every tap, at exactly the
+moment the chart is most worth watching. The shape now morphs in the first frame.
+
+**A third guard, from watching it break.** One load came back with the batting read empty and
+the pitching read populated (`fetchWpblAllLines` keeps its last-good result only when BOTH are
+empty, so a half-empty league gets cached). Every club's at-bats were zero, so every batting mean
+was zero, so the four offensive axes all scored exactly 50, which is the honest answer to "how
+far above an average of nothing", beside completely correct pitching. The chart looked finished
+and was half fiction. `teamSpecs` now returns null when the league has games but no at-bats or no
+outs. The games gate could never have caught it: the games were real, the lines were missing.
+
 ### Sep 3, 2026: the schedule runs to Sep 22, on seeds rather than on guesses
 
 **The schedule tab said the season ended on Sep 6.** `wpbl_games` stops there, because a game

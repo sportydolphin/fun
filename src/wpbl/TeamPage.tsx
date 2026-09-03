@@ -319,7 +319,12 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
 
   useEffect(() => {
     let cancelled = false
-    setRoster(null); setLines(null); setAllLines(null)
+    // `allLines` is deliberately NOT cleared. It is league-wide, so it is the same object for
+    // every club, and clearing it made the spec chart blank to "Loading." and back on every tap
+    // of the team rail. That switch is the one moment the chart is most worth watching: the
+    // shape is supposed to morph from one club to the next, which is the whole reason to put
+    // four buttons above it. Everything below is genuinely this club's and does get cleared.
+    setRoster(null); setLines(null)
     setLineups([]); setUsage([])
     Promise.all([
       fetchWpblRoster(team.id), fetchWpblAllPlayers(), fetchWpblAllLines(),
@@ -566,6 +571,9 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
                <TeamSpecRadar specs={specs} teams={teams} focusId={team.id} radius={88} />
              </Box>
              <Box sx={{ minWidth: 132 }}>
+               {/* With the other three clubs gone from the chart, the middle ring is the only
+                   thing left saying what the shape is measured against, so it has to be named.
+                   The readout under it is the same comparison in numbers. */}
                <Typography sx={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.disabled', mb: 0.5 }}>
                  Club / league
                </Typography>

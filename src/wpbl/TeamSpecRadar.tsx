@@ -11,10 +11,12 @@ import type { WpblTeam } from './types'
 // The spec chart. Six spokes, one polygon per club, drawn as SVG because the repo has no chart
 // library and a hexagon does not justify adding one: the whole geometry is `pt()` below.
 //
-// TWO CALLERS, ONE COMPONENT, AND THE DIFFERENCE IS ONLY WHICH CLUBS ARE SOLID. A club's own
-// page draws that club in its colour with the other three as faint outlines, so the shape is
-// read against the league rather than in a vacuum. The Teams grid draws all four solid, because
-// there is no subject there and the comparison IS the point.
+// TWO CALLERS, ONE COMPONENT, AND `focusId` IS THE WHOLE DIFFERENCE. Set, it draws that club
+// and only that club: the league context comes from the RINGS, whose midpoint is the league
+// average by construction, not from three more polygons. It shipped with the other three as
+// faint dashed outlines and they were noise, because a spec chart is read as a silhouette and
+// four overlapping ones have no silhouette. Unset, every club is drawn solid, which is the
+// Teams grid, where there is no subject and the comparison is the point.
 //
 // WHY THE POLYGON IS NOT ALSO THE ACCESSIBLE VERSION. A radar is a picture of six numbers, and a
 // screen reader gets nothing from a `points` attribute, so the numbers are also rendered as a
@@ -34,7 +36,7 @@ const polygon = (cx: number, cy: number, R: number, values: number[]): string =>
 export interface TeamSpecRadarProps {
   specs: TeamSpecs
   teams: WpblTeam[]
-  /** The club drawn solid. Null on the Teams grid, where every club is. */
+  /** The one club to draw. Null on the Teams grid, where every club is drawn. */
   focusId?: string | null
   /** Ring radius in px. The box adds the label margins below. */
   radius?: number
@@ -64,11 +66,9 @@ export function TeamSpecRadar({ specs, teams, focusId = null, radius = 96, showL
   const cy = h / 2
 
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
-  // Faint first, focus last, so the club whose page this is draws on top of the others rather
-  // than under whichever club happens to sort first.
   const ordered = useMemo(() => {
     const rows = specs.rows.filter(r => byId.has(r.teamId))
-    return focusId ? [...rows.filter(r => r.teamId !== focusId), ...rows.filter(r => r.teamId === focusId)] : rows
+    return focusId ? rows.filter(r => r.teamId === focusId) : rows
   }, [specs, byId, focusId])
 
   const grid = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.12)'
@@ -90,7 +90,7 @@ export function TeamSpecRadar({ specs, teams, focusId = null, radius = 96, showL
     >
       <title id={titleId}>
         {focusId && byId.get(focusId)
-          ? `${byId.get(focusId)!.name} team profile against the league, six traits`
+          ? `${byId.get(focusId)!.name} team profile against the league average, six traits`
           : 'All four clubs compared on six traits'}
       </title>
       <desc>{desc}</desc>
@@ -111,21 +111,18 @@ export function TeamSpecRadar({ specs, teams, focusId = null, radius = 96, showL
 
       {ordered.map(r => {
         const t = byId.get(r.teamId)!
-        const focused = !focusId || r.teamId === focusId
         const colour = wpblAccent(t.id, isDark)
         return (
           <polygon
             key={r.teamId}
             points={polygon(cx, cy, radius, TEAM_SPEC_AXES.map(a => r.score[a.key]))}
             fill={colour}
-            fillOpacity={focused ? (focusId ? 0.3 : 0.13) : 0}
+            // A single club can afford a solid-looking fill. Four overlapping ones cannot: at
+            // anything above about 0.15 the middle of the Teams chart turns to mud and the
+            // outlines stop being readable through it.
+            fillOpacity={focusId ? 0.3 : 0.13}
             stroke={colour}
-            strokeWidth={focused ? 2 : 1}
-            // A faint club is an outline only, and dashed as well as pale: on the two clubs
-            // whose accents are closest together, opacity alone left the outlines telling the
-            // same story, and a colour-blind reader had nothing at all.
-            strokeOpacity={focused ? 1 : 0.55}
-            strokeDasharray={focused ? undefined : '3 3'}
+            strokeWidth={2}
             strokeLinejoin="round"
           />
         )

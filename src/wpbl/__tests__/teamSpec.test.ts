@@ -153,6 +153,18 @@ describe('teamSpecs', () => {
     expect(specs.byTeam.get('SF')!.score.speed).toBeGreaterThan(0)
   })
 
+  // Seen on a live page: the batting read came back empty while the pitching read did not, and
+  // the chart drew four confident 50s across Power, Contact, Eye and Speed beside entirely
+  // correct Arms and Glove. Half a chart is worse than none, because the half that is wrong
+  // looks exactly like the half that is right.
+  it('refuses to draw when half of the league lines are missing', () => {
+    const { games, ids } = season()
+    const { batting, pitching } = flatLines(ids)
+    expect(teamSpecs(TEAMS, [], pitching, games)).toBeNull()
+    expect(teamSpecs(TEAMS, batting, [], games)).toBeNull()
+    expect(teamSpecs(TEAMS, batting, pitching, games)).not.toBeNull()
+  })
+
   it('survives a league that has done none of something', () => {
     const { games, ids } = season()
     const { batting, pitching } = flatLines(ids)
