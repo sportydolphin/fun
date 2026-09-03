@@ -978,6 +978,27 @@ one game is left and the strip would be six weeks of old scores.
 
 The season it no longer carries is the Schedule tab, whose nav pill sits 40px above this strip.
 
+**A second pass on the left edge, from the phone screenshot.** The inset that holds the leading
+chip off the page margin was 16 against a 24px fade, and those two numbers not matching is what
+put a stray vertical line at the left edge. Measured at 390px: the container starts at x=16 with
+every other block on Home, the peeking chip ended at x=24, the first WHOLE chip began at x=32,
+and the gradient ran x=16 to x=40, so it covered the 8px stub, the gap, AND the first 16px of the
+leading card, washing the date label of the very chip the inset exists to keep clear. The comment
+there claimed the previous game "stays fully in view" and the arithmetic did not do it.
+
+One constant now, spent in both places, at 16 rather than 24. The peek is the inset minus the 8px
+gap, so 24 shows 16px of the older chip and 16 shows 8px, and the edge that peeks is the one
+carrying the score column: 16px of it is a legible digit hanging in the gradient with no badge or
+club beside it, which is the "bare 6 over 10" the original note was written against. 8px is the
+card's own border, which is the hint without the fragment, and it costs the least indent.
+
+`syncEdges` also moved outside `place`, which returns early once the reader has taken the strip
+over. That guard is right for the placement and wrong for a pure reading of where the strip
+already is. **Not a bug anyone reported and not one reproducible here**: this harness's viewport
+emulation fires neither `resize` nor `ResizeObserver` (verified, 0 and 0), so the stale gradients
+seen while testing were an artifact of how the window was being resized. The change stands on the
+logic, not on an observed failure.
+
 ### Sep 3, 2026: San Francisco had clinched the top seed and the site did not know
 
 **The seeding card was wrong in two directions at once, from one blindness.** It read "1 to

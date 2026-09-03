@@ -158,6 +158,23 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
   )
 }
 
+/**
+ * The edge vignette, and the inset the anchor is placed at. ONE number, spent in both places.
+ *
+ * The gradient has to cover the peeking chip EXACTLY. Wider than the peek and it washes the
+ * leading card; narrower and a hard stub of card sits against the page margin looking like a
+ * rendering fault. It was 16 against a 24px fade and did both at once.
+ *
+ * SIXTEEN RATHER THAN TWENTY-FOUR, and the 8px gap between chips is why. The peek is the inset
+ * minus that gap, so 24 shows 16px of the older chip and 16 shows 8px. A chip carries its score
+ * column hard against its right edge, which is the edge that peeks, so 16px of it is a legible
+ * digit hanging in the gradient with no badge or club beside it: the strip once opened on a bare
+ * "6" over "10" and read as broken. 8px is the card's own border and padding, which is the hint
+ * without the fragment. It also costs the least indent: the first legible chip starts 16px from
+ * the page margin instead of 24.
+ */
+const EDGE_FADE_W = 16
+
 function Scoreboard({ games, teams, onOpenGame }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
 }) {
@@ -198,7 +215,7 @@ function Scoreboard({ games, teams, onOpenGame }: {
   // cut-off card reads as "swipe for more" rather than a clipped card.
   const [atStart, setAtStart] = useState(true)
   const [atEnd, setAtEnd] = useState(true)
-  // BOTH FADES ARE THE SAME PLAIN 24px VIGNETTE, and the left one is not allowed to grow to
+  // BOTH FADES ARE THE SAME PLAIN VIGNETTE, and the left one is not allowed to grow to
   // cover the chip behind it.
   //
   // It was, for one version: the mask measured the clipped leading chip and held SOLID across
@@ -282,13 +299,25 @@ function Scoreboard({ games, teams, onOpenGame }: {
       // edge-fade lands on the older game peeking behind it — the previous game stays fully in
       // view. No inset when it's already the first chip (nothing to its left to peek).
       //
-      // SIXTEEN, NOT THIRTY-TWO, AND THE SLIVER IS THE POINT. A chip is 190px wide with its
-      // score column hard against its right edge, so ANY wide peek shows that column and nothing
-      // else: the strip opened on two bare numerals, "6" over "10", with no badge and no club
-      // beside them, which reads as a rendering fault rather than as "there is more this way".
-      // 16 is the 8px gap plus the older chip's own 8px of padding, so what peeks is a blank
-      // card edge under the fade. The affordance survives; the clipped digits do not.
-      const inset = anchorIndex > 0 ? 16 : 0
+      // THE INSET IS THE FADE'S WIDTH, and that equality is the whole rule. A chip is wide with
+      // its score column hard against its right edge, so ANY generous peek shows that column and
+      // nothing else: the strip once opened on two bare numerals, "6" over "10", with no badge
+      // and no club beside them, which reads as a rendering fault rather than as "there is more
+      // this way". So the peek stays small and lives entirely UNDER the gradient, where it is a
+      // soft edge rather than a stub.
+      //
+      // It was 16 against a 24px fade, and those two numbers not matching is what made the strip
+      // look indented on a phone. Measured at 390px: the container starts at x=16 with every
+      // other block on Home, the peeking chip ended at x=24, and the first WHOLE chip began at
+      // x=32, so the leading card sat 16px right of the page's own left edge with an 8px stub
+      // beside it. Worse, the fade ran x=16 to x=40, which is the stub, the gap, AND the first
+      // 16px of the leading card: it washed the date label of the very chip the inset exists to
+      // keep clear, so the comment here claimed something the arithmetic did not do.
+      //
+      // Tie them together and both problems go: the gradient covers exactly the peek and the gap,
+      // and the leading chip starts clean at the fade's inner edge. If the fade width ever
+      // changes, this follows it rather than drifting out of step again.
+      const inset = anchorIndex > 0 ? EDGE_FADE_W : 0
       // A rect and `scrollLeft` are the same pixel again, so this is plain subtraction. It was
       // not: the section used to sit in a `zoom: 1.4` wrapper, which getBoundingClientRect
       // reports AFTER and scrollLeft counts BEFORE, so the raw difference undershot the scroll
@@ -331,7 +360,21 @@ function Scoreboard({ games, teams, onOpenGame }: {
     place()
     // Watching the chips as well as the container is the point: a logo decoding changes a
     // chip's width without changing the container's.
-    const ro = new ResizeObserver(place)
+    //
+    // AND `syncEdges` RUNS OUTSIDE `place`, which returns early once the reader has taken the
+    // strip over. That guard is right for the placement (their scroll position is theirs) and
+    // wrong for the fade state, which is only ever a reading of where the strip already is.
+    // Without this, widening a window until the strip stops overflowing left both gradients
+    // painted over a strip with nothing behind them, for as long as the page stayed open.
+    // `syncEdges` RUNS OUTSIDE `place`, which returns early once the reader has taken the strip
+    // over. That guard is right for the placement, since their scroll position is theirs to
+    // keep, and wrong for the fade state, which is only ever a reading of where the strip
+    // already is. Inside the guard, a strip that stopped overflowing (a widened window, a
+    // shorter fixture list) would keep both gradients painted over nothing until the next
+    // scroll. Not a bug anyone has reported and not one that could be reproduced here, because
+    // this harness's viewport emulation fires neither resize nor ResizeObserver; it is simply
+    // that a pure read has no business behind a guard about intent.
+    const ro = new ResizeObserver(() => { place(); syncEdges() })
     ro.observe(c)
     for (const chip of Array.from(c.children)) ro.observe(chip)
     return () => ro.disconnect()
@@ -363,10 +406,10 @@ function Scoreboard({ games, teams, onOpenGame }: {
             there is nothing down there for a mask to spare, and the gap left the bottom corner
             of a chip lit under the fade. */}
         {!atStart && (
-          <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 24, pointerEvents: 'none', background: t => `linear-gradient(to right, ${t.palette.background.default}, transparent)` }} />
+          <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: EDGE_FADE_W, pointerEvents: 'none', background: t => `linear-gradient(to right, ${t.palette.background.default}, transparent)` }} />
         )}
         {!atEnd && (
-          <Box sx={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 24, pointerEvents: 'none', background: t => `linear-gradient(to left, ${t.palette.background.default}, transparent)` }} />
+          <Box sx={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: EDGE_FADE_W, pointerEvents: 'none', background: t => `linear-gradient(to left, ${t.palette.background.default}, transparent)` }} />
         )}
         {/* Hover-to-scroll zones over each edge (desktop only; touch keeps swipe). */}
         {!atStart && (
