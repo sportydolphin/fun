@@ -4,6 +4,37 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.62.0',
+    date:    '2026-09-03',
+    title:   'Every club gets a shape, and the schedule runs to the final',
+    changes: [
+      {
+        short: 'A spec chart on every team page, and all four overlaid on Teams',
+        full:  'The standings say who is winning and the team stats card says how much of each thing a club did. Neither tells you what KIND of team it is: that New York run on a fifth of their times on first while San Francisco almost never do. Six traits, drawn as the radial chart a video game would use for a character. Power is extra bases, Contact is how rarely they strike out, Eye is walks, Speed is steals, Arms is how often the pitchers miss bats, and Glove is unearned runs allowed. The middle ring is the league average, so the shape is read against the rest of the league rather than in a vacuum. A club’s own page draws that club; the Teams tab overlays all four, because there the comparison is the point. Two axes that seem obvious are missing on purpose: every club’s ERA is within nine per cent of every other, and every fielding percentage within two, so both would have drawn four spokes of the same length and said nothing.',
+      },
+      {
+        short: 'The schedule runs to the championship instead of stopping on Sep 6',
+        full:  'A postseason game needs two clubs, and nobody knows who plays whom until the last regular-season game sets the seeds, so the league’s feed carries no rows for it and the schedule tab simply ended at the last regular-season day. It now runs through the championship’s game 5 on Sep 22, from the calendar the league published on Aug 24. A row names a seed rather than a club until that seed can no longer move, so it says “1 seed” until the club holding it is actually locked in. Games that are only played if a series is still alive are marked, and disappear once the series is won. When the league draws the real bracket, its own games take these places automatically.',
+      },
+      {
+        short: 'Search a player by her number',
+        full:  'Type 7 in the search box and you get every player in the league wearing it, one per club, grouped by club. The hash is optional, so “7” and “#7” both work. A single digit is enough, which it is not for a name, because no name contains a number and so there is nothing else it could mean. Every search row now shows the player’s number beside her position and club. Players who have not been issued a number cannot be found this way, which is 49 of the 119 on the league’s books.',
+      },
+      {
+        short: 'A team’s leaders in OPS and ERA now need enough playing time',
+        full:  'The rate leaders on a team page had no minimum at all, so one at-bat and one hit was the best OPS on the club and a single out without conceding was the best ERA. Two of the four teams were being led in ERA by somebody who had thrown exactly one inning, and one team’s best hitter had nineteen trips to the plate. Both lists now use the same qualifying bar as the league leaderboards, which scales with how far the season has gone, and the bar is printed beside the heading so it is clear why a hot week does not put somebody on the list. Home runs, RBI, strikeouts and innings are unchanged: nobody hits four home runs in a cameo.',
+      },
+      {
+        short: 'A team page a phone can reach the bottom of',
+        full:  'It was more than five screens of scrolling. The lineup history and pitching usage grids, which slide sideways and were most of the middle of the page, are now closed by default on a phone and open with a tap; both stay open on a laptop. The roster shows ten and expands to the rest in place. Together that is about a third off the length of the page, and nothing was removed.',
+      },
+      {
+        short: 'Game recaps reach Bluesky in an hour instead of overnight',
+        full:  'Recaps of a finished game were arriving five to twelve hours late. Two reasons, and neither was the writing. The scheduled job that posts them was being run by GitHub hours after it asked to be, and the wait that lets a scoring correction land before a permanent public post was being measured from when that job happened to look at the game rather than from when the league finalised it. The wait now runs from the league’s own clock, and the site’s own database asks for the job as soon as a game has settled, instead of waiting to be noticed.',
+      },
+    ],
+  },
+  {
     version: '1.61.1',
     date:    '2026-09-02',
     title:   'The stats boards line up with their own controls',
