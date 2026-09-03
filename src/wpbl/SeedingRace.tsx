@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { Box, Typography } from '@mui/material'
 import { SectionCard, TeamBadge, pressable, FOCUS_RING, chromePx, useWpblDark, tappableIf } from './ui'
 import { wpblAccentFg, wpblFullName, relativeDayLabel } from './constants'
-import { seedingRace, semifinalLabel, bracketIsSet, swingGames } from './derive/seeding'
+import { seedingRace, semifinalLabel, bracketIsSet, swingGames, clinchedSeeds, bestReachableSeed } from './derive/seeding'
 import type { WpblSeedRow } from './derive/seeding'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblGame, WpblStandingRow, WpblTeam } from './types'
@@ -91,8 +91,23 @@ function cushionLabel(s: WpblSeedRow, below: WpblSeedRow | undefined): string {
  *  The magic number is split from its label so the figure carries the weight. Four rows all
  *  reading "8 to lock Nth" is the shape this column has for most of a season, and setting the
  *  whole phrase at one size made the only part that differs the hardest part to find. */
-function seedStatus(s: WpblSeedRow): { count: number | null; text: string; strong: boolean } {
-  if (s.bestPossible === s.worstPossible) return { count: null, text: 'Seed set', strong: true }
+function seedStatus(s: WpblSeedRow, clinched: number | null, bestReachable: number): { count: number | null; text: string; strong: boolean } {
+  // CLINCHED FIRST, AND IT IS NOT THE SAME QUESTION AS `bestPossible === worstPossible`.
+  //
+  // Those two fields resolve every tie AGAINST the club, which is the safe reading for the
+  // magic numbers below and gets a clinch wrong in both directions at once. On Sep 3, 2026 this
+  // card told two lies from the one blindness. San Francisco read "1 to lock" when they had
+  // already clinched the top seed: Los Angeles could only draw level at 9-6 and San Francisco
+  // held that series 3-2 with no games left in it. And Boston read "Seed set" when they had
+  // not: Boston can still draw level with New York at 6-9 and they hold THAT series 3-2, so
+  // fourth was never fixed. `clinchedSeeds` knows the tiebreak; these fields deliberately do
+  // not, so this branch has to come before them and the one below has to be narrowed.
+  if (clinched != null) return { count: null, text: `${ordinal(clinched)} seed locked`, strong: true }
+  // Range closed on wins alone AND not clinched: the only thing still moving is a tiebreak, so
+  // the live fact is the climb it opens. Naming the floor instead would be vacuous on the
+  // bottom seed, where there is nothing worse to be no worse than, which is precisely the club
+  // this branch catches today.
+  if (s.bestPossible === s.worstPossible) return { count: null, text: `Can reach ${ordinal(bestReachable)}`, strong: false }
   // magic 0 means it cannot fall below where it sits, but can still climb.
   if (s.magic === 0) return { count: null, text: `No worse than ${ordinal(s.seed)}`, strong: true }
   // "to lock", not "to lock 2nd": the seed this club is defending is the number at the left end
@@ -120,6 +135,8 @@ export default function SeedingRace({ rows, games, onOpenTeam }: {
 }) {
   const dark = useWpblDark()
   const seeds = useMemo(() => seedingRace(rows, games), [rows, games])
+  // Which clubs have actually banked a seed, tiebreak included. See `seedStatus`.
+  const clinched = useMemo(() => clinchedSeeds(seeds, games), [seeds, games])
   const settled = bracketIsSet(seeds)
   const swings = useMemo(() => swingGames(seeds, games), [seeds, games])
   // Each remaining game sits on two clubs' cards, so the sum double-counts. Rounded rather
@@ -177,7 +194,7 @@ export default function SeedingRace({ rows, games, onOpenTeam }: {
 
       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
         {seeds.map((s, i) => {
-          const status = seedStatus(s)
+          const status = seedStatus(s, clinched.get(s.team.id) ?? null, bestReachableSeed(seeds, games, s.team.id))
           const semi = semifinalLabel(s.seed)
           const cushion = cushionLabel(s, seeds[i + 1])
           return (

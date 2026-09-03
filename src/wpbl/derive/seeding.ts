@@ -146,6 +146,117 @@ export function seedingRace(rows: WpblStandingRow[], games: WpblGame[]): WpblSee
   })
 }
 
+/**
+ * The head-to-head record between two clubs this regular season, and whether they still meet.
+ *
+ * `remaining` is the whole point of returning it. `computeStandings` breaks a tie on head to
+ * head, so a club that leads the series is ahead on a tie TODAY, but a series with a game left
+ * in it can still flip and the lead is not yet a fact. Only a completed series decides anything.
+ *
+ * Filtered exactly as `computeStandings` filters (decisive regular-season finals), because a
+ * tiebreak computed on a different set of games than the standings apply it to would be a
+ * second opinion nobody asked for.
+ */
+export function headToHead(games: WpblGame[], a: string, b: string): {
+  aWins: number; bWins: number; remaining: number
+} {
+  let aWins = 0, bWins = 0, remaining = 0
+  for (const g of games) {
+    if (!countsInStandings(g)) continue
+    const between = (g.home_team_id === a && g.away_team_id === b)
+      || (g.home_team_id === b && g.away_team_id === a)
+    if (!between) continue
+    if (!isPlayed(g)) { remaining++; continue }
+    if (g.home_score === g.away_score) continue
+    const winner = g.home_score! > g.away_score! ? g.home_team_id : g.away_team_id
+    if (winner === a) aWins++; else bWins++
+  }
+  return { aWins, bWins, remaining }
+}
+
+/**
+ * Whether `me` is GUARANTEED to finish above `rival`, tiebreak included.
+ *
+ * WHY THIS EXISTS, AND WHAT IT FIXES. The rest of this module reasons on wins alone and treats
+ * any possible tie as unresolved, which is the safe reading for a magic number and was wrong for
+ * a clinch. On Sep 3, 2026 San Francisco were 9-4 with two to play and Los Angeles 7-6 with two:
+ * LA's ceiling was 9 and SF's floor was 9, so the only way LA could catch them was a 9-6 tie,
+ * and SF held that series 3-2 with NO GAMES LEFT IN IT. San Francisco had clinched the top seed
+ * outright and the site said the race was open, because nothing here knew the standings break
+ * ties on head to head.
+ *
+ * The three certainties, in order:
+ *   1. The rival's ceiling is below my floor. They cannot catch me on wins at all.
+ *   2. The rival can still finish strictly ahead on wins. Nothing is decided; the tiebreak is
+ *      irrelevant because it may never be reached.
+ *   3. The rival can at best draw level. Then and only then the tiebreak decides it, and only
+ *      if their series is FINISHED, since a series with a game left can still change hands.
+ */
+export function finishesAhead(
+  me: WpblSeedRow, rival: WpblSeedRow, games: WpblGame[],
+): boolean {
+  // Nothing left for either of them, so there is nothing to reason about: `computeStandings`
+  // has already sorted them on percentage, then head to head, then run differential, and
+  // `seed` IS that order. This has to come first because the win comparisons below cannot see
+  // it: two clubs can finish level on WINS and not be level at all (1-3 against 1-6 is two
+  // different seasons), and the wins-only rule reads that as an unresolved tie forever.
+  if (me.remaining === 0 && rival.remaining === 0) return me.seed < rival.seed
+
+  // COMPARED AS PERCENTAGES, NOT AS WINS, because that is what `computeStandings` sorts on and
+  // a claim here that disagrees with the table beside it is worse than no claim. The two only
+  // coincide while every club has played the same number of games, which is true today and is
+  // not a property of the fixture list: a postponement makes 9-5 and 7-3 two different orders
+  // depending on which number you read. Cross-multiplied so the equality below is exact rather
+  // than a float comparison, and each club's final games played is fixed (`total`) whatever
+  // happens in them.
+  const myTotal = me.wins + me.losses + me.remaining
+  const rivalTotal = rival.wins + rival.losses + rival.remaining
+  if (myTotal === 0 || rivalTotal === 0) return false
+  const rivalCeiling = rival.maxWins * myTotal
+  const rivalFloor = rival.wins * myTotal
+  const myFloor = me.wins * rivalTotal
+  const myCeiling = me.maxWins * rivalTotal
+
+  if (rivalCeiling < myFloor) return true
+  if (rivalFloor > myCeiling) return false
+  // Could the rival still pass me outright? Then this is genuinely open.
+  if (rivalCeiling > myFloor) return false
+  // Level at best. The tiebreak decides, if it is already decided.
+  const h = headToHead(games, me.team.id, rival.team.id)
+  return h.remaining === 0 && h.aWins > h.bWins
+}
+
+/**
+ * The seed a club has mathematically clinched, or null while it can still move.
+ *
+ * A seed is clinched when EVERY rival is resolved one way or the other, and the seed is then
+ * simply how many of them finish above. Deliberately separate from `bestPossible` /
+ * `worstPossible`, which stay tiebreak-blind: those two feed magic numbers, where reading
+ * pessimistically is the safe direction, and this one makes a positive claim, where reading
+ * pessimistically means refusing to say something true.
+ */
+export function bestReachableSeed(seeds: WpblSeedRow[], games: WpblGame[], teamId: string): number {
+  const me = seeds.find(s => s.team.id === teamId)
+  if (!me) return 0
+  // Only the rivals who are GUARANTEED to finish above can hold a club down; everyone else is
+  // still catchable, on wins or on a tiebreak. This is `bestPossible` with the tiebreak added,
+  // and it differs from it exactly where a tiebreak is the only route left: on Sep 3, 2026
+  // Boston's `bestPossible` said 4th, and Boston could still draw level with New York at 6-9
+  // and take third on a series they hold 3-2 with none left.
+  return 1 + seeds.filter(r => r.team.id !== teamId && finishesAhead(r, me, games)).length
+}
+
+export function clinchedSeeds(seeds: WpblSeedRow[], games: WpblGame[]): Map<string, number> {
+  const out = new Map<string, number>()
+  for (const me of seeds) {
+    const rivals = seeds.filter(r => r.team.id !== me.team.id)
+    const above = rivals.filter(r => finishesAhead(r, me, games))
+    const below = rivals.filter(r => finishesAhead(me, r, games))
+    if (above.length + below.length === rivals.length) out.set(me.team.id, above.length + 1)
+  }
+  return out
+}
+
 /** Which semifinal a seed lands in, as a letter: 1 and 4 play in A, 2 and 3 in B. Our own
  *  labels, not the league's, which names its games by date. They exist so the two clubs that
  *  would meet carry a mark in common on a list sorted by seed, where they are never adjacent. */

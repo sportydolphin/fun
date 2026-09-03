@@ -1,6 +1,6 @@
 import type { WpblGame, WpblStandingRow, WpblTeam } from '../types'
 import { countsInStandings } from '../season'
-import { seedingRace, SEMIFINAL_PAIRS, bracketIsSet } from './seeding'
+import { seedingRace, SEMIFINAL_PAIRS, bracketIsSet, clinchedSeeds } from './seeding'
 // The format and the pairing key live in series.ts, which is the module every OTHER surface
 // reads (a schedule row, a Game Center header, a recap), and re-exported here so this file
 // stays the one import a bracket needs. Stated in one place because "best of three" appearing
@@ -324,31 +324,20 @@ export function postseasonScheduleRows(
   const seeds = seedingRace(rows, games)
   if (seeds.length < 4) return []
 
-  // A seed names a club only when it cannot move any more. Per SEED, not per bracket: the top
-  // seed routinely locks days before the bottom two stop swapping, and holding every slot
-  // hostage to the last one would keep the board vague for no reason.
+  // A seed names a club only when it has CLINCHED it, which `clinchedSeeds` decides. Per seed,
+  // not per bracket: the top seed routinely locks days before the bottom two stop swapping, and
+  // holding every slot vague until the whole bracket settles would say less than we know.
   //
-  // DELIBERATELY STRICTER THAN `bestPossible === worstPossible`, which is what `bracketIsSet`
-  // asks and what this reached for first. Those two fields resolve a tie AGAINST the club being
-  // measured, which is the safe reading for the magic numbers they were written for and the
-  // wrong one here: on Sep 2, 2026 it collapsed Boston's range onto 4th and this list printed
-  // "Boston Hunters" in the 4 seed, while Boston could still finish level with New York at 6-9
-  // and take third on the tiebreak. Printing "4 seed" when the club is in fact known is a small
-  // loss. Printing a club in a slot it can still climb out of is the one thing this list exists
-  // not to do.
-  //
-  // A rival is RESOLVED against this club when one of them is out of reach of the other: either
-  // the rival's floor already beats this club's ceiling, or its ceiling already loses to this
-  // club's floor. Anything in between is a possible tie on the field. The last clause is what
-  // stops that being permanently unresolvable: once neither club has a game left there is no
-  // band, `computeStandings` has applied the tiebreaks, and the order it produced is the final
-  // one. Wins-only, like every comparison in seeding.ts, which the balanced schedule earns.
+  // THIS USED TO BE A LOCAL RULE HERE AND IT WAS TOO SHY. It resolved a rival only on wins and
+  // treated any possible tie as open, which is right for a magic number and wrong for a clinch:
+  // on Sep 3, 2026 San Francisco were 9-4 with two to play against a Los Angeles ceiling of 9,
+  // so the only way LA caught them was a 9-6 tie, and SF held that series 3-2 with no games left
+  // in it. SF had the top seed and this list still said "1 seed". The tiebreak lives in
+  // seeding.ts now, next to the standings rule it has to agree with.
   const settled = new Map<number, WpblTeam>()
-  for (const me of seeds) {
-    const open = seeds.some(o => o.team.id !== me.team.id
-      && o.wins <= me.maxWins && o.maxWins >= me.wins
-      && (o.remaining > 0 || me.remaining > 0))
-    if (!open) settled.set(me.seed, me.team)
+  for (const [teamId, seed] of clinchedSeeds(seeds, games)) {
+    const row = seeds.find(x => x.team.id === teamId)
+    if (row) settled.set(seed, row.team)
   }
 
   // The dates the feed has already claimed. A published postseason game always beats the

@@ -39,6 +39,8 @@ const finished = (): WpblGame[] => [
 ]
 
 const rowsFor = (games: WpblGame[]) => postseasonScheduleRows(computeStandings(TEAMS, games), games)
+/** The same thing, named for what the tiebreak tests are actually asking it. */
+const teamSpecsSeeds = rowsFor
 const bySeries = (games: WpblGame[], label: string) => rowsFor(games).filter(r => r.label === label)
 
 describe('postseasonScheduleRows', () => {
@@ -109,32 +111,55 @@ describe('postseasonScheduleRows', () => {
     expect(rowsFor(swept).some(r => r.date === '2026-09-14')).toBe(true)
   })
 
-  // The bug this caught in review, from the live table on Sep 2, 2026. Boston were 4-9 with two
-  // to play and New York 6-7 with two, so Boston's ceiling was exactly New York's current total:
-  // level at 6-9 was still on the field, and the tiebreak could have given Boston third. The
-  // first version of this used `bestPossible === worstPossible`, which resolves that tie against
-  // Boston, collapses its range onto 4th, and printed "Boston Hunters" in the 4 seed a week
-  // early.
-  it('will not name a club that can still be tied out of its seed', () => {
-    const left = (home: string, away: string) => game({
-      game_date: '2026-09-05', home_team_id: home, away_team_id: away,
-      status: 'scheduled', home_score: null, away_score: null,
-    })
-    const standing = (winner: string, loser: string, n: number) =>
-      Array.from({ length: n }, () => win(winner, loser))
-    const games = [
-      ...standing('SF', 'BOS', 5), ...standing('SF', 'NY', 4),   // SF 9
-      ...standing('LA', 'BOS', 4), ...standing('LA', 'NY', 3),   // LA 7
-      ...standing('NY', 'BOS', 6),                                // NY 6
-      ...standing('BOS', 'LA', 4),                                // BOS 4
-      left('LA', 'NY'), left('NY', 'SF'), left('BOS', 'LA'), left('SF', 'BOS'),
-    ]
-    const g1 = rowsFor(games).find(r => r.label === 'Semifinal A' && r.gameNumber === 1)!
+  // THE TWO HALVES OF THE TIEBREAK, on the real table of Sep 3, 2026.
+  //
+  // A clinch is not a statement about wins alone, because the standings break a tie on head to
+  // head. Whether a club that can only DRAW LEVEL with you is a threat depends on who holds that
+  // series and whether it is finished, and these two go opposite ways on the same arithmetic.
+  //
+  // BALANCED, every pair meeting five times so every club plays fifteen. `computeStandings`
+  // sorts on win PERCENTAGE, so a fixture with uneven games played can rank a 7-3 club above a
+  // 9-5 one, and a draft of this test did exactly that and asked the wrong question.
+  //
+  //   SF 9-4  LA 7-6  NY 6-7  BOS 4-9, two to play each
+  //   SF-LA 3-2 finished · NY-BOS 3-2 to BOS finished · the other four have one left
+  const beat = (winner: string, loser: string, n: number) =>
+    Array.from({ length: n }, () => win(winner, loser))
+  const toPlay = (home: string, away: string) => game({
+    game_date: '2026-09-05', home_team_id: home, away_team_id: away,
+    status: 'scheduled', home_score: null, away_score: null,
+  })
+  const season = () => [
+    ...beat('SF', 'LA', 3), ...beat('LA', 'SF', 2),
+    ...beat('SF', 'NY', 2), ...beat('NY', 'SF', 2), toPlay('NY', 'SF'),
+    ...beat('SF', 'BOS', 4), toPlay('SF', 'BOS'),
+    ...beat('LA', 'NY', 2), ...beat('NY', 'LA', 2), toPlay('LA', 'NY'),
+    ...beat('LA', 'BOS', 3), ...beat('BOS', 'LA', 1), toPlay('BOS', 'LA'),
+    ...beat('NY', 'BOS', 2), ...beat('BOS', 'NY', 3),
+  ]
+  const semiA1 = (games: WpblGame[]) =>
+    rowsFor(games).find(r => r.label === 'Semifinal A' && r.gameNumber === 1)!
+
+  // Los Angeles' ceiling is 9 and San Francisco's floor is 9, so the only way LA catch them is a
+  // 9-6 tie, and SF hold that series 3-2 with nothing left in it. This list said "1 seed".
+  it('names a club that has clinched on a tiebreak it can no longer lose', () => {
+    expect(semiA1(season()).first.team?.id).toBe('SF')
+  })
+
+  // The mirror. Boston top out at 6 wins, which is exactly New York's total, and Boston hold
+  // THAT series 3-2 with none left, so a tie goes their way and third is still reachable.
+  it('will not name a club that wins the tie it can still force', () => {
+    const g1 = semiA1(season())
     expect(g1.second.team).toBeNull()
     expect(g1.second.label).toBe('4 seed')
-    // And the same reasoning at the top: San Francisco lead by two with two to play, so Los
-    // Angeles can still reach their total. Not locked either, however it reads in the table.
-    expect(g1.first.team).toBeNull()
+  })
+
+  // A series with a game still in it decides nothing: the lead in it can change hands.
+  it('will not spend a tiebreak that can still flip', () => {
+    const games = season()
+    const i = games.findIndex(g => g.home_team_id === 'SF' && g.away_team_id === 'LA')
+    games[i] = toPlay('SF', 'LA')
+    expect(semiA1(games).first.team).toBeNull()
   })
 
   it('carries the if-necessary flag so the card can mark it', () => {

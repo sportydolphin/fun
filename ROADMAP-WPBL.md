@@ -952,6 +952,41 @@ is retired.
 
 ## Shipped log
 
+### Sep 3, 2026: San Francisco had clinched the top seed and the site did not know
+
+**The seeding card was wrong in two directions at once, from one blindness.** It read "1 to
+lock" beside San Francisco, who had already banked the top seed, and "Seed set" beside Boston,
+who had not banked fourth. Both came from `bestPossible` / `worstPossible`, which resolve every
+tie AGAINST the club being measured. That is the right caution for a magic number a fan quotes
+at somebody, and it is the wrong reading for a clinch, where being pessimistic does not make you
+safe, it makes you wrong.
+
+**The standings break a tie on head to head, and nothing outside `computeStandings` knew it.**
+SF were 9-4 with two to play against a Los Angeles ceiling of 9, so the only way LA caught them
+was a 9-6 tie, and SF held that series 3-2 with NO GAMES LEFT IN IT. Boston were the mirror:
+they top out at 6 wins, which is exactly New York's total, and Boston hold THAT series 3-2 with
+none left, so a tie goes Boston's way and third was never out of reach.
+
+`finishesAhead` and `clinchedSeeds` in seeding.ts now carry the tiebreak, deliberately beside the
+standings rule they have to agree with. Three certainties in order: the rival's ceiling is below
+my floor, or the rival can still pass me outright and nothing is decided, or the rival can at
+best draw level and then the tiebreak decides it, **but only if their series is finished**, since
+one with a game left can still change hands. The schedule's postseason rows now name the
+Firebells in the 1 seed, and the seeding card reads "1st seed locked" and, for Boston, "Can reach
+3rd" rather than a floor that is vacuous on the bottom seed.
+
+**Two bugs the tests found on the way, both in the same place.** The comparison was on WINS while
+`computeStandings` sorts on PERCENTAGE, which only agree while every club has played the same
+number of games: a postponement makes 9-5 and 7-3 two different orders depending on which you
+read. It is cross-multiplied integers now, so the equality is exact. And with nothing left to
+play, two clubs level on wins are not level at all (1-3 and 1-6 are two different seasons), so
+that case short-circuits to the standings order, tiebreaks already applied.
+
+The fixtures for all of this are the real Sep 3 table, balanced at five meetings per pair and
+fifteen games each, because an unbalanced one ranks on a percentage nobody intended and asks the
+wrong question. `bestPossible` / `worstPossible` are deliberately left tiebreak-blind: they feed
+magic numbers, where the pessimistic reading is the safe one.
+
 ### Sep 3, 2026: the page obeys a type scale, and a test keeps it obeying
 
 **Home rendered 20 distinct font sizes, with 17 pairs less than a pixel apart on screen**: 0.9

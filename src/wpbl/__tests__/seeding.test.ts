@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { computeStandings } from '../api'
-import { seedingRace, semifinalLabel, bracketIsSet, magicOver, swingGames } from '../derive/seeding'
+import {
+  seedingRace, semifinalLabel, bracketIsSet, magicOver, swingGames,
+  clinchedSeeds, bestReachableSeed, finishesAhead,
+} from '../derive/seeding'
 import type { WpblGame, WpblStandingRow, WpblTeam } from '../types'
 
 // The seeding race is the only frame the last regular-season games have. All four clubs
@@ -301,5 +304,110 @@ describe('swingGames', () => {
   it('marks which club is the better seed, whoever is at home', () => {
     const s = withGames([game('NY', 'LA', null, null)])[0]
     expect([s.higher.team.id, s.lower.team.id]).toEqual(['LA', 'NY'])
+  })
+})
+
+// ─── The tiebreak, which the magic numbers above deliberately do not know ────
+//
+// Everything above is stated OUTRIGHT: a magic number that reaches zero can never be undone by
+// a tiebreak going the other way, which is the right caution for a number a fan quotes at
+// somebody. A CLINCH is the opposite kind of claim. Reading it pessimistically does not make it
+// safe, it makes it wrong, and on Sep 3, 2026 it was wrong in both directions on the same card:
+// San Francisco had banked the top seed and the site said "1 to lock", while Boston had not
+// banked fourth and the site said "Seed set".
+describe('clinchedSeeds and the head-to-head tiebreak', () => {
+  const won = (w: string, l: string, n: number) =>
+    Array.from({ length: n }, () => game(w, l, 6, 1))
+  const toPlay = (h: string, a: string) => game(h, a, null, null)
+  const seedsFor = (games: WpblGame[]) => seedingRace(computeStandings(TEAMS, games), games)
+
+  /**
+   * THE REAL TABLE ON Sep 3, 2026, and balanced the way a real season is: every pair meets five
+   * times, so every club plays fifteen and has thirteen behind it. That matters more than it
+   * looks. `computeStandings` sorts on win PERCENTAGE, so a fixture where clubs have played
+   * different numbers of games can put a 7-3 club above a 9-5 one, and an earlier draft of these
+   * tests did exactly that and quietly asked the wrong question.
+   *
+   *   SF 9-4   LA 7-6   NY 6-7   BOS 4-9,   two to play each
+   *   head to head: SF-LA 3-2 (done)   NY-BOS 3-2 to BOS (done)
+   *                 SF-NY 2-2, SF-BOS 4-0, LA-NY 2-2, LA-BOS 3-1 (one left in each)
+   */
+  const season = () => [
+    ...won('SF', 'LA', 3), ...won('LA', 'SF', 2),
+    ...won('SF', 'NY', 2), ...won('NY', 'SF', 2), toPlay('NY', 'SF'),
+    ...won('SF', 'BOS', 4), toPlay('SF', 'BOS'),
+    ...won('LA', 'NY', 2), ...won('NY', 'LA', 2), toPlay('LA', 'NY'),
+    ...won('LA', 'BOS', 3), ...won('BOS', 'LA', 1), toPlay('BOS', 'LA'),
+    ...won('NY', 'BOS', 2), ...won('BOS', 'NY', 3),
+  ]
+
+  it('reproduces the table it is built from', () => {
+    const seeds = seedsFor(season())
+    expect(seeds.map(s => `${s.team.id} ${s.wins}-${s.losses}`))
+      .toEqual(['SF 9-4', 'LA 7-6', 'NY 6-7', 'BOS 4-9'])
+    expect(seeds.every(s => s.remaining === 2)).toBe(true)
+  })
+
+  // Los Angeles' ceiling is 9 and San Francisco's floor is 9, so the only way LA catch them is a
+  // 9-6 tie, and SF hold that series 3-2 with nothing left in it. The top seed is banked, and
+  // the site said "1 to lock".
+  it('clinches a seed a club can only be TIED for, when it holds the completed series', () => {
+    const games = season()
+    expect(clinchedSeeds(seedsFor(games), games).get('SF')).toBe(1)
+  })
+
+  it('leaves the same club unclinched while that series still has a game in it', () => {
+    // Identical, except one San Francisco win over Los Angeles has not been played yet: the 3-2
+    // lead in the only series that could separate them is no longer banked.
+    const games = season()
+    const i = games.findIndex(g => g.home_team_id === 'SF' && g.away_team_id === 'LA')
+    games[i] = toPlay('SF', 'LA')
+    expect(clinchedSeeds(seedsFor(games), games).has('SF')).toBe(false)
+  })
+
+  // The other direction, and why `bestPossible === worstPossible` cannot be trusted for this: it
+  // resolves ties AGAINST the club, so it closed Boston's range on fourth while Boston held the
+  // only series that could separate them from third.
+  it('does not clinch a club that would WIN the tie it can still force', () => {
+    const games = season()
+    const seeds = seedsFor(games)
+    expect(clinchedSeeds(seeds, games).has('BOS')).toBe(false)
+    // Boston top out at 6 wins, which is exactly New York's total, and Boston hold that series
+    // 3-2 with none left. So third is still reachable, which `bestPossible` cannot see.
+    expect(bestReachableSeed(seeds, games, 'BOS')).toBe(3)
+    expect(seeds.find(s => s.team.id === 'BOS')!.bestPossible).toBe(4)
+  })
+
+  // With nothing left to play the order is simply the standings, tiebreaks already applied. The
+  // wins-only comparison could not see this on its own: two clubs can finish level on WINS and
+  // not be level at all, because 1-3 and 1-6 are two different seasons.
+  it('clinches every seed once the season is over, even on equal wins', () => {
+    const games = [
+      ...won('SF', 'BOS', 3), ...won('SF', 'NY', 1),
+      ...won('LA', 'BOS', 2), ...won('LA', 'NY', 1),
+      ...won('NY', 'BOS', 1), ...won('BOS', 'NY', 1),
+    ]
+    const seeds = seedsFor(games)
+    const clinched = clinchedSeeds(seeds, games)
+    expect(clinched.size).toBe(4)
+    expect([...clinched.values()].sort()).toEqual([1, 2, 3, 4])
+    // NY and BOS both have one win here and are not level: NY are 1-3 and BOS 1-6.
+    expect(clinched.get('NY')).toBeLessThan(clinched.get('BOS')!)
+  })
+
+  // The percentage rule, isolated. A club two wins clear on the raw count can still be BEHIND
+  // on the table, which is the order that decides a bracket.
+  it('compares on percentage, not on raw wins', () => {
+    const games = [
+      ...won('SF', 'BOS', 9), ...won('NY', 'SF', 5),
+      ...won('LA', 'NY', 7), ...won('BOS', 'LA', 3),
+      toPlay('SF', 'NY'), toPlay('LA', 'BOS'),
+    ]
+    const seeds = seedsFor(games)
+    // SF are 9-5 and LA 7-3: fewer wins, better percentage, higher seed.
+    expect(seeds.map(s => s.team.id).indexOf('LA'))
+      .toBeLessThan(seeds.map(s => s.team.id).indexOf('SF'))
+    // And nothing here claims SF finish above LA, which a wins-only reading would have.
+    expect(finishesAhead(seeds.find(s => s.team.id === 'SF')!, seeds.find(s => s.team.id === 'LA')!, games)).toBe(false)
   })
 })
