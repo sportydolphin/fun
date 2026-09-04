@@ -23,6 +23,7 @@
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { normName, editDistance, isDamaged, replacementMatch, tradeMatch, teamMoveWins, usableEvidence, contestedNames } from './names.ts'
+import { bestTwin } from './games.ts'
 import { announceFinal } from './announce-final.ts'
 import { crownPredictions, settlePredictions } from './settle-predictions.ts'
 
@@ -575,6 +576,11 @@ async function ingestBoxscore(
     status_detail: s(box.game_status),
     source_updated_at: box.source_updated_at || null,
     live_state: derivedStatus === 'live' ? st : null,
+    // Reading this box score IS the tracking check, whatever brought us here, so the stamp
+    // rides the update the fetch was going to make anyway rather than costing a round trip.
+    // It also means a game that has just gone final is already fresh, and the backfill leaves
+    // it alone for an hour instead of re-reading it on the very next pass.
+    tracking_checked_at: new Date().toISOString(),
   }
   // While live, the feed's running score is the freshest; final scores come from the
   // team totals below.
@@ -731,7 +737,7 @@ Deno.serve(async (req) => {
     const resolver = new PlayerResolver(db, players ?? [])
 
     // Our current games (to decide which boxscores to (re)fetch).
-    const { data: ourGames } = await db.from('wpbl_games').select('id, api_game_id, status, game_date')
+    const { data: ourGames } = await db.from('wpbl_games').select('id, api_game_id, status, game_date, tracking_checked_at')
     const byApi = new Map<string, { id: string; status: string }>()
     for (const g of ourGames ?? []) if (g.api_game_id) byApi.set(g.api_game_id, { id: g.id, status: g.status })
 
@@ -745,10 +751,25 @@ Deno.serve(async (req) => {
     // is generous — the cost is only a boxscore+activity fetch per still-untracked final,
     // and the set shrinks to nothing as games fill in. Empty on the initial `all` backfill
     // (which fetches everything anyway).
+    //
+    // ONCE AN HOUR PER GAME, NOT ONCE A PASS. The gate below had no memory, so "still has no
+    // tracking" was re-asked every two minutes for as long as the window lasted. The league
+    // published tracking for the Aug 1 and Aug 2 games and none since, so by Sep 4, 2026 this
+    // was re-reading 17 games 30 times an hour, a box score and a paged activity call each:
+    // ~24,000 requests a day to the league's API and ~1.2M row upserts, for data that had not
+    // existed for a month. The cron file still says finished games stop costing anything, and
+    // this is what made that untrue. Tracking that arrives DAYS late does not need a two-minute
+    // poll; `tracking_checked_at` records when we last looked so it can be asked hourly.
     const BACKFILL_DAYS = 21
+    const TRACKING_RECHECK_MS = 60 * 60 * 1000
     const dayAge = (d: string | null) => d ? (Date.now() - Date.parse(`${d}T00:00:00Z`)) / 86_400_000 : Infinity
+    // Null means never looked at, which is every row until the first pass after the column
+    // landed, and is also what a re-ingested game gets back.
+    const dueForTracking = (checkedAt: string | null) =>
+      !checkedAt || Date.now() - Date.parse(checkedAt) >= TRACKING_RECHECK_MS
     const recentFinalIds = (ourGames ?? [])
-      .filter(g => g.status === 'final' && dayAge(g.game_date) <= BACKFILL_DAYS)
+      .filter(g => g.status === 'final' && dayAge(g.game_date) <= BACKFILL_DAYS
+        && dueForTracking(g.tracking_checked_at as string | null))
       .map(g => g.id as string)
     const missingTracking = new Set<string>()
     if (recentFinalIds.length && mode !== 'all') {
@@ -834,8 +855,6 @@ Deno.serve(async (req) => {
     }
 
     // (B) timezone-tag twins: same matchup at the same corrected first pitch. Keep the best.
-    const rank = (fg: any) =>
-      (isPlayed(fg) ? 2 : 0) + (s(fg.home_team_id) && s(fg.away_team_id) ? 1 : 0)
     const buckets = new Map<string, any[]>()
     for (const fg of feedGames) {
       const id = s(fg.game_id)
@@ -847,8 +866,14 @@ Deno.serve(async (req) => {
     }
     for (const group of buckets.values()) {
       if (group.length < 2) continue
-      group.sort((a, b) => rank(b) - rank(a) || s(a.game_id).localeCompare(s(b.game_id)))
-      for (let i = 1; i < group.length; i++) phantomIds.add(s(group[i].game_id))
+      // `bestTwin` owns the rule, and says why the feed's zone tag is in it. See games.ts.
+      const keep = bestTwin(group.map(fg => ({
+        gameId: s(fg.game_id),
+        played: isPlayed(fg),
+        hasTeams: !!(s(fg.home_team_id) && s(fg.away_team_id)),
+        feedZone: zoneOf(fg),
+      })))
+      for (const fg of group) if (s(fg.game_id) !== keep?.gameId) phantomIds.add(s(fg.game_id))
     }
 
     const summary = { games: 0, boxscores: 0, phantomsRemoved: 0, errors: [] as string[] }
