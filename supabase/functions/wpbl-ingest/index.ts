@@ -371,13 +371,25 @@ class PlayerResolver {
       console.warn('[wpbl-ingest] skipping player with a damaged name (bad decode upstream):', JSON.stringify(name))
       return null
     }
-    // `team_as_of` is a floor on later evidence, so only a played game sets one: off a staged
-    // lineup it would pin a brand-new player to whichever club the plan happened to list her
-    // under, and block the first real box score from correcting it.
-    const teamAsOf = ctx.played ? ctx.date : null
+    // PLAYED GAMES ONLY, the same rule and for a sharper version of the same reason. A roster
+    // row is permanent and a staged lineup is a plan, typos included: Aug 27, 2026's staged
+    // LA-at-NY carried Suzu Narasaki twice, spelled "Narasaki" under the club she had just
+    // been traded to and "Naraski" under the one she had left. Every matcher but one is scoped
+    // to a single club, and `tradeMatch`, the one that is not, demands the exact spelling
+    // precisely because it is the only rule that could merge two different people. So the
+    // typo matched nothing and landed here, and the league had a second Suzu Narasaki with no
+    // feed id, no stats and no way back out but wpbl_merge_players. The played box score for
+    // that same game spells her correctly on both sides.
+    //
+    // Skipping costs this entry's lines for this pass, and a staged lineup's lines are zeros.
+    // If she is genuinely new, the played box score inserts her minutes later.
+    if (!ctx.played) {
+      console.log('[wpbl-ingest] not inserting a player off an unplayed box score:', JSON.stringify(name))
+      return null
+    }
     const { data, error } = await this.db.from('wpbl_players').insert({
       team_id: teamSlug || null,
-      team_as_of: teamAsOf,
+      team_as_of: ctx.date,
       name,
       position: feed.position || null,
       bats: feed.bats || null,
@@ -390,7 +402,7 @@ class PlayerResolver {
     if (error || !data) { console.warn('[wpbl-ingest] player insert failed', name, error?.message); return null }
     const apiIds = new Set<string>(apiId ? [apiId] : [])
     this.players.set(data.id, {
-      id: data.id, norm: nm, teamId: teamSlug, teamAsOf,
+      id: data.id, norm: nm, teamId: teamSlug, teamAsOf: ctx.date,
       jersey: feed.uniform || null, apiIds,
     })
     if (apiId) this.byApi.set(apiId, data.id)
