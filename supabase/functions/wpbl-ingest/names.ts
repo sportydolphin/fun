@@ -100,7 +100,14 @@ export function tradeMatch(nm: string, teamSlug: string, roster: readonly Roster
 }
 
 /**
- * Should a box score for `gameDate` move this player onto `teamSlug`?
+ * A box score, as evidence about a player: the day it was played on, and whether it has
+ * actually been PLAYED. Both halves are needed and neither implies the other, which is the
+ * whole point of carrying them together. See `usableEvidence`.
+ */
+export interface GameEvidence { date: string | null; played: boolean }
+
+/**
+ * Should a box score move this player onto `teamSlug`?
  *
  * `teamAsOf` is the date of the newest game we have already believed. The ingest re-reads old
  * box scores constantly (corrections via `force`, the late-TrackMan backfill, mode 'all'), and
@@ -112,24 +119,30 @@ export function tradeMatch(nm: string, teamSlug: string, roster: readonly Roster
 export function teamMoveWins(
   player: { teamId: string; teamAsOf: string | null },
   teamSlug: string,
-  gameDate: string | null,
+  game: GameEvidence,
   today: string,
 ): boolean {
-  if (!teamSlug || !gameDate) return false
-  if (!datedEvidence(gameDate, today)) return false
+  if (!teamSlug) return false
+  if (!usableEvidence(game, today)) return false
   if (player.teamId === teamSlug) return false
-  return !player.teamAsOf || gameDate >= player.teamAsOf
+  return !player.teamAsOf || game.date! >= player.teamAsOf
 }
 
 /**
- * Is a box score for `gameDate` usable as evidence of where someone plays?
+ * Is a box score usable as evidence of where someone plays?
  *
- * No, if the game has not been played. The feed stages a lineup for a game it has not started
- * — that is what `mode: "all"` reads when it walks the whole schedule — and a staged lineup
- * for a game three weeks out would set the floor three weeks into the future, which would then
- * block every real trade until that date arrived. A future game is a plan; only a played one
- * is evidence.
+ * ONLY IF THE GAME HAS BEEN PLAYED, and the date alone cannot tell you that. This used to ask
+ * "is the game in the past", which is the same question for a game three weeks out and a
+ * completely different one for a game tonight: the feed publishes a lineup for a game it has
+ * not started, and it publishes it on the day. On Sep 3, 2026 a staged, never-played copy of
+ * that night's Los Angeles game listed seventeen BOSTON players, and this function said yes,
+ * because the date was today's. `tradeMatch` then read seventeen simultaneous trades off it and
+ * the Hunters' roster page went down to one name while the Queens' grew to 47.
+ *
+ * A game nobody has played is a plan whoever typed it can still change. `played` comes from the
+ * box score's own derived status, which is the only thing here that knows the difference.
  */
-export function datedEvidence(gameDate: string, today: string): boolean {
-  return gameDate <= today
+export function usableEvidence(game: GameEvidence, today: string): boolean {
+  if (!game.date || !game.played) return false
+  return game.date <= today
 }

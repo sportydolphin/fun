@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normName, isDamaged, replacementMatch, editDistance, tradeMatch, teamMoveWins } from '../../../supabase/functions/wpbl-ingest/names'
+import { normName, isDamaged, replacementMatch, editDistance, tradeMatch, teamMoveWins, usableEvidence } from '../../../supabase/functions/wpbl-ingest/names'
 
 // Player-name reconciliation for the WPBL ingest. The module under test lives with the
 // Supabase edge function (which only Deno can load, so it can't be imported here), but the
@@ -111,13 +111,15 @@ describe('tradeMatch', () => {
 describe('teamMoveWins', () => {
   const TODAY = '2026-08-31'
   const ny = { teamId: 'NY', teamAsOf: null as string | null }
+  /** A box score for a game that was actually played on `date`. */
+  const played = (date: string | null) => ({ date, played: true })
 
   it('moves a player when a box score puts her somewhere new', () => {
-    expect(teamMoveWins(ny, 'LA', '2026-08-21', TODAY)).toBe(true)
+    expect(teamMoveWins(ny, 'LA', played('2026-08-21'), TODAY)).toBe(true)
   })
 
   it('does not move a player who is already there', () => {
-    expect(teamMoveWins({ teamId: 'LA', teamAsOf: '2026-08-21' }, 'LA', '2026-08-30', TODAY)).toBe(false)
+    expect(teamMoveWins({ teamId: 'LA', teamAsOf: '2026-08-21' }, 'LA', played('2026-08-30'), TODAY)).toBe(false)
   })
 
   it('ignores an older game, so re-reading the season cannot undo a trade', () => {
@@ -125,19 +127,41 @@ describe('teamMoveWins', () => {
     // TrackMan backfill, mode 'all'. Each one is honest evidence of where she was THEN, and
     // without this guard her club would be whichever game the loop happened to touch last.
     const traded = { teamId: 'LA', teamAsOf: '2026-08-21' }
-    expect(teamMoveWins(traded, 'NY', '2026-07-15', TODAY)).toBe(false)
-    expect(teamMoveWins(traded, 'NY', '2026-08-21', TODAY)).toBe(true)   // same day, a doubleheader
-    expect(teamMoveWins(traded, 'NY', '2026-08-25', TODAY)).toBe(true)   // traded back
-  })
-
-  it('ignores a game that has not been played, so a staged lineup cannot lock the future', () => {
-    // The feed stages a lineup before first pitch, and `mode: "all"` walks the whole schedule.
-    // Believing one would set the floor weeks ahead and block every real trade until then.
-    expect(teamMoveWins(ny, 'LA', '2026-09-06', TODAY)).toBe(false)
-    expect(teamMoveWins(ny, 'LA', TODAY, TODAY)).toBe(true)   // today's game counts
+    expect(teamMoveWins(traded, 'NY', played('2026-07-15'), TODAY)).toBe(false)
+    expect(teamMoveWins(traded, 'NY', played('2026-08-21'), TODAY)).toBe(true)   // same day, a doubleheader
+    expect(teamMoveWins(traded, 'NY', played('2026-08-25'), TODAY)).toBe(true)   // traded back
   })
 
   it('will not move anyone off a game with no date', () => {
-    expect(teamMoveWins(ny, 'LA', null, TODAY)).toBe(false)
+    expect(teamMoveWins(ny, 'LA', played(null), TODAY)).toBe(false)
+  })
+})
+
+describe('usableEvidence', () => {
+  const TODAY = '2026-08-31'
+
+  it('takes a played game', () => {
+    expect(usableEvidence({ date: '2026-08-21', played: true }, TODAY)).toBe(true)
+    expect(usableEvidence({ date: TODAY, played: true }, TODAY)).toBe(true)
+  })
+
+  it("refuses a game that has not been played, TODAY'S INCLUDED", () => {
+    // The regression this is here for. The feed stages a lineup before first pitch, so the
+    // one moment a plan is most likely to be read as a result is the afternoon of the game,
+    // when the date test cannot tell the two apart. On Sep 3, 2026 a never-played copy of
+    // that night's Los Angeles game listed seventeen Boston players and the trade matcher
+    // believed all seventeen, leaving Boston's roster page showing a single name.
+    expect(usableEvidence({ date: TODAY, played: false }, TODAY)).toBe(false)
+    expect(usableEvidence({ date: '2026-08-21', played: false }, TODAY)).toBe(false)
+  })
+
+  it('refuses a future game even once it is somehow marked played', () => {
+    // `mode: "all"` walks the whole schedule. A floor set weeks ahead blocks every real
+    // trade until that date arrives.
+    expect(usableEvidence({ date: '2026-09-06', played: true }, TODAY)).toBe(false)
+  })
+
+  it('refuses a game with no date', () => {
+    expect(usableEvidence({ date: null, played: true }, TODAY)).toBe(false)
   })
 })

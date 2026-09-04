@@ -22,7 +22,7 @@
 // schedule.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { normName, editDistance, isDamaged, replacementMatch, tradeMatch, teamMoveWins, datedEvidence } from './names.ts'
+import { normName, editDistance, isDamaged, replacementMatch, tradeMatch, teamMoveWins, usableEvidence } from './names.ts'
 import { announceFinal } from './announce-final.ts'
 import { crownPredictions, settlePredictions } from './settle-predictions.ts'
 
@@ -248,10 +248,11 @@ class PlayerResolver {
    */
   private noteTeam(id: string, teamSlug: string, ctx: GameCtx, apiId: string, reason: string): boolean {
     const p = this.players.get(id)
-    if (!p || !teamSlug || !ctx.date) return false
-    // A game that has not been played yet is a plan, not evidence: the feed stages lineups
-    // ahead of first pitch, and `mode: "all"` walks the whole schedule.
-    if (!datedEvidence(ctx.date, chicagoDate(new Date().toISOString()))) return false
+    if (!p || !teamSlug) return false
+    // A game that has not been PLAYED is a plan, not evidence: the feed stages lineups ahead
+    // of first pitch, `mode: "all"` walks the whole schedule, and a staged copy of tonight's
+    // game is dated today, so the date alone never sees it.
+    if (!usableEvidence(ctx, chicagoDate(new Date().toISOString()))) return false
     if (p.teamId === teamSlug) {
       // Same club, but a newer game: raise the floor so a later re-read of an older game
       // cannot move them. Cheap — in steady state this is only the games ingested for the
@@ -262,7 +263,7 @@ class PlayerResolver {
       }
       return false
     }
-    if (!teamMoveWins(p, teamSlug, ctx.date, chicagoDate(new Date().toISOString()))) return false   // older news
+    if (!teamMoveWins(p, teamSlug, ctx, chicagoDate(new Date().toISOString()))) return false   // older news
     const from = p.teamId || null
     p.teamId = teamSlug
     p.teamAsOf = ctx.date
@@ -292,9 +293,9 @@ class PlayerResolver {
    */
   private noteJersey(id: string, uniform: string, ctx: GameCtx) {
     const p = this.players.get(id)
-    if (!p || !uniform || !ctx.date) return
+    if (!p || !uniform) return
     // A staged lineup for a game nobody has played is a plan, not evidence.
-    if (!datedEvidence(ctx.date, chicagoDate(new Date().toISOString()))) return
+    if (!usableEvidence(ctx, chicagoDate(new Date().toISOString()))) return
     if (p.teamAsOf != null && ctx.date < p.teamAsOf) return
     if (p.jersey === uniform) return
     p.jersey = uniform
@@ -338,8 +339,12 @@ class PlayerResolver {
     // 3.5) nickname-shortening hit within the same team
     if (!id) id = this.nickname(teamSlug, nm)
 
-    // 3.75) exact name, different club — she was traded, not born
-    if (!id) {
+    // 3.75) exact name, different club — she was traded, not born. PLAYED GAMES ONLY: this is
+    // the one matcher that reaches across clubs, so it is the one a staged lineup can turn into
+    // a mass trade, and on Sep 3, 2026 it did. Seventeen Hunters read as Queens off a copy of
+    // that night's Los Angeles game that was never played, which left Boston's roster page
+    // showing one name. The guard in noteTeam could not help: the staged game was TODAY'S.
+    if (!id && ctx.played) {
       const moved = this.traded(teamSlug, nm)
       if (moved) { id = moved; reason = 'name-match' }
     }
@@ -360,9 +365,13 @@ class PlayerResolver {
       console.warn('[wpbl-ingest] skipping player with a damaged name (bad decode upstream):', JSON.stringify(name))
       return null
     }
+    // `team_as_of` is a floor on later evidence, so only a played game sets one: off a staged
+    // lineup it would pin a brand-new player to whichever club the plan happened to list her
+    // under, and block the first real box score from correcting it.
+    const teamAsOf = ctx.played ? ctx.date : null
     const { data, error } = await this.db.from('wpbl_players').insert({
       team_id: teamSlug || null,
-      team_as_of: ctx.date,
+      team_as_of: teamAsOf,
       name,
       position: feed.position || null,
       bats: feed.bats || null,
@@ -375,7 +384,7 @@ class PlayerResolver {
     if (error || !data) { console.warn('[wpbl-ingest] player insert failed', name, error?.message); return null }
     const apiIds = new Set<string>(apiId ? [apiId] : [])
     this.players.set(data.id, {
-      id: data.id, norm: nm, teamId: teamSlug, teamAsOf: ctx.date,
+      id: data.id, norm: nm, teamId: teamSlug, teamAsOf,
       jersey: feed.uniform || null, apiIds,
     })
     if (apiId) this.byApi.set(apiId, data.id)
@@ -439,8 +448,14 @@ class PlayerResolver {
 }
 
 /** The game a box-score row came from: which club a player was on is only ever true as of a
- *  date, so every resolve carries one. */
-interface GameCtx { gameId: string; date: string | null }
+ *  date, so every resolve carries one, and only ever true at all if the game was played, so
+ *  every resolve carries that too.
+ *
+ *  `played` is the box score's DERIVED status, not the feed's list status: a game the feed
+ *  still calls "Not Started" can be underway, and one it has only staged a lineup for has not
+ *  been played at all. Everything that writes a fact about a PERSON rather than about a game
+ *  (her club, her uniform number) is gated on it. */
+interface GameCtx { gameId: string; date: string | null; played: boolean }
 
 // Write one game's child rows with minimal churn. The old delete-then-insert rewrote every
 // row on every ingest — brutal under the every-2-min live re-ingest, which bloats the table
@@ -564,7 +579,7 @@ async function ingestBoxscore(
     if (derivedStatus === 'final') gamePatch[`${side}_score`] = n(tot.runs)
 
     for (const pl of team.players ?? []) {
-      const playerId = await resolver.resolve(pl, slug ?? '', { gameId: gameUuid, date: gameDate })
+      const playerId = await resolver.resolve(pl, slug ?? '', { gameId: gameUuid, date: gameDate, played: derivedStatus !== 'scheduled' })
       if (!playerId) continue
       const spot = n(pl.spot)
       const hit = pl.hitting
