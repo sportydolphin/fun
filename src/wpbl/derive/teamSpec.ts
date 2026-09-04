@@ -1,6 +1,7 @@
-import type { WpblBattingLine, WpblGame, WpblPitchingLine } from '../types'
-import { countsInStandings } from '../season'
+import type { WpblBattingLine, WpblGame, WpblPitchingLine, WpblPitchPlay } from '../types'
+import { countsInStandings, regularSeasonLines } from '../season'
 import { plateAppearances, sumBatting, sumPitching, kRateLabel, ERA_BASIS_CANONICAL } from '../stats'
+import { readSequence } from './pitches'
 
 // A club's identity as six numbers, drawn as the radial spec chart a video game would use.
 //
@@ -26,9 +27,37 @@ import { plateAppearances, sumBatting, sumPitching, kRateLabel, ERA_BASIS_CANONI
 //
 // EVERY AXIS IS A RAW RATE, AND DIRECTION IS APPLIED AT SCORING TIME. The first draft wrote
 // Contact as "1 minus K%", which put all four clubs between 46 and 53: the variation is real in
-// a strikeout rate and vanishes as a share of a contact rate. Anything of that form compresses
-// the league into the middle of the ring. If a new axis is ever added, state it as the thing
-// itself and set `better: 'low'`.
+// the bad event and vanishes as a share of the good one. Anything of that form compresses the
+// league into the middle of the ring. If a new axis is ever added, state it as the thing itself
+// and set `better: 'low'`.
+//
+// ─── Contact is WHIFF%, and was K% until Sep 4, 2026 ─────────────────────────
+//
+// K% IS NOT A CONTACT STAT, and the number that settles it is this: 38.2% of strikeouts in this
+// league are called, with no swing taken. So an axis named Contact was counting an event where
+// nobody attempted contact, two times in five. The share is not even constant across the clubs
+// it is comparing, running 31.5% (Boston) to 43.6% (San Francisco), so the contamination is
+// itself a variable. What K% picks up instead is plate approach, which is what Eye measures one
+// spoke over: San Francisco take the most called strikeouts AND draw the second most walks, and
+// a chart whose axes overlap is a chart carrying less than six axes' worth of information.
+//
+// WHIFF% IS THE SAME TRICK APPLIED TO THE RIGHT EVENT. Swings and misses over swings: every
+// term is a swing, so taking a pitch cannot enter it, and it is bat-to-ball and nothing else.
+// It is stated as the miss rather than the contact rate for exactly the reason the first draft
+// found, and the measurement is not close. Live on Sep 4, 2026, relative spread across the four
+// clubs:
+//
+//     whiff%     league 15.4%    50.1% spread     <- what this axis uses
+//     K%         league 13.2%    41.3% spread     <- what it used to
+//     contact%   league 84.6%     9.1% spread     <- "1 minus", the collapse
+//
+// So the switch costs nothing on the axis the old note was protecting: whiff% separates the
+// league BETTER than K% did, as well as measuring the thing the spoke is named after. The two
+// already disagree on the order (K% has New York ahead of San Francisco, whiff% the reverse),
+// though that particular pair sits inside a standard error and is not the argument.
+//
+// THE DIRECTION IS SAID OUT LOUD, via `specDirectionHint`: a spoke called Contact over a number
+// that falls as the spoke grows needs to say so, and this axis and Glove are the only two.
 
 export type TeamSpecKey = 'power' | 'contact' | 'eye' | 'speed' | 'arms' | 'glove'
 
@@ -44,9 +73,24 @@ export interface TeamSpecAxis {
 /** Render order, clockwise from the top. Offense first, then run prevention, so a club's
  *  batting and its pitching each occupy a contiguous half and the shape reads as a lean rather
  *  than as noise. */
+/**
+ * The direction, as words, for an axis whose stat runs the OTHER WAY from its spoke.
+ *
+ * FOR THE ACCESSIBLE NAME ONLY. It was drawn on screen for a day and taken back off: the chart
+ * says which way is better by being a chart, the spoke is longer and the fill is bigger, and
+ * three words of hedging under every second axis is a caption apologising for a drawing that
+ * did not need it. A screen reader has no polygon to read that off, which is the one place the
+ * words still earn their room.
+ *
+ * Empty for a `high` axis rather than "higher is better": four of the six axes are the obvious
+ * direction, and labelling all of them would bury the two that are not.
+ */
+export const specDirectionHint = (axis: TeamSpecAxis): string =>
+  axis.better === 'low' ? 'lower is better' : ''
+
 export const TEAM_SPEC_AXES: TeamSpecAxis[] = [
   { key: 'power',   label: 'Power',   stat: 'ISO',            better: 'high' },
-  { key: 'contact', label: 'Contact', stat: 'K%',             better: 'low'  },
+  { key: 'contact', label: 'Contact', stat: 'Whiff%',         better: 'low'  },
   { key: 'eye',     label: 'Eye',     stat: 'BB%',            better: 'high' },
   { key: 'speed',   label: 'Speed',   stat: 'Steals',         better: 'high' },
   { key: 'arms',    label: 'Arms',    stat: kRateLabel(ERA_BASIS_CANONICAL), better: 'high' },
@@ -148,16 +192,44 @@ export function specLeagueGames(teamIds: string[], games: WpblGame[]): number {
  * `games` is the full schedule, and is REQUIRED for the reason every aggregate in stats.ts takes
  * it: a box-score line carries only a game_id, so it cannot say for itself whether it belongs in
  * a season total, and the postseason must not fold in.
+ *
+ * `plays` is every plate appearance's pitch sequence, league-wide, and is REQUIRED rather than
+ * optional for the same reason `games` is: Contact cannot be computed without it, and an
+ * optional parameter would make forgetting it draw a chart with one axis quietly pinned instead
+ * of failing. A caller that has not loaded it yet should pass nothing to this function at all
+ * and render the placeholder.
  */
 export function teamSpecs(
   teamIds: string[],
   batting: WpblBattingLine[],
   pitching: WpblPitchingLine[],
   games: WpblGame[],
+  plays: WpblPitchPlay[],
 ): TeamSpecs | null {
   if (teamIds.length < 2) return null
 
   const played = specGamesPlayed(teamIds, games)
+
+  // Swings and misses per swing, per BATTING club.
+  //
+  // `play.team_id` IS THE BATTING SIDE, which is what makes this a hitters' number without any
+  // player resolution: the same column read as the pitcher's club would draw every club's
+  // Contact from the pitching it faced. aggregatePitchCodes says the same thing next door.
+  //
+  // Through `regularSeasonLines` and `readSequence` rather than counting letters here, so this
+  // axis cannot drift from the Pitch by pitch boards: one postseason filter, one decoder. The
+  // decoder matters more than it looks. Two of the six codes are mislabelled in the feed's own
+  // `type` field, and they are 39% of all pitches.
+  const swingsOf = new Map<string, { swings: number; whiffs: number }>()
+  for (const id of teamIds) swingsOf.set(id, { swings: 0, whiffs: 0 })
+  for (const play of regularSeasonLines(plays, games)) {
+    if (!play.pitch_sequence || !play.team_id) continue
+    const t = swingsOf.get(play.team_id)
+    if (!t) continue
+    const { counts } = readSequence(play.pitch_sequence)
+    t.swings += counts.swinging + counts.foul + counts.inplay
+    t.whiffs += counts.swinging
+  }
 
   const raws = new Map<string, Record<TeamSpecKey, number>>()
   for (const id of teamIds) {
@@ -171,7 +243,7 @@ export function teamSpecs(
     const gp = played.get(id) ?? 0
     raws.set(id, {
       power:   safe(tb - b.h, b.ab),
-      contact: safe(b.so, pa),
+      contact: safe(swingsOf.get(id)!.whiffs, swingsOf.get(id)!.swings),
       eye:     safe(b.bb, pa),
       // STEALS, NOT ATTEMPTS. This was `sb + cs` on the day it shipped, on the reasoning that
       // attempts measure how much a club RUNS independently of how well, which is the identity
@@ -208,6 +280,13 @@ export function teamSpecs(
   const leagueAb = teamIds.reduce((n, id) => n + sumBatting(batting.filter(l => l.team_id === id), games).ab, 0)
   const leagueOuts = teamIds.reduce((n, id) => n + sumPitching(pitching.filter(l => l.team_id === id), games).outs, 0)
   if (leagueAb === 0 || leagueOuts === 0) return null
+
+  // AND THE SAME GATE FOR THE PLAYS, which arrive from a different read and so fail on their
+  // own. A club with no swings scores a contact rate of 0, and 0 against a league mean built
+  // from the other three is the FURTHEST-OUT spoke on the chart, because lower is better here:
+  // the failure mode is not a club that looks average, it is a club that looks untouchable at
+  // the one thing we could not measure. Every club has to have swung, not just the league.
+  if (teamIds.some(id => swingsOf.get(id)!.swings === 0)) return null
 
   const league = {} as Record<TeamSpecKey, number>
   for (const ax of TEAM_SPEC_AXES) {

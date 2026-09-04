@@ -4,6 +4,29 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.65.0',
+    date:    '2026-09-04',
+    title:   'The Contact axis now measures contact',
+    changes: [
+      {
+        short: 'Contact on the club profile chart is swing-and-miss rate, not strikeout rate',
+        full:  'The six-sided chart on a team page has an axis called Contact, and until today it was drawn from how often a club struck out. That is not the same thing, and the number that settles it is this: 38 per cent of strikeouts in this league are called, with no swing taken at all. So an axis named Contact was, two times in five, counting an at-bat where nobody tried to make any. It now uses whiff rate, swings and misses as a share of swings, where every term in the fraction is a swing and taking a pitch cannot enter it. San Francisco read 11.1 per cent before and 12.8 per cent now, and moved from second in the league to first.',
+      },
+      {
+        short: 'It also separates the clubs better than the old number did',
+        full:  'The reason the axis was a strikeout rate in the first place was spread: a chart where all four clubs sit on the middle ring says nothing, and stating this as a contact percentage does exactly that, putting the league between 79 and 87 per cent. Whiff rate turns out to spread the four clubs wider than strikeout rate did, 50 per cent against 41. So the change costs nothing on the thing the old choice was protecting. It also stops Contact and Eye quietly measuring the same trait: a club that takes a lot of pitches draws more walks AND takes more called strikeouts, so two of the six spokes were partly the same fact.',
+      },
+      {
+        short: 'The chart refuses to draw rather than invent a club that never swung',
+        full:  'The pitch data arrives from a different read than the box scores, so it can fail on its own. A club with no swings would score a whiff rate of zero, and on an axis where lower is better, zero is the furthest-out spoke there is. The failure would not have looked like missing data, it would have looked like a club that was untouchable at the one thing that could not be measured. If any club has no swings on file, the chart shows its placeholder instead.',
+      },
+      {
+        short: 'Further out is better, on every axis, and now there is a test saying so',
+        full:  'Two of the six axes are the kind where a smaller number is a better club, and the chart has always handled that when working out how long to draw a spoke. Nothing checked it, though, and a mistake there does not look like a bug: it draws a club’s worst trait as its best and looks entirely normal doing it. Every axis is now covered by a test that makes one club genuinely better at one thing and insists the spoke grows, the rank goes to first, and the underlying number moved the way the axis claims it should.',
+      },
+    ],
+  },
+  {
     version: '1.64.0',
     date:    '2026-09-04',
     title:   'A page that explains the rules, and a home page a phone can read',

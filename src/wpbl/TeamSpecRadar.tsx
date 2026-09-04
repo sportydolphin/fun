@@ -3,7 +3,7 @@ import { Box, Typography } from '@mui/material'
 import { wpblAccent } from './constants'
 import { useWpblDark, CARD_BORDER } from './ui'
 import {
-  TEAM_SPEC_AXES, TEAM_SPEC_MIN_GAMES, formatSpecStat, specHighlights, specRank,
+  TEAM_SPEC_AXES, TEAM_SPEC_MIN_GAMES, formatSpecStat, specHighlights, specRank, specDirectionHint,
   type TeamSpecKey, type TeamSpecs,
 } from './derive/teamSpec'
 import type { WpblTeam } from './types'
@@ -230,7 +230,9 @@ export function TeamSpecRadar({
         return (
           <g key={a.key} role="button" tabIndex={0}
             aria-pressed={on}
-            aria-label={`${a.label}, ${a.stat}${values?.[a.key] ? ` ${values[a.key]}` : ''}`}
+            // The direction hint belongs here more than anywhere: a screen reader is given the
+            // number with no polygon to read the direction off.
+            aria-label={`${a.label}, ${a.stat}${values?.[a.key] ? ` ${values[a.key]}` : ''}${specDirectionHint(a) ? `, ${specDirectionHint(a)}` : ''}`}
             style={{ cursor: 'pointer' }}
             onClick={() => onSelect(on ? null : a.key)}
             onKeyDown={e => {

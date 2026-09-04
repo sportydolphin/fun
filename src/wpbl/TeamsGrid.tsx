@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { computeStandings, fetchWpblAllLines } from './api'
+import { computeStandings, fetchWpblAllLines, fetchWpblAllPitchPlays } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, relativeDayShort } from './constants'
 import { TeamBadge, FOCUS_RING, CARD_BORDER, useWpblDark, FormDots, WPBL_WIN as WIN, WPBL_LOSS as LOSS, hoverOnly } from './ui'
 import { useWpblTeamLink } from './LinkContext'
 import { fmtSigned } from './stats'
 import HeadToHead from './HeadToHead'
-import type { WpblTeam, WpblGame, WpblStandingRow, WpblBattingLine, WpblPitchingLine } from './types'
+import type { WpblTeam, WpblGame, WpblStandingRow, WpblBattingLine, WpblPitchingLine, WpblPitchPlay } from './types'
 import { TeamSpecRadar, TeamSpecPlaceholder } from './TeamSpecRadar'
 import { teamSpecs, specLeagueGames, TEAM_SPEC_AXES } from './derive/teamSpec'
 import { useWpblHeadingTag, HIDE_ON_PHONE } from './PageHeading'
@@ -223,20 +223,26 @@ export default function TeamsGrid({ teams, games, onSelect }: {
   const headingTag = useWpblHeadingTag()
   const isDark = useWpblDark()
 
-  // The spec chart needs league-wide box-score lines, which this page did not previously read.
-  // `fetchWpblAllLines` is cached and deduped, and the section warms it on open, so in practice
-  // this resolves from memory. Nothing else on the page waits for it: the card renders when it
-  // arrives and the four club cards above never blink.
+  // The spec chart needs league-wide box-score lines AND every plate appearance's pitch
+  // sequence, neither of which this page reads for anything else. Both fetches are cached and
+  // deduped, and the section warms the lines on open, so in practice the first resolves from
+  // memory. Nothing else on the page waits for either: the card renders when they arrive and
+  // the four club cards above never blink.
+  //
+  // BOTH, OR NOTHING. `teamSpecs` takes the plays as a required argument because Contact is
+  // whiff rate now; a chart drawn from the lines alone would be five axes and a lie.
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] } | null>(null)
+  const [pitchPlays, setPitchPlays] = useState<WpblPitchPlay[] | null>(null)
   useEffect(() => {
     let cancelled = false
     fetchWpblAllLines().then(l => { if (!cancelled) setLines(l) }).catch(() => { /* empty card */ })
+    fetchWpblAllPitchPlays().then(p => { if (!cancelled) setPitchPlays(p) }).catch(() => { /* empty card */ })
     return () => { cancelled = true }
   }, [])
   const teamIds = useMemo(() => teams.map(t => t.id), [teams])
   const specs = useMemo(
-    () => lines ? teamSpecs(teamIds, lines.batting, lines.pitching, games) : null,
-    [lines, teamIds, games])
+    () => lines && pitchPlays ? teamSpecs(teamIds, lines.batting, lines.pitching, games, pitchPlays) : null,
+    [lines, pitchPlays, teamIds, games])
   const specGames = useMemo(() => specLeagueGames(teamIds, games), [teamIds, games])
 
   return (

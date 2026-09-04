@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { ArrowBackRounded, GridViewRounded } from '@mui/icons-material'
-import { fetchWpblRoster, fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, computeStandings } from './api'
+import { fetchWpblRoster, fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, fetchWpblAllPitchPlays, computeStandings } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, pressable, FOCUS_RING, useWpblDark, useWpblName, CARD_BORDER, TAPPABLE, hoverOnly } from './ui'
@@ -18,7 +18,7 @@ import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { useWpblHeadingTag } from './PageHeading'
 import LineupHistory from './LineupHistory'
 import PitchingUsage from './PitchingUsage'
-import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblLineupHistoryRow, WpblPitchingUsageRow } from './types'
+import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblLineupHistoryRow, WpblPitchingUsageRow, WpblPitchPlay } from './types'
 
 // A team's page: header + record, results, season batting/pitching totals, top hitters /
 // pitchers, and a roster with inline stats. Replaces the plain roster list the Teams tab
@@ -311,6 +311,9 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   // club's own lines cannot answer it: handed those, every axis reads 50 and the chart looks
   // finished. `fetchWpblAllLines` is league-wide and cached, so this costs nothing extra.
   const [allLines, setAllLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] } | null>(null)
+  // League-wide too, and NOT cleared between clubs for the same reason `allLines` is not: see
+  // the note in the effect below.
+  const [pitchPlays, setPitchPlays] = useState<WpblPitchPlay[] | null>(null)
   // Where each player has actually been playing. The roster's own labels go stale as a season
   // goes on, and a club list that says "C" beside someone who has played third all year is
   // wrong in the one place a reader goes to learn the shape of the team.
@@ -337,10 +340,11 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
     Promise.all([
       fetchWpblRoster(team.id), fetchWpblAllPlayers(), fetchWpblAllLines(),
       fetchWpblLineupHistory(team.id), fetchWpblPitchingUsage(team.id),
-    ]).then(([r, all, l, lh, pu]) => {
+      fetchWpblAllPitchPlays(),
+    ]).then(([r, all, l, lh, pu, pp]) => {
       if (cancelled) return
       setLineups(lh); setUsage(pu)
-      setRoster(r); setLeague(all); setAllLines(l)
+      setRoster(r); setLeague(all); setAllLines(l); setPitchPlays(pp)
       setLines({
         batting: l.batting.filter(x => x.team_id === team.id),
         pitching: l.pitching.filter(x => x.team_id === team.id),
@@ -376,9 +380,12 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   // The spec chart's six numbers, for every club, so this page can draw its own solid and the
   // other three as faint outlines. League-wide input on purpose; see `allLines`.
   const teamIds = useMemo(() => teams.map(t => t.id), [teams])
+  // Contact is whiff rate, so the chart also needs every plate appearance's pitch sequence.
+  // Same cached, deduped read the Pitch by pitch boards use, and `teamSpecs` requires it: with
+  // the lines alone there is no honest chart to draw, only one axis silently pinned.
   const specs = useMemo(
-    () => allLines ? teamSpecs(teamIds, allLines.batting, allLines.pitching, games) : null,
-    [allLines, teamIds, games])
+    () => allLines && pitchPlays ? teamSpecs(teamIds, allLines.batting, allLines.pitching, games, pitchPlays) : null,
+    [allLines, pitchPlays, teamIds, games])
   // Only for the placeholder's "the league is on N" line, which is why it is computed even when
   // `specs` came back null.
   const specGames = useMemo(() => specLeagueGames(teamIds, games), [teamIds, games])
@@ -695,7 +702,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
            </>
          ) : (
            <Box sx={{ width: '100%', maxWidth: 340 }}>
-             <TeamSpecPlaceholder minGames={specGames} ready={allLines != null} />
+             <TeamSpecPlaceholder minGames={specGames} ready={allLines != null && pitchPlays != null} />
            </Box>
          )}
        </Box>
