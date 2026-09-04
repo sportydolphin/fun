@@ -146,3 +146,37 @@ export function usableEvidence(game: GameEvidence, today: string): boolean {
   if (!game.date || !game.played) return false
   return game.date <= today
 }
+
+// ─── one game, two clubs ──────────────────────────────────────────────────────
+
+/**
+ * The players a single box score lists under more than one club.
+ *
+ * The feed mints a new id per club, so a player who has changed clubs can appear on BOTH
+ * sides of the same game: Emi Saiki, Diana Ibarra and Suzu Narasaki were all on both rosters
+ * of Sep 3, 2026's Los Angeles game. Both entries resolve to the same person, so the club
+ * update ran twice with two different answers and whichever the loop read LAST won. Saiki
+ * flipped to New York and back inside two minutes and settled on Los Angeles, while every
+ * box-score line she owns says New York.
+ *
+ * One game saying two things is not evidence of either, so a name in this set moves nobody.
+ * Identity still resolves normally, which is what stops a second Saiki being inserted; it is
+ * only her club and her uniform number that this game is not allowed an opinion about. A real
+ * trade is still seen off the next box score that lists her once, which is every ordinary one.
+ *
+ * Keyed on the NAME because that is the level the duplicate exists at: the two entries carry
+ * different feed ids by construction, so nothing else pairs them up.
+ */
+export function contestedNames(entries: readonly { club: string; name: string }[]): Set<string> {
+  const clubs = new Map<string, Set<string>>()
+  for (const e of entries) {
+    const nm = normName(e.name)
+    if (!nm || !e.club) continue
+    const seen = clubs.get(nm) ?? new Set<string>()
+    seen.add(e.club)
+    clubs.set(nm, seen)
+  }
+  const out = new Set<string>()
+  for (const [nm, seen] of clubs) if (seen.size > 1) out.add(nm)
+  return out
+}

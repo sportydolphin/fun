@@ -22,7 +22,7 @@
 // schedule.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { normName, editDistance, isDamaged, replacementMatch, tradeMatch, teamMoveWins, usableEvidence } from './names.ts'
+import { normName, editDistance, isDamaged, replacementMatch, tradeMatch, teamMoveWins, usableEvidence, contestedNames } from './names.ts'
 import { announceFinal } from './announce-final.ts'
 import { crownPredictions, settlePredictions } from './settle-predictions.ts'
 
@@ -253,6 +253,8 @@ class PlayerResolver {
     // of first pitch, `mode: "all"` walks the whole schedule, and a staged copy of tonight's
     // game is dated today, so the date alone never sees it.
     if (!usableEvidence(ctx, chicagoDate(new Date().toISOString()))) return false
+    // Listed on both sides of this game, so it names two clubs and means neither.
+    if (ctx.contested) return false
     if (p.teamId === teamSlug) {
       // Same club, but a newer game: raise the floor so a later re-read of an older game
       // cannot move them. Cheap — in steady state this is only the games ingested for the
@@ -296,6 +298,9 @@ class PlayerResolver {
     if (!p || !uniform) return
     // A staged lineup for a game nobody has played is a plan, not evidence.
     if (!usableEvidence(ctx, chicagoDate(new Date().toISOString()))) return
+    // Both sides of this game list her, and a new club usually means a new number, so the
+    // two entries disagree about this too.
+    if (ctx.contested) return
     if (p.teamAsOf != null && ctx.date < p.teamAsOf) return
     if (p.jersey === uniform) return
     p.jersey = uniform
@@ -455,7 +460,13 @@ class PlayerResolver {
  *  still calls "Not Started" can be underway, and one it has only staged a lineup for has not
  *  been played at all. Everything that writes a fact about a PERSON rather than about a game
  *  (her club, her uniform number) is gated on it. */
-interface GameCtx { gameId: string; date: string | null; played: boolean }
+interface GameCtx {
+  gameId: string
+  date: string | null
+  played: boolean
+  /** This box score lists this player on BOTH sides. See `contestedNames`. */
+  contested: boolean
+}
 
 // Write one game's child rows with minimal churn. The old delete-then-insert rewrote every
 // row on every ingest — brutal under the every-2-min live re-ingest, which bloats the table
@@ -529,6 +540,10 @@ async function ingestBoxscore(
   if (!box) throw new Error(`boxscore ${apiGameId} empty`)
 
   const slugOf = (apiTeamId: string) => teamSlug.get(apiTeamId) ?? null
+  // Names this box score puts on both sides: contradictory evidence about a club, and the
+  // one thing a box score can say that must move nobody. See contestedNames in names.ts.
+  const contested = contestedNames((box.teams ?? []).flatMap((t: any) =>
+    (t.players ?? []).map((pl: any) => ({ club: slugOf(s(t.id)) ?? '', name: s(pl.name) }))))
 
   const batting: any[] = []
   const pitching: any[] = []
@@ -579,7 +594,11 @@ async function ingestBoxscore(
     if (derivedStatus === 'final') gamePatch[`${side}_score`] = n(tot.runs)
 
     for (const pl of team.players ?? []) {
-      const playerId = await resolver.resolve(pl, slug ?? '', { gameId: gameUuid, date: gameDate, played: derivedStatus !== 'scheduled' })
+      const playerId = await resolver.resolve(pl, slug ?? '', {
+        gameId: gameUuid, date: gameDate,
+        played: derivedStatus !== 'scheduled',
+        contested: contested.has(normName(s(pl.name))),
+      })
       if (!playerId) continue
       const spot = n(pl.spot)
       const hit = pl.hitting

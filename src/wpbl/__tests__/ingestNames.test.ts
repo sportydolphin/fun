@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normName, isDamaged, replacementMatch, editDistance, tradeMatch, teamMoveWins, usableEvidence } from '../../../supabase/functions/wpbl-ingest/names'
+import { normName, isDamaged, replacementMatch, editDistance, tradeMatch, teamMoveWins, usableEvidence, contestedNames } from '../../../supabase/functions/wpbl-ingest/names'
 
 // Player-name reconciliation for the WPBL ingest. The module under test lives with the
 // Supabase edge function (which only Deno can load, so it can't be imported here), but the
@@ -163,5 +163,50 @@ describe('usableEvidence', () => {
 
   it('refuses a game with no date', () => {
     expect(usableEvidence({ date: null, played: true }, TODAY)).toBe(false)
+  })
+})
+
+describe('contestedNames', () => {
+  // Sep 3, 2026: the feed listed three players on both rosters of the same game, because it
+  // mints a new id per club and both of a traded player's ids stay ACTIVE.
+  const bothSides = [
+    { club: 'NY', name: 'Natsuki Yonetani' },
+    { club: 'NY', name: 'Emi Saiki' },
+    { club: 'NY', name: 'Diana Ibarra' },
+    { club: 'LA', name: 'Emi Saiki' },
+    { club: 'LA', name: 'Diana Ibarra' },
+    { club: 'LA', name: 'Ayami Sato' },
+  ]
+
+  it('names only the players both sides claim', () => {
+    expect(contestedNames(bothSides)).toEqual(new Set(['emi saiki', 'diana ibarra']))
+  })
+
+  it('is empty for an ordinary box score', () => {
+    expect(contestedNames(bothSides.filter(e => e.club === 'NY')).size).toBe(0)
+  })
+
+  it('normalizes, so the two spellings of one name still collide', () => {
+    // The feed drops accents on one side often enough that an exact-string check would let
+    // the very case this exists for straight through.
+    expect(contestedNames([
+      { club: 'LA', name: 'Samaria Benitez' },
+      { club: 'NY', name: 'Samaria Benítez' },
+    ])).toEqual(new Set(['samaria benitez']))
+  })
+
+  it('ignores an entry with no club, so an unmapped team cannot contest anything', () => {
+    expect(contestedNames([
+      { club: '', name: 'Emi Saiki' },
+      { club: 'LA', name: 'Emi Saiki' },
+    ]).size).toBe(0)
+  })
+
+  it('does not flag a player listed twice by the SAME club', () => {
+    // A duplicated entry on one roster is a feed hiccup, not a contradiction about her club.
+    expect(contestedNames([
+      { club: 'LA', name: 'Emi Saiki' },
+      { club: 'LA', name: 'Emi Saiki' },
+    ]).size).toBe(0)
   })
 })
