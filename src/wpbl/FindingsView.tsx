@@ -108,13 +108,25 @@ function StealCard({ econ, runners, accent, onOpenPlayer }: {
             width: '2px', bgcolor: 'text.primary', borderRadius: 1,
           }} />
         </Box>
-        <Box sx={{ position: 'relative', height: 34, mt: 0.75 }}>
-          <Typography sx={{ position: 'absolute', left: 0, fontSize: '0.78rem', fontWeight: 800, color: worthIt ? accent : 'text.primary' }}>
+        {/* RESERVED IN REM, NOT PX. Both labels are positioned rather than in flow, because the
+            lower one has to sit on the break-even tick, so this box cannot take its height from
+            its content and has to reserve it. That makes it a box reserving room for type, and
+            the fixed 34px it used to carry fitted at exactly one scale: at the reader's Large
+            text setting the lower label already hung out of the bottom of it, and the fixed 16px
+            offset put the two line boxes 5px into each other, so the gap between the labels
+            SHRANK as the type grew. Desktop is worse, since --app-type multiplies on top.
+
+            Each length is now the line box it is standing in for, in the same unit as the text,
+            so the reservation cannot drift from what it reserves. `lineHeight` is pinned here
+            for that reason and not for looks: it is the multiplier both lengths are computed
+            from, and inheriting it would leave those numbers describing a value set elsewhere. */}
+        <Box sx={{ position: 'relative', height: `${(0.78 + 0.72) * 1.5}rem`, mt: 0.75 }}>
+          <Typography sx={{ position: 'absolute', left: 0, fontSize: '0.78rem', lineHeight: 1.5, fontWeight: 800, color: worthIt ? accent : 'text.primary' }}>
             {rate(successRate)} of the time it works
           </Typography>
           <Typography sx={{
-            position: 'absolute', left: x(breakEven), transform: 'translateX(-50%)', top: 16,
-            fontSize: '0.72rem', color: 'text.disabled', whiteSpace: 'nowrap',
+            position: 'absolute', left: x(breakEven), transform: 'translateX(-50%)', top: `${0.78 * 1.5}rem`,
+            fontSize: '0.72rem', lineHeight: 1.5, color: 'text.disabled', whiteSpace: 'nowrap',
           }}>
             needs {rate(breakEven)}
           </Typography>
