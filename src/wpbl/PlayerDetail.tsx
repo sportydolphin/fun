@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress, type Theme } from '@mui/material'
-import { fetchWpblPlayerLines, fetchWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllLines, type WpblPitchLoc } from './api'
+import { fetchWpblPlayerLines, fetchWpblPitcherLocations, getCachedWpblPlayerLines, getCachedWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllLines, type WpblPitchLoc } from './api'
 import { sumBatting, sumPitching, sumFielding, plateAppearances, fmtRate, fmtTwo } from './stats'
 import { computeWpblPlayerRanks, ordinal, bestCountingRanks, type WpblStatRank, type WpblPlayerRanks } from './percentiles'
 import { useEraBasis } from './EraBasisContext'
@@ -824,10 +824,18 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   const washEnd = wash.toString(16).padStart(2, '0')
   const washMid = Math.round(wash * 0.6).toString(16).padStart(2, '0')
 
-  const [loading, setLoading] = useState(true)
-  const [batting, setBatting] = useState<WpblBattingLine[]>([])
-  const [pitching, setPitching] = useState<WpblPitchingLine[]>([])
-  const [fielding, setFielding] = useState<WpblFieldingLine[]>([])
+  // SEEDED FROM THE SESSION CACHE, ON THE FIRST RENDER OF EVERY MOUNT.
+  //
+  // This card is a modal: closing it UNMOUNTS it, so reopening the same player is a fresh
+  // mount and not a prop change. An initial value of `[]` with `loading: true` therefore spun
+  // again on every open, however recently the same season had been read. Lazy initialisers,
+  // because `player` is a prop and is available before the first paint; the effect below still
+  // runs and revalidates behind whatever this put on screen.
+  const seeded = getCachedWpblPlayerLines(player.id)
+  const [loading, setLoading] = useState(!seeded)
+  const [batting, setBatting] = useState<WpblBattingLine[]>(() => seeded?.batting ?? [])
+  const [pitching, setPitching] = useState<WpblPitchingLine[]>(() => seeded?.pitching ?? [])
+  const [fielding, setFielding] = useState<WpblFieldingLine[]>(() => seeded?.fielding ?? [])
   const [pitchLocs, setPitchLocs] = useState<WpblPitchLoc[]>([])
   // Every batting and pitching line in the league, for the percentile strip. Deliberately a
   // separate piece of state from the player's own lines: this one is allowed to never arrive.
@@ -851,10 +859,37 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   }, [])
 
   // Every official-feed id this player has held. `api_id` alone is only her CURRENT club's
-  // id, and the feed mints a new one per club. Keyed on the joined string so a fresh array
-  // out of a re-render does not re-fire the fetch.
+  // id, and the feed mints a new one per club. The joined string IS the value passed on: it is
+  // stable across re-renders where an array would not be, and it is the cache key on the other
+  // side, so the two ends agree by construction.
   const feedKey = [...new Set([...(player.api_ids ?? []), player.api_id].filter(Boolean))].sort().join(',')
-  const feedIds = useMemo(() => (feedKey ? feedKey.split(',') : []), [feedKey])
+
+  // ─── Reopening a player is instant ─────────────────────────────────────────
+  //
+  // This card is reached from a leaderboard, which is a list of twenty of them: open, read,
+  // close, open the next, come back to the first. Every one of those used to be a fresh
+  // three-table read behind a spinner, on a season that does not change between two taps.
+  //
+  // THE OTHER PATH IN. The state above covers opening the card; this covers the card being
+  // handed a different player while it stays mounted, which is what the "did you mean" results
+  // and the next/previous controls do. Seeded DURING RENDER, not in an effect, for the same
+  // reason the team rail is: an effect runs after the browser has painted, so seeding there
+  // still shows a frame of spinner, or of the previous player's numbers under this player's
+  // name. Cache miss falls back to the spinner, which is right for a player nobody has opened.
+  const [shownPlayer, setShownPlayer] = useState(player.id)
+  if (shownPlayer === player.id && pitchLocs.length === 0) {
+    // Seeded here rather than in the initialiser above because it is keyed on `feedKey`, which
+    // is derived a few lines further down and cannot be read before it exists.
+    const locs = getCachedWpblPitcherLocations(feedKey)
+    if (locs && locs.length > 0) setPitchLocs(locs)
+  }
+  if (shownPlayer !== player.id) {
+    setShownPlayer(player.id)
+    const seed = getCachedWpblPlayerLines(player.id)
+    setBatting(seed?.batting ?? []); setPitching(seed?.pitching ?? []); setFielding(seed?.fielding ?? [])
+    setLoading(!seed)
+    setPitchLocs(getCachedWpblPitcherLocations(feedKey) ?? [])
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -865,10 +900,9 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     // Pitch-location tracking keys on the feed id; empty for non-pitchers / unmapped players.
     // Every id she has held, not just the current one, so a trade does not erase the half of
     // her season she threw under the old club's id.
-    setPitchLocs([])
-    fetchWpblPitcherLocations(feedIds).then(locs => { if (!cancelled) setPitchLocs(locs) })
+    fetchWpblPitcherLocations(feedKey).then(locs => { if (!cancelled) setPitchLocs(locs) })
     return () => { cancelled = true }
-  }, [player.id, feedIds])
+  }, [player.id, feedKey])
 
   // Only real plate appearances count as batting — a 0-for-0 pinch/defensive cameo shouldn't
   // produce an all-zero batting card or a phantom game-log row.

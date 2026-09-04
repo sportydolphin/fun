@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { ArrowBackRounded, GridViewRounded } from '@mui/icons-material'
-import { fetchWpblRoster, fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, fetchWpblAllPitchPlays, computeStandings } from './api'
+import { fetchWpblRoster, fetchWpblAllPlayers, fetchWpblAllLines, fetchWpblLineupHistory, fetchWpblPitchingUsage, fetchWpblAllPitchPlays, computeStandings, getCachedWpblRoster, getCachedWpblLineupHistory, getCachedWpblPitchingUsage } from './api'
 import { wpblAccent, wpblFullName, formatGameTime, positionRank } from './constants'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import { SectionCard, SectionLabel, TeamBadge, PlayerPortrait, ModalShell, pressable, FOCUS_RING, useWpblDark, useWpblName, CARD_BORDER, TAPPABLE, hoverOnly } from './ui'
@@ -306,7 +306,6 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   // her name disappears from its lineup grid, which reads as a hole in the data rather than as
   // a trade. The roster list itself still uses `roster`: she does not play here any more.
   const [league, setLeague] = useState<WpblPlayer[]>([])
-  const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] } | null>(null)
   // The same fetch, UNFILTERED. The spec chart is a comparison against the league average, so a
   // club's own lines cannot answer it: handed those, every axis reads 50 and the chart looks
   // finished. `fetchWpblAllLines` is league-wide and cached, so this costs nothing extra.
@@ -314,6 +313,15 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   // League-wide too, and NOT cleared between clubs for the same reason `allLines` is not: see
   // the note in the effect below.
   const [pitchPlays, setPitchPlays] = useState<WpblPitchPlay[] | null>(null)
+  // DERIVED, NOT FETCHED. This is `allLines` with one club picked out of it, and it used to be
+  // state written from inside the same `.then` as everything else, which meant a club whose
+  // box scores were already in memory still waited on the slowest read in that batch before
+  // anything below could render. Nothing about it needs the network once the league's lines
+  // are in hand.
+  const lines = useMemo(() => allLines ? {
+    batting: allLines.batting.filter(x => x.team_id === team.id),
+    pitching: allLines.pitching.filter(x => x.team_id === team.id),
+  } : null, [allLines, team.id])
   // Where each player has actually been playing. The roster's own labels go stale as a season
   // goes on, and a club list that says "C" beside someone who has played third all year is
   // wrong in the one place a reader goes to learn the shape of the team.
@@ -328,15 +336,35 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   const [usage, setUsage] = useState<WpblPitchingUsageRow[]>([])
   const [scheduleOpen, setScheduleOpen] = useState(false)
 
+  // ─── Switching clubs, without the spinner ──────────────────────────────────
+  //
+  // The team rail is four buttons whose whole purpose is to be tapped back and forth, and
+  // every tap used to clear this club's state to null and wait on the network again, so the
+  // second visit to a club spun exactly as long as the first. The three per-club reads are
+  // cached now (see perTeamCache in api.ts) and this repaints from that cache.
+  //
+  // DURING RENDER, NOT IN AN EFFECT. An effect runs after the browser has painted, so seeding
+  // there still shows one frame of something wrong: either the empty state (a flash of spinner)
+  // or, worse, the previous club's roster under the new club's name. Setting state during
+  // render while a prop has changed is the documented way to do this; React discards the pass
+  // and re-renders before anything reaches the screen. Cache miss puts us back to null, which
+  // is the spinner, which is correct for a club nobody has opened yet.
+  const [shownTeam, setShownTeam] = useState(team.id)
+  if (shownTeam !== team.id) {
+    setShownTeam(team.id)
+    setRoster(getCachedWpblRoster(team.id))
+    setLineups(getCachedWpblLineupHistory(team.id) ?? [])
+    setUsage(getCachedWpblPitchingUsage(team.id) ?? [])
+  }
+
   useEffect(() => {
     let cancelled = false
-    // `allLines` is deliberately NOT cleared. It is league-wide, so it is the same object for
-    // every club, and clearing it made the spec chart blank to "Loading." and back on every tap
-    // of the team rail. That switch is the one moment the chart is most worth watching: the
-    // shape is supposed to morph from one club to the next, which is the whole reason to put
-    // four buttons above it. Everything below is genuinely this club's and does get cleared.
-    setRoster(null); setLines(null)
-    setLineups([]); setUsage([])
+    // NOTHING IS CLEARED HERE. `allLines`, `league` and `pitchPlays` are league-wide, so they
+    // are the same objects for every club: clearing them made the spec chart blank to
+    // "Loading." and back on every tap of the rail, and that switch is the one moment the chart
+    // is most worth watching, since the shape is supposed to morph from one club to the next.
+    // This club's own three were already re-seeded from the cache during render above; the
+    // reads below revalidate behind whatever is on screen rather than replacing it with a gap.
     Promise.all([
       fetchWpblRoster(team.id), fetchWpblAllPlayers(), fetchWpblAllLines(),
       fetchWpblLineupHistory(team.id), fetchWpblPitchingUsage(team.id),
@@ -345,13 +373,10 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
       if (cancelled) return
       setLineups(lh); setUsage(pu)
       setRoster(r); setLeague(all); setAllLines(l); setPitchPlays(pp)
-      setLines({
-        batting: l.batting.filter(x => x.team_id === team.id),
-        pitching: l.pitching.filter(x => x.team_id === team.id),
-      })
     })
     return () => { cancelled = true }
   }, [team.id])
+
 
   // Record + standing from the shared derivation.
   const standing = useMemo(() => {

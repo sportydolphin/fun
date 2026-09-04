@@ -4,6 +4,29 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.66.0',
+    date:    '2026-09-04',
+    title:   'It only loads once now, and the club chart moves',
+    changes: [
+      {
+        short: 'Tapping between clubs is instant after the first visit',
+        full:  'The four club buttons at the top of a team page exist to be tapped back and forth, and every tap fetched that club’s roster, lineup history and pitching usage again, so going back to a club you had just looked at spun exactly as long as the first time, on numbers that had not changed. Each club is kept for the rest of your visit and the page repaints from that immediately, then quietly checks for anything new behind what you are already reading. The first visit to a club still loads, once.',
+      },
+      {
+        short: 'Player cards reopen instantly too',
+        full:  'A player card is opened from a leaderboard, which is a list of twenty of them: open one, read it, close it, open the next, come back to the first. Every one of those was three fresh database reads behind a spinner. The same treatment applies, and it needed one extra piece: closing the card throws it away entirely, so reopening is a fresh start rather than a change of player, and the card has to reach for what it already knows before it draws anything at all.',
+      },
+      {
+        short: 'The club profile chart now moves from one club to the next',
+        full:  'The six-sided shape on a team page used to cut straight from one club to another. It now slides between them over about a third of a second. This is not decoration: the whole claim of that chart is that a club has a recognisable silhouette, and cutting between two of them gives you two pictures to remember and compare, where sliding shows you the difference itself. Watching the Speed spoke collapse as you go from New York to San Francisco says more than either shape does standing still. Turned off automatically if your device asks for reduced motion.',
+      },
+      {
+        short: 'The live scoreboard is deliberately left out of all this',
+        full:  'Anything a game page refreshes on a timer is excluded from the remembering, and that is on purpose. A live box score re-reads itself every fifteen seconds, and it also updates the moment the league records a play. Keeping those answers for twenty seconds to save a request would mean a run scores, the update arrives, and the box score does not move. Speed is worth a lot on a page that is not changing and nothing at all on one that is.',
+      },
+    ],
+  },
+  {
     version: '1.65.0',
     date:    '2026-09-04',
     title:   'The Contact axis now measures contact',

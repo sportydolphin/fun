@@ -135,7 +135,7 @@ export async function fetchWpblGameLive(gameId: string): Promise<Partial<WpblGam
     null as Partial<WpblGame> | null)
 }
 
-export function fetchWpblRoster(teamId: string): Promise<WpblPlayer[]> {
+function readWpblRoster(teamId: string): Promise<WpblPlayer[]> {
   return safe('fetchWpblRoster', () =>
     supabase.from('wpbl_players').select('*').eq('team_id', teamId).order('name', { ascending: true }),
     [] as WpblPlayer[])
@@ -184,6 +184,93 @@ export function getCachedWpblAllRunValuePlays(): WpblRunValuePlay[] | null { ret
 export function getCachedWpblVideos(): WpblVideo[] | null { return allVideosCache?.data ?? null }
 export function getCachedWpblArticles(): WpblArticle[] | null { return allArticlesCache?.data ?? null }
 export function getCachedWpblPhotos(): WpblPhoto[] | null { return allPhotosCache?.data ?? null }
+
+// ─── Per-entity session cache ───────────────────────────────────────────────────
+//
+// The bulk caches above solved this for the league-wide reads and left every PER-THING read
+// out, which is what the two surfaces a reader opens over and over are made of: the four club
+// buttons on a team page, whose whole job is to be tapped back and forth, and a player card
+// opened from a leaderboard, closed, and opened again. Each visit refetched, so the second one
+// spun exactly as long as the first, on data that had not changed since ten seconds ago.
+//
+// Keyed by entity id and otherwise the same contract as the bulk caches: `isFresh` decides
+// whether a read is skipped, `once` collapses two callers landing together, and a `getCached*`
+// accessor lets a component paint from the cache SYNCHRONOUSLY on its first render. That last
+// part is what removes the spinner rather than merely shortening it: seeding state in an effect
+// still gives you one frame of empty, and one frame of empty is a flash.
+//
+// AN EMPTY RESULT NEVER EVICTS A GOOD ONE. `safe()` answers a failed or timed-out read with its
+// fallback, which is `[]` or null here, so without this guard one dropped request would replace
+// a club's roster with "no players" and keep serving that for the rest of the freshness window.
+// Same reasoning as `mergeBulkLines`, one section up. `isEmpty` is per-cache because the shapes
+// differ: a list is empty when it has no rows, a player's season when all three of hers do.
+//
+// NOT FOR ANYTHING A POLL DEPENDS ON, AND THE PER-GAME READS ARE ALL OF THEM. This was swept
+// for on Sep 4, 2026 and the answer for every remaining per-entity read is deliberately no:
+//
+//   * `fetchWpblGameLive` is the live scoreboard's refresh. A cache on it is a scoreboard that
+//     stops moving.
+//   * `fetchWpblGameLines` looks like the obvious next one and is the trap. Game Center polls
+//     it every LIVE_POLL_MS (15s) and ALSO re-reads it from a realtime subscription on
+//     wpbl_batting_lines, so a 20s freshness window would swallow both: a run scores, the
+//     change event fires, and the box score does not move for up to five seconds after the
+//     poll that should have caught it. The window being longer than the poll is the whole
+//     problem, and tuning one against the other is a worse bargain than not caching.
+//   * `fetchWpblGamePlays`, `fetchWpblGameTracking` and `fetchWpblGameDetails` ride in the same
+//     `reload()` as the lines, and Game Center already solves reopening with its own
+//     `gameCache` at the component level, which is the right layer for it: that cache holds
+//     the assembled view, not the four reads.
+//
+// So this is for entities whose data changes on the ingest's schedule rather than a poll's:
+// a roster, a club's lineup history and usage, a player's season.
+function keyedCache<T>(name: string, read: (key: string) => Promise<T>, isEmpty: (v: T) => boolean) {
+  const cache = new Map<string, { data: T; at: number }>()
+  return {
+    get: (key: string): T | null => cache.get(key)?.data ?? null,
+    fetch: (key: string): Promise<T> => {
+      const hit = cache.get(key)
+      if (hit && isFresh(hit)) return Promise.resolve(hit.data)
+      return once(`${name}:${key}`, async () => {
+        const data = await read(key)
+        if (!isEmpty(data) || !cache.has(key)) cache.set(key, { data, at: Date.now() })
+        return cache.get(key)?.data ?? data
+      })
+    },
+  }
+}
+
+const emptyList = <T,>(v: T[]) => v.length === 0
+
+const rosterCache  = keyedCache('roster', readWpblRoster, emptyList)
+const lineupsCache = keyedCache('lineups', readWpblLineupHistory, emptyList)
+const usageCache   = keyedCache('usage', readWpblPitchingUsage, emptyList)
+
+// A PLAYER PAGE IS THE THING PEOPLE OPEN TWICE. It is the section's retention event (a reader
+// who opens one comes back at 76.5%, against 7.8% for one who opens neither it nor Game
+// Center; see ROADMAP-WPBL.md), and it is reached from a leaderboard, which is a list of
+// twenty of them: open, read, close, open the next, come back to the first. Every one of those
+// was a fresh three-table read behind a spinner.
+const playerLinesCache = keyedCache('playerLines', readWpblPlayerLines,
+  v => v.batting.length === 0 && v.pitching.length === 0 && v.fielding.length === 0)
+const pitchLocsCache = keyedCache('pitchLocs', readWpblPitcherLocations, emptyList)
+
+export const fetchWpblRoster = rosterCache.fetch
+export const fetchWpblLineupHistory = lineupsCache.fetch
+export const fetchWpblPitchingUsage = usageCache.fetch
+export const fetchWpblPlayerLines = playerLinesCache.fetch
+
+/** Every tracked pitch by one pitcher. Takes the feed ids as ONE comma-joined string rather
+ *  than an array, because that string is the cache key and an array would be a new object on
+ *  every render. PlayerDetail already holds exactly this string for the same reason. */
+export const fetchWpblPitcherLocations = pitchLocsCache.fetch
+
+/** The last good read for one club, or null. For painting on the first render; the caller
+ *  should still call the matching `fetch` so a stale entry revalidates behind the paint. */
+export const getCachedWpblRoster = rosterCache.get
+export const getCachedWpblLineupHistory = lineupsCache.get
+export const getCachedWpblPitchingUsage = usageCache.get
+export const getCachedWpblPlayerLines = playerLinesCache.get
+export const getCachedWpblPitcherLocations = pitchLocsCache.get
 
 /** Age (ms) of the cached players+lines pair; Infinity until both are seeded. */
 export function wpblStatsCacheAgeMs(): number {
@@ -603,7 +690,7 @@ export async function fetchWpblGameLines(gameId: string): Promise<{ batting: Wpb
 //
 // Deliberately narrow: the grid needs slot, position and started — not the stat line — so
 // the columns are listed rather than select('*'). One team's season is a few hundred rows.
-export function fetchWpblLineupHistory(teamId: string): Promise<WpblLineupHistoryRow[]> {
+function readWpblLineupHistory(teamId: string): Promise<WpblLineupHistoryRow[]> {
   return safe('fetchWpblLineupHistory', () =>
     supabase.from('wpbl_lineup_history')
       .select('game_id,team_id,player_id,game_date,game_status,opponent_team_id,opp_starter_name,opp_starter_throws,lineup_spot,position,started,slot_shared')
@@ -618,7 +705,7 @@ export function fetchWpblLineupHistory(teamId: string): Promise<WpblLineupHistor
 // days_rest comes from the view rather than being derived here: the gap that matters is
 // between a pitcher's own consecutive outings, which is a window function over their whole
 // appearance history, not something the client can see from one team's recent games.
-export function fetchWpblPitchingUsage(teamId: string): Promise<WpblPitchingUsageRow[]> {
+function readWpblPitchingUsage(teamId: string): Promise<WpblPitchingUsageRow[]> {
   return safe('fetchWpblPitchingUsage', () =>
     supabase.from('wpbl_pitching_usage')
       .select('game_id,team_id,player_id,game_date,game_status,opponent_team_id,started,outs,pitches,bf,er,so,bb,decision,days_rest')
@@ -745,7 +832,7 @@ export function fetchWpblGameTracking(gameId: string): Promise<WpblPitchTracking
 }
 
 // All of a player's box-score lines across every game (for the player page).
-export async function fetchWpblPlayerLines(playerId: string): Promise<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[]; fielding: WpblFieldingLine[] }> {
+async function readWpblPlayerLines(playerId: string): Promise<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[]; fielding: WpblFieldingLine[] }> {
   const [batting, pitching, fielding] = await Promise.all([
     safe('fetchWpblPlayerBatting', () =>
       supabase.from('wpbl_batting_lines').select('*').eq('player_id', playerId),
@@ -779,8 +866,8 @@ export interface WpblPitchLoc {
 // `api_id` would show a traded pitcher's work for her new team and silently nothing before
 // it, which looks exactly like a pitcher who has not thrown much rather than like a bug.
 // Paginated past PostgREST's 1000-row default so it holds up as the season fills in.
-export async function fetchWpblPitcherLocations(apiIds: string | string[] | null): Promise<WpblPitchLoc[]> {
-  const ids = (typeof apiIds === 'string' ? [apiIds] : apiIds ?? []).filter(Boolean)
+async function readWpblPitcherLocations(idsKey: string): Promise<WpblPitchLoc[]> {
+  const ids = idsKey ? idsKey.split(',') : []
   if (ids.length === 0) return []
   const SELECT = 'game_id,release_speed,pitch_type:raw->>pitch_type,' +
     'side:raw->>plate_location_side,height:raw->>plate_location_height'

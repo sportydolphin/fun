@@ -1,5 +1,5 @@
-import { useId, useMemo } from 'react'
-import { Box, Typography } from '@mui/material'
+import { useId, useMemo, useState, useRef, useEffect } from 'react'
+import { Box, Typography, useMediaQuery } from '@mui/material'
 import { wpblAccent } from './constants'
 import { useWpblDark, CARD_BORDER } from './ui'
 import {
@@ -32,6 +32,79 @@ function pt(cx: number, cy: number, r: number, i: number, n: number): [number, n
 
 const polygon = (cx: number, cy: number, R: number, values: number[]): string =>
   values.map((v, i) => pt(cx, cy, (R * v) / 100, i, values.length).map(n => n.toFixed(1)).join(',')).join(' ')
+
+/**
+ * The shape MORPHS from one club to the next instead of cutting.
+ *
+ * WHY IT IS WORTH THE CODE. The four buttons above this chart exist to be tapped back and
+ * forth, and the whole claim of a spec chart is that a club has a recognisable silhouette. Cut
+ * between two hexagons and a reader gets two pictures to remember and compare; tween between
+ * them and they get the DIFFERENCE, drawn: the Speed spoke visibly collapsing as you go from
+ * New York to San Francisco says more than either shape does standing still.
+ *
+ * `requestAnimationFrame` rather than a CSS transition, because there is no CSS to hang it on.
+ * A polygon's `points` is not an animatable property, and the `d` of a path only became one
+ * recently enough that it is not worth the browser matrix. Interpolating is trivial here in any
+ * case: every club has the same six spokes in the same order, so it is six lerps and no path
+ * matching at all.
+ *
+ * STATE, NOT A REF WRITING THE ATTRIBUTE. Mutating `points` behind React's back is smoother by
+ * a re-render or two and breaks the moment anything else re-renders this component mid-flight,
+ * which would snap the shape to its target. Two dozen renders of thirty SVG nodes over a third
+ * of a second is not a cost worth that.
+ *
+ * Returns the target unchanged when `enabled` is false, which covers both the Teams grid (four
+ * static polygons, nothing to morph between) and a reader who has asked for reduced motion.
+ */
+export const MORPH_MS = 380
+const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3)
+
+export function useMorphedScores(target: number[] | null, enabled: boolean): number[] | null {
+  const [shown, setShown] = useState(target)
+  // What is currently ON SCREEN, which is where the next tween starts from. Not the previous
+  // target: tapping a third club mid-flight has to set off from the half-drawn shape, or the
+  // polygon jumps backwards to where the last one finished before setting out again.
+  const fromRef = useRef(target)
+  const key = target ? target.join(',') : ''
+
+  useEffect(() => {
+    if (!target) { setShown(null); fromRef.current = null; return }
+    const from = fromRef.current
+    if (!enabled || !from || from.length !== target.length) {
+      setShown(target); fromRef.current = target
+      return
+    }
+    // Already there: the first mount, and any re-run where the shape did not actually move.
+    // Without this, every mount schedules a frame and a timer to tween a club into itself.
+    if (from.every((v, i) => v === target[i])) return
+    let raf = 0
+    const start = performance.now()
+    const finish = () => { fromRef.current = target; setShown(target) }
+    const tick = (now: number) => {
+      const e = easeOutCubic(Math.min(1, (now - start) / MORPH_MS))
+      if (e >= 1) { finish(); return }
+      const next = target.map((v, i) => from[i] + (v - from[i]) * e)
+      fromRef.current = next
+      setShown(next)
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    // THE TIMER IS WHAT GUARANTEES ARRIVAL, and it is not belt and braces. A hidden or
+    // backgrounded tab does not throttle `requestAnimationFrame`, it stops calling it
+    // altogether, so a switch made while the tab is not on screen would leave the polygon
+    // frozen on the previous club forever, with that club's shape sitting under the new club's
+    // name and numbers. Caught exactly that way: the harness runs the page in a hidden pane, so
+    // the first version of this shipped a chart that never moved. Timers are only throttled,
+    // never stopped, so this lands the shape whatever the browser decided to do with the frames.
+    const backstop = setTimeout(finish, MORPH_MS + 120)
+    return () => { cancelAnimationFrame(raf); clearTimeout(backstop) }
+    // `key` rather than `target`: the array is rebuilt on every render and would restart the
+    // tween forever.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, enabled])
+
+  return shown
+}
 
 export interface TeamSpecRadarProps {
   specs: TeamSpecs
@@ -136,6 +209,14 @@ export function TeamSpecRadar({
     return focusId ? rows.filter(r => r.teamId === focusId) : rows
   }, [specs, byId, focusId])
 
+  // Only the single-club chart morphs. The Teams grid draws four polygons that never change,
+  // and a reader who has asked for less motion gets the cut.
+  const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
+  const focusTarget = useMemo(
+    () => (focusId && ordered.length === 1 ? TEAM_SPEC_AXES.map(a => ordered[0].score[a.key]) : null),
+    [focusId, ordered])
+  const morphed = useMorphedScores(focusTarget, !reduceMotion)
+
   const grid = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.12)'
   const gridMid = isDark ? 'rgba(255,255,255,0.26)' : 'rgba(0,0,0,0.22)'
   const labelFill = isDark ? 'rgba(255,255,255,0.62)' : 'rgba(0,0,0,0.58)'
@@ -187,8 +268,12 @@ export function TeamSpecRadar({
         const colour = wpblAccent(t.id, isDark)
         return (
           <polygon
-            key={r.teamId}
-            points={polygon(cx, cy, radius, TEAM_SPEC_AXES.map(a => r.score[a.key]))}
+            // ONE STABLE KEY WHILE FOCUSED, so React reuses the same node from club to club.
+            // Keyed by team it was a different element each time, which unmounts the shape
+            // mid-tween and puts the new one straight at its target: the morph would have been
+            // written and then never seen.
+            key={focusId ? 'focus' : r.teamId}
+            points={polygon(cx, cy, radius, morphed ?? TEAM_SPEC_AXES.map(a => r.score[a.key]))}
             fill={colour}
             // A single club can afford a solid-looking fill. Four overlapping ones cannot: at
             // anything above about 0.15 the middle of the Teams chart turns to mud and the
@@ -197,6 +282,9 @@ export function TeamSpecRadar({
             stroke={colour}
             strokeWidth={2}
             strokeLinejoin="round"
+            // The colours are CSS paint properties, so they tween for free. Same duration as
+            // the shape, or the club's red arrives while the hexagon is still New York's.
+            style={reduceMotion ? undefined : { transition: `fill ${MORPH_MS}ms ease, stroke ${MORPH_MS}ms ease` }}
           />
         )
       })}
