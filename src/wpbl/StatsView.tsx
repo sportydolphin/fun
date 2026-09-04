@@ -21,7 +21,7 @@ import type { EraBasis } from './stats'
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import { useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
-import { useWpblHeadingTag } from './PageHeading'
+import { useWpblHeadingTag, HIDE_ON_PHONE } from './PageHeading'
 import { useEraBasis } from './EraBasisContext'
 // Two of the five Stats groups, behind their own chunks. Hitting and Pitching are what the
 // tab opens on; Tracking (the TrackMan boards) and Draft (the draft-value model) are each a
@@ -1024,6 +1024,9 @@ export default function WpblStatsView({
       <Typography component={headingTag} sx={{
         ...fullBleedSx,
         fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, mb: 1,
+        // Spread LAST: it is absolute positioning at 1px square, and it has to beat the width
+        // and the negative margins the full-bleed rule above just set.
+        ...HIDE_ON_PHONE,
       }}>
         WPBL Stats
       </Typography>

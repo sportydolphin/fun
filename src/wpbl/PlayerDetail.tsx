@@ -7,6 +7,7 @@ import { useEraBasis } from './EraBasisContext'
 import type { EraBasis } from './stats'
 import { wpblAccent, wpblColor, wpblSecondary, wpblFullName, outsToIp } from './constants'
 import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, SegNav, AccentPanel, useWpblDark, chromePx, TAPPABLE } from './ui'
+import { statFull, statPlain } from './glossary'
 import SwipeableViews from './SwipeableViews'
 import { WrittenAbout } from './Reading'
 import { PitchLocationCard } from './PitchLocation'
@@ -39,25 +40,24 @@ import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine,
 // way across to nothing. Same content, ~600px tall instead of 1143. Nothing below `lg`
 // changes: the phone is still the layout everything else here was measured for.
 
-// What each abbreviation stands for — surfaced on hover/tap so the stat line isn't cryptic.
-const STAT_FULL: Record<string, string> = {
-  AVG: 'Batting average', OBP: 'On-base percentage', SLG: 'Slugging percentage', OPS: 'On-base plus slugging',
-  G: 'Games', AB: 'At-bats', R: 'Runs', H: 'Hits', '2B': 'Doubles', '3B': 'Triples', HR: 'Home runs',
-  RBI: 'Runs batted in', BB: 'Walks', SO: 'Strikeouts', SB: 'Stolen bases', TB: 'Total bases',
-  ERA: 'Earned run average', WHIP: 'Walks + hits per inning pitched', 'W-L': 'Wins–Losses', SV: 'Saves',
-  IP: 'Innings pitched', ER: 'Earned runs', P: 'Pitches thrown', DEC: 'Decision (W/L/S/H)', OPP: 'Opponent',
-  POS: 'Position played that game', FPCT: 'Fielding percentage', PO: 'Putouts', A: 'Assists', E: 'Errors', DP: 'Double plays',
-  PB: 'Passed balls', SBA: 'Stolen bases allowed',
-  CS: 'Caught stealing', HBP: 'Hit by pitch', GDP: 'Grounded into a double play',
-  SF: 'Sacrifice flies', SH: 'Sacrifice bunts', PA: 'Plate appearances',
-  BF: 'Batters faced', GS: 'Games started', WP: 'Wild pitches', BK: 'Balks',
-  'K/9': 'Strikeouts per nine innings', 'K/7': 'Strikeouts per seven innings, a full WPBL game',
-  'K/BB': 'Strikeouts per walk',
+// The stat definitions moved to glossary.ts, whole. They were a private map here, which made
+// this page the only surface in the section that could explain a column: Home, StatsView and
+// Game Center all draw the same abbreviations and none of them could say what one meant.
+// `statTip` is the render half, kept here because glossary.ts is deliberately data-only so
+// anything (a Pages Function, a Discord command, a test) can import it without pulling in MUI.
+const statTip = (k: string, basis: EraBasis): React.ReactNode => {
+  const plain = statPlain(k)
+  if (!plain) return statFull(k, basis)
+  // Two tiers, because they answer different questions: the expansion says what the letters
+  // are, the sentence says what the number is for. A reader who knows the first still wants
+  // the second, and one run-on line makes them read it to find out which half they needed.
+  return (
+    <>
+      <Box sx={{ fontWeight: 700 }}>{statFull(k, basis)}</Box>
+      <Box sx={{ mt: 0.25 }}>{plain}</Box>
+    </>
+  )
 }
-// ERA is the one abbreviation whose meaning is incomplete without its denominator, and this
-// tooltip is where a reader is already asking what a column is. Everything else is fixed.
-const statFull = (k: string, basis: EraBasis): string =>
-  k === 'ERA' ? `Earned run average, per ${basis}` : STAT_FULL[k] ?? k
 
 /**
  * Where she played THAT game, off the box-score line.
@@ -125,7 +125,7 @@ function HeroStat({ value, label, rank, primary, onDark }: {
       }}>
         {value}
       </Typography>
-      <TapTip title={statFull(label, eraBasis)} popperZIndex={TIP_Z} sx={{ flexShrink: 0 }}>
+      <TapTip title={statTip(label, eraBasis)} popperZIndex={TIP_Z} sx={{ flexShrink: 0 }}>
         <Typography sx={{
           fontSize: primary ? '0.75rem' : '0.68rem', fontWeight: 800, textTransform: 'uppercase',
           // 0.80 on the band, not 0.72. The band hero sits in the last 216px of the wash,
@@ -267,7 +267,7 @@ function StatGrid({ items }: { items: [string, string | number][] }) {
       gap: 0.75,
     }}>
       {items.map(([label, value]) => (
-        <TapTip key={label} title={statFull(label, eraBasis)} popperZIndex={TIP_Z}
+        <TapTip key={label} title={statTip(label, eraBasis)} popperZIndex={TIP_Z}
           sx={{ textAlign: 'center', borderRadius: 1.5, bgcolor: 'action.hover', py: 0.6, px: 0.4, minWidth: 0 }}>
           <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>{label}</Typography>
           {/* A zero is dimmed to the weight of its own label. Half a batting grid is zeros for
@@ -369,7 +369,7 @@ function StripRow({ r, color }: { r: WpblStatRank; color: string }) {
   const { basis: eraBasis } = useEraBasis()
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <TapTip title={statFull(r.label, eraBasis)} popperZIndex={TIP_Z} sx={{ width: '2.375rem', flexShrink: 0 }}>
+      <TapTip title={statTip(r.label, eraBasis)} popperZIndex={TIP_Z} sx={{ width: '2.375rem', flexShrink: 0 }}>
         <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>
           {r.label}
         </Typography>
@@ -722,7 +722,7 @@ function GameLogTable({ title, statHeaders, rows, best, accent }: {
               <Box component="th" sx={{ ...thSx, textAlign: 'left' }}>Date</Box>
               <Box component="th" sx={{ ...thSx, textAlign: 'left' }}>Opp</Box>
               {statHeaders.map(h => (
-                <TapTip key={h} title={statFull(h, eraBasis)} component="th" popperZIndex={TIP_Z} sx={thSx}>{h}</TapTip>
+                <TapTip key={h} title={statTip(h, eraBasis)} component="th" popperZIndex={TIP_Z} sx={thSx}>{h}</TapTip>
               ))}
             </Box>
           </Box>

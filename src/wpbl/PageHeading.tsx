@@ -42,13 +42,41 @@ export function useWpblHeadingTag(): 'h1' | 'div' {
  * exactly and is not drawn.
  */
 export function WpblVisuallyHiddenH1({ children }: { children: React.ReactNode }) {
-  return (
-    // Every unit is a STRING: MUI's sx reads a bare `width: 1` as 100%.
-    <h1 style={{
-      position: 'absolute', width: '1px', height: '1px',
-      overflow: 'hidden', clipPath: 'inset(50%)',
-      padding: 0, margin: '-1px', border: 0, whiteSpace: 'nowrap',
-      font: 'inherit',
-    }}>{children}</h1>
-  )
+  return <h1 style={{ ...VISUALLY_HIDDEN, font: 'inherit' }}>{children}</h1>
 }
+
+/**
+ * Read but not drawn. `clipPath` rather than `display: none`, which would take the element out
+ * of the accessibility tree and leave the page with no heading at all, which is the failure
+ * this whole module exists to prevent.
+ *
+ * Every unit is a STRING, because MUI's `sx` reads a bare `width: 1` as 100%. That makes this
+ * safe to spread into an `sx` as well as into a `style`, which Home does at the phone
+ * breakpoint: its `h1` is the league's full name, and on a phone that is the third thing above
+ * the fold saying WPBL after the toolbar's own league switch and the section nav. Hidden there
+ * and drawn from `sm` up, where it pairs with the club chips and costs nothing.
+ */
+export const VISUALLY_HIDDEN = {
+  position: 'absolute', width: '1px', height: '1px',
+  overflow: 'hidden', clipPath: 'inset(50%)',
+  padding: 0, margin: '-1px', border: 0, whiteSpace: 'nowrap',
+} as const
+
+/**
+ * Spread into a heading's `sx` to keep it for machines and drop it for a phone.
+ *
+ * WHY EVERY TAB HEADING IN THE SECTION USES THIS. The five tabs are titled WPBL Schedule, WPBL
+ * Standings, WPBL Stats, WPBL Teams and the league's full name, and directly above every one of
+ * them sits a nav reading Home / Schedule / Standings / Stats / Teams with the current tab lit,
+ * under a toolbar with a live MLB/WPBL switch with WPBL lit. On a phone the heading is a third
+ * statement of a fact the reader has been given twice, and it costs about 40px at the top of a
+ * page whose whole job is the first card. On a desktop it is kept: the viewport is not the
+ * constraint, and the page is a grid where section headings are what tell the columns apart.
+ *
+ * Not for a heading that names something the nav does not: a club's page, the glossary. Those
+ * are the only text on screen saying what you are looking at.
+ *
+ * The literal is what MUI's `down('sm')` compiles to, and the same one `isPhone` uses in
+ * RecapCard, so nothing in the section disagrees about where a phone ends.
+ */
+export const HIDE_ON_PHONE = { '@media (max-width:599.95px)': VISUALLY_HIDDEN } as const

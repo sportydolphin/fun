@@ -6,6 +6,7 @@
 // exist. Googlebot renders JS and reads what this hook sets on route change; index.html
 // still carries sensible defaults for non-JS crawlers and social unfurlers.
 import { useEffect, useState } from 'react'
+import { WPBL_RULES } from './wpbl/glossary'
 
 const SITE = 'https://sportydolphin.fun'
 
@@ -14,6 +15,11 @@ interface Seo {
   description: string
   /** Keep this route out of search results. See the `robots` note in `useSeo`. */
   noindex?: boolean
+  /** Route-level schema.org, injected as a second ld+json block beside the site-wide graph
+   *  in index.html. Only worth setting where the page is genuinely a type Google renders
+   *  differently: the rules page is a real FAQPage, and a list of questions nothing else on
+   *  the web answers is the one thing here with a shot at a rich result. */
+  jsonLd?: Record<string, unknown>
 }
 
 const DEFAULT: Seo = {
@@ -94,6 +100,27 @@ const ROUTES: Record<string, Seo> = {
     title: "The WPBL: where its players come from | sportydolphin.fun",
     description:
       "Hometowns for all 118 players in the 2026 Women's Pro Baseball League, by country, with a page for each: how a four-club league drew players from eleven countries.",
+  },
+  // The rules, and the only page in the section written for a question the WPBL itself does
+  // not answer anywhere public: how a pitcher earns a win. Searched for, and currently
+  // unanswerable — the title leads with "rules" rather than "glossary" because that is the
+  // half people type. Durable, too: it is as true in February as in September.
+  '/wpbl/glossary': {
+    title: "WPBL Rules & Stats Glossary | sportydolphin.fun",
+    description:
+      "How the Women's Pro Baseball League works: seven-inning games, how a pitcher qualifies for a win, why ERA is per 7, and what every stat on a WPBL box score means.",
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      // Built from WPBL_RULES rather than restated, so the markup a crawler reads and the
+      // page a reader sees cannot drift apart. The note goes in the answer because that is
+      // where the honesty lives: two of these are not the league's own words.
+      mainEntity: WPBL_RULES.map(r => ({
+        '@type': 'Question',
+        name: r.question,
+        acceptedAnswer: { '@type': 'Answer', text: r.note ? `${r.answer} ${r.note}` : r.answer },
+      })),
+    },
   },
   '/wpbl/api': {
     title: "WPBL API — Women's Pro Baseball League data feed | sportydolphin.fun",
@@ -203,5 +230,18 @@ export function useSeo(path: string) {
     upsertMeta('property', 'og:url', url)
     upsertMeta('name', 'twitter:title', seo.title)
     upsertMeta('name', 'twitter:description', seo.description)
+
+    // REMOVED WHEN THE ROUTE HAS NONE, for exactly the reason the `robots` note above gives:
+    // this is a SPA, so a block left in <head> by a previous route outlives it. Without the
+    // else branch, one visit to the rules page would have every page navigated to afterwards
+    // claiming to be an FAQ about the WPBL's rules. Its own id keeps it clear of the site-wide
+    // graph baked into index.html, which must survive every navigation untouched.
+    const LD_ID = 'sd-route-jsonld'
+    const existing = document.getElementById(LD_ID)
+    if (seo.jsonLd) {
+      const el = existing ?? Object.assign(document.createElement('script'), { id: LD_ID, type: 'application/ld+json' })
+      el.textContent = JSON.stringify(seo.jsonLd)
+      if (!existing) document.head.appendChild(el)
+    } else existing?.remove()
   }, [path, dynamicVersion])
 }

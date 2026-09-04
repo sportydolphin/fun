@@ -4,6 +4,41 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.64.0',
+    date:    '2026-09-04',
+    title:   'A page that explains the rules, and a home page a phone can read',
+    changes: [
+      {
+        short: 'A rules and glossary page, at /wpbl/glossary',
+        full:  'How a WPBL game works, and what every abbreviation on a box score means, on one page. Seven innings, the roster rules, how a pitcher earns a win. The league does not publish most of this anywhere, so if you have watched a game and wondered why an inning ended the way it did, this is the page. It is linked from the footer of every page rather than given a tab of its own: the five tabs are what you use every day, and this is the one you read once.',
+      },
+      {
+        short: 'Every stat abbreviation now explains itself the same way everywhere',
+        full:  'Tapping a column heading on a player page used to expand the letters and stop there, and it was the only place in the section that could do even that: the same abbreviations appear on the home page, the stats boards and in Game Center, and none of those could say what one meant. The definitions now live in one place, shared by every surface, and each one answers two questions instead of one. OBP still expands to on-base percentage, and now also says what the number is actually for.',
+      },
+      {
+        short: 'The next game card says when in plain words, at the top',
+        full:  'The countdown read 05h 52m 44s in a block under the two clubs, which is a launch console rather than a fixture card: the only part moving was the least useful digit on it. It now reads "in 5h 52m" beside the start time on the card’s own title line, so "Next game, Today, 4:30 PM, in 5h 52m" is one sentence rather than three parts scattered down a card. The seconds are gone and nothing is lost, because nobody was reading them.',
+      },
+      {
+        short: 'The last game card shows the score while it is closed',
+        full:  'On a phone that card is folded by default and showed only the headline, on the reasoning that the score is one tile up in the scoreboard strip. It is, but that strip is a sideways scroller of six tiles, so a card titled "Last game" that could not say the score was asking you to go and match a date against it. The final now sits in the card’s header, closed or open.',
+      },
+      {
+        short: 'Both game cards are drawn as one thing now',
+        full:  'They sit one above the other and were drawing the same two parts three different ways between them: club rows as a colour band on one card and as small tinted pills on the other, and a last row as a shaded footer on one and a hairline plus a link on the other. Both now use one shape. What stays different is the half that means something: the next game tints both clubs because a fixture has two equals in it, and the last game tints only the winner.',
+      },
+      {
+        short: 'About 70px less chrome at the top of every page on a phone',
+        full:  'Every tab opened with a heading reading WPBL Standings, WPBL Stats, WPBL Teams or the league’s full name, directly under a nav reading Home, Schedule, Standings, Stats, Teams with that same word lit, under a toolbar with WPBL lit. On a phone that is the third time you are told the same thing, and on the home page it pushed the first card 344 pixels down a 812 pixel screen. Those headings are still there for screen readers and for search, they are simply not drawn on a phone any more. The home page now opens on the scoreboard. Laptops and desktops are unchanged.',
+      },
+      {
+        short: 'A missing separator in the footer',
+        full:  'The new glossary link ran straight into the one before it, so the footer read "The leagueRules & glossary" on every page. Caught before release.',
+      },
+    ],
+  },
+  {
     version: '1.63.0',
     date:    '2026-09-03',
     title:   'ERA is per seven innings now, because the league changed its mind',

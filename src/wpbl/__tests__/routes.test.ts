@@ -21,6 +21,7 @@ import {
   WPBL_NAV, WPBL_VIEW_PATHS, wpblPathFor, wpblViewFromPath, wpblAppOwnsPath, normalizeWpblView,
   wpblPlayerSlug, wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug,
   wpblGameSlug, wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug, isWpblLeaguePage,
+  isWpblGlossaryPage,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug, teamSlug,
 } from '../routes'
 // The real club list, so the four files below are pinned against what the app actually ships
@@ -408,6 +409,46 @@ describe('/wpbl/league, a page without a tab', () => {
   // which is a failure nothing else here would notice.
   it('is linked from the site footer', () => {
     expect(footerSource).toContain('WPBL_LEAGUE_PAGE')
+  })
+})
+
+describe('/wpbl/glossary, the rules page', () => {
+  it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
+    expect(redirects).toMatch(/^\/wpbl\/glossary\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/glossary\/\s+\/wpbl\/glossary\s+301\s*$/m)
+  })
+
+  it('has its own title and description in seo.ts', () => {
+    expect(seoSource).toContain("'/wpbl/glossary': {")
+    expect(seoSource).toMatch(/'\/wpbl\/glossary':\s*\{[^}]*title:/)
+  })
+
+  it('is in the sitemap', () => {
+    expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/glossary</loc>')
+  })
+
+  it('is recognised as itself and not as a tab', () => {
+    expect(isWpblGlossaryPage('/wpbl/glossary')).toBe(true)
+    expect(isWpblGlossaryPage('/wpbl/glossary/')).toBe(true)
+    expect(isWpblGlossaryPage('/wpbl/glossaries')).toBe(false)
+    expect(isWpblGlossaryPage('/wpbl/glossary/extra')).toBe(false)
+    expect(wpblViewFromPath('/wpbl/glossary')).toBeNull()
+    expect(wpblAppOwnsPath('/wpbl/glossary')).toBe(false)
+  })
+
+  // No nav pill by design, so the footer is the only way in for a reader and the only link a
+  // crawler can follow. This page is the one here written to be found cold from a search
+  // result, which makes an orphaned copy of it worth less than nothing.
+  it('is linked from the site footer', () => {
+    expect(footerSource).toContain('WPBL_GLOSSARY_PAGE')
+  })
+
+  // The rich-result claim. FAQPage markup that does not match the page under it is the kind
+  // of thing Google penalises rather than ignores, so the schema is built from WPBL_RULES
+  // rather than written out, and this pins that it stays that way.
+  it('declares FAQPage structured data built from the rules themselves', () => {
+    expect(seoSource).toContain("'@type': 'FAQPage'")
+    expect(seoSource).toContain('WPBL_RULES.map')
   })
 })
 

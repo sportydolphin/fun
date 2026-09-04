@@ -385,6 +385,35 @@ export const ICON_SIZE = {
   sm: '0.85rem',
 } as const
 
+/**
+ * THE TWO SHAPES HOME'S FIXTURE CARDS SHARE. Next game and Last game sit one above the other in
+ * the same column, and until Sep 4, 2026 they drew the same two things three ways between them:
+ * club rows as a full-bleed colour band on one card and as inset rounded pills on the other, and
+ * a last row as a recessed footer on one and a hairline plus a link on the other. Neither
+ * difference was carrying meaning, which is what made the pair read as two design systems on one
+ * page. The differences that DO carry meaning are kept and are all in the content: Next game
+ * tints both clubs because a fixture has two equals in it and Last game tints only the winner
+ * because a result does not, and Next game puts a record beside the name where Last game puts a
+ * score down the edge.
+ *
+ * Both cancel SectionCard's own body padding (`mx: -2`, and `mb: -1.5` at the foot) and put it
+ * back inside, so the numbers here are tied to that component's px/pb.
+ */
+
+/** The club rows, run to the card's edges. Rows inside take `px: 2` to land back on the text
+ *  column, and the 1px `gap` is the card's own paper showing through: two saturated tints
+ *  meeting edge to edge blend into a third colour along the join. */
+export const CLUB_BAND = { mx: -2, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '1px' } as const
+
+/** The card's last row: the one thing you can DO, on a recessed field with the card's radius
+ *  clipping its bottom corners. A rule above it instead makes a short card read as a stack of
+ *  drawers, which is what both of these were doing. */
+export const cardFooterBand = (isDark: boolean) => ({
+  mt: 1.25, mx: -2, mb: -1.5, px: 2, py: 1.25,
+  bgcolor: isDark ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.022)',
+  display: 'flex', alignItems: 'center', gap: 1,
+} as const)
+
 export function TeamBadge({ team, size = 34 }: { team: Pick<WpblTeam, 'id' | 'abbr'>; size?: number }) {
   const logo = wpblLogo(team.id)
   const fill = wpblLogoFill(team.id)
@@ -953,16 +982,25 @@ export function TapTip({ title, children, sx, component, popperZIndex }: {
   )
 }
 
-export function SectionCard({ icon, title, subtitle, action, collapsed, onToggleCollapse, fill, bare, children }: {
+export function SectionCard({ icon, title, subtitle, action, actionWraps, collapsed, onToggleCollapse, fill, bare, children }: {
   icon?: React.ReactNode
   title: string
-  /** A node rather than a string, so a card can put a live figure in here without a second
-   *  line of its own. Next game spends it on the countdown: the clock was a full headline row
-   *  under the team rows, and on a phone a whole row is a lot to pay for six characters that
-   *  belong beside the kickoff time anyway. Keep it to one line; this slot is 0.72rem and the
-   *  header does not grow. */
+  /** A quiet second line under the title. Keep it to one line; this slot is 0.72rem and the
+   *  header does not grow. A live figure does NOT belong here: Next game put its countdown in
+   *  the subtitle and it read as a footnote to the heading, at the smallest size on the card.
+   *  It is in `action` now, on the title's own baseline. */
   subtitle?: React.ReactNode
+  /** The header's right-hand end: a "View all" link, or a fact the card is measured by. */
   action?: React.ReactNode
+  /** Let a crowded header take the space out of the action instead of the title.
+   *
+   *  The default is the other way round and is not a `flexShrink` on the action: the title box
+   *  is `flex: 1` from a zero basis, so a wide action never overflows the row, it just leaves
+   *  the title a narrow column and the TITLE wraps. Fine for a two-word link, wrong for Next
+   *  game, whose action is a date and a countdown: at Large text on a narrow phone that card
+   *  was titled "Next / game". Set this and the title takes its own width while the action
+   *  takes the remainder, so only an action that can wrap should ask for it. */
+  actionWraps?: boolean
   /** Pass with `onToggleCollapse` to make the card collapsible. Owned by the caller, so it
    *  can persist the choice; the card itself stays presentational. */
   collapsed?: boolean
@@ -1010,7 +1048,7 @@ export function SectionCard({ icon, title, subtitle, action, collapsed, onToggle
         }}
       >
         {icon != null && <Box sx={{ fontSize: '1.1rem', lineHeight: 1, flexShrink: 0 }}>{icon}</Box>}
-        <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box sx={actionWraps ? { flexShrink: 0 } : { flex: 1, minWidth: 0 }}>
           {/* A REAL `h2`, because until Sep 1, 2026 this page had exactly one heading on it.
               Every card title on every WPBL page comes through here, and all of them were
               plain text: a screen reader landed on the `h1` and then had no way to skim the
@@ -1022,7 +1060,14 @@ export function SectionCard({ icon, title, subtitle, action, collapsed, onToggle
           <Typography component="h2" sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>{title}</Typography>
           {subtitle && <Typography sx={{ fontSize: '0.72rem', color: 'text.secondary', lineHeight: 1.3 }}>{subtitle}</Typography>}
         </Box>
-        {action != null && <Box onClick={e => e.stopPropagation()} sx={{ display: 'flex', flexShrink: 0 }}>{action}</Box>}
+        {action != null && (
+          <Box
+            onClick={e => e.stopPropagation()}
+            sx={{ display: 'flex', ...(actionWraps ? { flex: 1, minWidth: 0, justifyContent: 'flex-end' } : { flexShrink: 0 }) }}
+          >
+            {action}
+          </Box>
+        )}
         {collapsible && <Chevron open={!collapsed} />}
       </Box>
       {!collapsed && (

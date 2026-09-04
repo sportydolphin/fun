@@ -9,11 +9,11 @@ import {
   fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays,
   getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblAllTracking, wpblHomeCacheAgeMs,
 } from './api'
-import { WPBL_ACCENT, wpblColor, wpblAccent, wpblFullName, formatGameTime, gameStartMs, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
+import { WPBL_ACCENT, wpblColor, wpblAccent, wpblSurface, wpblFullName, formatGameTime, gameStartMs, countdownLabel, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { WPBL_LEAGUE_PAGE, WPBL_PATH_EVENT } from './routes'
-import { useWpblHeadingTag } from './PageHeading'
-import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, TAPPABLE, hoverOnly, TYPE_SCALE, ICON_SIZE } from './ui'
+import { useWpblHeadingTag, HIDE_ON_PHONE } from './PageHeading'
+import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, TAPPABLE, hoverOnly, TYPE_SCALE, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
 import { LiveHero } from './Live'
 import PlayoffBracket from './PlayoffBracket'
 import {
@@ -418,13 +418,32 @@ function Scoreboard({ games, teams, onOpenGame }: {
 
   if (strip.length === 0) return null
   return (
-    <Box sx={{ mb: SECTION_GAP }}>
+    // 12px UNDER IT ON A PHONE, NOT 20. Measured on the running page: every card on the mobile
+    // feed is 12px from the next one (the grid's own gap), and this one section sat 20px clear
+    // of what follows it, which is the gap the eye reads as "and now something else" on a page
+    // where the scoreboard is the same kind of block as the cards under it. The desktop keeps
+    // SECTION_GAP, where this row is separating a full-width strip from a two-column grid and
+    // the extra 8px is doing that work.
+    <Box sx={{ mb: { xs: 1.5, sm: SECTION_GAP } }}>
       {/* Match the card-title treatment (Next game / Standings / Teams) so every section
           on the feed announces itself the same way, instead of a lone tiny eyebrow. That now
           includes the TAG: the scoreboard is the only section on Home that is not a
           SectionCard, so without this it would be the one section a screen reader could not
-          jump to, on a page where it is the first thing under the title. */}
-      <Typography component="h2" sx={{ fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2, mb: 1 }}>Scoreboard</Typography>
+          jump to.
+
+          READ BUT NOT DRAWN ON A PHONE, for the reason the page's `h1` is (see the note
+          there): a horizontal row of tiles, each carrying a date, a time and two clubs with
+          their scores, is a scoreboard, and it is the only thing on the page with that shape.
+          The word is 26px of the ~300px above the first card and it labels the one section
+          nobody needs labelled. It stays in the DOM and in the accessibility tree, because the
+          reason it became a real `h2` in the first place was that this section was otherwise
+          unreachable by heading navigation, and that is exactly as true when it is not drawn.
+          Drawn from `sm` up, where the page is a grid rather than a scroll and the section
+          headings are what tell the two columns apart. */}
+      <Typography component="h2" sx={{
+        fontSize: TYPE_SCALE.title, fontWeight: 700, lineHeight: 1.2, mb: 1,
+        ...HIDE_ON_PHONE,
+      }}>Scoreboard</Typography>
       <Box sx={{ position: 'relative' }}>
         <Box ref={scrollRef} onScroll={syncEdges}
           onPointerDown={takeOver} onWheel={takeOver} onKeyDown={takeOver} sx={{
@@ -467,39 +486,28 @@ function Scoreboard({ games, teams, onOpenGame }: {
 
 function Countdown({ target }: { target: number }) {
   const [now, setNow] = useState(() => Date.now())
+  // Once every 15s, not once a second. The label is minute-granular (`countdownLabel`), so a
+  // per-second timer was re-rendering the card 59 times out of 60 to paint the same string,
+  // on a page a phone leaves open. 15s keeps the worst lag behind a minute boundary short
+  // enough that nobody catches it.
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000)
+    const id = setInterval(() => setNow(Date.now()), 15000)
     return () => clearInterval(id)
   }, [])
-  const diff = target - now
-  // Seconds only tick inside a day; past a day they would be noise under a number that
-  // barely moves.
-  const label = (() => {
-    const d = Math.floor(diff / 86400000)
-    const h = Math.floor((diff % 86400000) / 3600000)
-    const m = Math.floor((diff % 3600000) / 60000)
-    const s = Math.floor((diff % 60000) / 1000)
-    const p = (n: number) => String(n).padStart(2, '0')
-    return d > 0 ? `${d}d ${p(h)}h ${p(m)}m` : `${p(h)}h ${p(m)}m ${p(s)}s`
-  })()
-  // IN THE HEADER LINE, BESIDE THE START TIME, rather than as a headline row of its own.
+  // IN THE HEADER LINE, BESIDE THE CARD TITLE, rather than as a block under the matchup.
   //
-  // It used to be a full row under the team rows, at Last Game's headline size, and the note
-  // here argued for that on the grounds that the clock is the only thing Next game knows that
-  // nothing else on the page does. That is still true and it is not what the row cost: a whole
-  // line, plus its margin, is 26px of a 239px card and a phone was already scrolling three
-  // screens of Home. The earlier objection was to the header's top-right CHIP slot, which is
-  // where a card puts an afterthought. This is the subtitle, directly under the title, which is
-  // the line that says what this game is; "Today · 4:30 PM · 15h 35m" is one fact in three
-  // parts and reads better together than split across the card. The accent colour stays, so the
-  // live figure is still the thing the eye lands on.
+  // It has now been in three places, each time for less room: a headline row of its own under
+  // the team rows, then a tinted block under them beside the start time, now the header's
+  // right-hand slot. What moved it the last time is the phone: the block was a 34px band plus
+  // 12px of margin inside a card that already scrolls, spent on a line that duplicates nothing
+  // but says the same thing the header row had space for. "Next game ... Today, 4:30 PM ·
+  // in 5h 52m" is one sentence, and the header is where a card says what it is about.
   //
-  // `tabular-nums` on the digits alone. The whole line would set the date and time on a
-  // monospace grid too, and the seconds place re-renders every tick, so without it the line
-  // would twitch sideways once a second.
+  // The accent and the tint stay, so the live figure is still the thing the eye lands on in a
+  // row that is otherwise a title and a muted date.
   return (
-    <Box component="span" sx={{ color: 'var(--wpbl-accent-fg)', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
-      {diff <= 0 ? 'starting soon' : label}
+    <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+      {countdownLabel(target, now)}
     </Box>
   )
 }
@@ -549,6 +557,7 @@ function GameReminderRow({ game, away, home, startMs }: {
   game: WpblGame; away?: WpblTeam; home?: WpblTeam; startMs: number | null
 }) {
   const { user, openAuthDialog } = useAuth()
+  const isDark     = useWpblDark()
   const supported  = pushSupported()
   const configured = pushConfigured()
 
@@ -600,11 +609,7 @@ function GameReminderRow({ game, away, home, startMs }: {
     return (
       <Box
         onClick={() => downloadIcs(`wpbl-${game.id}.ics`, makeGameIcs(game, title, startMs))}
-        sx={{
-          mt: 0.75, pt: 1, borderTop: '1px solid', borderColor: 'divider',
-          display: 'flex', alignItems: 'center', gap: 1,
-          cursor: 'pointer', borderRadius: 1, ...TAPPABLE,
-        }}
+        sx={{ ...cardFooterBand(isDark), cursor: 'pointer', ...TAPPABLE }}
       >
         <EventAvailableOutlined sx={{ fontSize: ICON_SIZE.md, flexShrink: 0, color: 'var(--wpbl-accent-fg)' }} />
         <Typography noWrap title="Saves the game with a 30-min heads-up before first pitch."
@@ -656,11 +661,7 @@ function GameReminderRow({ game, away, home, startMs }: {
   return (
     <Box
       onClick={!user ? () => openAuthDialog('signin') : undefined}
-      sx={{
-        mt: 0.75, pt: 1, borderTop: '1px solid', borderColor: 'divider',
-        display: 'flex', alignItems: 'center', gap: 1,
-        ...(!user ? { cursor: 'pointer', borderRadius: 1, ...TAPPABLE } : {}),
-      }}
+      sx={{ ...cardFooterBand(isDark), ...(!user ? { cursor: 'pointer', ...TAPPABLE } : {}) }}
     >
       <Icon sx={{ fontSize: ICON_SIZE.md, flexShrink: 0, color: on ? WPBL_ACCENT : 'text.disabled' }} />
       {/* THE OFFER IS BOLD, A STATUS IS NOT. "All games, 30 min early" is a thing to do and
@@ -890,8 +891,16 @@ function NextGameCard({ games, teams, onOpenGame }: {
    * Measured before the change, every text node in this card: the records were 16px/800, the
    * largest and heaviest text on it, ahead of the card's own title at 15.2/700 and the club
    * names at 14.4/600. The eye landed on "6-7" and had to work back to find out whose it was.
-   * Names are now 1.2rem/800 and the record 0.75rem/600 in disabled ink, which is the order
+   * Names are now 1.2rem/700 and the record 0.72rem/600 in secondary ink, which is the order
    * anyone reads them in.
+   *
+   * SIZE CARRIES THE HIERARCHY, NOT WEIGHT. The names were 800 until the band went full bleed,
+   * and 800 at 1.2rem across a saturated field is a poster rather than a card: heavy enough
+   * that the letterforms close up and the row reads as a block of ink before it reads as a
+   * club. 700 is the same weight as the card's own title three steps down in size, which is
+   * the point, the names are bigger than everything here and no louder than they need to be.
+   * Do not read this as a rule for the section: LastGameCard's winning club stays at 800 at a
+   * smaller size, where the weight is not decoration but the thing saying which side won.
    *
    * NO "AWAY" AND "HOME" WORDS. Two 10.9px caps per card for something the row order already
    * says, and the section has an idiom for it: away on top, "@" before the home club, which is
@@ -900,7 +909,27 @@ function NextGameCard({ games, teams, onOpenGame }: {
   const teamRow = (t: WpblTeam | undefined) => {
     const record = t ? recordOf(t.id) : null
     return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      // THE ROW WEARS THE CLUB'S COLOUR, which is the one thing this page had none of.
+      // Measured before: 2.31% of the visible page carried any saturated colour at all, and
+      // the largest coloured object on it was a 55px badge, so four clubs with real
+      // identities were told apart by a logo the size of a fingernail and nothing else. Two
+      // bands here are worth more than that on their own.
+      //
+      // BOTH ROWS, EVEN THOUGH ONE CLUB IS AT HOME. This card is a fixture and the two clubs
+      // are equals in it; Last Game tints the winner alone, because that card is a result and
+      // there the colour is carrying which way it went. Same device, two meanings, and the
+      // difference is the point rather than an inconsistency.
+      //
+      // NO RADIUS AND NO MARGIN OF ITS OWN: the two rows are cut out of one band (below), so
+      // the shape belongs to the band and each row is just a field of colour inside it. Drawn
+      // as two separate pills with a gap between them, two identically shaped tinted rects
+      // read as two unrelated chips that happen to be stacked, which is the opposite of what a
+      // fixture is.
+      <Box sx={{
+        display: 'flex', alignItems: 'center', gap: 1,
+        px: 2, py: 1,
+        bgcolor: t ? wpblSurface(t.id, isDark) : 'transparent',
+      }}>
         {t && <TeamBadge team={t} size={30} />}
         {/* NO "@", AND NOTHING IN ITS PLACE. It marked the home club, and it cost more than it
             said: inline it pushed only one of the two names (21px apart, measured), and given a
@@ -917,7 +946,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
             back to the card's right edge, which is the thing the record note underneath is
             about. */}
         <Typography noWrap sx={{
-          minWidth: 0, fontSize: TYPE_SCALE.display, fontWeight: 800, letterSpacing: '-0.2px', lineHeight: 1.15,
+          minWidth: 0, fontSize: TYPE_SCALE.display, fontWeight: 700, letterSpacing: '-0.2px', lineHeight: 1.15,
         }}>
           {t ? wpblFullName(t) : '?'}
         </Typography>
@@ -926,9 +955,13 @@ function NextGameCard({ games, teams, onOpenGame }: {
             else in it, which is what made a muted 0.75rem number look accidental rather than
             deliberate. The slack now falls to the right of the pair instead of between them.
             LastGameCard keeps its right-aligned column and should: a score is a number the eye
-            goes looking for down the edge of a card, and a record is not. */}
+            goes looking for down the edge of a card, and a record is not.
+
+            SECONDARY INK, NOT DISABLED: disabled is tuned against the card's own paper, and
+            these two numbers sit on a club tint, where a 38%-alpha grey on Firebells red at
+            95% lightness goes muddy rather than quiet. */}
         {record && (
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.disabled', flexShrink: 0 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'text.secondary', flexShrink: 0 }}>
             {record}
           </Typography>
         )}
@@ -942,10 +975,35 @@ function NextGameCard({ games, teams, onOpenGame }: {
   return (
     <SectionCard
       title="Next game"
-      /* NO SUBTITLE. It carried the date, the time and the countdown, which are now a block of
-         their own under the matchup: they are the card's second-loudest fact and the subtitle
-         is its quietest slot. The title stays because it is the card's real `h2` and the only
-         thing a screen reader has to skim the page by. */
+      /* NO SUBTITLE, and WHEN GOES IN THE ACTION SLOT INSTEAD. The subtitle is the header's
+         quietest line at 0.72rem, which is the wrong size for the only fact on this card that
+         changes; the action slot is the same baseline as the title, so "Next game" and "Today,
+         4:30 PM · in 5h 52m" read as one line rather than as a heading with a footnote. The
+         title stays because it is the card's real `h2` and the only thing a screen reader has
+         to skim the page by.
+
+         WRAPS RATHER THAN SQUEEZING THE TITLE. SectionCard's action slot does not shrink, so
+         at a large text scale on a narrow phone this would otherwise break "Next game" onto
+         two lines. Wrapping inside the slot puts the clock under the date instead, which is
+         the pair that can afford to stack. */
+      action={
+        <Box sx={{
+          display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end',
+          alignItems: 'baseline', columnGap: 0.75, rowGap: 0.2,
+        }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary' }}>
+            {dateLabel}{timeLabel ? `, ${timeLabel}` : ''}
+          </Typography>
+          <Typography sx={{
+            fontSize: TYPE_SCALE.body, fontWeight: 800, color: WPBL_ACCENT,
+            px: 0.7, py: 0.15, borderRadius: 1, lineHeight: 1.35,
+            bgcolor: alpha(WPBL_ACCENT, isDark ? 0.14 : 0.09),
+          }}>
+            <Countdown target={next.ms} />
+          </Typography>
+        </Box>
+      }
+      actionWraps
       fill
     >
       {/* Laid out as LastGameCard is, tier for tier: the two team rows, then one line at
@@ -959,40 +1017,36 @@ function NextGameCard({ games, teams, onOpenGame }: {
           which it does the first time two clubs meet. */}
       <Box {...gameLink(g, onOpenGame)} sx={{ cursor: 'pointer', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', borderRadius: 1, p: 0.5, mx: -0.5, ...TAPPABLE }}>
         {/* THE GROUPS ARE THE RHYTHM. Gaps ran 15 / 5 / 10 / 10 / 24 down the card, which is
-            five different distances and no grouping: the countdown sat the same 10px from the
-            matchup above it as from the series line below, so it belonged to neither. Now the
-            two club rows are tight (they are one fact), the clock and the series line are one
-            block about this fixture, and the rule below them opens the season context. */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            five different distances and no grouping. The two club rows are tight because they
+            are one fact; the series line stands off them because it is a different one; the
+            rule below opens the season context. */}
+        {/* ONE BAND, EDGE TO EDGE, TWO FIELDS AND A ONE-PIXEL SEAM.
+            
+            The seam is the card showing through a `gap`, not a border: two saturated tints
+            meeting edge to edge blend into a third colour along the join (Firebells red into
+            Heights blue reads purple for a pixel), and a `divider` rule there would be a third
+            colour drawn on purpose. The card's own paper between them says "two clubs" without
+            adding any ink.
+
+            FULL BLEED, because a tinted rectangle inset a few pixels inside a card is the one
+            shape that reads as an accident. It was two separate pills 6px in, then one panel
+            6px in, and at that inset a reader who is not looking for the change does not see
+            one: the tint is a soft wash, and against the card's own edge a 6px margin of paper
+            just looks like the tint failed to fill. Run to the edge it is a band, which is
+            what a broadcast graphic does with a fixture and what the eye reads as deliberate.
+            `mx: -2` is SectionCard's body padding cancelled through the clickable block's own
+            `p: 0.5, mx: -0.5`, so it lands exactly on the card's inner edge and the card's
+            `overflow: hidden` takes care of the corners.
+
+            The rows get that padding back as `px: 2` so the club names stay on the text
+            column: the whole point of the tint bleeding past the words is that it is a field
+            the row sits in, and a name that starts 10px left of the series line under it would
+            trade one accident for another. */}
+        <Box sx={CLUB_BAND}>
           {teamRow(away)}
           {teamRow(home)}
         </Box>
 
-        {/* WHEN, AND IT IS SECOND ON PURPOSE. The countdown lived in the card's subtitle at
-            11.5px, the second-smallest text on the card, which is the wrong place for the only
-            fact here that changes and the only reason to open the page again before first
-            pitch. It does not need to be large so much as it needs to come straight after the
-            matchup: a ticking number already has all the salience it needs.
-
-            The absolute time sits beside it rather than above it, because "06h 37m" and
-            "Today, 4:30 PM" are one answer to one question and were being read as two. */}
-        <Box sx={{
-          // INLINE-FLEX, so it is as wide as what it says. Full-width it measured 581px around
-          // 245px of ink on a 623px card: 336px of empty tint, which reads as a half-finished
-          // progress bar rather than as a highlight. `alignSelf` because the parent is a column
-          // and a block child would stretch again whatever `display` says.
-          display: 'inline-flex', alignSelf: 'flex-start', maxWidth: '100%',
-          alignItems: 'baseline', flexWrap: 'wrap', columnGap: 0.9, rowGap: 0.2,
-          px: 1, py: 0.55, mt: 1.5, borderRadius: 1.5,
-          bgcolor: alpha(WPBL_ACCENT, isDark ? 0.14 : 0.09),
-        }}>
-          <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, color: WPBL_ACCENT, fontVariantNumeric: 'tabular-nums' }}>
-            <Countdown target={next.ms} />
-          </Typography>
-          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary' }}>
-            {dateLabel}{timeLabel ? `, ${timeLabel}` : ''}
-          </Typography>
-        </Box>
         {/* WHICH GAME OF WHICH SERIES, in the section's one wording for it: the Schedule row
             says "Semifinal · Game 2" in the accent above the same record, and two surfaces
             describing one series two ways is worse than either wording is good.
@@ -1011,14 +1065,21 @@ function NextGameCard({ games, teams, onOpenGame }: {
             {postseason.label} · Game {postseason.gameNumber} of {postseason.bestOf}
           </Typography>
         )}
-        {/* Weight 600, not 400. This is the card's third fact, after who and when, and it was
-            set lighter than everything around it: the one line carrying the story of the
-            fixture read as the quietest thing on a card whose footer is a stat table.
+        {/* THE POSTSEASON KEEPS ITS LINE, THE REGULAR SEASON DOES NOT.
+            
+            Through the summer this line said "Season series tied 2–2 · Firebells have won 4",
+            which is true, quiet, and the same shape every night: a sentence a reader stops
+            reading after the second week, sitting between the two loudest things on the card.
+            The colour band above it now does the work it was doing, which is to say that this
+            is a fixture with a story.
 
-            Tightens under the series eyebrow, which is its own label rather than the block
-            above it: 12px from the clock, 4px from the two words naming what this line is. */}
-        {contextLine && (
-          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary', lineHeight: 1.4, mt: postseason ? 0.4 : 0.75 }}>
+            In October the same slot carries "Firebells lead 1-0 · Firebells can clinch", and
+            that is the whole reason anyone opens the card. Same component, and the postseason
+            branch of `nextGameContext` is what makes the two different: a series record IS the
+            stakes, where a season-series record is trivia. The WPBL postseason starts Sep 9,
+            2026, so this is not a hypothetical branch. */}
+        {postseason && contextLine && (
+          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary', lineHeight: 1.4, mt: 0.4 }}>
             {contextLine}
           </Typography>
         )}
@@ -1036,7 +1097,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
             It renders nothing at all until there is something to compare, so the season's
             opening days get the card as it was rather than an empty frame. */}
         {away && home && (
-          <Box sx={{ mt: 1.75, pt: 1.25, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{ mt: 1.5 }}>
             <WpblGamePreview away={away} home={home} teams={[...teams.values()]} games={games} compact />
           </Box>
         )}
@@ -1046,7 +1107,10 @@ function NextGameCard({ games, teams, onOpenGame }: {
           Compact, because the full second sentence belongs on Game Center where there is room
           and where somebody has gone looking for detail. Outside the clickable block above,
           which is all facts about the game itself. */}
-      <Box sx={{ mt: 1 }}>
+      {/* `:empty` because the note renders nothing on the ordinary day and this is a flex
+          column, where margins do not collapse: without it the card carries 8px of dead space
+          above its footer whenever the feed is behaving, which is almost always. */}
+      <Box sx={{ mt: 1, '&:empty': { display: 'none' } }}>
         <FeedDelayNote game={g} compact />
       </Box>
 
@@ -1726,9 +1790,13 @@ export function WpblHomeSkeleton() {
     <Box role="status" aria-busy="true" aria-label="Loading the Women's Pro Baseball League home page" sx={homeWideSx}>
       {/* The h1 row, and the club chips that sit beside it from sm up. Same flex, same gaps,
           so the heading lands on the pixel it is about to occupy. */}
+      {/* No margin under it on a phone, where the row has nothing left in it: the club chips
+          are already `sm`-only and the heading is now hidden there too, so 20px of margin
+          under an empty box would be the whole saving given back. */}
       <Box sx={{
         display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
-        alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 }, mb: SECTION_GAP,
+        alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 },
+        mb: { xs: 0, sm: SECTION_GAP },
       }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Skeleton variant="text" width="16rem" sx={{ fontSize: TYPE_SCALE.heading, lineHeight: 1.15, maxWidth: '100%' }} />
@@ -1981,9 +2049,13 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
     <Box sx={homeWideSx}>
       {/* Slim league header. On mobile it's just the title; on wider screens the club chips
           sit inline to the right. */}
+      {/* No margin under it on a phone, where the row has nothing left in it: the club chips
+          are already `sm`-only and the heading is now hidden there too, so 20px of margin
+          under an empty box would be the whole saving given back. */}
       <Box sx={{
         display: 'flex', flexDirection: { xs: 'column', sm: 'row' },
-        alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 }, mb: SECTION_GAP,
+        alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 },
+        mb: { xs: 0, sm: SECTION_GAP },
       }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {/* The page's one <h1>. It carries the full league name (an exact match for that
@@ -1996,7 +2068,24 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
               not make a title on this page: the heaviest ink on it is the MVP number at
               display/900 and the club names at display/800, and a title has to be in that
               conversation to win. */}
-          <Typography component={headingTag} sx={{ fontSize: TYPE_SCALE.heading, fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.15 }}>
+          {/* READ BUT NOT DRAWN ON A PHONE. Measured on a 375x812 handset, the first card
+              starts 344px down, and this line is 39px of that: 19px of type and 20px of
+              margin. What makes it the right 39px to spend is not the size, it is that a
+              phone reader has already been told twice. The toolbar carries a live MLB/WPBL
+              switch with WPBL lit, and the section nav under it reads Home / Schedule /
+              Standings / Stats / Teams, which is a league's nav and nothing else's. The
+              desktop keeps it, where it pairs with the club chips on the same row and 39px of
+              a 900px viewport is not a decision.
+
+              It stays in the DOM and in the accessibility tree, clipped rather than
+              `display: none` (see VISUALLY_HIDDEN): this is the page's one `h1`, it is an
+              exact match for the search people type for this league, and Google indexes the
+              MOBILE DOM. Deleting it, or hiding it in a way that removes it, would cost the
+              brand term. Game Center made this same call for the same reason. */}
+          <Typography component={headingTag} sx={{
+            fontSize: TYPE_SCALE.heading, fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.15,
+            ...HIDE_ON_PHONE,
+          }}>
             Women's Pro Baseball League
           </Typography>
         </Box>

@@ -45,6 +45,9 @@ const STATIC: Entry[] = [
   // Durable rather than daily: it changes when the roster does, and it is the one page here
   // that still says something after the feed stops.
   { loc: '/wpbl/league', changefreq: 'monthly', priority: '0.7' },
+  // Yearly, and that is the point of it: the rules do not move with the season, so this is
+  // one of the two pages here still worth serving in February.
+  { loc: '/wpbl/glossary', changefreq: 'yearly', priority: '0.7' },
   { loc: '/wpbl/api', changefreq: 'weekly', priority: '0.5' },
   { loc: '/privacy', changefreq: 'yearly', priority: '0.2' },
   { loc: '/terms', changefreq: 'yearly', priority: '0.2' },

@@ -34,7 +34,7 @@ import {
   type WpblView,
 } from './routes'
 import { WpblLinkProvider, useWpblGameLink } from './LinkContext'
-import { WpblHeadingOwnerProvider, useWpblHeadingTag } from './PageHeading'
+import { WpblHeadingOwnerProvider, useWpblHeadingTag, HIDE_ON_PHONE } from './PageHeading'
 import { wpblGameCard } from './ogCard'
 import { setDynamicSeo } from '../seo'
 
@@ -420,7 +420,7 @@ function ScheduleView({ teams, games, onOpenGame }: {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
       {/* The page's one <h1>: /wpbl/schedule, named for what someone would search. Demoted to
           a plain div while a game or player modal is the page; see PageHeading.tsx. */}
-      <Typography component={headingTag} sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, mb: 0.25 }}>
+      <Typography component={headingTag} sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, mb: 0.25, ...HIDE_ON_PHONE }}>
         WPBL Schedule
       </Typography>
       {lead.map(renderDate)}
@@ -473,7 +473,7 @@ function StandingsView({ teams, games, onOpenTeam }: {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
     {/* The page's one <h1>. This is /wpbl/standings, a distinct route with its own title, so
         it gets a heading that names the term someone would search ("WPBL standings"). */}
-    <Typography component={headingTag} sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+    <Typography component={headingTag} sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, ...HIDE_ON_PHONE }}>
       WPBL Standings
     </Typography>
     <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden' }}>

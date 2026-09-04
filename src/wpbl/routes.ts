@@ -319,6 +319,24 @@ export const WPBL_LEAGUE_PAGE = `${WPBL_BASE}/league`
 export const isWpblLeaguePage = (pathname: string) =>
   pathname.replace(/\/+$/, '') === WPBL_LEAGUE_PAGE
 
+// ─── The rules & glossary page ────────────────────────────────────────────────
+//
+// A sibling like the league page and not a tenant of it, which is a call worth writing down
+// because LeaguePage.tsx explicitly claims to be where "the primer, the glossary, the archive"
+// belong. That is right about the shape of the section and wrong about this one thing, for a
+// reason that is entirely about search: /wpbl/league is titled and described for where players
+// come from, and one URL cannot rank for both that and "WPBL rules". The rules are also the
+// only page here answering a question nothing else on the web does — the league does not
+// publish how a pitcher earns a win, and this page does — so burying them under someone else's
+// title spends the one thing they have going for them.
+//
+// No nav pill, same as the league page and for the same reasons: the footer is the proven
+// crawl path, and a sixth pill has to be earned from the events.
+export const WPBL_GLOSSARY_PAGE = `${WPBL_BASE}/glossary`
+
+export const isWpblGlossaryPage = (pathname: string) =>
+  pathname.replace(/\/+$/, '') === WPBL_GLOSSARY_PAGE
+
 /**
  * Fired by WpblApp after it pushes a history entry, so the shell can re-read the path.
  *

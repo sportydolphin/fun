@@ -4,8 +4,8 @@ import type { WpblGame, WpblTeam, WpblPlayer, WpblBattingLine, WpblPitchingLine,
 import { buildRecap, leagueRecapContext, type GameRecap, type RecapStar } from './derive/recap'
 import { seriesContext } from './derive/series'
 import { fetchWpblGameLines, fetchWpblGameRecapPlays } from './api'
-import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, FittedName, TAPPABLE, hoverOnly, chromePx, TYPE_SCALE } from './ui'
-import { WPBL_ACCENT, relativeDayLabel, wpblFullName } from './constants'
+import { SectionCard, TeamBadge, PlayerPortrait, CARD_BORDER, FittedName, TAPPABLE, hoverOnly, chromePx, TYPE_SCALE, useWpblDark, CLUB_BAND, cardFooterBand } from './ui'
+import { WPBL_ACCENT, relativeDayLabel, wpblFullName, wpblSurface } from './constants'
 import { GameHighlightCard } from './Highlights'
 import { linkColor, useWpblGameLink, useWpblPlayerLink, type WpblPlayerLinkProps } from './LinkContext'
 
@@ -219,6 +219,7 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
 }) {
   const gameLink = useWpblGameLink()
   const playerLink = useWpblPlayerLink()
+  const isDark = useWpblDark()
   const game = useMemo(() => latestFinal(games), [games])
   const [data, setData] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[]; plays: WpblRecapPlay[] } | null>(null)
 
@@ -267,11 +268,68 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
   const away = teams.get(game.away_team_id), home = teams.get(game.home_team_id)
   const dateLabel = relativeDayLabel(game.game_date)
 
+  // THE WINNER'S ROW WEARS HER CLUB'S COLOUR AND THE LOSER'S DOES NOT.
+  //
+  // Home's Next game card tints both of its rows, because a fixture has two equals in it.
+  // This card is a result, so the same device is spent on saying which way it went: the band
+  // is the loudest thing on the row and it is under the club that won. The weight and the ink
+  // were already carrying that on their own, which is exactly why this is safe to add — a
+  // reader who cannot see colour loses nothing that was not already said twice.
+  //
+  // THE SHAPE AND THE SCALE ARE NEXT GAME'S, and only the tinting rule differs. `CLUB_BAND` and
+  // the sizes here are the same ones that card uses (see the note on the shared shapes in
+  // ui.tsx): the two cards sit one above the other in Home's column, and a club row drawn as an
+  // inset 26px pill on one and a full-bleed 30px band on the other was two answers to a
+  // question neither card was asking. What stays different is the half that means something.
   const scoreRow = (team: WpblTeam | undefined, score: number | null, won: boolean) => team && (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <TeamBadge team={team} size={26} />
-      <Typography sx={{ flex: 1, fontSize: TYPE_SCALE.title, fontWeight: won ? 800 : 600, color: won ? 'text.primary' : 'text.secondary' }}>{wpblFullName(team)}</Typography>
-      <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: won ? 'text.primary' : 'text.secondary' }}>{score}</Typography>
+    <Box sx={{
+      display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1,
+      // The loser gets a neutral field rather than nothing. `transparent` left the band as one
+      // tinted row with a plain row under it, which reads as a highlight that stopped halfway
+      // rather than as a two-row block, and it is the one thing that still made this card's
+      // band a different object from Next game's. Colour is still the winner's alone, which is
+      // the whole of the rule; this only says the loser's row is part of the same band.
+      bgcolor: won ? wpblSurface(team.id, isDark) : (isDark ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.022)'),
+    }}>
+      <TeamBadge team={team} size={30} />
+      {/* `noWrap`, like Next game's: at a large text scale on a narrow phone "San Francisco
+          Firebells" is wider than the row minus a badge and a score, and a club name that
+          wraps onto a second line takes the row's height with it. */}
+      <Typography noWrap sx={{
+        flex: 1, minWidth: 0, fontSize: TYPE_SCALE.display, letterSpacing: '-0.2px', lineHeight: 1.15,
+        fontWeight: won ? 700 : 600, color: won ? 'text.primary' : 'text.secondary',
+      }}>{wpblFullName(team)}</Typography>
+      {/* The score keeps 800 where the name is 700. On this card the number is the point, and
+          it is the one place on either card where weight is doing work rather than decoration. */}
+      <Typography sx={{
+        fontSize: TYPE_SCALE.display, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+        lineHeight: 1.15, color: won ? 'text.primary' : 'text.secondary',
+      }}>{score}</Typography>
+    </Box>
+  )
+
+  // THE SCORE, IN THE HEADER, WHILE THE CARD IS SHUT.
+  //
+  // Collapsing this card folds the drawing and keeps the answer, and the note above says the
+  // score is "one tile up in the scoreboard either way". That is true and it is not the same
+  // thing: the scoreboard strip is a horizontal scroller of six tiles where last night's game
+  // is one of them, and a card titled "Last game" that cannot say the score is asking the
+  // reader to go and match a date against a strip to find out who won. The headline says who
+  // won in words; a reader looking for a final wants the number.
+  //
+  // Abbreviations rather than badges, because this sits beside a chevron in a header that does
+  // not grow, and two 18px logos plus two numbers is wider than the headline it would push
+  // onto a second line. Away first, matching the open card's rows and every schedule in the
+  // sport. The winner keeps full ink and the loser steps back, which is the same pair of
+  // devices `scoreRow` spends on the same job one size up.
+  const miniScore = (team: WpblTeam | undefined, score: number | null, won: boolean) => team && (
+    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.4 }}>
+      <Box component="span" sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: won ? 'text.secondary' : 'text.disabled' }}>
+        {team.abbr}
+      </Box>
+      <Box component="span" sx={{ fontSize: TYPE_SCALE.body, fontWeight: 800, color: won ? 'text.primary' : 'text.secondary' }}>
+        {score}
+      </Box>
     </Box>
   )
 
@@ -303,13 +361,23 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
       // toggles. The recap link moves to the foot of the body, which is both far from the
       // header and where a reader who has just read the blurb actually is. The desktop card
       // has no collapse and no thumb, and keeps the header action it always had.
-      action={isPhone ? undefined : (
+      //
+      // Shut, the slot carries the final instead. It is not a control, so it does not
+      // reintroduce the two-taps-in-one-header problem above: the whole header still toggles,
+      // and this is inside the part that does.
+      action={collapsed ? (
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.6, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+          {miniScore(away, game.away_score, recap.winner.id === away?.id)}
+          <Box component="span" sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled' }}>·</Box>
+          {miniScore(home, game.home_score, recap.winner.id === home?.id)}
+        </Box>
+      ) : isPhone ? undefined : (
         <Typography {...linkColor(gameLink(game, onOpenGame), 'var(--wpbl-accent-fg)')} sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 700, color: 'var(--wpbl-accent-fg)', cursor: 'pointer', ...hoverOnly({ textDecoration: 'underline' }) }}>
           Full recap
         </Typography>
       )}
     >
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mb: 1 }}>
+      <Box sx={{ ...CLUB_BAND, mb: 1.5 }}>
         {scoreRow(away, game.away_score, recap.winner.id === away?.id)}
         {scoreRow(home, game.home_score, recap.winner.id === home?.id)}
       </Box>
@@ -346,9 +414,8 @@ export function LastGameCard({ games, teams, players, onOpenGame, onOpenPlayer }
           nothing to share the row with and a wider target is a better one. */}
       {isPhone && (
         <Box {...linkColor(gameLink(game, onOpenGame), 'var(--wpbl-accent-fg)')} sx={{
-          mt: 1.25, pt: 1, borderTop: '1px solid', borderColor: 'divider',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          cursor: 'pointer', borderRadius: 1, minHeight: chromePx(28),
+          ...cardFooterBand(isDark), justifyContent: 'space-between',
+          cursor: 'pointer', minHeight: chromePx(28),
           fontSize: TYPE_SCALE.body, fontWeight: 700, color: 'var(--wpbl-accent-fg)',
           ...TAPPABLE,
         }}>

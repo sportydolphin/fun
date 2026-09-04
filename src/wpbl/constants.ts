@@ -101,6 +101,42 @@ export function wpblAccent(teamId: string | null | undefined, isDark: boolean): 
   return isDark ? c.dark : c.light
 }
 
+// Team color made safe for a LARGE TINTED FIELD: a row a name sits on, a card's header band,
+// a panel behind a score. The third of three roles, and it exists because neither of the other
+// two can do this job.
+//
+// `wpblColor` is the primary and every one of the four is near-black (BOS #00281e, LA #000000,
+// NY #091b47, SF #2d1747), which is the point when it is a badge fill and useless as a tint:
+// at the alpha a tint needs, three of them are grey and Los Angeles is literally nothing.
+// `wpblAccent` is the opposite problem. It is tuned to be READ, so every value clears 4.5:1 as
+// small text, which is exactly what you do not want behind text — a tint of it is either too
+// weak to see or too strong to write on.
+//
+// So these are hand-picked like the accents above and for the same stated reason: every
+// attempt to derive one role from another has collapsed the four clubs together. Each is the
+// club's true hue taken to a surface lightness — Boston's Hunters green rather than its orange
+// secondary, Los Angeles' gold, New York's blue, San Francisco's Firebells red rather than its
+// purple primary — so a reader who has learned the accent on a leaderboard meets the same four
+// hues here. Light variants sit at roughly 95% lightness so 24px/800 text on them stays well
+// clear of AA; dark variants are deep fields for a near-black page rather than tints of it,
+// because a 9% wash of anything on #121212 is invisible.
+//
+// PAIRWISE DISTINCT IS THE BAR, not "looks nice alone": these are drawn one above the other on
+// Home's Next game card, so green/gold/blue/red have to be told apart at a glance in a 44px
+// band, in both themes.
+const WPBL_SURFACES: Record<string, { light: string; dark: string }> = {
+  BOS: { light: '#e7f3ec', dark: '#12301f' }, // Hunters green
+  LA:  { light: '#f6efdf', dark: '#33280f' }, // Queens gold
+  NY:  { light: '#e6eff9', dark: '#102639' }, // Heights blue
+  SF:  { light: '#fbeae8', dark: '#3a1614' }, // Firebells red
+}
+const NEUTRAL_SURFACE = { light: '#f1f2f4', dark: '#26282c' }
+
+export function wpblSurface(teamId: string | null | undefined, isDark: boolean): string {
+  const c = (teamId && WPBL_SURFACES[teamId]) || NEUTRAL_SURFACE
+  return isDark ? c.dark : c.light
+}
+
 // Bundled logo asset for a team, or null (badge then falls back to the abbr).
 export function wpblLogo(teamId: string | null | undefined): string | null {
   if (!teamId) return null
@@ -206,3 +242,31 @@ export function positionRank(pos: string | null | undefined): number {
 // bundle (this module imports the logos as Vite assets, which nothing else can resolve).
 // Re-exported here because the whole section imports them from constants.
 export { outsToIp, ipToOuts, playedInnings } from './innings'
+
+/**
+ * How long until `targetMs`, in words: "in 3h 20m", "in 2d 5h", "in 14m".
+ *
+ * NO SECONDS, and that is the point. The clock used to read "05h 52m 44s" in zero-padded
+ * digits, which is a launch console rather than a fixture card: the seconds place is the only
+ * part moving, so the eye is pulled to the least useful digit on the card, and a reader who
+ * glances at it twice a day gets no more from it than "this afternoon". Dropping them also
+ * lets the caller tick once a minute instead of once a second.
+ *
+ * The leading "in" is what makes it a phrase rather than a duration, so it can sit beside the
+ * absolute time ("Today, 4:30 PM · in 5h 52m") and read as one sentence.
+ *
+ * Under a minute is "starting soon" rather than "in 0m": at that range the exact figure is
+ * wrong as often as it is right, since the feed's first pitch is a scheduled time.
+ */
+export function countdownLabel(targetMs: number, now = Date.now()): string {
+  const totalMin = Math.floor((targetMs - now) / 60000)
+  if (totalMin < 1) return 'starting soon'
+  const d = Math.floor(totalMin / 1440)
+  const h = Math.floor((totalMin % 1440) / 60)
+  const m = totalMin % 60
+  // Two units at most. "in 2d 5h 41m" is three facts to answer "roughly when", and the
+  // minutes stop mattering the moment the answer is measured in days.
+  if (d > 0) return h > 0 ? `in ${d}d ${h}h` : `in ${d}d`
+  if (h > 0) return `in ${h}h ${m}m`
+  return `in ${m}m`
+}
