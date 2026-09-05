@@ -100,8 +100,16 @@ const showInLeague = (p: WpblPlayer, subjectLines: WpblBattingLine[]) => {
   )
 }
 
-/** The game log's body rows, which is where a game is opened from. */
-const logRows = (container: HTMLElement) => Array.from(container.querySelectorAll('tbody tr'))
+/** The game log's body rows, which is where a game is opened from.
+ *
+ *  Scoped to the log's own table by its Date header, because the season line is a table now
+ *  as well and a bare `tbody tr` catches its value row. The totals row is not caught either:
+ *  it lives in a `tfoot`, which is part of why it is there. */
+const logRows = (container: HTMLElement) => {
+  const log = Array.from(container.querySelectorAll('table'))
+    .find(t => (t.querySelector('thead')?.textContent ?? '').startsWith('Date'))
+  return Array.from(log?.querySelectorAll('tbody tr') ?? [])
+}
 
 /** The role pills, in DOM order, which is what "primary role first" means. Queried in one
  *  pass: asking for pressed:false and pressed:true separately and concatenating returns the
@@ -258,100 +266,83 @@ describe('PlayerDetail: fielding', () => {
 })
 
 describe('PlayerDetail: league ranks', () => {
-  it('puts the rank beside the headline once the player clears the bar', async () => {
+  /** The season line's table: the one whose header row does not begin with Date. */
+  const lineTable = () => Array.from(document.querySelectorAll('table'))
+    .find(t => !(t.querySelector('thead')?.textContent ?? '').startsWith('Date'))
+  /** Its rank row, cell by cell, or [] when the row was not drawn at all. */
+  const rankRow = (): string[] => {
+    const rows = Array.from(lineTable()?.querySelectorAll('tbody tr') ?? [])
+    return rows.length < 2 ? [] : Array.from(rows[1].querySelectorAll('td')).map(td => td.textContent ?? '')
+  }
+
+  it('puts every rate rank under the rate it belongs to', async () => {
     lines.batting = [bat({ ab: 30, h: 12, tb: 18 })]
     show(player())
-    // A field of one: she is 1st of 1, and the population is printed rather than implied.
-    // Both hero rows carry their own rank now (OPS and AVG), which is the fix for a single
-    // floating pill that never said which stat it belonged to — so this expects several.
-    await waitFor(() => expect(screen.getAllByText('1st of 1').length).toBeGreaterThan(0))
-    expect(screen.getByText(/Against 1 qualified batters/)).toBeInTheDocument()
+    // A field of one, so she is 1st in all four. The rank sits in the cell now rather than in
+    // a strip 200px further down, and OBP and SLG are on the card in their own right instead
+    // of only inside that strip.
+    await waitFor(() => expect(screen.getAllByText('1st').length).toBeGreaterThanOrEqual(4))
+    expect(screen.getByText('OBP')).toBeInTheDocument()
+    expect(screen.getByText('SLG')).toBeInTheDocument()
   })
 
-  // Drawing a short bar for someone with four trips to the plate would claim she is bad rather
-  // than that we do not know yet. What stands in its place is progress TOWARD the bar, which is
-  // a different measurement and must never be mistaken for the percentile strip: same geometry,
-  // opposite meaning.
-  //
-  // Asserted on the RATE ROWS rather than on the block's heading, which is the change the
-  // counting strip forced. That heading is now shared by the counting block, so "the heading is
-  // absent" stopped meaning "she is not being ranked on rates" and started meaning "she leads
-  // nothing either", which is a different claim that this test was never about. OBP and SLG
-  // exist only in the percentile strip, so they are the honest witnesses.
+  // Ranking someone with four trips to the plate would claim she is bad rather than that we do
+  // not know yet. What stands in its place is progress TOWARD the bar, which is a different
+  // measurement: the rate cells are still drawn, with nothing under them.
   it('shows progress toward the bar instead of ranking a player below it', async () => {
     lines.batting = [bat({ ab: 4, h: 2, tb: 3 })]
     show(player())
     await waitFor(() => expect(battingShown()).toBe(true))
     expect(screen.getByText(/Toward qualifying/i)).toBeInTheDocument()
     expect(screen.getByText(/more PA to rank against qualified batters/i)).toBeInTheDocument()
-    expect(screen.queryByText('OBP')).not.toBeInTheDocument()
-    expect(screen.queryByText('SLG')).not.toBeInTheDocument()
+    expect(screen.queryByText('1st')).not.toBeInTheDocument()
   })
 
-  // The counting strip is the reason a below-bar card is no longer a card with no comparison
-  // anywhere on it. `RankProgress` shows the arithmetic of the refusal, which is better than
-  // the refusal, but it is still a refusal; a COUNT is not subject to the objection the bar
-  // exists for, since a short sample can only deflate one. So this player gets the meter AND a
-  // league position, and the two must be able to coexist.
+  // A COUNT is not subject to the objection the bar exists for, since a short sample can only
+  // deflate one. So a below-bar player gets the meter AND a league position, and the two have
+  // to be able to sit on one card.
+  //
+  // NO POPULATION IS ASSERTED, and there is none to assert: the card prints a bare ordinal in
+  // the cell. Two fields are in play here (the rates are ranked against the qualified, the
+  // counts against everyone who has played), and naming both was a line of small print under
+  // every table saying the same thing on every card. The band's hero pair still carries "of N"
+  // for a reader who wants a denominator.
   it('still gives a below-bar player a league position, off her counting totals', async () => {
     // Three steals in four at-bats: nowhere near qualifying, and nobody else has stolen one.
     showInLeague(player(), [bat({ ab: 4, h: 2, tb: 3, sb: 3 })])
     await waitFor(() => expect(battingShown()).toBe(true))
     expect(screen.getByText(/Toward qualifying/i)).toBeInTheDocument()
-    expect(screen.getByText(/Against the league/i)).toBeInTheDocument()
-    expect(screen.getByText(/who have played/i)).toBeInTheDocument()
+    expect(rankRow()).toContain('1st')
   })
 
-  // ONE COMPARISON BLOCK PER CARD, which is the shape this settled into after briefly being
-  // two. A qualified player's counting rows merge into the strip she already had, under its
-  // one population line; a below-bar player's are what is left of that block when there are no
-  // rate rows to merge into. Either way "Against the league" appears once, and a card never
-  // shows two strips whose headings mean the same sentence in English.
-  it('never shows two ranking blocks on one card', async () => {
-    showInLeague(player(), [bat({ ab: 4, h: 2, tb: 3, sb: 3 })])
-    await waitFor(() => expect(screen.getByText(/who have played/i)).toBeInTheDocument())
-    expect(screen.getAllByText(/^Against the league$/i)).toHaveLength(1)
-    // And exactly one population line, so the two can never disagree about the field. Anchored,
-    // because `RankProgress`'s own sentence ends "...to rank against qualified batters." and an
-    // unanchored match catches it, which is a different string saying a different thing.
-    expect(screen.queryByText(/^Against \d+ qualified batters\.$/)).not.toBeInTheDocument()
-    expect(screen.getAllByText(/^Against \d+ batters who have played\.$/)).toHaveLength(1)
-  })
-
-  // The population line is the one thing separating the two strips on a card that shows both,
-  // and they are DIFFERENT FIELDS: everyone who has played against the qualified. Worded the
-  // same way, "Against 68 qualified batters" three rows under "Against 31 qualified batters"
-  // reads as a bug in one of them rather than as two honest numbers.
-  it('does not call the counting field qualified', async () => {
-    showInLeague(player(), [bat({ ab: 4, h: 2, tb: 3, sb: 3 })])
-    await waitFor(() => expect(screen.getByText(/who have played/i)).toBeInTheDocument())
-    expect(screen.getByText(/who have played/i).textContent).not.toMatch(/qualified/i)
-  })
-
-  // Drawing an empty block for the great majority of the roster would cost every card a
-  // heading and a grey line to say nothing. Most players lead nothing; most cards must not
-  // change at all.
-  it('draws nothing for a player who leads nothing', async () => {
+  // Most of the roster leads nothing, and a rank row of blanks is a row of nothing. Anything
+  // below the top-5 bar `bestCountingRanks` measured leaves its cell empty, and a row with no
+  // cell filled is not drawn, so most cards carry no rank row and no population line at all.
+  it('draws no rank row for a player who leads nothing', async () => {
     showInLeague(player(), [bat({ ab: 4, h: 1, tb: 1 })])
     await waitFor(() => expect(battingShown()).toBe(true))
-    expect(screen.queryByText(/Against the league/i)).not.toBeInTheDocument()
+    expect(rankRow()).toEqual([])
   })
 
-  // The retraction has to reach the reader who only looks at the big number. It used to live
-  // only in the rail, a column away from a 2rem figure it was disowning, so the sample line
-  // under the hero names it too. Pinned because the two are computed in different places
-  // (`battingMeta` and `RankProgress`) off the same `ranks.qualifiers`, and a change to one
-  // that misses the other puts a card in the state this was built to end: shouting a number in
-  // one block and disowning it in another.
-  //
-  // AND THEY MUST BE THE SAME NUMBER, which is the half this test did not check and the bug it
-  // did not catch. The sample line printed the THRESHOLD and the rail printed the DISTANCE to
-  // it, both true and neither the same figure, so a player one plate appearance short of the
-  // leaderboard was told "29 PA to qualify" under her headline and "1 more PA" at the foot of
-  // the rail. Under a 2rem number the threshold reads as a quantity owed, which is why the
-  // sample line is the one that changed. Asserting on the digits rather than the wording is
-  // deliberate: the wording is free to improve, the agreement is not.
-  it('names the same shortfall on the hero sample line as in the rail', async () => {
+  // Strikeouts are the one column that must never carry a rank. Second in the league in
+  // strikeouts is not an achievement, and `WPBL_BAT_COUNT_RANK_DEFS` leaves SO out for exactly
+  // that reason; a rank printed into the cell would put it back by the side door.
+  it('never ranks strikeouts', async () => {
+    showInLeague(player(), [bat({ ab: 4, h: 1, tb: 1, so: 4, sb: 3 })])
+    await waitFor(() => expect(battingShown()).toBe(true))
+    const heads = Array.from(lineTable()?.querySelectorAll('th') ?? []).map(th => th.textContent)
+    const soAt = heads.indexOf('SO')
+    expect(soAt).toBeGreaterThan(-1)
+    expect(rankRow()[soAt] ?? '').toBe('')
+  })
+
+  // The retraction has to reach the reader who only looks at the big number, so the sample
+  // line under the rates names the gap too. Pinned because the two are computed in different
+  // places (`battingMeta` and `RankProgress`) off the same `ranks.qualifiers`, and they must be
+  // the SAME number: the sample line printed the threshold while the rail printed the distance
+  // to it, so a player one plate appearance short of the leaderboard was told "29 PA to
+  // qualify" under her headline and "1 more PA" at the foot of the rail.
+  it('names the same shortfall on the sample line as in the rail', async () => {
     lines.batting = [bat({ ab: 4, h: 2, tb: 3 })]
     show(player())
     await waitFor(() => expect(battingShown()).toBe(true))
@@ -360,6 +351,22 @@ describe('PlayerDetail: league ranks', () => {
     const gap = (el: HTMLElement, re: RegExp) => (el.textContent ?? '').match(re)?.[1]
     const inRail = screen.getByText(/more PA to rank against qualified batters/i)
     expect(gap(onHero[0], /(\d+) PA from qualifying/)).toBe(gap(inRail, /(\d+) more PA/))
+  })
+
+  // The season closes the log, in the log's own columns. A `tfoot` so it stays a summary
+  // rather than reading as a forty-first game, and the numbers are the season TOTALS rather
+  // than a re-sum of the rows above: the rows are every game she appeared in and the totals
+  // are the regular season, which is the same list today and will not be in October.
+  it('closes the game log with the season', async () => {
+    lines.batting = [bat({ game_id: 'g0', ab: 4, h: 2, tb: 3 }), bat({ game_id: 'g1', ab: 3, h: 1, tb: 1 })]
+    show(player())
+    await waitFor(() => expect(battingShown()).toBe(true))
+    const foot = document.querySelector('tfoot')
+    expect(foot).not.toBeNull()
+    const cells = Array.from(foot!.querySelectorAll('td')).map(td => td.textContent)
+    expect(cells[0]).toBe('Season')
+    // AB is the fourth column of the log (Date, Opp, POS, AB), and 4 + 3 is the season.
+    expect(cells[3]).toBe('7')
   })
 })
 
@@ -431,32 +438,38 @@ describe('PlayerDetail: the headline pair on the club band', () => {
   // phone and the club band everywhere, which makes it the one stable hook for "the band".
   const band = (c: HTMLElement) => c.querySelector('[data-sheet-drag]') as HTMLElement
 
-  it('carries the headline pair without taking it away from the pane', async () => {
+  // THE BAND CARRIES NO STATS ANY MORE, which is what the desktop rebuild cost it and what
+  // that rebuild was for. It could only ever show one role's numbers, and above `md` every
+  // role is now drawn with its own rates down the rail beside its own tables, so a band hero
+  // would either repeat the primary role's four or pick one of two and hide the other.
+  // What the band keeps is what is true of the PLAYER rather than of a role.
+  it('names the player and leaves the numbers to the pane', async () => {
     lines.batting = [bat({ ab: 30, h: 12, tb: 18 })]
     const { container } = show(player())
     await waitFor(() => expect(battingShown()).toBe(true))
 
+    expect(band(container).textContent).toContain('Test Player')
     // 12-for-30, all singles as far as the totals are concerned (`sumBatting` derives total
     // bases from the hit types rather than trusting the line's `tb`), so .400 / .400 / .400
-    // and an .800 OPS.
-    expect(band(container).textContent).toContain('.800')
-    expect(band(container).textContent).toContain('.400')
-    // And still in the pane, which is where it renders below `lg`.
-    expect(screen.getAllByText('.800').length).toBeGreaterThan(1)
+    // and an .800 OPS. It is on the card exactly once, in the pane.
+    expect(screen.getAllByText('.800')).toHaveLength(1)
+    expect(band(container).textContent).not.toContain('.800')
   })
 
-  it('follows the role tab for a two-way player', async () => {
-    lines.batting = [bat({ ab: 30, h: 12, tb: 18 })]
-    lines.pitching = [pit({ outs: 45, er: 5, h: 12, bb: 3, so: 20 })]
+  // The form strip is the one thing on the band that IS per-role, and it stays, because five
+  // recent games is a shape rather than a statistic: it says how the last week went without
+  // claiming a season total.
+  it('still follows the role tab with the form strip', async () => {
+    // Both sides well clear of the cameo thresholds, or she gets no tabs to follow.
+    lines.batting = [bat({ game_id: 'g9', ab: 30, h: 12, tb: 18 })]
+    lines.pitching = [pit({ game_id: 'g9', outs: 45, er: 5, h: 12, bb: 3, so: 20 })]
     const { container } = show(player({ position: 'RHP, UTL' }))
     await waitFor(() => expect(pitchingShown()).toBe(true))
 
-    expect(band(container).textContent).toContain('ERA')
-    expect(band(container).textContent).not.toContain('OPS')
-
+    expect(band(container).textContent).toContain('IP')
     fireEvent.click(rolePills().find(p => p.textContent === 'Batting')!)
-    await waitFor(() => expect(band(container).textContent).toContain('OPS'))
-    expect(band(container).textContent).not.toContain('ERA')
+    await waitFor(() => expect(band(container).textContent).toContain('H-AB'))
+    expect(band(container).textContent).not.toContain('IP')
   })
 
   // A defensive-only cameo has no batting line, so the pane's totals are all zeros. Putting a
@@ -473,6 +486,33 @@ describe('PlayerDetail: the headline pair on the club band', () => {
 // The game log is the only place on the page that names an individual game, and until Aug 25,
 // 2026 it was the only place naming one that could not be opened.
 describe('PlayerDetail: the game log', () => {
+  // The log is the tallest block on the card and the only one that grows on its own, so it
+  // opens on five games with the rest behind a control. Two things have to hold besides the
+  // count: the season row keeps summing the SEASON rather than the five on screen, and the
+  // control names how much more there is, since that is the question a reader is asking before
+  // they decide to tap it.
+  it('opens on five games and expands to the whole season', async () => {
+    lines.batting = GAMES.map(g => bat({ game_id: g.id, ab: 2, h: 1, tb: 1 }))
+    const { container } = show(player())
+    await waitFor(() => expect(logRows(container)).toHaveLength(5))
+
+    const foot = container.querySelector('tfoot')
+    expect(Array.from(foot!.querySelectorAll('td')).map(td => td.textContent)[3]).toBe('20')
+
+    fireEvent.click(screen.getByRole('button', { name: /show 5 more games/i }))
+    expect(logRows(container)).toHaveLength(10)
+    expect(screen.queryByRole('button', { name: /show \d+ more/i })).not.toBeInTheDocument()
+  })
+
+  // A log that fits gets no control at all: a button that expands nothing is worse than no
+  // button, and most pitching logs are shorter than the preview.
+  it('draws no control for a log that already fits', async () => {
+    lines.batting = [bat({ game_id: 'g0', ab: 4, h: 2, tb: 3 }), bat({ game_id: 'g1', ab: 3, h: 1, tb: 1 })]
+    show(player())
+    await waitFor(() => expect(battingShown()).toBe(true))
+    expect(screen.queryByRole('button', { name: /show \d+ more/i })).not.toBeInTheDocument()
+  })
+
   it('opens the game a row is about', async () => {
     lines.batting = [bat({ game_id: 'g3', ab: 4, h: 2, tb: 3 })]
     const onOpenGame = vi.fn()

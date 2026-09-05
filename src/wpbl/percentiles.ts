@@ -162,8 +162,7 @@ export const COUNT_RANK_BAR = 5
 export const COUNT_RANK_ROWS = 2
 /** And a field big enough for "5th in the league" to mean anything. An absolute bar of 5 says
  *  nothing on its own: in a field of six it is next to last, and in a field of one it makes a
- *  player who has taken four at-bats the league leader in hits. The same reasoning, and nearly
- *  the same number, as `notable()` in derive/playerSummary.ts. The live fields are 68 batters
+ *  player who has taken four at-bats the league leader in hits. The live fields are 68 batters
  *  and 38 pitchers, so this only ever fires early in a season or in a test fixture, which is
  *  exactly when a card would otherwise make its most confident wrong claim. */
 export const COUNT_RANK_MIN_FIELD = 10

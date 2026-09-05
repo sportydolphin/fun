@@ -1717,7 +1717,7 @@ export function AccentPanel({ label, summary, meta, accent, defaultOpen = false,
           ].filter(Boolean).join('. ') + '.',
         } : {})}
         sx={{
-          display: 'flex', alignItems: 'baseline', gap: 1.25, px: 1.5, py: 1,
+          display: 'flex', alignItems: 'baseline', gap: 1, px: 1.5, py: 1,
           // ORDER MATTERS AND IT IS NOT OBVIOUS. A shorthand `borderColor` would repaint the
           // left edge too, so the club's rule came out the divider's grey and the panel lost
           // the only thing tying it to the team. The long-hand bottom colour leaves the left
@@ -1739,7 +1739,23 @@ export function AccentPanel({ label, summary, meta, accent, defaultOpen = false,
           </Typography>
         )}
         {meta != null && (
-          <Typography component="div" sx={{ ml: 'auto', pl: 1, fontSize: '0.7rem', fontWeight: 700, letterSpacing: 0.3, color: 'text.disabled', flexShrink: 0 }}>
+          /* THE META GIVES WAY FIRST, and that is the whole of why it carries a shrink factor
+             rather than the `flexShrink: 0` it used to. On a 375px phone this row is about
+             twelve pixels wider than the space it has once the fielding line is in it, so it
+             wrapped, and what wrapped was the SUMMARY: the value split across two lines while
+             the scope note beside it kept every pixel of "CF, P". The summary is the row's
+             content and the meta is a caption on it, so the caption is the one that should be
+             squeezed. An absurd shrink factor rather than a bigger one because flex shares a
+             deficit in proportion to base size times factor, and the intent here is not "shrink
+             it more", it is "take all of it from this one".
+             It ellipsizes rather than wrapping for the same reason: a caption clipped to
+             "CF…" still says which positions these numbers cover, and it is already an
+             abbreviation of a longer list (see FieldingLine). The summary never truncates. */
+          <Typography component="div" sx={{
+            ml: 'auto', pl: 1, fontSize: '0.7rem', fontWeight: 700, letterSpacing: 0.3,
+            color: 'text.disabled', flexShrink: 1000000, minWidth: 0,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
             {meta}
           </Typography>
         )}

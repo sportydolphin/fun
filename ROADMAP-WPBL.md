@@ -952,6 +952,56 @@ is retired.
 
 ## Shipped log
 
+### Sep 5, 2026: the player card is one table, and the desktop stops paying for a rail
+
+**The card said one season in four shapes.** A line of English, a wrapping grid of labelled
+chips, a percentile strip and a counting strip, each restating numbers the others already had.
+It is a season line now: a table with a header row, a figure row and a rank row, in the order
+every fan has read a box score in since childhood. The rank row is what let the percentile strip
+go, because a rank has always been a fact about ONE number and it was being drawn 200px below the
+number it belonged to. `derive/playerSummary.ts` and its test came out with the sentence.
+
+**The desktop was spending a quarter of the card on an empty column.** Above `md` the rates read
+DOWN a left rail beside the tables, and everything else had moved out from under it. Measured in
+the 1100px dialog: pitching was a 507x149 block beside a 517x529 table, batting 424x215 beside
+600x443, and a two-way player got two of them. The rail could not be narrowed either, because the
+game log takes its natural width first and the rail takes the remainder, so the SHORTER the log
+the WIDER the void. A pitcher, who has the least to say, got the emptiest card.
+
+**So the rates are the season line's own first four columns.** One header row, one figure row,
+one rank row, one caption over all of it, and no second grid left to fall out of alignment with:
+side by side the two blocks had the caption over only one of them and set their figures at
+different sizes, so the three rows that mean the same thing in both landed on lines of their own.
+That is also the conventional shape. Every standard batting line ever printed carries the rates
+and the counts under one header; the only liberty here is that the rates come first, because on
+this card they are the headline rather than the summary. Measured after: the widest block is the
+merged batting line at 666px and the batting log at 600, both comfortably inside the 1054 the
+dialog leaves, so nothing on the card scrolls sideways at any desktop width.
+
+**The type scale lost a step, from six to five.** DISPLAY sat over HERO so the one stat the pane
+is named for came a size above the three beside it, which was right when the rates were a block of
+their own and wrong the moment they became columns: it put three sizes in a single row of numbers
+and a reader met a hierarchy the row does not have. Which rate is doing well is already said
+twice, by the rank under it and by the club's colour on it, so size in that row now carries one
+distinction and only one, a rate is not a count.
+
+**Two things the rail layout had quietly dropped are back.** It never rendered the cameo block or
+the qualifying meter above `md` at all, so a desktop reader of a below-the-bar player met four
+unranked rates and no word about why, and a two-way cameo lost the line saying she had also
+pitched. Both are capped to a reading measure, since everything else on the card now spans.
+
+**And the phone's pane is flattened to the single column it actually renders.** It carried a full
+`md` two-column arrangement, every line of it unreachable since `wide` and MUI's `md` are the same
+900px, describing a rail the card no longer has. A layout that cannot render is worse than no
+layout: it is the first thing the next reader finds when they go looking for how the desktop
+works. `LEFT_RAIL` went with it, and the dialog's 880 no longer answers to anything but room.
+
+The phone is otherwise untouched and keeps its four-across rate strip, because seventeen columns
+do not fit 375px. One consequence worth recording: **the form strip is now the binding case for
+`BAND_WASH`**, having taken the band hero's place at the end of the band, 74% to 96% along the
+wash instead of stopping inside 80%. Re-measured there, its 0.72 label clears 4.72 to 4.77 on the
+four clubs, so the four wash values still hold, with nothing to spare below 0.72.
+
 ### Sep 4, 2026: four polls, one policy, and a countdown that stopped claiming things
 
 **Prompted by a live game the site was said not to be showing, which it was.** The check is
