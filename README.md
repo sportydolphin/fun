@@ -44,6 +44,7 @@ npm run substack-sync -- --dry-run    # the Substack mirror, without writing
 npm run commons-sync -- --dry-run     # the Wikimedia Commons photo sync (rows land unapproved)
 npm run retro-sync -- --dry-run       # RetroWPBL per-game facts (first pitch, length, crew, weather)
 npm run tracking-watch -- --status    # is the league publishing TrackMan again?
+npm run probe-tracking                # is there any public route left to the tracking the league withholds?
 ```
 
 ### Testing auth links locally
@@ -102,6 +103,7 @@ files are the already-applied baseline.
 - [docs/PUSH_NOTIFICATIONS.md](docs/PUSH_NOTIFICATIONS.md): Web Push setup + the MLB and WPBL reminder senders
 - [docs/DISCORD.md](docs/DISCORD.md): the WPBL fan-server integrations: the watch-party board, the box score posted when a game goes final, the highlight reels, and the `/player` bot
 - [docs/PLAY_VALIDATION.md](docs/PLAY_VALIDATION.md): finding the league's scoring errors against the rules of baseball, the nightly check, and our read-time play corrections
+- [docs/TRACKMAN.md](docs/TRACKMAN.md): the league's pitch-tracking endpoints closed on Sep 1, 2026 with 2 of 25 finals captured. Where the rest might still be, what has already been searched, and the one email worth sending
 - [docs/ADMIN_ANALYTICS.md](docs/ADMIN_ANALYTICS.md): the owner dashboard at `/admin`
 - [docs/ANDROID.md](docs/ANDROID.md): shipping the site on Google Play as a Trusted Web Activity: what is built, the Windows build traps, and why the launcher app is not Capacitor
 - [docs/IOS.md](docs/IOS.md): the App Store plan, which is a much bigger job than Android: no TWA on iOS, so Google sign-in and push both have to be rebuilt. Nothing exists yet but the Universal Links file
