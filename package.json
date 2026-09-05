@@ -37,6 +37,7 @@
     "restock-watch": "node --env-file=.env scripts/watch-wpbl-restock.mjs",
     "commons-sync": "node --env-file=.env scripts/sync-wpbl-commons.mjs",
     "tracking-watch": "node --env-file=.env scripts/watch-wpbl-tracking.mjs",
+    "probe-tracking": "node --env-file-if-exists=.env scripts/probe-wpbl-tracking.mjs",
     "retro-sync": "node --env-file=.env scripts/sync-wpbl-retro.mjs",
     "mentions-watch": "node --env-file=.env scripts/watch-wpbl-mentions.mjs",
     "bluesky-recaps": "esbuild scripts/post-wpbl-bluesky-recaps.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-bluesky-recaps.mjs && node --env-file-if-exists=.env node_modules/.cache/wpbl-bluesky-recaps.mjs"
