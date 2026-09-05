@@ -4,15 +4,17 @@
 > Companion doc: **[ROADMAP.md](ROADMAP.md)**: the MLB section, which runs on its own
 > calendar and its own priorities. Nothing here blocks anything there.
 > Tags: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra
-> Last checked against production: **Sep 1, 2026** (25 of 30 regular-season games final, 5 left,
-> and the feed carries no postseason row yet; the clock below is counted from the live schedule,
+> Last checked against production: **Sep 5, 2026** (28 of 30 regular-season games final, 2 left,
+> and the feed still carries no postseason row; the clock below is counted from the live schedule,
 > not from memory).
 > Last realigned: **Sep 1, 2026**, when the desktop rebuild (#0) finished and shipped as v1.58.0,
 > which empties the top of the list five days before the regular season ends. Before that
 > **Aug 20, 2026**, against traffic data for the first time (see "What the traffic says"), revised
-> again later the same day when 1b turned out not to be blocked (see its entry). The bracket came
-> out from behind the experiments flag and is live for everyone; the seeding race is still behind
-> it; before that Aug 17, 2026. Teams tab, Settings and an accessibility pass shipped
+> again later the same day when 1b turned out not to be blocked (see its entry). The bracket and
+> the seeding race are both out from behind the experiments flag now and live for everyone (the
+> race came off on Sep 1, v1.59.0), which leaves the flag holding two things: the steal card on
+> Findings, and the mobile bottom nav.
+> Before that Aug 17, 2026. Teams tab, Settings and an accessibility pass shipped
 > as v1.45.0 (see the shipped log); favourite-team + theming remains built and parked (see
 > "Parked, with reasons"); before that, split out of `ROADMAP.md` and reprioritized around
 > the season clock (see the realignment log at the end).
@@ -21,11 +23,11 @@
 
 ## The clock: read this before prioritizing anything
 
-**5 games left. The last regular-season game is Sep 6, 2026, five days out, and the postseason
-runs Sep 9 to Sep 22** (schedule in Background, below). Then the league's feed goes quiet and
-this section has no new data until spring 2027.
+**2 games left: tonight and Sep 6. The last regular-season game is Sep 6, 2026, tomorrow, and
+the postseason runs Sep 9 to Sep 22** (schedule in Background, below). Then the league's feed
+goes quiet and this section has no new data until spring 2027.
 
-**As of Sep 1 the mirror holds 30 rows and every one of them reads `game_type: regular`,
+**As of Sep 5 the mirror holds 30 rows and every one of them reads `game_type: regular`,
 `counts_in_standings: true`.** No postseason game exists in the feed yet, so the one dependency
 #1 and #1b both isolate is still unanswered, and it stays unanswered until the semifinals appear
 (the dates were published, the seeds are not set until Sep 6). Two things follow. Anything that
@@ -42,7 +44,7 @@ worth finishing; one that misses Sep 22 is a year late.
 That single fact should grade every item below:
 
 - **Season-locked**: needs live games to be worth building, and has three weeks to earn its
-  keep, of which only five days still have regular-season baseball in them. Build it now or
+  keep, of which only two days still have regular-season baseball in them. Build it now or
   lose a year.
 - **Durable**: still worth something on Oct 1. Safe to build late, but the *data* some of
   it needs must be captured while the season is running.
@@ -65,7 +67,11 @@ results, opponent splits, season totals, leaders, roster with inline stats, line
 and pitching-usage grids, all under a pinned club switcher) · Game Center (recap, with a win
 probability graph any moment of the game can be read off, box score, play-by-play, pitch data) ·
 Player pages at `/wpbl/players/<slug>` (batting/pitching/fielding cards, game log,
-pitch-location maps, shareable links that unfurl) · search · live polling · push reminders · a fan Discord integration
+pitch-location maps, shareable links that unfurl) ·
+two standalone pages off the footer rather than the nav: `/wpbl/league` (the primer, where the
+118 players come from, the media shelf) and `/wpbl/glossary` (the rules and the stat
+definitions) ·
+search · live polling · push reminders · a fan Discord integration
 (board, final-score box scores, YouTube highlight reels and Shorts, `/player` slash command,
 giveaway draw, shop restock and auction-lot watchers).
 
@@ -593,13 +599,23 @@ working that list is the item. Also open and cheap: `www.sportydolphin.fun` is N
 Indexing lag is measured in weeks and search volume for "WPBL standings / stats / roster"
 collapses after Sep 22, so the send-the-emails half is the part with a deadline.
 
-### 4. League primer + stat glossary 🎯: *cheap, overdue, and feeds #3*
+### 4. League primer + stat glossary 🎯: ✅ **both halves shipped**
+
+✅ *the primer as `/wpbl/league` on Aug 27, 2026 (v1.52.1) and the glossary as
+`/wpbl/glossary` on Sep 4, 2026 (v1.64.0): see the log for each. Nothing is left in this item;
+it stays here because #3 was written to feed off it.*
 
 A short "what is the WPBL" explainer (four teams, one hub venue at Robin Roberts Stadium
 in Springfield IL, inaugural Aug–Sep 2026, seven-inning games, link to the official site)
 plus a glossary of the stat abbreviations. Every visitor to a brand-new league is a
 first-time visitor. Doubles as indexable prose, which the section currently has almost
 none of.
+
+**They shipped as two sibling pages rather than one, which was not the plan here.** One URL
+cannot rank for both "where the WPBL players came from" and "WPBL rules", and burying the rules
+under the primer's title spends the only thing the rules page has going for it: it is the one
+page on this site answering a question with no other answer anywhere on the web, because the
+league does not publish how a pitcher earns a win or why an inning ended the way it did.
 
 ### 5. Daily standouts: Home card 🎯: ❌ **dropped Sep 1, 2026. It is a card the section already has**
 
@@ -1064,6 +1080,142 @@ read. Wrong by at most one poll, and self-correcting on the next.
 
 `foregroundInterval.test.tsx` pins all nine behaviours including the bfcache restore and the
 event pile-up; `scheduleLastGood.test.ts` pins the empty-read guard.
+
+### Sep 4, 2026: a game that had ended stayed live, and a club's second visit cost full price
+
+The tail of v1.66.0, alongside the bfcache work above.
+
+**A game that had ended stayed live, because nobody at the league set a field.** On Sep 4 the
+feed left SF at NY at `In Progress - Top of 7th` with the row still being written every two
+minutes: three outs recorded, the home side up 14-2, the last out already in the play log. The
+section showed it as live indefinitely, with a pulsing dot, a poll running against it, and its
+box score kept out of the standings and out of every season total. Nothing was broken and
+nothing was going to fix itself, because the league's `status` is a field somebody has to set.
+
+The new `gameOver.ts` decides for itself off `live_state`. Four properties are the whole design
+and each is load-bearing: it moves a row **only live to final, never the reverse**, so the worst
+case is a game called a few minutes early rather than a stored result contradicted by an
+inference; it is a **read-time overlay** that must never be written back, because the ingest's
+`active` pass skips a stored final and marking it final in the mirror would stop us re-reading
+the league's own final and its later score corrections; it is **self-correcting**, recomputed on
+every read, so a state that stops proving the game is over un-calls it on the next poll; and it
+is **pure and clockless**, because "it has been quiet for twenty minutes" would make the same
+game final or not depending on when you asked, and cannot tell a finished game from a rain delay
+in the 4th. `feedHealth` deliberately does not cover this: it answers "why is nothing arriving",
+and here everything was arriving and the row was simply wrong.
+
+**The second visit to a club cost exactly as much as the first.** The team rail is four buttons
+whose whole job is to be tapped back and forth, and every tap refetched that club's roster,
+lineup history and pitching usage. The bulk league-wide reads had a session cache and the
+per-entity ones never got one. Same for a player card, which is worse, because that card is
+reached from a leaderboard: twenty things to open, close and open again, and it is the section's
+retention event. `keyedCache` in `api.ts` is the bulk caches' contract keyed by entity id, and
+both callers seed **during render**, because seeding in an effect still gives you one frame of
+empty and one frame of empty is a flash. The card needed a second fix the rail did not: it is a
+modal, so reopening the same player is a fresh mount rather than a prop change, and the initial
+state itself has to come from the cache.
+
+**What must not be cached is swept for and written down beside the helper.** Every remaining
+per-entity read is a game's and all of them are out. `fetchWpblGameLines` looks like the obvious
+next one and is the trap: Game Center polls it every 15s AND re-reads it from a realtime
+subscription against a 20s window, so a run would score, the change event would fire, and the
+box score would sit still. Game Center already solves reopening with its own `gameCache` holding
+the assembled view, which is the right layer.
+
+**The Contact axis was two parts in five counting at-bats with no swing** (v1.65.0). It was a
+club's strikeout rate, and 38.2% of strikeouts in this league are called, with no swing taken.
+The share is not even constant across the clubs it compares (31.5% Boston to 43.6% San
+Francisco), so the contamination was itself a variable, and what it picked up instead was plate
+approach, which is what Eye measures one spoke over. It is **whiff rate** now, swings and misses
+over swings, so every term is a swing and taking a pitch cannot enter it. The old note defended
+K% on spread and that defence did not survive measurement: whiff% separates the four clubs
+better (50.1% relative spread against 41.3%) as well as measuring the thing the spoke is named
+after. Two guards worth keeping: `teamSpecs` takes the plays as a **required** argument, since
+optional would let a caller draw a chart with one axis silently pinned; and a club with no
+swings scores zero, which on a lower-is-better axis is the OUTERMOST spoke, so a half-failed
+read would have looked like a club untouchable at the one thing we could not measure.
+
+**And the leader board was spending a neighbour's recap length on the gaps between names.**
+Leaders is the short card in a row whose height is set by Last game, and Last game breathes with
+how long its recap runs, so all of that difference reached the board as free space and
+`space-between` shared it out: 68px across four gaps, five names 17px apart, reading as a list
+coming apart. A sixth leader spends 32px of that on content instead of air (and on one more real
+`<a href>` out of Home), the jolt-reserve moves to rem so it stops reserving 152px for a board
+that is really 187 at the desktop scale, and **the gaps now cap at 0.5rem** with the remainder
+pooling under the board, which is the part that keeps the next three-line recap from reopening
+it.
+
+### Sep 4, 2026: the rules page, and two fixture cards that had drifted into two design systems
+
+v1.64.0. Two threads, both about a reader who has just arrived.
+
+**`/wpbl/glossary` is the half of item #4 nothing else on the web covers.** The league does not
+publish how a pitcher earns a win, or why an inning ended the way it did, so this is the one
+page here answering a question that has no other answer. It is a **sibling** of `/wpbl/league`
+rather than a section of it, which was not what item #4 assumed: one URL cannot rank for both
+"where the players came from" and "WPBL rules", and burying the rules under the primer's title
+spends the only thing they have going for them. Footer link, no sixth nav pill, because a pill
+has to be earned from the events. The stat definitions came out of `PlayerDetail` on the way,
+since that page was the only surface in the section that could explain a column while Home,
+StatsView and Game Center all draw the same abbreviations. `glossary.ts` is now the single
+source for all four.
+
+**Home's two fixture cards had become two design systems on one page**: club rows as a
+full-bleed colour band on Next game and inset pills on Last game, a footer as a shaded band on
+one and a hairline plus a link on the other. None of that carried meaning, which is what made
+the pair read as an accident. Both shapes live in `ui.tsx` now with the reasoning attached, and
+the differences that DO mean something are kept and are all content: a fixture tints both clubs
+because it has two equals in it, a result tints only the winner.
+
+Three things worth knowing if any of this is undone:
+
+- **The countdown's minute granularity is the point**, not a simplification. `countdownLabel()`
+  lets the card tick once every 15s instead of 60 times a minute to repaint the same string.
+- **Next game's context line renders in the POSTSEASON only.** In the summer it said "Season
+  series tied 2-2" every night; in October the same slot says "Firebells lead 1-0, Firebells can
+  clinch", which is the reason anyone opens the card. That branch goes live Sep 9.
+- **The tab headings hidden on phones are CLIPPED, never `display:none`.** They are the pages'
+  only h1s, they are exact matches for what people search, and Google indexes the mobile DOM.
+  `HIDE_ON_PHONE` carries the rule about which headings may use it: not a club's page, not the
+  glossary, because those name something the nav does not.
+
+### Sep 4, 2026: half the games threw their row away at first pitch
+
+v1.63.0, and the most consequential of the four because it DELETES rows.
+
+**The feed publishes each game twice, once tagged Eastern and once Central.** Before first pitch
+both read "Not Started", so `played` and `hasTeams` tied on every pair and the whole decision
+fell through to the game id, which is a coin flip. Replayed over the season it landed wrong on
+**12 of 25 pairs**: the row was deleted at first pitch and rebuilt under a new uuid, taking
+everything keyed to the old one with it, including a reminder opt-in and an open `/predict`
+round. Nor was it a fair coin going forward, since the schedule ships Eastern-tagged in July and
+the Central copy is minted on the day, so every unplayed game in the mirror was sitting on the
+copy that would lose.
+
+The league plays every game in Central at one venue and publishes results against the
+Central-tagged copy: 24 of the 25 pairs were played on it. That goes in **below** `played`,
+which is evidence rather than a guess, and the ordering is what bounds the risk. On the one pair
+where the zone tag pointed at the wrong copy (opening day) the result is the swap that used to
+happen anyway, and it can never drop a played copy for an unplayed one. Same replay: 12 rebuilt,
+now 3, all three where the tags say nothing.
+
+**The rule moved to `games.ts`** so it can be pinned from the app's runner
+(`ingestTwins.test.ts`), for the reason `names.ts` exists: it deletes rows, and `index.ts` is
+Deno-only.
+
+**Also: the late-TrackMan backfill now looks once an hour, not once a pass.** It re-fetches
+every final under 21 days old that still has no tracking rows, and it had no memory, so it
+re-asked every two minutes forever. The league published tracking for Aug 1 and Aug 2 and none
+since, so it was re-reading 17 games 30 times an hour, a box score and a paged activity call
+each: around **24,000 requests a day** to the league's API and 1.2M row upserts, for data that
+had not existed for a month. `scripts/wpbl_cron.sql` still said finished games stop costing
+anything; this is what made that untrue. `wpbl_games.tracking_checked_at` is the memory, and the
+stamp rides the update the fetch was already making, so a game that has just gone final is fresh
+and is not re-read on the next pass.
+
+**And a typo in a staged lineup left the league two Suzu Narasakis**, folded back together with
+`wpbl_merge_players`. The name rules cannot catch this one: it is a misspelling in the source,
+not a trade, which is why that function exists.
 
 ### Sep 3, 2026: the Scoreboard stops being a season in a 1,260px window
 

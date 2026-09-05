@@ -102,6 +102,7 @@ flowchart LR
         wpbl["/wpbl + /wpbl/{schedule,standings,stats,teams}<br/>wpbl/WpblApp.tsx"]
         wplayers["/wpbl/players<br/>+ /wpbl/players/&lt;slug&gt;"]
         wleague["/wpbl/league<br/>LeaguePage.tsx + MediaShelf"]
+        wgloss["/wpbl/glossary<br/>GlossaryPage.tsx + glossary.ts"]
         wgames["/wpbl/games/&lt;date&gt;-&lt;away&gt;-at-&lt;home&gt;"]
         api["/wpbl/api<br/>wpbl/ApiDocs.tsx"]
     end
@@ -126,7 +127,7 @@ flowchart LR
 
     root["/"] -->|redirect| wpbl
     wpbl --> wtabs["Tabs (SwipeableViews), one PATH each:<br/>Home · Schedule · Standings · Stats · Teams"]
-    wtabs --> wstats["Stats sub-boards:<br/>Players · Teams · Pitch by pitch · Run value (experiments only) ·<br/>Tracked (hidden until radar returns) · Draft"]
+    wtabs --> wstats["Stats sub-boards:<br/>Players · Teams · Pitch by pitch · Run value ·<br/>Tracked (hidden until radar returns) · Draft"]
     wpbl --> wplayers
     mlb --> mtabs["Stat-card maker · predictions ·<br/>survivor · standings · playoff odds ·<br/>streaks · milestones"]
 ```
@@ -156,9 +157,11 @@ flowchart LR
 - **The WPBL derive layer** ([`src/wpbl/derive/`](src/wpbl/derive)) is pure: arrays in, plain
   shapes out, no supabase and no React, so the same code serves the site, the Discord posters
   and the Deno ingest. `playByPlay` (parse a play, `runsOnPlay`), `runExpectancy` (the league's
-  own run-expectancy table and what each play was worth: **in the tree, deliberately not yet
-  behind the experiments switch**), `firsts`, `recap` / `discordRecap`,
-  `predictions`, `trivia`, `bracket`, `seeding`, `pitches`, `matchups`, `mvpRace`, `feedHealth`.
+  own run-expectancy table and what each play was worth) and `winProbability` built on it,
+  `recap` / `discordRecap` / `blueskyRecap` / `discordBirthdays`, `predictions`, `trivia`,
+  `bracket`, `seeding`, `series` / `seriesOdds`, `pitches`, `pitchingUsage`, `lineupGrid`,
+  `matchups`, `mvpRace`, `teamSpec`, `hometowns`, `articles`, `feedHealth`. **`firsts` is not in
+  this folder**: the Hall of Firsts lives at [`src/wpbl/firsts.ts`](src/wpbl/firsts.ts).
 - **Settings** ([`src/SettingsDialog.tsx`](src/SettingsDialog.tsx)) is split by league, with
   a WPBL / MLB switch seeded from the section the reader came from, so a WPBL-only visitor
   never scrolls past thirty MLB crests. Account, accessibility, app and danger-zone settings
@@ -318,7 +321,21 @@ sequenceDiagram
 
 - **Modes:** `active` (default: only games not yet `final`), `all` (full backfill),
   `gameId` (one game), `force` (re-pull finals for corrections).
-- **Idempotent** → safe to run every 2 minutes; finished games stop costing anything.
+- **Idempotent** → safe to run every 2 minutes. A stored final is otherwise never re-read, so
+  the only thing a finished game still costs is the **late-TrackMan backfill**: finals under 21
+  days old with no tracking rows get their box score re-fetched, because the league reconciles
+  TrackMan in batches that land days after a game. That gate had no memory until Sep 4, 2026 and
+  so re-asked every two minutes forever, which by then was ~24,000 requests a day to the league
+  for data that had not existed for a month. `wpbl_games.tracking_checked_at` now records when
+  we last looked, and the stamp rides the update the fetch was already making, so it is **once
+  an hour per game**. Anything that widens the set of finals the pass touches has to reckon with
+  the same arithmetic.
+- **Two rule modules sit outside `index.ts`, and both of them DELETE rows**, which is why they
+  are dependency-free and pinned from the app's own test runner rather than living in a file
+  only Deno can load: [`names.ts`](supabase/functions/wpbl-ingest/names.ts) (is this the same
+  person, and did she change club) and [`games.ts`](supabase/functions/wpbl-ingest/games.ts)
+  (`bestTwin`: which copy of a duplicated game to keep; the feed publishes every game twice,
+  once tagged Eastern and once Central, and the losing copy's row is deleted).
 
 ---
 
@@ -573,8 +590,8 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - DB schema → baseline [`scripts/*.sql`](scripts) · new changes [`scripts/migrations/`](scripts/migrations) via [`scripts/migrate.mjs`](scripts/migrate.mjs)
 - Cron → [`.github/workflows/`](.github/workflows) + [`scripts/wpbl_cron.sql`](scripts/wpbl_cron.sql)
 - Discord (board + box scores + the `/predict` game) → [`docs/DISCORD.md`](docs/DISCORD.md)
-- Win probability through a game, and what each play did to it (the chart and the "swing of the game" line on Game Center's Recap tab, **behind the experiments switch**) → [`src/wpbl/derive/winProbability.ts`](src/wpbl/derive/winProbability.ts), drawn by [`src/wpbl/WinProbView.tsx`](src/wpbl/WinProbView.tsx). It looks nothing up: the run-expectancy cells carry a run histogram as well as a mean, and win probability falls out of convolving those backwards from the last out. Team-neutral by construction, and measured on 263 half-innings, both of which the card says on its face
-- What a situation is worth, and what each play was worth (the Run value board on Stats, **behind the experiments switch while it settles**) → [`src/wpbl/derive/runExpectancy.ts`](src/wpbl/derive/runExpectancy.ts), drawn by [`src/wpbl/RunValueView.tsx`](src/wpbl/RunValueView.tsx). The table is built from THIS league's plays, never a borrowed major-league one: the WPBL scores ~15 runs a game over seven innings, so every state is worth roughly double. Two boards draw it: the Run value leaderboard, and the Findings card "What every kind of play is worth" ([`src/wpbl/FindingsView.tsx`](src/wpbl/FindingsView.tsx)). **The explanation lives on Run value and only there**: one shut card, three steps (a situation is worth something, with the 24-cell grid as its evidence; a play is worth what it changed, with the formula as three named terms; one real play, with those same terms as a ledger), then the caveats. It used to be split across both boards with neither half whole and neither mentioning the other, so Findings now links across instead of carrying a second copy, and the link opens the card. The example is CHOSEN by `workedExample()` (the play nearest its own event's average) rather than written down, because the table moves with every ingest and pasted numbers would silently stop matching it. The ledger's total is the sum of its own rounded terms rather than the rounded true value, so the column a reader is invited to check actually adds up
+- Win probability through a game, and what each play did to it (the chart and the "swing of the game" line on Game Center's Recap tab, live for everyone since v1.48.1, Aug 23, 2026) → [`src/wpbl/derive/winProbability.ts`](src/wpbl/derive/winProbability.ts), drawn by [`src/wpbl/WinProbView.tsx`](src/wpbl/WinProbView.tsx). It looks nothing up: the run-expectancy cells carry a run histogram as well as a mean, and win probability falls out of convolving those backwards from the last out. Team-neutral by construction, and measured on 263 half-innings, both of which the card says on its face
+- What a situation is worth, and what each play was worth (the Run value board on Stats, live for everyone since v1.52.0, Aug 27, 2026) → [`src/wpbl/derive/runExpectancy.ts`](src/wpbl/derive/runExpectancy.ts), drawn by [`src/wpbl/RunValueView.tsx`](src/wpbl/RunValueView.tsx). The table is built from THIS league's plays, never a borrowed major-league one: the WPBL scores ~15 runs a game over seven innings, so every state is worth roughly double. Two boards draw it: the Run value leaderboard, and the Findings card "What every kind of play is worth" ([`src/wpbl/FindingsView.tsx`](src/wpbl/FindingsView.tsx)). **The explanation lives on Run value and only there**: one shut card, three steps (a situation is worth something, with the 24-cell grid as its evidence; a play is worth what it changed, with the formula as three named terms; one real play, with those same terms as a ledger), then the caveats. It used to be split across both boards with neither half whole and neither mentioning the other, so Findings now links across instead of carrying a second copy, and the link opens the card. The example is CHOSEN by `workedExample()` (the play nearest its own event's average) rather than written down, because the table moves with every ingest and pasted numbers would silently stop matching it. The ledger's total is the sum of its own rounded terms rather than the rounded true value, so the column a reader is invited to check actually adds up
 - Why a game that should have started is showing nothing → [`src/wpbl/derive/feedHealth.ts`](src/wpbl/derive/feedHealth.ts), drawn by [`src/wpbl/FeedDelayNote.tsx`](src/wpbl/FeedDelayNote.tsx) on Home's next-game card and in Game Center. **It exists to tell two identical-looking silences apart**: the league not publishing, and our own ingest having stopped. `wpbl_games` carries both clocks, and only the combination "ours fresh, theirs stale" licenses pointing upstream, so the check reads `updated_at` BEFORE `source_updated_at` and reports our own outage as ours. Gated on the scheduled first pitch having passed, without which every future game on the calendar reports a broken feed (a row three days out has a month-old `source_updated_at` by construction). Live case that produced it: Aug 30, 2026, the league's record frozen at 21:54:31Z through a 23:30Z first pitch while our cron ran clean every two minutes
 - Who is having the best season, on one number a hitter and a pitcher can share (the MVP race card on Home) → [`src/wpbl/derive/mvpRace.ts`](src/wpbl/derive/mvpRace.ts), drawn by [`src/wpbl/MvpRace.tsx`](src/wpbl/MvpRace.tsx). Runs created at the plate plus runs saved on the mound, summed off `playRunValues`, so it is the same number the Run value board publishes rather than a second estimate of it. A box-score run estimator was prototyped and rejected for exactly that reason: a calibrated Base Runs fit prices a WPBL home run at +1.33 against the league's own +1.55, which would have put two "runs added" figures for one player on the same site. **Not WAR**: no replacement level, no positional adjustment, no fielding, and no baserunning (a steal carries no pitch sequence, so it belongs to no plate appearance and is credited to nobody). It is the only surface here that reads both sides of the ball, which is why a two-way player leads it while trailing on the batting board. Regular season only, for free: both engine functions run their input through `regularSeasonLines`
 - Where the league's players come from, out of one free-text `hometown` column → [`src/wpbl/derive/hometowns.ts`](src/wpbl/derive/hometowns.ts), drawn by [`src/wpbl/LeaguePage.tsx`](src/wpbl/LeaguePage.tsx) at `/wpbl/league`. **Not a map, deliberately**: there are no coordinates in the payload and no honest way to invent them from a string where "Ontario, California, USA" and "Oakville, Ontario, Canada" share a word. The country sections fold, and a closed one is hidden with CSS rather than unmounted, because the page's 118 player anchors are the crawl path it exists for
@@ -588,6 +605,8 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - Whether the mirror still matches the league feed, and how a late correction reaches us at all → [`scripts/check-wpbl-drift.mjs`](scripts/check-wpbl-drift.mjs). `wpbl-ingest` never re-reads a game once it is stored final unless something reopens it, and the only thing that does on a schedule is the late-TrackMan backfill (finals under 21 days old with no tracking rows). The league keeps revising box scores well past that, and its `/games` list hides it: `updated_at` there freezes at `completed_at` while the boxscore's own `source_updated_at` moves for weeks
 - What ERA is divided by, and why it follows the league rather than the arithmetic → `ERA_BASIS_CANONICAL` in [`src/wpbl/stats.ts`](src/wpbl/stats.ts) (stored value, never a setting) with the reader's override in [`src/wpbl/EraBasisContext.tsx`](src/wpbl/EraBasisContext.tsx) (display only). **Per 7 since Sep 3, 2026, per 9 before that**, because the league changed and this follows it. The reasoning and the sources are the Aug 26 and Sep 3, 2026 entries in [`ROADMAP-WPBL.md`](ROADMAP-WPBL.md)
 - Which position a player is listed at (the season overrides the roster) → [`src/wpbl/positions.ts`](src/wpbl/positions.ts), shared by the site, the unfurl card and the Discord bot
+- How a pitcher earns a win, why an inning ended, what an abbreviation means → [`src/wpbl/glossary.ts`](src/wpbl/glossary.ts), drawn by [`src/wpbl/GlossaryPage.tsx`](src/wpbl/GlossaryPage.tsx) at `/wpbl/glossary`. **The one page here answering a question with no other answer on the web**, which is why it is a sibling of `/wpbl/league` and not a section of it: one URL cannot rank for both "where the players came from" and "WPBL rules". Footer link, deliberately no sixth nav pill. It is also the single source for the stat definitions that Home, StatsView, Game Center and the player card all abbreviate, which used to be explained on PlayerDetail and nowhere else
+- Which copy of a duplicated game survives, and why deciding it on the id was a coin flip → `bestTwin` in [`supabase/functions/wpbl-ingest/games.ts`](supabase/functions/wpbl-ingest/games.ts), pinned by [`src/wpbl/__tests__/ingestTwins.test.ts`](src/wpbl/__tests__/ingestTwins.test.ts). It DELETES the losing copy, so it is dependency-free and testable from the app's runner for the same reason `names.ts` is
 - Which CLUB a player counted for (the line overrides the roster, because people get traded) → the `team_id` on each box-score line and play; the rules that recognise a trade are `tradeMatch` / `teamMoveWins` in [`supabase/functions/wpbl-ingest/names.ts`](supabase/functions/wpbl-ingest/names.ts), and `wpbl_merge_players(keep, dupe)` folds a duplicate back into one person
 - iOS / App Store plan, and the Universal Links file already live ahead of the app → [`docs/IOS.md`](docs/IOS.md), [`public/.well-known/apple-app-site-association`](public/.well-known/apple-app-site-association)
 - The Substack mirror (why it runs on Supabase and not Actions, and why no body text is stored) → [`docs/READING.md`](docs/READING.md)

@@ -208,7 +208,11 @@ Each of these has already cost someone a debugging session, and none of them fai
   wider than it is, at more than one text scale. **Which is why anything behind the experiments
   flag is exempt from that check by construction, and has to be swept separately.** The seeding
   race sat out the whole rebuild for exactly this reason and carried four of these bugs into
-  September; turning the flag on and looking is the only way to find the next one.
+  September; turning the flag on and looking is the only way to find the next one. As of Sep 5,
+  2026 the flag hides exactly two things, and they are what a sweep has to cover: the steal card
+  on Findings, and the mobile bottom nav. The win probability chart (v1.48.1), the Run value
+  board (v1.52.0), the bracket and the seeding race (v1.59.0) all came out from behind it, so
+  anything still describing those as experimental is stale.
 
 - **`--app-header-h` / `--wpbl-nav-h` are the pinned chrome's height, in plain screen pixels.**
   Both are spent as a sticky `top`. Use the **rect**, never `offsetHeight`: it rounds to a whole
