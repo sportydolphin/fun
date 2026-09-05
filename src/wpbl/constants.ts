@@ -257,9 +257,27 @@ export { outsToIp, ipToOuts, playedInnings } from './innings'
  *
  * Under a minute is "starting soon" rather than "in 0m": at that range the exact figure is
  * wrong as often as it is right, since the feed's first pitch is a scheduled time.
+ *
+ * AND IT STOPS SAYING THAT AFTER `COUNTDOWN_STALE_MS`, returning null so the caller drops the
+ * chip. "Starting soon" used to be the answer for everything past the target, on the reasoning
+ * that the stored time is a schedule rather than a start and we cannot claim the game began.
+ * True, and it argues for saying LESS, not for saying that forever: the label sat on a game
+ * two hours old reading "starting soon" with no way for a reader to tell it apart from one
+ * about to start. Two ways to get there, both real. A page whose data has frozen keeps this
+ * ticking accurately against a game row that stopped moving (the countdown has its own timer;
+ * see refresh.ts for the freeze this pairs with), and a genuine delay leaves the feed's status
+ * on "Not Started" long past first pitch. In both the honest card is the one that shows the
+ * scheduled time and no claim about it.
+ *
+ * Twenty minutes because the feed flips a game to In Progress at pregame, ahead of first pitch
+ * (16 minutes early on 2026-09-04, and the ingest had it two minutes later). A start time that
+ * far gone with the status still unchanged is not a game about to begin, whatever the reason.
  */
-export function countdownLabel(targetMs: number, now = Date.now()): string {
+export const COUNTDOWN_STALE_MS = 20 * 60000
+
+export function countdownLabel(targetMs: number, now = Date.now()): string | null {
   const totalMin = Math.floor((targetMs - now) / 60000)
+  if (now - targetMs > COUNTDOWN_STALE_MS) return null
   if (totalMin < 1) return 'starting soon'
   const d = Math.floor(totalMin / 1440)
   const h = Math.floor((totalMin % 1440) / 60)

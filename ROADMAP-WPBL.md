@@ -952,6 +952,69 @@ is retired.
 
 ## Shipped log
 
+### Sep 4, 2026: four polls, one policy, and a countdown that stopped claiming things
+
+**Prompted by a live game the site was said not to be showing, which it was.** The check is
+worth writing down because the answer came out of the ingest run log rather than out of the
+page: box-score fetches sat at `b0` on every pass all afternoon, apart from an hourly tracking
+sweep (`b1` then `b15`), and went to `b1` on **every** pass from 23:14:02Z, with that hour's
+sweep showing up as `b2`/`b16`, one higher than the same sweep at 20:22, 21:24 and 22:26. The
+ingest pulls a box the first pass the feed's list stops saying "Not Started", so the row went
+live at 4:14 PM PT and first pitch was around 4:35 (four plays existed at 4:45). We called it
+live twenty minutes EARLY. What was actually on screen, in the screenshot that prompted it, was
+a page whose data had stopped moving: rendered at 4:24 reading "in 6m", with no live banner.
+
+So the bug was never the data, and looking for it turned up four different answers to one
+question. `WpblApp`'s schedule poll stopped its timer while the tab was hidden and pulled on the
+way back; the live-game poll, the Game Center reload and Home's box-score refresh did none of
+that and ran flat out against a hidden tab. The Game Center one is five queries every fifteen
+seconds for the length of a game, on a phone, for a screen that is off. One of the four had the
+policy and the other three had never been told about it, which is what a policy living in an
+effect body looks like a year later.
+
+**`useForegroundInterval` in `refresh.ts` is now the only copy**, and it adds the listener none
+of the four had: `pageshow`. It is the only one of the three that can be the ONLY one to fire.
+iOS Safari restores a page from the back/forward cache on every back gesture, and it is how the
+installed PWA resumes; the timers come back frozen and some restores fire no `visibilitychange`
+at all. Nothing then restarts the loop, so the page serves whatever it held when it was frozen,
+for as long as the tab stays open, with nothing on screen admitting it is old. The 1s guard on
+the return pull is not a nicety either: a restore can fire all three events within a few
+milliseconds, which is three identical reads on a connection that has just woken up.
+
+Verified in the browser rather than only in the test: three `wpbl_games` reads in twenty seconds
+in front, **zero in thirty seconds hidden**, and two the instant it came back. Realtime pushes
+still land while hidden, which is right: the websocket is already open and the poll is only
+its fallback.
+
+**`countdownLabel` stops asserting a start it cannot confirm.** It returned "starting soon" for
+everything past the target, reasoning that the stored time is a schedule rather than a start so
+we cannot claim the game began. True, and it argues for saying less rather than for saying that
+forever: on a game two hours old the card read "starting soon", indistinguishable from one about
+to start. Both ways of getting there are real. A frozen page keeps the countdown ticking
+accurately over a game row that stopped moving, since the countdown has its own timer, and a
+genuine delay leaves the feed on "Not Started" long past first pitch. Past twenty minutes it
+returns null and the chip goes with it, leaving the scheduled time and no claim about it. Twenty
+because the feed flips to In Progress at pregame, ahead of first pitch: sixteen minutes early
+that afternoon, with the ingest two minutes behind it.
+
+The chip moved inside `Countdown` to make that possible. Wrapped from outside, a null label left
+an empty tinted box on the card, which reads as a value that failed to load rather than one
+deliberately not claimed.
+
+**And the schedule read will no longer answer with a blank section.** `safe()` returns `[]` on a
+failed or timed-out read, which for this one is indistinguishable from a season nobody has
+ingested yet, and `WpblApp` pushes the result straight into state every 20-60 seconds.
+Everything under `/wpbl` is derived from it, so one 8-second timeout on a phone changing cells
+emptied the scoreboard, the standings, Home's next and last game and the live banner at once:
+four clubs with no games, which reads as the league having gone quiet rather than as a dropped
+request. The bulk and per-entity caches have said "an empty result never evicts a good one"
+since Sep 2; the schedule is the one read with no cache in front of it, deliberately, because a
+poll must never be served a stale copy of the thing it is polling for. So the guard lives on the
+read. Wrong by at most one poll, and self-correcting on the next.
+
+`foregroundInterval.test.tsx` pins all nine behaviours including the bfcache restore and the
+event pile-up; `scheduleLastGood.test.ts` pins the empty-read guard.
+
 ### Sep 3, 2026: the Scoreboard stops being a season in a 1,260px window
 
 **The edge fade was the symptom.** Measured at 1360px: thirty chips at 170px is 5,390px of

@@ -15,6 +15,7 @@ import { WPBL_LEAGUE_PAGE, WPBL_PATH_EVENT } from './routes'
 import { useWpblHeadingTag, HIDE_ON_PHONE } from './PageHeading'
 import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, TAPPABLE, hoverOnly, TYPE_SCALE, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
 import { LiveHero } from './Live'
+import { useForegroundInterval } from './refresh'
 import PlayoffBracket from './PlayoffBracket'
 import {
   aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances, fmtRate, fmtTwo, fmtSigned,
@@ -486,6 +487,7 @@ function Scoreboard({ games, teams, onOpenGame }: {
 
 function Countdown({ target }: { target: number }) {
   const [now, setNow] = useState(() => Date.now())
+  const isDark = useWpblDark()
   // Once every 15s, not once a second. The label is minute-granular (`countdownLabel`), so a
   // per-second timer was re-rendering the card 59 times out of 60 to paint the same string,
   // on a page a phone leaves open. 15s keeps the worst lag behind a minute boundary short
@@ -505,10 +507,24 @@ function Countdown({ target }: { target: number }) {
   //
   // The accent and the tint stay, so the live figure is still the thing the eye lands on in a
   // row that is otherwise a title and a muted date.
+  //
+  // THE CHIP IS DRAWN IN HERE, not by the caller, because it has to be able to not exist. Once
+  // the start time is far enough past that `countdownLabel` will no longer assert a start it
+  // cannot confirm, the whole tinted chip goes with it; wrapped from outside, a null label left
+  // an empty tinted box on the card, which reads as a value that failed to load rather than as
+  // one deliberately not claimed. The header then falls back to the date alone, which is all
+  // we actually know.
+  const label = countdownLabel(target, now)
+  if (!label) return null
   return (
-    <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-      {countdownLabel(target, now)}
-    </Box>
+    <Typography component="span" sx={{
+      fontSize: TYPE_SCALE.body, fontWeight: 800, color: WPBL_ACCENT,
+      px: 0.7, py: 0.15, borderRadius: 1, lineHeight: 1.35,
+      bgcolor: alpha(WPBL_ACCENT, isDark ? 0.14 : 0.09),
+      fontVariantNumeric: 'tabular-nums',
+    }}>
+      {label}
+    </Typography>
   )
 }
 
@@ -994,13 +1010,7 @@ function NextGameCard({ games, teams, onOpenGame }: {
           <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary' }}>
             {dateLabel}{timeLabel ? `, ${timeLabel}` : ''}
           </Typography>
-          <Typography sx={{
-            fontSize: TYPE_SCALE.body, fontWeight: 800, color: WPBL_ACCENT,
-            px: 0.7, py: 0.15, borderRadius: 1, lineHeight: 1.35,
-            bgcolor: alpha(WPBL_ACCENT, isDark ? 0.14 : 0.09),
-          }}>
-            <Countdown target={next.ms} />
-          </Typography>
+          <Countdown target={next.ms} />
         </Box>
       }
       actionWraps
@@ -2004,16 +2014,11 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   // The whole-season play-by-play used to be pulled here too, for the Hall of Firsts. That
   // card is gone, and with it the most expensive read on the section: nothing on Home needs
   // play-by-play now.
-  useEffect(() => {
-    if (!liveGame) return
-    let cancelled = false
-    const id = setInterval(() => {
-      fetchWpblAllLines()
-        .then(l => { if (!cancelled) setLines(l) })
-        .catch(() => { /* keep last-good */ })
-    }, 60000)
-    return () => { cancelled = true; clearInterval(id) }
-  }, [liveGame?.id])
+  useForegroundInterval(() => {
+    fetchWpblAllLines()
+      .then(setLines)
+      .catch(() => { /* keep last-good */ })
+  }, liveGame ? 60000 : null)
 
 
   const batSeasons = useMemo(() => aggregateBatting(players, lines.batting, games), [players, lines.batting, games])

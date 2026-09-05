@@ -6,6 +6,7 @@ import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameT
 import { WPBL_ACCENT, wpblAccent, wpblFullName, outsToIp, playedInnings, formatGameTime, relativeDayLabel } from './constants'
 import { seriesContext } from './derive/series'
 import { LiveBanner, useLiveGame } from './Live'
+import { useForegroundInterval } from './refresh'
 import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
 import { GameStoryCard } from './Reading'
@@ -1143,16 +1144,20 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
     return () => { cancelled = true }
   }, [seed.id])
 
-  // While the game is live, keep the box score + play-by-play fresh (poll + realtime).
+  // While the game is live, keep the box score + play-by-play fresh (poll + realtime). The
+  // poll runs only while the page is in front and pulls once on the way back, which matters
+  // more here than anywhere else in the section: `reload` is five queries, and this used to
+  // fire them every fifteen seconds against a hidden tab for the length of a game. See
+  // refresh.ts.
+  useForegroundInterval(() => reload(false), game.status === 'live' ? LIVE_POLL_MS : null)
   useEffect(() => {
     if (game.status !== 'live') return
-    const poll = setInterval(() => reload(false), LIVE_POLL_MS)
     const ch = supabase.channel(`wpbl-gc-${seed.id}-${gcUid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wpbl_game_plays', filter: `game_id=eq.${seed.id}` }, () => reload(false))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wpbl_batting_lines', filter: `game_id=eq.${seed.id}` }, () => reload(false))
       .subscribe()
-    return () => { clearInterval(poll); supabase.removeChannel(ch) }
-  }, [game.status, seed.id, reload])
+    return () => { supabase.removeChannel(ch) }
+  }, [game.status, seed.id, reload, gcUid])
 
   const final = game.status === 'final' && game.home_score != null && game.away_score != null
   const live = game.status === 'live'

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { fetchWpblGameLive, LIVE_POLL_MS } from './api'
+import { useForegroundInterval } from './refresh'
 import { wpblAccent, wpblFullName } from './constants'
 import { TeamBadge, useWpblDark, hoverOnly } from './ui'
 import type { WpblTeam, WpblGame, WpblLineScoreEntry, WpblLiveState } from './types'
@@ -26,20 +27,37 @@ export function useLiveGame(seed: WpblGame): WpblGame {
   // (the home LiveHero and the Game Center opened over it). A shared channel topic would
   // make the second `.on(...).subscribe()` throw ("callbacks after subscribe()").
   const uid = useRef(Math.random().toString(36).slice(2)).current
+  const live = seed.status === 'live'
   useEffect(() => { setGame(seed) }, [seed.id, seed.status, seed.updated_at])
+
+  // Merge rather than replace: the fetch returns only the columns that can move during a
+  // game, so everything it omits is already correct in the row we hold.
+  //
+  // AND ONLY ONTO THE GAME IT WAS ASKED ABOUT. A read still in flight when the observed game
+  // changes used to be dropped by the enclosing effect's `cancelled` flag; a callback that
+  // outlives its effect has to check for itself. Comparing against the row in state rather
+  // than a ref makes it exact: the delta is only the volatile half of a row, so landing one
+  // game's score on another is silent and looks entirely plausible.
+  const refresh = useCallback(() => {
+    const forId = seed.id
+    void fetchWpblGameLive(forId).then(delta => {
+      if (delta) setGame(prev => (prev.id === forId ? { ...prev, ...delta } : prev))
+    })
+  }, [seed.id])
+
+  // The poll is the FALLBACK for a websocket that dropped without saying so, which is why it
+  // is safe to stop it while the tab is hidden: a subscription that survives the gap pushes
+  // the moment anything moves, and one that did not is caught by the pull this does on the
+  // way back. See refresh.ts.
+  useForegroundInterval(refresh, live ? LIVE_POLL_MS : null)
+
   useEffect(() => {
-    if (seed.status !== 'live') return
-    let cancelled = false
-    // Merge rather than replace: the fetch returns only the columns that can move during a
-    // game, so everything it omits is already correct in the row we hold.
-    const refresh = () => fetchWpblGameLive(seed.id)
-      .then(delta => { if (!cancelled && delta) setGame(prev => ({ ...prev, ...delta })) })
-    const poll = setInterval(refresh, LIVE_POLL_MS)
+    if (!live) return
     const ch = supabase.channel(`wpbl-game-${seed.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wpbl_games', filter: `id=eq.${seed.id}` }, refresh)
       .subscribe()
-    return () => { cancelled = true; clearInterval(poll); supabase.removeChannel(ch) }
-  }, [seed.id, seed.status])
+    return () => { supabase.removeChannel(ch) }
+  }, [seed.id, live, refresh, uid])
   return game
 }
 

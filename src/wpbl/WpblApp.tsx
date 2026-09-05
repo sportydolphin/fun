@@ -34,6 +34,7 @@ import {
   type WpblView,
 } from './routes'
 import { WpblLinkProvider, useWpblGameLink } from './LinkContext'
+import { useForegroundInterval } from './refresh'
 import { WpblHeadingOwnerProvider, useWpblHeadingTag, HIDE_ON_PHONE } from './PageHeading'
 import { wpblGameCard } from './ogCard'
 import { setDynamicSeo } from '../seo'
@@ -1350,36 +1351,20 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
 
   useEffect(() => reload(), [reload])
 
-  // Keep the schedule / scoreboard / standings live as the official-feed ingest writes
-  // scores and status changes. Teams are static, so only the schedule is re-fetched.
-  // Poll faster while a game is in progress, and refresh whenever the tab regains focus.
-  // Stop the timer outright while the tab is hidden, rather than letting it tick against a
-  // page nobody is looking at. A backgrounded phone browser throttles timers but does not
-  // stop them, so this was still waking the radio to re-pull the schedule — on cellular, for
-  // a screen that is off. Becoming visible refreshes immediately and restarts the interval,
-  // so the reader still sees current scores the moment they come back; they just do not pay
-  // for the gap. Same reason `focus` refreshes without starting a second timer.
-  useEffect(() => {
-    let id: ReturnType<typeof setInterval> | undefined
-    const refresh = () => { fetchWpblSchedule().then(setGames).catch(() => {}) }
-    const stop = () => { if (id !== undefined) { clearInterval(id); id = undefined } }
-    const start = () => {
-      stop()
-      if (document.visibilityState === 'visible') id = setInterval(refresh, liveGame ? 20000 : 60000)
-    }
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') refresh()
-      start()
-    }
-    start()
-    document.addEventListener('visibilitychange', onVisible)
-    window.addEventListener('focus', refresh)
-    return () => {
-      stop()
-      document.removeEventListener('visibilitychange', onVisible)
-      window.removeEventListener('focus', refresh)
-    }
-  }, [liveGame?.id])
+  // Keep the schedule / scoreboard / standings live as the official-feed ingest writes scores
+  // and status changes. Teams are static, so only the schedule is re-fetched. Faster while a
+  // game is in progress; `useForegroundInterval` owns the rest of the policy (front-of-screen
+  // only, and a pull the moment the page comes back, bfcache restores included) for this and
+  // the three live polls that used to each answer the question differently.
+  //
+  // THIS IS ALSO THE POLL THAT DISCOVERS A GAME HAS STARTED. The live surfaces below only ever
+  // refresh a row they already believe is live, so a page opened before first pitch learns
+  // about it here or not at all: whatever stops this loop freezes the whole section on a
+  // pre-game schedule while every countdown on it keeps ticking.
+  useForegroundInterval(
+    () => { fetchWpblSchedule().then(setGames).catch(() => {}) },
+    liveGame ? 20000 : 60000,
+  )
 
   return (
     // The roster the whole section links players by. It sits at the top because a slug needs

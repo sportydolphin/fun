@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { countdownLabel } from '../constants'
+import { countdownLabel, COUNTDOWN_STALE_MS } from '../constants'
 
 const now = Date.parse('2026-09-04T12:00:00Z')
 const inMs = (ms: number) => countdownLabel(now + ms, now)
@@ -26,11 +26,23 @@ describe('countdownLabel', () => {
     expect(inMs(3 * HOUR)).toBe('in 3h 0m')
   })
 
-  // Under a minute and past first pitch are the same message: the stored time is a schedule,
-  // not a start, so counting the last seconds of it claims precision we do not have.
+  // Under a minute and just past first pitch are the same message: the stored time is a
+  // schedule, not a start, so counting the last seconds of it claims precision we do not have.
   it('stops counting inside the last minute', () => {
     expect(inMs(30000)).toBe('starting soon')
     expect(inMs(0)).toBe('starting soon')
-    expect(inMs(-2 * HOUR)).toBe('starting soon')
+    expect(inMs(-5 * MIN)).toBe('starting soon')
+  })
+
+  // AND STOPS SAYING "starting soon" once that is no longer a claim we can make. Two hours
+  // past a scheduled first pitch with the game still not marked live means either a delay or
+  // a page whose data has frozen (the countdown runs on its own timer, so it keeps ticking
+  // accurately over a game row that stopped moving). Null, so the caller drops the chip and
+  // the card falls back to the scheduled time, which is the only part still true.
+  it('stops asserting a start it cannot confirm', () => {
+    expect(inMs(-COUNTDOWN_STALE_MS + MIN)).toBe('starting soon')
+    expect(inMs(-COUNTDOWN_STALE_MS - MIN)).toBeNull()
+    expect(inMs(-2 * HOUR)).toBeNull()
+    expect(inMs(-2 * DAY)).toBeNull()
   })
 })

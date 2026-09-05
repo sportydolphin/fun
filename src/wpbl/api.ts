@@ -80,12 +80,43 @@ function dedupeSchedule(games: WpblGame[]): WpblGame[] {
   return games.filter(g => played(g) || !hasPlayed.has(`${g.game_date}|${g.away_team_id}|${g.home_team_id}`))
 }
 
+/**
+ * An empty schedule read never replaces a good one.
+ *
+ * `safe()` answers a failed or timed-out read with its fallback, and for this read the fallback
+ * is `[]`, indistinguishable from a season that has not been ingested yet. That is the same
+ * hazard the bulk and per-entity caches spell out further down, but the schedule is the one
+ * read with no cache in front of it (a poll must never be served a stale copy of the thing it
+ * is polling for), so the guard has to live on the read itself.
+ *
+ * WHAT IT COSTS TO GET WRONG IS THE WHOLE SECTION, not a stale row. `WpblApp` pushes this
+ * straight into state every 20-60 seconds, and everything under /wpbl is derived from it: the
+ * scoreboard, the standings, Home's next and last game, the live banner. One 8-second timeout
+ * on a phone changing cells therefore empties the section and renders four clubs with no games,
+ * which reads as the league having gone quiet rather than as a dropped request. Serving the
+ * copy we already had is wrong by at most one poll and self-corrects on the next one.
+ *
+ * Once, on a first load with nothing to fall back on, `[]` is still the honest answer and the
+ * views have empty states for it.
+ */
+export function mergeSchedule(next: WpblGame[], lastGood: WpblGame[] | null): WpblGame[] {
+  if (next.length === 0 && lastGood && lastGood.length > 0) {
+    console.warn('[wpbl] fetchWpblSchedule came back empty; serving the last good schedule.')
+    return lastGood
+  }
+  return next
+}
+
+let lastGoodSchedule: WpblGame[] | null = null
+
 export function fetchWpblSchedule(): Promise<WpblGame[]> {
   return once('schedule', async () => {
     const games = await safe('fetchWpblSchedule', () =>
       supabase.from('wpbl_games').select('*').order('game_date', { ascending: true }),
       [] as WpblGame[])
-    return dedupeSchedule(games)
+    const schedule = mergeSchedule(dedupeSchedule(games), lastGoodSchedule)
+    if (schedule.length > 0) lastGoodSchedule = schedule
+    return schedule
   })
 }
 
