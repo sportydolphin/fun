@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { fetchWpblGameLive, LIVE_POLL_MS } from './api'
+import { settleGame } from './gameOver'
 import { useForegroundInterval } from './refresh'
 import { wpblAccent, wpblFullName } from './constants'
 import { TeamBadge, useWpblDark, hoverOnly } from './ui'
@@ -27,7 +28,9 @@ export function useLiveGame(seed: WpblGame): WpblGame {
   // (the home LiveHero and the Game Center opened over it). A shared channel topic would
   // make the second `.on(...).subscribe()` throw ("callbacks after subscribe()").
   const uid = useRef(Math.random().toString(36).slice(2)).current
-  const live = seed.status === 'live'
+  // Read off the merged row, not the seed, so a game that becomes provably over under the poll
+  // stops being polled at once rather than at the next schedule read. See gameOver.ts.
+  const live = game.status === 'live'
   useEffect(() => { setGame(seed) }, [seed.id, seed.status, seed.updated_at])
 
   // Merge rather than replace: the fetch returns only the columns that can move during a
@@ -41,7 +44,10 @@ export function useLiveGame(seed: WpblGame): WpblGame {
   const refresh = useCallback(() => {
     const forId = seed.id
     void fetchWpblGameLive(forId).then(delta => {
-      if (delta) setGame(prev => (prev.id === forId ? { ...prev, ...delta } : prev))
+      // Settled after the merge, not before: the delta carries `status` and `live_state`, so
+      // the merged row is the raw pair the rule needs, and re-running it here is what lets the
+      // call be taken back if the state stops proving it. See gameOver.ts.
+      if (delta) setGame(prev => (prev.id === forId ? settleGame({ ...prev, ...delta }) : prev))
     })
   }, [seed.id])
 

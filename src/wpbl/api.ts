@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { FIRSTS_EVENT_TYPES } from './firsts'
 import { countsInStandings } from './season'
+import { settleGames } from './gameOver'
 import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
@@ -114,7 +115,11 @@ export function fetchWpblSchedule(): Promise<WpblGame[]> {
     const games = await safe('fetchWpblSchedule', () =>
       supabase.from('wpbl_games').select('*').order('game_date', { ascending: true }),
       [] as WpblGame[])
-    const schedule = mergeSchedule(dedupeSchedule(games), lastGoodSchedule)
+    // settleGames LAST of the three, and at this boundary rather than in the views, because
+    // `status` is read in about fifty places and a rule the callers have to remember to apply
+    // is a rule that gets forgotten by the next one. Everything downstream of this read sees a
+    // game the league has stopped updating as the final it is. See gameOver.ts.
+    const schedule = mergeSchedule(settleGames(dedupeSchedule(games)), lastGoodSchedule)
     if (schedule.length > 0) lastGoodSchedule = schedule
     return schedule
   })
@@ -945,6 +950,7 @@ function standingsStartMin(t: string | null | undefined): number {
 // exactly one definition of "counts toward the season".
 export { regularSeasonLines, excludedGameIds } from './season'
 export { countsInStandings }
+export { gameIsOver, settleGame, settleGames } from './gameOver'
 
 export function computeStandings(teams: WpblTeam[], games: WpblGame[]): WpblStandingRow[] {
   const acc = new Map<string, { team: WpblTeam; wins: number; losses: number; runsFor: number; runsAgainst: number }>()

@@ -20,6 +20,7 @@
 // The card's wording lives in src/wpbl/ogCard.ts, where it is unit-tested.
 import { wpblPlayerCard, type WpblCardBatting, type WpblCardPitching, type WpblPlayerCard } from '../../src/wpbl/ogCard'
 import type { WpblSeasonGame } from '../../src/wpbl/season'
+import { settleGames } from '../../src/wpbl/gameOver'
 // The slug rules come from the app's own module rather than being restated here. Two
 // implementations of "what is this player's URL" is precisely the drift that src/wpbl/slug.ts
 // was split out to prevent, and the failure mode is silent: the edge would 404 a player the
@@ -309,10 +310,14 @@ async function readSchedule(env: Env): Promise<{ games: WpblCardGame[]; teams: W
   }
   try {
     const [games, teams] = await Promise.all([
-      read<WpblCardGame>('wpbl_games?select=id,game_date,home_team_id,away_team_id,status,home_score,away_score'),
+      read<WpblCardGame>('wpbl_games?select=id,game_date,home_team_id,away_team_id,status,home_score,away_score,live_state'),
       read<WpblCardTeam>('wpbl_teams?select=id,city,name'),
     ])
-    return { games, teams }
+    // The same end-of-game call the section makes, for the same reason: an unfurl of a game
+    // the league left sitting at "In Progress" would otherwise serve the preview card, telling
+    // everyone who saw the link that a game finished hours ago has not been played. `live_state`
+    // is fetched only for this. See src/wpbl/gameOver.ts.
+    return { games: settleGames(games), teams }
   } finally {
     clearTimeout(timer)
   }

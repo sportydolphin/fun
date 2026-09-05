@@ -11,7 +11,7 @@ import { sumBatting, sumPitching, fmtRate, fmtTwo } from './stats'
 import type { WpblSeasonGame } from './season'
 import { slugifyName } from './slug'
 import { displayPosition } from './positions'
-import type { WpblBattingLine, WpblPitchingLine } from './types'
+import type { WpblBattingLine, WpblPitchingLine, WpblLiveState } from './types'
 
 // Only the columns the card needs. The Pages function selects exactly these, so a preview
 // costs four narrow reads rather than whole box-score rows.
@@ -112,6 +112,10 @@ export interface WpblCardGame {
   status: string | null
   home_score: number | null
   away_score: number | null
+  /** Read for one reason: settleGames() in gameOver.ts calls a game the league left sitting at
+   *  "In Progress" so the unfurl serves the result rather than the preview. Not rendered. */
+  live_state?: WpblLiveState | null
+  final_by_rule?: boolean
 }
 
 export interface WpblCardTeam { id: string; city: string; name: string }

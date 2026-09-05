@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Box, Typography } from '@mui/material'
-import { CloudOffOutlined, SyncProblemOutlined } from '@mui/icons-material'
+import { CloudOffOutlined, SyncProblemOutlined, ScoreboardOutlined } from '@mui/icons-material'
 import { feedHealth, describeGap, type FeedHealthGame } from './derive/feedHealth'
 
 /**
@@ -63,6 +63,21 @@ export default function FeedDelayNote({ game, now: fixedNow, compact }: {
   const health = feedHealth(game, now)
   if (health.kind === 'ok') return null
 
+  // A game we called ourselves. It says whose call it is in the first three words, because
+  // this is the one notice on the page where the number beside it did not come from the
+  // league: they are still calling this game live. A reader comparing us against their site
+  // will find a disagreement, and finding it explained here is very different from finding it
+  // alone. Nothing is claimed about WHY they have not posted it, because we do not know.
+  if (health.kind === 'unposted-final') {
+    return (
+      <Note
+        Icon={ScoreboardOutlined}
+        title="Final by our count"
+        detail={`The league has not posted this game as final yet. The score is theirs, from their own play-by-play; the call that it is over is ours.${compact ? '' : ' It updates on its own if they post something different.'}`}
+      />
+    )
+  }
+
   const feed = health.kind === 'feed-stale'
   const Icon = feed ? CloudOffOutlined : SyncProblemOutlined
 
@@ -80,6 +95,17 @@ export default function FeedDelayNote({ game, now: fixedNow, compact }: {
     ? `No update from the WPBL feed ${since}.${compact ? '' : ' This page fills in on its own as soon as they publish.'}`
     : `We have not synced this game ${since}.${compact ? '' : ' The page will catch up by itself.'}`
 
+  return <Note Icon={Icon} title={title} detail={detail} />
+}
+
+/** The amber panel itself. Its own component so the three states cannot drift apart into
+ *  three slightly different boxes, which is what happened to every other repeated card on
+ *  this page before it was pulled out. */
+function Note({ Icon, title, detail }: {
+  Icon: typeof CloudOffOutlined
+  title: string
+  detail: string
+}) {
   return (
     <Box
       role="status"

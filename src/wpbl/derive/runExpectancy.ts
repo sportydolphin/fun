@@ -1,4 +1,5 @@
 import { regularSeasonLines, type WpblSeasonGame } from '../season'
+import { REGULATION_INNINGS } from '../innings'
 import { runsOnPlay } from './playByPlay'
 import type { WpblBattingLine, WpblGame, WpblPlayer, WpblRunValuePlay } from '../types'
 
@@ -119,8 +120,10 @@ const emptyCells = (): ReCell[][] =>
   Array.from({ length: 3 }, () => Array.from({ length: 8 }, () => (
     { re: null, n: 0, dist: new Array<number>(DIST_MAX + 1).fill(0) })))
 
-/** Regulation is seven innings here. Anything past it is a different game: see the walk. */
-export const REGULATION_INNINGS = 7
+/** Regulation is seven innings here. Anything past it is a different game: see the walk.
+ *  Defined in innings.ts and re-exported so the callers that import it from here still work;
+ *  the end-of-game rule reads the same constant. */
+export { REGULATION_INNINGS }
 
 /** Run expectancy for a state, or null when the season has not produced that state yet. */
 export function reOf(table: ReTable, outs: number, bases: BaseCode): number | null {

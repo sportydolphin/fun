@@ -86,3 +86,25 @@ describe('silence', () => {
     expect(container.innerHTML).toBe('')
   })
 })
+
+describe('when we called the game and the league has not', () => {
+  // A settled row reads `status: 'final'` to the rest of the section on purpose, so this note
+  // is the ONLY thing on the page that distinguishes our call from theirs. A reader comparing
+  // the score against the league's own site will find a disagreement; finding it explained is
+  // very different from finding it alone.
+  const settled = game({ status: 'final', final_by_rule: true })
+
+  it('says whose call it is, in the first three words', () => {
+    render(<FeedDelayNote game={settled} now={at(200)} />)
+    expect(screen.getByText('Final by our count')).toBeTruthy()
+    expect(screen.getByText(/has not posted this game as final yet/)).toBeTruthy()
+    // Where the score came from, separately from where the call came from. They are different
+    // provenances and the sentence would be misleading if it claimed both.
+    expect(screen.getByText(/The score is theirs/)).toBeTruthy()
+  })
+
+  it('says nothing at all once the league posts it', () => {
+    const { container } = render(<FeedDelayNote game={game({ status: 'final' })} now={at(200)} />)
+    expect(container.firstChild).toBeNull()
+  })
+})

@@ -5,6 +5,20 @@
 // app shows. constants.ts can't be that home: it imports the team logos as assets, which
 // only Vite can resolve. constants.ts re-exports both, so existing callers are unaffected.
 
+/**
+ * Regulation, and the one place that says so.
+ *
+ * It was written out three times: the default below, the gate on the run-expectancy walk, and
+ * the inning after which a game can end (gameOver.ts). Each of those reads perfectly on its
+ * own, which is why a league that changed its game length would be found by none of them: the
+ * table would keep measuring seven-inning half-innings, the end-of-game rule would keep
+ * calling games one inning early, and both would look right. Same argument as ERA_BASIS_CANONICAL.
+ *
+ * Here rather than in constants.ts because the Deno ingest loads this module and cannot load
+ * that one (it imports the team logos as Vite assets); see the note at the top of this file.
+ */
+export const REGULATION_INNINGS = 7
+
 // Innings pitched (stored as outs) → the familiar "5.2" display.
 export function outsToIp(outs: number): string {
   return `${Math.floor(outs / 3)}.${outs % 3}`
@@ -37,7 +51,7 @@ export function ipToOuts(ip: string): number {
 export function playedInnings(
   away: WpblLineScoreLike[] | null | undefined,
   home: WpblLineScoreLike[] | null | undefined,
-  regulation = 7,
+  regulation = REGULATION_INNINGS,
 ): number {
   const through = (line: WpblLineScoreLike[] | null | undefined, n: number) =>
     (line ?? []).reduce((t, c) => (c.inning <= n ? t + c.runs : t), 0)

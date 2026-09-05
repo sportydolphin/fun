@@ -37,6 +37,14 @@ export type WpblFeedHealth =
   | { kind: 'feed-stale'; since: number; lateBy: number }
   /** Our own ingest has not written this row in a while. Ours to own, and ours to say. */
   | { kind: 'ingest-stale'; since: number }
+  /**
+   * The game is over and the league has not said so. Not a delay at all: both clocks are
+   * fresh, the rows are arriving, and the only stale thing is the league's `status` field.
+   * It sits in this type because it lands in the same slot on the page and answers the same
+   * reader question ("why does this look wrong"), and because putting it anywhere else would
+   * mean a second amber panel that could appear beside this one.
+   */
+  | { kind: 'unposted-final' }
 
 /**
  * How long past the scheduled first pitch before silence is worth reporting.
@@ -60,7 +68,7 @@ export const INGEST_STALE_MS = 10 * 60_000
 /** What this needs off a game row. Narrow on purpose, so a caller holding a partial row (the
  *  live poll's column subset) can be type-checked against it rather than trusted. */
 export type FeedHealthGame = Pick<
-  WpblGame, 'game_date' | 'start_time' | 'status' | 'updated_at' | 'source_updated_at'>
+  WpblGame, 'game_date' | 'start_time' | 'status' | 'updated_at' | 'source_updated_at' | 'final_by_rule'>
 
 const ms = (iso: string | null | undefined): number | null => {
   if (!iso) return null
@@ -69,6 +77,12 @@ const ms = (iso: string | null | undefined): number | null => {
 }
 
 export function feedHealth(game: FeedHealthGame, now: number = Date.now()): WpblFeedHealth {
+  // OUR call before the league's word, because a settled row carries both: `status` reads
+  // 'final' so the rest of the section treats it as one, and this flag is the only thing left
+  // saying the league never posted it. Tested second and the row falls through to 'ok' and the
+  // reader is told nothing about a result we inferred.
+  if (game.final_by_rule) return { kind: 'unposted-final' }
+
   // A finished game is allowed to stop changing. That is what finished means.
   if (game.status === 'final') return { kind: 'ok' }
 

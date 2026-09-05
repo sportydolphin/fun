@@ -126,6 +126,15 @@ export interface WpblGame {
   away_pitcher_id?: string | null     // current pitcher for each side
   home_pitcher_id?: string | null
   last_play_at?: string | null
+  // ─── NOT A COLUMN. Set by settleGame() in gameOver.ts at the read boundary, on a game the
+  // league still calls live whose own state proves it is over. `status` on such a row reads
+  // 'final' so that the fifty-odd places testing it do the right thing without knowing this
+  // exists; this flag is how the two surfaces that SHOULD know (FeedDelayNote, and anything
+  // deciding whether to publish a result outward) tell our call from the league's.
+  //
+  // It is therefore also absent from both column lists above, and that is not an oversight in
+  // the partition they are supposed to form: there is nothing in the table to partition.
+  final_by_rule?: boolean
 }
 
 // A mirror of one WPBL official-YouTube upload (see scripts/sync-wpbl-youtube.mjs and
