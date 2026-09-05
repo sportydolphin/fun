@@ -11,7 +11,7 @@ import { statFull, statPlain } from './glossary'
 import SwipeableViews from './SwipeableViews'
 import { WrittenAbout } from './Reading'
 import { PitchLocationCard } from './PitchLocation'
-import { displayPosition, positionsPlayed } from './positions'
+import { displayPosition, positionsPlayed, leadsWithPitching } from './positions'
 import { wpblPlayerPath } from './routes'
 import { track, EVENTS } from '../lib/analytics'
 import { wpblBattingSummary, wpblPitchingSummary } from './derive/playerSummary'
@@ -580,6 +580,13 @@ function CameoBlock({ label, text, color }: { label: string; text: string; color
   return <AccentPanel label={label} summary={text} accent={color} sx={{ mt: 2 }} />
 }
 
+/** A figure bound to its label, so a stat line that has to wrap can only break at a
+ *  separator, and after it rather than before it: the space in front of a middot is a break
+ *  opportunity too, and taking it leaves the next line beginning with a lone "·". Joined with
+ *  `'\u00a0· '` for that reason. See the note on `positions` below for the letter this
+ *  stopped orphaning. */
+const nbsp = (value: string | number, label: string): string => `${value}\u00a0${label}`
+
 /**
  * Fielding as one expandable line rather than a hero card.
  *
@@ -600,7 +607,13 @@ function FieldingLine({ ft, color, positions }: {
    *
    *  Capped at two codes, and that is a measurement rather than taste: on a 375px phone the
    *  collapsed row has 46px of slack once the label, the stat line and the chevron are in, and
-   *  "CF, P" needs 29 of it. The ellipsis carries the rest honestly. */
+   *  "CF, P" needs 29 of it. The ellipsis carries the rest honestly.
+   *
+   *  That slack is gone on a two-way player, whose stat line carries a rate as well as three
+   *  counts, so the row wraps. It is allowed to. What it is not allowed to do is break between
+   *  a number and its label, which is what `nbsp` below is for: left alone the line read
+   *  ".800 FPCT · 2 PO · 6 A · 2" over a second line holding the single letter "E", and a
+   *  stray letter under a stat line reads as a rendering fault rather than as a wrap. */
   positions?: string[]
 }) {
   const full: [string, string | number][] = [
@@ -612,7 +625,7 @@ function FieldingLine({ ft, color, positions }: {
   return (
     <AccentPanel
       label="Fielding"
-      summary={`${fmtRate(ft.fpct)} FPCT · ${ft.po} PO · ${ft.a} A · ${ft.e} E`}
+      summary={[nbsp(fmtRate(ft.fpct), 'FPCT'), nbsp(ft.po, 'PO'), nbsp(ft.a, 'A'), nbsp(ft.e, 'E')].join('\u00a0· ')}
       meta={positions && positions.length > 0
         ? `${positions.slice(0, 2).join(', ').toUpperCase()}${positions.length > 2 ? '…' : ''}`
         : undefined}
@@ -929,19 +942,17 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
       : null,
     [leagueLines, player.id, players, teams, games, eraBasis])
 
-  // Lead with the skill the player is actually here for. Position codes carry the signal —
-  // any pitcher role contains a 'P' (RHP/LHP/P/SP/RP), and no position-player code does — so
-  // a "RHP, UTL" leads with pitching even when the box score also shows a few at-bats. When
-  // one side is a cameo (a pitcher's stray ABs, a hitter's mop-up inning) it does not earn a
-  // tab of its own: it folds into the primary pane as a one-line summary, so genuine two-way
-  // players stand apart from occasional-hitting pitchers. Thresholds are absolute (AB / outs)
-  // so they hold at any sample size; the whole season is only days old.
-  // Deliberately the FILED position, not the played one. This decides which side leads, and a
-  // two-way player filed RHP who has spent more games at first is still someone whose pitching
-  // is the headline. Relabelling where she stands on the field is a different question from
-  // which half of her season to lead with.
-  const isPitcherPos = /P/.test(player.position ?? '')
-  const pitcherFirst = hasPitching && (!hasBatting || isPitcherPos)
+  // Lead with the skill the player is actually here for. The rule is `leadsWithPitching` in
+  // positions.ts, shared with the unfurl card and the Discord card so the three cannot tell
+  // one player's season two ways round. When one side is a cameo (a pitcher's stray ABs, a
+  // hitter's mop-up inning) it does not earn a tab of its own: it folds into the primary pane
+  // as a one-line summary, so genuine two-way players stand apart from occasional-hitting
+  // pitchers. Thresholds are absolute (AB / outs) so they hold at any sample size; the whole
+  // season is only days old.
+  const pitcherFirst = leadsWithPitching({
+    position: player.position, hasBatting, hasPitching,
+    gs: pt.gs, bf: pt.bf, pa: plateAppearances(bt),
+  })
   const BAT_CAMEO_AB = 10, PIT_CAMEO_OUTS = 9
   const battingCameo = pitcherFirst && hasBatting && bt.ab < BAT_CAMEO_AB
   const pitchingCameo = !pitcherFirst && hasPitching && pt.outs < PIT_CAMEO_OUTS
@@ -1286,7 +1297,13 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
     // one: it spans both columns either way.
     const twoCol = pane.hasLog
     return (
-      <Box key={r} sx={{ px: 2, pt: 2, pb: 2 }}>
+      // `pt` answers to the role pills, because on a phone what sits under it is the hero:
+      // 16px of pane padding below an 8px strip, plus the optical space a 2rem numeral
+      // carries above its digits, put ~32px between the control and the numbers it controls.
+      // That was the largest gap on the card, and it fell between the two things most
+      // obviously part of each other. Above `md` the hero has moved up to the club band and
+      // this padding separates the pills from a line of body text, where 16px is right.
+      <Box key={r} sx={{ px: 2, pt: { xs: showTabs ? 1 : 2, md: 2 }, pb: 2 }}>
         <Box sx={{
           display: 'grid',
           // THE LOG TAKES WHAT IT NEEDS AND THE RAIL TAKES THE REST, which is what `LEFT_RAIL`

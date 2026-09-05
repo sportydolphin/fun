@@ -7,10 +7,10 @@
 // of the app instead of only by deploying, and it keeps the card's phrasing next to the
 // aggregation it describes, so a change to how the player page reads (see PlayerDetail)
 // has an obvious second place to follow.
-import { sumBatting, sumPitching, fmtRate, fmtTwo } from './stats'
+import { sumBatting, sumPitching, plateAppearances, fmtRate, fmtTwo } from './stats'
 import type { WpblSeasonGame } from './season'
 import { slugifyName } from './slug'
-import { displayPosition } from './positions'
+import { displayPosition, leadsWithPitching } from './positions'
 import type { WpblBattingLine, WpblPitchingLine, WpblLiveState } from './types'
 
 // Only the columns the card needs. The Pages function selects exactly these, so a preview
@@ -22,7 +22,11 @@ import type { WpblBattingLine, WpblPitchingLine, WpblLiveState } from './types'
 // it belongs to.
 export type WpblCardBatting = Pick<WpblBattingLine, 'game_id' | 'ab' | 'r' | 'h' | 'doubles' | 'triples' | 'hr' | 'rbi' | 'bb' | 'so' | 'hbp' | 'sb' | 'cs' | 'sf' | 'sh'>
   & Partial<Pick<WpblBattingLine, 'position'>>
-export type WpblCardPitching = Pick<WpblPitchingLine, 'game_id' | 'outs' | 'h' | 'r' | 'er' | 'bb' | 'so' | 'hr' | 'decision'>
+// `bf` and `gs` are on this narrow list for the role rule rather than for anything the card
+// prints: leadsWithPitching needs both to tell a shortstop who starts games on the mound from
+// one who mopped up an inning. Drop either from the Pages function's select (see
+// functions/wpbl/index.ts) and the rule silently falls back to the filed position.
+export type WpblCardPitching = Pick<WpblPitchingLine, 'game_id' | 'outs' | 'h' | 'r' | 'er' | 'bb' | 'so' | 'hr' | 'decision' | 'bf' | 'gs'>
 export interface WpblCardPlayer { id: string; name: string; position: string | null }
 
 export interface WpblPlayerCard {
@@ -50,10 +54,10 @@ export function wpblPlayerCard(
   }
 }
 
-// The season line, told the way the player page tells it: lead with the skill the player
-// is actually here for. Mirrors PlayerDetail's rule — every pitcher position code contains
-// a 'P' and no position-player code does — so a starter who also took a few at-bats still
-// unfurls as a pitcher.
+// The season line, told the way the player page tells it: lead with the skill the player is
+// actually here for. The rule itself is `leadsWithPitching` in positions.ts, shared with the
+// page and the Discord card, so a starter who also takes at-bats unfurls as a pitcher and
+// unfurls that way everywhere.
 function describeSeason(
   player: WpblCardPlayer,
   teamName: string,
@@ -66,20 +70,25 @@ function describeSeason(
   const batted = batting.filter(l => l.ab + l.bb + l.hbp + l.sf + l.sh > 0)
   const hasBatting = batted.length > 0
   const hasPitching = pitching.length > 0
-  const pitcherFirst = hasPitching && (!hasBatting || /P/.test(player.position || ''))
+  // Both sides summed up front, because the role rule needs a number from each of them.
+  const bt = sumBatting(batted as WpblBattingLine[], games)
+  // ERA here is the league's per-9, always, and this function deliberately has no way to ask
+  // for anything else. The reader of an unfurled card did not open the site and never chose a
+  // basis; what they DID do is see a number somewhere that came from the league.
+  const pt = sumPitching(pitching as WpblPitchingLine[], games)
+  const pitcherFirst = leadsWithPitching({
+    position: player.position, hasBatting, hasPitching,
+    gs: pt.gs, bf: pt.bf, pa: plateAppearances(bt),
+  })
 
   const tail = 'Full stat line, game log, and fielding.'
   if (pitcherFirst) {
-    // ERA here is the league's per-9, always, and this function deliberately has no way to
-    // ask for anything else. The reader of an unfurled card did not open the site and never
-    // chose a basis; what they DID do is see a number somewhere that came from the league.
-    const t = sumPitching(pitching as WpblPitchingLine[], games)
-    const record = t.w || t.l ? `${t.w}-${t.l}, ` : ''
-    const saves = t.s ? `, ${t.s} SV` : ''
-    return `${record}${fmtTwo(t.era)} ERA and ${fmtTwo(t.whip)} WHIP with ${t.so} K in ${outsToIp(t.outs)} IP over ${plural(t.g, 'game')}${saves}. ${tail}`
+    const record = pt.w || pt.l ? `${pt.w}-${pt.l}, ` : ''
+    const saves = pt.s ? `, ${pt.s} SV` : ''
+    return `${record}${fmtTwo(pt.era)} ERA and ${fmtTwo(pt.whip)} WHIP with ${pt.so} K in ${outsToIp(pt.outs)} IP over ${plural(pt.g, 'game')}${saves}. ${tail}`
   }
   if (hasBatting) {
-    const t = sumBatting(batted as WpblBattingLine[], games)
+    const t = bt
     const slash = `${fmtRate(t.avg)}/${fmtRate(t.obp)}/${fmtRate(t.slg)}`
     // A hitter with no homers and no RBI is described by what they did do, rather than by
     // two zeroes: an 0-for-3 card shouldn't read "with 0 HR and 0 RBI".

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { displayPosition, primaryPosition, positionsPlayed, buildPositionIndex, MIN_FIELDED_GAMES } from '../positions'
+import { displayPosition, primaryPosition, positionsPlayed, buildPositionIndex, leadsWithPitching, MIN_FIELDED_GAMES } from '../positions'
 
 // The roster files a position once and the season then disagrees with it. This decides when the
 // season wins. It has two ways to be wrong: leave a player labelled at a position she has not
@@ -160,5 +160,55 @@ describe('positionsPlayed', () => {
   it('ignores the batting-only roles', () => {
     expect(positionsPlayed([...at('dh', 5), ...at('ph', 2), ...at('cf', 1)])).toEqual(['cf'])
     expect(positionsPlayed([...at('dh', 5)])).toEqual([])
+  })
+})
+
+// Which half of a two-way season a card leads with. Three surfaces call this (the player page,
+// the shared-link unfurl, the Discord /player card), and what is being pinned is the pair of
+// conditions that let the box score outvote the roster, because the whole point of them is to
+// move two players out of nineteen and leave the other seventeen alone.
+describe('leadsWithPitching', () => {
+  /** A shortstop, unless told otherwise. */
+  const who = (o: Partial<Parameters<typeof leadsWithPitching>[0]> = {}) => leadsWithPitching({
+    position: 'SS', hasBatting: true, hasPitching: true, gs: 0, bf: 0, pa: 0, ...o,
+  })
+
+  it('leads with whichever half exists when only one does', () => {
+    expect(who({ hasBatting: false })).toBe(true)
+    expect(who({ hasPitching: false, gs: 3, bf: 90, pa: 0 })).toBe(false)
+  })
+
+  it('takes the filed position first, at any workload', () => {
+    // "RHP, UTL" with a full set of at-bats and one relief inning still leads with pitching.
+    expect(who({ position: 'RHP, UTL', bf: 4, pa: 60 })).toBe(true)
+    expect(who({ position: 'LHP' })).toBe(true)
+  })
+
+  // Emi Saiki, filed SS: 2 starts, 54 batters faced, 17 plate appearances, and on Sep 4, 2026
+  // the longest start anyone in the league had thrown.
+  it('lets the box score outvote a position code that does not say pitcher', () => {
+    expect(who({ gs: 2, bf: 54, pa: 17 })).toBe(true)
+  })
+
+  // Rosi del Castillo: 4.2 mop-up innings in a season of six plate appearances. The ratio is
+  // higher than Saiki's and she is not a pitcher; the start is what separates them.
+  it('does not promote relief work, however lopsided the ratio', () => {
+    expect(who({ gs: 0, bf: 20, pa: 6 })).toBe(false)
+  })
+
+  // Jamie Mackay (a catcher, 68 BF against 47 PA) and Claire Eccles (a centre fielder, 45
+  // against 43) both start the odd game. Near parity the lead role would flip on one
+  // appearance and flip back the next week, which is worse than being steadily wrong.
+  it('needs a clear margin, not a majority', () => {
+    expect(who({ gs: 1, bf: 68, pa: 47 })).toBe(false)
+    expect(who({ gs: 2, bf: 45, pa: 43 })).toBe(false)
+    expect(who({ gs: 3, bf: 72, pa: 36 })).toBe(true)
+  })
+
+  // Older mirrored rows carry `bf` as null, which sums to zero. A feed that stops publishing
+  // the column has to degrade to the roster's answer rather than to "she has never pitched".
+  it('falls back to the filed position when the feed has no batters faced', () => {
+    expect(who({ gs: 3, bf: 0, pa: 20 })).toBe(false)
+    expect(who({ position: 'RHP', gs: 3, bf: 0, pa: 20 })).toBe(true)
   })
 })

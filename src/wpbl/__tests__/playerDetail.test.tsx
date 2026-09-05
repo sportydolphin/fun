@@ -149,6 +149,31 @@ describe('PlayerDetail: when the role tabs exist', () => {
     expect(screen.getByText('Two-way')).toBeInTheDocument()
   })
 
+  // Emi Saiki is filed SS and threw the season's longest start. The rule is
+  // `leadsWithPitching` and it is pinned in positions.test.ts; what this pins is that the
+  // CARD asks it, since the pane order and the pill order are the only visible answer.
+  it('leads with pitching for a shortstop the box score says is a starter', async () => {
+    lines.batting = [bat({ ab: 12, h: 8, tb: 8, bb: 5 })]
+    lines.pitching = [pit({ outs: 18, bf: 28, gs: 1, er: 2, h: 3, bb: 1, so: 4 }),
+      pit({ game_id: 'g1', outs: 15, bf: 26, gs: 1, er: 5, h: 9, bb: 1, so: 3 })]
+    show(player({ position: 'SS' }))
+
+    await waitFor(() => expect(pitchingShown()).toBe(true))
+    expect(rolePills().map(p => p.textContent)).toEqual(['Pitching', 'Batting'])
+  })
+
+  // The same shortstop without the starts is a hitter who mopped up, and her card has to say
+  // so: this is the half of the rule that keeps seventeen of the league's nineteen two-way
+  // players where they were.
+  it('still leads with batting when the mound work came in relief', async () => {
+    lines.batting = [bat({ ab: 12, h: 8, tb: 8, bb: 5 })]
+    lines.pitching = [pit({ outs: 14, bf: 28, gs: 0, er: 6, h: 8, bb: 3, so: 2 })]
+    show(player({ position: 'SS' }))
+
+    await waitFor(() => expect(battingShown()).toBe(true))
+    expect(rolePills().map(p => p.textContent)).toEqual(['Batting', 'Pitching'])
+  })
+
   // A pitcher's handful of at-bats is not a second role. Giving it a tab would put an
   // occasional-hitting pitcher and a real two-way player in the same shape.
   it('folds a batting cameo into the pitching pane instead of giving it a tab', async () => {

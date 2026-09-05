@@ -213,3 +213,64 @@ export function displayPositionFromIndex(
   }
   return { label: primary.position.toUpperCase(), overridden: true, official: player.position }
 }
+
+/**
+ * How far ahead the mound has to be before the box score is allowed to outvote the roster.
+ *
+ * The roster is full of players near parity: a catcher at 1.45, a centre fielder at 1.05, a
+ * shortstop at 1.00. At a bare majority every one of those would flip their card's lead role
+ * on a single appearance and flip it back the following week, which is worse than being
+ * consistently wrong about one of them. At half again, the only players who move are the two
+ * whom nobody would argue about.
+ */
+const PITCHER_LEAD_EDGE = 1.5
+
+/**
+ * Which half of a two-way player's season a card should LEAD with.
+ *
+ * Here for the same reason everything else in this file is: the player page, the shared-link
+ * unfurl (functions/wpbl/) and the Discord `/player` card each answered this themselves, in
+ * three copies of one line, and a card posted into a channel that leads with a player's
+ * batting while the site leads with her pitching is the shape of bug nobody reports.
+ *
+ * THE FILED POSITION FIRST, and it is right nearly always: every pitcher code carries a 'P'
+ * (RHP/LHP/P/SP/RP) and no position-player code does, so "RHP, UTL" leads with pitching even
+ * beside a full set of at-bats. What it cannot describe is a league where a shortstop starts
+ * games on the mound. Emi Saiki is filed SS, and on Sep 4, 2026 she also owned the longest
+ * start anyone had thrown all season (6.0 IP, 11.0 IP in two starts); her card opened on
+ * twelve at-bats and put the league lead behind a tab.
+ *
+ * So the box score gets a say, on two conditions, and it needs both:
+ *
+ *   A START. A club gives a position player mop-up innings in a blowout; it does not give her
+ *   the first inning. Of the nineteen non-'P' players who have pitched this season, the ones
+ *   who are plainly hitters doing a favour have zero starts between them.
+ *
+ *   MORE CONFRONTATIONS ON THE MOUND THAN AT THE PLATE, by `PITCHER_LEAD_EDGE`. Batters faced
+ *   against plate appearances is one unit measured twice, so it says which half of her season
+ *   is the bigger half without having to weigh an inning against an at-bat.
+ *
+ * Falls back to the filed position when `bf` is missing, which older mirrored rows carry as
+ * null. That is exactly the behaviour this replaced, so a feed that stops publishing the
+ * column degrades to the old answer rather than to nonsense.
+ */
+export function leadsWithPitching(a: {
+  /** The FILED position, not the played one. Relabelling where she stands on the field is a
+   *  different question from which half of her season to lead with. */
+  position: string | null | undefined
+  hasBatting: boolean
+  hasPitching: boolean
+  /** Games started on the mound. */
+  gs: number
+  /** Batters faced. */
+  bf: number
+  /** Plate appearances, which is `ab + bb + hbp + sf + sh`; see plateAppearances in stats.ts.
+   *  Not at-bats: comparing walks-and-all on one side against at-bats on the other would make
+   *  every patient hitter look more like a pitcher than she is. */
+  pa: number
+}): boolean {
+  if (!a.hasPitching) return false
+  if (!a.hasBatting) return true
+  if (/P/.test(a.position ?? '')) return true
+  return a.gs > 0 && a.bf > a.pa * PITCHER_LEAD_EDGE
+}

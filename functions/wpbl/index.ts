@@ -365,7 +365,7 @@ async function resolvePlayer(playerId: string, env: Env, url: URL): Promise<Reso
       read<PlayerRow>('wpbl_players?select=id,name,position,team_id'),
       read<TeamRow>('wpbl_teams?select=id,city,name'),
       read<WpblCardBatting>(`wpbl_batting_lines?select=game_id,position,ab,r,h,doubles,triples,hr,rbi,bb,so,hbp,sb,cs,sf,sh&player_id=eq.${playerId}`),
-      read<WpblCardPitching>(`wpbl_pitching_lines?select=game_id,outs,h,r,er,bb,so,hr,decision&player_id=eq.${playerId}`),
+      read<WpblCardPitching>(`wpbl_pitching_lines?select=game_id,outs,h,r,er,bb,so,hr,decision,bf,gs&player_id=eq.${playerId}`),
       // Three narrow columns over ~40 rows, so the card's season line can leave the
       // postseason out the same way every other surface does.
       read<WpblSeasonGame>('wpbl_games?select=id,game_type,counts_in_standings'),

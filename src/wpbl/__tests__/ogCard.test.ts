@@ -16,7 +16,8 @@ const bat = (o: Partial<WpblCardBatting> = {}): WpblCardBatting => ({
   hbp: 0, sb: 0, cs: 0, sf: 0, sh: 0, ...o,
 })
 const pit = (o: Partial<WpblCardPitching> = {}): WpblCardPitching => ({
-  game_id: 'g-reg', outs: 0, h: 0, r: 0, er: 0, bb: 0, so: 0, hr: 0, decision: null, ...o,
+  game_id: 'g-reg', outs: 0, h: 0, r: 0, er: 0, bb: 0, so: 0, hr: 0, decision: null,
+  bf: 0, gs: 0, ...o,
 })
 // The schedule the card is told about. Every fixture line above belongs to `g-reg`.
 const GAMES = [

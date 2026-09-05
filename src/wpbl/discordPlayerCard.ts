@@ -7,8 +7,8 @@
 //
 // The stat lines come from stats.ts, the same aggregation the player page and the season
 // leaderboards use, so a number here can never disagree with the number on the site.
-import { sumBatting, sumPitching, fmtRate, fmtTwo } from './stats'
-import { displayPosition } from './positions'
+import { sumBatting, sumPitching, plateAppearances, fmtRate, fmtTwo } from './stats'
+import { displayPosition, leadsWithPitching } from './positions'
 // From innings.ts directly, NOT via the constants.ts re-export. constants.ts imports the
 // team logos as .webp assets, which Vite resolves and the Cloudflare Functions bundler does
 // not — pulling it in here fails the whole functions build, which silently leaves the last
@@ -47,9 +47,10 @@ function embedColor(team: WpblTeam | undefined): number | undefined {
 
 /**
  * A player's season. Batting and pitching are separate fields rather than one blended line,
- * and the one the player is actually here for leads: every pitcher position code contains a
- * 'P' and no position-player code does, which is the same rule the player page and the
- * unfurl card use to decide which way round to tell it.
+ * and the one the player is actually here for leads. Which one that is comes from
+ * `leadsWithPitching` in positions.ts, the same call the player page and the unfurl card
+ * make: three copies of the rule meant a shortstop who starts on the mound could be led with
+ * one way here and the other way on the site she links to.
  */
 export function buildPlayerReply(
   // Only the fields the card actually shows, so a caller holding a partial roster row
@@ -69,7 +70,10 @@ export function buildPlayerReply(
   const pt = sumPitching(pitching, games)
   const hasBatting = batted.length > 0
   const hasPitching = pitching.length > 0
-  const pitcherFirst = hasPitching && (!hasBatting || /P/.test(player.position ?? ''))
+  const pitcherFirst = leadsWithPitching({
+    position: player.position, hasBatting, hasPitching,
+    gs: pt.gs, bf: pt.bf, pa: plateAppearances(bt),
+  })
 
   const fields: { name: string; value: string; inline?: boolean }[] = []
   const battingField = () => ({
