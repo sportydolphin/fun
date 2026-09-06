@@ -9,7 +9,7 @@ import {
   fetchWpblAllRunValuePlays, getCachedWpblAllRunValuePlays,
   getCachedWpblAllPlayers, getCachedWpblAllLines, getCachedWpblAllTracking, wpblHomeCacheAgeMs,
 } from './api'
-import { WPBL_ACCENT, wpblColor, wpblAccent, wpblSurface, wpblFullName, formatGameTime, gameStartMs, countdownLabel, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
+import { WPBL_ACCENT, wpblColor, wpblAccent, wpblAccentFg, wpblSurface, wpblFullName, formatGameTime, gameStartMs, countdownLabel, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { WPBL_LEAGUE_PAGE, WPBL_PATH_EVENT } from './routes'
 import { useWpblHeadingTag, HIDE_ON_PHONE } from './PageHeading'
@@ -17,6 +17,7 @@ import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblD
 import { LiveHero } from './Live'
 import { useForegroundInterval } from './refresh'
 import PlayoffBracket from './PlayoffBracket'
+import { postseasonScheduleRows, type PostseasonScheduleRow, type PostseasonSlot } from './derive/bracket'
 import {
   aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances, fmtRate, fmtTwo, fmtSigned,
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
@@ -176,6 +177,69 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
 }
 
 /**
+ * A postseason game the league has dated but not yet played, on the same strip as the feed's own.
+ *
+ * WHY THE STRIP CARRIES THESE. `wpbl_games` ends on Sep 6 and will until the league publishes
+ * the bracket, so from Sep 7 the scoreboard would have been six weeks of finals with nothing
+ * ahead of it: the week of the season a reader is most likely to open Home for is the week it
+ * had least to say. The Schedule tab has printed these since Sep 3 (postseasonScheduleRows);
+ * this is the same rows in the shape the strip uses.
+ *
+ * DELIBERATELY NOT A GameChip, AND NOT A LINK. There is no game to open, no score column and no
+ * away-at-home, so it is dashed rather than solid and it does not respond to a click. What it
+ * does keep is the outer box: same width, same one-line eyebrow, same two rows, because the
+ * strip's whole rhythm is that every chip's badges sit level with its neighbours'.
+ */
+function PostseasonChip({ row }: { row: PostseasonScheduleRow }) {
+  const isDark = useWpblDark()
+  // "Semi G1 · Sep 9". The round is abbreviated because the eyebrow may not wrap and the chip is
+  // 8.5rem: the longest string this builds is "Champ G1 · Sep 16", one character shorter than
+  // the "Final · Yesterday" the box was sized for. NOT "Final" for the championship, which is
+  // the word this exact slot carries on every completed game.
+  const round = row.round === 'championship' ? 'Champ' : 'Semi'
+  const eyebrow = `${round} G${row.gameNumber} · ${relativeDayShort(row.date)}`
+
+  const slot = (p: PostseasonSlot, i: number) => (
+    <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+      {p.team ? <TeamBadge team={p.team} size={20} /> : (
+        // The empty seat, sized exactly like a badge so a slot filling in mid-week does not
+        // shift the row under it.
+        <Box aria-hidden sx={{
+          width: 20, height: 20, flexShrink: 0, borderRadius: '50%',
+          border: '1px dashed', borderColor: CARD_BORDER,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled',
+        }}>{p.seed ?? ''}</Box>
+      )}
+      <Typography noWrap sx={{
+        flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body,
+        fontWeight: p.team ? 600 : 500,
+        color: p.team ? 'text.primary' : 'text.secondary',
+      }}>{p.team?.abbr ?? p.shortLabel}</Typography>
+    </Box>
+  )
+
+  return (
+    <Box sx={{
+      flexShrink: 0, width: '8.5rem',
+      borderRadius: 2, border: '1px dashed', borderColor: CARD_BORDER, bgcolor: 'background.paper',
+      p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
+    }}>
+      <Typography sx={{
+        fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5,
+        // The accent rather than text.secondary: it is the one mark separating a fixture that
+        // exists from a date the league has only published, on a strip where the dashed border
+        // is a hairline.
+        color: wpblAccentFg(isDark),
+        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>{eyebrow}</Typography>
+      {slot(row.first, 0)}
+      {slot(row.second, 1)}
+    </Box>
+  )
+}
+
+/**
  * The edge vignette, and the inset the anchor is placed at. ONE number, spent in both places.
  *
  * The gradient has to cover the peeking chip EXACTLY. Wider than the peek and it washes the
@@ -192,8 +256,17 @@ function GameChip({ game, teams, onOpen }: { game: WpblGame; teams: Map<string, 
  */
 const EDGE_FADE_W = 16
 
-function Scoreboard({ games, teams, onOpenGame }: {
-  games: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
+/** One tile on the strip: a game the feed has, or a postseason date it does not have yet. */
+type StripItem =
+  | { kind: 'game'; id: string; game: WpblGame }
+  | { kind: 'post'; id: string; row: PostseasonScheduleRow }
+
+function Scoreboard({ games, teams, postseason, onOpenGame }: {
+  games: WpblGame[]; teams: Map<string, WpblTeam>
+  /** The published postseason, for the days past the end of the feed's schedule. Date-sorted,
+   *  and already retiring itself a row at a time as the feed publishes the real games. */
+  postseason: PostseasonScheduleRow[]
+  onOpenGame: (g: WpblGame) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   /**
@@ -240,13 +313,28 @@ function Scoreboard({ games, teams, onOpenGame }: {
    * the one time a strip of results is the whole story.
    */
   const { strip, anchorIndex } = useMemo(() => {
-    const head = games.filter(g => g.status === 'final').slice(-RECENT_FINALS)
-    const rest = games.filter(g => g.status !== 'final').slice(0, UPCOMING)
+    const head: StripItem[] = games.filter(g => g.status === 'final').slice(-RECENT_FINALS)
+      .map(g => ({ kind: 'game', id: g.id, game: g }))
+    const rest: StripItem[] = games.filter(g => g.status !== 'final').slice(0, UPCOMING)
+      .map(g => ({ kind: 'game', id: g.id, game: g }))
+    // The postseason fills whatever is left of the four upcoming slots, which all through the
+    // regular season is nothing and from Sep 7 is all of them.
+    //
+    // IF-NECESSARY GAMES STAY OFF WHILE THEY ARE STILL CONDITIONAL. Four slots is not many, and
+    // spending one on a game that may never be played pushes a game that certainly will be off
+    // the end of the strip. They are not filtered by game number: postseasonScheduleRows clears
+    // the flag the moment a series reaches the point where the game has to happen, so a
+    // deciding game 3 arrives here as soon as game 2 makes it one.
+    for (const r of postseason) {
+      if (rest.length >= UPCOMING) break
+      if (r.ifNecessary) continue
+      rest.push({ kind: 'post', id: r.id, row: r })
+    }
     return {
       strip: [...head, ...rest],
       anchorIndex: rest.length > 0 ? head.length : Math.max(0, head.length - 1),
     }
-  }, [games])
+  }, [games, postseason])
 
   // Edge-fade cues: show a soft mask on whichever side has more chips off-screen, so the
   // cut-off card reads as "swipe for more" rather than a clipped card.
@@ -455,7 +543,9 @@ function Scoreboard({ games, teams, onOpenGame }: {
           '&::-webkit-scrollbar': { display: 'none' },
           msOverflowStyle: 'none', scrollbarWidth: 'none',
         }} data-swipe-ignore="true">
-          {strip.map(g => <GameChip key={g.id} game={g} teams={teams} onOpen={() => onOpenGame(g)} />)}
+          {strip.map(item => item.kind === 'game'
+            ? <GameChip key={item.id} game={item.game} teams={teams} onOpen={() => onOpenGame(item.game)} />
+            : <PostseasonChip key={item.id} row={item.row} />)}
         </Box>
         {/* FULL HEIGHT, both of them. They used to stop 6px short of the bottom; the scroller's
             own `pb` is 4px of padding with nothing drawn in it and the scrollbar is hidden, so
@@ -2046,6 +2136,11 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   // disagree, and hoisting it would put the table's data in the page's scope for one consumer.
   const standingsRows = useMemo(() => computeStandings(teams, games), [teams, games])
 
+  // The postseason as dated-but-undrawn rows, for the scoreboard strip. The same function the
+  // Schedule tab reads, so the two cannot disagree about who plays whom or about which
+  // if-necessary games are still conditional.
+  const postRows = useMemo(() => postseasonScheduleRows(standingsRows, games), [standingsRows, games])
+
   // The MVP race. Two passes over the play log (the run-expectancy table, then every play
   // priced against it), memoised on the three arrays they read, because this is the most
   // arithmetic any card on Home does and none of it is cheap enough to redo on a repaint.
@@ -2156,8 +2251,9 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
       {/* Live game hero — the one in-progress game, front and center */}
       {liveGame && <LiveHero game={liveGame} teams={teams} onOpen={() => onOpenGame(liveGame)} />}
 
-      {/* Scoreboard */}
-      <Scoreboard games={games} teams={teamMap} onOpenGame={onOpenGame} />
+      {/* Scoreboard. The postseason rows come from the calendar the league published, and each
+          one retires itself the day the feed carries a real game on its date. */}
+      <Scoreboard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} />
 
       {/* Discord invite, mobile only for now. Sits between the scoreboard and the feed, where
           it used to lead the single-column stack. Hidden at md+ because the desktop feed is a

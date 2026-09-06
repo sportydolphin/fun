@@ -295,9 +295,12 @@ function ScheduleView({ teams, games, onOpenGame }: {
             {r.label} · Game {r.gameNumber}
           </Typography>
           {/* Spelled out rather than left as the bracket's asterisk: there is no key beside a
-              schedule row to explain what the asterisk meant. */}
+              schedule row to explain what the asterisk meant. "Seeding TBD" replaces the bare
+              "Scheduled" rather than joining it, because a row that is here at all is scheduled:
+              what the reader needs is the one thing about it we do not know, which is which of
+              these two clubs is the higher seed. */}
           <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.disabled' }}>
-            {r.ifNecessary ? 'If necessary' : 'Scheduled'}
+            {r.ifNecessary ? 'If necessary' : r.seedOrderTbd ? 'Seeding TBD' : 'Scheduled'}
           </Typography>
         </Box>
       </Box>

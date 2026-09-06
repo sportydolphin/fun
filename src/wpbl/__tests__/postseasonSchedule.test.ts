@@ -167,6 +167,72 @@ describe('postseasonScheduleRows', () => {
     expect(rows.filter(r => r.ifNecessary).map(r => r.gameNumber)).toEqual([4, 5])
   })
 
+  // A PAIRING CLOSES BEFORE ITS SEEDS DO, which is the real table of Sep 5, 2026: San Francisco
+  // had the 1 seed, Boston the 4, and New York and Los Angeles were disputing 2 and 3 with the
+  // game between them still to play. Whoever won it, they were playing EACH OTHER, and the
+  // per-seed rule could not say so.
+  //
+  // BALANCED AT NINE GAMES EACH so that the win-percentage sort and the win-count clinch cannot
+  // disagree: SF 8-1, LA 4-5, NY 4-5, BOS 2-7, with only LA-NY left.
+  //   SF beats LA 3-0 and NY 3-0 and BOS 2-1 · LA beats BOS 3-0 · NY beats LA 2-1 and BOS 2-1
+  const pairSettled = (): WpblGame[] => [
+    ...beat('SF', 'LA', 3),
+    ...beat('SF', 'NY', 3),
+    ...beat('SF', 'BOS', 2), ...beat('BOS', 'SF', 1),
+    ...beat('LA', 'BOS', 3),
+    ...beat('NY', 'LA', 2), ...beat('LA', 'NY', 1),
+    ...beat('NY', 'BOS', 2), ...beat('BOS', 'NY', 1),
+    toPlay('LA', 'NY'),
+  ]
+
+  it('names both clubs once only two can fill a pairing, even with the seeds open', () => {
+    const semiB = rowsFor(pairSettled()).find(r => r.label === 'Semifinal B' && r.gameNumber === 1)!
+    expect([semiB.first.team?.id, semiB.second.team?.id].sort()).toEqual(['LA', 'NY'])
+    // The one thing still unknown, and the row has to say so: the order printed is the current
+    // standings order, which the last game can still reverse.
+    expect(semiB.seedOrderTbd).toBe(true)
+  })
+
+  it('leaves a settled pairing unflagged, and does not flag one that is still open', () => {
+    // Semifinal A on the same table: both seeds clinched outright, so the order is a fact.
+    const semiA = rowsFor(pairSettled()).find(r => r.label === 'Semifinal A' && r.gameNumber === 1)!
+    expect([semiA.first.team?.id, semiA.second.team?.id]).toEqual(['SF', 'BOS'])
+    expect(semiA.seedOrderTbd).toBe(false)
+    // And mid-season, where three clubs can still land in the same two seats, naming two of
+    // them would be a guess. The 1v4 pair is the one that has to be counted rather than tested
+    // for overlap: its seats are not adjacent, so every club's range starts out inside it.
+    const open = [win('SF', 'BOS'), win('LA', 'NY'), toPlay('SF', 'LA'), toPlay('NY', 'BOS')]
+    for (const r of rowsFor(open)) {
+      expect(r.first.team).toBeNull()
+      expect(r.seedOrderTbd).toBe(false)
+    }
+  })
+
+  // The other end of the if-necessary rule. A row is DROPPED when the series is over; it is
+  // UNFLAGGED when the series is alive and every game before it has been played, which in a
+  // best-of-three is the moment game 3 stops being conditional. The Home scoreboard spends its
+  // four upcoming slots on games it can promise, so it reads this rather than the game number.
+  it('unflags an if-necessary game once the series has to reach it', () => {
+    const split = [...finished(),
+      game({ game_date: '2026-09-09', home_team_id: 'SF', away_team_id: 'BOS', home_score: 5, away_score: 1, game_type: 'Semifinal A', counts_in_standings: false }),
+      game({ game_date: '2026-09-11', home_team_id: 'SF', away_team_id: 'BOS', home_score: 2, away_score: 6, game_type: 'Semifinal A', counts_in_standings: false }),
+    ]
+    const g3 = rowsFor(split).find(r => r.date === '2026-09-13')!
+    expect(g3.ifNecessary).toBe(false)
+    // Semifinal B has not started, so its own game 3 is still a maybe.
+    expect(rowsFor(split).find(r => r.date === '2026-09-14')!.ifNecessary).toBe(true)
+  })
+
+  // The chip on the Home scoreboard is 8.5rem wide, where "Semifinal A winner" ellipsises to
+  // "Semifinal A w…" and names the wrong thing.
+  it('carries a short label for a slot with no room for the long one', () => {
+    const champ = bySeries(finished(), 'Championship')[0]
+    expect(champ.first.label).toBe('Semifinal A winner')
+    expect(champ.first.shortLabel).toBe('Semi A')
+    const semiA = rowsFor([win('SF', 'BOS')]).find(r => r.label === 'Semifinal A')!
+    expect(semiA.first.shortLabel).toBe('1 seed')
+  })
+
   // A partial league is a test fixture and an empty state, not a bracket.
   it('returns nothing when there are not four clubs', () => {
     const two = TEAMS.slice(0, 2)

@@ -1,6 +1,6 @@
 import type { WpblGame, WpblStandingRow, WpblTeam } from '../types'
 import { countsInStandings } from '../season'
-import { seedingRace, SEMIFINAL_PAIRS, bracketIsSet, clinchedSeeds } from './seeding'
+import { seedingRace, SEMIFINAL_PAIRS, bracketIsSet, clinchedSeeds, type WpblSeedRow } from './seeding'
 // The format and the pairing key live in series.ts, which is the module every OTHER surface
 // reads (a schedule row, a Game Center header, a recap), and re-exported here so this file
 // stays the one import a bracket needs. Stated in one place because "best of three" appearing
@@ -271,6 +271,10 @@ export interface PostseasonSlot {
   team: WpblTeam | null
   /** What to print when `team` is null: "1 seed", "Semifinal A winner". */
   label: string
+  /** The same thing for a card with no room for it: "1 seed", "Semi A". Spelled here rather
+   *  than truncated at the call site, because the scoreboard chip is 8.5rem wide and
+   *  "Semifinal A winner" ellipsises to "Semifinal A w…", which names the wrong thing. */
+  shortLabel: string
   /** The seed this slot is reserved for, so a card can show the number without parsing the
    *  label. Null on the championship, whose slots are winners rather than seeds. */
   seed: number | null
@@ -288,7 +292,15 @@ export interface PostseasonScheduleRow {
   /** "Semifinal A", "Championship". */
   label: string
   gameNumber: number
+  /** Whether this game may never be played. Goes false once the series reaches the point where
+   *  it must be, which is not the same as the row surviving at all: a row is dropped when the
+   *  series is OVER, and unflagged when the series is alive and every game before this one has
+   *  been played. */
   ifNecessary: boolean
+  /** The two clubs are known but which of them is the higher seed is not, so `first` and
+   *  `second` are the current projection rather than a fact. True only in the window where a
+   *  pairing has closed and the seeds inside it have not: see `postseasonScheduleRows`. */
+  seedOrderTbd: boolean
   /** Higher seed first. NOT home and away: see the note in `postseasonScheduleRows`. */
   first: PostseasonSlot
   second: PostseasonSlot
@@ -347,33 +359,75 @@ export function postseasonScheduleRows(
 
   const bracket = buildBracket(rows, games)
   const seedSlot = (seed: number): PostseasonSlot =>
-    ({ team: settled.get(seed) ?? null, label: `${seed} seed`, seed })
+    ({ team: settled.get(seed) ?? null, label: `${seed} seed`, shortLabel: `${seed} seed`, seed })
+
+  /**
+   * The clubs that can still land in one semifinal's two seats: those whose whole remaining
+   * range of seeds lies inside the pair.
+   *
+   * A PAIRING CLOSES BEFORE ITS SEEDS DO, and on Sep 5, 2026 it had. San Francisco had clinched
+   * the 1 seed and Boston the 4, which left New York and Los Angeles disputing 2 and 3 with one
+   * game to play. Whoever won it they were playing EACH OTHER, because 2v3 is the whole of the
+   * other semifinal; but neither had clinched a seed, so the per-seed rule above printed "2
+   * seed" against "3 seed" and said less than the standings already knew.
+   *
+   * Exactly two clubs is the only answer that means anything. One says nothing (a known club
+   * against an open opponent is not a matchup), and more is the ordinary case early on, when
+   * every range is still wide. The 1v4 pair is the reason the test is a subset rather than an
+   * overlap: its seats are not adjacent, so before anything is settled EVERY club's 1-to-4 range
+   * lies inside it, and only the count keeps that from reading as a decided matchup.
+   */
+  const pairOccupants = ([a, b]: [number, number]): WpblSeedRow[] => {
+    const lo = Math.min(a, b), hi = Math.max(a, b)
+    return seeds.filter(s => s.bestPossible >= lo && s.worstPossible <= hi)
+  }
 
   const out: PostseasonScheduleRow[] = []
   const push = (
     round: BracketRound, key: string | null, label: string,
     first: PostseasonSlot, second: PostseasonSlot,
-    decided: boolean,
+    series: BracketSeries | null,
+    seedOrderTbd = false,
   ) => {
+    const decided = !!series?.winner
     for (const g of postseasonGames(round, key)) {
       if (feedDates.has(g.date)) continue
       // An if-necessary game that is no longer necessary. Once a series is won its game 3 (or
       // its games 4 and 5) will not be played, and leaving them on the calendar is the one way
       // this list can state something that is not merely unknown but false.
       if (g.ifNecessary && decided) continue
+      // The other end of the same fact: with every game before it played and the series still
+      // alive, an if-necessary game is necessary. In a best-of-N that is exactly the moment it
+      // becomes certain, and it matters beyond the label, because the scoreboard strip has room
+      // for four fixtures and spends them on games it can promise.
+      const forced = !decided && (series?.played ?? 0) >= g.game - 1
       out.push({
         id: `ps:${round}:${key ?? '-'}:${g.game}`,
         date: g.date, time: g.time, round, key, label,
-        gameNumber: g.game, ifNecessary: !!g.ifNecessary,
+        gameNumber: g.game, ifNecessary: !!g.ifNecessary && !forced,
+        seedOrderTbd,
         first, second,
       })
     }
   }
 
-  SEMIFINAL_PAIRS.forEach(([hi, lo], i) => {
+  SEMIFINAL_PAIRS.forEach((pair, i) => {
+    const [hi, lo] = pair
     const key = String.fromCharCode(65 + i)
-    push('semifinal', key, `Semifinal ${key}`, seedSlot(hi), seedSlot(lo),
-      !!bracket?.semifinals[i]?.winner)
+    const first = seedSlot(hi), second = seedSlot(lo)
+    // Both seats open and only two clubs left that can fill them: the matchup is settled even
+    // though neither seed is. The clubs go in standings order, which is the projected seeding,
+    // and the row carries the flag saying that order is the one thing still unknown.
+    let seedOrderTbd = false
+    if (!first.team && !second.team) {
+      const inPair = pairOccupants(pair)
+      if (inPair.length === 2) {
+        first.team = inPair[0].team
+        second.team = inPair[1].team
+        seedOrderTbd = true
+      }
+    }
+    push('semifinal', key, `Semifinal ${key}`, first, second, bracket?.semifinals[i] ?? null, seedOrderTbd)
   })
 
   // The championship's slots are the semifinal winners, so they are unknown for a different
@@ -381,9 +435,10 @@ export function postseasonScheduleRows(
   const champSlot = (i: number): PostseasonSlot => ({
     team: bracket?.semifinals[i]?.winner ?? null,
     label: `Semifinal ${String.fromCharCode(65 + i)} winner`,
+    shortLabel: `Semi ${String.fromCharCode(65 + i)}`,
     seed: null,
   })
-  push('championship', null, 'Championship', champSlot(0), champSlot(1), !!bracket?.champion)
+  push('championship', null, 'Championship', champSlot(0), champSlot(1), bracket?.championship ?? null)
 
   return out.sort((a, b) => a.date.localeCompare(b.date) || a.gameNumber - b.gameNumber)
 }

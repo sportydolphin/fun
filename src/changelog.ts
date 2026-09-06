@@ -4,6 +4,25 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.67.0',
+    date:    '2026-09-05',
+    title:   'The postseason is on the scoreboard',
+    changes: [
+      {
+        short: 'The scoreboard now runs past the last day of the regular season',
+        full:  'The strip at the top of the home page has always been the feed’s games, and the feed’s games stop on Sep 6. From Sep 7 it would have been six weeks of finished scores with nothing ahead of it, in the one week of the season you are most likely to open it for. It now carries the postseason dates the league published, in the same shape: Semifinal game 1 on Sep 9, the other on Sep 10, and so on into the championship. They are drawn with a dashed outline, because they are dates rather than fixtures the league has published a page for, and there is nothing to tap yet.',
+      },
+      {
+        short: 'And it names the clubs, because the matchups are already settled',
+        full:  'San Francisco have the 1 seed and Boston the 4, so Semifinal A is San Francisco against Boston. New York and Los Angeles are still arguing over 2 and 3, which sounds like it leaves the other semifinal open and does not: 2 plays 3, so whoever wins that argument, those two are playing each other. The schedule and the scoreboard now say so, and mark the pairing as one whose seeding is still to come rather than pretending to know which club is the higher seed.',
+      },
+      {
+        short: 'A deciding game stops being marked “if necessary” once it is necessary',
+        full:  'Games 3, 4 and 5 of a series are only played if the series is still alive, so they carry an if-necessary mark and disappear entirely once someone has won. The other half was missing: a semifinal tied one game each has to play its game 3, and the schedule still hedged about it. It now drops the mark the moment the result before it makes the game certain, which is also what lets the scoreboard spend its four upcoming slots on games that will definitely be played.',
+      },
+    ],
+  },
+  {
     version: '1.66.0',
     date:    '2026-09-04',
     title:   'It only loads once now, and the club chart moves',

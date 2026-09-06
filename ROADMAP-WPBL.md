@@ -387,7 +387,8 @@ mid-September.
 Sep 10, 12, 14* · Championship Sep 16, 17, 19, 20*, 22*. They are a constant rather than rows,
 because a game row needs two clubs and the seeds are not set until Sep 6. The schedule prints
 them through `postseasonScheduleRows` (Sep 3, see the log), naming a seed until that seed is
-locked and standing down the day the feed publishes a real game on the date.
+locked and standing down the day the feed publishes a real game on the date. **Home’s Scoreboard
+strip reads the same list** (Sep 5), so the section does not run out of season on Sep 7.
 
 **Format** (confirmed Aug 16): all four teams qualify · semifinals **best-of-3** ·
 finals **best-of-5**. So **7–11 postseason games** land on top of a 30-game regular season,
@@ -967,6 +968,42 @@ is retired.
 ---
 
 ## Shipped log
+
+### Sep 5, 2026: the postseason reaches the scoreboard, and a pairing settles before its seeds (v1.67.0)
+
+**Home's Scoreboard strip was about to run out of season.** It is the feed's games, and the
+feed's games stop on Sep 6, so from Sep 7 the strip would have been three finals and nothing
+ahead of them, in the week the section is most likely to be opened. It now fills its four
+upcoming slots from `postseasonScheduleRows`, the same list the Schedule tab has printed since
+Sep 3, so the two cannot disagree about who plays whom. `PostseasonChip` in `Home.tsx` keeps
+GameChip's box exactly (same 8.5rem width, same one-line eyebrow, same two rows, so the badges
+stay level across the strip) and drops what it cannot have: no score column, dashed border, no
+link, because there is no game page to open. The eyebrow reads "Semi G1 · Sep 9", abbreviated
+because it may not wrap; the championship is "Champ", not "Final", which is the word that slot
+carries on every completed game.
+
+**A PAIRING CLOSES BEFORE ITS SEEDS DO, and today it had.** San Francisco had clinched the 1
+seed and Boston the 4, which left New York and Los Angeles disputing 2 and 3 with the game
+between them still to play. Whoever won it they were playing each other, because 2v3 is the
+whole of the other semifinal, and the per-seed rule could only say "2 seed" against "3 seed".
+`postseasonScheduleRows` now resolves a pairing when exactly two clubs' remaining seed ranges
+lie inside its two seats, and carries `seedOrderTbd` so the card prints the projected order
+without claiming it: the schedule says "Seeding TBD" where it would have said "Scheduled". The
+count is what makes the subset test safe, since the 1v4 pair's seats are not adjacent and every
+club's range starts out inside it. As it happens New York had already clinched the 2 seed on the
+head-to-head tiebreak, so today this changes nothing on screen; it covers the season where the
+tiebreak has not decided and the matchup has.
+
+**An if-necessary game stops being conditional once it is forced.** The list already DROPPED
+game 3 when a semifinal was swept, which is the half that could state something false. The other
+half was missing: with game 2 played and the series level, game 3 is not a maybe, and the row
+still hedged. It now clears the flag when every game before it has been played and nobody has
+the series. That is not only a label, it is what lets the scoreboard spend four scarce slots on
+games it can promise, rather than on a game 3 that may never be played.
+
+**Not changed: the chip carries no time.** An upcoming feed chip reads "Sep 6 · 4:30 PM"; there
+is no room for a round, a game number and a time on one line that may not wrap, and for a
+bracket game the round is what a reader wants. The time is one tap away on the Schedule tab.
 
 ### Sep 5, 2026: the player card is one table, and the desktop stops paying for a rail
 
