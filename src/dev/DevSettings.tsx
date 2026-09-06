@@ -17,7 +17,7 @@
 // inside MlbStats or WpblApp would pull that section's chunk into the main bundle
 // for every visitor, in production, to serve a control that only exists in dev.
 
-import React, { lazy, Suspense } from 'react'
+import React, { lazy, Suspense, useSyncExternalStore } from 'react'
 import { Box, Typography, Popover, Tooltip, Divider, Button } from '@mui/material'
 import { Settings } from '@mui/icons-material'
 import { useAuth, simulateDevLogin } from '../AuthContext'
@@ -29,11 +29,29 @@ import { useDevDrama, setDevDramaEnabled, regenerateDevDrama } from '../mlb/dev/
 import { useDevDevice, setDeviceMode, currentPreset, isInsideDeviceFrame } from '../mlb/dev/devDevice'
 import { useDevSeasonSelector, setSeasonSelectorStyle } from '../mlb/dev/devSeasonSelector'
 import { devShowDiscordCard } from '../wpbl/discordInvite'
+import { installWpblReadOverlay } from '../wpbl/api'
+import {
+  DEV_LIVE_SPEEDS, devLiveCandidates, devLiveCursor, devLiveFinished, devLiveOverlay,
+  devLivePlayCount, devLiveSnapshot, restartDevLive, setDevLiveEnabled, setDevLiveGame,
+  setDevLivePlaying, setDevLiveSpeed, stepDevLive, subscribeDevLive,
+} from '../wpbl/dev/devLiveGame'
 import { useNotifications, addEventNotification, refreshNotifications, clearNotifications } from '../lib/notifications'
 import { sampleNotifications } from '../../shared/notifications'
 import type { NotificationPayload } from '../../shared/notifications'
 
 const MobilePreview = import.meta.env.DEV ? lazy(() => import('../mlb/dev/MobilePreview')) : null
+
+// Armed at module scope rather than from a component, and that matters: App.tsx imports this
+// file statically while WpblApp is lazy, so the overlay is in place before the section has made
+// its first read. Installed from a mount effect it would miss the schedule fetch on any reload
+// where the simulator was already switched on, and the game would flash back to final.
+//
+// GUARDED even though this file never renders in production, and the guard is load-bearing
+// rather than belt-and-braces. Everything else here is a component, so Rollup drops the lot as
+// unreachable; a bare call at module scope is a SIDE EFFECT, which makes the module
+// unremovable and drags the simulator into the shipped bundle. Measured: without the `if` the
+// engine's storage key is in dist/assets/index-*.js, with it the file is absent.
+if (import.meta.env.DEV) installWpblReadOverlay(devLiveOverlay)
 
 // Mounts the phone-frame overlay when dev device mode is set to `mobile`. Rendered
 // from App.tsx so the mobile simulation works on any section, not just MLB. Kept as
@@ -181,6 +199,127 @@ function WpblControls() {
       <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.5 }}>
         Undismisses it. Phone widths only. Switch Device to Mobile to see it.
       </Typography>
+
+      <Divider sx={{ my: 1.75 }} />
+
+      <LiveGameSimControls />
+    </>
+  )
+}
+
+/**
+ * Replay a finished game as a live one.
+ *
+ * The live surfaces are the only part of the section that cannot be opened on demand: there is
+ * one live game every few days, and its two most awkward states (the break between half-innings,
+ * and the impossible count the feed publishes between at-bats) each last about thirty seconds.
+ * This makes all of it available at any hour, off the plays the league actually logged.
+ *
+ * The engine and its limits are in wpbl/dev/devLiveGame.ts.
+ */
+function LiveGameSimControls() {
+  const sim = useSyncExternalStore(subscribeDevLive, devLiveSnapshot, devLiveSnapshot)
+  // The cursor is derived from the wall clock rather than ticked, so nothing in the app has to
+  // re-render for it to be right. This panel is the exception: it is the one surface SHOWING
+  // the cursor, so it ticks a second at a time purely to keep its own readout honest.
+  const [, tick] = React.useState(0)
+  React.useEffect(() => {
+    if (sim.startedAt == null) return
+    const id = window.setInterval(() => tick(n => n + 1), 1000)
+    return () => window.clearInterval(id)
+  }, [sim.startedAt])
+
+  const games = devLiveCandidates()
+  const total = devLivePlayCount()
+  const at = devLiveCursor(sim)
+  const chosen = games.find(g => g.id === sim.gameId)
+  const btn = { textTransform: 'none' as const, fontWeight: 600, minWidth: 0 }
+
+  return (
+    <>
+      <Typography sx={{ fontSize: '0.78rem', fontWeight: 600, color: 'text.secondary', mb: 0.75 }}>
+        Simulate a live game
+      </Typography>
+
+      {games.length === 0 ? (
+        <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>
+          Open the WPBL section first so the schedule loads.
+        </Typography>
+      ) : (
+        <>
+          {/* A native select. The list is every played game of the season and the popover is
+              260px wide, so a styled MUI menu would be a scroll inside a scroll for no gain. */}
+          <Box
+            component="select"
+            value={sim.gameId ?? ''}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDevLiveGame(e.target.value)}
+            sx={{
+              width: '100%', mb: 0.75, px: 1, py: 0.6, borderRadius: 1.5,
+              fontSize: '0.72rem', fontWeight: 600,
+              color: 'text.primary', bgcolor: 'background.paper',
+              border: '1px solid', borderColor: 'divider',
+            }}
+          >
+            {games.map(g => (
+              <option key={g.id} value={g.id}>
+                {g.game_date} · {g.away_team_id} {g.away_score ?? '-'} @ {g.home_team_id} {g.home_score ?? '-'}
+              </option>
+            ))}
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 0.5, mb: 0.75 }}>
+            <Button
+              size="small" variant={sim.enabled ? 'contained' : 'outlined'} color="warning"
+              onClick={() => setDevLiveEnabled(!sim.enabled)}
+              sx={{ ...btn, flex: 1 }}
+            >
+              {sim.enabled ? 'Stop' : 'Start'}
+            </Button>
+            <Button
+              size="small" variant="outlined" color="warning" disabled={!sim.enabled}
+              onClick={() => setDevLivePlaying(sim.startedAt == null)}
+              sx={{ ...btn, px: 1 }}
+            >
+              {sim.startedAt == null ? '▶' : '❙❙'}
+            </Button>
+            <Button size="small" variant="outlined" color="warning" disabled={!sim.enabled}
+              onClick={() => stepDevLive(-5)} sx={{ ...btn, px: 1 }}>−5</Button>
+            <Button size="small" variant="outlined" color="warning" disabled={!sim.enabled}
+              onClick={() => stepDevLive(5)} sx={{ ...btn, px: 1 }}>+5</Button>
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 0.5, mb: 0.75 }}>
+            {DEV_LIVE_SPEEDS.map(ms => (
+              <Button
+                key={ms} size="small" color="warning"
+                variant={sim.msPerPlay === ms ? 'contained' : 'outlined'}
+                onClick={() => setDevLiveSpeed(ms)}
+                sx={{ ...btn, flex: 1, fontSize: '0.66rem' }}
+              >{ms / 1000}s/play</Button>
+            ))}
+          </Box>
+
+          <Button
+            fullWidth size="small" variant="outlined" color="warning" disabled={!sim.enabled}
+            onClick={() => restartDevLive()} sx={{ ...btn, mb: 0.75 }}
+          >Back to the 1st</Button>
+
+          <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>
+            {!sim.enabled ? 'Off. The game reads as the final it is.'
+              : total == null ? 'Open the game once so its plays load.'
+              : devLiveFinished() ? `Replay over (${total} plays). It has gone final.`
+              : `Play ${at} of ${total}${sim.startedAt == null ? ' · paused' : ''}`}
+          </Typography>
+          {sim.enabled && chosen && (
+            <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.5 }}>
+              {/* The two things that will look wrong if nobody says them out loud. */}
+              Box-score lines stay at the final totals: there is one cumulative row per player
+              and nothing to rewind. The view catches up on the 15s live poll, so a fast speed
+              moves several plays at a time.
+            </Typography>
+          )}
+        </>
+      )}
     </>
   )
 }

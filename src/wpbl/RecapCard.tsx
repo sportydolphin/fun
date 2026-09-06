@@ -104,6 +104,30 @@ function useFitKey(): [(node: HTMLDivElement | null) => void, number] {
 const WinProbView = lazy(() => import('./WinProbView'))
 export const preloadWinProb = () => { void import('./WinProbView') }
 
+/**
+ * The win-probability chart's lazy boundary, shared by the two places that draw it.
+ *
+ * A live game has no Recap tab, and the Recap tab is where this card lived, so the one thing
+ * about a game in progress that neither the scoreboard nor the situation panel can say, the
+ * shape it took to get here, had nowhere to be drawn. Nothing in the model had to change for
+ * it: `gameWinProb` already leaves `decisive` null until there is a winner, already refuses to
+ * snap its last point to a result it does not have (a live game's line ends where the evidence
+ * ends, exactly as an abandoned play log does), and the resting readout already says "Biggest
+ * moment so far". All of that was written for this and had no surface.
+ *
+ * No layout of its own, deliberately: the recap stacks it in a padded column and the Live tab
+ * lets it run full width under a panel that takes a measure, and a wrapper here would have to
+ * be undone by one of them.
+ */
+export function LazyWinProbCard(props: {
+  game: WpblGame
+  teams: Map<string, WpblTeam>
+  plays: WpblGamePlay[]
+  games: WpblGame[]
+}) {
+  return <Suspense fallback={null}><WinProbView {...props} /></Suspense>
+}
+
 export function GameRecapView({ game, teams, batting, pitching, plays, names, games = [], video, onOpenPlayer }: {
   game: WpblGame
   teams: Map<string, WpblTeam>

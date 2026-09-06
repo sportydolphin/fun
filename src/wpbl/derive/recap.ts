@@ -151,17 +151,22 @@ const runsByInning = (line: WpblGame['away_line'], n: number): number[] => {
   return out
 }
 
-function battingStatline(b: WpblBattingLine): string {
+export function battingStatline(b: WpblBattingLine): string {
   const parts = [`${b.h}-${b.ab}`]
   if (b.hr) parts.push(`${b.hr} HR`)
   if (b.rbi) parts.push(`${b.rbi} RBI`)
   if (!b.hr && b.doubles) parts.push(`${b.doubles} 2B`)
   if (!b.hr && !b.rbi && !b.doubles && b.r) parts.push(`${b.r} R`)
   if (b.sb) parts.push(`${b.sb} SB`)
+  // Last, and only when nothing else made the cut. A batter who is 0-for-2 with two walks
+  // reads "0-2", which is a fair headline (nobody is a star of the game for walking) and a
+  // poor line to print under her face on the Live tab, where it is the only thing said about
+  // her. Guarded on `parts.length === 1` so no line that already says something moves.
+  if (parts.length === 1 && b.bb) parts.push(`${b.bb} BB`)
   return parts.slice(0, 3).join(', ')
 }
 
-function pitchingStatline(p: WpblPitchingLine): string {
+export function pitchingStatline(p: WpblPitchingLine): string {
   const parts = [`${outsToIp(p.outs)} IP`, `${p.so} K`]
   parts.push(`${p.er} ER`)
   return parts.join(', ')

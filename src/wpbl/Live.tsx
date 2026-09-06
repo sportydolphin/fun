@@ -13,7 +13,9 @@ import type { WpblTeam, WpblGame, WpblLineScoreEntry, WpblLiveState } from './ty
 // data updates itself as the cron re-ingests, and these hooks poll + subscribe so viewers
 // see it within a few seconds.
 
-const LIVE_RED = '#ef4444'
+/** The section's live red. Home's scoreboard chip and the LIVE hero already use it; exported so
+ *  Game Center's header can say the same thing in the same colour. */
+export const LIVE_RED = '#ef4444'
 
 export const shortName = (name: string): string => {
   const parts = name.trim().split(/\s+/)
@@ -68,10 +70,17 @@ export function useLiveGame(seed: WpblGame): WpblGame {
 }
 
 // ─── Situation derivation ──────────────────────────────────────────────────────
-interface Situation {
+export interface Situation {
   half: 'top' | 'bottom'; inning: number; outs: number; balls: number; strikes: number
   battingTeam: WpblTeam; batterName: string | null; pitcherName: string | null
   first: boolean; second: boolean; third: boolean
+  /** WHO is on each base, which is what the feed actually sends: `first_base` is a runner's
+   *  name ("Val Perez") and an empty string when the base is empty, not a flag. The booleans
+   *  above are that name emptied out, which is all a 34px glyph can use and all this carried
+   *  until the Live tab had room to name them. Null where the base is empty, and also where
+   *  the feed marks a base occupied without saying by whom, so a consumer has to handle a
+   *  nameless runner rather than assume the pair move together. */
+  firstName: string | null; secondName: string | null; thirdName: string | null
   /** The side is retired and the next one has not come to bat. */
   between: boolean
   /** What to call that gap: "Middle of the 4th" once the top is over, "End of the 4th"
@@ -167,6 +176,13 @@ export function deriveSituation(state: WpblLiveState, away: WpblTeam, home: Wpbl
     battingTeam: half === 'top' ? away : home,
     batterName: state.batter_name || null, pitcherName: state.pitcher_name || null,
     first: !!state.first_base, second: !!state.second_base, third: !!state.third_base,
+    // Trimmed, and the flags above deliberately are NOT: the flag is whether the base is
+    // occupied and the name is who is standing on it, and a value of " " answers the first
+    // question yes and the second one not at all. Left untrimmed the consumer renders a space
+    // where a name goes, which is a blank row rather than a fallback.
+    firstName: state.first_base?.trim() || null,
+    secondName: state.second_base?.trim() || null,
+    thirdName: state.third_base?.trim() || null,
     between,
     breakLabel: between ? breakLabelFor(half, state.inning || 1) : null,
   }

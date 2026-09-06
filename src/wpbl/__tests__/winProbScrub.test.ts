@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { restingReadout, scrubReadout } from '../WinProbView'
+import { nowLine, restingReadout, scrubReadout } from '../WinProbView'
 import type { WinProbPoint } from '../derive/winProbability'
 import type { WpblGame, WpblRunValuePlay, WpblTeam } from '../types'
 import { wpblShortName } from '../ui'
@@ -89,6 +89,24 @@ describe('restingReadout', () => {
   it('spends its third line telling the reader the chart can be read', () => {
     expect(restingReadout(point(), game, teams, full, false, true).note).toBe('Hold the chart for any play')
     expect(restingReadout(point(), game, teams, full, true, true).note).toBe('Hover the chart for any play')
+  })
+})
+
+describe('nowLine', () => {
+  // The live game's headline, in the card header. It names the club in FRONT for the same
+  // reason the readout does: pinned to the home team, half the league's live games would show
+  // a number sinking toward zero for the club that is winning.
+  it('names whichever club is ahead', () => {
+    expect(nowLine(0.63, game, teams)).toBe('SF 63%')
+    expect(nowLine(0.37, game, teams)).toBe('LA 63%')
+  })
+
+  it('gives a dead-even game to the home side rather than to neither', () => {
+    expect(nowLine(0.5, game, teams)).toBe('SF 50%')
+  })
+
+  it('rounds to whole points, like every other figure this model prints', () => {
+    expect(nowLine(0.6349, game, teams)).toBe('SF 63%')
   })
 })
 

@@ -4,6 +4,33 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.68.0',
+    date:    '2026-09-06',
+    title:   'A Live tab, for while the game is on',
+    changes: [
+      {
+        short: 'A game in progress now opens on what is happening right now',
+        full:  'Opening a live game used to land you on the box score, which is a half-finished table. There is a Live tab now, and it is where a live game opens: the count as a scoreboard band, the bases with the runners named, the batter and the pitcher with what each has done in this game, the last play, and the win-probability line underneath. Once the game goes final the tab becomes the Recap in the same place, so if a game ends while you are watching, nothing moves out from under you.',
+      },
+      {
+        short: 'You can see who is on base, not just that somebody is',
+        full:  'The little diamond in the header has always shown occupied bases as filled squares. The league actually tells us who is standing on each one, and that was being thrown away. The Live tab names them, third down to first, and only lists the bases that have somebody on them.',
+      },
+      {
+        short: 'Balls, strikes and outs read like a scoreboard',
+        full:  'They sit across the top of the card in the order every ballpark stacks them, in the colours every ballpark uses: green for balls, yellow for strikes, red for outs. Big enough to read at a glance rather than counted. An unlit bulb keeps its own colour faintly rather than going grey, so at 0-0 you can still tell the three groups apart.',
+      },
+      {
+        short: 'The last play is broken into its parts instead of printed as one sentence',
+        full:  'The league writes one long sentence with everything in it: the batter, what she did, the ball-strike count with the raw pitch letters in brackets, and every runner’s movement chained on with semicolons. The Live tab splits it the same way the Play-by-Play tab already does. The batter is bold and opens her page, the runners go on a quieter second line, and the count moves to its own column on the right so it is in the same place every time instead of floating mid-sentence.',
+      },
+      {
+        short: 'One thing the Live tab cannot do, and will not pretend to',
+        full:  'A batter’s line under her name is her line in that game so far. The pitch-by-pitch tracking is a different matter: the league publishes it days after a game rather than during one, so there is no pitch plot on this tab and there cannot be. Between half-innings the tab says which break it is and shows nothing else, because everything the feed is holding at that moment belongs to the at-bat that just finished.',
+      },
+    ],
+  },
+  {
     version: '1.67.0',
     date:    '2026-09-05',
     title:   'The postseason is on the scoreboard',

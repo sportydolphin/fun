@@ -169,8 +169,20 @@ function WinProbFrame({ game, teams }: { game: WpblGame; teams: Map<string, Wpbl
   )
 }
 
-/** Shared by the frame and the card, so the two can never disagree about the header. */
-function CardHeader() {
+/**
+ * Shared by the frame and the card, so the two can never disagree about the header.
+ *
+ * `now` is the live game's headline and the one number this card owes a reader who is watching
+ * rather than reading back: where it stands, this second. It is deliberately NOT in the readout
+ * below, which rests on the biggest moment so far and must keep resting there. That readout is
+ * a play, scrubbing moves it, and a live figure that jumped between "the play you are pointing
+ * at" and "now" every fifteen seconds would be the one thing on the card that cannot be trusted
+ * to hold still. Up here it is a fact about the game rather than a fact about a play.
+ *
+ * It sits on the title's own line, so the frame that omits it is exactly as tall as the card
+ * that has it. Everything in this component is a fixed height for the reason at CAPTION_H.
+ */
+function CardHeader({ now }: { now?: string | null }) {
   return (
     <Box sx={{ px: 1.5, pt: 1.25, pb: 0.75, display: 'flex', alignItems: 'center', gap: 0.75 }}>
       <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, lineHeight: 1.2 }}>Win probability</Typography>
@@ -183,6 +195,14 @@ function CardHeader() {
           fontSize: '0.6rem', fontWeight: 800, lineHeight: 1,
         }}
       >i</TapTip>
+      {now && (
+        /* Tabular figures and a nowrap, because this repaints on every poll of a live game and
+           a number that reflows the row as it lands reads as a glitch rather than as news. */
+        <Typography sx={{
+          ml: 'auto', fontSize: '0.72rem', fontWeight: 800, whiteSpace: 'nowrap',
+          fontVariantNumeric: 'tabular-nums', color: 'var(--wpbl-accent-fg)',
+        }}>{now}</Typography>
+      )}
     </Box>
   )
 }
@@ -397,6 +417,9 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
   const short = useWpblName(14)
   const scrub = useChartScrub(pts.length)
   const at = scrub.index == null ? null : pts[scrub.index]
+  // Only while it is being played. On a final game "SF 100%" is not a forecast, it is the
+  // scoreboard three inches up the sheet with a percent sign on it.
+  const now = game.status === 'live' ? nowLine(wp.final, game, teams) : null
   const read = at ? scrubReadout(at, game, teams, short)
     : resting ? restingReadout(resting, game, teams, short, canHover, resting === wp.decisive)
     : null
@@ -407,7 +430,7 @@ function WinProbCard({ game, teams, wp }: { game: WpblGame; teams: Map<string, W
           it" under a 132px chart spent more of a phone screen on a disclaimer than on the
           thing being disclaimed. It is a tap away on the ⓘ, which is where a caveat belongs
           for a card whose headline claim a reader can check against the score above it. */}
-      <CardHeader />
+      <CardHeader now={now} />
 
       {/* The readout, ABOVE the plot, and both halves of that are deliberate.
 
@@ -612,12 +635,30 @@ export interface Readout {
  * model is not being allowed to print (see fmtWinPct), and most plays of a game are that.
  */
 function pctLine(pt: WinProbPoint, game: WpblGame, teams: Map<string, WpblTeam>): string {
-  const homeSide = pt.after >= 0.5
-  const t = teams.get(homeSide ? game.home_team_id : game.away_team_id)
-  const abbr = t?.abbr ?? (homeSide ? 'HOME' : 'AWAY')
+  const { homeSide, abbr } = leader(pt.after, game, teams)
   const before = fmtWinPct(homeSide ? pt.before : 1 - pt.before)
   const after = fmtWinPct(homeSide ? pt.after : 1 - pt.after)
   return before === after ? `${abbr} ${after}` : `${abbr} ${before} → ${after}`
+}
+
+/** Which club a probability leaves in front, and how to name them. Shared so the header's live
+ *  figure and the readout's can never pick different sides of the same number. */
+function leader(p: number, game: WpblGame, teams: Map<string, WpblTeam>) {
+  const homeSide = p >= 0.5
+  const t = teams.get(homeSide ? game.home_team_id : game.away_team_id)
+  return { homeSide, abbr: t?.abbr ?? (homeSide ? 'HOME' : 'AWAY') }
+}
+
+/**
+ * "NY 63%". Where a game still being played stands, for the card header.
+ *
+ * Named for the club IN FRONT rather than for a fixed side, the same choice and the same
+ * reason as pctLine: pinned to the home team, half the live games in the league would show a
+ * number falling toward zero for the club that is winning.
+ */
+export function nowLine(p: number, game: WpblGame, teams: Map<string, WpblTeam>): string {
+  const { homeSide, abbr } = leader(p, game, teams)
+  return `${abbr} ${fmtWinPct(homeSide ? p : 1 - p)}`
 }
 
 /** The play, without the runner movements the feed hangs off the end of it: the box has two

@@ -127,6 +127,19 @@ Each of these has already cost someone a debugging session, and none of them fai
   the row every pass: the scoreboard moves and the box score under it does not, so the game page
   contradicts itself rather than simply going stale.
   [`scripts/check-wpbl-drift.mjs`](scripts/check-wpbl-drift.mjs) is what closes this, nightly.
+- **`live_state` is the feed's last word, not the current state, and it is wrong twice.** It is
+  `box.status` mirrored verbatim, and between at-bats it holds a count that cannot exist: watched
+  on Sep 5, 2026 it published balls 3, strikes 3 on a batter with nobody out, then dropped to 0-1.
+  That is the previous strikeout's full count sitting on the next batter's name. Printed as "3-3"
+  in a four-character strip nobody noticed for months; drawn as bulbs it is a fourth ball and a
+  third strike, so **anything that renders the count must clamp it** (3 and 2). The other half is
+  the break between half-innings, where the batter, the count and the runners all describe an
+  at-bat that has finished: `betweenInnings` in [`Live.tsx`](src/wpbl/Live.tsx) is the only
+  detector, and it works by finding the half-inning the feed has left EMPTY rather than one it
+  names. Its header explains why every signal the MLB side keys on is absent here. **And the bases
+  are runner NAMES**, not booleans: `first_base` is "Val Perez". `deriveSituation` exposes both
+  the flag and the name because a surface can want either, and the 34px strip throws the name away.
+
 - **The live poll reads a hand-listed half of `wpbl_games`, and the two halves must
   partition the table.** `LIVE_GAME_COLUMNS` in [`src/wpbl/api.ts`](src/wpbl/api.ts) names
   every column that can change mid-game; the poll merges those over the row it already holds,

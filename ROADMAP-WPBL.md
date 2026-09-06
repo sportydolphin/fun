@@ -969,6 +969,125 @@ is retired.
 
 ## Shipped log
 
+### Sep 6, 2026: Game Center gets a Live tab, and a way to work on it at any hour (v1.68.0)
+
+**The win-probability chart was already live-ready and had nowhere to be drawn.** `gameWinProb`
+leaves `decisive` null until there is a winner, refuses to snap its last point to a result it
+does not have, and the resting readout already says "Biggest moment so far". Every one of those
+was written for a game in progress, and the only surface that drew the card was the Recap tab,
+which does not exist until the game is final. So the first cut was simply the chart, as a tab.
+
+**Then the chart turned out to be the wrong headline.** Somebody who opens a game being played
+wants the at-bat; the win-probability line says what that at-bat MEANS, which is the second
+question. The tab is now `LiveGameView.tsx`: the count, the bases, the matchup, the last play,
+and the chart underneath. It is the landing tab for a live game for the same reason Recap is for
+a final one, and it takes the same slot, so the two swap in place when a game ends under an open
+modal. The compact situation banner in the modal header hides while it is showing, because that
+banner is a strict subset of this pane's top and the header is paid for by every tab.
+
+**Three things about the feed shaped it, and two of them are new traps** (both now in CLAUDE.md):
+
+- **The bases are runner NAMES.** `live_state.first_base` is "Val Perez", empty string when the
+  base is empty. The header strip reduces it to a boolean with a `!!`, which is right for a 34px
+  glyph and is the single thing this pane exists to show.
+- **The count can arrive impossible.** Watched on Sep 5: balls 3, strikes 3 on a batter with
+  nobody out, then 0-1 a moment later. It is the previous strikeout's full count sitting on the
+  next batter's name. The strip printed "3-3" and got away with it because it is four characters;
+  as bulbs it is a fourth ball and a third strike, so the bulbs clamp.
+- **There is no id for the batter or the pitcher**, and `away_pitcher_id` / `runner_first` /
+  `away_batting_order` on the game row are not a second source: they are the leftovers of a
+  hand-scoring feature that never shipped and read null, null and 1 on a live game today. So both
+  are matched by NAME against the rosters the modal already holds, and `lineFor` is built to fail
+  rather than guess: across both rosters first, then narrowed by club (which is what settles a
+  traded player's two roster rows), then nobody, and the panel prints the feed's name with no
+  line and no link.
+
+There is no pitch-by-pitch and there cannot be: TrackMan lands days after a game, not during one.
+
+**What the box score cannot do**, and it is worth stating because it looks like a bug: a batter's
+statline is her line in this game so far, read off `wpbl_batting_lines`, which the ingest rewrites
+as cumulative totals. During a live game that is correct. Under the *simulator* below it is not,
+and the dev panel says so.
+
+**THE LAYOUT TOOK THREE PASSES AND THE FIRST TWO ARE THE ARGUMENT FOR THE THIRD.** The first
+stacked everything: a band for the inning and the count, a band for the bases, a band for the two
+players, a separate card for the last play. On a 900px sheet the bases band stood 130px tall to
+hold a 76px glyph and one name with about 645px of nothing beside it, and `OUT` sat seven hundred
+pixels from the count it belongs with, so the two read as unrelated facts. The second made it
+three columns, which fixed the width and left the count buried under the diamond in 8px grey dots:
+balls, strikes and outs are the thing a person glances at a live game to read, and they were the
+least visible thing on the card.
+
+The third is what shipped. **The count is a band of its own across the top, in the order and the
+colours every ballpark uses**: balls over strikes over outs, green, yellow, red, in a shade per
+theme because a green dark enough to carry 3:1 on white is dim on this section's near-black. The
+order is not ours to arrange; a fan reads the three without looking at the labels because they
+know where each lives, and the first cut led with outs. An unlit bulb keeps its own colour at a
+whisper rather than going grey, so on the 0-0 count that opens every plate appearance the three
+groups still tell themselves apart. The bulbs go through `chromePx()` rather than staying raw:
+CLAUDE.md's ornament exemption is for hairlines and the 6px live dot, and these are the element
+the band exists to show, sitting beside type that grows a quarter on a desktop.
+
+Under it, **batter, bases, pitcher across the width**, the pitcher's column mirrored with the
+portrait outward so the two of them frame the diamond rather than both pointing the same way.
+Portraits went 44 → 72 (90 on a desktop): at 44 they were an icon beside a label rather than a
+face, and 90 is what the side columns had spare. Taking the inning and the count out of the middle
+column is what balanced the card, from 180px against 114px sides to within about 40px.
+
+**And no rules between any of it.** Hairlines between every section plus verticals between every
+column drew a grid over a card that is one moment of one game: five lines to separate four things
+that already read as separate, and on a desktop the verticals boxed the diamond in like a table
+cell. The head and the foot are tinted instead. The phone stacks with nothing between the two
+players and pays for it in padding.
+
+**The last play is parsed, not printed.** The feed writes one sentence with everything in it, so
+verbatim it reads "Isabella Villareal singled to center field (1-2 BSF); Sarah Edwards advanced to
+third; Samaria Benitez scored, advanced on an error by cf, unearned." on the most valuable line of
+the card, with what happened buried mid-sentence and a bracket of pitch letters landing somewhere
+different on every play. `parsePlay` already splits exactly this for the Play-by-Play tab, so the
+treatment is that one: batter bold and linked, outcome beside her, runs as a green badge counted
+through `runsOnPlay` (never the feed's column), runners condensed onto a quieter second line, and
+the count pulled out to its own column where it lines up. A substitution keeps the quieter italic
+line, because it can genuinely be the last thing the feed logged and it did not happen in the
+at-bat. `● Live` in the modal header is now red and pulsing, the same red and the same beat as
+Home's hero, so a reader who came from there arrives at the word they tapped.
+
+**A DEV SIMULATOR, because these surfaces cannot otherwise be opened.** There is one live game
+every few days, it lasts two hours, and the two states hardest to get right (the break, and the
+impossible count) each last about thirty seconds. `dev/devLiveGame.ts` replays any finished game
+as though it were happening now: pick it in the dev gear, press Start, and the LIVE hero, the
+scoreboard chip and Game Center all treat it as in progress. Play/pause, ±5 plays, three speeds.
+Everything it publishes is derived from the plays the league actually logged, so the situation,
+the runners, the count, the score, the line score and the win-probability line are all real and
+arrive in the real order, and it runs through `settleGame` so reaching a walk-off ends it exactly
+as the live section would call it. The box score is not replayed and the panel says so.
+
+**It reaches the app through a SLOT in `api.ts`** (`installWpblReadOverlay`) that `DevSettings`
+fills in, never an import the other way. `DevSettings` is absent from the production bundle, so
+everything behind it goes too; an import from the read path into a dev module would have to
+survive on tree-shaking, and `mlb/dev/devSim.ts` is in the shipped bundle today for exactly that
+reason. The install is wrapped in `if (import.meta.env.DEV)` because a bare call at module scope
+is a side effect that makes the file unremovable: measured both ways, and without the guard the
+engine's storage key is in `dist/`.
+
+Three bugs it produced along the way, all now pinned by tests. The live poll's delta is a COLUMN
+SUBSET with no `home_team_id`, so scoring it on its own put the whole game on the visitors and
+Home's hero read 11-0 in a game that finished 10-6. Both feed clocks have to move with the replay,
+or `feedHealth` puts a "Waiting on the league, no update since 7:00 PM" banner over the thing you
+opened the simulator to look at. And `useForegroundInterval` ignores a second wake inside one
+second, so the kick that tells the app to re-read is swallowed if it fires immediately, and fires
+before anything is listening on a cold load: it goes out at 1.1s, 4s and 9s.
+
+39 tests across `__tests__/liveGameView.test.tsx` (the runner names, the clamp, the break, every
+branch of the name match, the parsed last play) and `__tests__/devLiveGame.test.ts` (the score
+reconstruction, `runsOnPlay` over the feed's column, the line score, the walk-off, the clocks).
+
+**Still open**: the batter and pitcher statlines are the game's cumulative totals under the
+simulator, which is the one thing it lies about; a partial box score would have to be derived from
+the plays and nothing does that today. And nothing here is exercised by a real live game after
+Sep 22, when the feed stops.
+
+
 ### Sep 5, 2026: the postseason reaches the scoreboard, and a pairing settles before its seeds (v1.67.0)
 
 **Home's Scoreboard strip was about to run out of season.** It is the feed's games, and the

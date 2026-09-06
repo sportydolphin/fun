@@ -110,6 +110,30 @@ export function mergeSchedule(next: WpblGame[], lastGood: WpblGame[] | null): Wp
 
 let lastGoodSchedule: WpblGame[] | null = null
 
+/**
+ * A dev-only interception point for the three reads that describe a game in progress.
+ *
+ * INSTALLED, not imported, and that is the whole design. The simulator behind it
+ * (`dev/devLiveGame.ts`) is reachable only from `DevSettings`, which is proven absent from the
+ * production bundle, so an import from here would be the one edge dragging it back in. The MLB
+ * predictor's simulator is in the shipped bundle today for exactly that reason: a production
+ * call site imports it, and its top-level state load counts as a side effect that tree-shaking
+ * will not remove. A slot costs three null checks and cannot leak.
+ *
+ * Every method is a pure transform of what the real read returned, so an uninstalled slot and
+ * an installed-but-idle one are the same code path. See devLiveGame.ts for what it replays and
+ * what it cannot.
+ */
+export interface WpblReadOverlay {
+  schedule(games: WpblGame[]): WpblGame[]
+  live(gameId: string, delta: Partial<WpblGame> | null): Partial<WpblGame> | null
+  plays(gameId: string, plays: WpblGamePlay[]): WpblGamePlay[]
+}
+
+let readOverlay: WpblReadOverlay | null = null
+
+export function installWpblReadOverlay(overlay: WpblReadOverlay | null) { readOverlay = overlay }
+
 export function fetchWpblSchedule(): Promise<WpblGame[]> {
   return once('schedule', async () => {
     const games = await safe('fetchWpblSchedule', () =>
@@ -121,7 +145,9 @@ export function fetchWpblSchedule(): Promise<WpblGame[]> {
     // game the league has stopped updating as the final it is. See gameOver.ts.
     const schedule = mergeSchedule(settleGames(dedupeSchedule(games)), lastGoodSchedule)
     if (schedule.length > 0) lastGoodSchedule = schedule
-    return schedule
+    // Last, and after the last-good cache, so what is remembered for the next empty read is the
+    // real schedule rather than a simulated moment of it.
+    return readOverlay ? readOverlay.schedule(schedule) : schedule
   })
 }
 
@@ -166,9 +192,13 @@ const LIVE_GAME_COLUMNS = [
  *  have (`{ ...prev, ...delta }`); every column it omits is immutable, so the merge is
  *  complete rather than a best effort. */
 export async function fetchWpblGameLive(gameId: string): Promise<Partial<WpblGame> | null> {
-  return safe('fetchWpblGameLive', () =>
-    supabase.from('wpbl_games').select(LIVE_GAME_COLUMNS).eq('id', gameId).maybeSingle(),
-    null as Partial<WpblGame> | null)
+  // Explicit, because the fallback alone no longer pins the generic now that the result is
+  // bound rather than returned: inference walks off into PostgREST's error row type.
+  const delta = await safe<Partial<WpblGame> | null>('fetchWpblGameLive', () =>
+    supabase.from('wpbl_games').select(LIVE_GAME_COLUMNS).eq('id', gameId).maybeSingle() as unknown as
+      PromiseLike<{ data: Partial<WpblGame> | null; error: unknown }>,
+    null)
+  return readOverlay ? readOverlay.live(gameId, delta) : delta
 }
 
 function readWpblRoster(teamId: string): Promise<WpblPlayer[]> {
@@ -829,7 +859,8 @@ export async function fetchWpblGamePlays(gameId: string): Promise<WpblGamePlay[]
       [] as WpblGamePlay[]),
     fetchPlayCorrections(gameId),
   ])
-  return applyPlayCorrections(plays, corrections)
+  const corrected = applyPlayCorrections(plays, corrections)
+  return readOverlay ? readOverlay.plays(gameId, corrected) : corrected
 }
 
 // The same game's plays, projected to what buildRecap reads (see WpblRecapPlay).

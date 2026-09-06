@@ -5,12 +5,13 @@ import { track, EVENTS } from '../lib/analytics'
 import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblGameDetails, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllRunValuePlays, LIVE_POLL_MS } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblFullName, outsToIp, playedInnings, formatGameTime, relativeDayLabel } from './constants'
 import { seriesContext } from './derive/series'
-import { LiveBanner, useLiveGame } from './Live'
+import { LiveBanner, useLiveGame, LIVE_RED } from './Live'
 import { useForegroundInterval } from './refresh'
 import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
 import { GameStoryCard } from './Reading'
 import { GameRecapView, preloadWinProb } from './RecapCard'
+import LiveGameView from './LiveGameView'
 import { useExperiments } from '../ExperimentsContext'
 import { useWpblPlayerLink } from './LinkContext'
 import { WpblVisuallyHiddenH1 } from './PageHeading'
@@ -32,7 +33,7 @@ import type {
 // play-by-play, and TrackMan pitch tracking. Player names open the player page. For an
 // unplayed game it shows the matchup + first-pitch time.
 
-type Tab = 'recap' | 'box' | 'plays' | 'pitch'
+type Tab = 'recap' | 'live' | 'box' | 'plays' | 'pitch'
 
 // ─── Box-score column sets ─────────────────────────────────────────────────────
 // Column order is importance-first: the classic box line (AB R H RBI BB SO) leads,
@@ -1056,7 +1057,12 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   // Seeded from the session cache, so a second look at a game paints before it fetches.
   const cached = gameCache.get(seed.id)
   const [loading, setLoading] = useState(!cached)
-  const [tab, setTab] = useState<Tab>(() => seed.status === 'final' ? 'recap' : 'box')
+  // Where a game opens. A finished one opens on its recap and a live one opens on the live
+  // view, which is the same rule twice: the tables are what a reader goes looking for, not what
+  // they arrive wanting. An unplayed game has neither and lands on the box score, which is
+  // where the tab bar starts anyway.
+  const [tab, setTab] = useState<Tab>(() =>
+    seed.status === 'final' ? 'recap' : seed.status === 'live' ? 'live' : 'box')
   const [boxTeam, setBoxTeam] = useState<'away' | 'home'>('away')
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => cached?.lines ?? { batting: [], pitching: [] })
@@ -1200,6 +1206,27 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
 
   const tabs = [
     ...(final ? [{ value: 'recap' as Tab, label: 'Recap' }] : []),
+    // The live view, in the slot the Recap takes once the game is final, so the two swap in
+    // place when a game ends under a reader who has the modal open. It is the landing tab for a
+    // live game for the same reason Recap is for a final one: a table is not what either
+    // reader came for.
+    //
+    // It is a TAB and not more of the header, which is where a live extra wants to go. The
+    // header block is paid for by every tab, and on a phone it had already grown past half the
+    // screen once (see the note where the highlight reel used to live); a live game pays the
+    // most for that, being the one that also carries the situation banner. A tab costs a reader
+    // one swipe and gives this the whole pane.
+    //
+    // Gated on having plays, exactly as Pitch Data is gated on having tracking: the win
+    // probability card renders nothing under two points, and a tab that opens on half a pane is
+    // worse than a tab that is not there yet.
+    //
+    // `loading ||` keeps it offered through the first fetch. Without it the landing tab does
+    // not exist on first paint, the bar draws with Box Score selected, and the pill jumps a
+    // beat later when the plays land. A live game with fewer than two plays does exist (the
+    // ingest can call one live off a ball or a strike alone), and there the tab appears and
+    // then goes, which is the rarer and the more honest of the two.
+    ...(live && (loading || plays.length >= 2) ? [{ value: 'live' as Tab, label: 'Live' }] : []),
     { value: 'box' as Tab, label: 'Box Score' },
     { value: 'plays' as Tab, label: 'Play-by-Play' },
     // Only when the feed has actually posted TrackMan for this game. It used to appear for
@@ -1253,7 +1280,27 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
       // A final game says WHEN it was: the modal is opened from Home, from Schedule and from a
       // shared link, and "Final" on its own is the one thing on the header that could belong
       // to any night of the season. A live game does not, because a live game is now.
-      eyebrow={final ? `Final${game.innings && game.innings !== 7 ? ` / ${game.innings}` : ''} · ${dateLabel}` : live ? '● Live' : `${dateLabel}${game.start_time ? ` · ${formatGameTime(game.game_date, game.start_time)}` : ''}`}
+      eyebrow={
+        final ? `Final${game.innings && game.innings !== 7 ? ` / ${game.innings}` : ''} · ${dateLabel}`
+        // RED, and pulsing, because this is the one state of the header that is a claim about
+        // RIGHT NOW rather than a label for a thing that happened. It is the same red and the
+        // same beat as Home's LIVE hero and its scoreboard chip, so a reader who came from
+        // either arrives at the word they tapped. The keyframes are declared here rather than
+        // borrowed: the hero defines them inside its own sx, so they do not exist on this tree.
+        : live ? (
+          <Box component="span" sx={{
+            display: 'inline-flex', alignItems: 'center', gap: 0.7, color: LIVE_RED,
+            '@keyframes wpblLiveBeat': { '0%': { opacity: 1 }, '50%': { opacity: 0.3 }, '100%': { opacity: 1 } },
+          }}>
+            <Box component="span" sx={{
+              width: 7, height: 7, borderRadius: '50%', bgcolor: LIVE_RED,
+              animation: 'wpblLiveBeat 1.5s ease-in-out infinite',
+            }} />
+            Live
+          </Box>
+        )
+        : `${dateLabel}${game.start_time ? ` · ${formatGameTime(game.game_date, game.start_time)}` : ''}`
+      }
       onClose={onClose}
       // THE SAME RAW-PIXEL BUG one level up, and then the width the card was actually asking
       // for. 520 was a phone column that never learned the section is drawn a quarter larger on
@@ -1349,8 +1396,13 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
           <FeedDelayNote game={game} />
         </Box>
 
-        {/* Live situation banner (inning / count / bases / matchup) */}
-        {live && game.live_state && away && home && (
+        {/* Live situation banner (inning / count / bases / matchup).
+            Not while the Live tab is the one showing: that pane opens with the same inning,
+            count, bases and matchup drawn large and with the runners named, so the banner is a
+            strict subset of the thing directly beneath it. The header is paid for by every tab,
+            and this is the tab that can least afford to pay for it twice. It stays for Box
+            Score, Play-by-Play and Pitch Data, where it is the only situation on screen. */}
+        {live && tab !== 'live' && game.live_state && away && home && (
           <Box sx={{ flexShrink: 0 }}><LiveBanner state={game.live_state} away={away} home={home} lines={{ away: game.away_line, home: game.home_line }} /></Box>
         )}
 
@@ -1380,6 +1432,12 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
               panels={tabs.map(t => (
                 t.value === 'recap' && away && home ? (
                   <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} video={final ? video : null} onOpenPlayer={onOpenPlayer} />
+                ) : t.value === 'live' && away && home ? (
+                  <LiveGameView
+                    game={game} teams={byId} away={away} home={home} plays={plays}
+                    batting={lines.batting} pitching={lines.pitching} names={names}
+                    games={games} onOpenPlayer={onOpenPlayer}
+                  />
                 ) : t.value === 'box' && away && home ? (() => {
                   const box = (team: WpblTeam) => (
                     <TeamBox
