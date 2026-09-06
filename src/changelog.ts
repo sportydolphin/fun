@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.68.1',
+    date:    '2026-09-06',
+    title:   'Every player in a box score gets her name back',
+    changes: [
+      {
+        short: 'A player who has changed clubs is named in the games she played before the move',
+        full:  'A box score identifies its players by an id and nothing else, and the game page was looking those ids up against the two clubs’ rosters as they stand today. Anybody whose roster row had moved on was simply missing, and her name came out as a dash. On the Sep 4 game, New York 14 San Francisco 2, that was the winning pitcher: a dash on the decision line, a dash under a blank portrait as a Star of the Game, and a dash in the pitching table, on a night she threw six innings and struck out four. The page now looks names up against the whole league, which is the only list that can answer a question about who played in a game last month.',
+      },
+    ],
+  },
+  {
     version: '1.68.0',
     date:    '2026-09-06',
     title:   'A Live tab, for while the game is on',

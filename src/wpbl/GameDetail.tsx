@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { track, EVENTS } from '../lib/analytics'
-import { fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblGameDetails, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllRunValuePlays, LIVE_POLL_MS } from './api'
+import { fetchWpblAllPlayers, fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblGameDetails, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllRunValuePlays, LIVE_POLL_MS } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblFullName, outsToIp, playedInnings, formatGameTime, relativeDayLabel } from './constants'
 import { seriesContext } from './derive/series'
 import { LiveBanner, useLiveGame, LIVE_RED } from './Live'
@@ -1084,6 +1084,23 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
     if (withSpinner) setLoading(true)
     let cancelled = false
     Promise.all([
+      // THE WHOLE LEAGUE, not the two clubs, and that is the fix for a name that renders as a
+      // dash. Every line and play on this sheet carries a `player_id` and nothing else; the
+      // name comes from this map, and built from the two clubs' CURRENT rosters it asks a
+      // question about NOW to answer one about THEN. A player whose roster row has since moved
+      // is simply absent, and `nameOf` falls through to '—': on Sep 4, 2026 the New York
+      // pitcher who threw six innings and took the win was the winning pitcher line, a Star of
+      // the Game and a blank portrait, all reading "—", because her roster row had been moved
+      // to Los Angeles. This is the trap CLAUDE.md states as "team_id on a roster row means
+      // now, never then", one step further on: it is not only the CLUB that has to come off the
+      // line, it is the fact that the line's player is on the sheet at all.
+      //
+      // Cheap: the section fetches this list anyway for search and for the slug rules, and it
+      // is cached app-wide, so in practice this is a map lookup rather than a request.
+      fetchWpblAllPlayers(),
+      // Kept underneath it, because the league list is the one read here that can come back
+      // EMPTY on a cold failure (`safe` answers with `[]`), and these two are the rosters this
+      // modal cannot do without. Layered over the top, so where they overlap they agree.
       away ? fetchWpblRoster(away.id) : Promise.resolve([]),
       home ? fetchWpblRoster(home.id) : Promise.resolve([]),
       fetchWpblGameLines(seed.id),
@@ -1093,8 +1110,8 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
       // RetroWPBL has not written up yet, which is every recent one, so it rides along with
       // the rest of the load rather than gating anything on it.
       fetchWpblGameDetails(seed.id),
-    ]).then(([a, h, l, pl, tr, det]) => {
-      const names = new Map([...a, ...h].map(p => [p.id, p]))
+    ]).then(([all, a, h, l, pl, tr, det]) => {
+      const names = new Map([...all, ...a, ...h].map(p => [p.id, p]))
       const lines = { batting: l.batting, pitching: l.pitching }
       // Written whether or not this render is still mounted: the reader who just closed the
       // modal is the likeliest person to open it again, and the answer is already in hand.

@@ -96,7 +96,14 @@ Each of these has already cost someone a debugging session, and none of them fai
   **`team_id` on a roster row means "now", never "then"** — a game log, a team page, or a Hall
   of Firsts badge must take the club off the box-score line or the play, both of which carry
   the team that game was played for, or a traded player's July reads as if she spent it
-  somewhere she had not arrived yet. And **the ingest only ever moves a player forward in
+  somewhere she had not arrived yet. **And it is not only the club: it is whether she is on the
+  sheet at all.** A line carries a `player_id` and nothing else, so any name map built from the
+  two clubs' CURRENT rosters simply omits her and every name falls through to `'—'`. Game
+  Center did this until Sep 6, 2026: the pitcher who threw six innings and won NY 14-2 on Sep 4
+  was a dash in the winning-pitcher line, a dash as a Star of the Game and a dash in the
+  pitching table, because her roster row had been moved to another club. Build these from
+  `fetchWpblAllPlayers` (cached app-wide, so it costs nothing) and keep the club rosters only as
+  the cold-failure floor. Pinned in `src/wpbl/__tests__/gameDetailNames.test.tsx`. And **the ingest only ever moves a player forward in
   time**, guarded by `team_as_of`: it re-reads old box scores constantly (`force`, the
   TrackMan backfill, mode `all`), every one of those is honest evidence of where she was
   *then*, and without the guard her club is whichever game the loop happened to touch last.

@@ -969,6 +969,50 @@ is retired.
 
 ## Shipped log
 
+### Sep 6, 2026: the winning pitcher was a dash (v1.68.1)
+
+Emi Saiki threw six innings and won New York's 14-2 over San Francisco on Sep 4. On the game
+page she was "—" three times: the decision line, a Star of the Game under a blank portrait,
+and the pitching table.
+
+Nothing was wrong with the box score. **Game Center was building its id-to-name map from the two
+clubs' CURRENT rosters**, and her roster row says Los Angeles, so she was not in either list and
+`nameOf` fell through to its dash. This is the trap CLAUDE.md already states as "`team_id` on a
+roster row means now, never then", one step further on than it was written: it is not only the
+CLUB that has to come off the box-score line, it is whether the line's player is on the sheet at
+all. The map now comes from `fetchWpblAllPlayers`, which the section fetches anyway for search
+and the slug rules and which is cached app-wide, with the two club rosters kept underneath as the
+cold-failure floor (the league read is the one here that can answer `[]`). Pinned in
+`__tests__/gameDetailNames.test.tsx`, which fails against the old map.
+
+It was never about her: any traded player's old games read the same way, which is Diana Ibarra
+and Suzu Narasaki as well.
+
+**WHY HER ROSTER ROW SAYS LOS ANGELES IS A SEPARATE, LIVE BUG, and it is in the ingest.** She has
+never played for Los Angeles: all six batting lines and both pitching lines say New York. She is
+flapping. `wpbl_player_team_changes` has ELEVEN moves for her, in pairs, one club each way per
+game:
+
+- Sep 3, NY at LA (`eb72bb20`): `feed-id` moved her LA→NY **and** `name-match` moved her NY→LA,
+  off the same box score. She is listed on both sides of that game, which is exactly what
+  `contestedNames` exists to refuse, and it did not fire. That is the first thing to look at.
+- Sep 5, LA at BOS (`471f23ed`): `name-match` moved her NY→LA off a game New York is not in, so
+  no contested check could have helped. An "Emi Saiki" with NO feed id is in Los Angeles's list,
+  and `tradeMatch` (the only matcher that reaches across clubs) took the exact-name hit as a
+  trade. This is the move that left her where she is.
+
+The obvious fix, demanding a feed id before `tradeMatch` will reach across clubs, is right on its
+own terms (the league mints a new `player_id` on a club change, so a real trade always carries
+one) and is **not safe alone**: the id-less entry would fall through to the insert at the bottom
+of `resolve`, and a second Emi Saiki with no stats makes `emi-saiki` an ambiguous slug and 404s
+her page, which is the Suzu Narasaki failure this file already describes. It has to be paired
+with refusing to INSERT off an id-less played entry too, so that such an entry is evidence of
+nothing rather than evidence of a new person.
+
+Not done here, because `wpbl-ingest` deploys by hand and this needs watching against real feed
+payloads for a day rather than a green test.
+
+
 ### Sep 6, 2026: Game Center gets a Live tab, and a way to work on it at any hour (v1.68.0)
 
 **The win-probability chart was already live-ready and had nowhere to be drawn.** `gameWinProb`
