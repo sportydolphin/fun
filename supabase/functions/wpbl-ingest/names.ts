@@ -75,19 +75,53 @@ export function editDistance(a: string, b: string, max = 1): number {
 export interface RosterEntry { id: string; norm: string; teamId: string }
 
 /**
+ * A feed entry the league never gave an id to.
+ *
+ * THIS IS THE ONE SIGNAL THAT SEPARATES A TRADE FROM A NAMESAKE, and it took Emi Saiki
+ * eleven club changes to make that obvious. The feed mints a NEW player_id when somebody
+ * changes club, which is the fact the whole trade rule below is built on: it follows that a
+ * real trade ALWAYS arrives carrying an id. An entry with none cannot be one.
+ *
+ * What the anonymous entries actually are: measured on Sep 6, 2026, all 118 players were
+ * seeded on Jul 30 and 69 of them have since been linked to a feed id by playing. Of the 49
+ * with no id, **not one has a single box-score line**. An entry the league has not identified
+ * has never in this season's data been attached to anything that happened on a field. It is a
+ * name in a list.
+ *
+ * So it is not evidence of identity, and this predicate guards the three places that would
+ * otherwise treat it as such: it cannot be read as a trade (`tradeMatch`), it cannot move
+ * anybody's club (`noteTeam`), and it cannot become a new roster row (the insert at the foot
+ * of `resolve`). Both harms are already on the record. Emi Saiki spent Sep 5 to Sep 6 on Los
+ * Angeles, where she has never played a game, because an anonymous "Emi Saiki" in a Los
+ * Angeles box score read as a trade out of New York. And the second Suzu Narasaki, the one
+ * that needed `wpbl_merge_players` to remove, was an anonymous entry that reached the insert.
+ */
+export const anonymous = (apiId: string): boolean => !apiId.trim()
+
+/**
  * The player a feed entry names, when they are already on the roster under a DIFFERENT club.
  * Null when nobody matches, when more than one does, or when they are already on this club
  * (which the same-team matchers handle and this must not second-guess).
  *
  * This is the only rule that reaches across teams, so it is the only one that could merge two
- * genuinely different people, and it asks for more than the others: the full name, at least
- * two parts, spelled exactly after accent folding, and unique league-wide. Two players who
+ * genuinely different people, and it asks for more than the others: an id the feed actually
+ * gave the entry, the full name, at least two parts, spelled exactly after accent folding, and
+ * unique league-wide. Two players who
  * really do share a name fail the uniqueness test and neither is touched — the same "don't
  * guess" rule the same-team matchers use. A wrong merge is silent and permanent; a missed one
  * shows up as a duplicate in the next roster listing.
  */
-export function tradeMatch(nm: string, teamSlug: string, roster: readonly RosterEntry[]): string | null {
+export function tradeMatch(
+  nm: string,
+  teamSlug: string,
+  roster: readonly RosterEntry[],
+  apiId: string,
+): string | null {
   if (!teamSlug || !nm) return null
+  // The feed's id is REQUIRED, and it is required here rather than at the call site so a
+  // future caller cannot forget it: this is the only matcher that reaches across clubs, so it
+  // is the only one an anonymous entry can use to become somebody else. See `anonymous`.
+  if (anonymous(apiId)) return null
   if (nm.split(' ').length < 2) return null   // a lone surname is not evidence of anything
   let hit: RosterEntry | null = null
   for (const cand of roster) {

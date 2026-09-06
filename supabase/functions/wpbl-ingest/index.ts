@@ -22,7 +22,7 @@
 // schedule.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { normName, editDistance, isDamaged, replacementMatch, tradeMatch, teamMoveWins, usableEvidence, contestedNames } from './names.ts'
+import { normName, editDistance, isDamaged, replacementMatch, tradeMatch, teamMoveWins, usableEvidence, contestedNames, anonymous } from './names.ts'
 import { bestTwin } from './games.ts'
 import { announceFinal } from './announce-final.ts'
 import { crownPredictions, settlePredictions } from './settle-predictions.ts'
@@ -218,8 +218,8 @@ class PlayerResolver {
   // The rule itself is `tradeMatch` in names.ts, where it can be tested; every hit is also
   // written to wpbl_player_team_changes, because a heuristic that reaches across teams and
   // runs unattended every two minutes needs somewhere you can go and check what it did.
-  private traded(teamSlug: string, nm: string): string | null {
-    return tradeMatch(nm, teamSlug, [...this.players.values()])
+  private traded(teamSlug: string, nm: string, apiId: string): string | null {
+    return tradeMatch(nm, teamSlug, [...this.players.values()], apiId)
   }
 
   /** Remember a feed id (and the feed's spelling of the name) against a player we resolved. */
@@ -266,6 +266,14 @@ class PlayerResolver {
       }
       return false
     }
+    // AN ENTRY THE FEED DID NOT IDENTIFY MOVES NOBODY, and this is the place that has to hold
+    // it rather than `tradeMatch` alone. Every matcher's answer arrives here, and two of them
+    // besides the trade rule can cross clubs: `alias`, which is keyed on a name and not scoped
+    // to a team, and any future one. Emi Saiki was moved to Los Angeles on Sep 5, 2026 off an
+    // anonymous entry in a Los Angeles box score, having never played a game for them; the
+    // eleven rows she has in wpbl_player_team_changes are that argument in both directions,
+    // one club each way per game. See `anonymous` in names.ts for why the id is the signal.
+    if (anonymous(apiId)) return false
     if (!teamMoveWins(p, teamSlug, ctx, chicagoDate(new Date().toISOString()))) return false   // older news
     const from = p.teamId || null
     p.teamId = teamSlug
@@ -351,7 +359,7 @@ class PlayerResolver {
     // that night's Los Angeles game that was never played, which left Boston's roster page
     // showing one name. The guard in noteTeam could not help: the staged game was TODAY'S.
     if (!id && ctx.played) {
-      const moved = this.traded(teamSlug, nm)
+      const moved = this.traded(teamSlug, nm, apiId)
       if (moved) { id = moved; reason = 'name-match' }
     }
 
@@ -385,6 +393,20 @@ class PlayerResolver {
     // If she is genuinely new, the played box score inserts her minutes later.
     if (!ctx.played) {
       console.log('[wpbl-ingest] not inserting a player off an unplayed box score:', JSON.stringify(name))
+      return null
+    }
+    // AND NEVER OFF AN ANONYMOUS ENTRY, the third guard on this insert and the one that pays
+    // for the bar `tradeMatch` now sets. Refusing to read an anonymous entry as a trade is only
+    // half a fix: the entry then falls through to here, and a second Emi Saiki with no feed id
+    // and no stats makes `emi-saiki` an ambiguous slug, which 404s the canonical page of the
+    // one who is real (see the slug rules in routes.ts). That is not a hypothetical. It is what
+    // the second Suzu Narasaki was, and `wpbl_merge_players` was the only way back out.
+    //
+    // Free, on the evidence: of 118 players, the 49 with no feed id have no box-score line
+    // between them, so an anonymous entry has never yet been anything the site could show.
+    // Skipping costs this entry for this pass, and the ingest re-runs every two minutes.
+    if (anonymous(apiId)) {
+      console.log('[wpbl-ingest] not inserting a player the feed gave no id:', JSON.stringify(name))
       return null
     }
     const { data, error } = await this.db.from('wpbl_players').insert({

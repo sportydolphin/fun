@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normName, isDamaged, replacementMatch, editDistance, tradeMatch, teamMoveWins, usableEvidence, contestedNames } from '../../../supabase/functions/wpbl-ingest/names'
+import { normName, isDamaged, replacementMatch, editDistance, tradeMatch, teamMoveWins, usableEvidence, contestedNames, anonymous } from '../../../supabase/functions/wpbl-ingest/names'
 
 // Player-name reconciliation for the WPBL ingest. The module under test lives with the
 // Supabase edge function (which only Deno can load, so it can't be imported here), but the
@@ -76,35 +76,60 @@ describe('tradeMatch', () => {
     entry('dumais', 'Maïka Dumais', 'BOS'),
   ]
 
+  // The id the feed mints for the club she has moved to. A real trade always carries one,
+  // which is the whole basis of this rule; see `anonymous`.
+  const NEW_ID = '27svefz41ds4k58k'
+
   it('recognises a player who turns up in another club’s box score', () => {
-    expect(tradeMatch(normName('Diana Ibarra'), 'LA', roster)).toBe('ibarra')
+    expect(tradeMatch(normName('Diana Ibarra'), 'LA', roster, NEW_ID)).toBe('ibarra')
   })
 
   it('folds accents, so the feed spelling still finds her', () => {
-    expect(tradeMatch(normName('Maika Dumais'), 'LA', roster)).toBe('dumais')
+    expect(tradeMatch(normName('Maika Dumais'), 'LA', roster, NEW_ID)).toBe('dumais')
   })
 
   it('says nothing about a player already on that club — the same-team matchers own that', () => {
-    expect(tradeMatch(normName('Diana Ibarra'), 'NY', roster)).toBeNull()
+    expect(tradeMatch(normName('Diana Ibarra'), 'NY', roster, NEW_ID)).toBeNull()
   })
 
   it('refuses a shared name rather than guessing which one moved', () => {
     // A wrong merge is silent and permanent; a duplicate is visible in the next roster list.
     const twins = [...roster, entry('ibarra2', 'Diana Ibarra', 'BOS')]
-    expect(tradeMatch(normName('Diana Ibarra'), 'LA', twins)).toBeNull()
+    expect(tradeMatch(normName('Diana Ibarra'), 'LA', twins, NEW_ID)).toBeNull()
   })
 
   it('refuses a bare surname, which is not evidence of anything', () => {
-    expect(tradeMatch(normName('Ibarra'), 'LA', roster)).toBeNull()
+    expect(tradeMatch(normName('Ibarra'), 'LA', roster, NEW_ID)).toBeNull()
   })
 
   it('will not reach for a near miss the way the same-team matchers do', () => {
-    expect(tradeMatch(normName('Diana Ybarra'), 'LA', roster)).toBeNull()
-    expect(tradeMatch(normName('Diane Ibarra'), 'LA', roster)).toBeNull()
+    expect(tradeMatch(normName('Diana Ybarra'), 'LA', roster, NEW_ID)).toBeNull()
+    expect(tradeMatch(normName('Diane Ibarra'), 'LA', roster, NEW_ID)).toBeNull()
   })
 
   it('does nothing without a club, so play-by-play cannot move anyone', () => {
-    expect(tradeMatch(normName('Diana Ibarra'), '', roster)).toBeNull()
+    expect(tradeMatch(normName('Diana Ibarra'), '', roster, NEW_ID)).toBeNull()
+  })
+
+  // The rule this whole matcher rests on is that the feed mints a NEW id when somebody changes
+  // club. An entry with no id therefore cannot be a trade, and reading it as one is what put
+  // Emi Saiki on Los Angeles, a club she has never played a game for, for a day.
+  it('refuses an entry the feed gave no id, which cannot be a trade', () => {
+    expect(tradeMatch(normName('Diana Ibarra'), 'LA', roster, '')).toBeNull()
+    expect(tradeMatch(normName('Diana Ibarra'), 'LA', roster, '   ')).toBeNull()
+  })
+})
+
+describe('anonymous', () => {
+  // Three guards in the ingest read this: an anonymous entry cannot be a trade, cannot move
+  // anybody's club, and cannot become a roster row. All three failures are on the record.
+  it('is what the feed did not identify', () => {
+    expect(anonymous('')).toBe(true)
+    expect(anonymous('   ')).toBe(true)
+  })
+
+  it('is not an ordinary entry', () => {
+    expect(anonymous('i7y6bj0a1i8uwwgu')).toBe(false)
   })
 })
 

@@ -969,6 +969,75 @@ is retired.
 
 ## Shipped log
 
+### Sep 6, 2026: an entry the league did not name is evidence of nothing (v1.68.2)
+
+The other half of the dash above. Emi Saiki's roster row said Los Angeles, a club she has never
+played a game for, and it was not a stale trade: she was FLAPPING, eleven moves in
+`wpbl_player_team_changes`, in pairs, one club each way per game.
+
+    Sep 3, NY at LA    feed-id     LA -> NY      name-match  NY -> LA
+    Sep 4, SF at NY    feed-id     LA -> NY
+    Sep 5, LA at BOS   name-match  NY -> LA      <- where she was left
+
+The `feed-id` half is her, resolved by the id the league gave her, out of a New York box score.
+The `name-match` half is an entry named "Emi Saiki" in a LOS ANGELES box score **that the feed
+gave no id to**, which `tradeMatch` read as a trade because the name is spelled exactly and
+belongs to nobody else in the league. Whichever the loop read last won the day.
+
+`contestedNames` was written for the Sep 3 shape and still is: it catches a player listed under
+two clubs in ONE box score. It cannot help with Sep 5, where she appears once, in a game New
+York is not in.
+
+**THE SIGNAL IS THE FEED'S ID, and it was in front of us the whole time.** This file's oldest
+roster trap opens by saying the league mints a NEW `player_id` when somebody changes club. That
+is what the whole trade rule is built on, and it has a corollary nobody had written down: a real
+trade therefore ALWAYS arrives carrying an id, so an entry with none cannot be one. It is not
+evidence of identity at all.
+
+Measured before believing it: of 118 players, all seeded on Jul 30, 69 have since been linked to
+a feed id by playing. Of the 49 with no id, **not one has a single box-score line**. An entry the
+league has not identified has never in this season's data been attached to anything that
+happened on a field.
+
+So `anonymous(apiId)` in `names.ts` now guards three call sites, and it has to be all three:
+
+- `tradeMatch` refuses it, so it cannot become somebody else. This is the only matcher that
+  reaches across clubs, and the bar lives inside it rather than at the call site so a future
+  caller cannot forget it.
+- `noteTeam` refuses it, so it cannot move anybody's club. This is the one that actually fixes
+  her, and it belongs there rather than in `tradeMatch` alone because every matcher's answer
+  passes through it and `alias` can cross clubs too.
+- the insert at the foot of `resolve` refuses it, so it cannot become a new player. Without this
+  one the fix is worse than the bug: the entry falls through, and a second Emi Saiki with no
+  stats makes `emi-saiki` an ambiguous slug and 404s the real one's page. That is exactly what
+  the second Suzu Narasaki was, and `wpbl_merge_players` was the only way back out.
+
+**AND THEN THE AUDIT FOUND A SECOND ONE.** Comparing every player's roster club against the club
+she last actually played for turned up Suzu Narasaki: roster Los Angeles, last played for New
+York on Sep 4. Her history is the clean version of the same contrast, and it is the argument for
+the rule in two lines:
+
+    Aug 27  LA -> NY  name-match  WITH a feed id    <- the real trade, correctly seen
+    Sep 5   NY -> LA  name-match  NO feed id        <- where she was left
+
+Same night, same box score, timestamped within the same minute as Saiki's. That Sep 5 Los
+Angeles box score carried anonymous entries for both of them. Two migrations, one each, guarded
+on the rule the audit used: only move her if the newest line she owns says New York.
+`team_as_of` deliberately left where it was in both, since it is a floor on evidence rather than
+a claim about when she joined. Run AFTER the deploy, because before it the next pass would have
+moved them straight back. The audit now returns zero.
+
+**Verified against the real payload rather than a fixture.** Re-ingesting the exact game that
+moved them left both clubs and the change count untouched, and a forced correction pass over all
+29 recent finals held the league at 27 team-change rows and 118 players, no phantom inserted.
+Then five minutes of ordinary two-minute passes, unchanged.
+
+**Still open**: the league is still publishing an unidentified "Emi Saiki" in Los Angeles box
+scores, and nothing here says whether that is a second player who has never batted or a mistake
+in their roster listing. We now ignore it either way, which is right in both cases, but if she
+turns out to be real she will stay invisible until the feed gives her an id.
+
+
 ### Sep 6, 2026: the winning pitcher was a dash (v1.68.1)
 
 Emi Saiki threw six innings and won New York's 14-2 over San Francisco on Sep 4. On the game
@@ -1001,16 +1070,7 @@ game:
   and `tradeMatch` (the only matcher that reaches across clubs) took the exact-name hit as a
   trade. This is the move that left her where she is.
 
-The obvious fix, demanding a feed id before `tradeMatch` will reach across clubs, is right on its
-own terms (the league mints a new `player_id` on a club change, so a real trade always carries
-one) and is **not safe alone**: the id-less entry would fall through to the insert at the bottom
-of `resolve`, and a second Emi Saiki with no stats makes `emi-saiki` an ambiguous slug and 404s
-her page, which is the Suzu Narasaki failure this file already describes. It has to be paired
-with refusing to INSERT off an id-less played entry too, so that such an entry is evidence of
-nothing rather than evidence of a new person.
-
-Not done here, because `wpbl-ingest` deploys by hand and this needs watching against real feed
-payloads for a day rather than a green test.
+Fixed the same day, in v1.68.2 below.
 
 
 ### Sep 6, 2026: Game Center gets a Live tab, and a way to work on it at any hour (v1.68.0)

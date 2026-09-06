@@ -4,6 +4,21 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.68.2',
+    date:    '2026-09-06',
+    title:   'Emi Saiki plays for New York',
+    changes: [
+      {
+        short: 'A pitcher who has never played for Los Angeles was listed on their roster',
+        full:  'Emi Saiki was showing as a Queen. She has never played a game for them: all six of her batting lines and both of her pitching lines are New York, and on Sep 4 she threw six innings and won the Heights’ 14-2 over San Francisco. She was not traded, she was flapping between the two clubs, once each way per game, eleven times. The league lists a second, unidentified "Emi Saiki" in Los Angeles box scores, and the part of the ingest that recognises a trade took the matching name as one. It now wants the league’s own player id before it will move anybody between clubs, which a real trade always carries, and her roster row is back on New York.',
+      },
+      {
+        short: 'Suzu Narasaki was on the wrong club too, from the same night',
+        full:  'Checking every player’s club against the club she last actually played for turned up one more. Suzu Narasaki really was traded, from Los Angeles to New York on Aug 27, and she has played for the Heights ever since. The same Sep 5 Los Angeles box score that moved Saiki moved her back, within the same minute. Both are corrected, and the check now comes back clean for all 118 players.',
+      },
+    ],
+  },
+  {
     version: '1.68.1',
     date:    '2026-09-06',
     title:   'Every player in a box score gets her name back',

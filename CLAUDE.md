@@ -107,6 +107,15 @@ Each of these has already cost someone a debugging session, and none of them fai
   time**, guarded by `team_as_of`: it re-reads old box scores constantly (`force`, the
   TrackMan backfill, mode `all`), every one of those is honest evidence of where she was
   *then*, and without the guard her club is whichever game the loop happened to touch last.
+  **The feed's id is the only thing that separates a trade from a namesake, so an entry without
+  one is evidence of NOTHING about identity**: it cannot be read as a trade, cannot move a
+  player's club, and cannot be inserted as a new player (`anonymous` in
+  [`names.ts`](supabase/functions/wpbl-ingest/names.ts), guarding three call sites). A real
+  trade always carries a new id, by the same rule that opens this paragraph. Emi Saiki spent a
+  day on Los Angeles, a club she has never played a game for, because an id-less "Emi Saiki" in
+  a Los Angeles box score read as a trade out of New York; she has eleven rows in
+  `wpbl_player_team_changes`, in pairs, one club each way per game. Of 118 players, the 49 with
+  no feed id have no box-score line between them, which is what makes the rule free.
   `wpbl_merge_players(keep, dupe)` is the tool for the duplicates no rule can catch.
 - **The league feed's `/games` list caps at 50 and says nothing about it.** `GET /v1/games`
   returns a short array beside a `count` field holding the real total, exactly like the
