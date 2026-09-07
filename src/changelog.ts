@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.70.1',
+    date:    '2026-09-06',
+    title:   'The pitching line adds itself up',
+    changes: [
+      {
+        short: 'A box score now totals its pitching, the way it has always totalled its batting',
+        full:  'The batting half of a box score ends in a Totals row and the pitching half stopped at the last reliever, so the club’s own line, the hits and runs it gave up and how many pitches it took, was left to be added up by eye. There is a Totals row under the pitchers now, in the same place and the same weight as the batting one. Innings are added as outs rather than as the decimals they print in, so three and a third plus two thirds comes out as the four innings it is instead of 3.3. A column the league has left a gap in shows a dash rather than a total that quietly leaves somebody out.',
+      },
+    ],
+  },
+  {
     version: '1.70.0',
     date:    '2026-09-06',
     title:   'The playoff schedule comes from the league',

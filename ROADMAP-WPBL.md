@@ -982,6 +982,29 @@ is retired.
 
 ## Shipped log
 
+### Sep 6, 2026: the box score totalled its batting and not its pitching (v1.70.1)
+
+**A reader asked for pitching totals and then said they were not sure why they had, because
+the pitching table was plainly there.** It was. What was missing is the row at the bottom of
+it: `BoxTable` in `GameDetail.tsx` has always ended the batting table with a bold Totals row
+and has never ended the pitching one with anything, so the club's own line, the hits and runs
+it gave up and the pitches it took, was there to be added up by eye and nowhere on the page.
+Easy to describe as "no pitching totals" and easy to read as "no pitching", which is why the
+request looked wrong to the person making it.
+
+**Innings are summed as OUTS and converted once.** The lines store outs and print `outsToIp`,
+so adding the printed column is the oldest arithmetic trap in a box score: 3.1 + 0.2 is four
+innings, and a decimal sum says 3.3. The row that shipped reads 7.0 on the Sep 3 game, where
+the three pitchers printed 3.1, 0.2 and 3.0.
+
+**A column with a gap in it prints a dash rather than a total.** Every cell above already
+prints "—" when the feed sent nothing, and a total that silently leaves a reliever's pitch
+count out is a wrong number wearing a total's clothes. No pitching line in the season has a
+null in it today, which is exactly why the rule had to be written down now rather than the
+first time one does.
+
+Two tests in `__tests__/boxScoreTotals.test.tsx`, both built around the outs rule.
+
 ### Sep 6, 2026: the league's own website becomes a source (v1.70.0)
 
 **The postseason home clubs came from a constant three hours after a reader pointed out we had

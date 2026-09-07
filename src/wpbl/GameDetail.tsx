@@ -348,6 +348,21 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
     return t
   }, {} as Record<string, number>)
 
+  // The same row the batting table has always had, which is what a reader asked for: the
+  // pitching half stopped at the last reliever and left the team's line to be added up by eye.
+  //
+  // IP IS SUMMED AS OUTS AND CONVERTED ONCE. Adding the printed values is the oldest arithmetic
+  // trap in a box score: 6.2 + 0.1 is seven innings, not 6.3, and nothing in the string says
+  // which base it is written in. `outsToIp` is the only spelling of that conversion here.
+  const pitOuts = pitching.reduce((n, p) => n + (Number(p.outs) || 0), 0)
+  const pitTotals = PIT_COLS.map(c => {
+    const vals = pitching.map(p => p[c.key])
+    // One missing value makes the column unsummable. Every cell above prints "—" when the feed
+    // sent nothing, and a total that quietly leaves a reliever's pitch count out is a wrong
+    // number wearing a total's clothes, where a dash is a fact.
+    return vals.some(v => v == null) ? null : vals.reduce<number>((n, v) => n + (Number(v) || 0), 0)
+  })
+
   if (battingRows.length === 0 && pitching.length === 0) return null
 
   return (
@@ -395,6 +410,16 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
                   {PIT_COLS.map(c => <StatCell key={c.key as string} dense={isMobile}>{p[c.key] == null ? '—' : Number(p[c.key])}</StatCell>)}
                 </Box>
               ))}
+              {/* Drawn exactly like the batting totals: same rule above it in the club's colour,
+                  same weight, same label, because they are the same thing and a reader who has
+                  learned to look for one at the bottom of a table should find the other. */}
+              <Box component="tr" sx={{ borderTop: '2px solid', borderColor: color }}>
+                <Box component="td" sx={{ ...nameHeadSx, ...(isMobile ? denseNameSx : {}), color: 'text.secondary', fontSize: isMobile ? '0.72rem' : '0.8rem', fontWeight: 800, textTransform: 'none', letterSpacing: 0 }}>Totals</Box>
+                <StatCell dense={isMobile} bold>{outsToIp(pitOuts)}</StatCell>
+                {PIT_COLS.map((c, i) => (
+                  <StatCell key={c.key as string} dense={isMobile} bold>{pitTotals[i] ?? '—'}</StatCell>
+                ))}
+              </Box>
             </Box>
           </Box>
         </Box>
