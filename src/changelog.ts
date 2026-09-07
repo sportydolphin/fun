@@ -4,6 +4,36 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.74.2',
+    date:    '2026-09-07',
+    title:   'The backwards K means what it means',
+    changes: [
+      {
+        short: 'Only a called third strike gets the scorekeeper’s backwards K',
+        full:  'A mirrored K in a scorebook is a strikeout looking. The pitch strip was mirroring every called strike, which is 1,480 pitches this season against the 96 that are actually called third strikes, so a single on 0-2 drew a backwards K and told anyone who reads the notation that the batter had struck out. Only the last pitch of a strikeout looking carries it now, and hovering that pitch says "called third strike" rather than "called strike".',
+      },
+      {
+        short: 'The count in the pitch strip can no longer show a fourth ball',
+        full:  'The league publishes the count with the last pitch counted, so a walk arrives as 4-0 and a strikeout as 0-3, and between batters it briefly publishes the previous batter’s finished count. The play-by-play always read the count from the play’s own description and was right; the small live strip beside the bases did not clamp, and could show a fourth ball or a third strike. It clamps now, in the one place every surface reads.',
+      },
+      {
+        short: 'The count and the pitches sit on one baseline',
+        full:  'They were held level by a two-pixel nudge on one and a fitted line height on the other, a fixed offset between two things that both grow with your text size setting.',
+      },
+    ],
+  },
+  {
+    version: '1.74.1',
+    date:    '2026-09-06',
+    title:   'The play-by-play keeps the score',
+    changes: [
+      {
+        short: 'Each half-inning shows the score after it, not just how many runs it produced',
+        full:  'A closed play-by-play was fourteen rows saying two runs scored here and three there, which is the change and never the state: scrolling to the 6th told you what happened in the 6th and not what the score was. Every half-inning now carries the score after it, away team first, the same order as the line score at the top of the sheet. The runs that half produced are still there, as "+2" beside it.',
+      },
+    ],
+  },
+  {
     version: '1.74.0',
     date:    '2026-09-06',
     title:   'A game opens on the game',

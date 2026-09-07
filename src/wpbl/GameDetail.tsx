@@ -19,7 +19,7 @@ import { WpblVisuallyHiddenH1 } from './PageHeading'
 import { wpblGameCard } from './ogCard'
 import { ModalShell, SegNav, TapTip, TeamBadge, pressable, FOCUS_RING, useWpblDark, useWpblName, wpblFeatureName, chromePx, TAPPABLE } from './ui'
 import SwipeableViews from './SwipeableViews'
-import { parsePlay, runsOnPlay } from './derive/playByPlay'
+import { parsePlay, runsOnPlay, endsInCalledThirdStrike } from './derive/playByPlay'
 import { useUnits } from '../UnitsContext'
 import { fmtSpeed, speedUnit } from '../lib/units'
 import { prettyType } from './tracking'
@@ -479,10 +479,19 @@ const PITCH_CODES: Record<string, { label: string; color: string }> = {
   P: { label: 'In play',         color: '#2563eb' }, // blue
 }
 
-function PitchSequence({ seq }: { seq: string }) {
+function PitchSequence({ seq, calledThirdStrike }: {
+  seq: string
+  /** Whether the last pitch was a called third strike, which is the one pitch that earns the
+   *  scorekeeper's backwards K. See endsInCalledThirdStrike. */
+  calledThirdStrike?: boolean
+}) {
   const pitches = [...seq].map((code, i) => ({
     code, i, ...(PITCH_CODES[code] ?? { label: code, color: 'inherit' }),
   }))
+  // The pitch the glyph is about says what it is, so the tooltip explains the mirroring rather
+  // than leaving it as a typographic in-joke: every other K in the list reads "Called strike".
+  const last = pitches[pitches.length - 1]
+  if (calledThirdStrike && last?.code === 'K') last.label = 'Called third strike'
   const tip = (
     <Box sx={{ py: 0.25 }}>
       {pitches.map(p => (
@@ -495,14 +504,17 @@ function PitchSequence({ seq }: { seq: string }) {
   )
   return (
     <TapTip title={tip} sx={{
-      display: 'flex', gap: '2px', flexShrink: 0, mt: '2px',
-      fontFamily: 'monospace', fontSize: '0.66rem', fontWeight: 700,
+      display: 'flex', gap: '2px', flexShrink: 0,
+      fontFamily: 'monospace', fontSize: '0.66rem', fontWeight: 700, lineHeight: 1.6,
     }}>
         {pitches.map(p => (
-          // A called strike (looking) gets the scorekeeper's backwards K, mirrored via CSS.
+          // THE BACKWARDS K IS A STRIKEOUT LOOKING, not a called strike, so only the last
+          // pitch of one is mirrored. Every K used to be, which is 1,480 pitches wearing the
+          // notation for the 96 that earn it: a single on 0-2 read as a strikeout.
           <Box key={p.i} component="span" sx={{
             color: p.color,
-            ...(p.code === 'K' && { display: 'inline-block', transform: 'scaleX(-1)' }),
+            ...(calledThirdStrike && p.i === pitches.length - 1 && p.code === 'K'
+              && { display: 'inline-block', transform: 'scaleX(-1)' }),
           }}>{p.code}</Box>
       ))}
     </TapTip>
@@ -520,6 +532,10 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
 }) {
   const shortName = useWpblName()
   const playerLink = useWpblPlayerLink()
+  // The two clubs, for the running score on each half-inning header. Off the game rather than
+  // off the plays: a half-inning has one batting club and the score has two.
+  const awayTeam = teams.get(game.away_team_id)
+  const homeTeam = teams.get(game.home_team_id)
   // Every name the feed uses in this game, longest first so "Elodie Ciamarro" is replaced
   // before a bare "Ciamarro" could match part of it. Built from the plays themselves rather
   // than the roster, so a name only shortens when it is genuinely a player in this game.
@@ -551,7 +567,18 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
     // there's a line score to trust: a live game's plays can legitimately run ahead of it.
     const played = playedInnings(game.away_line, game.home_line)
     const inGame = (p: WpblGamePlay) => game.status !== 'final' || played === 0 || p.inning <= played
-    const gs: { key: string; label: string; teamId: string | null; runs: number; plays: WpblGamePlay[] }[] = []
+    const gs: {
+      key: string; label: string; teamId: string | null; runs: number
+      /** The score AFTER this half-inning, away then home, matching the line score's own order. */
+      awayTo: number; homeTo: number
+      plays: WpblGamePlay[]
+    }[] = []
+    // Running totals, carried down the list. A collapsed play-by-play is fourteen rows saying
+    // how many runs each half produced, which is the delta and never the state: a reader
+    // scrolling to the 6th could see that two scored there and not what the score was. Summed
+    // here rather than from the plays for the same reason the badge is (see above): the line
+    // score is the number printed in the header directly above, and the two must not disagree.
+    let awayTo = 0, homeTo = 0
     for (const p of plays) {
       if (!inGame(p)) continue
       const key = `${p.inning}-${p.half}`
@@ -559,7 +586,9 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
       if (!last || last.key !== key) {
         const half = p.half === 'top' ? 'Top' : 'Bottom'
         const ord = p.inning === 1 ? '1st' : p.inning === 2 ? '2nd' : p.inning === 3 ? '3rd' : `${p.inning}th`
-        gs.push({ key, label: `${half} ${ord}`, teamId: p.team_id, runs: scored(p.inning, p.half), plays: [p] })
+        const runs = scored(p.inning, p.half)
+        if (p.half === 'top') awayTo += runs; else homeTo += runs
+        gs.push({ key, label: `${half} ${ord}`, teamId: p.team_id, runs, awayTo, homeTo, plays: [p] })
       } else { last.plays.push(p) }
     }
     return gs
@@ -656,14 +685,37 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
                 transition: 'transform 0.15s', transform: open ? 'rotate(90deg)' : 'none',
               }}>▶</Box>
               {team && <TeamBadge team={team} size={18} />}
-              <Typography sx={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'text.secondary' }}>
+              {/* The label gives way, not the score. It fits at 320px today and the reader's
+                  Large text setting multiplies every rem on this row, so the one thing that
+                  must survive that is the number the row exists to show. */}
+              <Typography noWrap sx={{ minWidth: 0, fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1, color: 'text.secondary' }}>
                 {g.label}{team ? ` · ${team.abbr} batting` : ''}
               </Typography>
-              {g.runs > 0 && (
-                <Box component="span" sx={{ ml: 'auto', fontSize: '0.62rem', fontWeight: 800, color: '#16a34a' }}>
-                  {g.runs} {g.runs === 1 ? 'run' : 'runs'}
-                </Box>
-              )}
+              {/* THE SCORE AFTER THIS HALF, and the runs that made it. The list used to carry
+                  only the runs, which is the delta and never the state: a reader scrolling to
+                  the 6th could see that two scored there and not what the score was.
+                  "+2" rather than "2 runs" because both now share the right edge of a row that
+                  is already a chevron, a badge and "BOTTOM 1ST · LA BATTING" wide on a phone.
+                  AWAY FIRST, matching the line score directly above, and the club that just
+                  batted is named in the same row, so the first scoring half says which number
+                  is whose. The aria-label spells it out for anyone the layout cannot. */}
+              <Box component="span" sx={{
+                ml: 'auto', display: 'inline-flex', alignItems: 'baseline', gap: 0.6, flexShrink: 0,
+              }}>
+                {g.runs > 0 && (
+                  <Box component="span" sx={{ fontSize: '0.62rem', fontWeight: 800, color: '#16a34a' }}>
+                    +{g.runs}
+                  </Box>
+                )}
+                <Box
+                  component="span"
+                  aria-label={`${awayTeam?.abbr ?? 'Away'} ${g.awayTo}, ${homeTeam?.abbr ?? 'Home'} ${g.homeTo} after this half-inning`}
+                  sx={{
+                    fontSize: '0.68rem', fontWeight: 700, color: 'text.disabled',
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >{g.awayTo}–{g.homeTo}</Box>
+              </Box>
             </Box>
             {open && (
               <Box sx={{ mt: 0.75 }}>
@@ -732,8 +784,12 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
                         )}
                       </Box>
                       {/* The count used to sit mid-sentence, so it landed in a different place
-                          on every row. Pulled out to the pitch column, where it lines up. */}
-                      <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+                          on every row. Pulled out to the pitch column, where it lines up.
+                          ONE BASELINE, not two nudges: the count and the pips used to be held
+                          level by a 2px top margin on one and a fitted line-height on the
+                          other, which is a fixed offset between two things whose sizes both
+                          move with the reader's text scale. */}
+                      <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'baseline', gap: 0.5 }}>
                         {parsed.count && (
                           <Typography sx={{
                             fontSize: '0.66rem', fontWeight: 700, color: 'text.disabled',
@@ -742,7 +798,12 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
                             {parsed.count}
                           </Typography>
                         )}
-                        {p.pitch_sequence && <PitchSequence seq={p.pitch_sequence} />}
+                        {p.pitch_sequence && (
+                          <PitchSequence
+                            seq={p.pitch_sequence}
+                            calledThirdStrike={endsInCalledThirdStrike(p.narrative, p.pitch_sequence)}
+                          />
+                        )}
                       </Box>
                     </Box>
                   )

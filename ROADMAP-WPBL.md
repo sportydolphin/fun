@@ -982,6 +982,61 @@ is retired.
 
 ## Shipped log
 
+### Sep 7, 2026: the backwards K, and a count that could not exist (v1.74.2)
+
+**A mirrored K is a STRIKEOUT LOOKING, not a called strike.** `PitchSequence` mirrored every 'K'
+in a pitch sequence, which is the feed's code for any called strike: 1,480 pitches across 1,198
+plays wearing the notation earned by the 96 that are actually called third strikes. "Ashton
+Lansdell singled to center field (0-2 FK)" drew "F ꓘ", which to anyone who reads a scorebook says
+she struck out looking. Only the last pitch of a strikeout-looking at-bat carries it now, and the
+tooltip on that pitch says "Called third strike" rather than leaving the mirroring as a
+typographic in-joke.
+
+**The rule wants the narrative AND the letters**, because neither can say it alone: the feed's
+'K' is any called strike, and 2 of the season's 98 strikeouts looking do not end in one.
+`endsInCalledThirdStrike` in `derive/playByPlay.ts` requires both, which fails towards a plain K:
+an unmarked strikeout is a missing flourish, a marked single is a lie.
+
+**And the count, which is two different numbers.** `wpbl_game_plays.balls`/`strikes` count the
+terminal pitch, so a walk is stored 4-0, a strikeout 0-3, and a hit batter carries an extra ball:
+**557 of 2,836 plays hold a count that cannot exist.** The play-by-play was never wrong about
+this, because `parsePlay` reads the count out of the narrative's own parenthetical, which is the
+conventional one ("struck out looking (1-2 FKBFK)"). What was wrong is the 34-character live
+strip in `Live.tsx`, printing `{s.balls}–{s.strikes}` raw: the same "3–3" CLAUDE.md documents for
+`live_state`, in the one surface that had never been clamped. `deriveSituation` clamps once now,
+so every surface that draws a count inherits it; LiveGameView's own `Math.min` on the bulbs
+stays, as belt and braces.
+
+**Alignment.** The count and the pips were held level by a 2px top margin on one and a fitted
+line-height on the other, a fixed offset between two things that both scale with the reader's
+text setting. One baseline instead. The pips' RIGHT edge stays the aligned one, which puts the
+outcome pitch of every at-bat in a column (blue in play, red strike three, green ball four);
+aligning the counts instead would mean reserving eleven monospace characters on a 390px row for
+the 1% of at-bats that need them.
+
+Three tests in `__tests__/playByPlay.test.ts`.
+
+### Sep 6, 2026: the play-by-play keeps the score (v1.74.1)
+
+**Asked for by a reader.** A closed play-by-play was fourteen rows each stating how many runs
+that half produced, which is the DELTA and never the STATE: a reader scrolling to the 6th could
+see that two scored there and had no way to know what the score was. Every half-inning header
+now carries the running score after it.
+
+**Summed from the line score, not from the plays**, for the same reason the runs badge already
+was: the line score is the number printed at the top of the same sheet, and two counts of one
+game must not disagree.
+
+**Away first, and "+2" rather than "2 runs".** Away first matches the line score directly above
+it, and the club that just batted is named in the same row, so the first scoring half establishes
+which number is whose; the aria-label spells it out for anyone the layout cannot. The runs
+shortened because both now share the right edge of a row that is already a chevron, a badge and
+"BOTTOM 1ST · LA BATTING" wide. It fits on one line at 320px, and the label truncates before the
+score does, since the reader's Large text setting multiplies every rem on that row and the score
+is the thing the row exists to show.
+
+One test in `__tests__/pbpExpandAll.test.tsx`.
+
 ### Sep 6, 2026: the game sheet opens on the game (v1.74.0)
 
 **"Many different fonts, it kind of just seems like information gibberish", about the header on a

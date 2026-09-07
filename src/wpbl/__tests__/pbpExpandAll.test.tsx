@@ -73,6 +73,20 @@ beforeEach(() => {
   localStorage.clear()
 })
 
+describe('the half-inning headings', () => {
+  // The list used to carry only the runs each half produced, which is the delta and never the
+  // state: a reader scrolling to the 6th could see that two scored there and not what the score
+  // was. Away first, matching the line score above it.
+  it('carry the score after each half, and the runs that made it', async () => {
+    await openPlays()
+    const heading = (t: string) =>
+      screen.getByText(new RegExp(`^${t}`)).parentElement!.textContent!.replace(/^▶/, '')
+    // NY score 2 in the top of the 1st; LA answer with 1.
+    expect(heading('Top 1st')).toBe('Top 1st · NY batting+22–0')
+    expect(heading('Bottom 1st')).toBe('Bottom 1st · LA batting+12–1')
+  })
+})
+
 describe('opening the whole play-by-play at once', () => {
   it('opens every half-inning, and says what it will do next', async () => {
     await openPlays()

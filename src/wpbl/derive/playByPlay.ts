@@ -287,3 +287,21 @@ export function parsePlay(
 
   return { who, what, count, detail: detail || null, kind: 'play' }
 }
+
+/**
+ * Whether the LAST pitch of this at-bat was a called third strike.
+ *
+ * THE SCOREKEEPER'S BACKWARDS K MEANS THIS AND ONLY THIS. It is a strikeout looking, not a
+ * called strike: the glyph is a strikeout, and the mirroring is what says the batter did not
+ * swing at it. Game Center mirrored EVERY 'K' in a pitch sequence, which is 1,480 pitches
+ * across 1,198 plays against the 96 that are actually called third strikes, so a single on
+ * 0-2 drew "F ꓘ" and told a reader who knows the notation that she had struck out looking.
+ *
+ * The feed's own letters cannot say it alone: 'K' is its code for any called strike. The
+ * narrative can, and the two have to agree, so this wants both. A strikeout-looking narrative
+ * whose sequence ends in something else (2 of the season's 98) renders a plain K, which is the
+ * safe direction: an unmarked strikeout is a missing flourish, a marked single is a lie.
+ */
+export function endsInCalledThirdStrike(narrative: string, seq: string | null | undefined): boolean {
+  return /struck out looking/i.test(narrative ?? '') && (seq ?? '').endsWith('K')
+}

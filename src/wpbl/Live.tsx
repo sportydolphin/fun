@@ -172,7 +172,14 @@ export function deriveSituation(state: WpblLiveState, away: WpblTeam, home: Wpbl
     : 'top'
   const between = betweenInnings(state, lines)
   return {
-    half, inning: state.inning || 1, outs: state.outs || 0, balls: state.balls || 0, strikes: state.strikes || 0,
+    half, inning: state.inning || 1, outs: state.outs || 0,
+    // CLAMPED HERE, once, so nothing drawing a count can print one that cannot exist. The feed
+    // publishes the PREVIOUS at-bat's full count between batters (watched on Sep 5, 2026: balls
+    // 3, strikes 3 on a batter with nobody out), and the stored plays carry the same shape,
+    // with the terminal pitch counted: 557 of them hold balls 4 or strikes 3. The bulbs in
+    // LiveGameView clamp their own input and always did; the 34-character strip below printed
+    // "3–3" for months, which is a fourth ball and a third strike sitting on screen.
+    balls: Math.min(state.balls || 0, 3), strikes: Math.min(state.strikes || 0, 2),
     battingTeam: half === 'top' ? away : home,
     batterName: state.batter_name || null, pitcherName: state.pitcher_name || null,
     first: !!state.first_base, second: !!state.second_base, third: !!state.third_base,

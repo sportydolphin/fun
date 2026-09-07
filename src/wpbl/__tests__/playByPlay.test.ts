@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parsePlay, runsOnPlay } from '../derive/playByPlay'
+import { parsePlay, runsOnPlay, endsInCalledThirdStrike } from '../derive/playByPlay'
 
 // The real shortener maps a full name to a display form; here surnames stand in for it.
 const shorten = (t: string) => t
@@ -243,5 +243,33 @@ describe('runsOnPlay', () => {
     expect(runsOnPlay(play('single', null))).toBe(0)
     expect(runsOnPlay(play(null, null))).toBe(0)
     expect(runsOnPlay(play('home_run', null))).toBe(1)
+  })
+})
+
+// ─── The backwards K ─────────────────────────────────────────────────────────
+//
+// The scorekeeper's mirrored K is a STRIKEOUT LOOKING, not a called strike. Game Center
+// mirrored every K in a pitch sequence, which is 1,480 pitches across 1,198 plays wearing the
+// notation earned by the 96 that are actually called third strikes: a single on 0-2 drew "F ꓘ"
+// and told anyone who knows the notation that she had struck out.
+describe('endsInCalledThirdStrike', () => {
+  it('is the last pitch of a strikeout looking, and nothing else', () => {
+    expect(endsInCalledThirdStrike('J. Leguizamon struck out looking (1-2 BFFK).', 'BFFK')).toBe(true)
+    // The same letter, mid at-bat, on a hit.
+    expect(endsInCalledThirdStrike('A. Lansdell singled to center field (0-2 FK).', 'FKP')).toBe(false)
+    // A strikeout the batter swung at ends in S, and earns a plain K on any earlier called one.
+    expect(endsInCalledThirdStrike('D. Benites struck out swinging (1-2 KKBS).', 'KKBS')).toBe(false)
+  })
+
+  // Two of the season's 98 strikeouts looking do not end in K. A plain K on a strikeout is a
+  // missing flourish; a mirrored one on a single is a lie, so this fails towards the first.
+  it('wants the narrative and the letters to agree', () => {
+    expect(endsInCalledThirdStrike('X Y struck out looking (0-2 FF).', 'FF')).toBe(false)
+    expect(endsInCalledThirdStrike('X Y grounded out to 2b (0-2 FK).', 'FK')).toBe(false)
+  })
+
+  it('survives a play with no sequence at all', () => {
+    expect(endsInCalledThirdStrike('X Y struck out looking.', null)).toBe(false)
+    expect(endsInCalledThirdStrike('', 'K')).toBe(false)
   })
 })
