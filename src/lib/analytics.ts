@@ -129,7 +129,11 @@ const SID_KEY = 'sd_analytics_sid'
 // and stitch a visitor's events together before they sign in. It is NOT a
 // cross-site tracker and is never shared — it's local to this browser and cleared
 // when the user clears site data. Falls back to a throwaway value if storage is off.
-function sessionId(): string {
+//
+// Exported because the fan awards ballot keys a vote on it (src/wpbl/awardVotes.ts): one
+// browser is one ballot whether the voter ever signs in or not. Reading the same key from a
+// second module instead would be two ids the day either one changed.
+export function sessionId(): string {
   try {
     let sid = localStorage.getItem(SID_KEY)
     if (!sid) { sid = crypto.randomUUID(); localStorage.setItem(SID_KEY, sid) }

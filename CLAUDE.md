@@ -261,7 +261,7 @@ Each of these has already cost someone a debugging session, and none of them fai
   [`constants.ts`](src/wpbl/constants.ts), which pulls the team logos in as Vite assets:
   that is why `outsToIp` lives in [`innings.ts`](src/wpbl/innings.ts).
 - **Three write paths to the DB, and only three.** The browser writes user rows through RLS
-  (events, feedback, picks); everything ingested or derived is written by service-role
+  (events, feedback, picks, fan-award votes); everything ingested or derived is written by service-role
   actors, the `wpbl-ingest` edge function and the GitHub Actions `scripts/*.mjs` jobs. The
   browser only reads those. The third is the **Discord bot**
   ([`functions/discord/wpbl.ts`](functions/discord/wpbl.ts)), which holds a service-role key

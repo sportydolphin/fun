@@ -232,6 +232,7 @@ flowchart TB
         t_lots["wpbl_auction_lots<br/>(The Realest: memorabilia lot snapshot)"]
         t_ment["wpbl_mention_hits<br/>+ wpbl_mention_watch_runs<br/>(mention watcher queue + health)"]
         t_bsky["wpbl_bluesky_recap_posts<br/>(what has been posted to Bluesky; no edit, so no hash)"]
+        t_awards["wpbl_award_votes<br/>(fan awards ballot; browser-written, aggregate-read only)"]
     end
 
     subgraph MLB["MLB predictions / survivor / stats (written by GH Action scripts)"]
