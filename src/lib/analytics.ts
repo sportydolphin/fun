@@ -77,6 +77,7 @@ export const EVENTS = {
   // card's bounce went unmeasured for exactly that reason when it was retired.
   WPBL_BRACKET_SHOWN:  'wpbl_bracket_shown',  // bracket rendered, props {settled, started, gamesLeft, from}
   WPBL_BRACKET_TEAM:   'wpbl_bracket_team',   // opened a club from the bracket, props {teamId, seed, from}
+  WPBL_BRACKET_SERIES: 'wpbl_bracket_series', // opened a series overview, props {round, key, status, from}
 
   // The bracket pick'em. Both halves are needed and neither implies the other: a strip that
   // nobody was ever shown and one everybody ignored produce the same silence from `cast`

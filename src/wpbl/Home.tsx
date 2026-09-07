@@ -1339,7 +1339,14 @@ export function NextPostseasonCard({ rows, teams, games }: {
           alignItems: 'baseline', columnGap: 0.75, rowGap: 0.2,
         }}>
           <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary' }}>
-            {relativeDayLabel(r.date)}{r.time ? `, ${r.time}` : ''}
+            {/* CONVERTED, like every other clock in the section. This printed `r.time` raw,
+                which is the league's CENTRAL wall clock (see PostseasonGame in derive/bracket
+                .ts): a Pacific reader was told the first postseason game in league history
+                started at 6:00 PM when it starts at 4:00 PM where they are. The schedule strip
+                in WpblApp already converts the same field, so the two disagreed by two hours
+                about the same fixture. Found by printing times in the series overview, which
+                made the contradiction visible on one page. */}
+            {relativeDayLabel(r.date)}{r.time ? `, ${formatGameTime(r.date, r.time) || r.time}` : ''}
           </Typography>
           <Countdown target={next.ms} />
         </Box>
@@ -2327,7 +2334,8 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   const bracketCard = standingsRows.length > 0 && games.some(g => g.status === 'final')
     ? (
       <Box sx={{ mt: 1.5 }}>
-        <PlayoffBracket rows={standingsRows} games={games} onOpenTeam={onOpenTeam} from="home" />
+        <PlayoffBracket rows={standingsRows} games={games} onOpenTeam={onOpenTeam}
+          onOpenPlayer={onOpenPlayer} from="home" />
       </Box>
     )
     : null

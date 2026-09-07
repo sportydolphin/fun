@@ -77,9 +77,13 @@ describe('PlayoffBracket', () => {
   // whole text is the precise assertion. Querying the figures individually is not: the seed
   // column and the win column both render bare digits, so getByText('1') matches the 1 seed as
   // readily as a one-nil lead.
-  const rowsOf = (label: string) =>
-    within(screen.getByText(label).closest('div')!.parentElement!)
-      .getAllByRole('button').map(r => r.textContent)
+  // The two club rows of one series box. They stopped being buttons when the BOX became the
+  // target (it opens the series overview, and the club links moved in there), so this reads
+  // them positionally instead: the box's children are the header, row, rule, row, meta.
+  const rowsOf = (label: string) => {
+    const box = screen.getByText(label).closest('div')!.parentElement!
+    return [box.children[1], box.children[3]].map(r => r.textContent)
+  }
 
   it('shows the odds, and no win column, before a series has been played', () => {
     // The failure this guards: a "0" beside each club on Aug 20, which reads as a series that
@@ -170,21 +174,30 @@ describe('PlayoffBracket', () => {
     expect(container.textContent).toContain('SF are the inaugural champions')
   })
 
-  it('opens a club, which is the reason it is on Home', () => {
-    // Opening a team or player page is the section's retention event, and Home is the surface
-    // the traffic says has no route to one. A club name now appears twice, in a bracket box and
-    // in the title-odds strip; both are meant to be tappable, so opening the first is the check.
+  // Opening a team or player page is the section's retention event, and Home is the surface the
+  // traffic says has no route to one. That route now runs through the series overview rather
+  // than off the club row: the box is one target, and the club is a labelled link inside it.
+  it('opens a series overview from its box', async () => {
+    draw(season(), vi.fn())
+    fireEvent.click(screen.getByRole('button', { name: 'Semifinal A overview' }))
+    expect(await screen.findByText('When they play')).toBeTruthy()
+  })
+
+  it('opens a club from inside the overview', async () => {
     const onOpenTeam = vi.fn()
     draw(season(), onOpenTeam)
-    fireEvent.click(screen.getAllByText('SF')[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Semifinal A overview' }))
+    await screen.findByText('When they play')
+    // The tale of the tape inside the sheet carries its own club chips, so this is the first
+    // of two deliberate routes to the same page rather than a duplicate to clean up.
+    fireEvent.click(screen.getAllByRole('button', { name: 'SF SF team page' })[0])
     expect(onOpenTeam).toHaveBeenCalledWith(expect.objectContaining({ id: 'SF' }))
   })
 
-  it('opens a club from the keyboard too', () => {
-    const onOpenTeam = vi.fn()
-    draw(season(), onOpenTeam)
-    fireEvent.keyDown(screen.getAllByText('BOS')[0], { key: 'Enter' })
-    expect(onOpenTeam).toHaveBeenCalledWith(expect.objectContaining({ id: 'BOS' }))
+  it('opens a series overview from the keyboard too', async () => {
+    draw(season(), vi.fn())
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Semifinal B overview' }), { key: 'Enter' })
+    expect(await screen.findByText('When they play')).toBeTruthy()
   })
 
   // The new, forward-looking half: a title-odds strip that ranks by probability, not record,

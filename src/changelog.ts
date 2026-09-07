@@ -4,6 +4,29 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.78.0',
+    date:    '2026-09-07',
+    title:   'Open a series',
+    changes: [
+      {
+        short: 'Tap any matchup in the bracket for a full series overview',
+        full:  'Who is playing and how likely each of them is, every game of the series with its date and time and who bats last, what happened when the two clubs met in the season, the tale of the tape, and the players to watch on each side. Most of that existed in pieces scattered around the section and none of it was in one place.',
+      },
+      {
+        short: 'Each club’s leaders, from the games they played for that club',
+        full:  'Batting average, OPS, home runs and RBI, then ERA, strikeouts and innings. Rate stats use the same qualifier the leaderboards do, so a club’s batting average is not a pinch-hitter who went 2-for-2 in August. Leaders are worked out from the box-score lines played FOR that club rather than from who is on its roster today, so a player who changed clubs mid-season counts for the games she actually played there.',
+      },
+      {
+        short: 'The whole matchup box is the tap target now',
+        full:  'Each club row used to be its own link to that club’s page, which made a box two controls with a strip of nothing between them and left the box itself, the thing you point at, doing nothing. The club links moved into the overview, where there is room to label them properly.',
+      },
+      {
+        short: 'Fixed: the next postseason game was showing the wrong time outside Central',
+        full:  'The card that names the next game printed the league’s Central clock as-is for postseason fixtures, while every other clock on the site converts to where you are. A reader on the west coast was told the first playoff game in league history starts at 6:00 PM when it starts at 4:00 PM their time. It converts now, and agrees with the schedule strip and the new series overview.',
+      },
+    ],
+  },
+  {
     version: '1.77.0',
     date:    '2026-09-07',
     title:   'A bracket you can read across the room',

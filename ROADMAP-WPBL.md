@@ -996,6 +996,52 @@ is retired.
 
 ## Shipped log
 
+### Sep 7, 2026: open a series (v1.78.0)
+
+**A matchup opens a series overview.** Who is playing and how likely each of them is, every game
+with its date, time and who bats last, the two clubs' season meetings game by game, the tale of
+the tape, and each side's leaders. Four of those five already existed somewhere in the section
+and none of them existed together, which is the whole argument for the sheet: a bracket box can
+show a matchup, it cannot answer a question about one.
+
+**THE BOX IS ONE TARGET, WHICH COST SOMETHING AND IS STILL RIGHT.** Each club row used to be its
+own tap through to that club's page, so a series box was two controls with a strip of nothing
+between them and the box itself, the thing a reader actually points at, did nothing at all. The
+club links moved into the sheet, where there is room to label them ("San Francisco Firebells team
+page" rather than a bare name). A team page is one tap further away than it was, on a card whose
+stated purpose is that opening a team or player page is the section's retention event; the trade
+is that it now arrives with the reason to want it already read, and there are two routes to it in
+the sheet (the club chip and the tale of the tape's own chips). `WPBL_BRACKET_TEAM` still fires
+from those, so the number this is judged on stays comparable, and `WPBL_BRACKET_SERIES` says how
+often the sheet is opened at all.
+
+**LEADERS COME OFF THE LINES, NOT THE ROSTER**, which is the trap this section is built around:
+`team_id` on a roster row means "now", so a player who changed clubs would be listed under the
+club she finished at and be missing from the one she played these games for. A box-score line
+carries the club the game was played for, which is the question. Rate stats are gated on the same
+qualifier the leaderboards use, so a club's batting average is not a 2-for-2 pinch-hitter;
+counting stats are not, because a home-run leader led whether or not she held a rate title.
+
+**It fetches nothing anybody else has not already fetched.** Box-score lines and the league roster
+are both app-wide caches by the time Home has drawn, so on a warm page the sheet opens with no
+request at all.
+
+**AND PRINTING TIMES FOUND A REAL BUG TWO CARDS UP.** `NextPostseasonCard` printed `r.time` raw,
+which is the league's CENTRAL wall clock, while every other clock in the section runs it through
+`formatGameTime` first. A reader on the west coast was told the first postseason game in league
+history starts at 6:00 PM when it starts at 4:00 PM where they are, and the schedule strip in
+`WpblApp` was already converting the same field, so the two disagreed by two hours about the same
+fixture. Invisible until now because the bracket only ever printed dates. Both sources agree on
+the wall clock (the site calendar has 6:00 PM Central for Sep 9 and so does `POSTSEASON_SCHEDULE`);
+only the rendering was wrong. One line, and the three surfaces agree.
+
+**Small things the sheet needed and the measurements decided:** the club chips stack on a phone,
+because side by side at 375px "Heights" came out as "Hei…"; the chip's nickname sits over its city
+rather than carrying a full name, because two full names beside two percentages in a 560px sheet
+cut the city off; the seed rides the nickname line, because three items on the meta line did not
+fit; and the meta line wraps rather than ellipsising, since at the Large text setting it is the
+record that would have been dropped.
+
 ### Sep 7, 2026: a bracket you can read across the room (v1.77.0)
 
 **"Nothing really pops besides the button", and the numbers agreed.** Measured on the card as it

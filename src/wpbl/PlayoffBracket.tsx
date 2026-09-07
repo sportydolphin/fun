@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, useMediaQuery } from '@mui/material'
-import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark, tappableIf, TYPE_SCALE } from './ui'
+import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark, TAPPABLE, TYPE_SCALE } from './ui'
 import { wpblAccent, wpblSurface, wpblFullName } from './constants'
 import { buildBracket, seriesDateLine } from './derive/bracket'
 import type { BracketSeries, BracketEntrant, WpblBracket } from './derive/bracket'
@@ -8,9 +8,10 @@ import { postseasonOdds, fmtOdds } from './derive/seriesOdds'
 import type { SeriesOdds, WpblPostseasonOdds } from './derive/seriesOdds'
 import { seedingRace } from './derive/seeding'
 import { useSeriesPicks, SeriesPickLine, PickemButton } from './SeriesPicks'
+import SeriesPreview from './SeriesPreview'
 import type { SeriesPickState } from './SeriesPicks'
 import { track, EVENTS } from '../lib/analytics'
-import type { WpblGame, WpblStandingRow, WpblTeam } from './types'
+import type { WpblGame, WpblPlayer, WpblStandingRow, WpblTeam } from './types'
 
 /**
  * Who goes where: the postseason bracket, drawn.
@@ -63,7 +64,7 @@ const BRACKET_OPEN_KEY = 'wpbl:bracketOpen'
  * the colour finally says whose it is. `wpblSurface` and not `wpblAccent`: this is a field with
  * text on it, which is the whole reason that third role exists (see constants.ts).
  */
-function SeriesTeamRow({ entrant, series, leading, winP, wide, onOpenTeam, from, placeholder }: {
+function SeriesTeamRow({ entrant, series, leading, winP, wide, placeholder }: {
   entrant: BracketEntrant
   series: BracketSeries
   leading: boolean
@@ -74,8 +75,6 @@ function SeriesTeamRow({ entrant, series, leading, winP, wide, onOpenTeam, from,
   /** This club's chance to take the series, 0-1, or null where there is no model to ask (an
    *  undecided championship, a series already over). Null draws no fill and no number. */
   winP: number | null
-  onOpenTeam?: OpenTeam
-  from: string
   /** What an empty slot reads as. The championship names WHICH semifinal feeds each slot
    *  ("Semifinal A winner") rather than a bare "Semifinal winner" that is the same on both. */
   placeholder?: string
@@ -102,23 +101,20 @@ function SeriesTeamRow({ entrant, series, leading, winP, wide, onOpenTeam, from,
     )
   }
 
-  const open = onOpenTeam
-    ? () => { track(EVENTS.WPBL_BRACKET_TEAM, { teamId: team.id, seed, from }); onOpenTeam(team) }
-    : undefined
   const beaten = !!series.winner && series.winner.id !== team.id
 
   return (
+    // NOT ITS OWN TARGET ANY MORE. Each row used to be a tap through to that club's page, which
+    // made a series box two controls with a strip of nothing between them and left the box
+    // itself, the thing a reader points at, inert. The box opens the series now and the club
+    // links live in there, where there is room to label them.
     <Box
-      {...pressable(open)}
       sx={{
         position: 'relative', overflow: 'hidden',
         display: 'flex', alignItems: 'center', gap: 1, px: 1.25, py: 1.1, minWidth: 0,
-        cursor: onOpenTeam ? 'pointer' : 'default',
-        ...tappableIf(onOpenTeam),
         // The club that is through, or ahead, carries the only weight in the box. Everything
         // else stays flat so the eye lands on it without reading the numbers.
         opacity: beaten ? 0.45 : 1,
-        ...FOCUS_RING,
       }}
     >
       {/* The fill. Behind everything, so the name is read against it rather than beside it, and
@@ -187,8 +183,11 @@ function seasonSeriesLine(series: BracketSeries, odds?: SeriesOdds): string | nu
  * thing the box is about. The odds moved into the club rows (see SeriesTeamRow), which leaves
  * the dates and the season series, and those fit on one line as a left and a right.
  */
-function SeriesBox({ series, odds, onOpenTeam, from, bracket, picks, fill, wide, children }: {
-  series: BracketSeries; odds?: SeriesOdds; onOpenTeam?: OpenTeam; from: string
+function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, children }: {
+  series: BracketSeries; odds?: SeriesOdds
+  /** Open this series' overview. Absent where there is nowhere to open one, which is any
+   *  surface drawing the diagram outside Home. */
+  onOpen?: () => void
   /** Passed through to the club rows. See SeriesTeamRow. */
   wide: boolean
   /** Both only for the pick strip, which needs the whole bracket to work out who could still
@@ -213,12 +212,19 @@ function SeriesBox({ series, odds, onOpenTeam, from, bracket, picks, fill, wide,
   const showOdds = !!odds && !winner && !!home.team && !!away.team
 
   return (
-    <Box sx={{
-      borderRadius: 2, overflow: 'hidden', flex: 1, minWidth: 0,
-      border: '1px solid', borderColor: isFinal ? 'var(--wpbl-medal-1)' : 'divider',
-      bgcolor: 'background.paper',
-      ...(fill ? { display: 'flex', flexDirection: 'column' } : {}),
-    }}>
+    <Box
+      {...pressable(onOpen)}
+      aria-label={onOpen ? `${series.label} overview` : undefined}
+      sx={{
+        borderRadius: 2, overflow: 'hidden', flex: 1, minWidth: 0,
+        border: '1px solid', borderColor: isFinal ? 'var(--wpbl-medal-1)' : 'divider',
+        bgcolor: 'background.paper',
+        cursor: onOpen ? 'pointer' : 'default',
+        ...(onOpen ? TAPPABLE : null),
+        ...(onOpen ? FOCUS_RING : null),
+        ...(fill ? { display: 'flex', flexDirection: 'column' } : {}),
+      }}
+    >
       <Box sx={{
         display: 'flex', alignItems: 'baseline', gap: 0.75, px: 1.25, py: 0.6,
         bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider',
@@ -239,14 +245,21 @@ function SeriesBox({ series, odds, onOpenTeam, from, bracket, picks, fill, wide,
           fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', whiteSpace: 'nowrap',
           overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{series.summary}</Typography>
+        {/* The affordance. A box that opens something has to say so somewhere, and the header
+            band is the one strip of it that is chrome rather than content. */}
+        {onOpen && (
+          <Typography aria-hidden sx={{
+            fontSize: TYPE_SCALE.caption, fontWeight: 900, color: 'text.disabled', flexShrink: 0,
+          }}>›</Typography>
+        )}
       </Box>
       {/* In the final, the two empty slots name their source semifinal. The bracket draws A on
           top and B below, and the connector runs A → the top (home) slot, so that is the match. */}
-      <SeriesTeamRow entrant={home} series={series} leading={homeLeads} onOpenTeam={onOpenTeam} from={from}
+      <SeriesTeamRow entrant={home} series={series} leading={homeLeads}
         winP={showOdds ? odds!.homeWinP : null} wide={wide}
         placeholder={isFinal ? 'Semifinal A winner' : undefined} />
       <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }} />
-      <SeriesTeamRow entrant={away} series={series} leading={awayLeads} onOpenTeam={onOpenTeam} from={from}
+      <SeriesTeamRow entrant={away} series={series} leading={awayLeads}
         winP={showOdds ? odds!.awayWinP : null} wide={wide}
         placeholder={isFinal ? 'Semifinal B winner' : undefined} />
       {/* The league's published dates, and the season series the odds are built on, as one line.
@@ -323,8 +336,12 @@ function ConnectorPiece({ row }: { row: 1 | 2 | 3 }) {
   )
 }
 
-export function BracketDiagram({ bracket, odds, onOpenTeam, from, picks }: {
-  bracket: WpblBracket; odds?: WpblPostseasonOdds | null; onOpenTeam?: OpenTeam; from: string
+export function BracketDiagram({ bracket, odds, onOpenSeries, onOpenTeam, picks }: {
+  bracket: WpblBracket; odds?: WpblPostseasonOdds | null
+  /** Only the title-odds list uses this now; a series box opens its overview instead. */
+  onOpenTeam?: OpenTeam
+  /** Open one series' overview. Omitted by any caller that has nowhere to open one. */
+  onOpenSeries?: (s: BracketSeries, o?: SeriesOdds) => void
   /** Omitted by any caller that wants the picture without the poll. */
   picks?: SeriesPickState
 }) {
@@ -369,7 +386,8 @@ export function BracketDiagram({ bracket, odds, onOpenTeam, from, picks }: {
     }}>
       {bracket.semifinals.map((s, i) => (
         <Box key={s.label} sx={{ display: 'flex', minWidth: 0, gridColumn: 1, gridRow: i === 0 ? 1 : 3 }}>
-          <SeriesBox series={s} odds={odds?.semifinals[i]} onOpenTeam={onOpenTeam} from={from}
+          <SeriesBox series={s} odds={odds?.semifinals[i]}
+            onOpen={onOpenSeries ? () => onOpenSeries(s, odds?.semifinals[i]) : undefined}
             bracket={bracket} picks={picks} wide={wide} />
         </Box>
       ))}
@@ -400,7 +418,8 @@ export function BracketDiagram({ bracket, odds, onOpenTeam, from, picks }: {
           centre at the column's centre, which is what the connector points at. */}
       <Box sx={{ minWidth: 0, gridColumn: 3, gridRow: '1 / 4', display: 'flex', minHeight: 0 }}>
         <SeriesBox series={bracket.championship} odds={odds?.championship ?? undefined}
-          onOpenTeam={onOpenTeam} from={from} bracket={bracket} picks={picks} fill wide={wide}>
+          onOpen={onOpenSeries ? () => onOpenSeries(bracket.championship, odds?.championship ?? undefined) : undefined}
+          bracket={bracket} picks={picks} fill wide={wide}>
           {odds && <TitleOddsStrip odds={odds} onOpenTeam={onOpenTeam} />}
         </SeriesBox>
       </Box>
@@ -445,7 +464,7 @@ function TitleOddsStrip({ odds, onOpenTeam }: {
               sx={{
                 display: 'flex', alignItems: 'center', gap: 0.9, minWidth: 0,
                 cursor: onOpenTeam ? 'pointer' : 'default', borderRadius: 1, px: 0.5, py: 0.3,
-                ...tappableIf(onOpenTeam),
+                ...(onOpenTeam ? TAPPABLE : null),
                 ...FOCUS_RING,
               }}
             >
@@ -482,11 +501,14 @@ function TitleOddsStrip({ odds, onOpenTeam }: {
   )
 }
 
-export default function PlayoffBracket({ rows, games, onOpenTeam, from = 'home' }: {
+export default function PlayoffBracket({ rows, games, onOpenTeam, onOpenPlayer, from = 'home' }: {
   /** Standings rows, in order, from `computeStandings`. */
   rows: WpblStandingRow[]
   games: WpblGame[]
   onOpenTeam?: OpenTeam
+  /** For the series overview's leader lines. Optional: the card still opens one without it,
+   *  the names just stop being links. */
+  onOpenPlayer?: (p: WpblPlayer) => void
   from?: string
 }) {
   const bracket = useMemo(() => buildBracket(rows, games), [rows, games])
@@ -519,6 +541,9 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, from = 'home' 
   // a bracket at all: two RPCs on a page that is not going to draw a question would be spent
   // for nothing.
   const picks = useSeriesPicks(!!bracket)
+  /** The series whose overview is open, with the odds it was drawn from. Held here rather than
+   *  in the box so the sheet is a sibling of the card and not a child of a 300px column. */
+  const [openSeries, setOpenSeries] = useState<{ series: BracketSeries; odds?: SeriesOdds } | null>(null)
 
   const isPhone = useMediaQuery('(max-width:599.95px)', { noSsr: true })
   const [open, setOpen] = useState(() => {
@@ -577,7 +602,19 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, from = 'home' 
           everything under it is something to read. The collapsed card has its own in the
           header; see `action` above. */}
       <PickemButton bracket={bracket} state={picks} from={from} />
-      <BracketDiagram bracket={bracket} odds={odds} onOpenTeam={onOpenTeam} from={from} picks={picks} />
+      <BracketDiagram bracket={bracket} odds={odds} onOpenTeam={onOpenTeam} picks={picks}
+        onOpenSeries={(s, o) => {
+          track(EVENTS.WPBL_BRACKET_SERIES, { round: s.round, key: s.key, status: s.status, from })
+          setOpenSeries({ series: s, odds: o })
+        }} />
+      {openSeries && (
+        <SeriesPreview
+          series={openSeries.series} odds={openSeries.odds}
+          teams={rows.map(r => r.team)} games={games} rows={rows}
+          onClose={() => setOpenSeries(null)}
+          onOpenTeam={onOpenTeam} onOpenPlayer={onOpenPlayer}
+        />
+      )}
       {odds && !bracket.champion && (
         <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 1, lineHeight: 1.45 }}>
           Odds blend each club’s run differential with its head-to-head results, then
