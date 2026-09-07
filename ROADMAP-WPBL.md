@@ -982,6 +982,47 @@ is retired.
 
 ## Shipped log
 
+### Sep 7, 2026: GitHub gives this repo seven scheduled runs a day, so the database asks instead
+
+**"The jerseys got restocked and the bot didn't tell us."** It had not missed them. The eight team
+jerseys went live at 15:35 UTC and the watcher's previous run was 09:59 UTC, five hours and
+thirty-eight minutes earlier. Its own diff, run by hand against the live catalogue and the stored
+snapshot, would have announced all ten new products; the run that came at 15:44 did exactly that.
+The bot was fine. **The scheduler is not.**
+
+**Measured, over the shop watcher's last sixty scheduled runs (203 hours): it asks for `*/10`,
+which is 144 runs a day, and gets 7.1.** Median gap 3h23m, worst 7h46m, best 1h44m, not once
+within an hour of its cron. It is not that workflow: `wpbl-youtube-sync` asks for twice an hour
+and gets 5.4 a day, `wpbl-game-start-reminders` the same. Every run is green. GitHub is
+deprioritising this repository's `schedule` events, and the workflow's own comment ("about every
+ten minutes, sometimes 25") was optimistic by an order of magnitude.
+
+**Two things follow that are worse than late merch news.** Game-start push notifications are on
+that scheduler, and a first-pitch reminder that arrives hours late is a wrong notification rather
+than a slow one. And the TrackMan listener shipped this morning is scheduled the same way, so it
+could have sat out the semifinals entirely.
+
+**The fix already existed here, for one job.** `wpbl_bluesky_nudge` has run since Sep 3: pg_cron
+is ours and is punctual, and `repository_dispatch` is on-demand. Measured across all 39 dispatched
+runs in the repo's history: **0 seconds queued, every one.** This generalises it. One
+`wpbl_dispatch_workflow(event, key, gap)` holds the token, the call and the gate; three thin
+conditions sit in front of it (a poll, a game inside a two-hour window, a game forty minutes out),
+and the same `github_dispatch_token` already in Vault covers all of them, so there was nothing new
+to paste.
+
+**The tracking listener's nudge is keyed on the game id with a six-hour gate**, because the job it
+starts holds a socket for hours and a second dispatch would queue behind the first and then hold
+another. The other two are keyed on nothing and gated on the tick.
+
+**The `schedule:` lines stay in all three workflows**, as the backstop for the day the token
+expires. Nothing here can tell you it has: the nudge warns into the Postgres log, which nobody
+reads, and the jobs limp on at five runs a day. The expiry belongs in a calendar.
+
+**The one silent failure to know about**: `repository_dispatch` only starts a workflow whose file
+on the DEFAULT BRANCH declares the matching type. A dispatch to a type that exists only on a
+branch answers `204` and runs nothing, which is exactly what happened when the migration landed
+before the triggers were merged.
+
 ### Sep 7, 2026: a listener on the league's live socket, in case TrackMan comes back
 
 **Asked to find TrackMan anywhere, and to trust nothing already written down.** Everything was

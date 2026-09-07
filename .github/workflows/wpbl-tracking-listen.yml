@@ -1,6 +1,13 @@
 name: WPBL Tracking Listener
 
 on:
+  # PG_CRON DRIVES THIS, NOT THE SCHEDULE BELOW. Measured Sep 7, 2026: this repo's
+  # schedule events run 5 to 7 times a day whatever the cron says (a listener that misses first pitch is the whole job missed).
+  # `repository_dispatch` is on-demand and starts in 0 seconds, so the database asks
+  # for the run and the cron line below is only the backstop for an expired token.
+  # See wpbl_nudge_* in scripts/migrations and scripts/wpbl_cron.sql.
+  repository_dispatch:
+    types: [wpbl-tracking-listen]
   schedule:
     # TWO WINDOWS, because the postseason has two first-pitch slots and a socket has to be open
     # BEFORE the pitch it exists to catch. Every game is at Robin Roberts Stadium on Central time:
@@ -53,9 +60,12 @@ jobs:
         env:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          # A scheduled run has no `inputs`, so these are empty there and the defaults apply:
-          # the evening window is the long one, so the script's own 240 is raised for it.
-          MAX_MINUTES: ${{ inputs.minutes || (github.event.schedule == '20 21 * 9,10 *' && '330' || '240') }}
+          # A scheduled run has no `inputs`, so these are empty there and the defaults apply.
+          # A DISPATCHED run gets the long window: pg_cron fires it forty minutes before first
+          # pitch, so it has a whole game ahead of it, where the two cron lines are fixed clock
+          # times that may be hours early. `github.event.schedule` is empty on a dispatch, which
+          # is what the last branch reads.
+          MAX_MINUTES: ${{ inputs.minutes || (github.event.schedule == '20 18 * 9,10 *' && '240' || '330') }}
           DRY_RUN:     ${{ inputs.dry_run }}
         run: |
           if [ "$DRY_RUN" = "true" ]; then

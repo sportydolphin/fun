@@ -1,6 +1,13 @@
 name: WPBL Game Start Reminders
 
 on:
+  # PG_CRON DRIVES THIS, NOT THE SCHEDULE BELOW. Measured Sep 7, 2026: this repo's
+  # schedule events run 5 to 7 times a day whatever the cron says (this one got 5.4).
+  # `repository_dispatch` is on-demand and starts in 0 seconds, so the database asks
+  # for the run and the cron line below is only the backstop for an expired token.
+  # See wpbl_nudge_* in scripts/migrations and scripts/wpbl_cron.sql.
+  repository_dispatch:
+    types: [wpbl-game-start]
   schedule:
     # Every 10 minutes during the hours a WPBL game can start. The league plays at
     # a single Central-time hub, so nothing starts overnight Central — restricting

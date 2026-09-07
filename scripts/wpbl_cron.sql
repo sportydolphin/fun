@@ -72,6 +72,32 @@ select cron.schedule(
 --     -- a 204 is a dispatch GitHub accepted; a 404 with a fine-grained token almost always
 --     -- means the token is missing "Contents: write" rather than that the repo is wrong.
 
+-- ─── Nudges: the same trick, for the jobs that are polls rather than events ───
+--
+-- Scheduled by migration 20260907154954 rather than here, because a bridge that exists and is
+-- not scheduled looks exactly like one that works. Listed for reference, and because this file
+-- is where somebody looks to find out what the database is running:
+--
+--   wpbl-shop-watch-nudge       */10  public.wpbl_nudge_shop_watch()
+--   wpbl-game-start-nudge       */5   public.wpbl_nudge_game_start()
+--   wpbl-tracking-listen-nudge  */5   public.wpbl_nudge_tracking_listen()
+--
+-- Measured Sep 7, 2026, over the shop watcher's last sixty scheduled runs: it asks for 144 runs
+-- a day and gets 7.1, median gap 3h23m. `wpbl-youtube-sync` and `wpbl-game-start-reminders` get
+-- 5.4 a day each. Dispatched runs, by contrast, start in 0 seconds, measured across all 39 in
+-- the repo's history.
+--
+-- All three share public.wpbl_dispatch_workflow(event, key, gap), which holds the token, the
+-- HTTP call and the per-(event, key) gate. They use the SAME github_dispatch_token as the
+-- Bluesky nudge above, so there is nothing new to paste.
+--
+-- Did they fire?
+--   select * from public.wpbl_workflow_dispatches order by dispatched_at desc;
+--   select created, status_code from net._http_response order by created desc limit 5;
+--     -- 204 is a dispatch GitHub accepted. It still starts NOTHING unless the workflow on the
+--     -- DEFAULT BRANCH declares the matching repository_dispatch type, which is the one way
+--     -- this fails silently: 204, and no run.
+
 -- ─── Check what is ACTUALLY scheduled ─────────────────────────────────────────
 -- Worth doing occasionally: what this file schedules and what the database is running can
 -- drift (a hand-edited schedule, or a second job scheduled under another name during
@@ -93,5 +119,8 @@ select cron.schedule(
 -- See recent runs:            select * from cron.job_run_details order by start_time desc limit 20;
 -- Unschedule:                 select cron.unschedule('wpbl-ingest-active');
 --                             select cron.unschedule('wpbl-bluesky-nudge');
+--                             select cron.unschedule('wpbl-shop-watch-nudge');
+--                             select cron.unschedule('wpbl-game-start-nudge');
+--                             select cron.unschedule('wpbl-tracking-listen-nudge');
 -- One-off FULL backfill call (also runnable from the Dashboard → Edge Functions tester,
 -- or curl): POST the function with {"mode":"all"} once to pull every game's boxscore.

@@ -396,7 +396,22 @@ would stop updating all winter. Every one of them has `workflow_dispatch` for an
 | Job | Schedule | Action |
 |---|---|---|
 | `wpbl-ingest-active` | `*/2 * * * *` | `pg_net` POST → `wpbl-ingest` `{mode:"active"}` (key from Vault) |
+| `wpbl-shop-watch-nudge` | `*/10 * * * *` | `wpbl_nudge_shop_watch()` → GitHub `repository_dispatch` `{event_type:"wpbl-shop-watch"}`. The shop watcher asks for 144 runs a day and **GitHub gave it 7.1** (measured Sep 7, 2026 over 60 runs / 203 hours: median gap 3h23m, worst 7h46m, never within an hour of its `*/10`), which for a store where a restock can sell out inside an hour is close to not running |
+| `wpbl-game-start-nudge` | `*/5 * * * *` | `wpbl_nudge_game_start()` → `{event_type:"wpbl-game-start"}`, when a scheduled game's first pitch is between 5 minutes ago and 2 hours away. Wide enough for any reader's `lead_min`; the sender re-checks each one, so this only decides whether waking a runner is worth it. **A late push notification is a wrong one** |
+| `wpbl-tracking-listen-nudge` | `*/5 * * * *` | `wpbl_nudge_tracking_listen()` → `{event_type:"wpbl-tracking-listen"}`, 40 minutes before first pitch, **keyed on the game id with a 6-hour gate so a game gets exactly one listener**: the job it starts holds a socket for hours and a second dispatch would queue behind it and hold another |
 | `wpbl-bluesky-nudge` | `*/5 * * * *` | `wpbl_bluesky_nudge()`: when a WPBL final has been settled 45 min, `pg_net` POST → GitHub `repository_dispatch` `{event_type:"wpbl-final"}` (fine-grained PAT from Vault), so the Bluesky recap does not wait on GitHub's schedule. **Exists because GitHub does not honour `schedule` in this repo**: the 30 scheduled runs before Sep 3, 2026 came 130 to 452 min apart against a `*/15` cron, and the daily workflows ran 4 to 11 hours late, all of them green. Returns 0 and warns (never errors) when no token is in Vault, and the workflow's own `schedule:` line stays as the late-but-not-broken backstop |
+
+
+**All three nudges share `wpbl_dispatch_workflow(event, key, gap)`**, which holds the Vault token,
+the HTTP call and the per-`(event, key)` gate, and they use the SAME `github_dispatch_token` the
+Bluesky nudge already had. Every one is `revoke`d from `anon` and `authenticated`: they read a
+token and can start a workflow, so pg_cron (running as `postgres`) is the only caller.
+
+**The `schedule:` lines stay in every workflow**, as the backstop for the day the token expires.
+**And the one way this fails silently**: `repository_dispatch` only starts a workflow whose file on
+the DEFAULT BRANCH declares the matching type, so a dispatch answers `204` and runs nothing at all
+until the trigger is merged. Verified with a hand call the moment the migration landed: `204`, no
+run, because the triggers were still on a branch.
 
 ---
 
