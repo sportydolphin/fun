@@ -898,6 +898,14 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
 - **Watch that the drift check stays green.** `wpbl-drift-check` runs at 07:30 UTC and, unlike
   the validator beside it, is allowed to fail: red means a game the feed and the mirror
   disagree about did not reconcile when re-ingested, which is the one case needing a person.
+- **Re-baseline the RetroWPBL stats check when it goes red, and do it promptly.**
+  `wpbl-retro-stats-check` reports only disagreements it has not been told about, so red means
+  a person should look and then accept or act. Triage the findings, then
+  `--update-baseline`, which REPLACES the list rather than appending: a disagreement the
+  transcriber has since fixed drops out, which is the point. It went red on Sep 3, 2026, the
+  day after it shipped, and stayed red for five days, because the baseline was taken fifteen
+  minutes before RetroWPBL pushed a round of fix-ups. That is the muted-alarm failure the job
+  was written to avoid, arrived at from the other direction.
 - **Periodic dupe / orphan audit** of players and games; the ingest has produced duplicate
   roster rows before (bad decode, tz-twin games) and each was caught by hand.
 - **Birth dates: 65 of 118 players.** The community sheet does not cover everyone.
