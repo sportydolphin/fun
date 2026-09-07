@@ -777,7 +777,11 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
   anything, the votes table and its two aggregate-read RPCs in
   `scripts/migrations/20260906214500_add_wpbl_fan_awards.sql`, and the client in
   [`awardVotes.ts`](src/wpbl/awardVotes.ts). **What is left is the surface**: the ballot and
-  the running tally on `/wpbl/league`. The migration is written and NOT yet applied.
+  the running tally on `/wpbl/league`. The migration is applied. **Its write path was broken
+  and is fixed** (Sep 7): the client upserted, which this table cannot accept, so no vote it
+  ever took would have been stored. Go through `castWpblAwardVote`, which now calls
+  `wpbl_cast_award_vote`; see the Sep 7 log entry. The bracket pick'em is the first surface
+  on the ballot and is a working example of the whole path.
   One vote per browser (the analytics localStorage id), opening the day after the last
   regular-season game and closing Sep 23, except "Build Around Her", which stays open until
   spring and is the only thing on the section that still takes an answer in January.
@@ -991,6 +995,70 @@ is retired.
 ---
 
 ## Shipped log
+
+### Sep 7, 2026: call the postseason (v1.76.0)
+
+**Asked for as a small feature on top of the vote, and the vote turned out not to work.** The
+fan-awards ballot shipped on Sep 6 as a table, two read RPCs and a client, with no surface on
+it. This is the first screen to write to it, and the write had never once succeeded. See the
+last section.
+
+**BY SERIES SCORE, NOT BY WINNER, AND THAT IS THE WHOLE IDEA.** The bracket already prints each
+club's chance to win its series and the title, to a percentage. A pick that only named a winner
+would be the reader agreeing or disagreeing with a number an inch above it, which is a survey
+about the model rather than a question about baseball. "In three" is the part nothing on the
+page estimates, and it is the part people argue about. Two options a side in a best-of-3, three
+in a best-of-5, taken from `winsNeeded` rather than written out, because a literal 2 or 3 in a
+new file is how one screen comes to need two wins and another three.
+
+**YOUR SEMIFINAL CALLS DECIDE THE FINAL YOU ARE ASKED ABOUT.** The championship has no entrants
+until Sep 14, so a pick'em that waited for them would open the day the thing it predicts is half
+over. Instead it offers the two clubs the reader has already advanced: pick San Francisco and New
+York and the final you are asked about is San Francisco against New York. That is what makes
+three questions a bracket. Real entrants take over the moment they exist, whoever was picked, and
+a reader whose club is no longer in it is told so rather than quietly re-offered a different
+question. A decided semifinal also answers for itself, so somebody who picked the club that lost
+still gets asked about the final that is actually going to be played.
+
+**THE TALLY IS HIDDEN UNTIL YOU ANSWER.** A poll that shows its results first stops measuring
+what people think and starts measuring what the first fifty people thought. Each option fills
+with its share once you have picked, or as soon as the series starts, since by then there is
+nothing left to influence. Picks lock at the first pitch of their series and the result is marked
+against them.
+
+**IT RIDES ON THE AWARDS BALLOT RATHER THAN A TABLE OF ITS OWN**, on the terms that migration set
+out for itself: the questions live in code, a new one is added by inventing an id, and the id is
+then permanent because it is what lands in `wpbl_award_votes.category`. A pick is exactly that
+shape, a question id and an answer string. The season is in the id (`pickem:2026:championship`)
+because the same three series happen again next year and this year's answers must not be counted
+into them. A second table would have duplicated two policies and two functions to store the same
+pair.
+
+**AND THE WRITE HAD NEVER WORKED, WHICH NOTHING COULD HAVE NOTICED.** `wpbl_award_votes` has an
+insert policy and an update policy, both `with check (true)`, and deliberately no select policy:
+raw rows would hand out every `voter_key`, and the update policy is guarded by nothing except
+those keys being unguessable. But the client upserted, PostgREST turns an upsert into
+`insert ... on conflict do update`, and Postgres applies the SELECT policies to the conflicting
+row on that path. So the statement is refused **even with no conflicting row to read**, and it
+fails as "new row violates row-level security policy", pointing at two WITH CHECK expressions
+that are both literally `true`. A plain insert of the same values succeeds. Measured both ways as
+`anon`; the migration carries the repro.
+
+The reason this could sit there is that a ballot with no surface and a ballot nobody has voted in
+look identical from the database: zero rows either way. The first chip tapped on the bracket lit
+up, showed a hundred per cent, and stored nothing. Writes now go through `wpbl_cast_award_vote`,
+security definer, on the same footing as the two read functions beside it, which is where they
+should have been from the start for the same reason those are. It is in CLAUDE.md's traps now:
+**a table whose rows the browser must not read cannot be upserted into by the browser.**
+
+**The chips are a radio group**, not buttons, which is what lets a screen reader say "2 of 4" and
+read the selection back, and each is labelled with its series because "Heights in 3" is an answer
+to two different questions on one card.
+
+Nineteen tests in `src/wpbl/__tests__/seriesPicks.test.ts` for the arithmetic and six in
+`seriesPicksView.test.tsx` for the behaviour a pure function cannot have an opinion about.
+`playoffBracket.test.tsx` now mocks the ballot: unmocked it made two real network requests per
+render and passed only because they never resolved in time to draw a chip.
 
 ### Sep 7, 2026: what the league changed, and to whom (v1.75.0)
 

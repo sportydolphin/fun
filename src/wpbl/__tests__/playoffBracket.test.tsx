@@ -5,6 +5,16 @@ import { computeStandings } from '../api'
 import { seriesDateLine, postseasonGames } from '../derive/bracket'
 import type { WpblGame, WpblTeam } from '../types'
 
+// The pick strip inside each series box reads and writes the fan ballot. Mocked so these cases
+// stay offline and deterministic: unmocked it made two real requests per render, which passed
+// only because they never resolved in time to draw a chip.
+vi.mock('../awardVotes', () => ({
+  awardVoterKey: () => 'test-voter-key',
+  fetchWpblAwardBallot: () => Promise.resolve({}),
+  fetchWpblAwardResults: () => Promise.resolve({}),
+  castWpblAwardVote: () => Promise.resolve(true),
+}))
+
 // The derivation is covered in bracket.test.ts. What is worth pinning at this level is the
 // handful of things the DRAWING gets wrong on its own: a column of zeroes before a ball has
 // been thrown (which reads as a series played and finished nil-nil), a championship box that

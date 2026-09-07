@@ -234,7 +234,7 @@ flowchart TB
         t_lots["wpbl_auction_lots<br/>(The Realest: memorabilia lot snapshot)"]
         t_ment["wpbl_mention_hits<br/>+ wpbl_mention_watch_runs<br/>(mention watcher queue + health)"]
         t_bsky["wpbl_bluesky_recap_posts<br/>(what has been posted to Bluesky; no edit, so no hash)"]
-        t_awards["wpbl_award_votes<br/>(fan awards ballot; browser-written, aggregate-read only)"]
+        t_awards["wpbl_award_votes<br/>(fan ballot + bracket pick'em; RPC-written, aggregate-read only)"]
     end
 
     subgraph MLB["MLB predictions / survivor / stats (written by GH Action scripts)"]
@@ -297,6 +297,20 @@ from our own mirror being wrong (it did not), and only `'league'` rows are reada
 browser, enforced in the RLS policy rather than in the query. It supplies the "what" for the
 "when" that `wpbl_games.source_updated_at` already carries, and it starts on the day it shipped:
 an empty answer means "no revision caught since then", never "never revised".
+
+**`wpbl_award_votes` holds two features, and both write through a function.** It is "one
+browser, one answer, per named question": the fan awards ballot
+([`awards.ts`](src/wpbl/awards.ts)) and the postseason bracket pick'em
+([`derive/seriesPicks.ts`](src/wpbl/derive/seriesPicks.ts), whose ids are `pickem:<season>:…`
+and whose answers are `<team id>:<wins>-<losses>`). The questions live in code and never in
+the table, which is what lets a new one ship without a migration; the ids are therefore
+PERMANENT, since renaming one orphans every answer already stored under it.
+
+It has **no select policy**, deliberately: raw rows would hand out every `voter_key`, and the
+update policy is guarded by nothing except those keys being unguessable. All three of its
+entry points are therefore security-definer functions, `wpbl_award_results`,
+`wpbl_award_ballot` and `wpbl_cast_award_vote`. The writer is not decoration: a browser
+`.upsert()` on this table is refused outright, for the reason in CLAUDE.md's traps.
 
 **`wpbl_photos` is the one WPBL table whose rows are not public simply by existing.** Its
 `select` policy is `using (approved)`, not `using (true)`, because the unreviewed Commons

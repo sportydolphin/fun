@@ -70,10 +70,22 @@ export async function fetchWpblAwardBallot(voterKey = awardVoterKey()): Promise<
  * Cast or change one vote. Returns false on failure so the caller can leave the previous
  * selection showing instead of claiming a vote it did not record.
  *
- * An upsert rather than an insert: changing your mind rewrites the same row, which is what
- * makes the primary key `(category, voter_key)` a one-vote rule rather than a rejection. No
- * `.select()` is chained, because there is no select policy and asking for the row back would
- * turn a successful write into an error.
+ * THROUGH AN RPC, AND NOT AN UPSERT, WHICH IS NOT A STYLE CHOICE. This used to call
+ * `.upsert()` on the table, and it never once worked. PostgREST turns an upsert into
+ * `insert ... on conflict do update`, Postgres applies the SELECT policies to the conflicting
+ * row on that path, and this table has no select policy on purpose (raw rows would hand out
+ * every voter_key). So the statement is refused even with nothing to conflict with, and the
+ * error it gives is "new row violates row-level security policy", which points at two WITH
+ * CHECK expressions that are both literally `true`. A plain insert of the same values is fine.
+ * See the migration `20260907191350_add_wpbl_award_vote_writer.sql`, which reproduces both.
+ *
+ * Nothing caught it because the ballot shipped with no surface on it: a table at zero rows is
+ * indistinguishable from a poll nobody has voted in. The first screen to write to it was the
+ * bracket pick'em, and it showed a happily selected chip while the vote went nowhere.
+ *
+ * `wpbl_cast_award_vote` is security definer, on the same footing as the two read functions
+ * beside it and for the same reason: this table cannot be reachable directly by a client and
+ * still keep its keys private.
  */
 export async function castWpblAwardVote(
   category: string,
@@ -81,17 +93,16 @@ export async function castWpblAwardVote(
   voterKey = awardVoterKey(),
 ): Promise<boolean> {
   if (!category || !choice || !voterKey) return false
-  const { error } = await supabase
-    .from('wpbl_award_votes')
-    .upsert(
-      { category, choice, voter_key: voterKey, updated_at: new Date().toISOString() },
-      { onConflict: 'category,voter_key' },
-    )
+  const { data, error } = await supabase.rpc('wpbl_cast_award_vote', {
+    p_category: category, p_voter_key: voterKey, p_choice: choice,
+  })
   if (error) {
     console.warn('[wpbl] castWpblAwardVote failed:', error.message)
     return false
   }
-  return true
+  // The function answers false rather than raising on a value the table's own constraints
+  // would have rejected, so a `false` here is a refused vote and not a transport failure.
+  return data === true
 }
 
 /** Total ballots cast in one category, for the "1,204 fans have voted" line. */

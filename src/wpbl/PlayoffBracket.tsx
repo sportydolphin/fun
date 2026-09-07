@@ -7,6 +7,8 @@ import type { BracketSeries, BracketEntrant, WpblBracket } from './derive/bracke
 import { postseasonOdds, fmtOdds } from './derive/seriesOdds'
 import type { SeriesOdds, WpblPostseasonOdds } from './derive/seriesOdds'
 import { seedingRace } from './derive/seeding'
+import SeriesPicks, { useSeriesPicks } from './SeriesPicks'
+import type { SeriesPickState } from './SeriesPicks'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblGame, WpblStandingRow, WpblTeam } from './types'
 
@@ -165,8 +167,11 @@ function SeriesOddsBar({ series, odds }: { series: BracketSeries; odds: SeriesOd
   )
 }
 
-function SeriesBox({ series, odds, onOpenTeam, from }: {
+function SeriesBox({ series, odds, onOpenTeam, from, bracket, picks }: {
   series: BracketSeries; odds?: SeriesOdds; onOpenTeam?: OpenTeam; from: string
+  /** Both only for the pick strip, which needs the whole bracket to work out who could still
+   *  reach the final. Absent on any surface that draws the diagram without one. */
+  bracket?: WpblBracket; picks?: SeriesPickState
 }) {
   const { home, away, winner } = series
   const homeLeads = winner ? winner.id === home.team?.id : home.wins > away.wins
@@ -221,6 +226,11 @@ function SeriesBox({ series, odds, onOpenTeam, from }: {
         }}>{dates}</Typography>
       )}
       {odds && <SeriesOddsBar series={series} odds={odds} />}
+      {/* Last in the box, under the odds, because it is the one thing here the reader is meant
+          to answer rather than read: everything above it is the case, and this is the verdict. */}
+      {bracket && picks && (
+        <SeriesPicks series={series} bracket={bracket} state={picks} from={from} />
+      )}
     </Box>
   )
 }
@@ -267,8 +277,10 @@ function ConnectorPiece({ row }: { row: 1 | 2 | 3 }) {
   )
 }
 
-export function BracketDiagram({ bracket, odds, onOpenTeam, from }: {
+export function BracketDiagram({ bracket, odds, onOpenTeam, from, picks }: {
   bracket: WpblBracket; odds?: WpblPostseasonOdds | null; onOpenTeam?: OpenTeam; from: string
+  /** Omitted by any caller that wants the picture without the poll. */
+  picks?: SeriesPickState
 }) {
   return (
     /* ONE GRID AT sm+, NOT A ROW OF COLUMNS, AND THE MIDDLE ROW IS WHAT CHANGED.
@@ -294,7 +306,8 @@ export function BracketDiagram({ bracket, odds, onOpenTeam, from }: {
     }}>
       {bracket.semifinals.map((s, i) => (
         <Box key={s.label} sx={{ display: 'flex', minWidth: 0, gridColumn: 1, gridRow: i === 0 ? 1 : 3 }}>
-          <SeriesBox series={s} odds={odds?.semifinals[i]} onOpenTeam={onOpenTeam} from={from} />
+          <SeriesBox series={s} odds={odds?.semifinals[i]} onOpenTeam={onOpenTeam} from={from}
+            bracket={bracket} picks={picks} />
         </Box>
       ))}
       <ConnectorPiece row={1} />
@@ -345,7 +358,8 @@ export function BracketDiagram({ bracket, odds, onOpenTeam, from }: {
             so the three rows stay in DOM order and the phone's flex fallback needs no
             renumbering: it is display:none there and contributes nothing at all. */}
         <Box aria-hidden sx={{ display: { xs: 'none', sm: 'block' } }} />
-        <SeriesBox series={bracket.championship} odds={odds?.championship ?? undefined} onOpenTeam={onOpenTeam} from={from} />
+        <SeriesBox series={bracket.championship} odds={odds?.championship ?? undefined} onOpenTeam={onOpenTeam} from={from}
+          bracket={bracket} picks={picks} />
         {/* Pinned to the bottom of its row from sm up, so the strip's last bar finishes level
             with the second semifinal: that is what makes the two halves read as one block
             rather than as a box with something parked under it. */}
@@ -458,6 +472,12 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, from = 'home' 
   // which is worse than either state. The choice persists, so opening it once is not a decision
   // the reader re-makes on every visit; a phone that cannot write localStorage simply gets the
   // default back each time.
+  // The pick'em's ballot and tally, fetched once for the whole card. Held here rather than in
+  // each strip so three series make two requests instead of six, and gated on the card having
+  // a bracket at all: two RPCs on a page that is not going to draw a question would be spent
+  // for nothing.
+  const picks = useSeriesPicks(!!bracket)
+
   const isPhone = useMediaQuery('(max-width:599.95px)', { noSsr: true })
   const [open, setOpen] = useState(() => {
     try { return localStorage.getItem(BRACKET_OPEN_KEY) === '1' } catch { return false }
@@ -506,7 +526,7 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, from = 'home' 
       collapsed={isPhone ? collapsed : undefined}
       onToggleCollapse={isPhone ? toggle : undefined}
     >
-      <BracketDiagram bracket={bracket} odds={odds} onOpenTeam={onOpenTeam} from={from} />
+      <BracketDiagram bracket={bracket} odds={odds} onOpenTeam={onOpenTeam} from={from} picks={picks} />
       {odds && !bracket.champion && (
         <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 1, lineHeight: 1.45 }}>
           Odds blend each club’s run differential with its head-to-head results, then

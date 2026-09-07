@@ -57,6 +57,17 @@ Each of these has already cost someone a debugging session, and none of them fai
   [`scripts/check-wpbl-drift.mjs`](scripts/check-wpbl-drift.mjs) that must stay BEFORE the
   repair, and nothing can regenerate it: the repair replaces the old scoring and the feed
   only ever serves the current version, so rebuilding this table would empty it in silence.
+- **A PostgREST `.upsert()` needs a SELECT policy, and `wpbl_award_votes` deliberately has
+  none.** An upsert becomes `insert ... on conflict do update`, and Postgres applies the
+  SELECT policies to the conflicting row on that path, so the statement is refused even when
+  there is nothing to conflict with. It fails as **"new row violates row-level security
+  policy"**, which points at WITH CHECK expressions that are both literally `true`, and a
+  plain `.insert()` of the same values succeeds. The fan-award ballot shipped this way on
+  Sep 6, 2026 and every vote it ever took went nowhere; nothing noticed, because the ballot
+  had no surface yet and a table at zero rows looks exactly like a poll nobody has voted in.
+  Writes now go through `wpbl_cast_award_vote`, security definer, on the same footing as the
+  two read RPCs beside it. **Any table whose rows the browser must not read cannot be
+  upserted into by the browser**: give it a writer function instead.
 - **The feed's `runs_scored` does not count the batter.** It counts the runners who
   crossed, so a solo home run reads 0, a two-run homer 1, a grand slam 3. This has caught
   every reader of the field so far, including a validator, a Game Center badge and the Hall

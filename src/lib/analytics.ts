@@ -77,6 +77,12 @@ export const EVENTS = {
   // card's bounce went unmeasured for exactly that reason when it was retired.
   WPBL_BRACKET_SHOWN:  'wpbl_bracket_shown',  // bracket rendered, props {settled, started, gamesLeft, from}
   WPBL_BRACKET_TEAM:   'wpbl_bracket_team',   // opened a club from the bracket, props {teamId, seed, from}
+
+  // The bracket pick'em. Both halves are needed and neither implies the other: a strip that
+  // nobody was ever shown and one everybody ignored produce the same silence from `cast`
+  // alone, and they call for opposite fixes.
+  WPBL_PICKEM_SHOWN:   'wpbl_pickem_shown',   // a series pick strip rendered, props {category, open, from}
+  WPBL_PICKEM_CAST:    'wpbl_pickem_cast',    // called a series, props {category, choice}
   // Home's MVP race. The impression is the point of the pair: the card costs a play-log fetch
   // Home had otherwise stopped paying for, so "is it seen" and "is it tapped" have to be
   // answerable before the next person decides whether that fetch is earning its keep.

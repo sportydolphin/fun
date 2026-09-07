@@ -4,6 +4,29 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.76.0',
+    date:    '2026-09-07',
+    title:   'Call the postseason',
+    changes: [
+      {
+        short: 'Pick every postseason series, by club and by how many games',
+        full:  'The bracket on the home page now asks you a question under each series: who wins it, and in how many. Two ways for each club in a semifinal, three in the championship. The card already prints each club’s chance to win the series to a percentage, so a winner-only pick would have been you agreeing or disagreeing with a number an inch above it. “In three” is the part nothing here estimates, and it is the part people argue about.',
+      },
+      {
+        short: 'Your semifinal calls decide the final you are asked about',
+        full:  'Pick the Firebells and the Heights to advance and the championship asks you about the Firebells against the Heights, before either series has been played. It is a bracket, so it flows like one. Once a semifinal is actually decided the real winner takes over, whoever you picked, and if the club you had in the final is not in it any more the card says so.',
+      },
+      {
+        short: 'You see how everyone else called it once you have called it yourself',
+        full:  'Each option fills with the share of fans who chose it, after you pick, or as soon as the series starts. Not before: a poll that shows its results first stops measuring what people think and starts measuring what the first fifty people thought. You can change your mind until the first pitch of that series, after which it locks and the result is marked against it.',
+      },
+      {
+        short: 'Fixed: the fan vote could never have been recorded',
+        full:  'The ballot behind this feature went in last week with nothing on the site using it yet, and the way it saved a vote could not work: the table is deliberately unreadable, and the kind of save it was using needs to read the row it is replacing. Every vote would have appeared to land and gone nowhere. Nothing was lost, because nothing had been cast yet, and it is fixed for both this and the fan awards ballot to come.',
+      },
+    ],
+  },
+  {
     version: '1.75.1',
     date:    '2026-09-07',
     title:   'The strikeout rate says what it is',
