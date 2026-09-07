@@ -1,0 +1,57 @@
+name: WPBL Site Calendar Sync
+
+on:
+  schedule:
+    # Every three hours. The league's website calendar is a slow-moving document for most of
+    # the year, and then it is not: the five championship games are published with no clubs on
+    # them, and get theirs within hours of the second semifinal ending. Three hours is short
+    # enough that the site is never a day behind on that, and long enough that this is eight
+    # reads a day of a page that usually has not changed.
+    #
+    # NOT season-gated. It is the only source for a fixture the stats feed has not published,
+    # which by definition includes next season's schedule whenever the league posts it.
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Read the calendar and print what would be written, without writing it.'
+        required: true
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
+
+# One writer at a time; skip a tick rather than racing two upserts.
+concurrency:
+  group: wpbl-site-calendar
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Same install trick as the sibling WPBL workflows: pull only the packages this script
+      # imports, at the version pinned in package.json, not the whole frontend.
+      - name: Install dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Mirror the league's website calendar
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DRY_RUN:                   ${{ inputs.dry_run }}
+        # A scheduled run has no `inputs`, so DRY_RUN is empty there and the real sync runs.
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            node scripts/sync-wpbl-site-calendar.mjs --dry-run
+          else
+            node scripts/sync-wpbl-site-calendar.mjs
+          fi

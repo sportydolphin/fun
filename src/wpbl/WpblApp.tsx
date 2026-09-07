@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { Box, Typography, Skeleton, CircularProgress, useMediaQuery } from '@mui/material'
 import {
   fetchWpblTeams, fetchWpblSchedule, fetchWpblAllPlayers, computeStandings,
-  fetchWpblAllLines, fetchWpblAllTracking, fetchWpblVideos, fetchWpblArticles,
+  fetchWpblAllLines, fetchWpblAllTracking, fetchWpblVideos, fetchWpblArticles, fetchWpblSiteGames,
 } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
 import { wpblPortrait } from './portraits'
@@ -12,10 +12,10 @@ import { useSearchBridge, updateSearchBridge, setSearchQuery } from '../mlb/stat
 import type { SearchResultRow } from '../mlb/state/SearchBridgeContext'
 import { getWpblRecents, mergeWpblRecent, setWpblRecents, type WpblRecentItem } from './recentSearches'
 import { jerseyQuery, jerseyOf } from './playerSearch'
-import type { WpblTeam, WpblPlayer, WpblGame } from './types'
+import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame } from './types'
 import { fmtSigned } from './stats'
 import { seriesContexts } from './derive/series'
-import { postseasonScheduleRows, type PostseasonScheduleRow, type PostseasonSlot } from './derive/bracket'
+import { postseasonScheduleRows, postseasonSlots, type PostseasonScheduleRow, type PostseasonSlot } from './derive/bracket'
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import WpblHome, { WpblHomeSkeleton } from './Home'
@@ -148,8 +148,8 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
 
 // ─── Views ────────────────────────────────────────────────────────────────────
 
-function ScheduleView({ teams, games, onOpenGame }: {
-  teams: WpblTeam[]; games: WpblGame[]; onOpenGame: (g: WpblGame) => void
+function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
+  teams: WpblTeam[]; games: WpblGame[]; siteGames?: WpblSiteGame[]; onOpenGame: (g: WpblGame) => void
   active?: boolean // accepted (call site passes it) but unused now that ordering replaced auto-scroll
 }) {
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
@@ -171,7 +171,8 @@ function ScheduleView({ teams, games, onOpenGame }: {
   // rows of its own. Without this the schedule ended on Sep 6 while the bracket card two tabs
   // away was already counting down to Sep 9. Each row retires itself the day a real game
   // lands on its date; see postseasonScheduleRows.
-  const postRows = useMemo(() => postseasonScheduleRows(standings, games), [standings, games])
+  const postRows = useMemo(
+    () => postseasonScheduleRows(standings, games, siteGames), [standings, games, siteGames])
   const postByDate = useMemo(() => {
     const m = new Map<string, PostseasonScheduleRow[]>()
     for (const r of postRows) m.set(r.date, [...(m.get(r.date) ?? []), r])
@@ -245,6 +246,9 @@ function ScheduleView({ teams, games, onOpenGame }: {
   // from a game card: dashed rather than solid, no score column, no link, and slots that name a
   // seed rather than a club. A reader must not be able to mistake it for a fixture that exists.
   const renderPostseason = (r: PostseasonScheduleRow) => {
+    // Away over home when the league has designated one, seed order when it has not, and the
+    // same muted "@" a real game card uses either way it goes. See postseasonSlots.
+    const { slots, homeKnown } = postseasonSlots(r)
     const slot = (p: PostseasonSlot, i: number) => (
       <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
         {p.team ? <TeamBadge team={p.team} size={26} /> : (
@@ -261,6 +265,7 @@ function ScheduleView({ teams, games, onOpenGame }: {
           fontSize: '0.9rem', fontWeight: p.team ? 600 : 500, flex: 1, minWidth: 0,
           color: p.team ? 'text.primary' : 'text.secondary',
         }}>
+          {homeKnown && i === 1 && <Box component="span" sx={{ color: 'text.disabled', fontWeight: 600, mr: 0.5 }}>@</Box>}
           {p.team ? wpblFullName(p.team) : p.label}
         </Typography>
         {p.team && recordById.get(p.team.id) && (
@@ -277,7 +282,7 @@ function ScheduleView({ teams, games, onOpenGame }: {
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
           <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {[r.first, r.second].map(slot)}
+            {slots.map(slot)}
           </Box>
           <Box sx={{ flexShrink: 0, textAlign: 'right', minWidth: '3.625rem', whiteSpace: 'nowrap' }}>
             {/* The league published Central wall-clock times, and formatGameTime converts them
@@ -715,6 +720,12 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [games, setGames] = useState<WpblGame[]>([])
   const [players, setPlayers] = useState<WpblPlayer[]>([])
+  // The league's own website calendar, mirrored nightly. It answers one question the stats
+  // feed cannot: for a postseason game the feed has not published yet, which club bats last.
+  // Held here rather than fetched twice, because the Schedule tab and Home's Next game card
+  // build their postseason rows from the same function and must not disagree about who is at
+  // home. An empty list is a working state, not a broken one: see postseasonScheduleRows.
+  const [siteGames, setSiteGames] = useState<WpblSiteGame[]>([])
   const [loading, setLoading] = useState(true)
   const isMobileView = useMediaQuery('(max-width:600px)')
   const navRef = useRef<HTMLDivElement>(null)
@@ -1349,6 +1360,11 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
       clearTimeout(revealTimer)
       setTeams(t); setGames(g); setLoading(false)
     })
+    // Deliberately NOT in that Promise.all: nothing waits on the mirrored calendar, and the
+    // section must not sit behind it. It fills in the home clubs on the postseason rows when
+    // it lands, and if it never lands those rows print exactly what they printed before the
+    // table existed.
+    fetchWpblSiteGames().then(rows => { if (!cancelled) setSiteGames(rows) }).catch(() => { /* keep last-good */ })
     return () => { cancelled = true; clearTimeout(revealTimer) }
   }, [])
 
@@ -1452,8 +1468,8 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
             panels={NAV.map(n => {
               const content = (() => {
                 switch (n.key) {
-                  case 'home':      return <WpblHome teams={teams} games={games} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromHome} onViewStats={openStats} onViewTracking={openTracking} />
-                  case 'schedule':  return <ScheduleView teams={teams} games={games} onOpenGame={openGame} active={view === 'schedule'} />
+                  case 'home':      return <WpblHome teams={teams} games={games} siteGames={siteGames} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromHome} onViewStats={openStats} onViewTracking={openTracking} />
+                  case 'schedule':  return <ScheduleView teams={teams} games={games} siteGames={siteGames} onOpenGame={openGame} active={view === 'schedule'} />
                   case 'standings': return <StandingsView teams={teams} games={games} onOpenTeam={selectTeamFromStandings} />
                   case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} active={view === 'stats'} newBoardBadge={runsBadge} onNewBoardSeen={retireRunsBadge} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromStats} />
                   case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeamFromTeams} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenStats={openStats} />

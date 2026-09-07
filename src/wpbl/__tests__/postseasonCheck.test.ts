@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { findDisagreements } from '../../../scripts/check-wpbl-postseason'
+import { findDisagreements, findCalendarDrift } from '../../../scripts/check-wpbl-postseason'
 
 // The tripwire that tells us the feed is not marking the postseason.
 //
@@ -75,5 +75,60 @@ describe('findDisagreements', () => {
     const season = Array.from({ length: 30 }, (_, i) =>
       game({ id: `g${i}`, game_date: `2026-08-${String((i % 28) + 1).padStart(2, '0')}` }))
     expect(findDisagreements(season, FROM)).toEqual([])
+  })
+})
+
+// ─── The constant against the league's live calendar ─────────────────────────
+//
+// POSTSEASON_SCHEDULE was typed in from an email in August and nothing checked it for six
+// weeks. It is still the fallback for who bats last, and it is what the Discord watch-party
+// job names its events from, so a game the league quietly moves has to reach a person.
+
+type Site = Parameters<typeof findCalendarDrift>[0][number]
+
+const SCHEDULE = {
+  'semifinal:A': [
+    { game: 1, date: '2026-09-09', time: '6:00 PM' },
+    { game: 2, date: '2026-09-11', time: '5:00 PM' },
+  ],
+  championship: [{ game: 1, date: '2026-09-16', time: '6:00 PM' }],
+}
+
+const site = (over: Partial<Site>): Site => ({
+  game_date: '2026-09-09', start_time: '6:00 PM',
+  round: 'semifinal', series_key: 'A', game_number: 1,
+  ...over,
+})
+
+const CALENDAR: Site[] = [
+  site({}),
+  site({ game_date: '2026-09-11', start_time: '5:00 PM', game_number: 2 }),
+  site({ game_date: '2026-09-16', round: 'championship', series_key: null, game_number: 1 }),
+]
+
+describe('findCalendarDrift', () => {
+  it('is silent while the two agree', () => {
+    expect(findCalendarDrift(CALENDAR, SCHEDULE)).toEqual([])
+  })
+
+  it('reports a game the league has moved, on the date and on the time', () => {
+    const moved = CALENDAR.map(r => (r.game_number === 2 && r.round === 'semifinal'
+      ? { ...r, game_date: '2026-09-12', start_time: '1:00 PM' } : r))
+    expect(findCalendarDrift(moved, SCHEDULE)).toEqual([
+      { kind: 'moved', game: 'semifinal:A:2', ours: '2026-09-11 5:00 PM', theirs: '2026-09-12 1:00 PM' },
+    ])
+  })
+
+  it('reports a game on only one of the two', () => {
+    const short = CALENDAR.filter(r => r.round !== 'championship')
+    expect(findCalendarDrift(short, SCHEDULE).map(d => d.kind)).toEqual(['not-on-calendar'])
+    const extra = [...CALENDAR, site({ game_date: '2026-09-13', game_number: 3 })]
+    expect(findCalendarDrift(extra, SCHEDULE).map(d => d.kind)).toEqual(['not-in-constant'])
+  })
+
+  // The mirror is filled by its own cron job. "The sync has not run yet" must not read as the
+  // league having cancelled the postseason.
+  it('says nothing at all when the mirror is empty', () => {
+    expect(findCalendarDrift([], SCHEDULE)).toEqual([])
   })
 })

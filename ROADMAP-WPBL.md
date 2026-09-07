@@ -926,7 +926,10 @@ site does). **Postseason:** all four teams qualify · semifinals best-of-3 ·
 finals best-of-5, so 7–11 games follow Sep 6 (up to 8 more for a finalist).
 
 **The published postseason schedule.** Every game 7:30 p.m. ET on ESPN+. An asterisk is
-if-necessary. **The feed stores start times in Central** (`WPBL_TZ` in
+if-necessary. **The league also designates a home club for the six semifinal games** and for none
+of the championship's five, which is on `POSTSEASON_SCHEDULE` as a seat: higher seed bats last in
+games 1 and 3, lower seed in game 2. Every game is at the one hub venue, so that is a batting
+order and not a building. **The feed stores start times in Central** (`WPBL_TZ` in
 [`constants.ts`](src/wpbl/constants.ts)), so 7:30 ET arrives as `6:30 PM`, identical to the
 regular-season slot: nothing keyed on the clock needs moving, and the cron windows already
 cover it.
@@ -979,6 +982,108 @@ is retired.
 
 ## Shipped log
 
+### Sep 6, 2026: the league's own website becomes a source (v1.70.0)
+
+**The postseason home clubs came from a constant three hours after a reader pointed out we had
+none, and the constant was the wrong place for them.** `POSTSEASON_SCHEDULE` was typed in from
+the league's August email and nothing had checked it in six weeks. Worse, the thing it now
+carried, who bats last, was going to be WRONG BY OMISSION for the whole final: the league
+publishes the championship's five games with no clubs on them, so the seat rule ("higher seed
+bats last in games 1 and 3") has nothing to say about them and never would until somebody
+noticed and edited a file.
+
+**`wpbl_site_games`**, mirrored from `womensprobaseballleague.com/wp-json/wpbl/v1/calendar-events`
+by `sync-wpbl-site-calendar.mjs` every three hours. It is the calendar behind their schedule
+page, and it is a DIFFERENT PUBLICATION from the stats feed everything else here mirrors: a
+stats-feed game row needs two clubs, which is why that feed held 61 rows on Sep 6 and every one
+of them was `game_type: 'regular'`. The website had all eleven postseason games six weeks out,
+with first-pitch times, ticket links, its own page per game, and the home club for each of the
+six semifinal games.
+
+**What reads it, and what deliberately does not.** Only `postseasonScheduleRows`, and only for a
+fixture the stats feed has no row for. Scores, box scores, plays and standings stay the feed's;
+nothing derived reads this table. A mirrored row is applied only when its two clubs ARE the two
+seats being printed, so a row that has drifted out of agreement with the bracket falls back
+rather than contradicting the clubs beside it.
+
+**The constant stays, and is not a stale copy.** It states the designation as a SEAT rather than
+as a club, so it still answers when the mirror is empty, when a row cannot be matched, and on any
+render that happens before the mirror has been read. What changed is that it is now CHECKED:
+`npm run check-postseason` grew a third comparison, the constant against the live calendar, and
+goes red on a moved game. It runs four times a day through the postseason. As of tonight the two
+agree on all eleven games, to the minute.
+
+**Which series a mirrored row belongs to is parsed from its slug**
+(`semi-final-series-a-playoff-game-2`), the only field in the payload that says: a semifinal's
+title is "Boston @ San Francisco", the same shape as any regular-season game's. An unrecognised
+slug stores nulls and the app falls back, which is the failure mode this wants.
+
+Also mirrored and not yet drawn anywhere: the league's own game pages, its ticket links, and the
+promo nights. Four tests in `__tests__/postseasonSchedule.test.ts`, four in
+`__tests__/postseasonCheck.test.ts`.
+
+### Sep 6, 2026: the play-by-play had been deleting the fielders (v1.69.2)
+
+**A reader said errors and double plays were not showing the fielders involved.** Both were
+being removed on purpose, by two rules in `derive/playByPlay.ts` that each looked right on its
+own.
+
+**The double play.** `FIELD_SEQ_RE` strips a fielding sequence ("ss to 2b to 1b") from every
+clause, on the reasoning that a runner clause saying "out at second ss to 2b" has already said
+what happened in words. True of a runner clause and false of the batter's, because **a double
+play names its fielders ONLY in that sequence**. Every other out on the list already carries
+one, since the feed writes "grounded out to 2b" in prose, so the effect was that the single
+most fielder-shaped play in baseball was the one play that named nobody: all 40 of the season's
+read "grounded into double play". They now read "grounded into double play, 2b to ss to 1b".
+The comma is inserted anchored to the phrase rather than to the sequence, so an unfamiliar
+position token leaves the text alone instead of putting a comma in the middle of it.
+
+**The error.** `tidy` rewrote "on an error by 2b" to "on an error", noting that the fielder is
+in the box score. **The box score has a COUNT** (six errors against Los Angeles on Sep 3) and
+never which of them let the run in. It also only matched the plain spelling, so the same game
+printed "reached first on an error" and "reached first on a throwing error by 1b" two lines
+apart, which is exactly the inconsistency the function's own header says it exists to prevent.
+
+**A position and not a name**, deliberately. The feed says "3b", and resolving that to a person
+means asking who was at third in that game, a question with two answers the moment anyone moves
+mid-game (`positions.ts`, on the feed's "lf/p" spelling). Naming the wrong fielder on an error
+is worse than naming none.
+
+Three tests in `__tests__/playByPlay.test.ts`. Nothing that reasons about plays was touched:
+`matchups.ts`, the validator and the run-expectancy build all read `narrative` directly, and
+`parsePlay` is display-only.
+
+### Sep 6, 2026: the playoffs get a home club, from the league's own schedule (v1.69.1)
+
+**A reader said the postseason games were not factoring seeding into home and away, and they
+were right for a reason nothing in the repo knew.** The rows the schedule, the scoreboard strip
+and the Next game card have printed since Sep 3 listed their two clubs in seed order with no
+"@", and every comment on them said the same thing: the league published dates and times and not
+venues, so there was no home club to show. The venue half of that is true and permanent, one hub
+stadium for the whole postseason. The other half was never checked. `womensprobaseballleague.com/schedule/`
+lists all six semifinal games club by club, **Boston @ San Francisco on Sep 9, San Francisco @
+Boston on Sep 11, Boston @ San Francisco on Sep 13**, and Series B the same shape: the higher
+seed bats last in games 1 and 3, the lower seed in game 2. Its calendar is served as JSON at
+`wp-json/wpbl/v1/calendar-events`, which also confirmed every date and time in
+`POSTSEASON_SCHEDULE` to the minute.
+
+**Held as a SEAT rather than a club**, `home: 'higher' | 'lower'` on the same constant that
+carries the dates, for the reason the pairings are seeds and not clubs: it was already true in
+August, before anyone knew who the 1 seed was. `postseasonScheduleRows` turns it into `homeSlot`,
+and one exported `postseasonSlots` orders the two seats for all three surfaces, because a
+postseason row that reads away-at-home on the schedule and seed-first on the chip beside it is
+worse than either alone.
+
+**Three things it still refuses to say.** The championship's five games are listed by the league
+as "WPBL Championship Game #1" with no clubs on them, because the clubs are semifinal winners, so
+there is no designation to carry and none is invented by extending the semifinals' 1-1-1 over a
+best-of-five. A pairing that has closed while the seeds inside it are still open drops the
+designation too: "the higher seed bats last" names nobody until there is a higher seed. And the
+moment the feed publishes a real postseason row, the placeholder retires and the feed's own home
+and away win, as they always did.
+
+Four tests in `__tests__/postseasonSchedule.test.ts`.
+
 ### Sep 6, 2026: Next game stops running out of season (v1.69.0)
 
 The scoreboard strip got this on Sep 5 (v1.67.0) and the card underneath it did not. `wpbl_games`
@@ -1009,13 +1114,14 @@ being reached without anything having to be deleted.
   it is the stronger point, because this card names ONE fixture and a card headed "Next game"
   over a game that may never be played is worse than the hole it is filling.
 
-Seed order, not away and home, matching the schedule rows and the chip: the league published dates
-and times, not venues. The one thing left unsaid there is a pairing that has closed before its
-seeds have, which a reader cannot infer, so that gets a line. It will not draw this year, since all
-four seeds clinched before the regular season ended, but Sep 5 is why it exists.
+Away at home for the semifinals and seed order for the championship, matching the schedule rows
+and the chip, which is `postseasonSlots` (see the Sep 6 log entry). The one thing left unsaid is a
+pairing that has closed before its seeds have, which a reader cannot infer, so that gets a line. It
+will not draw this year, since all four seeds clinched before the regular season ended, but Sep 5
+is why it exists.
 
 The tale of the tape survives when both seats are filled: `WpblGamePreview` names its two clubs
-`away` and `home` internally and prints neither word, so seed order is safe to hand it.
+`away` and `home` internally and prints neither word, so either ordering is safe to hand it.
 
 11 tests in `__tests__/nextPostseasonCard.test.tsx`.
 

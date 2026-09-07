@@ -10,6 +10,10 @@
  *   "Kylee Lahners reached on a fielder's choice, RBI (0-0); Denae Benites out at second
  *    ss to 2b; Elodie Ciamarro scored on an error by 2b, unearned."
  *
+ * What comes out is the bookkeeping and the repetition. What does NOT come out is a fielder:
+ * the position charged with an error, and the sequence that turned a double play, are the only
+ * record anywhere of who was involved in either. See `tidy`.
+ *
  * Splitting it gives the list a consistent shape to render: the batter and the outcome on
  * one line, the count beside the pitches where the other counts already are, and the runners
  * condensed onto a quieter second line.
@@ -33,9 +37,20 @@ export interface ParsedPlay {
 // so only the count itself is kept.
 const COUNT_RE = /\s*\((\d)-(\d)(?:\s+[BKSFHP]+)?\)/
 
-// A fielding sequence: "ss to 2b", "p to c", "lf to 3b to c". Useful in a box score, noise in
-// a runner clause where "out at second" already says what happened.
+// A fielding sequence: "ss to 2b", "p to c", "lf to 3b to c". Noise in a runner clause where
+// "out at second" already says what happened, and the whole point of the play in the one case
+// below.
 const FIELD_SEQ_RE = /\s+\b(?:1b|2b|3b|ss|lf|cf|rf|p|c|dh)(?:\s+to\s+(?:1b|2b|3b|ss|lf|cf|rf|p|c|dh))+\b/g
+
+// The clause where the sequence IS the play. "grounded out to 2b" names its fielder in words,
+// so stripping the sequence cost nothing anywhere else; a double play names hers ONLY in the
+// sequence, so the same rule turned every one of the season's forty into a bare "grounded into
+// double play" and threw the 6-4-3 away. A reader asked where the fielders had gone.
+const MULTI_OUT_RE = /\b(?:double|triple) play\b/
+// The same thing anchored to the phrase, so the comma can only ever land straight after it. A
+// bare replace on the sequence puts one wherever the sequence starts, which on anything the
+// position list does not recognise is the middle of the phrase.
+const MULTI_OUT_SEQ_RE = /\b((?:double|triple) play)(\s+\b(?:1b|2b|3b|ss|lf|cf|rf|p|c|dh)(?:\s+to\s+(?:1b|2b|3b|ss|lf|cf|rf|p|c|dh))+\b)/
 
 // Base names, shortened EVERYWHERE. Splitting these by line was the mistake first time round:
 // a runner-only play printed "advanced to second" while the condensed line directly beneath
@@ -58,14 +73,28 @@ const squash = (s: string) => s.replace(/\s{2,}/g, ' ').replace(/\s+([,.])/g, '$
  * Noise removal applied to EVERY clause, batter's and runners' alike. Doing it to only one of
  * them is what makes a play-by-play read inconsistently: the same error would print as "on an
  * error by 2b" on one line and "on an error" on the next.
+ *
+ * WHICH IS WHAT IT USED TO DO ITSELF. It rewrote "on an error by 2b" to "on an error", on the
+ * grounds that the fielder is in the box score. The box score carries a COUNT, six errors
+ * against a club, and never which of them let this run in; the narrative is the only place that
+ * says. It also only ever matched the plain spelling, so "on a throwing error by 1b" and "on a
+ * fielding error by ss" kept their fielder while a bare "error by 3b" two lines up lost hers.
+ * The position stays now, in all three spellings.
+ *
+ * A POSITION AND NOT A NAME, deliberately. The feed says "3b", and turning that into a person
+ * means asking who was at third in this game, which is a question with two answers the moment
+ * anybody moves mid-game (`positions.ts` on the "lf/p" spelling). Naming the wrong fielder on
+ * an error is worse than naming none.
  */
 function tidy(s: string): string {
-  return squash(s
-    .replace(FIELD_SEQ_RE, '')
-    // Which fielder made the error is in the box score; here it only matters that one happened.
-    .replace(/\bon an error by [a-z0-9]+\b/g, 'on an error')
-    // An unearned run is an accounting distinction, not something happening on the field.
-    .replace(/,\s*unearned\b/g, ''))
+  return squash(
+    (MULTI_OUT_RE.test(s)
+      // A comma, so the sequence reads as the aside it is rather than running on out of the
+      // outcome: "grounded into double play, ss to 2b to 1b".
+      ? s.replace(MULTI_OUT_SEQ_RE, (_m, phrase, seq) => `${phrase},${seq}`)
+      : s.replace(FIELD_SEQ_RE, ''))
+      // An unearned run is an accounting distinction, not something happening on the field.
+      .replace(/,\s*unearned\b/g, ''))
 }
 
 function shortenBases(s: string): string {

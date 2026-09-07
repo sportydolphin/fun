@@ -7,7 +7,7 @@ import type {
   WpblBattingLine, WpblPitchingLine,
   WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchPlay, WpblRunValuePlay,
   WpblPitchTracking, WpblTrackRow,
-  WpblVideo, WpblArticle, WpblPhoto, WpblLineupHistoryRow, WpblPitchingUsageRow,
+  WpblVideo, WpblArticle, WpblPhoto, WpblSiteGame, WpblLineupHistoryRow, WpblPitchingUsageRow,
   WpblGameDetails,
 } from './types'
 
@@ -223,6 +223,7 @@ let allRunValuePlaysCache: { data: WpblRunValuePlay[]; at: number } | null = nul
 let allVideosCache:   { data: WpblVideo[]; at: number } | null = null
 let allArticlesCache: { data: WpblArticle[]; at: number } | null = null
 let allPhotosCache:   { data: WpblPhoto[]; at: number } | null = null
+let siteGamesCache:   { data: WpblSiteGame[]; at: number } | null = null
 
 // How long a bulk result is served straight from the cache without re-querying.
 //
@@ -250,6 +251,7 @@ export function getCachedWpblAllRunValuePlays(): WpblRunValuePlay[] | null { ret
 export function getCachedWpblVideos(): WpblVideo[] | null { return allVideosCache?.data ?? null }
 export function getCachedWpblArticles(): WpblArticle[] | null { return allArticlesCache?.data ?? null }
 export function getCachedWpblPhotos(): WpblPhoto[] | null { return allPhotosCache?.data ?? null }
+export function getCachedWpblSiteGames(): WpblSiteGame[] | null { return siteGamesCache?.data ?? null }
 
 // ─── Per-entity session cache ───────────────────────────────────────────────────
 //
@@ -682,6 +684,36 @@ export function fetchWpblVideos(): Promise<WpblVideo[]> {
         PromiseLike<{ data: WpblVideo[] | null; error: unknown }>,
       [])
     if (data.length > 0 || allVideosCache == null) allVideosCache = { data, at: Date.now() }
+    return data
+  })
+}
+
+/**
+ * The league's own website calendar (`wpbl_site_games`), mirrored nightly by
+ * `scripts/sync-wpbl-site-calendar.mjs`.
+ *
+ * A SECOND SOURCE, FOR THE GAMES THE STATS FEED HAS NOT PUBLISHED. Everything else here comes
+ * from the feed, which needs two clubs before it will carry a game row and therefore held
+ * nothing for the postseason until the seeds were set. The website had all eleven games six
+ * weeks out, with the times, the tickets and, for the semifinals, which club bats last. Only
+ * `postseasonScheduleRows` reads it, and only for a fixture the feed has no row for.
+ *
+ * Forty-one rows for the whole season, so it is read whole, ordered, and cached app-wide like
+ * the videos above it. An empty result keeps the last good list: the postseason placeholders
+ * fall back to their own published constant rather than losing their home clubs on one bad
+ * read.
+ */
+export function fetchWpblSiteGames(): Promise<WpblSiteGame[]> {
+  if (isFresh(siteGamesCache)) return Promise.resolve(siteGamesCache!.data)
+  return once('siteGames', async () => {
+    const data = await safe<WpblSiteGame[]>('fetchWpblSiteGames', () =>
+      supabase.from('wpbl_site_games')
+        .select('event_id,game_date,start_time,title,status,home_team_id,away_team_id,home_score,away_score,round,series_key,game_number,url,ticket_url')
+        .order('game_date', { ascending: true })
+        .order('event_id', { ascending: true }) as unknown as
+        PromiseLike<{ data: WpblSiteGame[] | null; error: unknown }>,
+      [])
+    if (data.length > 0 || siteGamesCache == null) siteGamesCache = { data, at: Date.now() }
     return data
   })
 }

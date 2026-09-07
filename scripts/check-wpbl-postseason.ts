@@ -22,6 +22,13 @@
  *      the league's word.
  *   2. The feed's marking, read exactly as the site reads it, through `countsInStandings`.
  *
+ * AND SINCE Sep 6, 2026, A THIRD THING THIS ALSO WATCHES: whether that constant still matches
+ * the league's live calendar, which is now mirrored into `wpbl_site_games` by
+ * scripts/sync-wpbl-site-calendar.mjs. The constant was typed in from an email in August and
+ * nothing had ever checked it since. It is still what the app falls back to, it is what the
+ * Discord watch-party job names its events from, and a league with one venue and eleven games
+ * to fit around a stadium's other bookings is exactly the sort to move one.
+ *
  * IT MUST NOT BECOME A FILTER. The obvious "fix", the day this fires, is to have the app
  * treat the date as authoritative and exclude anything from Sep 9 on. Do not: a postponed
  * regular-season game replayed on Sep 8, which is precisely the kind of thing a league with
@@ -45,7 +52,7 @@
 import { pathToFileURL } from 'node:url'
 import { countsInStandings } from '../src/wpbl/season'
 import { POSTSEASON_SCHEDULE } from '../src/wpbl/derive/bracket'
-import type { WpblGame } from '../src/wpbl/types'
+import type { WpblGame, WpblSiteGame } from '../src/wpbl/types'
 
 const JSON_OUT = process.argv.includes('--json')
 
@@ -127,11 +134,80 @@ export function findDisagreements(games: Row[], postseasonFrom: string): Disagre
   return out
 }
 
+// ─── The constant against the league's live calendar ─────────────────────────
+
+/** The mirrored calendar, postseason rows only. */
+type SiteRow = Pick<WpblSiteGame, 'game_date' | 'start_time' | 'round' | 'series_key' | 'game_number'>
+
+export interface CalendarDrift {
+  kind: 'moved' | 'not-on-calendar' | 'not-in-constant'
+  game: string
+  ours: string
+  theirs: string
+}
+
+/**
+ * Where POSTSEASON_SCHEDULE and the league's live calendar disagree.
+ *
+ * Pure, and keyed on round + series + game number rather than on the date, because the date is
+ * the thing most likely to be what moved.
+ *
+ * AN EMPTY MIRROR REPORTS NOTHING. The table is filled by a separate cron job, and a check
+ * that turned "the sync has not run yet" into eleven missing games would go red for a reason
+ * that has nothing to do with the league.
+ */
+export function findCalendarDrift(site: SiteRow[], schedule = POSTSEASON_SCHEDULE): CalendarDrift[] {
+  if (!site.length) return []
+  const key = (round: string, series: string | null, game: number) => `${round}:${series ?? '-'}:${game}`
+  const theirs = new Map<string, SiteRow>()
+  for (const r of site) {
+    if (r.round && r.game_number != null) theirs.set(key(r.round, r.series_key, r.game_number), r)
+  }
+
+  const out: CalendarDrift[] = []
+  const seen = new Set<string>()
+  for (const [slot, games] of Object.entries(schedule)) {
+    // 'semifinal:A' and 'championship', which is how POSTSEASON_SCHEDULE spells the same two
+    // fields the mirror stores in columns.
+    const [round, series = null] = slot.split(':')
+    for (const g of games) {
+      const k = key(round, series, g.game)
+      seen.add(k)
+      const t = theirs.get(k)
+      const ours = `${g.date} ${g.time}`
+      if (!t) {
+        out.push({ kind: 'not-on-calendar', game: k, ours, theirs: '—' })
+        continue
+      }
+      const them = `${t.game_date} ${t.start_time}`
+      if (them !== ours) out.push({ kind: 'moved', game: k, ours, theirs: them })
+    }
+  }
+  for (const [k, t] of theirs) {
+    if (!seen.has(k)) out.push({ kind: 'not-in-constant', game: k, ours: '—', theirs: `${t.game_date} ${t.start_time}` })
+  }
+  return out
+}
+
+async function fetchSiteGames(): Promise<SiteRow[]> {
+  const base = process.env.VITE_SUPABASE_URL
+  const key = process.env.VITE_SUPABASE_ANON_KEY
+  if (!base || !key) return []
+  const cols = 'game_date,start_time,round,series_key,game_number'
+  const url = `${base.replace(/\/+$/, '')}/rest/v1/wpbl_site_games?select=${cols}&round=not.is.null&order=game_date.asc&limit=200`
+  const res = await fetch(url, { headers: { apikey: key, authorization: `Bearer ${key}`, accept: 'application/json' } })
+  // A mirror that is missing or unreadable is not this check's business to fail on: the two
+  // signals it was written for do not need it. It reports nothing and says so.
+  if (!res.ok) return []
+  return await res.json() as SiteRow[]
+}
+
 async function main(): Promise<void> {
   const from = firstPostseasonDate()
   const games = await fetchGames()
   const postseason = games.filter(g => g.game_date >= from)
   const bad = findDisagreements(games, from)
+  const drift = findCalendarDrift(await fetchSiteGames())
 
   if (JSON_OUT) {
     console.log(JSON.stringify({
@@ -178,8 +254,27 @@ What to do, for the 'counted-postseason' rows:
     } else {
       console.log('\nCalendar and feed agree. Nothing to do.')
     }
+    if (drift.length) {
+      console.log('\n' + '!'.repeat(60))
+      console.log(`${drift.length} postseason game(s) where our constant and the league's live calendar disagree:\n`)
+      console.table(drift)
+      console.log(`
+What to do:
+
+  POSTSEASON_SCHEDULE in src/wpbl/derive/bracket.ts was typed in from the league's August
+  announcement. wpbl_site_games is their live calendar, mirrored. Where the two disagree the
+  calendar is right, so correct the constant.
+
+  This is not a visible bug: the section already prefers the mirror's date and time
+  (postseasonScheduleRows). What it still reaches is everything reading the constant alone,
+  which is the Discord watch-party events and any render that happens before the mirror has
+  been read.
+`)
+    } else {
+      console.log("\nOur published constant matches the league's calendar.")
+    }
   }
-  process.exit(bad.length > 0 ? 1 : 0)
+  process.exit(bad.length + drift.length > 0 ? 1 : 0)
 }
 
 // Only when run as the script, so the test suite can import `findDisagreements` without

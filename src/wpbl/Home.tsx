@@ -17,7 +17,7 @@ import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblD
 import { LiveHero } from './Live'
 import { useForegroundInterval } from './refresh'
 import PlayoffBracket from './PlayoffBracket'
-import { postseasonScheduleRows, BEST_OF, type PostseasonScheduleRow, type PostseasonSlot } from './derive/bracket'
+import { postseasonScheduleRows, postseasonSlots, BEST_OF, type PostseasonScheduleRow, type PostseasonSlot } from './derive/bracket'
 import {
   aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances, fmtRate, fmtTwo, fmtSigned,
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
@@ -36,7 +36,7 @@ import { mvpRace } from './derive/mvpRace'
 import { seriesContext } from './derive/series'
 import type { SeriesContext } from './derive/series'
 import type { WpblRunValuePlay } from './types'
-import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblTrackRow, WpblVideo, WpblArticle, WpblPhoto } from './types'
+import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame, WpblBattingLine, WpblPitchingLine, WpblTrackRow, WpblVideo, WpblArticle, WpblPhoto } from './types'
 
 // WPBL home dashboard (Phase 2). Mirrors the MLB home: a full-width scoreboard strip
 // on top, then a two-column card feed (The League / Around the League) that stacks on
@@ -198,6 +198,10 @@ function PostseasonChip({ row }: { row: PostseasonScheduleRow }) {
   // the word this exact slot carries on every completed game.
   const round = row.round === 'championship' ? 'Champ' : 'Semi'
   const eyebrow = `${round} G${row.gameNumber} · ${relativeDayShort(row.date)}`
+  // Away over home once the league has designated one, exactly as the neighbouring GameChip
+  // draws a fixture. The "@" costs one character against a three-letter abbr, which is what
+  // the 8.5rem box was already sized for.
+  const { slots, homeKnown } = postseasonSlots(row)
 
   const slot = (p: PostseasonSlot, i: number) => (
     <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
@@ -215,7 +219,10 @@ function PostseasonChip({ row }: { row: PostseasonScheduleRow }) {
         flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body,
         fontWeight: p.team ? 600 : 500,
         color: p.team ? 'text.primary' : 'text.secondary',
-      }}>{p.team?.abbr ?? p.shortLabel}</Typography>
+      }}>
+        {homeKnown && i === 1 && <Box component="span" sx={{ color: 'text.disabled', fontWeight: 600, mr: 0.4 }}>@</Box>}
+        {p.team?.abbr ?? p.shortLabel}
+      </Typography>
     </Box>
   )
 
@@ -233,8 +240,7 @@ function PostseasonChip({ row }: { row: PostseasonScheduleRow }) {
         color: wpblAccentFg(isDark),
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>{eyebrow}</Typography>
-      {slot(row.first, 0)}
-      {slot(row.second, 1)}
+      {slots.map(slot)}
     </Box>
   )
 }
@@ -1248,11 +1254,12 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame }: {
  *     that per seed, and the reason is on it: the bracket card may project because it reads as
  *     a projection, and a fixture card reads as fact.
  *
- * SEED ORDER, NOT AWAY AND HOME. The two rows are the higher seed and the lower one, because
- * the league published dates and times and not venues. The regular card's rows are away over
- * home; these are not, and no marker on either says which, which is the same silence the
- * schedule rows and the scoreboard chip already keep. What is NOT left silent is a pairing
- * whose two seeds are still being argued over, because that a reader cannot infer.
+ * AWAY OVER HOME WHERE THE LEAGUE HAS DESIGNATED ONE, seed order where it has not, which is
+ * `postseasonSlots` and is the same rule the schedule rows and the scoreboard chip follow. The
+ * league's schedule names a home club for all six semifinal games and for none of the
+ * championship's five, so this card prints the "@" for the first fortnight of the postseason
+ * and drops it again for the final. What is never left silent is a pairing whose two seeds are
+ * still being argued over, because that a reader cannot infer.
  */
 export function NextPostseasonCard({ rows, teams, games }: {
   rows: PostseasonScheduleRow[]; teams: Map<string, WpblTeam>; games: WpblGame[]
@@ -1284,12 +1291,13 @@ export function NextPostseasonCard({ rows, teams, games }: {
   if (!next) return null
   const r = next.r
   const bestOf = BEST_OF[r.round]
+  const { slots, homeKnown } = postseasonSlots(r)
 
   /** One seat: the club if it is settled, the seed it is reserved for if it is not. */
-  const slotRow = (p: PostseasonSlot) => {
+  const slotRow = (p: PostseasonSlot, i: number) => {
     const record = p.team ? recordOf(p.team.id) : null
     return (
-      <Box sx={{
+      <Box key={i} sx={{
         display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1,
         bgcolor: p.team ? wpblSurface(p.team.id, isDark) : 'transparent',
       }}>
@@ -1307,7 +1315,10 @@ export function NextPostseasonCard({ rows, teams, games }: {
           minWidth: 0, fontSize: TYPE_SCALE.display, letterSpacing: '-0.2px', lineHeight: 1.15,
           fontWeight: p.team ? 700 : 600,
           color: p.team ? 'text.primary' : 'text.secondary',
-        }}>{p.team ? wpblFullName(p.team) : p.label}</Typography>
+        }}>
+          {homeKnown && i === 1 && <Box component="span" sx={{ color: 'text.disabled', fontWeight: 600, mr: 0.5 }}>@</Box>}
+          {p.team ? wpblFullName(p.team) : p.label}
+        </Typography>
         {record && (
           <Typography sx={{
             fontSize: TYPE_SCALE.meta, fontWeight: 600, fontVariantNumeric: 'tabular-nums',
@@ -1340,8 +1351,7 @@ export function NextPostseasonCard({ rows, teams, games }: {
           layout, tier for tier, because the two are the same card on different days. */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', p: 0.5, mx: -0.5 }}>
         <Box sx={CLUB_BAND}>
-          {slotRow(r.first)}
-          {slotRow(r.second)}
+          {slots.map(slotRow)}
         </Box>
 
         <Typography sx={{
@@ -1368,11 +1378,11 @@ export function NextPostseasonCard({ rows, teams, games }: {
         </Typography>
 
         {/* The tale of the tape, when both seats are filled. It takes its two clubs as `away`
-            and `home` and draws them left and right without ever printing either word, so seed
-            order is a safe thing to hand it. */}
-        {r.first.team && r.second.team && (
+            and `home` and draws them left and right without ever printing either word, so the
+            order above is a safe thing to hand it whether or not that order is away-at-home. */}
+        {slots[0].team && slots[1].team && (
           <Box sx={{ mt: 1.5 }}>
-            <WpblGamePreview away={r.first.team} home={r.second.team} teams={[...teams.values()]} games={games} compact />
+            <WpblGamePreview away={slots[0].team} home={slots[1].team} teams={[...teams.values()]} games={games} compact />
           </Box>
         )}
       </Box>
@@ -2172,9 +2182,13 @@ export function WpblHomeSkeleton() {
   )
 }
 
-export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPlayer, onOpenTeam, onViewStats, onViewTracking }: {
+export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpenGame, onOpenPlayer, onOpenTeam, onViewStats, onViewTracking }: {
   teams: WpblTeam[]
   games: WpblGame[]
+  /** The league's mirrored website calendar, which is where a postseason game's home club
+   *  comes from until the stats feed publishes the fixture. Optional: without it the rows fall
+   *  back to their own published constant. */
+  siteGames?: WpblSiteGame[]
   liveGame: WpblGame | null
   onOpenGame: (g: WpblGame) => void
   onOpenPlayer: (p: WpblPlayer) => void
@@ -2301,7 +2315,8 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
   // The postseason as dated-but-undrawn rows, for the scoreboard strip. The same function the
   // Schedule tab reads, so the two cannot disagree about who plays whom or about which
   // if-necessary games are still conditional.
-  const postRows = useMemo(() => postseasonScheduleRows(standingsRows, games), [standingsRows, games])
+  const postRows = useMemo(
+    () => postseasonScheduleRows(standingsRows, games, siteGames), [standingsRows, games, siteGames])
 
   // The MVP race. Two passes over the play log (the run-expectancy table, then every play
   // priced against it), memoised on the three arrays they read, because this is the most

@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { computeStandings } from '../api'
-import { postseasonScheduleRows } from '../derive/bracket'
-import type { WpblGame, WpblTeam } from '../types'
+import { postseasonScheduleRows, postseasonSlots } from '../derive/bracket'
+import type { WpblGame, WpblSiteGame, WpblTeam } from '../types'
 
 // The postseason rows the schedule prints before the feed has any games for it. The whole
 // value of this list is that it says only true things about a bracket nobody has drawn yet, so
 // what is pinned here is mostly what it REFUSES to claim: no club in a slot that can still
 // move, no "@" it cannot know, no if-necessary game after a series is over, and nothing at all
-// on a date the feed has taken over.
+// on a date the feed has taken over. The "@" it CAN know is the league's own designation for
+// the six semifinal games, which is pinned here too, seat by seat.
 
 const TEAMS: WpblTeam[] = (['SF', 'LA', 'NY', 'BOS'] as const).map((id, i) => ({
   id, city: id, name: id, abbr: id, color: null, color_secondary: null,
@@ -38,7 +39,25 @@ const finished = (): WpblGame[] => [
   win('NY', 'BOS'), win('BOS', 'NY'),
 ]
 
-const rowsFor = (games: WpblGame[]) => postseasonScheduleRows(computeStandings(TEAMS, games), games)
+const rowsFor = (games: WpblGame[], site: WpblSiteGame[] = []) =>
+  postseasonScheduleRows(computeStandings(TEAMS, games), games, site)
+
+/** A played postseason game: the feed's own row, which is what decides a series. */
+const post = (date: string, winner: string, loser: string): WpblGame =>
+  game({
+    game_date: date, home_team_id: winner, away_team_id: loser,
+    home_score: 5, away_score: 1, game_type: 'Semifinal', counts_in_standings: false,
+  })
+
+/** One row of the league's mirrored website calendar. */
+const siteGame = (over: Partial<WpblSiteGame> = {}): WpblSiteGame => ({
+  event_id: 1, game_date: '2026-09-09', start_time: '6:00 PM', title: 'Boston @ San Francisco',
+  status: 'scheduled', home_team_id: 'SF', away_team_id: 'BOS',
+  home_score: null, away_score: null,
+  round: 'semifinal', series_key: 'A', game_number: 1,
+  url: null, ticket_url: null,
+  ...over,
+})
 /** The same thing, named for what the tiebreak tests are actually asking it. */
 const teamSpecsSeeds = rowsFor
 const bySeries = (games: WpblGame[], label: string) => rowsFor(games).filter(r => r.label === label)
@@ -231,6 +250,97 @@ describe('postseasonScheduleRows', () => {
     expect(champ.first.shortLabel).toBe('Semi A')
     const semiA = rowsFor([win('SF', 'BOS')]).find(r => r.label === 'Semifinal A')!
     expect(semiA.first.shortLabel).toBe('1 seed')
+  })
+
+  // WHO BATS LAST. The league's schedule page designates a home club for every semifinal game
+  // and for none of the championship's: the higher seed bats last in games 1 and 3, the lower
+  // seed in game 2. Held as a seat rather than a club so it was already true before the seeds
+  // were, which is the same reason the pairings are seeds.
+  it('carries the home designation the league published for the semifinals', () => {
+    for (const label of ['Semifinal A', 'Semifinal B']) {
+      const rows = bySeries(finished(), label)
+      expect(rows.map(r => r.homeSlot)).toEqual(['first', 'second', 'first'])
+    }
+  })
+
+  // Five rows the league lists as "WPBL Championship Game #1" with no clubs on them. Extending
+  // the semifinals' pattern over them would be a guess, and a guessed "@" is the one thing
+  // these rows exist not to print.
+  it('claims no home club for the championship, which the league has not designated', () => {
+    for (const r of bySeries(finished(), 'Championship')) expect(r.homeSlot).toBeNull()
+  })
+
+  // "The higher seed bats last" needs a higher seed. With the pairing closed and the seeds
+  // inside it open, `first` and `second` are the standings order and the last game can reverse
+  // them, so applying the designation would print an "@" against a coin toss.
+  it('drops the designation while the seed order inside a pairing is open', () => {
+    const semiB = rowsFor(pairSettled()).filter(r => r.label === 'Semifinal B')
+    expect(semiB.map(r => r.seedOrderTbd)).toEqual([true, true, true])
+    expect(semiB.map(r => r.homeSlot)).toEqual([null, null, null])
+    // The other semifinal on the same table has both seeds clinched and keeps it.
+    expect(rowsFor(pairSettled()).find(r => r.label === 'Semifinal A')!.homeSlot).toBe('first')
+  })
+
+  // The one ordering rule, in the one place three surfaces read it from: away over home when
+  // there is a home, seed order when there is not.
+  it('orders the two seats away over home, and leaves them in seed order without one', () => {
+    const rows = bySeries(finished(), 'Semifinal A')
+    const g1 = postseasonSlots(rows[0])
+    expect(g1.homeKnown).toBe(true)
+    expect(g1.slots.map(s => s.team?.id)).toEqual(['BOS', 'SF'])   // 4 seed @ 1 seed
+    const g2 = postseasonSlots(rows[1])
+    expect(g2.slots.map(s => s.team?.id)).toEqual(['SF', 'BOS'])   // 1 seed @ 4 seed
+    const champ = postseasonSlots(bySeries(finished(), 'Championship')[0])
+    expect(champ.homeKnown).toBe(false)
+    expect(champ.slots.map(s => s.label)).toEqual(['Semifinal A winner', 'Semifinal B winner'])
+  })
+
+  // ─── The league's own calendar, mirrored ────────────────────────────────────
+  //
+  // The stats feed will not carry a postseason game until it has two clubs for it, so for the
+  // fixtures it has never published the league's website is the only source. It names clubs,
+  // which is what lets it answer the one thing the seat rule cannot: the championship's home
+  // club, published with no clubs on it until the semifinals end.
+
+  it('takes the home club from the mirrored calendar when it names these two clubs', () => {
+    // Deliberately the OPPOSITE of the published pattern, so a pass cannot come from the
+    // constant agreeing by accident: the league moved game 1 to the lower seed.
+    const rows = rowsFor(finished(), [siteGame({ home_team_id: 'BOS', away_team_id: 'SF' })])
+    const g1 = rows.find(r => r.label === 'Semifinal A' && r.gameNumber === 1)!
+    expect(g1.homeSlot).toBe('second')
+    expect(postseasonSlots(g1).slots.map(s => s.team?.id)).toEqual(['SF', 'BOS'])
+  })
+
+  it('answers the championship, which the seat rule never can', () => {
+    const site = [siteGame({
+      event_id: 2, game_date: '2026-09-16', round: 'championship', series_key: null,
+      game_number: 1, home_team_id: 'SF', away_team_id: 'LA',
+    })]
+    // Both semifinals decided, so the final's two seats hold clubs and the calendar's can be
+    // matched against them.
+    const played = [...finished(),
+      post('2026-09-09', 'SF', 'BOS'), post('2026-09-11', 'SF', 'BOS'),
+      post('2026-09-10', 'LA', 'NY'), post('2026-09-12', 'LA', 'NY'),
+    ]
+    const g1 = rowsFor(played, site).find(r => r.label === 'Championship' && r.gameNumber === 1)!
+    expect(g1.homeSlot).toBe('first')
+    expect(postseasonSlots(g1).slots.map(s => s.team?.id)).toEqual(['LA', 'SF'])
+  })
+
+  // A mirrored row naming two clubs that are not the two in front of us is a disagreement with
+  // the bracket, not an instruction. Falling back to the seat rule keeps the "@" consistent
+  // with the clubs printed beside it.
+  it('ignores a mirrored row whose clubs are not this matchup', () => {
+    const rows = rowsFor(finished(), [siteGame({ home_team_id: 'NY', away_team_id: 'LA' })])
+    expect(rows.find(r => r.label === 'Semifinal A' && r.gameNumber === 1)!.homeSlot).toBe('first')
+  })
+
+  // The league moving a game is the one thing a hardcoded date cannot survive and the one
+  // nobody would notice, so the live calendar wins on when as well as on who.
+  it('takes the date and time from the calendar when they have moved', () => {
+    const rows = rowsFor(finished(), [siteGame({ game_date: '2026-09-08', start_time: '1:00 PM' })])
+    const g1 = rows.find(r => r.label === 'Semifinal A' && r.gameNumber === 1)!
+    expect([g1.date, g1.time]).toEqual(['2026-09-08', '1:00 PM'])
   })
 
   // A partial league is a test fixture and an empty state, not a bracket.

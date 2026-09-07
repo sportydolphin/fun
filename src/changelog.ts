@@ -4,6 +4,51 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.70.0',
+    date:    '2026-09-06',
+    title:   'The playoff schedule comes from the league',
+    changes: [
+      {
+        short: 'Who bats last now comes from the league’s own calendar, not from a list typed in here',
+        full:  'The postseason dates on this site were copied from the league’s August announcement into a constant, and nothing had checked them since. The league’s website publishes the same calendar as data, with things the stats feed does not have: the home club for each semifinal game, the first-pitch times, its own page for each game, and the ticket link. That calendar is now mirrored every three hours and the schedule reads it, so a game the league moves moves here too, and the five championship games get their home clubs the moment the finalists are known instead of waiting for a code change.',
+      },
+      {
+        short: 'The old list is still there as a floor, and is now checked rather than trusted',
+        full:  'The constant stays as the fallback, because it says "the higher seed bats last in games 1 and 3" rather than naming clubs, so it is still true on a morning when the mirror has not been read. A nightly job now compares the two and goes red if they ever disagree, which is how a moved game reaches a person instead of sitting wrong on the schedule.',
+      },
+    ],
+  },
+  {
+    version: '1.69.2',
+    date:    '2026-09-06',
+    title:   'The play-by-play names the fielders again',
+    changes: [
+      {
+        short: 'A double play says who turned it',
+        full:  'The league writes one as "grounded into double play ss to 2b to 1b", and the play-by-play was cutting the fielders off the end, leaving "grounded into double play" with no sign of who was involved. Every other out already named its fielder, because "grounded out to 2b" says it in words and a double play says it only in that sequence. All forty of the season’s now read like the rest of the list.',
+      },
+      {
+        short: 'An error says which position made it',
+        full:  'An error read as "reached first on an error", with the position dropped on the grounds that the box score carries it. The box score carries a count, six errors against a club, and never which of them let a run in. The position is back, in all three of the ways the league spells it, so a throwing error by first and a fielding error by short are told apart. It stays a position rather than a name: the league gives a position, and deciding who was standing there is a guess as soon as somebody changes position mid-game.',
+      },
+    ],
+  },
+  {
+    version: '1.69.1',
+    date:    '2026-09-06',
+    title:   'Playoff games say who bats last',
+    changes: [
+      {
+        short: 'The semifinals now show a home club, matching the league’s own schedule',
+        full:  'The postseason rows on the home page and the schedule listed their two clubs in seed order with no "@" between them, on the grounds that the league had published dates and times and no home team. Its schedule page does carry one, for all six semifinal games: the higher seed bats last in games 1 and 3, the lower seed in game 2. Sep 9 now reads Boston @ San Francisco and Sep 11 reads San Francisco @ Boston, the same as the league lists them, and the scoreboard strip, the schedule and the Next game card all say it the same way.',
+      },
+      {
+        short: 'The championship still does not, because the league has not said yet',
+        full:  'Those five are listed as "WPBL Championship Game #1" with no clubs on them, so there is no home team to show. They keep printing the two seats in bracket order with no "@" rather than guessing the pattern from the semifinals, and a matchup whose clubs are known while their seed order is not is treated the same way.',
+      },
+    ],
+  },
+  {
     version: '1.69.0',
     date:    '2026-09-06',
     title:   'Next game points at the playoffs',

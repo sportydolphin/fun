@@ -23,7 +23,7 @@ const slot = (over: Partial<PostseasonSlot> = {}): PostseasonSlot =>
 const row = (over: Partial<PostseasonScheduleRow> = {}): PostseasonScheduleRow => ({
   id: 'semifinal:A:1', date: '2026-09-09', time: '6:00 PM',
   round: 'semifinal', key: 'A', label: 'Semifinal A', gameNumber: 1,
-  ifNecessary: false, seedOrderTbd: false,
+  ifNecessary: false, seedOrderTbd: false, homeSlot: 'first',
   first: slot({ team: SF, seed: 1 }),
   second: slot({ team: BOS, seed: 4, label: '4 seed', shortLabel: '4 seed' }),
   ...over,

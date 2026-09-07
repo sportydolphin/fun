@@ -36,6 +36,7 @@
     "check-postseason": "esbuild scripts/check-wpbl-postseason.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-check-postseason.mjs && node --env-file-if-exists=.env node_modules/.cache/wpbl-check-postseason.mjs",
     "restock-watch": "node --env-file=.env scripts/watch-wpbl-restock.mjs",
     "commons-sync": "node --env-file=.env scripts/sync-wpbl-commons.mjs",
+    "site-calendar": "node --env-file=.env scripts/sync-wpbl-site-calendar.mjs",
     "tracking-watch": "node --env-file=.env scripts/watch-wpbl-tracking.mjs",
     "retro-sync": "node --env-file=.env scripts/sync-wpbl-retro.mjs",
     "mentions-watch": "node --env-file=.env scripts/watch-wpbl-mentions.mjs",

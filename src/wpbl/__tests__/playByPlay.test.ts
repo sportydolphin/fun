@@ -29,13 +29,43 @@ describe('parsePlay', () => {
       'Kylee Lahners', shorten)
     expect(p.who).toBe('Kylee Lahners')
     expect(p.what).toBe("reached on a fielder's choice, RBI")
-    expect(p.detail).toBe('Benites out at 2nd · Ciamarro scored on an error')
+    expect(p.detail).toBe('Benites out at 2nd · Ciamarro scored on an error by 2b')
     expect(p.kind).toBe('play')
   })
 
   it('strips fielding sequences, which the box score already carries', () => {
     const p = parsePlay('X Y singled (0-0); Madison Willan out at home p to c.', 'X Y', shorten)
     expect(p.detail).toBe('Madison Willan out at home')
+  })
+
+  // WHO TURNED IT. The sequence is the only place a double play names a fielder, where every
+  // other out says hers in words ("grounded out to 2b"). Stripping it read as the play having
+  // no fielders at all, which is what a reader wrote in about.
+  it('keeps the fielding sequence on a double play, which is the play itself', () => {
+    const p = parsePlay(
+      'Skylar Kaplan grounded into double play ss to 2b to 1b (1-0 B); Kelsie Whitmore out on the play.',
+      'Skylar Kaplan', shorten)
+    expect(p.what).toBe('grounded into double play, ss to 2b to 1b')
+    expect(p.detail).toBe('Kelsie Whitmore out on the play')
+  })
+
+  it('keeps it on the two-fielder kind too, and on a triple play the league has yet to turn', () => {
+    expect(parsePlay('Kate Blunt lined into double play 2b to ss (1-1 KB).', 'Kate Blunt', shorten).what)
+      .toBe('lined into double play, 2b to ss')
+    expect(parsePlay('X Y grounded into triple play 3b to 2b to 1b (0-0).', 'X Y', shorten).what)
+      .toBe('grounded into triple play, 3b to 2b to 1b')
+  })
+
+  // Three spellings in the feed, and the old rule caught one of them, so the same game printed
+  // "on an error" and "on a throwing error by 1b" two lines apart.
+  it('names the position on every spelling of an error', () => {
+    const err = (n: string) => parsePlay(n, 'Andreanne Leblanc', shorten).what
+    expect(err('Andreanne Leblanc reached first on an error by 3b (1-1 KB).'))
+      .toBe('reached first on an error by 3b')
+    expect(err('Andreanne Leblanc reached first on a throwing error by 1b (1-1 BF).'))
+      .toBe('reached first on a throwing error by 1b')
+    expect(err('Andreanne Leblanc reached first on a fielding error by ss (0-2 SK).'))
+      .toBe('reached first on a fielding error by ss')
   })
 
   it('keeps "out to ss" in the outcome — that is not a fielding sequence', () => {
@@ -47,7 +77,7 @@ describe('parsePlay', () => {
     const p = parsePlay(
       'Denver Bryant doubled to right field, advanced to third on an error by 2b, 2 RBI (1-0 B); Hyeonah Kim scored; Alli Schroder scored, unearned; Ticara Geldenhuis scored, unearned.',
       'Denver Bryant', shorten)
-    expect(p.what).toBe('doubled to right field, advanced to 3rd on an error, 2 RBI')
+    expect(p.what).toBe('doubled to right field, advanced to 3rd on an error by 2b, 2 RBI')
     expect(p.detail).toBe('Kim scored · Schroder scored · Geldenhuis scored')
   })
 

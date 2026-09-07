@@ -1,4 +1,4 @@
-import type { WpblGame, WpblStandingRow, WpblTeam } from '../types'
+import type { WpblGame, WpblSiteGame, WpblStandingRow, WpblTeam } from '../types'
 import { countsInStandings } from '../season'
 import { seedingRace, SEMIFINAL_PAIRS, bracketIsSet, clinchedSeeds, type WpblSeedRow } from './seeding'
 // The format and the pairing key live in series.ts, which is the module every OTHER surface
@@ -57,18 +57,35 @@ export interface PostseasonGame {
   time: string
   /** Played only if the series is still alive. Marked with an asterisk wherever it is shown. */
   ifNecessary?: boolean
+  /**
+   * Which seat bats last, as the league's own schedule publishes it.
+   *
+   * A SEAT AND NOT A CLUB, for the same reason the pairings are seeds: this is true before
+   * anyone knows who the 1 seed is. The semifinals run higher, lower, higher, which is the
+   * 1-1-1 the league's calendar spells out club by club (Boston @ San Francisco, San Francisco
+   * @ Boston, Boston @ San Francisco, and Los Angeles @ New York the same way).
+   *
+   * ABSENT MEANS UNPUBLISHED, WHICH IS THE WHOLE CHAMPIONSHIP. Those five are listed as "WPBL
+   * Championship Game #1" with no clubs on them, because the clubs are semifinal winners, and
+   * the league has not said which end of the bracket bats last in which game. Do not fill them
+   * in by extending the semifinals' pattern: a best-of-five is not a best-of-three, and a
+   * guessed "@" is exactly the thing this list exists not to print.
+   *
+   * Every game is at one hub venue, so this is a batting order rather than a building.
+   */
+  home?: 'higher' | 'lower'
 }
 
 export const POSTSEASON_SCHEDULE: Record<string, PostseasonGame[]> = {
   'semifinal:A': [
-    { game: 1, date: '2026-09-09', time: '6:00 PM' },
-    { game: 2, date: '2026-09-11', time: '5:00 PM' },
-    { game: 3, date: '2026-09-13', time: '2:00 PM', ifNecessary: true },
+    { game: 1, date: '2026-09-09', time: '6:00 PM', home: 'higher' },
+    { game: 2, date: '2026-09-11', time: '5:00 PM', home: 'lower' },
+    { game: 3, date: '2026-09-13', time: '2:00 PM', ifNecessary: true, home: 'higher' },
   ],
   'semifinal:B': [
-    { game: 1, date: '2026-09-10', time: '6:00 PM' },
-    { game: 2, date: '2026-09-12', time: '6:00 PM' },
-    { game: 3, date: '2026-09-14', time: '6:00 PM', ifNecessary: true },
+    { game: 1, date: '2026-09-10', time: '6:00 PM', home: 'higher' },
+    { game: 2, date: '2026-09-12', time: '6:00 PM', home: 'lower' },
+    { game: 3, date: '2026-09-14', time: '6:00 PM', ifNecessary: true, home: 'higher' },
   ],
   // Best of five, so games 1 to 3 are always played and only 4 and 5 are conditional.
   championship: [
@@ -301,9 +318,56 @@ export interface PostseasonScheduleRow {
    *  `second` are the current projection rather than a fact. True only in the window where a
    *  pairing has closed and the seeds inside it have not: see `postseasonScheduleRows`. */
   seedOrderTbd: boolean
-  /** Higher seed first. NOT home and away: see the note in `postseasonScheduleRows`. */
+  /** Higher seed first. This is seed order, never away-at-home: `homeSlot` is the only thing
+   *  that says which of them bats last, and it is often null. */
   first: PostseasonSlot
   second: PostseasonSlot
+  /**
+   * Which seat the league has designated the home club, or null when nothing here can say.
+   *
+   * Null for three different reasons, and a surface treats all three the same by printing no
+   * "@": the league has not published this game's home club (the championship), the two seats
+   * hold clubs whose seed order is still open (`seedOrderTbd`, where "the higher seed bats
+   * last" names nobody), or the round has no published designation at all.
+   */
+  homeSlot: 'first' | 'second' | null
+}
+
+/**
+ * The two seats in the order a fixture is read: away over home where that is known, seed order
+ * where it is not.
+ *
+ * One definition because three surfaces draw this row (the Schedule tab, the Home scoreboard
+ * chip, the Next game card) and a postseason row that reads away-at-home on one of them and
+ * seed-first on another is worse than either alone.
+ */
+export function postseasonSlots(
+  row: Pick<PostseasonScheduleRow, 'first' | 'second' | 'homeSlot'>,
+): { slots: [PostseasonSlot, PostseasonSlot]; homeKnown: boolean } {
+  if (row.homeSlot === 'first') return { slots: [row.second, row.first], homeKnown: true }
+  if (row.homeSlot === 'second') return { slots: [row.first, row.second], homeKnown: true }
+  return { slots: [row.first, row.second], homeKnown: false }
+}
+
+/**
+ * Which seat the mirrored calendar says bats last, or null when it cannot say.
+ *
+ * Null covers every way this can fail to mean anything, and all of them are ordinary: no
+ * mirrored row for this game, a row the league has not put clubs on yet (the whole
+ * championship until mid-September), a seat with no club named in it, and a pair of clubs that
+ * are not the two clubs in front of us. The caller then falls back to the seat rule, which is
+ * never wrong about a semifinal and simply silent about everything else.
+ */
+function siteHomeSlot(
+  site: WpblSiteGame | undefined,
+  first: PostseasonSlot,
+  second: PostseasonSlot,
+): 'first' | 'second' | null {
+  if (!site?.home_team_id || !site.away_team_id) return null
+  if (!first.team || !second.team) return null
+  const pair = new Set([first.team.id, second.team.id])
+  if (!pair.has(site.home_team_id) || !pair.has(site.away_team_id)) return null
+  return site.home_team_id === first.team.id ? 'first' : 'second'
 }
 
 /**
@@ -323,18 +387,46 @@ export interface PostseasonScheduleRow {
  * Heights, Sep 9" on Sep 3 has been told something we do not know. The seed line is true on the
  * day it is written and stays true.
  *
- * FIRST AND SECOND, NOT AWAY AND HOME. Every other card in the schedule is "away @ home"
- * because the feed says which is which. Here nothing does: the league published dates and
- * times, not venues, and a best-of-three does not simply give every game to the higher seed.
- * So these print as two rows in seed order with no `@`, and the day the feed sends real rows
- * they carry the real thing.
+ * AWAY AT HOME WHERE THE LEAGUE HAS SAID SO, SEED ORDER WHERE IT HAS NOT. Every other card in
+ * the schedule is "away @ home" because the feed says which is which. The feed still carries no
+ * postseason row, but the league's own schedule page does, and it designates a home club for
+ * all six semifinal games: the higher seed bats last in games 1 and 3, the lower seed in game
+ * 2. That lives on `POSTSEASON_SCHEDULE` as a seat rather than a club, so it was true before the
+ * seeds were, and it reaches a surface through `homeSlot` and `postseasonSlots`.
+ *
+ * TWO SOURCES FOR THAT, IN ORDER, and the order is the point. `siteGames` is the league's own
+ * calendar as mirrored last night (`wpbl_site_games`), which names actual clubs and is the only
+ * thing that will ever know the CHAMPIONSHIP's home clubs, since those five games are published
+ * with no clubs on them until the semifinals end. `POSTSEASON_SCHEDULE`'s own `home` seat is the
+ * fallback, and it is not merely a stale copy of the same thing: it is expressed as "the higher
+ * seed" rather than as a club, so it still answers when the mirror is empty, when a row cannot
+ * be matched, and on any render that happens before the mirror has been read.
+ *
+ * A row whose two seats are settled as a PAIRING but not as seeds gets a designation from
+ * neither: "the higher seed bats last" names nobody until there is a higher seed, and the
+ * mirror's clubs cannot be assigned to seats we cannot put in order. It prints seed order with
+ * no `@`, which is what every postseason row did until Sep 6, 2026, on the belief that the
+ * league had published no home club at all. That was true of the VENUE (one hub stadium, so
+ * there is no home park to award) and was never true of who bats last.
  */
 export function postseasonScheduleRows(
   rows: WpblStandingRow[],
   games: WpblGame[],
+  /** The league's website calendar, mirrored. Optional, and every surface works without it:
+   *  see the two-sources note above. */
+  siteGames: WpblSiteGame[] = [],
 ): PostseasonScheduleRow[] {
   const seeds = seedingRace(rows, games)
   if (seeds.length < 4) return []
+
+  // The mirrored calendar, keyed the way this file addresses a game. Only a postseason row
+  // carries a round, so a regular-season row cannot collide with one.
+  const siteByGame = new Map<string, WpblSiteGame>()
+  for (const g of siteGames) {
+    if (g.round && g.game_number != null) {
+      siteByGame.set(`${g.round}:${g.series_key ?? '-'}:${g.game_number}`, g)
+    }
+  }
 
   // A seed names a club only when it has CLINCHED it, which `clinchedSeeds` decides. Per seed,
   // not per bracket: the top seed routinely locks days before the bottom two stop swapping, and
@@ -391,7 +483,13 @@ export function postseasonScheduleRows(
   ) => {
     const decided = !!series?.winner
     for (const g of postseasonGames(round, key)) {
-      if (feedDates.has(g.date)) continue
+      const site = siteByGame.get(`${round}:${key ?? '-'}:${g.game}`)
+      // The league's calendar is live where this constant is a snapshot of it, so where the two
+      // disagree about when a game starts, the calendar is right. A moved game is the one thing
+      // a hardcoded date cannot survive and the one nobody would notice.
+      const date = site?.game_date ?? g.date
+      const time = site?.start_time ?? g.time
+      if (feedDates.has(date)) continue
       // An if-necessary game that is no longer necessary. Once a series is won its game 3 (or
       // its games 4 and 5) will not be played, and leaving them on the calendar is the one way
       // this list can state something that is not merely unknown but false.
@@ -401,12 +499,23 @@ export function postseasonScheduleRows(
       // becomes certain, and it matters beyond the label, because the scoreboard strip has room
       // for four fixtures and spends them on games it can promise.
       const forced = !decided && (series?.played ?? 0) >= g.game - 1
+      // "The higher seed bats last" needs a higher seed. With the pairing settled and the seeds
+      // inside it still open, `first` and `second` are a projection, so applying either source's
+      // designation to them would print an "@" against a coin toss.
+      //
+      // The mirror wins where it can be applied, because it names clubs: it is the only thing
+      // that will know the championship's home club, and the only thing that would notice the
+      // league swapping one. It applies only when its two clubs ARE these two seats, so a row
+      // that has drifted out of agreement with the bracket falls back to the seat rule rather
+      // than contradicting the clubs printed beside it.
+      const seatHome = !g.home ? null : g.home === 'higher' ? 'first' : 'second'
+      const homeSlot = seedOrderTbd ? null : (siteHomeSlot(site, first, second) ?? seatHome)
       out.push({
         id: `ps:${round}:${key ?? '-'}:${g.game}`,
-        date: g.date, time: g.time, round, key, label,
+        date, time, round, key, label,
         gameNumber: g.game, ifNecessary: !!g.ifNecessary && !forced,
         seedOrderTbd,
-        first, second,
+        first, second, homeSlot,
       })
     }
   }

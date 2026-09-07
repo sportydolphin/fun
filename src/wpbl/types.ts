@@ -152,6 +152,46 @@ export interface WpblVideo {
   game_date_hint?: string | null
 }
 
+/**
+ * One row of the league's own WEBSITE calendar (`wpbl_site_games`), which is a different
+ * publication from the stats feed the rest of this file describes.
+ *
+ * It exists for the games the stats feed does not have yet: that feed needs two clubs before
+ * it will carry a row, so it held nothing at all for the postseason while the website had all
+ * eleven games, their first-pitch times, their tickets, and for the semifinals which club bats
+ * last. Mirrored by `scripts/sync-wpbl-site-calendar.mjs`.
+ *
+ * NOT A SECOND OPINION on anything the stats feed carries. Scores and box scores are the
+ * feed's; a row here is only consulted for a fixture the feed has never published, and stops
+ * being consulted the day it does.
+ */
+export interface WpblSiteGame {
+  /** The calendar's own event id (a WordPress post id), so a game that moves date keeps its
+   *  row instead of arriving as a duplicate. */
+  event_id: number
+  /** Central calendar date and Central wall clock, the same two shapes `WpblGame` uses. */
+  game_date: string
+  start_time: string
+  title: string
+  status: string
+  /** Our own team ids, which are exactly the abbreviations the site publishes. Null while the
+   *  league has not named the clubs, which is every championship game until the semifinals
+   *  finish. */
+  home_team_id: string | null
+  away_team_id: string | null
+  home_score: number | null
+  away_score: number | null
+  /** Parsed from the event slug, and null for a regular-season game or a slug the parser did
+   *  not recognise. The only field that says which series a postseason row belongs to. */
+  round: 'semifinal' | 'championship' | null
+  series_key: 'A' | 'B' | null
+  game_number: number | null
+  /** The league's own page for the game, and where it sells tickets to it. Nothing renders
+   *  these yet; they are mirrored because the row is cheaper to store whole than to re-fetch. */
+  url: string | null
+  ticket_url: string | null
+}
+
 /** One post from the WPBL reading feed: a mirror of an independent writer's Substack
  *  (scripts/sync-wpbl-substack.ts). Deliberately carries no body text. The feed publishes
  *  the full article, and we store a headline, a dek and a link so every surface sends the
