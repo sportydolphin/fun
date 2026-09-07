@@ -50,6 +50,7 @@ vi.mock('../api', async (importOriginal) => {
     fetchWpblGamePlays: () => Promise.resolve(PLAYS),
     fetchWpblGameTracking: () => Promise.resolve([]),
     fetchWpblGameDetails: () => Promise.resolve(null),
+    fetchWpblGameRevisions: () => Promise.resolve([]),
     fetchWpblGameRecapPlays: () => Promise.resolve([]),
     fetchWpblVideos: () => Promise.resolve([]),
     getCachedWpblVideos: () => [],

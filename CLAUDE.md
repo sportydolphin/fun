@@ -51,7 +51,12 @@ Each of these has already cost someone a debugging session, and none of them fai
   and then vanishes with no trace it existed. Corrections go in `wpbl_play_corrections` and
   are applied as a read-time overlay keyed on `(game_id, sequence)`, never the play's uuid,
   which is regenerated on every reinsert. Same reasoning for every other mirrored WPBL
-  table. See [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md).
+  table. See [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md). **The one table that is
+  the opposite is `wpbl_game_revisions`**, which records what the league changed after a
+  game went final. It is append-only, written by a single call inside
+  [`scripts/check-wpbl-drift.mjs`](scripts/check-wpbl-drift.mjs) that must stay BEFORE the
+  repair, and nothing can regenerate it: the repair replaces the old scoring and the feed
+  only ever serves the current version, so rebuilding this table would empty it in silence.
 - **The feed's `runs_scored` does not count the batter.** It counts the runners who
   crossed, so a solo home run reads 0, a two-run homer 1, a grand slam 3. This has caught
   every reader of the field so far, including a validator, a Game Center badge and the Hall

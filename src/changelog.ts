@@ -4,6 +4,25 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.75.0',
+    date:    '2026-09-07',
+    title:   'What the league changed, and to whom',
+    changes: [
+      {
+        short: 'A finished game can now show the scoring changes the league made to it afterwards',
+        full:  'The date of the last revision has been on the game page since last week, and the thing it could not say was what actually changed. A game that has been re-scored now carries a "Scoring changes" list at the foot of its recap: which player’s hit, RBI or earned run moved, which pitcher gained or lost the decision, which play was rewritten, and what the score, hits and errors were before. It is folded away by default, since most revisions are one number.',
+      },
+      {
+        short: 'Every change names the player it is about',
+        full:  'Corrections are matched to a player through every id the league has ever issued her, so somebody who changed clubs mid-season is still one person here rather than a line vanishing from one page and appearing on another. An entry the league published without an id is reported as exactly that and is never guessed at by name.',
+      },
+      {
+        short: 'The list only ever fills going forward',
+        full:  'The old scoring exists for about a second: our nightly check finds a game that has moved, writes down what changed, and then re-reads the game from the league, which overwrites it. So this starts from today. Games revised before now show the date they were revised, as they already did, and no detail.',
+      },
+    ],
+  },
+  {
     version: '1.74.2',
     date:    '2026-09-07',
     title:   'The backwards K means what it means',

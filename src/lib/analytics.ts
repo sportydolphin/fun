@@ -116,6 +116,12 @@ export const EVENTS = {
   // segmented control on Aug 25, 2026, which trades "the second role is visible" for "the
   // second role is one tap away". Whether anyone takes that tap is the question the change
   // raises, and this is the only place it can be answered.
+  // The scoring changelog at the foot of a recap, which is collapsed by default. That default
+  // is the question: nearly every game in the season has been revised at some point, so the
+  // summary line is on a lot of pages, and whether anyone opens it decides whether this is a
+  // feature or a row of chrome.
+  WPBL_REVISIONS_OPEN: 'wpbl_revisions_open', // expanded a game's scoring changes, props {gameId, changes}
+
   WPBL_PLAYER_ROLE:    'wpbl_player_role',    // switched role on a player page, props {role, from, playerId}
 } as const
 

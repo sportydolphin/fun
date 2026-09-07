@@ -226,6 +226,7 @@ flowchart TB
         t_ppick["wpbl_predict_picks<br/>(one pick per person per round)"]
         t_pwin["wpbl_predict_winners<br/>(one winner per game)"]
         t_corr["wpbl_play_corrections<br/>(OUR fixes, not the feed's)"]
+        t_rev["wpbl_game_revisions<br/>(what the league changed after final; append-only)"]
         t_moves["wpbl_player_team_changes<br/>(trades the ingest spotted)"]
         t_restock["wpbl_restock_watch<br/>(shortlist: shout about these)"]
         t_shopp["wpbl_shop_products<br/>+ wpbl_shop_variants<br/>(catalogue snapshot)"]
@@ -261,6 +262,7 @@ flowchart TB
     t_teams --- t_players
     t_games --- t_bat & t_pit & t_field & t_plays & t_track
     t_plays -.->|read-time overlay| t_corr
+    t_games -.->|written by the nightly drift check, never rebuilt| t_rev
     t_players --- t_moves
 ```
 
@@ -282,6 +284,19 @@ fixes to the league's scoring and is applied as a read-time overlay, because `wp
 is a mirror that `wpbl-ingest` deletes and reinserts wholesale on every pass, so an edit made
 in place would vanish at the next cron tick. See
 [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md).
+
+**`wpbl_game_revisions` is the one WPBL table nothing can rebuild.** It records what the league
+changed about a game after it was stored final: the score, a named player's line, a rewritten
+play. Written only by [`scripts/check-wpbl-drift.mjs`](scripts/check-wpbl-drift.mjs), in the one
+moment both versions exist, which is between finding drift and repairing it. A repair re-ingests
+the game, and `wpbl-ingest` deletes and reinserts, so a second later the old scoring is gone from
+our tables and the feed serves only the current version. **A "resync" of this table would
+therefore empty it silently**, which is why it is append-only, has one writer, and is read by
+nothing derived. `kind` separates a real league re-score (the feed's `source_updated_at` moved)
+from our own mirror being wrong (it did not), and only `'league'` rows are readable by the
+browser, enforced in the RLS policy rather than in the query. It supplies the "what" for the
+"when" that `wpbl_games.source_updated_at` already carries, and it starts on the day it shipped:
+an empty answer means "no revision caught since then", never "never revised".
 
 **`wpbl_photos` is the one WPBL table whose rows are not public simply by existing.** Its
 `select` policy is `using (approved)`, not `using (true)`, because the unreviewed Commons
@@ -375,7 +390,7 @@ sequenceDiagram
 | `wpbl-bluesky-recaps` | `repository_dispatch` (`wpbl-final`), + `*/15 * * * *` as backstop | `post-wpbl-bluesky-recaps` | Post a finished WPBL game to our own Bluesky timeline: the recap as text, the box score as a rendered image (Bluesky has no monospace, so the Discord table cannot be reused). **The only job here that publishes to a third-party platform**, and it posts to our own account only. Bluesky posts cannot be EDITED, so unlike the Discord recap nothing is ever re-sent: a game is published only once the LEAGUE's own `source_updated_at` on it is 45 minutes old, so corrections land first. That basis matters: it used to be measured from when this job first saw the game, which needed two runs to publish anything and, against GitHub's real cadence, made a 45-minute window a 5-to-12-hour one. The database now triggers it (`wpbl-bluesky-nudge`, pg_cron table below). Never backfills |
 | `wpbl-mention-watch` | `*/15 * * * *` | `watch-wpbl-mentions` | Search Reddit posts, Reddit comments (search does not index them, and the question is usually a reply in somebody else's game thread) and Bluesky for people asking where to follow a WPBL game, and digest the threads worth answering into a private Discord channel. **Finds threads, never replies to them**: the only place it posts is our own webhook. Facebook is absent because no permitted automated path to group content exists (see [`docs/DISCORD.md`](docs/DISCORD.md)) |
 | `wpbl-pbp-validation` | `0 8` | `validate-wpbl-pbp` | Check the league's play-by-play against the rules of baseball; records health to `wpbl_pbp_validation_runs`. **Never fails on findings** (see [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md)) |
-| `wpbl-drift-check` | `30 7` | `check-drift` | Re-read every completed game from the league feed and compare it with the mirror, then re-ingest whatever moved (`{ gameId }` per game, never `force`). Exists because `wpbl-ingest` stops re-reading a game once it is stored final: the only gate that reopens one is the late-TrackMan backfill, so corrections have been arriving as a side effect of the league's tracking being stalled, and never at all past 21 days. **Fails only when a repair did not reconcile the two**, which is the one case needing a person. Runs half an hour ahead of the validator so that one reads corrected data |
+| `wpbl-drift-check` | `30 7` | `check-drift` | Re-read every completed game from the league feed and compare it with the mirror, then re-ingest whatever moved (`{ gameId }` per game, never `force`). Exists because `wpbl-ingest` stops re-reading a game once it is stored final: the only gate that reopens one is the late-TrackMan backfill, so corrections have been arriving as a side effect of the league's tracking being stalled, and never at all past 21 days. **Fails only when a repair did not reconcile the two**, which is the one case needing a person. Runs half an hour ahead of the validator so that one reads corrected data. **Also writes `wpbl_game_revisions`**, by name, BEFORE repairing: the repair destroys the old scoring, so this is the only moment a changelog can be written at all |
 | `wpbl-retro-stats-check` | `0 11` | `check-retro` | Derive per-batter PA/AB/H/2B/3B/HR/BB/SO/HBP from RetroWPBL's hand-written Retrosheet files and diff them against our box-score lines. **The only check here not downstream of the league feed**: the drift checker compares our mirror with the league's API and the play-by-play validator tests that API against the rules of baseball, so neither can see an error the LEAGUE made. Baselined like the validator (two people watching one game always disagree about something) and goes red on anything NEW. Runs an hour after the retro sync so a game transcribed overnight is in place. Writes nothing, ever: their play records are read, added up and thrown away, because a second stored copy of the play-by-play would be a second truth |
 | `wpbl-archive` | `0 22 * * 0` (weekly, Sun) | `archive` | Write the season's public record to `archive/wpbl-2026/` and commit it **only when the data changed**, so a quiet week costs no deploy. Reads through the ANON key on purpose: the files go in git, so the export must be incapable of holding anything that was not already public, and RLS is what enforces that. **Not a database backup** (no auth, analytics, feedback, push or predictions): it exists because on Sep 22 the feed goes quiet and the mirror stops being a cache of someone else's data and becomes the only copy of the inaugural season we control. Fails rather than writing a partial file if any table reads short of the server's own row count. See [`archive/README.md`](archive/README.md) |
 | `wpbl-postseason-check` | `40 */6` (Sep + Oct only) | `check-postseason` | Compare the league's published postseason dates against the feed's own `game_type` / `counts_in_standings`, and **fail loudly** when they disagree. The exact opposite policy to the row above, deliberately: that one reports dozens of known findings nightly and a red X would be noise, this one has nothing to say on any ordinary day and goes red once, on the day `countsInStandings` needs widening. Until then every season total on the site is silently folding the postseason in. The date is allowed to raise the alarm and never to decide what counts: a rained-out regular-season game made up on Sep 8 must not vanish from the standings |

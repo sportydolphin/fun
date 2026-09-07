@@ -174,7 +174,7 @@ export function boxScoreRevision(
   const at = Date.parse(game.source_updated_at)
   if (!Number.isFinite(at)) return null
 
-  const revisedOn = LEAGUE_DAY.format(at)          // "2026-08-21", the league's own day
+  const revisedOn = leagueDay(at)                  // "2026-08-21", the league's own day
   if (revisedOn <= game.game_date) return null
 
   // Both are bare calendar dates, so this is a difference in days with no clock in it and no
@@ -182,6 +182,18 @@ export function boxScoreRevision(
   const days = Math.round(
     (Date.parse(`${revisedOn}T00:00:00Z`) - Date.parse(`${game.game_date}T00:00:00Z`)) / 86_400_000)
   return { at, on: revisedOn, days }
+}
+
+/** The league's own calendar day for an instant, as "2026-08-21".
+ *
+ *  Exported because the revision LOG needs the same day the revision STAMP is judged against.
+ *  These stamps land late evening in Springfield, which is the small hours of the next day in
+ *  UTC and the previous afternoon on the west coast, so a second caller formatting the instant
+ *  in the reader's own zone would date six of eight revisions a day away from the game page
+ *  sitting above it. One definition, or two surfaces disagree and neither is wrong. */
+export function leagueDay(at: number | string): string {
+  const ms = typeof at === 'number' ? at : Date.parse(at)
+  return Number.isFinite(ms) ? LEAGUE_DAY.format(ms) : ''
 }
 
 /** "Sep 2" from a bare calendar date, with no clock in it to shift the day. */

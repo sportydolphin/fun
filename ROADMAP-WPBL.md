@@ -982,6 +982,67 @@ is retired.
 
 ## Shipped log
 
+### Sep 7, 2026: what the league changed, and to whom (v1.75.0)
+
+**The gap v1.73.0 named out loud.** That entry put the revision DATE on the game page, off
+`wpbl_games.source_updated_at`, and closed by saying what it could not do: "We hold one
+timestamp, not a diff." This is the diff, and the reason it took a second pass is not effort, it
+is that the diff can only be taken at one instant.
+
+**The old scoring exists for about a second, once.** `wpbl-ingest` deletes and reinserts a
+game's rows, so a repair does not merge, it replaces. The old numbers are in exactly one place,
+our own tables, between the moment `scripts/check-wpbl-drift.mjs` notices a game has moved and
+the moment it re-ingests it. The feed is no help: it only ever serves the current version. So
+the changelog is not a thing that can be computed later and backfilled. It is written inside the
+drift checker, before the repair, or it does not exist. `wpbl_game_revisions` is therefore the
+first WPBL table nothing can rebuild, and a well-meant "resync" of it would empty it in silence.
+
+**The fingerprint could not be reused, and making it richer would have been the wrong fix.** The
+drift check compares batting as a sorted multiset of anonymous stat lines, with nobody's name on
+them, precisely so that a player merge or a rename on OUR side cannot be reported as the league
+having drifted. That is right for detection and useless to a reader: the run that proved the
+whole feature printed `feed=… 3-1-0-2-1-0-0-0-0-0 …` against thirty other identical-looking
+lines, which is a correct answer to "did this game move" and no answer at all to "what moved".
+So there are two passes over one payload, and the second one runs only on the games the first
+has already flagged.
+
+**Matched on the league's ids, with no name fallback, and that is a decision rather than an
+omission.** A correction is filed under a player by looking her feed id up in
+`wpbl_players.api_ids`, which holds every id she has been issued, so a mid-season club change
+does not split her correction in half. An entry the league published with NO id is reported as
+unidentified and matched to nobody, because reading an id-less entry as identity is the exact
+mistake that put Emi Saiki on a club she has never played for. The cost of the strictness is
+nothing measurable: of 118 players, the 49 with no feed id have no box-score line between them.
+
+**Two stories, one detection, and telling them apart matters more than the diff does.** Drift
+means our rows disagree with the feed, which has two causes: the league re-scored the game (its
+`source_updated_at` moved), or our copy is simply wrong (it did not). Only the first is a scoring
+change. Publishing the second as one would blame the league's scorer for our bug, so `kind`
+separates them at write time and only `'league'` rows are readable by the browser, in the RLS
+policy rather than in the query. The end-to-end test of this feature was a deliberately corrupted
+batting line, and it classified itself `mirror` without being asked to, which was the right
+answer.
+
+**`runs_scored` is reported and labelled, not renamed.** The feed's column counts the runners who
+crossed and not the batter, so a solo home run stores 0. Dropping it would have hidden a real
+correction; printing it as "Runs" would have republished the trap to people with no way to know.
+The label says "Runners scoring (not the batter)". `is_scoring_play` is not shown beside it,
+because across every stored play it is exactly `runs_scored > 0`, and one fact printed twice
+makes a two-line correction look like four.
+
+**Folded away by default.** Twenty-three of the season's first thirty games have been revised at
+some point, so an expanded block of stat corrections would be on nearly every recap, and most
+revisions are one number. The summary line carries the part that is news on its own. Whether
+anyone opens it is the open question, and `wpbl_revisions_open` is there to answer it.
+
+**What it cannot do, and will not later.** It starts today. Games revised before now keep their
+date and have no detail, permanently. Granularity is one nightly pass, so two revisions in a day
+arrive as one net diff. And a revision with nothing describable in it still renders, saying so,
+because the date above it is already on the page and silence there reads as a broken feature.
+
+Thirteen tests in `src/__tests__/wpblRevisions.test.ts`, twelve in
+`src/wpbl/__tests__/gameRevisions.test.ts`, five in `src/wpbl/__tests__/revisionLog.test.tsx`.
+
 ### Sep 7, 2026: a drop cannot be shortlisted, so new merch goes loud
 
 **The shop watcher announced the eight team jerseys and nobody's phone buzzed.** The loud

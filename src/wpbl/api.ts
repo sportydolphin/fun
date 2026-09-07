@@ -8,7 +8,7 @@ import type {
   WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchPlay, WpblRunValuePlay,
   WpblPitchTracking, WpblTrackRow,
   WpblVideo, WpblArticle, WpblPhoto, WpblSiteGame, WpblLineupHistoryRow, WpblPitchingUsageRow,
-  WpblGameDetails,
+  WpblGameDetails, WpblGameRevision,
 } from './types'
 
 // Reads for the WPBL section. Everything degrades gracefully: if the tables don't
@@ -922,6 +922,20 @@ export function fetchWpblGameDetails(gameId: string): Promise<WpblGameDetails | 
   return safe('fetchWpblGameDetails', () =>
     supabase.from('wpbl_game_details').select('*').eq('game_id', gameId).maybeSingle(),
     null as WpblGameDetails | null)
+}
+
+/** What the league changed about this game after it was final, newest first.
+ *
+ *  Written once per detected revision by scripts/check-wpbl-drift.mjs, at the only moment both
+ *  versions of the scoring exist. Nothing regenerates it, so an empty answer means "we have not
+ *  caught a revision to this game", never "this game was never revised": the table starts on the
+ *  day it shipped, and 23 of the season's first 30 games had already been revised by then.
+ *  `wpbl_games.source_updated_at` is still the one that says a game was revised at all. */
+export function fetchWpblGameRevisions(gameId: string): Promise<WpblGameRevision[]> {
+  return safe('fetchWpblGameRevisions', () =>
+    supabase.from('wpbl_game_revisions').select('*').eq('game_id', gameId)
+      .order('detected_at', { ascending: false }),
+    [] as WpblGameRevision[])
 }
 
 export function fetchWpblGameTracking(gameId: string): Promise<WpblPitchTracking[]> {

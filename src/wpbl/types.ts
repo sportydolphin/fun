@@ -574,3 +574,48 @@ export interface WpblPitchingUsageRow {
   decision: string | null
   days_rest: number | null
 }
+
+/** One change inside a revision, as scripts/check-wpbl-drift.mjs recorded it.
+ *
+ *  A UNION OF FOUR SHAPES sharing `kind`. Either `field` is present, with `before` and `after`
+ *  around it, or `change` is, saying a whole line or play appeared or disappeared. Nothing here
+ *  is derived at read time: these are the values that were actually in front of the checker on
+ *  the night it ran, which is the only night they existed. */
+export interface WpblRevisionChange {
+  kind: 'game' | 'batting' | 'pitching' | 'play'
+  /** Set when a value moved. Column names as we store them (`doubles`, not `2B`). */
+  field?: string
+  before?: string | number | boolean | null
+  after?: string | number | boolean | null
+  /** Set instead of `field` when the thing itself came or went. `unidentified` is a feed entry
+   *  the league published with no player id, which cannot be matched to anybody: see matchLines. */
+  change?: 'added' | 'removed' | 'unidentified'
+  /** batting / pitching. The name as WE spell it, and our own player id where we have one. */
+  player?: string
+  player_id?: string
+  /** play. `batter` is the feed's own string on the play, not a resolved player. */
+  sequence?: number
+  inning?: number
+  half?: 'top' | 'bottom'
+  batter?: string
+}
+
+/** What the league changed about one game after it was final, from wpbl_game_revisions.
+ *
+ *  Only `kind: 'league'` rows ever reach the browser, and that is enforced by RLS rather than by
+ *  the query: a mirror-side fault is our bug, not a scoring change, and rendering it as one would
+ *  blame the league's scorer for our mistake.
+ *
+ *  `changes` is capped (see MAX_CHANGES in the checker) and `change_count` is the true total, so
+ *  a wholesale re-score reports honestly instead of quietly showing the first eighty. */
+export interface WpblGameRevision {
+  id: string
+  game_id: string
+  kind: 'league'
+  /** The league's own stamp, which is what `boxScoreRevision` turns into a day. */
+  source_updated_at: string | null
+  prior_source_updated_at: string | null
+  detected_at: string
+  changes: WpblRevisionChange[]
+  change_count: number
+}
