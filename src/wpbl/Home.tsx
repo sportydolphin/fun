@@ -2312,6 +2312,27 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // disagree, and hoisting it would put the table's data in the page's scope for one consumer.
   const standingsRows = useMemo(() => computeStandings(teams, games), [teams, games])
 
+  /**
+   * The bracket card, and whether it leads the page.
+   *
+   * `bracketLeads` is true from the last regular-season game until the first postseason FINAL.
+   * A postseason game that is final is, by construction, the latest final in the league, so
+   * `LastGameCard` is showing it and this stops leading. Keyed on the game rather than on the
+   * calendar so a rain-out carries the same answer.
+   *
+   * Built once and rendered in one of two places, never both: the same card in the page twice
+   * is two impression events, two sets of controls, and both of them found by anything that
+   * walks the text.
+   */
+  const bracketCard = standingsRows.length > 0 && games.some(g => g.status === 'final')
+    ? (
+      <Box sx={{ mt: 1.5 }}>
+        <PlayoffBracket rows={standingsRows} games={games} onOpenTeam={onOpenTeam} from="home" />
+      </Box>
+    )
+    : null
+  const bracketLeads = !games.some(g => g.status === 'final' && !countsInStandings(g))
+
   // The postseason as dated-but-undrawn rows, for the scoreboard strip. The same function the
   // Schedule tab reads, so the two cannot disagree about who plays whom or about which
   // if-necessary games are still conditional.
@@ -2442,6 +2463,21 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
         </Box>
       )}
 
+      {bracketLeads && bracketCard}
+
+      {/* THE BRACKET LEADS THE PAGE UNTIL THE POSTSEASON HAS A GAME IN IT.
+          Full width and outside the grid below on purpose either way: three series boxes side
+          by side need the room, and the two columns down there share row boundaries through
+          subgrid, which a third card of a different shape would break.
+
+          It normally sits under the season's numbers, so it does not displace Next game and its
+          countdown. Between the last regular-season game and the first postseason one that
+          ordering is wrong: Last game is a September 6 game nobody is waiting on, the bracket is
+          the only thing on the page about what happens next, and it carries the pick'em, which
+          has a deadline. The moment a postseason game is final, Last game IS that game and wins
+          the argument again, and this puts itself back without anyone deciding to.
+
+          Keyed on a postseason FINAL rather than on the calendar, so a rain-out moves it too. */}
       {/* Two columns: today's games on the left, the season's numbers on the right.
 
           EVEN TRACKS, and three up was tried and rejected. Laying the season cards out as a
@@ -2570,18 +2606,8 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
         </Box>
       </Box>
 
-      {/* The postseason bracket. Full width and outside the grid above on purpose: three
-          series boxes side by side need the room, and the two columns up there share row
-          boundaries through subgrid, which a third card of a different shape would break.
-
-          Below the season's numbers rather than above them, so it does not displace Next game
-          and its countdown, and above the media shelf, which is the surface the traffic says
-          is seen and not used. */}
-      {standingsRows.length > 0 && games.some(g => g.status === 'final') && (
-        <Box sx={{ mt: 1.5 }}>
-          <PlayoffBracket rows={standingsRows} games={games} onOpenTeam={onOpenTeam} from="home" />
-        </Box>
-      )}
+      {/* Its ordinary home, under the season's numbers. See bracketLeads. */}
+      {!bracketLeads && bracketCard}
 
       {/* Reading, Highlights and the Archive, in one full-width card under the feed.
 

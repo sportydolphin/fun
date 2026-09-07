@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import {
   ModalShell, SectionLabel, TeamBadge, pressable, FOCUS_RING, TAPPABLE, useWpblDark, TYPE_SCALE,
+  chromePx,
 } from './ui'
 import { wpblAccent } from './constants'
 import {
@@ -224,8 +225,19 @@ export function SeriesPickLine({ series, bracket, state }: {
  * is called it drops to an outlined "change", because by then the strongest thing on the card
  * should be the bracket and not a receipt.
  */
-export function PickemButton({ bracket, state, from }: {
+export function PickemButton({ bracket, state, from, compact }: {
   bracket: WpblBracket; state: SeriesPickState; from: string
+  /**
+   * The header version, for a card that is collapsed.
+   *
+   * A PHONE OPENS THIS CARD SHUT, on a measured decision (it is 709px on a 375px screen and
+   * arrives at 57% scroll depth), and a collapsed SectionCard renders none of its children. A
+   * button at the top of the body is therefore behind a tap on exactly the surface where the
+   * traffic is. This one rides in the header instead, where it survives the collapse, and it
+   * opens the sheet directly rather than expanding the card first: from a shut card, picking is
+   * one tap rather than three.
+   */
+  compact?: boolean
 }) {
   const [open, setOpen] = useState(false)
 
@@ -243,6 +255,37 @@ export function PickemButton({ bracket, state, from }: {
   // keeps the reader's answers; it just stops asking for more.
   if (askable.length === 0) return null
 
+  const openSheet = (e?: { stopPropagation: () => void }) => {
+    // The whole SectionCard header is the collapse toggle, so the compact version has to keep
+    // its own click: without this, opening the sheet also expands the card underneath it.
+    e?.stopPropagation()
+    setOpen(true)
+    track(EVENTS.WPBL_PICKEM_OPEN, { answered, from, compact: !!compact })
+  }
+
+  if (compact) {
+    return (
+      <>
+        <Box
+          {...pressable(openSheet)}
+          sx={{
+            ...TAPPABLE, ...FOCUS_RING,
+            borderRadius: 999, px: 1.25, py: 0.5, cursor: 'pointer', userSelect: 'none',
+            whiteSpace: 'nowrap', flexShrink: 0,
+            ...(done
+              ? { border: '1px solid', borderColor: 'divider', color: 'text.secondary' }
+              : { bgcolor: 'var(--wpbl-accent-solid)', color: '#fff' }),
+          }}
+        >
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 900 }}>
+            {answered === 0 ? 'Make your picks' : done ? 'Your picks' : `Picks · ${answered}/${askable.length}`}
+          </Typography>
+        </Box>
+        {open && <PickemSheet bracket={bracket} state={state} onClose={() => setOpen(false)} />}
+      </>
+    )
+  }
+
   const label = answered === 0 ? 'Make your picks'
     : !done ? `Finish your picks · ${answered} of ${askable.length}`
       : 'Change your picks'
@@ -254,15 +297,18 @@ export function PickemButton({ bracket, state, from }: {
   return (
     <>
       <Box
-        {...pressable(() => { setOpen(true); track(EVENTS.WPBL_PICKEM_OPEN, { answered, from }) })}
+        {...pressable(() => openSheet())}
         sx={{
           ...TAPPABLE, ...FOCUS_RING,
           borderRadius: 2, px: 1.5, py: 1, cursor: 'pointer', userSelect: 'none',
           display: 'flex', alignItems: 'center', gap: 1, minWidth: 0,
-          // It fills whatever it is given, which is the championship column from sm up and the
-          // full card on a phone. The gap above is only needed on a phone, where it follows the
-          // title-odds strip rather than sitting in a row of its own.
-          mt: { xs: 1.25, sm: 0 },
+          // Full width on a phone, capped on a desktop. The card is 1,214px wide there and a
+          // button that wide is a header band: its label and its chevron finish a foot apart and
+          // nothing about it reads as pressable. `chromePx` because a cap on a control is a
+          // structural length rather than room reserved for a string, so it follows the desktop
+          // chrome scale and not the reader's text size.
+          maxWidth: { xs: '100%', sm: chromePx(400) },
+          mb: 1.25,
           ...(done
             ? { border: '1px solid', borderColor: 'divider', color: 'text.secondary' }
             : { bgcolor: 'var(--wpbl-accent-solid)', color: '#fff' }),

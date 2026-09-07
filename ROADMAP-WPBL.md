@@ -1040,17 +1040,29 @@ with the share who agreed, and marks it against the result afterwards. A pick th
 a dialog would be a pick nobody could see they had made, and the button would have nothing to
 show for having been pressed.
 
-**THE BUTTON LIVES IN THE HOLE ABOVE THE CHAMPIONSHIP BOX**, which the Aug 31 rework of this
-card left behind: the right-hand column is `1fr auto 1fr`, and the upper `fr` was ~95px of blank
-card holding the box on the connector's elbow. A call to action is what that space is for. The
-box stays on the elbow because an `fr` row floors at its content and the two `fr`s stay equal, so
-a taller button grows the card rather than sliding the box off the hairline. On a phone the
-column is just the next block in the stack and `order` sends the button to the end of it, after
-the title odds, since between "the winners meet in the" and the championship box is the one place
-it must not be. **That costs a DOM-versus-visual order mismatch at one breakpoint**, and the
-direction matters: leaving it first in the DOM keeps the two in step on desktop, where a keyboard
-actually walks the tab order, and puts the mismatch on the phone, where it is a different reading
-order rather than a wrong one.
+**THE BUTTON IS THE FIRST THING IN THE CARD, AND THE HOLE ABOVE THE CHAMPIONSHIP BOX WAS TRIED
+FIRST.** That hole is real (the right-hand column is `1fr auto 1fr` and the upper `fr` is ~95px
+of blank card holding the box on the connector's elbow) and the geometry held, and it was still
+wrong: at sm+ it put the call to action in a corner, and on a phone it needed `order` to send it
+back to the end of the stack, which put DOM order and visual order out of step. The top of the
+card is above the fold at every width and needs no trickery.
+
+**AND A COLLAPSED CARD RENDERS NONE OF ITS CHILDREN**, which is the part that decides this. A
+phone opens this card SHUT, on a measured decision, so a button at the top of the body is behind
+a tap on exactly the surface most of the traffic is on. The header keeps a compact one that
+survives the collapse and opens the sheet WITHOUT expanding the card: from a shut card, picking is
+one tap rather than three. Only one of the two is ever in the page, so it is not a duplicate; it
+is the same control at the only two sizes this card has. `__tests__/bracketCollapsed.test.tsx` is
+what stops it being deleted as one.
+
+**AND THE CARD LEADS THE PAGE UNTIL THE POSTSEASON HAS A GAME IN IT.** It normally sits under the
+season's numbers so it does not displace Next game and its countdown. Between the last
+regular-season game and the first postseason one that ordering is wrong: Last game is a Sep 6
+result nobody is waiting on, the bracket is the only thing on Home about what happens next, and it
+now carries a pick'em with a deadline. `bracketLeads` in [`Home.tsx`](src/wpbl/Home.tsx) is keyed
+on a postseason FINAL rather than on the calendar, so it puts itself back the moment Last game IS
+that game, and a rain-out carries the same answer. The card is built once and rendered in one of
+two places, never both.
 
 **TAKING A PICK BACK NEEDED A NEW FUNCTION, NOT A DELETE POLICY.** `wpbl_award_votes` has no
 delete policy on purpose: the ballot's position is that a cast vote is overwritten and never

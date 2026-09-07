@@ -9,8 +9,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     title:   'Call the postseason',
     changes: [
       {
-        short: 'One button on the bracket: make your picks for all three series',
-        full:  'Who wins each series, and in how many games. The bracket card carries a single button, in the empty space above the championship box, rather than a row of controls under every series: the card is there to draw a bracket, and most readers will never want to predict anything. Pressing it opens the picking on its own, with room to do it properly.',
+        short: 'One button at the top of the bracket: make your picks for all three series',
+        full:  'Who wins each series, and in how many games. The bracket card carries a single button at the top of it rather than a row of controls under every series: the card is there to draw a bracket, and most readers will never want to predict anything. Pressing it opens the picking on its own, with room to do it properly. On a phone, where the bracket arrives folded up, the button rides in the card’s header and takes you straight there without unfolding anything.',
       },
       {
         short: 'Two taps per series: the club, then how long',
@@ -23,6 +23,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         short: 'Your call shows on each series box, and how many agreed',
         full:  'Once you have picked, the box carries it: “Your call, Firebells in 3”, with the share of fans who said the same. That share is hidden until you have answered, or until the series starts. A poll that shows its results first stops measuring what people think and starts measuring what the first fifty people thought. Picks change as often as you like until first pitch, then lock and get marked against the result.',
+      },
+      {
+        short: 'The bracket leads the page until the postseason has a game in it',
+        full:  'Road to the title normally sits below the season’s numbers, so it does not push the next game and its countdown down the page. Between the last regular-season game and the first postseason one that is the wrong way round: last game is a September 6 result nobody is waiting on, and the bracket is the only thing on the page about what happens next. It leads for now and puts itself back the moment a postseason game is final, because at that point last game IS that game.',
       },
       {
         short: 'And you can take your picks back',
