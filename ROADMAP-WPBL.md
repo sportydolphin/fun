@@ -770,7 +770,17 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
 - **Fan awards ballot** 🎮🎯. Every player in the league is a rookie and nobody has voted on
   anything. MVP, best pitcher, play of the year seeded from the leverage list. Uses the
   existing browser-writes-through-RLS path, and it *peaks after Sep 22* rather than dying with
-  the feed.
+  the feed. **Half built, Sep 6, 2026**: 13 categories in
+  [`awards.ts`](src/wpbl/awards.ts) (five the numbers can argue about, eight only a fan can
+  settle), shortlists in [`derive/awards.ts`](src/wpbl/derive/awards.ts) that reuse the MVP
+  race, the run-expectancy table and the win model rather than inventing a second number for
+  anything, the votes table and its two aggregate-read RPCs in
+  `scripts/migrations/20260906214500_add_wpbl_fan_awards.sql`, and the client in
+  [`awardVotes.ts`](src/wpbl/awardVotes.ts). **What is left is the surface**: the ballot and
+  the running tally on `/wpbl/league`. The migration is written and NOT yet applied.
+  One vote per browser (the analytics localStorage id), opening the day after the last
+  regular-season game and closing Sep 23, except "Build Around Her", which stays open until
+  spring and is the only thing on the section that still takes an answer in January.
 - **Who owns whom: the batter-vs-pitcher board** 🔬. Four teams and six pairings means a
   hitter faces the same pitcher 10 to 15 times in one season, a sample a 30-team league never
   produces. [`derive/matchups.ts`](src/wpbl/derive/matchups.ts) already computes the lines and
@@ -968,6 +978,47 @@ is retired.
 ---
 
 ## Shipped log
+
+### Sep 6, 2026: Next game stops running out of season (v1.69.0)
+
+The scoreboard strip got this on Sep 5 (v1.67.0) and the card underneath it did not. `wpbl_games`
+ends on Sep 6 and stays there until the league publishes the bracket, so from Sep 7 `NextGameCard`
+found no upcoming game and returned null.
+
+**A CARD THAT RETURNS NULL DOES NOT FREE ITS SPACE.** Home's grid pairs Next game with Standings
+and takes the taller of the two for both columns, so this left a hole in the middle of the page
+rather than closing up. Six weeks of it, through the part of the season people check daily.
+
+`NextPostseasonCard` stands in, from `postseasonScheduleRows`, the same rows the Schedule tab and
+the strip read, so the three cannot disagree about who plays whom. It retires itself the same way
+they do: a row is dropped as soon as the feed carries a real game on its date, so the branch stops
+being reached without anything having to be deleted.
+
+**What it refuses to imply**, which is most of the design:
+
+- **Nothing is clickable.** The real card's whole body opens the game page and there is no page.
+  A dead link that looks live is worse than a card that says why it is not one, so it says it:
+  "Scheduled by the league. The game page opens once it publishes the fixture."
+- **No reminder row, no feed-delay note.** Both are keyed on a game id, and a countdown that runs
+  out on a game the feed has never heard of is not a story about a late feed.
+- **A club is named only once its seed cannot move.** `postseasonScheduleRows` decides that per
+  seed and the reasoning is on it: the bracket card may project because it reads as a projection,
+  a fixture card reads as fact. Until then the seat prints as "2 seed" in a dashed circle sized
+  exactly like a badge, so the row does not shift on the day it settles.
+- **An if-necessary game is never the next game.** The strip skips these for want of slots; here
+  it is the stronger point, because this card names ONE fixture and a card headed "Next game"
+  over a game that may never be played is worse than the hole it is filling.
+
+Seed order, not away and home, matching the schedule rows and the chip: the league published dates
+and times, not venues. The one thing left unsaid there is a pairing that has closed before its
+seeds have, which a reader cannot infer, so that gets a line. It will not draw this year, since all
+four seeds clinched before the regular season ended, but Sep 5 is why it exists.
+
+The tale of the tape survives when both seats are filled: `WpblGamePreview` names its two clubs
+`away` and `home` internally and prints neither word, so seed order is safe to hand it.
+
+11 tests in `__tests__/nextPostseasonCard.test.tsx`.
+
 
 ### Sep 6, 2026: an entry the league did not name is evidence of nothing (v1.68.2)
 

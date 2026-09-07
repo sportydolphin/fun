@@ -4,6 +4,21 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.69.0',
+    date:    '2026-09-06',
+    title:   'Next game points at the playoffs',
+    changes: [
+      {
+        short: 'The Next game card no longer empties out when the regular season ends',
+        full:  'The card reads the league’s published games, and those stop on Sep 6 until the bracket is posted, so from Sep 7 it had nothing to show and disappeared, leaving a gap in the middle of the home page for the six weeks people check it most. It now falls back to the postseason dates the league has already published, the same ones the scoreboard strip and the schedule have carried since Sep 3: who is playing, which game of which series, when, and the countdown to first pitch.',
+      },
+      {
+        short: 'It says what it does not know, rather than guessing',
+        full:  'A club is named only once it can no longer change seeds; until then the card shows the seat, "2 seed", the way the schedule does. There is nothing to tap, because the league has published a date and not a fixture, and the card says so instead of looking like a broken link. A game that might never be played, like a deciding game 3, is never the one it heads itself with.',
+      },
+    ],
+  },
+  {
     version: '1.68.2',
     date:    '2026-09-06',
     title:   'Emi Saiki plays for New York',

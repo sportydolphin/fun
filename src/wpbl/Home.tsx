@@ -17,7 +17,7 @@ import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblD
 import { LiveHero } from './Live'
 import { useForegroundInterval } from './refresh'
 import PlayoffBracket from './PlayoffBracket'
-import { postseasonScheduleRows, type PostseasonScheduleRow, type PostseasonSlot } from './derive/bracket'
+import { postseasonScheduleRows, BEST_OF, type PostseasonScheduleRow, type PostseasonSlot } from './derive/bracket'
 import {
   aggregateBatting, aggregatePitching, wpblQualifiers, plateAppearances, fmtRate, fmtTwo, fmtSigned,
   type WpblBatSeason, type WpblPitSeason, type WpblBattingTotals, type WpblPitchingTotals,
@@ -950,8 +950,11 @@ export function nextGameContext(
  * six different jobs. The scale, and the test that keeps a raw rem literal out of this file,
  * live in ui.tsx.
  */
-function NextGameCard({ games, teams, onOpenGame }: {
-  games: WpblGame[]; teams: Map<string, WpblTeam>; onOpenGame: (g: WpblGame) => void
+function NextGameCard({ games, teams, postseason: postRows, onOpenGame }: {
+  games: WpblGame[]; teams: Map<string, WpblTeam>
+  /** The dated-but-unpublished postseason, for when the feed has run out of games. */
+  postseason: PostseasonScheduleRow[]
+  onOpenGame: (g: WpblGame) => void
 }) {
   const gameLink = useWpblGameLink()
   const isDark = useWpblDark()
@@ -975,7 +978,17 @@ function NextGameCard({ games, teams, onOpenGame }: {
     return (id: string) => by.get(id) ?? null
   }, [teams, games])
 
-  if (!next) return null
+  // NO FEED GAME AHEAD IS NOT THE SAME AS NO NEXT GAME, and from Sep 7 it stopped being the
+  // same for six weeks. `wpbl_games` ends on Sep 6 and stays there until the league publishes
+  // the bracket, so this card returned null and left a hole in the grid on the one page a
+  // reader opens to find out what is on next, in the week they are most likely to ask. The
+  // scoreboard strip above it was already carrying the postseason (v1.67.0); this is the same
+  // rows, in the shape this card uses.
+  //
+  // It retires itself the same way the strip's do: `postseasonScheduleRows` drops a row as soon
+  // as the feed carries a real game on its date, so the branch below stops being reached
+  // without anything having to be deleted.
+  if (!next) return <NextPostseasonCard rows={postRows} teams={teams} games={games} />
   const g = next.g
   const away = teams.get(g.away_team_id)
   const home = teams.get(g.home_team_id)
@@ -1218,7 +1231,156 @@ function NextGameCard({ games, teams, onOpenGame }: {
     </SectionCard>
   )
 }
-// ─── Leaders ────────────────────────────────────────────────────────────────────
+/**
+ * Next game, when the only games left are ones the league has dated and not yet published.
+ *
+ * THE SAME CARD IN THE SAME SLOT, deliberately. Home's grid pairs Next game with Standings and
+ * takes the taller of the two for both columns, so a card that vanishes does not free its
+ * space, it leaves a hole in the middle of the page. From Sep 7, 2026 that hole would have
+ * lasted six weeks, through the only part of the season anybody is checking daily.
+ *
+ * WHAT IT WILL NOT DO IS PRETEND. There is no `wpbl_games` row behind this, so:
+ *
+ *   - nothing is clickable. The real card's whole body opens the game page; there is no page.
+ *   - no reminder row and no feed-delay note. Both are keyed on a game id, and a countdown
+ *     that has run out on a game the feed has never heard of is not a story about a late feed.
+ *   - a club is named only once its seed can no longer move. `postseasonScheduleRows` decides
+ *     that per seed, and the reason is on it: the bracket card may project because it reads as
+ *     a projection, and a fixture card reads as fact.
+ *
+ * SEED ORDER, NOT AWAY AND HOME. The two rows are the higher seed and the lower one, because
+ * the league published dates and times and not venues. The regular card's rows are away over
+ * home; these are not, and no marker on either says which, which is the same silence the
+ * schedule rows and the scoreboard chip already keep. What is NOT left silent is a pairing
+ * whose two seeds are still being argued over, because that a reader cannot infer.
+ */
+export function NextPostseasonCard({ rows, teams, games }: {
+  rows: PostseasonScheduleRow[]; teams: Map<string, WpblTeam>; games: WpblGame[]
+}) {
+  const isDark = useWpblDark()
+
+  const next = useMemo(() => {
+    const now = Date.now()
+    const dated = rows
+      // AN IF-NECESSARY GAME IS NOT A NEXT GAME. The strip skips these for want of slots; here
+      // it is the stronger point, because this card names ONE fixture, and a card headed "Next
+      // game" over a game that may never be played is worse than the hole it is filling.
+      // `postseasonScheduleRows` clears the flag the moment a series makes the game certain, so
+      // a decider arrives here as soon as it is one.
+      .filter(r => !r.ifNecessary)
+      .map(r => ({ r, ms: gameStartMs(r.date, r.time) }))
+      .filter((x): x is { r: PostseasonScheduleRow; ms: number } => x.ms != null)
+      .sort((a, b) => a.ms - b.ms)
+    // The same grace window the feed branch uses, so a game that started three hours ago is
+    // still "next" rather than skipped the moment its clock runs out.
+    return dated.find(x => x.ms >= now - 3 * 3600000) ?? dated[0] ?? null
+  }, [rows])
+
+  const recordOf = useMemo(() => {
+    const by = new Map(computeStandings([...teams.values()], games).map(r => [r.team.id, `${r.wins}–${r.losses}`]))
+    return (id: string) => by.get(id) ?? null
+  }, [teams, games])
+
+  if (!next) return null
+  const r = next.r
+  const bestOf = BEST_OF[r.round]
+
+  /** One seat: the club if it is settled, the seed it is reserved for if it is not. */
+  const slotRow = (p: PostseasonSlot) => {
+    const record = p.team ? recordOf(p.team.id) : null
+    return (
+      <Box sx={{
+        display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1,
+        bgcolor: p.team ? wpblSurface(p.team.id, isDark) : 'transparent',
+      }}>
+        {p.team ? <TeamBadge team={p.team} size={30} /> : (
+          // The empty seat, sized exactly like a badge so the row does not shift under the
+          // reader on the day the seed settles. The scoreboard chip's shape, one size up.
+          <Box aria-hidden sx={{
+            width: 30, height: 30, flexShrink: 0, borderRadius: '50%',
+            border: '1px dashed', borderColor: CARD_BORDER,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: TYPE_SCALE.meta, fontWeight: 800, color: 'text.disabled',
+          }}>{p.seed ?? ''}</Box>
+        )}
+        <Typography noWrap sx={{
+          minWidth: 0, fontSize: TYPE_SCALE.display, letterSpacing: '-0.2px', lineHeight: 1.15,
+          fontWeight: p.team ? 700 : 600,
+          color: p.team ? 'text.primary' : 'text.secondary',
+        }}>{p.team ? wpblFullName(p.team) : p.label}</Typography>
+        {record && (
+          <Typography sx={{
+            fontSize: TYPE_SCALE.meta, fontWeight: 600, fontVariantNumeric: 'tabular-nums',
+            color: 'text.secondary', flexShrink: 0,
+          }}>{record}</Typography>
+        )}
+        <Box sx={{ flex: 1, minWidth: 0 }} />
+      </Box>
+    )
+  }
+
+  return (
+    <SectionCard
+      title="Next game"
+      action={
+        <Box sx={{
+          display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end',
+          alignItems: 'baseline', columnGap: 0.75, rowGap: 0.2,
+        }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.meta, fontWeight: 600, color: 'text.secondary' }}>
+            {relativeDayLabel(r.date)}{r.time ? `, ${r.time}` : ''}
+          </Typography>
+          <Countdown target={next.ms} />
+        </Box>
+      }
+      actionWraps
+      fill
+    >
+      {/* Not a link and not `TAPPABLE`: see the header. Everything else is the real card's
+          layout, tier for tier, because the two are the same card on different days. */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', p: 0.5, mx: -0.5 }}>
+        <Box sx={CLUB_BAND}>
+          {slotRow(r.first)}
+          {slotRow(r.second)}
+        </Box>
+
+        <Typography sx={{
+          fontSize: TYPE_SCALE.micro, fontWeight: 800, letterSpacing: 0.4,
+          textTransform: 'uppercase', color: WPBL_ACCENT, mt: 1, lineHeight: 1.2,
+        }}>
+          {r.label} · Game {r.gameNumber} of {bestOf}
+        </Typography>
+
+        {/* THE ONE THING A READER CANNOT WORK OUT FROM THE ROWS. A pairing can close before the
+            seeds inside it do: on Sep 5, 2026 New York and Los Angeles were certain to play
+            each other and still arguing over 2 and 3. Both clubs are named, so the card looks
+            as settled as the other semifinal, and the order it prints them in is a guess. */}
+        {r.seedOrderTbd && (
+          <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 600, color: 'text.secondary', lineHeight: 1.4, mt: 0.4 }}>
+            These two play each other. Which of them is the higher seed is still to be settled.
+          </Typography>
+        )}
+
+        {/* Dates the league has published, not a fixture it has posted, which is the whole
+            difference between this card and the one it stands in for. Quiet, and last. */}
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.4, mt: 0.4 }}>
+          Scheduled by the league. The game page opens once it publishes the fixture.
+        </Typography>
+
+        {/* The tale of the tape, when both seats are filled. It takes its two clubs as `away`
+            and `home` and draws them left and right without ever printing either word, so seed
+            order is a safe thing to hand it. */}
+        {r.first.team && r.second.team && (
+          <Box sx={{ mt: 1.5 }}>
+            <WpblGamePreview away={r.first.team} home={r.second.team} teams={[...teams.values()]} games={games} compact />
+          </Box>
+        )}
+      </Box>
+    </SectionCard>
+  )
+}
+
+// ─── Leaders ──────────────────────────────────────────────────────────────────────
 
 interface LeaderRow {
   player: WpblPlayer
@@ -2324,7 +2486,7 @@ export default function WpblHome({ teams, games, liveGame, onOpenGame, onOpenPla
           display: { xs: 'flex', md: 'grid' }, flexDirection: 'column',
           gridRow: { md: 'span 2' }, gridTemplateRows: { md: 'subgrid' },
         }}>
-          <NextGameCard games={games} teams={teamMap} onOpenGame={onOpenGame} />
+          <NextGameCard games={games} teams={teamMap} postseason={postRows} onOpenGame={onOpenGame} />
           <LastGameCard games={games} teams={teamMap} players={players} onOpenGame={onOpenGame} onOpenPlayer={onOpenPlayer} />
         </Box>
 
