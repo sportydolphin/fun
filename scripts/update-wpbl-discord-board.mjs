@@ -22,14 +22,12 @@
  * Usage (local):
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
  *   DISCORD_BOARD_WEBHOOK_URL='https://discord.com/api/webhooks/<id>/<token>' \
- *   DISCORD_WATCH_PARTY_VC_URL='https://discord.com/channels/<guild>/<voice-channel>' \
  *   DISCORD_EVENTS_URL='https://discord.com/channels/<guild>/<events-channel>' \
  *   [DISCORD_BOARD_MESSAGE_ID=...] \
  *   node scripts/update-wpbl-discord-board.mjs
  *
  * Required env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, DISCORD_BOARD_WEBHOOK_URL.
  * Optional env: DISCORD_BOARD_MESSAGE_ID (one-time seed only — see above),
- *               DISCORD_WATCH_PARTY_VC_URL,
  *               DISCORD_EVENTS_URL (fallback link when a game has no mapped event URL;
  *               it must be a link that WORKS on its own, since it is used verbatim. An
  *               invite ending in a bare '?event=' resolves to the invite and no event).
@@ -54,7 +52,6 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
   ?? process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? ''
 const WEBHOOK_URL  = process.env.DISCORD_BOARD_WEBHOOK_URL ?? ''
 const MESSAGE_ID   = process.env.DISCORD_BOARD_MESSAGE_ID ?? ''
-const VC_URL       = process.env.DISCORD_WATCH_PARTY_VC_URL ?? ''
 const EVENTS_URL   = process.env.DISCORD_EVENTS_URL ?? ''
 // Authoritative full-season schedule (the league's official page).
 const SCHEDULE_URL = process.env.WPBL_SCHEDULE_URL ?? 'https://www.womensprobaseballleague.com/schedule/'
@@ -252,17 +249,26 @@ export function fixtureKey(g) {
 // <t:UNIX:R> renders as a live, per-viewer-timezone countdown ("in a day"). UNIX is seconds.
 function tsRel(ms) { return `<t:${Math.floor(ms / 1000)}:R>` }
 
-// The watch-party room itself, carried on every board so a reader who missed the event
-// still knows where to go. It is a STAGE channel as of Aug 23, 2026; DISCORD_WATCH_PARTY_VC_URL
-// keeps its older name because renaming a repo variable silently blanks the line until
-// someone notices the workflow is passing an empty string.
+/**
+ * Two lines, and a third that was removed on purpose.
+ *
+ * NO ROOM LINK. The board carried "Watch along in Game Day Watch Party" on every render,
+ * which is a link to the channel the board is posted in: the reader is already there. It
+ * cost a line of a message whose whole point is being exactly as tall as its games, and
+ * every game line already links to its own event, which is the thing worth tapping.
+ *
+ * THE SCHEDULE URL IS WRAPPED IN ANGLE BRACKETS INSIDE THE MARKDOWN LINK. Discord unfurls
+ * the target of a masked link like any other, so this one line grew a website preview card
+ * under a board that is meant to be short. `<>` suppresses that unfurl and nothing else:
+ * the link still reads as text and still opens. Do not tidy the brackets out, and do not
+ * reach for the message's SUPPRESS_EMBEDS flag instead, which would also kill the event
+ * cards the game links exist to produce.
+ */
 function boardHeader() {
-  const room = VC_URL ? `🎙️ Watch along in [Game Day Watch Party](${VC_URL})` : ''
   return [
     `## ⚾ WPBL Watch Parties ⚾`,
-    `📅 Full schedule: [womensprobaseballleague.com/schedule](${SCHEDULE_URL})`,
-    room,
-  ].filter(Boolean).join('\n')
+    `📅 Full schedule: [womensprobaseballleague.com/schedule](<${SCHEDULE_URL}>)`,
+  ].join('\n')
 }
 
 // Compact text board: a short header, the league schedule link, then one line per game.

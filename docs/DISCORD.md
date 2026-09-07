@@ -30,6 +30,15 @@ There are also two things that **answer** in the server, which webhooks cannot d
 exactly one message tall. The id of the message it owns lives in `wpbl_discord_board_state`,
 not in an env var, so it survives a deleted message (it recreates and re-records).
 
+**Two lines of header, and both earn their place.** The board used to carry a third, a link to
+the watch-party channel, which is the channel the board is posted in: a link to where the
+reader already is, on a message whose whole point is being exactly as tall as its games.
+`DISCORD_WATCH_PARTY_VC_URL` is retired with it. The schedule URL is wrapped in angle brackets
+INSIDE the markdown link (`[text](<url>)`): Discord unfurls the target of a masked link like
+any other, and that one line was growing a website preview card under the board. The brackets
+suppress that and nothing else. Do not use the message's SUPPRESS_EMBEDS flag instead, which
+would also kill the event cards the game links exist to produce.
+
 **The board carries the postseason, which the stats feed does not.** `wpbl_games` is the stats
 feed's mirror and that feed will not carry a game row without two clubs on it: measured Sep 7,
 2026 it held nothing at all from Sep 7 onward, while the postseason ran Sep 9 to Sep 22. Left

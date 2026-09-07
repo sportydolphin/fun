@@ -55,6 +55,5 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY:  ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           DISCORD_BOARD_WEBHOOK_URL:  ${{ secrets.DISCORD_BOARD_WEBHOOK_URL }}
           DISCORD_BOARD_MESSAGE_ID:   ${{ vars.DISCORD_BOARD_MESSAGE_ID }}
-          DISCORD_WATCH_PARTY_VC_URL: ${{ vars.DISCORD_WATCH_PARTY_VC_URL }}
           DISCORD_EVENTS_URL:         ${{ vars.DISCORD_EVENTS_URL }}
         run: node scripts/update-wpbl-discord-board.mjs
