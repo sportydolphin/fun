@@ -106,6 +106,32 @@ export function parseSlot(name) {
   return ROUND_BY_KEY.has(key) ? { roundKey: key, game: parseInt(m[4], 10) } : null
 }
 
+/**
+ * The board's key for a bracket slot, in the WEBSITE calendar's vocabulary.
+ *
+ * WHY THIS EXISTS. The board links each game to its watch party through
+ * scripts/wpbl-event-urls.json, which is keyed on the stats feed's `api_game_id`, and that feed
+ * carries no postseason row until the game has two clubs on it, which for the championship is
+ * days before it is played. So every postseason fixture on the board fell back to the generic
+ * events link, and the three semifinal games it listed all pointed at one unrelated event.
+ *
+ * A slot has an identity before it has clubs, which is the whole reason these events can be
+ * created early, so the map gets a second key per event in that identity. Written in the website
+ * calendar's words ('semifinal' / 'championship', an 'A' or 'B', a game number), because that is
+ * the vocabulary of the table the board reads postseason fixtures from; the `semi-a` / `final`
+ * spelling is this file's own and stops at its edge.
+ *
+ * Imported by update-wpbl-discord-board.mjs rather than copied into it. Two hand-kept copies of
+ * a key format is a link that silently falls back to the generic one the day somebody renames a
+ * round on one side.
+ */
+export function postseasonSlotKey(roundKey, game) {
+  if (!roundKey || !game) return null
+  if (roundKey === 'final') return `postseason:championship:-:${game}`
+  const m = /^semi-([ab])$/.exec(roundKey)
+  return m ? `postseason:semifinal:${m[1].toUpperCase()}:${game}` : null
+}
+
 /** Both clubs of a game, order-independent, so the two ends of a series group together. */
 function seriesKey(game) {
   return [game.home_team_id, game.away_team_id].sort().join('|')
@@ -301,7 +327,13 @@ export function planPostseasonSync({ events = [], games = [], cities = new Map()
     }
 
     // 4. The board's link for this game, so a series does not wait on someone re-running
-    //    the mapper by hand.
+    //    the mapper by hand. TWO KEYS PER EVENT, on purpose: the feed's id once the feed has a
+    //    row, and the slot's own identity always. The slot key is what carries a fixture the
+    //    feed has never heard of, which is every championship game until the semifinals end;
+    //    the api_game_id key takes over the moment there is one, and both point at the same
+    //    event, so nothing has to be removed when it does.
+    const slotKey = postseasonSlotKey(slot.roundKey, slot.game)
+    if (slotKey) actions.push({ kind: 'link', eventId: slot.ev.id, label, gameId: slotKey })
     if (game?.api_game_id) {
       actions.push({ kind: 'link', eventId: slot.ev.id, label, gameId: game.api_game_id })
     }

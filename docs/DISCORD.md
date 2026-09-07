@@ -30,6 +30,31 @@ There are also two things that **answer** in the server, which webhooks cannot d
 exactly one message tall. The id of the message it owns lives in `wpbl_discord_board_state`,
 not in an env var, so it survives a deleted message (it recreates and re-records).
 
+**The board carries the postseason, which the stats feed does not.** `wpbl_games` is the stats
+feed's mirror and that feed will not carry a game row without two clubs on it: measured Sep 7,
+2026 it held nothing at all from Sep 7 onward, while the postseason ran Sep 9 to Sep 22. Left
+alone the board would have posted "No games scheduled right now" through the eleven games anybody
+would actually turn up for. So it reads the league's own website calendar (`wpbl_site_games`) for
+postseason fixtures and merges them in behind the feed's rows, which win every collision because
+their `api_game_id` is what the event map is keyed on. Three things there are worth knowing:
+
+- **A fixture with no clubs is named by its round.** The championship's five are published weeks
+  before anyone knows who is in them, so those lines read "Championship · Game 1" rather than
+  "??? @ ???". Once the clubs are known the line names them and carries the round as a suffix.
+- **"if needed" is derived from the format, not from the website's wording.** The site marks the
+  championship's last two and marks no semifinal decider at all. `WINS_NEEDED` in the board is a
+  copy of `winsNeeded` in [`src/wpbl/derive/series.ts`](../src/wpbl/derive/series.ts), because a
+  `.mjs` cron script cannot import the app's TypeScript; a test asserts the two agree.
+- **The link comes from a SLOT key.** A postseason event exists long before its game has an
+  `api_game_id`, so `sync-wpbl-discord-postseason.mjs` writes a second key per event in the
+  website calendar's vocabulary (`postseason:semifinal:A:1`, `postseason:championship:-:4`) and
+  the board looks that up first. Without it every postseason line fell back to
+  `DISCORD_EVENTS_URL` and three different games pointed at one event. `postseasonSlotKey` is
+  exported from the sync and imported by the board so the format is defined once.
+
+`node scripts/update-wpbl-discord-board.mjs --dry-run` prints exactly what it would post and
+touches Discord not at all.
+
 **Each game on the board links to its own watch-party event**, from a map built once and
 then reused: put the event links in
 [`scripts/wpbl-discord-events.txt`](../scripts/wpbl-discord-events.txt), run

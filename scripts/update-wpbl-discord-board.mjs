@@ -36,10 +36,13 @@
  */
 
 import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
 import { createClient } from '@supabase/supabase-js'
 import ws from 'ws'
+// The board and the postseason event sync have to agree on how a bracket slot is named in
+// wpbl-event-urls.json, so the format is defined once, there, and imported here.
+import { postseasonSlotKey } from './sync-wpbl-discord-postseason.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
@@ -58,15 +61,11 @@ const SCHEDULE_URL = process.env.WPBL_SCHEDULE_URL ?? 'https://www.womensprobase
 // Link each matchup to its Discord event? That makes Discord unfurl a native event card
 // under the message (can't be suppressed), which adds height. Off = clean text board.
 const LINK_TO_EVENTS = true
+// Build the board and print it, touching Discord not at all. The other Discord jobs offer this
+// as a workflow input; this one had no way to see what it was about to say, which matters most
+// on the change that taught it about the postseason.
+const DRY_RUN = process.argv.includes('--dry-run')
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('❌  Set SUPABASE_URL (or VITE_SUPABASE_URL) and a Supabase key (VITE_SUPABASE_ANON_KEY) before running')
-  process.exit(1)
-}
-if (!WEBHOOK_URL) {
-  console.error('❌  Set DISCORD_BOARD_WEBHOOK_URL (the full https://discord.com/api/webhooks/<id>/<token>)')
-  process.exit(1)
-}
 
 // How many upcoming games the board shows.
 const SHOW_COUNT = 3
@@ -93,10 +92,23 @@ try {
   EVENT_URLS = JSON.parse(readFileSync(join(HERE, 'wpbl-event-urls.json'), 'utf8'))
 } catch { /* no map generated yet — fall back to DISCORD_EVENTS_URL */ }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-  realtime: { transport: ws },
-})
+/**
+ * The Supabase client, built on first use rather than at import.
+ *
+ * `createClient` throws on an empty URL, so a module-scope client made this file impossible to
+ * import without credentials, which is what kept its pure helpers out of a test. Lazily it is
+ * only ever built by `main`, which has already checked the two variables by then.
+ */
+let _supabase = null
+function db() {
+  if (!_supabase) {
+    _supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
+      realtime: { transport: ws },
+    })
+  }
+  return _supabase
+}
 
 // ─── Time + data helpers (shared shape with send-wpbl-game-start.mjs) ─────────
 
@@ -123,21 +135,116 @@ function gameStartMs(gameDate, startTime) {
 }
 
 async function fetchTeamNames() {
-  const { data, error } = await supabase.from('wpbl_teams').select('id, city, name')
+  const { data, error } = await db().from('wpbl_teams').select('id, city, name')
   if (error) throw new Error(`Loading teams failed: ${error.message}`)
   const byId = new Map()
   for (const t of data ?? []) byId.set(t.id, `${t.city} ${t.name}`)
   return byId
 }
 
-function matchupLine(teamNames, game) {
-  const away = teamNames.get(game.away_team_id) ?? '???'
-  const home = teamNames.get(game.home_team_id) ?? '???'
+export function matchupLine(teamNames, game) {
+  const away = teamNames.get(game.away_team_id)
+  const home = teamNames.get(game.home_team_id)
+  // A POSTSEASON GAME MAY HAVE NO CLUBS YET, which is not a data fault: the championship's
+  // five fixtures are published weeks before anybody knows who is in them. "??? @ ???" was
+  // the old answer to a missing club and it is the wrong one here, because the round and the
+  // game number ARE the name of that fixture until the semifinals fill it in.
+  if (!away || !home) return game.series_label ?? `${away ?? '???'} @ ${home ?? '???'}`
   return `${away} @ ${home}`
 }
 
 function eventUrlFor(game) {
-  return EVENT_URLS[game.api_game_id] ?? EVENTS_URL ?? ''
+  // The slot key first for a fixture the stats feed has never heard of, then the feed's own id,
+  // then the generic events link. A postseason game has an event long before it has an
+  // api_game_id (see postseasonSlotKey), and without the first lookup every one of them fell
+  // back to the same generic link, so a board listing three different games pointed all three
+  // at one event.
+  return EVENT_URLS[game.slot_key] ?? EVENT_URLS[game.api_game_id] ?? EVENTS_URL ?? ''
+}
+
+// ─── The postseason, which the feed does not carry ────────────────────────────
+
+/** Games a club must win to take the round. Best of three, then best of five.
+ *
+ *  A LITERAL HERE AND NOT AN IMPORT, because this is a plain .mjs and the one definition
+ *  (`BEST_OF` / `winsNeeded` in src/wpbl/derive/series.ts) is TypeScript the app bundles. Keep
+ *  the two in step: this decides which fixtures are marked as only-if-necessary, so a league
+ *  that lengthened a round would have this board promising a game that may never be played. */
+export const WINS_NEEDED = { semifinal: 2, championship: 3 }
+
+/** "Semifinal A · Game 2", or "Championship · Game 4". The name of a fixture that has no clubs
+ *  in it yet, and the suffix on one that does. */
+export function seriesLabel(row) {
+  if (!row.round || !row.game_number) return null
+  const round = row.round === 'championship'
+    ? 'Championship'
+    : `Semifinal${row.series_key ? ` ${row.series_key}` : ''}`
+  return `${round} · Game ${row.game_number}`
+}
+
+/**
+ * The postseason fixtures, from the league's own WEBSITE calendar.
+ *
+ * WHY THIS EXISTS AT ALL. The board reads `wpbl_games`, which is the STATS feed's mirror, and
+ * that feed will not carry a game row without two clubs on it: measured Sep 7, 2026, it held
+ * nothing at all from Sep 7 onward while the postseason ran Sep 9 to Sep 22. So the board was
+ * going to post "No games scheduled right now" for the entire postseason, on a server whose
+ * whole purpose is watch parties, through the eleven games anybody would actually turn up for.
+ *
+ * `wpbl_site_games` is the league's website calendar (see the migration that adds it), which had
+ * all eleven with dates, first-pitch times and, for the six semifinal games, which club bats
+ * last. It is not a second opinion about anything the stats feed carries; it answers the one
+ * question the feed cannot yet answer, and it retires itself fixture by fixture as the feed
+ * picks each one up, which is what the de-duplication below is for.
+ */
+async function fetchPostseasonRows() {
+  const { data, error } = await db()
+    .from('wpbl_site_games')
+    .select('event_id, game_date, start_time, status, round, series_key, game_number, home_team_id, away_team_id')
+    .eq('status', 'scheduled')
+    .gte('game_date', todayStr(-1))
+    .lte('game_date', todayStr(30))
+  if (error) {
+    // Not fatal. A board that loses the postseason is worse than one that loses it silently
+    // is worse than no board at all, so this degrades to the feed's own rows and says so.
+    console.warn(`⚠️  Loading the site calendar failed (${error.message}) — postseason fixtures omitted.`)
+    return []
+  }
+  return (data ?? []).map(siteRowToGame)
+}
+
+/** One website-calendar row as the board's own game shape. Exported because every rule that
+ *  could go wrong quietly lives in here: which fixture is conditional, what a clubless one is
+ *  called, and which watch party it links to. */
+export function siteRowToGame(r) {
+  return ({
+    // No api_game_id: these rows are not the stats feed's, so they have no event mapping and
+    // fall back to the generic events link, which is the right answer for a fixture the watch
+    // party has not been created for yet.
+    api_game_id: null,
+    id: `site:${r.event_id}`,
+    game_date: r.game_date,
+    start_time: r.start_time,
+    home_team_id: r.home_team_id,
+    away_team_id: r.away_team_id,
+    series_label: seriesLabel(r),
+    slot_key: postseasonSlotKey(
+      r.round === 'championship' ? 'final' : r.series_key ? `semi-${String(r.series_key).toLowerCase()}` : null,
+      r.game_number),
+    // Derived from the format rather than read off the title: the website marks the
+    // championship's last two "if needed" and marks no semifinal decider at all, so trusting
+    // its wording would promise a Game 3 that only happens half the time.
+    ifNecessary: !!(r.round && r.game_number && r.game_number > (WINS_NEEDED[r.round] ?? 99)),
+  })
+}
+
+/** One key per fixture, so a site row disappears the moment the stats feed carries the same
+ *  game. Date plus the unordered pair of clubs, because that is all the two sources share: the
+ *  feed has no event id and the website has no api_game_id. A fixture with no clubs cannot
+ *  collide with anything, so it keys on itself. */
+export function fixtureKey(g) {
+  if (!g.home_team_id || !g.away_team_id) return g.id
+  return `${g.game_date}|${[g.home_team_id, g.away_team_id].sort().join('-')}`
 }
 
 // ─── Embed builder ────────────────────────────────────────────────────────────
@@ -173,7 +280,13 @@ function buildBoardContent(games, teamNames, now) {
     const when = startMs == null ? ''
       : startMs <= now ? ' · 🟢 **live now**'
       : ` · ${tsRel(startMs)}`
-    return `${dot} ${name}${when}`
+    // The round, on a line that already names the clubs, and the caveat on a fixture that may
+    // never be played. A board that lists a Game 3 without saying so is promising a game half
+    // of these series will not have.
+    const round = game.series_label && teamNames.get(game.home_team_id) && teamNames.get(game.away_team_id)
+      ? ` · ${game.series_label}` : ''
+    const maybe = game.ifNecessary ? ' *(if needed)*' : ''
+    return `${dot} ${name}${round}${when}${maybe}`
   })
 
   return `${header}\n\n${lines.join('\n')}`
@@ -215,7 +328,7 @@ async function editMessage(id, payload) {
 // created), which the caller treats as "persistence is broken" and refuses to create a new
 // message — otherwise it would post an un-rememberable board on every 15-minute run.
 async function loadStoredMessageId() {
-  const { data, error } = await supabase
+  const { data, error } = await db()
     .from('wpbl_discord_board_state')
     .select('message_id')
     .eq('id', 'board')
@@ -225,7 +338,7 @@ async function loadStoredMessageId() {
 }
 
 async function storeMessageId(id) {
-  const { error } = await supabase
+  const { error } = await db()
     .from('wpbl_discord_board_state')
     .upsert({ id: 'board', message_id: id, updated_at: new Date().toISOString() })
   if (error) { console.error(`⚠️  Could not persist board id ${id}: ${error.message}`); return false }
@@ -235,11 +348,24 @@ async function storeMessageId(id) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
+  // CHECKED HERE AND NOT AT MODULE SCOPE. These used to exit(1) on import, which meant the pure
+  // helpers above could not be reached by a test without the process dying: the rules that turn
+  // a postseason fixture into a board line are exactly the ones worth pinning, and they were
+  // unreachable.
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    console.error('❌  Set SUPABASE_URL (or VITE_SUPABASE_URL) and a Supabase key (VITE_SUPABASE_ANON_KEY) before running')
+    process.exit(1)
+  }
+  if (!WEBHOOK_URL && !DRY_RUN) {
+    console.error('❌  Set DISCORD_BOARD_WEBHOOK_URL (the full https://discord.com/api/webhooks/<id>/<token>)')
+    process.exit(1)
+  }
+
   const now = Date.now()
 
   // Pull a small forward window of non-final games. Order in JS by true first-pitch
   // instant, keep anything still upcoming (or live within the grace window), take N.
-  const { data: rows, error } = await supabase
+  const { data: rows, error } = await db()
     .from('wpbl_games')
     .select('id, api_game_id, game_date, start_time, status, home_team_id, away_team_id')
     .neq('status', 'final')
@@ -249,7 +375,16 @@ async function main() {
     .order('start_time', { ascending: true })
   if (error) throw new Error(`Loading games failed: ${error.message}`)
 
-  const upcoming = (rows ?? [])
+  // The stats feed's rows first, then the website calendar's postseason fixtures for anything
+  // the feed does not carry. The feed wins every collision: its row has an api_game_id, which is
+  // what the Discord event mapping is keyed on, so preferring it is what keeps a fixture's watch
+  // party link attached the day the feed picks that fixture up.
+  const postseason = await fetchPostseasonRows()
+  const byFixture = new Map()
+  for (const g of rows ?? []) byFixture.set(fixtureKey(g), g)
+  for (const g of postseason) if (!byFixture.has(fixtureKey(g))) byFixture.set(fixtureKey(g), g)
+
+  const upcoming = [...byFixture.values()]
     .map(g => ({ ...g, _startMs: gameStartMs(g.game_date, g.start_time) }))
     .filter(g => g._startMs != null && g._startMs > now - LIVE_GRACE_MS)
     .sort((a, b) => a._startMs - b._startMs)
@@ -268,6 +403,13 @@ async function main() {
       : `${boardHeader()}
 
 No games scheduled right now. Check back soon! ⚾`,
+  }
+
+  if (DRY_RUN) {
+    console.log(`--- dry run: ${upcoming.length} game(s) ---
+${payload.content}
+--- end ---`)
+    return
   }
 
   // Source of truth for which message to edit is the DB. DISCORD_BOARD_MESSAGE_ID is now
@@ -305,4 +447,8 @@ No games scheduled right now. Check back soon! ⚾`,
   console.log(`✅ Created board message ${msg.id} — showing ${upcoming.length} game(s). Persisted for future edits.`)
 }
 
-main().catch(err => { console.error('Fatal:', err); process.exit(1) })
+// Guarded, like the two Discord scripts beside it, so the pure helpers above can be imported
+// by a test without the board trying to post itself.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch(err => { console.error('Fatal:', err); process.exit(1) })
+}
