@@ -1040,6 +1040,28 @@ with the share who agreed, and marks it against the result afterwards. A pick th
 a dialog would be a pick nobody could see they had made, and the button would have nothing to
 show for having been pressed.
 
+**THE BUTTON LIVES IN THE HOLE ABOVE THE CHAMPIONSHIP BOX**, which the Aug 31 rework of this
+card left behind: the right-hand column is `1fr auto 1fr`, and the upper `fr` was ~95px of blank
+card holding the box on the connector's elbow. A call to action is what that space is for. The
+box stays on the elbow because an `fr` row floors at its content and the two `fr`s stay equal, so
+a taller button grows the card rather than sliding the box off the hairline. On a phone the
+column is just the next block in the stack and `order` sends the button to the end of it, after
+the title odds, since between "the winners meet in the" and the championship box is the one place
+it must not be. **That costs a DOM-versus-visual order mismatch at one breakpoint**, and the
+direction matters: leaving it first in the DOM keeps the two in step on desktop, where a keyboard
+actually walks the tab order, and puts the mismatch on the phone, where it is a different reading
+order rather than a wrong one.
+
+**TAKING A PICK BACK NEEDED A NEW FUNCTION, NOT A DELETE POLICY.** `wpbl_award_votes` has no
+delete policy on purpose: the ballot's position is that a cast vote is overwritten and never
+removed. Withdrawing is a different act from changing, and the pick'em is what makes it worth
+having, since a reader who wants out of a prediction should not have to leave a wrong one standing
+for want of a better one. `wpbl_clear_award_vote` is gated on the same thing the update policy is,
+knowing the unguessable voter key, so it grants nothing that was not already reachable; a
+client-facing delete policy would have been the smaller diff and would have opened deletes on the
+whole table forever for the sake of one screen. It clears only the series that have not started,
+and it asks once first, in the label rather than in a second dialog.
+
 **YOUR SEMIFINAL CALLS DECIDE THE FINAL YOU ARE ASKED ABOUT.** The championship has no entrants
 until Sep 14, so a pick'em that waited for them would open the day the thing it predicts is half
 over. Instead it offers the two clubs the reader has already advanced: pick San Francisco and New

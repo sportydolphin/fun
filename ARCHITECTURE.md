@@ -307,9 +307,10 @@ the table, which is what lets a new one ship without a migration; the ids are th
 PERMANENT, since renaming one orphans every answer already stored under it.
 
 It has **no select policy**, deliberately: raw rows would hand out every `voter_key`, and the
-update policy is guarded by nothing except those keys being unguessable. All three of its
-entry points are therefore security-definer functions, `wpbl_award_results`,
-`wpbl_award_ballot` and `wpbl_cast_award_vote`. The writer is not decoration: a browser
+update policy is guarded by nothing except those keys being unguessable. All four of its
+entry points are therefore security-definer functions: `wpbl_award_results`,
+`wpbl_award_ballot`, `wpbl_cast_award_vote` and `wpbl_clear_award_vote` (there is no delete
+policy either, so withdrawing an answer needs a function of its own). The writer is not decoration: a browser
 `.upsert()` on this table is refused outright, for the reason in CLAUDE.md's traps.
 
 **`wpbl_photos` is the one WPBL table whose rows are not public simply by existing.** Its

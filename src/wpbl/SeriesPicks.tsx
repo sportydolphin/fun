@@ -2,14 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import {
   ModalShell, SectionLabel, TeamBadge, pressable, FOCUS_RING, TAPPABLE, useWpblDark, TYPE_SCALE,
-  chromePx,
 } from './ui'
 import { wpblAccent } from './constants'
 import {
   seriesPickCategory, seriesPickOptions, seriesPickOpen, seriesResultChoice,
   championshipEntrants, parsePickChoice, pickShares,
 } from './derive/seriesPicks'
-import { fetchWpblAwardBallot, fetchWpblAwardResults, castWpblAwardVote } from './awardVotes'
+import {
+  fetchWpblAwardBallot, fetchWpblAwardResults, castWpblAwardVote, clearWpblAwardVote,
+} from './awardVotes'
 import type { AwardBallot, AwardResults } from './awardVotes'
 import { track, EVENTS } from '../lib/analytics'
 import type { BracketSeries, WpblBracket } from './derive/bracket'
@@ -50,6 +51,10 @@ export interface SeriesPickState {
   results: AwardResults
   loaded: boolean
   cast: (category: string, choice: string) => void
+  /** Take answers back entirely. Several at once, because the reader thinks of their picks as
+   *  one thing and clearing them one series at a time is three confirmations of the same
+   *  decision. */
+  clear: (categories: string[]) => void
 }
 
 export function useSeriesPicks(enabled: boolean): SeriesPickState {
@@ -100,7 +105,28 @@ export function useSeriesPicks(enabled: boolean): SeriesPickState {
     void castWpblAwardVote(category, choice)
   }, [])
 
-  return { ...state, cast }
+  /** Withdraw answers, and take them back off their bars. Same optimism as `cast`, and the same
+   *  reason for it: the server does this arithmetic too, this only saves the round trip. */
+  const clear = useCallback((categories: string[]) => {
+    if (categories.length === 0) return
+    setState(prev => {
+      const ballot = { ...prev.ballot }
+      const results = { ...prev.results }
+      for (const category of categories) {
+        const was = ballot[category]
+        if (!was) continue
+        delete ballot[category]
+        const bucket = { ...(results[category] ?? {}) }
+        bucket[was] = Math.max(0, (bucket[was] ?? 1) - 1)
+        results[category] = bucket
+      }
+      return { ...prev, ballot, results }
+    })
+    track(EVENTS.WPBL_PICKEM_CLEAR, { count: categories.length })
+    for (const category of categories) void clearWpblAwardVote(category)
+  }, [])
+
+  return { ...state, cast, clear }
 }
 
 // ─── one series, resolved against this reader's ballot ─────────────────────────
@@ -231,14 +257,12 @@ export function PickemButton({ bracket, state, from }: {
         {...pressable(() => { setOpen(true); track(EVENTS.WPBL_PICKEM_OPEN, { answered, from }) })}
         sx={{
           ...TAPPABLE, ...FOCUS_RING,
-          mt: 1.25, borderRadius: 2, px: 1.5, py: 1, cursor: 'pointer', userSelect: 'none',
+          borderRadius: 2, px: 1.5, py: 1, cursor: 'pointer', userSelect: 'none',
           display: 'flex', alignItems: 'center', gap: 1, minWidth: 0,
-          // Full width on a phone, capped on a desktop. The card is 1,200px wide there, and a
-          // button that wide is a banner: its label and its chevron end up a metre apart and
-          // nothing about it reads as pressable. `chromePx` because this is a structural length
-          // and not room reserved for a string, so it follows the desktop chrome scale and not
-          // the reader's text size.
-          maxWidth: { xs: '100%', sm: chromePx(400) },
+          // It fills whatever it is given, which is the championship column from sm up and the
+          // full card on a phone. The gap above is only needed on a phone, where it follows the
+          // title-odds strip rather than sitting in a row of its own.
+          mt: { xs: 1.25, sm: 0 },
           ...(done
             ? { border: '1px solid', borderColor: 'divider', color: 'text.secondary' }
             : { bgcolor: 'var(--wpbl-accent-solid)', color: '#fff' }),
@@ -409,9 +433,55 @@ function SeriesQuestion({ series, bracket, state }: {
   )
 }
 
+/**
+ * Withdrawing, as opposed to changing.
+ *
+ * TWO TAPS, WITH THE LABEL CARRYING THE WARNING. One tap wiping three predictions deserves a
+ * confirmation, and a dialog on top of a dialog to ask it is heavier than the thing being
+ * confirmed. Arming resets on its own after a few seconds, so a stray tap does not leave a
+ * loaded control sitting under the reader's thumb for the rest of the session.
+ *
+ * ONLY THE SERIES THAT ARE STILL OPEN. A locked pick cannot be changed, so it cannot be taken
+ * back either: the record of what somebody called before first pitch is the whole point of
+ * having called it.
+ */
+function ClearPicks({ categories, onClear }: { categories: string[]; onClear: () => void }) {
+  const [armed, setArmed] = useState(false)
+  useEffect(() => {
+    if (!armed) return
+    const t = setTimeout(() => setArmed(false), 4000)
+    return () => clearTimeout(t)
+  }, [armed])
+
+  if (categories.length === 0) return null
+  const n = categories.length
+
+  return (
+    <Box
+      {...pressable(() => { if (armed) { onClear(); setArmed(false) } else setArmed(true) })}
+      sx={{
+        ...TAPPABLE, ...FOCUS_RING,
+        alignSelf: 'flex-start', borderRadius: 2, px: 1.25, py: 0.6, cursor: 'pointer',
+        border: '1px solid', borderColor: armed ? 'error.main' : 'divider',
+        color: armed ? 'error.main' : 'text.disabled',
+      }}
+    >
+      <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800 }}>
+        {armed ? `Tap again to clear ${n === 1 ? 'it' : `all ${n}`}` : 'Clear my picks'}
+      </Typography>
+    </Box>
+  )
+}
+
 function PickemSheet({ bracket, state, onClose }: {
   bracket: WpblBracket; state: SeriesPickState; onClose: () => void
 }) {
+  // Answered AND still open. See ClearPicks.
+  const clearable = [...bracket.semifinals, bracket.championship]
+    .filter(seriesPickOpen)
+    .map(s => seriesPickCategory(s.round, s.key))
+    .filter(c => state.ballot[c])
+
   return (
     <ModalShell
       sheet
@@ -434,6 +504,7 @@ function PickemSheet({ bracket, state, onClose }: {
         {[...bracket.semifinals, bracket.championship].map(s => (
           <SeriesQuestion key={s.label} series={s} bracket={bracket} state={state} />
         ))}
+        <ClearPicks categories={clearable} onClear={() => state.clear(clearable)} />
       </Box>
     </ModalShell>
   )

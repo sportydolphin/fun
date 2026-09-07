@@ -354,10 +354,35 @@ export function BracketDiagram({ bracket, odds, onOpenTeam, from, picks }: {
         alignItems: { xs: 'stretch', sm: 'center' },
         gridTemplateRows: { sm: '1fr auto 1fr' },
       }}>
-        {/* The upper `1fr`. An empty element rather than a `gridRow: 2` on the box below it,
-            so the three rows stay in DOM order and the phone's flex fallback needs no
-            renumbering: it is display:none there and contributes nothing at all. */}
-        <Box aria-hidden sx={{ display: { xs: 'none', sm: 'block' } }} />
+        {/* THE UPPER `1fr`, WHICH IS WHERE THE PICK'EM LIVES FROM sm UP. It used to be an empty
+            element holding the row open; the row was ~95px of blank card above the championship
+            box, and a call to action is exactly what that space is for. The box below still
+            sits on the connector's elbow, because an `fr` row floors at its content and the two
+            `fr`s stay equal: a taller button grows the card rather than moving the box off the
+            hairline.
+
+            ON A PHONE THIS COLUMN IS JUST THE NEXT BLOCK IN THE STACK, and the button belongs
+            after the bracket there rather than between "the winners meet in the" and the
+            championship box that line introduces. `order` moves it to the end of the flex column
+            rather than a second copy behind a `display` switch: two copies would put the same
+            control in the page twice, where a crawler, a text extractor and `getByText` all see
+            both.
+
+            THE COST OF `order` IS THAT DOM ORDER AND VISUAL ORDER DISAGREE at one breakpoint,
+            and this is the direction to disagree in. Leaving the button first in the DOM keeps
+            the two in step on DESKTOP, where the tab order is what a keyboard actually walks;
+            the mismatch lands on a phone, where the button is heard before the championship box
+            instead of after it, which is a different order rather than a wrong one. Putting the
+            button last in the DOM and placing it with an explicit `gridRow` swaps which
+            breakpoint pays, and pays on the worse one. */}
+        <Box sx={{
+          order: { xs: 2, sm: 0 }, width: '100%', minWidth: 0,
+          // Top of the empty space at sm+, so its top edge is level with the first semifinal
+          // box; stretched on a phone, where it is a block in a column and not a grid item.
+          alignSelf: { xs: 'stretch', sm: 'start' },
+        }}>
+          {picks && <PickemButton bracket={bracket} state={picks} from={from} />}
+        </Box>
         <SeriesBox series={bracket.championship} odds={odds?.championship ?? undefined} onOpenTeam={onOpenTeam} from={from}
           bracket={bracket} picks={picks} />
         {/* Pinned to the bottom of its row from sm up, so the strip's last bar finishes level
@@ -527,9 +552,6 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, from = 'home' 
       onToggleCollapse={isPhone ? toggle : undefined}
     >
       <BracketDiagram bracket={bracket} odds={odds} onOpenTeam={onOpenTeam} from={from} picks={picks} />
-      {/* Under the whole diagram rather than inside a box, because it asks about all three
-          series at once and a control repeated three times is three times the chrome. */}
-      <PickemButton bracket={bracket} state={picks} from={from} />
       {odds && !bracket.champion && (
         <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 1, lineHeight: 1.45 }}>
           Odds blend each club’s run differential with its head-to-head results, then

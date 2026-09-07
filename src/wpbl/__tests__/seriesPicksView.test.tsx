@@ -12,6 +12,7 @@ import type { WpblGame, WpblTeam } from '../types'
 //   · a series already under way cannot be called after the fact.
 
 const cast = vi.fn(() => Promise.resolve(true))
+const clear = vi.fn(() => Promise.resolve(true))
 let ballot: Record<string, string> = {}
 let results: Record<string, Record<string, number>> = {}
 
@@ -20,6 +21,7 @@ vi.mock('../awardVotes', () => ({
   fetchWpblAwardBallot: () => Promise.resolve(ballot),
   fetchWpblAwardResults: () => Promise.resolve(results),
   castWpblAwardVote: (...args: unknown[]) => cast(...(args as [])),
+  clearWpblAwardVote: (...args: unknown[]) => clear(...(args as [])),
 }))
 
 const { default: PlayoffBracket } = await import('../PlayoffBracket')
@@ -65,7 +67,7 @@ async function openSheet() {
 const radio = (name: string) => screen.getByRole('radio', { name })
 const noRadio = (name: string) => screen.queryByRole('radio', { name })
 
-beforeEach(() => { cast.mockClear(); ballot = {}; results = {} })
+beforeEach(() => { cast.mockClear(); clear.mockClear(); ballot = {}; results = {} })
 
 describe('the pick’em button', () => {
   // The card draws a bracket. Twelve permanent controls inside it, paid for by every reader
@@ -163,6 +165,56 @@ describe('picking a series', () => {
     expect(screen.getByText(/Under way, so this one is locked/)).toBeTruthy()
     expect(noRadio('Semifinal A: SF to win')).toBeNull()
     expect(cast).not.toHaveBeenCalled()
+  })
+})
+
+describe('taking picks back', () => {
+  // Withdrawing is not the same act as changing, and without it the only way out of a
+  // prediction is to leave a wrong one standing.
+  it('needs two taps, and only then withdraws', async () => {
+    ballot = { 'pickem:2026:semifinal:A': 'SF:2-0', 'pickem:2026:semifinal:B': 'NY:2-1' }
+    draw()
+    await openSheet()
+    fireEvent.click(screen.getByText('Clear my picks'))
+    expect(clear).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByText('Tap again to clear all 2'))
+    expect(clear).toHaveBeenCalledTimes(2)
+    expect(clear).toHaveBeenCalledWith('pickem:2026:semifinal:A')
+    expect(clear).toHaveBeenCalledWith('pickem:2026:semifinal:B')
+  })
+
+  it('offers nothing to clear when nothing has been picked', async () => {
+    draw()
+    await openSheet()
+    expect(screen.queryByText('Clear my picks')).toBeNull()
+  })
+
+  // A locked pick cannot be changed, so it cannot be withdrawn either: what somebody called
+  // before first pitch is the whole point of having called it.
+  it('leaves a series that has already started alone', async () => {
+    const started = [...season(), game({
+      game_date: '2026-09-09', home_team_id: 'SF', away_team_id: 'BOS',
+      home_score: 4, away_score: 2, game_type: 'Semifinal A', counts_in_standings: false,
+    })]
+    ballot = { 'pickem:2026:semifinal:A': 'SF:2-0', 'pickem:2026:semifinal:B': 'NY:2-1' }
+    draw(started)
+    await openSheet()
+    fireEvent.click(screen.getByText('Clear my picks'))
+    fireEvent.click(screen.getByText('Tap again to clear it'))
+    expect(clear).toHaveBeenCalledTimes(1)
+    expect(clear).toHaveBeenCalledWith('pickem:2026:semifinal:B')
+  })
+
+  it('puts the card back to asking', async () => {
+    ballot = { 'pickem:2026:semifinal:A': 'SF:2-0' }
+    const { container } = draw()
+    await openSheet()
+    fireEvent.click(screen.getByText('Clear my picks'))
+    fireEvent.click(screen.getByText('Tap again to clear it'))
+    fireEvent.click(screen.getByText('Done'))
+    await waitFor(() => expect(container.textContent).toContain('Make your picks'))
+    expect(container.textContent).not.toContain('Your call')
   })
 })
 

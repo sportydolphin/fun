@@ -83,6 +83,7 @@ export const EVENTS = {
   // alone, and they call for opposite fixes.
   WPBL_PICKEM_SHOWN:   'wpbl_pickem_shown',   // the pick'em button rendered, props {open, answered, from}
   WPBL_PICKEM_OPEN:    'wpbl_pickem_open',    // opened the picking sheet, props {answered, from}
+  WPBL_PICKEM_CLEAR:   'wpbl_pickem_clear',   // withdrew picks rather than changing them, props {count}
   WPBL_PICKEM_CAST:    'wpbl_pickem_cast',    // called a series, props {category, choice}
   // Home's MVP race. The impression is the point of the pair: the card costs a play-log fetch
   // Home had otherwise stopped paying for, so "is it seen" and "is it tapped" have to be

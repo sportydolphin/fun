@@ -105,6 +105,34 @@ export async function castWpblAwardVote(
   return data === true
 }
 
+/**
+ * Withdraw one answer entirely, rather than replacing it with another.
+ *
+ * A SEPARATE RPC BECAUSE THE TABLE HAS NO DELETE POLICY, deliberately: the ballot's own
+ * migration takes the line that a cast vote is overwritten and never removed. Withdrawing is a
+ * different act from changing, and the pick'em is what makes it worth having, since a reader who
+ * wants out of a prediction should not have to leave a wrong one standing for want of a better
+ * one. `wpbl_clear_award_vote` is gated on the same thing the update policy is, knowing the
+ * voter key, so it grants nothing that was not already reachable.
+ *
+ * Answers true when the row was already absent, because the caller asked for it to be gone and
+ * it is: reporting that as a failure would make a second tap look like an error.
+ */
+export async function clearWpblAwardVote(
+  category: string,
+  voterKey = awardVoterKey(),
+): Promise<boolean> {
+  if (!category || !voterKey) return false
+  const { data, error } = await supabase.rpc('wpbl_clear_award_vote', {
+    p_category: category, p_voter_key: voterKey,
+  })
+  if (error) {
+    console.warn('[wpbl] clearWpblAwardVote failed:', error.message)
+    return false
+  }
+  return data === true
+}
+
 /** Total ballots cast in one category, for the "1,204 fans have voted" line. */
 export function awardVoteCount(results: AwardResults, category: string): number {
   const bucket = results[category]

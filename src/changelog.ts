@@ -10,7 +10,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'One button on the bracket: make your picks for all three series',
-        full:  'Who wins each series, and in how many games. The bracket card carries a single button rather than a row of controls under every box, because the card is there to draw a bracket and most readers will never want to predict anything. Pressing it opens the picking on its own, with room to do it properly.',
+        full:  'Who wins each series, and in how many games. The bracket card carries a single button, in the empty space above the championship box, rather than a row of controls under every series: the card is there to draw a bracket, and most readers will never want to predict anything. Pressing it opens the picking on its own, with room to do it properly.',
       },
       {
         short: 'Two taps per series: the club, then how long',
@@ -23,6 +23,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         short: 'Your call shows on each series box, and how many agreed',
         full:  'Once you have picked, the box carries it: “Your call, Firebells in 3”, with the share of fans who said the same. That share is hidden until you have answered, or until the series starts. A poll that shows its results first stops measuring what people think and starts measuring what the first fifty people thought. Picks change as often as you like until first pitch, then lock and get marked against the result.',
+      },
+      {
+        short: 'And you can take your picks back',
+        full:  'A pick can be changed by making another one, and now it can also just be withdrawn: "Clear my picks" at the foot of the sheet, which asks once before it does it. It only touches series that have not started, because what you called before first pitch is the point of having called it.',
       },
       {
         short: 'No account needed',
