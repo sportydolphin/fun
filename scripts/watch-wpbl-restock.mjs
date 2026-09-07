@@ -11,11 +11,16 @@
  * single restock day could move a lot at once, and a channel that pings on all of it gets
  * muted before it is ever useful.
  *   - The SHOP channel gets everything, quietly, batched into one message per run.
- *   - The PRIVATE channel gets a loud @everyone alert, but only for products on the
- *     wpbl_restock_watch shortlist. That is the giveaway cap, and anything else worth
- *     interrupting people for.
+ *   - The PRIVATE channel gets a loud @everyone alert, for two things only: a product on the
+ *     wpbl_restock_watch shortlist coming back (the giveaway cap), and NEW MERCH.
  * A watched product restocking produces both. They are different channels for different
  * audiences, so that is a complete shop feed and a targeted alert, not a duplicate.
+ *
+ * NEW MERCH IS LOUD BECAUSE IT CANNOT BE SHORTLISTED. The shortlist names a product handle, and
+ * a handle can only be written down for something that already exists, so a drop could never
+ * reach the loud channel by that route: the eight team jerseys that landed on Sep 7, 2026 went
+ * to the quiet feed and nobody's phone. A drop is exactly the case where an hour late is too
+ * late, so it gets the interruption, batched into one message however many arrive at once.
  *
  * HOW IT KNOWS. Shopify serves /products.json on every storefront: the published catalogue,
  * 78 products in one page here, with an explicit `available` per variant. robots.txt permits
@@ -315,6 +320,37 @@ export function shopFeedMessage({ newProducts, restocked }) {
   }
 
   return parts.join('\n\n')
+}
+
+/**
+ * The other loud one: merch that was not there before.
+ *
+ * WHY THIS IS NOT THE SHORTLIST'S JOB. `wpbl_restock_watch` names a product handle, and a
+ * handle can only be written down for something that already exists, so a NEW product can never
+ * be on it. That is not a gap in the list, it is the shape of the list, and it meant the eight
+ * team jerseys that landed on Sep 7, 2026 reached the quiet feed and nobody's phone. A drop is
+ * exactly the case where being told an hour late is being told too late.
+ *
+ * BATCHED, ALWAYS. Ten products arrived in one minute that day, and ten pings is how a channel
+ * gets muted. One message, one mention, the list truncated the same way the feed's is.
+ *
+ * Short on purpose, like the restock alert beside it: it interrupts people, so it says what
+ * landed, what it costs, where it is, and stops.
+ */
+export function newProductAlertMessage(products) {
+  if (!products.length) return null
+  const lines = []
+  if (MENTION) lines.push(MENTION)
+  lines.push(products.length === 1
+    ? '🆕 **New in the shop**'
+    : `🆕 **New in the shop** (${products.length})`)
+  lines.push(...truncateList(products.map(p => {
+    const price = money(p.variants[0]?.price_cents)
+    // Sizes are not listed. A new product usually arrives with all of them and the line would be
+    // half punctuation; the restock alert names them because there it is the news.
+    return bullet(`**${p.title}**${price ? ` ${price}` : ''}\n  ${p.url}`)
+  })))
+  return lines.join('\n')
 }
 
 /** The loud one. Kept deliberately short: it interrupts people, so it says the thing and the
@@ -728,7 +764,24 @@ async function runShopWatch(snapshot) {
     console.log(`🔔 Loud alert sent for ${watch.label ?? watch.product_handle}`)
   }
 
+  // ─── New merch, loudly ────────────────────────────────────────────────────
+  //
+  // NOT SUPPRESSED BY SEEDING, SUPPRESSED BY IT ENTIRELY: on a first run every product in the
+  // store is new, and 83 of them is not a drop, it is a snapshot. `seeding` is exactly that
+  // distinction, and the shortlist above is the one thing allowed through it.
+  if (!seeding && newProducts.length) {
+    const alert = newProductAlertMessage(newProducts)
+    if (alert) {
+      await post(RESTOCK_WEBHOOK, alert, MENTION)
+      console.log(`🔔 Loud alert sent for ${newProducts.length} new product(s)`)
+    }
+  }
+
   // ─── The quiet shop feed ──────────────────────────────────────────────────
+  //
+  // Still carries the new products as well. It is the complete log of what changed, read by
+  // people who want the whole story rather than an interruption, and a reader in both channels
+  // seeing a drop twice is the point of having two.
   const feed = shopFeedMessage({ newProducts, restocked })
   if (feed) {
     await post(SHOP_WEBHOOK, feed, SHOP_MENTION)

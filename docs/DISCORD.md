@@ -9,7 +9,7 @@ token, no gateway, nothing to keep running:
 | **Box scores** | a different channel | [`supabase/functions/wpbl-ingest/announce-final.ts`](../supabase/functions/wpbl-ingest/announce-final.ts) and [`scripts/post-wpbl-discord-recaps.ts`](../scripts/post-wpbl-discord-recaps.ts) | One message per finished game, edited in place if the stats are corrected later. |
 | **Highlights** | the highlights channel | [`scripts/post-wpbl-discord-highlights.mjs`](../scripts/post-wpbl-discord-highlights.mjs) | One message per league game highlight reel **and per YouTube Short**, posted once and never touched again. |
 | **Shop feed** | a shop channel | [`scripts/watch-wpbl-restock.mjs`](../scripts/watch-wpbl-restock.mjs) | New merch and restocks across the whole Shopify store, plus new memorabilia lots on The Realest, batched into one message per run. Never pings. |
-| **Shortlist alerts** | a private channel | the same script | A loud `@everyone` when something on the `wpbl_restock_watch` shortlist comes back. |
+| **Shortlist and drop alerts** | a private channel | the same script | A loud `@everyone` when something on the `wpbl_restock_watch` shortlist comes back, **and when new merch appears at all** — a drop cannot be shortlisted, because a shortlist needs a handle that already exists. |
 | **Mention watch** | a private channel | [`scripts/watch-wpbl-mentions.mjs`](../scripts/watch-wpbl-mentions.mjs) | One digest per run of the public posts where somebody is asking where to follow a WPBL game. Threads to go and answer, not content for the server. |
 | **Birthdays** | a birthdays channel | [`scripts/post-wpbl-discord-birthdays.ts`](../scripts/post-wpbl-discord-birthdays.ts) | One message on the mornings someone on the roster has a birthday, and nothing on the mornings nobody does. |
 
@@ -218,7 +218,14 @@ a lot at once, and a channel that pings on all of it gets muted before it is eve
 | Channel | Secret | Gets | Pings |
 |---|---|---|---|
 | Shop | `DISCORD_SHOP_WEBHOOK_URL` | Everything: new merch and every restock, batched into one message per run | Never |
-| Private | `DISCORD_RESTOCK_WEBHOOK_URL` | Only products on the `wpbl_restock_watch` shortlist | `@everyone` |
+| Private | `DISCORD_RESTOCK_WEBHOOK_URL` | Two things: a product on the `wpbl_restock_watch` shortlist coming back, and **new merch** | `@everyone` |
+
+**New merch is loud because it cannot be shortlisted.** The shortlist names a product handle,
+and a handle can only be written down for something that already exists, so a drop could never
+reach the loud channel by that route. The eight team jerseys that landed on Sep 7, 2026 went to
+the quiet feed and nobody's phone, which is the case where being told an hour late is being told
+too late. However many arrive at once they are one message with one mention (ten landed in the
+same minute that day), and the list truncates past twelve.
 
 A shortlisted product restocking produces both. They are different channels for different
 audiences, so that is a complete shop feed plus a targeted alert, not a duplicate. If

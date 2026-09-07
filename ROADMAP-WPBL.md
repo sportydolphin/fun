@@ -982,6 +982,28 @@ is retired.
 
 ## Shipped log
 
+### Sep 7, 2026: a drop cannot be shortlisted, so new merch goes loud
+
+**The shop watcher announced the eight team jerseys and nobody's phone buzzed.** The loud
+channel only ever fired for `wpbl_restock_watch`, and that list names a product HANDLE: a handle
+can only be written down for something that already exists, so new merch could never reach it by
+that route. Not a gap in the list, the shape of the list. Ten products landed in one minute and
+all of them went to the quiet feed.
+
+**New products now get the interruption too**, batched into one message with one mention however
+many arrive at once, truncated past twelve like the feed's own sections. A drop is exactly the
+case where an hour late is too late.
+
+**Suppressed by seeding, entirely.** On a first run every product in the store is new, and 83 of
+them is a snapshot rather than a drop. The shortlist stays the one thing allowed through seeding,
+for the reason it always was: missing a watched item being available is the failure the whole job
+exists to prevent.
+
+The quiet feed still carries new products as well. It is the complete log, and a reader in both
+channels seeing a drop twice is the point of having two.
+
+Five tests in `src/__tests__/restockWatch.test.ts`.
+
 ### Sep 7, 2026: GitHub gives this repo seven scheduled runs a day, so the database asks instead
 
 **"The jerseys got restocked and the bot didn't tell us."** It had not missed them. The eight team

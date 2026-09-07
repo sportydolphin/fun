@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 // because the diff below IS the job: a copy living in the test would pass happily while the
 // script it mirrors drifted.
 import {
-  diffCatalog, shopFeedMessage, watchAlertMessage, normaliseCatalog, mentionParse,
+  diffCatalog, shopFeedMessage, watchAlertMessage, newProductAlertMessage, normaliseCatalog, mentionParse,
   fetchCatalog, hoursSince,
   diffLots, normaliseLots, fetchLots, auctionFeedMessage,
 } from '../../scripts/watch-wpbl-restock.mjs'
@@ -261,6 +261,45 @@ describe('watchAlertMessage', () => {
     expect(out).toContain('$39.99')
     expect(out).toContain('Giveaway prize.')
     expect(out.match(/https?:\/\//g)).toHaveLength(1)
+  })
+})
+
+// A DROP CANNOT BE SHORTLISTED. wpbl_restock_watch names a product handle, and a handle can
+// only be written down for something that already exists, so new merch could never reach the
+// loud channel: the eight team jerseys that landed on Sep 7, 2026 went to the quiet feed and
+// nobody's phone. This is the other loud message.
+describe('newProductAlertMessage', () => {
+  const p = (id: number, title: string) => ({ ...product(id, [variant(id * 10, true)]), title })
+
+  it('leads with @everyone so the channel is actually notified', () => {
+    expect(newProductAlertMessage([p(1, 'Boston Home Jersey')]).split('\n')[0]).toBe('@everyone')
+  })
+
+  it('names the product, its price and its link', () => {
+    const out = newProductAlertMessage([p(1, 'Boston Home Jersey')])
+    expect(out).toContain('Boston Home Jersey')
+    expect(out).toContain('$39.99')
+    expect(out.match(/https?:\/\//g)).toHaveLength(1)
+  })
+
+  // Ten products arrived in one minute on Sep 7. Ten pings is how a channel gets muted.
+  it('batches a drop into one message and counts it', () => {
+    const out = newProductAlertMessage([p(1, 'One'), p(2, 'Two'), p(3, 'Three')])
+    expect(out).toContain('(3)')
+    expect(out.match(/https?:\/\//g)).toHaveLength(3)
+    // One mention, however many products.
+    expect(out.match(/@everyone/g)).toHaveLength(1)
+  })
+
+  it('truncates a very long drop rather than posting a wall', () => {
+    const many = Array.from({ length: 20 }, (_, i) => p(i + 1, `Product ${i + 1}`))
+    const out = newProductAlertMessage(many)
+    expect(out).toContain('(20)')
+    expect(out).toContain('…and 8 more')
+  })
+
+  it('says nothing when nothing is new', () => {
+    expect(newProductAlertMessage([])).toBeNull()
   })
 })
 
