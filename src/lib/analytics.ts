@@ -81,7 +81,8 @@ export const EVENTS = {
   // The bracket pick'em. Both halves are needed and neither implies the other: a strip that
   // nobody was ever shown and one everybody ignored produce the same silence from `cast`
   // alone, and they call for opposite fixes.
-  WPBL_PICKEM_SHOWN:   'wpbl_pickem_shown',   // a series pick strip rendered, props {category, open, from}
+  WPBL_PICKEM_SHOWN:   'wpbl_pickem_shown',   // the pick'em button rendered, props {open, answered, from}
+  WPBL_PICKEM_OPEN:    'wpbl_pickem_open',    // opened the picking sheet, props {answered, from}
   WPBL_PICKEM_CAST:    'wpbl_pickem_cast',    // called a series, props {category, choice}
   // Home's MVP race. The impression is the point of the pair: the card costs a play-log fetch
   // Home had otherwise stopped paying for, so "is it seen" and "is it tapped" have to be

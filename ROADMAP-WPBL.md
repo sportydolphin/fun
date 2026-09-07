@@ -1011,6 +1011,35 @@ page estimates, and it is the part people argue about. Two options a side in a b
 in a best-of-5, taken from `winsNeeded` rather than written out, because a literal 2 or 3 in a
 new file is how one screen comes to need two wins and another three.
 
+**ONE BUTTON ON THE CARD, AND THE PICKING SOMEWHERE ELSE.** The first pass put four chips under
+every series box, which is twelve permanent controls inside a card whose job is to draw a
+bracket, paid for on every visit by every reader including the ones who will never predict
+anything. It also asked both halves of the question at once: "SF in 2" and "BOS in 3" the same
+size and weight in a grid of four, with nothing saying which half you were answering. The card
+now carries one button, and pressing it opens a sheet where there is room.
+
+**TWO TAPS, CLUB THEN LENGTH.** Choosing a club reveals its lengths underneath, in that club's
+own colour, so "in 3" never has to say whose. It is two questions of two or three answers rather
+than one of four or six, and it is the order the sentence is said in. **A win counter was the
+other idea and is worse**: tapping a club to add a win is the shape of the data rather than the
+shape of the thought, and it makes the reader assemble "Firebells in three" a game at a time with
+no obvious way back. **A half-answer is not stored**, either: the club is local state until a
+length is chosen, because the tally holds sentences and a "Firebells in ?" would be a pick nobody
+made.
+
+**NO SIGN-IN WALL**, which was the other thing considered. A pick is keyed to the browser, the
+same rule the fan-award ballot sets and for the reason it gives: an account requirement on a poll
+with nothing at stake costs more real answers than it saves fake ones. It is also the only honest
+option while nothing scores a pick, since signing in would buy the reader precisely nothing today.
+The sheet says where the picks are kept rather than leaving anyone to wonder. **The day there is
+scoring and a leaderboard, that changes**, and it changes by keying on the account, which is a
+decision to take with the leaderboard rather than ahead of it.
+
+**THE CARD KEEPS THE RECEIPT.** Each box carries "Your call, Firebells in 3" once there is one,
+with the share who agreed, and marks it against the result afterwards. A pick that vanished into
+a dialog would be a pick nobody could see they had made, and the button would have nothing to
+show for having been pressed.
+
 **YOUR SEMIFINAL CALLS DECIDE THE FINAL YOU ARE ASKED ABOUT.** The championship has no entrants
 until Sep 14, so a pick'em that waited for them would open the day the thing it predicts is half
 over. Instead it offers the two clubs the reader has already advanced: pick San Francisco and New

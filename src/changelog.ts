@@ -9,20 +9,28 @@ export const CHANGELOG: ChangelogEntry[] = [
     title:   'Call the postseason',
     changes: [
       {
-        short: 'Pick every postseason series, by club and by how many games',
-        full:  'The bracket on the home page now asks you a question under each series: who wins it, and in how many. Two ways for each club in a semifinal, three in the championship. The card already prints each club’s chance to win the series to a percentage, so a winner-only pick would have been you agreeing or disagreeing with a number an inch above it. “In three” is the part nothing here estimates, and it is the part people argue about.',
+        short: 'One button on the bracket: make your picks for all three series',
+        full:  'Who wins each series, and in how many games. The bracket card carries a single button rather than a row of controls under every box, because the card is there to draw a bracket and most readers will never want to predict anything. Pressing it opens the picking on its own, with room to do it properly.',
+      },
+      {
+        short: 'Two taps per series: the club, then how long',
+        full:  'Pick a club and the lengths appear underneath it in that club’s colour: in 2 or in 3 for a semifinal, in 3, 4 or 5 for the final. Asking both halves at once meant four options of equal weight with nothing saying which half you were answering. This says it in the order people say it, and the second question only ever has two or three answers.',
       },
       {
         short: 'Your semifinal calls decide the final you are asked about',
-        full:  'Pick the Firebells and the Heights to advance and the championship asks you about the Firebells against the Heights, before either series has been played. It is a bracket, so it flows like one. Once a semifinal is actually decided the real winner takes over, whoever you picked, and if the club you had in the final is not in it any more the card says so.',
+        full:  'Send the Firebells and the Heights through and the championship asks you about the Firebells against the Heights, before either semifinal has been played. It is a bracket, so it flows like one. Once a semifinal is actually decided the real winner takes over, whoever you picked, and if the club you had in the final is not in it any more you are told and asked again.',
       },
       {
-        short: 'You see how everyone else called it once you have called it yourself',
-        full:  'Each option fills with the share of fans who chose it, after you pick, or as soon as the series starts. Not before: a poll that shows its results first stops measuring what people think and starts measuring what the first fifty people thought. You can change your mind until the first pitch of that series, after which it locks and the result is marked against it.',
+        short: 'Your call shows on each series box, and how many agreed',
+        full:  'Once you have picked, the box carries it: “Your call, Firebells in 3”, with the share of fans who said the same. That share is hidden until you have answered, or until the series starts. A poll that shows its results first stops measuring what people think and starts measuring what the first fifty people thought. Picks change as often as you like until first pitch, then lock and get marked against the result.',
+      },
+      {
+        short: 'No account needed',
+        full:  'Picks are kept on the device you make them on, the same way the fan awards ballot works. Nothing here scores a pick yet, so an account would buy you nothing today and cost the poll a lot of answers.',
       },
       {
         short: 'Fixed: the fan vote could never have been recorded',
-        full:  'The ballot behind this feature went in last week with nothing on the site using it yet, and the way it saved a vote could not work: the table is deliberately unreadable, and the kind of save it was using needs to read the row it is replacing. Every vote would have appeared to land and gone nowhere. Nothing was lost, because nothing had been cast yet, and it is fixed for both this and the fan awards ballot to come.',
+        full:  'The ballot behind this went in last week with nothing on the site using it yet, and the way it saved a vote could not work: the table is deliberately unreadable, and the kind of save it was using needs to read the row it is replacing. Every vote would have appeared to land and gone nowhere. Nothing was lost, because nothing had been cast yet, and it is fixed for this and for the fan awards ballot to come.',
       },
     ],
   },

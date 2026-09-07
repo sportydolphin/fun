@@ -7,7 +7,7 @@ import type { BracketSeries, BracketEntrant, WpblBracket } from './derive/bracke
 import { postseasonOdds, fmtOdds } from './derive/seriesOdds'
 import type { SeriesOdds, WpblPostseasonOdds } from './derive/seriesOdds'
 import { seedingRace } from './derive/seeding'
-import SeriesPicks, { useSeriesPicks } from './SeriesPicks'
+import { useSeriesPicks, SeriesPickLine, PickemButton } from './SeriesPicks'
 import type { SeriesPickState } from './SeriesPicks'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblGame, WpblStandingRow, WpblTeam } from './types'
@@ -226,10 +226,10 @@ function SeriesBox({ series, odds, onOpenTeam, from, bracket, picks }: {
         }}>{dates}</Typography>
       )}
       {odds && <SeriesOddsBar series={series} odds={odds} />}
-      {/* Last in the box, under the odds, because it is the one thing here the reader is meant
-          to answer rather than read: everything above it is the case, and this is the verdict. */}
+      {/* The reader's own call, once they have made one. Read-only: the asking happens in the
+          sheet behind the card's one button, so a box that has not been picked stays a bracket. */}
       {bracket && picks && (
-        <SeriesPicks series={series} bracket={bracket} state={picks} from={from} />
+        <SeriesPickLine series={series} bracket={bracket} state={picks} />
       )}
     </Box>
   )
@@ -527,6 +527,9 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, from = 'home' 
       onToggleCollapse={isPhone ? toggle : undefined}
     >
       <BracketDiagram bracket={bracket} odds={odds} onOpenTeam={onOpenTeam} from={from} picks={picks} />
+      {/* Under the whole diagram rather than inside a box, because it asks about all three
+          series at once and a control repeated three times is three times the chrome. */}
+      <PickemButton bracket={bracket} state={picks} from={from} />
       {odds && !bracket.champion && (
         <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 1, lineHeight: 1.45 }}>
           Odds blend each club’s run differential with its head-to-head results, then

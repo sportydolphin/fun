@@ -2,10 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import type { WpblGame, WpblTeam } from '../types'
 
-// The pick strip as it is drawn inside the bracket. The arithmetic is pinned in
-// seriesPicks.test.ts; what is worth pinning here is the behaviour a pure function cannot
-// have an opinion about: that the tally stays hidden until you answer, that a pick reaches the
-// writer, and that a series already under way cannot be called after the fact.
+// The pick'em as it is used. The arithmetic is pinned in seriesPicks.test.ts; these are the
+// things a pure function cannot have an opinion about, and each is a decision a refactor could
+// quietly undo:
+//
+//   · the bracket card carries ONE control, and no controls at all until it is pressed;
+//   · a club and a length are two questions in that order, and a club alone stores nothing;
+//   · the tally stays hidden until you have answered;
+//   · a series already under way cannot be called after the fact.
 
 const cast = vi.fn(() => Promise.resolve(true))
 let ballot: Record<string, string> = {}
@@ -52,55 +56,99 @@ function season(): WpblGame[] {
 const draw = (games = season()) =>
   render(<PlayoffBracket rows={computeStandings(TEAMS, games)} games={games} />)
 
+/** Press the card's one control and wait for the sheet. */
+async function openSheet() {
+  fireEvent.click(await screen.findByText(/Make your picks|Finish your picks|Change your picks/))
+  await screen.findByText('Call the postseason')
+}
+
+const radio = (name: string) => screen.getByRole('radio', { name })
+const noRadio = (name: string) => screen.queryByRole('radio', { name })
+
 beforeEach(() => { cast.mockClear(); ballot = {}; results = {} })
 
-describe('the bracket pick strip', () => {
-  it('asks each semifinal by club and by length', async () => {
+describe('the pick’em button', () => {
+  // The card draws a bracket. Twelve permanent controls inside it, paid for by every reader
+  // including the ones who never want to predict anything, is what this replaced.
+  it('is the only control on the card, and asks nothing until pressed', async () => {
     draw()
-    await waitFor(() => expect(screen.getAllByRole('radio', { name: 'Semifinal A: SF in 2' })).toHaveLength(1))
-    for (const name of ['SF in 2', 'SF in 3', 'BOS in 2', 'BOS in 3'].map(n => `Semifinal A: ${n}`)) {
-      expect(screen.getByRole('radio', { name })).toBeTruthy()
-    }
+    expect(await screen.findByText('Make your picks')).toBeTruthy()
+    expect(screen.queryAllByRole('radio')).toHaveLength(0)
   })
 
-  // A best-of-five is three lengths, not two. The format is read from derive/series.ts rather
-  // than guessed, and this is the assertion that would fail if somebody wrote a literal.
+  it('says how far through you are', async () => {
+    ballot = { 'pickem:2026:semifinal:A': 'SF:2-0' }
+    const { container } = draw()
+    await waitFor(() => expect(container.textContent).toContain('Finish your picks · 1 of 3'))
+  })
+
+  it('drops to a change affordance once everything open has been called', async () => {
+    ballot = {
+      'pickem:2026:semifinal:A': 'SF:2-0',
+      'pickem:2026:semifinal:B': 'NY:2-1',
+      'pickem:2026:championship': 'SF:3-2',
+    }
+    draw()
+    expect(await screen.findByText('Change your picks')).toBeTruthy()
+  })
+})
+
+describe('picking a series', () => {
+  it('asks for a club before it asks how long', async () => {
+    draw()
+    await openSheet()
+    expect(radio('Semifinal A: SF to win')).toBeTruthy()
+    expect(radio('Semifinal A: BOS to win')).toBeTruthy()
+    expect(noRadio('Semifinal A: SF in 2')).toBeNull()
+
+    fireEvent.click(radio('Semifinal A: SF to win'))
+    expect(radio('Semifinal A: SF in 2')).toBeTruthy()
+    expect(radio('Semifinal A: SF in 3')).toBeTruthy()
+  })
+
+  // A half-answer is not a prediction, and a "Firebells in ?" in the tally would be a pick
+  // nobody made.
+  it('stores nothing until the length is chosen', async () => {
+    draw()
+    await openSheet()
+    fireEvent.click(radio('Semifinal A: SF to win'))
+    expect(cast).not.toHaveBeenCalled()
+
+    fireEvent.click(radio('Semifinal A: SF in 3'))
+    expect(cast).toHaveBeenCalledWith('pickem:2026:semifinal:A', 'SF:2-1')
+  })
+
+  // A best-of-five is three lengths, not two. The format is read from derive/series.ts, and this
+  // is the assertion that fails if somebody writes a literal.
   it('asks the championship in three, four or five', async () => {
     ballot = { 'pickem:2026:semifinal:A': 'SF:2-0', 'pickem:2026:semifinal:B': 'NY:2-1' }
     draw()
-    await waitFor(() => expect(screen.getByRole('radio', { name: 'Championship: SF in 5' })).toBeTruthy())
-    expect(screen.getByRole('radio', { name: 'Championship: NY in 3' })).toBeTruthy()
-    // A best-of-five cannot end 3-0 in two games, so the semifinals' shortest option must not
-    // appear here. It is the one assertion that fails if the length is guessed rather than read.
-    expect(screen.queryByRole('radio', { name: 'Championship: SF in 2' })).toBeNull()
+    await openSheet()
+    fireEvent.click(radio('Championship: SF to win'))
+    expect(radio('Championship: SF in 5')).toBeTruthy()
+    expect(noRadio('Championship: SF in 2')).toBeNull()
   })
 
-  // A poll that shows its results first measures how the first fifty voters felt, because
+  // The final has no clubs until the semifinals end, and the reader's own calls are what supply
+  // them. Saying so beats a blank space where the third question should be.
+  it('asks for the semifinals before it will ask for the final', async () => {
+    draw()
+    await openSheet()
+    expect(screen.getByText(/Call both semifinals/)).toBeTruthy()
+    expect(noRadio('Championship: SF to win')).toBeNull()
+  })
+
+  // A poll that shows its results first measures what the first fifty voters thought, because
   // everyone after them is answering a different question.
   it('hides the tally until you have answered', async () => {
     results = { 'pickem:2026:semifinal:A': { 'SF:2-0': 9, 'BOS:2-1': 1 } }
     draw()
-    await waitFor(() => expect(screen.getByRole('radio', { name: 'Semifinal A: SF in 2' })).toBeTruthy())
-    expect(screen.getByRole('radio', { name: 'Semifinal A: SF in 2' }).textContent).toBe('in 2')
+    await openSheet()
+    expect(radio('Semifinal A: SF to win').textContent).toBe('SF')
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Semifinal A: BOS in 3' }))
-    await waitFor(() =>
-      expect(screen.getByRole('radio', { name: 'Semifinal A: SF in 2' }).textContent).toContain('%'))
-  })
-
-  it('records the pick under the series’ own permanent id', async () => {
-    draw()
-    await waitFor(() => expect(screen.getByRole('radio', { name: 'Semifinal A: SF in 3' })).toBeTruthy())
-    fireEvent.click(screen.getByRole('radio', { name: 'Semifinal A: SF in 3' }))
-    expect(cast).toHaveBeenCalledWith('pickem:2026:semifinal:A', 'SF:2-1')
-  })
-
-  // The final cannot be asked about before its clubs exist, and the reader's own calls are
-  // what supply them. Saying so beats a blank space under the one box with no question in it.
-  it('asks for the semifinals before it asks for the final', async () => {
-    const { container } = draw()
-    await waitFor(() => expect(container.textContent).toContain('Call both semifinals'))
-    expect(screen.queryByRole('radio', { name: /in 5$/ })).toBeNull()
+    fireEvent.click(radio('Semifinal A: BOS to win'))
+    fireEvent.click(radio('Semifinal A: BOS in 3'))
+    await waitFor(() => expect(radio('Semifinal A: SF to win').textContent).toContain('%'))
   })
 
   // A prediction made after the first pitch is not a prediction.
@@ -110,11 +158,30 @@ describe('the bracket pick strip', () => {
       home_score: 4, away_score: 2, game_type: 'Semifinal A', counts_in_standings: false,
     })]
     ballot = { 'pickem:2026:semifinal:A': 'SF:2-0' }
-    results = { 'pickem:2026:semifinal:A': { 'SF:2-0': 3, 'BOS:2-1': 1 } }
-    const { container } = draw(started)
-    // Still shown, still counted, no longer answerable: no radio role means no way to change it.
-    await waitFor(() => expect(container.textContent).toContain('Fans called it'))
-    expect(screen.queryByRole('radio', { name: 'Semifinal A: SF in 2' })).toBeNull()
+    draw(started)
+    await openSheet()
+    expect(screen.getByText(/Under way, so this one is locked/)).toBeTruthy()
+    expect(noRadio('Semifinal A: SF to win')).toBeNull()
     expect(cast).not.toHaveBeenCalled()
+  })
+})
+
+describe('the card afterwards', () => {
+  // The receipt. A pick that vanished into a dialog would be one nobody could see they had made.
+  it('shows your call on the series box', async () => {
+    ballot = { 'pickem:2026:semifinal:A': 'SF:2-1' }
+    const { container } = draw()
+    await waitFor(() => expect(container.textContent).toContain('Your call'))
+    expect(container.textContent).toContain('SF in 3')
+  })
+
+  it('marks a call that came in', async () => {
+    const played = [...season(),
+      game({ game_date: '2026-09-09', home_team_id: 'SF', away_team_id: 'BOS', home_score: 4, away_score: 2, game_type: 'Semifinal A', counts_in_standings: false }),
+      game({ game_date: '2026-09-11', home_team_id: 'BOS', away_team_id: 'SF', home_score: 1, away_score: 5, game_type: 'Semifinal A', counts_in_standings: false }),
+    ]
+    ballot = { 'pickem:2026:semifinal:A': 'SF:2-0' }
+    const { container } = draw(played)
+    await waitFor(() => expect(container.textContent).toContain('You called it'))
   })
 })
