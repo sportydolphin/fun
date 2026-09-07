@@ -982,6 +982,47 @@ is retired.
 
 ## Shipped log
 
+### Sep 7, 2026: a listener on the league's live socket, in case TrackMan comes back
+
+**Asked to find TrackMan anywhere, and to trust nothing already written down.** Everything was
+retested from scratch. What we hold is **766 rows from two games, Aug 1-3 only**: 677 pitches
+(release speed, spin rate, extension, vertical and horizontal break, plate location, pitch type)
+and 89 batted balls (**exit speed and launch angle**). No hit distance anywhere: the rows carry
+`distance_unit: "feet"` and never a distance, although the ingest's own comment says `/activity`
+adds one on hit events, so a live feed might.
+
+**Every REST path is closed, confirmed rather than remembered.** `/v1/games/{id}/activity` still
+answers `401 missing api key`. The boxscore no longer carries `tracking_activity` AS A KEY, not
+merely empty, on every game including the two we have rows for, and `?include=tracking_activity`,
+`?tracking=1`, `?include=all`, `?expand=tracking` and `?with=tracking_activity` all return the
+same 86,074 bytes. `/v1/pitches`, `/v1/activity`, `/v1/tracking`, `/v1/trackman`, `/v1/leaders`,
+`/v1/stats`, `/v1/metrics` and `/v1/sessions` are 404. `/v1/teams` and `/v1/games?limit=200` carry
+zero occurrences of trackman, tracking, exit, launch, velo, spin or distance. The stats host root
+is 401, the three prestosports hosts 403, and the league's own stats page is server-rendered
+batting and pitching with no tracking column and no API call behind it.
+
+**What IS open is their own socket**, found by reading `wpbl-draft-picks/assets/js/live-stats.js`
+on their site: `wss://stats.womensprobaseballleague.com/v1/ws?channel=boxscore:<gameId>`, no key,
+no token, and a handler that switches on three envelope types, the third being
+**`tracking_activity_updated`**. The tracking path is still wired on their server and is not
+gated on the socket; it has nothing to push while the provider is silent. Connected from Node and
+confirmed: subscribe works, `boxscore_snapshot` arrives, `game:<id>` snapshots too, and
+`tracking:<id>` / `activity:<id>` / `games` / `scoreboard` accept a subscribe and send nothing.
+
+`scripts/listen-wpbl-tracking.mjs` holds that socket open through a game and writes any tracking
+that arrives, keyed and shaped exactly as the ingest writes it so the two are indistinguishable
+and idempotent. **It writes tracking and nothing else**: box scores are the ingest's, and two
+writers on one row is how they come to disagree. It reads snapshots only in case the league puts
+`tracking_activity` back in them. It collapses the timezone twins so the phantom copy does not
+get a socket, skips a game the ingest has no row for yet, reconnects with backoff, and ends by
+saying in as many words whether anything was published, which is the answer the job exists to
+give.
+
+**Two windows, Sep and Oct only**, because a socket has to be open before the pitch it exists to
+catch: 18:20 UTC for the 2 PM Central games and 21:20 UTC for the 5 and 6 PM ones. Free, since
+Actions minutes are unlimited on a public repo. If the semifinals come and go with nothing on the
+socket, that is a settled answer rather than a guess.
+
 ### Sep 7, 2026: the backwards K, and a count that could not exist (v1.74.2)
 
 **A mirrored K is a STRIKEOUT LOOKING, not a called strike.** `PitchSequence` mirrored every 'K'

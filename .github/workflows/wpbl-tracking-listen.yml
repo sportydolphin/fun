@@ -1,0 +1,65 @@
+name: WPBL Tracking Listener
+
+on:
+  schedule:
+    # TWO WINDOWS, because the postseason has two first-pitch slots and a socket has to be open
+    # BEFORE the pitch it exists to catch. Every game is at Robin Roberts Stadium on Central time:
+    #   2:00 PM CDT = 19:00 UTC  (Sep 13 and Sep 20)
+    #   5:00 PM CDT = 22:00 UTC  (Sep 11)
+    #   6:00 PM CDT = 23:00 UTC  (everything else)
+    # The afternoon job opens at 18:20 and holds four hours; the evening job opens at 21:20 and
+    # holds five and a half, which covers a 23:00 first pitch plus a long game and extras.
+    - cron: '20 18 * 9,10 *'
+    - cron: '20 21 * 9,10 *'
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: 'How long to hold the sockets open.'
+        required: true
+        default: '60'
+      dry_run:
+        description: 'Connect and report without writing anything.'
+        required: true
+        default: 'false'
+        type: choice
+        options: ['true', 'false']
+
+# One listener at a time. Two overlapping jobs would each write the same rows, which upsert
+# harmlessly, and would each hold a socket the league has no reason to serve twice.
+concurrency:
+  group: wpbl-tracking-listen
+  cancel-in-progress: false
+
+jobs:
+  listen:
+    runs-on: ubuntu-latest
+    # A little more than the longest run the script itself will take, so the job is killed by its
+    # own deadline rather than by the runner mid-write.
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 22 or newer: the script uses Node's built-in WebSocket rather than adding a dependency.
+          node-version: '22'
+
+      - name: Install dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Listen for TrackMan on the league's live socket
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # A scheduled run has no `inputs`, so these are empty there and the defaults apply:
+          # the evening window is the long one, so the script's own 240 is raised for it.
+          MAX_MINUTES: ${{ inputs.minutes || (github.event.schedule == '20 21 * 9,10 *' && '330' || '240') }}
+          DRY_RUN:     ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            node scripts/listen-wpbl-tracking.mjs --dry-run
+          else
+            node scripts/listen-wpbl-tracking.mjs
+          fi
