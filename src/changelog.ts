@@ -4,6 +4,33 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.71.0',
+    date:    '2026-09-06',
+    title:   'The play-by-play says who did what',
+    changes: [
+      {
+        short: 'A pickoff attempt no longer reads as if the runner failed at something',
+        full:  'The league writes these as "Lexi Hastings Failed pickoff attempt", and Hastings is the runner: the pitcher threw over and did not get her. On the page it read as though she had failed at something. All 139 of them now read "Failed pickoff attempt at Lexi Hastings", which is the same fact the right way round.',
+      },
+      {
+        short: 'Substitutions stopped being printed as if they were plays',
+        full:  'A line reading "Jamie Mackay to lf" between two at-bats looks like something she did at the plate. It is a defensive change, and 109 of them were being given a play’s weight because the league writes them without the "for So-and-so" the old rule looked for. Another 29 arrived as a bare slash where the incoming player’s name should be, and printed as "/ for Ayami Sato", which looks like the page is broken. Both now sit in the quiet substitution style, the second named as what it is.',
+      },
+      {
+        short: 'Who made the play is named on a runner being thrown out, not just on the batter',
+        full:  'A runner retired at second read "out at 2nd" with the fielders removed, on the reasoning that "out at second" has already said what happened. It has said what, and never by whom. It now reads "out at 2nd, ss to 2b", the same way a double play does.',
+      },
+      {
+        short: 'Three more lines where the name shown was not the one who did it',
+        full:  'From the 8th inning on, the league writes the batter due up and the runner placed on second as two names in a row, so the line read as the batter having placed her there; it now names the runner and says what it is. A dropped foul ball was printed under the batter’s name with the league’s scoring shorthand, "Dropped foul ball, E3", when it is the first baseman who dropped it; it now says so in the same words the rest of the list uses for a fielder. And a pinch hitter being announced is a roster move, not a plate appearance, so it sits with the other substitutions rather than in a play’s weight.',
+      },
+      {
+        short: 'A fielder is named one way, and "singled to 3rd base" is gone',
+        full:  'The league names a fielder two ways in the same game: "grounded out to 2b" and "singled to second base". The second collided with the shortening that turns a runner’s destination into "2nd", so 46 plays printed things like "singled to 3rd base", which is not English and was ours rather than the league’s. Fielders are now written one way throughout. Sixteen plays that the league sent with no description at all used to draw an empty row in the middle of an inning; they draw nothing now.',
+      },
+    ],
+  },
+  {
     version: '1.70.1',
     date:    '2026-09-06',
     title:   'The pitching line adds itself up',

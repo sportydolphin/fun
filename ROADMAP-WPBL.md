@@ -982,6 +982,67 @@ is retired.
 
 ## Shipped log
 
+### Sep 6, 2026: an audit of all 2,836 play descriptions (v1.71.0)
+
+**Asked to check whether the play-by-play was oversimplifying, so every stored narrative was run
+through the shipped `parsePlay` and diffed against what a reader ends up seeing.** Five things
+came out of it, four of them ours rather than the feed's.
+
+**A pickoff said the opposite of what it meant, 139 times.** The feed writes "Lexi Hastings
+Failed pickoff attempt", and the name is the RUNNER: the pitcher threw over and missed her.
+Printed as sent, with a capital F mid-line, it reads as Hastings having failed at something.
+Checked on all 139: the name is never the batter and never the pitcher, and always a teammate of
+the batter. They read "Failed pickoff attempt at Lexi Hastings" now.
+
+**138 substitutions were being printed as plays.** `SUBSTITUTION_RE` wanted "X to p for Y", and
+the league also writes a defensive move as a bare "Jamie Mackay to lf" (109 of those), which in a
+play's weight between two at-bats reads as something she did at the plate. Another 29 are the
+feed losing the incoming player's name entirely and sending "/  for Ayami Sato", which printed
+verbatim and reads as a rendering fault. The rule now recognises all three shapes; what keeps it
+off real plays is that a play always has a lowercase verb in it and a name does not, which is
+zero false positives across all 2,836 rows.
+
+**"singled to 3rd base", 46 times, and it was ours.** The feed names a fielder two ways in one
+game, "grounded out to 2b" and "singled to second base", and the second collided with the
+base-name shortening that turns a runner's destination into "2nd". A fielder is now written one
+way throughout (`FIELDER_WORDS`), which is safe because the feed never spells a runner's
+destination as "second base": it writes "advanced to second", every time, in 2,836 plays.
+
+**The fielders came back on a runner being thrown out.** "out at second ss to 2b" printed as
+"out at 2nd", on the reasoning that "out at second" has already said what happened. It has said
+what, never by whom, and that was the last place the section still deleted a fielder after the
+Sep 6 double-play fix. It reads "out at 2nd, ss to 2b" now, and the unassisted spelling, which
+carries no "to" for the sequence rule to see, is punctuated to match.
+
+**16 rows the feed sends with no narrative at all** drew an empty bordered row mid-inning, which
+reads as a play that failed to load. `parsePlay` returns `kind: 'blank'` for them and the list
+draws nothing.
+
+**A second pass over the same corpus, once those were in, found three more of the same kind and
+two feed defects.** THE EXTRA-INNINGS RUNNER: from the 8th on the feed writes "Kate Blunt Hyeonah
+Kim placed on second", the batter due up followed by the runner the rule puts on second, and with
+the batter lifted out and bolded the line read as Blunt placing her there. It names the runner
+now and says what it is. THE DROPPED FOUL BALL: "Ashton Lansdell Dropped foul ball, E3" is the
+first baseman dropping it, not Lansdell, and E3 is scorer's notation this section explains
+nowhere; it reads "Foul ball dropped by 1b". A PINCH HITTER is a roster move, and 34 of them sat
+in a play's weight because the feed writes "Lexi Hastings pinch hit for Beth Greenwood" rather
+than the "to ph for" the substitution rule wanted. The two defects: a lineout doubled off by one
+fielder carries a single position and no "to", so it was the one double play left unpunctuated,
+and one clause in the season is a runner's name printed twice with no verb, which renders as a
+fault and is now dropped.
+
+**Deliberately not changed.** A runner-only line ("Natsuki Yonetani stole second") prints its
+name as plain text rather than the bold link a batter gets, because `who` is filled only when
+the narrative opens with the play's own batter and matching on the name instead would have to
+survive the shortening already applied to it. 
+
+**What the corpus says now**: 267 distinct outcomes and 71 distinct runner clauses across 2,836
+plays, with no empty line, no stray punctuation, no clause ending mid-phrase, and every word the
+feed sends either on the page or accounted for (the deliberate abbreviations, and "unearned",
+which is an accounting distinction rather than something that happened on the field).
+
+17 tests in `__tests__/playByPlay.test.ts`, up from 4.
+
 ### Sep 6, 2026: the box score totalled its batting and not its pitching (v1.70.1)
 
 **A reader asked for pitching totals and then said they were not sure why they had, because

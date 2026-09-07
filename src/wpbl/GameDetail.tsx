@@ -586,6 +586,9 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
               <Box sx={{ mt: 0.75 }}>
                 {g.plays.map((p, i) => {
                   const parsed = parsePlay(p.narrative, p.batter_name, shortenNames)
+                  // The feed sends a handful of plays with no narrative at all. Drawn, they are
+                  // an empty bordered row mid-inning, which reads as a play that failed to load.
+                  if (parsed.kind === 'blank') return null
                   // A substitution is roster bookkeeping between at-bats. Given the same
                   // weight as a play it reads like one, so it gets its own quieter line.
                   if (parsed.kind === 'substitution') {
