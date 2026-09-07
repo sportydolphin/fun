@@ -996,6 +996,50 @@ is retired.
 
 ## Shipped log
 
+### Sep 7, 2026: a bracket you can read across the room (v1.77.0)
+
+**"Nothing really pops besides the button", and the numbers agreed.** Measured on the card as it
+stood, at a 1218px width:
+
+- The biggest type in a series box was the club name at **16px, weight 600, plain white**. The
+  card directly beneath it, Next game, sets its club names at 24px and bold. A bracket cannot be
+  the quietest thing on a page about the postseason.
+- Everything else in the box was **12px**: the round label, "Best of 3", the seed, the dates, two
+  percentages and the season series. Six treatments at one size is the flat-hierarchy problem the
+  Sep 4 game header had, arrived at from the other direction.
+- The only colour in a card about four clubs with four strong identities was a **6px bar** and two
+  12px numbers.
+- **279px of the 506px height was blank**: a 598 by 165 hole in the top right, and 114px of
+  matching slack between the two semifinal boxes. About a quarter of the card.
+
+**THE ROW IS THE BAR NOW.** Each club's chance to take its series is drawn as a field behind that
+club's own name, in that club's own tint, with its own number at the end of its own row. That is
+the same information the two-tone bar carried, minus the legend, minus a row of height, and minus
+the thing that was actually wrong with it: a bar running red at one end and green at the other
+reads as good-against-bad rather than as San Francisco against Boston. `wpblSurface` and not
+`wpblAccent`, because this is a field with text on it, which is the whole reason that third colour
+role exists.
+
+**And the percentage is always the club's own colour**, not the favourite's. Keying it on
+`leading` looked right and rendered both numbers grey, because `leading` means "ahead in the
+series" and before a series starts nobody is.
+
+**Names to 21px, everything else down to one size.** Two tiers where there were none: the club and
+its number, then a single quiet 12px for the label, the seed, the dates and the season series. The
+dates and the season series share one line, which is what the odds moving into the rows freed up.
+
+**THE HOLE WAS NOT A SPACE TO FILL, IT WAS A SHAPE TO STOP MAKING.** Two boxes on the left against
+one on the right leaves the right column short unless the one box is allowed to be tall, because
+the connector's elbow needs the championship vertically centred. So the championship stretches to
+the column and takes the title odds inside it, where they belonged anyway: "chance to win it all"
+IS the championship's question, and it was being asked in a separate strip underneath the box that
+asks it. The elbow still lands with no arithmetic, since a box that fills the column has its centre
+at the column's centre. `mt: auto` on the odds block collects the slack inside the box rather than
+above it.
+
+**506px to 358px**, with the gap between the semifinals down from 114px to 8px, and nothing
+clipping at 375px or at 1.4x text in either theme.
+
 ### Sep 7, 2026: call the postseason (v1.76.0)
 
 **Asked for as a small feature on top of the vote, and the vote turned out not to work.** The

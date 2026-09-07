@@ -81,11 +81,14 @@ describe('PlayoffBracket', () => {
     within(screen.getByText(label).closest('div')!.parentElement!)
       .getAllByRole('button').map(r => r.textContent)
 
-  it('shows no win column before a series has been played', () => {
+  it('shows the odds, and no win column, before a series has been played', () => {
     // The failure this guards: a "0" beside each club on Aug 20, which reads as a series that
-    // has been played and finished nil-nil rather than one that has not started.
+    // has been played and finished nil-nil rather than one that has not started. The end of the
+    // row carries the club's chance instead until there is a real count to put there, and never
+    // both: a count and a percentage in one column is something a reader has to be told how to
+    // read.
     draw(season(), vi.fn())
-    expect(rowsOf('Semifinal A')).toEqual(['1SF', '4BOS'])
+    expect(rowsOf('Semifinal A')).toEqual(['1SF>99%', '4BOS<1%'])
     expect(screen.getAllByText('Best of 3')).toHaveLength(2)
   })
 

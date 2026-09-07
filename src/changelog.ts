@@ -4,6 +4,25 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.77.0',
+    date:    '2026-09-07',
+    title:   'A bracket you can read across the room',
+    changes: [
+      {
+        short: 'Each club’s chance to win its series is now the row it is written on',
+        full:  'The odds used to be a six-pixel bar under both clubs with a percentage at each end, which meant a bar running red at one end and green at the other: that reads as good-against-bad rather than as San Francisco against Boston. Each club’s chance is now drawn as a field behind its own name, in its own colour, with its own number at the end of its own row. Same information, no legend, and the colour finally says whose it is.',
+      },
+      {
+        short: 'Club names are half again bigger, and the card is a quarter shorter',
+        full:  'The biggest thing in a series box was a 16px club name, which is smaller than the club names on the card directly underneath it, so nothing in the bracket had any weight. Names are 21px now, the percentages 19px, and the seed, the dates and the season series have dropped back to one quiet size. The published dates and the season series share one line where there used to be three.',
+      },
+      {
+        short: 'The championship is a full-height card with the title odds inside it',
+        full:  'The bracket had a 598 by 165 hole in its top right and a matching 114px gap between the two semifinals: about a quarter of the card was blank. Two boxes on the left against one on the right will always leave the right side short unless that one box is allowed to be tall, so it is. Chance to win it all now lives inside the championship box, which is the box that asks that question, instead of in a strip underneath it. The whole thing is 358px where it was 506.',
+      },
+    ],
+  },
+  {
     version: '1.76.0',
     date:    '2026-09-07',
     title:   'Call the postseason',
