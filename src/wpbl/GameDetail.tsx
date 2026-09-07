@@ -3,9 +3,10 @@ import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import { supabase } from '../lib/supabase'
 import { track, EVENTS } from '../lib/analytics'
 import { fetchWpblAllPlayers, fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblGameDetails, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllRunValuePlays, LIVE_POLL_MS } from './api'
-import { WPBL_ACCENT, wpblAccent, wpblFullName, outsToIp, playedInnings, formatGameTime, relativeDayLabel } from './constants'
+import { WPBL_ACCENT, wpblAccent, wpblSurface, wpblFullName, outsToIp, playedInnings, formatGameTime, relativeDayLabel } from './constants'
 import { seriesContext } from './derive/series'
 import { LiveBanner, useLiveGame, LIVE_RED } from './Live'
+import { boxScoreRevision, formatRevisionDay } from './derive/feedHealth'
 import { useForegroundInterval } from './refresh'
 import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
@@ -138,63 +139,79 @@ function StatCell({ children, bold = false, dense = false }: { children: React.R
 // spent restating it. Team column shows the full "City Nickname" on desktop, the nickname
 // alone on a phone, and the innings + R/H/E scroll horizontally if they overrun the width.
 /**
- * First pitch, length of game, the crew and the weather: the four things the league's feed
- * does not carry, transcribed by RetroWPBL and used with permission.
+ * The reference block: the facts about a game that are not the game.
  *
- * RENDERS NOTHING AT ALL when there is no row, and that is the common case rather than the
- * edge one. The source is one person writing games up by hand and it runs several games
- * behind the schedule, so the newest game in the section is exactly the one least likely to
- * have this. An empty state saying "not transcribed yet" would therefore be the thing most
- * readers saw, on the game they most wanted, which is worse than a quiet absence.
+ * WHY IT IS AT THE FOOT OF THE RECAP AND NOT IN THE HEADER, which is where all of this used
+ * to be. A reader opening a final on a phone got, above the fold and before anything else: a
+ * ten-column grid, how long the game took, the weather, the umpires' names, a transcription
+ * credit and a revision stamp. That is 268px of a 390x844 screen, about 43% of the sheet, and
+ * nine different type treatments, none of which is why anybody opens a game. None of it is
+ * junk; all of it is reference, wanted on the fifth visit and never on the first.
  *
- * The attribution is not decoration. Permission was given for this data and the credit is the
- * consideration, so it renders whenever the data does, in the same block, and links out.
+ * ONE LABEL STYLE AND ONE VALUE STYLE, which is the other half of the same complaint. The four
+ * things here used to be drawn four ways.
+ *
+ * THE CREDIT IS TIED TO ITS OWN DATA. Length, weather and the crew are RetroWPBL's, given with
+ * permission, and the credit is the consideration: it renders whenever any of those do, in the
+ * same block. Errors and the revision stamp are ours, off our own row, so a game with no
+ * transcription yet shows those and no credit. Crediting them for our numbers would be worse
+ * than not crediting them at all.
+ *
+ * IT DOES NOT REPEAT THE LINE SCORE. Errors lived here for one draft, while the line score was
+ * dropping H and E on a phone; the line score kept them, so this does not carry them. One number
+ * in two places is how the two come to disagree.
  */
-function GameConditions({ details }: { details: WpblGameDetails | null }) {
-  if (!details) return null
-  // `umpire_crew` and not the four positional columns: those are the assignment at first
-  // pitch, and one game this season changed the plate umpire in the 6th, which left that
-  // game's third official off the list entirely.
-  const crew = details.umpire_crew?.filter(Boolean) ?? []
-  const weather = [
-    details.temp_f != null ? `${details.temp_f}°F` : null,
-    details.sky,
-    // "none" is the transcriber saying they checked, which is not worth a line of its own.
-    details.precip && details.precip.toLowerCase() !== 'none' ? details.precip : null,
-    details.field_cond && details.field_cond.toLowerCase() !== 'dry' ? `${details.field_cond} field` : null,
-  ].filter(Boolean).join(' · ')
-  // No first-pitch row. It is stored, and it turned out to be the SCHEDULED start: it matched
-  // our own `start_time` on all 11 games checked, one of them played through drizzle. Showing
-  // a number we already hold, under a label claiming more precision than it has, and crediting
-  // a source for it, would be three small wrongs.
+function GameInfo({ game, details }: { game: WpblGame; details: WpblGameDetails | null }) {
   const facts: { label: string; value: string }[] = []
-  if (details.duration_minutes != null) {
+
+  if (details?.duration_minutes != null) {
     const h = Math.floor(details.duration_minutes / 60)
     facts.push({ label: 'Length', value: h > 0 ? `${h}h ${details.duration_minutes % 60}m` : `${details.duration_minutes}m` })
   }
+  const weather = [
+    details?.temp_f != null ? `${details.temp_f}°F` : null,
+    details?.sky,
+    // "none" is the transcriber saying they checked, which is not worth a line of its own.
+    details?.precip && details.precip.toLowerCase() !== 'none' ? details.precip : null,
+    details?.field_cond && details.field_cond.toLowerCase() !== 'dry' ? `${details.field_cond} field` : null,
+  ].filter(Boolean).join(' · ')
   if (weather) facts.push({ label: 'Weather', value: weather })
+  // `umpire_crew` and not the four positional columns: those are the assignment at first
+  // pitch, and one game this season changed the plate umpire in the 6th, which left that
+  // game's third official off the list entirely.
+  const crew = details?.umpire_crew?.filter(Boolean) ?? []
   if (crew.length) facts.push({ label: crew.length > 1 ? 'Umpires' : 'Umpire', value: crew.join(', ') })
-  if (facts.length === 0) return null
+  /** Whether anything above came from RetroWPBL, which is what the credit is for. */
+  const transcribed = facts.length > 0
+
+  const revision = boxScoreRevision(game)
+  if (revision) {
+    facts.push({ label: 'Box score revised', value: formatRevisionDay(revision.on) })
+  }
+  if (!facts.length) return null
 
   return (
-    <Box sx={{ px: 2, mt: 1.25 }}>
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2, rowGap: 0.5 }}>
+    <Box sx={{ px: 2, pt: 2.5, pb: 1 }}>
+      <Typography sx={{
+        fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 1,
+        color: 'text.disabled', mb: 0.75,
+      }}>Game info</Typography>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 2, rowGap: 0.5 }}>
         {facts.map(f => (
-          <Box key={f.label} sx={{ minWidth: 0 }}>
-            <Typography component="span" sx={{
-              fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5,
-              color: 'text.disabled', mr: 0.6,
-            }}>{f.label}</Typography>
-            <Typography component="span" sx={{ fontSize: '0.78rem', color: 'text.secondary' }}>{f.value}</Typography>
+          <Box key={f.label} sx={{ display: 'contents' }}>
+            <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled', whiteSpace: 'nowrap' }}>{f.label}</Typography>
+            <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary' }}>{f.value}</Typography>
           </Box>
         ))}
       </Box>
-      <Typography sx={{ fontSize: '0.65rem', color: 'text.disabled', mt: 0.6 }}>
-        Transcribed by{' '}
-        <Box component="a" href="https://github.com/exu6jh/RetroWPBL" target="_blank" rel="noopener noreferrer"
-          sx={{ color: 'inherit', textDecoration: 'underline' }}>RetroWPBL</Box>
-        , used with permission.
-      </Typography>
+      {transcribed && (
+        <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', mt: 1 }}>
+          Length, weather and the crew transcribed by{' '}
+          <Box component="a" href="https://github.com/exu6jh/RetroWPBL" target="_blank" rel="noopener noreferrer"
+            sx={{ color: 'inherit', textDecoration: 'underline' }}>RetroWPBL</Box>
+          , used with permission.
+        </Typography>
+      )}
     </Box>
   )
 }
@@ -226,8 +243,17 @@ function Scoreboard({ away, home, game, awayWon, homeWon, onOpenTeam }: {
     && runsThrough(game.home_line, lastInning - 1) > runsThrough(game.away_line, lastInning)
   const row = (team: WpblTeam, line: WpblGame['away_line'], runs: number | null, hits: number | null | undefined, errs: number | null | undefined, won: boolean, isHome = false) => {
     const accent = wpblAccent(team.id, isDark)
+    // THE WINNING ROW IS TINTED IN THE CLUB'S OWN COLOUR, which is what carries the result now
+    // that every number in the row is the same size. A line score is twelve numbers and the one
+    // a reader came for is the R: making that bigger was one way to say so and this is the
+    // quieter one, since the tint marks the whole row rather than competing with the innings
+    // beside it. Same surface Home's club bands use, so a reader arriving from the scoreboard
+    // meets the colour they tapped.
     return (
-      <Box component="tr" sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+      <Box component="tr" sx={{
+        borderTop: '1px solid', borderColor: 'divider',
+        bgcolor: won ? wpblSurface(team.id, isDark) : 'transparent',
+      }}>
         {/* Thin team-color stripe on the winning row; a transparent one on the loser keeps
             both rows aligned. */}
         <Box component="td" sx={{ py: 0.5, pr: 1.5, pl: 1, borderLeft: '3px solid', borderColor: won ? accent : 'transparent' }}>
@@ -429,6 +455,17 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
 }
 
 // ─── Play-by-play ──────────────────────────────────────────────────────────────
+//
+// Whether the reader has asked for every half-inning open. Per reader and per browser, not per
+// game: a fourteen-click expansion is the same nuisance on the next game as on this one.
+const PBP_EXPAND_KEY = 'wpbl_pbp_expand_all'
+const readPbpExpandAll = (): boolean => {
+  try { return localStorage.getItem(PBP_EXPAND_KEY) === '1' } catch { return false }
+}
+const writePbpExpandAll = (on: boolean) => {
+  try { localStorage.setItem(PBP_EXPAND_KEY, on ? '1' : '0') } catch { /* private mode / quota */ }
+}
+
 // The feed logs each plate appearance as a terse pitch string like "BBFBP" — one letter
 // per pitch. The letters are cryptic on their own (and the feed's own `type`/`description`
 // are unreliable: it tags 'K' as "Unknown pitch code" and 'P' as "Pitchout"), so we decode
@@ -538,6 +575,31 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
     return next
   })
 
+  // Expand all, and REMEMBERED, which is the half that makes it worth having. A reader who
+  // wants the whole log wants it on the next game too, and fourteen half-innings to click is
+  // the complaint whether it is one game or every game. Stored per reader in localStorage like
+  // the units and ERA-basis settings, defaulting off so the tab still opens compact for
+  // everyone who has not asked.
+  const [expandAll, setExpandAll] = useState(readPbpExpandAll)
+  const allOpen = groups.length > 0 && groups.every(g => expanded.has(g.key))
+  const toggleAll = () => {
+    const next = !allOpen
+    setExpandAll(next)
+    writePbpExpandAll(next)
+    setExpanded(next ? new Set(groups.map(g => g.key)) : new Set())
+  }
+
+  // A live game gains half-innings while the reader is watching, and with the preference on
+  // those have to arrive open. Only the ones never seen before: reapplying it to every key
+  // would reopen a half-inning the reader had just closed by hand, every two minutes.
+  const seenGroups = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const fresh = groups.map(g => g.key).filter(k => !seenGroups.current.has(k))
+    if (!fresh.length) return
+    for (const k of fresh) seenGroups.current.add(k)
+    if (expandAll) setExpanded(prev => new Set([...prev, ...fresh]))
+  }, [groups, expandAll])
+
   if (plays.length === 0) {
     return <EmptyBody title="No play-by-play yet" hint="The feed's play log appears here once the game begins." />
   }
@@ -554,14 +616,35 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
        It leaves the expanded prose better off too, at roughly 50 characters a line rather than
        66, which is nearer the middle of a comfortable measure than the top of it. */
     <Box sx={{ p: 2, maxWidth: chromePx(720), mx: 'auto' }}>
+      {/* One control, right-aligned above the log, in the weight of the half-inning headings it
+          operates rather than as a button competing with them. It says what it will DO, so it
+          reads "Collapse all" only once everything actually is open, however that happened. */}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 0.5 }}>
+        <Box
+          {...pressable(toggleAll)}
+          aria-label={allOpen ? 'Collapse every half-inning' : 'Expand every half-inning'}
+          sx={{
+            ...FOCUS_RING, display: 'inline-flex', alignItems: 'center', gap: 0.4,
+            px: 0.5, py: 0.25, borderRadius: 1, cursor: 'pointer',
+            fontSize: '0.68rem', fontWeight: 800, letterSpacing: 0.6,
+            textTransform: 'uppercase', color: 'text.secondary', userSelect: 'none',
+            '@media (hover: hover)': { '&:hover': { color: 'text.primary' } },
+          }}
+        >
+          <Box component="span" aria-hidden sx={{ fontSize: '0.6rem', transition: 'transform 0.15s', transform: allOpen ? 'rotate(90deg)' : 'none' }}>▶</Box>
+          {allOpen ? 'Collapse all' : 'Expand all'}
+        </Box>
+      </Box>
       {groups.map(g => {
         const team = g.teamId ? teams.get(g.teamId) : undefined
         const open = expanded.has(g.key)
         return (
           <Box key={g.key} sx={{ mb: 1.25 }}>
             <Box
-              onClick={() => toggle(g.key)}
+              {...pressable(() => toggle(g.key))}
+              aria-expanded={open}
               sx={{
+                ...FOCUS_RING,
                 display: 'flex', alignItems: 'center', gap: 0.75, cursor: 'pointer',
                 position: 'sticky', top: 0, bgcolor: 'background.paper', py: 0.5, zIndex: 1,
                 borderBottom: '1px solid', borderColor: 'divider',
@@ -1422,7 +1505,6 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
             </Box>
           )}
           {game.venue && <Typography sx={{ fontSize: '0.72rem', color: 'text.disabled', px: 2, mt: 1 }}>{game.venue}</Typography>}
-          <GameConditions details={details} />
 
           {/* The written recap. The highlight reel used to sit directly above it here and now
               renders at the foot of the Recap tab instead: everything in this header block is
@@ -1476,7 +1558,12 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
               onIndexChange={i => selectTab(tabs[i].value, 'swipe')}
               panels={tabs.map(t => (
                 t.value === 'recap' && away && home ? (
-                  <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} video={final ? video : null} onOpenPlayer={onOpenPlayer} />
+                  <>
+                    <GameRecapView game={game} teams={byId} batting={lines.batting} pitching={lines.pitching} plays={plays} names={names} games={games} video={final ? video : null} onOpenPlayer={onOpenPlayer} />
+                    {/* Last, and only here. It used to sit in the header, where it was the
+                        first thing on a phone and none of it is why anybody opens a game. */}
+                    <GameInfo game={game} details={details} />
+                  </>
                 ) : t.value === 'live' && away && home ? (
                   <LiveGameView
                     game={game} teams={byId} away={away} home={home} plays={plays}

@@ -982,6 +982,105 @@ is retired.
 
 ## Shipped log
 
+### Sep 6, 2026: the game sheet opens on the game (v1.74.0)
+
+**"Many different fonts, it kind of just seems like information gibberish", about the header on a
+phone.** Measured before touching it: on a 390x844 screen the header ran 268px from the eyebrow
+to the tabs, roughly 43% of the sheet's visible area, and carried NINE type treatments (eyebrow,
+column heads, club names, inning cells, the R column, the H/E cells, meta labels, meta values,
+the attribution line). What a reader got first was a ten-column grid, the length of the game, the
+weather, the umpires, a transcription credit and a revision stamp. None of it junk, all of it
+reference, and the two things somebody opens a game for, the result and what happened, were a
+1.05rem number among ten and a card below the fold.
+
+**The line score stays whole, and the WINNER'S ROW IS TINTED.** The first pass trimmed H and E on
+a phone and grew the R to 1.45rem, and the reader asked for the columns back at their old size:
+a line score is R-H-E and the trio is the shape a baseball reader reads. So the result is carried
+by colour instead, a wash of the winning club's own surface, the same one Home's club bands use.
+It marks the whole row rather than competing with the eleven numbers beside it, and nothing had
+to grow. Header still down to 157px from 268, and the swing-of-the-game sentence is above the
+fold.
+
+**Which is also why the info list does not carry errors.** They were in it for one draft, while
+the header was dropping them; the header kept them, so the list does not. One number in two
+places is how the two come to disagree.
+
+**One list, at the foot of the Recap.** Length, weather, umpires, errors and the revision stamp,
+one label style and one value style, where there were four treatments. **And the credit is tied
+to its own data**: length, weather and the crew are RetroWPBL's, given with permission, so the
+credit renders whenever any of those do. Errors and the revision stamp are ours, off our own row,
+so a game they have not transcribed yet shows those with no credit. Crediting them for our
+numbers would be worse than not crediting them at all, and that rule is what the tests pin.
+
+The reader chose the calls: line score kept rather than replaced with a scoreline, the reference
+block always visible at the foot rather than behind a disclosure, and, on seeing the first pass,
+the full R-H-E back at its old size with the winner carried by colour.
+
+Five tests in `__tests__/gameInfo.test.tsx`.
+
+### Sep 6, 2026: when the league last changed a box score (v1.73.0)
+
+**Asked for by a reader, to find scoring changes on past games, and the data was already on the
+row.** `wpbl_games.source_updated_at` is the timestamp the LEAGUE stamped on the record, which on
+a completed game only a real revision moves; `updated_at` is our own write and moves on every
+ingest pass whether anything changed or not. `feedHealth.ts` already documented that pair, which
+is why `boxScoreRevision` lives there rather than in a new module.
+
+**It is not a rare event.** Of the 30 regular-season games, 23 carry a stamp two or more days
+after they were played: an Aug 2 game revised Aug 21, an Aug 7 game Aug 24. A reader watching a
+season total move had nothing anywhere on the site to point at.
+
+**A LATER CALENDAR DAY, not a later instant.** Every final is stamped within an hour of the last
+out, so "changed since it ended" would flag all 30 and mean nothing.
+
+**And the day shown is the LEAGUE's**, which is the part that would have been wrong quietly.
+These stamps land late evening in Springfield, which is the small hours of the next day in UTC
+and the previous afternoon on the west coast, so formatting the instant in the reader's own zone
+moves the date by a day on six of the eight games the schedule marked. The decision that this is
+a revision is made against the league's day; the date printed is the same day the decision used.
+`WpblRevision.on` carries it and `formatRevisionDay` is the only formatter for it.
+
+**Two surfaces, and the second one is what makes it usable.** The game page states the date
+whenever there is one, however old. The schedule marks only the games revised in the LAST SEVEN
+DAYS: with 23 of 30 revised at some point, a mark on all of them is a mark on nothing, where
+"changed since you last looked" is the question somebody scanning for scoring changes is actually
+asking. Eight of thirty carried it on the day it shipped.
+
+**What it cannot say is WHAT changed.** We hold one timestamp, not a diff. It is also only as
+current as `scripts/check-wpbl-drift.mjs`, which is the nightly job that re-reads finals and
+repairs them: the ingest itself never re-reads a stored final, so without that job this number
+would freeze on the day each game ended.
+
+Four tests in `__tests__/feedHealth.test.ts`.
+
+### Sep 6, 2026: Expand all on the play-by-play (v1.72.0)
+
+**Asked for by a reader: an option to open the whole log instead of doing it inning by inning.**
+Half-innings start shut so the tab opens compact and the modal can size down to it, which is
+right for looking up one at-bat and is fourteen clicks for reading a game.
+
+**REMEMBERED, which is the half that makes it worth having.** A per-reader localStorage flag next
+to the units and ERA-basis settings, defaulting off so the tab still opens compact for everyone
+who has not asked. Fourteen half-innings to click is the same nuisance on the next game as on
+this one, and a control that has to be found and pressed again on every game answers the
+complaint only once.
+
+**A live game gains half-innings while the reader watches**, and with the preference on those
+have to arrive open. Only the ones never seen before: reapplying the flag to every key would
+reopen a half-inning the reader had just closed by hand, every two minutes. A ref of seen keys
+is the whole of that bookkeeping.
+
+The individual toggles are unchanged and do not touch the stored preference, and the label says
+what pressing it will DO, so it reads "Collapse all" once everything is open however that
+happened.
+
+**And the headings became reachable from the keyboard while the control was being added.** They
+were `onClick` and nothing else, so the log could not be opened at all without a mouse. They now
+carry `pressable` (Enter and Space, focus ring) and `aria-expanded`, the same treatment every
+other control in the section already had.
+
+Three tests in `__tests__/pbpExpandAll.test.tsx`.
+
 ### Sep 6, 2026: an audit of all 2,836 play descriptions (v1.71.0)
 
 **Asked to check whether the play-by-play was oversimplifying, so every stored narrative was run

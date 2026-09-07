@@ -4,6 +4,59 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.74.0',
+    date:    '2026-09-06',
+    title:   'A game opens on the game',
+    changes: [
+      {
+        short: 'The first thing on a phone is the result, not the paperwork',
+        full:  'Opening a finished game gave you, before anything else: a ten-column grid, how long the game took, the weather, the umpires’ names, a transcription credit and a revision date. That was 268 pixels of a phone screen, about 43% of the sheet, and none of it is why anyone opens a game. The score is now the biggest thing on the sheet and the story is above the fold.',
+      },
+      {
+        short: 'The winning club’s row is tinted in its own colour',
+        full:  'A line score is twelve numbers and nothing in it said who won except a thin stripe and the colour of one figure. The winner’s row now carries a wash of the club’s colour, the same one the scoreboard on the home page uses, so the result reads at a glance without any number having to grow. Runs, hits and errors all stay, at the size they were.',
+      },
+      {
+        short: 'Length, weather, umpires and the rest are one list at the foot of the recap',
+        full:  'They were four different type treatments in the header. They are one label-and-value list now, last on the Recap tab, where reference material belongs. The RetroWPBL credit stays attached to the RetroWPBL data: a game they have not transcribed yet shows the errors and the revision date with no credit, rather than crediting them for our numbers.',
+      },
+    ],
+  },
+  {
+    version: '1.73.0',
+    date:    '2026-09-06',
+    title:   'When the league last changed a box score',
+    changes: [
+      {
+        short: 'A game now says when its box score was last revised',
+        full:  'The league keeps changing box scores after the game: 23 of the season’s 30 have been revised at least two days later, one of them nineteen days later. Until now there was no way to tell, so a stat that moved in a season total came from nowhere. A finished game whose box score changed after the day it was played says so under the scoreboard, with the date the league changed it.',
+      },
+      {
+        short: 'The schedule marks the ones changed in the last week',
+        full:  'Nearly every game has been revised at some point, so marking all of them would say nothing. The schedule marks the ones the league touched in the last seven days, which is the "what has changed since I last looked" the game pages cannot answer on their own. Eight of the thirty carried the mark on the day it shipped.',
+      },
+      {
+        short: 'The date shown is the league’s day, not yours',
+        full:  'These revisions land late in the evening in Springfield, which is already the next day in UTC and still the afternoon on the west coast. The date is the one the league’s own clock was on, so two readers in different places see the same answer.',
+      },
+    ],
+  },
+  {
+    version: '1.72.0',
+    date:    '2026-09-06',
+    title:   'Open the whole play-by-play at once',
+    changes: [
+      {
+        short: 'One control opens every half-inning, and it is remembered',
+        full:  'The play-by-play opens with its half-innings shut, which is right for looking up one at-bat and fourteen clicks for reading the game. There is an Expand all above the log now, and it remembers what you chose: if you read the whole thing on one game, the next game opens the same way. Collapse all puts it back. Opening and closing a single half-inning still works as it did and does not change the setting.',
+      },
+      {
+        short: 'The half-inning headings can be reached from the keyboard',
+        full:  'They were clickable and nothing else, so a reader working by keyboard could not open one at all. They take focus now, Enter and Space open them, and each says whether it is open to a screen reader.',
+      },
+    ],
+  },
+  {
     version: '1.71.0',
     date:    '2026-09-06',
     title:   'The play-by-play says who did what',

@@ -15,6 +15,7 @@ import { jerseyQuery, jerseyOf } from './playerSearch'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblSiteGame } from './types'
 import { fmtSigned } from './stats'
 import { seriesContexts } from './derive/series'
+import { boxScoreRevision, formatRevisionDay } from './derive/feedHealth'
 import { postseasonScheduleRows, postseasonSlots, type PostseasonScheduleRow, type PostseasonSlot } from './derive/bracket'
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
@@ -147,6 +148,26 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
 }
 
 // ─── Views ────────────────────────────────────────────────────────────────────
+
+/**
+ * How recent a revision has to be to be worth marking on the schedule.
+ *
+ * A week. The league revises box scores for weeks after the fact and 23 of the season's 30
+ * games carry a revision of some kind, so a mark on every one of those is a mark on nothing.
+ * A week is "changed since you last looked", which is the question a reader scanning for
+ * scoring changes is asking, and it kept 8 of the 30 marked on the day it shipped.
+ */
+const REVISION_RECENT_MS = 7 * 24 * 60 * 60 * 1000
+
+const recentRevision = (g: WpblGame): boolean => {
+  const r = boxScoreRevision(g)
+  return !!r && Date.now() - r.at < REVISION_RECENT_MS
+}
+
+const revisedLabel = (g: WpblGame): string => {
+  const r = boxScoreRevision(g)
+  return r ? formatRevisionDay(r.on) : ''
+}
 
 function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
   teams: WpblTeam[]; games: WpblGame[]; siteGames?: WpblSiteGame[]; onOpenGame: (g: WpblGame) => void
@@ -414,6 +435,25 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
                       {ser.line}
                     </Typography>
                   )}
+                </Box>
+              )}
+              {/* The league changed this box score in the last week. THE WINDOW IS WHAT MAKES
+                  IT A SIGNAL: 23 of the season's 30 games have been revised at some point, so
+                  marking all of them says nothing, where "changed since you last looked" is the
+                  question a reader scanning the schedule for scoring changes is actually
+                  asking. The game's own page carries the date whenever there is one, however
+                  old. See boxScoreRevision. */}
+              {recentRevision(g) && (
+                <Box sx={{
+                  display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.6,
+                  pt: 0.6, borderTop: '1px solid', borderColor: 'divider',
+                }}>
+                  <Typography sx={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.disabled' }}>
+                    Box score revised
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.72rem', fontWeight: 600, color: 'text.secondary' }}>
+                    {revisedLabel(g)}
+                  </Typography>
                 </Box>
               )}
             </Box>

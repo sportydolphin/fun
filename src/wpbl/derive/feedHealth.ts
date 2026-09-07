@@ -1,4 +1,4 @@
-import { gameStartMs } from '../constants'
+import { gameStartMs, WPBL_TZ } from '../constants'
 import type { WpblGame } from '../types'
 
 /**
@@ -118,3 +118,79 @@ export function describeGap(gapMs: number): string {
   if (mins < 60) return `${mins}m`
   return `${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m`
 }
+
+// ─── When the league last changed a finished game ────────────────────────────
+
+/** A box score the league revised after the day it was played. */
+export interface WpblRevision {
+  /** The league's own stamp on the record, in ms. */
+  at: number
+  /**
+   * The LEAGUE's calendar day for that stamp, "2026-09-02".
+   *
+   * What a surface prints, and not `at` formatted locally. A revision stamped late in the
+   * evening in Springfield is the small hours of the next day in UTC and the previous
+   * afternoon on the west coast, so the reader's own midnight would move the date by a day for
+   * most of them: six of the eight marked on the schedule the day this shipped. The decision
+   * that this IS a revision is made against the league's day, and the date shown has to be the
+   * same day the decision used.
+   */
+  on: string
+  /** Whole days from the day it was played to the day it was last revised. */
+  days: number
+}
+
+/**
+ * When the league last touched this game's box score, if that was after the game itself.
+ *
+ * WHY THIS IS WORTH SHOWING. The league revises box scores for weeks: of the 30 regular-season
+ * games, 23 carry a stamp two or more days after they were played, one of them nineteen days
+ * later. A reader watching a season total move has no way to tell which game moved under it,
+ * and the only record of it anywhere is this timestamp.
+ *
+ * IT IS THEIR CLOCK, NOT OURS, which is the whole point. `updated_at` is when the ingest last
+ * wrote our row, and it moves on every pass whether or not anything changed, so it says nothing
+ * about the league. `source_updated_at` is the timestamp the LEAGUE stamped on the record, and
+ * on a completed game only a real revision moves it. The same pair, read the same way round, as
+ * `feedDelay` above.
+ *
+ * A LATER CALENDAR DAY, not merely a later instant. Every final is stamped within an hour or so
+ * of the last out, and printing "revised" against that would put a flag on all 30 games meaning
+ * nothing but "the game ended". The comparison is against the league's own Central day, since
+ * `game_date` is a Central wall date and a stamp at 23:40 Central is 04:40 UTC the next day.
+ *
+ * WHAT IT CANNOT SAY is what changed, or that nothing has. `wpbl-ingest` never re-reads a game
+ * once it is stored final, so our copy of this stamp only advances when something reopens the
+ * game: the nightly drift check (`scripts/check-wpbl-drift.mjs`) is what does that, and it is
+ * what makes this number trustworthy at all. Without it, a revision the league made an hour ago
+ * would not be here yet.
+ */
+export function boxScoreRevision(
+  game: Pick<WpblGame, 'game_date' | 'status' | 'source_updated_at'>,
+): WpblRevision | null {
+  // Only a final. On a live or scheduled game the stamp is just "when it last moved", which is
+  // every couple of minutes and is not a revision.
+  if (game.status !== 'final' || !game.source_updated_at) return null
+  const at = Date.parse(game.source_updated_at)
+  if (!Number.isFinite(at)) return null
+
+  const revisedOn = LEAGUE_DAY.format(at)          // "2026-08-21", the league's own day
+  if (revisedOn <= game.game_date) return null
+
+  // Both are bare calendar dates, so this is a difference in days with no clock in it and no
+  // timezone left to get wrong.
+  const days = Math.round(
+    (Date.parse(`${revisedOn}T00:00:00Z`) - Date.parse(`${game.game_date}T00:00:00Z`)) / 86_400_000)
+  return { at, on: revisedOn, days }
+}
+
+/** "Sep 2" from a bare calendar date, with no clock in it to shift the day. */
+export function formatRevisionDay(on: string): string {
+  return new Date(`${on}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
+
+/** The league's calendar day for an instant. en-CA formats as YYYY-MM-DD, which is the shape
+ *  `game_date` is stored in, so the two compare as strings. */
+const LEAGUE_DAY = new Intl.DateTimeFormat('en-CA', {
+  timeZone: WPBL_TZ, year: 'numeric', month: '2-digit', day: '2-digit',
+})

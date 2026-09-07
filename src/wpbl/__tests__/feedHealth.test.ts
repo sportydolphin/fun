@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  feedHealth, describeGap, FIRST_PITCH_GRACE_MS, FEED_STALE_MS, INGEST_STALE_MS,
+  feedHealth, describeGap, boxScoreRevision, FIRST_PITCH_GRACE_MS, FEED_STALE_MS, INGEST_STALE_MS,
   type FeedHealthGame,
 } from '../derive/feedHealth'
 import { gameStartMs } from '../constants'
@@ -134,5 +134,42 @@ describe('describeGap', () => {
 
   it('does not render a negative gap from a clock skew', () => {
     expect(describeGap(-5000)).toBe('0m')
+  })
+})
+
+// ─── When the league last changed a finished game ────────────────────────────
+//
+// A reader asked for this, to find scoring changes on past games. The league revises box scores
+// for weeks: 23 of the 30 regular-season games carry a stamp two or more days after they were
+// played, one of them nineteen days later, and this timestamp is the only record of it anywhere.
+
+describe('boxScoreRevision', () => {
+  const revised = (over: Partial<FeedHealthGame> = {}) =>
+    boxScoreRevision({ game_date: '2026-08-21', status: 'final', source_updated_at: null, ...over })
+
+  // The real Aug 21 game, with the real stamp off the row. 03:04 UTC is the evening BEFORE in
+  // Springfield, which is the whole reason the league's day is the one that gets printed: a
+  // reader's own midnight moves the date on six of the eight games marked the day this shipped.
+  it('reports the league’s calendar day, not UTC and not the reader’s', () => {
+    expect(revised({ source_updated_at: '2026-09-02T03:04:49+00:00' }))
+      .toEqual({ at: Date.parse('2026-09-02T03:04:49+00:00'), on: '2026-09-01', days: 11 })
+  })
+
+  // Every final is stamped within an hour or so of the last out. Marking those would put a flag
+  // on all 30 games meaning nothing but "the game ended".
+  it('says nothing about a game stamped the night it was played', () => {
+    // 22:30 Central on the day of the game, which is the next day in UTC.
+    expect(revised({ source_updated_at: '2026-08-22T03:30:00+00:00' })).toBeNull()
+  })
+
+  // On anything not final the stamp is "when it last moved", which is every couple of minutes.
+  it('says nothing about a game still being played, however old the stamp', () => {
+    expect(revised({ status: 'live', source_updated_at: '2026-09-02T03:04:49+00:00' })).toBeNull()
+    expect(revised({ status: 'scheduled', source_updated_at: '2026-09-02T03:04:49+00:00' })).toBeNull()
+  })
+
+  it('survives a row with no stamp, or an unreadable one', () => {
+    expect(revised()).toBeNull()
+    expect(revised({ source_updated_at: 'not a date' })).toBeNull()
   })
 })
