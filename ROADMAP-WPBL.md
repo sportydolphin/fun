@@ -1040,6 +1040,20 @@ above it.
 **506px to 358px**, with the gap between the semifinals down from 114px to 8px, and nothing
 clipping at 375px or at 1.4x text in either theme.
 
+**AND THE CLUBS GO BY THEIR FULL NAMES WHERE THE COLUMN CAN HOLD ONE**, which the bigger type
+paid for. The cut-off is 1000px and it is a measurement, not a round number: at 920px the longest
+name fits at the default text size with nothing to spare and clips by 8px at the Large setting,
+because that setting grows the name and the two rem-sized columns either side of it at once, so
+the string gets longer while its box gets narrower. 1000px leaves ~30px of slack at Large, which
+is the width to judge it at, since a reader who asked for bigger type is exactly the reader an
+ellipsis fails. Below it, nicknames, because "San Francisco Fireb…" is a worse answer than
+"Firebells".
+
+**The title-odds list keeps nicknames, on purpose.** It is a chart and the bars are its subject:
+a full name needs 11rem of a 36rem row, which takes a third of the length out of every bar to
+repeat a city the boxes above have already said. A series box is the opposite, the club IS the
+subject there. The two differ because the question does.
+
 ### Sep 7, 2026: call the postseason (v1.76.0)
 
 **Asked for as a small feature on top of the vote, and the vote turned out not to work.** The

@@ -13,6 +13,10 @@ export const CHANGELOG: ChangelogEntry[] = [
         full:  'The odds used to be a six-pixel bar under both clubs with a percentage at each end, which meant a bar running red at one end and green at the other: that reads as good-against-bad rather than as San Francisco against Boston. Each club’s chance is now drawn as a field behind its own name, in its own colour, with its own number at the end of its own row. Same information, no legend, and the colour finally says whose it is.',
       },
       {
+        short: 'Clubs go by their full names where the column can hold one',
+        full:  'San Francisco Firebells rather than Firebells, on a wide enough screen. The cut-off is measured rather than picked: below about a thousand pixels each series box is narrow enough that the longest name would ellipsise to “San Francisco Fireb…”, which is worse than the nickname, and the cut-off allows for the Large text setting too, since that grows the name and narrows its column at the same time. The Chance to win it all list keeps nicknames on purpose: the bars are the point of that list, and a city takes a third of the length out of every one of them.',
+      },
+      {
         short: 'Club names are half again bigger, and the card is a quarter shorter',
         full:  'The biggest thing in a series box was a 16px club name, which is smaller than the club names on the card directly underneath it, so nothing in the bracket had any weight. Names are 21px now, the percentages 19px, and the seed, the dates and the season series have dropped back to one quiet size. The published dates and the season series share one line where there used to be three.',
       },

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, useMediaQuery } from '@mui/material'
 import { SectionCard, TeamBadge, pressable, FOCUS_RING, useWpblDark, tappableIf, TYPE_SCALE } from './ui'
-import { wpblAccent, wpblSurface } from './constants'
+import { wpblAccent, wpblSurface, wpblFullName } from './constants'
 import { buildBracket, seriesDateLine } from './derive/bracket'
 import type { BracketSeries, BracketEntrant, WpblBracket } from './derive/bracket'
 import { postseasonOdds, fmtOdds } from './derive/seriesOdds'
@@ -63,10 +63,14 @@ const BRACKET_OPEN_KEY = 'wpbl:bracketOpen'
  * the colour finally says whose it is. `wpblSurface` and not `wpblAccent`: this is a field with
  * text on it, which is the whole reason that third role exists (see constants.ts).
  */
-function SeriesTeamRow({ entrant, series, leading, winP, onOpenTeam, from, placeholder }: {
+function SeriesTeamRow({ entrant, series, leading, winP, wide, onOpenTeam, from, placeholder }: {
   entrant: BracketEntrant
   series: BracketSeries
   leading: boolean
+  /** Whether the column is wide enough for "San Francisco Firebells" rather than "Firebells".
+   *  Decided once by the diagram, from the COLUMN's width and not the viewport's: this row is
+   *  drawn inside a half-card, so what matters is how much of the card it got. */
+  wide: boolean
   /** This club's chance to take the series, 0-1, or null where there is no model to ask (an
    *  undecided championship, a series already over). Null draws no fill and no number. */
   winP: number | null
@@ -136,7 +140,7 @@ function SeriesTeamRow({ entrant, series, leading, winP, onOpenTeam, from, place
         fontWeight: leading ? 900 : 700,
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         color: leading ? wpblAccent(team.id, dark) : 'text.primary',
-      }}>{team.name}</Typography>
+      }}>{wide ? wpblFullName(team) : team.name}</Typography>
       {/* Series wins once there are any, and the odds until then. Never both: two numbers at the
           end of one row, one of them a count and one a percentage, is the kind of column a
           reader has to be told how to read. A column of zeroes on Aug 20 would read as a series
@@ -183,8 +187,10 @@ function seasonSeriesLine(series: BracketSeries, odds?: SeriesOdds): string | nu
  * thing the box is about. The odds moved into the club rows (see SeriesTeamRow), which leaves
  * the dates and the season series, and those fit on one line as a left and a right.
  */
-function SeriesBox({ series, odds, onOpenTeam, from, bracket, picks, fill, children }: {
+function SeriesBox({ series, odds, onOpenTeam, from, bracket, picks, fill, wide, children }: {
   series: BracketSeries; odds?: SeriesOdds; onOpenTeam?: OpenTeam; from: string
+  /** Passed through to the club rows. See SeriesTeamRow. */
+  wide: boolean
   /** Both only for the pick strip, which needs the whole bracket to work out who could still
    *  reach the final. Absent on any surface that draws the diagram without one. */
   bracket?: WpblBracket; picks?: SeriesPickState
@@ -237,11 +243,11 @@ function SeriesBox({ series, odds, onOpenTeam, from, bracket, picks, fill, child
       {/* In the final, the two empty slots name their source semifinal. The bracket draws A on
           top and B below, and the connector runs A → the top (home) slot, so that is the match. */}
       <SeriesTeamRow entrant={home} series={series} leading={homeLeads} onOpenTeam={onOpenTeam} from={from}
-        winP={showOdds ? odds!.homeWinP : null}
+        winP={showOdds ? odds!.homeWinP : null} wide={wide}
         placeholder={isFinal ? 'Semifinal A winner' : undefined} />
       <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }} />
       <SeriesTeamRow entrant={away} series={series} leading={awayLeads} onOpenTeam={onOpenTeam} from={from}
-        winP={showOdds ? odds!.awayWinP : null}
+        winP={showOdds ? odds!.awayWinP : null} wide={wide}
         placeholder={isFinal ? 'Semifinal B winner' : undefined} />
       {/* The league's published dates, and the season series the odds are built on, as one line.
           Dates are dropped once a series is decided: when it was going to be played is no longer
@@ -322,6 +328,23 @@ export function BracketDiagram({ bracket, odds, onOpenTeam, from, picks }: {
   /** Omitted by any caller that wants the picture without the poll. */
   picks?: SeriesPickState
 }) {
+  /**
+   * FULL CLUB NAMES ONCE THE COLUMN CAN HOLD ONE. The same call GameDetail's scoreboard makes,
+   * and the same direction: a club's whole name where it reads, its nickname where it would not.
+   *
+   * THE QUERY IS ABOUT THE COLUMN, NOT THE SCREEN. A series box is half the card minus the
+   * connector, so between 600 and 899 it is nearer 250px with the type scale still at 1, and
+   * "San Francisco Firebells" would ellipsise to "San Francisco Fireb…", which is a worse answer
+   * than the nickname it replaced.
+   *
+   * 1000 AND NOT 900, WHICH IS THE MEASUREMENT AND NOT A ROUND NUMBER. At 920px the longest name
+   * fits at the default text size with nothing to spare, and clips by 8px at the Large setting
+   * (1.125, see TEXT_SCALE_FACTOR): the setting grows the name and the two rem-sized columns
+   * either side of it at once, so the string gets longer while its box gets narrower. 1000px
+   * leaves about 30px of slack at Large, which is the width this should be judged at, since a
+   * reader who has asked for bigger type is exactly the reader an ellipsis fails.
+   */
+  const wide = useMediaQuery('(min-width:1000px)')
   return (
     /* ONE GRID AT sm+, NOT A ROW OF COLUMNS, AND THE MIDDLE ROW IS WHAT CHANGED.
        The two halves of this diagram are different heights: the semifinals stack to their own
@@ -347,7 +370,7 @@ export function BracketDiagram({ bracket, odds, onOpenTeam, from, picks }: {
       {bracket.semifinals.map((s, i) => (
         <Box key={s.label} sx={{ display: 'flex', minWidth: 0, gridColumn: 1, gridRow: i === 0 ? 1 : 3 }}>
           <SeriesBox series={s} odds={odds?.semifinals[i]} onOpenTeam={onOpenTeam} from={from}
-            bracket={bracket} picks={picks} />
+            bracket={bracket} picks={picks} wide={wide} />
         </Box>
       ))}
       <ConnectorPiece row={1} />
@@ -377,7 +400,7 @@ export function BracketDiagram({ bracket, odds, onOpenTeam, from, picks }: {
           centre at the column's centre, which is what the connector points at. */}
       <Box sx={{ minWidth: 0, gridColumn: 3, gridRow: '1 / 4', display: 'flex', minHeight: 0 }}>
         <SeriesBox series={bracket.championship} odds={odds?.championship ?? undefined}
-          onOpenTeam={onOpenTeam} from={from} bracket={bracket} picks={picks} fill>
+          onOpenTeam={onOpenTeam} from={from} bracket={bracket} picks={picks} fill wide={wide}>
           {odds && <TitleOddsStrip odds={odds} onOpenTeam={onOpenTeam} />}
         </SeriesBox>
       </Box>
@@ -428,11 +451,15 @@ function TitleOddsStrip({ odds, onOpenTeam }: {
             >
               <TeamBadge team={t.team} size={20} />
               {/* Fixed name column so every bar starts at the same x and the four read as one
-                  chart. 5.75rem is the 92px it has always been at the default root size, in rem
-                  now because it is reserving room for a STRING: at a larger text size the pixel
-                  version stayed put while the nickname in it grew, and the ellipsis it kept as
-                  a backstop became the normal rendering. Wide enough for the longest club
-                  nickname at any scale; the ellipsis is a backstop again. */}
+                  chart. In rem because it is reserving room for a STRING: at a larger text size
+                  a pixel version stays put while the name in it grows, and the ellipsis it keeps
+                  as a backstop becomes the normal rendering.
+
+                  NICKNAMES HERE, THOUGH, WHILE THE BOXES ABOVE USE FULL NAMES. This strip is a
+                  chart and the bars are its subject: "San Francisco Firebells" needs 11rem of a
+                  ~36rem row, which takes a third of the length out of every bar to say a city
+                  four rows of the same card have already said. A series box is the opposite,
+                  the club IS the subject there, which is why the two differ on purpose. */}
               <Typography sx={{
                 width: '5.75rem', flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 700,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
