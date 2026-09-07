@@ -655,14 +655,17 @@ export default function WpblStatsView({
     }
     const cols = [...PIT_COLS]
     const eraIdx = cols.findIndex(c => c.key === 'era')
-    // ERA is stored per 9 and shown on whatever the reader chose (see stats.ts). Swapped in
-    // here rather than in PIT_COLS because that list is a module constant with no reader to
-    // ask. `value` is left on the stored number on purpose: the sort is identical either way,
-    // and leaving it alone keeps ERA+ below reading the same figure the league does.
+    // ERA is stored on the league's own basis (`ERA_BASIS_CANONICAL` in stats.ts, 7 since the
+    // league switched in Sep 2026) and shown on whatever the reader chose. Swapped in here
+    // rather than in PIT_COLS because that list is a module constant with no reader to ask.
+    // `value` is left on the stored number on purpose: the sort is identical either way, and
+    // leaving it alone keeps ERA+ below reading the same figure the league does.
     cols[eraIdx] = { ...cols[eraIdx], display: t => fmtEra(t.era) }
-    // K/9 belongs beside ERA for the same reason ERA is swapped in here: it is STORED per nine
-    // and shown on whatever the reader chose, so its label is not knowable in a module
-    // constant. `value` stays on the stored number, which sorts identically.
+    // The strikeout rate belongs beside ERA for the same reason ERA is swapped in here: it is
+    // stored on the canonical basis and shown on whatever the reader chose, so even its LABEL
+    // is not knowable in a module constant, which is why `kRateLabel` builds it. Do not write
+    // 'K/9' anywhere: the heading has been K/7 since Sep 2026 and moves again if the league
+    // moves. `value` stays on the stored number, which sorts identically.
     const soIdx = cols.findIndex(c => c.key === 'so')
     cols.splice(soIdx + 1, 0, {
       key: 'k9', label: kRateLabel(eraBasis),
@@ -1813,7 +1816,16 @@ function SortSheet({ cols, sortKey, side, eraBasis, bestFirst, onPick, onDirecti
   // place a reader is already asking what a stat means, so it is the cheapest place to answer
   // "which ERA is this" without putting a number on every column heading.
   const names = side === 'pitching'
-    ? { ...PIT_NAMES, era: `Earned run average, per ${eraBasis}` }
+    ? {
+      ...PIT_NAMES,
+      era: `Earned run average, per ${eraBasis}`,
+      // The strikeout RATE, which is the one pitching stat that reached this sheet with no
+      // name under it. Its key is `k9` and its label is built at render time, so a static
+      // entry in PIT_NAMES could not carry the denominator and a lookup on the key found
+      // nothing: every other stat here explained itself and "K/7" sat there as three
+      // characters, in the one place a reader is already asking what a column means.
+      k9: `Strikeouts per ${eraBasis} innings`,
+    }
     : HIT_NAMES
   const groups: [string, Col<WpblBattingTotals | WpblPitchingTotals>[]][] = [
     ['Rate stats', cols.filter(c => c.rate)],

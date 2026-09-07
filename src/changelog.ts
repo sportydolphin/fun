@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.75.1',
+    date:    '2026-09-07',
+    title:   'The strikeout rate says what it is',
+    changes: [
+      {
+        short: 'K/7 now explains itself in the pitching sort picker',
+        full:  'Every stat in the sheet that ranks pitchers carries its full name under the abbreviation, so a reader who knows what a strikeout is can find their way around it. K/7 was the one that did not, because its heading is built when the page renders (it follows whether you have chosen per 7 or per 9) and the list of names is fixed. It now reads "Strikeouts per 7 innings", or per 9 if that is your setting. Plain SO, the strikeout count, was already there and is unchanged.',
+      },
+    ],
+  },
+  {
     version: '1.75.0',
     date:    '2026-09-07',
     title:   'What the league changed, and to whom',
