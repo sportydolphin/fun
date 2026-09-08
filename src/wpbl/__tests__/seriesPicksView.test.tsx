@@ -80,6 +80,11 @@ beforeEach(() => {
   authUser = { id: 'test-user' }; ballot = {}; results = {}
 })
 
+// THE HEADER WORDING, because setup.ts answers every media query "no match" and so renders the
+// desktop branch (see its comment on why that is deliberate). The button lives beside the card
+// title there and says the short form; the full-width body version, with its longer labels and
+// its hint line, is the open-phone-card case only. Both are the same control and the same three
+// states, which is what these assert: asking, part way, done.
 describe('the pick’em button', () => {
   // The card draws a bracket. Twelve permanent controls inside it, paid for by every reader
   // including the ones who never want to predict anything, is what this replaced.
@@ -92,7 +97,7 @@ describe('the pick’em button', () => {
   it('says how far through you are', async () => {
     ballot = { 'pickem:2026:semifinal:A': 'SF:2-0' }
     const { container } = draw()
-    await waitFor(() => expect(container.textContent).toContain('Finish your picks · 1 of 3'))
+    await waitFor(() => expect(container.textContent).toContain('Picks · 1/3'))
   })
 
   it('drops to a change affordance once everything open has been called', async () => {
@@ -102,7 +107,7 @@ describe('the pick’em button', () => {
       'pickem:2026:championship': 'SF:3-2',
     }
     draw()
-    expect(await screen.findByText('Change your picks')).toBeTruthy()
+    expect(await screen.findByText('Your picks')).toBeTruthy()
   })
 })
 

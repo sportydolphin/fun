@@ -567,6 +567,12 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, onOpenPlayer, 
 
   if (!bracket) return null
 
+  // Whether any date line actually on screen carries one. A series that is over drops its dates
+  // (see SeriesBox), so the key goes with them rather than sitting under a card with no star in
+  // it: the last thing a footnote should do is explain a mark the reader cannot find.
+  const showAsterisk = [...bracket.semifinals, bracket.championship]
+    .some(s => s.status !== 'done' && (seriesDateLine(s.round, s.key) ?? '').includes('*'))
+
   // Three states, one card. The subtitle is the only part that changes, because it is the only
   // part whose meaning does: the same boxes are a projection, then a scoreboard, then a record.
   // Kept to one line on a phone: the format (best-of-N) shows in each series box, and the
@@ -594,16 +600,23 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, onOpenPlayer, 
       subtitle={collapsed ? shutSubtitle : subtitle}
       collapsed={isPhone ? collapsed : undefined}
       onToggleCollapse={isPhone ? toggle : undefined}
-      // A collapsed card renders none of its children, so the button at the top of the body is
-      // behind a tap on the one surface that opens this card shut. The header keeps a compact
-      // one, which opens the sheet without expanding the card first. Only one of the two is ever
-      // in the page.
-      action={collapsed ? <PickemButton bracket={bracket} state={picks} from={from} compact /> : undefined}
+      // THE HEADER CARRIES IT EVERYWHERE EXCEPT AN OPEN PHONE CARD, and the two reasons are
+      // different. A collapsed card renders none of its children, so a button at the top of the
+      // body would be behind a tap on the one surface that opens this card shut; the header
+      // version opens the sheet without expanding the card first. On a DESKTOP the reason is
+      // width: the card is 1,214px there, and a control sitting above the diagram is a band
+      // across the whole of it, which is the shape of a header rather than of a button. Put
+      // beside the title it reads as this card's one action and gives the bracket the top of
+      // the card back. Only ever one of the two is in the page.
+      action={collapsed || !isPhone
+        ? <PickemButton bracket={bracket} state={picks} from={from} compact />
+        : undefined}
     >
-      {/* FIRST IN THE CARD, ABOVE THE DIAGRAM. It is the one thing here a reader can DO, and
-          everything under it is something to read. The collapsed card has its own in the
+      {/* FIRST IN THE CARD, ABOVE THE DIAGRAM, on an open phone card only. It is the one thing
+          here a reader can DO and everything under it is something to read, which is worth a
+          full-width target on the surface where the traffic is. Everywhere else it is in the
           header; see `action` above. */}
-      <PickemButton bracket={bracket} state={picks} from={from} />
+      {isPhone && <PickemButton bracket={bracket} state={picks} from={from} />}
       <BracketDiagram bracket={bracket} odds={odds} onOpenTeam={onOpenTeam} picks={picks}
         onOpenSeries={(s, o) => {
           track(EVENTS.WPBL_BRACKET_SERIES, { round: s.round, key: s.key, status: s.status, from })
@@ -617,10 +630,21 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, onOpenPlayer, 
           onOpenTeam={onOpenTeam} onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame}
         />
       )}
-      {odds && !bracket.champion && (
+      {(showAsterisk || (odds && !bracket.champion)) && (
         <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 1, lineHeight: 1.45 }}>
-          Odds blend each club’s run differential with its head-to-head results, then
-          play the bracket out to a champion.
+          {/* THE ASTERISK NEEDED SAYING. Every series in this card prints its published dates
+              with a star on the games that are only played if the series goes that far, and
+              nothing anywhere told a reader what the star meant: the one surface that spells it
+              out ("if needed") is the series overview, two taps away and behind a box a reader
+              has no reason to open just to decode a footnote. It leads, because it explains
+              something already on screen, where the sentence after it explains a number. The
+              glyph is the literal '*' seriesDateLine writes and not a lookalike: a key set in a
+              different character from the mark it explains is a key for something else. */}
+          {showAsterisk && '* Played only if the series needs it. '}
+          {odds && !bracket.champion && (
+            <>Odds blend each club’s run differential with its head-to-head results, then
+            play the bracket out to a champion.</>
+          )}
         </Typography>
       )}
     </SectionCard>
