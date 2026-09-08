@@ -284,6 +284,9 @@ describe('the card afterwards', () => {
     ]
     ballot = { 'pickem:2026:semifinal:A': 'SF:2-0' }
     const { container } = draw(played)
-    await waitFor(() => expect(container.textContent).toContain('You called it'))
+    // "Called it" rather than "You called it": the row is tinted, railed and green by then, so
+    // the label no longer has to carry the "you" and the two words it saves go to the pick
+    // itself, which is what a narrow bracket column is short of.
+    await waitFor(() => expect(container.textContent).toContain('Called it'))
   })
 })

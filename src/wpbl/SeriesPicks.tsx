@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   ModalShell, SectionLabel, TeamBadge, pressable, FOCUS_RING, TAPPABLE, useWpblDark, TYPE_SCALE,
   chromePx,
@@ -216,24 +217,49 @@ export function SeriesPickLine({ series, bracket, state }: {
   const right = !!result && result === picked
   const accentId = parsePickChoice(picked ?? '')?.teamId ?? null
 
+  // The colour the row is drawn in, which is the club's while the pick is live and stops being
+  // the club's the moment the pick is settled or dead: a bust pick names a club that is not in
+  // the series any more, and a wrong pick should not still be wearing the shirt it got wrong.
+  const accent = accentId ? wpblAccent(accentId, dark) : null
+  const tone = bust ? null : result ? (right ? 'success' : null) : accent
+
   return (
     // `px: 1.25` and not 1, because this is the fourth row of a series box and the three above
     // it (the header band, the club rows, the dates) all sit at 1.25. At 1 the receipt hung 2px
     // out past a stack of otherwise flush edges, on both sides at once, which reads as the row
     // being pasted on rather than as part of the box.
+    //
+    // THE READER'S OWN CALL WAS THE QUIETEST THING IN THE BOX, which is backwards. It shipped
+    // entirely at `caption`, the smallest size on the card, under two club names set at
+    // `heading`: every fact the league supplied outranked the one fact the reader supplied. This
+    // is the only line in the bracket that belongs to the person looking at it, and the whole
+    // reason the button above is worth pressing, so it gets three things it did not have. A tint
+    // in the club's own colour, which is also what the selected tile in the sheet looks like, so
+    // a pick is recognisable in both places. A rail down the left edge, which is what actually
+    // separates it from the meta line above without spending any height. And the sentence itself
+    // at `body`, one step up, which makes it the second-loudest thing in the box after the two
+    // clubs rather than the quietest.
     <Box sx={{
-      px: 1.25, py: 0.5, borderTop: '1px solid', borderColor: 'divider',
+      px: 1.25, py: 0.6, borderTop: '1px solid', borderColor: 'divider',
       display: 'flex', alignItems: 'baseline', gap: 0.75, minWidth: 0,
+      position: 'relative', overflow: 'hidden',
+      // `alpha` on the theme's own success colour rather than a literal green, so a right call
+      // stays the same green as every other right thing on the site if the palette ever moves.
+      bgcolor: tone === 'success' ? (t => alpha(t.palette.success.main, 0.13)) : tone ? `${tone}1f` : 'transparent',
+      // A settled pick keeps the rail so the row still reads as the reader's, and takes its
+      // colour from the outcome rather than from the club.
+      borderLeft: '3px solid',
+      borderLeftColor: tone === 'success' ? 'success.main' : tone ? tone : 'transparent',
     }}>
       <Typography sx={{
         fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
-        color: 'text.disabled', flexShrink: 0,
-      }}>{result ? (right ? 'You called it' : 'You had') : 'Your call'}</Typography>
+        color: tone === 'success' ? 'success.main' : 'text.disabled', flexShrink: 0,
+      }}>{result ? (right ? 'Called it' : 'You had') : 'Your call'}</Typography>
       <Typography sx={{
-        fontSize: TYPE_SCALE.caption, fontWeight: 800, minWidth: 0,
+        fontSize: TYPE_SCALE.body, fontWeight: 800, minWidth: 0, lineHeight: 1.25,
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         color: result ? (right ? 'success.main' : 'text.disabled')
-          : accentId ? wpblAccent(accentId, dark) : 'text.secondary',
+          : accent ?? 'text.secondary',
         textDecoration: bust ? 'line-through' : 'none',
       }}>{mine}</Typography>
       <Box sx={{ flex: 1 }} />
@@ -433,7 +459,21 @@ function PickTile({ label, on, accent, share, showShare, onClick, badge, ariaLab
         // roughly a third alpha: enough to bind the row together, weak enough that the selected
         // tile still wins the row.
         borderColor: on ? accent : follows ? `${accent}59` : 'divider',
-        bgcolor: on ? `${accent}1f` : 'transparent',
+        bgcolor: on ? `${accent}38` : 'transparent',
+        // THE SELECTION HAD TO DIFFER IN KIND, NOT IN INTENSITY, and that is the whole problem
+        // this ring and the tick below are solving. Every signal the selected tile had was the
+        // club's accent turned up a bit: a 1px accent border and a 12%-alpha wash of it. But the
+        // crowd's share is ALSO drawn in that accent, behind the label, at 14%. So an unpicked
+        // club that two thirds of voters chose was a bigger block of its own colour than the
+        // picked club beside it, and the one thing on screen that was supposed to say "this is
+        // your answer" was the quieter of the two. Turning the wash up further only makes a
+        // louder version of the same collision.
+        //
+        // A ring is a different thing from a fill, and an inset shadow rather than a fatter
+        // border because a 2px border reflows the row: these are flex items with padding, so the
+        // extra pixel comes out of the label and every tile in the group shifts as you tap
+        // across them.
+        boxShadow: on ? `inset 0 0 0 2px ${accent}` : 'none',
         ...(onClick ? TAPPABLE : null),
         ...FOCUS_RING,
       }}
@@ -454,6 +494,19 @@ function PickTile({ label, on, accent, share, showShare, onClick, badge, ariaLab
         // unpicked one look like the live option.
         color: follows ? accent : 'text.primary',
       }}>{label}</Typography>
+      {/* THE ONE SIGNAL THAT IS NOT A COLOUR, which is why it is here rather than a third shade
+          of the club's accent. Everything else marking a selection on this tile is that accent
+          at some strength, and the accent is already spoken for by the share bar behind it; a
+          reader who cannot separate two strengths of the same hue, for whatever reason, had
+          nothing at all to go on. A tick is categorical. `aria-hidden` because `aria-checked` on
+          the radio has already said this to a screen reader, and reading "tick" after it would
+          be the same fact twice. */}
+      {on && (
+        <Typography aria-hidden sx={{
+          position: 'relative', flexShrink: 0, lineHeight: 1,
+          fontSize: TYPE_SCALE.body, fontWeight: 900, color: accent,
+        }}>✓</Typography>
+      )}
       {showShare && (
         <Typography sx={{
           position: 'relative', flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 800,
