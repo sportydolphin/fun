@@ -64,6 +64,35 @@ function StatTiles({ items }: { items: { label: string; value: string }[] }) {
   )
 }
 
+/** Rows the Results card shows, and the size the card is drawn to fill. */
+export const SCHEDULE_WINDOW = 6
+/** Preferred split of that window: the last four results and the next two games. */
+const RECENT_DONE = 4
+const NEXT_UP = 2
+
+/**
+ * The Results card's window: the last few results and the next couple of games, in order.
+ *
+ * A PREFERENCE, NOT A PAIR OF CAPS, and that is the whole point of it being a function. Four
+ * plus two was written as two independent slices, which is six rows only while both ends of the
+ * season have games in them. It has neither end for most of the year: nothing is played on the
+ * opening day and nothing is scheduled from the last one, so the card drew four rows and then
+ * two rows of nothing. Not a small gap either, because Results shares a stretched grid row with
+ * Team stats, whose height is fixed by its sixteen tiles: measured on the Firebells' page it was
+ * 250px of content in a 336px card, and it would have sat that way all winter.
+ *
+ * So the window is topped up from whichever side can pay, results first, since a game that
+ * happened outranks one that has not. Both lists are expected in chronological order and come
+ * back that way.
+ */
+export function scheduleWindow<T>(played: T[], upcoming: T[]): T[] {
+  const wantDone = Math.min(RECENT_DONE, played.length)
+  const wantUp = Math.min(NEXT_UP, upcoming.length)
+  const done = Math.min(played.length, wantDone + Math.max(0, SCHEDULE_WINDOW - wantDone - wantUp))
+  const up = Math.min(upcoming.length, wantUp + Math.max(0, SCHEDULE_WINDOW - done - wantUp))
+  return [...played.slice(played.length - done), ...upcoming.slice(0, up)]
+}
+
 // A header link in a card's action slot. Same affordance as Results' "All 15".
 function CardLink({ label, accent, onClick }: { label: string; accent: string; onClick: () => void }) {
   return (
@@ -565,16 +594,26 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   // most of a screenful before you reach anything else. Default to a window around now: the
   // last few results and the next couple of games, which is what anyone opening a team page
   // actually wants. The rest is one tap away.
-  const RECENT_DONE = 4
-  const NEXT_UP = 2
+  //
+  // THE WINDOW IS SIX ROWS, AND IT HAS TO BE TOPPED UP FROM WHICHEVER SIDE HAS THEM. Four plus
+  // two was written as two independent slices, which is the same thing as six rows only while
+  // both ends of the season have games in them. It has neither end for most of the year: on the
+  // opening day nothing has been played, and from Sep 6 nothing is scheduled, so the card
+  // rendered four rows and then two rows of nothing. That is not a small gap, because Results
+  // shares a stretched grid row with Team stats, whose height is fixed by its sixteen tiles:
+  // measured on the Firebells' page it was 250px of content inside a 336px card, so the hole was
+  // most of a third of it and sat there for the whole off season.
+  //
+  // So the split below is a PREFERENCE, not a pair of caps. Six rows if six exist, taken 4/2
+  // when both sides can pay, and otherwise from the side that can. Results are topped up first
+  // because a game that happened outranks one that has not.
   const { played: playedGames, upcoming: upcomingGames } = useMemo(() => ({
     played: schedule.filter(g => g.status !== 'scheduled'),
     upcoming: schedule.filter(g => g.status === 'scheduled'),
   }), [schedule])
   // Chronological still, just trimmed at both ends.
   const visibleSchedule = useMemo(
-    () => [...playedGames.slice(-RECENT_DONE), ...upcomingGames.slice(0, NEXT_UP)],
-    [playedGames, upcomingGames])
+    () => scheduleWindow(playedGames, upcomingGames), [playedGames, upcomingGames])
   const hiddenCount = schedule.length - visibleSchedule.length
 
   const loading = roster == null || lines == null
