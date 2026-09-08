@@ -214,7 +214,9 @@ export default function GameGrid({ columns, rows, renderCell, colWidthRem, nameW
               </Typography>
               {c.sub2 && (
                 <Typography sx={{
-                  fontSize: '0.5rem', fontWeight: 800, lineHeight: 1.3,
+                  // 700 at 8px: see the weight ceiling under TYPE_SCALE. A surname is the one
+                  // thing on this grid that has to be READ rather than matched on shape.
+                  fontSize: '0.5rem', fontWeight: 700, lineHeight: 1.3,
                   letterSpacing: 0.2,
                   color: c.sub2Color ?? 'text.disabled',
                   // sub2 carries a pitcher's surname in the lineup grid, not just "LHP",

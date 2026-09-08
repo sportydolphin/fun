@@ -448,7 +448,8 @@ function StatGrid({ items }: { items: [string, string | number][] }) {
       {items.map(([label, value]) => (
         <TapTip key={label} title={statTip(label, eraBasis)} popperZIndex={TIP_Z}
           sx={{ textAlign: 'center', borderRadius: 1.5, bgcolor: 'action.hover', py: 0.6, px: 0.4, minWidth: 0 }}>
-          <Typography sx={{ fontSize: '0.56rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>{label}</Typography>
+          {/* 700 under 9px: see the weight ceiling under TYPE_SCALE in ui.tsx. */}
+          <Typography sx={{ fontSize: '0.56rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled' }}>{label}</Typography>
           {/* A zero is dimmed to the weight of its own label. Half a batting grid is zeros for
               most of the roster (a 6 AB line reads 1 · 3 · 1 · 0 · 0 · 3 · 1 · 1 · 0 · 4), and
               at full weight the eye has to read all ten boxes to find the five that say

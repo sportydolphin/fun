@@ -372,6 +372,43 @@ export const TYPE_SCALE = {
 } as const
 
 /**
+ * WEIGHT HAS A CEILING AT THE BOTTOM OF THIS SCALE, and it is the opposite of the instinct.
+ *
+ * The reflex with a label that has to carry is to make it heavier, and above `body` that works.
+ * Below about 10px it stops working and starts undoing itself: the strokes thicken while the
+ * counters (the holes in a, e, o, and the gaps inside an uppercase B or R) stay the same size,
+ * so they close up and the word turns into a shape you match rather than letters you read. It
+ * is worst on exactly what these sizes are used for, which is uppercase set with letter-spacing
+ * in a saturated accent or a dimmed grey, where a second and third emphasis are already doing
+ * the work weight was being asked to do.
+ *
+ * So, on a phone at the default text scale, where 1rem is 16px:
+ *
+ *   · **Under 9px: 700 at the most.** That is `nano`, and the 0.55/0.56rem sizes set by hand.
+ *     Audited Sep 8, 2026 and it held 900 in one place and 800 in four.
+ *   · **9px to 10.5px: 800 at the most.** That is `caption`, and 0.58 to 0.62rem. It held 900
+ *     in seven places, all of them uppercase and letter-spaced.
+ *   · Anything larger: no ceiling, 900 is fine and several things want it.
+ *
+ * IN PIXELS AND NOT IN TOKEN NAMES, deliberately: a third of the small type in this section is
+ * set as a raw rem value rather than through TYPE_SCALE, so a rule phrased as "nano and caption"
+ * would have missed 0.55rem entirely, which is where two of the five worst cases were.
+ *
+ * A SINGLE GLYPH IS EXEMPT, and there are three: the `›` affordance on a series box, and the two
+ * `*` flags on the pitching-usage grid. A symbol has no counters to close and no word shape to
+ * lose, and those two want to be found rather than read.
+ *
+ * THE READER'S TEXT SETTING DOES NOT RESCUE THIS. Large multiplies by 1.125, so 8px becomes 9
+ * and 9.6 becomes 10.8, still inside the range above; and someone who has asked for bigger text
+ * is the last reader who should be handed a filled-in 8px word. The desktop scale does lift
+ * these (`--app-type` puts nano at 10px), which is exactly why it went unnoticed: the section is
+ * built on a desktop and the failure is on the phone, where the traffic is.
+ *
+ * Nothing enforces this. `tsc` cannot see a font weight, and a rule that only lives in a
+ * reviewer's head is the reason there were sixty of these to sort through.
+ */
+
+/**
  * Icon sizes, and they are a SEPARATE SCALE on purpose.
  *
  * MUI sizes an icon with `fontSize`, so an icon and a paragraph reach for the same CSS property

@@ -227,7 +227,7 @@ function SeriesSchedule({ series }: { series: BracketSeries }) {
               // are what the matchup on the right needed at the Large text setting, where
               // "BOS @ SF" was coming out as "BOS @ S…".
               width: '2.75rem', flexShrink: 0,
-              fontSize: TYPE_SCALE.caption, fontWeight: 900,
+              fontSize: TYPE_SCALE.caption, fontWeight: 800,
               letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.disabled',
             }}>{`Game ${g.game}`}</Typography>
             <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, whiteSpace: 'nowrap' }}>{day}</Typography>
@@ -306,8 +306,11 @@ function LeaderTable({ away, home, awayLeaders, homeLeaders, onOpenPlayer }: {
         textAlign: align, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
         color: l ? 'text.primary' : 'text.disabled',
       }}>{l ? shortName(l.player.name) : '—'}</Typography>
+      {/* 800, matching the team comparison directly above, and for the reason given there: a
+          tabular figure at 900 in a colour picked to be read closes its own counters up, and
+          these are the same numbers in the same accent inches below that block. */}
       <Typography sx={{
-        flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 900,
+        flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 800,
         fontVariantNumeric: 'tabular-nums', color: l ? wpblAccent(team.id, dark) : 'text.disabled',
       }}>{l ? l.value : ''}</Typography>
     </Box>
@@ -320,7 +323,7 @@ function LeaderTable({ away, home, awayLeaders, homeLeaders, onOpenPlayer }: {
     }}>
       {align === 'left' && <TeamBadge team={team} size={18} />}
       <Typography sx={{
-        fontSize: TYPE_SCALE.caption, fontWeight: 900, letterSpacing: 0.5, textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
         color: wpblAccent(team.id, dark), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>{team.name}</Typography>
       {align === 'right' && <TeamBadge team={team} size={18} />}
@@ -549,10 +552,15 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
             cannot be read is decoration. Out here each side has the width the names need. */}
         {leaders && (leaders.home.length > 0 || leaders.away.length > 0) && (
           <Box>
-            {/* CENTRED, because the table under it is. The label is the only part of this
-                block that was still flush left, so it pointed at a margin rather than at
-                the thing it labels. */}
-            <Box sx={{ maxWidth: chromePx(400), mx: 'auto' }}>
+            {/* CENTRED OVER THE TABLE, AND THAT NEEDED BOTH HALVES. Giving the label the
+                table's own 400 cap put it in the right BOX, which was the first half and read
+                as done; the label inside it is still flush left, so the words sat at the left
+                edge of a block whose content pools around the middle (each side's leader hugs
+                the category column, so the outer thirds of every row are empty). The heading
+                ended up 250px left of everything it labels, at an indent that matches nothing
+                else in the sheet: the two headings above it sit on their own columns' edges,
+                and this one sat at a third position that looks like a mistake. */}
+            <Box sx={{ maxWidth: chromePx(400), mx: 'auto', textAlign: 'center' }}>
               <SectionLabel>Team leaders</SectionLabel>
             </Box>
             {away && home && (

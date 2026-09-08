@@ -226,7 +226,7 @@ export function SeriesPickLine({ series, bracket, state }: {
       display: 'flex', alignItems: 'baseline', gap: 0.75, minWidth: 0,
     }}>
       <Typography sx={{
-        fontSize: TYPE_SCALE.caption, fontWeight: 900, letterSpacing: 0.5, textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase',
         color: 'text.disabled', flexShrink: 0,
       }}>{result ? (right ? 'You called it' : 'You had') : 'Your call'}</Typography>
       <Typography sx={{

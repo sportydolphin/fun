@@ -230,12 +230,18 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, children 
         bgcolor: 'action.hover', borderBottom: '1px solid', borderColor: 'divider',
       }}>
         <Typography sx={{
-          fontSize: TYPE_SCALE.caption, fontWeight: 900, letterSpacing: 0.7, textTransform: 'uppercase',
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.7, textTransform: 'uppercase',
           color: isFinal ? 'var(--wpbl-medal-1)' : 'text.disabled', whiteSpace: 'nowrap',
         }}>{series.label}</Typography>
+        {/* UP A SIZE AND DOWN A WEIGHT, which is the trade the weight ceiling in ui.tsx exists
+            to make. This was the worst string in the section: 8px, 900, uppercase, letter-spaced,
+            in a saturated red inside a red border a hair away from it, so every emphasis
+            available was applied at once to a word that came out a smear. It is also the most
+            dramatic label the bracket has and it goes live tomorrow. The badge still shouts,
+            through the colour and the border it already had. */}
         {elim && (
           <Typography sx={{
-            fontSize: TYPE_SCALE.nano, fontWeight: 900, letterSpacing: 0.6, textTransform: 'uppercase',
+            fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase',
             color: 'error.main', border: '1px solid', borderColor: 'error.main', borderRadius: 0.75,
             px: 0.5, py: 0.05, whiteSpace: 'nowrap', lineHeight: 1.3,
           }}>Elimination</Typography>
@@ -398,7 +404,7 @@ export function BracketDiagram({ bracket, odds, onOpenSeries, onOpenTeam, picks 
           instead of a line: without one it reads as a third semifinal. */}
       <Typography sx={{
         display: { xs: 'block', sm: 'none' },
-        fontSize: TYPE_SCALE.caption, fontWeight: 900, letterSpacing: 0.7, textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.7, textTransform: 'uppercase',
         color: 'text.disabled', textAlign: 'center', mt: 0.25,
       }}>The winners meet in the</Typography>
       {/* THE CHAMPIONSHIP TAKES THE WHOLE COLUMN, AND THE TITLE ODDS ARE INSIDE IT.
@@ -448,7 +454,7 @@ function TitleOddsStrip({ odds, onOpenTeam }: {
       px: 1.25, pt: 1, pb: 1.1, borderTop: '1px solid', borderColor: 'divider',
     }}>
       <Typography sx={{
-        fontSize: TYPE_SCALE.caption, fontWeight: 900, letterSpacing: 0.7, textTransform: 'uppercase',
+        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.7, textTransform: 'uppercase',
         color: 'text.disabled', mb: 0.75,
       }}>{decided ? 'Champion' : 'Chance to win it all'}</Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>

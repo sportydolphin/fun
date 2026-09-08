@@ -117,13 +117,19 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact,
         <>
           {/* THE COMPACT CUT IS A FOOTER AND IS TYPED LIKE ONE. At 0.82rem/900 in a club accent
               these three values were the heaviest ink in Home's Next game card, ahead of the
-              club names the card is about; the only caller of `compact` is that card. Full size
-              is unchanged, because in Game Center this block IS the page and has nothing to
-              defer to. The winner keeps its colour either way: that is the comparison, and
-              dropping it would leave three bars saying nothing a glance can pick up. */}
+              club names the card is about; the only caller of `compact` is that card. The
+              winner keeps its colour at both sizes: that is the comparison, and dropping it
+              would leave three bars saying nothing a glance can pick up.
+
+              800 AND NOT 900 AT FULL SIZE. Weight and a saturated accent are two emphases on
+              one short string, and at 900 they stop adding up and start fighting: the strokes
+              of a tabular figure at that weight close up the counters, and in a colour chosen
+              to be READ against the page rather than to sit quietly, the number came out as a
+              blob that had to be worked at. It still has 200 weights and the whole colour on
+              the losing side, which is more than enough to say which one won. */}
           <Typography sx={{
             fontSize: compact ? TYPE_SCALE.meta : TYPE_SCALE.body,
-            fontWeight: better ? (compact ? 700 : 900) : 600, lineHeight: 1.1,
+            fontWeight: better ? (compact ? 700 : 800) : 600, lineHeight: 1.1,
             color: better ? color : 'text.secondary', fontVariantNumeric: 'tabular-nums',
           }}>
             {v?.display ?? '—'}
@@ -196,7 +202,10 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact,
     <Box sx={{ mt: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.4 }}>
         <Typography sx={{
-          fontSize: TYPE_SCALE.nano, fontWeight: 800, color: 'text.disabled',
+          // 700 at `nano`: see the weight ceiling under TYPE_SCALE. This one is 8px, uppercase,
+          // letter-spaced AND dimmed, so it had four things working against it and weight was
+          // the only one not earning its place.
+          fontSize: TYPE_SCALE.nano, fontWeight: 700, color: 'text.disabled',
           textTransform: 'uppercase', letterSpacing: 1, lineHeight: 1, flexShrink: 0,
         }}>
           {label}

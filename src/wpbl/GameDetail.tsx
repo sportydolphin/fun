@@ -549,7 +549,7 @@ function TeamBox({ team, batting, pitching, names, onOpenPlayer }: {
             <Box component="tbody">
               {pitching.map(p => (
                 <Box component="tr" key={p.id} sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-                  {nameCell(p.player_id, p.decision ? <Typography component="span" sx={{ fontSize: '0.56rem', fontWeight: 800, color, lineHeight: 1 }}>({p.decision})</Typography> : null)}
+                  {nameCell(p.player_id, p.decision ? <Typography component="span" sx={{ fontSize: '0.56rem', fontWeight: 700, color, lineHeight: 1 }}>({p.decision})</Typography> : null)}
                   <StatCell dense={isMobile} bold>{outsToIp(p.outs)}</StatCell>
                   {PIT_COLS.map(c => <StatCell key={c.key as string} dense={isMobile}>{p[c.key] == null ? '—' : Number(p[c.key])}</StatCell>)}
                 </Box>
@@ -1115,7 +1115,8 @@ function PitchData({ tracking, boxPitchers, firstHit = null, live = false }: { t
   // Standout game-highlights tile for the summary strip: bigger value + who did it.
   const hl = (emoji: string, label: string, value: string, sub: string, first: boolean) => (
     <Box sx={{ flex: 1, minWidth: 0, textAlign: 'center', px: 0.75, ...(first ? {} : { borderLeft: '1px solid', borderColor: 'divider' }) }}>
-      <Typography sx={{ fontSize: '0.55rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled', whiteSpace: 'nowrap' }}>{emoji} {label}</Typography>
+      {/* 700 under 9px: see the weight ceiling under TYPE_SCALE in ui.tsx. */}
+      <Typography sx={{ fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'text.disabled', whiteSpace: 'nowrap' }}>{emoji} {label}</Typography>
       <Typography sx={{ fontSize: '1.05rem', fontWeight: 800, lineHeight: 1.25, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</Typography>
       <Typography sx={{ fontSize: '0.62rem', color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</Typography>
     </Box>
