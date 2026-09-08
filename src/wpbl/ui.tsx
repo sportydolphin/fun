@@ -8,6 +8,7 @@
 // If you restyle a primitive here, mirror the change in the MLB file (and vice versa).
 
 import React, { useEffect, useLayoutEffect, useMemo, useCallback, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Box, Typography, Tooltip, useTheme, useMediaQuery } from '@mui/material'
 import type { Theme, SxProps } from '@mui/material'
 import { WPBL_ACCENT, wpblAccentFg, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
@@ -1517,7 +1518,26 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
   const swipeNav = useSwipeNav()
   useSheetDrag(!!sheet && swipeNav, cardRef, overlayRef, chromeRef, onClose)
 
-  return (
+  /**
+   * PORTALLED TO THE BODY, AND IT HAS TO BE.
+   *
+   * `position: fixed` is only fixed to the VIEWPORT while no ancestor has a transform, a
+   * filter, or a will-change on one: any of those makes that ancestor the containing block for
+   * every fixed descendant instead. `SwipeableViews` translates its track on the X axis to show
+   * the current pane, which is exactly that, so a modal opened from anything inside a WPBL tab
+   * was being laid out inside its own pane rather than over the page.
+   *
+   * The damage is invisible on a short dialog and total on a tall one: measured on Home at
+   * 1600x1000, the series overview's overlay came out 1260x1608 at y=149, so `maxHeight: 100%`
+   * resolved against 1608 instead of 1000, the scroll region never became a scroll region, and
+   * everything past the halfway point of the sheet was simply unreachable. Nothing errored and
+   * nothing logged.
+   *
+   * A portal takes the overlay out of the pane and puts it under `body`, where nothing is
+   * transformed. React keeps the tree intact through it, so context, events and the refs below
+   * all behave exactly as they did.
+   */
+  return createPortal((
     <Box
       ref={overlayRef}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
@@ -1662,7 +1682,7 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
         )}
       </Box>
     </Box>
-  )
+  ), document.body)
 }
 
 /**

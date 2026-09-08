@@ -10,7 +10,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       {
         short: 'Tap any matchup in the bracket for a full series overview',
-        full:  'Who is playing and how likely each of them is, every game of the series with its date and time and who bats last, what happened when the two clubs met in the season, the tale of the tape, and the players to watch on each side. Most of that existed in pieces scattered around the section and none of it was in one place.',
+        full:  'Who is playing and how likely each of them is, every game of the series with its date and time and who bats last, what happened when the two clubs met in the season, the tale of the tape, and the players to watch on each side. Most of that existed in pieces scattered around the section and none of it was in one place. On a wide screen it opens as two columns so the whole thing is on one screen; on a phone it stacks.',
       },
       {
         short: 'Each club’s leaders, from the games they played for that club',
@@ -19,6 +19,10 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         short: 'The whole matchup box is the tap target now',
         full:  'Each club row used to be its own link to that club’s page, which made a box two controls with a strip of nothing between them and left the box itself, the thing you point at, doing nothing. The club links moved into the overview, where there is room to label them properly.',
+      },
+      {
+        short: 'Fixed: a pop-up opened from a tab could run off the bottom of the screen',
+        full:  'Anything that opens over the page, a game, a player card, the series overview, is pinned to the screen rather than to the page behind it. That only works while nothing above it has been moved, and the tab strip slides sideways to change tabs, which was enough to pin those pop-ups to the tab instead. A short one looked fine; a tall one ran off the bottom with no way to scroll to the rest. The series overview was the first one tall enough to show it.',
       },
       {
         short: 'Fixed: the next postseason game was showing the wrong time outside Central',

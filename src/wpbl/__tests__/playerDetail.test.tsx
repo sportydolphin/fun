@@ -76,9 +76,23 @@ vi.mock('../api', async (importOriginal) => {
 
 const { default: PlayerDetailModal, gridColumns } = await import('../PlayerDetail')
 
-const show = (p: WpblPlayer, onOpenGame?: (g: WpblGame) => void) => render(
-  <PlayerDetailModal player={p} teams={TEAMS} games={GAMES} players={[p]} onClose={() => {}} onOpenGame={onOpenGame} />,
-)
+/**
+ * `container` here is the DOCUMENT BODY, not the render root, and that is not a shortcut.
+ *
+ * This card is a `ModalShell`, and ModalShell portals itself to the body: `position: fixed` is
+ * only fixed to the viewport while no ancestor is transformed, and the WPBL tab pager transforms
+ * its track, so a modal opened from inside a tab was being laid out inside that pane. The portal
+ * is the fix, and it means the modal's DOM is no longer under the element `render` returns.
+ *
+ * Testing Library hands back `baseElement` for exactly this, so the queries below are unchanged
+ * and still read the card they are about.
+ */
+const show = (p: WpblPlayer, onOpenGame?: (g: WpblGame) => void) => {
+  const view = render(
+    <PlayerDetailModal player={p} teams={TEAMS} games={GAMES} players={[p]} onClose={() => {}} onOpenGame={onOpenGame} />,
+  )
+  return { ...view, container: view.baseElement as HTMLElement }
+}
 
 /**
  * The same card, but inside a league big enough to be ranked against.

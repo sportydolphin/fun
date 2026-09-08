@@ -1035,6 +1035,34 @@ fixture. Invisible until now because the bracket only ever printed dates. Both s
 the wall clock (the site calendar has 6:00 PM Central for Sep 9 and so does `POSTSEASON_SCHEDULE`);
 only the rendering was wrong. One line, and the three surfaces agree.
 
+**AND IT FOUND THE BUG UNDER EVERY MODAL IN THE SECTION.** Opened on a desktop the sheet came
+out 560px wide and 1,402px tall in a 1,000px viewport, with `overflow: visible` and no way to
+reach the bottom half of it. `ModalShell`'s overlay is `position: fixed`, which is only fixed
+to the VIEWPORT while no ancestor has a transform: any transformed ancestor becomes the
+containing block for every fixed descendant instead. `SwipeableViews` translates its track on
+the X axis to show the current pane, so measured on Home the overlay was 1260x1608 at y=149,
+the pane's own box. `maxHeight: 100%` then resolved against 1608 rather than 1000, the scroll
+region never became one, and everything past the halfway point was unreachable. Nothing
+errored and nothing logged.
+
+ModalShell portals to `body` now, which is the fix for every modal opened from inside a tab
+and not just this one: the pick'em sheet had the same latent bug and was only saved by being
+short. The one visible cost is in the tests, where `render`'s `container` no longer holds a
+modal's DOM; `playerDetail.test.tsx` reads `baseElement` instead, which is what Testing
+Library returns for exactly this.
+
+**Two columns from `md` up**, split by kind rather than by length: the left is what is going
+to happen and what already has, the right is how the clubs measure up, and "who to watch"
+spans both because it is itself two columns. Nested in one half each club's leaders had about
+200px and every name over eleven characters came out as "Kelsie Whit…", which is most of
+them; a leaders list whose leaders cannot be read is decoration. 949px tall and nothing
+clipped at 1600x1000, where it was 1,402px and half unreachable.
+
+**And the tale of the tape lost its own heading here**, through a new `bare` prop: it sits
+under a "Tale of the tape" label inside a sheet whose eyebrow already names both clubs, so
+"Season Comparison" was the third time in four inches the same thing was said. The club
+legend stays, because it is the key to which colour is whose.
+
 **Small things the sheet needed and the measurements decided:** the club chips stack on a phone,
 because side by side at 375px "Heights" came out as "Hei…"; the chip's nickname sits over its city
 rather than carrying a full name, because two full names beside two percentages in a 560px sheet

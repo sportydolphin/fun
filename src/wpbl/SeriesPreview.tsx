@@ -333,7 +333,12 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
     : null
 
   return (
-    <ModalShell sheet eyebrow={`${series.label} · best of ${series.bestOf}`} maxWidth={560} onClose={onClose}>
+    // WIDER THAN A SHEET ON A DESKTOP, because it is five blocks and they do not want to be a
+    // column 1,348px long. Measured at 1600x1000 before this: the card ran the full height of
+    // the screen with half its content below the fold, in a 560px ribbon with a thousand pixels
+    // of empty page either side of it.
+    <ModalShell sheet eyebrow={`${series.label} · best of ${series.bestOf}`}
+      maxWidth={{ xs: 560, md: 900 }} onClose={onClose}>
       <Box sx={{ px: 2, py: 1.75, display: 'flex', flexDirection: 'column', gap: 2.25 }}>
         {/* Who, and how likely. The same two facts the bracket box shows, at the size a sheet
             can afford, and the only place in here a club is a link. */}
@@ -361,6 +366,15 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
           </Typography>
         )}
 
+        {/* TWO COLUMNS FROM md UP, and the split is by KIND rather than by length: the left is
+            what is going to happen and what already has, the right is how the two clubs measure
+            up. Either column reads on its own, which is what lets them stack on a phone in that
+            same order without anything being orphaned. */}
+        <Box sx={{
+          display: 'grid', gap: { xs: 2.25, md: 3 }, alignItems: 'start',
+          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+        }}>
+        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2.25 }}>
         <Box>
           <SectionLabel>When they play</SectionLabel>
           <Box sx={{ mt: 0.5 }}><SeriesSchedule series={series} /></Box>
@@ -396,22 +410,32 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
           </Box>
         )}
 
+        </Box>
+
+        <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2.25 }}>
         {/* The tale of the tape, which is the card that already existed for exactly this and was
             only ever shown for a scheduled GAME. A series is the same question asked once. */}
         {home && away && (
           <Box>
             <SectionLabel>Tale of the tape</SectionLabel>
             <Box sx={{ mt: 0.5 }}>
-              <WpblGamePreview away={away} home={home} teams={teams} games={games} onOpenTeam={onOpenTeam} />
+              <WpblGamePreview away={away} home={home} teams={teams} games={games} onOpenTeam={onOpenTeam} bare />
             </Box>
           </Box>
         )}
 
+        </Box>
+        </Box>
+
+        {/* ACROSS BOTH COLUMNS, because this block is itself two columns. Nested inside one half
+            of the sheet each club's list got about 200px, and every name over eleven characters
+            came out as "Kelsie Whit…" — which is most of them, and a leaders list whose leaders
+            cannot be read is decoration. Out here each side has the width the names need. */}
         {leaders && (leaders.home.length > 0 || leaders.away.length > 0) && (
           <Box>
             <SectionLabel>Who to watch</SectionLabel>
             <Box sx={{
-              mt: 0.75, display: 'flex', gap: 2, minWidth: 0,
+              mt: 0.75, display: 'flex', gap: { xs: 2, md: 3 }, minWidth: 0,
               flexDirection: { xs: 'column', sm: 'row' },
             }}>
               {home && <LeaderList team={home} leaders={leaders.home} onOpenPlayer={onOpenPlayer} />}

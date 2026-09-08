@@ -35,7 +35,7 @@ function ordinal(n: number): string {
 // Bar colors come from the shared team accent palette (constants.ts `wpblAccent`), which
 // exists for exactly this reason: the raw primaries are all near-black and unusable as
 // foreground. Keeping one source means a palette tweak lands everywhere at once.
-export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact }: {
+export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact, bare }: {
   away: WpblTeam
   home: WpblTeam
   teams: WpblTeam[]
@@ -53,6 +53,13 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
    *  Home it is the last block of a card that has already said plenty, and a card that grows a
    *  paragraph of apology on the season's first day is worse than one that simply stops. */
   compact?: boolean
+  /** Drop the "Season Comparison" heading and the card's own padding, for a caller that has
+   *  already titled this block and supplied the surround. The series overview has: it sits
+   *  under a "Tale of the tape" label, inside a sheet whose eyebrow already names both clubs,
+   *  so the heading was the third time in four inches that the same thing was said. The
+   *  club legend STAYS, because it is the key to which colour is whose and the bars are
+   *  unreadable without it. */
+  bare?: boolean
 }) {
   const isDark = useWpblDark()
   const { basis: eraBasis, kLabel } = useEraBasis()
@@ -249,13 +256,15 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact 
   }
 
   return (
-    <Box sx={{ px: 2, py: 1.5 }}>
-      <Typography sx={{
-        fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled',
-        textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1, mb: 1,
-      }}>
-        Season Comparison
-      </Typography>
+    <Box sx={bare ? { px: 0, py: 0 } : { px: 2, py: 1.5 }}>
+      {!bare && (
+        <Typography sx={{
+          fontSize: TYPE_SCALE.micro, fontWeight: 700, color: 'text.disabled',
+          textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1, mb: 1,
+        }}>
+          Season Comparison
+        </Typography>
+      )}
 
       {/* Legend: which color is which club */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75 }}>
