@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import {
   seriesPickCategory, seriesPickOptions, seriesPickOpen, seriesResultChoice,
-  championshipEntrants, parsePickChoice, pickChoice, pickShares, PICKEM_SEASON,
+  championshipEntrants, championshipField, parsePickChoice, pickChoice, pickShares,
+  PICKEM_SEASON,
 } from '../derive/seriesPicks'
 import type { BracketSeries, WpblBracket } from '../derive/bracket'
 import type { WpblTeam } from '../types'
@@ -197,5 +198,38 @@ describe('the crowd’s share', () => {
     const { total, share } = pickShares(undefined, options)
     expect(total).toBe(0)
     expect(share('SF:2-0')).toBe(0)
+  })
+
+  // THE FINAL IS EVERY READER ANSWERING ONE QUESTION ABOUT A DIFFERENT PAIR OF CLUBS, so the two
+  // it offers are a slice of the field and the shares must not be renormalised onto that slice.
+  // Divided by the slice, a matchup two people out of twenty had would read 50/50 and look
+  // exactly like a semifinal split down the middle.
+  it('divides the championship by everyone who called it, not by the matchup on screen', () => {
+    const field = seriesPickOptions('championship', [SF, BOS, NY, LA])
+    const mine = seriesPickOptions('championship', [SF, NY])
+    const tally = { 'SF:3-1': 3, 'NY:3-2': 1, 'LA:3-0': 12, 'BOS:3-1': 4 }
+    const { total, share } = pickShares(tally, mine, field)
+    expect(total).toBe(20)
+    expect(share('SF:3-1')).toBe(0.15)
+    // Which is the whole point: the two on screen are allowed not to add to 100.
+    expect(share('SF:3-1') + share('NY:3-2')).toBe(0.2)
+  })
+
+  // The count the sheet prints as "Votes:", which is a headcount of the question and so must
+  // not shrink to the matchup either.
+  it('counts everyone who answered the question, not everyone in the matchup', () => {
+    const field = seriesPickOptions('championship', [SF, BOS, NY, LA])
+    const mine = seriesPickOptions('championship', [SF, NY])
+    const tally = { 'SF:3-1': 3, 'NY:3-2': 1, 'LA:3-0': 12, 'BOS:3-1': 4 }
+    expect(pickShares(tally, mine, field).total).toBe(20)
+  })
+})
+
+describe('the championship field', () => {
+  // Built from the semifinal entrants, because before the semifinals end the final's own seats
+  // are empty and that is exactly when the question is being asked.
+  it('is all four clubs, with the final still empty', () => {
+    const ids = new Set(championshipField(bracket()).map(o => o.teamId))
+    expect([...ids].sort()).toEqual(['BOS', 'LA', 'NY', 'SF'])
   })
 })

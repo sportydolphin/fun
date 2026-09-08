@@ -171,6 +171,74 @@ describe('picking a series', () => {
     await waitFor(() => expect(radio('Semifinal A: SF to win').textContent).toContain('%'))
   })
 
+  // THE FINAL'S PERCENTAGES ARE NOT OUT OF THE FINAL. Every reader answers one championship
+  // question about whichever two clubs their own semifinal calls sent through, so the two on
+  // screen are a slice of the field. Renormalised onto that slice they added to 100 no matter
+  // how few people had either club winning it all, which is a number with no stated meaning.
+  it('divides the championship by everyone who called it, not by the matchup on screen', async () => {
+    ballot = {
+      'pickem:2026:semifinal:A': 'SF:2-0',
+      'pickem:2026:semifinal:B': 'NY:2-1',
+      'pickem:2026:championship': 'SF:3-1',
+    }
+    // Twenty champion calls, four of them inside this reader's SF-NY final.
+    results = { 'pickem:2026:championship': { 'SF:3-1': 3, 'NY:3-2': 1, 'LA:3-0': 12, 'BOS:3-1': 4 } }
+    draw()
+    await openSheet()
+    // 3 of 20, not 3 of 4.
+    await waitFor(() => expect(radio('Championship: SF to win').textContent).toContain('15%'))
+    expect(radio('Championship: NY to win').textContent).toContain('5%')
+  })
+
+  // A semifinal asks everybody the same question, so its shares do still add to 100.
+  it('leaves a semifinal out of a hundred', async () => {
+    ballot = { 'pickem:2026:semifinal:A': 'SF:2-0' }
+    results = { 'pickem:2026:semifinal:A': { 'SF:2-0': 3, 'BOS:2-1': 1 } }
+    draw()
+    await openSheet()
+    await waitFor(() => expect(radio('Semifinal A: SF to win').textContent).toContain('75%'))
+    expect(radio('Semifinal A: BOS to win').textContent).toContain('25%')
+  })
+
+  // ONE HEADCOUNT FOR THE SHEET, AND IT IS THE MAX RATHER THAN THE SUM. The three questions are
+  // answered by overlapping crowds, so adding them counts one person who called all three as
+  // three people. Per-series counts used to sit under each question and the final needed a
+  // sentence of arithmetic beside its own, which is what this replaced.
+  it('says how many have voted once, from the biggest question', async () => {
+    results = {
+      'pickem:2026:semifinal:A': { 'SF:2-0': 3, 'BOS:2-1': 1 },
+      'pickem:2026:semifinal:B': { 'NY:2-1': 9 },
+      'pickem:2026:championship': { 'SF:3-1': 2, 'LA:3-0': 5 },
+    }
+    draw()
+    await openSheet()
+    expect(await screen.findByText('Votes: 9')).toBeTruthy()
+    expect(screen.queryByText(/fans have called/)).toBeNull()
+  })
+
+  // A bare count says only that the poll is alive, which is not the thing the hidden-until-you-
+  // answer rule is protecting: that rule is about not showing WHAT everyone picked.
+  it('shows the count before the reader has answered anything', async () => {
+    results = { 'pickem:2026:semifinal:A': { 'SF:2-0': 3, 'BOS:2-1': 1 } }
+    draw()
+    await openSheet()
+    expect(await screen.findByText('Votes: 4')).toBeTruthy()
+    expect(radio('Semifinal A: SF to win').textContent).toBe('SF')
+  })
+
+  // AN ANSWERED QUESTION SAYS NOTHING. The chosen club and the chosen length are both ringed,
+  // filled in the club's colour and ticked, so a caption reading "Called." under each of them is
+  // a third of the sheet spent telling the reader what they can see.
+  it('says nothing under a question that has been answered', async () => {
+    ballot = { 'pickem:2026:semifinal:A': 'SF:2-0' }
+    draw()
+    await openSheet()
+    expect(radio('Semifinal A: SF in 2').getAttribute('aria-checked')).toBe('true')
+    expect(screen.queryByText(/Called/)).toBeNull()
+    // The questions that still want something keep saying so.
+    expect(screen.getByText('Pick a club.')).toBeTruthy()
+  })
+
   // A prediction made after the first pitch is not a prediction.
   it('locks a series that has started', async () => {
     const started = [...season(), game({
@@ -187,9 +255,9 @@ describe('picking a series', () => {
 })
 
 describe('a pick needs an account', () => {
-  // These picks get scored and published, so "who picked what" has to survive a cleared
-  // cache and follow the reader to a second device. A browser id does neither, and a
-  // leaderboard built on one would credit a stranger's phone.
+  // This poll publishes its own numbers back, so the key has to be harder to mint than a
+  // private window, and it has to survive a cleared cache and a second device. A browser id
+  // does none of the three.
   it('shows the questions to a signed-out reader and takes no answer', async () => {
     authUser = null
     draw()
@@ -284,9 +352,9 @@ describe('the card afterwards', () => {
     ]
     ballot = { 'pickem:2026:semifinal:A': 'SF:2-0' }
     const { container } = draw(played)
-    // "Called it" rather than "You called it": the row is tinted, railed and green by then, so
-    // the label no longer has to carry the "you" and the two words it saves go to the pick
-    // itself, which is what a narrow bracket column is short of.
+    // "Called it" and not a sentence: the row is tinted, railed and green by then, so the label
+    // does not have to carry the "you", and the words it saves go to the pick itself, which is
+    // what a narrow bracket column is short of.
     await waitFor(() => expect(container.textContent).toContain('Called it'))
   })
 })

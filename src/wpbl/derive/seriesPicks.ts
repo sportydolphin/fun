@@ -149,14 +149,54 @@ export function championshipEntrants(
   return picked[0] && picked[1] ? picked : [null, null]
 }
 
-/** Share of the vote per choice, for a set of options. Zero when nobody has answered, which
- *  renders as a bar with no width rather than as a missing row. */
+/**
+ * Every club anyone could have picked to win it all, which is the championship's real
+ * denominator and is NOT the two clubs it offers this reader.
+ *
+ * See `pickShares` for why the difference matters. Built from the semifinal entrants rather
+ * than from the final's own seats, because before the semifinals end those seats are empty and
+ * this is exactly when the question is being asked.
+ */
+export function championshipField(bracket: WpblBracket): SeriesPickOption[] {
+  const byId = new Map<string, WpblTeam>()
+  for (const s of bracket.semifinals) {
+    for (const t of [s.home.team, s.away.team]) if (t) byId.set(t.id, t)
+  }
+  for (const t of [bracket.championship.home.team, bracket.championship.away.team]) {
+    if (t) byId.set(t.id, t)
+  }
+  return seriesPickOptions('championship', [...byId.values()])
+}
+
+/**
+ * Share of the vote per choice. Zero when nobody has answered, which renders as a bar with no
+ * width rather than as a missing row.
+ *
+ * TWO OPTION LISTS, AND THE SECOND ONE IS THE DENOMINATOR. A semifinal asks everyone the same
+ * question, so what it offers and what could have been answered are the same set and the shares
+ * add to 100. THE CHAMPIONSHIP DOES NOT: every reader answers `pickem:2026:championship`, but
+ * before the semifinals end each of them is offered only the two clubs they sent through, so the
+ * options on screen are a slice of the field. Dividing by that slice made the reader's own two
+ * finalists add to 100% no matter how few people had either of them winning it all, which is a
+ * number with no stated meaning: not "share of fans", not "share of this matchup", something in
+ * between that only made sense if you already knew how the sheet worked. It also made two
+ * percentages that look alike incomparable, since a semifinal's 60% was out of everybody and the
+ * final's 60% was out of whoever happened to agree with your bracket.
+ *
+ * So the denominator is every answer to the QUESTION, and the visible shares are allowed not to
+ * add up. The sheet does not try to explain the gap in words any more, and should not: it says
+ * how many people have voted, once, and lets three percentages that add to 55 stand.
+ *
+ * `universe` must still be a real option list and not the raw tally: a stale key from a retired
+ * format must not inflate it, or every bar comes out short and nothing says why.
+ */
 export function pickShares(
   tally: Record<string, number> | undefined,
   options: SeriesPickOption[],
+  universe: SeriesPickOption[] = options,
 ): { total: number; share: (choice: string) => number } {
   let total = 0
-  for (const o of options) total += tally?.[o.choice] ?? 0
+  for (const o of universe) total += tally?.[o.choice] ?? 0
   return {
     total,
     share: (choice: string) => (total > 0 ? (tally?.[choice] ?? 0) / total : 0),

@@ -8,7 +8,7 @@ import {
 import { wpblAccent } from './constants'
 import {
   seriesPickCategory, seriesPickOptions, seriesPickOpen, seriesResultChoice,
-  championshipEntrants, parsePickChoice, pickShares,
+  championshipEntrants, championshipField, parsePickChoice, pickShares,
 } from './derive/seriesPicks'
 import {
   fetchWpblAwardBallot, fetchWpblAwardResults, castWpblAwardVote, clearWpblAwardVote,
@@ -38,9 +38,12 @@ import type { WpblTeam } from './types'
  * A PICK NEEDS AN ACCOUNT, AND THAT IS A REVERSAL. This shipped keyed to the browser, the same
  * rule the fan-award ballot sets and for the reason it gives: an account requirement on a poll
  * with nothing at stake costs more real answers than it saves fake ones, and signing in bought
- * the reader nothing. What changed is the second half. These picks are going to be scored and
- * published, so "who picked what" has to survive a cleared cache and a second device, and a
- * browser id survives neither. A leaderboard built on one would credit a stranger's phone.
+ * the reader nothing. What changed is that this poll PUBLISHES ITS NUMBERS BACK, in the tiles
+ * and in the "% agree" on the card, so the tally is the feature rather than a by-product, and a
+ * browser id is a thing anyone can mint in a private window as fast as they can open one. An
+ * account is the cheapest bar that makes gaming the percentages more work than it is worth. It
+ * also means a reader's own picks survive a cleared cache and follow them to a second device,
+ * which is what makes the requirement worth something to the person paying it.
  *
  * SO THE PICK'EM KEYS ON THE USER ID WHILE THE AWARDS BALLOT STAYS ON THE BROWSER, and
  * `wpbl_award_votes.voter_key` now holds two kinds of value. That is deliberate and worth
@@ -49,8 +52,11 @@ import type { WpblTeam } from './types'
  * needs to, because a category belongs to exactly one of the two.
  *
  * A SIGNED-OUT READER STILL SEES THE QUESTIONS. The gate is on answering, not on looking: the
- * sheet opens, the clubs and formats are all there, and the controls are replaced by one line
- * saying why. Hiding the feature behind the wall would cost the sign-ups the wall is for.
+ * sheet opens, the clubs and formats are all there, and the controls are replaced by the ask.
+ * Hiding the feature behind the wall would cost the sign-ups the wall is for. The ask is four
+ * words and no justification, which is the second thing this got wrong: the paragraph under it
+ * argued for the account requirement, and a reader who has to be argued into a sign-in is one
+ * who has already decided.
  *
  * THE TALLY IS HIDDEN UNTIL YOU ANSWER. A poll that shows its results first stops measuring what
  * people think and starts measuring what the first fifty people thought. Once a series is under
@@ -77,9 +83,9 @@ export interface SeriesPickState {
 }
 
 export function useSeriesPicks(enabled: boolean): SeriesPickState {
-  // THE ACCOUNT IS THE BALLOT ID. See the header: these picks get scored and published, so
-  // they have to survive a cleared cache and follow the reader to a second device, which a
-  // browser id does neither of.
+  // THE ACCOUNT IS THE BALLOT ID. See the header: the tally is published back to the reader, so
+  // the key has to be something harder to mint than a private window, and it has to survive a
+  // cleared cache and follow them to a second device. A browser id does none of the three.
   const { user, openAuthDialog } = useAuth()
   const voterKey = user?.id ?? null
   // ONE PIECE OF STATE HOLDING BOTH HALVES, because a pick moves both at once. Two useStates
@@ -171,6 +177,8 @@ function useSeriesPick(series: BracketSeries, bracket: WpblBracket, state: Serie
     : [series.home.team, series.away.team]
   const options = seriesPickOptions(series.round, teams)
   const picked = state.ballot[category] ?? null
+  // What the shares are OUT OF, which is not what is on screen for the final. See pickShares.
+  const universe = series.round === 'championship' ? championshipField(bracket) : options
   return {
     category,
     teams: teams.filter((t): t is WpblTeam => !!t),
@@ -181,7 +189,7 @@ function useSeriesPick(series: BracketSeries, bracket: WpblBracket, state: Serie
     bust: picked != null && options.length > 0 && !options.some(o => o.choice === picked),
     open: seriesPickOpen(series),
     result: seriesResultChoice(series),
-    shares: pickShares(state.results[category], options),
+    shares: pickShares(state.results[category], options, universe),
   }
 }
 
@@ -561,6 +569,17 @@ function SeriesQuestion({ series, bracket, state }: {
   const activeSide = activeTeam && teams.length > 1 && teams[teams.length - 1].id === activeTeam
     ? 'right' : 'left'
 
+  // Null once the question is answered and nothing has happened to it yet. See the caption below.
+  // The settled pair stays: a series that is over is the one case the tiles cannot draw, since
+  // being ticked says the reader answered and says nothing about whether they were right.
+  const status = result ? (result === picked ? 'You got this one right.' : 'Decided.')
+    : !open ? 'Under way, so this one is locked.'
+      : !state.canPick ? 'Sign in above to call this one.'
+        : !activeTeam ? 'Pick a club.'
+          : draftTeam || !picked ? 'Now say how long.'
+            : null
+
+
   return (
     <Box>
       <SectionLabel>{`${series.label} · best of ${series.bestOf}`}</SectionLabel>
@@ -621,14 +640,22 @@ function SeriesQuestion({ series, bracket, state }: {
         </Box>
       )}
 
-      <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 0.6 }}>
-        {result ? (result === picked ? 'You called it.' : 'Decided.')
-          : !open ? 'Under way, so this one is locked.'
-            : !state.canPick ? 'Sign in above to call this one.'
-            : !activeTeam ? 'Pick a club.'
-              : draftTeam || !picked ? 'Now say how long.'
-                : shares.total > 1 ? `${shares.total} fans have called this one.` : 'Called.'}
-      </Typography>
+      {/* WHAT TO DO NEXT, AND ONLY WHEN THERE IS SOMETHING TO SAY.
+          A finished answer says nothing at all. It used to print "Called.", which is the one
+          state the tiles already draw: the chosen club and the chosen length are both ringed,
+          filled in the club's colour and ticked. A caption repeating that is a line of text
+          under every answered question saying what the reader can see, and three of them is a
+          third of the sheet.
+
+          NOTHING ABOUT THE CROWD EITHER. A per-series headcount sat here too, and on the final
+          it needed a second sentence explaining that most of the people in its denominator had
+          picked a club that is not in this matchup, which is a paragraph of arithmetic under a
+          control whose whole job is two taps. The sheet counts the votes once, at the top. */}
+      {status && (
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 0.6 }}>
+          {status}
+        </Typography>
+      )}
     </Box>
   )
 }
@@ -676,17 +703,44 @@ function ClearPicks({ categories, onClear }: { categories: string[]; onClear: ()
 function PickemSheet({ bracket, state, onClose }: {
   bracket: WpblBracket; state: SeriesPickState; onClose: () => void
 }) {
+  const all = [...bracket.semifinals, bracket.championship]
   // Answered AND still open. See ClearPicks.
-  const clearable = [...bracket.semifinals, bracket.championship]
+  const clearable = all
     .filter(seriesPickOpen)
     .map(s => seriesPickCategory(s.round, s.key))
     .filter(c => state.ballot[c])
+
+  /**
+   * How many people have voted, said once for the whole sheet.
+   *
+   * THE MAX AND NOT THE SUM, because the three questions are answered by overlapping crowds: one
+   * person who calls all three would count as three votes, and "votes: 60" for twenty people is
+   * a worse number than no number. The biggest single question is a real headcount of somebody,
+   * and it is the one people actually read it as.
+   *
+   * IT SHOWS BEFORE YOU HAVE ANSWERED, unlike the shares, and that is not a hole in the rule
+   * above. What the tally must not do is tell you what everyone else picked before you pick; a
+   * bare count says only that the poll is alive, which is the one thing a reader deciding
+   * whether to bother is entitled to know.
+   */
+  const votes = Math.max(...all.map(s => pickShares(
+    state.results[seriesPickCategory(s.round, s.key)],
+    s.round === 'championship'
+      ? championshipField(bracket)
+      : seriesPickOptions(s.round, [s.home.team, s.away.team]),
+  ).total))
 
   return (
     <ModalShell
       sheet
       eyebrow="Call the postseason"
-      maxWidth={460}
+      // A PHONE SHEET'S WIDTH IS NOT A DESKTOP DIALOG'S. Above `sm` this stops being a sheet and
+      // becomes a centred card, and 460 raw px there was 460 px of card holding type scaled to
+      // 1.4: three questions in a column narrower than the bracket card's own middle third, with
+      // club names ellipsing inside tiles that had room to spare on either side of the dialog.
+      // `chromePx` because a dialog's cap is structure, so it rides the desktop chrome scale and
+      // not the reader's text size, which the type inside it is already riding.
+      maxWidth={{ xs: 460, sm: chromePx(660) }}
       onClose={onClose}
       footer={
         <Box {...pressable(onClose)} sx={{
@@ -696,11 +750,38 @@ function PickemSheet({ bracket, state, onClose }: {
         }}>Done</Box>
       }
     >
-      <Box sx={{ px: 2, py: 1.75, display: 'flex', flexDirection: 'column', gap: 2.25 }}>
-        <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.45 }}>
+      {/* THE TWO SEMIFINALS SIT SIDE BY SIDE ON A DESKTOP, and everything else spans. They are
+          the same question asked twice, of two independent pairs of clubs, so they are the one
+          pair of rows here that reads as well across as down. The final is not: it is asked
+          about the two clubs those answers send through, so it stays below both of them, in
+          reading order, at full width, which is also what a best-of-5's three lengths want.
+
+          `md` AND NOT `sm`, even though `sm` is where this stops being a phone sheet. A club
+          tile is a badge and a full club name, and "San Francisco Firebells" does not fit in
+          half of a 600px dialog: the split has to wait for a width that can pay for it, which
+          is also the width at which the cap below stops being the viewport. */}
+      <Box sx={{
+        px: 2, py: 1.75, display: 'grid', gap: 2.25,
+        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+        alignItems: 'start',
+        '& > *': { minWidth: 0 },
+      }}>
+        <Typography sx={{
+          gridColumn: '1 / -1',
+          fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.45,
+        }}>
           Who wins, and in how many games. Change them as often as you like until a series
           starts.
         </Typography>
+        {votes > 0 && (
+          <Typography sx={{
+            gridColumn: '1 / -1', mt: -1.5,
+            fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled',
+            letterSpacing: 0.4, textTransform: 'uppercase',
+          }}>
+            {`Votes: ${votes}`}
+          </Typography>
+        )}
         {/* THE ONE PLACE THE WALL APPEARS, and it appears after the questions are visible
             rather than in front of them. A reader who is not signed in still reads the
             clubs, the formats and the deadline; what they cannot do is answer. */}
@@ -711,25 +792,42 @@ function PickemSheet({ bracket, state, onClose }: {
               ...TAPPABLE, ...FOCUS_RING, borderRadius: 2, px: 1.5, py: 1.1, cursor: 'pointer',
               border: '1px solid', borderColor: 'var(--wpbl-accent-solid)',
               display: 'flex', alignItems: 'center', gap: 1, minWidth: 0,
+              // Spans the columns so it is never one of them, but sized to its own label rather
+              // than to the span: a four-word ask stretched across an 800px dialog is a band,
+              // and a band does not read as a thing you press. `justifySelf` and not a maxWidth
+              // because the label is the only thing that should decide, at any text scale.
+              gridColumn: '1 / -1', justifySelf: 'start',
             }}
           >
-            <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 900, lineHeight: 1.25 }}>
-                Sign in to make your picks
-              </Typography>
-              <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', lineHeight: 1.35 }}>
-                Picks are counted per account, so they follow you between devices and can be
-                scored against how the series actually go.
-              </Typography>
-            </Box>
-            <Box sx={{ flex: 1 }} />
+            {/* The ask, and nothing under it. Every line tried here was the site explaining its
+                own plumbing to somebody who had not agreed to care yet: what the account is for,
+                what it protects, where the picks follow them. None of it is what they are
+                deciding, which is only whether they want to call the postseason. */}
+            <Typography sx={{
+              fontSize: TYPE_SCALE.body, fontWeight: 900, lineHeight: 1.25, minWidth: 0,
+            }}>
+              Sign in to make your picks
+            </Typography>
             <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 900, flexShrink: 0 }}>›</Typography>
           </Box>
         )}
-        {[...bracket.semifinals, bracket.championship].map(s => (
+        {bracket.semifinals.map(s => (
           <SeriesQuestion key={s.label} series={s} bracket={bracket} state={state} />
         ))}
-        <ClearPicks categories={clearable} onClear={() => state.clear(clearable)} />
+        <Box sx={{ gridColumn: '1 / -1' }}>
+          <SeriesQuestion series={bracket.championship} bracket={bracket} state={state} />
+        </Box>
+        {/* Guarded here as well as inside, because an empty wrapper is still a grid item and
+            would leave a row of gap under the final with nothing in it. */}
+        {clearable.length > 0 && (
+          // `display: flex` is load-bearing. ClearPicks is a plain div, so it fills whatever
+          // block it is dropped in; it only ever sized to its own label because the sheet used
+          // to be a flex column. Wrapping it to span the grid made it a block again and it
+          // silently became a full-width bar. A flex row gives it content width back.
+          <Box sx={{ gridColumn: '1 / -1', display: 'flex' }}>
+            <ClearPicks categories={clearable} onClear={() => state.clear(clearable)} />
+          </Box>
+        )}
       </Box>
     </ModalShell>
   )
