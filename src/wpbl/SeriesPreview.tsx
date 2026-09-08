@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import {
-  ModalShell, SectionLabel, TeamBadge, pressable, FOCUS_RING, TAPPABLE, useWpblDark, TYPE_SCALE,
+  ModalShell, SectionLabel, TeamBadge, pressable, FOCUS_RING, TAPPABLE, useWpblDark, useWpblName,
+  TYPE_SCALE,
 } from './ui'
 import { wpblAccent, wpblSurface, formatGameTime } from './constants'
 import { fetchWpblAllLines, getCachedWpblAllLines, fetchWpblAllPlayers, countsInStandings } from './api'
@@ -218,7 +219,8 @@ function SeriesSchedule({ series }: { series: BracketSeries }) {
             opacity: g.ifNecessary ? 0.6 : 1,
           }}>
             <Typography sx={{
-              width: '3.25rem', flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 900,
+              width: { xs: '2.75rem', sm: '3.25rem' }, flexShrink: 0,
+              fontSize: TYPE_SCALE.caption, fontWeight: 900,
               letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.disabled',
             }}>{`Game ${g.game}`}</Typography>
             <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 700, whiteSpace: 'nowrap' }}>{day}</Typography>
@@ -243,41 +245,102 @@ function SeriesSchedule({ series }: { series: BracketSeries }) {
   )
 }
 
-function LeaderList({ team, leaders, onOpenPlayer }: {
-  team: WpblTeam; leaders: Leader[]; onOpenPlayer?: (p: WpblPlayer) => void
+/** The categories, in the order they are read, so both clubs' rows line up even when one of
+ *  them has nobody in a category. A club with no home runs all season leaves a dash rather
+ *  than shifting every row under it up by one. */
+const LEADER_CATEGORIES = ['AVG', 'OPS', 'HR', 'RBI', 'ERA', 'SO', 'IP'] as const
+
+/** The width of the category column between the two clubs. In rem because it is reserving room
+ *  for a STRING, and narrower on a phone because the longest label here is three characters and
+ *  the two names either side need every pixel: at the Large text setting on a 375px screen the
+ *  wider column was the difference between "K. Whitmore" and "K. Whitmor…". */
+const LEADER_LABEL_W = { xs: '2rem', sm: '2.5rem' }
+
+/**
+ * Both clubs' leaders, with the category down the middle.
+ *
+ * TWO LISTS SIDE BY SIDE IS NOT A COMPARISON. It was that first: one club's seven categories,
+ * then the other's, each with its own label column, so reading "who has the better ERA" meant
+ * finding ERA twice and holding the first number while you looked for the second. The category
+ * sits between the two now and each club's leader reads outward from it, which is exactly the
+ * shape of the team comparison directly above and lets the two blocks be read the same way.
+ *
+ * AWAY ON THE LEFT, HOME ON THE RIGHT, matching that comparison rather than the bracket: the
+ * two blocks are inches apart and a reader who has just learned which side is which should not
+ * have to learn it again.
+ */
+function LeaderTable({ away, home, awayLeaders, homeLeaders, onOpenPlayer }: {
+  away: WpblTeam; home: WpblTeam
+  awayLeaders: Leader[]; homeLeaders: Leader[]
+  onOpenPlayer?: (p: WpblPlayer) => void
 }) {
   const dark = useWpblDark()
-  if (leaders.length === 0) return null
+  // The section's own answer to a long name in a narrow column: "Kelsie Whitmore" on a desktop,
+  // "K. Whitmore" on a phone, where two names and a label share 375px.
+  const shortName = useWpblName()
+  const byLabel = (rows: Leader[]) => new Map(rows.map(r => [r.label, r]))
+  const A = byLabel(awayLeaders), H = byLabel(homeLeaders)
+  const rows = LEADER_CATEGORIES.filter(c => A.has(c) || H.has(c))
+  if (rows.length === 0) return null
+
+  const side = (l: Leader | undefined, team: WpblTeam, align: 'left' | 'right') => (
+    <Box
+      {...pressable(l && onOpenPlayer ? () => onOpenPlayer(l.player) : undefined)}
+      sx={{
+        flex: 1, minWidth: 0, borderRadius: 1, px: 0.5, py: 0.2,
+        display: 'flex', alignItems: 'baseline', gap: 0.75,
+        flexDirection: align === 'right' ? 'row' : 'row-reverse',
+        cursor: l && onOpenPlayer ? 'pointer' : 'default',
+        ...(l && onOpenPlayer ? TAPPABLE : null), ...FOCUS_RING,
+      }}
+    >
+      <Typography sx={{
+        flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 600,
+        textAlign: align, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+        color: l ? 'text.primary' : 'text.disabled',
+      }}>{l ? shortName(l.player.name) : '—'}</Typography>
+      <Typography sx={{
+        flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 900,
+        fontVariantNumeric: 'tabular-nums', color: l ? wpblAccent(team.id, dark) : 'text.disabled',
+      }}>{l ? l.value : ''}</Typography>
+    </Box>
+  )
+
+  const head = (team: WpblTeam, align: 'left' | 'right') => (
+    <Box sx={{
+      flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 0.6,
+      justifyContent: align === 'right' ? 'flex-end' : 'flex-start',
+    }}>
+      {align === 'left' && <TeamBadge team={team} size={18} />}
+      <Typography sx={{
+        fontSize: TYPE_SCALE.caption, fontWeight: 900, letterSpacing: 0.5, textTransform: 'uppercase',
+        color: wpblAccent(team.id, dark), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+      }}>{team.name}</Typography>
+      {align === 'right' && <TeamBadge team={team} size={18} />}
+    </Box>
+  )
+
   return (
-    <Box sx={{ flex: 1, minWidth: 0 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.6 }}>
-        <TeamBadge team={team} size={20} />
-        <Typography sx={{
-          fontSize: TYPE_SCALE.caption, fontWeight: 900, letterSpacing: 0.5, textTransform: 'uppercase',
-          color: wpblAccent(team.id, dark), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        }}>{team.name}</Typography>
+    <Box sx={{ mt: 0.75 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+        {head(away, 'right')}
+        {/* Holds the label column's width on the header row, so the two club names sit exactly
+            over the two sides they label. */}
+        <Box sx={{ width: LEADER_LABEL_W, flexShrink: 0 }} />
+        {head(home, 'left')}
       </Box>
-      {leaders.map(l => (
-        <Box
-          key={l.label}
-          {...pressable(onOpenPlayer ? () => onOpenPlayer(l.player) : undefined)}
-          sx={{
-            display: 'flex', alignItems: 'baseline', gap: 0.75, py: 0.35, minWidth: 0,
-            cursor: onOpenPlayer ? 'pointer' : 'default',
-            ...(onOpenPlayer ? TAPPABLE : null), ...FOCUS_RING, borderRadius: 1,
-          }}
-        >
+      {rows.map(c => (
+        <Box key={c} sx={{
+          display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0,
+          py: 0.3, borderTop: '1px solid', borderColor: 'divider',
+        }}>
+          {side(A.get(c), away, 'right')}
           <Typography sx={{
-            width: '2.25rem', flexShrink: 0, fontSize: TYPE_SCALE.caption, fontWeight: 900,
-            color: 'text.disabled', letterSpacing: 0.3,
-          }}>{l.label}</Typography>
-          <Typography sx={{
-            flex: 1, minWidth: 0, fontSize: TYPE_SCALE.body, fontWeight: 700,
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>{l.player.name}</Typography>
-          <Typography sx={{
-            flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 900, fontVariantNumeric: 'tabular-nums',
-          }}>{l.value}</Typography>
+            width: LEADER_LABEL_W, flexShrink: 0, textAlign: 'center',
+            fontSize: TYPE_SCALE.caption, fontWeight: 900, letterSpacing: 0.4,
+            color: 'text.disabled',
+          }}>{c}</Typography>
+          {side(H.get(c), home, 'left')}
         </Box>
       ))}
     </Box>
@@ -376,7 +439,7 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
         }}>
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2.25 }}>
         <Box>
-          <SectionLabel>When they play</SectionLabel>
+          <SectionLabel>Game schedule</SectionLabel>
           <Box sx={{ mt: 0.5 }}><SeriesSchedule series={series} /></Box>
         </Box>
 
@@ -417,7 +480,7 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
             only ever shown for a scheduled GAME. A series is the same question asked once. */}
         {home && away && (
           <Box>
-            <SectionLabel>Tale of the tape</SectionLabel>
+            <SectionLabel>Team comparison</SectionLabel>
             <Box sx={{ mt: 0.5 }}>
               <WpblGamePreview away={away} home={home} teams={teams} games={games} onOpenTeam={onOpenTeam} bare />
             </Box>
@@ -433,14 +496,12 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
             cannot be read is decoration. Out here each side has the width the names need. */}
         {leaders && (leaders.home.length > 0 || leaders.away.length > 0) && (
           <Box>
-            <SectionLabel>Who to watch</SectionLabel>
-            <Box sx={{
-              mt: 0.75, display: 'flex', gap: { xs: 2, md: 3 }, minWidth: 0,
-              flexDirection: { xs: 'column', sm: 'row' },
-            }}>
-              {home && <LeaderList team={home} leaders={leaders.home} onOpenPlayer={onOpenPlayer} />}
-              {away && <LeaderList team={away} leaders={leaders.away} onOpenPlayer={onOpenPlayer} />}
-            </Box>
+            <SectionLabel>Team leaders</SectionLabel>
+            {away && home && (
+              <LeaderTable away={away} home={home}
+                awayLeaders={leaders.away} homeLeaders={leaders.home}
+                onOpenPlayer={onOpenPlayer} />
+            )}
           </Box>
         )}
       </Box>

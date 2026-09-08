@@ -1035,6 +1035,21 @@ fixture. Invisible until now because the bracket only ever printed dates. Both s
 the wall clock (the site calendar has 6:00 PM Central for Sep 9 and so does `POSTSEASON_SCHEDULE`);
 only the rendering was wrong. One line, and the three surfaces agree.
 
+**THE HEADINGS SAY WHAT THE BLOCK IS, NOT WHAT IT IS CALLED.** "Tale of the tape", "When they
+play" and "Who to watch" became "Team comparison", "Game schedule" and "Team leaders": the
+first set reads as a magazine and the second as a label, and a sheet somebody opened to look
+something up wants labels.
+
+**And the leaders are a comparison now, not two lists.** They were one club's seven categories
+then the other's, each with its own label column, so "who has the better ERA" meant finding
+ERA twice and holding the first number while you looked for the second. The category sits
+between the two clubs and each leader reads outward from it, which is exactly the shape of the
+team comparison inches above it. Away on the left and home on the right, matching that block
+rather than the bracket: a reader who has just learned which side is which should not have to
+learn it again. A club with nobody in a category leaves a dash rather than shifting every row
+under it, and the names shorten to "K. Whitmore" on a phone through the section's own
+`useWpblName`, where two names and a label share 375px.
+
 **AND IT FOUND THE BUG UNDER EVERY MODAL IN THE SECTION.** Opened on a desktop the sheet came
 out 560px wide and 1,402px tall in a 1,000px viewport, with `overflow: visible` and no way to
 reach the bottom half of it. `ModalShell`'s overlay is `position: fixed`, which is only fixed

@@ -13,8 +13,8 @@ export const CHANGELOG: ChangelogEntry[] = [
         full:  'Who is playing and how likely each of them is, every game of the series with its date and time and who bats last, what happened when the two clubs met in the season, the tale of the tape, and the players to watch on each side. Most of that existed in pieces scattered around the section and none of it was in one place. On a wide screen it opens as two columns so the whole thing is on one screen; on a phone it stacks.',
       },
       {
-        short: 'Each club’s leaders, from the games they played for that club',
-        full:  'Batting average, OPS, home runs and RBI, then ERA, strikeouts and innings. Rate stats use the same qualifier the leaderboards do, so a club’s batting average is not a pinch-hitter who went 2-for-2 in August. Leaders are worked out from the box-score lines played FOR that club rather than from who is on its roster today, so a player who changed clubs mid-season counts for the games she actually played there.',
+        short: 'Team leaders, the two clubs side by side with the stat between them',
+        full:  'Batting average, OPS, home runs and RBI, then ERA, strikeouts and innings, laid out the same way as the team comparison above it: one club on the left, one on the right, the stat down the middle. Two separate lists is not a comparison, since reading who has the better ERA meant finding ERA twice. Rate stats use the same qualifier the leaderboards do, so a club’s batting average is not a pinch-hitter who went 2-for-2 in August, and leaders are worked out from the box-score lines played FOR that club rather than from who is on its roster today.',
       },
       {
         short: 'The whole matchup box is the tap target now',

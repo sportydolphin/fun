@@ -180,14 +180,14 @@ describe('PlayoffBracket', () => {
   it('opens a series overview from its box', async () => {
     draw(season(), vi.fn())
     fireEvent.click(screen.getByRole('button', { name: 'Semifinal A overview' }))
-    expect(await screen.findByText('When they play')).toBeTruthy()
+    expect(await screen.findByText('Game schedule')).toBeTruthy()
   })
 
   it('opens a club from inside the overview', async () => {
     const onOpenTeam = vi.fn()
     draw(season(), onOpenTeam)
     fireEvent.click(screen.getByRole('button', { name: 'Semifinal A overview' }))
-    await screen.findByText('When they play')
+    await screen.findByText('Game schedule')
     // The tale of the tape inside the sheet carries its own club chips, so this is the first
     // of two deliberate routes to the same page rather than a duplicate to clean up.
     fireEvent.click(screen.getAllByRole('button', { name: 'SF SF team page' })[0])
@@ -197,7 +197,7 @@ describe('PlayoffBracket', () => {
   it('opens a series overview from the keyboard too', async () => {
     draw(season(), vi.fn())
     fireEvent.keyDown(screen.getByRole('button', { name: 'Semifinal B overview' }), { key: 'Enter' })
-    expect(await screen.findByText('When they play')).toBeTruthy()
+    expect(await screen.findByText('Game schedule')).toBeTruthy()
   })
 
   // The new, forward-looking half: a title-odds strip that ranks by probability, not record,
