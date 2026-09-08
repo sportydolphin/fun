@@ -23,7 +23,6 @@ import WpblHome, { WpblHomeSkeleton } from './Home'
 import WpblStatsView, { type WpblStatsFocus } from './StatsView'
 import TeamPage from './TeamPage'
 import TeamsGrid from './TeamsGrid'
-import SeedingRace from './SeedingRace'
 import SwipeableViews from './SwipeableViews'
 import WpblBottomNav, { BOTTOM_NAV_SPACE } from './BottomNav'
 import { useExperiments } from '../ExperimentsContext'
@@ -583,17 +582,13 @@ function StandingsView({ teams, games, onOpenTeam }: {
         </Box>
       )}
     </Box>
-      {/* The table says who is ahead; this says what being ahead is FOR. All four clubs
-          qualify, so the order is the entire stake of the remaining games, and the table on
-          its own reads as a race for a place nobody can miss. Sits directly under it, in the
-          same order, so a club can be carried from one to the other by eye.
-
-          LIVE FOR EVERYONE from Sep 1, with five regular-season games left. It was opt-in
-          because it is the first thing on the section to make a forward-looking claim, and the
-          flag was the right caution in August. It stopped being right in September: this card
-          is the only thing on the page with an expiry date on it, and an experiment nobody can
-          see is not being tested. */}
-      {played && <SeedingRace rows={rows} games={games} onOpenTeam={onOpenTeam} />}
+      {/* THE SEEDING CARD IS GONE, removed Sep 8, 2026, the day after the last regular-season
+          game. It existed to say what the remaining games were FOR, since all four clubs
+          qualify and the order was the whole stake: with the order settled it was a card
+          answering a question nobody has any more, and it would have gone on answering it all
+          winter. The bracket on Home is the surface that carries the postseason now, and it
+          says the same things with the pairings drawn rather than listed. `seedingRace` itself
+          stays and is load-bearing: derive/bracket.ts builds the whole bracket out of it. */}
     </Box>
   )
 }

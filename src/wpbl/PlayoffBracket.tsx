@@ -21,11 +21,15 @@ import type { WpblGame, WpblPlayer, WpblStandingRow, WpblTeam } from './types'
  * shape for a table and the wrong shape for the question a fan actually asks, which is who
  * plays whom. Four clubs and three series is a picture, and this is the picture.
  *
- * NOT A DUPLICATE OF THE SEEDING CARD, and the distinction is load-bearing. An earlier version
- * of that card drew a bracket AND a ladder in the same card, so the four clubs appeared twice
- * over, and the bracket was cut for it (see SeedingRace.tsx). The objection was to a bracket
- * beside a list, not to a bracket: this one lives on Home, where the list is not, and Home is
- * the surface with no route to a team page at all.
+ * IT IS THE ONLY POSTSEASON SURFACE NOW. It shipped alongside a seeding card under the Standings
+ * table, and most of the reasoning here used to be about not duplicating it: an early version of
+ * that card drew a bracket AND a ladder together, the four clubs appeared twice over, and the
+ * bracket was cut for it. The objection was to a bracket beside a list rather than to a bracket,
+ * so this one went to Home where the list was not. The seeding card was removed on Sep 8, 2026,
+ * the day after the last regular-season game, because it existed to say what the remaining games
+ * were FOR and there are none: with the order settled it was answering a question nobody has.
+ * The constraint that shaped this card is therefore gone, and anything that wants to move it,
+ * split it or put a ladder back beside it is now free to.
  *
  * LIVE FOR EVERYONE. It began behind the experimental-features switch, since it draws a matchup
  * that does not exist yet, and came out once the win-probability blend (run differential plus

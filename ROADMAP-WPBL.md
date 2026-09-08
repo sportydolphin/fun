@@ -58,6 +58,8 @@ played. Nothing yet exists that makes `/wpbl` worth opening in November.
 
 **Live surfaces:** Home (scoreboard strip, last-game recap card, next-game card + countdown,
 standings, leaders, MVP race, bracket, Discord invite) ·
+Standings is the table alone from Sep 8, 2026: the seeding card under it was removed the day
+after the last regular-season game, and the bracket on Home carries the postseason (see #1c) ·
 Schedule · Standings (W/L/PCT/GB/L10/STRK/DIFF, H2H tiebreak) · Stats, one row of board tabs
 (Players, a ranked list on a phone and the full table on a desktop, with a Sort sheet, a
 Filters sheet and a team cut · Teams · Pitch by pitch · Run value · Tracked,
@@ -490,7 +492,16 @@ OUT is not named as such anywhere, which is a wording gap rather than a missing 
 the bracket stays empty and every season total is wrong, which is the exposure #1 already
 carries (see `season.ts`) rather than a new one. Confirm it the day the first semifinal lands.
 
-### 1c. The seeding race 🎯: ✅ **shipped Aug 20, 2026; live for everyone Sep 1** (see the log)
+### 1c. The seeding race 🎯: ✅ shipped Aug 20, 2026 · ❌ **removed Sep 8, 2026**
+
+Built to answer what the last games were FOR, since all four clubs qualify and the seed order
+was the entire stake of them. That is a card with an expiry date written into its purpose, and
+the date was Sep 6: with the order settled it answers a question nobody has, and left alone it
+would have gone on answering it until spring. Taken off Standings, which is a table and a footer
+now, and `SeedingRace.tsx` is deleted with it rather than left as 346 lines that render nowhere.
+
+`derive/seeding.ts` STAYS and is load-bearing: `derive/bracket.ts` builds the whole bracket out
+of `seedingRace`, and `seeding.test.ts` still covers it. Only the card is gone.
 
 All four clubs qualify, so a clinch tracker is pointless and stays parked. **Seeding is not
 pointless**: the standings order sets the semifinals 1v4 and 2v3, and it is the only thing
