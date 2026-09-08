@@ -163,6 +163,9 @@ in now is:
    Sep 1*. See the scope under #2.
 7. **#4 the primer**, cheap, durable, and aimed at an audience that is entirely first-time
    visitors.
+8. **#2a the season recap page**, added Sep 8 and wanted soon. The regular season is final, so
+   the whole thing is buildable today and only gains a postseason section on Sep 22. It is the
+   one item on this list with an audience in November.
 
 ### 5b. Home's star name opens the game, not the player 🎯
 
@@ -583,6 +586,76 @@ shipped log) is durable content that needed no season capture at all. It does no
 item, which is about *this* season's record. It does mean `/wpbl` is no longer completely empty
 of reasons to visit in November, so the deadline pressure here is about the snapshotting, not
 about having something to show.
+
+### 2a. The season recap page 🎯🔬: *scoped Sep 8, 2026, and wanted next*
+
+#2 above is the RECORD. This is the READ of it: one page that says what the first season of
+professional women's baseball was actually like, for somebody who did not watch it. #2 lists "a
+season-in-review page with each team's arc" as one bullet among a dozen; this is that bullet,
+scoped on its own, because it is the one the section wants first and it is the only thing on
+either list that gives `/wpbl` a reason to exist in November.
+
+**RATE STATS ARE FIRST-CLASS HERE, AND THE REASON IS NOT THE OBVIOUS ONE.** The instinct with a
+15-game season is to treat every rate as noise and lead with counting stats and absolutes
+instead. That instinct is imported from a 162-game league and it is wrong here. **If 15 games is
+the length of every WPBL season, then a season rate line is the league's native scale**: .450 in
+2026 and .450 in 2027 are the same achievement measured the same way, comparable forever, and
+apologising for the sample would mean this league never gets to have batting champions. Build
+the standard leaders and give them the standard billing. `wpblQualifiers` already sets the bar
+in plate appearances (2.4 per team game, floor 6, so 36 PA at 15 games); it needs nothing.
+
+**WHAT GOES ON IT**, in the order it was asked for:
+
+- **Standard leaders.** The full slash line plus HR, RBI, SB, R, H; W, ERA, SO, WHIP, IP, saves.
+  Qualified, using the bar above.
+- **Best at each position, drawn on a diamond.** Nine positions laid out as a field rather than
+  as a table, each one carrying the player who owned it, and each one a tap through to her page.
+  `position` is on every batting line, so the pick is derivable; the diamond is the part that has
+  to be drawn. This is the page's centrepiece and the thing most likely to be shared.
+- **Performance of the season, batting and pitching.** The single best game line of each kind,
+  named, with a route into that game's box score.
+- **The most improbable win.** Lowest win probability a club held at any point in a game it went
+  on to win. `derive/winProbability.ts` computes this per play already and `excitement` is
+  computed on every game and drawn nowhere (see "What it does NOT have"), so this is a read of
+  something that exists rather than a new model.
+- **Baserunning.** 96 steals against 16 caught, 85.7%, and what that was worth against the
+  league's own run expectancy table. The MVP race explicitly prices the plate and not the bases,
+  so this is also the season's answer to a gap that entry names.
+- **The mess: errors, balks, wild pitches, passed balls, hit batters.** 22 balks and 71 wild
+  pitches in 30 games is not a footnote in this league, it is a characteristic.
+- **No triples. Included, and NOT the headline.** It is a good line and it should be on the page,
+  but it is a curiosity and the page should not be built around a curiosity.
+
+**THE SEASON'S OWN NUMBERS, measured against the mirror on Sep 8** and recorded here so nobody
+has to re-derive them: 30 regular-season games, 15.83 combined runs per game, a league batting
+average of **.339**, 277 walks against 269 strikeouts (more walks than strikeouts, league-wide),
+a 58.7% strike rate, 96 steals for 112 attempts, 75 hit batters, 71 wild pitches, 22 balks, 10
+sacrifice bunts, 57 home runs, 102 doubles, and **zero triples**. The home side went **14-16**,
+which is worth a line of its own: one hub venue means no travel and no park, so this is a
+cleaner read on whether batting last is worth anything than a real league can produce, and the
+answer is that it was not.
+
+**THE ZERO IS REAL, CHECKED THREE WAYS** before it goes on a page: no play carries a `triple`
+event type, no narrative in 2,835 plays contains the word, and the `triples` column sums to zero
+on both the batting lines and the pitching lines (triples allowed). Note the consequence for the
+Hall of Firsts, which has a `first_triple` slot: it is an empty case, and it stays empty until
+somebody hits one in 2027.
+
+**WHAT IT BUILDS ON, all of it already here**: `stats.ts` for the aggregates and the qualifier,
+`derive/runExpectancy.ts` for anything priced in runs, `derive/winProbability.ts` for the
+improbable win, `derive/mvpRace.ts` for the value leaders, `firsts.ts`, `tracking.ts` for the
+radar extremes, `hometowns.ts` for where the players came from. The page is mostly composition.
+
+**ONE THING TO CHECK BEFORE BUILDING ANYTHING PLAY-DERIVED.** 552 of the 2,835 stored plays
+carry `event_type: 'unknown'`, which is 19% of them. Steals, wild pitches, caught stealing and
+passed balls are all separately typed, so the bucket is probably substitutions and pickoffs and
+harmless, but a season board built on event types without confirming that would be quietly wrong
+by a fifth. Confirm first.
+
+**TIMING.** The regular season is final as of Sep 6, so every number above is already frozen and
+the page can be built and published now against the regular season alone. The postseason ends
+Sep 22 and the page gains a section then. Do not wait for Sep 22 to start: a recap that lands in
+October has missed the only week anybody was looking.
 
 ### 3. SEO follow-through ⚙️: *the code half is done; links are the brake*
 
