@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import {
   ModalShell, SectionLabel, TeamBadge, pressable, FOCUS_RING, TAPPABLE, useWpblDark, useWpblName,
-  TYPE_SCALE,
+  TYPE_SCALE, chromePx,
 } from './ui'
 import { wpblAccent, wpblSurface, formatGameTime } from './constants'
 import { fetchWpblAllLines, getCachedWpblAllLines, fetchWpblAllPlayers, countsInStandings } from './api'
@@ -214,12 +214,16 @@ function SeriesSchedule({ series }: { series: BracketSeries }) {
         const day = new Date(`${g.date}T00:00:00`).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
         return (
           <Box key={g.game} sx={{
-            display: 'flex', alignItems: 'center', gap: 1, py: 0.7, minWidth: 0,
+            display: 'flex', alignItems: 'center', gap: 0.75, py: 0.7, minWidth: 0,
             borderTop: '1px solid', borderColor: 'divider',
             opacity: g.ifNecessary ? 0.6 : 1,
           }}>
             <Typography sx={{
-              width: { xs: '2.75rem', sm: '3.25rem' }, flexShrink: 0,
+              // "Game 3" and nothing longer, at the smallest size on the row, so it gets the
+              // width that string needs and not a hand-picked column. The pixels it was holding
+              // are what the matchup on the right needed at the Large text setting, where
+              // "BOS @ SF" was coming out as "BOS @ S…".
+              width: '2.75rem', flexShrink: 0,
               fontSize: TYPE_SCALE.caption, fontWeight: 900,
               letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.disabled',
             }}>{`Game ${g.game}`}</Typography>
@@ -321,7 +325,16 @@ function LeaderTable({ away, home, awayLeaders, homeLeaders, onOpenPlayer }: {
   )
 
   return (
-    <Box sx={{ mt: 0.75 }}>
+    /* CAPPED AND CENTRED, AND THE CAP IS MEASURED. Each side's leader hugs the category down
+       the middle, so at the sheet's full width the rules ran the whole card while the text sat
+       in the middle third: 725px wide, each side 328px holding 178px of "Kelsie Whitmore
+       1.669", which is 150px of empty card inside every row, twice. 500px puts each side at
+       217px, which clears the widest pair at the default text size and still clears it at the
+       Large setting, where the same string grows to about 200px. What is left goes outside as
+       margin, where it reads as a centred comparison rather than a row with a hole at each
+       end. `chromePx` because a cap on a block is a structural length and not room reserved
+       for a string, so it follows the desktop chrome scale and not the reader's text size. */
+    <Box sx={{ mt: 0.75, maxWidth: chromePx(400), mx: 'auto' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
         {head(away, 'right')}
         {/* Holds the label column's width on the header row, so the two club names sit exactly
@@ -445,34 +458,48 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
 
         {meetings.length > 0 && (
           <Box>
-            <SectionLabel>{h2hLine ? `In the season · ${h2hLine}` : 'In the season'}</SectionLabel>
+            <SectionLabel>{h2hLine ? `Regular season matchup · ${h2hLine}` : 'Regular season matchup'}</SectionLabel>
             <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column' }}>
               {meetings.map(g => {
-                const winner = (g.home_score ?? 0) > (g.away_score ?? 0) ? g.home_team_id : g.away_team_id
-                const wt = teams.find(t => t.id === winner)
-                const hi = Math.max(g.home_score ?? 0, g.away_score ?? 0)
-                const lo = Math.min(g.home_score ?? 0, g.away_score ?? 0)
+                const homeWon = (g.home_score ?? 0) > (g.away_score ?? 0)
+                const ht = teams.find(x => x.id === g.home_team_id)
+                const at = teams.find(x => x.id === g.away_team_id)
+                /* EACH GAME AS IT WAS PLAYED, away at home, rather than the winner and a
+                   scoreline. The row used to be a date on the far left and "SF 13-7" on the far
+                   right with 250px of nothing between them, which is a lot of width spent on
+                   less information: it never said where the game was, and in a series where one
+                   club won all five it printed that club's name five times. This says who was
+                   at home, which is the same thing the schedule block above says about the games
+                   still to come, and it fills the row it is given. */
+                const sideText = (team: WpblTeam | undefined, score: number | null, won: boolean) => (
+                  <Typography sx={{
+                    fontSize: TYPE_SCALE.body, whiteSpace: 'nowrap',
+                    fontWeight: won ? 900 : 600,
+                    color: won && team ? wpblAccent(team.id, dark) : 'text.secondary',
+                  }}>{`${team?.abbr ?? '???'} ${score ?? 0}`}</Typography>
+                )
                 return (
                   <Box key={g.id} sx={{
                     display: 'flex', alignItems: 'center', gap: 1, py: 0.55, minWidth: 0,
                     borderTop: '1px solid', borderColor: 'divider',
                   }}>
-                    <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                    <Typography sx={{
+                      width: '3rem', flexShrink: 0,
+                      fontSize: TYPE_SCALE.body, color: 'text.disabled', whiteSpace: 'nowrap',
+                    }}>
                       {new Date(`${g.game_date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                     </Typography>
-                    <Box sx={{ flex: 1 }} />
-                    {wt && <TeamBadge team={wt} size={18} />}
-                    <Typography sx={{
-                      fontSize: TYPE_SCALE.body, fontWeight: 800, whiteSpace: 'nowrap',
-                      color: wt ? wpblAccent(wt.id, dark) : 'text.primary',
-                    }}>{`${wt?.abbr ?? ''} ${hi}-${lo}`}</Typography>
+                    {at && <TeamBadge team={at} size={18} />}
+                    {sideText(at, g.away_score, !homeWon)}
+                    <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', flexShrink: 0 }}>@</Typography>
+                    {ht && <TeamBadge team={ht} size={18} />}
+                    {sideText(ht, g.home_score, homeWon)}
                   </Box>
                 )
               })}
             </Box>
           </Box>
         )}
-
         </Box>
 
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2.25 }}>

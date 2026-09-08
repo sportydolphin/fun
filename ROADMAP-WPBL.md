@@ -1040,6 +1040,20 @@ play" and "Who to watch" became "Team comparison", "Game schedule" and "Team lea
 first set reads as a magazine and the second as a label, and a sheet somebody opened to look
 something up wants labels.
 
+**THE MEETINGS ARE GAMES NOW, NOT RESULTS.** "In the season" became "Regular season matchup",
+and each row went from a date on the far left and "SF 13-7" on the far right, with a hand's
+width of nothing between them, to the game as it was played: away at home, both scores, the
+winner in their own colour. More information in the space that was empty, it says where the
+game was, and in a series one club swept it stops printing that club's name five times. Same
+away-at-home vocabulary as the schedule block above it.
+
+**And the leaders table is capped at a MEASURED width.** Left to fill the sheet its rules ran
+the whole card while the text sat in the middle third: 725px wide, each side 328px holding
+178px of "Kelsie Whitmore 1.669", which is 150px of empty card inside every row, twice. 500px
+puts each side at 217px, clearing the widest pair at the default text size and still clearing
+it at Large, where that string grows to about 200px. What is left goes outside as margin,
+where it reads as a centred comparison rather than a row with a hole at each end.
+
 **And the leaders are a comparison now, not two lists.** They were one club's seven categories
 then the other's, each with its own label column, so "who has the better ERA" meant finding
 ERA twice and holding the first number while you looked for the second. The category sits

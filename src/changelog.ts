@@ -13,6 +13,10 @@ export const CHANGELOG: ChangelogEntry[] = [
         full:  'Who is playing and how likely each of them is, every game of the series with its date and time and who bats last, what happened when the two clubs met in the season, the tale of the tape, and the players to watch on each side. Most of that existed in pieces scattered around the section and none of it was in one place. On a wide screen it opens as two columns so the whole thing is on one screen; on a phone it stacks.',
       },
       {
+        short: 'Every regular-season meeting, as it was played',
+        full:  'The five games the two clubs played each other, each as away at home with both scores and the winner in their own colour. It used to print the date on the left and “SF 13-7” on the right with a hand’s width of nothing between, which never said where the game was and, in a series one club swept, printed that club’s name five times.',
+      },
+      {
         short: 'Team leaders, the two clubs side by side with the stat between them',
         full:  'Batting average, OPS, home runs and RBI, then ERA, strikeouts and innings, laid out the same way as the team comparison above it: one club on the left, one on the right, the stat down the middle. Two separate lists is not a comparison, since reading who has the better ERA meant finding ERA twice. Rate stats use the same qualifier the leaderboards do, so a club’s batting average is not a pinch-hitter who went 2-for-2 in August, and leaders are worked out from the box-score lines played FOR that club rather than from who is on its roster today.',
       },
