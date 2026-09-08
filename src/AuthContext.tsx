@@ -573,7 +573,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signIn, signUp, signOut, signInWithGoogle, resetPassword, changePassword, hasPassword, openAuthDialog }}>
       {children}
 
-      <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
+      {/*
+        ABOVE EVERY MODAL THAT CAN SUMMON IT, which MUI's default does not manage.
+        A Dialog sits at 1300; `ModalShell` (src/wpbl/ui.tsx) is a plain fixed layer at 1500, and
+        its heaviest callers ask for 1600. So sign-in, reached from inside one of those, rendered
+        UNDERNEATH the thing that asked for it: the postseason pick'em's "Sign in to make your
+        picks" opened a dialog the reader could not see and could not reach, behind a sheet that
+        looked unresponsive. 1700 clears the highest shell by the same step those use between
+        each other. Any new layer above this has to leave room for the one dialog every surface
+        in the app is entitled to open on top of itself.
+      */}
+      <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth sx={{ zIndex: 1700 }}>
         <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>
           {mode === 'reset' ? 'Reset password' : mode === 'signin' ? 'Sign In' : 'Create Account'}
         </DialogTitle>
