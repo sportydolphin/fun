@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.79.1',
+    date:    '2026-09-08',
+    title:   'One character off the next game',
+    changes: [
+      {
+        short: 'The next game card drops the “@” before the home club',
+        full:  'Away over home is how a fixture is written and the two rows are already stacked that way, so the marker was doing work the order had already done. The card that shows a regular-season game dropped it a while ago; the postseason one had not, which meant the same slot on the same page printed it on some days and not others. The scoreboard strip above still carries one, on purpose: there the clubs are three-letter abbreviations in a narrow box, where order alone is harder to read and a character is cheap.',
+      },
+    ],
+  },
+  {
     version: '1.79.0',
     date:    '2026-09-08',
     title:   'Picks belong to you now',

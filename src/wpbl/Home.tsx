@@ -1255,11 +1255,17 @@ function NextGameCard({ games, teams, postseason: postRows, onOpenGame }: {
  *     a projection, and a fixture card reads as fact.
  *
  * AWAY OVER HOME WHERE THE LEAGUE HAS DESIGNATED ONE, seed order where it has not, which is
- * `postseasonSlots` and is the same rule the schedule rows and the scoreboard chip follow. The
- * league's schedule names a home club for all six semifinal games and for none of the
- * championship's five, so this card prints the "@" for the first fortnight of the postseason
- * and drops it again for the final. What is never left silent is a pairing whose two seeds are
- * still being argued over, because that a reader cannot infer.
+ * `postseasonSlots` and is the same rule the schedule rows and the scoreboard chip follow. What
+ * is never left silent is a pairing whose two seeds are still being argued over, because that a
+ * reader cannot infer.
+ *
+ * NO "@", AND NOTHING IN ITS PLACE, which is the call `NextGameCard` already made and this card
+ * had not: two cards in the same slot on the same page, one printing the marker and one not.
+ * The order carries it. Away over home is how a fixture is written, the rows are stacked in
+ * that order, and a card whose whole point is the next game does not need a character to say
+ * which of two clubs is at home. The scoreboard strip above still prints one, deliberately:
+ * there the clubs are three-letter abbreviations in an 8.5rem box, where the order alone is
+ * harder to read and one character is cheap.
  */
 export function NextPostseasonCard({ rows, teams, games }: {
   rows: PostseasonScheduleRow[]; teams: Map<string, WpblTeam>; games: WpblGame[]
@@ -1291,7 +1297,7 @@ export function NextPostseasonCard({ rows, teams, games }: {
   if (!next) return null
   const r = next.r
   const bestOf = BEST_OF[r.round]
-  const { slots, homeKnown } = postseasonSlots(r)
+  const { slots } = postseasonSlots(r)
 
   /** One seat: the club if it is settled, the seed it is reserved for if it is not. */
   const slotRow = (p: PostseasonSlot, i: number) => {
@@ -1316,7 +1322,6 @@ export function NextPostseasonCard({ rows, teams, games }: {
           fontWeight: p.team ? 700 : 600,
           color: p.team ? 'text.primary' : 'text.secondary',
         }}>
-          {homeKnown && i === 1 && <Box component="span" sx={{ color: 'text.disabled', fontWeight: 600, mr: 0.5 }}>@</Box>}
           {p.team ? wpblFullName(p.team) : p.label}
         </Typography>
         {record && (
