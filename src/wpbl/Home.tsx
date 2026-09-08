@@ -1378,12 +1378,6 @@ export function NextPostseasonCard({ rows, teams, games }: {
           </Typography>
         )}
 
-        {/* Dates the league has published, not a fixture it has posted, which is the whole
-            difference between this card and the one it stands in for. Quiet, and last. */}
-        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.disabled', lineHeight: 1.4, mt: 0.4 }}>
-          Scheduled by the league. The game page opens once it publishes the fixture.
-        </Typography>
-
         {/* The tale of the tape, when both seats are filled. It takes its two clubs as `away`
             and `home` and draws them left and right without ever printing either word, so the
             order above is a safe thing to hand it whether or not that order is away-at-home. */}

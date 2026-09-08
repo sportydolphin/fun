@@ -16,6 +16,14 @@ const clear = vi.fn(() => Promise.resolve(true))
 let ballot: Record<string, string> = {}
 let results: Record<string, Record<string, number>> = {}
 
+/** Swapped per test: a pick only counts with an account, so the gate is a case of its own. */
+let authUser: { id: string } | null = { id: 'test-user' }
+const openAuthDialog = vi.fn()
+
+vi.mock('../../AuthContext', () => ({
+  useAuth: () => ({ user: authUser, openAuthDialog }),
+}))
+
 vi.mock('../awardVotes', () => ({
   awardVoterKey: () => 'test-voter-key',
   fetchWpblAwardBallot: () => Promise.resolve(ballot),
@@ -67,7 +75,10 @@ async function openSheet() {
 const radio = (name: string) => screen.getByRole('radio', { name })
 const noRadio = (name: string) => screen.queryByRole('radio', { name })
 
-beforeEach(() => { cast.mockClear(); clear.mockClear(); ballot = {}; results = {} })
+beforeEach(() => {
+  cast.mockClear(); clear.mockClear(); openAuthDialog.mockClear()
+  authUser = { id: 'test-user' }; ballot = {}; results = {}
+})
 
 describe('the pick’em button', () => {
   // The card draws a bracket. Twelve permanent controls inside it, paid for by every reader
@@ -117,7 +128,9 @@ describe('picking a series', () => {
     expect(cast).not.toHaveBeenCalled()
 
     fireEvent.click(radio('Semifinal A: SF in 3'))
-    expect(cast).toHaveBeenCalledWith('pickem:2026:semifinal:A', 'SF:2-1')
+    // The account id is the third argument, which is the whole point of the gate: a pick is
+    // attributed to a person rather than to a browser.
+    expect(cast).toHaveBeenCalledWith('pickem:2026:semifinal:A', 'SF:2-1', 'test-user')
   })
 
   // A best-of-five is three lengths, not two. The format is read from derive/series.ts, and this
@@ -168,6 +181,38 @@ describe('picking a series', () => {
   })
 })
 
+describe('a pick needs an account', () => {
+  // These picks get scored and published, so "who picked what" has to survive a cleared
+  // cache and follow the reader to a second device. A browser id does neither, and a
+  // leaderboard built on one would credit a stranger's phone.
+  it('shows the questions to a signed-out reader and takes no answer', async () => {
+    authUser = null
+    draw()
+    await openSheet()
+    // The clubs and the format are all there to read.
+    expect(screen.getByText(/Semifinal A · best of 3/)).toBeTruthy()
+    // The controls are not.
+    expect(screen.queryAllByRole('radio')).toHaveLength(0)
+    expect(screen.getByText('Sign in to make your picks')).toBeTruthy()
+  })
+
+  it('sends a signed-out reader to the sign-in dialog', async () => {
+    authUser = null
+    draw()
+    await openSheet()
+    fireEvent.click(screen.getByText('Sign in to make your picks'))
+    expect(openAuthDialog).toHaveBeenCalled()
+  })
+
+  it('offers nothing to clear when there is no account to clear it from', async () => {
+    authUser = null
+    ballot = { 'pickem:2026:semifinal:A': 'SF:2-0' }
+    draw()
+    await openSheet()
+    expect(screen.queryByText('Clear my picks')).toBeNull()
+  })
+})
+
 describe('taking picks back', () => {
   // Withdrawing is not the same act as changing, and without it the only way out of a
   // prediction is to leave a wrong one standing.
@@ -180,8 +225,8 @@ describe('taking picks back', () => {
 
     fireEvent.click(screen.getByText('Tap again to clear all 2'))
     expect(clear).toHaveBeenCalledTimes(2)
-    expect(clear).toHaveBeenCalledWith('pickem:2026:semifinal:A')
-    expect(clear).toHaveBeenCalledWith('pickem:2026:semifinal:B')
+    expect(clear).toHaveBeenCalledWith('pickem:2026:semifinal:A', 'test-user')
+    expect(clear).toHaveBeenCalledWith('pickem:2026:semifinal:B', 'test-user')
   })
 
   it('offers nothing to clear when nothing has been picked', async () => {
@@ -203,7 +248,7 @@ describe('taking picks back', () => {
     fireEvent.click(screen.getByText('Clear my picks'))
     fireEvent.click(screen.getByText('Tap again to clear it'))
     expect(clear).toHaveBeenCalledTimes(1)
-    expect(clear).toHaveBeenCalledWith('pickem:2026:semifinal:B')
+    expect(clear).toHaveBeenCalledWith('pickem:2026:semifinal:B', 'test-user')
   })
 
   it('puts the card back to asking', async () => {

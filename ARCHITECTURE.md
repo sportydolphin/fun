@@ -306,6 +306,13 @@ and whose answers are `<team id>:<wins>-<losses>`). The questions live in code a
 the table, which is what lets a new one ship without a migration; the ids are therefore
 PERMANENT, since renaming one orphans every answer already stored under it.
 
+**`voter_key` holds two kinds of value, on purpose.** The awards ballot keys on the browser's
+analytics id, so a visitor can answer without an account; the pick'em keys on the signed-in
+**user id**, because those picks get scored and published and a browser id survives neither a
+cleared cache nor a second device. Nothing in the table tells the two apart and nothing needs
+to, since a category belongs to exactly one of them: anything joining this column to
+`auth.users` must filter on the `pickem:` prefix first.
+
 It has **no select policy**, deliberately: raw rows would hand out every `voter_key`, and the
 update policy is guarded by nothing except those keys being unguessable. All four of its
 entry points are therefore security-definer functions: `wpbl_award_results`,

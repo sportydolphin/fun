@@ -486,7 +486,10 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
                    still to come, and it fills the row it is given. */
                 const sideText = (team: WpblTeam | undefined, score: number | null, won: boolean) => (
                   <Typography sx={{
-                    fontSize: TYPE_SCALE.body, whiteSpace: 'nowrap',
+                    // A step up on a desktop, where this block sits in a 430px column with
+                    // room to spare and was reading as a footnote beside the comparison
+                    // bars next to it. A phone has no such room and keeps the smaller size.
+                    fontSize: { xs: TYPE_SCALE.body, md: TYPE_SCALE.title }, whiteSpace: 'nowrap',
                     fontWeight: won ? 900 : 600,
                     color: won && team ? wpblAccent(team.id, dark) : 'text.secondary',
                   }}>{`${team?.abbr ?? '???'} ${score ?? 0}`}</Typography>
@@ -499,21 +502,23 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
                       ? `${at?.abbr ?? ''} ${g.away_score ?? 0} at ${ht?.abbr ?? ''} ${g.home_score ?? 0}, box score`
                       : undefined}
                     sx={{
-                      display: 'flex', alignItems: 'center', gap: 1, py: 0.55, minWidth: 0,
+                      display: 'flex', alignItems: 'center', gap: { xs: 1, md: 1.25 },
+                      py: { xs: 0.55, md: 0.85 }, minWidth: 0,
                       borderTop: '1px solid', borderColor: 'divider',
                       cursor: onOpenGame ? 'pointer' : 'default',
                       ...(onOpenGame ? TAPPABLE : null), ...FOCUS_RING,
                     }}>
                     <Typography sx={{
-                      width: '3rem', flexShrink: 0,
-                      fontSize: TYPE_SCALE.body, color: 'text.disabled', whiteSpace: 'nowrap',
+                      width: { xs: '3rem', md: '3.5rem' }, flexShrink: 0,
+                      fontSize: { xs: TYPE_SCALE.body, md: TYPE_SCALE.title },
+                      color: 'text.disabled', whiteSpace: 'nowrap',
                     }}>
                       {new Date(`${g.game_date}T00:00:00`).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                     </Typography>
-                    {at && <TeamBadge team={at} size={18} />}
+                    {at && <TeamBadge team={at} size={22} />}
                     {sideText(at, g.away_score, !homeWon)}
                     <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', flexShrink: 0 }}>@</Typography>
-                    {ht && <TeamBadge team={ht} size={18} />}
+                    {ht && <TeamBadge team={ht} size={22} />}
                     {sideText(ht, g.home_score, homeWon)}
                   </Box>
                 )
@@ -544,7 +549,12 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
             cannot be read is decoration. Out here each side has the width the names need. */}
         {leaders && (leaders.home.length > 0 || leaders.away.length > 0) && (
           <Box>
-            <SectionLabel>Team leaders</SectionLabel>
+            {/* CENTRED, because the table under it is. The label is the only part of this
+                block that was still flush left, so it pointed at a margin rather than at
+                the thing it labels. */}
+            <Box sx={{ maxWidth: chromePx(400), mx: 'auto' }}>
+              <SectionLabel>Team leaders</SectionLabel>
+            </Box>
             {away && home && (
               <LeaderTable away={away} home={home}
                 awayLeaders={leaders.away} homeLeaders={leaders.home}

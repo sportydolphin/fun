@@ -112,8 +112,12 @@ describe('what it refuses to imply', () => {
     expect(container.querySelector('a')).toBeNull()
   })
 
-  it('says the fixture is a published date rather than a posted game', () => {
-    draw([row()])
-    expect(screen.getByText(/Scheduled by the league/)).toBeTruthy()
+  // The line that said so in words is gone: the card is headed by a date and a countdown and
+  // is visibly not a link, which says it without spending two lines on it. What must stay
+  // true is that it never becomes one, which the case above pins.
+  it('does not claim a game page it has no row for', () => {
+    const { container } = draw([row()])
+    expect(container.querySelector('a')).toBeNull()
+    expect(container.textContent).not.toContain('Scheduled by the league')
   })
 })

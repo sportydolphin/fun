@@ -996,6 +996,38 @@ is retired.
 
 ## Shipped log
 
+### Sep 8, 2026: a pick belongs to an account (v1.79.0)
+
+**THIS REVERSES A DECISION FROM YESTERDAY, and the reason it reverses is the half that was
+always going to change.** The pick'em shipped keyed to the browser, on the fan-award ballot's
+own reasoning: an account requirement on a poll with nothing at stake costs more real answers
+than it saves fake ones, and signing in bought the reader nothing. That entry said the day
+there is scoring and a leaderboard the trade flips, and that it flips by keying on the account.
+That day is now: these picks are going to be scored and published, so "who picked what" has to
+survive a cleared cache and follow a reader to a second device. A browser id does neither, and
+a leaderboard built on one credits a stranger's phone.
+
+**SO `wpbl_award_votes.voter_key` NOW HOLDS TWO KINDS OF VALUE**, a user id for the pick'em and
+the browser's analytics id for the awards ballot, and that is deliberate rather than drift. The
+two features want opposite trades: the ballot wants every answer it can get and the pick'em
+wants answers it can attribute. Nothing in the table distinguishes them and nothing needs to,
+because a category belongs to exactly one of the two. Anything that ever joins that column to
+`auth.users` has to filter on the category prefix first.
+
+**The gate is on answering, not on looking.** A signed-out reader opens the sheet and reads
+every question, both clubs, both formats and the deadline; where the controls would be there is
+one line saying why and a way to sign in. Hiding the feature behind the wall would cost the
+sign-ups the wall is for. No picks were stranded by the switch: the table was empty when it
+landed.
+
+**And three smaller things.** The five past meetings were sitting in a desktop column with room
+to spare, reading as a footnote beside the comparison bars next to them, so the scores and
+badges grew there and stayed put on a phone, where there is no such room. The "Team leaders"
+heading was the last thing in that block still flush left, pointing at a margin rather than at
+the capped, centred table it labels. And the next-postseason card dropped "Scheduled by the
+league. The game page opens once it publishes the fixture": the card is headed by a date and a
+countdown and is visibly not a link, which says it without spending two lines.
+
 ### Sep 7, 2026: open a series (v1.78.0)
 
 **A matchup opens a series overview.** Who is playing and how likely each of them is, every game

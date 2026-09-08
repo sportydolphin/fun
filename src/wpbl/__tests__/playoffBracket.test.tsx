@@ -8,6 +8,13 @@ import type { WpblGame, WpblTeam } from '../types'
 // The pick strip inside each series box reads and writes the fan ballot. Mocked so these cases
 // stay offline and deterministic: unmocked it made two real requests per render, which passed
 // only because they never resolved in time to draw a chip.
+// The pick'em keys its ballot on the signed-in account, so anything that renders the
+// bracket needs an auth context. Signed in here: the gate itself is covered in
+// seriesPicksView.test.
+vi.mock('../../AuthContext', () => ({
+  useAuth: () => ({ user: { id: 'test-user' }, openAuthDialog: () => {} }),
+}))
+
 vi.mock('../awardVotes', () => ({
   awardVoterKey: () => 'test-voter-key',
   fetchWpblAwardBallot: () => Promise.resolve({}),

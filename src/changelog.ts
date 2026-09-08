@@ -4,6 +4,25 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.79.0',
+    date:    '2026-09-08',
+    title:   'Picks belong to you now',
+    changes: [
+      {
+        short: 'Postseason picks need an account, so they can be scored and compared',
+        full:  'They were kept on the device you made them on, which was the right call for a poll with nothing at stake and the wrong one for picks that are going to be scored against how the series actually go. A browser does not survive a cleared cache and does not follow you to your phone, so a table of who called what would have credited the wrong people. Picks are counted per account now. You can still open the sheet and read every question signed out; what you cannot do is answer.',
+      },
+      {
+        short: 'The regular-season meetings are bigger, and the team leaders line up under their heading',
+        full:  'On a desktop the five past meetings sat in a column with room to spare, reading as a footnote beside the comparison bars next to them: bigger scores and badges there now, unchanged on a phone where there is no such room. And the Team leaders heading was the last thing in that block still flush left, pointing at a margin rather than at the table it labels.',
+      },
+      {
+        short: 'The next postseason card drops a line it did not need',
+        full:  '“Scheduled by the league. The game page opens once it publishes the fixture.” The card is headed by a date and a countdown and is visibly not a link, which says the same thing without spending two lines on it.',
+      },
+    ],
+  },
+  {
     version: '1.78.0',
     date:    '2026-09-07',
     title:   'Open a series',

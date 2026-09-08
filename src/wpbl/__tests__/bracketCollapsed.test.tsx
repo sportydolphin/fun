@@ -17,6 +17,13 @@ vi.mock('@mui/material', async (importOriginal) => ({
   useMediaQuery: () => true,
 }))
 
+// The pick'em keys its ballot on the signed-in account, so anything that renders the
+// bracket needs an auth context. Signed in here: the gate itself is covered in
+// seriesPicksView.test.
+vi.mock('../../AuthContext', () => ({
+  useAuth: () => ({ user: { id: 'test-user' }, openAuthDialog: () => {} }),
+}))
+
 vi.mock('../awardVotes', () => ({
   awardVoterKey: () => 'test-voter-key',
   fetchWpblAwardBallot: () => Promise.resolve({}),

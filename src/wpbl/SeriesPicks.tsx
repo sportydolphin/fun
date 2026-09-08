@@ -14,6 +14,7 @@ import {
 } from './awardVotes'
 import type { AwardBallot, AwardResults } from './awardVotes'
 import { track, EVENTS } from '../lib/analytics'
+import { useAuth } from '../AuthContext'
 import type { BracketSeries, WpblBracket } from './derive/bracket'
 import type { WpblTeam } from './types'
 
@@ -33,11 +34,22 @@ import type { WpblTeam } from './types'
  * length, says it in the order people say it, and the second question only ever has two or three
  * answers because the first one has already been settled.
  *
- * NO SIGN-IN WALL. A pick is stored against the browser (see awardVotes.ts), the same rule the
- * fan-award ballot sets and for the reason it gives: an account requirement on a poll with
- * nothing at stake costs more real answers than it saves fake ones. It is also the honest option
- * while nothing here scores a pick, since signing in would buy the reader precisely nothing
- * today. The sheet says where the picks are kept rather than leaving them to wonder.
+ * A PICK NEEDS AN ACCOUNT, AND THAT IS A REVERSAL. This shipped keyed to the browser, the same
+ * rule the fan-award ballot sets and for the reason it gives: an account requirement on a poll
+ * with nothing at stake costs more real answers than it saves fake ones, and signing in bought
+ * the reader nothing. What changed is the second half. These picks are going to be scored and
+ * published, so "who picked what" has to survive a cleared cache and a second device, and a
+ * browser id survives neither. A leaderboard built on one would credit a stranger's phone.
+ *
+ * SO THE PICK'EM KEYS ON THE USER ID WHILE THE AWARDS BALLOT STAYS ON THE BROWSER, and
+ * `wpbl_award_votes.voter_key` now holds two kinds of value. That is deliberate and worth
+ * knowing: the two features want opposite trades, one wants every answer it can get and the
+ * other wants answers it can attribute. Nothing in the table distinguishes them, and nothing
+ * needs to, because a category belongs to exactly one of the two.
+ *
+ * A SIGNED-OUT READER STILL SEES THE QUESTIONS. The gate is on answering, not on looking: the
+ * sheet opens, the clubs and formats are all there, and the controls are replaced by one line
+ * saying why. Hiding the feature behind the wall would cost the sign-ups the wall is for.
  *
  * THE TALLY IS HIDDEN UNTIL YOU ANSWER. A poll that shows its results first stops measuring what
  * people think and starts measuring what the first fifty people thought. Once a series is under
@@ -51,6 +63,11 @@ export interface SeriesPickState {
   ballot: AwardBallot
   results: AwardResults
   loaded: boolean
+  /** Whether this reader can answer at all. False signs out every control in the sheet and
+   *  puts the reason in their place. */
+  canPick: boolean
+  /** Open the sign-in dialog, for the prompt that replaces the controls. */
+  signIn: () => void
   cast: (category: string, choice: string) => void
   /** Take answers back entirely. Several at once, because the reader thinks of their picks as
    *  one thing and clearing them one series at a time is three confirmations of the same
@@ -59,6 +76,11 @@ export interface SeriesPickState {
 }
 
 export function useSeriesPicks(enabled: boolean): SeriesPickState {
+  // THE ACCOUNT IS THE BALLOT ID. See the header: these picks get scored and published, so
+  // they have to survive a cleared cache and follow the reader to a second device, which a
+  // browser id does neither of.
+  const { user, openAuthDialog } = useAuth()
+  const voterKey = user?.id ?? null
   // ONE PIECE OF STATE HOLDING BOTH HALVES, because a pick moves both at once. Two useStates
   // meant the tally update had to happen inside the ballot's updater, which is a side effect
   // inside a function React is entitled to call more than once for the same change: under
@@ -70,12 +92,18 @@ export function useSeriesPicks(enabled: boolean): SeriesPickState {
   useEffect(() => {
     if (!enabled) return
     let cancelled = false
-    Promise.all([fetchWpblAwardBallot(), fetchWpblAwardResults()]).then(([ballot, results]) => {
+    // The tally is public and is read either way, because a series that has started shows
+    // its shares to everyone. Only the BALLOT needs a key, and a signed-out reader has no
+    // ballot to fetch rather than an empty one.
+    Promise.all([
+      voterKey ? fetchWpblAwardBallot(voterKey) : Promise.resolve({} as AwardBallot),
+      fetchWpblAwardResults(),
+    ]).then(([ballot, results]) => {
       if (cancelled) return
       setState({ ballot, results, loaded: true })
     })
     return () => { cancelled = true }
-  }, [enabled])
+  }, [enabled, voterKey])
 
   /**
    * Record a pick, and move the bars locally rather than re-reading the tally.
@@ -103,8 +131,8 @@ export function useSeriesPicks(enabled: boolean): SeriesPickState {
     // Nothing is rolled back on failure. The write is an upsert through a definer function, so a
     // failure is a lost pick rather than a wrong one, and yanking a selection back out from under
     // somebody is a worse answer to a flaky network than letting them tap again.
-    void castWpblAwardVote(category, choice)
-  }, [])
+    void castWpblAwardVote(category, choice, voterKey ?? undefined)
+  }, [voterKey])
 
   /** Withdraw answers, and take them back off their bars. Same optimism as `cast`, and the same
    *  reason for it: the server does this arithmetic too, this only saves the round trip. */
@@ -124,10 +152,10 @@ export function useSeriesPicks(enabled: boolean): SeriesPickState {
       return { ...prev, ballot, results }
     })
     track(EVENTS.WPBL_PICKEM_CLEAR, { count: categories.length })
-    for (const category of categories) void clearWpblAwardVote(category)
-  }, [])
+    for (const category of categories) void clearWpblAwardVote(category, voterKey ?? undefined)
+  }, [voterKey])
 
-  return { ...state, cast, clear }
+  return { ...state, cast, clear, canPick: !!voterKey, signIn: () => openAuthDialog('signin') }
 }
 
 // ─── one series, resolved against this reader's ballot ─────────────────────────
@@ -420,7 +448,7 @@ function SeriesQuestion({ series, bracket, state }: {
 
   const showShare = !!picked || !open
   const lengths = options.filter(o => o.teamId === activeTeam)
-  const canPick = open && state.loaded
+  const canPick = open && state.loaded && state.canPick
 
   return (
     <Box>
@@ -471,6 +499,7 @@ function SeriesQuestion({ series, bracket, state }: {
       <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 0.6 }}>
         {result ? (result === picked ? 'You called it.' : 'Decided.')
           : !open ? 'Under way, so this one is locked.'
+            : !state.canPick ? 'Sign in above to call this one.'
             : !activeTeam ? 'Pick a club.'
               : draftTeam || !picked ? 'Now say how long.'
                 : shares.total > 1 ? `${shares.total} fans have called this one.` : 'Called.'}
@@ -545,8 +574,33 @@ function PickemSheet({ bracket, state, onClose }: {
       <Box sx={{ px: 2, py: 1.75, display: 'flex', flexDirection: 'column', gap: 2.25 }}>
         <Typography sx={{ fontSize: TYPE_SCALE.body, color: 'text.secondary', lineHeight: 1.45 }}>
           Who wins, and in how many games. Change them as often as you like until a series
-          starts. Kept on this device, no account needed.
+          starts.
         </Typography>
+        {/* THE ONE PLACE THE WALL APPEARS, and it appears after the questions are visible
+            rather than in front of them. A reader who is not signed in still reads the
+            clubs, the formats and the deadline; what they cannot do is answer. */}
+        {!state.canPick && (
+          <Box
+            {...pressable(state.signIn)}
+            sx={{
+              ...TAPPABLE, ...FOCUS_RING, borderRadius: 2, px: 1.5, py: 1.1, cursor: 'pointer',
+              border: '1px solid', borderColor: 'var(--wpbl-accent-solid)',
+              display: 'flex', alignItems: 'center', gap: 1, minWidth: 0,
+            }}
+          >
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 900, lineHeight: 1.25 }}>
+                Sign in to make your picks
+              </Typography>
+              <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', lineHeight: 1.35 }}>
+                Picks are counted per account, so they follow you between devices and can be
+                scored against how the series actually go.
+              </Typography>
+            </Box>
+            <Box sx={{ flex: 1 }} />
+            <Typography sx={{ fontSize: TYPE_SCALE.title, fontWeight: 900, flexShrink: 0 }}>›</Typography>
+          </Box>
+        )}
         {[...bracket.semifinals, bracket.championship].map(s => (
           <SeriesQuestion key={s.label} series={s} bracket={bracket} state={state} />
         ))}
