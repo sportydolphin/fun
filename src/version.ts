@@ -9,9 +9,16 @@
 //
 // When shipping a notable change, bump APP_VERSION here and add a new entry at the TOP
 // of CHANGELOG in ./changelog.ts (newest first). Each change has a `short` one-line summary
-// (only the first 4 per version show in the main dialog) and a `full` sentence (shown for
-// every change when the reader clicks "View all changes"). Write plainly, no em dashes and
-// no marketing voice, just say what changed.
+// and a `full` sentence. Write plainly, no em dashes and no marketing voice, just say what
+// changed.
+//
+// NOTHING HERE CHANGES WITH HOW THE DIALOG DRAWS IT, and it is worth knowing what that is.
+// ChangelogDialogs groups these entries BY DATE and leads each day with its biggest release,
+// showing three of the day's `short` lines and putting the rest, plus every `full` sentence,
+// behind one link. So a day's shape is decided by which entry has the most changes, not by
+// which shipped last: a one-line patch on top of a feature does not take the day's heading.
+// Keep writing one entry per version regardless. The grouping is derived on render and the
+// file stays the record.
 
 export const APP_VERSION = '1.79.1'
 

@@ -465,7 +465,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     title:   'A page that explains the rules, and a home page a phone can read',
     changes: [
       {
-        short: 'A rules and glossary page, at /wpbl/glossary',
+        short: 'A rules and glossary page, linked from the footer of every page',
         full:  'How a WPBL game works, and what every abbreviation on a box score means, on one page. Seven innings, the roster rules, how a pitcher earns a win. The league does not publish most of this anywhere, so if you have watched a game and wondered why an inning ended the way it did, this is the page. It is linked from the footer of every page rather than given a tab of its own: the five tabs are what you use every day, and this is the one you read once.',
       },
       {
@@ -485,7 +485,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         full:  'They sit one above the other and were drawing the same two parts three different ways between them: club rows as a colour band on one card and as small tinted pills on the other, and a last row as a shaded footer on one and a hairline plus a link on the other. Both now use one shape. What stays different is the half that means something: the next game tints both clubs because a fixture has two equals in it, and the last game tints only the winner.',
       },
       {
-        short: 'About 70px less chrome at the top of every page on a phone',
+        short: 'On a phone, every page opens on the page instead of three headings saying the same thing',
         full:  'Every tab opened with a heading reading WPBL Standings, WPBL Stats, WPBL Teams or the league’s full name, directly under a nav reading Home, Schedule, Standings, Stats, Teams with that same word lit, under a toolbar with WPBL lit. On a phone that is the third time you are told the same thing, and on the home page it pushed the first card 344 pixels down a 812 pixel screen. Those headings are still there for screen readers and for search, they are simply not drawn on a phone any more. The home page now opens on the scoreboard. Laptops and desktops are unchanged.',
       },
       {
@@ -519,7 +519,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     title:   'Every club gets a shape, and the schedule runs to the final',
     changes: [
       {
-        short: 'A spec chart on every team page, and all four overlaid on Teams',
+        short: 'Every club drawn as a shape, on its own page and all four together on Teams',
         full:  'The standings say who is winning and the team stats card says how much of each thing a club did. Neither tells you what KIND of team it is: that New York run on a fifth of their times on first while San Francisco almost never do. Six traits, drawn as the radial chart a video game would use for a character. Power is extra bases, Contact is how rarely they strike out, Eye is walks, Speed is steals, Arms is how often the pitchers miss bats, and Glove is unearned runs allowed. The middle ring is the league average, so the shape is read against the rest of the league rather than in a vacuum. A club’s own page draws that club; the Teams tab overlays all four, because there the comparison is the point. Two axes that seem obvious are missing on purpose: every club’s ERA is within nine per cent of every other, and every fielding percentage within two, so both would have drawn four spokes of the same length and said nothing.',
       },
       {
@@ -842,7 +842,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '1.52.1',
     date:    '2026-08-27',
-    title:   'A Findings board on the Stats tab',
+    title:   'One question, one answer: the Findings board',
     changes: [
       {
         short: 'A new Findings board on the Stats tab',
@@ -921,7 +921,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         full:  'Settings, under App, has a WPBL ERA basis choice. Per 9 matches the league and is the default; per 7 is the honest per-game rate, since a WPBL pitcher is never throwing those last two innings. The choice follows you across the Stats board, team pages, player pages and the game comparison card, and the strikeout column renames itself K/7 or K/9 to match. Shared links and the Discord bot always use the league\u2019s per 9, since whoever is reading those never chose anything.',
       },
       {
-        short: 'Less chrome above the stats boards',
+        short: 'The stats boards stop repeating their own name back at you',
         full:  'The Run value and Pitch by pitch boards each carried a heading naming the board a second time, in different words, directly under the tab that already named it. Both are gone; the sentence explaining what the numbers mean stays. The rule under the Hitting/Pitching switch has gone with them: it was meant to appear only once the bar was pinned and something was scrolling under it, and had been showing permanently since the page gained its own title.',
       },
       {
@@ -1304,7 +1304,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '1.41.0',
     date:    '2026-08-15',
-    title:   'Look up a player from Discord, and a box score that fits a phone',
+    title:   'The bot in the fan Discord knows the whole roster',
     changes: [
       {
         short: 'Ask the WPBL fan Discord for any player\'s stats',
@@ -1396,7 +1396,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '1.37.1',
     date:    '2026-08-10',
-    title:   'WPBL schedule polish',
+    title:   'A WPBL schedule that says more',
     changes: [
       {
         short: 'The WPBL schedule marks the winner',
@@ -1458,7 +1458,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '1.36.0',
     date:    '2026-08-10',
-    title:   'Swipe between WPBL tabs, and box-score cleanups',
+    title:   'Swipe between WPBL tabs, and clearer box scores',
     changes: [
       {
         short: 'Swipe left and right between WPBL tabs on a phone',
@@ -1619,7 +1619,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '1.29.0',
     date:    '2026-08-05',
-    title:   'WPBL tracking highlights and site policies',
+    title:   'The season’s fastest pitch and hardest hit, on the home page',
     changes: [
       {
         short: 'Tracking highlights on WPBL home',
@@ -2081,7 +2081,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '1.9.0',
     date:    '2026-07-17',
-    title:   'Predictions record, team card and card polish',
+    title:   'See how your calls are going before the day is over',
     changes: [
       {
         short: 'Your predictions show a running record',
@@ -2092,7 +2092,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         full:  'On the team card on mobile, the starting pitchers for the recent and upcoming game now sit to the right of the score and time instead of below them, and the two matchups line up with each other.',
       },
       {
-        short: 'Followed players card cleanups',
+        short: 'A tidier card for the players you follow',
         full:  'On the followed players card you can hover or tap the small form graph to see what it shows, the stats line up on the right, a long name shortens to a first initial when space is tight, and the hover X is gone (you still remove players from Edit).',
       },
       {
@@ -2124,7 +2124,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '1.8.0',
     date:    '2026-07-17',
-    title:   'Game Center detail and home polish',
+    title:   'Game Center shows more of the game',
     changes: [
       {
         short: 'Hover the win probability graph to replay the game',
@@ -2163,7 +2163,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '1.7.0',
     date:    '2026-07-17',
-    title:   'Home dashboard additions and standout polish',
+    title:   'Your home page tells you who is heating up',
     changes: [
       {
         short: 'See if your players are heating up or cooling off',
@@ -2231,7 +2231,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '1.4.0',
     date:    '2026-07-14',
-    title:   'Home feed redesign & scoreboard navigation',
+    title:   'Your team and the league on one page',
     changes: [
       {
         short: 'Home is now a single scrolling feed',
@@ -2258,7 +2258,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '1.3.0',
     date:    '2026-07-13',
-    title:   'Team icon colors & fewer standout performances',
+    title:   'Team icons you can tell apart in either theme',
     changes: [
       {
         short: 'Team icons redesigned for light and dark mode',
@@ -2281,7 +2281,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '1.2.0',
     date:    '2026-07-12',
-    title:   'Team rosters, live card redesign & polish',
+    title:   'Full team rosters, and a clearer live card',
     changes: [
       {
         short: 'Team pages now show the full roster',
@@ -2320,7 +2320,7 @@ export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '1.1.0',
     date:    '2026-07-10',
-    title:   'All-time leaders, standings & card polish',
+    title:   'Career numbers, and where they rank all-time',
     changes: [
       {
         short: 'New All-Time leaderboards for career stats',
@@ -2343,7 +2343,7 @@ export const CHANGELOG: ChangelogEntry[] = [
         full:  'Retired players now show the seasons they played (like 2001-2019) in search instead of just "Retired".',
       },
       {
-        short: 'Player card season picker polish',
+        short: 'An easier season picker on player cards',
         full:  'The player card season picker got a cleanup: a dedicated Career toggle, prev/next arrows beside the year, a steadier portrait, and a centered name and team header.',
       },
       {
@@ -2362,19 +2362,19 @@ export const CHANGELOG: ChangelogEntry[] = [
     title:   'Initial release',
     changes: [
       {
-        short: 'Live scoreboard & Game Center',
+        short: 'A live scoreboard, and Game Center',
         full:  'Live scoreboard with a Game Center for every game, including play-by-play, win probability, live situation, and full box scores.',
       },
       {
-        short: 'Player pages with stat cards & trend charts',
+        short: 'Player pages, with stat cards and trend charts',
         full:  'Player pages with season and career stat cards, trend charts, and league-average context.',
       },
       {
-        short: 'Leaderboards, team rankings & standings',
+        short: 'Leaderboards, team rankings and standings',
         full:  'Leaderboards, team stat rankings, and standings with a wild card race view.',
       },
       {
-        short: 'Follow teams/players & personalized home dashboard',
+        short: 'Follow teams and players, and get a home page built around them',
         full:  'Follow your team and players, get daily prediction bots, and see a personalized home dashboard.',
       },
     ],
