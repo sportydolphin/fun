@@ -13,8 +13,12 @@ export const CHANGELOG: ChangelogEntry[] = [
         full:  'Who is playing and how likely each of them is, every game of the series with its date and time and who bats last, what happened when the two clubs met in the season, the tale of the tape, and the players to watch on each side. Most of that existed in pieces scattered around the section and none of it was in one place. On a wide screen it opens as two columns so the whole thing is on one screen; on a phone it stacks.',
       },
       {
-        short: 'Every regular-season meeting, as it was played',
-        full:  'The five games the two clubs played each other, each as away at home with both scores and the winner in their own colour. It used to print the date on the left and “SF 13-7” on the right with a hand’s width of nothing between, which never said where the game was and, in a series one club swept, printed that club’s name five times.',
+        short: 'Every regular-season meeting, as it was played, and each one opens',
+        full:  'The five games the two clubs played each other, each as away at home with both scores and the winner in their own colour, and each a tap through to that game’s box score. It used to print the date on the left and “SF 13-7” on the right with a hand’s width of nothing between, which never said where the game was and, in a series one club swept, printed that club’s name five times.',
+      },
+      {
+        short: 'Away club first, everywhere in the overview',
+        full:  'The schedule reads "BOS @ SF", the team comparison reads "BOS vs SF" and team leaders puts Boston on the left, but the two club panels at the top led with the higher seed: four blocks, one of them the other way round. Away first throughout now, which is also how a baseball line reads.',
       },
       {
         short: 'Team leaders, the two clubs side by side with the stat between them',

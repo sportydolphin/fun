@@ -1040,6 +1040,24 @@ play" and "Who to watch" became "Team comparison", "Game schedule" and "Team lea
 first set reads as a magazine and the second as a label, and a sheet somebody opened to look
 something up wants labels.
 
+**AWAY FIRST, IN ALL FOUR BLOCKS.** The schedule reads "BOS @ SF", the team comparison reads
+"BOS vs SF" and the leaders put Boston on the left; the two club panels at the top led with
+the higher seed, because that is the order the BRACKET draws and `series.home` means "higher
+seed" rather than "home club". One block out of four the other way round is the kind of thing
+a reader feels without being able to name. Away first everywhere now, which is also how a
+baseball line reads.
+
+**And every meeting opens its box score**, which is the second route out of this sheet after
+the club chips and the leader rows: five games, five ways into Game Center, on a card whose
+stated purpose is that opening one is the section's retention event.
+
+**Two type inconsistencies, found by sweeping the sheet's computed styles rather than by eye.**
+Every font in it is Inter, which was the first thing checked. But the club chip set its
+percentage at 21px against the club's own 19px, so the eye landed on the number in a row whose
+whole job is to say who is playing; the number is a step below the name now. And the leaders'
+middle column was 12px/900/disabled while the team comparison's identical middle column, three
+inches above it, was micro/800/secondary: two of the same thing set two ways in one sheet.
+
 **THE MEETINGS ARE GAMES NOW, NOT RESULTS.** "In the season" became "Regular season matchup",
 and each row went from a date on the far left and "SF 13-7" on the far right, with a hand's
 width of nothing between them, to the game as it was played: away at home, both scores, the

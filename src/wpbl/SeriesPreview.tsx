@@ -170,7 +170,7 @@ function ClubChip({ team, seed, record, winP, onOpenTeam }: {
             }}>{seed}</Typography>
           )}
           <Typography sx={{
-            fontSize: TYPE_SCALE.title, fontWeight: 900, lineHeight: 1.15, minWidth: 0,
+            fontSize: TYPE_SCALE.heading, fontWeight: 900, lineHeight: 1.15, minWidth: 0,
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}>{team.name}</Typography>
         </Box>
@@ -182,9 +182,12 @@ function ClubChip({ team, seed, record, winP, onOpenTeam }: {
           fontSize: TYPE_SCALE.caption, color: 'text.disabled', lineHeight: 1.3,
         }}>{[team.city, record].filter(Boolean).join(' · ')}</Typography>
       </Box>
+      {/* A step BELOW the club name, which it used to be a step above. The chip is about a club
+          and the number is what is said about it; at 21px against the name's 19px the reader's
+          eye landed on the percentage first, in a row whose whole job is to say who is playing. */}
       {winP != null && (
         <Typography sx={{
-          position: 'relative', flexShrink: 0, fontSize: TYPE_SCALE.heading, fontWeight: 900,
+          position: 'relative', flexShrink: 0, fontSize: TYPE_SCALE.title, fontWeight: 900,
           fontVariantNumeric: 'tabular-nums', color: wpblAccent(team.id, dark),
         }}>{fmtOdds(winP)}</Typography>
       )}
@@ -348,10 +351,12 @@ function LeaderTable({ away, home, awayLeaders, homeLeaders, onOpenPlayer }: {
           py: 0.3, borderTop: '1px solid', borderColor: 'divider',
         }}>
           {side(A.get(c), away, 'right')}
+          {/* THE SAME LABEL AS THE TEAM COMPARISON'S, which is inches above it and asks the
+              reader to read it the same way: micro, 800, secondary. It was 12px/900/disabled
+              here, so two identical middle columns in one sheet were set two different ways. */}
           <Typography sx={{
             width: LEADER_LABEL_W, flexShrink: 0, textAlign: 'center',
-            fontSize: TYPE_SCALE.caption, fontWeight: 900, letterSpacing: 0.4,
-            color: 'text.disabled',
+            fontSize: TYPE_SCALE.micro, fontWeight: 800, color: 'text.secondary',
           }}>{c}</Typography>
           {side(H.get(c), home, 'left')}
         </Box>
@@ -360,7 +365,7 @@ function LeaderTable({ away, home, awayLeaders, homeLeaders, onOpenPlayer }: {
   )
 }
 
-export default function SeriesPreview({ series, odds, teams, games, rows, onClose, onOpenTeam, onOpenPlayer }: {
+export default function SeriesPreview({ series, odds, teams, games, rows, onClose, onOpenTeam, onOpenPlayer, onOpenGame }: {
   series: BracketSeries
   odds?: SeriesOdds
   teams: WpblTeam[]
@@ -369,6 +374,9 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
   onClose: () => void
   onOpenTeam?: (t: WpblTeam) => void
   onOpenPlayer?: (p: WpblPlayer) => void
+  /** Open one of the season's meetings in Game Center. Optional: without it the rows are still
+   *  worth reading, they just stop being a way in. */
+  onOpenGame?: (g: WpblGame) => void
 }) {
   const dark = useWpblDark()
   const { basis: eraBasis } = useEraBasis()
@@ -421,14 +429,19 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
         {/* STACKED ON A PHONE. Side by side at 375px each chip gets ~160px for a badge, a seed, a
             nickname and a percentage, and the nickname is what gives: "Heights" came out as
             "Hei…" on the one surface where this sheet is most likely to be opened. */}
+        {/* AWAY FIRST, THEN HOME, which is the order every other block in this sheet uses and
+            was the one thing that did not. The bracket draws the higher seed on top, so these
+            chips led with it while the schedule read "BOS @ SF", the team comparison read
+            "BOS vs SF" and the leaders put Boston on the left: four blocks, one of them the
+            other way round. Away first everywhere is also how a baseball line reads. */}
         <Box sx={{ display: 'flex', gap: 1, minWidth: 0, flexDirection: { xs: 'column', sm: 'row' } }}>
-          {home && (
-            <ClubChip team={home} seed={series.home.seed} record={recordOf(home.id)}
-              winP={odds && !series.winner ? odds.homeWinP : null} onOpenTeam={onOpenTeam} />
-          )}
           {away && (
             <ClubChip team={away} seed={series.away.seed} record={recordOf(away.id)}
               winP={odds && !series.winner ? odds.awayWinP : null} onOpenTeam={onOpenTeam} />
+          )}
+          {home && (
+            <ClubChip team={home} seed={series.home.seed} record={recordOf(home.id)}
+              winP={odds && !series.winner ? odds.homeWinP : null} onOpenTeam={onOpenTeam} />
           )}
         </Box>
 
@@ -479,10 +492,18 @@ export default function SeriesPreview({ series, odds, teams, games, rows, onClos
                   }}>{`${team?.abbr ?? '???'} ${score ?? 0}`}</Typography>
                 )
                 return (
-                  <Box key={g.id} sx={{
-                    display: 'flex', alignItems: 'center', gap: 1, py: 0.55, minWidth: 0,
-                    borderTop: '1px solid', borderColor: 'divider',
-                  }}>
+                  <Box
+                    key={g.id}
+                    {...pressable(onOpenGame ? () => onOpenGame(g) : undefined)}
+                    aria-label={onOpenGame
+                      ? `${at?.abbr ?? ''} ${g.away_score ?? 0} at ${ht?.abbr ?? ''} ${g.home_score ?? 0}, box score`
+                      : undefined}
+                    sx={{
+                      display: 'flex', alignItems: 'center', gap: 1, py: 0.55, minWidth: 0,
+                      borderTop: '1px solid', borderColor: 'divider',
+                      cursor: onOpenGame ? 'pointer' : 'default',
+                      ...(onOpenGame ? TAPPABLE : null), ...FOCUS_RING,
+                    }}>
                     <Typography sx={{
                       width: '3rem', flexShrink: 0,
                       fontSize: TYPE_SCALE.body, color: 'text.disabled', whiteSpace: 'nowrap',

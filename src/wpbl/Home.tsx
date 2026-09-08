@@ -2335,7 +2335,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
     ? (
       <Box sx={{ mt: 1.5 }}>
         <PlayoffBracket rows={standingsRows} games={games} onOpenTeam={onOpenTeam}
-          onOpenPlayer={onOpenPlayer} from="home" />
+          onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame} from="home" />
       </Box>
     )
     : null

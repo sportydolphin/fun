@@ -501,7 +501,7 @@ function TitleOddsStrip({ odds, onOpenTeam }: {
   )
 }
 
-export default function PlayoffBracket({ rows, games, onOpenTeam, onOpenPlayer, from = 'home' }: {
+export default function PlayoffBracket({ rows, games, onOpenTeam, onOpenPlayer, onOpenGame, from = 'home' }: {
   /** Standings rows, in order, from `computeStandings`. */
   rows: WpblStandingRow[]
   games: WpblGame[]
@@ -509,6 +509,8 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, onOpenPlayer, 
   /** For the series overview's leader lines. Optional: the card still opens one without it,
    *  the names just stop being links. */
   onOpenPlayer?: (p: WpblPlayer) => void
+  /** For the series overview's season meetings, each of which opens its own box score. */
+  onOpenGame?: (g: WpblGame) => void
   from?: string
 }) {
   const bracket = useMemo(() => buildBracket(rows, games), [rows, games])
@@ -612,7 +614,7 @@ export default function PlayoffBracket({ rows, games, onOpenTeam, onOpenPlayer, 
           series={openSeries.series} odds={openSeries.odds}
           teams={rows.map(r => r.team)} games={games} rows={rows}
           onClose={() => setOpenSeries(null)}
-          onOpenTeam={onOpenTeam} onOpenPlayer={onOpenPlayer}
+          onOpenTeam={onOpenTeam} onOpenPlayer={onOpenPlayer} onOpenGame={onOpenGame}
         />
       )}
       {odds && !bracket.champion && (
