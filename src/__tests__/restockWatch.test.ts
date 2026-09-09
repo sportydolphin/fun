@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest'
 import {
   diffCatalog, shopFeedMessage, watchAlertMessage, newProductAlertMessage, normaliseCatalog, mentionParse,
   fetchCatalog, hoursSince,
-  diffLots, normaliseLots, fetchLots, auctionFeedMessage,
+  diffLots, normaliseLots, fetchLots, auctionFeedMessage, splitForDiscord,
 } from '../../scripts/watch-wpbl-restock.mjs'
 
 // The shop watcher runs every 10 minutes over 78 products and 271 variants, 241 of them sold
@@ -521,5 +521,30 @@ describe('auctionFeedMessage', () => {
     const out = auctionFeedMessage(lots(70)) as string
     expect(out).toContain('and 58 more')
     expect(out.length).toBeLessThan(2000)
+  })
+})
+
+describe('splitForDiscord', () => {
+  // Sep 9, 2026: a new-lot feed ran past 2000 characters, Discord answered 400, the post threw,
+  // and because the snapshot is only saved after a successful post the job retried the same
+  // message on every run and announced nothing. MAX_LINES_PER_SECTION is a count, not a length.
+  it('leaves a message that already fits alone', () => {
+    expect(splitForDiscord('one\ntwo')).toEqual(['one\ntwo'])
+  })
+
+  it('splits on line boundaries rather than mid-bullet', () => {
+    const line = `- ${'x'.repeat(90)}`
+    const parts = splitForDiscord([line, line, line].join('\n'), 200)
+    expect(parts).toHaveLength(2)
+    for (const part of parts) expect(part.length).toBeLessThanOrEqual(200)
+    // Every line survives whole, and in order.
+    expect(parts.join('\n').split('\n')).toEqual([line, line, line])
+  })
+
+  it('truncates a single line that cannot be split', () => {
+    const parts = splitForDiscord('y'.repeat(50), 10)
+    expect(parts).toHaveLength(1)
+    expect(parts[0]).toHaveLength(10)
+    expect(parts[0].endsWith('…')).toBe(true)
   })
 })

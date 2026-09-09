@@ -146,9 +146,19 @@ const FETCH_TIMEOUT_MS = 20_000
 // that would make a missed restock likely.
 const ERROR_QUIET_HOURS = 6
 
-// A Discord message caps at 2000 characters, and a wall of 60 bullet points is not read by
-// anyone anyway. Past this the list is truncated and counted.
+// A wall of 60 bullet points is not read by anyone. Past this the list is truncated and counted.
+//
+// THIS IS NOT WHAT KEEPS A MESSAGE UNDER DISCORD'S CAP, and reading it as though it were cost a
+// dropped announcement on Sep 9, 2026. Twelve lines is a count, and a line here is a name, a
+// price and a URL on a second row, so one section of twelve can run past 2000 characters on its
+// own and a message carries two of them. Discord answered 400 `Must be 2000 or fewer in length`,
+// the post threw, and because the snapshot is only saved AFTER a successful post the job then
+// retried the same too-long message on every run. The cap is enforced in `post` now, by
+// splitting on line boundaries, so nothing is silently dropped and nothing loops.
 const MAX_LINES_PER_SECTION = 12
+
+/** Discord's hard limit on one message's content. */
+const DISCORD_MAX = 2000
 
 if (IS_ENTRYPOINT) {
   if (!SUPABASE_URL || !SERVICE_KEY) {
@@ -514,8 +524,40 @@ export function auctionFeedMessage(newLots) {
 
 // ─── Discord ────────────────────────────────────────────────────────────────
 
+/**
+ * One message as however many Discord will accept, split on line boundaries.
+ *
+ * Line boundaries because every message here is a list: breaking mid-bullet would put half a
+ * product name at the end of one message and a bare URL at the top of the next. A single line
+ * longer than the cap cannot be split that way and is truncated with an ellipsis, which no real
+ * line reaches (the longest is a name plus a store URL, about 180 characters).
+ */
+export function splitForDiscord(content, limit = DISCORD_MAX) {
+  const text = String(content ?? '')
+  if (text.length <= limit) return [text]
+  const out = []
+  let buf = ''
+  for (const raw of text.split('\n')) {
+    const line = raw.length > limit ? `${raw.slice(0, limit - 1)}…` : raw
+    if (buf && buf.length + 1 + line.length > limit) { out.push(buf); buf = line }
+    else buf = buf ? `${buf}\n${line}` : line
+  }
+  if (buf) out.push(buf)
+  return out
+}
+
 async function post(webhook, content, mention = '') {
   if (!webhook) { console.warn('⚠️   No webhook configured for this message; skipping.'); return }
+  const parts = splitForDiscord(content)
+  for (const [i, part] of parts.entries()) {
+    // The mention rides the FIRST part only. An @everyone on each half of a split message is
+    // two pings for one restock, which is exactly the noise the two-channel split exists to
+    // avoid, and it is how a loud channel gets muted.
+    await postOne(webhook, part, i === 0 ? mention : '')
+  }
+}
+
+async function postOne(webhook, content, mention = '') {
   if (DRY_RUN) {
     console.log('\n─── would post ───────────────────────────────────────────')
     console.log(content)
@@ -532,7 +574,9 @@ async function post(webhook, content, mention = '') {
     const retryMs = Math.min(10_000, Number((await res.clone().json().catch(() => ({}))).retry_after ?? 1) * 1000)
     console.warn(`⚠️   Rate limited, waiting ${retryMs}ms`)
     await sleep(retryMs)
-    return post(webhook, content, mention)
+    // The single part, not the whole message: `post` already split it, and retrying through
+    // there would re-send the parts that went out before the rate limit.
+    return postOne(webhook, content, mention)
   }
   if (!res.ok) throw new Error(`Discord post failed (${res.status}): ${await res.text()}`)
 }

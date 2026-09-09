@@ -56,6 +56,15 @@ describe('the sentence', () => {
     expect(hr?.runs).toBe(3)
   })
 
+  // The play-by-play lifts the count out of the narrative into its own column, so a filled row
+  // without one leaves a hole in a column every other row fills. Their file carries it; their
+  // PITCH letters are a different alphabet from the feed's and are deliberately left behind.
+  it('carries the count when their file has one', () => {
+    expect(batterText('S8/L', 'Claire Eccles', '22')?.sentence)
+      .toBe('Claire Eccles singled to center field (2-2).')
+    expect(batterText('W', 'Madison Willan', '')?.sentence).toBe('Madison Willan walked.')
+  })
+
   it('refuses an event it cannot read instead of guessing', () => {
     expect(batterText('ZZ9/Q', 'Nobody')).toBeNull()
   })

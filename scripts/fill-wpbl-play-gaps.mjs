@@ -196,12 +196,30 @@ export function eventType(event) {
 }
 
 /**
+ * The ball-strike count, in the brackets the feed puts it in.
+ *
+ * WHY IT IS WORTH CARRYING. The play-by-play pulls the count out of the narrative into its own
+ * column (`COUNT_RE` in playByPlay.ts), so a filled row without it leaves a hole in a column
+ * every other row fills, which is how a restored play announces that it is not quite one.
+ * Their file has it: `31` beside the pitches on every play record.
+ *
+ * WITHOUT THE PITCH LETTERS, though we have those too. The feed writes its own alphabet
+ * (`B K S F H P`) and Retrosheet writes another (`C` for a called strike, `X` for a ball in
+ * play), and a row reading "(2-2 BCBFX)" beside rows reading "(2-2 BKBF)" would be publishing
+ * one league's shorthand in another's. The count itself is the same number in both.
+ */
+export function countText(raw) {
+  const m = String(raw ?? '').trim().match(/^(\d)(\d)$/)
+  return m ? ` (${m[1]}-${m[2]})` : ''
+}
+
+/**
  * One event as a sentence about the batter, plus what it does to the bases.
  *
  * Returns null for an event this does not read, which is how the caller refuses to fill a row
  * rather than filling it with a guess.
  */
-export function batterText(event, batter) {
+export function batterText(event, batter, count = null) {
   const { primary, mods, advance } = splitEvent(event)
   const p = primary
   const runs = runnersHome(event)
@@ -238,7 +256,7 @@ export function batterText(event, batter) {
   // home run even though `runs_scored` does not. Both halves of that are copied deliberately.
   const rbi = runs + (lands === 'H' ? 1 : 0)
   const rbiText = rbi > 1 ? `, ${rbi} RBI` : rbi === 1 ? ', RBI' : ''
-  const sentence = `${batter} ${text}${rbiText}.`
+  const sentence = `${batter} ${text}${rbiText}${countText(count)}.`
   const isHit = /^(S\d*|D\d*|DGR\d*|T\d*|HR\d*|H\d*)$/.test(p)
   return { sentence, runs, lands, isHit, primary: p, advance }
 }
@@ -474,7 +492,7 @@ export function planCorrections({ ourPlays, theirGame, roster, existing }) {
       if (!isBlank(row)) return
       const play = theirs[i]
       const batter = nameOf(play.batterId)
-      const hit = batterText(play.event, batter)
+      const hit = batterText(play.event, batter, play.count)
       const runner = hit ? null : runnerText(play.event, states[i])
       const sentence = hit?.sentence ?? runner
       if (!sentence) { skipped.push({ half: k, why: `row ${row.sequence}: cannot read "${play.event}"` }); return }
