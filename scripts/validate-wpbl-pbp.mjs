@@ -146,6 +146,19 @@ const sql = {
   //
   // The last half-inning of a game is exempt, since it ends when the winning run scores and is
   // often not played at all.
+  //
+  // AND SO IS A HALF-INNING THAT ENDS ON TWO OUTS AT ONCE, which is the whole of what this used
+  // to find. "A completed half-inning contains a play that started with two away" is true of
+  // every ending except the one where the third out arrives WITH the second: one away, a ground
+  // ball, two more, and no play in the inning ever began with two. On Sep 9, 2026 all eight
+  // flagged half-innings were exactly that, seven of them written "grounded into double play"
+  // and the eighth a fly ball doubling a runner off third. Nothing was missing from any of them,
+  // and eight false findings a week is how a report stops being read.
+  //
+  // Matched on the narrative because the feed has no outs-recorded column: `outs` is the state
+  // BEFORE the play, so two outs on one play is invisible in the numbers and legible only in the
+  // sentence. The exemption is narrow on purpose (one out before, and a phrase that names a
+  // second retired runner), so a half-inning genuinely missing plays still has nowhere to hide.
   outs: `
     with o as (
       select p.game_id, p.inning, p.half, max(p.outs) as max_outs_before,
@@ -159,8 +172,11 @@ const sql = {
     from o
     join last_half l on l.game_id = o.game_id
     join wpbl_games g on g.id = o.game_id
+    join wpbl_game_plays lp on lp.game_id = o.game_id and lp.sequence = o.last_seq
     where (o.max_outs_before < 2 or o.max_outs_before > 2)
       and o.last_seq <> l.game_last
+      and not (o.max_outs_before = 1 and coalesce(lp.narrative, '') ~*
+               '(double play|triple play|out at (first|second|third|home)|out on the play|doubled off)')
     order by g.game_date, o.inning`,
 
   // ─── 4a. Runs on a home run against the runners who were on ───────────────────

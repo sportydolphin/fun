@@ -18,6 +18,10 @@ describe('batting', () => {
   // Their file writes a ground-rule double as DGR, which is a double however it got there.
   it('counts a ground-rule double as a double', () => {
     expect(batting('DGR')).toMatchObject({ ab: 1, h: 1, b2: 1 })
+    // And with the fielder they actually write: `DGR7/G.1-3` on Sep 6, 2026. An unmatched
+    // primary is dropped from the game rather than counted wrong, so the batter silently lost
+    // a PA, an at-bat, a hit and a double, and the report blamed our box score for the gap.
+    expect(batting('DGR7/G.1-3')).toMatchObject({ pa: 1, ab: 1, h: 1, b2: 1, unknown: false })
   })
 
   it('separates the free passes from the at-bats', () => {

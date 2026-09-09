@@ -119,7 +119,12 @@ export function batting(eventRaw) {
   if (sh) z.sh = 1
 
   if (/^S\d*$/.test(primary))              { z.ab = 1; z.h = 1 }
-  else if (/^(D\d*|DGR)$/.test(primary))   { z.ab = 1; z.h = 1; z.b2 = 1 }
+  // DGR IS A GROUND-RULE DOUBLE, AND IT CAN CARRY A FIELDER. Retrosheet writes the bare code,
+  // the transcriber writes where it landed (`DGR7/G.1-3`, Sep 6), and an unmatched primary is
+  // dropped from the game entirely rather than counted wrong: the batter loses a PA, an AB, a
+  // hit and a double, and the report blames the disagreement on our side. It cost one false
+  // finding on Amanda Gianelloni before the code was allowed its digits.
+  else if (/^(D\d*|DGR\d*)$/.test(primary)) { z.ab = 1; z.h = 1; z.b2 = 1 }
   else if (/^T\d*$/.test(primary))         { z.ab = 1; z.h = 1; z.b3 = 1 }
   else if (/^(HR|H)\d*$/.test(primary))    { z.ab = 1; z.h = 1; z.hr = 1; z.rbi += 1 }
   else if (/^K/.test(primary))             { z.ab = 1; z.so = 1 }
