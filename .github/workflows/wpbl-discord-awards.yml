@@ -1,0 +1,87 @@
+name: WPBL Discord award poll
+
+# The fan awards ballot as a reaction poll in the Discord, and the votes it collects.
+#
+# One message per fan-vote question, four numbered names each, posted once into
+# DISCORD_AWARDS_CHANNEL_ID. Every run after that reads the reactions and writes them into
+# wpbl_award_votes under `discord:<user id>`, which is the same table and the same tally the site
+# counts. Voting in the Discord AND on the site is allowed on purpose: it is a bonus for being in
+# the channel, not a loophole.
+#
+# BATCHED BY DESIGN. A reaction is state rather than an event, so whatever is on the message when
+# this looks is the whole truth however long ago it was added: a run that fails changes nothing
+# and the next one sees the same reactions. Catching a reaction as it happens would mean holding a
+# gateway socket open forever, which is a daemon this project deliberately does not run.
+#
+# EVERY 15 MINUTES WHILE THE BALLOT IS OPEN, which is Sep 7 to the first pitch of the final on Sep
+# 16. The window is September only for the same reason the postseason check's is: outside it there
+# is no ballot to collect. The script refuses to cast after the close itself, so a late run is a
+# no-op rather than a vote that should not have counted.
+#
+# SETUP, ONCE: create the channel, invite the bot with Send Messages and Add Reactions in it, and
+# set DISCORD_AWARDS_CHANNEL_ID. The first run posts the questions; nothing needs doing by hand.
+
+on:
+  schedule:
+    - cron: '5,20,35,50 * * 9 *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Say what it would post and cast, write nothing.'
+        required: true
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
+      repost:
+        description: 'Post the questions again (a new channel, or a message somebody deleted).'
+        required: true
+        default: 'false'
+        type: choice
+        options: ['true', 'false']
+
+# One collector at a time. Two overlapping runs would read the same reactions and race each other
+# to write the same votes, which is harmless and pointless.
+concurrency:
+  group: wpbl-discord-awards
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Only the three packages this needs. The script bundles with esbuild because it imports
+      # the app's own ballot builders, which is the whole point: the four names in Discord are
+      # the four names on the site, from one definition. Same approach as the recap poster, and
+      # versions still come from package.json so there is one source of truth.
+      - name: Install dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','esbuild'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Post the questions and collect the reactions
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VITE_SUPABASE_ANON_KEY:    ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          DISCORD_BOT_TOKEN:         ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_AWARDS_CHANNEL_ID: ${{ secrets.DISCORD_AWARDS_CHANNEL_ID }}
+          DRY_RUN:                   ${{ inputs.dry_run }}
+          REPOST:                    ${{ inputs.repost }}
+        # A scheduled run has no `inputs`, so both are empty there and the real collection runs.
+        # Only an explicit "true" from the Actions tab changes that.
+        run: |
+          if [ -z "$DISCORD_AWARDS_CHANNEL_ID" ]; then
+            echo "DISCORD_AWARDS_CHANNEL_ID is not set yet, so there is no channel to post in."
+            exit 0
+          fi
+          flags=""
+          if [ "$DRY_RUN" = "true" ]; then flags="$flags --dry-run"; fi
+          if [ "$REPOST" = "true" ]; then flags="$flags --repost"; fi
+          if [ -n "$flags" ]; then npm run discord-awards -- $flags; else npm run discord-awards; fi

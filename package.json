@@ -21,6 +21,7 @@
     "auth-link": "node --env-file=.env scripts/dev-auth-link.mjs",
     "discord-recaps": "esbuild scripts/post-wpbl-discord-recaps.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-discord-recaps.mjs && node node_modules/.cache/wpbl-discord-recaps.mjs",
     "discord-highlights": "node scripts/post-wpbl-discord-highlights.mjs",
+    "discord-awards": "esbuild scripts/sync-wpbl-discord-awards.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-discord-awards.mjs && node --env-file-if-exists=.env node_modules/.cache/wpbl-discord-awards.mjs",
     "discord-birthdays": "esbuild scripts/post-wpbl-discord-birthdays.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-discord-birthdays.mjs && node node_modules/.cache/wpbl-discord-birthdays.mjs",
     "substack-sync": "esbuild scripts/sync-wpbl-substack.ts --bundle --platform=node --format=esm --packages=external --outfile=node_modules/.cache/wpbl-substack-sync.mjs && node node_modules/.cache/wpbl-substack-sync.mjs",
     "discord-commands": "node --env-file=.env scripts/register-wpbl-discord-commands.mjs",
