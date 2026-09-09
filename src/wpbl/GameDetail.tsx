@@ -858,10 +858,17 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
                     )
                   }
                   return (
+                    // `runsOnPlay`, NOT `is_scoring_play`. The feed's flag is exactly
+                    // `runs_scored > 0` and `runs_scored` never counts the batter, so a SOLO
+                    // HOME RUN is flagged false and drew as an ordinary play: the green rail
+                    // and tint stopped at the one hit that is always worth marking, while the
+                    // "+1" beside it, which reads `runsOnPlay`, said a run had scored. One row
+                    // disagreeing with itself. Reported by a reader, Sep 9, 2026, and it is the
+                    // fourth surface this same field has caught (see CLAUDE.md).
                     <Box key={i} sx={{
                       display: 'flex', gap: 1, py: 0.6, pl: 1, borderLeft: '2px solid',
-                      borderColor: p.is_scoring_play ? '#22c55e' : 'divider',
-                      bgcolor: p.is_scoring_play ? 'rgba(34,197,94,0.06)' : 'transparent',
+                      borderColor: runsOnPlay(p) > 0 ? '#22c55e' : 'divider',
+                      bgcolor: runsOnPlay(p) > 0 ? 'rgba(34,197,94,0.06)' : 'transparent',
                     }}>
                       <Box sx={{ flex: 1, minWidth: 0 }}>
                         {/* Who did what, on one line. The batter is the thing being scanned

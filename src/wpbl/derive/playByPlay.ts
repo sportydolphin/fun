@@ -165,6 +165,13 @@ const squash = (s: string) => s.replace(/\s{2,}/g, ' ').replace(/\s+([,.])/g, '$
  * means asking who was at third in this game, which is a question with two answers the moment
  * anybody moves mid-game (`positions.ts` on the "lf/p" spelling). Naming the wrong fielder on
  * an error is worse than naming none.
+ *
+ * "UNEARNED" STAYS, AND USED TO BE STRIPPED HERE. The reasoning was that it is an accounting
+ * distinction rather than something that happened on the field, which is true and is not a
+ * reason to throw it away: the league scores it, the play log is the only surface that carries
+ * it, and it is what separates a pitcher's ERA from the runs on the board. A reader who wants
+ * to know why a five-run inning left an earned run average alone has nowhere else to look.
+ * Reported by a reader, Sep 9, 2026.
  */
 function tidy(s: string): string {
   let out = s.replace(PICKOFF_RE, 'Failed pickoff attempt at $1')
@@ -174,9 +181,7 @@ function tidy(s: string): string {
     // the outcome: "grounded into double play, ss to 2b to 1b", "out at 2nd, ss to 2b".
     .replace(FIELD_SEQ_RE, m => `,${m}`)
     .replace(UNASSISTED_RE, '$1, $2')
-    .replace(LONE_FIELDER_RE, '$1, $2')
-    // An unearned run is an accounting distinction, not something happening on the field.
-    .replace(/,\s*unearned\b/g, ''))
+    .replace(LONE_FIELDER_RE, '$1, $2'))
 }
 
 function shortenBases(s: string): string {

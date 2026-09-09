@@ -29,7 +29,9 @@ describe('parsePlay', () => {
       'Kylee Lahners', shorten)
     expect(p.who).toBe('Kylee Lahners')
     expect(p.what).toBe("reached on a fielder's choice, RBI")
-    expect(p.detail).toBe('Benites out at 2nd, ss to 2b · Ciamarro scored on an error by 2b')
+    // "unearned" was stripped here until Sep 9, 2026: it is the league's own scoring, the only
+    // place a reader can see it, and the reason a run on the board is not on the pitcher.
+    expect(p.detail).toBe('Benites out at 2nd, ss to 2b · Ciamarro scored on an error by 2b, unearned')
     expect(p.kind).toBe('play')
   })
 
@@ -175,7 +177,7 @@ describe('parsePlay', () => {
       'Denver Bryant doubled to right field, advanced to third on an error by 2b, 2 RBI (1-0 B); Hyeonah Kim scored; Alli Schroder scored, unearned; Ticara Geldenhuis scored, unearned.',
       'Denver Bryant', shorten)
     expect(p.what).toBe('doubled to right field, advanced to 3rd on an error by 2b, 2 RBI')
-    expect(p.detail).toBe('Kim scored · Schroder scored · Geldenhuis scored')
+    expect(p.detail).toBe('Kim scored · Schroder scored, unearned · Geldenhuis scored, unearned')
   })
 
   it('leaves a runner-only play unattributed rather than guessing a batter', () => {
