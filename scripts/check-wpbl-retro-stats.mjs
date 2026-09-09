@@ -44,8 +44,8 @@ import pg from 'pg'
 import fs from 'node:fs'
 import { pathToFileURL } from 'node:url'
 
-const RAW = 'https://raw.githubusercontent.com/exu6jh/RetroWPBL/main'
-const EVENT_FILES = ['2026BSH.EVW', '2026LAQ.EVW', '2026NYH.EVW', '2026SFF.EVW']
+export const RAW = 'https://raw.githubusercontent.com/exu6jh/RetroWPBL/main'
+export const EVENT_FILES = ['2026BSH.EVW', '2026LAQ.EVW', '2026NYH.EVW', '2026SFF.EVW']
 /** Their club codes to ours. Hard-coded for the reason sync-wpbl-retro hard-codes it: four
  *  clubs, and a wrong guess silently attributes one club's game to another. */
 const TEAM_CODES = Object.freeze({ BSH: 'BOS', LAQ: 'LA', NYH: 'NY', SFF: 'SF' })
@@ -169,8 +169,16 @@ export function parseGames(text) {
     } else if (line.startsWith('play,')) {
       // play,inning,half,batterId,count,pitches,event  — the event may itself contain commas
       // inside parentheses, so take everything from the 7th field on.
+      //
+      // `inning` and `side` are carried even though this audit adds up a whole game and never
+      // looks at them: fill-wpbl-play-gaps.mjs lines their plays up against ours half-inning by
+      // half-inning, and a second parser of the same grammar is the thing most likely to drift.
       const cells = line.split(',')
-      if (cells.length >= 7) g.plays.push({ batterId: (cells[3] ?? '').trim(), event: cells.slice(6).join(',') })
+      if (cells.length >= 7) g.plays.push({
+        inning: Number(cells[1]), side: Number(cells[2]),
+        batterId: (cells[3] ?? '').trim(), count: (cells[4] ?? '').trim(),
+        pitches: (cells[5] ?? '').trim(), event: cells.slice(6).join(','),
+      })
     }
   }
   if (g) games.push(g)
@@ -299,7 +307,7 @@ const OURS_SQL = `
   where g.status = 'final'
   group by 1, 2, 3`
 
-const fetchText = async (url) => {
+export const fetchText = async (url) => {
   const res = await fetch(url, { headers: { 'user-agent': 'sportydolphin.fun retro stats check' } })
   if (!res.ok) throw new Error(`${url} → ${res.status}`)
   return res.text()

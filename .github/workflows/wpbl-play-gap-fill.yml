@@ -1,0 +1,68 @@
+name: WPBL play gap fill
+
+# Fills the plays the league published EMPTY from RetroWPBL's transcription of the same game.
+#
+# The Aug 20 NY at BOS game is why this exists: 14 rows carrying a pitcher and a pitch sequence
+# with no batter, no event and no narrative, including the hit-by-pitch that scored a run. The
+# drift checker says our copy matches the feed exactly, so there is nothing to re-ingest; the
+# only other reading of that game is the hand transcription, and it lines up one for one.
+#
+# WHAT IT WILL NOT DO is decide between two accounts. It only ever fills a row where the feed
+# said nothing, never one where the feed and the transcription disagree: that is the retro stats
+# check's job, and its answer is a person, not a job. The script header carries the argument.
+#
+# 10:30 UTC, between the retro sync at 10:00 (which pulls the night's new transcription) and the
+# retro stats check at 11:00 (which then audits a set of plays this may just have completed).
+# Insert-only against wpbl_play_corrections, so a run with nothing new to say writes nothing and
+# a correction written by hand is never overwritten.
+
+on:
+  schedule:
+    - cron: '30 10 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Report what would be written, without writing it.'
+        required: true
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
+
+# One writer at a time; skip a tick rather than racing two inserts.
+concurrency:
+  group: wpbl-play-gap-fill
+  cancel-in-progress: false
+
+jobs:
+  fill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Only `pg`, matching the other two retro jobs: this script imports nothing from the app.
+      - name: Install dependency
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['pg'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Fill empty plays from RetroWPBL
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          DRY_RUN:         ${{ inputs.dry_run }}
+        # A scheduled run has no `inputs`, so DRY_RUN is empty there and the real fill runs.
+        # Only an explicit "true" from the Actions tab holds the write back.
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "SUPABASE_DB_URL is not set, so there is nowhere to write."
+            exit 1
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            node scripts/fill-wpbl-play-gaps.mjs --dry-run
+          else
+            node scripts/fill-wpbl-play-gaps.mjs
+          fi
