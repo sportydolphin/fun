@@ -66,6 +66,17 @@ on reading back what has already been recorded. The bot token here is a script's
 interaction endpoint's: `functions/discord/wpbl.ts` is untouched and its service-role key still
 reaches nothing outside `wpbl_predict_*`.
 
+**The channel asks more than the site does.** Besides the site's five, it carries whatever is in
+[`scripts/wpbl-discord-questions.ts`](../scripts/wpbl-discord-questions.ts): hand-written
+questions with typed-out options, asked here and nowhere else. Adding one is an entry in that
+file and nothing else, and the next run posts it. They travel the same road as the rest, into
+the same table under a `discord:2026:` id, so the tally, the one-reaction rule, the withdrawal
+and the deadline are one implementation rather than two. Their ids and their option keys are as
+permanent as the site's, for the same reason: both are stored on every vote. What they do not get
+is a shortlist computed from the season, because the reason a question is Discord-only is usually
+that no season can answer it. A question may set its own `closesAt`; left out, it shuts with the
+rest of the ballot.
+
 **The shortlist is frozen, which is what makes a stored emoji map safe.** Every one of these
 awards is seeded off the regular season, and the regular season ended Sep 6, so the four names
 cannot change under a reaction already cast.

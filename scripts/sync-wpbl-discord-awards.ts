@@ -21,6 +21,13 @@
  * is drawn by Discord. It is the price of the simplest ballot box that works in a chat client,
  * and it is worth naming rather than pretending the two surfaces behave the same.
  *
+ * THE CHANNEL ASKS MORE THAN THE SITE DOES. Besides the site's five, it carries whatever is in
+ * scripts/wpbl-discord-questions.ts: hand-written questions with typed-out options, asked only
+ * here. They travel the same road as the rest, into the same table under a `discord:2026:` id, so
+ * the tally, the withdrawal rule and the deadline are one implementation rather than two. What
+ * they do NOT get is a shortlist computed from the season, because the reason a question is
+ * Discord-only is usually that no season can answer it.
+ *
  * THE SHORTLIST IS FROZEN, which is what makes a stored emoji-to-key map safe. Every one of these
  * awards is seeded off the regular season, and the regular season ended Sep 6: the four names
  * cannot change under a reaction already cast. `wpbl_award_discord_polls` records the mapping at
@@ -50,6 +57,7 @@ import { fanVoteAwards, AWARDS_CLOSE_AT, AWARDS_CLOSE_LABEL, type WpblAward } fr
 import { buildAwardBallot, type AwardCandidate } from '../src/wpbl/derive/awards'
 import { buildRunExpectancy, playRunValues } from '../src/wpbl/derive/runExpectancy'
 import { mvpRace } from '../src/wpbl/derive/mvpRace'
+import { WPBL_DISCORD_QUESTIONS, type DiscordQuestion } from './wpbl-discord-questions'
 import type {
   WpblBattingLine, WpblFieldingLine, WpblGame, WpblGamePlay, WpblPitchingLine, WpblPlayer, WpblTeam,
 } from '../src/wpbl/types'
@@ -80,6 +88,38 @@ interface SupabaseLike {
 }
 
 interface PollOption { emoji: string; key: string; name: string; team: string | null }
+
+/**
+ * A question ready to post, from either source.
+ *
+ * The site's awards and the Discord-only questions differ in exactly two places: where the
+ * options come from, and whether the footer points at the site. Everything after this shape is
+ * one path, which is why the tally, the one-reaction rule and the deadline cannot drift between
+ * the two halves of the ballot.
+ */
+interface Askable {
+  id: string
+  emoji: string
+  title: string
+  blurb: string
+  closesAt: string
+  options: PollOption[]
+  /** False for a question that exists only here, so the footer does not send a reader to a page
+   *  that has never heard of it. */
+  onSite: boolean
+}
+
+/** A hand-written question as something the poster can ask. */
+export function askableFromQuestion(q: DiscordQuestion, closesAt: string): Askable {
+  return {
+    id: q.id, emoji: q.emoji, title: q.title, blurb: q.blurb ?? '',
+    closesAt: q.closesAt ?? closesAt,
+    onSite: false,
+    options: q.options.slice(0, SLOT_EMOJI.length).map((o, i) => ({
+      emoji: SLOT_EMOJI[i], key: o.key, name: o.label, team: null, note: o.note,
+    })) as PollOption[],
+  }
+}
 interface PollRow { category: string; channel_id: string; message_id: string; options: PollOption[] }
 
 // ─── Discord ──────────────────────────────────────────────────────────────────
@@ -142,24 +182,29 @@ async function reactors(channelId: string, messageId: string, emoji: string): Pr
  * order, so a reader moving between the two is comparing like with like. Discord has no room
  * for a portrait and no need of one.
  */
-export function pollMessage(award: WpblAward, options: PollOption[], candidates: AwardCandidate[]): string {
+export function pollMessage(ask: Askable, candidates: AwardCandidate[] = []): string {
   const byKey = new Map(candidates.map(c => [c.key, c]))
   // Separated by a middle dot rather than a dash: the house rule bans the em dash in copy a
   // reader sees, and this line is read in a chat client where a hyphen would look like a minus.
-  const lines = options.map(o => {
+  const lines = ask.options.map(o => {
     const c = byKey.get(o.key)
-    const stats = (c?.stats ?? []).slice(0, 3).map(s => `${s.value} ${s.label}`).join(' · ')
+    // A seeded candidate brings the tile's own figures; a hand-written option brings whatever
+    // half-line the question wrote for it, and most bring neither.
+    const detail = (c?.stats ?? []).slice(0, 3).map(s => `${s.value} ${s.label}`).join(' · ')
+      || (o as { note?: string }).note || ''
     const where = o.team ? ` (${o.team})` : ''
-    return `${o.emoji}  **${o.name}**${where}${stats ? ` · ${stats}` : ''}`
+    return `${o.emoji}  **${o.name}**${where}${detail ? ` · ${detail}` : ''}`
   })
   return [
-    `${award.emoji} **${award.title}**`,
-    `_${award.blurb}_`,
+    `${ask.emoji} **${ask.title}**`,
+    ...(ask.blurb ? [`_${ask.blurb}_`] : []),
     '',
     ...lines,
     '',
     `React with one number. Change it any time until the final starts on ${AWARDS_CLOSE_LABEL}.`,
-    `Your Discord vote counts alongside the site, so you can vote in both: <${SITE}>`,
+    ask.onSite
+      ? `Your Discord vote counts alongside the site, so you can vote in both: <${SITE}>`
+      : 'This one is asked here and nowhere else.',
   ].join('\n')
 }
 
@@ -276,28 +321,55 @@ async function main() {
 
   const pub = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false } })
   const db = SERVICE_KEY ? createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } }) : null
-  const awards = fanVoteAwards()
   const closed = Date.now() >= Date.parse(AWARDS_CLOSE_AT)
 
   const { data: existing } = db ? await db.from('wpbl_award_discord_polls').select('*') : { data: [] }
   const polls = new Map<string, PollRow>((existing ?? []).map((r: any) => [r.category, r as PollRow]))
 
   // ── Post whatever is missing ────────────────────────────────────────────────
-  const missing = awards.filter(a => REPOST || !polls.has(a.id) || polls.get(a.id)!.channel_id !== CHANNEL_ID)
-  if (missing.length && closed) {
-    console.log(`Voting closed on ${AWARDS_CLOSE_LABEL}; not posting ${missing.length} new question(s).`)
-  } else if (missing.length) {
-    const input = await loadBallot(pub)
-    const ballot = buildAwardBallot(input as any)
-    for (const award of missing) {
-      const entry = ballot.find(e => e.award.id === award.id)
-      if (!entry || !entry.candidates.length) { console.log(`  ${award.id}: no shortlist yet, skipping`); continue }
-      const options: PollOption[] = entry.candidates.slice(0, SLOT_EMOJI.length).map((c, i) => ({
-        emoji: SLOT_EMOJI[i], key: c.key, name: c.name, team: c.teamId,
-      }))
-      const content = pollMessage(award, options, entry.candidates)
+  //
+  // The site's questions and the Discord-only ones are decided together and posted together, in
+  // that order, so the channel reads top to bottom as one ballot rather than two lists that
+  // happen to share a room.
+  const unposted = (id: string) => REPOST || !polls.has(id) || polls.get(id)!.channel_id !== CHANNEL_ID
+  const extras = WPBL_DISCORD_QUESTIONS.filter(q => unposted(q.id))
+  const awards = fanVoteAwards().filter(a => unposted(a.id))
+  const missing = awards.length + extras.length
+
+  if (missing && closed) {
+    console.log(`Voting closed on ${AWARDS_CLOSE_LABEL}; not posting ${missing} new question(s).`)
+  } else if (missing) {
+    const asks: { ask: Askable; candidates: AwardCandidate[] }[] = []
+
+    if (awards.length) {
+      // The heavy read happens only when a SEEDED question is missing. A run that is posting
+      // nothing but hand-written questions never touches the play log.
+      const input = await loadBallot(pub)
+      const ballot = buildAwardBallot(input as any)
+      for (const award of awards) {
+        const entry = ballot.find(e => e.award.id === award.id)
+        if (!entry || !entry.candidates.length) { console.log(`  ${award.id}: no shortlist yet, skipping`); continue }
+        asks.push({
+          candidates: entry.candidates,
+          ask: {
+            id: award.id, emoji: award.emoji, title: award.title, blurb: award.blurb,
+            closesAt: award.closesAt, onSite: true,
+            options: entry.candidates.slice(0, SLOT_EMOJI.length).map((c, i) => ({
+              emoji: SLOT_EMOJI[i], key: c.key, name: c.name, team: c.teamId,
+            })),
+          },
+        })
+      }
+    }
+    for (const q of extras) {
+      if (!q.options.length) { console.log(`  ${q.id}: no options written, skipping`); continue }
+      asks.push({ ask: askableFromQuestion(q, AWARDS_CLOSE_AT), candidates: [] })
+    }
+
+    for (const { ask, candidates } of asks) {
+      const content = pollMessage(ask, candidates)
       if (DRY_RUN) {
-        console.log(`\n─── would post (${award.id}) ───\n${content}\n`)
+        console.log(`\n─── would post (${ask.id}) ───\n${content}\n`)
         continue
       }
       const msg = await discord(`/channels/${CHANNEL_ID}/messages`, {
@@ -305,20 +377,23 @@ async function main() {
       })
       // One at a time: Discord rate-limits reaction adds hard, and a numbered list that arrives
       // out of order reads as a different ballot.
-      for (const o of options) {
+      for (const o of ask.options) {
         await discord(`/channels/${CHANNEL_ID}/messages/${msg.id}/reactions/${encodeURIComponent(o.emoji)}/@me`, { method: 'PUT' })
       }
       await db!.from('wpbl_award_discord_polls').upsert({
-        category: award.id, channel_id: CHANNEL_ID, message_id: msg.id,
-        options, updated_at: new Date().toISOString(),
+        category: ask.id, channel_id: CHANNEL_ID, message_id: msg.id,
+        options: ask.options, updated_at: new Date().toISOString(),
       })
-      polls.set(award.id, { category: award.id, channel_id: CHANNEL_ID, message_id: msg.id, options })
-      console.log(`Posted ${award.id} (${options.length} names).`)
+      polls.set(ask.id, { category: ask.id, channel_id: CHANNEL_ID, message_id: msg.id, options: ask.options })
+      console.log(`Posted ${ask.id} (${ask.options.length} options).`)
     }
   }
 
   // ── Read the reactions and cast them ────────────────────────────────────────
   if (closed) { console.log(`Voting closed on ${AWARDS_CLOSE_LABEL}. Nothing cast.`); return }
+  // A hand-written question may set its own close. Read here rather than at post time, because
+  // the deadline that matters is the one in force when a reaction is counted.
+  const closesAt = new Map(WPBL_DISCORD_QUESTIONS.map(q => [q.id, Date.parse(q.closesAt ?? AWARDS_CLOSE_AT)]))
   if (!polls.size) { console.log('No polls posted yet.'); return }
 
   // What Discord voters have already been recorded as choosing, so a run that changes nothing
@@ -329,6 +404,7 @@ async function main() {
 
   let cast = 0, cleared = 0, ambiguous = 0
   for (const poll of polls.values()) {
+    if ((closesAt.get(poll.category) ?? Infinity) <= Date.now()) continue
     const reactions = new Map<string, string[]>()
     for (const o of poll.options) {
       reactions.set(o.emoji, await reactors(poll.channel_id, poll.message_id, o.emoji))

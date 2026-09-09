@@ -1,13 +1,20 @@
 import { describe, it, expect } from 'vitest'
 // The job imported rather than reimplemented, the rule the other two script tests follow.
-import { pollMessage, resolveVotes } from '../../scripts/sync-wpbl-discord-awards'
-import { awardById } from '../wpbl/awards'
+import { pollMessage, resolveVotes, askableFromQuestion } from '../../scripts/sync-wpbl-discord-awards'
+import { WPBL_DISCORD_QUESTIONS } from '../../scripts/wpbl-discord-questions'
+import { awardById, AWARDS_CLOSE_AT } from '../wpbl/awards'
 import type { AwardCandidate } from '../wpbl/derive/awards'
 
+const mvp = awardById('mvp')!
 const options = [
   { emoji: '1️⃣', key: 'p-whitmore', name: 'Kelsie Whitmore', team: 'SF' },
   { emoji: '2️⃣', key: 'p-benites', name: 'Denae Benites', team: 'NY' },
 ]
+/** A seeded question, as the poster assembles one from the ballot. */
+const seeded = {
+  id: mvp.id, emoji: mvp.emoji, title: mvp.title, blurb: mvp.blurb,
+  closesAt: mvp.closesAt, onSite: true, options,
+}
 
 describe('the message', () => {
   const candidates = [
@@ -19,7 +26,7 @@ describe('the message', () => {
   ] as AwardCandidate[]
 
   it('numbers the names and carries the same figures the tile does', () => {
-    const text = pollMessage(awardById('mvp')!, options, candidates)
+    const text = pollMessage(seeded, candidates)
     expect(text).toContain('1️⃣  **Kelsie Whitmore** (SF) · .451 AVG · 11 HR · 1.669 OPS')
     // A candidate with no figures is still a candidate, and the line must not end in a dangling
     // separator.
@@ -27,14 +34,77 @@ describe('the message', () => {
   })
 
   it('says the deadline and points at the site', () => {
-    const text = pollMessage(awardById('mvp')!, options, candidates)
+    const text = pollMessage(seeded, candidates)
     expect(text).toContain('Sep 16')
     expect(text).toContain('/wpbl/awards')
   })
 
   // House rule, and this is copy a reader sees.
   it('writes no em dashes', () => {
-    expect(pollMessage(awardById('mvp')!, options, candidates)).not.toMatch(/—/)
+    expect(pollMessage(seeded, candidates)).not.toMatch(/—/)
+  })
+})
+
+describe('a question that exists only in the Discord', () => {
+  const ask = askableFromQuestion({
+    id: 'discord:2026:example',
+    emoji: '🎉',
+    title: 'Best Celebration',
+    blurb: 'The dugout moment you are still doing at home.',
+    options: [
+      { key: 'bell', label: 'Ringing the bell' },
+      { key: 'hats', label: 'The hat toss', note: 'since Aug 12' },
+    ],
+  }, AWARDS_CLOSE_AT)
+
+  it('numbers the written options and keeps their keys', () => {
+    expect(ask.options.map(o => [o.emoji, o.key, o.name]))
+      .toEqual([['1️⃣', 'bell', 'Ringing the bell'], ['2️⃣', 'hats', 'The hat toss']])
+  })
+
+  it('prints the half-line a written option carries, where a seeded one prints its figures', () => {
+    expect(pollMessage(ask)).toContain('2️⃣  **The hat toss** · since Aug 12')
+  })
+
+  // The footer is the one thing that must differ: sending a reader to a page that has never
+  // heard of this question is worse than saying nothing.
+  it('does not send the reader to the site for it', () => {
+    const text = pollMessage(ask)
+    expect(text).not.toContain('/wpbl/awards')
+    expect(text).toContain('asked here and nowhere else')
+  })
+
+  it('takes the ballot deadline unless the question sets its own', () => {
+    expect(ask.closesAt).toBe(AWARDS_CLOSE_AT)
+    const own = askableFromQuestion({
+      id: 'discord:2026:other', emoji: '🎈', title: 'Other', options: [{ key: 'a', label: 'A' }],
+      closesAt: '2026-09-12T22:00:00Z',
+    }, AWARDS_CLOSE_AT)
+    expect(own.closesAt).toBe('2026-09-12T22:00:00Z')
+  })
+})
+
+describe('the Discord-only catalog', () => {
+  // Both are stored on every vote cast, so a duplicate silently merges two questions and a
+  // rename orphans every answer already given. Cheap to pin, expensive to discover.
+  it('gives every question a unique, prefixed id and every option a unique key', () => {
+    const ids = WPBL_DISCORD_QUESTIONS.map(q => q.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    for (const q of WPBL_DISCORD_QUESTIONS) {
+      expect(q.id.startsWith('discord:'), `${q.id} is not prefixed`).toBe(true)
+      expect(q.id.length).toBeLessThanOrEqual(64)   // the column's own limit, in wpbl_cast_award_vote
+      const keys = q.options.map(o => o.key)
+      expect(new Set(keys).size, `${q.id} repeats an option key`).toBe(keys.length)
+      expect(q.options.length, `${q.id} offers more options than there are numbers`).toBeLessThanOrEqual(10)
+      for (const o of q.options) expect(o.key.length).toBeLessThanOrEqual(128)
+    }
+  })
+
+  it('writes no em dashes', () => {
+    for (const q of WPBL_DISCORD_QUESTIONS) {
+      const text = [q.title, q.blurb ?? '', ...q.options.map(o => `${o.label} ${o.note ?? ''}`)].join(' ')
+      expect(text).not.toMatch(/—/)
+    }
   })
 })
 
