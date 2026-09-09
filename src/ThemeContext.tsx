@@ -163,7 +163,53 @@ const createAppTheme = (mode: ThemeMode, skin: ThemeSkin): Theme => {
       //
       // The cleaner fix is a real tertiary token that disabled controls don't share; this is
       // the one-line version of it that fixes every call site at once.
-      ...(mode === 'light' ? { text: { disabled: 'rgba(0,0,0,0.58)' } } : {}),
+      // LIGHT'S DIVIDER IS THE SAME OMISSION AND IS MEASURABLY WORSE: MUI's stock
+      // rgba(0,0,0,0.12) comes out at 1.32:1 on white paper and 1.31:1 on the page behind it,
+      // against dark's 1.43:1, identical on all six skins because every light `paper` is
+      // #ffffff.
+      //
+      // 0.20 measures 1.61:1 (RGB 204 on white, a luminance delta of 31 levels up to 51).
+      //
+      // NOT 0.28, WHICH IS WHAT "MATCH THE DARK SIDE" WOULD MEAN. Black on white loses
+      // contrast faster than white on black, so hitting dark's 2.06:1 here needs alpha 0.281,
+      // and that is a visibly drawn grey rule around everything. Copying the ratio across
+      // would be the wrong instinct anyway: a dark divider needs MORE ratio than a light one,
+      // because dark surfaces sit near the display's black floor where panels compress (the
+      // whole reason the Pixel report happened) and because glare in a dark room eats low
+      // deltas. Light mode has neither problem.
+      //
+      // The real systems agree, and 1.61:1 is deliberately sat next to them: Material 3's
+      // light `outlineVariant` (#CAC4D0 on #FFFBFE) is 1.61:1 while its DARK one is 1.79:1,
+      // and GitHub Primer's light border is ~1.55:1. Both split the two modes the same way.
+      ...(mode === 'light'
+        ? { text: { disabled: 'rgba(0,0,0,0.58)' }, divider: 'rgba(0,0,0,0.20)' }
+        : {}),
+
+      // MUI'S STOCK DARK DIVIDER IS rgba(255,255,255,0.12), AND IT MEASURES 1.43:1 AGAINST
+      // THIS APP'S CARD SURFACE. That is the line 257 borders in the app are drawn in: every
+      // card outline, every row rule, every chip and input edge, on all six skins (measured
+      // 1.35:1 to 1.46:1 over `paper`, worst on `midnight`). It was never set here, so the app
+      // had simply inherited it.
+      //
+      // 1.43:1 is marginal on any screen and fails on some. Reported from a Pixel, where the
+      // card outlines had effectively disappeared: an OLED panel renders true black and, at
+      // low or adaptive brightness, resolves fewer levels near it, so a line sitting 28 RGB
+      // levels above its background is exactly the kind of difference that collapses. The
+      // same border on an LCD, or on a bright desk monitor, reads fine — which is why this
+      // survived this long. It is not a device bug to work around; the contrast was too low
+      // and the OLED was the first display honest enough to say so.
+      //
+      // 0.22 measures ~2.06:1 and roughly doubles the luminance delta (28 levels to 48). That
+      // is deliberately NOT the 3:1 that WCAG 1.4.11 asks of a boundary that identifies a
+      // control: 3:1 needs alpha 0.33, and at that weight every internal row rule in a stats
+      // table becomes a hard grey line and the app reads like a spreadsheet. 2:1 is where
+      // Material 3 puts its own decorative divider (`outlineVariant`), and it is a visible
+      // edge on an OLED at low brightness, which is the thing that was broken.
+      //
+      // If a specific border ever needs to carry more than decoration (a focus ring, a
+      // selected state, a control whose only boundary is its outline), it should say so at
+      // its own call site rather than by dragging this token up under all 257.
+      ...(mode === 'dark' ? { divider: 'rgba(255,255,255,0.22)' } : {}),
     },
     components: {
       // MUI'S OWN HOVER LATCHES ON TOUCH, exactly like the app's did. IconButton paints
