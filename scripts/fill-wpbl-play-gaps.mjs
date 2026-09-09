@@ -11,11 +11,21 @@
  * competing account of the play: it is the absence of one. Filling it invents no second truth
  * because there is no first.
  *
- * So: EMPTY ROWS ONLY. A row where the feed said something and RetroWPBL says something else is
- * left exactly as it is and reported, which is what the stats check is for. The Aug 27 game is
- * the shape of that: two of Mo'ne Davis's plate appearances carry Ayami Sato's name, and a job
- * that felt free to overwrite a name the league asserted would be deciding, unattended, that a
- * hand transcription outranks the league's own scorer.
+ * So: EMPTY ROWS, AND ONE OTHER THING. A row where the feed said something and RetroWPBL says
+ * something else is left exactly as it is and reported, which is what the stats check is for. A
+ * job that felt free to overwrite a name the league asserted would be deciding, unattended, that
+ * a hand transcription outranks the league's own scorer.
+ *
+ * THE EXCEPTION IS A NAME THE LEAGUE'S OWN BOX SCORE RULES OUT, and it is not a second opinion,
+ * it is an internal contradiction. Aug 27, LA at NY: two plate appearances in the play log carry
+ * Ayami Sato, whose batting line in the same box score is 0 for 0 with no walk and no strikeout,
+ * so she cannot have taken either of them. Mo'ne Davis, on the same lineup slot, has 2 at-bats, a
+ * hit and a strikeout and no plays at all, and the two orphaned plays are a strikeout and a
+ * single. RetroWPBL names Davis for both. Three things agree and the only dissent is one field.
+ *
+ * So the rule is narrow and self-checking: our name is IMPOSSIBLE (a box-score line with no plate
+ * appearance) and theirs is POSSIBLE (a line with at least one), or the half-inning is skipped as
+ * before. A disagreement between two players who both batted is still a person's call.
  *
  * THE ALIGNMENT IS THE RISK, and it is checked rather than assumed. Their plays and ours are
  * both in order within a half-inning, so filling row N from their row N is right only if the two
@@ -27,6 +37,9 @@
  *      This is the load-bearing one: it is a free checksum, since a real half-inning is mostly
  *      rows we already have, and any slip in the alignment shows up as a name that disagrees.
  *   3. Every empty row's batter resolves to a player on that game's box score.
+ *
+ * A row whose name the box score rules out (above) is corrected instead of stopping the pass, and
+ * only that row: the rest of the half-inning still has to line up.
  *
  * The Aug 20 NY at BOS game is the reason this exists: 14 rows, one in the fifth and the whole
  * of New York's sixth and seventh, carrying a pitcher and a pitch sequence and nothing else,
@@ -341,12 +354,30 @@ const OUR_PLAYS_SQL = `
   where g.status = 'final'
   order by g.game_date, p.sequence`
 
+// PA rather than at-bats, and the same sum plateAppearances() uses in stats.ts: `sh` is on the
+// line and belongs here, so a bunt is not mistaken for never having batted.
 const ROSTER_SQL = `
-  select b.game_id, b.player_id, pl.name
+  select b.game_id, b.player_id, pl.name,
+         coalesce(b.ab,0) + coalesce(b.bb,0) + coalesce(b.hbp,0) + coalesce(b.sf,0) + coalesce(b.sh,0) as pa
   from wpbl_batting_lines b
   join wpbl_players pl on pl.id = b.player_id`
 
 const EXISTING_SQL = 'select game_id, sequence, field from wpbl_play_corrections'
+
+/**
+ * The event types that ARE a plate appearance, which is the only kind of row a batter's name is
+ * a claim about.
+ *
+ * A pinch runner with no at-bat is the subject of a stolen base, a pickoff and a wild pitch, and
+ * her box-score line correctly reads 0 for 0. Without this, "the box score says she never batted"
+ * fires on every one of those rows and calls a correct one impossible: it flagged four across
+ * Aug 1 and Aug 9 before the set existed. `unknown` is out for the same reason, since it is what
+ * the feed puts on a substitution announcement.
+ */
+const PA_EVENTS = new Set([
+  'single', 'double', 'triple', 'home_run', 'walk', 'strikeout', 'hit_by_pitch',
+  'groundout', 'flyout', 'popup', 'lineout', 'foul_out', 'out', 'fielders_choice', 'sacrifice',
+])
 
 /** An empty row: what the league published when its scorer typed nothing. */
 const isBlank = (row) => !String(row.narrative ?? '').trim() && !row.batter_id
@@ -360,6 +391,7 @@ const isBlank = (row) => !String(row.narrative ?? '').trim() && !row.batter_id
 export function planCorrections({ ourPlays, theirGame, roster, existing }) {
   const out = [], skipped = []
   const nameOf = (id) => theirGame.names.get(id) ?? id
+  const paOf = (name) => roster.get(normName(name))?.pa ?? null
   const byHalf = new Map()
   for (const row of ourPlays) {
     const k = `${row.inning}|${row.half}`
@@ -370,16 +402,68 @@ export function planCorrections({ ourPlays, theirGame, roster, existing }) {
     const k = `${p.inning}|${p.side === 0 ? 'top' : 'bottom'}`
     ;(theirHalves.get(k) ?? theirHalves.set(k, []).get(k)).push(p)
   }
+  // Everyone our log has batting anywhere in this game, which is how a replacement is shown to be
+  // missing rather than merely elsewhere.
+  const batsSomewhere = new Set(ourPlays.filter(r => r.batter_name).map(r => normName(r.batter_name)))
+
+  const push = (row, field, oldValue, newValue, reason, source) => {
+    if (existing.has(`${row.game_id}:${row.sequence}:${field}`)) return
+    out.push({
+      game_id: row.game_id, sequence: row.sequence, field,
+      old_value: oldValue === '' || oldValue == null ? null : String(oldValue),
+      new_value: newValue, reason, source,
+    })
+  }
 
   for (const [k, ours] of byHalf) {
-    if (!ours.some(isBlank)) continue
     const theirs = theirHalves.get(k) ?? []
+    const half = k.replace('|', ' ')
+
+    // ── Pass one: a batter the league's own box score rules out ───────────────
+    //
+    // NO INDEX ALIGNMENT HERE, and that is the point. Our log carries rows their file does not
+    // (a substitution announcement, a runner advancing), so the two lists routinely differ in
+    // length in a half-inning where nothing is wrong: New York's fifth on Aug 27 is 11 rows
+    // against their 10, and the strikeout that needs a name is inside it. This pass identifies
+    // the play by what it WAS rather than by where it sits: their play in the same half-inning
+    // whose event is the same kind, whose batter the box score says did bat, and who our log has
+    // nowhere in the game. One candidate or nothing.
+    for (const row of ours) {
+      if (!row.batter_name || !PA_EVENTS.has(row.event_type) || paOf(row.batter_name) !== 0) continue
+      const candidates = theirs.filter(t => {
+        const name = nameOf(t.batterId)
+        return eventType(t.event) === row.event_type
+          && (paOf(name) ?? 0) > 0
+          && !batsSomewhere.has(normName(name))
+      })
+      const unique = new Set(candidates.map(t => normName(nameOf(t.batterId))))
+      if (unique.size !== 1) {
+        skipped.push({ half: k, why: `row ${row.sequence}: ${row.batter_name} has no plate appearance in the box score, and ${unique.size === 0 ? 'nobody' : `${unique.size} players`} in their ${half} fits the play` })
+        continue
+      }
+      const line = roster.get([...unique][0])
+      const reason = `The league's own box score gives ${row.batter_name} no plate appearance in this game, so this play `
+        + `cannot be hers. ${line.name} has the at-bats and no plays at all, the event matches, and RetroWPBL names her `
+        + `(${theirGame.id}, ${half}). The play is unchanged: only the batter on it. Not a second opinion on the league's `
+        + `scoring, an internal contradiction in it.`
+      push(row, 'batter_name', row.batter_name, line.name, reason, 'league')
+      push(row, 'batter_id', row.batter_id ?? '', line.id, reason, 'league')
+      if (row.narrative && row.narrative.includes(row.batter_name)) {
+        push(row, 'narrative', row.narrative, row.narrative.split(row.batter_name).join(line.name), reason, 'league')
+      }
+    }
+
+    // ── Pass two: rows the league published empty ─────────────────────────────
+    if (!ours.some(isBlank)) continue
     if (theirs.length !== ours.length) {
       skipped.push({ half: k, why: `${ours.length} plays here, ${theirs.length} in theirs` })
       continue
     }
-    // The free checksum: every row we DO have must name their batter at the same index.
+    // The free checksum: every row we DO have must name their batter at the same index. A row
+    // pass one is already fixing is exempt, since its name is the thing being corrected.
+    const fixing = new Set(out.filter(c => c.field === 'batter_name').map(c => c.sequence))
     const mismatch = ours.findIndex((row, i) => !isBlank(row) && row.batter_name
+      && !fixing.has(row.sequence)
       && normName(row.batter_name) !== normName(nameOf(theirs[i].batterId)))
     if (mismatch > -1) {
       skipped.push({ half: k, why: `row ${ours[mismatch].sequence} is ${ours[mismatch].batter_name}, theirs is ${nameOf(theirs[mismatch].batterId)}` })
@@ -394,10 +478,10 @@ export function planCorrections({ ourPlays, theirGame, roster, existing }) {
       const runner = hit ? null : runnerText(play.event, states[i])
       const sentence = hit?.sentence ?? runner
       if (!sentence) { skipped.push({ half: k, why: `row ${row.sequence}: cannot read "${play.event}"` }); return }
-      const playerId = hit ? (roster.get(normName(batter)) ?? null) : null
+      const playerId = hit ? (roster.get(normName(batter))?.id ?? null) : null
       if (hit && !playerId) { skipped.push({ half: k, why: `row ${row.sequence}: ${batter} is not on that box score` }); return }
       const reason = `The league published this play with no batter, no event and no narrative; `
-        + `RetroWPBL has it as "${play.event}" (${theirGame.id}, ${k.replace('|', ' ')}). `
+        + `RetroWPBL has it as "${play.event}" (${theirGame.id}, ${half}). `
         + `Filled from their transcription because an empty row is an absent account rather than a competing one.`
       const fields = [['narrative', row.narrative ?? '', sentence]]
       const kind = eventType(play.event)
@@ -414,17 +498,10 @@ export function planCorrections({ ourPlays, theirGame, roster, existing }) {
           fields.push(['is_scoring_play', 'false', 'true'])
         }
       }
-      for (const [field, oldValue, newValue] of fields) {
-        if (existing.has(`${row.game_id}:${row.sequence}:${field}`)) continue
-        out.push({
-          game_id: row.game_id, sequence: row.sequence, field,
-          old_value: oldValue === '' ? null : String(oldValue), new_value: newValue,
-          // `source` is a checked enum: video, derived, external or league. A hand transcription
-          // is external, the same value the two corrections written before this job carry, and
-          // the reason line names RetroWPBL and the game so the row says where it came from.
-          reason, source: 'external',
-        })
-      }
+      // `source` is a checked enum: video, derived, external or league. A hand transcription is
+      // external, the same value the two corrections written before this job carry, and the
+      // reason line names RetroWPBL and the game so the row says where it came from.
+      for (const [field, oldValue, newValue] of fields) push(row, field, oldValue, newValue, reason, 'external')
     })
   }
   return { corrections: out, skipped }
@@ -457,7 +534,7 @@ async function main() {
   const rosterByGame = new Map()
   for (const r of rosters.rows) {
     const m = rosterByGame.get(r.game_id) ?? rosterByGame.set(r.game_id, new Map()).get(r.game_id)
-    m.set(normName(r.name), r.player_id)
+    m.set(normName(r.name), { id: r.player_id, name: r.name, pa: Number(r.pa) })
   }
   const ourByGame = new Map()
   for (const r of plays.rows) {
@@ -465,22 +542,27 @@ async function main() {
   }
 
   const all = [], allSkipped = []
-  let gamesWithGaps = 0, notTranscribed = 0
+  let considered = 0, notTranscribed = 0
   for (const [gameId, rows] of ourByGame) {
-    if (!rows.some(isBlank)) continue
+    const roster = rosterByGame.get(gameId) ?? new Map()
+    // Every game with something this job could fix: a row the league published empty, or a row
+    // whose batter its own box score says never batted.
+    const fixable = rows.some(isBlank)
+      || rows.some(r => r.batter_name && PA_EVENTS.has(r.event_type)
+        && roster.get(normName(r.batter_name))?.pa === 0)
+    if (!fixable) continue
     const { game_date: date, home_team_id: home } = rows[0]
     if (ONE_DATE && date !== ONE_DATE) continue
-    gamesWithGaps++
+    considered++
     const theirGame = byKey.get(`${date}|${home}`)
     if (!theirGame) { notTranscribed++; allSkipped.push({ game: `${date} ${home}`, why: 'not transcribed by RetroWPBL' }); continue }
-    const { corrections, skipped } = planCorrections({
-      ourPlays: rows, theirGame, roster: rosterByGame.get(gameId) ?? new Map(), existing,
-    })
+    const { corrections, skipped } = planCorrections({ ourPlays: rows, theirGame, roster, existing })
     for (const c of corrections) all.push({ ...c, date, home })
     for (const s of skipped) allSkipped.push({ game: `${date} ${home}`, ...s })
   }
 
-  console.log(`${gamesWithGaps} game(s) hold an empty play row.` + (notTranscribed ? ` ${notTranscribed} of them are not transcribed yet.` : ''))
+  console.log(`${considered} game(s) hold a play worth filling or a batter the box score rules out.`
+    + (notTranscribed ? ` ${notTranscribed} of them are not transcribed yet.` : ''))
   for (const c of all) console.log(`  ${c.date} ${c.home} seq ${c.sequence} ${c.field} <- ${c.new_value}`)
   for (const s of allSkipped) console.log(`  skipped ${s.game}${s.half ? ` ${s.half.replace('|', ' ')}` : ''}: ${s.why}`)
 

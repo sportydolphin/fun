@@ -127,6 +127,69 @@ describe('tracking the bases through a half-inning', () => {
   })
 })
 
+describe('a batter the box score rules out', () => {
+  // Aug 27, LA at NY. Ayami Sato is 0 for 0 with no walk and no strikeout in the same box score
+  // that carries these two plays under her name; Mo'ne Davis has the at-bats, the hit and the
+  // strikeout, and no plays at all. RetroWPBL names Davis for both.
+  const theirGame = {
+    id: 'NYH202608270',
+    names: new Map([['davim201', 'Mo’ne Davis'], ['shima201', 'Ayuri Shimano']]),
+    plays: [
+      { inning: 5, side: 0, batterId: 'shima201', event: 'W' },
+      { inning: 5, side: 0, batterId: 'davim201', event: 'K/C' },
+    ],
+  }
+  const roster = new Map([
+    ['ayami sato', { id: 'p-sato', name: 'Ayami Sato', pa: 0 }],
+    ['mo ne davis', { id: 'p-davis', name: 'Mo’ne Davis', pa: 2 }],
+    ['ayuri shimano', { id: 'p-shimano', name: 'Ayuri Shimano', pa: 3 }],
+  ])
+  // Three of our rows against their two: our log carries a substitution announcement theirs
+  // folds away, which is why this rule cannot lean on the plays lining up by position.
+  const ourPlays = [
+    { game_id: 'g1', sequence: 72, inning: 5, half: 'top', batter_name: 'Ayuri Shimano', batter_id: 'p-shimano', narrative: 'Claire Eccles to p.', event_type: 'unknown' },
+    { game_id: 'g1', sequence: 73, inning: 5, half: 'top', batter_name: 'Ayuri Shimano', batter_id: 'p-shimano', narrative: 'Ayuri Shimano walked (3-2 KBKBBFB).', event_type: 'walk' },
+    { game_id: 'g1', sequence: 74, inning: 5, half: 'top', batter_name: 'Ayami Sato', batter_id: 'p-sato', narrative: 'Ayami Sato struck out looking (2-2 BBSKK).', event_type: 'strikeout' },
+  ]
+
+  it('puts the right batter on the play, and leaves the play alone', () => {
+    const { corrections } = planCorrections({ ourPlays, theirGame, roster, existing: new Set() })
+    expect(corrections.map(c => c.field).sort()).toEqual(['batter_id', 'batter_name', 'narrative'])
+    expect(corrections.every(c => c.sequence === 74)).toBe(true)
+    expect(corrections.find(c => c.field === 'batter_name')?.new_value).toBe('Mo’ne Davis')
+    // The league's own sentence, its count and its pitch string kept: only the name moves.
+    expect(corrections.find(c => c.field === 'narrative')?.new_value)
+      .toBe('Mo’ne Davis struck out looking (2-2 BBSKK).')
+  })
+
+  // A pinch runner who never batted is the subject of a steal, and her 0-for-0 line is correct.
+  it('says nothing about a runner event under a batter with no plate appearance', () => {
+    const steal = [{ game_id: 'g1', sequence: 74, inning: 5, half: 'top', batter_name: 'Ayami Sato', batter_id: 'p-sato', narrative: 'Ayami Sato stole second.', event_type: 'stolen_base' }]
+    const { corrections } = planCorrections({ ourPlays: steal, theirGame, roster, existing: new Set() })
+    expect(corrections).toHaveLength(0)
+  })
+
+  it('refuses when more than one of their players could be the batter', () => {
+    const twoWays = {
+      ...theirGame,
+      names: new Map([...theirGame.names, ['other201', 'Isabella Villarreal']]),
+      plays: [...theirGame.plays, { inning: 5, side: 0, batterId: 'other201', event: 'K' }],
+    }
+    const bigger = new Map([...roster, ['isabella villarreal', { id: 'p-villarreal', name: 'Isabella Villarreal', pa: 2 }]])
+    const { corrections, skipped } = planCorrections({ ourPlays, theirGame: twoWays, roster: bigger, existing: new Set() })
+    expect(corrections).toHaveLength(0)
+    expect(skipped[0].why).toContain('2 players')
+  })
+
+  // The replacement has to be missing from the whole game, not merely from this half-inning:
+  // a player already logged batting elsewhere is accounted for and is not the answer.
+  it('refuses when their batter already appears in our log', () => {
+    const logged = [...ourPlays, { game_id: 'g1', sequence: 99, inning: 7, half: 'top', batter_name: 'Mo’ne Davis', batter_id: 'p-davis', narrative: 'Mo’ne Davis singled to left field.', event_type: 'single' }]
+    const { corrections } = planCorrections({ ourPlays: logged, theirGame, roster, existing: new Set() })
+    expect(corrections).toHaveLength(0)
+  })
+})
+
 describe('the alignment gates', () => {
   const theirGame = {
     id: 'BSH202608200',
@@ -136,7 +199,12 @@ describe('the alignment gates', () => {
       { inning: 6, side: 0, batterId: 'b', event: '8/F' },
     ],
   }
-  const roster = new Map([['claire o sullivan', 'p-osullivan'], ['london studer', 'p-studer']])
+  // The roster map carries the box-score line, not just the id: the plate-appearance count is
+  // what the impossible-batter rule reads.
+  const roster = new Map([
+    ['claire o sullivan', { id: 'p-osullivan', name: 'Claire O’Sullivan', pa: 4 }],
+    ['london studer', { id: 'p-studer', name: 'London Studer', pa: 4 }],
+  ])
   const ours = (over: Partial<Record<string, unknown>>[] = [{}, {}]) => [
     { game_id: 'g1', sequence: 77, inning: 6, half: 'top', batter_name: null, batter_id: null, narrative: '', event_type: 'unknown', ...over[0] },
     { game_id: 'g1', sequence: 78, inning: 6, half: 'top', batter_name: 'London Studer', batter_id: 'p-studer', narrative: 'London Studer flied out to cf.', event_type: 'flyout', ...over[1] },
