@@ -186,6 +186,21 @@ function makeStore() {
         )
       }
     },
+    /** The league's own calendar, mirrored nightly, for the one question the feed cannot answer
+     *  on a night like Sep 9, 2026: is a game scheduled at all? See `waitingFor` in main(). */
+    async calendarGame(fromIso, toIso) {
+      if (supabase) {
+        const { data } = await supabase.from('wpbl_site_games')
+          .select('title,starts_at').gte('starts_at', fromIso).lte('starts_at', toIso)
+          .order('starts_at').limit(1)
+        return data?.[0] ?? null
+      }
+      const c = await this.pg()
+      const r = await c.query(
+        `select title, starts_at from public.wpbl_site_games
+          where starts_at between $1 and $2 order by starts_at limit 1`, [fromIso, toIso])
+      return r.rows[0] ?? null
+    },
     async close() { if (pgClient) await pgClient.end() },
   }
 }
@@ -277,31 +292,87 @@ function watchGame({ game, gameUuid, store, deadline, tally }) {
 
 // ─── Run ──────────────────────────────────────────────────────────────────────
 
-async function main() {
-  const games = await gamesToWatch()
-  if (!games.length) {
-    console.log(NOTHING_TO_WATCH)
-    return
-  }
+/**
+ * How often to ask the feed again for a game to watch.
+ *
+ * THE LIST IS NOT READ ONCE ANY MORE, and Sep 9, 2026 is why. This used to compute its games at
+ * startup and exit on an empty answer, which assumed the league publishes a game to
+ * `/v1/games` before the socket needs to be open. On the morning of the first postseason game
+ * ever played, the feed held 61 rows and not one of them was on or after Sep 7: the semifinal
+ * that starts in five hours does not exist to the stats API at all, so a run starting on time
+ * would have printed "no game inside the watch window" and exited in three seconds.
+ *
+ * Two other ways the one-shot read missed, both fixed by the same loop: a game published
+ * minutes before first pitch was skipped for good because `wpbl_games` had not caught up yet
+ * (the ingest is on a two-minute cron), and the evening window opens at 21:20 UTC while
+ * START_LEAD_MIN only makes a 23:00 game a candidate from 21:30, so an on-time run saw nothing
+ * for its first ten minutes and stopped looking.
+ */
+const RECHECK_MS = Number(process.env.RECHECK_MS ?? 180_000)
 
+const sleep = (ms) => new Promise(r => setTimeout(r, ms))
+
+async function main() {
   const store = makeStore()
   const deadline = Date.now() + MAX_MINUTES * 60000
   const tally = { envelopes: {}, tracking: 0, kinds: {}, byKind: {} }
-
-  console.log(`Watching ${games.length} game(s) for up to ${MAX_MINUTES} minutes:`)
   const watches = []
-  for (const game of games) {
-    const gameUuid = DRY_RUN ? null : await store.gameUuid(game.game_id)
-    if (!DRY_RUN && !gameUuid) {
-      // Nothing to attach the rows to. The ingest runs every two minutes and will have the row
-      // shortly, so this is a real state on a game published minutes ago rather than an error.
-      console.log(`  ${game.away_team_name} @ ${game.home_team_name}: not in wpbl_games yet, skipping`)
-      continue
+  const attached = new Set()
+
+  // One pass: attach a socket to anything in the window we are not already watching.
+  const attach = async () => {
+    let games
+    try { games = await gamesToWatch() } catch (e) {
+      // A list read that fails is a reason to try again in three minutes, not to end the watch:
+      // the whole job is being connected when something finally happens.
+      console.log(`games list failed (${e.message}), retrying`)
+      return
     }
-    console.log(`  ${game.away_team_name} @ ${game.home_team_name} (${game.status}) ${game.scheduled_start}`)
-    watches.push(watchGame({ game, gameUuid, store, deadline, tally }))
+    for (const game of games) {
+      if (attached.has(game.game_id)) continue
+      const gameUuid = DRY_RUN ? null : await store.gameUuid(game.game_id)
+      if (!DRY_RUN && !gameUuid) {
+        // Nothing to attach the rows to YET. The ingest runs every two minutes, so this is a
+        // game published moments ago rather than an error, and the next pass picks it up.
+        console.log(`  ${game.away_team_name} @ ${game.home_team_name}: not in wpbl_games yet, looking again in ${Math.round(RECHECK_MS / 60000)} min`)
+        continue
+      }
+      attached.add(game.game_id)
+      console.log(`  ${game.away_team_name} @ ${game.home_team_name} (${game.status}) ${game.scheduled_start}`)
+      watches.push(watchGame({ game, gameUuid, store, deadline, tally }))
+    }
   }
-  if (!watches.length) { console.log(NOTHING_TO_WATCH); return }
+
+  console.log(`Watching for up to ${MAX_MINUTES} minutes:`)
+  await attach()
+
+  // NOT AN OPEN-ENDED WAIT. Holding the job for hours on a dark day would spend the runner
+  // twice a day all through September for nothing, so the league's own calendar decides whether
+  // there is anything to wait FOR. It is only ever allowed to answer that: the socket still
+  // needs the feed's game id, which only the feed can give.
+  if (!watches.length) {
+    let waitingFor = null
+    try {
+      waitingFor = await store.calendarGame(
+        new Date(Date.now() - START_TRAIL_MIN * 60000).toISOString(),
+        new Date(deadline).toISOString(),
+      )
+    } catch (e) {
+      console.log(`calendar lookup failed (${e.message})`)
+    }
+    if (!waitingFor) {
+      console.log(NOTHING_TO_WATCH)
+      await store.close()
+      return
+    }
+    console.log(`  nothing in the feed yet. The league's calendar has ${waitingFor.title} at ${new Date(waitingFor.starts_at).toISOString()}, so this keeps looking.`)
+  }
+
+  while (Date.now() < deadline) {
+    await sleep(Math.min(RECHECK_MS, deadline - Date.now()))
+    if (Date.now() >= deadline) break
+    await attach()
+  }
 
   await Promise.all(watches)
   await store.close()
@@ -312,6 +383,8 @@ async function main() {
     const kinds = Object.entries(tally.byKind).map(([k, v]) => `${v} ${k}`).join(', ')
     console.log(`TRACKMAN IS BACK: ${tally.tracking} tracking row(s) written (${kinds}).`)
     console.log('wpbl-tracking-watch will notice the advance and say so in Discord.')
+  } else if (!attached.size) {
+    console.log('Never found a game in the feed to connect to inside this window.')
   } else {
     // The answer this job exists to give, in the words a person reads at a glance.
     console.log('No tracking published on the socket during this window.')
