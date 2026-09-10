@@ -146,6 +146,35 @@ export function seriesPickOpen(series: BracketSeries, now: number): boolean {
 }
 
 /**
+ * Can the FINAL still be picked?
+ *
+ * `seriesPickOpen` asks whether a series has started, which for the championship is Sep 16 and
+ * is not the whole question. The final is picked out of clubs that are still playing semifinals,
+ * so once ANY postseason baseball has been played, a championship pick is being made with
+ * evidence the question was written before. On Sep 10, 2026 that was live: semifinal A was 1-0
+ * to San Francisco and the sheet was still asking, unchanged, who would win it all.
+ *
+ * THE WHOLE FINAL, NOT JUST THE READERS HOLDING A CLUB THAT HAS PLAYED. A narrower rule was
+ * tried first, locking only a reader whose own pick was already on the field, on the reasoning
+ * that San Francisco batting tells someone holding New York nothing. It is true and it is not
+ * the point: the bracket is one question in three parts, everyone answers it against the same
+ * board, and a sheet where the final is shut for some readers and open for others is not a
+ * pick'em. First pitch of the postseason is the deadline for all of it.
+ *
+ * IT USES `seriesPickOpen` FOR THE SEMIFINALS RATHER THAN THEIR BRACKET STATUS, so it inherits
+ * the published-first-pitch backstop with them: the whole reason that backstop exists is that
+ * the mirror was empty for two days of live postseason baseball, and a lock built on `status`
+ * alone would go on being wrong here in exactly the same way.
+ *
+ * STILL THE ONLY GATE, and still only in the UI: `wpbl_cast_award_vote` knows nothing about any
+ * of this. Same non-guarantee as seriesPickOpen's.
+ */
+export function championshipPickOpen(bracket: WpblBracket, now: number): boolean {
+  return seriesPickOpen(bracket.championship, now)
+    && bracket.semifinals.every(semi => seriesPickOpen(semi, now))
+}
+
+/**
  * The two clubs to offer for the championship, which is the whole reason this file has a
  * function for it.
  *

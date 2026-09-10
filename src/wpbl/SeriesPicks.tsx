@@ -7,7 +7,7 @@ import {
 } from './ui'
 import { wpblAccent } from './constants'
 import {
-  seriesPickCategory, seriesPickOptions, seriesPickOpen, seriesResultChoice,
+  seriesPickCategory, seriesPickOptions, seriesPickOpen, championshipPickOpen, seriesResultChoice,
   championshipEntrants, championshipField, parsePickChoice, pickShares,
 } from './derive/seriesPicks'
 import {
@@ -178,7 +178,10 @@ export function useSeriesPicks(enabled: boolean): SeriesPickState {
  * pitch re-renders and closes itself. The pick still has to survive `cast`, which is a network
  * round trip, and nothing on the server enforces the lock, which is also in that header.
  */
-const pickOpen = (series: BracketSeries): boolean => seriesPickOpen(series, Date.now())
+const pickOpen = (series: BracketSeries, bracket: WpblBracket): boolean =>
+  series.round === 'championship'
+    ? championshipPickOpen(bracket, Date.now())
+    : seriesPickOpen(series, Date.now())
 
 /** Everything both surfaces need about one series: who can be picked, what was picked, whether
  *  it can still be answered. Computed in one place because the card and the sheet asking the
@@ -200,7 +203,7 @@ function useSeriesPick(series: BracketSeries, bracket: WpblBracket, state: Serie
     /** A stored pick this series can no longer offer. Only reachable on the final, and only once
      *  the semifinals have contradicted the reader. */
     bust: picked != null && options.length > 0 && !options.some(o => o.choice === picked),
-    open: pickOpen(series),
+    open: pickOpen(series, bracket),
     result: seriesResultChoice(series),
     shares: pickShares(state.results[category], options, universe),
   }
@@ -326,7 +329,7 @@ export function PickemButton({ bracket, state, from, compact }: {
   const [open, setOpen] = useState(false)
 
   const all = useMemo(() => [...bracket.semifinals, bracket.championship], [bracket])
-  const askable = all.filter(pickOpen)
+  const askable = all.filter(s => pickOpen(s, bracket))
   const answered = askable.filter(s => state.ballot[seriesPickCategory(s.round, s.key)]).length
   const done = answered >= askable.length
 
@@ -719,7 +722,7 @@ function PickemSheet({ bracket, state, onClose }: {
   const all = [...bracket.semifinals, bracket.championship]
   // Answered AND still open. See ClearPicks.
   const clearable = all
-    .filter(pickOpen)
+    .filter(s => pickOpen(s, bracket))
     .map(s => seriesPickCategory(s.round, s.key))
     .filter(c => state.ballot[c])
 
