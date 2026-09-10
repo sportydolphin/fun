@@ -257,7 +257,7 @@ export function WpblGamePreview({ away, home, teams, games, onOpenTeam, compact,
           fontSize: TYPE_SCALE.caption, fontWeight: 800, color: 'text.disabled',
           textTransform: 'uppercase', letterSpacing: 0.8, lineHeight: 1, mb: 0.5,
         }}>
-          Season so far
+          Season stats
         </Typography>
         {COMPACT_KEYS.map(k => WPBL_TEAM_STAT_DEFS.find(d => d.key === k)).map(d => d && row(d))}
       </Box>
