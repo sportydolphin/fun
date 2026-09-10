@@ -83,7 +83,9 @@ export const POSTSEASON_SCHEDULE: Record<string, PostseasonGame[]> = {
     { game: 3, date: '2026-09-13', time: '2:00 PM', ifNecessary: true, home: 'higher' },
   ],
   'semifinal:B': [
-    { game: 1, date: '2026-09-10', time: '6:00 PM', home: 'higher' },
+    // Rain: the league moved this from 6:00 PM on the day. See DELAYED_STARTS in startTimes.ts,
+    // which does the same to the feed's row for the surfaces that read a game rather than a series.
+    { game: 1, date: '2026-09-10', time: '7:30 PM', home: 'higher' },
     { game: 2, date: '2026-09-12', time: '6:00 PM', home: 'lower' },
     { game: 3, date: '2026-09-14', time: '6:00 PM', ifNecessary: true, home: 'higher' },
   ],

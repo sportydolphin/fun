@@ -78,6 +78,16 @@ function todayStr() {
  * "H:MM AM/PM" wall clock as Central, DST-safe (identical math to the client's
  * gameStartMs). Null if there's no valid start time.
  */
+// A GAME MOVED ON THE DAY. Both sources of a start time are plans made in advance: the feed
+// leaves a scheduled row alone, and wpbl_site_games is a nightly mirror. A rain delay reaches
+// neither before the game it delayed, and this is the surface where that costs something, since
+// a push cannot be taken back. Mirrors DELAYED_STARTS in src/wpbl/startTimes.ts, for the same
+// reason the calendar rule below is repeated rather than imported. Delete an entry once played.
+const DELAYED_STARTS = {
+  // Semifinal B game 1: rain, pushed from 6:00 PM to 7:30 PM Central.
+  '2026-09-10|LA@NY': '7:30 PM',
+}
+
 function gameStartMs(gameDate, startTime) {
   if (!startTime) return null
   const m = String(startTime).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i)
@@ -246,7 +256,8 @@ async function main() {
   // key at all and rightly keeps what the feed says.
   for (const g of gameById.values()) {
     if (g.status !== 'scheduled') continue
-    const published = publishedStart.get(`${g.game_date}|${g.away_team_id}@${g.home_team_id}`)
+    const pair = `${g.game_date}|${g.away_team_id}@${g.home_team_id}`
+    const published = DELAYED_STARTS[pair] ?? publishedStart.get(pair)
     if (published && published !== g.start_time) {
       console.log(`  ⏰  ${g.away_team_id}@${g.home_team_id}: feed says ${g.start_time}, league says ${published}`)
       g.start_time = published

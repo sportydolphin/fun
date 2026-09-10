@@ -259,7 +259,7 @@ describe('when the FINAL can still be picked', () => {
   // The published first pitches, as instants, for the same reason the block above writes them
   // out: a change to POSTSEASON_SCHEDULE should fail here rather than quietly move the goalposts.
   //   Semifinal A game 1: Sep  9, 6:00 PM Central = 2026-09-09T23:00:00Z
-  //   Semifinal B game 1: Sep 10, 6:00 PM Central = 2026-09-10T23:00:00Z
+  //   Semifinal B game 1: Sep 10, 7:30 PM Central = 2026-09-11T00:30:00Z (rain, moved off 6:00)
   const BEFORE_ANY = Date.parse('2026-09-09T22:00:00Z')
   const SEMI_A_UNDERWAY = Date.parse('2026-09-10T18:00:00Z')
 
@@ -272,7 +272,7 @@ describe('when the FINAL can still be picked', () => {
   // the question was written before.
   it('is shut once ANY semifinal has started, for everybody', () => {
     expect(championshipPickOpen(bracket(), SEMI_A_UNDERWAY)).toBe(false)
-    expect(championshipPickOpen(bracket(), Date.parse('2026-09-10T23:01:00Z'))).toBe(false)
+    expect(championshipPickOpen(bracket(), Date.parse('2026-09-11T00:31:00Z'))).toBe(false)
   })
 
   // Semifinal B is the one being played tonight, and it locks on ITS OWN published first pitch
@@ -280,8 +280,8 @@ describe('when the FINAL can still be picked', () => {
   // days (see startTimes.ts). Nothing here reads the mirror at all.
   it("locks semifinal B at its published first pitch, not the feed's", () => {
     const B = bracket().semifinals[1]
-    expect(seriesPickOpen(B, Date.parse('2026-09-10T22:59:00Z'))).toBe(true)
-    expect(seriesPickOpen(B, Date.parse('2026-09-10T23:01:00Z'))).toBe(false)
+    expect(seriesPickOpen(B, Date.parse('2026-09-11T00:29:00Z'))).toBe(true)
+    expect(seriesPickOpen(B, Date.parse('2026-09-11T00:31:00Z'))).toBe(false)
   })
 
   // The final's own first pitch is still a lock in its own right.

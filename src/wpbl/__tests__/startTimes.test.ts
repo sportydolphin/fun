@@ -4,13 +4,17 @@ import { applyLeagueStartTimes, type PublishedStart, type StartTimeRow } from '.
 // The rule that stopped the section telling a west-coast reader 3:00 PM for a playoff game
 // that started at 4:00 PM. The zone conversion was never wrong; the number it converted was.
 // See the header on startTimes.ts for what the two sources are and which one wins.
+//
+// THE FIXTURE GAMES DELIBERATELY AVOID ANY KEY IN `DELAYED_STARTS`, which outranks both
+// sources and would otherwise answer every case below with the delayed time and prove nothing
+// about the rule under test. The delay gets its own case at the bottom.
 
 const game = (o: Partial<StartTimeRow> = {}): StartTimeRow => ({
-  game_date: '2026-09-10', start_time: '5:00 PM',
+  game_date: '2026-09-16', start_time: '5:00 PM',
   away_team_id: 'LA', home_team_id: 'NY', status: 'scheduled', ...o,
 })
 const published = (o: Partial<PublishedStart> = {}): PublishedStart => ({
-  game_date: '2026-09-10', start_time: '6:00 PM',
+  game_date: '2026-09-16', start_time: '6:00 PM',
   away_team_id: 'LA', home_team_id: 'NY', ...o,
 })
 
@@ -29,7 +33,7 @@ describe('applyLeagueStartTimes', () => {
     // A moved game needs a different key to follow (the calendar row carries its own event id).
     // Silently keeping the feed's time is the correct half of that: the alternative is matching
     // a club pair across days and rewriting the wrong game.
-    expect(applyLeagueStartTimes([game()], [published({ game_date: '2026-09-11' })])[0].start_time)
+    expect(applyLeagueStartTimes([game()], [published({ game_date: '2026-09-17' })])[0].start_time)
       .toBe('5:00 PM')
     expect(applyLeagueStartTimes([game()], [published({ away_team_id: 'SF' })])[0].start_time)
       .toBe('5:00 PM')
@@ -54,12 +58,30 @@ describe('applyLeagueStartTimes', () => {
   })
 
   it('corrects only the games that disagree and keeps the rest identical', () => {
-    const agree = game({ game_date: '2026-09-12', start_time: '6:00 PM', away_team_id: 'NY', home_team_id: 'LA' })
+    const agree = game({ game_date: '2026-09-17', start_time: '6:00 PM', away_team_id: 'NY', home_team_id: 'LA' })
     const out = applyLeagueStartTimes([game(), agree], [
       published(),
-      published({ game_date: '2026-09-12', away_team_id: 'NY', home_team_id: 'LA' }),
+      published({ game_date: '2026-09-17', away_team_id: 'NY', home_team_id: 'LA' }),
     ])
     expect(out.map(g => g.start_time)).toEqual(['6:00 PM', '6:00 PM'])
     expect(out[1]).toBe(agree)
+  })
+})
+
+// A GAME MOVED ON THE DAY beats both plans, because both plans were made before it moved: the
+// feed leaves a scheduled row alone and the calendar is mirrored nightly. Anchored on the real
+// entry rather than a stub, so emptying the list fails here rather than silently in a push.
+describe('a delayed start', () => {
+  it('outranks both the feed and the calendar', () => {
+    const out = applyLeagueStartTimes(
+      [game({ game_date: '2026-09-10', away_team_id: 'LA', home_team_id: 'NY' })],
+      [published({ game_date: '2026-09-10', away_team_id: 'LA', home_team_id: 'NY' })],
+    )
+    expect(out[0].start_time).toBe('7:30 PM')
+  })
+
+  it('leaves a game that has already started alone', () => {
+    const live = game({ game_date: '2026-09-10', status: 'live' })
+    expect(applyLeagueStartTimes([live], [])[0]).toBe(live)
   })
 })

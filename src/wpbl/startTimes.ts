@@ -63,22 +63,48 @@ export interface StartTimeRow {
 const pairKey = (date: string, away: string | null, home: string | null): string | null =>
   away && home ? `${date}|${away}@${home}` : null
 
+/**
+ * A GAME MOVED ON THE DAY, WHICH NEITHER SOURCE CAN SAY IN TIME.
+ *
+ * Both sources above are plans made in advance: the feed publishes a first pitch and then
+ * leaves a scheduled row alone, and `wpbl_site_games` is a NIGHTLY mirror of the league's
+ * calendar. A rain delay announced at 4pm for a 6pm game is invisible to both of them until
+ * long after the game has started, and the surface that hurts is not the schedule page, it
+ * is the push reminder: it fires on this number, it cannot be taken back, and it would tell
+ * a reader to sit down 90 minutes early.
+ *
+ * KEYED THE SAME WAY THE CALENDAR RULE IS, on the date and both clubs, so it names one game
+ * and cannot reach the rest of a doubleheader-shaped day. The club ids are ours, not the feed's
+ * per-context mints, which is what makes a literal here safe to write.
+ *
+ * SCHEDULED ROWS ONLY, inherited from the rule below it: once the game has actually started
+ * the feed is watching it and this is history.
+ *
+ * DELETE THE ENTRY AFTER THE GAME. It is dead weight the moment the row leaves 'scheduled',
+ * and a stale date here is a wrong time waiting for the day the feed is slow to update.
+ */
+const DELAYED_STARTS: Record<string, string> = {
+  // Semifinal B game 1: rain, pushed from 6:00 PM to 7:30 PM Central.
+  '2026-09-10|LA@NY': '7:30 PM',
+}
+
 export function applyLeagueStartTimes<T extends StartTimeRow>(
   games: T[], siteGames: readonly PublishedStart[],
 ): T[] {
-  if (!siteGames.length) return games
   const byPair = new Map<string, string>()
   for (const s of siteGames) {
     const key = pairKey(s.game_date, s.away_team_id, s.home_team_id)
     if (key && s.start_time) byPair.set(key, s.start_time)
   }
-  if (!byPair.size) return games
+  if (!byPair.size && !Object.keys(DELAYED_STARTS).length) return games
 
   let changed = false
   const out = games.map(g => {
     if (g.status !== 'scheduled') return g
     const key = pairKey(g.game_date, g.away_team_id, g.home_team_id)
-    const published = key ? byPair.get(key) : undefined
+    // The delay outranks the calendar: it is the later of the two announcements, and the
+    // calendar row it is correcting is the one the delay was announced against.
+    const published = (key ? DELAYED_STARTS[key] : undefined) ?? (key ? byPair.get(key) : undefined)
     if (!published || published === g.start_time) return g
     changed = true
     return { ...g, start_time: published }
