@@ -139,6 +139,13 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
     () => Math.max(1, ...profile.zones.map(z => valueOf(z, mode))),
     [profile, mode])
 
+  // THE DENOMINATOR IS THE ZONES, NOT THE PROFILE'S TOTALS. `profile.hits` counts every hit
+  // including the ones whose wording named no direction, so dividing by it would leave the
+  // shares adding up to less than 100 and quietly blame the difference on the zones.
+  const placedInMode = useMemo(
+    () => profile.zones.reduce((n, z) => n + valueOf(z, mode), 0),
+    [profile, mode])
+
   if (profile.placed === 0) {
     return (
       <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled' }}>
@@ -154,11 +161,43 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
 
   // THE NUMBER HAS TO BEAT ITS OWN BACKGROUND, and in the first version it did not: the count
   // and the zone under it were both `currentColor`, so a zone's figure faded out exactly as
-  // that zone got busier and the hottest cell on the chart (17 balls to left field) was the
-  // least readable thing on it. The fill is the heat and the number is the fact; they cannot
-  // be the same ink. Past roughly half opacity the accent is dark enough in either theme that
-  // white is the only readable choice, and below it the card's own text colour is.
-  const inkFor = (n: number) => (shade(n) >= 0.5 ? '#fff' : theme.palette.text.primary)
+  // that zone got busier and the hottest cell on the chart was the least readable thing on it.
+  // The fill is the heat and the number is the fact; they cannot be the same ink.
+  //
+  // THE THRESHOLD IS CALIBRATED FOR LIGHT MODE AND ONLY LIGHT MODE, which is why one constant
+  // does for both. In dark mode `text.primary` is already near-white, so both branches return
+  // a light ink and where the line sits changes nothing. In light mode it is near-black, and
+  // the crossover is the only thing standing between a mid-red zone and an unreadable figure:
+  // at 0.5 the middle of the scale printed white on medium red, which is the worst pairing on
+  // the card.
+  const inkFor = (n: number) => (shade(n) >= 0.62 ? '#fff' : theme.palette.text.primary)
+
+  /**
+   * A zone's share of the balls on screen.
+   *
+   * ROUNDED, BUT NEVER TO ZERO. A single ball in a season is 2% of a busy hitter's chart and
+   * about 0.7% of the league's, and printing "0%" over a zone that visibly has something in it
+   * reads as a bug rather than as a small number.
+   */
+  const pct = (n: number): string => {
+    if (!placedInMode) return ''
+    const p = (n / placedInMode) * 100
+    return p < 1 ? '<1%' : `${Math.round(p)}%`
+  }
+
+  /**
+   * The heat colour, and it is deliberately NOT the section accent.
+   *
+   * Every other chart in this section is drawn in the WPBL blue, which is exactly the problem:
+   * on a player page the accent is already carrying the club, the header band and half the
+   * furniture, so a blue field read as more chrome. Red is the convention for a spray chart
+   * anyway, and it is the only warm thing on the page, which is what makes the busy zones the
+   * first thing the eye lands on.
+   *
+   * Two of them, because one red cannot serve both themes: the darker one holds up against
+   * white, the brighter one against a near-black card.
+   */
+  const heat = theme.palette.mode === 'dark' ? '#ef4444' : '#d92020'
 
   const line = theme.palette.divider
   const faint = theme.palette.text.disabled
@@ -189,9 +228,11 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
         role="img"
         aria-label={`Where this batter put the ball: ${profile.zones
           .map(z => `${valueOf(z, mode)} to ${z.zone}`).join(', ')}.`}
+        /* Counts, not shares: the figure on screen is a percentage, but the underlying record
+           is the number of balls and that is what a reader listening to this wants. */
         sx={{
           width: '100%', maxWidth, height: 'auto', display: 'block', mx: 'auto',
-          color: 'var(--wpbl-accent-solid, #2563eb)',
+          color: heat,
         }}
       >
         {/* The dirt, UNDER the zones rather than over them, so an empty infield still reads as
@@ -246,7 +287,7 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
               )}
               {n > 0 && (
                 <text x={x} y={named ? y + 5 : y} textAnchor="middle" dominantBaseline="central"
-                  fontSize={15} fontWeight={800} fill={ink}>{n}</text>
+                  fontSize={14} fontWeight={800} fill={ink}>{pct(n)}</text>
               )}
             </g>
           )
@@ -264,6 +305,12 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
       </Box>
 
       <Box sx={{ mt: 0.75, display: 'flex', flexWrap: 'wrap', gap: 1.25 }}>
+        {/* THE DENOMINATOR, because the field now shows shares and a share with no count
+            behind it cannot be judged: 100% of one ball and 35% of forty-nine look equally
+            confident on the picture. */}
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary' }}>
+          {placedInMode} {mode === 'hits' ? 'hits' : mode === 'outs' ? 'in-play outs' : 'batted balls'} placed
+        </Typography>
         <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary' }}>
           {profile.hits} {profile.hits === 1 ? 'hit' : 'hits'} · {profile.outs} in play {profile.outs === 1 ? 'out' : 'outs'}
         </Typography>
