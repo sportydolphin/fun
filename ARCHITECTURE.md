@@ -314,6 +314,19 @@ and whose answers are `<team id>:<wins>-<losses>`). The questions live in code a
 the table, which is what lets a new one ship without a migration; the ids are therefore
 PERMANENT, since renaming one orphans every answer already stored under it.
 
+**THE FAN AWARDS BALLOT IS OWNER-ONLY AS IT STANDS, and the pick'em beside it is not.** Both
+write to this table, but only the pick'em is a feature fans have. The ballot renders behind
+`useIsAdmin()` in two places, [`Home.tsx`](src/wpbl/Home.tsx) (which draws the MVP race card in
+that slot for everyone else, so nothing on the page changes for a reader) and inside
+[`FanVote.tsx`](src/wpbl/FanVote.tsx) itself (folded into `drawable`, so a hidden card also
+fetches nothing and reports nothing). `/wpbl/awards` still answers 200 so the owner can open and
+reload it, and is kept out of `sitemap.xml`, disallowed in `robots.txt` and marked `noindex` in
+[`seo.ts`](src/seo.ts) so it reaches nobody else. **That gate is cosmetic**, the same as the one
+on `/admin` and for the same reasons: the component and the shortlists are in the bundle either
+way, and `wpbl_cast_award_vote` has always been callable by anyone. It hides the ballot; it does
+not make it secret. `fanVoteGate.test.tsx` pins both branches, and four assertions in
+`routes.test.ts` invert together on the day it opens.
+
 **`voter_key` holds two kinds of value, on purpose.** The awards ballot keys on the browser's
 analytics id, so a visitor can answer without an account; the pick'em keys on the signed-in
 **user id**, because those picks get scored and published and a browser id survives neither a
@@ -670,6 +683,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - Android app / TWA plan, and the offline page it exists for → [`docs/ANDROID.md`](docs/ANDROID.md), [`public/sw.js`](public/sw.js)
 - Brand icons (favicon, home screen, install tiles, social card) → [`scripts/make-brand-icons.py`](scripts/make-brand-icons.py), from [`public/logo.png`](public/logo.png)
 - Player share cards, and why og:image is not the headshot → [`scripts/make-wpbl-share-cards.py`](scripts/make-wpbl-share-cards.py), from [`src/wpbl/portraits/`](src/wpbl/portraits/) plus the club colours in [`src/wpbl/constants.ts`](src/wpbl/constants.ts). **Rerun it after a trade**: the club on the art is the club the roster named the day it was generated
+- Manager portraits for the awards ballot, cut out of the league's announcement graphics because the feed carries no manager at all → [`scripts/make-wpbl-manager-portraits.py`](scripts/make-wpbl-manager-portraits.py), writing [`src/wpbl/managers/`](src/wpbl/managers/). Carries the framing rule the roster art follows, so a new bench is a row in its table rather than a fresh crop by eye
 - Scoring validation + our play corrections → [`docs/PLAY_VALIDATION.md`](docs/PLAY_VALIDATION.md)
 - Whether our BATTING LINES are right, as opposed to faithfully mirrored → [`scripts/check-wpbl-retro-stats.mjs`](scripts/check-wpbl-retro-stats.mjs), against RetroWPBL. Everything else validates the feed or our copy of it; this is the only thing that can disagree with the league and be right. Baseball Reference carries the WPBL too and is not usable for it: 403 to automated fetchers, and their terms forbid automated collection
 - Where TrackMan can still come from, and what is already gone → [`scripts/listen-wpbl-tracking.mjs`](scripts/listen-wpbl-tracking.mjs). We hold **766 rows from two games, Aug 1-3 2026 only**: 677 pitches (release speed, spin, extension, break, plate location, pitch type) and 89 batted balls (**exit speed and launch angle**, no distance — the rows carry `distance_unit` and never a distance). Everything REST was retested on Sep 7, 2026 and is closed: `/activity` 401, `tracking_activity` absent from the boxscore under every include-style parameter, `/v1/pitches` `/v1/activity` `/v1/tracking` `/v1/trackman` 404, nothing tracking-shaped anywhere in `/v1/games`. What is open is the league's own WebSocket, which is why the listener exists

@@ -21,6 +21,7 @@
 # rewrite: there should be one URL per page and this says which one it is.
 /wpbl/           /wpbl            301
 /wpbl/api/       /wpbl/api        301
+/wpbl/awards/    /wpbl/awards     301
 /wpbl/schedule/  /wpbl/schedule   301
 /wpbl/standings/ /wpbl/standings  301
 /wpbl/stats/     /wpbl/stats      301
@@ -47,6 +48,8 @@
 # is what the router and the canonical tags in src/seo.ts both expect).
 /wpbl            /  200
 /wpbl/api        /  200
+# The fan awards ballot: a modal over Home with its own address, so it can be linked to.
+/wpbl/awards     /  200
 # The section's tabs. Listed one by one rather than as /wpbl/* on purpose: a wildcard would
 # hand a 200 to every mistyped path under the section, which is the exact soft-404 hole this
 # file exists to close.

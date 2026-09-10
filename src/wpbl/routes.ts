@@ -132,6 +132,31 @@ export function findWpblPlayerBySlug<T extends WpblSluggable>(
   return hits.length === 1 ? hits[0] : null
 }
 
+// ─── The fan awards ballot ────────────────────────────────────────────────────
+//
+// A MODAL WITH A URL, ON THE SAME TERMS AS A PLAYER OR A GAME. The ballot lives in a sheet over
+// Home and had no address at all, so the only way to send somebody to it was "go to /wpbl, scroll
+// to Fan awards, press Vote". That is the whole point of a poll: it has to be linkable, into a
+// Discord message or a Bluesky post, by somebody who is not going to narrate three steps.
+//
+// NOT A SIXTH TAB, deliberately. WPBL_NAV is the section's nav and the mobile pager's swipe
+// order, so a tab is a permanent cost paid by every reader on every visit for a card that Home
+// already carries. This is the player-page pattern instead: the section owns the route, the
+// route opens a modal over a tab, and Back closes it.
+//
+// NOT A SIBLING PAGE like /wpbl/api either, which is the other shape available. That one renders
+// outside WpblApp, and the ballot needs the roster, the schedule, both stat tables, the fielding
+// lines and the MVP race to build its shortlists: every one of those is already loaded and cached
+// behind Home, and a standalone page would fetch the lot a second time to draw the same six names.
+
+export const WPBL_AWARDS_PATH = '/wpbl/awards'
+
+/** Whether a pathname is the ballot. Trailing slash tolerated here the same way every other
+ *  matcher in this file tolerates it; `_redirects` folds it with a 301 in production, but a
+ *  popstate can still hand us either spelling. */
+export const isWpblAwardsPage = (pathname: string): boolean =>
+  (pathname.replace(/\/+$/, '') || '/') === WPBL_AWARDS_PATH
+
 /**
  * Every path WpblApp itself renders: the tabs, plus a player page, which is a modal the
  * section opens over a tab and so is still the section's own route.
@@ -152,6 +177,7 @@ export const wpblAppOwnsPath = (pathname: string): boolean =>
   || wpblPlayerSlugFromPath(pathname) !== null
   || wpblGameSlugFromPath(pathname) !== null
   || wpblTeamSlugFromPath(pathname) !== null
+  || isWpblAwardsPage(pathname)
 
 // ─── Game pages ───────────────────────────────────────────────────────────────
 //

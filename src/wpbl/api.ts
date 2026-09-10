@@ -594,6 +594,50 @@ export function mergeBulkLines(fresh: WpblLinesResult, prev: WpblLinesResult | n
   }
 }
 
+/**
+ * Every fielding line in the league, for the one thing that needs them: the fan ballot's
+ * Defensive Wizard shortlist.
+ *
+ * WHY THIS DID NOT EXIST UNTIL NOW. Fielding has only ever been read one game or one player at
+ * a time, because the section has no defensive leaderboard and deliberately does not pretend to
+ * have one. A ballot line still has to offer six names, and assists plus double plays across the
+ * league is the closest a box score gets to a play made.
+ *
+ * PAGED, AND ORDERED, which on this table is the whole risk. PostgREST caps a bare select at
+ * 1000 rows and says nothing about it, and there are already 469 fielding lines in a 30-game
+ * season, so a second season walks straight into a silent truncation that would quietly drop
+ * whole clubs off the shortlist. `fetchAllPaged` with a deterministic order is the section's one
+ * answer to that; see CLAUDE.md.
+ *
+ * Cached on the same clock as the other bulk reads, and empty on error rather than throwing: a
+ * ballot that cannot draw one shortlist should draw the other four.
+ */
+const FIELDING_LINE_COLUMNS = [
+  'id', 'game_id', 'player_id', 'team_id', 'po', 'a', 'e', 'pb', 'sba', 'ci', 'dp',
+].join(',')
+
+let allFieldingCache: { data: WpblFieldingLine[]; at: number } | null = null
+
+export function getCachedWpblAllFielding(): WpblFieldingLine[] | null {
+  return allFieldingCache?.data ?? null
+}
+
+export function fetchWpblAllFielding(): Promise<WpblFieldingLine[]> {
+  if (isFresh(allFieldingCache)) return Promise.resolve(allFieldingCache!.data)
+  return once('allFielding', async () => {
+    const rows = await fetchAllPaged<WpblFieldingLine>('fetchWpblAllFielding', (from, to) =>
+      supabase.from('wpbl_fielding_lines').select(FIELDING_LINE_COLUMNS)
+        .order('id', { ascending: true }).range(from, to) as unknown as
+        PromiseLike<{ data: WpblFieldingLine[] | null; error: unknown }>)
+    // A short read keeps the last good rows and leaves the clock alone, exactly as the batting
+    // and pitching reads do: half a league's fielding is a shortlist missing two clubs, and it
+    // looks precisely like a shortlist that is complete.
+    if (rows.length === 0 && allFieldingCache) return allFieldingCache.data
+    allFieldingCache = { data: rows, at: Date.now() }
+    return rows
+  })
+}
+
 export function fetchWpblAllLines(): Promise<WpblLinesResult> {
   if (isFresh(allLinesCache)) return Promise.resolve(allLinesCache!.data)
   return once('allLines', async () => {

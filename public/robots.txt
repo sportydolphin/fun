@@ -7,4 +7,9 @@ Allow: /
 # sign-in wall out of the index.
 Disallow: /admin
 
+# The fan awards ballot, which renders for the owner only while it is being built. Same
+# reasoning as the line above, and the same non-guarantee: the route answers 200 for anybody,
+# it just has nothing in it for them. Remove this when the ballot opens to everyone.
+Disallow: /wpbl/awards
+
 Sitemap: https://sportydolphin.fun/sitemap.xml

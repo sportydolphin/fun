@@ -1080,6 +1080,46 @@ is retired.
 
 ## Shipped log
 
+### Sep 9, 2026: the fan awards ballot, live and owner-only
+
+**IT IS ON MAIN AND NO FAN CAN SEE IT.** Five questions on Home, five shortlists, a write-in
+under each, a tally that stays hidden until you answer, and an address of its own at
+`/wpbl/awards`. All of it renders behind `useIsAdmin()`. This is a handoff state rather than a
+launch: the feature is finished enough to live with and be looked at in production, and the
+categories are still being argued about.
+
+**THE GATE IS IN TWO PLACES AND THAT IS DELIBERATE.** [`Home.tsx`](src/wpbl/Home.tsx) chooses
+between the ballot and the MVP race card for that slot, so a fan sees exactly the page they see
+today rather than a hole where a card was; and [`FanVote.tsx`](src/wpbl/FanVote.tsx) folds the
+same check into `drawable`, so a card that is not drawn also does not read the ballot, does not
+read the tally and does not fire `wpbl_award_shown`. The outer one is the good experience, the
+inner one is the one that cannot be forgotten by a second call site.
+
+**`/wpbl/awards` answers 200 and is invisible to search.** Out of `sitemap.xml`, disallowed in
+`robots.txt`, `noindex` in [`seo.ts`](src/seo.ts), and its title cut back from "Vote in the
+inaugural Women's Pro Baseball League fan awards" to something that names the route without
+selling it. Shipped as written it would have put a page in Google's index that renders an empty
+Home for everyone who clicked it. Four assertions in `routes.test.ts` invert together on launch,
+so flipping the gate without them is a red test rather than a live mistake.
+
+**AND IT IS COSMETIC, WHICH IS THE HONEST LIMIT.** `useIsAdmin` says so of itself: the component
+and the four shortlists ship in the bundle either way, and `wpbl_cast_award_vote` has always been
+callable by anybody. Nobody reaches the ballot without dev tools. Nobody stumbles on it at all.
+If the shortlists ever need to be genuinely secret before launch, that is a server-side job and
+this is not it.
+
+**What the categories ended up being.** MVP, Pitcher of the Year and Manager of the Year are
+seeded from the numbers. Defensive Wizard and Most Aura are hand-picked lists in
+[`awards.ts`](src/wpbl/awards.ts), and both had to be, for reasons worth keeping: a fielding row
+in this feed carries no position, so any ranking it can compute is an infielder's and a catcher
+cannot reach one however well she plays; and aura is the one question on a sheet titled "five
+questions the numbers cannot settle" where that is not a figure of speech. The catcher on the
+defensive slate is carded on caught stealing read out of the play log, because her 90 putouts
+are 86 of her own club's strikeouts and mean nothing about her.
+
+**Credited to Ghost Baseboo**, whose idea it was and who helped pick the categories, on a line at
+the foot of the sheet linking to the channel. The only off-site link in the section.
+
 ### Sep 8, 2026: a pick belongs to an account (v1.79.0)
 
 **THIS REVERSES A DECISION FROM YESTERDAY, and the reason it reverses is the half that was

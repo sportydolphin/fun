@@ -31,6 +31,8 @@ import { LastGameCard } from './RecapCard'
 import FeedDelayNote from './FeedDelayNote'
 import { WpblGamePreview } from './GamePreview'
 import MvpRaceCard, { mvpRaceIsWorthDrawing } from './MvpRace'
+import FanVoteCard from './FanVote'
+import { useIsAdmin } from '../lib/admin'
 import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
 import { mvpRace } from './derive/mvpRace'
 import { seriesContext } from './derive/series'
@@ -2188,7 +2190,7 @@ export function WpblHomeSkeleton() {
   )
 }
 
-export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpenGame, onOpenPlayer, onOpenTeam, onViewStats, onViewTracking }: {
+export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpenGame, onOpenPlayer, onOpenTeam, onViewStats, onViewTracking, awardsOpen, onOpenAwards, onCloseAwards }: {
   teams: WpblTeam[]
   games: WpblGame[]
   /** The league's mirrored website calendar, which is where a postseason game's home club
@@ -2204,6 +2206,18 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   // the field. `openStats` in WpblApp already takes the wider group type.
   onViewStats: (group: 'hitting' | 'pitching' | 'runs', sortKey?: string) => void
   onViewTracking: () => void
+  /**
+   * The fan awards ballot, which is a route rather than a piece of local state.
+   *
+   * IT IS OWNED BY WpblApp AND NOT BY THE CARD, because /wpbl/awards has to open it: a sheet
+   * that holds its own `open` boolean cannot be addressed, and that was the whole ask. So the
+   * card reports the intent upward and renders whatever the history entry says, exactly as the
+   * player and game modals in this section already do. Optional so the card still works if a
+   * future caller has no router to hand.
+   */
+  awardsOpen?: boolean
+  onOpenAwards?: () => void
+  onCloseAwards?: () => void
 }) {
   const teamMap = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
   const headingTag = useWpblHeadingTag()
@@ -2293,6 +2307,8 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   }, liveGame ? 60000 : null)
 
 
+  // Which of the two cards holds the ballot slot below. See the note there.
+  const isAdmin = useIsAdmin()
   const batSeasons = useMemo(() => aggregateBatting(players, lines.batting, games), [players, lines.batting, games])
   const pitSeasons = useMemo(() => aggregatePitching(players, lines.pitching, games), [players, lines.pitching, games])
 
@@ -2591,9 +2607,31 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
             ? [
               /* It spends whatever slack the row gives it on the chart, which is the one child
                  that gets better with height; see the note on RaceChart's `fill`. */
-              <MvpRaceCard key="mvp" race={race} games={games}
-                batSeasons={batSeasons} pitSeasons={pitSeasons} onOpenPlayer={onOpenPlayer}
-                onViewBoard={() => onViewStats('runs')} fill />,
+              /* THE FAN BALLOT HOLDS THIS SLOT NOW, not the MVP race. The race is a number and
+                 the number is already on the Stats tab and on the player pages it ranks, so the
+                 card was a third rendering of an answer the site had given twice; it still seeds
+                 the MVP and Pitcher shortlists inside the ballot, which is the use it was always
+                 best at. What replaces it asks something the section cannot answer on its own,
+                 and it is the one card on this page that still works on Sep 23, when the feed
+                 stops and everything else here freezes at its final value.
+
+                 It keeps `fill` and the same key for the same reason the note above gives: the
+                 two cards in this column swap slots when the play log lands, and React would
+                 remount Leaders and reset the reader's pill selection without a stable key. */
+              /* AND THE BALLOT IS ADMIN-ONLY WHILE IT IS BEING BUILT, so this slot has two
+                 tenants. A fan gets the MVP race exactly as it is today: the point of the gate
+                 is that nothing on this page changes for them, which a card that simply returned
+                 null would fail at twice over, leaving half a row empty AND announcing that
+                 something is missing. Both keep the key, so signing in swaps the card rather
+                 than remounting Leaders beside it. Delete the branch, not the gate, on launch. */
+              isAdmin
+                ? <FanVoteCard key="mvp" players={players} teams={teams} games={games}
+                    batting={lines.batting} pitching={lines.pitching} race={race} plays={plays}
+                    onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam}
+                    open={awardsOpen} onOpen={onOpenAwards} onClose={onCloseAwards} fill />
+                : <MvpRaceCard key="mvp" race={race} games={games}
+                    batSeasons={batSeasons} pitSeasons={pitSeasons} onOpenPlayer={onOpenPlayer}
+                    onViewBoard={() => onViewStats('runs')} fill />,
               leadersCard,
             ]
             // STILL IN FLIGHT IS NOT THE SAME AS NOTHING TO DRAW, and treating them alike was

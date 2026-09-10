@@ -35,4 +35,39 @@ export function wpblPortrait(name: string | null | undefined): string | null {
   return bySlug[slug] ?? null
 }
 
+// ─── The bench ──────────────────────────────────────────────────────────────────
+//
+// The four managers, bundled the same way in ./managers/<slug>.webp, and kept in a
+// separate folder rather than beside the players for two reasons. The share-card script
+// walks src/wpbl/portraits and builds a card per file it can match to a roster row, so a
+// manager dropped in there is a permanent entry in its skipped list; and the resolver
+// above is keyed on a DB name, which a manager does not have. These are keyed on the
+// manager's own permanent id instead (`mgr:<slug>` from WPBL_MANAGERS), so nobody's card
+// depends on how the league happens to spell their name this week.
+//
+// The art is GENERATED, by scripts/make-wpbl-manager-portraits.py, and a hand-edit of one
+// of these files is lost on the next run. It cuts them out of the league's own announcement
+// graphics, because the league has never published a manager headshot, and it mattes them to
+// transparency and frames them on the roster art's own measurements. Both halves of that
+// matter: the circle fills with the club's primary behind whatever it is given, so an
+// untouched photograph puts a square of somebody else's grass and sky in a row of
+// club-coloured portraits, and a face cropped by eye sits at a different size from every
+// player beside it. See WPBL_MANAGERS in awards.ts for the two posts these came off.
+const managerModules = import.meta.glob('./managers/*.webp', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+}) as Record<string, string>
+
+const managerBySlug: Record<string, string> = {}
+for (const [p, url] of Object.entries(managerModules)) {
+  managerBySlug[p.split('/').pop()!.replace(/\.webp$/, '')] = url
+}
+
+/** Portrait URL for a manager's `mgr:<slug>` key, or null if none is bundled. */
+export function wpblManagerPortrait(key: string | null | undefined): string | null {
+  if (!key || !key.startsWith('mgr:')) return null
+  return managerBySlug[key.slice(4)] ?? null
+}
+
 export { slugifyName }

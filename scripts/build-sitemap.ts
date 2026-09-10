@@ -49,6 +49,10 @@ const STATIC: Entry[] = [
   // one of the two pages here still worth serving in February.
   { loc: '/wpbl/glossary', changefreq: 'yearly', priority: '0.7' },
   { loc: '/wpbl/api', changefreq: 'weekly', priority: '0.5' },
+  // NO /wpbl/awards ROW WHILE THE BALLOT IS ADMIN-ONLY. It has an address and a 200 rewrite so
+  // the owner can open it, and telling Google about a page whose contents render for exactly one
+  // signed-in account is how you index an empty Home page under a title about voting. Put it
+  // back, daily while the ballot is open, on the day the gate in Home.tsx comes off.
   { loc: '/privacy', changefreq: 'yearly', priority: '0.2' },
   { loc: '/terms', changefreq: 'yearly', priority: '0.2' },
   { loc: '/delete-account', changefreq: 'yearly', priority: '0.2' },

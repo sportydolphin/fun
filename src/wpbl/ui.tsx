@@ -481,14 +481,19 @@ export function TeamBadge({ team, size = 34 }: { team: Pick<WpblTeam, 'id' | 'ab
 // Player portrait — circular headshot ringed in the team's secondary hue (matching the
 // TeamBadge ring so players and teams read as one set). Falls back to the player's
 // initials on the team color when no portrait is bundled (see ./portraits.ts).
-export function PlayerPortrait({ name, teamId, size = 40, square }: {
+export function PlayerPortrait({ name, teamId, size = 40, square, src: given }: {
   name: string; teamId: string | null; size?: number
   /** A rounded square instead of a circle. Opt-in, and only the player page uses it: a circle
    *  crops a head-and-shoulders portrait to the face, which is right at 32px in a table row
    *  and wasteful at 84px where there is room to show the shoulders and the uniform. */
   square?: boolean
+  /** A face this component cannot look up, because the lookup is by a DB player name and the
+   *  person is not on a roster: the four managers on the awards ballot. Everything else about
+   *  the frame is the same, which is the point of routing them through here rather than
+   *  redrawing the ring somewhere else. */
+  src?: string | null
 }) {
-  const src = wpblPortrait(name)
+  const src = given ?? wpblPortrait(name)
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
   return (
     <Box sx={{
@@ -729,6 +734,33 @@ export function pressable(onClick: (() => void) | undefined) {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() }
     },
   } as const
+}
+
+/**
+ * A control that is also a real link, which is the shape Googlebot can follow.
+ *
+ * `pressable` above makes a div behave like a button, and for anything that opens a modal with
+ * no address of its own that is the whole story. The moment the thing it opens HAS a URL, an
+ * onClick-only control is invisible to a crawler and un-copyable by a reader: no right-click
+ * "copy link", no middle-click, no open-in-new-tab. CLAUDE.md records `/mlb` sitting undiscovered
+ * by Google for months for exactly this reason.
+ *
+ * So spread this onto a `component="a"` instead: the href is real, an unmodified click is
+ * cancelled and handed to the SPA, and a ctrl/cmd/shift/middle click is left entirely alone so
+ * the browser opens it in a tab the way the reader asked. Returns nothing when there is no
+ * handler, so a caller can pass `undefined` and get a plain link.
+ */
+export function linkPress(href: string, onClick: (() => void) | undefined) {
+  return {
+    component: 'a' as const,
+    href,
+    onClick: (e: React.MouseEvent) => {
+      // A modified click is the reader asking the BROWSER for this URL, not the app.
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || (e as { button?: number }).button === 1) return
+      e.preventDefault()
+      onClick?.()
+    },
+  }
 }
 
 /** Focus ring for `pressable` targets — merge into the element's own sx. `:focus-visible`

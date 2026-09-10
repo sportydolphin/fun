@@ -31,6 +31,7 @@ import {
   wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug, isWpblPlayersIndex, wpblAppOwnsPath,
   wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug,
+  WPBL_AWARDS_PATH, isWpblAwardsPage,
   type WpblView,
 } from './routes'
 import { WpblLinkProvider, useWpblGameLink } from './LinkContext'
@@ -643,9 +644,22 @@ type WpblSnap = {
   team: WpblTeam | null
   game: WpblGame | null
   player: WpblPlayer | null
+  /**
+   * The fan awards ballot, which is a modal over Home with an address of its own.
+   *
+   * A BOOLEAN AND NOT AN OBJECT, unlike the three above it, because there is exactly one
+   * ballot: nothing has to be resolved out of the URL, so it needs no roster, no schedule and
+   * none of the pending-slug machinery those three carry. `/wpbl/awards` says everything there
+   * is to say about this state.
+   *
+   * OPTIONAL BECAUSE OLD ENTRIES EXIST. Every snapshot already sitting in a reader's back stack
+   * was written before this field, so it arrives `undefined`; read it through `!!` and an old
+   * entry means "closed", which is what it was.
+   */
+  awards?: boolean
 }
 const normalizeView = normalizeWpblView
-const HOME_SNAP: WpblSnap = { view: 'home', team: null, game: null, player: null }
+const HOME_SNAP: WpblSnap = { view: 'home', team: null, game: null, player: null, awards: false }
 
 /**
  * The view a cold load is asking for.
@@ -679,6 +693,10 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     // then resolves out of the path has had its own URL thrown away before it arrives. The
     // club itself cannot be seeded here (the roster has not loaded), only the tab.
     if (wpblTeamSlugFromPath(window.location.pathname)) return { ...HOME_SNAP, view: 'teams' }
+    // /wpbl/awards is Home with the ballot open. Unlike a club or a player there is nothing to
+    // resolve, so this is the whole of the cold-load path for it: no pending ref, no effect
+    // waiting on a fetch.
+    if (isWpblAwardsPage(window.location.pathname)) return { ...HOME_SNAP, awards: true }
     return HOME_SNAP
   }
   // A legacy ?view=tracking (or a restored snapshot) should open Stats already on the
@@ -689,6 +707,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const [selectedTeam, setSelectedTeam] = useState<WpblTeam | null>(() => seed().team)
   const [detailGame, setDetailGame] = useState<WpblGame | null>(() => seed().game)
   const [detailPlayer, setDetailPlayer] = useState<WpblPlayer | null>(() => seed().player)
+  const [awardsOpen, setAwardsOpen] = useState<boolean>(() => !!seed().awards)
   // Mirror of the MLB game-center event, fired whenever the opened game changes. `from` is the
   // surface the game was tapped on: without it the busiest modal in the section is one flat
   // count that cannot say whether the Home scoreboard, the schedule grid or a team page is
@@ -825,6 +844,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     const { view: v, wasTracking } = normalizeView(s.view)
     if (wasTracking) setStatsFocus(f => ({ group: 'tracking', token: f.token + 1 }))
     setView(v); setSelectedTeam(s.team); setDetailGame(s.game); setDetailPlayer(s.player)
+    setAwardsOpen(!!s.awards)
   }, [])
   // The tab is the PATH (/wpbl/standings); the open modal stays a query param on top of it.
   // The two are different kinds of thing: a tab is a page worth indexing under its own
@@ -880,7 +900,15 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     // switch: a reader who picks a club and swipes to Stats is on Stats, and the path has to
     // say so. Below the game and player branches above for the same reason those are ordered
     // that way, the deeper modal being the page and what is under it being state.
+    // THE BALLOT OWNS THE PATH, and it sits BELOW the game and player branches above for the
+    // reason those are ordered that way: the deeper modal is the page and what is under it is
+    // state. A player opened from the ballot keeps the player's URL, and closing her returns to
+    // /wpbl/awards, because the entry underneath still carries `awards: true`.
     const str = q.toString()
+    if (s.awards && !s.game && !s.player) {
+      return str ? `${WPBL_AWARDS_PATH}?${str}` : WPBL_AWARDS_PATH
+    }
+
     if (s.view === 'teams' && s.team && !s.game && !s.player && teams.length > 0) {
       const path = wpblTeamPath(s.team, teams)
       return str ? `${path}?${str}` : path
@@ -1031,7 +1059,10 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   }, [selectTab])
   // Tracking is a Stats group now, so "view the tracking boards" means "open Stats on it".
   const openTracking = useCallback(() => openStats('tracking'), [openStats])
-  const openGame   = useCallback((g: WpblGame) => push({ view, team: selectedTeam, game: g, player: null }), [push, view, selectedTeam])
+  // `awards` rides along on both of these: a player opened from the ballot leaves the ballot
+  // open underneath, so her X returns to /wpbl/awards rather than dropping the reader on Home
+  // with the sheet shut and their place in it lost.
+  const openGame   = useCallback((g: WpblGame) => push({ view, team: selectedTeam, game: g, player: null, awards: awardsOpen }), [push, view, selectedTeam, awardsOpen])
   // `from` defaults to the surface the reader is standing on, which is right for every in-page
   // link. The header search has to override it: search works from every tab, so left to the
   // default a player opened from the search box reports whichever tab happened to be behind it.
@@ -1039,8 +1070,19 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // here worth spending a parameter on.
   const openPlayer = useCallback((p: WpblPlayer, from?: string) => {
     track(EVENTS.WPBL_PLAYER_OPENED, { playerId: p.id, teamId: p.team_id, from: from ?? (detailGame ? 'game' : view) })
-    push({ view, team: selectedTeam, game: detailGame, player: p })
-  }, [push, view, selectedTeam, detailGame])
+    push({ view, team: selectedTeam, game: detailGame, player: p, awards: awardsOpen })
+  }, [push, view, selectedTeam, detailGame, awardsOpen])
+  /**
+   * Open the ballot, which is a push like any other modal so that Back closes it.
+   *
+   * `view` IS CARRIED RATHER THAN FORCED TO HOME. The card that opens this only exists on Home,
+   * so in practice it is always 'home'; carrying it means that if the ballot ever gets a second
+   * entry point, Back from it returns to the tab the reader was actually on rather than teleporting
+   * them. A cold load of /wpbl/awards seeds Home underneath, which is where the ballot lives.
+   */
+  const openAwards = useCallback(() => {
+    push({ view, team: selectedTeam, game: null, player: null, awards: true })
+  }, [push, view, selectedTeam])
   // Closing a modal (X or Escape) walks history back, so it and the browser Back button are
   // the same action and never fall out of sync.
   const closeTop   = useCallback(() => window.history.back(), [])
@@ -1363,8 +1405,29 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // the entry already carries a snapshot — leave it untouched.
   useEffect(() => {
     if (!window.history.state?.wpbl) {
-      const s: WpblSnap = { view, team: selectedTeam, game: detailGame, player: detailPlayer }
-      window.history.replaceState({ ...window.history.state, wpbl: s }, '', urlFor(s))
+      // `awards` IS LOAD-BEARING HERE. This runs on a cold load, before anything else, and
+      // `urlFor` of a snapshot without it returns /wpbl: landing on /wpbl/awards would have
+      // rewritten the address bar to the section root in the first tick, so a copied link lost
+      // the ballot before the page had drawn. Same failure the Teams branch of `seed` describes.
+      const s: WpblSnap = {
+        view, team: selectedTeam, game: detailGame, player: detailPlayer, awards: awardsOpen,
+      }
+      // A LINK STRAIGHT TO THE BALLOT NEEDS SOMETHING TO CLOSE BACK ONTO, which is the whole of
+      // what `openFromLink` exists to do for a player link, spelled out here because the ballot
+      // needs none of the rest of it: there is nothing to resolve out of the URL, so it never
+      // reaches that function. Stamped as one entry that already has the sheet open, the session
+      // had a single history entry and `closeTop` is `history.back()`, so the X, the backdrop and
+      // Escape all walked the reader out of the site instead of onto Home. Measured: back() from a
+      // fresh tab on /wpbl/awards left the page entirely. So seat a sheet-less entry underneath
+      // and push the ballot on top, and closing behaves exactly as it would had they opened it
+      // themselves. Both halves run in this one synchronous block, so nothing paints on /wpbl.
+      if (s.awards) {
+        const base: WpblSnap = { ...s, awards: false }
+        window.history.replaceState({ ...window.history.state, wpbl: base }, '', urlFor(base))
+        window.history.pushState({ ...window.history.state, wpbl: s }, '', urlFor(s))
+      } else {
+        window.history.replaceState({ ...window.history.state, wpbl: s }, '', urlFor(s))
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -1507,7 +1570,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
             panels={NAV.map(n => {
               const content = (() => {
                 switch (n.key) {
-                  case 'home':      return <WpblHome teams={teams} games={games} siteGames={siteGames} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromHome} onViewStats={openStats} onViewTracking={openTracking} />
+                  case 'home':      return <WpblHome teams={teams} games={games} siteGames={siteGames} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromHome} onViewStats={openStats} onViewTracking={openTracking} awardsOpen={awardsOpen} onOpenAwards={openAwards} onCloseAwards={closeTop} />
                   case 'schedule':  return <ScheduleView teams={teams} games={games} siteGames={siteGames} onOpenGame={openGame} active={view === 'schedule'} />
                   case 'standings': return <StandingsView teams={teams} games={games} onOpenTeam={selectTeamFromStandings} />
                   case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} active={view === 'stats'} newBoardBadge={runsBadge} onNewBoardSeen={retireRunsBadge} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromStats} />

@@ -17,12 +17,16 @@ import redirects from '../../../public/_redirects?raw'
 import footerSource from '../../SiteFooter.tsx?raw'
 import sitemap from '../../../public/sitemap.xml?raw'
 import seoSource from '../../seo.ts?raw'
+import fanVoteSource from '../FanVote.tsx?raw'
+import homeSource from '../Home.tsx?raw'
+import robots from '../../../public/robots.txt?raw'
 import {
   WPBL_NAV, WPBL_VIEW_PATHS, wpblPathFor, wpblViewFromPath, wpblAppOwnsPath, normalizeWpblView,
   wpblPlayerSlug, wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug,
   wpblGameSlug, wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug, isWpblLeaguePage,
   isWpblGlossaryPage,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug, teamSlug,
+  WPBL_AWARDS_PATH, isWpblAwardsPage,
 } from '../routes'
 // The real club list, so the four files below are pinned against what the app actually ships
 // rather than against four strings copied into this test. A fifth club fails every assertion
@@ -409,6 +413,75 @@ describe('/wpbl/league, a page without a tab', () => {
   // which is a failure nothing else here would notice.
   it('is linked from the site footer', () => {
     expect(footerSource).toContain('WPBL_LEAGUE_PAGE')
+  })
+})
+
+describe('/wpbl/awards, the fan ballot', () => {
+  // The ballot is a sheet over Home. Giving it an address is the only reason any of this exists,
+  // and three of the four files below fail invisibly in `npm run dev`.
+  it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
+    expect(redirects).toMatch(/^\/wpbl\/awards\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/awards\/\s+\/wpbl\/awards\s+301\s*$/m)
+  })
+
+  it('has its own title and description in seo.ts', () => {
+    expect(seoSource).toContain("'/wpbl/awards': {")
+    expect(seoSource).toMatch(/'\/wpbl\/awards':\s*\{[^}]*title:/)
+    expect(seoSource).toMatch(/'\/wpbl\/awards':\s*\{[^}]*description:/)
+  })
+
+  // ── While the ballot is admin-only ────────────────────────────────────────────
+  //
+  // These three invert on launch, together, and they are here so that flipping the gate in
+  // Home.tsx without them is a red test rather than a page in Google's index that renders an
+  // empty Home for everybody who clicks it. The route still answers 200, which is the point:
+  // the owner can open and reload it. It is simply not advertised to anyone.
+  it('is kept out of the sitemap', () => {
+    expect(sitemap).not.toContain('<loc>https://sportydolphin.fun/wpbl/awards</loc>')
+  })
+
+  it('is disallowed in robots.txt, the same as /admin', () => {
+    expect(robots).toMatch(/^Disallow: \/wpbl\/awards\s*$/m)
+  })
+
+  it('is noindex in seo.ts, as belt to those braces', () => {
+    expect(seoSource).toMatch(/'\/wpbl\/awards':\s*\{[^}]*noindex:\s*true/)
+  })
+
+  // The title is a tab caption for the owner, not a pitch to a reader who cannot use the page.
+  it('does not advertise itself in the title', () => {
+    const entry = /'\/wpbl\/awards':\s*\{([^}]*)\}/.exec(seoSource)?.[1] ?? ''
+    expect(entry).not.toMatch(/vote/i)
+  })
+
+  // It is NOT a tab: reading it as a view would hand it to the pager, which lands on Home and
+  // leaves the address bar saying something else. But WpblApp does own it, because the sheet it
+  // opens is rendered inside the section, and a popstate onto it that the section disowned would
+  // move the URL and leave the modals exactly as they were.
+  it('is owned by the section without being a tab', () => {
+    expect(isWpblAwardsPage(WPBL_AWARDS_PATH)).toBe(true)
+    expect(isWpblAwardsPage('/wpbl/awards/')).toBe(true)
+    expect(isWpblAwardsPage('/wpbl/award')).toBe(false)
+    expect(isWpblAwardsPage('/wpbl/awards/extra')).toBe(false)
+    expect(wpblViewFromPath(WPBL_AWARDS_PATH)).toBeNull()
+    expect(wpblAppOwnsPath(WPBL_AWARDS_PATH)).toBe(true)
+  })
+
+  // An anchor rather than a click handler, which is the rule in CLAUDE.md and is what /mlb sat
+  // undiscovered for months for. Crawling is not the reason here, since the route is currently
+  // hidden from crawlers on purpose: it is that the address has to survive a middle click, a
+  // copy-link and a reload, which is the entire reason the ballot was given one.
+  it('is reachable by a real href from the card that opens it', () => {
+    expect(fanVoteSource).toContain('linkPress(WPBL_AWARDS_PATH')
+  })
+
+  // The gate itself, in both halves. A ballot that renders for everyone is the failure this
+  // whole block is arranged around, and it would otherwise be invisible until a fan mentioned it.
+  it('renders for the owner only, at the card and inside it', () => {
+    expect(fanVoteSource).toContain('useIsAdmin')
+    expect(fanVoteSource).toMatch(/fanVoteIsWorthDrawing\(entries\)\s*&&\s*isAdmin/)
+    expect(homeSource).toContain('useIsAdmin')
+    expect(homeSource).toMatch(/isAdmin\s*\?\s*<FanVoteCard/)
   })
 })
 

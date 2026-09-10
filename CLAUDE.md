@@ -338,6 +338,19 @@ Each of these has already cost someone a debugging session, and none of them fai
   extensionless). For the same reason they must never import
   [`constants.ts`](src/wpbl/constants.ts), which pulls the team logos in as Vite assets:
   that is why `outsToIp` lives in [`innings.ts`](src/wpbl/innings.ts).
+- **The fan awards ballot is on main and NO FAN CAN SEE IT.** It renders behind `useIsAdmin()`
+  in two places: [`Home.tsx`](src/wpbl/Home.tsx) picks between the ballot and the MVP race card
+  for that slot, so a fan's page is unchanged rather than a card short, and
+  [`FanVote.tsx`](src/wpbl/FanVote.tsx) folds the same check into `drawable`, so a hidden card
+  also reads nothing and reports nothing. `/wpbl/awards` answers 200 for anybody and is out of
+  `sitemap.xml`, disallowed in `robots.txt` and `noindex` in [`seo.ts`](src/seo.ts).
+  **The gate is COSMETIC**, exactly as `useIsAdmin` says of itself: the component and the four
+  shortlists are in the bundle either way and `wpbl_cast_award_vote` is callable by anyone, so
+  this hides the ballot rather than keeping it secret. Two things follow. Do not read a quiet
+  `wpbl_award_votes` as fans not voting, because fans were never asked. And do not remove the
+  gate without the four assertions in `routes.test.ts` that invert with it: they are what stop a
+  launch putting a page in Google's index that renders an empty Home for everyone who clicks it.
+  `fanVoteGate.test.tsx` pins both branches.
 - **Three write paths to the DB, and only three.** The browser writes user rows through RLS
   (events, feedback, picks, fan-award votes); everything ingested or derived is written by service-role
   actors, the `wpbl-ingest` edge function and the GitHub Actions `scripts/*.mjs` jobs. The

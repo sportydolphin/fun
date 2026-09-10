@@ -131,6 +131,10 @@ export const EVENTS = {
   // feature or a row of chrome.
   WPBL_REVISIONS_OPEN: 'wpbl_revisions_open', // expanded a game's scoring changes, props {gameId, changes}
 
+  // The fan awards ballot (FanVote.tsx). Five categories on Home, one vote each per browser.
+  WPBL_AWARD_SHOWN:    'wpbl_award_shown',    // ballot card drew, props {answered, categories}
+  WPBL_AWARD_OPEN:     'wpbl_award_open',     // opened the voting sheet, props {answered, from}
+  WPBL_AWARD_VOTE:     'wpbl_award_vote',     // cast a vote, props {category, choice}
   WPBL_PLAYER_ROLE:    'wpbl_player_role',    // switched role on a player page, props {role, from, playerId}
 } as const
 
