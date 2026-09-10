@@ -1,12 +1,20 @@
 import { describe, it, expect } from 'vitest'
 import { displayPosition, primaryPosition, positionsPlayed, buildPositionIndex, leadsWithPitching, MIN_FIELDED_GAMES } from '../positions'
+import type { WpblSeasonGame } from '../season'
 
 // The roster files a position once and the season then disagrees with it. This decides when the
 // season wins. It has two ways to be wrong: leave a player labelled at a position she has not
 // played all year, or relabel someone off a handful of games and lose what she is actually for.
 
-/** n games at one position. */
-const at = (position: string, n: number) => Array.from({ length: n }, () => ({ position }))
+/** n games at one position. Each line names its own game, because the three season-scoped
+ *  functions here take a schedule and read `game_id` off the line to apply it. */
+let gameSeq = 0
+const at = (position: string, n: number) =>
+  Array.from({ length: n }, () => ({ position, game_id: `g${gameSeq++}` }))
+
+/** An empty schedule excludes nothing, which is the fail-open behaviour season.ts guarantees
+ *  and the right baseline for every test below that is not about the postseason. */
+const ALL: WpblSeasonGame[] = []
 
 describe('primaryPosition', () => {
   it('needs a real majority, not a plurality', () => {
@@ -69,48 +77,48 @@ describe('primaryPosition', () => {
 describe('displayPosition', () => {
   it('replaces the roster label when the season clearly disagrees', () => {
     // Alyssa Zettlemoyer, listed at catcher, third base in all six she has fielded.
-    expect(displayPosition('C', at('3b', 6))).toEqual({ label: '3B', overridden: true, official: 'C' })
+    expect(displayPosition('C', at('3b', 6), ALL)).toEqual({ label: '3B', overridden: true, official: 'C' })
   })
 
   it('leaves the roster label alone when it already agrees', () => {
-    expect(displayPosition('SS', at('ss', 7))).toEqual({ label: 'SS', overridden: false, official: 'SS' })
+    expect(displayPosition('SS', at('ss', 7), ALL)).toEqual({ label: 'SS', overridden: false, official: 'SS' })
   })
 
   // The roster writes handedness on pitchers; a box score only ever writes "p". Reading those
   // as different would relabel every pitcher in the league from RHP to P.
   it('reads RHP and LHP as agreeing with a season spent pitching', () => {
-    expect(displayPosition('RHP', at('p', 5)).overridden).toBe(false)
-    expect(displayPosition('LHP', at('p', 4)).overridden).toBe(false)
+    expect(displayPosition('RHP', at('p', 5), ALL).overridden).toBe(false)
+    expect(displayPosition('LHP', at('p', 4), ALL).overridden).toBe(false)
   })
 
   it('still relabels a pitcher who mostly plays the field', () => {
     // Maïka Dumais: filed RHP, four of six fielded games at first.
-    expect(displayPosition('RHP', [...at('1b', 4), ...at('p', 2)]))
+    expect(displayPosition('RHP', [...at('1b', 4), ...at('p', 2)], ALL))
       .toEqual({ label: '1B', overridden: true, official: 'RHP' })
   })
 
   // Turning "OF" into "LF" is the most useful thing here: a bucket rules nothing out.
   it('sharpens a bucket label into the position actually played', () => {
-    expect(displayPosition('OF', at('lf', 7))).toEqual({ label: 'LF', overridden: true, official: 'OF' })
-    expect(displayPosition('IF', at('2b', 5))).toEqual({ label: '2B', overridden: true, official: 'IF' })
+    expect(displayPosition('OF', at('lf', 7), ALL)).toEqual({ label: 'LF', overridden: true, official: 'OF' })
+    expect(displayPosition('IF', at('2b', 5), ALL)).toEqual({ label: '2B', overridden: true, official: 'IF' })
   })
 
   it('checks every part of a multi-label roster entry', () => {
     // "RHP, UTL" agrees with a season on the mound.
-    expect(displayPosition('RHP, UTL', at('p', 5)).overridden).toBe(false)
-    expect(displayPosition('RHP, UTL', at('lf', 5)).overridden).toBe(true)
+    expect(displayPosition('RHP, UTL', at('p', 5), ALL).overridden).toBe(false)
+    expect(displayPosition('RHP, UTL', at('lf', 5), ALL).overridden).toBe(true)
   })
 
   it('falls back to the roster when the season has not said enough', () => {
-    expect(displayPosition('C', at('3b', 2))).toEqual({ label: 'C', overridden: false, official: 'C' })
+    expect(displayPosition('C', at('3b', 2), ALL)).toEqual({ label: 'C', overridden: false, official: 'C' })
   })
 
   it('survives a player with no roster position and no games', () => {
-    expect(displayPosition(null, [])).toEqual({ label: null, overridden: false, official: null })
+    expect(displayPosition(null, [], ALL)).toEqual({ label: null, overridden: false, official: null })
   })
 
   it('names a position for a player the roster left blank', () => {
-    expect(displayPosition(null, at('ss', 5))).toEqual({ label: 'SS', overridden: true, official: null })
+    expect(displayPosition(null, at('ss', 5), ALL)).toEqual({ label: 'SS', overridden: true, official: null })
   })
 })
 
@@ -121,7 +129,7 @@ describe('buildPositionIndex', () => {
       ...at('c', 2).map(l => ({ ...l, player_id: 'gutierrez' })),
       ...at('3b', 2).map(l => ({ ...l, player_id: 'gutierrez' })),
       ...at('1b', 2).map(l => ({ ...l, player_id: 'lahners' })),
-    ])
+    ], ALL)
     expect(index.get('zettlemoyer')).toEqual({ position: '3b', games: 6, fielded: 6 })
     expect(index.has('gutierrez')).toBe(false) // tied
     expect(index.has('lahners')).toBe(false)   // too few
@@ -134,32 +142,32 @@ describe('buildPositionIndex', () => {
 // from", which has to count every place she stood.
 describe('positionsPlayed', () => {
   it('counts BOTH halves of a game she moved in, unlike the vote', () => {
-    const lines = [{ position: 'p/cf' }]
+    const lines = at('p/cf', 1)
     // The vote takes the first token only, so a utility player cannot out-vote a regular.
     expect(primaryPosition(Array.from({ length: 4 }, () => ({ position: 'p/cf' })))?.position).toBe('p')
     // The scope note takes both, because she really did field at both and both are in the sum.
-    expect(positionsPlayed(lines)).toEqual(['cf', 'p'])
+    expect(positionsPlayed(lines, ALL)).toEqual(['cf', 'p'])
   })
 
   // Kelsie Whitmore's real season, which is what found the bug: her pitching pane presented
   // 21 putouts as a pitcher's fielding line, and they are catches in centre field.
   it('puts the most-played position first', () => {
-    const lines = [...at('cf', 6), ...Array.from({ length: 4 }, () => ({ position: 'p/cf' }))]
-    expect(positionsPlayed(lines)).toEqual(['cf', 'p'])
+    const lines = [...at('cf', 6), ...at('p/cf', 4)]
+    expect(positionsPlayed(lines, ALL)).toEqual(['cf', 'p'])
   })
 
   // A tie must not reorder itself between two renders of the same card.
   it('breaks a tie the same way every time', () => {
-    const one = positionsPlayed([...at('ss', 3), ...at('1b', 3)])
+    const one = positionsPlayed([...at('ss', 3), ...at('1b', 3)], ALL)
     expect(one).toEqual(['1b', 'ss'])
-    expect(positionsPlayed([...at('1b', 3), ...at('ss', 3)])).toEqual(one)
+    expect(positionsPlayed([...at('1b', 3), ...at('ss', 3)], ALL)).toEqual(one)
   })
 
   // DH, PH and PR are batting roles rather than places on the field, and a fielding line that
   // named them would be claiming she fielded in a game she did not take the field in.
   it('ignores the batting-only roles', () => {
-    expect(positionsPlayed([...at('dh', 5), ...at('ph', 2), ...at('cf', 1)])).toEqual(['cf'])
-    expect(positionsPlayed([...at('dh', 5)])).toEqual([])
+    expect(positionsPlayed([...at('dh', 5), ...at('ph', 2), ...at('cf', 1)], ALL)).toEqual(['cf'])
+    expect(positionsPlayed([...at('dh', 5)], ALL)).toEqual([])
   })
 })
 
@@ -210,5 +218,38 @@ describe('leadsWithPitching', () => {
   it('falls back to the filed position when the feed has no batters faced', () => {
     expect(who({ gs: 3, bf: 0, pa: 20 })).toBe(false)
     expect(who({ position: 'RHP', gs: 3, bf: 0, pa: 20 })).toBe(true)
+  })
+})
+
+// The whole reason these three take a schedule. Kelsie Whitmore's real September: a season
+// spent mostly in centre field, then one start on the mound in game 1 of the semifinal.
+// Counting that game does not add a position, it destroys the majority she had, and the label
+// falls back to the roster listing this module exists to override.
+describe('the postseason, which none of this is about', () => {
+  const PLAYOFF: WpblSeasonGame[] = [{ id: 'post1', game_type: 'postSeason', counts_in_standings: true }]
+  // Three in centre, two on the mound: a majority in centre, and a narrow one, which is what
+  // every two-way player's is.
+  const season = [...at('cf', 3), ...at('p', 2)]
+  const playoffStart = [{ position: 'p', game_id: 'post1' }]
+
+  it('keeps a two-way player at the position she played all season', () => {
+    expect(displayPosition('RHP', [...season, ...playoffStart], PLAYOFF))
+      .toEqual({ label: 'CF', overridden: true, official: 'RHP' })
+    // And this is the bug it replaces: counting the playoff start makes it three of six, which
+    // is exactly half and so no majority at all, so the roster label wins by default.
+    expect(displayPosition('RHP', [...season, ...playoffStart], []).overridden).toBe(false)
+  })
+
+  it('leaves the playoff game out of the index and the scope note too', () => {
+    const index = buildPositionIndex(
+      [...season, ...playoffStart].map(l => ({ ...l, player_id: 'whitmore' })), PLAYOFF)
+    expect(index.get('whitmore')).toEqual({ position: 'cf', games: 3, fielded: 5 })
+    expect(positionsPlayed([...at('cf', 5), ...playoffStart], PLAYOFF)).toEqual(['cf'])
+  })
+
+  // Same fail-open rule as everything else that takes a schedule: a game we cannot place is
+  // counted, so a caller holding a partial schedule over-counts rather than rendering nothing.
+  it('counts a game the schedule does not mention', () => {
+    expect(positionsPlayed([...at('cf', 5), ...playoffStart], [])).toEqual(['cf', 'p'])
   })
 })

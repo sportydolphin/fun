@@ -354,7 +354,7 @@ export default function TeamPage({ team, teams, games, onBack, onAllTeams, onSel
   // Where each player has actually been playing. The roster's own labels go stale as a season
   // goes on, and a club list that says "C" beside someone who has played third all year is
   // wrong in the one place a reader goes to learn the shape of the team.
-  const positionIndex = useMemo(() => buildPositionIndex(lines?.batting ?? []), [lines])
+  const positionIndex = useMemo(() => buildPositionIndex(lines?.batting ?? [], games), [lines, games])
   // Sorted by the position we are going to SHOW, not the one on file, or the list reads as
   // unsorted the moment a label is overridden.
   const sortedRoster = useMemo(() => roster && [...roster].sort((a, b) =>

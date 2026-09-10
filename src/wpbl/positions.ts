@@ -32,6 +32,8 @@ const FIELDING = new Set(['p', 'c', '1b', '2b', '3b', 'ss', 'lf', 'cf', 'rf'])
  * Read this against the season's length if the league ever plays a full one. It is a floor on
  * evidence, not a magic number.
  */
+import { regularSeasonLines, type WpblSeasonGame } from './season'
+
 export const MIN_FIELDED_GAMES = 4
 
 /**
@@ -54,6 +56,20 @@ function fieldedAt(raw: string | null | undefined): string | null {
  *  for the position (the unfurl card's Pages function used to) still type-checks, and simply
  *  gets no override. Missing evidence and evidence of nothing are the same answer here. */
 export interface PositionedLine { position?: string | null }
+
+/**
+ * A box-score line as the three season-scoped functions below need it: the position, and the
+ * game it was played in.
+ *
+ * THE `game_id` IS THE WHOLE POINT. These answer "where does she play THIS SEASON", and the
+ * answer moved on Sep 9, 2026 the moment a postseason game landed: Kelsie Whitmore's one
+ * playoff start on the mound broke her strict majority in centre field, `primaryPosition`
+ * returned null, and her label fell back to the roster listing this module exists to override.
+ * It did not add a position, it destroyed one, and it did it to the two-way player the file's
+ * own comments are written around. A line carries no other clue about its game, so the caller
+ * has to hand over the schedule, and it is required for the reason season.ts gives.
+ */
+export type SeasonPositionedLine = PositionedLine & { game_id: string }
 
 export interface PrimaryPosition {
   /** Lowercase feed code: 'ss', '3b', 'p'. */
@@ -111,8 +127,12 @@ export function primaryPosition(lines: readonly PositionedLine[]): PrimaryPositi
  * catches in centre field. The numbers were right and the pane made them mean something false,
  * so the fix is to name the positions rather than to divide numbers we cannot divide.
  */
-export function positionsPlayed(lines: readonly PositionedLine[]): string[] {
+export function positionsPlayed(
+  lines: readonly SeasonPositionedLine[],
+  games: WpblSeasonGame[],
+): string[] {
   const counts = new Map<string, number>()
+  lines = regularSeasonLines(lines as SeasonPositionedLine[], games)
   for (const line of lines) {
     for (const raw of String(line.position ?? '').split('/')) {
       const pos = raw.trim().toLowerCase()
@@ -169,10 +189,11 @@ export interface DisplayPosition {
  */
 export function displayPosition(
   official: string | null | undefined,
-  lines: readonly PositionedLine[],
+  lines: readonly SeasonPositionedLine[],
+  games: WpblSeasonGame[],
 ): DisplayPosition {
   const filed = official ?? null
-  const primary = primaryPosition(lines)
+  const primary = primaryPosition(regularSeasonLines(lines as SeasonPositionedLine[], games))
   if (!primary || rosterAlreadySays(filed, primary.position)) {
     return { label: filed, overridden: false, official: filed }
   }
@@ -186,10 +207,11 @@ export function displayPosition(
  * here rather than by each surface filtering the same array again.
  */
 export function buildPositionIndex(
-  lines: readonly (PositionedLine & { player_id: string })[],
+  lines: readonly (SeasonPositionedLine & { player_id: string })[],
+  games: WpblSeasonGame[],
 ): Map<string, PrimaryPosition> {
   const byPlayer = new Map<string, PositionedLine[]>()
-  for (const line of lines) {
+  for (const line of regularSeasonLines(lines as (SeasonPositionedLine & { player_id: string })[], games)) {
     const list = byPlayer.get(line.player_id)
     if (list) list.push(line)
     else byPlayer.set(line.player_id, [line])

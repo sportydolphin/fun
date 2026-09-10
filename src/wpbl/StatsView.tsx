@@ -531,7 +531,7 @@ export default function WpblStatsView({
   useEffect(() => { if (source === 'tracked') setTrackedSeen(true) }, [source])
   const trackedOffered = showTracked || trackedSeen
   // The position each player has actually been playing, for the leaderboard sublabels.
-  const positionIndex = useMemo(() => buildPositionIndex(lines.batting), [lines.batting])
+  const positionIndex = useMemo(() => buildPositionIndex(lines.batting, games), [lines.batting, games])
   const [qualified, setQualified] = useState(() => qual.active)
   const [sortKey, setSortKey] = useState(() => defaultSort(seedAxes.side ?? 'hitting', focus?.sortKey).key)
   const [sortAsc, setSortAsc] = useState(() => defaultSort(seedAxes.side ?? 'hitting', focus?.sortKey).asc)
@@ -1257,7 +1257,7 @@ export default function WpblStatsView({
         </Suspense>
       ) : source === 'tracked' ? (
         <Suspense fallback={<SubViewFallback />}>
-          <WpblTrackingView side={side} onOpenPlayer={onOpenPlayer} />
+          <WpblTrackingView side={side} games={games} onOpenPlayer={onOpenPlayer} />
         </Suspense>
       ) : source === 'pitches' ? (
         <Suspense fallback={<SubViewFallback />}>

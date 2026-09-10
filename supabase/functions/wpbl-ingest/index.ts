@@ -580,6 +580,9 @@ async function ingestBoxscore(
   gameDate: string | null,
   teamSlug: Map<string, string>,
   resolver: PlayerResolver,
+  /** The list row's `completed_at`. See the note on `complete` below: the boxscore has no
+   *  equivalent field and its own `status.complete` cannot be trusted to stay true. */
+  completedAt: string,
 ): Promise<{ status: 'scheduled' | 'live' | 'final'; batting: number; pitching: number; fielding: number; plays: number; tracking: number }> {
   const res = await fetch(`${FEED}/games/${apiGameId}/boxscore`)
   if (!res.ok) throw new Error(`boxscore ${apiGameId} → ${res.status}`)
@@ -606,8 +609,20 @@ async function ingestBoxscore(
   // pitch, any ball/strike/out, a run, or play past the top of the 1st. The only window
   // this treats as still-scheduled is the moment before the very first pitch, which then
   // flips to live the instant a pitch is thrown.
+  //
+  // AND `status.complete` GOES BACKWARDS. Game 1 of the 2026 postseason finished at 01:51Z on
+  // Sep 10, both feed surfaces published `completed_at`, and both then sat at "In Progress -
+  // Bottom of 7th" with `complete: false` for hours afterwards. We had already stored the game
+  // final off the list, so this downgraded a finished playoff game back to live: a live dot on
+  // a game nobody was playing, the semifinal's 1-0 lead gone from the bracket because the
+  // bracket counts finals, and no Discord recap, since `announceFinal` fires on a not-final to
+  // final transition through this function and that transition had already been spent.
+  // `completed_at` is the signal that does not lie: absent through the whole of the live game
+  // (checked in the bottom of the 1st), present the moment it ended, and present on all 31
+  // started games in the feed against none of the 34 unplayed ones. `isPlayed` in the
+  // phantom-suppression pass already trusts it for exactly this reason.
   const st = box.status ?? {}
-  const complete = !!st.complete
+  const complete = !!st.complete || !!s(completedAt)
   const hasPlays    = (box.plays?.length ?? 0) > 0
   const hasTracking = (box.tracking_activity?.length ?? 0) > 0
   const anyCount    = n(st.outs) > 0 || n(st.balls) > 0 || n(st.strikes) > 0
@@ -981,7 +996,9 @@ Deno.serve(async (req) => {
         ?? await adoptTeam(s(fg.away_team_id), s(fg.away_team_name))
       if (!homeSlug || !awaySlug) { summary.errors.push(`unmapped team in ${apiGameId}`); continue }
 
-      const status = mapStatus(s(fg.status))
+      // `completed_at` outranks the status string, which the feed walks backwards after a game
+      // ends. See the note on `complete` in ingestBoxscore for what that cost.
+      const status = s(fg.completed_at) ? 'final' as const : mapStatus(s(fg.status))
       const startIso = correctedStart(s(fg.scheduled_start), zoneOf(fg), s(fg.game_type)) // tz-tag correction (see correctedStart)
       const scoreAway = fg.presto_data?.score?.away
       const scoreHome = fg.presto_data?.score?.home
@@ -1019,7 +1036,7 @@ Deno.serve(async (req) => {
       if (!wantBox) continue
 
       try {
-        const box = await ingestBoxscore(db, up.id, apiGameId, gameRow.game_date, teamSlug, resolver)
+        const box = await ingestBoxscore(db, up.id, apiGameId, gameRow.game_date, teamSlug, resolver, s(fg.completed_at))
         summary.boxscores++
         // A game we were already tracking has just finished — announce it to Discord now,
         // rather than leaving it for the scheduled poster's next quarter-hour. Deliberately

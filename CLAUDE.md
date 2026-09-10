@@ -99,6 +99,16 @@ Each of these has already cost someone a debugging session, and none of them fai
   into "count only what looks regular": the day the feed renames its game types, that version
   drops every game and renders four clubs at 0-0, which reads as an outage rather than as a
   bug. Wrong by a couple of games is visible and recoverable. Blank is neither.
+  **Four more things take the schedule for the same reason, and every one of them was found
+  leaking the day the first postseason game went final**: `buildPositionIndex` /
+  `displayPosition` / `positionsPlayed` in [`positions.ts`](src/wpbl/positions.ts),
+  `aggregateTracking` in [`tracking.ts`](src/wpbl/tracking.ts), and `headToHead` in
+  [`derive/matchups.ts`](src/wpbl/derive/matchups.ts), which claimed "the same rule as
+  computeStandings" in its own comment while applying only the decisive-final half of it, and
+  drew San Francisco 6-0 over Boston one row above a standings table reading 10-5. The position
+  one is the subtle shape: counting a playoff start did not ADD a position, it broke the strict
+  majority Kelsie Whitmore held in centre field, so `primaryPosition` returned null and her
+  label fell back to the roster listing that module exists to override.
 
 - **A player's feed id is not the player, and a player's team is a fact about a DATE.** The
   league mints a NEW `player_id` when someone changes club (Diana Ibarra is `moizfkn9…` on New
@@ -173,6 +183,18 @@ Each of these has already cost someone a debugging session, and none of them fai
   wrong**, separately from any math we do: on Sep 9, 2026 its Sep 10 row said 5:00 PM Central
   against the league's 6:00 PM and had not been updated since Sep 7, so a game time that
   disagrees with the league page is not automatically a bug in this repo.
+- **A game's status GOES BACKWARDS, and `completed_at` is the only field that does not.** Game 1
+  of the 2026 postseason finished at 01:51Z on Sep 10. Both feed surfaces published
+  `completed_at`, the list said Final, we stored final, `announceFinal` posted the recap a
+  minute later. Then both surfaces reverted to `"In Progress - Bottom of 7th"` with
+  `complete: false` and stayed there, and since the list status is re-read onto the row on EVERY
+  pass, we followed: a live dot on a game nobody was playing, the semifinal's 1-0 lead gone from
+  the bracket (which counts finals), and no second chance at the recap, because that fires on a
+  not-final to final transition and the transition had been spent. `completed_at` was absent
+  through the whole of the live game, checked in the bottom of the 1st, and is present on all 31
+  started games in the feed against none of the 34 unplayed ones. It now outranks the status
+  string in BOTH writers, the list upsert and the boxscore patch, which is what `isPlayed` in
+  the phantom-suppression pass had always done with it.
 - **The league feed's `/games` list caps at 50 and says nothing about it.** `GET /v1/games`
   returns a short array beside a `count` field holding the real total, exactly like the
   PostgREST cap above and just as quietly. The season crossed 50 on Aug 30, 2026 (56 records:

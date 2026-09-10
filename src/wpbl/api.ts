@@ -642,7 +642,14 @@ export function fetchWpblAllTracking(): Promise<WpblTrackRow[]> {
   for (let from = 0; ; from += PAGE) {
     // supabase-js mis-types projected jsonb (`raw->>key`) selects, so cast the result.
     const page = await safe<Record<string, unknown>[]>('fetchWpblAllTracking', () =>
-      supabase.from('wpbl_pitch_tracking').select(TRACK_SELECT).range(from, from + PAGE - 1) as unknown as
+      // `.order()` is not decoration: paging with `.range()` alone lets Postgres hand the same
+      // row to two pages and skip another, which here would double-count a pitch in a velocity
+      // average and silently drop another. Free to get away with while tracking sits at 766
+      // rows in one page, wrong the first time the league publishes a third game.
+      // `activity_id` is the table's natural key; readWpblPitcherLocations pages the same way.
+      supabase.from('wpbl_pitch_tracking').select(TRACK_SELECT)
+        .order('activity_id', { ascending: true })
+        .range(from, from + PAGE - 1) as unknown as
         PromiseLike<{ data: Record<string, unknown>[] | null; error: unknown }>,
       [])
     for (const d of page) out.push({

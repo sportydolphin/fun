@@ -1213,10 +1213,14 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   useEffect(() => {
     let cancelled = false
     fetchWpblAllLines()
-      .then(l => { if (!cancelled) setPositionIndex(buildPositionIndex(l.batting)) })
+      .then(l => { if (!cancelled) setPositionIndex(buildPositionIndex(l.batting, games)) })
       .catch(() => { /* search falls back to the roster's own labels */ })
     return () => { cancelled = true }
-  }, [])
+    // Keyed on the LENGTH rather than on `games` itself: the array's identity changes on every
+    // live poll, and rebuilding a map of 118 names to hand every search row a new object thirty
+    // times an hour buys nothing. What the index actually needs from the schedule is which
+    // games to leave out, and that only moves when the schedule gains a game.
+  }, [games.length])
 
   // Recent searches: the players and teams opened from the header search, newest first, so
   // the empty-query dropdown has something to show (traffic says opening a player page is the

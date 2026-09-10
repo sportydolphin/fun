@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery, type Theme } from '@mui/material'
 import { fetchWpblPlayerLines, fetchWpblPitcherLocations, getCachedWpblPlayerLines, getCachedWpblPitcherLocations, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllLines, type WpblPitchLoc } from './api'
 import { sumBatting, sumPitching, sumFielding, plateAppearances, fmtRate, fmtTwo } from './stats'
+import { regularSeasonLines } from './season'
 import { computeWpblPlayerRanks, ordinal, COUNT_RANK_BAR, COUNT_RANK_MIN_FIELD, type WpblStatRank, type WpblPlayerRanks } from './percentiles'
 import { useEraBasis } from './EraBasisContext'
 import type { EraBasis } from './stats'
@@ -1024,6 +1025,11 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   const [pitching, setPitching] = useState<WpblPitchingLine[]>(() => seeded?.pitching ?? [])
   const [fielding, setFielding] = useState<WpblFieldingLine[]>(() => seeded?.fielding ?? [])
   const [pitchLocs, setPitchLocs] = useState<WpblPitchLoc[]>([])
+  // Season-scoped like every other number on this page. The tracking read asks for every pitch
+  // under every feed id she has held, which is right for finding them and wrong for plotting
+  // them: the card sits beside a pitching line that stops at the regular season, and its own
+  // caption counts `pt.g` games from that same total.
+  const seasonPitchLocs = useMemo(() => regularSeasonLines(pitchLocs, games), [pitchLocs, games])
   // Every batting and pitching line in the league, for the percentile strip. Deliberately a
   // separate piece of state from the player's own lines: this one is allowed to never arrive.
   // `fetchWpblAllLines` is cached, deduped and already prefetched when the section lands on
@@ -1108,7 +1114,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // here, because the feed writes those games' batting position as "p" when she came to the
   // plate and the line simply does not exist when she did not, which is a game she fielded only
   // as a pitcher and is already covered by the 'p' the other games carry.
-  const fieldedPositions = useMemo(() => positionsPlayed(batting), [batting])
+  const fieldedPositions = useMemo(() => positionsPlayed(batting, games), [batting, games])
 
   const ranks = useMemo(
     () => leagueLines
@@ -1269,7 +1275,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   // The position she has actually been playing, which is not always the one on the roster.
   // `overridden` puts the filed one alongside rather than dropping it: a reader who knows her
   // as the club's catcher should not have to wonder whether we lost her.
-  const pos = displayPosition(player.position, batting)
+  const pos = displayPosition(player.position, batting, games)
   // Uniform number leads the meta line when the roster carries one (69 of 118 do). It is a
   // fact of identity a reader looks for first, so it goes ahead of position and handedness.
   const subParts = [player.jersey_number ? `#${player.jersey_number}` : null, pos.label, pos.overridden && pos.official ? `listed ${pos.official}` : null, [player.bats, player.throws].filter(Boolean).join('/') ? `B/T ${player.bats || '-'}/${player.throws || '-'}` : null, player.age != null ? `${player.age} yrs` : null].filter(Boolean)
@@ -1444,7 +1450,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   }
 
   const pitchingPane = {
-    hasLog: pitching.length > 0 || pitchLocs.length > 0,
+    hasLog: pitching.length > 0 || seasonPitchLocs.length > 0,
     head: paneHead('pitching'),
     line: (merged: boolean) => (
       <>
@@ -1519,8 +1525,8 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
         />
       </>
     ),
-    extras: pitchLocs.length > 0
-      ? <Box sx={{ mt: 2 }}><PitchLocationCard rows={pitchLocs} accent={color} gamesPitched={pt.g} /></Box>
+    extras: seasonPitchLocs.length > 0
+      ? <Box sx={{ mt: 2 }}><PitchLocationCard rows={seasonPitchLocs} accent={color} gamesPitched={pt.g} /></Box>
       : null,
   }
 

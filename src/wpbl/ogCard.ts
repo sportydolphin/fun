@@ -45,7 +45,7 @@ export function wpblPlayerCard(
 ): WpblPlayerCard {
   // A middot, not a comma: position codes are themselves comma-joined for a two-way
   // player ("RHP, UTL"), and "RHP, UTL, San Francisco Firebells" reads as one long list.
-  const subject = [displayPosition(player.position, batting).label, teamName].filter(Boolean).join(' · ')
+  const subject = [displayPosition(player.position, batting, games).label, teamName].filter(Boolean).join(' · ')
   return {
     title: `${player.name} — WPBL stats | sportydolphin.fun`,
     ogTitle: `${player.name} — ${subject}`,

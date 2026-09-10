@@ -55,6 +55,20 @@ describe('headToHead', () => {
     expect(g.get('A', 'A')).toBeNull()
   })
 
+  // The exclusion this file's header always claimed and the code did not make: the first
+  // postseason final, on Sep 9, 2026, turned a 5-0 season series into a 6-0 grid cell sitting
+  // one row above a standings table that had never heard of the game.
+  it('ignores a postseason game, however decisive and however final', () => {
+    const regular = game('A', 'B', 5, 1)
+    const playoff = { ...game('A', 'B', 6, 4), game_type: 'postSeason', counts_in_standings: true } as WpblGame
+    expect(headToHead([regular, playoff]).get('A', 'B'))
+      .toEqual({ wins: 1, losses: 0, runsFor: 5, runsAgainst: 1 })
+    // counts_in_standings alone is enough, for a feed that stops naming the round.
+    const flagged = { ...game('A', 'B', 6, 4), counts_in_standings: false } as WpblGame
+    expect(headToHead([regular, flagged]).get('A', 'B'))
+      .toEqual({ wins: 1, losses: 0, runsFor: 5, runsAgainst: 1 })
+  })
+
   // Same exclusions computeStandings applies, so the grid can never disagree with the
   // records on the cards directly above it.
   it('ignores anything that is not a decisive final', () => {

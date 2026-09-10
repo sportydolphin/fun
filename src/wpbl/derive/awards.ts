@@ -255,7 +255,7 @@ function utilitySlate({ players, batting, games }: AwardBallotInput): AwardCandi
   for (const [pid, lines] of byPlayer) {
     const player = roster.get(pid)
     if (!player) continue
-    const positions = positionsPlayed(lines)
+    const positions = positionsPlayed(lines, games)
     if (positions.length >= UTILITY_MIN_POSITIONS) rows.push({ player, positions })
   }
   return rows

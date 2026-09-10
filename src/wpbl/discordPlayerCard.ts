@@ -111,7 +111,7 @@ export function buildPlayerReply(
   const jersey = (player.jersey_number ?? '').trim()
   const subject = [
     jersey ? `#${jersey}` : '',
-    displayPosition(player.position, batting).label,
+    displayPosition(player.position, batting, games).label,
     teamName,
   ].filter(Boolean).join(' · ')
 

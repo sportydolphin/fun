@@ -1,3 +1,4 @@
+import { countsInStandings } from '../season.ts'
 import type { WpblFirstsPlay, WpblGame } from '../types'
 
 // Matchup derivations — batter-vs-pitcher lines and team-vs-team head-to-head. Pure:
@@ -101,6 +102,13 @@ export interface WpblH2HCell { wins: number; losses: number; runsFor: number; ru
 
 // grid.get(rowId, colId) → the row team's record + runs vs the column team, or null if they
 // haven't met (or it's the diagonal). Only decisive finals count, same rule as computeStandings.
+//
+// AND THAT LAST CLAUSE HAD TO BECOME TRUE. This said "the same rule as computeStandings" while
+// applying only half of it: the decisive-final test was here, the `countsInStandings` test was
+// not. It cost nothing for as long as the schedule was all regular season, and then the first
+// postseason game went final on Sep 9, 2026 and the grid read San Francisco 6-0 over Boston
+// against a season series of 5-0, one row above a standings table that said 10-5. Nothing
+// marked the extra win as a playoff win, because from in here it looks like any other final.
 export interface WpblH2H { get(rowId: string, colId: string): WpblH2HCell | null }
 
 export function headToHead(games: WpblGame[]): WpblH2H {
@@ -112,6 +120,7 @@ export function headToHead(games: WpblGame[]): WpblH2H {
     return c
   }
   for (const g of games) {
+    if (!countsInStandings(g)) continue
     if (g.status !== 'final' || g.home_score == null || g.away_score == null || g.home_score === g.away_score) continue
     const A = cell(g.home_team_id, g.away_team_id), B = cell(g.away_team_id, g.home_team_id)
     A.runsFor += g.home_score; A.runsAgainst += g.away_score

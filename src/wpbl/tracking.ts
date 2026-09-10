@@ -1,3 +1,4 @@
+import { regularSeasonLines, type WpblSeasonGame } from './season'
 import type { WpblTrackRow, WpblPlayer, WpblPitchingLine } from './types'
 
 // Season-wide aggregation of the feed's TrackMan tracking rows into velocity / spin /
@@ -82,14 +83,36 @@ export interface TrackingBoard {
 
 const EMPTY: TrackingBoard = { pitchCount: 0, hitCount: 0, gameCount: 0, veloLeaders: [], spinLeaders: [], fastestPitches: [], hardestHits: [], longestHits: [] }
 
-export function aggregateTracking(rows: WpblTrackRow[], players: WpblPlayer[], pitching: WpblPitchingLine[]): TrackingBoard {
+/**
+ * `games` IS REQUIRED, for the reason `sumBatting` and friends take it (see season.ts). These
+ * are season leaderboards: the fastest pitch of the season, the hardest ball hit in it. A
+ * tracking row carries a `game_id` and nothing else about its game, so it cannot say for itself
+ * whether it belongs in one, and this signature previously had no way to ask. That cost nothing
+ * only because the league published tracking for Aug 1 and Aug 2 and then stopped; the day it
+ * publishes a postseason game, a playoff pitch tops the season's velocity board with nothing
+ * saying so. An optional parameter would make forgetting it silent, which is the whole point.
+ */
+export function aggregateTracking(
+  rows: WpblTrackRow[],
+  players: WpblPlayer[],
+  pitching: WpblPitchingLine[],
+  games: WpblSeasonGame[],
+): TrackingBoard {
+  rows = regularSeasonLines(rows, games)
+  // The box lines are the per-game "unnamed starter" rescue below, so they have to be cut to
+  // the same set of games or the rescue can reach into a postseason box score.
+  pitching = regularSeasonLines(pitching, games)
   if (rows.length === 0) return EMPTY
 
   const byApi = new Map<string, WpblPlayer>()
   const byNorm = new Map<string, WpblPlayer>()
   const pById = new Map<string, WpblPlayer>()
   for (const p of players) {
-    if (p.api_id) byApi.set(p.api_id, p)
+    // EVERY feed id she has held, not just the current one. The league mints a new player id
+    // per club and again for the postseason, and a tracking row is keyed on whichever was
+    // current when the pitch was thrown: mapping only `api_id` drops a traded pitcher's earlier
+    // work onto the name matcher and, when two players share a name, onto nobody.
+    for (const a of [...(p.api_ids ?? []), p.api_id]) if (a) byApi.set(a, p)
     byNorm.set(normName(p.name), p)
     pById.set(p.id, p)
   }

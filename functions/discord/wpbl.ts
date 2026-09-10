@@ -238,7 +238,7 @@ interface Roster {
   games: WpblSeasonGame[]
   /** Every box-score line's position, for working out where each player actually plays.
    *  Cached with the roster because it changes on the same timescale: once a game. */
-  battingPositions: { player_id: string; position: string | null }[]
+  battingPositions: { player_id: string; game_id: string; position: string | null }[]
 }
 
 let memo: { at: number; data: Roster } | null = null
@@ -277,7 +277,7 @@ export async function loadRoster(
     read<WpblTeam>('wpbl_teams?select=*'),
     // Two narrow columns over the whole season (a few hundred rows) so the suggestions
     // name the position a player actually plays, the same as every other surface.
-    read<{ player_id: string; position: string | null }>('wpbl_batting_lines?select=player_id,position'),
+    read<{ player_id: string; game_id: string; position: string | null }>('wpbl_batting_lines?select=player_id,game_id,position'),
     read<WpblSeasonGame>('wpbl_games?select=id,game_type,counts_in_standings'),
   ])
   const data: Roster = { players, teams, battingPositions, games }
@@ -308,7 +308,7 @@ async function autocomplete(
     const players = roster.players
     // An empty box should still offer something rather than sitting blank.
     const hits = query ? searchPlayers(query, players).slice(0, 25) : players.slice(0, 25).map(p => ({ player: p }))
-    const positionIndex = buildPositionIndex(roster.battingPositions)
+    const positionIndex = buildPositionIndex(roster.battingPositions, roster.games)
     return hits.map(h => {
       const pos = displayPositionFromIndex(h.player, positionIndex).label
       return ({

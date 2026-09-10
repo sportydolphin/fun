@@ -5,6 +5,7 @@ import {
   getCachedWpblAllTracking, getCachedWpblAllPlayers, getCachedWpblAllLines, wpblTrackingCacheAgeMs,
 } from './api'
 import { aggregateTracking } from './tracking'
+import type { WpblSeasonGame } from './season'
 import type { TrackingBoard, VeloLeader, SpinLeader, PitchHit, BattedBall } from './tracking'
 import { WPBL_ACCENT } from './constants'
 import { SectionCard, LeaderRow, CARD_BORDER, useWpblName, chromePx } from './ui'
@@ -45,8 +46,11 @@ function EmptyState({ title, hint }: { title: string; hint?: string }) {
   )
 }
 
-export default function WpblTrackingView({ side, onOpenPlayer }: {
+export default function WpblTrackingView({ side, games, onOpenPlayer }: {
   teams?: WpblTeam[]
+  /** The schedule, so the boards below can be season boards. Required by `aggregateTracking`
+   *  for the reason season.ts gives: a tracking row cannot say which game it belongs to. */
+  games: WpblSeasonGame[]
   // Which half of the game to show. Owned by the Stats bar above, not by this view: it used
   // to keep its own Hitting/Pitching SegNav, so a reader who had already chosen a side one
   // level up was asked the same question again the moment they got here.
@@ -58,7 +62,7 @@ export default function WpblTrackingView({ side, onOpenPlayer }: {
   // fetch — including the paginated tracking scan — behind the spinner.
   const [board, setBoard] = useState<TrackingBoard | null>(() => {
     const tr = getCachedWpblAllTracking(), pl = getCachedWpblAllPlayers(), ln = getCachedWpblAllLines()
-    return tr && pl && ln ? aggregateTracking(tr, pl, ln.pitching) : null
+    return tr && pl && ln ? aggregateTracking(tr, pl, ln.pitching, games) : null
   })
   const [loading, setLoading] = useState(
     () => !(getCachedWpblAllTracking() && getCachedWpblAllPlayers() && getCachedWpblAllLines()))
@@ -73,7 +77,7 @@ export default function WpblTrackingView({ side, onOpenPlayer }: {
     Promise.all([fetchWpblAllTracking(), fetchWpblAllPlayers(), fetchWpblAllLines()])
       .then(([track, players, lines]) => {
         if (cancelled) return
-        setBoard(aggregateTracking(track, players, lines.pitching))
+        setBoard(aggregateTracking(track, players, lines.pitching, games))
         setLoading(false)
       })
       .catch(() => { if (!cancelled) setLoading(false) })
