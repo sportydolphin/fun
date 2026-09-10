@@ -111,8 +111,8 @@ export default function TakeSwingBoard({ rows, side, accent, isNarrow, expanded,
       <SectionCard title="Taking and swinging">
         <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mb: 1, lineHeight: 1.5 }}>
           {pitching
-            ? 'Every pitch of the season, split by whether the batter offered at it. Runs saved, so bigger is better in both, and the two add up to her total.'
-            : 'Every pitch of the season, split by whether she offered at it. The two add up to her run value.'}
+            ? 'Every pitch of the season, split by whether the batter offered at it. Runs saved, so bigger is better in both, and the two add up to the season total.'
+            : 'Every pitch of the season, split by whether the hitter offered at it. The two add up to the season run value.'}
         </Typography>
 
         {/* The column heads are the only thing telling these two numbers apart, so they are on
