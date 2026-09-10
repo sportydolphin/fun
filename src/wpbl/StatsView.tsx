@@ -1938,10 +1938,10 @@ function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, side, minP
             <OptionRow label="Qualified" on={qualified}
               hint={side === 'pitching' ? `${minIp} innings pitched or more` : `${minPa} plate appearances or more`}
               onClick={() => { if (!qualified) onQualified() }} />
+            {/* No hint. "Qualified" needs one because it names a threshold a reader cannot
+                see; "Everyone" is self-evident, and the warning that used to sit here was the
+                board arguing with the option it was offering. */}
             <OptionRow label="Everyone" on={!qualified}
-              hint={side === 'pitching'
-                ? 'One good relief outing can top the ERA board'
-                : 'A hitter who is 1 for 1 can top the average board'}
               onClick={() => { if (qualified) onQualified() }} />
           </Box>
         </SheetGroup>
