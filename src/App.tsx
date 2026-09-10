@@ -734,6 +734,12 @@ function AppInner() {
             // the account dropdown (z-index 1400) below page content like the sticky tab bar
             // (z-index 3). Dropping it on mobile lets the dropdown render in front of the page.
             ...(isDesktop && { backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }),
+            // AND NOT WHILE A MODAL IS OPEN. A full-viewport backdrop filter is expensive to
+            // invalidate, and under a modal's 60% dim this one cannot be seen at all: it is pure
+            // cost, paid on every repaint anywhere in the dialog above it. ModalShell publishes
+            // the attribute (see its effect, which counts nesting). CSS rather than JS state so
+            // the bar never re-renders for it.
+            'html[data-modal-open] &': { backdropFilter: 'none', WebkitBackdropFilter: 'none' },
             borderBottom: '1px solid',
             borderColor: 'divider',
           } : {}),

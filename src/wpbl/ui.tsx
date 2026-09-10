@@ -1500,7 +1500,6 @@ function useSheetDrag(
       if (!el) return
       const left = 1 - progress
       el.style.backgroundColor = `rgba(0,0,0,${(0.6 * left).toFixed(3)})`
-      el.style.backdropFilter = `blur(${(2 * left).toFixed(2)}px)`
     }
 
     const onStart = (e: TouchEvent) => {
@@ -1634,6 +1633,9 @@ function useSheetDrag(
   }, [enabled, cardRef, overlayRef, chromeRef, onClose])
 }
 
+/** How many ModalShells are mounted. See the effect in ModalShell for what it is for. */
+let modalDepth = 0
+
 export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, actions, footer, fillHeight, sheet, sheetFill, children }: {
   eyebrow: React.ReactNode
   onClose: () => void
@@ -1682,6 +1684,25 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
   // Freeze the page behind the modal for as long as it's open.
   useEffect(() => { lockBodyScroll(); return unlockBodyScroll }, [])
 
+  // ANNOUNCE THE MODAL ON <html>, for one consumer: the shared AppBar's desktop blur. That bar
+  // is a second full-viewport backdrop filter and it sits UNDER a modal that has already dimmed
+  // it to nothing, so while one is open the blur is invisible work, and it is the desktop-only
+  // half of the lag the overlay's own blur used to cause. An attribute rather than a context
+  // because App.tsx renders the bar and the modals are portalled out of the section: a context
+  // would have to wrap both, and the only thing being communicated is one boolean that CSS can
+  // read directly.
+  //
+  // COUNTED, because these nest: the section opens a player card over a game card, and the
+  // inner one unmounting must not tell the bar the coast is clear.
+  useEffect(() => {
+    modalDepth += 1
+    document.documentElement.dataset.modalOpen = ''
+    return () => {
+      modalDepth -= 1
+      if (modalDepth <= 0) { modalDepth = 0; delete document.documentElement.dataset.modalOpen }
+    }
+  }, [])
+
   // A sheet on a phone can be pushed back down. See useSheetDrag for what that has to avoid
   // colliding with; above sm this is an ordinary centred dialog and none of it is bound.
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -1718,7 +1739,18 @@ export function ModalShell({ eyebrow, onClose, maxWidth = 720, zIndex = 1500, ac
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
       sx={{
         position: 'fixed', inset: 0, zIndex,
-        bgcolor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)',
+        // NO `backdrop-filter` HERE, AND THIS IS A PERFORMANCE RULE RATHER THAN A TASTE ONE.
+        // It was `blur(2px)`, under a 60% black dim, where it was worth almost nothing to look
+        // at and a great deal to draw: a full-viewport backdrop filter makes the browser
+        // rasterise and blur EVERYTHING painted beneath it, which is the whole page, every time
+        // anything invalidates the backdrop. Every tappable row in this section changes its
+        // background on hover (TAPPABLE), so moving the mouse across the fan-award ballot, which
+        // is thirty tiles over a page carrying thirty more 512px portraits, asked for that work
+        // on a 340x70px change. On desktop it was visible lag on hover and a sign-in dialog that
+        // took a beat to appear over it; on a phone the viewport is small enough to hide it.
+        // The dim alone reads the same at a glance. See the AppBar's blur in App.tsx, which is
+        // the other half of this and is suppressed while a modal is up.
+        bgcolor: 'rgba(0,0,0,0.6)',
         display: 'flex', justifyContent: 'center',
         alignItems: sheet ? { xs: 'flex-end', sm: 'center' } : 'center',
         p: sheet ? { xs: 0, sm: 2 } : { xs: 1, sm: 2 },
