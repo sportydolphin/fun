@@ -138,7 +138,7 @@ export function useSeriesPicks(enabled: boolean): SeriesPickState {
     // Nothing is rolled back on failure. The write is an upsert through a definer function, so a
     // failure is a lost pick rather than a wrong one, and yanking a selection back out from under
     // somebody is a worse answer to a flaky network than letting them tap again.
-    void castWpblAwardVote(category, choice, voterKey ?? undefined)
+    if (voterKey) void castWpblAwardVote(category, choice, voterKey)
   }, [voterKey])
 
   /** Withdraw answers, and take them back off their bars. Same optimism as `cast`, and the same
@@ -159,7 +159,7 @@ export function useSeriesPicks(enabled: boolean): SeriesPickState {
       return { ...prev, ballot, results }
     })
     track(EVENTS.WPBL_PICKEM_CLEAR, { count: categories.length })
-    for (const category of categories) void clearWpblAwardVote(category, voterKey ?? undefined)
+    if (voterKey) for (const category of categories) void clearWpblAwardVote(category, voterKey)
   }, [voterKey])
 
   return { ...state, cast, clear, canPick: !!voterKey, signIn: () => openAuthDialog('signin') }

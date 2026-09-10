@@ -1080,6 +1080,26 @@ is retired.
 
 ## Shipped log
 
+### Sep 10, 2026: the fan awards open, and then ask for a name
+
+**THE BALLOT IS PUBLIC.** The gate is deleted rather than opened, the page is in the sitemap
+and out of `robots.txt`, and a phone gets a filled accent strip at the top of Home, because the
+card itself is two screens down there and it is the one thing on the page that asks the reader
+for something. `routes.test.ts` inverted with it, in place, so a half-launch in either
+direction is still a red test.
+
+**AND VOTING NOW NEEDS AN ACCOUNT**, decided within the hour and for the reason the pick'em
+found on Sep 8: the tally is published back, and a browser-held key is minted again by a
+private window and again by a cleared cache. The wall stands BEHIND the questions, not in front
+of them: a signed-out reader gets every category, every nominee, every figure and the running
+tally, and one line saying what signing in is for. Tapping a nominee opens the same dialog
+rather than doing nothing, which is the difference between a locked control and a dead one.
+
+**The key is required now, with no default.** It fell back to the browser id, which is how a
+forgotten argument becomes a vote written under nobody. Same shape as the schedule argument on
+the season aggregates: an optional parameter makes forgetting it silent, and this is the table
+where silence looks exactly like a poll nobody has answered.
+
 ### Sep 10, 2026: the playoff clock, and the hour that was never ours
 
 **REPORTED AS "PUT THE PLAYOFF TIMES IN THE READER'S ZONE", AND THEY ALREADY WERE.** Every

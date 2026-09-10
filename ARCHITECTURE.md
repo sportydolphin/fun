@@ -330,12 +330,16 @@ rule is that the two gates share one DEFINITION, not just one condition: they ar
 in two places, and the day one widens without the other, Home's outer gate hands the slot to a
 card the inner gate then renders nothing into.
 
-**`voter_key` holds two kinds of value, on purpose.** The awards ballot keys on the browser's
-analytics id, so a visitor can answer without an account; the pick'em keys on the signed-in
-**user id**, because those picks get scored and published and a browser id survives neither a
-cleared cache nor a second device. Nothing in the table tells the two apart and nothing needs
-to, since a category belongs to exactly one of them: anything joining this column to
-`auth.users` must filter on the `pickem:` prefix first.
+**`voter_key` is the signed-in user id, for both surfaces.** The pick'em got there first, on
+Sep 8, 2026; the awards ballot followed on Sep 10, hours after opening to fans. Both publish
+their tally back to the reader, and a key held in localStorage is minted fresh by a private
+window and again by a cleared cache, so the number on screen was only ever as honest as the
+least patient person looking at it. **The key is a required argument with no default** in all
+four client functions ([`awardVotes.ts`](src/wpbl/awardVotes.ts)): it used to fall back to the
+browser id, which meant a call site that forgot it wrote a vote under a key nobody would look
+up again, silently, on the one table whose failure mode is looking exactly like a poll nobody
+answered. Rows written under the old browser keys are still in the table and still counted;
+they were cast by real people, and nothing distinguishes them but their shape.
 
 It has **no select policy**, deliberately: raw rows would hand out every `voter_key`, and the
 update policy is guarded by nothing except those keys being unguessable. All four of its

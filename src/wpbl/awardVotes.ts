@@ -1,19 +1,26 @@
 import { supabase } from '../lib/supabase'
-import { sessionId } from '../lib/analytics'
 
 /**
  * Reading and writing the fan awards ballot.
  *
- * THE VOTER KEY IS THE BROWSER, not the account. A visitor should not have to make an account
- * to vote in a fan poll, and the anon key ships in the client bundle, so nothing the browser
- * says about who it is could be trusted anyway. Keying on the analytics id (localStorage)
- * means one browser is one ballot whether the voter signs in halfway through or never, and
- * signing in cannot double anybody's vote.
+ * THE VOTER KEY IS THE ACCOUNT, for both surfaces that write here.
  *
- * WHAT THAT DOES AND DOES NOT PREVENT. Clearing site data buys another ballot, so this is
- * proof against a casual second vote and not against somebody determined to stuff it. That is
- * the right trade for an award with no prize attached: the alternative is a sign-in wall,
- * which would cost more real votes than it saved fake ones.
+ * IT WAS THE BROWSER FIRST, and the argument for that was real: a visitor should not have to
+ * make an account to answer a fan poll, and an account requirement costs more true votes than
+ * it saves false ones on a question with nothing at stake. What decided it the other way is
+ * that the tally is PUBLISHED BACK, on both surfaces. A key held in localStorage is minted
+ * again by a private window and again by a cleared cache, so the number a reader is shown is
+ * only ever as honest as the least patient person looking at it. An account is not proof
+ * against a determined ballot-stuffer either, but it is a different order of effort, and it
+ * survives a cleared cache and follows a voter to a second device, which a browser id does
+ * not. The pick'em reached this conclusion first, on Sep 8, 2026; the awards followed it on
+ * Sep 10 with the same reasoning and the same two lines of code.
+ *
+ * THE KEY IS A REQUIRED ARGUMENT, WITH NO DEFAULT, and that is the load-bearing half. It used
+ * to default to the browser id, which meant a call site that forgot it did not fail: it wrote
+ * a vote under a key nobody would ever look up again, and it did so silently, on the one table
+ * in this section whose whole failure mode is looking exactly like a poll nobody has answered.
+ * Same reasoning as the schedule argument on the season aggregates in CLAUDE.md.
  *
  * READS GO THROUGH TWO RPCs because `wpbl_award_votes` has no select policy on purpose (see
  * the migration): raw rows would hand out every voter key, and the update policy is guarded by
@@ -25,18 +32,6 @@ export type AwardResults = Record<string, Record<string, number>>
 
 /** category id -> the choice this browser picked. */
 export type AwardBallot = Record<string, string>
-
-/**
- * This browser's ballot id.
- *
- * Returns the analytics id, including its 'no-storage' fallback: a browser with storage
- * switched off votes under a key it shares with every other such browser, so those ballots
- * overwrite one another rather than accumulating. That is a worse experience for a handful of
- * private-window visitors and the honest count for everyone else, which is the right way
- * round. It is also why nothing here treats a vote as having failed when it comes back
- * unchanged.
- */
-export const awardVoterKey = (): string => sessionId()
 
 /** The running tally, for everyone. Empty on any failure, which renders as "no votes yet"
  *  rather than as an error: a tally is not worth a broken page. */
@@ -55,7 +50,7 @@ export async function fetchWpblAwardResults(): Promise<AwardResults> {
 }
 
 /** What this browser has already picked, so a returning voter sees their ballot filled in. */
-export async function fetchWpblAwardBallot(voterKey = awardVoterKey()): Promise<AwardBallot> {
+export async function fetchWpblAwardBallot(voterKey: string): Promise<AwardBallot> {
   const { data, error } = await supabase.rpc('wpbl_award_ballot', { p_voter_key: voterKey })
   if (error) {
     console.warn('[wpbl] fetchWpblAwardBallot failed:', error.message)
@@ -90,7 +85,7 @@ export async function fetchWpblAwardBallot(voterKey = awardVoterKey()): Promise<
 export async function castWpblAwardVote(
   category: string,
   choice: string,
-  voterKey = awardVoterKey(),
+  voterKey: string,
 ): Promise<boolean> {
   if (!category || !choice || !voterKey) return false
   const { data, error } = await supabase.rpc('wpbl_cast_award_vote', {
@@ -120,7 +115,7 @@ export async function castWpblAwardVote(
  */
 export async function clearWpblAwardVote(
   category: string,
-  voterKey = awardVoterKey(),
+  voterKey: string,
 ): Promise<boolean> {
   if (!category || !voterKey) return false
   const { data, error } = await supabase.rpc('wpbl_clear_award_vote', {
