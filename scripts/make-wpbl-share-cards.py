@@ -220,12 +220,13 @@ TILE_RADIUS = 30
 def photo(im: Image.Image, portrait_path: Path) -> None:
     """The headshot, as a white tile on the plate.
 
-    A TILE RATHER THAN A CUT-OUT FIGURE BLEEDING OFF THE EDGE, which is the better-looking
-    design and cannot be used: only 53 of the 118 bundled headshots are cut out. The other
-    65 are the same photograph on an opaque white studio background, and pasted as a
-    free-standing figure they land on the plate as a white rectangle with a player in it.
-    Backing every portrait with white instead gives one design the whole roster can wear,
-    and the cut-out ones lose nothing by it: they were shot on the same white.
+    A TILE RATHER THAN A CUT-OUT FIGURE BLEEDING OFF THE EDGE. This used to be forced: only
+    53 of the 118 bundled headshots were cut out, and the other 65 pasted as free-standing
+    figures landed on the plate as a white rectangle with a player in it. All 118 carry alpha
+    since Sep 10, 2026 (scripts/cut-out-wpbl-portraits.py), so the tile is now a choice rather
+    than a constraint, and it is kept because the white backing is what gives the whole roster
+    one design. Compositing onto white first also means this script does not care which of the
+    two eras a file comes from, and the cards do not need rebuilding for the cut.
 
     Scaled by the FILE'S FRAME, not by the alpha bounding box, which is the version that
     looks wrong and is right. Every headshot is a 512 square from the same smart crop, so

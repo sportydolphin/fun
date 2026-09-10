@@ -6,6 +6,14 @@
 // their portrait by slugifying that name the same way, so no per-name mapping is needed.
 // The alias table is a fallback for any future roster name whose DB spelling can't be
 // slugified to its file name (currently empty — every portrait is named by its DB slug).
+//
+// EVERY FILE HERE IS A CUT-OUT, and a new one that is not has to be made into one:
+// `python scripts/cut-out-wpbl-portraits.py`. PlayerPortrait fills its circle with the club's
+// primary colour and draws the photo over it, so a headshot that kept its white studio
+// background renders sharp, correct and colourless, the only face on the page not wearing a
+// club. 65 of these sat like that for months, because nothing about it is visible to tsc and
+// the page looks fine unless you know what the other 53 look like. `portraitAlpha.test.ts`
+// is what notices now.
 
 import { slugifyName } from './slug'
 

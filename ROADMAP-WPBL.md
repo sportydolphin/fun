@@ -1080,6 +1080,32 @@ is retired.
 
 ## Shipped log
 
+### Sep 10, 2026: 65 players got their club colour back
+
+**MORE THAN HALF THE ROSTER WAS WEARING WHITE.** `PlayerPortrait` fills its circle with the
+club's primary and draws the headshot over it, which is the whole reason a page of players reads
+as four clubs. 53 of the bundled portraits are the league's own cut-outs and got that. The other
+65 are the same photograph with the studio's white left opaque, so they landed as a white disc
+inside a club-coloured ring: Lexi Hastings on Boston green, next to team-mates who had it. It was
+reported by eye, which is the only way it could be. Nothing about it is a type error, no test
+counted it, the photo is the right player and it is sharp.
+
+**[`scripts/cut-out-wpbl-portraits.py`](scripts/cut-out-wpbl-portraits.py) keys them, in place.**
+A threshold and not a segmentation model, because these are seamless white and against seamless
+white a threshold cuts exactly the paper and nothing else, where a model shaves a pale cap or half
+a ponytail and gives no sign it did. Two rules make it safe on a white uniform: the background has
+to REACH THE TOP OF THE FRAME, so a white cap or a white jersey is an island the cut cannot touch,
+and the soft ramp is applied only in a three-pixel band beside the cut, so cotton catching the
+light stays solid while paper bleeding through the anti-aliasing does not. The file is its own
+source and git is the only copy of what went in, so the pass skips anything that already carries
+alpha and `--check` lists the work before it happens.
+
+**`portraitAlpha.test.ts` is what notices next time**, off the WebP header rather than a decode.
+A headshot dropped into the folder with its background still on now fails a test instead of
+shipping and waiting to be spotted. The share cards did not need rebuilding: the card composites
+every portrait onto white before it draws it, which is why that design was chosen when only 53
+were cut out, and it means the two eras of file land identically.
+
 ### Sep 9, 2026: the fan awards ballot, live and owner-only
 
 **IT IS ON MAIN AND NO FAN CAN SEE IT.** Five questions on Home, five shortlists, a write-in
