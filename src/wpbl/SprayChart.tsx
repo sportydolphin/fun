@@ -336,6 +336,15 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
 
       {/* The breakdown. Busiest zone first, which is the order a reader asks for it in. */}
       <Box sx={{ flex: { md: '0 0 auto' }, width: { md: chromePx(210) }, minWidth: 0 }}>
+        {/* WHERE THE MISSING FIGURE IS, rather than in the note at the foot of the card. "Pull"
+            is defined by which box she stood in, and the feed records a switch hitter's
+            handedness only on the roster, never per plate appearance. Eight players are in
+            that position and the blank was previously explained a paragraph away from it. */}
+        {pull.pullPct == null && profile.placed > 0 && (
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mb: 1, lineHeight: 1.45 }}>
+            No pull rate: the feed records a switch hitter only on the roster.
+          </Typography>
+        )}
         {pull.pullPct != null && (
           <Box sx={{ display: 'flex', gap: 1.5, mb: 1 }}>
             {([['Pull', pull.pull], ['Centre', pull.center], ['Oppo', pull.oppo]] as const).map(([label, n]) => (
@@ -377,15 +386,16 @@ export default function SprayChart({ plays, bats, maxWidth = 520 }: {
       </Box>
       </Box>
 
-      {/* SAID OUT LOUD, NEVER HIDDEN. These are zones read out of the scorer's words, not
-          measured locations, and the balls whose wording named no direction are counted here
-          rather than quietly left out of the picture. */}
+      {/* ONE LINE, AND IT STILL HAS TO SAY THE HONEST THING. The zones are read out of the
+          scorer's words rather than measured, and a reader who takes them for coordinates has
+          been misled by us. What went is the explanation of WHY the league has none, which is
+          our problem rather than theirs, and the switch-hitter caveat, which has moved to the
+          Pull tiles where the figure it explains is missing. The count that could not be
+          placed stays, because a chart quietly dropping what it cannot read claims a
+          completeness it does not have. */}
       <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 0.5, lineHeight: 1.5 }}>
-        Zones, not coordinates: the league publishes no hit locations, so these are read from
-        each play's description.
-        {profile.unplaced > 0 && ` ${profile.unplaced} batted ${profile.unplaced === 1 ? 'ball' : 'balls'} named no direction and ${profile.unplaced === 1 ? 'is' : 'are'} not drawn.`}
-        {pull.pullPct == null && pull.total === 0 && profile.placed > 0
-          && ' No pull rate: the feed records a switch hitter only on the roster, never per plate appearance.'}
+        Read from each play's description, not measured locations.
+        {profile.unplaced > 0 && ` ${profile.unplaced} not placed.`}
       </Typography>
     </Box>
   )

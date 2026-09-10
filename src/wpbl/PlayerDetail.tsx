@@ -1476,7 +1476,7 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
       ? (
         <Box sx={{ mt: 2 }}>
           <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 900, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.disabled', mb: 0.75 }}>
-            Where she hits it
+            Hit locations
           </Typography>
           <SprayChart plays={myBattedBalls} bats={player.bats} />
         </Box>
