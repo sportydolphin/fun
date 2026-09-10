@@ -400,6 +400,19 @@ export type WpblRunValuePlay = Pick<WpblGamePlay,
   | 'event_type' | 'runs_scored' | 'narrative' | 'pitch_sequence'
 >
 
+// What a spray chart needs, and nothing else.
+//
+// A SEPARATE READ FROM WpblFirstsPlay, deliberately. That one is filtered at the database to
+// the plays that could set a milestone, which drops routine outs: they are most of the play
+// log and none of them can produce a first. But a flyout is the single best-covered category
+// there is for direction (219 of 219 name one), so a spray chart built on the firsts read
+// would be hits only and would draw a fielding chart with the fielding removed.
+export type WpblSprayPlay = Pick<WpblGamePlay,
+  | 'game_id' | 'sequence' | 'team_id'
+  | 'batter_id' | 'batter_name'
+  | 'narrative' | 'event_type' | 'is_hit'
+>
+
 export type WpblFirstsPlay = Pick<WpblGamePlay,
   | 'game_id' | 'sequence' | 'team_id'
   | 'batter_id' | 'batter_name' | 'pitcher_id' | 'pitcher_name'

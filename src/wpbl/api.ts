@@ -5,7 +5,7 @@ import { settleGames } from './gameOver'
 import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
-  WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchPlay, WpblRunValuePlay,
+  WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchPlay, WpblRunValuePlay, WpblSprayPlay,
   WpblPitchTracking, WpblTrackRow,
   WpblVideo, WpblArticle, WpblPhoto, WpblSiteGame, WpblLineupHistoryRow, WpblPitchingUsageRow,
   WpblGameDetails, WpblGameRevision,
@@ -389,6 +389,53 @@ const FIRSTS_PLAY_FILTER = [
   'runs_scored.gt.0',
   'narrative.ilike.*balk*',
 ].join(',')
+
+// ─── Batted balls, for the spray chart ────────────────────────────────────────
+//
+// A SECOND PLAY READ, and the filter is the reason. `fetchWpblAllPlays` drops routine outs at
+// the database because none of them can set a first, and a spray chart made of hits only is
+// not a spray chart: a flyout is the best-covered category in the whole log for direction
+// (219 of 219 name one), and leaving them out draws a picture where every ball a fielder
+// caught simply never happened.
+//
+// Narrowed the other way instead: only the event types that put a ball in play, and only the
+// eight columns the chart reads. That is roughly 1,500 rows for the season.
+const SPRAY_PLAY_SELECT = 'game_id,sequence,team_id,batter_id,batter_name,narrative,event_type,is_hit'
+const SPRAY_EVENT_TYPES = [
+  'single', 'double', 'triple', 'home_run',
+  'groundout', 'flyout', 'lineout', 'popup', 'foul_out', 'sacrifice', 'fielders_choice', 'out',
+]
+
+let sprayPlaysCache: { data: WpblSprayPlay[]; at: number } | null = null
+
+export function getCachedWpblBattedBalls(): WpblSprayPlay[] | null { return sprayPlaysCache?.data ?? null }
+
+/** Every batted ball of the season. Paged and ordered for the reason on fetchWpblAllPlays. */
+export function fetchWpblBattedBalls(): Promise<WpblSprayPlay[]> {
+  if (isFresh(sprayPlaysCache)) return Promise.resolve(sprayPlaysCache!.data)
+  return once('sprayPlays', async () => {
+    const PAGE = 1000
+    const out: WpblSprayPlay[] = []
+    for (let from = 0; ; from += PAGE) {
+      const page = await safe<WpblSprayPlay[]>('fetchWpblBattedBalls', () =>
+        supabase.from('wpbl_game_plays')
+          .select(SPRAY_PLAY_SELECT)
+          .in('event_type', SPRAY_EVENT_TYPES)
+          .order('game_id', { ascending: true })
+          .order('sequence', { ascending: true })
+          .range(from, from + PAGE - 1) as unknown as
+          PromiseLike<{ data: WpblSprayPlay[] | null; error: unknown }>,
+        [])
+      out.push(...page)
+      if (page.length < PAGE) break
+    }
+    // Corrections carry the batter, and a play credited to the wrong hitter puts her ball on
+    // somebody else's chart. Same overlay the firsts read applies, same reason.
+    const corrected = applyPlayCorrections(out, await fetchAllPlayCorrections())
+    if (corrected.length > 0 || sprayPlaysCache == null) sprayPlaysCache = { data: corrected, at: Date.now() }
+    return corrected
+  })
+}
 
 // How many games carry TrackMan data, from the watcher's one-row snapshot
 // (`wpbl_tracking_watch`, refreshed daily by scripts/watch-wpbl-tracking.mjs). One row and one

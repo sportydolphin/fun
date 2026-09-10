@@ -7,11 +7,14 @@ import { computeWpblPlayerRanks, ordinal, COUNT_RANK_BAR, COUNT_RANK_MIN_FIELD, 
 import { useEraBasis } from './EraBasisContext'
 import type { EraBasis } from './stats'
 import { wpblAccent, wpblColor, wpblSecondary, wpblFullName, outsToIp } from './constants'
-import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, SegNav, AccentPanel, useWpblDark, chromePx, TAPPABLE } from './ui'
+import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, SegNav, AccentPanel, useWpblDark, chromePx, TAPPABLE, TYPE_SCALE } from './ui'
 import { statFull, statPlain } from './glossary'
 import SwipeableViews from './SwipeableViews'
 import { WrittenAbout } from './Reading'
 import { PitchLocationCard } from './PitchLocation'
+import SprayChart from './SprayChart'
+import { fetchWpblBattedBalls, getCachedWpblBattedBalls } from './api'
+import type { WpblSprayPlay } from './types'
 import { displayPosition, positionsPlayed, leadsWithPitching } from './positions'
 import { wpblPlayerPath } from './routes'
 import { track, EVENTS } from '../lib/analytics'
@@ -969,6 +972,29 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
   onOpenGame?: (game: WpblGame) => void
 }) {
   const isDark = useWpblDark()
+
+  /**
+   * Every batted ball of the season, for the spray chart, seeded from the app-wide cache.
+   *
+   * FETCHED HERE RATHER THAN PASSED IN, because this is the only surface that wants it and
+   * the read is its own cached call: a player page opened cold pays for it once and every
+   * player opened afterwards is free. Deliberately NOT the plays `fetchWpblAllPlays` returns,
+   * which are filtered to what can set a milestone and so contain no routine outs.
+   */
+  const [battedBalls, setBattedBalls] = useState<WpblSprayPlay[]>(() => getCachedWpblBattedBalls() ?? [])
+  useEffect(() => {
+    if (battedBalls.length > 0) return
+    let cancelled = false
+    fetchWpblBattedBalls().then(rows => { if (!cancelled) setBattedBalls(rows) })
+    return () => { cancelled = true }
+  }, [battedBalls.length])
+
+  // Matched on the id, never the name: the league mints a new player_id per club, so a traded
+  // player's rows carry two of them, and `api_ids` is what makes them one person. The batter
+  // id on a play is already our own uuid, so this is the resolved one.
+  const myBattedBalls = useMemo(
+    () => battedBalls.filter(p => p.batter_id === player.id),
+    [battedBalls, player.id])
   /**
    * Which of the two layouts to BUILD, rather than which to show.
    *
@@ -1445,8 +1471,17 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
         rows={newestFirst(battingReal).map(l => ({ ...logRow(l.game_id, l.team_id), cells: [gamePosition(l.position), l.ab, l.r, l.h, l.doubles, l.triples, l.hr, l.rbi, l.sb, l.bb, l.so, l.tb] }))}
       />
     ),
-    /** What follows the log and the fielding line. Only the pitching pane has any. */
-    extras: null,
+    /** What follows the log and the fielding line. */
+    extras: myBattedBalls.length > 0
+      ? (
+        <Box sx={{ mt: 2 }}>
+          <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 900, letterSpacing: 0.4, textTransform: 'uppercase', color: 'text.disabled', mb: 0.75 }}>
+            Where she hits it
+          </Typography>
+          <SprayChart plays={myBattedBalls} bats={player.bats} />
+        </Box>
+      )
+      : null,
   }
 
   const pitchingPane = {
