@@ -8,6 +8,7 @@ import { supabase } from './lib/supabase'
 import { isSubscribed } from './lib/push'
 import { fetchFeedback, setFeedbackHandled, deleteFeedback, FeedbackRow } from './lib/feedback'
 import { UsersPanel } from './AdminUsers'
+import { AwardsPanel } from './AdminAwards'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -661,6 +662,7 @@ function DrillRow({ emoji, label, badge, onClick }: {
 export function AdminTools() {
   const [userCount, setUserCount] = useState<number | null>(null)
   const [usersOpen, setUsersOpen] = useState(false)
+  const [awardsOpen, setAwardsOpen] = useState(false)
   const [feedbackNew, setFeedbackNew]   = useState<number | null>(null)
   const [feedbackOpen, setFeedbackOpen] = useState(false)
 
@@ -709,6 +711,15 @@ export function AdminTools() {
             ) : undefined}
           />
           <Box sx={{ height: '1px', bgcolor: 'divider' }} />
+          {/* The ballot from the other side: every category including the ones nobody is being
+              asked, people rather than answers, and how far down the sheet they got. The
+              reader-facing tally cannot say any of that. See AdminAwards.tsx. */}
+          <DrillRow
+            emoji="🗳️"
+            label="Fan awards"
+            onClick={() => setAwardsOpen(true)}
+          />
+          <Box sx={{ height: '1px', bgcolor: 'divider' }} />
           <DrillRow
             emoji="👥"
             label="Manage users"
@@ -730,6 +741,8 @@ export function AdminTools() {
         onClose={() => setFeedbackOpen(false)}
         onChanged={loadFeedbackCount}
       />
+
+      <AwardsPanel open={awardsOpen} onClose={() => setAwardsOpen(false)} />
 
       <UsersPanel
         open={usersOpen}

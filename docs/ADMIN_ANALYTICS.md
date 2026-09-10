@@ -120,7 +120,8 @@ emailed me" at all, and the reason it must never be relaxed into a view or grant
 
 ## 3. The RPCs
 
-All take `days_back` (clamped 1–365) and an IANA `tz`, and all return `jsonb`.
+All take `days_back` (clamped 1–365) and an IANA `tz`, and all return `jsonb`, except the
+last two rows, which say what they take instead.
 
 | Function | Returns |
 |---|---|
@@ -135,6 +136,7 @@ All take `days_back` (clamped 1–365) and an IANA `tz`, and all return `jsonb`.
 | `admin_growth(days_back, tz)` | signups per day, user totals, push subscribers, reminder opt-ins |
 | `admin_user_roster(days_back, tz)` | one row per account: identity + auth.users email/provider/last sign-in, windowed activity and its WPBL/MLB split, favourite club, notification opt-ins, push devices, game reminders, series picks, feedback count, roles, MLB pick record |
 | `admin_set_user_role(target, want, granted, why)` | grant or revoke a `user_roles` row |
+| `admin_wpbl_award_votes()` | one row per fan-award and pick'em vote: category, choice, a stable HASH of the voter key, and when it was cast. **Takes no arguments and returns rows rather than `jsonb`**, unlike everything above it: it is a poll, not a window, and the table is one row per person per question. **It never returns the voter key.** Since Sep 10, 2026 a key is a user id, and knowing one is the whole of what lets a caller rewrite that person's ballot through `wpbl_cast_award_vote`, so a panel holding them would make every screenshot a set of credentials |
 | `admin_user_detail(target, days_back, tz, lim)` | one account: gap-filled daily series, browsers, first/last seen and lifetime total, then what they do (event names), where they go (WPBL tabs + routes), who they look at (players, clubs), what they searched for and did not find, their feedback, their series picks and their live game reminders |
 
 Two shared helpers: `admin_event_league(props, path)` and `admin_safe_tz(tz)`.
