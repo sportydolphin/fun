@@ -18,9 +18,15 @@ import type { WpblPlayer } from './wpbl/types'
 // WHAT AN OWNER CANNOT SEE FROM THE BALLOT ITSELF, which is the reason this exists at all.
 // The sheet shows the tally, and only for the categories a reader has answered; it counts
 // answers rather than people, hides everything until you have voted, and shows five of the
-// thirteen questions the table holds. This shows the lot: every category including the eight
-// that are defined and unasked, the pick'em rows that share the table, how many PEOPLE have
-// voted rather than how many answers exist, how far they got, and when the last one arrived.
+// thirteen questions the table holds. This shows how many PEOPLE have voted rather than how
+// many answers exist, how far down the sheet they got, when the last one arrived, and every
+// choice named.
+//
+// AND IT IS ABOUT THE BALLOT, WHICH IS NOT THE SAME AS BEING ABOUT THE TABLE. The pick'em
+// writes here too and outnumbers the awards six to one, so the first version of this headline
+// read "72 voters, 209 votes cast" on a ballot that had been open for an afternoon. The
+// grouping in adminAwards.ts is the fix: the ballot's five own the headline, everything else
+// is named and counted beside it.
 //
 // IT IS A READ. There is no way to change or delete a vote from here, deliberately: the panel
 // is for looking at a poll, and the moment it can edit one it is a poll the owner is in.
@@ -101,27 +107,31 @@ export function AwardsPanel({ open, onClose }: { open: boolean; onClose: () => v
         )}
         {report && (
           <>
+            {/* THE HEADLINE IS THE BALLOT AND NOTHING ELSE. It read the whole table once and
+                announced 209 votes from 72 voters on an afternoon-old ballot, because the
+                pick'em shares this table and outnumbers it six to one. Every number in this row
+                is the five questions on the card. */}
             <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', mb: 2.5 }}>
-              <Stat label="voters" value={report.voters} sub="people, not answers" />
-              <Stat label="votes cast" value={report.votes} />
-              <Stat label="finished all five" value={report.completed} />
+              <Stat label="voters" value={report.headline.voters} sub="people, not answers" />
+              <Stat label="answers" value={report.headline.votes} sub={`of ${report.headline.voters * 5} possible`} />
+              <Stat label="finished all five" value={report.headline.completed} />
               <Stat
                 label="last vote"
-                value={report.latest ? new Date(report.latest).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '—'}
-                sub={report.latest ? new Date(report.latest).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : `closes ${AWARDS_CLOSE_LABEL}`}
+                value={report.headline.latest ? new Date(report.headline.latest).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '—'}
+                sub={report.headline.latest ? new Date(report.headline.latest).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : `closes ${AWARDS_CLOSE_LABEL}`}
               />
             </Box>
 
             {/* HOW FAR PEOPLE GET, which is the number that says whether the sheet is too long.
                 A ballot abandoned after one answer and a ballot finished are the same row in
                 every other view here. */}
-            {report.voters > 0 && (
+            {report.headline.voters > 0 && (
               <Box sx={{ mb: 2.5 }}>
                 <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: 'text.disabled', mb: 0.5 }}>
                   How many of the five they answered
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
-                  {report.byAnswered.slice(1).map((n, i) => (
+                  {report.headline.byAnswered.slice(1).map((n, i) => (
                     <Box key={i} sx={{ flex: 1, textAlign: 'center', py: 0.6, borderRadius: 1, bgcolor: 'action.hover' }}>
                       <Typography sx={{ fontSize: '0.85rem', fontWeight: 800 }}>{n}</Typography>
                       <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled' }}>{i + 1}</Typography>
@@ -131,31 +141,41 @@ export function AwardsPanel({ open, onClose }: { open: boolean; onClose: () => v
               </Box>
             )}
 
-            {report.categories.length === 0 && (
+            {report.groups.length === 0 && (
               <Typography sx={{ fontSize: '0.8rem', color: 'text.disabled' }}>
                 Nobody has voted yet.
               </Typography>
             )}
 
-            {report.categories.map(c => (
-              <Box key={c.category} sx={{ mb: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.25 }}>
-                  <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, minWidth: 0 }}>{c.label}</Typography>
-                  {/* The eight defined-and-unasked categories and the pick'em rows are marked,
-                      because "Rookie of the Year: 3 votes" out of context reads as a live
-                      question rather than as an id somebody reached before it was on the card. */}
-                  {!c.onTheCard && (
-                    <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: 'text.disabled', letterSpacing: 0.5, textTransform: 'uppercase' }}>
-                      not on the card
+            {/* GROUPED, BECAUSE TWO FEATURES SHARE THIS TABLE. The ballot's five come first and
+                unlabelled, since the panel is about them; the pick'em is named and carries its
+                own count, so its traffic can be read without ever being added to the ballot's. */}
+            {report.groups.map(g => (
+              <Box key={g.key} sx={{ mb: 1 }}>
+                {g.key !== 'card' && (
+                  <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mt: 2.5, mb: 1, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+                    <Typography sx={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: 1.2, textTransform: 'uppercase', color: 'text.disabled' }}>
+                      {g.label}
                     </Typography>
-                  )}
-                  <Box sx={{ flex: 1 }} />
-                  <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>
-                    {c.votes} {c.votes === 1 ? 'vote' : 'votes'}
-                  </Typography>
-                </Box>
-                {c.choices.map(ch => (
-                  <ChoiceRow key={ch.choice} choice={ch.choice} votes={ch.votes} share={ch.share} players={players} />
+                    <Box sx={{ flex: 1 }} />
+                    <Typography sx={{ fontSize: '0.65rem', color: 'text.disabled' }}>
+                      {g.voters} {g.voters === 1 ? 'voter' : 'voters'} · {g.votes} {g.votes === 1 ? 'answer' : 'answers'}
+                    </Typography>
+                  </Box>
+                )}
+                {g.categories.map(c => (
+                  <Box key={c.category} sx={{ mb: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.25 }}>
+                      <Typography sx={{ fontSize: '0.8rem', fontWeight: 800, minWidth: 0 }}>{c.label}</Typography>
+                      <Box sx={{ flex: 1 }} />
+                      <Typography sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>
+                        {c.votes} {c.votes === 1 ? 'vote' : 'votes'}
+                      </Typography>
+                    </Box>
+                    {c.choices.map(ch => (
+                      <ChoiceRow key={ch.choice} choice={ch.choice} votes={ch.votes} share={ch.share} players={players} />
+                    ))}
+                  </Box>
                 ))}
               </Box>
             ))}
