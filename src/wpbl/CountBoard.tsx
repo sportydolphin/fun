@@ -16,7 +16,15 @@ import type { CountValue } from './derive/countValue'
 // the figures taken out is exactly the chart that does not. Hue carries the sign, opacity
 // carries the size, and the figure under them carries both.
 
-export default function CountBoard({ counts, accent }: { counts: CountValue[]; accent: string }) {
+export default function CountBoard({ counts, fullCount, accent }: {
+  counts: CountValue[]
+  /** The gap between a ball and a strike on 3-2, which this card's own grid cannot produce:
+   *  both outcomes leave it. Measured from the pitches themselves by `fullCountSwing`, and
+   *  quoted here because it is the number that gives the grid its scale. Null until both
+   *  sides of it have been thrown often enough to price. */
+  fullCount: number | null
+  accent: string
+}) {
   const byKey = new Map(counts.map(c => [c.key, c]))
   // Scaled to the widest cell rather than to a fixed range: this league's runs are roughly
   // double a major-league one, so any hardcoded span would wash the whole grid out.
@@ -38,6 +46,14 @@ export default function CountBoard({ counts, accent }: { counts: CountValue[]; a
           {first != null && (
             <> The first pitch is worth <strong>{fmtRunValue(first, 2)}</strong> either way: that is
               the whole gap between 1-0 and 0-1.</>
+          )}
+          {/* THE RANGE, WHICH IS THE POINT OF THE CARD. One pitch being worth a tenth of a run
+              reads as small until it is set beside the same pitch on 3-2, where the two
+              outcomes are a walk and a strikeout and it is worth eight times as much. That
+              cell cannot say so itself: 4-2 and 3-3 are not counts, so the grid stops one
+              pitch short of its own most interesting number. */}
+          {fullCount != null && (
+            <> The 3-2 pitch is worth <strong>{fmtRunValue(fullCount, 2)}</strong>.</>
           )}
         </Typography>
 

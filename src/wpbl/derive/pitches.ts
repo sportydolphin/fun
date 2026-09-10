@@ -26,6 +26,20 @@ import type { WpblPitchPlay, WpblPlayer } from '../types'
 // unrecognised letter is counted separately rather than guessed at, so the day the feed adds
 // a seventh (a pitchout or an intentional ball would be the obvious ones) it shows up as a
 // number on the coverage line instead of quietly inflating "ball".
+//
+// THE EVIDENCE FOR THE TWO THE FEED MISLABELS, because both are load-bearing and neither can
+// be checked against anything the league publishes. `P` carries
+// `{"code":"P","type":"pitchout","description":"Pitchout"}` on all 1,563 of them, which would
+// make this a league where a fifth of every pitch thrown is a pitchout; it is the last pitch
+// of 1,560 of the sequences that contain one and the plate appearance ends in a batted ball,
+// which a real pitchout cannot do. `K` arrives as `"unknown"` and is the called strike: on 3-0
+// it is 49% of pitches while `S` is 1%, and on 2-2 swings are 68% of the strikes thrown. Nobody
+// swings 3-0 and everybody swings 2-2, so the letter that vanishes at 3-0 is the swung one and
+// the letter that does not is the taken one. This is the only test there is; keep it here.
+//
+// THIS IS THE ONE PLACE THE LETTERS ARE DEFINED. `countValue.ts` coarsens this table rather
+// than restating it, which is what stops a correction to `K` landing in one module and not
+// the other.
 export type PitchKind = 'ball' | 'called' | 'swinging' | 'foul' | 'inplay' | 'hbp'
 
 export const PITCH_CODES: Readonly<Record<string, PitchKind>> = {

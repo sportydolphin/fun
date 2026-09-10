@@ -12,7 +12,11 @@ import { wpblAccentFg } from './constants'
 import { SectionCard, LeaderRow, PlayerPortrait, ExpandRow, useWpblDark, useWpblName, chromePx,
   BOARD_COLUMN, BOARD_COLUMN_WIDE } from './ui'
 import CountBoard from './CountBoard'
+import TakeSwingBoard from './TakeSwingBoard'
 import { countValues } from './derive/countValue'
+import { fullCountSwing, takeSwingSplit } from './derive/pitchValue'
+import { pitchQualifiers } from './derive/pitches'
+import { wpblQualifiers } from './stats'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 
 // The run-value board: what each situation in a game is worth, and which plays moved furthest
@@ -378,6 +382,7 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer, ope
   }, [])
   const isNarrow = useMediaQuery('(max-width:600px)')
   const [allLeaders, setAllLeaders] = useState(false)
+  const [allTakeSwing, setAllTakeSwing] = useState(false)
 
   const [plays, setPlays] = useState(() => getCachedWpblAllRunValuePlays())
   const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
@@ -413,6 +418,25 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer, ope
   const rows = useMemo(() => eventValues(values), [values])
   // Free: the same `values` pass the boards above already walk, with no extra request.
   const counts = useMemo(() => countValues(values), [values])
+  // THE ONE BOARD HERE THAT NEEDS A QUALIFIER, and the reason is the sign. The leaderboard
+  // beside it ranks a total whose average event is good news for the side asked for, so a
+  // two-game cameo cannot reach the top of it and no bar is needed. A pitcher's TAKE column is
+  // the opposite: most pitches a batter takes are balls, so it runs negative for everybody, and
+  // ranking it put four relievers who had barely pitched above Ayami Sato, purely for having
+  // thrown less. The bar is the discipline board's own, off the same column and the same
+  // qualifier the Stats tab uses, so the two boards cannot disagree about who is a regular.
+  const mins = useMemo(() => {
+    const q = wpblQualifiers(teams, games)
+    return pitchQualifiers(q.active ? q.teamGames : 0)
+  }, [teams, games])
+  const takeSwing = useMemo(() => {
+    const min = side === 'pitching' ? mins.minPitcher : mins.minBatter
+    return takeSwingSplit(values, counts, players, side).filter(r => r.pitches >= min)
+  }, [values, counts, players, side, mins])
+  // The 3-2 pitch, which the count table on its own cannot price: both of its outcomes leave
+  // the grid. See `fullCountSwing`.
+  const fullCount = useMemo(
+    () => fullCountSwing(values, counts, { balls: 3, strikes: 2 }), [values, counts])
   const worked = useMemo(() => workedExample(values, rows), [values, rows])
   const workedDate = useMemo(() => {
     const g = worked && games.find(x => x.id === worked.value.play.game_id)
@@ -513,7 +537,11 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer, ope
       {/* The second column: the count grid over the explanation, since a reader who wants the
           numbers wants them before the derivation, and both are the same width. */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 }, minWidth: 0 }}>
-      {counts.length > 0 && <CountBoard counts={counts} accent={accent} />}
+      {counts.length > 0 && <CountBoard counts={counts} fullCount={fullCount} accent={accent} />}
+
+      <TakeSwingBoard rows={takeSwing} side={side} accent={accent} isNarrow={isNarrow}
+        expanded={allTakeSwing} onToggle={() => setAllTakeSwing(v => !v)}
+        onOpenPlayer={onOpenPlayer} />
 
       {/* THE WHOLE EXPLANATION, IN ONE SHUT CARD, in the order the idea is actually built:
           a situation is worth something, a play is worth what it changed to it, and here is one

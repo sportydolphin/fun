@@ -309,7 +309,11 @@ function CandidateTile({ candidate, award, team, player, on, share, showShare, r
         <Box
           {...exit.link}
           aria-label={exit.label}
-          title={exit.label}
+          // The hover tooltip says what the arrow DOES, not where it goes: "Open Denae
+          // Benites's player page" is the right thing for a screen reader, which reads the
+          // control cold, and a needlessly long label on a mouse that is already over the
+          // name. `aria-label` keeps the specific one.
+          title="View full stats"
           sx={{
             // 4px is ornament, not structure: it keeps the chip off the corner radius and has no
             // string and no tap target to grow with.
@@ -868,8 +872,11 @@ export default function FanVoteCard({
   return (
     <SectionCard
       title="Fan awards"
+      // NO SUBTITLE BEFORE THE FIRST ANSWER. The rows under the header are the five questions
+      // and the nominees, so a line describing them said the same thing twice, above the thing
+      // it was describing. What a reader who has answered nothing needs is to see the names.
       subtitle={closed ? 'Voting is closed. See where it finished.'
-        : answered === 0 ? 'Five questions the numbers cannot settle.'
+        : answered === 0 ? undefined
           : answered < entries.length ? `${answered} of ${entries.length} answered.`
             : 'All five in. Change them any time.'}
       fill={fill}

@@ -1,3 +1,4 @@
+import { PITCH_CODES, type PitchKind } from './pitches'
 import type { PlayRunValue } from './runExpectancy'
 
 // ─── What a count is worth ────────────────────────────────────────────────────
@@ -17,26 +18,29 @@ import type { PlayRunValue } from './runExpectancy'
 // appearance by construction, and every other count reads against it.
 
 /**
- * The feed's six pitch codes.
+ * The six pitch codes, coarsened to the four things a COUNT can do.
  *
- * `P` IS THE BALL BEING PUT IN PLAY, AND THE FEED CALLS IT A PITCHOUT. Its own `pitch_events`
- * entry is `{"code":"P","type":"pitchout","description":"Pitchout"}` on all 1,563 of them,
- * which would make this a league where a fifth of all pitches are pitchouts. It is terminal in
- * 1,560 of the 1,563 sequences that contain one and the plate appearance ends in a batted
- * ball, which a real pitchout cannot do. Read the code, never the feed's label for it.
- *
- * `K` has `type: "unknown"` for the same reason: the label is unreliable and the code is not.
+ * DERIVED FROM `PITCH_CODES` RATHER THAN RESTATED. This module and the discipline board read
+ * the same six letters off the same column, and for a while they each carried their own table
+ * of them: two definitions of what `K` means, either of which could be corrected without the
+ * other. The letters live in one place now, and this one only says which of them move a count
+ * and how. What that table knows and this one throws away is HOW a strike was earned, which
+ * the count does not care about: 0-1 is 0-1 whether she watched it or missed it.
  */
-export const PITCH_EFFECT = {
-  B: 'ball',
-  K: 'strike',
-  S: 'strike',
-  F: 'foul',
-  H: 'hbp',
-  P: 'inplay',
-} as const
+const EFFECT_OF: Readonly<Record<PitchKind, PitchEffect>> = {
+  ball: 'ball',
+  called: 'strike',
+  swinging: 'strike',
+  foul: 'foul',
+  inplay: 'inplay',
+  hbp: 'hbp',
+}
 
-export type PitchEffect = typeof PITCH_EFFECT[keyof typeof PITCH_EFFECT]
+export const PITCH_EFFECT: Readonly<Record<string, PitchEffect>> = Object.fromEntries(
+  Object.entries(PITCH_CODES).map(([ch, kind]) => [ch, EFFECT_OF[kind]]),
+)
+
+export type PitchEffect = 'ball' | 'strike' | 'foul' | 'inplay' | 'hbp'
 
 export interface Count { balls: number; strikes: number }
 
@@ -76,7 +80,7 @@ export function countsThrough(sequence: string | null | undefined): Count[] {
 
   visit()                                  // every plate appearance starts at 0-0
   for (const ch of sequence ?? '') {
-    const effect = PITCH_EFFECT[ch as keyof typeof PITCH_EFFECT]
+    const effect = PITCH_EFFECT[ch]
     // An unknown code is skipped rather than guessed at: advancing the count on a character
     // this does not recognise would misprice every count after it in the same at-bat.
     if (effect === 'ball') balls = Math.min(3, balls + 1)
