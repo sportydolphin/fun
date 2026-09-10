@@ -5,6 +5,7 @@ import {
   fetchWpblAllLines, fetchWpblAllTracking, fetchWpblVideos, fetchWpblArticles, fetchWpblSiteGames,
 } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
+import { applyLeagueStartTimes } from './startTimes'
 import { wpblPortrait } from './portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from './positions'
 import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, chromePx, hoverOnly, tappableIf } from './ui'
@@ -772,14 +773,28 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const navBadge = (key: string): boolean => key === 'stats' && runsBadge
 
   const [teams, setTeams] = useState<WpblTeam[]>([])
-  const [games, setGames] = useState<WpblGame[]>([])
+  const [feedGames, setFeedGames] = useState<WpblGame[]>([])
   const [players, setPlayers] = useState<WpblPlayer[]>([])
-  // The league's own website calendar, mirrored nightly. It answers one question the stats
-  // feed cannot: for a postseason game the feed has not published yet, which club bats last.
-  // Held here rather than fetched twice, because the Schedule tab and Home's Next game card
-  // build their postseason rows from the same function and must not disagree about who is at
-  // home. An empty list is a working state, not a broken one: see postseasonScheduleRows.
+  // The league's own website calendar, mirrored nightly. It answers two questions the stats
+  // feed answers worse: for a postseason game the feed has not published yet, which club bats
+  // last, and for one it HAS published, when the game actually starts (see applyLeagueStartTimes,
+  // and the semifinal this section had an hour early). Held here rather than fetched twice,
+  // because the Schedule tab and Home's Next game card build their postseason rows from the same
+  // function and must not disagree about who is at home. An empty list is a working state, not a
+  // broken one: see postseasonScheduleRows.
   const [siteGames, setSiteGames] = useState<WpblSiteGame[]>([])
+  /**
+   * THE SCHEDULE THE WHOLE SECTION RENDERS, which is the feed's with the league's own published
+   * first pitches over it. Every start time, countdown and reminder below reads `games`.
+   *
+   * HERE AND NOT AT `fetchWpblSchedule`, WHICH IS WHERE THE OTHER THREE SCHEDULE RULES LIVE, for
+   * one reason: this rule needs a second table and the section deliberately does not wait on that
+   * table (see the fetch below). Applying it at the read would either block the first paint on
+   * the calendar or run before the calendar had landed, which is the same as not running. A memo
+   * over both pieces of state is the version that corrects itself the moment the calendar
+   * arrives, without anything else in the section knowing that it did.
+   */
+  const games = useMemo(() => applyLeagueStartTimes(feedGames, siteGames), [feedGames, siteGames])
   const [loading, setLoading] = useState(true)
   const isMobileView = useMediaQuery('(max-width:600px)')
   const navRef = useRef<HTMLDivElement>(null)
@@ -1460,7 +1475,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
     Promise.all([fetchWpblTeams(), fetchWpblSchedule()]).then(([t, g]) => {
       if (cancelled) return
       clearTimeout(revealTimer)
-      setTeams(t); setGames(g); setLoading(false)
+      setTeams(t); setFeedGames(g); setLoading(false)
     })
     // Deliberately NOT in that Promise.all: nothing waits on the mirrored calendar, and the
     // section must not sit behind it. It fills in the home clubs on the postseason rows when
@@ -1483,7 +1498,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // about it here or not at all: whatever stops this loop freezes the whole section on a
   // pre-game schedule while every countdown on it keeps ticking.
   useForegroundInterval(
-    () => { fetchWpblSchedule().then(setGames).catch(() => {}) },
+    () => { fetchWpblSchedule().then(setFeedGames).catch(() => {}) },
     liveGame ? 20000 : 60000,
   )
 

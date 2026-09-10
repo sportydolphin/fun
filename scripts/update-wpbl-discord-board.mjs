@@ -390,6 +390,19 @@ async function main() {
   for (const g of rows ?? []) byFixture.set(fixtureKey(g), g)
   for (const g of postseason) if (!byFixture.has(fixtureKey(g))) byFixture.set(fixtureKey(g), g)
 
+  // THE FEED WINS THE COLLISION ON IDENTITY AND LOSES IT ON THE CLOCK. Everything above is
+  // about keeping the row that carries an api_game_id, and that is still right. But the feed
+  // publishes a first pitch once and then stops touching a scheduled row: on Sep 10, 2026 it
+  // had that night's semifinal an hour early for three days while the calendar had it right,
+  // and this board's whole job is a countdown. Same rule as src/wpbl/startTimes.ts.
+  for (const g of postseason) {
+    const kept = byFixture.get(fixtureKey(g))
+    if (kept && kept !== g && kept.status === 'scheduled' && g.start_time && g.start_time !== kept.start_time) {
+      console.log(`  ⏰  ${g.away_team_id}@${g.home_team_id}: feed says ${kept.start_time}, league says ${g.start_time}`)
+      kept.start_time = g.start_time
+    }
+  }
+
   const upcoming = [...byFixture.values()]
     .map(g => ({ ...g, _startMs: gameStartMs(g.game_date, g.start_time) }))
     .filter(g => g._startMs != null && g._startMs > now - LIVE_GRACE_MS)

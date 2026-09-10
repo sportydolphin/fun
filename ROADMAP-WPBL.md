@@ -1080,6 +1080,31 @@ is retired.
 
 ## Shipped log
 
+### Sep 10, 2026: the playoff clock, and the hour that was never ours
+
+**REPORTED AS "PUT THE PLAYOFF TIMES IN THE READER'S ZONE", AND THEY ALREADY WERE.** Every
+clock in the section stores a Central wall clock and renders it through `formatGameTime` into
+whatever zone the reader is in, and has since long before the postseason. What was wrong was
+the number being converted: the stats feed had that night's semifinal at 5:00 PM Central and
+had not touched the row since Sep 7, while the league's own calendar, its published schedule
+page and `POSTSEASON_SCHEDULE` all said 6:00 PM. A west-coast reader was told 3:00 PM for a
+game starting at 4:00 PM, faithfully.
+
+**SO THE LEAGUE'S OWN CALENDAR NOW OUTRANKS THE FEED ON A GAME NOBODY HAS PLAYED.**
+`applyLeagueStartTimes` in [`startTimes.ts`](src/wpbl/startTimes.ts), matched on the date and
+both clubs, the time only and never the date, scheduled games only. Both sources are the
+league; the difference is that one of them is the page a fan checks and buys a ticket from, and
+being privately right against it is indistinguishable from being wrong. Measured before it was
+trusted: across all 34 games the feed had published, the two agreed 33 times.
+
+**IT IS APPLIED IN THREE PLACES AND THAT IS DELIBERATE.** `WpblApp` holds the memo, which
+covers every rendered clock in the section at once, and it is there rather than at
+`fetchWpblSchedule` (where `dedupeSchedule`, `settleGames` and `mergeSchedule` live) for one
+reason: this rule needs the mirrored calendar, and the section is built not to wait on that
+table. The bell and [`send-wpbl-game-start.mjs`](scripts/send-wpbl-game-start.mjs) apply it to
+their own narrower reads, because a reminder is the one surface where being an hour early
+reaches somebody who was not even looking, and a push cannot be taken back.
+
 ### Sep 10, 2026: 65 players got their club colour back
 
 **MORE THAN HALF THE ROSTER WAS WEARING WHITE.** `PlayerPortrait` fills its circle with the

@@ -411,6 +411,42 @@ async function main() {
    * feeds both the series win counts and each club's regular-season record, so a silent
    * prefix would decide a series that is still being played (see CLAUDE.md).
    */
+  /**
+   * The league's own calendar for the postseason window, which outranks the stats feed on
+   * when a game starts. THE POINT OF THIS SCRIPT IS THE CLOCK: it writes a Discord event's
+   * `scheduled_start_time`, which is what a whole server gets reminded by. The feed publishes
+   * a first pitch once and then leaves a scheduled row alone, and on Sep 10, 2026 it had that
+   * night's semifinal an hour early for three days while the league's own schedule page had
+   * it right. Same rule as src/wpbl/startTimes.ts, and it fails open: a failed read leaves
+   * the feed's times exactly as they were.
+   */
+  async function fetchPublishedStarts() {
+    const { data, error } = await supabase
+      .from('wpbl_site_games')
+      .select('game_date, start_time, home_team_id, away_team_id')
+    if (error) {
+      console.warn(`⚠️  Loading the league calendar failed (${error.message}) - using the feed's times.`)
+      return new Map()
+    }
+    return new Map((data ?? [])
+      .filter(r => r.start_time && r.home_team_id && r.away_team_id)
+      .map(r => [`${r.game_date}|${r.away_team_id}@${r.home_team_id}`, r.start_time]))
+  }
+
+  /** Scheduled games only, and the time only: a game that has started was watched by the feed
+   *  and not by the calendar, and a game the league MOVED to another day does not match this
+   *  key at all and keeps what the feed says. */
+  function applyPublishedStarts(rows, published) {
+    if (!published.size) return rows
+    return rows.map(g => {
+      if (g.status !== 'scheduled') return g
+      const at = published.get(`${g.game_date}|${g.away_team_id}@${g.home_team_id}`)
+      if (!at || at === g.start_time) return g
+      console.log(`🕑 ${g.away_team_id}@${g.home_team_id} ${g.game_date}: feed says ${g.start_time}, league says ${at}`)
+      return { ...g, start_time: at }
+    })
+  }
+
   async function fetchAllGames() {
     const out = []
     for (let from = 0; ; from += 1000) {
@@ -432,7 +468,7 @@ async function main() {
     : '\n⚾ WPBL postseason event sync (dry run: pass --apply to write)\n')
 
   const events = await discord(`/guilds/${GUILD_ID}/scheduled-events`)
-  const games = await fetchAllGames()
+  const games = applyPublishedStarts(await fetchAllGames(), await fetchPublishedStarts())
   const { data: teams, error: tErr } = await supabase.from('wpbl_teams').select('id, city')
   if (tErr) throw new Error(`Loading teams failed: ${tErr.message}`)
   const cities = new Map((teams ?? []).map(t => [t.id, t.city]))

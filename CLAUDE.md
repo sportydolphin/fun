@@ -182,7 +182,19 @@ Each of these has already cost someone a debugging session, and none of them fai
   with `POSTSEASON_SCHEDULE` on all 11 postseason games. **And the feed's times can simply be
   wrong**, separately from any math we do: on Sep 9, 2026 its Sep 10 row said 5:00 PM Central
   against the league's 6:00 PM and had not been updated since Sep 7, so a game time that
-  disagrees with the league page is not automatically a bug in this repo.
+  disagrees with the league page is not a bug in the conversion. It was still wrong on the
+  page, which is the only place it counts: a Pacific reader was told 3:00 PM for a 4:00 PM
+  first pitch, and the fix is not to touch the zone math, which was right the whole time.
+  `applyLeagueStartTimes` in [`src/wpbl/startTimes.ts`](src/wpbl/startTimes.ts) puts the
+  league's own calendar (`wpbl_site_games`) over the feed's `start_time` for a game still
+  SCHEDULED, matched on the date and both clubs, and nothing else about the row. Applied in
+  `WpblApp` rather than at `fetchWpblSchedule` where the section's three other schedule rules
+  live, because it needs a second table the section deliberately does not wait on; the bell
+  ([`notifications/gameStart.ts`](src/wpbl/notifications/gameStart.ts)) and the push sender
+  ([`scripts/send-wpbl-game-start.mjs`](scripts/send-wpbl-game-start.mjs)) each apply the same
+  rule to their own narrower read, because a reminder an hour early is the version of this that
+  reaches somebody who is not even looking. Across all 34 games the feed had published the two
+  sources agreed 33 times, which is what makes this a correction rather than a second opinion.
 - **A game's status GOES BACKWARDS, and `completed_at` is the only field that does not.** Game 1
   of the 2026 postseason finished at 01:51Z on Sep 10. Both feed surfaces published
   `completed_at`, the list said Final, we stored final, `announceFinal` posted the recap a

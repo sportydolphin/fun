@@ -225,6 +225,34 @@ async function main() {
   if (gameErr) throw new Error(`Loading games failed: ${gameErr.message}`)
   const gameById = new Map([...(gameRows ?? []), ...todayGames].map(g => [g.id, g]))
 
+  // THE LEAGUE'S OWN CALENDAR OUTRANKS THE FEED ON WHEN A GAME STARTS, which on this surface
+  // is the difference between a reminder and a wrong one. The stats feed publishes a first
+  // pitch and then leaves a scheduled row alone: on Sep 10, 2026 it had that night's semifinal
+  // an hour early and had not touched the row for three days, while the league's own schedule
+  // page (mirrored into wpbl_site_games) had it right. A push cannot be taken back, so it is
+  // worth one extra select over one date. Same rule as src/wpbl/startTimes.ts, repeated rather
+  // than imported because this is a plain Node job and that is a TypeScript module.
+  const { data: publishedRows } = await supabase
+    .from('wpbl_site_games')
+    .select('game_date, start_time, home_team_id, away_team_id')
+    .eq('game_date', date)
+  const publishedStart = new Map(
+    (publishedRows ?? [])
+      .filter(r => r.start_time && r.home_team_id && r.away_team_id)
+      .map(r => [`${r.game_date}|${r.away_team_id}@${r.home_team_id}`, r.start_time]),
+  )
+  // Scheduled games only, and the time only: a game that has started was watched by the feed
+  // and not by the calendar, and a game the league MOVED to another day does not match this
+  // key at all and rightly keeps what the feed says.
+  for (const g of gameById.values()) {
+    if (g.status !== 'scheduled') continue
+    const published = publishedStart.get(`${g.game_date}|${g.away_team_id}@${g.home_team_id}`)
+    if (published && published !== g.start_time) {
+      console.log(`  ⏰  ${g.away_team_id}@${g.home_team_id}: feed says ${g.start_time}, league says ${published}`)
+      g.start_time = published
+    }
+  }
+
   // Fold the standing opt-ins in as ordinary reminders, skipping any (user, game) that
   // already has a real row so a user can't be queued twice for the same game.
   const seen = new Set(reminders.map(r => `${r.user_id}:${r.game_id}`))

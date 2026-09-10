@@ -19,6 +19,7 @@ import type { NotificationPayload } from '../../../shared/notifications'
 import type { NotificationContext, NotificationSource } from '../../lib/notifications'
 import type { WpblGameStatus } from '../types'
 import { getCachedAllGamesPref } from '../reminders'
+import { applyLeagueStartTimes, type PublishedStart } from '../startTimes'
 
 // Same heads-up the sender uses (DEFAULT_LEAD_MIN in scripts/send-wpbl-game-start.mjs).
 // If that changes, change it here too or the bell and the lock screen disagree about
@@ -90,11 +91,22 @@ export const wpblGameStartSource: NotificationSource = {
     // the season. This runs on a timer for as long as the tab is open, so unlike a view
     // that loads once it would pull every line score and live-state blob in the table
     // every few minutes to look at a handful of start times.
-    const { data, error } = await supabase
-      .from('wpbl_games')
-      .select('id, game_date, start_time, home_team_id, away_team_id, status')
-      .in('game_date', scheduleDays(WPBL_TZ))
-      .order('game_date', { ascending: true })
+    const days = scheduleDays(WPBL_TZ)
+    // The league's own calendar over the same three days, for the same reason the section
+    // applies it to the whole schedule: the feed can be an hour out on a game it published
+    // days ago and then stopped touching, and a reminder is the one surface where being an
+    // hour early is worse than saying nothing. At most three rows. See startTimes.ts.
+    const [{ data, error }, { data: published }] = await Promise.all([
+      supabase
+        .from('wpbl_games')
+        .select('id, game_date, start_time, home_team_id, away_team_id, status')
+        .in('game_date', days)
+        .order('game_date', { ascending: true }),
+      supabase
+        .from('wpbl_site_games')
+        .select('game_date, start_time, home_team_id, away_team_id')
+        .in('game_date', days),
+    ])
     if (error || !data) return []
 
     const now = Date.now()
@@ -102,7 +114,7 @@ export const wpblGameStartSource: NotificationSource = {
     // Earliest qualifying game wins. Postseason games are deliberately NOT filtered out:
     // countsInStandings() is about season totals, and a fan who asked to be reminded
     // before every game means every game.
-    const upcoming = dropPhantoms(data as ReminderGame[])
+    const upcoming = applyLeagueStartTimes(dropPhantoms(data as ReminderGame[]), (published ?? []) as PublishedStart[])
       .filter(g => g.status === 'scheduled')
       .map(g => ({ game: g, startMs: gameStartMs(g.game_date, g.start_time) }))
       .filter((g): g is { game: ReminderGame; startMs: number } => g.startMs !== null)
