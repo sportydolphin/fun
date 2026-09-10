@@ -5,7 +5,7 @@ import {
   pressable, linkPress, FOCUS_RING, TAPPABLE, hoverOnly, useWpblDark, useWpblName, TYPE_SCALE, chromePx,
 } from './ui'
 import { useWpblPlayerLink, useWpblTeamLink } from './LinkContext'
-import { wpblManagerPortrait } from './portraits'
+import { wpblManagerPortraitSet } from './portraits'
 import { wpblAccent } from './constants'
 import { useEraBasis } from './EraBasisContext'
 import { fanVoteAwards, AWARDS_CLOSE_LABEL, WPBL_AWARDS_CREDIT, awardsCreditLine } from './awards'
@@ -239,7 +239,7 @@ function CandidateTile({ candidate, award, team, player, on, share, showShare, r
   const { fmtEra } = useEraBasis()
   // Null for everybody but the four managers, whose art is bundled and keyed on their own id
   // rather than on a name: see wpblManagerPortrait.
-  const headshot = wpblManagerPortrait(candidate.key)
+  const headshot = wpblManagerPortraitSet(candidate.key)
   const stats = candidate.stats ?? []
   // WHERE THIS CARD LETS YOU OUT, or null where it cannot. A player goes to her page; a manager,
   // who has none, goes to her club's. Resolved once here rather than twice in the markup so the

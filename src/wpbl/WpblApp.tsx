@@ -6,7 +6,7 @@ import {
 } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill, wpblFullName, formatGameTime } from './constants'
 import { applyLeagueStartTimes } from './startTimes'
-import { wpblPortrait } from './portraits'
+import { wpblPortraitSet } from './portraits'
 import { buildPositionIndex, displayPositionFromIndex, type PrimaryPosition } from './positions'
 import { SegNav, SectionLabel, TeamBadge, useWpblDark, CARD_BORDER, chromePx, hoverOnly, tappableIf } from './ui'
 import { useSearchBridge, updateSearchBridge, setSearchQuery } from '../mlb/state/SearchBridgeContext'
@@ -1292,7 +1292,9 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         team?.abbr,
       ].filter(Boolean).join(' · ') || undefined,
       avatar: {
-        imageUrl: wpblPortrait(p.name) ?? undefined,
+        // The thumb, not the 512: this is a 32px avatar in a dropdown that can hold
+        // twenty of them, and the shell's search takes one url rather than a set.
+        imageUrl: wpblPortraitSet(p.name)?.src,
         fallbackText: initials,
         bg: wpblColor(p.team_id), ring: wpblSecondary(p.team_id),
         fit: 'cover', circle: true,

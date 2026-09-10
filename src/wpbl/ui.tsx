@@ -12,7 +12,7 @@ import { createPortal } from 'react-dom'
 import { Box, Typography, Tooltip, useTheme, useMediaQuery } from '@mui/material'
 import type { Theme, SxProps } from '@mui/material'
 import { WPBL_ACCENT, wpblAccentFg, wpblColor, wpblSecondary, wpblLogo, wpblLogoFill } from './constants'
-import { wpblPortrait } from './portraits'
+import { wpblPortraitSet, type WpblPortraitSet } from './portraits'
 import type { WpblTeam, WpblPlayer } from './types'
 import { scrollBehavior } from '../lib/motion'
 import { useSwipeNav } from '../AccessibilityContext'
@@ -505,10 +505,12 @@ export function PlayerPortrait({ name, teamId, size = 40, square, src: given }: 
   /** A face this component cannot look up, because the lookup is by a DB player name and the
    *  person is not on a roster: the four managers on the awards ballot. Everything else about
    *  the frame is the same, which is the point of routing them through here rather than
-   *  redrawing the ring somewhere else. */
-  src?: string | null
+   *  redrawing the ring somewhere else. A set rather than a url so a manager gets the same
+   *  rendition choice a player does; a bare string still works and simply has one. */
+  src?: string | WpblPortraitSet | null
 }) {
-  const src = given ?? wpblPortrait(name)
+  const art: WpblPortraitSet | null =
+    typeof given === 'string' ? { src: given } : (given ?? wpblPortraitSet(name))
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('')
   return (
     <Box sx={{
@@ -519,8 +521,18 @@ export function PlayerPortrait({ name, teamId, size = 40, square, src: given }: 
       border: `2px solid ${wpblSecondary(teamId)}`,
       display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
     }}>
-      {src
-        ? <Box component="img" src={src} alt={name} loading="lazy" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      {art
+        ? <Box
+            component="img" src={art.src} srcSet={art.srcSet}
+            // WHAT THE BROWSER IS BEING TOLD, and it has to be a plain length: `sizes` is read
+            // before layout and cannot see `--app-chrome`, so this states the widest this frame
+            // can get, which is the caller's px at the desktop chrome scale. Overstating it is
+            // the safe direction (a sharper file than needed); understating it would send a
+            // 2x player page the 128.
+            sizes={`${Math.ceil(size * 1.4)}px`}
+            alt={name} loading="lazy"
+            sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
         : <Typography sx={{ fontSize: size * 0.36, fontWeight: 800, color: '#fff' }}>{initials}</Typography>}
     </Box>
   )

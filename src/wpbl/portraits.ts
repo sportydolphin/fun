@@ -31,16 +31,63 @@ for (const [p, url] of Object.entries(modules)) {
   bySlug[slug] = url
 }
 
+// The 128 copies, built by scripts/make-wpbl-portrait-thumbs.py. Same glob shape, same slugs,
+// deliberately a SEPARATE map: a missing thumb has to fall back to the 512 rather than break a
+// face, and that is a lookup that can miss rather than an entry that has to exist.
+const thumbModules = import.meta.glob('./portraits/thumbs/*.webp', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+}) as Record<string, string>
+
+const thumbBySlug: Record<string, string> = {}
+for (const [p, url] of Object.entries(thumbModules)) {
+  thumbBySlug[p.split('/').pop()!.replace(/\.webp$/, '')] = url
+}
+
 // DB slug → file slug overrides, for any future case where a player's DB spelling can't
 // be slugified to their bundled file name. Empty today — all portraits are named by DB slug.
 const ALIASES: Record<string, string> = {}
 
-// Portrait URL for a player name, or null if we don't have one bundled.
+// Portrait URL for a player name, or null if we don't have one bundled. THE 512, which is the
+// one to hand anything that wants a single url: an unfurl card, a canvas, a download.
 export function wpblPortrait(name: string | null | undefined): string | null {
   if (!name) return null
   let slug = slugifyName(name)
   slug = ALIASES[slug] ?? slug
   return bySlug[slug] ?? null
+}
+
+/**
+ * Both renditions of a face, for anything that DRAWS one.
+ *
+ * WHY A SET AND NOT A URL. A browser decodes an image at its natural size, so a 512 square is
+ * about a megabyte of bitmap wherever it is painted, and this section draws faces at 32, 46 and
+ * 84 by the dozen: the fan-award sheet mounts thirty over a Home page holding thirty more. Every
+ * one of those was decoding the print-resolution copy. `srcset` moves the choice to the browser,
+ * which is the only party that knows the reader's screen.
+ *
+ * THE 512 STAYS IN THE SET rather than being replaced by the thumb, because the player page's
+ * portrait at a desktop scale on a 2x screen genuinely wants it, and because a `w` descriptor
+ * costs nothing when it is not chosen.
+ *
+ * MISSING THUMB, NO PROBLEM: the set collapses to the 512 alone. A face that is one build out of
+ * date is worth more than a `srcset` that is exactly right.
+ */
+export interface WpblPortraitSet {
+  /** What a browser with no srcset support loads, and the `src` attribute either way. */
+  src: string
+  /** Undefined when there is only one rendition, so the attribute is simply absent. */
+  srcSet?: string
+}
+
+export function wpblPortraitSet(name: string | null | undefined): WpblPortraitSet | null {
+  const full = wpblPortrait(name)
+  if (!full) return null
+  let slug = slugifyName(name!)
+  slug = ALIASES[slug] ?? slug
+  const thumb = thumbBySlug[slug]
+  return thumb ? { src: thumb, srcSet: `${thumb} 128w, ${full} 512w` } : { src: full }
 }
 
 // ─── The bench ──────────────────────────────────────────────────────────────────
@@ -72,10 +119,30 @@ for (const [p, url] of Object.entries(managerModules)) {
   managerBySlug[p.split('/').pop()!.replace(/\.webp$/, '')] = url
 }
 
+const managerThumbModules = import.meta.glob('./managers/thumbs/*.webp', {
+  eager: true,
+  query: '?url',
+  import: 'default',
+}) as Record<string, string>
+
+const managerThumbBySlug: Record<string, string> = {}
+for (const [p, url] of Object.entries(managerThumbModules)) {
+  managerThumbBySlug[p.split('/').pop()!.replace(/\.webp$/, '')] = url
+}
+
 /** Portrait URL for a manager's `mgr:<slug>` key, or null if none is bundled. */
 export function wpblManagerPortrait(key: string | null | undefined): string | null {
   if (!key || !key.startsWith('mgr:')) return null
   return managerBySlug[key.slice(4)] ?? null
+}
+
+/** The same four faces as a `srcset` pair. Same reasoning as wpblPortraitSet: the ballot draws
+ *  a manager at exactly the size it draws a player. */
+export function wpblManagerPortraitSet(key: string | null | undefined): WpblPortraitSet | null {
+  const full = wpblManagerPortrait(key)
+  if (!full) return null
+  const thumb = managerThumbBySlug[key!.slice(4)]
+  return thumb ? { src: thumb, srcSet: `${thumb} 128w, ${full} 512w` } : { src: full }
 }
 
 export { slugifyName }

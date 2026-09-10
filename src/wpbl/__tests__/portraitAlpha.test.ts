@@ -33,12 +33,21 @@ function hasAlpha(buf: Buffer): boolean {
 }
 
 describe('the bundled portraits', () => {
+  const faces = (folder: string) => readdirSync(dir(folder)).filter(f => f.endsWith('.webp'))
+
   for (const folder of ['portraits', 'managers']) {
     it(`are cut out, every one of them (${folder})`, () => {
-      const opaque = readdirSync(dir(folder))
-        .filter(f => f.endsWith('.webp'))
-        .filter(f => !hasAlpha(readFileSync(join(dir(folder), f))))
+      const opaque = faces(folder).filter(f => !hasAlpha(readFileSync(join(dir(folder), f))))
       expect(opaque).toEqual([])
+    })
+
+    // The 128 copy every drawn face is served from. A missing one is not a broken page (the set
+    // falls back to the 512) and that is exactly why nothing else would notice: the surface
+    // quietly goes back to decoding a megabyte of bitmap for a 46px tile.
+    // A failure here means run: python scripts/make-wpbl-portrait-thumbs.py
+    it(`each have a 128px thumb (${folder})`, () => {
+      const thumbs = new Set(faces(`${folder}/thumbs`))
+      expect(faces(folder).filter(f => !thumbs.has(f))).toEqual([])
     })
   }
 })
