@@ -1,5 +1,6 @@
 import {
-  WPBL_AWARDS, WPBL_MANAGERS, WPBL_GLOVE_SHORTLIST, WPBL_AURA_SHORTLIST, playChoiceKey,
+  WPBL_AWARDS, WPBL_MANAGERS, WPBL_ARM_ORDER_LAST, WPBL_GLOVE_SHORTLIST, WPBL_AURA_SHORTLIST,
+  playChoiceKey,
   type AwardSlate, type WpblAward, type WpblNominee,
 } from '../awards'
 import { regularSeasonLines, countsInStandings } from '../season'
@@ -463,7 +464,9 @@ function armSlate(
   //
   // It is a rule and not a list, so it follows the race: if the MVP shortlist changes, this one
   // re-derives against it on the next build.
-  return mvp.field
+  // The hand-ordered names run AFTER the cut, never before it. See WPBL_ARM_ORDER_LAST: the
+  // sort decides who is on the ballot and this decides nothing but where a card is drawn.
+  return orderLast(WPBL_ARM_ORDER_LAST, players, mvp.field
     .filter(c => c.arm > 0 && c.player != null && eligible.has(c.player.id))
     .filter(c => !exclude.has(c.player!.id))
     .sort((a, b) => b.arm - a.arm)
@@ -492,7 +495,27 @@ function armSlate(
         // who happened to pick up a save is not recarded as a closer.
         stats: armStats(t),
       }
-    })
+    }))
+}
+
+/**
+ * Moves the named players to the end of a shortlist, in the order they are named.
+ *
+ * ON THE ROSTER ROW, not on the candidate's own name, so it agrees with `resolveNominees` about
+ * what a nominee is: a (name, club) pair that has to hit exactly one player. A name that resolves
+ * to nobody, or to two people, moves nobody and leaves the list as the sort built it, which is the
+ * same way every hand-kept list in this file fails.
+ */
+function orderLast(
+  last: readonly WpblNominee[], players: WpblPlayer[], candidates: AwardCandidate[],
+): AwardCandidate[] {
+  const ids = new Set(resolveNominees(last, players).map(r => r.player.id))
+  if (!ids.size) return candidates
+  const kept = candidates.filter(c => !c.playerId || !ids.has(c.playerId))
+  // Ordered by the CONSTANT and not by the shortlist, so two pinned names keep the order they
+  // were written in rather than the one the sort happened to leave them in.
+  const moved = [...ids].flatMap(id => candidates.filter(c => c.playerId === id))
+  return [...kept, ...moved]
 }
 
 // ── The box-score shortlists ────────────────────────────────────────────────────

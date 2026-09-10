@@ -191,9 +191,29 @@ export interface WpblNominee {
 
 export const WPBL_GLOVE_SHORTLIST: readonly WpblNominee[] = [
   { name: 'Ashton Lansdell', teamId: 'LA' },
-  { name: 'Denver Bryant', teamId: 'BOS' },
   { name: 'Denae Benites', teamId: 'NY' },
   { name: 'Natsuki Yonetani', teamId: 'NY' },
+  { name: 'Denver Bryant', teamId: 'BOS' },
+]
+
+/**
+ * Drawn LAST on Pitcher of the Year, which is the one computed shortlist this ballot hand-orders.
+ *
+ * IT MOVES A NAME, IT NEVER ADDS ONE. The six are still the six arms the run-expectancy table
+ * picked, on the section's own qualifier bar; this reorders whoever is already among them. So a
+ * name here that the sort did not select is not promoted onto the ballot by being written down,
+ * and the day she drops off the list this constant quietly does nothing rather than resurrecting
+ * her. That is the property worth having: the shortlist keeps answering to the numbers.
+ *
+ * WHY A LIST AND NOT A THUMB ON THE SORT. Every order on this ballot is a figure the section
+ * already publishes, and the point of that is that nobody has to trust the person who built it.
+ * Weighting the sort to land one name in one place gives that up invisibly, for every later
+ * reader of armSlate, and it would also move her card's figures relative to the others. Two
+ * separate facts, "who the six are" and "the order they are drawn in", with only the second one
+ * a hand call, is the version that stays honest.
+ */
+export const WPBL_ARM_ORDER_LAST: readonly WpblNominee[] = [
+  { name: 'Gigi Schiano', teamId: 'BOS' },
 ]
 
 export const WPBL_AWARDS: readonly WpblAward[] = [
@@ -409,8 +429,8 @@ export function anyAwardOpen(games: readonly ScheduleDate[], now: Date = new Dat
 /**
  * Most Aura is chosen too, and it is the one award where that needs no defending.
  *
- * The section's own heading calls these five questions the numbers cannot settle, and this is the
- * one where that is not a figure of speech. It was seeded off the top two home-run hitters and
+ * These five are the questions the numbers cannot settle, and this is the one where that is not
+ * a figure of speech. It was seeded off the top two home-run hitters and
  * the top two strikeout pitchers, which is a fine way to find four good players and no way at all
  * to find the one people look for on the lineup card. Worse, it made the tiles argue: four faces
  * carded on HR and AVG is a second MVP ballot, and a reader comparing .552 against .219 is
@@ -421,8 +441,8 @@ export function anyAwardOpen(games: readonly ScheduleDate[], now: Date = new Dat
 export const WPBL_AURA_SHORTLIST: readonly WpblNominee[] = [
   { name: 'Meggie Meidlinger', teamId: 'LA' },
   { name: 'Denver Bryant', teamId: 'BOS' },
-  { name: 'Andréanne Leblanc', teamId: 'SF' },
   { name: 'Claire Eccles', teamId: 'NY' },
+  { name: 'Andréanne Leblanc', teamId: 'SF' },
 ]
 
 /**

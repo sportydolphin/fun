@@ -1106,6 +1106,17 @@ shipping and waiting to be spotted. The share cards did not need rebuilding: the
 every portrait onto white before it draws it, which is why that design was chosen when only 53
 were cut out, and it means the two eras of file land identically.
 
+### Sep 10, 2026: three names moved on the ballot
+
+Gigi Schiano last on Pitcher of the Year, Denver Bryant last on Defensive Wizard, Andréanne
+Leblanc last on Most Aura. Two of those are a line swap, since both of those shortlists are
+hand-written and drawn as written. The pitcher list is computed, so it took
+`WPBL_ARM_ORDER_LAST`: a list that runs AFTER the cut and can only reorder somebody the
+run-expectancy table already selected. It cannot put a name on the ballot, and the day she is not
+on the list it does nothing rather than resurrecting her. The alternative was a thumb on the sort,
+which would have moved her card's figures too and left every later reader of `armSlate` unable to
+tell which part of the order was the numbers.
+
 ### Sep 9, 2026: the fan awards ballot, live and owner-only
 
 **IT IS ON MAIN AND NO FAN CAN SEE IT.** Five questions on Home, five shortlists, a write-in
