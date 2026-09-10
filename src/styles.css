@@ -101,7 +101,6 @@
   --card-bg: #fff;
   --card-bg-gradient: linear-gradient(180deg,#fff,#f1f5f9);
   --border-color: #cbd5e1;
-  --newsletter-bg: linear-gradient(180deg,#fff,#fbfdff);
   --crit-color-1: #dc2626;
   --crit-color-2: #ef4444;
 }
@@ -155,7 +154,6 @@
   --card-bg: #181b22;
   --card-bg-gradient: linear-gradient(180deg,#1e1e1e,#2a2a2a);
   --border-color: #424242;
-  --newsletter-bg: linear-gradient(180deg,#1e1e1e,#2a2a2a);
   --crit-color-1: #ff6b6b;
   --crit-color-2: #ff8e8e;
 }
@@ -170,22 +168,6 @@ body {
 a { color: var(--link-color); }
 
 h1 { margin: 0 0 8px 0; }
-
-/* Newsletter styles */
-.newsletter { display:flex; gap:18px; align-items:center; justify-content:space-between; margin-top:28px; padding:18px; background:var(--newsletter-bg); border-radius:12px; box-shadow:0 10px 30px rgba(2,6,23,0.06) }
-.newsletter-left { flex:1 }
-.newsletter h2 { margin:0 0 6px 0 }
-.signup-row { display:flex; gap:10px; margin-top:10px }
-.email-input { padding:10px 12px; border-radius:10px; border:1px solid rgba(2,6,23,0.08); min-width:220px }
-.signup-btn { padding:10px 14px; border-radius:10px; background:linear-gradient(180deg,#06b6d4,#0891b2); color:white; border:none; font-weight:700; cursor:pointer }
-.signup-btn:active { transform: translateY(1px) }
-.signup-status { margin-top:10px; color:#475569 }
-.newsletter-graphic { width:140px; display:flex; align-items:center; justify-content:center }
-
-@media (max-width:700px) {
-  .newsletter { flex-direction:column; align-items:flex-start }
-  .newsletter-graphic { align-self:center }
-}
 
 
 
