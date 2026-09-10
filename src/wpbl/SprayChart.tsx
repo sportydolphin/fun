@@ -3,7 +3,7 @@ import { Box, Typography, useTheme } from '@mui/material'
 import { sprayProfile, pullProfile, OUTFIELD_ZONES } from './derive/spray'
 import type { SprayZone, ZoneTally } from './derive/spray'
 import type { WpblSprayPlay } from './types'
-import { TYPE_SCALE } from './ui'
+import { TYPE_SCALE, chromePx } from './ui'
 
 // ─── Spray chart ──────────────────────────────────────────────────────────────
 //
@@ -115,7 +115,7 @@ const MODES: ReadonlyArray<[Mode, string]> = [['all', 'All'], ['hits', 'Hits'], 
 const valueOf = (t: ZoneTally | undefined, mode: Mode): number =>
   !t ? 0 : mode === 'hits' ? t.hits : mode === 'outs' ? t.outs : t.total
 
-export default function SprayChart({ plays, bats, maxWidth = 460 }: {
+export default function SprayChart({ plays, bats, maxWidth = 520 }: {
   plays: readonly WpblSprayPlay[]
   /** From the roster. Null or 'S' means no pull rate is claimed; see spraySide. */
   bats?: string | null
@@ -127,7 +127,19 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
   const theme = useTheme()
 
   const profile = useMemo(() => sprayProfile(plays), [plays])
-  const pull = useMemo(() => pullProfile(plays, bats), [plays, bats])
+  /**
+   * The plays the chart is currently showing, which is what the pull rate has to be measured
+   * over too.
+   *
+   * It was measured over ALL batted balls regardless of the mode, so on Hits the three figures
+   * at the top of the breakdown described a different set of balls from the list directly
+   * beneath them: a hitter reading 56% pull over a list whose zones sum to a different split.
+   * Two numbers on one card that disagree about the same question.
+   */
+  const modePlays = useMemo(
+    () => (mode === 'all' ? plays : plays.filter(p => !!p.is_hit === (mode === 'hits'))),
+    [plays, mode])
+  const pull = useMemo(() => pullProfile(modePlays, bats), [modePlays, bats])
 
   const byZone = useMemo(() => {
     const m = new Map<SprayZone, ZoneTally>()
@@ -223,6 +235,18 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
         ))}
       </Box>
 
+      {/* THE PICTURE AND THE NUMBERS, SIDE BY SIDE ON A DESKTOP.
+          
+          The chart was capped at 460px and centred inside a 1,080px card, so most of the block
+          was empty and the only place to read a small zone was the 11px label inside it. A
+          list beside it fixes both at once: the space is used, and every zone has a figure in
+          ordinary type that does not depend on the wedge being big enough to hold one.
+          
+          It stacks below `md`, where the card is a sheet and there is no width to share. */}
+      <Box sx={{
+        display: 'flex', flexDirection: { xs: 'column', md: 'row' },
+        alignItems: { md: 'center' }, gap: { xs: 1, md: 2.5 },
+      }}>
       <Box
         component="svg" viewBox={`0 0 ${VW} ${VH}`}
         role="img"
@@ -232,6 +256,7 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
            is the number of balls and that is what a reader listening to this wants. */
         sx={{
           width: '100%', maxWidth, height: 'auto', display: 'block', mx: 'auto',
+          flex: { md: '1 1 auto' }, minWidth: 0,
           color: heat,
         }}
       >
@@ -278,15 +303,20 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
           const n = valueOf(byZone.get(z), mode)
           const [x, y] = centreOf(z)
           const named = NAMED_INSIDE.includes(z)
-          const ink = n === 0 ? faint : inkFor(n)
+          // AN EMPTY POSITION IS THE HARDEST THING ON THE CHART TO READ, and it used to be
+          // drawn in the faintest ink the theme has, at 9px, over ground that is nearly the
+          // page colour. In Hits mode most of the infield is empty, so most of the labels
+          // were the unreadable case. `text.secondary` is the quietest colour that is still
+          // meant to be read, which is what a label is.
+          const ink = n === 0 ? theme.palette.text.secondary : inkFor(n)
           return (
             <g key={`f-${z}`}>
               {named && (
-                <text x={x} y={y - (n === 0 ? 0 : 9)} textAnchor="middle" dominantBaseline="central"
-                  fontSize={9} fontWeight={800} fill={ink} opacity={n === 0 ? 1 : 0.85}>{z}</text>
+                <text x={x} y={y - (n === 0 ? 0 : 10)} textAnchor="middle" dominantBaseline="central"
+                  fontSize={11} fontWeight={800} fill={ink}>{z}</text>
               )}
               {n > 0 && (
-                <text x={x} y={named ? y + 5 : y} textAnchor="middle" dominantBaseline="central"
+                <text x={x} y={named ? y + 6 : y} textAnchor="middle" dominantBaseline="central"
                   fontSize={14} fontWeight={800} fill={ink}>{pct(n)}</text>
               )}
             </g>
@@ -304,21 +334,47 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
         })}
       </Box>
 
-      <Box sx={{ mt: 0.75, display: 'flex', flexWrap: 'wrap', gap: 1.25 }}>
-        {/* THE DENOMINATOR, because the field now shows shares and a share with no count
-            behind it cannot be judged: 100% of one ball and 35% of forty-nine look equally
-            confident on the picture. */}
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary' }}>
-          {placedInMode} {mode === 'hits' ? 'hits' : mode === 'outs' ? 'in-play outs' : 'batted balls'} placed
-        </Typography>
-        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary' }}>
-          {profile.hits} {profile.hits === 1 ? 'hit' : 'hits'} · {profile.outs} in play {profile.outs === 1 ? 'out' : 'outs'}
-        </Typography>
+      {/* The breakdown. Busiest zone first, which is the order a reader asks for it in. */}
+      <Box sx={{ flex: { md: '0 0 auto' }, width: { md: chromePx(210) }, minWidth: 0 }}>
         {pull.pullPct != null && (
-          <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.secondary' }}>
-            {Math.round(pull.pullPct)}% pull · {Math.round((pull.oppo / pull.total) * 100)}% oppo
-          </Typography>
+          <Box sx={{ display: 'flex', gap: 1.5, mb: 1 }}>
+            {([['Pull', pull.pull], ['Centre', pull.center], ['Oppo', pull.oppo]] as const).map(([label, n]) => (
+              <Box key={label} sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.nano, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'text.disabled' }}>
+                  {label}
+                </Typography>
+                <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 900, fontVariantNumeric: 'tabular-nums' }}>
+                  {Math.round((n / pull.total) * 100)}%
+                </Typography>
+              </Box>
+            ))}
+          </Box>
         )}
+        {profile.zones
+          .filter(z => valueOf(z, mode) > 0)
+          .sort((a, b) => valueOf(b, mode) - valueOf(a, mode))
+          .map(z => {
+            const n = valueOf(z, mode)
+            return (
+              <Box key={z.zone} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, py: 0.25 }}>
+                <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 800, width: chromePx(26), flexShrink: 0, color: 'text.secondary' }}>
+                  {z.zone}
+                </Typography>
+                <Box sx={{ flex: 1, height: 4, borderRadius: 999, bgcolor: 'action.hover', overflow: 'hidden', minWidth: 0 }}>
+                  <Box sx={{ width: `${(n / max) * 100}%`, height: '100%', bgcolor: heat }} />
+                </Box>
+                <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 700, fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+                  {pct(n)}
+                </Typography>
+              </Box>
+            )
+          })}
+        {/* THE DENOMINATOR, because the field shows shares and a share with no count behind it
+            cannot be judged: 100% of one ball and 44% of thirty-two look equally confident. */}
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 0.75, display: 'block' }}>
+          {placedInMode} of {profile.hits + profile.outs} batted {profile.hits + profile.outs === 1 ? 'ball' : 'balls'} placed
+        </Typography>
+      </Box>
       </Box>
 
       {/* SAID OUT LOUD, NEVER HIDDEN. These are zones read out of the scorer's words, not
