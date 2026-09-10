@@ -31,7 +31,7 @@ import { LastGameCard } from './RecapCard'
 import FeedDelayNote from './FeedDelayNote'
 import { WpblGamePreview } from './GamePreview'
 import MvpRaceCard, { mvpRaceIsWorthDrawing } from './MvpRace'
-import FanVoteCard, { useCanSeeFanAwards } from './FanVote'
+import FanVoteCard, { FanAwardsCta } from './FanVote'
 import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
 import { mvpRace } from './derive/mvpRace'
 import { seriesContext } from './derive/series'
@@ -2308,8 +2308,6 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
 
   // Which of the two cards holds the ballot slot below. THE SAME HOOK THE CARD ITSELF USES,
   // so the outer gate and the inner one cannot drift apart into an empty slot. See the note
-  // on `useCanSeeFanAwards`.
-  const canSeeAwards = useCanSeeFanAwards()
   const batSeasons = useMemo(() => aggregateBatting(players, lines.batting, games), [players, lines.batting, games])
   const pitSeasons = useMemo(() => aggregatePitching(players, lines.pitching, games), [players, lines.pitching, games])
 
@@ -2397,6 +2395,15 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
 
   return (
     <Box sx={homeWideSx}>
+      {/* THE FAN AWARDS INVITATION, PHONES ONLY AND FIRST ON THE PAGE. See FanAwardsCta: the
+          ballot card itself sits in Home's second column, which on a phone is two screens
+          down, and it is the one card here that asks the reader for something rather than
+          telling them something. Above the league header rather than under the scoreboard,
+          because the header is `sm`-only and the scoreboard is the first thing a phone reader
+          sees: anywhere else is already past the fold. It takes itself down when voting
+          closes. */}
+      <FanAwardsCta onOpen={onOpenAwards} />
+
       {/* Slim league header. On mobile it's just the title; on wider screens the club chips
           sit inline to the right. */}
       {/* No margin under it on a phone, where the row has nothing left in it: the club chips
@@ -2619,21 +2626,16 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
                  It keeps `fill` and the same key for the same reason the note above gives: the
                  two cards in this column swap slots when the play log lands, and React would
                  remount Leaders and reset the reader's pill selection without a stable key. */
-              /* AND THE BALLOT IS NOT PUBLIC YET, so this slot has two tenants: the owner and
-                 anyone holding the `collaborator` role get the ballot, everybody else gets the
-                 MVP race exactly as it is today. The point of the gate is that nothing on this
-                 page changes for a fan, which a card that simply returned null would fail at
-                 twice over, leaving half a row empty AND announcing that something is missing.
-                 Both keep the key, so gaining the role swaps the card rather than remounting
-                 Leaders beside it. Delete the branch, not the gate, on launch. */
-              canSeeAwards
-                ? <FanVoteCard key="mvp" players={players} teams={teams} games={games}
-                    batting={lines.batting} pitching={lines.pitching} race={race} plays={plays}
-                    onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam}
-                    open={awardsOpen} onOpen={onOpenAwards} onClose={onCloseAwards} fill />
-                : <MvpRaceCard key="mvp" race={race} games={games}
-                    batSeasons={batSeasons} pitSeasons={pitSeasons} onOpenPlayer={onOpenPlayer}
-                    onViewBoard={() => onViewStats('runs')} fill />,
+              /* THE BALLOT IS PUBLIC AS OF SEP 10, 2026, and the branch that used to stand here
+                 is gone with the gate: for its first day this slot had two tenants, the ballot
+                 for the owner and a collaborator, the MVP race for everybody else. It keeps
+                 the key `mvp` from that arrangement on purpose, since the two cards in this
+                 column still swap slots when the play log lands and a changed key would remount
+                 Leaders beside it and reset the reader's pill selection. */
+              <FanVoteCard key="mvp" players={players} teams={teams} games={games}
+                batting={lines.batting} pitching={lines.pitching} race={race} plays={plays}
+                onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam}
+                open={awardsOpen} onOpen={onOpenAwards} onClose={onCloseAwards} fill />,
               leadersCard,
             ]
             // STILL IN FLIGHT IS NOT THE SAME AS NOTHING TO DRAW, and treating them alike was

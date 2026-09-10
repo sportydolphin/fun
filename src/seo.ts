@@ -130,16 +130,15 @@ const ROUTES: Record<string, Seo> = {
   // The ballot is a modal over Home, but it is a page as far as a link, a crawler and a
   // canonical tag are concerned, which is the whole reason it was given an address.
   //
-  // ADMIN-ONLY WHILE IT IS BEING BUILT, so it gets `/admin`'s treatment rather than a page's:
-  // `noindex` as belt to the robots.txt braces, and a title that names the route without
-  // selling it. The launch version said "Vote in the inaugural Women's Pro Baseball League fan
-  // awards" and sat in the sitemap, which would have put a ballot no fan can open into the
-  // index and a tab title inviting them to use it. Restore both, and the sitemap row, on the
-  // day the gate in Home.tsx comes off.
+  // OPEN TO EVERYBODY SINCE SEP 10, 2026, so it is an ordinary page again: indexable, in the
+  // sitemap, and titled like something worth opening. It spent its first day with `/admin`'s
+  // treatment (noindex, disallowed, out of the sitemap, a title that named the route without
+  // selling it), which is what kept a ballot no fan could open out of the index. All three
+  // came off together, and routes.test.ts inverted with them.
   '/wpbl/awards': {
-    title: 'Fan awards — sportydolphin.fun',
-    description: 'The WPBL fan awards ballot.',
-    noindex: true,
+    title: 'Vote: WPBL fan awards 2026 | sportydolphin.fun',
+    description:
+      'Vote in the inaugural Women\'s Pro Baseball League fan awards: MVP, Pitcher of the Year, Manager of the Year, Defensive Wizard and Most Aura.',
   },
   '/mlb': {
     title: 'MLB Stats — Live scores, player & team stats | sportydolphin.fun',

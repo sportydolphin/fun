@@ -63,6 +63,12 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://sportydolphin.fun/wpbl/awards</loc>
+    <lastmod>2026-09-10</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://sportydolphin.fun/privacy</loc>
     <lastmod>2026-09-10</lastmod>
     <changefreq>yearly</changefreq>
@@ -915,13 +921,13 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://sportydolphin.fun/wpbl/games/2026-08-22-firebells-at-hunters</loc>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-22-heights-at-queens</loc>
     <lastmod>2026-09-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://sportydolphin.fun/wpbl/games/2026-08-22-heights-at-queens</loc>
+    <loc>https://sportydolphin.fun/wpbl/games/2026-08-22-firebells-at-hunters</loc>
     <lastmod>2026-09-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import {
   SectionCard, ModalShell, TeamBadge, PlayerPortrait,
-  pressable, linkPress, FOCUS_RING, TAPPABLE, useWpblDark, useWpblName, TYPE_SCALE, chromePx,
+  pressable, linkPress, FOCUS_RING, TAPPABLE, hoverOnly, useWpblDark, useWpblName, TYPE_SCALE, chromePx,
 } from './ui'
 import { useWpblPlayerLink, useWpblTeamLink } from './LinkContext'
 import { wpblManagerPortrait } from './portraits'
@@ -21,8 +21,6 @@ import type { AwardBallot, AwardResults } from './awardVotes'
 import { searchPlayers } from './playerSearch'
 import { fetchWpblAllFielding, getCachedWpblAllFielding } from './api'
 import { track, EVENTS } from '../lib/analytics'
-import { useIsAdmin } from '../lib/admin'
-import { useHasRole } from '../lib/roles'
 import type { MvpRace } from './derive/mvpRace'
 import type {
   WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblRunValuePlay,
@@ -749,31 +747,70 @@ export function fanVoteIsWorthDrawing(entries: AwardBallotEntry[]): boolean {
 }
 
 /**
- * WHO CAN SEE THE BALLOT, AND THE ONLY DEFINITION OF IT.
+ * THE INVITATION, for the top of a phone.
  *
- * The owner, plus anyone holding the `collaborator` role. Ghost Baseboo is the first and the
- * reason it exists: the awards were his idea and the categories were picked with him (see
- * WPBL_AWARDS_CREDIT in awards.ts), and asking the person who designed a feature to wait for
- * the launch to see it is absurd. A role rather than a second hard-coded address because a
- * collaborator is a person who arrives and the owner is one address that never changes.
+ * THE CARD IS NOT ENOUGH ON A PHONE, which is the whole reason this exists. Home's two columns
+ * stack below md and the ballot sits in the second one, so on a 375px handset it is the third
+ * card down, past the scoreboard, Next game and Last game: about two screens of scrolling for
+ * the one thing on this page that ASKS the reader for something. Everything else on Home
+ * reports. A reader who does not scroll that far never learns the ballot is open at all.
  *
- * ONE HOOK, TWO CALL SITES, WHICH IS THE WHOLE POINT. The gate is deliberately in two places:
- * Home picks between this card and the MVP race for that slot, so a fan's page is unchanged
- * rather than a card short, and the check is also folded into `drawable` below, so a card
- * nobody drew also fetches nothing and reports nothing. Two places is right; two DEFINITIONS
- * would be the bug, because the day one of them widens and the other does not is the day the
- * outer gate says yes to a reader the inner gate then renders nothing for.
+ * A LINK AND NOT A SECOND BALLOT. It reads no vote state and runs no hooks: a second
+ * `useFanVote` would mean a second tally read and a second `wpbl_award_shown` on every load,
+ * and the card below is still the thing that shows what you answered. This says the ballot is
+ * open and gets you there in one tap.
  *
- * STILL COSMETIC, and the honest limit has not moved: the component and the four shortlists
- * ship in the bundle for everybody, `wpbl_cast_award_vote` has always been callable by anyone,
- * and `/wpbl/awards` still answers 200. What this does is decide who is SHOWN the ballot.
- * Opening it to fans is a separate change, and it is the one that inverts the four assertions
- * in routes.test.ts (sitemap, robots, noindex); this one deliberately does not touch them.
+ * IT DISAPPEARS ON ITS OWN, on the deadline the card below prints: first pitch of the final,
+ * see AWARDS_CLOSE_AT. Nobody has to remember to take it down.
+ *
+ * ON THE CLOSING DATE AND NOT ON `anyAwardOpen`, which is the same question asked worse here.
+ * That helper also decides whether voting has STARTED, from the last regular-season date on the
+ * schedule, and the feed sends `counts_in_standings: true` on postseason rows (CLAUDE.md), so
+ * it reads the bracket as regular season and puts the opening day after the last playoff game.
+ * The ballot is plainly open: it is rendering on this page, taking votes. A strip advertising
+ * it must not be able to disagree with the card it points at.
  */
-export function useCanSeeFanAwards(): boolean {
-  const isOwner = useIsAdmin()
-  const isCollaborator = useHasRole('collaborator')
-  return isOwner || isCollaborator
+export function FanAwardsCta({ onOpen, now = () => Date.now() }: {
+  onOpen?: () => void
+  /** Injectable clock, so the closed state is testable without waiting for September. */
+  now?: () => number
+}) {
+  const t = now()
+  if (!fanVoteAwards().some(a => t < Date.parse(a.closesAt))) return null
+  return (
+    <Box
+      {...linkPress(WPBL_AWARDS_PATH, () => { onOpen?.(); track(EVENTS.WPBL_AWARD_OPEN, { answered: 0, from: 'cta' }) })}
+      aria-label="Vote in the WPBL fan awards"
+      sx={{
+        ...TAPPABLE, ...FOCUS_RING,
+        display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 1,
+        textDecoration: 'none', cursor: 'pointer', userSelect: 'none',
+        mb: 1.5, px: 1.5, py: 1.15, borderRadius: 2,
+        // The section accent as a FILL, which nothing else on Home is. Home is a page of
+        // bordered cards on a plain ground, so the one control on it that wants a tap cannot
+        // be another one of those: the point of the strip is that a reader scanning past stops.
+        bgcolor: 'var(--wpbl-accent-solid)', color: '#fff',
+        transition: 'transform 120ms ease',
+        '&:active': { transform: 'scale(0.99)' },
+      }}
+    >
+      <Typography aria-hidden sx={{ fontSize: '1.05rem', lineHeight: 1, flexShrink: 0 }}>&#127942;</Typography>
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Typography sx={{ fontSize: TYPE_SCALE.body, fontWeight: 900, lineHeight: 1.25 }}>
+          Fan awards are open
+        </Typography>
+        {/* The deadline, because it is the only thing here that makes it worth doing NOW: a
+            poll with no visible one is a poll people mean to come back to. */}
+        <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 600, opacity: 0.88, lineHeight: 1.25 }}>
+          Five questions the numbers cannot settle. Closes {AWARDS_CLOSE_LABEL}.
+        </Typography>
+      </Box>
+      <Typography sx={{
+        fontSize: TYPE_SCALE.caption, fontWeight: 900, flexShrink: 0,
+        px: 1.1, py: 0.4, borderRadius: 999, bgcolor: 'rgba(255,255,255,0.22)',
+      }}>Vote</Typography>
+    </Box>
+  )
 }
 
 export default function FanVoteCard({
@@ -841,19 +878,11 @@ export default function FanVoteCard({
       .sort((a, b) => awards.findIndex(x => x.id === a.award.id) - awards.findIndex(x => x.id === b.award.id))
   }, [players, teams, games, batting, pitching, fielding, race, plays])
 
-  /**
-   * THE INNER OF THE TWO GATES. `useCanSeeFanAwards` above says who passes it and why.
-   *
-   * ON ITS OWN LINE, NEVER INLINED INTO THE `&&` BELOW. It is a hook, and `&&` short-circuits,
-   * so folding the call into that expression would skip it for every reader with no ballot
-   * worth drawing and change the hook order between renders.
-   *
-   * FOLDED INTO `drawable` rather than returned early, so every hook above still runs in the
-   * same order for both readers. It also stops the ballot fetching or reporting anything: the
-   * vote state, the tally read and the `wpbl_award_shown` event are all downstream of this flag.
-   */
-  const canSee = useCanSeeFanAwards()
-  const drawable = fanVoteIsWorthDrawing(entries) && canSee
+  // OPEN TO EVERYBODY SINCE SEP 10, 2026. This was an owner-and-collaborator gate for its first
+  // day, and both call sites are gone with it: Home no longer picks between this card and the
+  // MVP race, and `drawable` is back to the one question it should ever have asked, which is
+  // whether there is a ballot worth drawing.
+  const drawable = fanVoteIsWorthDrawing(entries)
   const state = useFanVote(drawable)
   const closed = useMemo(
     () => entries.length > 0 && entries.every(e => now() > Date.parse(e.award.closesAt)),
@@ -883,19 +912,43 @@ export default function FanVoteCard({
       action={
         <Box
           {...linkPress(WPBL_AWARDS_PATH, () => { setOpen(true); track(EVENTS.WPBL_AWARD_OPEN, { answered }) })}
+          // The visible word is one or two, which is right on a card header and thin on its own
+          // in a screen reader's list of links. The label says which ballot and what pressing it
+          // does; the text stays short.
+          aria-label={closed ? 'See the fan award results' : answered === 0 ? 'Vote in the fan awards' : 'Open your fan award ballot'}
           sx={{
             ...TAPPABLE, ...FOCUS_RING,
+            display: 'flex', alignItems: 'center', gap: 0.4,
             borderRadius: 999, px: { xs: 1.25, sm: 1.75 }, py: { xs: 0.5, sm: 0.65 },
             cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', flexShrink: 0,
             textDecoration: 'none',
+            // LIFT AND BRIGHTEN, NOT A SECOND COLOUR. The unanswered state is already the accent
+            // at full strength, so there is no darker version of it to hover to that does not
+            // read as disabled, and the answered state is a quiet outline that should stay
+            // quiet. `hoverOnly` guards both, so a phone does not keep the hover state painted
+            // on after the tap that navigated away.
+            transition: 'transform 120ms ease, filter 120ms ease, box-shadow 120ms ease',
+            '&:active': { transform: 'scale(0.97)' },
             ...(answered > 0
-              ? { border: '1px solid', borderColor: 'divider', color: 'text.secondary' }
-              : { bgcolor: 'var(--wpbl-accent-solid)', color: '#fff' }),
+              ? {
+                border: '1px solid', borderColor: 'divider', color: 'text.secondary',
+                ...hoverOnly({ borderColor: 'var(--wpbl-accent-solid)', color: 'var(--wpbl-accent-solid)' }),
+              }
+              : {
+                bgcolor: 'var(--wpbl-accent-solid)', color: '#fff',
+                // A shadow in the button's own hue rather than a grey one, so it reads as the
+                // colour glowing rather than as a piece of paper lifting off the card.
+                boxShadow: '0 1px 6px -1px color-mix(in srgb, var(--wpbl-accent-solid) 55%, transparent)',
+                ...hoverOnly({ filter: 'brightness(1.08)', transform: 'translateY(-1px)' }),
+              }),
           }}
         >
           <Typography sx={{ fontSize: { xs: TYPE_SCALE.caption, sm: TYPE_SCALE.body }, fontWeight: 900 }}>
             {closed ? 'Results' : answered === 0 ? 'Vote' : 'Your ballot'}
           </Typography>
+          {/* Ornament, and hidden from the accessibility tree: the label above already says this
+              goes somewhere. Raw px because a chevron is neither type nor structure. */}
+          <Box aria-hidden sx={{ fontSize: 11, lineHeight: 1, opacity: 0.85, mt: '1px' }}>&#8250;</Box>
         </Box>
       }
     >

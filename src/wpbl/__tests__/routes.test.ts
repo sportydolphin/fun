@@ -430,28 +430,30 @@ describe('/wpbl/awards, the fan ballot', () => {
     expect(seoSource).toMatch(/'\/wpbl\/awards':\s*\{[^}]*description:/)
   })
 
-  // ── While the ballot is admin-only ────────────────────────────────────────────
+  // ── Launched, Sep 10, 2026 ────────────────────────────────────────────────────
   //
-  // These three invert on launch, together, and they are here so that flipping the gate in
-  // Home.tsx without them is a red test rather than a page in Google's index that renders an
-  // empty Home for everybody who clicks it. The route still answers 200, which is the point:
-  // the owner can open and reload it. It is simply not advertised to anyone.
-  it('is kept out of the sitemap', () => {
-    expect(sitemap).not.toContain('<loc>https://sportydolphin.fun/wpbl/awards</loc>')
+  // These four inverted together the day the gate in Home.tsx came off, and they are still here
+  // in the inverted form for the same reason they were here before it: the failure they guard
+  // against is a HALF-launch, where the page opens to fans but stays out of the index, or is
+  // indexed while still rendering for nobody. Whichever way the ballot goes next, these move
+  // together or not at all.
+  it('is in the sitemap', () => {
+    expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/awards</loc>')
   })
 
-  it('is disallowed in robots.txt, the same as /admin', () => {
-    expect(robots).toMatch(/^Disallow: \/wpbl\/awards\s*$/m)
+  it('is not disallowed in robots.txt', () => {
+    expect(robots).not.toMatch(/^Disallow:\s*\/wpbl\/awards\s*$/m)
   })
 
-  it('is noindex in seo.ts, as belt to those braces', () => {
-    expect(seoSource).toMatch(/'\/wpbl\/awards':\s*\{[^}]*noindex:\s*true/)
-  })
-
-  // The title is a tab caption for the owner, not a pitch to a reader who cannot use the page.
-  it('does not advertise itself in the title', () => {
+  it('is indexable in seo.ts', () => {
     const entry = /'\/wpbl\/awards':\s*\{([^}]*)\}/.exec(seoSource)?.[1] ?? ''
-    expect(entry).not.toMatch(/vote/i)
+    expect(entry).not.toMatch(/noindex/)
+  })
+
+  // The title is a pitch now, not a tab caption: the page is something a reader can use.
+  it('advertises itself in the title', () => {
+    const entry = /'\/wpbl\/awards':\s*\{([^}]*)\}/.exec(seoSource)?.[1] ?? ''
+    expect(entry).toMatch(/vote/i)
   })
 
   // It is NOT a tab: reading it as a view would hand it to the pager, which lands on Home and
@@ -475,38 +477,24 @@ describe('/wpbl/awards, the fan ballot', () => {
     expect(fanVoteSource).toContain('linkPress(WPBL_AWARDS_PATH')
   })
 
-  // The gate itself, in both halves. A ballot that renders for everyone is the failure this
-  // whole block is arranged around, and it would otherwise be invisible until a fan mentioned it.
-  //
-  // IT PINS ONE DEFINITION RATHER THAN ONE CONDITION, which is the change of Sep 10, 2026 when
-  // the owner-only check became owner-or-collaborator. Two gates was always deliberate (the
-  // outer one keeps a fan's Home unchanged, the inner one cannot be forgotten by a new call
-  // site); two SEPARATE definitions of who passes them is the bug waiting to happen, because
-  // the day one widens and the other does not, the outer gate says yes to a reader the inner
-  // gate then renders nothing for. Both must go through `useCanSeeFanAwards`.
-  it('renders behind one gate, spelled the same way at the card and inside it', () => {
-    expect(fanVoteSource).toContain('export function useCanSeeFanAwards')
-    expect(fanVoteSource).toMatch(/const canSee = useCanSeeFanAwards\(\)/)
-    expect(fanVoteSource).toMatch(/fanVoteIsWorthDrawing\(entries\)\s*&&\s*canSee/)
-    expect(homeSource).toContain('useCanSeeFanAwards')
-    expect(homeSource).toMatch(/canSeeAwards\s*\?\s*<FanVoteCard/)
+  // The one condition left, now that the gate is gone. `drawable` decided TWO things for its
+  // first day, whether there was a ballot worth drawing and whether this reader was allowed to
+  // see it, and only the first of those was ever the card's business. Pinned because the whole
+  // launch is one word: a `&&` added back here hides the ballot from every fan again while the
+  // sitemap keeps sending them to it.
+  it('draws for anyone the ballot has questions for, and asks nothing else', () => {
+    expect(fanVoteSource).toMatch(/const drawable = fanVoteIsWorthDrawing\(entries\)\s*$/m)
+    expect(homeSource).toMatch(/<FanVoteCard key="mvp"/)
   })
 
-  // Neither file may decide this for itself. `useIsAdmin` in the card would be a second gate
-  // that silently stops tracking the shared one.
-  it('has no second opinion about who passes it', () => {
+  // THE GATE IS GONE, AND NOTHING MAY QUIETLY PUT ONE BACK. A `useIsAdmin` or a role check in
+  // either file would hide the ballot again from everyone but one account, and it would do it
+  // silently: the page still answers 200, the sitemap still lists it, and Google would keep
+  // sending readers to a Home page with no ballot on it.
+  it('is gated by nothing', () => {
     expect(homeSource).not.toContain('useIsAdmin')
-    expect(fanVoteSource.match(/useIsAdmin\(\)/g) ?? []).toHaveLength(1)
-  })
-
-  // WIDENING WHO SEES THE BALLOT IS NOT LAUNCHING IT. The role let one collaborator in; the
-  // page stays out of the sitemap, disallowed and noindex, which is what stops a half-open
-  // feature reaching Google. The four assertions above still hold, and this says out loud that
-  // they were meant to.
-  it('is still hidden from search after the role widened who can see it', () => {
-    expect(fanVoteSource).toContain("useHasRole('collaborator')")
-    expect(sitemap).not.toContain('/wpbl/awards')
-    expect(robots).toMatch(/^Disallow:\s*\/wpbl\/awards\s*$/m)
+    expect(fanVoteSource).not.toContain('useIsAdmin')
+    expect(fanVoteSource).not.toContain('useHasRole')
   })
 })
 
