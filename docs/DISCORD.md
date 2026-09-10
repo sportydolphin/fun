@@ -254,6 +254,24 @@ a lot at once, and a channel that pings on all of it gets muted before it is eve
 | Shop | `DISCORD_SHOP_WEBHOOK_URL` | Everything: new merch and every restock, batched into one message per run | Never |
 | Private | `DISCORD_RESTOCK_WEBHOOK_URL` | Two things: a product on the `wpbl_restock_watch` shortlist coming back, and **new merch** | `@everyone` |
 
+**THE LOUD CHANNEL IS OPTIONAL AND THE QUIET ONE IS NOT.** Retiring the private giveaway
+channel is a supported thing to do: delete `DISCORD_RESTOCK_WEBHOOK_URL` and the shortlist and
+new-merch alerts are simply off, while the shop feed carries on. Until Sep 10, 2026 it was the
+other way round, in two places at once. The startup guard gated the WHOLE job on the loud
+secret, and both loud posts happen before the quiet feed and before `saveSnapshot`, so a
+deleted loud webhook threw with the feed unsent and the snapshot unmoved and every run for the
+next eight hours re-detected the same change and threw again. **Nothing is lost by degrading
+here**, which is what makes it safe: `shopFeedMessage` carries the new products as well as the
+restocks, so the quiet channel already tells the whole story. A shortlist item is marked
+announced either way, because that list means "tell me once" and leaving it unmarked re-fires
+on every run for as long as the thing is in stock.
+
+A loud webhook that is SET but deleted records a **successful** run carrying the error text,
+not a failed one. The shop watch did its whole job, and `blindHours` measures from the last
+good run, so marking it failed would have the next real store blip open with "blind for 20
+hours". It says so on the console and goes red once per `ERROR_QUIET_HOURS` until the stale
+secret is removed or repointed.
+
 **A DELETED WEBHOOK IS THE ONE FAILURE HERE THAT NEVER SELF-HEALS.** Discord answers
 `404 10015 Unknown Webhook` forever once someone deletes or regenerates one, and the watcher
 was built around the opposite case: a store 503 is retried by the next run and deliberately

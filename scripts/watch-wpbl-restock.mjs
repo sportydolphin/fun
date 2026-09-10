@@ -168,8 +168,11 @@ if (IS_ENTRYPOINT) {
   // Not an error, and deliberately not a failure: the workflow ships before the webhook does,
   // and a scheduled job that red-Xes every ten minutes until someone pastes a secret is a job
   // everybody learns to ignore before it ever does anything useful.
-  if (!RESTOCK_WEBHOOK && !DRY_RUN && !STATUS) {
-    console.log('DISCORD_RESTOCK_WEBHOOK_URL is not set, so there is nowhere to announce anything. Doing nothing. See docs/DISCORD.md, "The restock watcher, if you want one".')
+  // SHOP_WEBHOOK, not RESTOCK_WEBHOOK: the quiet feed is the half that carries the whole
+  // story, and it falls back to the loud channel when it has none of its own. Gating the
+  // whole job on the LOUD one meant retiring that channel switched the merch bot off too.
+  if (!SHOP_WEBHOOK && !DRY_RUN && !STATUS) {
+    console.log('Neither DISCORD_SHOP_WEBHOOK_URL nor DISCORD_RESTOCK_WEBHOOK_URL is set, so there is nowhere to announce anything. Doing nothing. See docs/DISCORD.md, "The restock watcher, if you want one".')
     process.exit(0)
   }
 }
@@ -557,6 +560,42 @@ async function post(webhook, content, mention = '') {
   }
 }
 
+/**
+ * The loud channel, which is allowed not to exist.
+ *
+ * TWO CHANNELS, TWO FATES. The quiet shop feed is the complete log and the reason this job
+ * runs; the loud one is an interruption for a shortlist. Retiring the loud channel is a
+ * legitimate thing to do, and until Sep 10, 2026 it silently switched the whole watcher off:
+ * both loud posts happen BEFORE the quiet feed and before `saveSnapshot`, so a deleted
+ * webhook threw with the feed unsent and the snapshot unmoved, and every run for the next
+ * eight hours re-detected the same change and threw again.
+ *
+ * Unset is a CONFIGURATION, and silent: the loud half is simply off. A webhook that is set
+ * and gone is a MISTAKE, and says so and fails the run, because a secret pointing at a
+ * deleted channel is worth knowing about. Either way the quiet feed still goes out and the
+ * snapshot still advances, so nothing is actually lost: `shopFeedMessage` carries the new
+ * products as well as the restocks, which is what makes degrading here safe rather than a
+ * quiet way to drop a drop.
+ *
+ * Returns whether the alert was delivered. Any other Discord failure still throws.
+ */
+async function postLoud(content, mention = '') {
+  if (!RESTOCK_WEBHOOK) return false
+  try {
+    await post(RESTOCK_WEBHOOK, content, mention)
+    return true
+  } catch (err) {
+    if (!err?.webhookGone) throw err
+    loudWebhookGone = String(err.message)
+    console.error(`⚠️   The loud channel's webhook is gone, so this alert went only to the quiet feed.
+   ${loudWebhookGone}`)
+    return false
+  }
+}
+
+/** Set when a configured loud webhook turned out to be deleted. Reported once per pass. */
+let loudWebhookGone = ''
+
 async function postOne(webhook, content, mention = '') {
   if (DRY_RUN) {
     console.log('\n─── would post ───────────────────────────────────────────')
@@ -609,9 +648,11 @@ const WEBHOOK_GONE_STATUSES = new Set([401, 403, 404])
 async function webhookGoneReportedRecently() {
   if (!supabase) return false
   const since = new Date(Date.now() - ERROR_QUIET_HOURS * 3_600_000).toISOString()
+  // Not filtered on `ok`: a dead LOUD webhook records a successful run carrying this error,
+  // and a dead SHOP webhook records a failed one. Both are the same unfixable condition and
+  // both should count toward having already said so.
   const r = await supabase.from('wpbl_shop_watch_runs')
     .select('ran_at')
-    .eq('ok', false)
     .ilike('error', '%webhook is gone%')
     .gte('ran_at', since)
     .limit(1)
@@ -841,9 +882,12 @@ async function runShopWatch(snapshot) {
           .filter(v => watch.variant_id == null || String(v.variant_id) === String(watch.variant_id))
     if (!hit.length) continue
 
-    await post(RESTOCK_WEBHOOK, watchAlertMessage(watch, product, hit), MENTION)
+    // Marked announced even when the loud channel is gone: the shortlist is a "tell me once"
+    // list, and leaving it unmarked would re-fire on every run for as long as the item is in
+    // stock. The quiet feed below carries the same restock.
+    const sent = await postLoud(watchAlertMessage(watch, product, hit), MENTION)
     announcedWatchIds.push(watch.id)
-    console.log(`🔔 Loud alert sent for ${watch.label ?? watch.product_handle}`)
+    if (sent) console.log(`🔔 Loud alert sent for ${watch.label ?? watch.product_handle}`)
   }
 
   // ─── New merch, loudly ────────────────────────────────────────────────────
@@ -853,8 +897,7 @@ async function runShopWatch(snapshot) {
   // distinction, and the shortlist above is the one thing allowed through it.
   if (!seeding && newProducts.length) {
     const alert = newProductAlertMessage(newProducts)
-    if (alert) {
-      await post(RESTOCK_WEBHOOK, alert, MENTION)
+    if (alert && await postLoud(alert, MENTION)) {
       console.log(`🔔 Loud alert sent for ${newProducts.length} new product(s)`)
     }
   }
@@ -890,10 +933,28 @@ async function runShopWatch(snapshot) {
       .update({ last_announced_at: new Date().toISOString() })
       .in('id', announcedWatchIds)
   }
+  // A DEAD LOUD CHANNEL IS A CONFIGURATION WARNING, NOT A FAILED RUN, and the row says ok.
+  // The shop watch did its whole job: it read the store, delivered the complete feed and
+  // advanced the snapshot. Marking it failed would be wrong twice over, because `blindHours`
+  // measures from the last GOOD run, so a stale secret would leave the watcher believing it
+  // had been blind for however long the secret sat there, and the next real store blip would
+  // open with "blind for 20 hours". The error text is still recorded on the row, so what
+  // happened is inspectable; it just does not pretend the store went away.
+  //
+  // Asked BEFORE the row is written, or the query finds the row it is about to insert and
+  // concludes it has already told you.
+  const tellThem = loudWebhookGone && !await webhookGoneReportedRecently().catch(() => false)
   await recordRun({
-    source: 'shop', ok: true, products_seen: live.length,
+    source: 'shop', ok: true, error: loudWebhookGone.slice(0, 500) || null,
+    products_seen: live.length,
     new_products: newProducts.length, restocks: restocked.length,
   })
+  if (loudWebhookGone) {
+    console.error('⚠️   Delete DISCORD_RESTOCK_WEBHOOK_URL to turn the loud channel off on purpose, or point it at a live webhook.')
+    // Only the exit code is rationed, because that is the thing that emails, and a stale
+    // secret is unfixable by any number of retries.
+    if (tellThem) process.exitCode = 1
+  }
 }
 
 /**
