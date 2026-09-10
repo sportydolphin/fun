@@ -12,8 +12,18 @@ import type { WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, Wpb
 // half of this and is useless, and that half is the easy half to write by accident.
 
 let email: string | null = ADMIN_EMAIL
+let uid = 'u1'
 vi.mock('../../AuthContext', () => ({
-  useAuth: () => ({ user: email ? { id: 'u1', email } : null, openAuthDialog: vi.fn() }),
+  useAuth: () => ({ user: email ? { id: uid, email } : null, openAuthDialog: vi.fn() }),
+}))
+
+// The `user_roles` read behind useSiteRoles. Mocked at the SUPABASE boundary rather than by
+// stubbing lib/roles, so the thing under test here is the real gate: the row shape, the
+// unknown-role filter and the per-account cache all run.
+let roleRows: Array<{ role: string }> = []
+const roleQuery = vi.fn(() => Promise.resolve({ data: roleRows, error: null }))
+vi.mock('../../lib/supabase', () => ({
+  supabase: { from: () => ({ select: () => ({ eq: (...a: unknown[]) => roleQuery(...(a as [])) }) }) },
 }))
 
 // The ballot's own reads and writes. None of them should happen for a fan either, which the
@@ -71,7 +81,13 @@ const draw = () => render(
 
 beforeEach(() => {
   email = ADMIN_EMAIL
-  fetchBallot.mockClear(); fetchResults.mockClear(); fetchFielding.mockClear()
+  uid = 'u1'
+  roleRows = []
+  // useSiteRoles caches its last answer per account in localStorage, so without this a role
+  // granted in one test is still granted in the next one and the closed branches pass for the
+  // wrong reason.
+  localStorage.clear()
+  fetchBallot.mockClear(); fetchResults.mockClear(); fetchFielding.mockClear(); roleQuery.mockClear()
 })
 
 describe('who can see the fan awards ballot', () => {
@@ -110,5 +126,61 @@ describe('who can see the fan awards ballot', () => {
   // would open the ballot to nobody at all and look identical to it working.
   it('keys on the one owner email, not on being signed in', () => {
     expect(ADMIN_EMAIL).toMatch(/^[^@\s]+@[^@\s]+$/)
+  })
+})
+
+// THE COLLABORATOR BRANCH. Ghost Baseboo suggested the awards and helped pick the categories,
+// and the role is how he sees the thing he designed before it launches. It is a second way in,
+// which is exactly the shape of change that quietly becomes a third way in for everybody, so
+// each half is pinned: it opens for the role, it stays shut without it, and it does not open
+// for a role this build has never heard of.
+describe('the collaborator role', () => {
+  it('draws for a collaborator who is not the owner', async () => {
+    email = 'ghostbaseboo@example.com'
+    roleRows = [{ role: 'collaborator' }]
+    draw()
+    await waitFor(() => expect(screen.getByText('Fan awards')).toBeTruthy())
+  })
+
+  it('draws nothing for the same reader once the role is revoked', async () => {
+    email = 'ghostbaseboo@example.com'
+    roleRows = []
+    const { container } = draw()
+    await waitFor(() => expect(fetchFielding).toHaveBeenCalled())
+    expect(container.textContent).toBe('')
+  })
+
+  // A role added to the table after this build shipped must not become a skeleton key. The
+  // client filters to the roles it knows, so an unrecognised one is no role at all.
+  it('ignores a role this build does not know about', async () => {
+    email = 'ghostbaseboo@example.com'
+    roleRows = [{ role: 'sponsor' }]
+    const { container } = draw()
+    await waitFor(() => expect(fetchFielding).toHaveBeenCalled())
+    expect(container.textContent).toBe('')
+  })
+
+  // The cache is keyed on the account. Signing out of a collaborator and into an ordinary
+  // reader on the same browser must not leave the ballot on screen.
+  it("does not carry one account's role over to the next account", async () => {
+    email = 'ghostbaseboo@example.com'
+    roleRows = [{ role: 'collaborator' }]
+    const first = draw()
+    await waitFor(() => expect(screen.getByText('Fan awards')).toBeTruthy())
+    first.unmount()
+
+    uid = 'someone-else'
+    email = 'stranger@example.com'
+    roleRows = []
+    const { container } = draw()
+    await waitFor(() => expect(fetchFielding).toHaveBeenCalled())
+    expect(container.textContent).toBe('')
+  })
+
+  it('asks for nothing at all when nobody is signed in', async () => {
+    email = null
+    draw()
+    await waitFor(() => expect(fetchFielding).toHaveBeenCalled())
+    expect(roleQuery).not.toHaveBeenCalled()
   })
 })

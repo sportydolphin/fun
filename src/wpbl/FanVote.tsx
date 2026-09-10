@@ -22,6 +22,7 @@ import { searchPlayers } from './playerSearch'
 import { fetchWpblAllFielding, getCachedWpblAllFielding } from './api'
 import { track, EVENTS } from '../lib/analytics'
 import { useIsAdmin } from '../lib/admin'
+import { useHasRole } from '../lib/roles'
 import type { MvpRace } from './derive/mvpRace'
 import type {
   WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblRunValuePlay,
@@ -743,6 +744,34 @@ export function fanVoteIsWorthDrawing(entries: AwardBallotEntry[]): boolean {
   return entries.length > 0 && entries.every(e => e.candidates.length > 0)
 }
 
+/**
+ * WHO CAN SEE THE BALLOT, AND THE ONLY DEFINITION OF IT.
+ *
+ * The owner, plus anyone holding the `collaborator` role. Ghost Baseboo is the first and the
+ * reason it exists: the awards were his idea and the categories were picked with him (see
+ * WPBL_AWARDS_CREDIT in awards.ts), and asking the person who designed a feature to wait for
+ * the launch to see it is absurd. A role rather than a second hard-coded address because a
+ * collaborator is a person who arrives and the owner is one address that never changes.
+ *
+ * ONE HOOK, TWO CALL SITES, WHICH IS THE WHOLE POINT. The gate is deliberately in two places:
+ * Home picks between this card and the MVP race for that slot, so a fan's page is unchanged
+ * rather than a card short, and the check is also folded into `drawable` below, so a card
+ * nobody drew also fetches nothing and reports nothing. Two places is right; two DEFINITIONS
+ * would be the bug, because the day one of them widens and the other does not is the day the
+ * outer gate says yes to a reader the inner gate then renders nothing for.
+ *
+ * STILL COSMETIC, and the honest limit has not moved: the component and the four shortlists
+ * ship in the bundle for everybody, `wpbl_cast_award_vote` has always been callable by anyone,
+ * and `/wpbl/awards` still answers 200. What this does is decide who is SHOWN the ballot.
+ * Opening it to fans is a separate change, and it is the one that inverts the four assertions
+ * in routes.test.ts (sitemap, robots, noindex); this one deliberately does not touch them.
+ */
+export function useCanSeeFanAwards(): boolean {
+  const isOwner = useIsAdmin()
+  const isCollaborator = useHasRole('collaborator')
+  return isOwner || isCollaborator
+}
+
 export default function FanVoteCard({
   players, teams, games, batting, pitching, race, plays = [], onOpenPlayer, onOpenTeam,
   fill, now = () => Date.now(),
@@ -809,23 +838,18 @@ export default function FanVoteCard({
   }, [players, teams, games, batting, pitching, fielding, race, plays])
 
   /**
-   * ADMIN ONLY FOR NOW, AND THIS IS THE INNER OF TWO GATES.
+   * THE INNER OF THE TWO GATES. `useCanSeeFanAwards` above says who passes it and why.
    *
-   * Home decides what to draw in this slot instead, so in the shipped app this never fires. It
-   * is here anyway because it is the gate that cannot be forgotten: a second call site added
-   * later inherits it, and the sheet this card owns cannot be mounted without passing it.
+   * ON ITS OWN LINE, NEVER INLINED INTO THE `&&` BELOW. It is a hook, and `&&` short-circuits,
+   * so folding the call into that expression would skip it for every reader with no ballot
+   * worth drawing and change the hook order between renders.
    *
    * FOLDED INTO `drawable` rather than returned early, so every hook above still runs in the
    * same order for both readers. It also stops the ballot fetching or reporting anything: the
    * vote state, the tally read and the `wpbl_award_shown` event are all downstream of this flag.
-   *
-   * COSMETIC, NOT A SECURITY BOUNDARY, exactly as useIsAdmin says of itself. The component and
-   * the shortlists are in the bundle either way, so this hides the ballot rather than keeping it
-   * secret, and `wpbl_cast_award_vote` has always been open to anyone who calls it. Nobody
-   * reaches it without dev tools, which is the bar this actually needs.
    */
-  const isAdmin = useIsAdmin()
-  const drawable = fanVoteIsWorthDrawing(entries) && isAdmin
+  const canSee = useCanSeeFanAwards()
+  const drawable = fanVoteIsWorthDrawing(entries) && canSee
   const state = useFanVote(drawable)
   const closed = useMemo(
     () => entries.length > 0 && entries.every(e => now() > Date.parse(e.award.closesAt)),

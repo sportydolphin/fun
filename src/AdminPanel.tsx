@@ -3,11 +3,11 @@ import {
   Dialog, DialogTitle, DialogContent, IconButton,
   Box, Typography, Divider, CircularProgress, Button,
 } from '@mui/material'
-import { Close, Lock, Check, Undo, DeleteOutline, MailOutline, PersonOffOutlined, RestartAlt, ContentCopy } from '@mui/icons-material'
+import { Close, Lock, Check, Undo, DeleteOutline, MailOutline } from '@mui/icons-material'
 import { supabase } from './lib/supabase'
 import { isSubscribed } from './lib/push'
 import { fetchFeedback, setFeedbackHandled, deleteFeedback, FeedbackRow } from './lib/feedback'
-import { fetchAdminUsers, setUserDeleted, AdminUser } from './lib/adminUsers'
+import { UsersPanel } from './AdminUsers'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -467,233 +467,8 @@ function FeedbackModal({ open, onClose, onChanged }: {
 }
 
 // ─── Users section ────────────────────────────────────────────────────────────
-// Roster popup: every registered user with their client-readable details + a
-// reversible soft-delete (deactivate). RLS scopes the toggle to the owner.
-
-// Shared table cell / header styles for the users table.
-const uCellSx = { px: 1.25, py: 0.9, borderTop: '1px solid', borderColor: 'divider', verticalAlign: 'middle' } as const
-const uHeadSx = {
-  px: 1.25, py: 0.85, fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.6,
-  textTransform: 'uppercase' as const, color: 'text.disabled', textAlign: 'left' as const,
-  whiteSpace: 'nowrap' as const, position: 'sticky' as const, top: 0, zIndex: 1,
-  bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider',
-} as const
-
-function UserRowItem({ u, busy, onToggleDeleted }: {
-  u:               AdminUser
-  busy:            boolean
-  onToggleDeleted: () => void
-}) {
-  const [confirmDeactivate, setConfirmDeactivate] = useState(false)
-  const hasStats = u.predictions != null && u.predictions > 0
-
-  const copyId = () => { navigator.clipboard?.writeText(u.user_id).catch(() => {}) }
-
-  return (
-    <Box component="tr" sx={{ opacity: u.is_deleted ? 0.55 : 1 }}>
-      {/* User: name + status, id + copy beneath */}
-      <Box component="td" sx={uCellSx}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-          <Typography sx={{
-            fontSize: '0.85rem', fontWeight: 700, wordBreak: 'break-word',
-            textDecoration: u.is_deleted ? 'line-through' : 'none',
-          }}>
-            {u.username}
-          </Typography>
-          {u.is_deleted && (
-            <Box sx={{ px: 0.6, py: 0.1, borderRadius: 999, bgcolor: 'error.main', opacity: 0.85, flexShrink: 0 }}>
-              <Typography sx={{ fontSize: '0.5rem', fontWeight: 800, color: '#fff', letterSpacing: 0.5 }}>
-                DEACTIVATED
-              </Typography>
-            </Box>
-          )}
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, mt: 0.2 }}>
-          <Typography sx={{ fontSize: '0.6rem', color: 'text.disabled', fontFamily: 'monospace', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {u.user_id}
-          </Typography>
-          <IconButton size="small" aria-label="Copy id" onClick={copyId} sx={{ p: 0.15, color: 'text.disabled' }}>
-            <ContentCopy sx={{ fontSize: '0.65rem' }} />
-          </IconButton>
-        </Box>
-      </Box>
-
-      {/* Joined */}
-      <Box component="td" sx={{ ...uCellSx, fontSize: '0.72rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>
-        {timeAgo(u.created_at)}
-      </Box>
-
-      {/* Picks (correct/total) */}
-      <Box component="td" sx={{ ...uCellSx, textAlign: 'center', fontSize: '0.8rem', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', color: hasStats ? 'text.primary' : 'text.disabled' }}>
-        {hasStats ? `${u.correct}/${u.predictions}` : '—'}
-      </Box>
-
-      {/* Accuracy */}
-      <Box component="td" sx={{ ...uCellSx, textAlign: 'center', fontSize: '0.8rem', fontWeight: 700, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums', color: hasStats ? 'text.primary' : 'text.disabled' }}>
-        {hasStats ? `${u.accuracyPct}%` : '—'}
-      </Box>
-
-      {/* Action */}
-      <Box component="td" sx={{ ...uCellSx, textAlign: 'right', whiteSpace: 'nowrap' }}>
-        {u.is_deleted ? (
-          <Button
-            size="small" variant="text" disabled={busy} onClick={onToggleDeleted}
-            startIcon={<RestartAlt sx={{ fontSize: '0.9rem' }} />}
-            sx={{ textTransform: 'none', fontSize: '0.7rem', fontWeight: 700, minWidth: 0, py: 0.2 }}
-          >
-            Restore
-          </Button>
-        ) : confirmDeactivate ? (
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
-            <Button size="small" variant="text" disabled={busy}
-              onClick={() => { onToggleDeleted(); setConfirmDeactivate(false) }}
-              sx={{ textTransform: 'none', fontSize: '0.7rem', fontWeight: 800, color: 'error.main', minWidth: 0, py: 0.2 }}>
-              Deactivate?
-            </Button>
-            <Button size="small" variant="text" onClick={() => setConfirmDeactivate(false)}
-              sx={{ textTransform: 'none', fontSize: '0.7rem', color: 'text.disabled', minWidth: 0, py: 0.2 }}>
-              Cancel
-            </Button>
-          </Box>
-        ) : (
-          <IconButton size="small" disabled={busy} onClick={() => setConfirmDeactivate(true)} title="Deactivate" sx={{ color: 'text.disabled' }}>
-            <PersonOffOutlined sx={{ fontSize: '1rem' }} />
-          </IconButton>
-        )}
-      </Box>
-    </Box>
-  )
-}
-
-function UserModal({ open, onClose, onChanged }: {
-  open:       boolean
-  onClose:    () => void
-  onChanged?: () => void
-}) {
-  const [users, setUsers]   = useState<AdminUser[] | null>(null)
-  const [busyId, setBusyId] = useState<string | null>(null)
-  const [query, setQuery]   = useState('')
-  const [showDeleted, setShowDeleted] = useState(false)
-
-  useEffect(() => {
-    if (!open) return
-    setUsers(null); setQuery(''); setShowDeleted(false)
-    fetchAdminUsers().then(setUsers).catch(() => setUsers([]))
-  }, [open])
-
-  const toggleDeleted = async (u: AdminUser) => {
-    const next = !u.is_deleted
-    setBusyId(u.user_id)
-    const ok = await setUserDeleted(u.user_id, next)
-    if (ok) {
-      setUsers(prev => prev?.map(x => x.user_id === u.user_id
-        ? { ...x, is_deleted: next, deleted_at: next ? new Date().toISOString() : null } : x) ?? null)
-      onChanged?.()
-    }
-    setBusyId(null)
-  }
-
-  const activeCount = users?.filter(u => !u.is_deleted).length ?? 0
-  const deletedCount = (users?.length ?? 0) - activeCount
-  const q = query.trim().toLowerCase()
-  const visible = (users ?? [])
-    .filter(u => showDeleted || !u.is_deleted)
-    .filter(u => !q || u.username.toLowerCase().includes(q) || u.user_id.toLowerCase().includes(q))
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth
-      PaperProps={{ sx: { borderRadius: 3 } }}>
-
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography sx={{ fontSize: '1rem', fontWeight: 800 }}>👥 Users</Typography>
-          {users && (
-            <Box sx={{ px: 1, py: 0.2, borderRadius: 999, bgcolor: 'action.selected' }}>
-              <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.5 }}>
-                {activeCount}
-              </Typography>
-            </Box>
-          )}
-        </Box>
-        <IconButton size="small" aria-label="Close" onClick={onClose} sx={{ color: 'text.secondary' }}>
-          <Close sx={{ fontSize: '1.1rem' }} />
-        </IconButton>
-      </DialogTitle>
-
-      <Divider />
-
-      <DialogContent sx={{ p: 0 }}>
-        {users === null ? (
-          <Box sx={{ textAlign: 'center', py: 5 }}>
-            <CircularProgress size={24} />
-          </Box>
-        ) : users.length === 0 ? (
-          <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
-            <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>No users yet.</Typography>
-          </Box>
-        ) : (
-          <>
-            {/* Search */}
-            <Box sx={{ px: 1.5, py: 1.25, borderBottom: '1px solid', borderColor: 'divider' }}>
-              <Box
-                component="input"
-                placeholder="Search username or id…"
-                value={query}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
-                sx={{
-                  width: '100%', boxSizing: 'border-box', px: 1.25, py: 0.9,
-                  fontSize: '0.82rem', color: 'text.primary',
-                  bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider',
-                  borderRadius: 1.5, outline: 'none',
-                  '&:focus': { borderColor: 'primary.main' },
-                }}
-              />
-            </Box>
-
-            {visible.length === 0 ? (
-              <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
-                <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled' }}>No matches.</Typography>
-              </Box>
-            ) : (
-              <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
-                <Box component="table" sx={{ width: '100%', minWidth: 460, borderCollapse: 'collapse' }}>
-                  <Box component="thead">
-                    <Box component="tr">
-                      <Box component="th" sx={uHeadSx}>User</Box>
-                      <Box component="th" sx={uHeadSx}>Joined</Box>
-                      <Box component="th" sx={{ ...uHeadSx, textAlign: 'center' }}>Picks</Box>
-                      <Box component="th" sx={{ ...uHeadSx, textAlign: 'center' }}>Acc</Box>
-                      <Box component="th" sx={{ ...uHeadSx, textAlign: 'right' }} />
-                    </Box>
-                  </Box>
-                  <Box component="tbody">
-                    {visible.map(u => (
-                      <UserRowItem
-                        key={u.user_id}
-                        u={u}
-                        busy={busyId === u.user_id}
-                        onToggleDeleted={() => toggleDeleted(u)}
-                      />
-                    ))}
-                  </Box>
-                </Box>
-              </Box>
-            )}
-
-            {deletedCount > 0 && (
-              <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
-                <Button fullWidth size="small" variant="text" onClick={() => setShowDeleted(s => !s)}
-                  sx={{ textTransform: 'none', fontSize: '0.72rem', color: 'text.disabled', py: 0.8 }}>
-                  {showDeleted ? 'Hide deactivated' : `Show deactivated (${deletedCount})`}
-                </Button>
-              </Box>
-            )}
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
-  )
-}
+// The roster lives in AdminUsers.tsx: it is two layouts, a sort, a filter set and a role
+// menu, and folding that back in here would put a third of this file inside one modal.
 
 // ─── Pipeline health ──────────────────────────────────────────────────────────
 //
@@ -1004,7 +779,7 @@ export function AdminTools({ apps, isAppLocked, onOpenApp }: {
         onChanged={loadFeedbackCount}
       />
 
-      <UserModal
+      <UsersPanel
         open={usersOpen}
         onClose={() => setUsersOpen(false)}
         onChanged={loadUserCount}

@@ -14,6 +14,9 @@ tab?" doesn't mean opening the Supabase SQL editor.
 |---|---|
 | SQL: nine `security definer` RPCs | [`20260816195705_add_admin_analytics_rpcs.sql`](../scripts/migrations/20260816195705_add_admin_analytics_rpcs.sql) + [`20260820064501_add_admin_wpbl_stats_board_rpc.sql`](../scripts/migrations/20260820064501_add_admin_wpbl_stats_board_rpc.sql) + [`20260825065648_add_admin_wpbl_entry_point_and_search_rpcs.sql`](../scripts/migrations/20260825065648_add_admin_wpbl_entry_point_and_search_rpcs.sql) |
 | Typed RPC wrappers + pure helpers | [`src/lib/analyticsAdmin.ts`](../src/lib/analyticsAdmin.ts) |
+| SQL: the roster + roles | [`20260910004500_add_admin_user_roster_rpc.sql`](../scripts/migrations/20260910004500_add_admin_user_roster_rpc.sql) |
+| The Users panel + its roster wrapper | [`src/AdminUsers.tsx`](../src/AdminUsers.tsx), [`src/lib/adminUsers.ts`](../src/lib/adminUsers.ts) |
+| Roster helper tests | [`src/__tests__/adminUsers.test.ts`](../src/__tests__/adminUsers.test.ts) |
 | Helper tests | [`src/__tests__/analyticsAdmin.test.ts`](../src/__tests__/analyticsAdmin.test.ts) |
 | The page | [`src/AdminPage.tsx`](../src/AdminPage.tsx) |
 | Health + tools it embeds | `useOpsHealth`, `HealthStrip`, `HealthGroup`, `AdminTools` in [`src/AdminPanel.tsx`](../src/AdminPanel.tsx) |
@@ -105,6 +108,11 @@ the pair of `security definer` + an explicit `is_site_owner()` guard inside each
 To verify the boundary still holds: sign out (or sign in as anyone else), open the console,
 and call one of the RPCs. It must return a 401 / `not authorized`, not data.
 
+**`admin_user_roster` returns email and last sign-in, which nothing else here does.** They
+come from `auth.users` and no browser read can reach them; this function is the boundary that
+keeps them owner-only. It is the reason the panel can answer "which of these is the person who
+emailed me" at all, and the reason it must never be relaxed into a view or granted to `anon`.
+
 ---
 
 ## 3. The RPCs
@@ -122,6 +130,8 @@ All take `days_back` (clamped 1–365) and an IANA `tz`, and all return `jsonb`.
 | `admin_top_players(days_back, lim, tz)` | `props->>'playerId'` joined to `wpbl_players` |
 | `admin_discord_funnel(days_back, tz)` | shown / joined / dismissed, **by distinct session** |
 | `admin_growth(days_back, tz)` | signups per day, user totals, push subscribers, reminder opt-ins |
+| `admin_user_roster(days_back, tz)` | one row per account: identity + auth.users email/provider/last sign-in, windowed activity and its WPBL/MLB split, favourite club, notification opt-ins, push devices, game reminders, series picks, feedback count, roles, MLB pick record |
+| `admin_set_user_role(target, want, granted, why)` | grant or revoke a `user_roles` row |
 
 Two shared helpers: `admin_event_league(props, path)` and `admin_safe_tz(tz)`.
 
@@ -198,7 +208,74 @@ Break one of these and the dashboard keeps rendering. It just lies.
 
 ---
 
-## 5. Known limitations
+## 5. The Users panel
+
+The roster drill-down off Tools. Rebuilt Sep 9, 2026.
+
+**What was wrong with the old one.** It was a `maxWidth="sm"` dialog with a 400px scroll box
+and five columns (name, joined, picks, accuracy, deactivate), reading `usernames`,
+`prediction_boards` and `prediction_stats` straight from the browser. It described an MLB
+predictor, which is what this site used to be. Against a roster of ~150 accounts that are
+overwhelmingly WPBL readers, four of its five columns were empty, and the question actually
+worth asking (who reads this, on which section, with what turned on) could not be asked at
+all, **because every fact that would answer it is in a table RLS'd to own-rows-only**
+(`user_preferences`, `push_subscriptions`, `wpbl_game_reminders`) or owner-only (`events`).
+Reading those from the browser returns your own row. That is the same trap this document
+already records for `admin_growth`; the panel had simply never been asked the question.
+
+**Two layouts, not one responsive table.** Nine columns of small numbers is right on a desktop
+and unreadable on a 375px phone, and letting it scroll sideways hides the columns that carry
+the answer behind a gesture nobody makes. Under `md` the same rows are cards. Both read the
+same derived values (`userLeague`, `userIsReachable`, `sortUsers`), which live in
+`lib/adminUsers.ts` and `AdminUsers.tsx` with tests rather than inline in the JSX, because all
+three are wrong in ways that keep rendering perfectly.
+
+Three counting rules the columns depend on:
+
+- **The default sort is last seen, not join date.** The old panel answered "who signed up
+  recently", which on a roster that stopped being new months ago is a list of the least engaged
+  people on the site.
+- **A push subscription is not reachability.** A device with every toggle off receives nothing,
+  and `userIsReachable` requires both. This is the same rule the pick-reminder backfill in
+  `20260816073902` states in SQL, and counting devices alone overstates the audience for every
+  push feature here.
+- **A stray few events on the other section is not a split.** `/wpbl` is the default route, so
+  an MLB reader lands there on the way in every visit; `userLeague` needs a fifth of the rows on
+  the minority side before it says "both", or almost nobody reads as one-sided.
+
+**Developing it against the real roster meant the real people on screen.** `localStorage`
+`sdDevFakeUsers = '150'` in a dev build swaps in a seeded spoofed roster
+([`src/dev/fakeUsers.ts`](../src/dev/fakeUsers.ts)) whose distribution covers every state the
+panel branches on: dormant accounts, one deactivated, two with roles, a long tail of activity.
+Gated on `import.meta.env.DEV` as well as the flag, and its writes are short-circuited so the
+granted and deactivated layouts can be looked at without an RPC that would refuse a fake uuid.
+
+**Roles are granted from the row menu.** See `user_roles` in ARCHITECTURE §3: the grant is
+cosmetic, it decides what the client draws, and it is never the thing keeping anything safe.
+The reader's own side is `useSiteRoles()` in [`src/lib/roles.ts`](../src/lib/roles.ts), which
+reads its own rows (that is the whole of the select policy) and caches the answer in
+localStorage per account. **The cache is why**: `useIsAdmin` beside it is synchronous, so
+without one the fan-awards slot on Home draws the MVP race and then swaps under a collaborator
+on every single load. Safe only because the gate is cosmetic; a role that ever guards something
+real gets checked with `public.user_has_role()` server-side, and this cache stops being what
+decides it.
+
+**A grant is user data, not schema, so it is not a migration.** The repo is public and a role
+row names a real person's account id. Grants live in the database next to their `usernames`
+row and are made from this panel; the migration ships the empty table and the two functions.
+
+**`revoke ... from public` does not actually remove `anon` on this database.** Supabase grants
+EXECUTE to `anon` / `authenticated` / `service_role` itself when a function is created, so all
+eleven `admin_*` functions show `anon` in `information_schema.role_routine_grants` despite the
+revoke line every one of them carries. Verified Sep 10, 2026. **The guard is the boundary and
+it holds** (an anon call to `admin_user_roster` and to `admin_set_user_role` both return
+`42501 not authorized`, and a direct read of `user_roles` returns `[]`), but the "belt and
+braces" claim in §2 is aspirational rather than true, and nobody should rely on the revoke
+line stopping an unauthenticated caller from reaching the guard.
+
+---
+
+## 6. Known limitations
 
 - **History starts 2026-08-05.** The 90-day range is mostly empty and the previous-window
   deltas read "—" for anything longer than the data. The chart trims the leading blank days

@@ -477,11 +477,36 @@ describe('/wpbl/awards, the fan ballot', () => {
 
   // The gate itself, in both halves. A ballot that renders for everyone is the failure this
   // whole block is arranged around, and it would otherwise be invisible until a fan mentioned it.
-  it('renders for the owner only, at the card and inside it', () => {
-    expect(fanVoteSource).toContain('useIsAdmin')
-    expect(fanVoteSource).toMatch(/fanVoteIsWorthDrawing\(entries\)\s*&&\s*isAdmin/)
-    expect(homeSource).toContain('useIsAdmin')
-    expect(homeSource).toMatch(/isAdmin\s*\?\s*<FanVoteCard/)
+  //
+  // IT PINS ONE DEFINITION RATHER THAN ONE CONDITION, which is the change of Sep 10, 2026 when
+  // the owner-only check became owner-or-collaborator. Two gates was always deliberate (the
+  // outer one keeps a fan's Home unchanged, the inner one cannot be forgotten by a new call
+  // site); two SEPARATE definitions of who passes them is the bug waiting to happen, because
+  // the day one widens and the other does not, the outer gate says yes to a reader the inner
+  // gate then renders nothing for. Both must go through `useCanSeeFanAwards`.
+  it('renders behind one gate, spelled the same way at the card and inside it', () => {
+    expect(fanVoteSource).toContain('export function useCanSeeFanAwards')
+    expect(fanVoteSource).toMatch(/const canSee = useCanSeeFanAwards\(\)/)
+    expect(fanVoteSource).toMatch(/fanVoteIsWorthDrawing\(entries\)\s*&&\s*canSee/)
+    expect(homeSource).toContain('useCanSeeFanAwards')
+    expect(homeSource).toMatch(/canSeeAwards\s*\?\s*<FanVoteCard/)
+  })
+
+  // Neither file may decide this for itself. `useIsAdmin` in the card would be a second gate
+  // that silently stops tracking the shared one.
+  it('has no second opinion about who passes it', () => {
+    expect(homeSource).not.toContain('useIsAdmin')
+    expect(fanVoteSource.match(/useIsAdmin\(\)/g) ?? []).toHaveLength(1)
+  })
+
+  // WIDENING WHO SEES THE BALLOT IS NOT LAUNCHING IT. The role let one collaborator in; the
+  // page stays out of the sitemap, disallowed and noindex, which is what stops a half-open
+  // feature reaching Google. The four assertions above still hold, and this says out loud that
+  // they were meant to.
+  it('is still hidden from search after the role widened who can see it', () => {
+    expect(fanVoteSource).toContain("useHasRole('collaborator')")
+    expect(sitemap).not.toContain('/wpbl/awards')
+    expect(robots).toMatch(/^Disallow:\s*\/wpbl\/awards\s*$/m)
   })
 })
 

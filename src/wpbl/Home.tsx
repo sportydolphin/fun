@@ -31,8 +31,7 @@ import { LastGameCard } from './RecapCard'
 import FeedDelayNote from './FeedDelayNote'
 import { WpblGamePreview } from './GamePreview'
 import MvpRaceCard, { mvpRaceIsWorthDrawing } from './MvpRace'
-import FanVoteCard from './FanVote'
-import { useIsAdmin } from '../lib/admin'
+import FanVoteCard, { useCanSeeFanAwards } from './FanVote'
 import { buildRunExpectancy, playRunValues } from './derive/runExpectancy'
 import { mvpRace } from './derive/mvpRace'
 import { seriesContext } from './derive/series'
@@ -2307,8 +2306,10 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
   }, liveGame ? 60000 : null)
 
 
-  // Which of the two cards holds the ballot slot below. See the note there.
-  const isAdmin = useIsAdmin()
+  // Which of the two cards holds the ballot slot below. THE SAME HOOK THE CARD ITSELF USES,
+  // so the outer gate and the inner one cannot drift apart into an empty slot. See the note
+  // on `useCanSeeFanAwards`.
+  const canSeeAwards = useCanSeeFanAwards()
   const batSeasons = useMemo(() => aggregateBatting(players, lines.batting, games), [players, lines.batting, games])
   const pitSeasons = useMemo(() => aggregatePitching(players, lines.pitching, games), [players, lines.pitching, games])
 
@@ -2618,13 +2619,14 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
                  It keeps `fill` and the same key for the same reason the note above gives: the
                  two cards in this column swap slots when the play log lands, and React would
                  remount Leaders and reset the reader's pill selection without a stable key. */
-              /* AND THE BALLOT IS ADMIN-ONLY WHILE IT IS BEING BUILT, so this slot has two
-                 tenants. A fan gets the MVP race exactly as it is today: the point of the gate
-                 is that nothing on this page changes for them, which a card that simply returned
-                 null would fail at twice over, leaving half a row empty AND announcing that
-                 something is missing. Both keep the key, so signing in swaps the card rather
-                 than remounting Leaders beside it. Delete the branch, not the gate, on launch. */
-              isAdmin
+              /* AND THE BALLOT IS NOT PUBLIC YET, so this slot has two tenants: the owner and
+                 anyone holding the `collaborator` role get the ballot, everybody else gets the
+                 MVP race exactly as it is today. The point of the gate is that nothing on this
+                 page changes for a fan, which a card that simply returned null would fail at
+                 twice over, leaving half a row empty AND announcing that something is missing.
+                 Both keep the key, so gaining the role swaps the card rather than remounting
+                 Leaders beside it. Delete the branch, not the gate, on launch. */
+              canSeeAwards
                 ? <FanVoteCard key="mvp" players={players} teams={teams} games={games}
                     batting={lines.batting} pitching={lines.pitching} race={race} plays={plays}
                     onOpenPlayer={onOpenPlayer} onOpenTeam={onOpenTeam}

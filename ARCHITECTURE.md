@@ -257,6 +257,7 @@ flowchart TB
         a_push["push_subscriptions"]
         a_sent["game_start_sent"]
         a_prefs["user_preferences<br/>(notification + section prefs)"]
+        a_roles["user_roles<br/>(cosmetic capability grants; RPC-written)"]
     end
 
     t_teams --- t_players
@@ -314,7 +315,8 @@ and whose answers are `<team id>:<wins>-<losses>`). The questions live in code a
 the table, which is what lets a new one ship without a migration; the ids are therefore
 PERMANENT, since renaming one orphans every answer already stored under it.
 
-**THE FAN AWARDS BALLOT IS OWNER-ONLY AS IT STANDS, and the pick'em beside it is not.** Both
+**THE FAN AWARDS BALLOT IS OWNER-AND-COLLABORATOR AS IT STANDS, and the pick'em beside it is
+open to everyone.** Both
 write to this table, but only the pick'em is a feature fans have. The ballot renders behind
 `useIsAdmin()` in two places, [`Home.tsx`](src/wpbl/Home.tsx) (which draws the MVP race card in
 that slot for everyone else, so nothing on the page changes for a reader) and inside
@@ -324,8 +326,17 @@ reload it, and is kept out of `sitemap.xml`, disallowed in `robots.txt` and mark
 [`seo.ts`](src/seo.ts) so it reaches nobody else. **That gate is cosmetic**, the same as the one
 on `/admin` and for the same reasons: the component and the shortlists are in the bundle either
 way, and `wpbl_cast_award_vote` has always been callable by anyone. It hides the ballot; it does
-not make it secret. `fanVoteGate.test.tsx` pins both branches, and four assertions in
+not make it secret. `fanVoteGate.test.tsx` pins every branch, and four assertions in
 `routes.test.ts` invert together on the day it opens.
+
+**Since Sep 10, 2026 the gate is `useCanSeeFanAwards()` rather than `useIsAdmin()` directly**:
+the owner, plus anyone holding the `collaborator` role. Ghost Baseboo is the first and the
+reason, since the awards were his idea and the categories were picked with him. **Widening who
+SEES it is not launching it**: the page is still out of `sitemap.xml`, disallowed in
+`robots.txt` and `noindex`, and `routes.test.ts` now says so in as many words. The important
+rule is that the two gates share one DEFINITION, not just one condition: they are deliberately
+in two places, and the day one widens without the other, Home's outer gate hands the slot to a
+card the inner gate then renders nothing into.
 
 **`voter_key` holds two kinds of value, on purpose.** The awards ballot keys on the browser's
 analytics id, so a visitor can answer without an account; the pick'em keys on the signed-in
@@ -340,6 +351,16 @@ entry points are therefore security-definer functions: `wpbl_award_results`,
 `wpbl_award_ballot`, `wpbl_cast_award_vote` and `wpbl_clear_award_vote` (there is no delete
 policy either, so withdrawing an answer needs a function of its own). The writer is not decoration: a browser
 `.upsert()` on this table is refused outright, for the reason in CLAUDE.md's traps.
+
+**`user_roles` says who is not the owner and not an ordinary reader either.** One row per
+grant, `(user_id, role)`, with a `note` recording why. It exists because the owner is one
+address that never changes (`ADMIN_EMAIL`, `is_site_owner()`) while a collaborator is a person
+who arrives, and shipping a deploy to add one is not a workflow. **A role grants nothing on
+its own**: it is read by the client to decide what to draw, exactly as `useIsAdmin()` is, and
+every server-side check in this schema still asks `is_site_owner()`. A role that ever needs to
+unlock a WRITE gets that check in the RLS policy for the write, never here. Select is own-rows
+(a role is not a secret from the person holding it) plus the owner; writes go through
+`admin_set_user_role`, so a signed-in reader cannot enumerate who the collaborators are.
 
 **`wpbl_photos` is the one WPBL table whose rows are not public simply by existing.** Its
 `select` policy is `using (approved)`, not `using (true)`, because the unreviewed Commons
@@ -680,6 +701,7 @@ optional, and without it `wpbl-ingest` skips the Discord post and the hourly job
 - Who bats last in a postseason game, and where that is known from → the league's own website calendar, mirrored by [`scripts/sync-wpbl-site-calendar.mjs`](scripts/sync-wpbl-site-calendar.mjs) into `wpbl_site_games`, applied by `postseasonScheduleRows` in [`src/wpbl/derive/bracket.ts`](src/wpbl/derive/bracket.ts). **The stats feed cannot answer this**: it needs two clubs before it will carry a game row, so it held no postseason at all until the seeds were set. The fallback is `POSTSEASON_SCHEDULE` in the same file, which states the same thing as a SEAT ("the higher seed bats last in games 1 and 3") and so is still true when the mirror is empty or unmatched. `npm run check-postseason` compares the two and goes red when the league moves a game
 - Prediction/trivia question rules → [`src/wpbl/derive/predictions.ts`](src/wpbl/derive/predictions.ts), [`src/wpbl/derive/trivia.ts`](src/wpbl/derive/trivia.ts)
 - Owner analytics (`/admin`, the `admin_*` RPCs) → [`docs/ADMIN_ANALYTICS.md`](docs/ADMIN_ANALYTICS.md)
+- Who the 150 accounts are, what they read and what they have switched on → `admin_user_roster` ([`20260910004500_add_admin_user_roster_rpc.sql`](scripts/migrations/20260910004500_add_admin_user_roster_rpc.sql)), drawn by [`src/AdminUsers.tsx`](src/AdminUsers.tsx). **Every fact that describes a WPBL reader is in a table RLS'd to own-rows-only**, so the panel's predecessor read three tables from the browser and could only ever describe an MLB predictor. Same doc, §5, which also carries the counting rules (a push subscription is not reachability; a stray few events on the other section is not a split)
 - Android app / TWA plan, and the offline page it exists for → [`docs/ANDROID.md`](docs/ANDROID.md), [`public/sw.js`](public/sw.js)
 - Brand icons (favicon, home screen, install tiles, social card) → [`scripts/make-brand-icons.py`](scripts/make-brand-icons.py), from [`public/logo.png`](public/logo.png)
 - Player share cards, and why og:image is not the headshot → [`scripts/make-wpbl-share-cards.py`](scripts/make-wpbl-share-cards.py), from [`src/wpbl/portraits/`](src/wpbl/portraits/) plus the club colours in [`src/wpbl/constants.ts`](src/wpbl/constants.ts). **Rerun it after a trade**: the club on the art is the club the roster named the day it was generated
