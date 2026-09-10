@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Box, Typography, useTheme } from '@mui/material'
-import {
-  sprayProfile, pullProfile, OUTFIELD_ZONES, INFIELD_ZONES,
-} from './derive/spray'
+import { sprayProfile, pullProfile, OUTFIELD_ZONES } from './derive/spray'
 import type { SprayZone, ZoneTally } from './derive/spray'
 import type { WpblSprayPlay } from './types'
 import { TYPE_SCALE } from './ui'
@@ -14,28 +12,35 @@ import { TYPE_SCALE } from './ui'
 // so this is ELEVEN ZONES AND NOT A SCATTER PLOT, and it is drawn as eleven shaded regions
 // precisely so that nobody reads a position out of it that the league never recorded.
 //
-// THE TEMPTATION IS TO SCATTER DOTS INSIDE THE WEDGES and it has to be refused. Jittered
-// points inside a zone look like the chart everyone has seen on a major-league site, and every
-// one of those dots would be a coordinate we invented. When RetroWPBL's hit locations land,
-// the zones stay correct and gain real points inside them; a chart that had been faking it
-// until then would have no way to tell a reader which season was which.
+// THE TEMPTATION IS TO SCATTER DOTS INSIDE THE ZONES and it has to be refused. Jittered points
+// look like the chart everyone has seen on a major-league site and every one of them would be
+// a coordinate we invented. When RetroWPBL's hit locations land, these zones stay correct and
+// gain real points inside them; a chart that had been faking it until then would have no way
+// to tell a reader which season was which.
 //
-// The count that could not be placed is on the card, not hidden. It is 1% of the season's
-// batted balls, and a chart that quietly drops what it cannot read claims a completeness it
-// does not have.
+// THE ZONES TILE THE WHOLE FIELD, which is the third arrangement of this and the first that
+// reads as a spray chart. It went: discs floating on an empty fan, then discs on a drawn
+// field, and both had the same flaw underneath, which is that A POSITION IS NOT A REGION. A
+// ball is hit somewhere, every somewhere on this field belongs to exactly one zone, and the
+// picture should therefore have no gaps in it: the pitcher's circle at the apex, four infield
+// wedges across the dirt, five outfield wedges beyond it, and the catcher behind the plate in
+// the one piece of foul ground a batted ball routinely lands in.
+//
+// TWO EARLIER MISTAKES ARE KEPT IN THE COMMENTS BELOW, because both are easy to make again:
+// painting a count in the same ink as the zone under it, and drawing fielders with no field.
 
-// THE VIEWBOX HAS TO HOLD THE FOUL LINES, which is not obvious and was wrong first time. A
-// 90-degree fan of radius r is r*sin(45) = 0.707r wide EITHER SIDE of home plate, so a 300
-// radius on a 400-wide box put both corners about 12px outside it and the two zones that
-// matter most to a pull hitter were clipped off. The box is wider than it is tall for the
-// same reason, and R_OUT plus the label ring has to fit inside half of it.
-const VW = 440, VH = 424
-const CX = 220, CY = 366      // home plate
-const BASE = 100              // home to first, along the foul line
-const R_DIRT = 170            // the edge of the infield dirt
-const R_IN = 174, R_OUT = 288 // the outfield band
-const R_LABEL = R_OUT + 13    // the zone names, just outside the fence
-const SPAN = 45               // foul line to foul line, degrees either side of straight away
+// Geometry. The fan is 90 degrees, so a radius r is r*sin(45) = 0.707r wide EITHER SIDE of
+// home plate: the box has to be wider than it is tall, and R_OUT plus the label ring has to
+// fit inside half its width or the corner zones clip.
+const VW = 440, VH = 430
+const CX = 220, CY = 360        // home plate
+const BASE = 100                // home to first, along the foul line
+const R_MOUND = 64              // the pitcher's circle
+const R_DIRT = 168              // the edge of the infield dirt
+const R_OUT = 286               // the fence
+const R_BACKSTOP = 48           // how far behind the plate the catcher's ground reaches
+const R_LABEL = R_OUT + 13
+const SPAN = 45                 // foul line to foul line, degrees either side of straight away
 
 /** Screen point for a polar coordinate measured from home plate, 0 = straight to centre. */
 function polar(r: number, deg: number): [number, number] {
@@ -43,32 +48,63 @@ function polar(r: number, deg: number): [number, number] {
   return [CX + r * Math.sin(rad), CY - r * Math.cos(rad)]
 }
 
-/** An annulus sector: the shape of one outfield zone. */
-function wedgePath(a1: number, a2: number, r0 = R_IN, r1 = R_OUT): string {
-  const [x1, y1] = polar(r1, a1), [x2, y2] = polar(r1, a2)
-  const [x3, y3] = polar(r0, a2), [x4, y4] = polar(r0, a1)
-  return `M${x1} ${y1} A${r1} ${r1} 0 0 1 ${x2} ${y2} L${x3} ${y3} A${r0} ${r0} 0 0 0 ${x4} ${y4} Z`
-}
-
-// Five equal wedges across the fair 90 degrees, and six fielders where they stand. The infield
-// spots are positions rather than areas, so they are drawn as discs: a wedge would imply the
-// second baseman covers a slice of the outfield behind her.
-const OUTFIELD_WEDGE: Record<string, [number, number]> = {
-  LF:  [-SPAN, -27], LCF: [-27, -9], CF: [-9, 9], RCF: [9, 27], RF: [27, SPAN],
-}
 /**
- * Where each fielder stands, as [radius, degrees] from home plate.
+ * An annulus sector, or a pie slice when the inner radius is zero.
  *
- * THE CATCHER IS BEHIND THE PLATE, which is a NEGATIVE radius: off the bottom of the fan
- * rather than inside it. She takes 23 balls in a season and nearly every one is a foul pop, so
- * putting her among the infielders would draw all of them in fair territory.
+ * The zero case is not decoration: the pitcher's circle and the catcher's ground both start at
+ * home plate, and an arc of radius 0 draws nothing, so they need the apex as a point instead.
  */
-const INFIELD_SPOT: Record<string, [number, number]> = {
-  '3B': [120, -37], SS: [152, -20], P: [68, 0], '2B': [152, 20], '1B': [120, 37],
-  C: [-27, 0],
+function sector(a1: number, a2: number, r0: number, r1: number): string {
+  const [x1, y1] = polar(r1, a1), [x2, y2] = polar(r1, a2)
+  const outer = `A${r1} ${r1} 0 0 1 ${x2} ${y2}`
+  if (r0 <= 0) return `M${CX} ${CY} L${x1} ${y1} ${outer} Z`
+  const [x3, y3] = polar(r0, a2), [x4, y4] = polar(r0, a1)
+  return `M${x1} ${y1} ${outer} L${x3} ${y3} A${r0} ${r0} 0 0 0 ${x4} ${y4} Z`
 }
 
-/** First, second, third. Home is added by the caller, since it is also the apex of the fan. */
+/**
+ * Every zone's shape, as [from, to, innerRadius, outerRadius] in degrees and pixels.
+ *
+ * THE INFIELD IS FOUR WEDGES AND THE OUTFIELD IS FIVE, and the boundaries deliberately do not
+ * line up. Four fielders stand across the dirt, while the scorer describes the outfield in
+ * fifths ("left", "left centre", "centre"...), so forcing one onto the other would either
+ * invent a fifth infielder or throw away the centre-field splits the narrative actually makes.
+ * Two rings divided differently is how a real spray chart reads anyway.
+ *
+ * THE CATCHER IS BEHIND THE PLATE, in foul ground, which is the one region here outside the
+ * fair 90 degrees. Her 23 balls in a season are almost all foul pops, and putting her among
+ * the infielders, as the first two versions did, drew every one of them in fair territory.
+ */
+const ZONE_SHAPE: Record<SprayZone, [number, number, number, number]> = {
+  LF:   [-SPAN, -27, R_DIRT, R_OUT],
+  LCF:  [-27, -9, R_DIRT, R_OUT],
+  CF:   [-9, 9, R_DIRT, R_OUT],
+  RCF:  [9, 27, R_DIRT, R_OUT],
+  RF:   [27, SPAN, R_DIRT, R_OUT],
+  '3B': [-SPAN, -22.5, R_MOUND, R_DIRT],
+  SS:   [-22.5, 0, R_MOUND, R_DIRT],
+  '2B': [0, 22.5, R_MOUND, R_DIRT],
+  '1B': [22.5, SPAN, R_MOUND, R_DIRT],
+  P:    [-SPAN, SPAN, 0, R_MOUND],
+  C:    [135, 225, 0, R_BACKSTOP],
+}
+
+const ALL_ZONES = Object.keys(ZONE_SHAPE) as SprayZone[]
+
+/** The infield names go inside their own wedge; the outfield's sit outside the fence. */
+const NAMED_INSIDE: readonly SprayZone[] = ['3B', 'SS', '2B', '1B', 'P', 'C']
+
+/** Where a zone's figure sits: the middle of its arc, at the middle of its band. */
+function centreOf(zone: SprayZone): [number, number] {
+  const [a1, a2, r0, r1] = ZONE_SHAPE[zone]
+  // FURTHER OUT IN THE INFIELD THAN THE MIDDLE OF ITS BAND. A wedge gets wider the further
+  // from home it goes, and at the midpoint a 22.5-degree infield slice is about 45px across,
+  // which is not enough to hold a position name over a two-digit count. At 0.62 it is 55px.
+  const t = r0 === 0 ? 0.55 : (r1 === R_DIRT ? 0.62 : 0.5)
+  return polar(r0 + (r1 - r0) * t, (a1 + a2) / 2)
+}
+
+/** First, second, third. Home is the apex of the fan and is added by the caller. */
 const BASES: ReadonlyArray<[number, number]> = [
   [BASE, 45], [BASE * Math.SQRT2, 0], [BASE, -45],
 ]
@@ -83,10 +119,8 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
   plays: readonly WpblSprayPlay[]
   /** From the roster. Null or 'S' means no pull rate is claimed; see spraySide. */
   bats?: string | null
-  /** SIZED BY WIDTH, NOT HEIGHT. A fixed height letterboxes the fan inside a wide column:
-   *  the box is 420x380, so at height 320 it drew 353px wide in a 700px card and left most of
-   *  the space empty. Width-first fills the column it is given, scales down on a phone for
-   *  free, and the cap stops it becoming a poster on a desktop. */
+  /** SIZED BY WIDTH, NOT HEIGHT. A fixed height letterboxes the fan inside a wide column and
+   *  leaves most of the card empty; width-first fills the column and scales down on a phone. */
   maxWidth?: number
 }) {
   const [mode, setMode] = useState<Mode>('all')
@@ -127,18 +161,9 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
   const inkFor = (n: number) => (shade(n) >= 0.5 ? '#fff' : theme.palette.text.primary)
 
   const line = theme.palette.divider
-  const dirt = theme.palette.text.disabled
+  const faint = theme.palette.text.disabled
   const [lfx, lfy] = polar(R_OUT, -SPAN)
   const [rfx, rfy] = polar(R_OUT, SPAN)
-
-  const label = (zone: SprayZone, x: number, y: number) => {
-    const n = valueOf(byZone.get(zone), mode)
-    if (!n) return null
-    return (
-      <text key={`t-${zone}`} x={x} y={y} textAnchor="middle" dominantBaseline="central"
-        fontSize={15} fontWeight={800} fill={inkFor(n)}>{n}</text>
-    )
-  }
 
   return (
     <Box>
@@ -162,24 +187,19 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
       <Box
         component="svg" viewBox={`0 0 ${VW} ${VH}`}
         role="img"
-        aria-label={
-          `Where this batter put the ball: ${profile.zones
-            .map(z => `${valueOf(z, mode)} to ${z.zone}`).join(', ')}.`}
+        aria-label={`Where this batter put the ball: ${profile.zones
+          .map(z => `${valueOf(z, mode)} to ${z.zone}`).join(', ')}.`}
         sx={{
           width: '100%', maxWidth, height: 'auto', display: 'block', mx: 'auto',
           color: 'var(--wpbl-accent-solid, #2563eb)',
         }}
       >
-        {/* THE FIELD, DRAWN BEFORE THE DATA. The first version had none of this and the six
-            infield positions were discs floating on nothing, which read as abstract blobs
-            rather than as fielders. A position is only legible against the field it stands
-            on, so: grass, dirt, foul lines, fence, then the diamond and its bases. */}
-        <path d={wedgePath(-SPAN, SPAN, 0, R_OUT)} fill="currentColor" opacity={0.045} />
-        <path d={wedgePath(-SPAN, SPAN, 0, R_DIRT)} fill={dirt} opacity={0.1} />
-
-        <line x1={CX} y1={CY} x2={lfx} y2={lfy} stroke={line} strokeWidth={1.5} />
-        <line x1={CX} y1={CY} x2={rfx} y2={rfy} stroke={line} strokeWidth={1.5} />
-        <path d={wedgePath(-SPAN, SPAN, R_OUT - 1, R_OUT)} fill={line} />
+        {/* The dirt, UNDER the zones rather than over them, so an empty infield still reads as
+            an infield instead of as a hole in the fan. */}
+        <path d={sector(-SPAN, SPAN, 0, R_DIRT)} fill={faint} opacity={0.12} />
+        {/* The catcher's ground gets the same treatment, or the one zone outside fair
+            territory is the one blank thing on a chart that otherwise tiles the field. */}
+        <path d={sector(135, 225, 0, R_BACKSTOP)} fill={faint} opacity={0.12} />
 
         <path
           d={`M${CX} ${CY} ${BASES.map(([r, a]) => { const [x, y] = polar(r, a); return `L${x} ${y}` }).join(' ')} Z`}
@@ -190,51 +210,51 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
             transform={`rotate(45 ${x} ${y})`} />
         })}
 
-        {OUTFIELD_ZONES.map(z => {
-          const [a1, a2] = OUTFIELD_WEDGE[z]
+        {/* EVERY ZONE, TILING THE WHOLE FIELD. An empty one is drawn at zero opacity over the
+            ground beneath it, which is why nothing here is ever blank. */}
+        {ALL_ZONES.map(z => {
+          const [a1, a2, r0, r1] = ZONE_SHAPE[z]
           return (
-            <path key={z} d={wedgePath(a1, a2)} fill="currentColor"
+            <path key={z} d={sector(a1, a2, r0, r1)} fill="currentColor"
               opacity={shade(valueOf(byZone.get(z), mode))}
               stroke={line} strokeWidth={0.75} />
           )
         })}
 
-        {INFIELD_ZONES.map(z => {
-          const [r, a] = INFIELD_SPOT[z]
-          const [x, y] = polar(r, a)
+        {/* THE OUTLINE OF THE FIELD ON TOP, THE DIAMOND UNDERNEATH. The diamond crosses the
+            infield band at exactly the radius the figures live at, so drawn over the shading
+            it ran a line through every infield label. Beneath them it still says "this is a
+            ballfield" wherever the shading is light, and gets out of the way where it is not.
+            The foul lines, the fence and the dirt's edge stay on top: those are the outline,
+            and an outline a busy zone can swallow is not one. */}
+        <line x1={CX} y1={CY} x2={lfx} y2={lfy} stroke={line} strokeWidth={1.5} />
+        <line x1={CX} y1={CY} x2={rfx} y2={rfy} stroke={line} strokeWidth={1.5} />
+        <path d={sector(-SPAN, SPAN, R_OUT - 1.5, R_OUT)} fill={line} />
+        <path d={sector(-SPAN, SPAN, R_DIRT - 1, R_DIRT)} fill={line} opacity={0.7} />
+
+        {/* Figures last, so nothing can be painted over a number. */}
+        {ALL_ZONES.map(z => {
           const n = valueOf(byZone.get(z), mode)
+          const [x, y] = centreOf(z)
+          const named = NAMED_INSIDE.includes(z)
+          const ink = n === 0 ? faint : inkFor(n)
           return (
-            <g key={z}>
-              {/* An opaque disc under the shade, so a fielder reads the same against dirt as
-                  against grass and an empty position is a visible zero rather than a hole. */}
-              <circle cx={x} cy={y} r={20} fill={theme.palette.background.paper} opacity={0.92} />
-              <circle cx={x} cy={y} r={20} fill="currentColor" opacity={shade(n)}
-                stroke={line} strokeWidth={1} />
-              {n === 0 && (
-                <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
-                  fontSize={9} fontWeight={700} fill={dirt}>{z}</text>
+            <g key={`f-${z}`}>
+              {named && (
+                <text x={x} y={y - (n === 0 ? 0 : 9)} textAnchor="middle" dominantBaseline="central"
+                  fontSize={9} fontWeight={800} fill={ink} opacity={n === 0 ? 1 : 0.85}>{z}</text>
+              )}
+              {n > 0 && (
+                <text x={x} y={named ? y + 5 : y} textAnchor="middle" dominantBaseline="central"
+                  fontSize={15} fontWeight={800} fill={ink}>{n}</text>
               )}
             </g>
           )
         })}
 
-        {/* Counts on top of everything, so a dark zone does not swallow its own number. */}
-        <g>
-          {OUTFIELD_ZONES.map(z => {
-            const [a1, a2] = OUTFIELD_WEDGE[z]
-            const [x, y] = polar((R_IN + R_OUT) / 2, (a1 + a2) / 2)
-            return label(z, x, y)
-          })}
-          {INFIELD_ZONES.map(z => {
-            const [r, a] = INFIELD_SPOT[z]
-            const [x, y] = polar(r, a)
-            return label(z, x, y)
-          })}
-        </g>
-
-        {/* Zone names, small, outside the band, so the picture can be read without a legend. */}
+        {/* Outfield names outside the fence, so the picture reads without a legend. */}
         {OUTFIELD_ZONES.map(z => {
-          const [a1, a2] = OUTFIELD_WEDGE[z]
+          const [a1, a2] = ZONE_SHAPE[z]
           const [x, y] = polar(R_LABEL, (a1 + a2) / 2)
           return (
             <text key={`n-${z}`} x={x} y={y} textAnchor="middle" dominantBaseline="central"

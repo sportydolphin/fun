@@ -8,11 +8,11 @@ import type { WpblSprayPlay } from '../types'
 // scorer's English: "singled to left field", "flied out to rf", "homered down the lf line",
 // "grounded out p to ss to 1b". That is a DIRECTION, and 742 plays carry one.
 //
-// SO THIS IS ZONES, NEVER COORDINATES, and the chart that draws it has to say so. Five
-// outfield wedges and six infield positions is the whole resolution available, and a renderer
-// that scatters dots inside those zones would be inventing precision the league never
-// published. When RetroWPBL's hit locations arrive the same zone stays correct and gains a
-// point inside it; nothing here has to be unlearned.
+// SO THIS IS ZONES, NEVER COORDINATES, and the chart that draws it has to say so. Eleven
+// regions is the whole resolution available, and a renderer that scatters dots inside them
+// would be inventing precision the league never published. When RetroWPBL's hit locations
+// arrive the same zone stays correct and gains a point inside it; nothing here has to be
+// unlearned.
 //
 // TWO TRAPS, BOTH LIVE.
 //
@@ -30,8 +30,10 @@ import type { WpblSprayPlay } from '../types'
 /** The eleven places this feed can put a batted ball. */
 export type SprayZone = 'LF' | 'LCF' | 'CF' | 'RCF' | 'RF' | 'P' | 'C' | '1B' | '2B' | '3B' | 'SS'
 
+/** Left to right, as the chart draws them. The infield has no such list any more: the chart
+ *  derives its own from the geometry, since the zones there tile a band rather than sit at
+ *  points, and a second ordering would have been a second thing to keep in step. */
 export const OUTFIELD_ZONES: readonly SprayZone[] = ['LF', 'LCF', 'CF', 'RCF', 'RF']
-export const INFIELD_ZONES:  readonly SprayZone[] = ['3B', 'SS', 'P', 'C', '2B', '1B']
 
 /**
  * The scorer's vocabulary, longest phrase first.
