@@ -47,9 +47,28 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 // ─── Config ─────────────────────────────────────────────────────────────────
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? ''
-// Only public reads, so the anon key works — service-role not required (see mapper).
+// The SCHEDULE reads are public, so the anon key is enough to build the board and print it.
+// `wpbl_discord_board_state` is not: it is RLS'd with no anon policy, which is why CAN_PERSIST
+// below is a separate question from having a key at all.
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
   ?? process.env.VITE_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? ''
+/**
+ * WHETHER THIS RUN COULD REMEMBER A MESSAGE IT POSTED, which decides whether it is allowed to
+ * post one at all.
+ *
+ * THE HOLE THIS CLOSES, AND IT HAD ALREADY COST A DUPLICATE. The store is RLS'd, so under the
+ * anon key the read SUCCEEDS and returns NO ROW, which is indistinguishable from a genuine
+ * first run. On Sep 10, 2026 a local run with that key therefore saw "no board yet", fell back
+ * to the stale DISCORD_BOARD_MESSAGE_ID seed, got a 404 for it, announced that the board "no
+ * longer exists" and posted a second live board into the fan channel beside the real one. The
+ * existing guards did not fire: `stored.ok` was true because nothing errored, and the abort on
+ * a failed persist runs AFTER the message is in the channel, which is the one place too late.
+ *
+ * Being able to WRITE the store is the honest test, and the service-role key is the only thing
+ * that can. CI has it and creates as before; anything else may edit a board it can find, and
+ * may print one, and may not invent one.
+ */
+const CAN_PERSIST = !!process.env.SUPABASE_SERVICE_ROLE_KEY
 const WEBHOOK_URL  = process.env.DISCORD_BOARD_WEBHOOK_URL ?? ''
 const MESSAGE_ID   = process.env.DISCORD_BOARD_MESSAGE_ID ?? ''
 const EVENTS_URL   = process.env.DISCORD_EVENTS_URL ?? ''
@@ -457,6 +476,17 @@ ${payload.content}
     throw new Error(
       'wpbl_discord_board_state is unreadable (has scripts/create_wpbl_discord_board_state.sql been run?) — ' +
       'refusing to CREATE a board we cannot persist, which would duplicate every run.'
+    )
+  }
+
+  // The same refusal for the case the check above cannot see: a key that can READ the schedule
+  // but not the store reads an empty store as an empty world. See CAN_PERSIST.
+  if (!CAN_PERSIST) {
+    throw new Error(
+      'No board id found, and no SUPABASE_SERVICE_ROLE_KEY to persist one with. This is what a ' +
+      'local run looks like when RLS hides the stored id: the board is almost certainly there ' +
+      'and creating another would duplicate it in the channel. Run the workflow instead, or ' +
+      'pass --dry-run to see what it would say.'
     )
   }
 
