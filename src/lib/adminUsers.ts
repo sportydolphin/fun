@@ -139,3 +139,67 @@ export async function setUserRole(
   }
   return true
 }
+
+// ─── One person, instead of one row ───────────────────────────────────────────
+//
+// The roster answers "who are these 150 people" in totals, which is the right shape for a
+// table and the wrong shape for the question that always follows it: what does THIS person
+// actually do here. `admin_user_detail` is that, and it is a second RPC rather than more
+// columns because a roster cannot carry it without becoming 150 copies of it.
+
+export interface DetailDay    { date: string; events: number }
+export interface DetailAction { event: string; n: number; last: string }
+export interface DetailView   { view: string; n: number }
+export interface DetailPath   { path: string; n: number }
+export interface DetailPlayer { player_id: string; name: string; team_id: string | null; n: number }
+export interface DetailTeam   { team_id: string; name: string; n: number }
+export interface DetailMiss   { q: string; n: number }
+export interface DetailNote   { created_at: string; message: string; path: string | null; handled: boolean }
+export interface DetailPick   { category: string; choice: string; at: string }
+export interface DetailRemind { game_id: string; game_date: string; home: string | null; away: string | null }
+
+export interface AdminUserDetail {
+  days_back: number
+  /** Gap-filled, so a quiet fortnight reads as quiet rather than compressing away. */
+  series: DetailDay[]
+  events_window: number
+  active_days:   number
+  /** Browsers, never devices: session_id is a per-browser localStorage id. */
+  browsers:      number
+  // Lifetime. Deliberately outside the window, because "when did they arrive" is not a
+  // question about the last 30 days.
+  first_seen:      string | null
+  last_seen:       string | null
+  lifetime_events: number
+  /** Cross-section: this is the list that says an account lives on /mlb. */
+  actions:   DetailAction[]
+  views:     DetailView[]
+  paths:     DetailPath[]
+  /** WPBL only. The caller draws these as this league's portraits and badges. */
+  players:   DetailPlayer[]
+  teams:     DetailTeam[]
+  /** Only queries that matched NOTHING. analytics.ts stores the text in no other case. */
+  misses:    DetailMiss[]
+  feedback:  DetailNote[]
+  picks:     DetailPick[]
+  reminders: DetailRemind[]
+}
+
+const EMPTY_DETAIL: AdminUserDetail = {
+  days_back: 30, series: [], events_window: 0, active_days: 0, browsers: 0,
+  first_seen: null, last_seen: null, lifetime_events: 0,
+  actions: [], views: [], paths: [], players: [], teams: [], misses: [],
+  feedback: [], picks: [], reminders: [],
+}
+
+/** Everything one account has done. Degrades to an empty shape, like every fetch here. */
+export async function fetchAdminUserDetail(userId: string, daysBack = 30): Promise<AdminUserDetail> {
+  const { data, error } = await supabase.rpc('admin_user_detail', {
+    target: userId, days_back: daysBack, tz: localTz(), lim: 12,
+  })
+  if (error) {
+    console.warn('[admin] fetchAdminUserDetail error:', error.message)
+    return EMPTY_DETAIL
+  }
+  return { ...EMPTY_DETAIL, ...(data as AdminUserDetail) }
+}

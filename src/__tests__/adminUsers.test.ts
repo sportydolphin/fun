@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { userLeague, userIsReachable } from '../lib/adminUsers'
 import type { AdminUser } from '../lib/adminUsers'
-import { sortUsers } from '../AdminUsers'
-import { makeFakeUsers } from '../dev/fakeUsers'
+import { sortUsers, SORT_CHOICES } from '../AdminUsers'
+import { prettyPick } from '../AdminUserDetail'
+import { makeFakeUsers, makeFakeDetail } from '../dev/fakeUsers'
 
 // The Users panel's derived values, which are the whole reason a roster of 150 rows can be
 // read at all: they decide which section an account belongs to, whether anything we send
@@ -118,5 +119,98 @@ describe('the dev roster', () => {
 
   it('holds no real address', () => {
     expect(users.every(u => u.email?.endsWith('@example.dev'))).toBe(true)
+  })
+})
+
+describe("a pick'em id, read back", () => {
+  it('names the round and the leg', () => {
+    expect(prettyPick('pickem:2026:semifinal:A')).toBe('Semifinal A')
+    expect(prettyPick('pickem:2026:championship')).toBe('Championship')
+  })
+
+  // The ids are permanent because renaming one orphans every answer stored under it, so this
+  // has to survive meeting a shape it was not written for rather than rendering an empty cell.
+  it('prints an id it does not recognise rather than nothing', () => {
+    expect(prettyPick('nonsense')).toBe('Nonsense')
+    expect(prettyPick('')).toBe('')
+  })
+})
+
+// The spoofed detail is DERIVED from the spoofed roster row, and that is the property worth
+// pinning: a generator that invented both halves separately would look completely fine on
+// screen while hiding the one bug this data exists to catch, which is the sheet disagreeing
+// with the table it was opened from.
+describe('the dev detail agrees with the dev row', () => {
+  const users = makeFakeUsers(150)
+  const busy = users.filter(u => u.events > 50 && !u.is_deleted)
+
+  it('has somebody busy to test with', () => {
+    expect(busy.length).toBeGreaterThan(0)
+  })
+
+  it("spends exactly the row's events across the row's active days", () => {
+    for (const u of busy.slice(0, 20)) {
+      const d = makeFakeDetail(u, 30)
+      expect(d.events_window).toBe(u.events)
+      expect(d.active_days).toBe(u.active_days)
+      expect(d.series.reduce((n, s) => n + s.events, 0)).toBe(u.events)
+    }
+  })
+
+  it('draws one bar per day of the window and no negative days', () => {
+    const d = makeFakeDetail(busy[0], 30)
+    expect(d.series).toHaveLength(30)
+    expect(d.series.every(s => s.events >= 0)).toBe(true)
+  })
+
+  it('is stable for the same account', () => {
+    const a = makeFakeDetail(busy[0], 30)
+    const b = makeFakeDetail(busy[0], 30)
+    expect(a.actions.map(x => x.event)).toEqual(b.actions.map(x => x.event))
+  })
+
+  it('gives a dormant account an empty sheet rather than invented activity', () => {
+    const quiet = users.find(u => u.events === 0)!
+    const d = makeFakeDetail(quiet, 30)
+    expect(d.events_window).toBe(0)
+    expect(d.actions).toHaveLength(0)
+    expect(d.series.every(s => s.events === 0)).toBe(true)
+  })
+})
+
+// The named sorts. Every entry has to name a key sortUsers can actually apply, or the option
+// renders, is picked, and silently does nothing.
+describe('the named sort choices', () => {
+  const rows = [
+    user({ user_id: 'a', username: 'zoe',   events: 5,   wpbl_events: 5, series_picks: 0, created_at: '2026-08-01T00:00:00Z', last_seen: '2026-09-01T00:00:00Z' }),
+    user({ user_id: 'b', username: 'aaron', events: 100, wpbl_events: 90, series_picks: 3, created_at: '2026-07-01T00:00:00Z', last_seen: '2026-09-08T00:00:00Z' }),
+    user({ user_id: 'c', username: 'mira',  events: 0,   wpbl_events: 0, series_picks: 1, created_at: '2026-09-01T00:00:00Z', last_seen: null }),
+  ]
+
+  it('all apply, and none leaves the list unsorted or short', () => {
+    for (const c of SORT_CHOICES) {
+      const out = sortUsers(rows, c.key, c.desc)
+      expect(out).toHaveLength(rows.length)
+      expect(new Set(out.map(u => u.user_id)).size).toBe(rows.length)
+    }
+  })
+
+  it('has unique ids and no duplicate orders', () => {
+    expect(new Set(SORT_CHOICES.map(c => c.id)).size).toBe(SORT_CHOICES.length)
+    expect(new Set(SORT_CHOICES.map(c => `${c.key}:${c.desc}`)).size).toBe(SORT_CHOICES.length)
+  })
+
+  it('orders the ones a reader would check by hand', () => {
+    const by = (id: string) => {
+      const c = SORT_CHOICES.find(x => x.id === id)!
+      return sortUsers(rows, c.key, c.desc).map(u => u.user_id)
+    }
+    expect(by('active')[0]).toBe('b')     // most events
+    expect(by('recent')[0]).toBe('b')     // seen most recently
+    expect(by('away')[0]).toBe('c')       // never seen at all
+    expect(by('newest')[0]).toBe('c')     // joined last
+    expect(by('oldest')[0]).toBe('b')     // joined first
+    expect(by('wpbl')[0]).toBe('b')
+    expect(by('series')[0]).toBe('b')
   })
 })

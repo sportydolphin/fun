@@ -13,6 +13,7 @@ import {
 import type { AdminUser, SiteRole, UserLeague } from './lib/adminUsers'
 import { WPBL_TEAMS } from './wpbl/constants'
 import { TeamBadge } from './wpbl/ui'
+import { UserDetailDialog } from './AdminUserDetail'
 
 // ─── The Users panel ──────────────────────────────────────────────────────────
 //
@@ -57,6 +58,7 @@ const num = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleStr
 // worth knowing about at the top and pushes the sign-up-and-vanished tail to the bottom
 // where it belongs.
 type SortKey = 'last_seen' | 'created_at' | 'events' | 'username' | 'push_devices' | 'predictions'
+  | 'wpbl_events' | 'series_picks'
 
 const SORTS: Record<SortKey, (u: AdminUser) => number | string> = {
   last_seen:    u => (u.last_seen ? Date.parse(u.last_seen) : 0),
@@ -65,7 +67,34 @@ const SORTS: Record<SortKey, (u: AdminUser) => number | string> = {
   username:     u => u.username.toLowerCase(),
   push_devices: u => u.push_devices,
   predictions:  u => u.predictions ?? -1,
+  wpbl_events:  u => u.wpbl_events,
+  series_picks: u => u.series_picks,
 }
+
+/**
+ * The sorts, named.
+ *
+ * THE COLUMN HEADERS ALREADY SORTED, and that was the whole problem: a header you have to
+ * think to click is not a feature anybody finds, and half of these orders are not reachable
+ * from one at all. "Longest away" and "Oldest account" are the same two columns as their
+ * opposites with the arrow the other way, and nothing on a header says that is available.
+ *
+ * Each entry carries its OWN direction, because the useful end differs per column and asking
+ * a reader to pick a column and then a direction is two decisions where they had one question.
+ * The headers still work and stay in sync with this: both write the same (sort, desc) pair.
+ */
+export const SORT_CHOICES: ReadonlyArray<{ id: string; label: string; key: SortKey; desc: boolean }> = [
+  { id: 'active',  label: 'Most active',       key: 'events',       desc: true  },
+  { id: 'recent',  label: 'Recently seen',     key: 'last_seen',    desc: true  },
+  { id: 'away',    label: 'Longest away',      key: 'last_seen',    desc: false },
+  { id: 'newest',  label: 'Newest account',    key: 'created_at',   desc: true  },
+  { id: 'oldest',  label: 'Oldest account',    key: 'created_at',   desc: false },
+  { id: 'name',    label: 'Name A to Z',       key: 'username',     desc: false },
+  { id: 'wpbl',    label: 'Most WPBL activity', key: 'wpbl_events', desc: true  },
+  { id: 'alerts',  label: 'Most alerts',       key: 'push_devices', desc: true  },
+  { id: 'series',  label: 'Most series calls', key: 'series_picks', desc: true  },
+  { id: 'picks',   label: 'Most MLB picks',    key: 'predictions',  desc: true  },
+]
 
 /** Sorted copy. String keys always ascend; number keys follow `desc`, since "most" is the useful end. */
 export function sortUsers(users: AdminUser[], key: SortKey, desc = true): AdminUser[] {
@@ -202,7 +231,11 @@ function RolePills({ roles }: { roles: AdminUser['roles'] }) {
 
 /** Name, role pills, the address it signs in with, and the id. */
 function Identity({ u, dense }: { u: AdminUser; dense?: boolean }) {
-  const copyId = () => { navigator.clipboard?.writeText(u.user_id).catch(() => {}) }
+  // Stops the row's own click: copying an id must not also open the sheet over the table.
+  const copyId = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    navigator.clipboard?.writeText(u.user_id).catch(() => {})
+  }
   return (
     <Box sx={{ minWidth: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, flexWrap: 'wrap' }}>
@@ -287,10 +320,13 @@ function RowMenu({ u, busy, onToggleDeleted, onToggleRole }: {
   return (
     <>
       <IconButton size="small" disabled={busy} aria-label={`Actions for ${u.username}`}
-        onClick={e => setAnchor(e.currentTarget)} sx={{ color: 'text.disabled' }}>
+        onClick={e => { e.stopPropagation(); setAnchor(e.currentTarget) }} sx={{ color: 'text.disabled' }}>
         {busy ? <CircularProgress size={14} /> : <MoreHoriz sx={{ fontSize: '1.05rem' }} />}
       </IconButton>
+      {/* Portalled into the body, but React events bubble through the COMPONENT tree, not the
+          DOM one, so without this a menu click still reaches the row's handler underneath. */}
       <Menu anchorEl={anchor} open={!!anchor} onClose={close}
+        onClick={e => e.stopPropagation()}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
         <Typography sx={{ px: 2, pt: 0.5, pb: 0.75, fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.6, color: 'text.disabled', textTransform: 'uppercase' }}>
@@ -348,13 +384,24 @@ function SortHead({ label, sortKey, active, desc, onSort, align = 'left', width 
   )
 }
 
-function UserRow({ u, max, busy, onToggleDeleted, onToggleRole }: {
+function UserRow({ u, max, busy, onOpen, onToggleDeleted, onToggleRole }: {
   u: AdminUser; max: number; busy: boolean
+  onOpen: () => void
   onToggleDeleted: () => void
   onToggleRole: (role: SiteRole, granted: boolean) => void
 }) {
   return (
-    <Box component="tr" sx={{ opacity: u.is_deleted ? 0.5 : 1, '&:hover': { bgcolor: 'action.hover' } }}>
+    /* THE WHOLE ROW OPENS THE PERSON, and the handler is on the <tr> rather than on a wrapping
+       link because a table row cannot contain one. The controls inside it (copy id, the row
+       menu) stop propagation themselves; without that, copying an id would also open a sheet
+       over the table you were copying from. */
+    <Box component="tr" onClick={onOpen} role="button" tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onOpen() } }}
+      sx={{
+        opacity: u.is_deleted ? 0.5 : 1, cursor: 'pointer',
+        '&:hover': { bgcolor: 'action.hover' },
+        '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: '-2px' },
+      }}>
       <Box component="td" sx={{ ...cellSx, maxWidth: 260 }}><Identity u={u} /></Box>
       <Box component="td" sx={{ ...cellSx, fontSize: '0.72rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>{ago(u.created_at)}</Box>
       <Box component="td" sx={{ ...cellSx, fontSize: '0.72rem', whiteSpace: 'nowrap', color: u.last_seen ? 'text.secondary' : 'text.disabled' }}>{ago(u.last_seen)}</Box>
@@ -386,16 +433,20 @@ function UserRow({ u, max, busy, onToggleDeleted, onToggleRole }: {
 
 // ─── Phone card ───────────────────────────────────────────────────────────────
 
-function UserCard({ u, max, busy, onToggleDeleted, onToggleRole }: {
+function UserCard({ u, max, busy, onOpen, onToggleDeleted, onToggleRole }: {
   u: AdminUser; max: number; busy: boolean
+  onOpen: () => void
   onToggleDeleted: () => void
   onToggleRole: (role: SiteRole, granted: boolean) => void
 }) {
   return (
-    <Box sx={{
-      display: 'flex', alignItems: 'flex-start', gap: 1, px: 1.5, py: 1.1,
-      borderTop: '1px solid', borderColor: 'divider', opacity: u.is_deleted ? 0.5 : 1,
-    }}>
+    <Box onClick={onOpen} role="button" tabIndex={0}
+      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onOpen() } }}
+      sx={{
+        display: 'flex', alignItems: 'flex-start', gap: 1, px: 1.5, py: 1.1, cursor: 'pointer',
+        borderTop: '1px solid', borderColor: 'divider', opacity: u.is_deleted ? 0.5 : 1,
+        '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: '-2px' },
+      }}>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Identity u={u} dense />
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mt: 0.6, flexWrap: 'wrap' }}>
@@ -512,6 +563,7 @@ export function UsersPanel({ open, onClose, onChanged }: {
   const [sort, setSort]       = useState<SortKey>('last_seen')
   const [desc, setDesc]       = useState(true)
   const [days, setDays]       = useState<number>(30)
+  const [opened, setOpened]   = useState<AdminUser | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -526,7 +578,7 @@ export function UsersPanel({ open, onClose, onChanged }: {
   // Reset the view, but not on a window change: re-reading 90 days should not throw away the
   // search that is the only reason you are looking at 90 days.
   useEffect(() => {
-    if (open) { setQuery(''); setFilter('all'); setSort('last_seen'); setDesc(true) }
+    if (open) { setQuery(''); setFilter('all'); setSort('last_seen'); setDesc(true); setOpened(null) }
   }, [open])
 
   const toggleDeleted = async (u: AdminUser) => {
@@ -659,6 +711,39 @@ export function UsersPanel({ open, onClose, onChanged }: {
                   borderRadius: 1.5, outline: 'none', '&:focus': { borderColor: 'primary.main' },
                 }}
               />
+              {/* Native select rather than MUI's: it is one control, it needs no styling to be
+                  usable, and on a phone it opens the platform's own picker instead of a menu
+                  that has to fit on screen. Its value is DERIVED from (sort, desc), so
+                  clicking a column header moves this too and the two can never disagree. */}
+              <Box component="label" sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: 'text.disabled' }}>
+                  Sort
+                </Typography>
+                <Box
+                  component="select"
+                  value={SORT_CHOICES.find(c => c.key === sort && c.desc === desc)?.id ?? ''}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                    const c = SORT_CHOICES.find(x => x.id === e.target.value)
+                    if (c) { setSort(c.key); setDesc(c.desc) }
+                  }}
+                  sx={{
+                    px: 1, py: 0.7, fontSize: '0.78rem', font: 'inherit', fontWeight: 600,
+                    color: 'text.primary', bgcolor: 'action.hover',
+                    border: '1px solid', borderColor: 'divider', borderRadius: 1.5,
+                    outline: 'none', cursor: 'pointer',
+                    '&:focus': { borderColor: 'primary.main' },
+                  }}
+                >
+                  {/* A header click can land on a (column, direction) pair no named choice
+                      covers. Rather than silently showing the wrong label, the select says so. */}
+                  {!SORT_CHOICES.some(c => c.key === sort && c.desc === desc) && (
+                    <option value="">Custom</option>
+                  )}
+                  {SORT_CHOICES.map(c => (
+                    <option key={c.id} value={c.id}>{c.label}</option>
+                  ))}
+                </Box>
+              </Box>
               <Box sx={{ display: 'flex', gap: 0.5 }}>
                 {WINDOWS.map(d => (
                   <Chip key={d} label={`${d}d`} on={days === d} onClick={() => setDays(d)} />
@@ -688,10 +773,10 @@ export function UsersPanel({ open, onClose, onChanged }: {
                         <SortHead label="Joined"    sortKey="created_at"   active={sort} desc={desc} onSort={onSort} />
                         <SortHead label="Last seen" sortKey="last_seen"    active={sort} desc={desc} onSort={onSort} />
                         <SortHead label={`Activity ${days}d`} sortKey="events" active={sort} desc={desc} onSort={onSort} />
-                        <SortHead label={`Reads ${days}d`}    active={sort} desc={desc} onSort={onSort} />
+                        <SortHead label={`Reads ${days}d`} sortKey="wpbl_events" active={sort} desc={desc} onSort={onSort} />
                         <SortHead label="Club"      active={sort} desc={desc} onSort={onSort} align="center" width={64} />
                         <SortHead label="Alerts"    sortKey="push_devices" active={sort} desc={desc} onSort={onSort} />
-                        <SortHead label="Series"    active={sort} desc={desc} onSort={onSort} align="center" width={70} />
+                        <SortHead label="Series"    sortKey="series_picks" active={sort} desc={desc} onSort={onSort} align="center" width={70} />
                         <SortHead label="MLB picks" sortKey="predictions"  active={sort} desc={desc} onSort={onSort} align="center" width={90} />
                         <SortHead label=""          active={sort} desc={desc} onSort={onSort} align="right" width={56} />
                       </Box>
@@ -699,6 +784,7 @@ export function UsersPanel({ open, onClose, onChanged }: {
                     <Box component="tbody">
                       {visible.map(u => (
                         <UserRow key={u.user_id} u={u} max={max} busy={busyId === u.user_id}
+                          onOpen={() => setOpened(u)}
                           onToggleDeleted={() => toggleDeleted(u)}
                           onToggleRole={(r, g) => toggleRole(u, r, g)} />
                       ))}
@@ -707,6 +793,7 @@ export function UsersPanel({ open, onClose, onChanged }: {
                 ) : (
                   visible.map(u => (
                     <UserCard key={u.user_id} u={u} max={max} busy={busyId === u.user_id}
+                      onOpen={() => setOpened(u)}
                       onToggleDeleted={() => toggleDeleted(u)}
                       onToggleRole={(r, g) => toggleRole(u, r, g)} />
                   ))
@@ -726,6 +813,14 @@ export function UsersPanel({ open, onClose, onChanged }: {
           </>
         )}
       </DialogContent>
+
+      {/* Re-read from the live list rather than held as a snapshot, so a role granted from the
+          row menu while the sheet is open shows in the sheet's own header. */}
+      <UserDetailDialog
+        user={opened ? (all.find(u => u.user_id === opened.user_id) ?? opened) : null}
+        days={days}
+        onClose={() => setOpened(null)}
+      />
     </Dialog>
   )
 }

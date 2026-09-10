@@ -16,6 +16,8 @@ tab?" doesn't mean opening the Supabase SQL editor.
 | Typed RPC wrappers + pure helpers | [`src/lib/analyticsAdmin.ts`](../src/lib/analyticsAdmin.ts) |
 | SQL: the roster + roles | [`20260910004500_add_admin_user_roster_rpc.sql`](../scripts/migrations/20260910004500_add_admin_user_roster_rpc.sql) |
 | The Users panel + its roster wrapper | [`src/AdminUsers.tsx`](../src/AdminUsers.tsx), [`src/lib/adminUsers.ts`](../src/lib/adminUsers.ts) |
+| SQL: one person's detail | [`20260910061500_add_admin_user_detail_rpc.sql`](../scripts/migrations/20260910061500_add_admin_user_detail_rpc.sql) + [`20260910064500_scope_user_detail_to_wpbl_subjects.sql`](../scripts/migrations/20260910064500_scope_user_detail_to_wpbl_subjects.sql) |
+| The per-user drill-down | [`src/AdminUserDetail.tsx`](../src/AdminUserDetail.tsx) |
 | Roster helper tests | [`src/__tests__/adminUsers.test.ts`](../src/__tests__/adminUsers.test.ts) |
 | Helper tests | [`src/__tests__/analyticsAdmin.test.ts`](../src/__tests__/analyticsAdmin.test.ts) |
 | The page | [`src/AdminPage.tsx`](../src/AdminPage.tsx) |
@@ -132,6 +134,7 @@ All take `days_back` (clamped 1–365) and an IANA `tz`, and all return `jsonb`.
 | `admin_growth(days_back, tz)` | signups per day, user totals, push subscribers, reminder opt-ins |
 | `admin_user_roster(days_back, tz)` | one row per account: identity + auth.users email/provider/last sign-in, windowed activity and its WPBL/MLB split, favourite club, notification opt-ins, push devices, game reminders, series picks, feedback count, roles, MLB pick record |
 | `admin_set_user_role(target, want, granted, why)` | grant or revoke a `user_roles` row |
+| `admin_user_detail(target, days_back, tz, lim)` | one account: gap-filled daily series, browsers, first/last seen and lifetime total, then what they do (event names), where they go (WPBL tabs + routes), who they look at (players, clubs), what they searched for and did not find, their feedback, their series picks and their live game reminders |
 
 Two shared helpers: `admin_event_league(props, path)` and `admin_safe_tz(tz)`.
 
@@ -249,6 +252,33 @@ Three counting rules the columns depend on:
 panel branches on: dormant accounts, one deactivated, two with roles, a long tail of activity.
 Gated on `import.meta.env.DEV` as well as the flag, and its writes are short-circuited so the
 granted and deactivated layouts can be looked at without an RPC that would refuse a fake uuid.
+
+**Clicking a row opens that person.** A table row is a set of totals, which is the right
+answer to "who are these 150 people" and no answer at all to the question that always follows,
+so `admin_user_detail` is a second RPC taking a target rather than more columns. It is a
+stacked dialog, not a split pane: the roster's nine columns need the full width, so a split
+would drop half of them and cost you the table you were reading. Three things in it are load
+bearing:
+
+- **Every panel hides itself when it is empty.** Most accounts have never sent feedback, never
+  made a pick and never searched for something that was not there. A fixed layout would be six
+  "None" boxes around the one section with anything in it. What is left standing IS the answer.
+- **`props->>'teamId'` is shared by both sections and they do not mean the same thing.** A WPBL
+  team id is our own slug, an MLB one is a StatsAPI integer. The first version of this grouped
+  on the column raw and came back with `LA` on top of 136, 117, 139 and eight more, all of which
+  the panel would have drawn as an empty club badge. `players` and `teams` are scoped with
+  `admin_event_league(props, path)`, and `teams` is joined to `wpbl_teams` so an id that
+  resolves to nothing cannot reach the page. `actions`, `paths` and the series stay
+  cross-section deliberately: they are what says this person reads MLB at all.
+- **The search list is only the misses.** `analytics.ts` keeps the typed text when a query
+  matched nothing and drops it otherwise, so this cannot be a log of what somebody searched
+  for. The panel says so on its face, because a heading like "what they searched for" would
+  claim we collect something we deliberately do not.
+
+Two smaller ones. The daily chart draws nothing for a day with no events rather than a
+one-pixel stub, because on this data the gaps are the information. And the reminders list is
+live opt-ins, never a history (rows are deleted as games pass), which the panel also says,
+since the wrong reading is the easy one.
 
 **Roles are granted from the row menu.** See `user_roles` in ARCHITECTURE §3: the grant is
 cosmetic, it decides what the client draws, and it is never the thing keeping anything safe.

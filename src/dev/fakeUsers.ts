@@ -1,4 +1,4 @@
-import type { AdminUser, SiteRole } from '../lib/adminUsers'
+import type { AdminUser, AdminUserDetail, SiteRole } from '../lib/adminUsers'
 
 // A spoofed roster for looking at the Users panel.
 //
@@ -109,4 +109,91 @@ export function makeFakeUsers(n = 150, seed = 20260909): AdminUser[] {
       accuracy:    predicts ? Math.round((0.4 + r() * 0.25) * 100) : null,
     }
   })
+}
+
+const ACTIONS = [
+  'wpbl_tab_viewed', 'wpbl_player_opened', 'wpbl_stats_board', 'wpbl_stats_sorted',
+  'game_center_opened', 'wpbl_bracket_shown', 'wpbl_mvp_shown', 'wpbl_team_opened',
+  'wpbl_searched', 'board_viewed', 'wpbl_pickem_shown', 'wpbl_shelf_segment',
+]
+const VIEWS  = ['home', 'stats', 'schedule', 'standings', 'teams']
+const NAMES  = ['Kelsie Whitmore', 'Ayami Sato', "Mo'ne Davis", 'Claire Eccles', 'Alex Hugo']
+const MISSES = ['knuckleball', 'attendance', 'trade deadline', 'era leaders 2025']
+
+/**
+ * One spoofed person's detail, derived from their spoofed roster row.
+ *
+ * DERIVED, NOT INDEPENDENT: the window total, the active days and the WPBL/MLB split all come
+ * off the row the panel is already showing, so the sheet cannot contradict the table it was
+ * opened from. A generator that invented both halves separately would look fine and hide
+ * exactly the bug worth catching here, which is the two disagreeing.
+ */
+export function makeFakeDetail(u: AdminUser, days = 30): AdminUserDetail {
+  // Seeded off the account so one person's sheet is the same every time it is opened.
+  const r = rng(Number(u.user_id.replace(/\D/g, '').slice(-8)) || 7)
+  const now = Date.now()
+  const day = 86_400_000
+  const iso = (msAgo: number) => new Date(now - msAgo).toISOString()
+
+  // Spread the row's own event total over its own active days, so the two agree.
+  const series = Array.from({ length: days }, (_, i) => ({
+    date: new Date(now - (days - 1 - i) * day).toISOString().slice(0, 10),
+    events: 0,
+  }))
+  let left = u.events
+  for (let i = 0; i < u.active_days && left > 0; i++) {
+    const at = Math.floor(r() * days)
+    const take = i === u.active_days - 1 ? left : Math.ceil(left * (0.2 + r() * 0.5))
+    series[at].events += take
+    left -= take
+  }
+
+  const share = (n: number, frac: number) => Math.max(1, Math.round(n * frac))
+  const nActions = u.events ? 4 + Math.floor(r() * 6) : 0
+
+  return {
+    days_back: days,
+    series,
+    events_window: u.events,
+    active_days:   u.active_days,
+    browsers:      u.events ? 1 + Math.floor(r() * 2) : 0,
+    first_seen:    u.events ? u.created_at : null,
+    last_seen:     u.last_seen,
+    lifetime_events: u.events,
+    actions: Array.from({ length: nActions }, (_, i) => ({
+      event: ACTIONS[i % ACTIONS.length],
+      n: share(u.events, 0.3 / (i + 1)),
+      last: iso(Math.floor(r() * 12 * day)),
+    })),
+    views: u.wpbl_events ? VIEWS.slice(0, 2 + Math.floor(r() * 4)).map((view, i) => ({
+      view, n: share(u.wpbl_events, 0.15 / (i + 1)),
+    })) : [],
+    paths: [
+      ...(u.wpbl_events ? [{ path: '/wpbl', n: share(u.wpbl_events, 0.8) }] : []),
+      ...(u.mlb_events  ? [{ path: '/mlb',  n: share(u.mlb_events, 0.9) }] : []),
+    ],
+    players: u.wpbl_events > 20 ? NAMES.slice(0, 2 + Math.floor(r() * 3)).map((name, i) => ({
+      player_id: `fake-${i}`, name, team_id: CLUBS[i % CLUBS.length], n: 5 - i,
+    })) : [],
+    teams: u.wpbl_events > 20 ? CLUBS.slice(0, 1 + Math.floor(r() * 3)).map((id, i) => ({
+      team_id: id, name: `Club ${id}`, n: 9 - i * 3,
+    })) : [],
+    misses: r() < 0.35 ? MISSES.slice(0, 1 + Math.floor(r() * 3)).map(q => ({ q, n: 1 })) : [],
+    feedback: u.feedback ? Array.from({ length: u.feedback }, (_, i) => ({
+      created_at: iso((3 + i * 9) * day),
+      message: 'The standings table wraps on my phone in landscape, and the GB column ends up under the club name. Otherwise this is great, thank you for building it.',
+      path: '/wpbl/standings',
+      handled: i > 0,
+    })) : [],
+    picks: u.series_picks ? Array.from({ length: u.series_picks }, (_, i) => ({
+      category: `pickem:2026:${['semifinal:A', 'semifinal:B', 'championship'][i % 3]}`,
+      choice: `${CLUBS[i % CLUBS.length]}:2-1`,
+      at: iso((1 + i) * day),
+    })) : [],
+    reminders: u.game_reminders ? Array.from({ length: u.game_reminders }, (_, i) => ({
+      game_id: `g-${i}`,
+      game_date: new Date(now + (i + 1) * day).toISOString().slice(0, 10),
+      home: CLUBS[i % CLUBS.length], away: CLUBS[(i + 1) % CLUBS.length],
+    })) : [],
+  }
 }
