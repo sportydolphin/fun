@@ -10,6 +10,8 @@ import {
 } from './derive/runExpectancy'
 import { wpblAccentFg } from './constants'
 import { SectionCard, LeaderRow, PlayerPortrait, ExpandRow, useWpblDark, useWpblName, chromePx } from './ui'
+import CountBoard from './CountBoard'
+import { countValues } from './derive/countValue'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 
 // The run-value board: what each situation in a game is worth, and which plays moved furthest
@@ -408,6 +410,8 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer, ope
   // memoised on the same arrays the boards above already walk, so this costs a pass over the
   // season and no request.
   const rows = useMemo(() => eventValues(values), [values])
+  // Free: the same `values` pass the boards above already walk, with no extra request.
+  const counts = useMemo(() => countValues(values), [values])
   const worked = useMemo(() => workedExample(values, rows), [values, rows])
   const workedDate = useMemo(() => {
     const g = worked && games.find(x => x.id === worked.value.play.game_id)
@@ -481,6 +485,8 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer, ope
             onToggle={() => setAllLeaders(v => !v)} />
         )}
       </SectionCard>
+
+      {counts.length > 0 && <CountBoard counts={counts} accent={accent} />}
 
       {/* THE WHOLE EXPLANATION, IN ONE SHUT CARD, in the order the idea is actually built:
           a situation is worth something, a play is worth what it changed to it, and here is one
