@@ -311,6 +311,21 @@ export const tappableIf = (on: unknown) => (on ? TAPPABLE : {})
 export const chromePx = (px: number) => `calc(${px}px * var(--app-chrome, 1))`
 
 /**
+ * The page column the Stats boards that are prose and lists sit in, and the wider measure the
+ * ones that can use a second column take on a large desktop.
+ *
+ * NARROW IS NOT A DEFAULT TO BE ESCAPED, it is the right answer for one column of anything: a
+ * list stretched across 1,400px puts a name at one edge and its number at the other and stops
+ * being a row. What a wide screen buys is a SECOND column, not a longer one, so the wide value
+ * is two list measures and the gap between them rather than one long one.
+ *
+ * An over-generous cap is harmless: `max-width` cannot make an element wider than the box it
+ * is in, so on a viewport smaller than the cap this simply means "all of it".
+ */
+export const BOARD_COLUMN = chromePx(720)
+export const BOARD_COLUMN_WIDE = chromePx(1150)
+
+/**
  * The floor for the smallest labels: eyebrows, chart axes, footnotes.
  *
  * A PHONE NOW READS THE SMALLEST TYPE IN THE APP, which is the opposite of what anyone wants

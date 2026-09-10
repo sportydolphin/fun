@@ -9,7 +9,8 @@ import {
   fmtRe, fmtRunValue, playRunValues, runValueLeaders, type ReTable, type WorkedExample,
 } from './derive/runExpectancy'
 import { wpblAccentFg } from './constants'
-import { SectionCard, LeaderRow, PlayerPortrait, ExpandRow, useWpblDark, useWpblName, chromePx } from './ui'
+import { SectionCard, LeaderRow, PlayerPortrait, ExpandRow, useWpblDark, useWpblName, chromePx,
+  BOARD_COLUMN, BOARD_COLUMN_WIDE } from './ui'
 import CountBoard from './CountBoard'
 import { countValues } from './derive/countValue'
 import type { WpblGame, WpblPlayer, WpblTeam } from './types'
@@ -455,7 +456,10 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer, ope
        bleed is `calc(100vw - 24px)` below `sm`, which is WIDER than the column there, and
        giving those 8px back clipped two leaderboard names at the Large text setting. The cap
        simply never binds on a phone. */
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 }, maxWidth: chromePx(720), mx: 'auto' }}>
+    <Box sx={{
+      display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 },
+      maxWidth: { xs: BOARD_COLUMN, lg: BOARD_COLUMN_WIDE }, mx: 'auto',
+    }}>
       {/* ONE SENTENCE, AND NO HEADING. The board tab directly above already says "Run value",
           so a title under it named the same board twice in two sets of words. What has to stay
           is the unit: every figure below is "runs" in a sense nobody uses at the ballpark, and
@@ -469,8 +473,28 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer, ope
         </Typography>
       </Box>
 
-      {/* The leaderboard, full width. It shared a row with a how-it-works card until that came
-          off; on its own it takes the whole measure rather than leaving half the row empty. */}
+      {/* TWO COLUMNS ON A LARGE DESKTOP, ONE EVERYWHERE ELSE.
+          
+          The board used to cap itself at one list measure and centre, which was right about
+          the list and wrong about the page: at 1780px it left roughly 500px of nothing down
+          each side while the three blocks queued up in a column half a screen tall. A wide
+          screen does not want a longer row, it wants a second column, so the leaderboard keeps
+          its measure and the count grid and the explainer move up beside it.
+          
+          `lg` rather than `md`, and that is about the section's desktop scale rather than the
+          viewport: `--app-chrome` is 1.25 from 900px up, so two 560px columns already measure
+          1,400 real pixels and would not fit the 900px viewport `md` describes. The pair only
+          has room once the viewport does.
+          
+          `minmax(0, 1fr)` on both, not `1fr`: a grid track's default minimum is its content,
+          so the leaderboard's longest player name would push its column wider than half and
+          the two would stop being equal. */}
+      <Box sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) minmax(0, 1fr)' },
+        alignItems: 'start',
+        gap: { xs: 1.5, sm: 2 },
+      }}>
       <SectionCard title={pitching ? 'Most runs saved' : 'Most runs created'}>
         {leaders.length === 0
           ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
@@ -486,6 +510,9 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer, ope
         )}
       </SectionCard>
 
+      {/* The second column: the count grid over the explanation, since a reader who wants the
+          numbers wants them before the derivation, and both are the same width. */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 }, minWidth: 0 }}>
       {counts.length > 0 && <CountBoard counts={counts} accent={accent} />}
 
       {/* THE WHOLE EXPLANATION, IN ONE SHUT CARD, in the order the idea is actually built:
@@ -493,9 +520,12 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer, ope
           real play doing that. Every step is a sentence and its evidence, so a reader can stop
           after any of the three and have learned something true.
 
-          Width-capped for the same reason the grid inside it always was: four columns and a
-          paragraph spread across 1,100px stop being a grid and a paragraph. */}
-      <Box sx={{ maxWidth: { md: 620 } }}>
+          Its own width cap is gone: the column it now sits in already holds it to a measure,
+          and two caps for one question meant the card stopped short of its own column's edge
+          on a wide screen while the count grid above it did not. Below `lg` the column is the
+          board's single 720px measure, which is close enough to the 620 this used to set that
+          nothing about the reading experience moved. */}
+      <Box sx={{ minWidth: 0 }}>
         <SectionCard title="How run value works" collapsed={!tableOpen} onToggleCollapse={toggleTable}>
           <Step n={1} title="Every situation is already worth something">
             {/* "ON AVERAGE" IS LOAD-BEARING AND GOES IN THE DEFINING SENTENCE. Without it the
@@ -578,6 +608,8 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer, ope
             left out.
           </Typography>
         </SectionCard>
+      </Box>
+      </Box>
       </Box>
     </Box>
   )

@@ -9,7 +9,8 @@ import { trackingWorthShowing } from './tracking'
 import { WPBL_ACCENT, outsToIp, wpblFullName } from './constants'
 import {
   TeamBadge, PlayerPortrait, ModalShell, SectionLabel, PillGroup, ExpandRow, NewDot,
-  CARD_BORDER, pressable, FOCUS_RING, useWpblName, hoverOnly, tappableIf, chromePx } from './ui'
+  CARD_BORDER, pressable, FOCUS_RING, useWpblName, hoverOnly, tappableIf, chromePx,
+  BOARD_COLUMN, BOARD_COLUMN_WIDE } from './ui'
 import { buildPositionIndex, displayPositionFromIndex } from './positions'
 import {
   aggregateBatting, aggregatePitching, sumBatting, sumPitching, wpblQualifiers, plateAppearances,
@@ -64,6 +65,10 @@ const WpblDraftValue = lazy(() => import('./DraftValue'))
 // spans both sides at once, so it's reached from a card under the table instead.
 type Side = 'hitting' | 'pitching'
 type Source = 'season' | 'tracked' | 'pitches' | 'runs' | 'findings' | 'draft'
+
+/** Boards that lay themselves out in two columns on a large desktop, and so take the wider
+ *  page column. Everything else is one column and stays at the list measure. */
+const WIDE_BOARDS = new Set<Source>(['runs'])
 type Mode = 'players' | 'teams'
 
 // The deep-link contract, unchanged — Home's leader cards ask for 'hitting'/'pitching' with a
@@ -1167,7 +1172,14 @@ export default function WpblStatsView({
         // it: the row one nav above stays put, because that is the control you press to change
         // boards and it cannot move out from under the press, while this one belongs to the
         // board and follows it.
-        ...(source === 'season' ? {} : { maxWidth: chromePx(720), mx: 'auto', width: '100%' }),
+        // The cap follows the BOARD, because Run value lays itself out in two columns on a
+        // large desktop and the rest do not. Pinned to one width for all of them, the switch
+        // would sit level with a 720px board on some tabs and 400px inside a 1150px one on
+        // another, which reads as the control drifting rather than as the board changing.
+        ...(source === 'season' ? {} : {
+          maxWidth: WIDE_BOARDS.has(source) ? { xs: BOARD_COLUMN, lg: BOARD_COLUMN_WIDE } : BOARD_COLUMN,
+          mx: 'auto', width: '100%',
+        }),
       }}>
         {/* Two things, both about the switch staying put as the reader moves between boards.
             The note above claims the row keeps its shape on every board; on a desktop that was

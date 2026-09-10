@@ -26,8 +26,11 @@ export default function CountBoard({ counts, accent }: { counts: CountValue[]; a
   const best = counts.reduce((a, b) => (b.per > a.per ? b : a))
   const worst = counts.reduce((a, b) => (b.per < a.per ? b : a))
 
+  // NO WIDTH CAP OF ITS OWN. The board this sits in gives it a column, and two caps for one
+  // question left the grid stopping short of its own column's edge on a wide screen while the
+  // leaderboard beside it did not.
   return (
-    <Box sx={{ maxWidth: { md: 620 } }}>
+    <Box sx={{ minWidth: 0 }}>
       <SectionCard title="What every count is worth">
         <Typography sx={{ fontSize: '0.8rem', color: 'text.secondary', mb: 1.25, lineHeight: 1.5 }}>
           The average run value of a plate appearance that reached each count, in this league's
