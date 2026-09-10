@@ -1404,6 +1404,40 @@ const DRAG_FLICK_VELOCITY = 0.5    // px/ms downward, which commits from anywher
 const DRAG_FLICK_MIN_PX = 24
 const DRAG_ANIM_MS = 220
 
+/**
+ * The scroller the sheet's content is actually in, for a finger that is NOT inside it.
+ *
+ * A grab surface declared with `data-sheet-drag` is pinned chrome: on a phone the player
+ * card's identity band sits ABOVE the pager rather than inside it, because the pager needs a
+ * definite height. So a finger on the band has no scrollable ancestor at all, and
+ * `scrollerUnder` correctly returns null for it. This finds the pane the band is pinned over,
+ * so a drag there can scroll it.
+ *
+ * THE HORIZONTAL TEST IS WHAT PICKS THE RIGHT PANE. A tab pager keeps its neighbours mounted
+ * and translated off to the sides, so several panes match "overflows vertically" at once.
+ * Only the one the card's centre line passes through is on screen.
+ */
+function visibleScroller(card: HTMLElement): HTMLElement | null {
+  const box = card.getBoundingClientRect()
+  const cx = box.left + box.width / 2
+  let best: HTMLElement | null = null
+  let bestH = 0
+  for (const el of Array.from(card.querySelectorAll<HTMLElement>('*'))) {
+    // THE CHEAP TEST FIRST, and it is not a micro-optimisation. This runs at touchstart, and
+    // `getComputedStyle` on every node of a card that can hold a thousand of them is tens of
+    // milliseconds on a mid-range phone: paid at the exact moment the reader expects the sheet
+    // to start moving, which is the one place in a gesture that lag is felt as a broken
+    // control. Almost nothing overflows, so this skips the style read for nearly every node.
+    if (el.scrollHeight <= el.clientHeight + 1) continue
+    const oy = getComputedStyle(el).overflowY
+    if (oy !== 'auto' && oy !== 'scroll') continue
+    const r = el.getBoundingClientRect()
+    if (r.width <= 0 || r.height <= 0 || cx < r.left || cx > r.right) continue
+    if (r.height > bestH) { best = el; bestH = r.height }
+  }
+  return best
+}
+
 /** The scrollable box the finger is inside, if any, stopping at the sheet itself. */
 function scrollerUnder(target: EventTarget | null, stop: HTMLElement): HTMLElement | null {
   let el = target instanceof HTMLElement ? target : null
@@ -1428,6 +1462,9 @@ function useSheetDrag(
 
     let active = false, claimed = false, locked = false, eligible = false
     let startY = 0, startX = 0, dy = 0, lastY = 0, lastT = 0, vel = 0
+    // Set only for a drag that began on a pinned grab surface over a pane that is NOT at its
+    // top. See the handoff in onMove.
+    let bandScroller: HTMLElement | null = null
 
     // The backdrop clears as the sheet falls, so what is behind it is readable on the way
     // out rather than at the end of it. Both halves of it: the dim AND the blur, since a
@@ -1457,15 +1494,52 @@ function useSheetDrag(
       // player page's identity band is the obvious thing to grab and pull, and it is not
       // something anyone scrolls to read. ModalShell gives anything carrying it the same
       // `touch-action: none` as the chrome, so grabbing there never enters the race above.
-      const onChrome = (!!chromeRef.current && chromeRef.current.contains(e.target as Node))
-        || !!el?.closest('[data-sheet-drag]')
-      const scroller = scrollerUnder(e.target, card)
-      eligible = onChrome || !scroller || scroller.scrollTop <= 0
+      // THE HANDLE AND THE EYEBROW ARE ALWAYS A DISMISSAL. They are small, they are unmistakably
+      // chrome, and a finger there has no other possible intent.
+      const onHandle = !!chromeRef.current && chromeRef.current.contains(e.target as Node)
+      // A `data-sheet-drag` BAND IS NOT THE SAME THING, and treating it as though it were is
+      // what made this card close when a reader was only trying to scroll back up. The player
+      // card's band is ~90px of portrait and name pinned above the content at every scroll
+      // depth, directly under the thumb, so "a finger here means dismiss" fires constantly by
+      // accident. It earns the dismissal only once the pane beneath it is already at its top,
+      // exactly like a finger on the content does; below that it scrolls that pane instead.
+      const onBand = !onHandle && !!el?.closest('[data-sheet-drag]')
+      const scroller = scrollerUnder(e.target, card) ?? (onBand ? visibleScroller(card) : null)
+      eligible = onHandle || !scroller || scroller.scrollTop <= 0
+      bandScroller = onBand && !eligible ? scroller : null
     }
 
     const onMove = (e: TouchEvent) => {
       if (!active) return
       const t = e.touches[0]
+
+      // ONE CONTINUOUS GESTURE: SCROLL TO THE TOP, THEN KEEP PULLING TO DISMISS.
+      //
+      // The band has `touch-action: none`, so the browser will never scroll from it, and the
+      // pane is not its ancestor so there is nothing for it to scroll anyway. Left alone this
+      // is a dead strip a reader cannot scroll with, which is only marginally better than one
+      // that closes the card by mistake. Forwarding the movement makes the band behave like
+      // the content it sits on, and the drag becomes a dismissal at the moment the pane runs
+      // out of travel, which is the same rule a finger on the content already follows.
+      if (bandScroller) {
+        const step = t.clientY - lastY
+        lastY = t.clientY
+        // Still somewhere to scroll, or the finger is going up: this is a scroll, not a
+        // dismissal. `startY` follows the finger so that if a dismissal ever does begin, it
+        // begins from where the pane ran out rather than from where the finger landed.
+        if (bandScroller.scrollTop > 0 || step < 0) {
+          bandScroller.scrollTop = Math.max(0, bandScroller.scrollTop - step)
+          startY = t.clientY
+          e.preventDefault()
+          return
+        }
+        // At the top and still pulling down. Hand over.
+        bandScroller = null
+        eligible = true
+        startY = lastY = t.clientY
+        lastT = performance.now()
+      }
+
       const moveY = t.clientY - startY
       const moveX = t.clientX - startX
       if (!locked) {
