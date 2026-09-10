@@ -51,9 +51,7 @@ vi.mock('../AdminPanel', async (importOriginal) => {
 
 const { default: AdminPage } = await import('../AdminPage')
 
-const renderPage = () => render(
-  <AdminPage apps={[]} isAppLocked={() => false} onOpenApp={() => {}} />,
-)
+const renderPage = () => render(<AdminPage />)
 
 beforeEach(() => { fetchAnalytics.mockClear() })
 

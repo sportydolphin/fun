@@ -39,7 +39,8 @@ it goes on this page. Don't start a second surface.
 cards mixing three unrelated jobs, with the range and league filters at the top implying they
 governed all of it. It is now **Audience** (the analytics, and the only group the filters
 apply to), **Health** (the four pipelines, one card), and **Tools** (feedback, users, test
-push, apps, links). Two rules hold it together:
+push). The tile grid of mini-apps that used to sit under Tools went with the apps themselves
+on Sep 10, 2026. Two rules hold it together:
 
 - **Pipeline health follows you.** `HealthStrip` renders above every group except Health
   itself, because the pipelines are the only thing here that is ever urgent and they used to

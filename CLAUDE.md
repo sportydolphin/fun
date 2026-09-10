@@ -448,8 +448,11 @@ units):
   predictions game with a Wilson-ranked leaderboard and bot rivals, playoff odds, milestone
   watch, streak report cards, Streak Survivor.
 
-Also `/admin` (owner analytics) and small bolted-on tools at `/cups`, `/stopwatch`,
-`/poop`, backed by `projects/` and `public/projects/`.
+Also `/admin` (owner analytics). **Nothing else.** The five bolted-on toys that used to live
+here (`/cups`, `/stopwatch`, `/weights`, `/poop`, `/testgame`, plus the `projects/` and
+`public/projects/` trees behind them) were deleted on Sep 10, 2026: the site is the two
+leagues, and a games drawer nobody visited was still costing routes, redirects, CSS,
+a password-lock dialog and a tile grid on the admin page.
 
 **Stack:** React 18 + TypeScript + Vite + MUI · Supabase (Postgres, Auth, Edge Functions,
 pg_cron) · GitHub Actions for cron · installable PWA · Cloudflare Pages at

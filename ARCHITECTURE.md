@@ -107,14 +107,6 @@ flowchart LR
         api["/wpbl/api<br/>wpbl/ApiDocs.tsx"]
     end
 
-    subgraph Tools["Tools & games"]
-        cups["/cups"]
-        sw["/stopwatch"]
-        wt["/weights"]
-        poop["/poop"]
-        tg["/testgame"]
-    end
-
     subgraph Legal["Legal"]
         priv["/privacy"]
         terms["/terms"]

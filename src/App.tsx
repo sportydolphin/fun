@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef, lazy, Suspense } from 'react'
 import { createPortal } from 'react-dom'
-import { Typography, Box, IconButton, AppBar, Toolbar, Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, List, ListItemButton, Divider } from '@mui/material'
+import { Typography, Box, IconButton, AppBar, Toolbar, Button, Paper, ClickAwayListener, CircularProgress, Snackbar, Alert, useMediaQuery, List, ListItemButton, Divider } from '@mui/material'
 import { Brightness4, Brightness7, AccountCircle, Search, Close } from '@mui/icons-material'
 import { useSearchBridge, setSearchQuery } from './mlb/state/SearchBridgeContext'
 import type { PlayerBridgeItem, TeamBridgeItem, ToolbarSuggestion, RecentSearchItem, SearchResultRow } from './mlb/state/SearchBridgeContext'
@@ -72,15 +72,6 @@ const WpblApiDocs = lazy(() => import('./wpbl/ApiDocs'))
 // room, and it pulls in the analytics RPC layer that nobody else should ever download.
 const AdminPage = lazy(() => import('./AdminPage'))
 
-// The mini-apps: each is a whole game or tool reachable only from its own route, and none
-// of them has anything to do with the two league sections that carry the traffic. Eagerly
-// imported they were ~120 KB of the entry chunk that a /wpbl reader downloaded and never
-// ran. TestGame alone is 47 KB of source.
-const CupsGame = lazy(() => import('../projects/cups-game/src/CupsGame'))
-const TestGame = lazy(() => import('./TestGame'))
-const Stopwatch = lazy(() => import('./Stopwatch'))
-const WeightGame = lazy(() => import('./WeightGame'))
-const PoopGame = lazy(() => import('./PoopGame'))
 // Both legal pages come from one module, so these two share a chunk.
 const PrivacyPolicy = lazy(() => import('./LegalPages').then(m => ({ default: m.PrivacyPolicy })))
 const TermsOfService = lazy(() => import('./LegalPages').then(m => ({ default: m.TermsOfService })))
@@ -115,7 +106,7 @@ const DIALOG_FALLBACK = null
 // The WPBL tabs (/wpbl/schedule and friends) are routes too; they live in wpbl/routes.ts
 // because seo.ts and WpblApp need the same list. Adding one there means adding a line in
 // public/_redirects as well, or it 404s in production and works fine in dev.
-type Route = '/' | '/cups' | '/stopwatch' | '/weights' | '/poop' | '/testgame' | '/mlb' | '/wpbl' | '/wpbl/api' | '/privacy' | '/terms' | '/delete-account' | '/admin'
+type Route = '/' | '/mlb' | '/wpbl' | '/wpbl/api' | '/privacy' | '/terms' | '/delete-account' | '/admin'
 
 /** A WPBL tab page. `/wpbl/api` is a sibling route, not a tab, so it is not one of these. */
 const isWpblTab = (p: string) => wpblViewFromPath(p) !== null
@@ -128,10 +119,6 @@ const rendersWpblApp = wpblAppOwnsPath
 /** Anything that should read as "the reader is in the WPBL section". */
 const isWpblSection = (p: string) =>
   rendersWpblApp(p) || p === '/wpbl/api' || isWpblLeaguePage(p) || isWpblGlossaryPage(p) || isWpblPlayersIndex(p)
-
-const LOCK_PASSWORD = 'sportydolphin'
-const LOCKED_PATHS = new Set(['/cups', '/weights'])
-const SESSION_KEY = 'sdUnlocked'
 
 // Brand lockup in the toolbar. The logo is sized to the wordmark's line box so the
 // two read as one unit, and the wordmark is held back until the viewport can show it
@@ -263,15 +250,6 @@ function retiredSpan(p: PlayerBridgeItem): string {
   if (debutYear) return `${debutYear}–`
   return 'Retired'
 }
-
-const PROJECTS = [
-  { label: 'MLB Stats',     emoji: '📊',  desc: 'Player stat card maker', path: '/mlb',      color: 'hsl(0,   68%, 42%)' },
-  { label: 'Test Game',     emoji: '🐟',  desc: 'Watch the fish trade',   path: '/testgame', color: 'hsl(260, 58%, 50%)' },
-  { label: 'Cups Compare',  emoji: '🥤',  desc: 'Compare liquid amounts', path: '/cups',     color: 'hsl(195, 78%, 38%)' },
-  { label: 'Stopwatch',     emoji: '⏱️',  desc: 'Test your timing',       path: '/stopwatch',color: 'hsl(28,  82%, 48%)' },
-  { label: 'Weights',       emoji: '🏋️', desc: 'Track your lifts',       path: '/weights',  color: 'hsl(142, 50%, 36%)' },
-  { label: 'Poop Pile',     emoji: '💩',  desc: 'Stack the poops',        path: '/poop',     color: 'hsl(24,  58%, 38%)' },
-]
 
 function ToolbarSuggestionsDropdown({ suggestions, onSelect, recents, onSelectRecent, onClearRecents }: {
   suggestions: ToolbarSuggestion[]
@@ -440,8 +418,8 @@ function AppInner() {
   const { mode, toggleTheme, skinConfig } = useTheme()
   const integratedHeader = skinConfig.integratedHeader
   const { user, loading: authLoading, signOut, openAuthDialog } = useAuth()
-  // Root redirects straight to WPBL — it's the default section now. MLB and the
-  // other mini apps are still reachable (the MLB | WPBL toggle, admin menu).
+  // Root redirects straight to WPBL, which is the default section. MLB is the only other
+  // place to go, and the MLB | WPBL toggle is how you get there.
   const [path, setPath] = useState<Route | string>(() => {
     const p = readPath()
     if (p === '/') { window.history.replaceState({}, '', '/wpbl'); return '/wpbl' }
@@ -695,11 +673,6 @@ function AppInner() {
     return () => cleanup?.()
   }, [])
 
-  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_KEY) === '1')
-  const [lockDialogOpen, setLockDialogOpen] = useState(false)
-  const [pendingPath, setPendingPath] = useState<string | null>(null)
-  const [pwInput, setPwInput] = useState('')
-  const [pwError, setPwError] = useState(false)
 
   useEffect(() => {
     const onPop = () => {
@@ -727,37 +700,9 @@ function AppInner() {
     if (path === '/admin' && !authLoading && !isAdmin) navigate('/wpbl')
   }, [path, authLoading, isAdmin])
 
-  const handleTileClick = useCallback((p: { path: string }) => {
-    if (LOCKED_PATHS.has(p.path) && !unlocked) {
-      setPendingPath(p.path)
-      setPwInput('')
-      setPwError(false)
-      setLockDialogOpen(true)
-    } else {
-      navigate(p.path)
-    }
-  }, [unlocked])
-
-  const handlePwSubmit = useCallback(() => {
-    if (pwInput === LOCK_PASSWORD) {
-      sessionStorage.setItem(SESSION_KEY, '1')
-      setUnlocked(true)
-      setLockDialogOpen(false)
-      if (pendingPath) navigate(pendingPath)
-    } else {
-      setPwError(true)
-    }
-  }, [pwInput, pendingPath])
-
   const backBtn = (
     <Box {...linkTo('/mlb')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
   )
-
-  // Other mini apps (everything but MLB Stats) — opened from the admin menu now
-  // that the site lands on /mlb directly.
-  const otherApps = PROJECTS.filter(p => p.path !== '/mlb')
-  const isAppLocked = useCallback((path: string) => LOCKED_PATHS.has(path) && !unlocked, [unlocked])
-  const openApp = useCallback((path: string) => handleTileClick({ path }), [handleTileClick])
 
   return (
     // Plain root. The desktop scale moved down to the content box below the toolbar; the
@@ -1377,46 +1322,6 @@ function AppInner() {
             the ordinary 16px, and the sides keep ordinary spacing too, since nothing lines up
             across the switch horizontally and so nothing there can jump. */}
         <Box sx={{ px: 2, py: { xs: 2, md: 'calc(20px / var(--app-zoom, 1))' } }}>
-          {path === '/cups' && (
-            <Box>
-              {backBtn}
-              <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-                <CupsGame />
-              </Suspense>
-            </Box>
-          )}
-          {path === '/stopwatch' && (
-            <Box>
-              {backBtn}
-              <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-                <Stopwatch />
-              </Suspense>
-            </Box>
-          )}
-          {path === '/weights' && (
-            <Box>
-              {backBtn}
-              <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-                <WeightGame />
-              </Suspense>
-            </Box>
-          )}
-          {path === '/poop' && (
-            <Box>
-              {backBtn}
-              <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-                <PoopGame />
-              </Suspense>
-            </Box>
-          )}
-          {path === '/testgame' && (
-            <Box>
-              {backBtn}
-              <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-                <TestGame />
-              </Suspense>
-            </Box>
-          )}
           {path === '/mlb' && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               <MlbStats />
@@ -1473,7 +1378,7 @@ function AppInner() {
                 <Box {...linkTo('/wpbl')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 700, userSelect: 'none', px: 1.25, py: 0.6, borderRadius: 999, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', transition: 'color 0.15s, border-color 0.15s, background-color 0.15s', '&:hover': { color: 'text.primary', borderColor: 'text.secondary', bgcolor: 'action.hover' } }}>← Back to WPBL</Box>
               </Box>
               <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
-                <AdminPage apps={otherApps} isAppLocked={isAppLocked} onOpenApp={openApp} />
+                <AdminPage />
               </Suspense>
             </Box>
           )}
@@ -1540,28 +1445,6 @@ function AppInner() {
           <ChangelogDialogs open={changelogOpen} onClose={() => setChangelogOpen(false)} />
         </Suspense>
       )}
-
-      <Dialog open={lockDialogOpen} onClose={() => setLockDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>🔒 Password required</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            type="password"
-            label="Password"
-            value={pwInput}
-            error={pwError}
-            helperText={pwError ? 'Incorrect password' : ''}
-            onChange={e => { setPwInput(e.target.value); setPwError(false) }}
-            onKeyDown={e => { if (e.key === 'Enter') handlePwSubmit() }}
-            sx={{ mt: 1 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setLockDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handlePwSubmit} variant="contained">Unlock</Button>
-        </DialogActions>
-      </Dialog>
 
       {user && usernameMounted && (
         <Suspense fallback={DIALOG_FALLBACK}>

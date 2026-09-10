@@ -237,11 +237,7 @@ function ActivityChart({ series, tz }: { series: DayPoint[]; tz: string }) {
 
 // ─── the page ─────────────────────────────────────────────────────────────────
 
-export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
-  apps: Array<{ label: string; emoji: string; desc: string; path: string; color: string }>
-  isAppLocked: (path: string) => boolean
-  onOpenApp: (path: string) => void
-}) {
+export default function AdminPage() {
   const [group, setGroup]   = useState<Group>('audience')
   const [days, setDays]     = useState<number>(30)
   const [league, setLeague] = useState<LeagueFilter>('all')
@@ -734,7 +730,7 @@ export default function AdminPage({ apps, isAppLocked, onOpenApp }: {
 
       {group === 'health' && <HealthGroup health={health} />}
 
-      {group === 'tools' && <AdminTools apps={apps} isAppLocked={isAppLocked} onOpenApp={onOpenApp} />}
+      {group === 'tools' && <AdminTools />}
     </Box>
   )
 }

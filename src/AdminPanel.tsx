@@ -3,7 +3,7 @@ import {
   Dialog, DialogTitle, DialogContent, IconButton,
   Box, Typography, Divider, CircularProgress, Button,
 } from '@mui/material'
-import { Close, Lock, Check, Undo, DeleteOutline, MailOutline } from '@mui/icons-material'
+import { Close, Check, Undo, DeleteOutline, MailOutline } from '@mui/icons-material'
 import { supabase } from './lib/supabase'
 import { isSubscribed } from './lib/push'
 import { fetchFeedback, setFeedbackHandled, deleteFeedback, FeedbackRow } from './lib/feedback'
@@ -12,7 +12,6 @@ import { UsersPanel } from './AdminUsers'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface PayrollRow { updated_at: string; season: number }
-interface AppTile     { label: string; emoji: string; desc: string; path: string; color: string }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -179,45 +178,6 @@ function QuickLink({ label, href, emoji }: { label: string; href: string; emoji:
       <Typography sx={{ fontSize: '1rem', lineHeight: 1 }}>{emoji}</Typography>
       <Typography sx={{ fontSize: '0.82rem', fontWeight: 600, color: 'text.primary' }}>{label}</Typography>
       <Typography sx={{ ml: 'auto', fontSize: '0.72rem', color: 'text.disabled' }}>↗</Typography>
-    </Box>
-  )
-}
-
-// ─── Other apps tile grid ──────────────────────────────────────────────────────
-
-function AppGrid({ apps, isAppLocked, onOpenApp }: {
-  apps: AppTile[]
-  isAppLocked: (path: string) => boolean
-  onOpenApp: (path: string) => void
-}) {
-  return (
-    <Box sx={{ p: 1, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
-      {apps.map(a => {
-        const locked = isAppLocked(a.path)
-        return (
-          <Box
-            key={a.path}
-            onClick={() => onOpenApp(a.path)}
-            sx={{
-              bgcolor: a.color, borderRadius: 2, p: 1.25,
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.4,
-              cursor: 'pointer', userSelect: 'none', position: 'relative',
-              transition: 'transform 0.15s ease',
-              '&:hover': { transform: 'translateY(-2px)' },
-            }}
-          >
-            {locked && (
-              <Box sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'rgba(0,0,0,0.25)', borderRadius: '50%', width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Lock sx={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.9)' }} />
-              </Box>
-            )}
-            <Typography sx={{ fontSize: '1.3rem', lineHeight: 1 }}>{a.emoji}</Typography>
-            <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: '0.68rem', textAlign: 'center', lineHeight: 1.2 }}>
-              {a.label}
-            </Typography>
-          </Box>
-        )
-      })}
     </Box>
   )
 }
@@ -694,16 +654,11 @@ function DrillRow({ emoji, label, badge, onClick }: {
   )
 }
 
-// The things the owner *does*: fire a test push, work the feedback queue, manage users, open
-// one of the small apps. This began as a maxWidth="xs" dialog off the account menu, then
+// The things the owner *does*: fire a test push, work the feedback queue, manage users. This began as a maxWidth="xs" dialog off the account menu, then
 // became the whole operational half of one long page; the freshness reads moved to
 // HealthGroup above, so what is left here is only the actions. Feedback and Users stay
 // modals: they are drill-downs opened FROM the page, not competing with it.
-export function AdminTools({ apps, isAppLocked, onOpenApp }: {
-  apps: AppTile[]
-  isAppLocked: (path: string) => boolean
-  onOpenApp: (path: string) => void
-}) {
+export function AdminTools() {
   const [userCount, setUserCount] = useState<number | null>(null)
   const [usersOpen, setUsersOpen] = useState(false)
   const [feedbackNew, setFeedbackNew]   = useState<number | null>(null)
@@ -768,9 +723,6 @@ export function AdminTools({ apps, isAppLocked, onOpenApp }: {
 
         <TestNotificationSection />
 
-        <Section title="Other Apps">
-          <AppGrid apps={apps} isAppLocked={isAppLocked} onOpenApp={onOpenApp} />
-        </Section>
       </Box>
 
       <FeedbackModal

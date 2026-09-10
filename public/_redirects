@@ -38,11 +38,6 @@
 /terms/        /terms     301
 /delete-account/ /delete-account 301
 /admin/        /admin     301
-/cups/         /cups      301
-/stopwatch/    /stopwatch 301
-/weights/      /weights   301
-/poop/         /poop      301
-/testgame/     /testgame  301
 
 # App routes: rewritten to the shell, status 200, URL unchanged in the address bar (which
 # is what the router and the canonical tags in src/seo.ts both expect).
@@ -90,11 +85,6 @@
 /terms         /  200
 /delete-account /  200
 /admin         /  200
-/cups          /  200
-/stopwatch     /  200
-/weights       /  200
-/poop          /  200
-/testgame      /  200
 
 # Everything else falls through to public/404.html, WITH A 404 STATUS, and there is
 # deliberately no rule for it here.
