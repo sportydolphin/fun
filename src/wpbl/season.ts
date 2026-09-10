@@ -72,6 +72,69 @@ export function regularSeasonLines<T extends GameKeyed>(lines: T[], games: WpblS
   return skip.size === 0 ? lines : lines.filter(l => !skip.has(l.game_id))
 }
 
+/**
+ * Which slice of the season a surface is showing.
+ *
+ * ADDED FOR THE STATS PAGE, and everything else in the app keeps the old behaviour by
+ * default. `regular` is what every existing caller has always meant, so it stays the default
+ * on every function that takes this: the OG share cards, the Discord `/player` card and the
+ * player pages must not change what they publish because a toggle appeared on a board.
+ */
+export type SeasonScope = 'regular' | 'postseason' | 'all'
+
+/**
+ * Whether a game is positively identifiable as a postseason game.
+ *
+ * The exact negation of `countsInStandings`, and deliberately expressed as one rather than as
+ * a second list of patterns: two definitions of "is this a playoff game" would drift, and the
+ * day they disagreed a game would be in neither slice or in both.
+ */
+export const isPostseasonGame = (g: WpblSeasonGame): boolean => !countsInStandings(g)
+
+/**
+ * The ids of games that ARE postseason. The positive set, which is the opposite of
+ * `excludedGameIds`, and the opposite failure direction on purpose.
+ */
+export function postseasonGameIds(games: WpblSeasonGame[]): Set<string> {
+  const out = new Set<string>()
+  for (const g of games) if (isPostseasonGame(g)) out.add(g.id)
+  return out
+}
+
+/**
+ * Lines belonging to one slice of the season.
+ *
+ * THE TWO SLICES FAIL IN OPPOSITE DIRECTIONS, AND BOTH ARE CORRECT.
+ *
+ * `regular` fails OPEN, for the reason written at length on `countsInStandings`: it drops a
+ * game only on positive evidence, so the day the feed renames its game types the season
+ * totals are wrong by a few games rather than blank.
+ *
+ * `postseason` fails CLOSED, and it has to. "Everything that does not look regular" is not a
+ * definition of the playoffs, it is a definition of "unrecognised", so on that same rename it
+ * would relabel all 30 regular-season games as the postseason and publish them under a
+ * heading that says Playoffs. An empty playoff board is visibly broken and gets fixed; a full
+ * one made of the wrong games is invisible and does not. This is the one place in this module
+ * where including-only is the safe choice.
+ *
+ * `all` filters nothing at all, which is the only honest reading of "everything" and cannot
+ * be wrong about a game it has never heard of.
+ */
+export function scopedLines<T extends GameKeyed>(
+  lines: T[], games: WpblSeasonGame[], scope: SeasonScope = 'regular',
+): T[] {
+  if (scope === 'all') return lines
+  if (scope === 'regular') return regularSeasonLines(lines, games)
+  const keep = postseasonGameIds(games)
+  return keep.size === 0 ? [] : lines.filter(l => keep.has(l.game_id))
+}
+
+/** The games in one slice. Same asymmetry, same reasons, as `scopedLines`. */
+export function scopedGames<T extends WpblSeasonGame>(games: T[], scope: SeasonScope = 'regular'): T[] {
+  if (scope === 'all') return games
+  return games.filter(g => (scope === 'regular' ? countsInStandings(g) : isPostseasonGame(g)))
+}
+
 /** The games that count, for callers counting games rather than filtering lines. */
 export function regularSeasonGames<T extends WpblSeasonGame>(games: T[]): T[] {
   return games.filter(countsInStandings)

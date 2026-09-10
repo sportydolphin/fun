@@ -1,5 +1,6 @@
 import type { WpblPlayer, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblGame, WpblTeam } from './types'
-import { countsInStandings, regularSeasonLines, type WpblSeasonGame } from './season'
+import { countsInStandings, scopedLines, isPostseasonGame,
+  type WpblSeasonGame, type SeasonScope } from './season'
 
 // EVERY aggregate here takes the schedule, and it is not optional.
 //
@@ -83,8 +84,8 @@ export interface WpblBattingTotals {
   lob: number | null
 }
 
-export function sumBatting(lines: WpblBattingLine[], games: WpblSeasonGame[]): WpblBattingTotals {
-  return sumBattingRaw(regularSeasonLines(lines, games))
+export function sumBatting(lines: WpblBattingLine[], games: WpblSeasonGame[], scope: SeasonScope = 'regular'): WpblBattingTotals {
+  return sumBattingRaw(scopedLines(lines, games, scope))
 }
 
 /** The arithmetic alone, on lines already known to be in scope. Internal, so the grouping
@@ -152,8 +153,8 @@ export interface WpblPitchingTotals {
   kbb: number | null
 }
 
-export function sumPitching(lines: WpblPitchingLine[], games: WpblSeasonGame[]): WpblPitchingTotals {
-  return sumPitchingRaw(regularSeasonLines(lines, games))
+export function sumPitching(lines: WpblPitchingLine[], games: WpblSeasonGame[], scope: SeasonScope = 'regular'): WpblPitchingTotals {
+  return sumPitchingRaw(scopedLines(lines, games, scope))
 }
 
 /** The arithmetic alone; see `sumBattingRaw`. */
@@ -236,20 +237,25 @@ export interface WpblQualifiers {
  *  scale off this number, so counting playoff games would raise the bar for a rate title in
  *  the middle of the postseason and quietly drop players off leaderboards they had already
  *  qualified for. */
-function gamesPlayed(games: WpblGame[]): Map<string, number> {
+function gamesPlayed(games: WpblGame[], scope: SeasonScope = 'regular'): Map<string, number> {
   const played = new Map<string, number>()
   for (const g of games) {
-    if (g.status !== 'final' || !countsInStandings(g)) continue
+    if (g.status !== 'final') continue
+    // THE DENOMINATOR HAS TO MOVE WITH THE NUMERATOR. On the postseason slice the bar has to
+    // scale off postseason games, or a hitter needs a regular season's worth of plate
+    // appearances to qualify for a rate title in a three-game series and the board is empty.
+    if (scope === 'regular' && !countsInStandings(g)) continue
+    if (scope === 'postseason' && !isPostseasonGame(g)) continue
     played.set(g.home_team_id, (played.get(g.home_team_id) ?? 0) + 1)
     played.set(g.away_team_id, (played.get(g.away_team_id) ?? 0) + 1)
   }
   return played
 }
 
-export function wpblQualifiers(teams: WpblTeam[], games: WpblGame[]): WpblQualifiers {
+export function wpblQualifiers(teams: WpblTeam[], games: WpblGame[], scope: SeasonScope = 'regular'): WpblQualifiers {
   const inactive = { active: false, teamGames: 0, minPa: 0, minOuts: 0 }
   if (teams.length === 0) return inactive
-  const played = gamesPlayed(games)
+  const played = gamesPlayed(games, scope)
   const teamGames = Math.min(...teams.map(t => played.get(t.id) ?? 0))
   if (teamGames < QUALIFY_MIN_GAMES) return inactive
   return {
@@ -285,10 +291,10 @@ export const fmtSigned = (n: number): string => (n > 0 ? `+${n}` : n < 0 ? `\u22
 export interface WpblBatSeason { player: WpblPlayer; totals: WpblBattingTotals }
 export interface WpblPitSeason { player: WpblPlayer; totals: WpblPitchingTotals }
 
-export function aggregateBatting(players: WpblPlayer[], lines: WpblBattingLine[], games: WpblSeasonGame[]): WpblBatSeason[] {
+export function aggregateBatting(players: WpblPlayer[], lines: WpblBattingLine[], games: WpblSeasonGame[], scope: SeasonScope = 'regular'): WpblBatSeason[] {
   const pmap = new Map(players.map(p => [p.id, p]))
   const byPlayer = new Map<string, WpblBattingLine[]>()
-  for (const l of regularSeasonLines(lines, games)) {
+  for (const l of scopedLines(lines, games, scope)) {
     const arr = byPlayer.get(l.player_id) ?? []
     arr.push(l); byPlayer.set(l.player_id, arr)
   }
@@ -300,10 +306,10 @@ export function aggregateBatting(players: WpblPlayer[], lines: WpblBattingLine[]
   return out
 }
 
-export function aggregatePitching(players: WpblPlayer[], lines: WpblPitchingLine[], games: WpblSeasonGame[]): WpblPitSeason[] {
+export function aggregatePitching(players: WpblPlayer[], lines: WpblPitchingLine[], games: WpblSeasonGame[], scope: SeasonScope = 'regular'): WpblPitSeason[] {
   const pmap = new Map(players.map(p => [p.id, p]))
   const byPlayer = new Map<string, WpblPitchingLine[]>()
-  for (const l of regularSeasonLines(lines, games)) {
+  for (const l of scopedLines(lines, games, scope)) {
     const arr = byPlayer.get(l.player_id) ?? []
     arr.push(l); byPlayer.set(l.player_id, arr)
   }
@@ -368,19 +374,21 @@ export function computeWpblTeamStats(
   /** What ERA and K/9 are shown on. Defaults to the league's basis, so a caller that has no
    *  reader to ask (a share card, a bot) gets the league's numbers without opting in. */
   basis: EraBasis = ERA_BASIS_CANONICAL,
+  /** Which slice of the season. Defaults to regular, so every existing caller is unchanged. */
+  scope: SeasonScope = 'regular',
 ): Map<string, WpblTeamSeasonStats> {
-  // Regular-season games each team has played, the denominator for R/G. It has to move in
-  // step with the numerator, or a finalist's runs end up divided by a regular-season count.
+  // Games each team has played IN THIS SLICE, the denominator for R/G. It has to move in step
+  // with the numerator, or a finalist's playoff runs end up divided by a regular-season count.
   // Shares the helper above rather than keeping the copy of it that used to live here.
-  const played = gamesPlayed(games)
+  const played = gamesPlayed(games, scope)
 
   const batByTeam = new Map<string, WpblBattingLine[]>()
-  for (const l of regularSeasonLines(batting, games)) {
+  for (const l of scopedLines(batting, games, scope)) {
     if (!l.team_id) continue
     const a = batByTeam.get(l.team_id) ?? []; a.push(l); batByTeam.set(l.team_id, a)
   }
   const pitByTeam = new Map<string, WpblPitchingLine[]>()
-  for (const l of regularSeasonLines(pitching, games)) {
+  for (const l of scopedLines(pitching, games, scope)) {
     if (!l.team_id) continue
     const a = pitByTeam.get(l.team_id) ?? []; a.push(l); pitByTeam.set(l.team_id, a)
   }

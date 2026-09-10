@@ -17,6 +17,7 @@ import {
   type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
+import { isPostseasonGame, type SeasonScope } from './season'
 import type { EraBasis } from './stats'
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
@@ -512,7 +513,26 @@ export default function WpblStatsView({
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  const qual = useMemo(() => wpblQualifiers(teams, games), [teams, games])
+  /**
+   * WHICH SLICE OF THE SEASON THE BOARDS SHOW.
+   *
+   * DEFAULT IS REGULAR, EVEN DURING THE POSTSEASON, and that is the deliberate choice. "2026
+   * stats" means the 30-game season everyone played; the bracket is 11 games at most and a
+   * finalist plays 8. Defaulting to the postseason during it would open the section's
+   * most-read tab on a leaderboard built from one or two games, where the rate-title
+   * qualifier cannot activate and the top of every board is whoever went 2-for-3 last night.
+   * The playoffs are worth having, as a slice a reader asks for.
+   */
+  const [scope, setScope] = useState<SeasonScope>('regular')
+
+  /** Only offer the switch once there is a postseason to switch to. */
+  const hasPostseason = useMemo(
+    () => games.some(g => isPostseasonGame(g) && g.status === 'final'), [games])
+  // A postseason that has not started yet must not strand a reader on an empty board if the
+  // scope was set from a previous session or a re-render.
+  useEffect(() => { if (!hasPostseason && scope !== 'regular') setScope('regular') }, [hasPostseason, scope])
+
+  const qual = useMemo(() => wpblQualifiers(teams, games, scope), [teams, games, scope])
   // Games that have actually been played, which is what the tracked count has to be a share
   // of: measured against the 30-game schedule instead, the bar could never be cleared in April.
   const showTracked = useMemo(
@@ -615,7 +635,9 @@ export default function WpblStatsView({
   // classic formula includes them, but this league's single-season, unmeasured parks give no
   // reliable adjustment, so we omit it (implicitly 1.0). Sits right after OPS.
   const hitCols = useMemo<Col<WpblBattingTotals>[]>(() => {
-    const lg = sumBatting(lines.batting, games)
+    // The baseline is the same slice as the rows it ranks, or a playoff hitter's OPS+ is
+    // measured against a 30-game league she is not being compared with.
+    const lg = sumBatting(lines.batting, games, scope)
     const lgObp = lg.obp, lgSlg = lg.slg
     const opsPlus = (t: WpblBattingTotals): number | null =>
       t.obp != null && t.slg != null && lgObp != null && lgObp > 0 && lgSlg != null && lgSlg > 0
@@ -641,14 +663,14 @@ export default function WpblStatsView({
       rate: true,
     })
     return cols
-  }, [lines.batting, mode])
+  }, [lines.batting, mode, games, scope])
 
   // ERA+ mirrors OPS+ for pitchers: league ERA over the pitcher's ERA, ×100 (100 = league
   // average, higher is better — note it inverts ERA, so unlike ERA it sorts descending). No
   // park factor, same reasoning as OPS+. A 0.00 ERA has no finite ratio, so it reads "∞" and
   // sorts to the top rather than dashing to the bottom. Sits right after ERA.
   const pitCols = useMemo<Col<WpblPitchingTotals>[]>(() => {
-    const lgEra = sumPitching(lines.pitching, games).era
+    const lgEra = sumPitching(lines.pitching, games, scope).era
     const eraPlus = (t: WpblPitchingTotals): number | null => {
       if (t.era == null || lgEra == null || lgEra <= 0) return null
       return t.era === 0 ? Infinity : 100 * lgEra / t.era
@@ -680,7 +702,7 @@ export default function WpblStatsView({
       rate: true,
     })
     return cols
-  }, [lines.pitching, fmtEra, eraBasis])
+  }, [lines.pitching, fmtEra, eraBasis, games, scope])
 
   const cols = (side === 'hitting' ? hitCols : pitCols) as Col<WpblBattingTotals | WpblPitchingTotals>[]
   const activeCol = cols.find(c => c.key === sortKey) ?? cols[0]
@@ -783,8 +805,8 @@ export default function WpblStatsView({
           ? lines.batting.filter(l => l.team_id === team.id)
           : lines.pitching.filter(l => l.team_id === team.id)
         const totals = side === 'hitting'
-          ? sumBatting(src as WpblBattingLine[], games)
-          : sumPitching(src as WpblPitchingLine[], games)
+          ? sumBatting(src as WpblBattingLine[], games, scope)
+          : sumPitching(src as WpblPitchingLine[], games, scope)
         const gameIds = new Set(src.map(l => l.game_id))
         totals.g = gameIds.size
         if (side === 'hitting') {
@@ -807,8 +829,8 @@ export default function WpblStatsView({
       })
     } else {
       const seasons = side === 'hitting'
-        ? aggregateBatting(players, lines.batting, games).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: plateAppearances(s.totals) >= qual.minPa }))
-        : aggregatePitching(players, lines.pitching, games).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.outs >= qual.minOuts }))
+        ? aggregateBatting(players, lines.batting, games, scope).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: plateAppearances(s.totals) >= qual.minPa }))
+        : aggregatePitching(players, lines.pitching, games, scope).map(s => ({ player: s.player, totals: s.totals as WpblBattingTotals | WpblPitchingTotals, qualified: s.totals.outs >= qual.minOuts }))
       let list = seasons
       if (teamId) list = list.filter(s => s.player.team_id === teamId)
       // The qualifier applies to every sort, counting stats included — a 1-for-1 HR leader
@@ -837,7 +859,7 @@ export default function WpblStatsView({
       if (av !== bv) return sortAsc ? av - bv : bv - av
       return sample(b) - sample(a)
     })
-  }, [mode, side, players, lines, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, shortName, lobByGameTeam])
+  }, [mode, side, players, lines, teams, teamById, teamId, qualified, qual, activeCol, sortAsc, onOpenPlayer, onOpenTeam, playerLink, shortName, lobByGameTeam, games, scope])
 
   const teamChips = [...teams].sort((a, b) => a.abbr.localeCompare(b.abbr))
 
@@ -1214,6 +1236,26 @@ export default function WpblStatsView({
                 <Box component="span" sx={{ fontSize: '0.6rem' }}>▾</Box>
               </Box>
             )}
+          </Box>
+        )}
+
+        {/* WHICH SEASON. Chips rather than a third segmented pill, because it is a filter on
+            the data and not a switch between two views of it, and because it has three
+            options where the side switch has two.
+
+            ONLY ON THE SEASON BOARDS, and only once a postseason game has actually finished.
+            The other boards (Pitch by pitch, Run value, Tracked, Draft) read their own data
+            through paths this does not touch, so offering the switch there would be a control
+            that silently does nothing. */}
+        {source === 'season' && hasPostseason && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
+            {/* "Both" rather than "All", which is what this option is: the team filter sitting
+                immediately to its right already has an "All" chip, and two chips reading All
+                side by side in one row is a coin toss about which one a tap changes. */}
+            {([['regular', 'Regular season'], ['postseason', 'Playoffs'], ['all', 'Both']] as const)
+              .map(([k, label]) => (
+                <Chip key={k} active={scope === k} onClick={() => setScope(k)}>{label}</Chip>
+              ))}
           </Box>
         )}
 
