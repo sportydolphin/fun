@@ -851,7 +851,7 @@ export function FanAwardsCta({ onOpen, now = () => Date.now() }: {
         {/* The deadline, because it is the only thing here that makes it worth doing NOW: a
             poll with no visible one is a poll people mean to come back to. */}
         <Typography sx={{ fontSize: TYPE_SCALE.caption, fontWeight: 600, opacity: 0.88, lineHeight: 1.25 }}>
-          Five questions the numbers cannot settle. Closes {AWARDS_CLOSE_LABEL}.
+          Closes {AWARDS_CLOSE_LABEL}.
         </Typography>
       </Box>
       <Typography sx={{
