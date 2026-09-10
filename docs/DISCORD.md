@@ -254,6 +254,20 @@ a lot at once, and a channel that pings on all of it gets muted before it is eve
 | Shop | `DISCORD_SHOP_WEBHOOK_URL` | Everything: new merch and every restock, batched into one message per run | Never |
 | Private | `DISCORD_RESTOCK_WEBHOOK_URL` | Two things: a product on the `wpbl_restock_watch` shortlist coming back, and **new merch** | `@everyone` |
 
+**A DELETED WEBHOOK IS THE ONE FAILURE HERE THAT NEVER SELF-HEALS.** Discord answers
+`404 10015 Unknown Webhook` forever once someone deletes or regenerates one, and the watcher
+was built around the opposite case: a store 503 is retried by the next run and deliberately
+does not fail the job. On Sep 9, 2026 at about 23:00Z one of these two webhooks went away and
+the job went red every ten minutes for eight hours, 102 failures across both sources, because
+the throw lands BEFORE `saveSnapshot`, so the snapshot never advanced, the same change was
+re-detected on the next run and it threw again. The script now tags 401/403/404 from a webhook
+as gone rather than as an outage, and exits non-zero only once per `ERROR_QUIET_HOURS`. **The
+run is still recorded `ok: false` every time**, so `/admin` stays red and `blindHours` keeps
+counting; what is throttled is the notification, not the fact. The fix is always the same and
+always a person: recreate the webhook in the channel and replace the repo secret. Being stuck
+is correct in the meantime, since the pending announcement is still pending and goes out on the
+first run after the secret is replaced.
+
 **New merch is loud because it cannot be shortlisted.** The shortlist names a product handle,
 and a handle can only be written down for something that already exists, so a drop could never
 reach the loud channel by that route. The eight team jerseys that landed on Sep 7, 2026 went to

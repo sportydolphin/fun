@@ -578,7 +578,45 @@ async function postOne(webhook, content, mention = '') {
     // there would re-send the parts that went out before the rate limit.
     return postOne(webhook, content, mention)
   }
+  // A DELETED WEBHOOK IS NOT AN OUTAGE, AND TREATING IT AS ONE COST 144 FAILURE EMAILS A DAY.
+  // Discord answers 404 `10015 Unknown Webhook` forever once someone deletes or regenerates
+  // the webhook, so unlike a store 503 there is no run that fixes it: the fix is a human
+  // replacing a secret. Worse, the throw lands before saveSnapshot, so the snapshot never
+  // advances, the same change is re-detected on the next run and it throws again, every ten
+  // minutes, indefinitely. Tagged so the entrypoint can report it once instead of hourly.
+  // 401/403 are the same shape (a webhook that will never accept us again) for token rot.
+  if (WEBHOOK_GONE_STATUSES.has(res.status)) {
+    const err = new Error(`Discord webhook is gone (${res.status}): ${await res.text()}. `
+      + 'Replace the DISCORD_SHOP_WEBHOOK_URL / DISCORD_RESTOCK_WEBHOOK_URL repo secret; no run can fix this on its own.')
+    err.webhookGone = true
+    throw err
+  }
   if (!res.ok) throw new Error(`Discord post failed (${res.status}): ${await res.text()}`)
+}
+
+/** Statuses that mean this webhook will never work again, as opposed to not working now. */
+const WEBHOOK_GONE_STATUSES = new Set([401, 403, 404])
+
+/**
+ * Has a dead webhook already been reported recently.
+ *
+ * DELIBERATELY NOT SILENCING IT, only rate-limiting the alarm. The job still records ok:false
+ * on every run, so /admin's health strip stays red and `blindHours` keeps counting; what this
+ * throttles is the process exit code, which is the thing that emails. Once every
+ * ERROR_QUIET_HOURS is enough to keep a dead bot from being forgotten without burying the
+ * inbox that would notice it.
+ */
+async function webhookGoneReportedRecently() {
+  if (!supabase) return false
+  const since = new Date(Date.now() - ERROR_QUIET_HOURS * 3_600_000).toISOString()
+  const r = await supabase.from('wpbl_shop_watch_runs')
+    .select('ran_at')
+    .eq('ok', false)
+    .ilike('error', '%webhook is gone%')
+    .gte('ran_at', since)
+    .limit(1)
+  if (r.error) return false
+  return (r.data ?? []).length > 0
 }
 
 // ─── Persistence ────────────────────────────────────────────────────────────
@@ -928,6 +966,9 @@ async function runAuctionWatch() {
 if (IS_ENTRYPOINT) {
   main().catch(async err => {
     console.error(err)
+    // Checked BEFORE this run is recorded, or it would always find its own row.
+    const gone = err?.webhookGone === true
+    const alreadyReported = gone ? await webhookGoneReportedRecently().catch(() => false) : false
     if (!DRY_RUN && supabase) {
       // ok:false matters: lastGoodRun() is what the outage warning measures from, so recording
       // a crash as a good run would leave the watcher permanently unable to notice it is dead.
@@ -939,6 +980,13 @@ if (IS_ENTRYPOINT) {
       for (const source of ['shop', 'auction']) {
         await recordRun({ source, ok: false, error }).catch(() => {})
       }
+    }
+    if (gone && alreadyReported) {
+      // Red once per ERROR_QUIET_HOURS, not every ten minutes. The run is still recorded as a
+      // failure either way, so nothing here hides a dead bot; it stops the notification for one
+      // unfixable condition from arriving 144 times a day and training everyone to filter it.
+      console.error(`⚠️   Already reported inside the last ${ERROR_QUIET_HOURS}h. Exiting 0 to spare the inbox; the run is still recorded as failed.`)
+      process.exit(0)
     }
     process.exit(1)
   })
