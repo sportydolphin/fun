@@ -11,6 +11,9 @@ import {
 } from '../awards'
 import { wpblManagerPortrait } from '../portraits'
 import { awardStatsLookup, buildAwardBallot, withWriteIns } from '../derive/awards'
+import {
+  WPBL_MVP_SWAPS, WPBL_ARM_ORDER_LAST, WPBL_GLOVE_SHORTLIST, WPBL_AURA_SHORTLIST,
+} from '../awards'
 import { POSTSEASON_SCHEDULE } from '../derive/bracket'
 import { MIN_FIELDED_GAMES } from '../positions'
 import type { WpblBattingLine, WpblFieldingLine, WpblGame, WpblPitchingLine, WpblPlayer, WpblTeam } from '../types'
@@ -114,6 +117,27 @@ describe('when the ballot opens', () => {
     expect(awardState(awardById('franchise-2027')!, schedule, later)).toBe('open')
     expect(anyAwardOpen(schedule, later)).toBe(true)
     expect(anyAwardOpen(schedule, new Date(Date.parse(NEXT_SEASON_CLOSE_AT) + 1000))).toBe(false)
+  })
+})
+
+describe('the hand-swaps on MVP', () => {
+  // The mechanism fails safe (a name that resolves to nobody leaves the race's own tile
+  // standing), so what is worth pinning is the thing that fails LOUDLY on the ballot: one
+  // person carded on two questions, which the sheet's own rule forbids and which a swap is the
+  // easiest way to cause by accident.
+  it('never swaps somebody onto MVP who is already named on another question', () => {
+    const named = [...WPBL_GLOVE_SHORTLIST, ...WPBL_AURA_SHORTLIST, ...WPBL_ARM_ORDER_LAST]
+    for (const swap of WPBL_MVP_SWAPS) {
+      expect(named.find(n => n.name === swap.in.name), swap.in.name).toBeUndefined()
+    }
+  })
+
+  it('swaps one person for a different one', () => {
+    for (const swap of WPBL_MVP_SWAPS) {
+      expect(swap.in.name).not.toBe(swap.out.name)
+      expect(swap.in.name.trim()).toBe(swap.in.name)
+      expect(swap.out.name.trim()).toBe(swap.out.name)
+    }
   })
 })
 

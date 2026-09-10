@@ -197,6 +197,40 @@ export const WPBL_GLOVE_SHORTLIST: readonly WpblNominee[] = [
 ]
 
 /**
+ * Hand-swapped onto Most Valuable Player, which is the one computed shortlist this ballot edits.
+ *
+ * WHY THERE IS A SEAM FOR THIS AT ALL. `mvpSlate` seeds itself from the run-value race and then
+ * spreads the four tiles one per club, which is a good rule and not the only opinion worth
+ * having: the race prices a season and cannot price a fortnight of it, an injury, or a name a
+ * fan would actually argue about. So the seed stands and this replaces a named tile with a named
+ * tile, in place, keeping the position it was drawn in.
+ *
+ * IT SWAPS, IT DOES NOT ADD OR CUT. A swap whose OUT is not on the slate does nothing, which is
+ * what makes this safe to leave here: the day the race moves and Hastings is no longer among the
+ * four, this stops applying rather than deleting somebody else. A swap whose IN cannot be
+ * resolved to exactly one roster row leaves the original standing, for the same reason: a hole
+ * in the first question on the ballot is worse than a tile somebody disagrees with.
+ *
+ * WHAT IT COSTS, WHICH IS WORTH STATING WHERE THE SWAP IS. Both halves are named with a club,
+ * and swapping across clubs breaks the one-per-club spread the slate is built on: Hastings out
+ * and Kaplan in leaves San Francisco with two tiles and Boston with none. mvpSlate's own header
+ * explains why that rule exists (a fan who finds nobody of their club on the first question
+ * reads the whole ballot as not being about them), so this is a deliberate trade rather than an
+ * oversight, and the search under the question still takes a vote for any Boston hitter.
+ *
+ * THE FIGURES FOLLOW THE NAME. The incoming tile is carded from the same batting totals as every
+ * other, so nothing about the card says it arrived differently.
+ */
+export interface WpblNomineeSwap {
+  out: WpblNominee
+  in: WpblNominee
+}
+
+export const WPBL_MVP_SWAPS: readonly WpblNomineeSwap[] = [
+  { out: { name: 'Lexi Hastings', teamId: 'BOS' }, in: { name: 'Skylar Kaplan', teamId: 'SF' } },
+]
+
+/**
  * Drawn LAST on Pitcher of the Year, which is the one computed shortlist this ballot hand-orders.
  *
  * IT MOVES A NAME, IT NEVER ADDS ONE. The six are still the six arms the run-expectancy table

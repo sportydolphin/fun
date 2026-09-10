@@ -1,7 +1,7 @@
 import {
-  WPBL_AWARDS, WPBL_MANAGERS, WPBL_ARM_ORDER_LAST, WPBL_GLOVE_SHORTLIST, WPBL_AURA_SHORTLIST,
-  playChoiceKey,
-  type AwardSlate, type WpblAward, type WpblNominee,
+  WPBL_AWARDS, WPBL_MANAGERS, WPBL_ARM_ORDER_LAST, WPBL_MVP_SWAPS, WPBL_GLOVE_SHORTLIST,
+  WPBL_AURA_SHORTLIST, playChoiceKey,
+  type AwardSlate, type WpblAward, type WpblNominee, type WpblNomineeSwap,
 } from '../awards'
 import { regularSeasonLines, countsInStandings } from '../season'
 import { outsToIp } from '../innings'
@@ -389,7 +389,10 @@ function valueStats(
 function mvpSlate({ mvp, players, batting, pitching, games }: AwardBallotInput): AwardCandidate[] {
   if (!mvp) return []
   const bats = new Map(aggregateBatting(players, batting, games).map(b => [b.player.id, b.totals]))
-  return oncePerClub(mvp.field.filter(c => c.bat >= c.arm), c => c.player?.team_id ?? c.teamId).map(c => ({
+  // The hand-swaps run LAST, on the finished slate. See WPBL_MVP_SWAPS: the race still decides
+  // who is on this question, and this changes one named tile for another named tile.
+  return swapNominees(WPBL_MVP_SWAPS, players, bats,
+    oncePerClub(mvp.field.filter(c => c.bat >= c.arm), c => c.player?.team_id ?? c.teamId).map(c => ({
     // The race keys an unrostered name as `name:<lowercased>`, and that key is what gets
     // stored. It is stable for as long as the play log spells her the same way, which is the
     // best any vote for somebody with no roster row can do.
@@ -407,7 +410,44 @@ function mvpSlate({ mvp, players, batting, pitching, games }: AwardBallotInput):
     // and the numbers under it were the same claim twice, and the sentence was the half that
     // wrapped onto a second line.
     stats: valueStats(c.player ? bats.get(c.player.id) : undefined),
-  }))
+  })))
+}
+
+/**
+ * Replaces named candidates with other named candidates, in place.
+ *
+ * ON THE ROSTER ROW, like every other hand-kept list here, so a nominee is a (name, club) pair
+ * that has to hit exactly one player: see resolveNominees. Either half failing to resolve leaves
+ * the slate as the race built it, which is the direction that cannot leave a hole in the first
+ * question on the ballot.
+ *
+ * THE POSITION IS KEPT. A swap is an argument about who deserves a tile, not about the order the
+ * race put them in, and moving the tile to the end would say something the swap does not mean.
+ */
+function swapNominees(
+  swaps: readonly WpblNomineeSwap[],
+  players: WpblPlayer[],
+  bats: Map<string, WpblBattingTotals>,
+  slate: AwardCandidate[],
+): AwardCandidate[] {
+  if (!swaps.length) return slate
+  let out = slate
+  for (const swap of swaps) {
+    const [leaving] = resolveNominees([swap.out], players)
+    const [arriving] = resolveNominees([swap.in], players)
+    if (!leaving || !arriving) continue
+    const at = out.findIndex(c => c.playerId === leaving.player.id)
+    if (at < 0) continue
+    // Nobody twice on one question: if the incoming name is already carded, the swap becomes a
+    // straight removal, which would leave three tiles. Leave it alone instead.
+    if (out.some(c => c.playerId === arriving.player.id)) continue
+    out = [...out]
+    out[at] = {
+      ...playerCandidate(arriving.player, ''),
+      stats: valueStats(bats.get(arriving.player.id)),
+    }
+  }
+  return out
 }
 
 /**
