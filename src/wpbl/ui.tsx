@@ -1420,8 +1420,8 @@ const DRAG_ANIM_MS = 220
 function visibleScroller(card: HTMLElement): HTMLElement | null {
   const box = card.getBoundingClientRect()
   const cx = box.left + box.width / 2
-  let best: HTMLElement | null = null
-  let bestH = 0
+  let onCentre: HTMLElement | null = null, onCentreH = 0
+  let tallest: HTMLElement | null = null, tallestH = 0
   for (const el of Array.from(card.querySelectorAll<HTMLElement>('*'))) {
     // THE CHEAP TEST FIRST, and it is not a micro-optimisation. This runs at touchstart, and
     // `getComputedStyle` on every node of a card that can hold a thousand of them is tens of
@@ -1431,11 +1431,19 @@ function visibleScroller(card: HTMLElement): HTMLElement | null {
     if (el.scrollHeight <= el.clientHeight + 1) continue
     const oy = getComputedStyle(el).overflowY
     if (oy !== 'auto' && oy !== 'scroll') continue
+    if (el.clientHeight > tallestH) { tallest = el; tallestH = el.clientHeight }
     const r = el.getBoundingClientRect()
     if (r.width <= 0 || r.height <= 0 || cx < r.left || cx > r.right) continue
-    if (r.height > bestH) { best = el; bestH = r.height }
+    if (r.height > onCentreH) { onCentre = el; onCentreH = r.height }
   }
-  return best
+  // THE CENTRE-LINE TEST IS A PREFERENCE, NOT A REQUIREMENT, and that distinction is the
+  // difference between this working and dismissing the card by mistake. It exists to pick the
+  // on-screen pane out of a pager that keeps its neighbours mounted and translated aside, and
+  // it is right whenever it matches. But rects are measured mid-gesture and mid-animation, and
+  // any layout this has not met that puts them somewhere unexpected would return null here.
+  // Null then reads as "there is nothing to scroll, so a drag must be a dismissal", which is
+  // exactly the wrong answer to guess on a card that plainly does scroll.
+  return onCentre ?? tallest
 }
 
 /** The scrollable box the finger is inside, if any, stopping at the sheet itself. */
@@ -1504,9 +1512,18 @@ function useSheetDrag(
       // accident. It earns the dismissal only once the pane beneath it is already at its top,
       // exactly like a finger on the content does; below that it scrolls that pane instead.
       const onBand = !onHandle && !!el?.closest('[data-sheet-drag]')
-      const scroller = scrollerUnder(e.target, card) ?? (onBand ? visibleScroller(card) : null)
-      eligible = onHandle || !scroller || scroller.scrollTop <= 0
-      bandScroller = onBand && !eligible ? scroller : null
+      // TWO SCROLLERS ARE CONSULTED, AND EITHER ONE CAN VETO. `local` is whatever the finger is
+      // actually inside, which is what governs a touch on the content; `main` is the card's own
+      // pane, which is what governs a touch on a band pinned outside it. Requiring BOTH to be
+      // at their top is what stops a drag dismissing the sheet while anything on screen still
+      // has somewhere to scroll, without this having to correctly guess which one the reader
+      // meant. Before, only one was consulted, and picking the wrong one dismissed the card.
+      const local = scrollerUnder(e.target, card)
+      const main = onHandle ? null : visibleScroller(card)
+      const atTop = (s: HTMLElement | null) => !s || s.scrollTop <= 0
+      eligible = onHandle || (atTop(local) && atTop(main))
+      // The pane a band drag scrolls: whichever of the two actually has somewhere to go.
+      bandScroller = onBand && !eligible ? (local && local.scrollTop > 0 ? local : main) : null
     }
 
     const onMove = (e: TouchEvent) => {

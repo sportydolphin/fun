@@ -62,6 +62,10 @@ function setup() {
       <div data-sheet-drag data-testid="band" style={{ height: '90px' }}>Band</div>
       <div data-testid="pane" style={{ overflowY: 'auto' }}>
         <div style={{ height: '2000px' }}>content</div>
+        {/* A nested box that overflows on its own, like a wide table or a chip rail. */}
+        <div data-testid="inner" style={{ overflowY: 'auto' }}>
+          <div style={{ height: '300px' }}>inner</div>
+        </div>
       </div>
     </ModalShell>,
   )
@@ -143,6 +147,37 @@ describe('dragging the pinned band while the pane is scrolled', () => {
 
     expect(onClose).not.toHaveBeenCalled()
     expect(card.style.transform).toBe('translateY(0)')
+  })
+})
+
+describe('a drag on the content', () => {
+  it('never dismisses while the pane is scrolled', () => {
+    const { onClose, card, pane, view } = setup()
+    pane.scrollTop = 400
+    const content = view.getByText('content')
+
+    drag(content, card, 300, 460)
+    settle(content, 460)
+
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  // THE CASE THE TWO-SCROLLER RULE EXISTS FOR. A finger inside a nested box that happens to
+  // overflow (a wide table, a chip rail) finds THAT scroller first, and it is at its top
+  // because nobody has scrolled it. Consulting only the scroller under the finger reads the
+  // card as "already at the top" and dismisses it, while the pane behind it is 400px down.
+  it('never dismisses from inside a nested scroller while the pane is scrolled', () => {
+    const { onClose, card, pane, view } = setup()
+    pane.scrollTop = 400
+    const inner = view.getByTestId('inner')
+    stubLayout(inner, { scrollHeight: 300, clientHeight: 100 })
+    inner.style.overflowY = 'auto'
+    inner.scrollTop = 0
+
+    drag(inner, card, 300, 460)
+    settle(inner, 460)
+
+    expect(onClose).not.toHaveBeenCalled()
   })
 })
 
