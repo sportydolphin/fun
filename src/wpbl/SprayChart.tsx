@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Box, Typography } from '@mui/material'
+import { Box, Typography, useTheme } from '@mui/material'
 import {
   sprayProfile, pullProfile, OUTFIELD_ZONES, INFIELD_ZONES,
 } from './derive/spray'
@@ -29,10 +29,12 @@ import { TYPE_SCALE } from './ui'
 // radius on a 400-wide box put both corners about 12px outside it and the two zones that
 // matter most to a pull hitter were clipped off. The box is wider than it is tall for the
 // same reason, and R_OUT plus the label ring has to fit inside half of it.
-const VW = 420, VH = 380
-const CX = 210, CY = 344      // home plate
-const R_IN = 155, R_OUT = 272 // the outfield band
-const R_LABEL = R_OUT + 12    // the zone names, just outside it
+const VW = 440, VH = 424
+const CX = 220, CY = 366      // home plate
+const BASE = 100              // home to first, along the foul line
+const R_DIRT = 170            // the edge of the infield dirt
+const R_IN = 174, R_OUT = 288 // the outfield band
+const R_LABEL = R_OUT + 13    // the zone names, just outside the fence
 const SPAN = 45               // foul line to foul line, degrees either side of straight away
 
 /** Screen point for a polar coordinate measured from home plate, 0 = straight to centre. */
@@ -54,9 +56,22 @@ function wedgePath(a1: number, a2: number, r0 = R_IN, r1 = R_OUT): string {
 const OUTFIELD_WEDGE: Record<string, [number, number]> = {
   LF:  [-SPAN, -27], LCF: [-27, -9], CF: [-9, 9], RCF: [9, 27], RF: [27, SPAN],
 }
+/**
+ * Where each fielder stands, as [radius, degrees] from home plate.
+ *
+ * THE CATCHER IS BEHIND THE PLATE, which is a NEGATIVE radius: off the bottom of the fan
+ * rather than inside it. She takes 23 balls in a season and nearly every one is a foul pop, so
+ * putting her among the infielders would draw all of them in fair territory.
+ */
 const INFIELD_SPOT: Record<string, [number, number]> = {
-  '3B': [116, -37], SS: [132, -19], P: [64, 0], C: [20, 0], '2B': [132, 19], '1B': [116, 37],
+  '3B': [120, -37], SS: [152, -20], P: [68, 0], '2B': [152, 20], '1B': [120, 37],
+  C: [-27, 0],
 }
+
+/** First, second, third. Home is added by the caller, since it is also the apex of the fan. */
+const BASES: ReadonlyArray<[number, number]> = [
+  [BASE, 45], [BASE * Math.SQRT2, 0], [BASE, -45],
+]
 
 type Mode = 'all' | 'hits' | 'outs'
 const MODES: ReadonlyArray<[Mode, string]> = [['all', 'All'], ['hits', 'Hits'], ['outs', 'Outs']]
@@ -75,6 +90,7 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
   maxWidth?: number
 }) {
   const [mode, setMode] = useState<Mode>('all')
+  const theme = useTheme()
 
   const profile = useMemo(() => sprayProfile(plays), [plays])
   const pull = useMemo(() => pullProfile(plays, bats), [plays, bats])
@@ -100,14 +116,27 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
   // Opacity, floored so a zone with one ball in it is still visibly different from an empty
   // one. Linear in share of the busiest zone: this is a count, not a rate, and a perceptual
   // curve here would make a hot zone look hotter than it is.
-  const shade = (n: number) => (n === 0 ? 0 : 0.16 + 0.74 * (n / max))
+  const shade = (n: number) => (n === 0 ? 0 : 0.18 + 0.72 * (n / max))
+
+  // THE NUMBER HAS TO BEAT ITS OWN BACKGROUND, and in the first version it did not: the count
+  // and the zone under it were both `currentColor`, so a zone's figure faded out exactly as
+  // that zone got busier and the hottest cell on the chart (17 balls to left field) was the
+  // least readable thing on it. The fill is the heat and the number is the fact; they cannot
+  // be the same ink. Past roughly half opacity the accent is dark enough in either theme that
+  // white is the only readable choice, and below it the card's own text colour is.
+  const inkFor = (n: number) => (shade(n) >= 0.5 ? '#fff' : theme.palette.text.primary)
+
+  const line = theme.palette.divider
+  const dirt = theme.palette.text.disabled
+  const [lfx, lfy] = polar(R_OUT, -SPAN)
+  const [rfx, rfy] = polar(R_OUT, SPAN)
 
   const label = (zone: SprayZone, x: number, y: number) => {
     const n = valueOf(byZone.get(zone), mode)
     if (!n) return null
     return (
       <text key={`t-${zone}`} x={x} y={y} textAnchor="middle" dominantBaseline="central"
-        fontSize={13} fontWeight={800} fill="currentColor" opacity={0.95}>{n}</text>
+        fontSize={15} fontWeight={800} fill={inkFor(n)}>{n}</text>
     )
   }
 
@@ -141,17 +170,32 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
           color: 'var(--wpbl-accent-solid, #2563eb)',
         }}
       >
-        {/* The field. Drawn first and faintly: it is the frame, not the data. */}
-        <path d={wedgePath(-SPAN, SPAN, 0, R_OUT)} fill="currentColor" opacity={0.05} />
-        <path d={wedgePath(-SPAN, SPAN, 0, R_OUT)} fill="none" stroke="currentColor" opacity={0.25} strokeWidth={1} />
-        <path d={wedgePath(-SPAN, SPAN, 0, R_IN)} fill="none" stroke="currentColor" opacity={0.18} strokeWidth={1} />
+        {/* THE FIELD, DRAWN BEFORE THE DATA. The first version had none of this and the six
+            infield positions were discs floating on nothing, which read as abstract blobs
+            rather than as fielders. A position is only legible against the field it stands
+            on, so: grass, dirt, foul lines, fence, then the diamond and its bases. */}
+        <path d={wedgePath(-SPAN, SPAN, 0, R_OUT)} fill="currentColor" opacity={0.045} />
+        <path d={wedgePath(-SPAN, SPAN, 0, R_DIRT)} fill={dirt} opacity={0.1} />
+
+        <line x1={CX} y1={CY} x2={lfx} y2={lfy} stroke={line} strokeWidth={1.5} />
+        <line x1={CX} y1={CY} x2={rfx} y2={rfy} stroke={line} strokeWidth={1.5} />
+        <path d={wedgePath(-SPAN, SPAN, R_OUT - 1, R_OUT)} fill={line} />
+
+        <path
+          d={`M${CX} ${CY} ${BASES.map(([r, a]) => { const [x, y] = polar(r, a); return `L${x} ${y}` }).join(' ')} Z`}
+          fill="none" stroke={line} strokeWidth={1.5} />
+        {([[0, 0], ...BASES] as ReadonlyArray<[number, number]>).map(([r, a], i) => {
+          const [x, y] = polar(r, a)
+          return <rect key={i} x={x - 4} y={y - 4} width={8} height={8} fill={line}
+            transform={`rotate(45 ${x} ${y})`} />
+        })}
 
         {OUTFIELD_ZONES.map(z => {
           const [a1, a2] = OUTFIELD_WEDGE[z]
-          const n = valueOf(byZone.get(z), mode)
           return (
-            <path key={z} d={wedgePath(a1, a2)} fill="currentColor" opacity={shade(n)}
-              stroke="currentColor" strokeOpacity={0.22} strokeWidth={0.75} />
+            <path key={z} d={wedgePath(a1, a2)} fill="currentColor"
+              opacity={shade(valueOf(byZone.get(z), mode))}
+              stroke={line} strokeWidth={0.75} />
           )
         })}
 
@@ -160,8 +204,17 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
           const [x, y] = polar(r, a)
           const n = valueOf(byZone.get(z), mode)
           return (
-            <circle key={z} cx={x} cy={y} r={22} fill="currentColor" opacity={shade(n)}
-              stroke="currentColor" strokeOpacity={0.25} strokeWidth={0.75} />
+            <g key={z}>
+              {/* An opaque disc under the shade, so a fielder reads the same against dirt as
+                  against grass and an empty position is a visible zero rather than a hole. */}
+              <circle cx={x} cy={y} r={20} fill={theme.palette.background.paper} opacity={0.92} />
+              <circle cx={x} cy={y} r={20} fill="currentColor" opacity={shade(n)}
+                stroke={line} strokeWidth={1} />
+              {n === 0 && (
+                <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
+                  fontSize={9} fontWeight={700} fill={dirt}>{z}</text>
+              )}
+            </g>
           )
         })}
 
@@ -185,7 +238,7 @@ export default function SprayChart({ plays, bats, maxWidth = 460 }: {
           const [x, y] = polar(R_LABEL, (a1 + a2) / 2)
           return (
             <text key={`n-${z}`} x={x} y={y} textAnchor="middle" dominantBaseline="central"
-              fontSize={10} fontWeight={700} fill="currentColor" opacity={0.5}>{z}</text>
+              fontSize={11} fontWeight={800} fill={theme.palette.text.secondary}>{z}</text>
           )
         })}
       </Box>
