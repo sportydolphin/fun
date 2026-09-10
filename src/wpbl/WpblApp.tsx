@@ -745,32 +745,12 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   // registration went with its call site, which is what lib/seen.ts means by deleting a badge
   // in one go. One dot at a time: a second would land on this same Stats pill and say nothing
   // the first had not.
-  const [runsBadge, setRunsBadge] = useState(() => shouldShowBadge('runs-v152'))
-  // Impression, logged once per mount rather than per render, so the click-through rate has
-  // an honest denominator. Without this half of the point is lost: a nudge you cannot
-  // measure is a nudge you will be guessing about next time.
-  const runsBadgeLogged = useRef(false)
-  useEffect(() => {
-    if (!runsBadge || runsBadgeLogged.current) return
-    runsBadgeLogged.current = true
-    track(EVENTS.NEW_BADGE_SHOWN, { badge: 'runs-v152' })
-  }, [runsBadge])
-  // Guarded by a ref rather than by the state it sets, for two reasons: the callback stays
-  // referentially stable (StatsView calls it from an effect, and a changing identity would
-  // re-run that effect on every retirement), and the click is tracked OUTSIDE a state updater,
-  // which React is free to run twice.
-  const runsBadgeLive = useRef(runsBadge)
-  const retireRunsBadge = useCallback((via: string) => {
-    if (!runsBadgeLive.current) return
-    runsBadgeLive.current = false
-    track(EVENTS.NEW_BADGE_CLICKED, { badge: 'runs-v152', via })
-    markBadgeSeen('runs-v152')
-    setRunsBadge(false)
-  }, [])
-
-  // Which tabs are wearing a dot. Kept as a function rather than inlined into both navs, so a
-  // future badge is added in one place and the two navs cannot disagree.
-  const navBadge = (key: string): boolean => key === 'stats' && runsBadge
+  // Which tabs are wearing a dot, and today none are. The Run value badge ('runs-v152') was
+  // retired by hand on Sep 10, 2026 the way the two before it were: the board it pointed at has
+  // been on the Stats tab for three weeks, so the dot had stopped meaning "new" and had started
+  // meaning "there is a dot here". Kept as a function rather than deleted, because it is the
+  // seam a future badge is added at, in one place, so the two navs cannot disagree about it.
+  const navBadge = (_key: string): boolean => false
 
   const [teams, setTeams] = useState<WpblTeam[]>([])
   const [feedGames, setFeedGames] = useState<WpblGame[]>([])
@@ -1588,7 +1568,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
                   case 'home':      return <WpblHome teams={teams} games={games} siteGames={siteGames} liveGame={liveGame} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromHome} onViewStats={openStats} onViewTracking={openTracking} awardsOpen={awardsOpen} onOpenAwards={openAwards} onCloseAwards={closeTop} />
                   case 'schedule':  return <ScheduleView teams={teams} games={games} siteGames={siteGames} onOpenGame={openGame} active={view === 'schedule'} />
                   case 'standings': return <StandingsView teams={teams} games={games} onOpenTeam={selectTeamFromStandings} />
-                  case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} active={view === 'stats'} newBoardBadge={runsBadge} onNewBoardSeen={retireRunsBadge} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromStats} />
+                  case 'stats':     return <WpblStatsView teams={teams} games={games} focus={statsFocus} active={view === 'stats'} onOpenPlayer={openPlayer} onOpenTeam={selectTeamFromStats} />
                   case 'teams':     return <TeamsView teams={teams} games={games} selected={selectedTeam} onSelect={selectTeamFromTeams} onOpenGame={openGame} onOpenPlayer={openPlayer} onOpenStats={openStats} />
                 }
               })()
