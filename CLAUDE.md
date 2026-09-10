@@ -133,6 +133,46 @@ Each of these has already cost someone a debugging session, and none of them fai
   `wpbl_player_team_changes`, in pairs, one club each way per game. Of 118 players, the 49 with
   no feed id have no box-score line between them, which is what makes the rule free.
   `wpbl_merge_players(keep, dupe)` is the tool for the duplicates no rule can catch.
+- **A CLUB'S FEED ID IS NOT THE CLUB EITHER, and the postseason proved it.** The league mints a
+  new team id per context exactly as it does per player: Boston is `9f08or2mffx81409` all regular
+  season and `rknw1oz8pl20apx4` in the bracket, same name, same club, both live in `/games` at
+  once. `wpbl_teams.api_id` held one id, so `wpbl-ingest` could map neither postseason club and
+  pushed `unmapped team in <game>` into `summary.errors` for all four bracket games, every pass,
+  for two days. **`summary.errors` does not set `ok: false`**, so the run logged `ok: true` and the
+  only surface that noticed was an amber chip on `/admin` that nobody was looking at. Game 1 was
+  played on Sep 9, 2026 with no row on the site: no scoreboard line, no Game Center, no push, no
+  Discord recap. `wpbl_teams.api_ids` now holds every id a club has held and the ingest matches on
+  any of them; it also ADOPTS an unseen id whose feed name matches a club exactly, and persists it,
+  because the next set the feed mints will otherwise fail the same silent way. Two things to keep
+  from it. **The postseason player ids are new too** and resolve on `(team, name)`, which is only
+  safe because the club maps first: get the club wrong and every one of those lines forks a
+  duplicate roster row. And **the feed sends `counts_in_standings: true` on postseason rows**, so
+  the flag is useless here and `countsInStandings()` is holding the postseason out of the standings
+  and every season total on its `game_type` backstop alone.
+- **A series that is being played is not "upcoming", and the pick'em is the only thing that
+  cares.** `seriesPickOpen` locks a series once the bracket stops calling it `upcoming`, and the
+  bracket derived that from DECIDED games, so with game 1 in the second inning the semifinal still
+  read `upcoming` and the sheet still asked who would win it. `postseasonSeries` in
+  [`derive/bracket.ts`](src/wpbl/derive/bracket.ts) now registers a pairing on a game that is
+  merely `live` while still counting wins from finals only, and `seriesPickOpen` takes a REQUIRED
+  `now` and independently refuses once `POSTSEASON_SCHEDULE`'s published first pitch has passed:
+  that constant needs nothing from the feed, which is the whole point, since the outage above meant
+  there were no game rows to read at all. **The lock is UI-only.** Votes go through
+  `wpbl_cast_award_vote`, which stores a category and an answer and knows nothing about dates.
+- **The postseason is a SEPARATE presto season, and it does not use the timezone-twin
+  encoding.** The bracket games live under "Womens Pro Baseball League Playoffs 2026" with its
+  own `season_id`, which is the root of the new team ids above and of this: the regular season
+  publishes each game twice, tagged Central and tagged Eastern an hour apart, and `correctedStart`
+  exists only to collapse that pair. The playoffs publish ONE copy, tagged Eastern, already
+  carrying the true instant, so the shift put every bracket game an hour late. Sep 9's game was
+  stored at 7:00 PM Central against a 6:00 PM first pitch, and nothing on the site said so: a
+  start time is only ever contradicted by the game itself starting, which nobody is watching for.
+  `correctedStart` now skips the shift on a postseason `game_type`. **The league's own schedule
+  page is the check**, `womensprobaseballleague.com/schedule/`, which prints Pacific and agrees
+  with `POSTSEASON_SCHEDULE` on all 11 postseason games. **And the feed's times can simply be
+  wrong**, separately from any math we do: on Sep 9, 2026 its Sep 10 row said 5:00 PM Central
+  against the league's 6:00 PM and had not been updated since Sep 7, so a game time that
+  disagrees with the league page is not automatically a bug in this repo.
 - **The league feed's `/games` list caps at 50 and says nothing about it.** `GET /v1/games`
   returns a short array beside a `count` field holding the real total, exactly like the
   PostgREST cap above and just as quietly. The season crossed 50 on Aug 30, 2026 (56 records:

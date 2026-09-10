@@ -1,5 +1,7 @@
+import { postseasonGames } from './bracket'
 import type { BracketSeries, WpblBracket } from './bracket'
 import { winsNeeded } from './series'
+import { gameStartMs } from '../constants'
 import type { WpblTeam } from '../types'
 
 /**
@@ -22,7 +24,9 @@ import type { WpblTeam } from '../types'
  * options it can currently offer and ignores what it cannot place: a pick for a club that is
  * not in the series any more reads as a busted pick rather than as a broken card.
  *
- * Pure: bracket shapes in, plain strings out. No supabase, no React, no clock.
+ * Pure: bracket shapes in, plain strings out. No supabase, no React. It does read a clock,
+ * but only where `seriesPickOpen` is handed one. See the note there for why that is not
+ * optional.
  */
 
 /** Bumped once a year, and never for anything else. See the header. */
@@ -107,11 +111,39 @@ export function seriesResultChoice(series: BracketSeries): string | null {
 /**
  * Can this series still be picked?
  *
- * A prediction made after the first pitch of game 1 is not a prediction. `status` is the
- * bracket's own word for it and covers both halves: 'upcoming' is also what an undecided
- * championship reads as, which is right, because that series has not started either.
+ * A prediction made after the first pitch of game 1 is not a prediction.
+ *
+ * TWO SIGNALS, AND THE SECOND ONE IS WHY `now` IS REQUIRED RATHER THAN DEFAULTED.
+ *
+ *  1. The bracket's own `status`, which is 'upcoming' until a game of this pairing starts and
+ *     is also what an undecided championship reads as, correctly: that series has not started
+ *     either. This is the accurate signal, and it is entirely downstream of the ingest.
+ *  2. THE PUBLISHED FIRST PITCH, because signal 1 is only as good as our mirror of the
+ *     schedule and on Sep 9, 2026 the mirror was empty. The league mints a new team id per
+ *     club for the postseason, wpbl-ingest could map none of them, and all four bracket games
+ *     were dropped every pass for two days. With no game rows, the semifinal read 'upcoming'
+ *     through the whole of game 1 and the sheet went on asking who would win a series that
+ *     was being played. `POSTSEASON_SCHEDULE` is a constant in this repo and needs nothing
+ *     from the feed, so it closes the question on time even when the mirror knows nothing.
+ *
+ * A defaulted `now` would have made this the same trap the first signal already was: a call
+ * site that forgets it gets an answer that looks right all season and is wrong for the two
+ * weeks that matter. The clock belongs to the caller, which is also what keeps this testable.
+ *
+ * A round with no published schedule falls back to signal 1 alone. That fails OPEN, on
+ * purpose: a hypothetical extra round would otherwise be unpickable forever, and an ingest
+ * that is working closes it at first pitch anyway.
+ *
+ * NOTE THAT THIS IS THE ONLY GATE. Votes land through `wpbl_cast_award_vote`, which stores a
+ * category and an answer and knows nothing about postseason dates, so a locked series is
+ * locked in the UI and nowhere else.
  */
-export const seriesPickOpen = (series: BracketSeries): boolean => series.status === 'upcoming'
+export function seriesPickOpen(series: BracketSeries, now: number): boolean {
+  if (series.status !== 'upcoming') return false
+  const first = postseasonGames(series.round, series.key)[0]
+  const firstPitch = first ? gameStartMs(first.date, first.time) : null
+  return firstPitch == null || now < firstPitch
+}
 
 /**
  * The two clubs to offer for the championship, which is the whole reason this file has a

@@ -279,6 +279,14 @@ the ingest makes on its own is logged to `wpbl_player_team_changes`. Historical 
 read off the roster row: box-score lines and plays each carry the club that game was played
 for, and that is what the game logs, team pages and Hall of Firsts use.
 
+**Nor is a club's feed id the club.** The same rule applies one level up: the league mints a
+new team id per context, so Boston is one id all regular season and a different one in the
+postseason, both live in the feed at once. `wpbl_teams.api_ids` holds every id a club has held
+(`api_id` stays the seed key) and the ingest matches on any of them, adopting and persisting an
+unseen id whose feed name matches a club exactly. Before that column existed the ingest could
+map neither postseason club and dropped all four bracket games for two days while reporting
+`ok: true`, which is why the adoption path exists rather than a second hand-written mapping.
+
 **`wpbl_play_corrections` is the one WPBL table the feed does not write.** It holds our own
 fixes to the league's scoring and is applied as a read-time overlay, because `wpbl_game_plays`
 is a mirror that `wpbl-ingest` deletes and reinserts wholesale on every pass, so an edit made

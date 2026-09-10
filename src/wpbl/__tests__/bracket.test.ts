@@ -199,6 +199,25 @@ describe('what must not leak in', () => {
     expect(b.semifinals[0].status).toBe('upcoming')
   })
 
+  // The other half of the same rule, and the one that cost a pick'em. A game in progress is
+  // worth no wins to anybody, but it has unquestionably started, and reading the status off
+  // the win count left the semifinal 'upcoming' with game 1 in the second inning.
+  it('starts the series on a game that is under way, without crediting a win', () => {
+    const b = bracketOf([...seededSeason(),
+      game({
+        game_date: '2026-09-09', home_team_id: 'SF', away_team_id: 'BOS',
+        status: 'live', home_score: 0, away_score: 0,
+        game_type: 'postSeason', counts_in_standings: false,
+      }),
+    ])
+    expect(b.semifinals[0].played).toBe(0)
+    expect(b.semifinals[0].home.wins).toBe(0)
+    expect(b.semifinals[0].away.wins).toBe(0)
+    expect(b.semifinals[0].status).toBe('live')
+    expect(b.semifinals[0].summary).toBe('Game 1 under way')
+    expect(b.started).toBe(true)
+  })
+
   it('credits nobody for a postseason game that somehow ends level', () => {
     // Cannot happen, must not silently hand it to the home side if it does.
     const b = bracketOf([...seededSeason(),

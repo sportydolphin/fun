@@ -81,8 +81,20 @@ function zoneOffsetMs(iso: string, timeZone: string): number {
   return new Date(d.toLocaleString('en-US', { timeZone })).getTime()
     - new Date(d.toLocaleString('en-US', { timeZone: 'UTC' })).getTime()
 }
-function correctedStart(iso: string, feedZone: string): string {
+function correctedStart(iso: string, feedZone: string, gameType = ''): string {
   if (!iso) return ''
+  // THE POSTSEASON IS A DIFFERENT PRESTO SEASON AND DOES NOT USE THIS ENCODING. The bracket
+  // games live under season "Womens Pro Baseball League Playoffs 2026", which publishes ONE
+  // copy of each game (Eastern-tagged) carrying the TRUE instant, where the regular season
+  // publishes a Central-tagged copy and an Eastern-tagged copy an hour apart. The shift below
+  // exists only to collapse that pair, so applying it here moves a postseason game an hour
+  // late. It did: BOS at SF on Sep 9, 2026 stored 7:00 PM Central against a first pitch of
+  // 6:00 PM, which the league's own schedule page and the game itself both say (the feed had
+  // it in the bottom of the 1st at 23:00Z + 25 min). Sep 11 and Sep 12 were an hour late the
+  // same way. Keyed on the round rather than on the season id so it reads like
+  // `countsInStandings`, and it fails the recoverable way: a feed that renames its game types
+  // puts the postseason back an hour late, which is visible, rather than blank.
+  if (/post|playoff|semi|champ|wild.?card/i.test(gameType)) return new Date(Date.parse(iso)).toISOString()
   // Missing tag → assume the legacy Eastern encoding (what every historical row was), so an
   // untagged feed row still gets the established +1h rather than silently landing an hour early.
   const zone = feedZone || 'America/New_York'
@@ -757,13 +769,47 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Team api_id → slug map (and reject if the seed migration hasn't run).
-    const { data: teams } = await db.from('wpbl_teams').select('id, api_id')
+    // Feed team id → slug map (and reject if the seed migration hasn't run).
+    //
+    // A CLUB HAS MORE THAN ONE FEED ID, for the same reason a player does: the league mints a
+    // new one per context and nothing in the payload says the two are the same team. Boston is
+    // 9f08or2mffx81409 all regular season and rknw1oz8pl20apx4 in the postseason, both live in
+    // /games at once. Reading the scalar `api_id` alone left every bracket game unmapped, so
+    // the loop below skipped all four, into `summary.errors`, which does
+    // not set `ok: false`. Game 1 was played on Sep 9, 2026 with no row on the site at all.
+    // So match on ANY id the club has held; api_ids is the same shape as wpbl_players.api_ids.
+    const { data: teams } = await db.from('wpbl_teams').select('id, city, name, abbr, api_id, api_ids')
     const teamSlug = new Map<string, string>()
-    for (const t of teams ?? []) if (t.api_id) teamSlug.set(t.api_id, t.id)
+    for (const t of teams ?? []) {
+      for (const a of [...(t.api_ids ?? []), t.api_id]) if (a) teamSlug.set(a as string, t.id)
+    }
     if (teamSlug.size === 0) {
       await logRun(false, 0, 0, ['No wpbl_teams.api_id mappings — run scripts/add_wpbl_api_ingest.sql first'])
       return json({ error: 'No wpbl_teams.api_id mappings — run scripts/add_wpbl_api_ingest.sql first' }, 400)
+    }
+
+    // And LEARN the next one, because the postseason ids will not be the last set the feed
+    // mints and a club it cannot map is a game we drop entirely. The feed names the club on
+    // the same row as the id ("San Francisco Firebells" = city + name), and there are four
+    // clubs with nothing close to a shared name, so an exact full-name hit is unambiguous.
+    // Adopt on that alone, persist it into api_ids, and the mapping is there next pass.
+    // Deliberately EXACT and never fuzzy: a wrong club here silently files a whole game's
+    // lines under the other team, which is far worse than the missing row it replaces.
+    const teamByName = new Map<string, string>()
+    for (const t of teams ?? []) {
+      teamByName.set(normName(`${t.city ?? ''} ${t.name ?? ''}`), t.id)
+      if (t.abbr) teamByName.set(normName(String(t.abbr)), t.id)
+    }
+    const adoptTeam = async (apiTeamId: string, feedName: string): Promise<string | undefined> => {
+      const slug = teamByName.get(normName(feedName))
+      if (!apiTeamId || !slug) return undefined
+      teamSlug.set(apiTeamId, slug)
+      const row = (teams ?? []).find((t: any) => t.id === slug)
+      const ids = [...new Set([...(row?.api_ids ?? []), row?.api_id, apiTeamId].filter(Boolean))]
+      if (row) row.api_ids = ids
+      const { error } = await db.from('wpbl_teams').update({ api_ids: ids }).eq('id', slug)
+      console.log(`[wpbl-ingest] adopted feed team id ${apiTeamId} as ${slug}${error ? ` (not persisted: ${error.message})` : ''}`)
+      return slug
     }
 
     // Player cache for reconciliation.
@@ -872,7 +918,7 @@ Deno.serve(async (req) => {
     // mirror is clean for EVERY consumer. Self-healing: if a suppressed game truly starts it
     // stops matching (its status flips, or it becomes the played copy) and re-ingests.
     const zoneOf = (fg: any) => s(fg.presto_data?.timeZone)
-    const correctedIso = (fg: any) => correctedStart(s(fg.scheduled_start), zoneOf(fg))
+    const correctedIso = (fg: any) => correctedStart(s(fg.scheduled_start), zoneOf(fg), s(fg.game_type))
     const matchupKey = (fg: any) => {
       const iso = correctedIso(fg)
       return `${iso ? chicagoDate(iso) : ''}|${s(fg.away_team_id)}|${s(fg.home_team_id)}`
@@ -930,11 +976,13 @@ Deno.serve(async (req) => {
       // TBD placeholder games have empty team ids — skip them silently.
       if (!s(fg.home_team_id) || !s(fg.away_team_id)) continue
       const homeSlug = teamSlug.get(s(fg.home_team_id))
+        ?? await adoptTeam(s(fg.home_team_id), s(fg.home_team_name))
       const awaySlug = teamSlug.get(s(fg.away_team_id))
+        ?? await adoptTeam(s(fg.away_team_id), s(fg.away_team_name))
       if (!homeSlug || !awaySlug) { summary.errors.push(`unmapped team in ${apiGameId}`); continue }
 
       const status = mapStatus(s(fg.status))
-      const startIso = correctedStart(s(fg.scheduled_start), zoneOf(fg)) // tz-tag correction (see correctedStart)
+      const startIso = correctedStart(s(fg.scheduled_start), zoneOf(fg), s(fg.game_type)) // tz-tag correction (see correctedStart)
       const scoreAway = fg.presto_data?.score?.away
       const scoreHome = fg.presto_data?.score?.home
 

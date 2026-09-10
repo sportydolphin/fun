@@ -115,11 +115,31 @@ describe('marking a pick right', () => {
 })
 
 describe('when a series can still be picked', () => {
+  // Semifinal A's game 1 is 6:00 PM Central on Sep 9, 2026 in POSTSEASON_SCHEDULE, which is
+  // 23:00Z on CDT. Written as the instant rather than built with a helper, so a change to the
+  // published schedule shows up here as a failing test rather than as a moving target.
+  const BEFORE = Date.parse('2026-09-09T22:59:00Z')
+  const AFTER = Date.parse('2026-09-09T23:01:00Z')
+
   // A prediction made after the first pitch is not a prediction.
   it('is open before it starts and shut from then on', () => {
-    expect(seriesPickOpen(series({ status: 'upcoming' }))).toBe(true)
-    expect(seriesPickOpen(series({ status: 'live' }))).toBe(false)
-    expect(seriesPickOpen(series({ status: 'done' }))).toBe(false)
+    expect(seriesPickOpen(series({ status: 'upcoming' }), BEFORE)).toBe(true)
+    expect(seriesPickOpen(series({ status: 'live' }), BEFORE)).toBe(false)
+    expect(seriesPickOpen(series({ status: 'done' }), BEFORE)).toBe(false)
+  })
+
+  // The Sep 9, 2026 failure: the ingest could not map the postseason team ids, so no game rows
+  // existed, so the bracket read 'upcoming' through the whole of game 1 and the sheet went on
+  // asking who would win it. The published schedule needs nothing from the feed.
+  it('is shut once the published first pitch has passed, however empty the mirror is', () => {
+    expect(seriesPickOpen(series({ status: 'upcoming' }), AFTER)).toBe(false)
+  })
+
+  // Fails open, on purpose: see the header. An unrecognised round is unpickable forever
+  // otherwise, and a working ingest still shuts it at first pitch.
+  it('falls back to the status alone for a round with no published schedule', () => {
+    expect(seriesPickOpen(series({ status: 'upcoming', key: 'Z' }), AFTER)).toBe(true)
+    expect(seriesPickOpen(series({ status: 'live', key: 'Z' }), AFTER)).toBe(false)
   })
 })
 

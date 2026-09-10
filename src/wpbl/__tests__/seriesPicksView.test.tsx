@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import type { WpblGame, WpblTeam } from '../types'
 
@@ -75,9 +75,22 @@ async function openSheet() {
 const radio = (name: string) => screen.getByRole('radio', { name })
 const noRadio = (name: string) => screen.queryByRole('radio', { name })
 
+// THE CLOCK IS PINNED, because the pick'em closes on the published first pitch and not only on
+// what the mirror knows (see seriesPickOpen). Semifinal A's game 1 is 6:00 PM Central on Sep 9,
+// 2026, so every test below that expects an answerable question has to stand before that
+// instant. Left on the real clock these all passed until that evening and then every one of
+// them failed at once, which is a test suite that expires.
+const BEFORE_GAME_1 = new Date('2026-09-01T12:00:00Z')
+
 beforeEach(() => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  vi.setSystemTime(BEFORE_GAME_1)
   cast.mockClear(); clear.mockClear(); openAuthDialog.mockClear()
   authUser = { id: 'test-user' }; ballot = {}; results = {}
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 // THE HEADER WORDING, because setup.ts answers every media query "no match" and so renders the

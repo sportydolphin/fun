@@ -157,8 +157,8 @@ export interface WpblBracket {
   championship: BracketSeries
   /** Every seed is locked, so these pairings are final rather than a snapshot. */
   settled: boolean
-  /** True once any postseason game has been played, which flips the card from a projection
-   *  to a report. */
+  /** True once any postseason game has STARTED, which flips the card from a projection to a
+   *  report. Deliberately not "has been played": the card stops projecting at first pitch. */
   started: boolean
   champion: WpblTeam | null
 }
@@ -166,25 +166,39 @@ export interface WpblBracket {
 const isPlayed = (g: WpblGame): boolean =>
   g.status === 'final' && g.home_score != null && g.away_score != null
 
+/** UNDER WAY IS NOT THE SAME QUESTION AS DECIDED, and conflating them left the pick'em open
+ *  through the first pitch it exists to close. A game in progress adds nothing to any series
+ *  record, so `isPlayed` is right for the wins, and it is the ONLY thing that used to put a
+ *  pairing on the board: with Boston at San Francisco in the second inning of game 1, the
+ *  semifinal still read `upcoming` and the sheet still offered "who wins this series". */
+const hasStarted = (g: WpblGame): boolean => g.status === 'live' || isPlayed(g)
+
+/** Wins per club within one postseason pairing, and whether a ball has been thrown in it. */
+interface SeriesTally {
+  wins: Map<string, number>
+  started: boolean
+}
+
 /**
- * Wins per club within each postseason pairing.
+ * Each postseason pairing's state.
  *
  * Keyed on the pair rather than on anything the feed says about rounds, for the reason in the
  * header. A pairing that is not part of the bracket we expect simply never gets looked up.
  */
-function postseasonSeries(games: WpblGame[]): Map<string, Map<string, number>> {
-  const out = new Map<string, Map<string, number>>()
+function postseasonSeries(games: WpblGame[]): Map<string, SeriesTally> {
+  const out = new Map<string, SeriesTally>()
   for (const g of games) {
-    if (countsInStandings(g) || !isPlayed(g)) continue
+    if (countsInStandings(g) || !hasStarted(g)) continue
     const key = pairKey(g.home_team_id, g.away_team_id)
-    const tally = out.get(key) ?? new Map<string, number>()
-    // A tie cannot decide a postseason game, so an equal score is not a win for anybody. It
-    // should not happen; it must not silently credit the home side if it does.
-    if (g.home_score! !== g.away_score!) {
+    const tally = out.get(key) ?? { wins: new Map<string, number>(), started: false }
+    if (isPlayed(g) && g.home_score! !== g.away_score!) {
+      // A tie cannot decide a postseason game, so an equal score is not a win for anybody. It
+      // should not happen; it must not silently credit the home side if it does.
       const winner = g.home_score! > g.away_score! ? g.home_team_id : g.away_team_id
-      tally.set(winner, (tally.get(winner) ?? 0) + 1)
+      tally.wins.set(winner, (tally.wins.get(winner) ?? 0) + 1)
     }
-    // Set unconditionally so a played-but-tied game still registers the pairing as under way.
+    // Set unconditionally so a game that is under way, or played and tied, still registers.
+    tally.started = true
     out.set(key, tally)
   }
   return out
@@ -201,6 +215,9 @@ function summarise(series: Omit<BracketSeries, 'summary'>): string {
     const l = winner.id === home.team?.id ? away : home
     return `${winner.name} win ${w.wins}-${l.wins}`
   }
+  // Under way with nothing decided yet, which is game 1 in progress. "Tied 0-0" is what the
+  // score line says and not what a fan would: nobody is tied, the series has just begun.
+  if (series.played === 0) return 'Game 1 under way'
   if (home.wins === away.wins) return `Tied ${home.wins}-${away.wins}`
   const [lead, trail] = home.wins > away.wins ? [home, away] : [away, home]
   return `${lead.team?.name} lead ${lead.wins}-${trail.wins}`
@@ -212,12 +229,12 @@ function buildSeries(
   label: string,
   home: { team: WpblTeam | null; seed: number | null },
   away: { team: WpblTeam | null; seed: number | null },
-  series: Map<string, Map<string, number>>,
+  series: Map<string, SeriesTally>,
 ): BracketSeries {
   const bestOf = BEST_OF[round]
   const tally = home.team && away.team ? series.get(pairKey(home.team.id, away.team.id)) : undefined
-  const homeWins = (home.team && tally?.get(home.team.id)) || 0
-  const awayWins = (away.team && tally?.get(away.team.id)) || 0
+  const homeWins = (home.team && tally?.wins.get(home.team.id)) || 0
+  const awayWins = (away.team && tally?.wins.get(away.team.id)) || 0
   const played = homeWins + awayWins
   const need = winsNeeded(round)
   const winner = homeWins >= need ? home.team : awayWins >= need ? away.team : null
@@ -228,7 +245,9 @@ function buildSeries(
     away: { team: away.team, seed: away.seed, wins: awayWins },
     played,
     winner,
-    status: (winner ? 'done' : played > 0 ? 'live' : 'upcoming') as BracketSeries['status'],
+    // `played` counts DECIDED games, so a series whose game 1 is in progress has none of them
+    // and is still under way. Reading the status off `played` is what kept the pick'em open.
+    status: (winner ? 'done' : tally?.started ? 'live' : 'upcoming') as BracketSeries['status'],
   }
   return { ...base, summary: summarise(base) }
 }
