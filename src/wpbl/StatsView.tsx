@@ -985,7 +985,15 @@ export default function WpblStatsView({
         {[
           capped ? `${LIST_CAP} of ${rows.length} ${noun}` : `${rows.length} ${noun}`,
           ...filterWords,
-          '2026 season',
+          // WHICH GAMES, IN WORDS. It used to be able to say "season" and mean it, because the
+          // three scope chips sat in the bar where a reader could see which one was lit. They
+          // are in the Filters sheet on a phone now, and a sheet is shut: a board counting the
+          // playoffs looked exactly like one counting the season, for the reader most likely
+          // to have set it by accident. The pill's dot says only that SOMETHING is not the
+          // default; this is the line that says what.
+          scope === 'postseason' ? '2026 playoffs'
+            : scope === 'all' ? '2026 season + playoffs'
+            : '2026 season',
           // Only when the reader has moved OFF the league's basis, and only on the pitching
           // side. Their ERA no longer matches the one the league publishes, and that is worth
           // a permanent three words at the foot rather than relying on a note they dismissed
@@ -1559,35 +1567,39 @@ export default function WpblStatsView({
               here. */}
           <Box ref={scrollRef} sx={{
             overflowX: 'auto', overflowY: 'auto', overscrollBehavior: 'contain',
-            // A CONSTANT, AND DELIBERATELY NOT MEASURED, which is the opposite of what it
-            // looks like it wants to be.
+            // HOW TALL THE BOARD IS ALLOWED TO BE, and the two answers are different
+            // because the question is.
             //
             // The column headers pin to the top of this box, and the box is an ordinary
             // element in page flow, so scrolling the PAGE carries them up behind the bars
-            // above it. The cap was briefly derived to prevent exactly that: give back however
-            // far the page could still carry the board. It cannot work here. On a phone
-            // `/wpbl` floors every tab of its swipe pager at a screenful so a short tab is
-            // still a full-screen swipe target (`minHeight` in SwipeableViews), and while that
-            // floor is binding the page is as long as the floor plus the footer NO MATTER HOW
-            // SHORT THIS TABLE IS. The board lands in the same place however much it gives
-            // back, the correction never closes, and it iterates the table down to nothing: a
-            // phone-sized board under 320px of blank space, headers still behind the bar it
-            // shrank to clear. Measured from a tab the pager had not yet brought on screen it
-            // was worse, reading a zero rect against another tab's document height and
-            // rendering a board that was not there at all until the reader reloaded the page.
+            // above. The board is sticky (see where it pins) so it holds its place under the
+            // bar, but sticky only holds while its containing block has somewhere left to go,
+            // and the arithmetic comes out at one condition: the board has to FIT between the
+            // bar and whatever follows it. Taller than that and it stops being pinned before
+            // the reader stops scrolling.
             //
-            // Fixing the headers properly means lifting that row OUT of this box, because a
-            // horizontally scrolling box is necessarily the scrollport its own sticky children
-            // resolve against. Until then they pin within the box, which is the right answer
-            // whenever the box is the thing being scrolled.
+            // ON A PHONE THAT IS WORTH PAYING FOR. The page is short, a thumb reaches the
+            // bottom of it by accident, and the board is the only thing on screen. So the cap
+            // there is the real gap: the screen, less the bars above, less the footer below,
+            // less the board's own furniture.
             //
-            // 260px is everything standing above the table at the top of the page, so at rest
-            // the board fills the screen.
-            // The gap the pinned board sits in: the screen, less the bars above it, less the
-            // footer below it, less the board's own furniture. Floored, because every term but
-            // the first is a measurement and a board that has been measured into nothing reads
-            // as data that failed to load rather than as a layout that went wrong.
-            maxHeight: `max(${MIN_BOARD_PX}px, calc(100dvh - ${BOARD_TOP} - var(--wpbl-foot-h, 0px) - ${BOARD_TAIL_PX}px))`,
+            // ON A DESKTOP IT IS NOT. The page barely moves under a board this size, so the
+            // guarantee was buying a case that does not arise and charging 138px of table for
+            // it. Wide screens keep the measure they have always had, where 260px is
+            // everything standing above the table at the top of the page.
+            //
+            // THE FOOTER IS MEASURED, THE REST IS NOT, and that split is the whole safety of
+            // it. `--wpbl-foot-h` comes off the `<footer>` element, whose height cannot depend
+            // on the board's. Deriving the cap from the DOCUMENT's height instead is what
+            // broke: on a phone that includes the swipe pager's full-screen floor, so the
+            // board's height fed back into its own cap and iterated down to the floor below;
+            // read from a tab the pager had not yet shown, it measured a zero rect against
+            // another tab's document and rendered a board that was not there at all until the
+            // reader reloaded. The floor is what stops any of that reaching the screen again.
+            maxHeight: 'calc(100dvh - 260px)',
+            '@media (max-width:600px)': {
+              maxHeight: `max(${MIN_BOARD_PX}px, calc(100dvh - ${BOARD_TOP} - var(--wpbl-foot-h, 0px) - ${BOARD_TAIL_PX}px))`,
+            },
             '@media (max-height: 560px)': {
               maxHeight: `calc(100dvh - ${PINNED_CHROME} - 100px)`,
             },
