@@ -19,6 +19,18 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * `LINGER_MS` is why the readout does not vanish on release: lifting a finger is how you stop
  * covering the chart, not a statement that you are done reading. It also lets a plain tap ask
  * the question, since a tap is a hold that ended early.
+ *
+ * THAT ARGUMENT IS ABOUT A READOUT UNDER THE FINGER, and it does not survive the journey to
+ * every caller, so the linger is the one thing here a caller can set. The win probability chart
+ * answers in a panel on the chart itself, which your own hand is covering while you read it, so
+ * holding the answer after release is the whole point. The standings chart answers in the TABLE
+ * ABOVE, which nothing is covering: there, a lingering answer is just a table showing August
+ * after the reader has let go and moved on, and the honest behaviour is the one the mouse
+ * already has, which is that leaving puts it back.
+ *
+ * A linger of zero also turns OFF tap-to-read, deliberately. With nothing to hold the answer
+ * open, a tap would set the column and clear it in the same breath, which is a flash rather
+ * than a reading. Such a caller is a press-and-hold surface and says so in its own label.
  */
 const HOLD_MS = 220
 const SLOP_PX = 8
@@ -41,7 +53,9 @@ const LINGER_MS = 2600
  * a pointer is already unambiguous, and arrow keys make the chart readable without a
  * pointer at all.
  */
-export function useChartScrub(count: number, label: string) {
+export function useChartScrub(count: number, label: string, opts: { lingerMs?: number } = {}) {
+  /** How long a touch answer outlives the finger. See LINGER_MS for when zero is right. */
+  const lingerMs = opts.lingerMs ?? LINGER_MS
   const ref = useRef<HTMLDivElement>(null)
   const [index, setIndex] = useState<number | null>(null)
 
@@ -113,11 +127,15 @@ export function useChartScrub(count: number, label: string) {
       dropHold()
       if (!s.live) return
       s.live = false
+      const wasEngaged = s.engaged
+      s.engaged = false
+      // Releasing IS the answer for a caller with no linger: the same thing the mouse does on
+      // its way off the chart, and the reason a tap does not read here (see LINGER_MS).
+      if (lingerMs <= 0) { setIndex(null); return }
       // A tap that ended before the hold did still asked a question, and it is the same
       // question: read the chart where the finger landed.
-      if (!s.engaged) at(s.x)
-      s.engaged = false
-      s.linger = window.setTimeout(() => setIndex(null), LINGER_MS)
+      if (!wasEngaged) at(s.x)
+      s.linger = window.setTimeout(() => setIndex(null), lingerMs)
     }
 
     el.addEventListener('touchstart', onStart, { passive: true })
@@ -132,7 +150,7 @@ export function useChartScrub(count: number, label: string) {
       window.clearTimeout(s.hold)
       window.clearTimeout(s.linger)
     }
-  }, [at])
+  }, [at, lingerMs])
 
   const clear = useCallback(() => {
     window.clearTimeout(g.current.linger)

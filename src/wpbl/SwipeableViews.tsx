@@ -302,14 +302,24 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
     if (!el || !pagerOn) return
 
     const onStart = (e: TouchEvent) => {
-      if (animRef.current || e.touches.length !== 1) { g.current.tracking = false; return }
-      // Something inside owns horizontal drags outright (the win probability chart, which is
-      // scrubbed by dragging along it). Unlike `ownsHorizontalScroll` below, this is not a
-      // question of having room left to scroll and it is not overridden by a hard flick:
-      // there is no gesture over that element the pager should ever take.
-      if (e.target instanceof Element && e.target.closest('[data-swipe-lock]')) {
-        g.current.tracking = false; return
-      }
+      // A GESTURE THE PAGER DECLINES STILL HAS TO CLEAR THE LAST ONE, and this is the whole
+      // reason it is written as its own statement rather than folded into the bails below.
+      //
+      // `g.current` outlives a touch. `onEnd` reads it and only bails when `lock !== 'h'`, so a
+      // completed swipe that left `lock` at 'h' was inherited by every later touch the pager
+      // refused: the next touchend ran the commit path again, on the PREVIOUS gesture's
+      // direction, offset and velocity. Reported on a phone as "swipe the chart, keep your
+      // finger down, and the tab changes when you let go", which is exactly that replay, and
+      // the chart is where it shows because `data-swipe-lock` is the commonest refusal.
+      g.current.tracking = false
+      g.current.lock = null
+
+      if (animRef.current || e.touches.length !== 1) return
+      // Something inside owns horizontal drags outright (the win probability chart and the
+      // standings chart, both scrubbed by dragging along them). Unlike `ownsHorizontalScroll`
+      // below, this is not a question of having room left to scroll and it is not overridden by
+      // a hard flick: there is no gesture over that element the pager should ever take.
+      if (e.target instanceof Element && e.target.closest('[data-swipe-lock]')) return
       const t = e.touches[0]
       g.current = {
         tracking: true, lock: null, startX: t.clientX, startY: t.clientY,
@@ -375,7 +385,13 @@ export default function SwipeableViews({ index, panels, onIndexChange, minHeight
       const s = g.current
       if (!s.tracking && s.lock !== 'h') return
       s.tracking = false
-      if (s.lock !== 'h') return
+      const lock = s.lock
+      // Ended neutral, so nothing downstream can inherit this gesture. The reset in `onStart`
+      // is the one that fixes the replay above; this is the same invariant stated at the other
+      // end, and it is what keeps a touchend the pager never saw the start of from finding a
+      // live 'h' here.
+      s.lock = null
+      if (lock !== 'h') return
       // Commit on either a long-enough drag OR a fast flick in the drag's direction. The flick
       // path lets a small, quick swipe page the tab without dragging most of the screen across —
       // vel is signed (left = negative → next tab, right = positive → prev tab), so it must match

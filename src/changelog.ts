@@ -9,6 +9,14 @@ export const CHANGELOG: ChangelogEntry[] = [
     title:   'One board for what a play is worth',
     changes: [
       {
+        short: 'Standings by date: the whole season as a chart, under the table',
+        full:  'The standings table says San Francisco finished 10-5 and nothing about whether they led all year. The chart under it now plots all four clubs against the calendar, in games above .500, so every club starts at zero and one game is always one step. Point at any day of it and the table itself goes back to that day: hover on a desktop, press and hold on a phone. Press play and it walks the whole season. The table says which date it is showing, and the chart reads the same games the table does, so the two cannot disagree, tiebreaks included. Under it, the things one table cannot tell you on its own: how many days each club spent in first, how often the lead changed hands, and the season’s biggest climb.',
+      },
+      {
+        short: 'Clubs slide past each other when the standings reorder',
+        full:  'Scrubbing the chart or pressing play reorders the table above it, and a table that reorders in one frame is a flicker: you see that something changed without seeing what. The rows travel to their new places instead, so you watch New York pass Los Angeles rather than finding them already swapped. The records themselves keep up with your cursor exactly; it is only the ORDER that waits for you to hold still for a moment, because digits ticking in place are easy to read and four rows changing places a dozen times during one sweep is not. A row on the move gets an opaque backing while it moves, since two clubs crossing would otherwise print through each other. The light grey lines between the clubs stay where they are throughout, so a club slides under its divider instead of taking it along. Under play the moves are cut to the speed the season is running at, so every club lands as the next day arrives. Off entirely if you have asked for reduced motion.',
+      },
+      {
         short: 'Findings has folded into Run value, so the prices and the players are on one board',
         full:  'Findings held one card for most readers, “What every kind of play is worth”, and that card is the table the Run value board next to it is entirely priced off. Split across two tabs it was reaching the wrong people: 41% of the readers who opened Run value never saw the prices behind it, and almost nobody was choosing Findings by name, they were walking the row of boards left to right and stopping when they ran out. Everything that was on it is now on Run value, in the order the idea is built: who created the most runs, what each kind of play is worth, what each count is worth, taking against swinging, and the full explanation in a card you can open. “How this is worked out” now opens that explanation and scrolls you to it instead of sending you to another tab.',
       },

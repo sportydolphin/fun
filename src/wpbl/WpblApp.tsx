@@ -22,6 +22,9 @@ import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
 import WpblHome, { WpblHomeSkeleton } from './Home'
 import WpblStatsView, { type WpblStatsFocus } from './StatsView'
+import SeasonShapeCard from './SeasonShapeCard'
+import { seasonShape, standingsAt, type SeasonPreview } from './derive/seasonShape'
+import { useRowFlip, useRowDividers } from './rowFlip'
 import TeamPage from './TeamPage'
 import TeamsGrid from './TeamsGrid'
 import SwipeableViews from './SwipeableViews'
@@ -483,7 +486,57 @@ function ScheduleView({ teams, games, siteGames = [], onOpenGame }: {
 function StandingsView({ teams, games, onOpenTeam }: {
   teams: WpblTeam[]; games: WpblGame[]; onOpenTeam?: (t: WpblTeam) => void
 }) {
-  const rows = useMemo(() => computeStandings(teams, games), [teams, games])
+  // ONE READ OF THE SEASON FOR BOTH SURFACES. The chart under the table is drawn from this, and
+  // so is the table: `standingsAt(shape, last)` is `computeStandings(teams, games)` by
+  // construction (see derive/seasonShape.ts), so there is no version of this page where the two
+  // disagree, and pointing at the chart is just asking this object for a different column.
+  const shape = useMemo(() => seasonShape(teams, games), [teams, games])
+  const last = shape.columns.length - 1
+  // What the reader is pointing at on the chart, in two speeds: see SeasonPreview. Held here
+  // rather than in the card because it is the TABLE that changes.
+  const [preview, setPreview] = useState<SeasonPreview>({ live: null, settled: null })
+  const onPreview = useCallback((view: SeasonPreview) => setPreview(view), [])
+  // How long until the next date arrives, when something other than the reader is driving. The
+  // rows are animated to fit inside it: a move that outlasts the gap between two reorders can
+  // never land, and a table that never lands trails the chart cursor by a growing margin.
+  const cadence = preview.cadenceMs
+
+  // THE SORT AND THE FIGURES COME FROM DIFFERENT COLUMNS, which is the whole of this. `order`
+  // is the settled day and decides which club is on which line; `figures` is the day under the
+  // cursor and fills those lines in. A club's row is therefore its rank on one day and its
+  // record on another for as long as the settle lasts, which is the trade SeasonPreview argues
+  // for: digits ticking in place are free to read, and re-sorting four rows is not.
+  const order = standingsAt(shape, preview.settled ?? last)
+  const figures = standingsAt(shape, preview.live ?? last)
+  const rows = useMemo(() => {
+    if (order === figures) return order
+    const byTeam = new Map(figures.map(r => [r.team.id, r]))
+    return order.map(r => byTeam.get(r.team.id) ?? r)
+  }, [order, figures])
+  // Four clubs changing places is the whole reading of a scrub, so the rows travel rather than
+  // jump. The DOM still reorders, which is what keeps a screen reader's order true; see
+  // rowFlip.ts for why that rules out the cheaper way of doing this.
+  // Keyed off the ORDER rather than off `rows`, so the flip is not asked to re-measure on every
+  // pointermove: `order` is one of the shape's own frames, so its identity only changes when the
+  // settled day does, which is exactly when a row can have moved.
+  const rowRef = useRowFlip(useMemo(() => order.map(r => r.team.id), [order]), cadence)
+  // The lines between the clubs, lifted off the rows and drawn over them. A border on a row
+  // travels with the club standing in it and is painted under the backing a moving row needs,
+  // so a reorder took every divider in the table with it. See `useRowDividers`.
+  const dividers = useRowDividers(order.length)
+  // Labels the FIGURES, because that is what a reader is reading. The sort may still be a
+  // fraction of a second behind it.
+  // THREE STATES, NOT TWO. The opening column is a real place on the chart and its date is
+  // null, so "is there a date" read it as "the reader is not pointing at anything" and labelled
+  // four clubs at 0-0 as the current standings. Null here means the present; anything else is
+  // the words for the day being shown.
+  const asOf = (() => {
+    if (preview.live == null || preview.live === last) return null
+    const date = shape.columns[preview.live].date
+    return date
+      ? `As of ${new Date(`${date}T00:00:00`).toLocaleDateString([], { month: 'long', day: 'numeric' })}`
+      : 'Before opening day'
+  })()
   const headingTag = useWpblHeadingTag()
   if (teams.length === 0) {
     return <EmptyState title="No teams yet" hint="Standings appear once teams and results are added." />
@@ -526,7 +579,27 @@ function StandingsView({ teams, games, onOpenTeam }: {
     <Typography component={headingTag} sx={{ fontSize: '1.1rem', fontWeight: 800, letterSpacing: '-0.3px', lineHeight: 1.2, ...HIDE_ON_PHONE }}>
       WPBL Standings
     </Typography>
-    <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden' }}>
+    {/* WHICH DAY THIS TABLE IS. Always drawn, never toggled, and that is the whole design: a
+        note that appears when you point at the chart would move the table down 20px under the
+        finger doing the pointing, on every scrub, which is worse than the note is good. So the
+        line is always there, says "Current standings" at rest, and changes its words and its
+        colour when the chart is showing an earlier day. A reader who never touches the chart
+        reads it once as a statement of fact and never again.
+
+        It also has to be honest by construction rather than by care: `asOf` is null whenever
+        the table is showing the last column, so the two cannot disagree about whether this is
+        today's table. */}
+    <Typography aria-live="polite" sx={{
+      mt: -1, fontSize: '0.72rem', fontWeight: asOf ? 800 : 600, textAlign: 'right',
+      color: asOf ? 'var(--wpbl-accent-fg)' : 'text.disabled',
+      fontVariantNumeric: 'tabular-nums',
+    }}>
+      {asOf ?? 'Current standings'}
+    </Typography>
+    {/* `position: relative` is load-bearing twice over: it is what the divider overlay is
+        placed against, and it is what makes the rows' `offsetTop` resolve to this box rather
+        than to the page. See `useRowDividers`. */}
+    <Box ref={dividers.ref} sx={{ position: 'relative', border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden' }}>
       <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
         <Box component="thead">
           <Box component="tr" sx={{ bgcolor: 'action.hover' }}>
@@ -546,9 +619,23 @@ function StandingsView({ teams, games, onOpenTeam }: {
             const l10 = r.lastTen
             const l10Color = l10.wins > l10.losses ? 'var(--wpbl-pos)' : l10.wins < l10.losses ? 'var(--wpbl-neg)' : 'text.secondary'
             return (
-              <Box component="tr" key={r.team.id}
+              <Box component="tr" key={r.team.id} ref={rowRef(r.team.id)}
                 onClick={clickable ? () => onOpenTeam!(r.team) : undefined}
-                sx={{ borderTop: '1px solid', borderColor: 'divider', cursor: clickable ? 'pointer' : 'default', ...tappableIf(clickable) }}>
+                sx={{
+                  // THE BORDER IS HERE FOR ITS HEIGHT, AND IS DRAWN BY THE OVERLAY BELOW.
+                  // Painted transparent rather than removed, so the row keeps the pixel the
+                  // slots have always been spaced by and nothing above this reflows.
+                  borderTop: '1px solid', borderColor: 'transparent',
+                  cursor: clickable ? 'pointer' : 'default', ...tappableIf(clickable),
+                  // ONLY WHILE IT IS MOVING. A row has no background of its own, so two clubs
+                  // swapping print through each other at the crossing; this gives the pair an
+                  // opaque page-coloured backing and a stacking order for exactly as long as
+                  // the move lasts. `background.default` and not a hardcoded colour because it
+                  // has to be the page's own, in both themes. See rowFlip.ts.
+                  '&[data-moving]': { position: 'relative', bgcolor: 'background.default' },
+                  '&[data-moving="up"]': { zIndex: 2 },
+                  '&[data-moving="down"]': { zIndex: 1 },
+                }}>
                 <Box component="td" sx={{ ...td, textAlign: 'left', pl: 1.25 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
                     <TeamBadge team={r.team} size={24} />
@@ -583,7 +670,25 @@ function StandingsView({ teams, games, onOpenTeam }: {
           <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled' }}>No games played yet. Records update as results are added.</Typography>
         </Box>
       )}
+      {/* THE DIVIDERS, over the rows rather than on them. One line at the top of each slot, so
+          the top one doubles as the rule under the header, exactly where the row's own border
+          used to be. `zIndex` has to clear the 2 a row moving UP takes, or the lines go back
+          under the thing they exist to survive. */}
+      {dividers.tops.map((top, i) => (
+        <Box key={i} aria-hidden sx={{
+          position: 'absolute', left: 0, right: 0, top: `${top}px`,
+          // Ornament: a hairline, carrying no type and reserving room for none, so raw px is
+          // the unit and it stays one line on every device. See CLAUDE.md.
+          height: '1px', bgcolor: 'divider', pointerEvents: 'none', zIndex: 3,
+        }} />
+      ))}
     </Box>
+      {/* The season the table above is the last frame of. Under it rather than over it: the
+          table is what somebody came to /wpbl/standings for, and a chart above it would make
+          them scroll to reach the thing they asked for. It renders nothing until a game has
+          been played, so it cannot be an empty box on opening day. */}
+      <SeasonShapeCard shape={shape} onPreview={onPreview} />
+
       {/* THE SEEDING CARD IS GONE, removed Sep 8, 2026, the day after the last regular-season
           game. It existed to say what the remaining games were FOR, since all four clubs
           qualify and the order was the whole stake: with the order settled it was a card
