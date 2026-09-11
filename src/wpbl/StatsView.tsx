@@ -169,6 +169,68 @@ const PIT_COLS: Col<WpblPitchingTotals>[] = [
 // the column itself (`lowerBetter` → ascending, so ERA/WHIP lead with the best), which is why
 // a leader card only has to name a column and never a direction. An unknown or absent key
 // falls back to the group's headline column — the first in each list.
+// ─── the view in the address bar ──────────────────────────────────────────────
+
+/**
+ * Which board, which side and which column, mirrored into the query string.
+ *
+ * WHY THE QUERY AND NOT THE PATH. `urlFor` in WpblApp sets the rule the section follows: the
+ * tab is the PATH, because it is a page worth indexing under its own title, and anything laid
+ * OVER that page is a query param. A sorted column is the second kind. It also means this costs
+ * nothing in the three places a new route would: `/wpbl/stats` is already in `_redirects`, the
+ * sitemap is unchanged, and `seo.ts` builds its canonical from `path.split('?')[0]`, so every
+ * permutation of these four params canonicalises back to `/wpbl/stats` and none of them can
+ * reach the index as a near-duplicate.
+ *
+ * ONLY NON-DEFAULTS ARE WRITTEN, so the ordinary reader who never touches a control keeps a
+ * clean `/wpbl/stats` in the address bar and a link they paste says only what they changed.
+ *
+ * `board` IS THE TAB ROW AS DRAWN, not the internal pair behind it: a reader looking at Teams
+ * sees one tab called Teams, where the code sees `source: 'season'` plus `mode: 'teams'`. The
+ * URL is read by people, so it spells the thing on screen.
+ */
+type BoardParam = 'players' | 'teams' | 'pitches' | 'runs' | 'draft' | 'tracked'
+
+const STATS_PATH = '/wpbl/stats'
+
+function boardParam(source: Source, mode: Mode): BoardParam {
+  if (source !== 'season') return source as BoardParam
+  return mode === 'teams' ? 'teams' : 'players'
+}
+
+function boardAxes(board: string | null): { source: Source; mode: Mode } | null {
+  switch (board) {
+    case 'players': return { source: 'season', mode: 'players' }
+    case 'teams':   return { source: 'season', mode: 'teams' }
+    case 'pitches': return { source: 'pitches', mode: 'players' }
+    case 'runs':    return { source: 'runs', mode: 'players' }
+    case 'draft':   return { source: 'draft', mode: 'players' }
+    case 'tracked': return { source: 'tracked', mode: 'players' }
+    // Anything else is a hand-edited or stale link, and the honest answer to one of those is
+    // the default board rather than a blank screen.
+    default: return null
+  }
+}
+
+/** What the address bar is asking for, or nulls. Read once at mount: after that the reader's
+ *  own controls are the truth and this module writes the URL rather than reading it. */
+function axesFromQuery(): { source?: Source; mode?: Mode; side?: Side; sortKey?: string; sortAsc?: boolean } {
+  if (typeof window === 'undefined') return {}
+  // Only on the stats tab. A player modal opened from here owns the path, and the axes on it
+  // belong to the entry underneath rather than to the page being shown.
+  if (window.location.pathname.replace(/\/+$/, '') !== STATS_PATH) return {}
+  const q = new URLSearchParams(window.location.search)
+  const board = boardAxes(q.get('board'))
+  const side = q.get('side')
+  const dir = q.get('dir')
+  return {
+    ...(board ?? {}),
+    side: side === 'hitting' || side === 'pitching' ? side : undefined,
+    sortKey: q.get('sort') ?? undefined,
+    sortAsc: dir === 'asc' ? true : dir === 'desc' ? false : undefined,
+  }
+}
+
 function defaultSort(side: Side, key?: string): { key: string; asc: boolean } {
   const cols: Col<never>[] = (side === 'pitching' ? PIT_COLS : HIT_COLS) as unknown as Col<never>[]
   const col = (key ? cols.find(c => c.key === key) : undefined) ?? cols[0]
@@ -501,9 +563,15 @@ export default function WpblStatsView({
   // A tracking link names no side, so in-session it keeps whichever one the reader had. On a
   // cold load there's nothing to keep, and an old ?view=tracking bookmark used to open on the
   // velocity boards — so seed those rather than dropping it somewhere it has never been.
-  const [side, setSide] = useState<Side>(seedAxes.side ?? (seedAxes.source === 'tracked' ? 'pitching' : 'hitting'))
-  const [source, setSource] = useState<Source>(seedAxes.source)
-  const [mode, setMode] = useState<Mode>('players')
+  // THE ADDRESS BAR WINS ON A COLD LOAD, and `focus` wins after that. They answer two different
+  // questions: `focus` is an in-app jump ("View all" on a leader card, "Full stats" on a club),
+  // which arrives with a bumped token and should always be obeyed; this is what the reader
+  // asked for by opening the link, and it only exists at mount. Read once, for that reason.
+  const fromUrl = useRef(axesFromQuery()).current
+  const [side, setSide] = useState<Side>(
+    fromUrl.side ?? seedAxes.side ?? (seedAxes.source === 'tracked' ? 'pitching' : 'hitting'))
+  const [source, setSource] = useState<Source>(fromUrl.source ?? seedAxes.source)
+  const [mode, setMode] = useState<Mode>(fromUrl.mode ?? 'players')
   const [teamId, setTeamId] = useState<string | null>(null)
   // One row and one integer (see fetchWpblTrackedGameCount), read so the chip row can decide
   // whether Tracked is worth offering without loading the tracking scan to find out. Null
@@ -587,8 +655,12 @@ export default function WpblStatsView({
   // The position each player has actually been playing, for the leaderboard sublabels.
   const positionIndex = useMemo(() => buildPositionIndex(lines.batting, games), [lines.batting, games])
   const [qualified, setQualified] = useState(() => qual.active)
-  const [sortKey, setSortKey] = useState(() => defaultSort(seedAxes.side ?? 'hitting', focus?.sortKey).key)
-  const [sortAsc, setSortAsc] = useState(() => defaultSort(seedAxes.side ?? 'hitting', focus?.sortKey).asc)
+  // `defaultSort` validates the key it is handed and falls back to the board's own default, so
+  // a stale or hand-edited ?sort= lands on a sensible column rather than an empty sort.
+  const [sortKey, setSortKey] = useState(
+    () => defaultSort(fromUrl.side ?? seedAxes.side ?? 'hitting', fromUrl.sortKey ?? focus?.sortKey).key)
+  const [sortAsc, setSortAsc] = useState(
+    () => fromUrl.sortAsc ?? defaultSort(fromUrl.side ?? seedAxes.side ?? 'hitting', fromUrl.sortKey ?? focus?.sortKey).asc)
 
   // ── What board is being read ─────────────────────────────────────────────────
   // Stats is the most-opened tab in the section and, until this, the only one whose contents
@@ -802,6 +874,42 @@ export default function WpblStatsView({
   }
   // "Best first" is not a direction: for ERA and WHIP it is ascending and for everything else
   // it is descending. The column already knows which, so the reader never has to.
+  /**
+   * Mirror the view into the address bar, so a refresh lands where the reader was.
+   *
+   * `replaceState`, NEVER `pushState`. Sorting a column is not navigation: pushed, a reader who
+   * tried four columns would need four Backs to leave the page, and the section's whole history
+   * contract (see `closeTop` in WpblApp) is built on Back meaning "close the thing on top".
+   *
+   * THE EXISTING HISTORY STATE IS CARRIED THROUGH UNTOUCHED. WpblApp keeps its navigation
+   * snapshot on `history.state.wpbl`, and passing anything else here, including the usual `{}`,
+   * would wipe the entry's snapshot and leave Back rendering the wrong tab under this URL.
+   *
+   * ONLY ON THE STATS PATH, and only while this tab is the one on screen. The pager keeps every
+   * visited tab mounted, so without the `active` guard a reader on Schedule would have their
+   * URL quietly rewritten to the stats board by a component they cannot see. The path check is
+   * the same rule one level down: a player modal opened from here owns the path, and its URL is
+   * not ours to edit.
+   */
+  useEffect(() => {
+    if (!active) return
+    if (window.location.pathname.replace(/\/+$/, '') !== STATS_PATH) return
+    const q = new URLSearchParams(window.location.search)
+    const board = boardParam(source, mode)
+    const def = defaultSort(side)
+    // Only what the reader has actually changed. A default view keeps a bare /wpbl/stats, and a
+    // link they paste carries only the part worth saying.
+    const set = (k: string, v: string | null) => { if (v == null) q.delete(k); else q.set(k, v) }
+    set('board', board === 'players' ? null : board)
+    set('side', side === 'hitting' ? null : side)
+    set('sort', sortKey === def.key ? null : sortKey)
+    set('dir', sortAsc === defaultSort(side, sortKey).asc ? null : (sortAsc ? 'asc' : 'desc'))
+    const str = q.toString()
+    const url = str ? `${window.location.pathname}?${str}` : window.location.pathname
+    if (url === window.location.pathname + window.location.search) return
+    window.history.replaceState(window.history.state, '', url)
+  }, [active, source, mode, side, sortKey, sortAsc])
+
   const bestAsc = activeCol.lowerBetter ?? false
   const bestFirst = sortAsc === bestAsc
 

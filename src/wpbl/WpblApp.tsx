@@ -1033,6 +1033,16 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
   const pendingGameSlug = useRef<string | null>(
     window.history.state?.wpbl ? null : wpblGameSlugFromPath(window.location.pathname),
   )
+  /**
+   * Which board a shared game link asked for, captured HERE rather than read by GameDetail.
+   *
+   * It has to be. `urlFor` builds a game's URL from its slug alone and carries no query, so by
+   * the time the modal mounts the address bar has already been rewritten and `?tab=` is gone.
+   * Every other cold-start parameter in this file is read at mount for the same reason; this is
+   * one more of them. Validated in GameDetail, which is the half that knows which boards this
+   * particular game actually has.
+   */
+  const pendingGameTab = useRef<string | null>(pendingParam('tab'))
   /** And for /wpbl/teams/<slug>, which selects a club on the Teams tab rather than opening a
    *  modal, so it is applied with the tab itself rather than through `openFromLink`. */
   const pendingTeamSlug = useRef<string | null>(
@@ -1728,6 +1738,7 @@ export default function WpblApp({ renderFooter }: { renderFooter?: () => ReactNo
         <Suspense fallback={<ModalChunkFallback />}>
           <GameDetailModal
             game={detailGame}
+            initialTab={pendingGameTab.current}
             teams={teams}
             games={games}
             onClose={closeTop}

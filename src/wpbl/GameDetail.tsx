@@ -10,6 +10,7 @@ import { LiveBanner, useLiveGame, LIVE_RED } from './Live'
 import { boxScoreRevision, formatRevisionDay, leagueDay } from './derive/feedHealth'
 import { describeRevision, revisionOverflow } from './derive/gameRevisions'
 import { useForegroundInterval } from './refresh'
+import { wpblGameSlugFromPath } from './routes'
 import { WpblGamePreview } from './GamePreview'
 import { GameHighlightCard } from './Highlights'
 import { GameStoryCard } from './Reading'
@@ -38,6 +39,25 @@ import type {
 // unplayed game it shows the matchup + first-pitch time.
 
 type Tab = 'recap' | 'live' | 'box' | 'plays' | 'pitch'
+
+// ─── which board a shared link opens on ───────────────────────────────────────
+//
+// A game URL is the most-shared thing the section produces: the Discord recaps, the Bluesky
+// posts and the final-score cards all point at /wpbl/games/<slug>. Until this, every one of
+// them landed the reader on whichever board this modal picks by default, so "look at the
+// seventh" was not a thing anyone could send. The board is a state laid over the game's page
+// rather than a page of its own, which is the section's rule for what belongs in a query
+// param (see `urlFor` in WpblApp); seo.ts canonicalises the query away, so none of the five
+// spellings can reach the index as a near-duplicate of the game.
+const TABS: readonly Tab[] = ['recap', 'live', 'box', 'plays', 'pitch']
+
+/** One of the five board names, or null for anything else. The string is captured by WpblApp
+ *  at mount (see `pendingGameTab`) because `urlFor` rewrites a game's URL from its slug alone
+ *  and drops the query before this modal exists; validating it is this file's half of the job,
+ *  since only here is it known which boards a given game actually has. */
+function asTab(raw: string | null | undefined): Tab | null {
+  return raw && TABS.includes(raw as Tab) ? (raw as Tab) : null
+}
 
 // ─── Box-score column sets ─────────────────────────────────────────────────────
 // Column order is importance-first: the classic box line (AB R H RBI BB SO) leads,
@@ -1440,8 +1460,12 @@ function TeamSwitch({ away, home, value, onChange }: {
 }
 
 // ─── Modal root ────────────────────────────────────────────────────────────────
-export default function GameDetailModal({ game: seed, teams, games = [], onClose, onOpenPlayer, onOpenTeam }: {
+export default function GameDetailModal({ game: seed, initialTab, teams, games = [], onClose, onOpenPlayer, onOpenTeam }: {
   game: WpblGame
+  /** The raw `?tab=` a shared link carried, captured by WpblApp at mount because `urlFor` has
+   *  dropped it from the address bar by the time this mounts. Unvalidated on purpose: which
+   *  boards exist depends on data only this component has. */
+  initialTab?: string | null
   teams: WpblTeam[]
   games?: WpblGame[]
   onClose: () => void
@@ -1463,8 +1487,13 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   // view, which is the same rule twice: the tables are what a reader goes looking for, not what
   // they arrive wanting. An unplayed game has neither and lands on the box score, which is
   // where the tab bar starts anyway.
+  // A LINK'S BOARD WINS OVER THE LANDING RULE, which is the whole point of the param: somebody
+  // sent this to be read, and what they sent is more specific than what the modal would have
+  // guessed. `urlTab` is kept so the correction below can tell a stale link from the reader's
+  // own choice.
+  const urlTab = useRef(asTab(initialTab)).current
   const [tab, setTab] = useState<Tab>(() =>
-    seed.status === 'final' ? 'recap' : seed.status === 'live' ? 'live' : 'box')
+    urlTab ?? (seed.status === 'final' ? 'recap' : seed.status === 'live' ? 'live' : 'box'))
   const [boxTeam, setBoxTeam] = useState<'away' | 'home'>('away')
   const [lines, setLines] = useState<{ batting: WpblBattingLine[]; pitching: WpblPitchingLine[] }>(
     () => cached?.lines ?? { batting: [], pitching: [] })
@@ -1682,6 +1711,44 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   // `via` is that distinction: 'open' is the landing tab this modal picked, 'pill' and 'swipe'
   // are the reader choosing. Gated on `hasLines` because the bar paints before the data does,
   // and a board with nothing under it has not been read.
+  /**
+   * The board in the address bar, so a shared link opens on the one that was sent.
+   *
+   * `replaceState`, NEVER `pushState`: switching board is not navigation, and Back in this
+   * section means "close the thing on top" (see `closeTop` in WpblApp). Pushed, a reader who
+   * looked at three boards would need three Backs to shut the game.
+   *
+   * THE EXISTING HISTORY STATE IS CARRIED THROUGH. WpblApp keeps its navigation snapshot on
+   * history.state.wpbl, and replacing it with anything else, `{}` included, would leave Back
+   * rendering the wrong thing under this URL.
+   *
+   * ONLY ON THE GAME'S OWN PATH, and only for a board that is not the one this game opens on:
+   * a link to the landing board says nothing, so the URL stays clean and the param appears
+   * exactly when it is carrying information.
+   */
+  const landingTab: Tab = game.status === 'final' ? 'recap' : game.status === 'live' ? 'live' : 'box'
+  useEffect(() => {
+    if (!wpblGameSlugFromPath(window.location.pathname)) return
+    const q = new URLSearchParams(window.location.search)
+    if (tab === landingTab) q.delete('tab'); else q.set('tab', tab)
+    const str = q.toString()
+    const url = str ? `${window.location.pathname}?${str}` : window.location.pathname
+    if (url === window.location.pathname + window.location.search) return
+    window.history.replaceState(window.history.state, '', url)
+  }, [tab, landingTab])
+
+  // A LINK NAMING A BOARD THIS GAME DOES NOT HAVE. The tab list is built from data that is not
+  // there at mount, so `?tab=pitch` on a game with no TrackMan, or `?tab=recap` on one that has
+  // not finished, is only knowable once the fetch lands. Corrected once, and only for a tab
+  // that came from the URL: the reader's own choices are left alone, and so is the live-to-final
+  // transition that adds Recap underneath an open modal.
+  const urlTabChecked = useRef(false)
+  useEffect(() => {
+    if (urlTabChecked.current || !urlTab || loading || tabs.length === 0) return
+    urlTabChecked.current = true
+    if (!tabs.some(t => t.value === urlTab)) setTab(landingTab)
+  }, [urlTab, loading, tabs, landingTab])
+
   const tabVia = useRef<'open' | 'pill' | 'swipe'>('open')
   const selectTab = useCallback((v: Tab, via: 'pill' | 'swipe') => { tabVia.current = via; setTab(v) }, [])
   useEffect(() => {

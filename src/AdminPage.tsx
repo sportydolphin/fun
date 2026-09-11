@@ -3,6 +3,10 @@ import { Box, Typography, CircularProgress, IconButton } from '@mui/material'
 import { Refresh } from '@mui/icons-material'
 import { Section, StatRow, AdminTools, HealthGroup, HealthStrip, useOpsHealth } from './AdminPanel'
 import { PlayerPortrait } from './wpbl/ui'
+// The gesture the win probability and standings charts already use. It lives under wpbl/
+// because `data-swipe-lock` exists for that section's tab pager, but nothing in it is
+// league-specific, and this file already reaches across for PlayerPortrait.
+import { useChartScrub } from './wpbl/chartScrub'
 import {
   fetchAnalytics, localTz, deltaPct, formatDelta, formatCount, formatShare,
   trimLeadingEmpty, shortDate, prettyEvent, seriesPoints,
@@ -153,6 +157,19 @@ function Bar({ value, max, color }: { value: number; max: number; color: string 
 
 // ─── activity chart ───────────────────────────────────────────────────────────
 
+/** One point out of a `seriesPoints` string, as [x, y] in viewBox units.
+ *
+ *  Reading the drawn geometry back rather than recomputing it is the whole point: the two
+ *  series are scaled to their own peaks, so a second copy of that arithmetic would be a second
+ *  place for the cursor's dot to disagree with the line it is sitting on. */
+function pointAt(points: string, i: number): [number, number] | null {
+  if (!points) return null
+  const pair = points.split(' ')[i]
+  if (!pair) return null
+  const [x, y] = pair.split(',').map(Number)
+  return Number.isFinite(x) && Number.isFinite(y) ? [x, y] : null
+}
+
 /**
  * Events and unique browsers per day.
  *
@@ -161,12 +178,18 @@ function Bar({ value, max, color }: { value: number; max: number; color: string 
  * the browsers line into the baseline and make the panel useless for the number that
  * matters more.
  */
-function ActivityChart({ series, tz }: { series: DayPoint[]; tz: string }) {
+export function ActivityChart({ series, tz }: { series: DayPoint[]; tz: string }) {
   const data = useMemo(() => trimLeadingEmpty(series), [series])
   const W = 640, H = 150, PAD = 6
 
   const ev = seriesPoints(data.map(d => d.events),   W, H, PAD)
   const br = seriesPoints(data.map(d => d.browsers), W, H, PAD)
+
+  // BEFORE THE EARLY RETURNS, because it is a hook and the two bail-outs below are reachable
+  // on the same mount that later has data: the Today range starts at one day and grows.
+  const scrub = useChartScrub(data.length,
+    'Events and unique browsers per day. Point at the chart, or use the arrow keys, to read any day.')
+  const day = scrub.index != null ? data[Math.min(scrub.index, data.length - 1)] : null
 
   if (data.length === 0) {
     return <Box sx={{ px: 1.5, py: 3, textAlign: 'center' }}>
@@ -194,21 +217,49 @@ function ActivityChart({ series, tz }: { series: DayPoint[]; tz: string }) {
   return (
     <Box sx={{ px: 1.5, py: 1.5 }}>
       <Box sx={{ display: 'flex', gap: 2, mb: 1, flexWrap: 'wrap' }}>
+        {/* THE NUMBER SITS NEXT TO ITS OWN COLOUR, which is why the readout is here rather
+            than in a floating tooltip: the two series are scaled to their own peaks, so the
+            only thing tying a value to a line is the swatch beside it. At rest each shows its
+            peak; under the cursor each shows that day, in the series' own colour so it is
+            obvious which line moved. */}
         {[
-          { c: '#60a5fa', label: 'Events',   peak: ev.max },
-          { c: '#f59e0b', label: 'Browsers', peak: br.max },
+          { c: '#60a5fa', label: 'Events',   peak: ev.max, value: day?.events },
+          { c: '#f59e0b', label: 'Browsers', peak: br.max, value: day?.browsers },
         ].map(l => (
           <Box key={l.label} sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
             <Box sx={{ width: 9, height: 3, borderRadius: 999, bgcolor: l.c }} />
             <Typography sx={{ fontSize: '0.7rem', color: 'text.secondary', fontWeight: 600 }}>
-              {l.label} <Typography component="span" sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>
-                peak {formatCount(l.peak)}
-              </Typography>
+              {l.label} {day
+                ? <Typography component="span" sx={{
+                    fontSize: '0.7rem', fontWeight: 800, color: l.c,
+                    fontVariantNumeric: 'tabular-nums',
+                  }}>{formatCount(l.value ?? 0)}</Typography>
+                : <Typography component="span" sx={{ fontSize: '0.7rem', color: 'text.disabled' }}>
+                    peak {formatCount(l.peak)}
+                  </Typography>}
             </Typography>
           </Box>
         ))}
+        {/* The day itself, which neither series can say. `aria-live` because the numbers to its
+            left change with it and a screen reader driving this by keyboard needs to be told
+            which day it landed on, not just that something moved. */}
+        <Typography aria-live="polite" sx={{
+          ml: 'auto', fontSize: '0.7rem', fontWeight: 800,
+          color: day ? 'text.primary' : 'text.disabled',
+        }}>{day ? shortDate(day.date) : ''}</Typography>
       </Box>
 
+      {/* The plot and its cursor share one box, so the overlay below can position in
+          percentages of exactly the box the viewBox is stretched across. */}
+      <Box {...scrub.props} sx={{
+        position: 'relative', width: '100%',
+        cursor: 'ew-resize', userSelect: 'none',
+        // Sideways belongs to the scrub, vertical to the page. Claimed here rather than argued
+        // about in JavaScript, the same way the standings chart does it.
+        touchAction: 'pan-y', WebkitTapHighlightColor: 'transparent',
+        borderRadius: 1,
+        '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
+      }}>
       <Box component="svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
         sx={{ width: '100%', height: 150, display: 'block', color: 'text.disabled' }}>
         {/* Quarter gridlines, unlabelled — they give the eye a reference without implying
@@ -222,6 +273,37 @@ function ActivityChart({ series, tz }: { series: DayPoint[]; tz: string }) {
           vectorEffect="non-scaling-stroke" strokeLinejoin="round" />}
         {br.points && <polyline points={br.points} fill="none" stroke="#f59e0b" strokeWidth={2}
           vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeDasharray="4 3" />}
+      </Box>
+
+      {/* CURSOR AND DOTS IN THE DOM, NOT THE SVG. The viewBox is stretched horizontally and not
+          vertically (`preserveAspectRatio="none"` against a fixed 150px height), so a circle
+          drawn inside it comes out an ellipse whose width depends on the panel. The line is
+          vertical, so a 1px div is crisp where an SVG stroke would need the non-scaling hint.
+          The COORDINATES come from the same strings the polylines are drawn from, parsed rather
+          than recomputed: a second copy of the y formula is a second thing to keep in step with
+          the fact that each series is scaled to its OWN peak. */}
+      {day && scrub.index != null && (
+        <Box aria-hidden sx={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+          <Box sx={{
+            position: 'absolute', top: 0, bottom: 0, width: '1px',
+            left: `${(pointAt(ev.points, scrub.index)?.[0] ?? 0) / W * 100}%`,
+            bgcolor: 'text.disabled', opacity: 0.55,
+          }} />
+          {[{ pts: ev.points, c: '#60a5fa' }, { pts: br.points, c: '#f59e0b' }].map(sBar => {
+            const pt = pointAt(sBar.pts, scrub.index!)
+            if (!pt) return null
+            return (
+              <Box key={sBar.c} sx={{
+                position: 'absolute',
+                left: `${pt[0] / W * 100}%`, top: `${pt[1] / H * 100}%`,
+                width: 9, height: 9, mt: '-4.5px', ml: '-4.5px',
+                borderRadius: '50%', bgcolor: sBar.c,
+                border: '2px solid', borderColor: 'background.paper',
+              }} />
+            )
+          })}
+        </Box>
+      )}
       </Box>
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
