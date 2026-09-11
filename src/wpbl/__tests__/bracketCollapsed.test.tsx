@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import type { WpblGame, WpblTeam } from '../types'
 
@@ -58,6 +58,19 @@ function season(): WpblGame[] {
     win('LA', 'NY', date()), win('SF', 'NY', date()),
   ]
 }
+
+// THE CLOCK HAS TO BE HELD, or this file is a time bomb and was one: it passed every run until
+// Sep 9, 2026 and failed every run after. `seriesPickOpen` refuses once POSTSEASON_SCHEDULE's
+// published first pitch has passed, deliberately, and that constant is a real date rather than
+// anything the fixtures here control. So the moment the real postseason began, every series in
+// this projected bracket read as started, `PickemButton` found nothing askable and rendered
+// null, and two tests about a COLLAPSED CARD started reporting a missing button.
+//
+// `Date.now` is spied rather than the timers faked, because testing-library's `findBy*` polls on
+// the very timers that would freeze.
+const BEFORE_THE_POSTSEASON = Date.parse('2026-09-01T12:00:00Z')
+beforeEach(() => { vi.spyOn(Date, 'now').mockReturnValue(BEFORE_THE_POSTSEASON) })
+afterEach(() => { vi.restoreAllMocks() })
 
 const draw = () => {
   const games = season()

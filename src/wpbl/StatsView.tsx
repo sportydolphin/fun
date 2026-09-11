@@ -18,7 +18,7 @@ import {
   type WpblBattingTotals, type WpblPitchingTotals,
 } from './stats'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine } from './types'
-import { isPostseasonGame, type SeasonScope } from './season'
+import { isPostseasonGame, scopedLines, type SeasonScope } from './season'
 import type { EraBasis } from './stats'
 import { track, EVENTS } from '../lib/analytics'
 import { shouldShowBadge, markBadgeSeen } from '../lib/seen'
@@ -834,10 +834,24 @@ export default function WpblStatsView({
         const src = side === 'hitting'
           ? lines.batting.filter(l => l.team_id === team.id)
           : lines.pitching.filter(l => l.team_id === team.id)
+        // SCOPED ONCE, HERE, AND EVERYTHING ON THE ROW READS OFF IT.
+        //
+        // `sumBatting` and `sumPitching` take the schedule and the scope as required arguments
+        // precisely so a season total cannot silently include the postseason, and they held up
+        // their end. The two figures this branch computes ITSELF did not: the set of game ids
+        // was built from the unfiltered lines, so a club's G counted its playoff games and its
+        // LOB added their runners on, on every scope including Regular season. Nothing about
+        // that reads as wrong on screen, because the other twenty columns in the same row are
+        // filtered and only these two are not.
+        //
+        // Filtering here and still passing `games` and `scope` below is deliberate belt and
+        // braces: `scopedLines` is idempotent, and keeping the required arguments means nobody
+        // can later take this line out and leave the sums quietly unscoped.
+        const scoped = scopedLines(src as (WpblBattingLine | WpblPitchingLine)[], games, scope)
         const totals = side === 'hitting'
-          ? sumBatting(src as WpblBattingLine[], games, scope)
-          : sumPitching(src as WpblPitchingLine[], games, scope)
-        const gameIds = new Set(src.map(l => l.game_id))
+          ? sumBatting(scoped as WpblBattingLine[], games, scope)
+          : sumPitching(scoped as WpblPitchingLine[], games, scope)
+        const gameIds = new Set(scoped.map(l => l.game_id))
         totals.g = gameIds.size
         if (side === 'hitting') {
           // Summed over exactly the games this team has box-score lines for, so LOB covers

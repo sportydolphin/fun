@@ -7,6 +7,7 @@ import type { BracketSeries, BracketEntrant, WpblBracket } from './derive/bracke
 import { postseasonOdds, fmtOdds } from './derive/seriesOdds'
 import type { SeriesOdds, WpblPostseasonOdds } from './derive/seriesOdds'
 import { seedingRace } from './derive/seeding'
+import { seriesPickCategory, parsePickChoice, championshipPickOpen } from './derive/seriesPicks'
 import { useSeriesPicks, SeriesPickLine, PickemButton } from './SeriesPicks'
 import SeriesPreview from './SeriesPreview'
 import type { SeriesPickState } from './SeriesPicks'
@@ -255,6 +256,20 @@ function SeriesBox({ series, odds, onOpen, bracket, picks, fill, wide, children 
           fontSize: TYPE_SCALE.caption, fontWeight: 700, color: 'text.secondary', whiteSpace: 'nowrap',
           overflow: 'hidden', textOverflow: 'ellipsis',
         }}>{series.summary}</Typography>
+        {/* NAME THE PERCENTAGE, because until this the club rows carried a bare number and the
+            card had two of those meaning different things: this one is the chance of winning
+            THIS SERIES, and the strip in the championship box is the chance of winning the whole
+            thing. A reader comparing a club's 78% here against its 66% there had nothing on
+            screen telling them those were different questions. Sits at the right of the header
+            band, over the column it names, and only while there is a number under it: once a
+            series starts the rows show wins instead and a label for odds would be pointing at
+            nothing. Same word as the strip's column, on purpose. */}
+        {showOdds && (
+          <Typography sx={{
+            fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.5,
+            textTransform: 'uppercase', color: 'text.disabled', flexShrink: 0,
+          }}>Odds</Typography>
+        )}
         {/* The affordance. A box that opens something has to say so somewhere, and the header
             band is the one strip of it that is chrome rather than content. */}
         {onOpen && (
@@ -430,21 +445,64 @@ export function BracketDiagram({ bracket, odds, onOpenSeries, onOpenTeam, picks 
         <SeriesBox series={bracket.championship} odds={odds?.championship ?? undefined}
           onOpen={onOpenSeries ? () => onOpenSeries(bracket.championship, odds?.championship ?? undefined) : undefined}
           bracket={bracket} picks={picks} fill wide={wide}>
-          {odds && <TitleOddsStrip odds={odds} onOpenTeam={onOpenTeam} />}
+          {odds && <TitleOddsStrip odds={odds} bracket={bracket} picks={picks} onOpenTeam={onOpenTeam} />}
         </SeriesBox>
       </Box>
     </Box>
   )
 }
 
+/**
+ * What the readers picked to win it all, as a share per club.
+ *
+ * THE SAME QUESTION THE STRIP ASKS, ALREADY ASKED. `pickem:<season>:championship` stores a club
+ * and a series score, and before the semifinals resolve it is offered against the four clubs the
+ * reader picked to get there, so a season's worth of those answers is exactly "who wins it all"
+ * across the whole field. Nothing new is collected and no id is invented; see the header of
+ * derive/seriesPicks.ts for why inventing one would be the expensive choice.
+ *
+ * THE TALLY STAYS HIDDEN UNTIL THE QUESTION IS SHUT, which is the rule SeriesPicks sets out and
+ * the reason this returns null rather than zeroes: a poll that publishes its running total stops
+ * measuring what people think and starts measuring what the first fifty thought. The gate is the
+ * pick'em's own `championshipPickOpen`, so it reopens correctly next season rather than staying
+ * unlocked because this postseason happens to be over.
+ *
+ * Scores are summed away. A reader picking Firebells in 3 and one picking Firebells in 4 are two
+ * people who think the Firebells win it, and that is the only thing this column claims.
+ */
+function useTitlePicks(bracket: WpblBracket, picks?: SeriesPickState) {
+  return useMemo(() => {
+    if (!picks?.loaded) return null
+    if (championshipPickOpen(bracket, Date.now())) return null
+    const bucket = picks.results[seriesPickCategory('championship', null)]
+    if (!bucket) return null
+    const byTeam = new Map<string, number>()
+    let total = 0
+    for (const [choice, n] of Object.entries(bucket)) {
+      const parsed = parsePickChoice(choice)
+      // A choice this bracket cannot place is counted in the TOTAL and shown against nobody:
+      // dropping it would inflate every share that is left, which is the one way a percentage
+      // can lie without any number on screen looking wrong.
+      if (parsed) byTeam.set(parsed.teamId, (byTeam.get(parsed.teamId) ?? 0) + n)
+      total += n
+    }
+    return total > 0 ? { byTeam, total } : null
+  }, [bracket, picks])
+}
+
 /** The headline the bracket cannot draw: each club's chance to WIN IT ALL, ranked by that
  *  chance rather than by record. Ordered by probability, so a stronger lower seed can sit above
  *  a weaker higher one, which is the whole point of pricing it off run differential instead of
  *  reading the standings back. Champion crowned once the final is decided. */
-function TitleOddsStrip({ odds, onOpenTeam }: {
-  odds: WpblPostseasonOdds; onOpenTeam?: OpenTeam
+function TitleOddsStrip({ odds, bracket, picks, onOpenTeam }: {
+  odds: WpblPostseasonOdds
+  bracket: WpblBracket
+  /** Absent when the pick'em is not mounted at all; the strip is then odds only. */
+  picks?: SeriesPickState
+  onOpenTeam?: OpenTeam
 }) {
   const dark = useWpblDark()
+  const fans = useTitlePicks(bracket, picks)
   if (odds.title.length === 0) return null
   const decided = odds.title.some(t => t.p >= 1)
   return (
@@ -457,10 +515,36 @@ function TitleOddsStrip({ odds, onOpenTeam }: {
       width: '100%', minWidth: 0, mt: 'auto',
       px: 1.25, pt: 1, pb: 1.1, borderTop: '1px solid', borderColor: 'divider',
     }}>
-      <Typography sx={{
-        fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.7, textTransform: 'uppercase',
-        color: 'text.disabled', mb: 0.75,
-      }}>{decided ? 'Champion' : 'Chance to win it all'}</Typography>
+      {/* THE HEADING AND THE COLUMN LABELS ARE THE POINT, not decoration on it. Two bare
+          percentages against one club read as the card contradicting itself; the same two
+          under the words ODDS and FANS read as two different questions, which is what they
+          are. The series boxes above show a percentage of their own with no label at all,
+          which is the other half of the same problem and is fixed there. */}
+      {/* `px` MATCHES THE CLUB ROWS BELOW, which carry their own 0.5 so the tap target is wider
+          than the text in it. Without the same padding here the two column headings sit five
+          pixels right of the numbers they name, which is exactly far enough to look like a
+          mistake and not far enough to look deliberate. */}
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 0.9, mb: 0.75, px: 0.5 }}>
+        <Typography sx={{
+          flex: 1, minWidth: 0,
+          fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.7, textTransform: 'uppercase',
+          color: 'text.disabled',
+        }}>{decided ? 'Champion' : 'Chance to win it all'}</Typography>
+        {fans && !decided && (
+          <>
+            <Typography sx={{
+              width: '2.5rem', flexShrink: 0, textAlign: 'center',
+              fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.5,
+              textTransform: 'uppercase', color: 'text.disabled',
+            }}>Odds</Typography>
+            <Typography sx={{
+              width: '2.5rem', flexShrink: 0, textAlign: 'center',
+              fontSize: TYPE_SCALE.caption, fontWeight: 800, letterSpacing: 0.5,
+              textTransform: 'uppercase', color: 'text.disabled',
+            }}>Fans</Typography>
+          </>
+        )}
+      </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         {odds.title.map(t => {
           const accent = wpblAccent(t.team.id, dark)
@@ -500,13 +584,32 @@ function TitleOddsStrip({ odds, onOpenTeam }: {
               </Box>
               <Typography sx={{
                 width: '2.5rem', flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 800,
-                fontVariantNumeric: 'tabular-nums', textAlign: 'right',
+                fontVariantNumeric: 'tabular-nums', textAlign: 'center',
                 color: t.p >= 1 ? accent : 'text.primary',
               }}>{fmtOdds(t.p)}</Typography>
+              {/* THE FANS' COLUMN IS A NUMBER AND NOT A SECOND BAR. One chart per strip: the
+                  bar's length already means the model's probability, and a second bar in the
+                  same row would put two lengths on one scale and invite the reader to compare
+                  them as if they measured the same thing. Muted and lighter than the odds, so
+                  the column reads as an annotation on the chart rather than a rival to it. */}
+              {fans && !decided && (
+                <Typography sx={{
+                  width: '2.5rem', flexShrink: 0, fontSize: TYPE_SCALE.body, fontWeight: 700,
+                  fontVariantNumeric: 'tabular-nums', textAlign: 'center', color: 'text.secondary',
+                }}>{Math.round(((fans.byTeam.get(t.team.id) ?? 0) / fans.total) * 100)}%</Typography>
+              )}
             </Box>
           )
         })}
       </Box>
+      {/* THE COUNT, BECAUSE A PERCENTAGE OF 58 IS NOT A PERCENTAGE OF 58,000. A share with no
+          denominator invites a reader to take it as the league's opinion rather than as this
+          card's readers, and it is the one number that keeps the column honest. */}
+      {fans && !decided && (
+        <Typography sx={{
+          fontSize: TYPE_SCALE.caption, color: 'text.disabled', mt: 0.75, textAlign: 'right',
+        }}>{fans.total} {fans.total === 1 ? 'pick' : 'picks'} before the semifinals</Typography>
+      )}
     </Box>
   )
 }
