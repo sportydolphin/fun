@@ -545,18 +545,28 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
       </Box>
 
       {/* TWO COLUMNS ON A LARGE DESKTOP, ONE EVERYWHERE ELSE.
-          
+
           The board used to cap itself at one list measure and centre, which was right about
           the list and wrong about the page: at 1780px it left roughly 500px of nothing down
           each side while the three blocks queued up in a column half a screen tall. A wide
-          screen does not want a longer row, it wants a second column, so the leaderboard keeps
-          its measure and the count grid and the explainer move up beside it.
-          
+          screen does not want a longer row, it wants a second column.
+
+          SPLIT BY WHAT THE CARDS ARE ABOUT, WHICH IS ALSO WHAT BALANCES THEM. The first cut
+          put the leaderboard alone on the left and everything else on the right. That reads
+          like a two-column layout and measures 712px against 2,448: one card, and then a
+          column of nothing running beside three quarters of the page. There are only ever ten
+          or so qualifying players, so that side was never going to fill itself.
+
+          Taking and swinging sits with it now, and not only for the height. The left column is
+          the two boards that rank PEOPLE and open a player card; the right is the prices, which
+          are measured over the whole league and are about nobody. 1,399 against 1,701, and a
+          reader can say what each side is for.
+
           `lg` rather than `md`, and that is about the section's desktop scale rather than the
           viewport: `--app-chrome` is 1.25 from 900px up, so two 560px columns already measure
           1,400 real pixels and would not fit the 900px viewport `md` describes. The pair only
           has room once the viewport does.
-          
+
           `minmax(0, 1fr)` on both, not `1fr`: a grid track's default minimum is its content,
           so the leaderboard's longest player name would push its column wider than half and
           the two would stop being equal. */}
@@ -566,6 +576,10 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
         alignItems: 'start',
         gap: { xs: 1.5, sm: 2 },
       }}>
+      {/* THE LEFT COLUMN IS THE PLAYERS. Both boards in it rank people and open a player
+          card; everything in the other one is a price, measured over the whole league and
+          about nobody. */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 }, minWidth: 0 }}>
       <SectionCard title={pitching ? 'Most runs saved' : 'Most runs created'}>
         {leaders.length === 0
           ? <Typography sx={{ fontSize: '0.85rem', color: 'text.disabled', py: 1 }}>Not enough plays yet.</Typography>
@@ -581,13 +595,18 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
         )}
       </SectionCard>
 
-      {/* The second column: the measurements over the explanation, since a reader who wants the
-          numbers wants them before the derivation, and all of them are the same width.
+      <TakeSwingBoard rows={takeSwing} side={side} accent={accent} isNarrow={isNarrow}
+        expanded={allTakeSwing} onToggle={() => setAllTakeSwing(v => !v)}
+        onOpenPlayer={onOpenPlayer} />
+      </Box>
+
+      {/* THE RIGHT COLUMN IS THE PRICES, measurements over the explanation, since a reader who
+          wants the numbers wants them before the derivation.
 
           WHAT A PLAY IS WORTH OPENS IT, because it is the simplest true thing on the board and
-          everything under it is priced off the same table: a play is worth something, a count is
-          worth something because of the plays it leads to, a pitch is worth what it did to the
-          count. It also has the only row here anybody can check against a game they watched.
+          what follows it is priced off the same table: a play is worth something, and a count is
+          worth something because of the plays it leads to. It also has the only row here
+          anybody can check against a game they watched.
           It and the steal card came off a board of their own called Findings; see PlayValue.tsx
           for what the traffic said about that. */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 }, minWidth: 0 }}>
@@ -600,10 +619,6 @@ export default function WpblRunValueView({ side, teams, games, battingLines, onO
       )}
 
       {counts.length > 0 && <CountBoard counts={counts} fullCount={fullCount} accent={accent} />}
-
-      <TakeSwingBoard rows={takeSwing} side={side} accent={accent} isNarrow={isNarrow}
-        expanded={allTakeSwing} onToggle={() => setAllTakeSwing(v => !v)}
-        onOpenPlayer={onOpenPlayer} />
 
       {/* THE WHOLE EXPLANATION, IN ONE SHUT CARD, in the order the idea is actually built:
           a situation is worth something, a play is worth what it changed to it, and here is one
