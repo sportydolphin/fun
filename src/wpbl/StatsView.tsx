@@ -282,6 +282,10 @@ const FULL_BLEED_W = 'min(1540px, calc(100vw - 24px))'
 // section had not. Both are out now, so a published rect and a sticky `top` are the same
 // pixel and the sum is spent as it arrives.
 const PINNED_CHROME = 'calc(var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px))'
+/** The same sum without the `calc()` wrapper, for use INSIDE another math function: `max()`
+ *  already takes arithmetic, and a nested `calc()` as one of its arguments is not the same
+ *  thing to every engine. */
+const PINNED_CHROME_SUM = 'var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px)'
 const fullBleedSx = {
   width: FULL_BLEED_W,
   position: 'relative',
@@ -461,6 +465,24 @@ export default function WpblStatsView({
   const [eraNoteOpen, setEraNoteOpen] = useState(() => shouldShowBadge('era-per-9'))
   const dismissEraNote = () => { markBadgeSeen('era-per-9'); setEraNoteOpen(false) }
   const scrollRef = useRef<HTMLDivElement>(null)
+  // EVERYTHING BELOW THE TABLE, which is exactly how far the page can still scroll once the
+  // table's bottom has reached the bottom of the screen.
+  //
+  // The column headers pin to the top of the scroll box, and the scroll box is an ordinary
+  // element in page flow, so the page carrying it upwards carries the headers with it. Reported
+  // from the page: scroll until the toolbar goes and the headers go too. They were not scrolling
+  // away, they were sliding up BEHIND the toolbar, which is worse, because the table looks like
+  // a table that has simply lost its labels.
+  //
+  // The cap below keeps the box's own top at or under the pinned chrome, and this is the term
+  // that makes it true. Measured rather than guessed: the footer wraps to more rows as the
+  // window narrows, which is why the constant it replaces was right at one width and 19px short
+  // at another, and why nothing about the failure looked width-dependent from inside the CSS.
+  //
+  // NO FEEDBACK LOOP. This tail does not change when the table's height does, because shrinking
+  // the box moves the document's bottom and the box's bottom by the same amount, so re-measuring
+  // after the cap has been applied returns the same number.
+  const [tailPx, setTailPx] = useState(0)
   // Horizontal-scroll edges — drive the frozen-column shadow (not at start) and the
   // right-edge fade (not at end), so it's obvious the table scrolls sideways.
   const [scrollX, setScrollX] = useState({ atStart: true, atEnd: true })
@@ -1014,6 +1036,20 @@ export default function WpblStatsView({
     return () => { c.removeEventListener('scroll', update); ro.disconnect() }
   }, [loading, side, mode, rows.length, pinActive])
 
+  useEffect(() => {
+    const measure = () => {
+      const el = scrollRef.current
+      if (!el) return
+      const bottom = el.getBoundingClientRect().bottom + window.scrollY
+      setTailPx(Math.max(0, Math.round(document.documentElement.scrollHeight - bottom)))
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+    // Re-measured whenever the page below could have changed shape under it: a different board
+    // is a different table, and `loading` is the commit the table first exists on.
+  }, [loading, mode, side, rows.length])
+
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
   }
@@ -1425,7 +1461,17 @@ export default function WpblStatsView({
               here. */}
           <Box ref={scrollRef} sx={{
             overflowX: 'auto', overflowY: 'auto', overscrollBehavior: 'contain',
-            maxHeight: 'calc(100dvh - 260px)',
+            // `max` and not a second constant: 260px is the measure that makes the table fill
+            // the screen at rest, and the chrome plus the tail is the one that keeps its
+            // headers out from behind the toolbar once the page has moved. Whichever is
+            // larger is the one that has to be subtracted; taking only the first is the bug
+            // this replaced.
+            maxHeight: `calc(100dvh - max(260px, ${PINNED_CHROME_SUM} + ${tailPx}px))`,
+            // THE SHORT-SCREEN BRANCH DOES NOT TAKE THE TAIL, on purpose. A landscape phone
+            // cannot have both a table that stays in view and a table with rows in it: capped
+            // by the tail here the box came out at 96px, a header and ONE row, which is the
+            // "reads as broken rather than as tight" this branch exists to avoid. It keeps the
+            // original bargain, which is that the page scrolls and the headers can go with it.
             '@media (max-height: 560px)': {
               maxHeight: `calc(100dvh - ${PINNED_CHROME} - 100px)`,
             },
