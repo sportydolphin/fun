@@ -5,8 +5,9 @@ import { fetchWpblGameLive, LIVE_POLL_MS } from './api'
 import { settleGame } from './gameOver'
 import { useForegroundInterval } from './refresh'
 import { wpblAccent, wpblFullName } from './constants'
+import { canonicalFeedName } from './feedNames'
 import { TeamBadge, useWpblDark, hoverOnly } from './ui'
-import type { WpblTeam, WpblGame, WpblLineScoreEntry, WpblLiveState } from './types'
+import type { WpblTeam, WpblGame, WpblLineScoreEntry, WpblLiveState, WpblPlayer } from './types'
 
 // Feed-driven live views. The official feed's boxscore `status` is mirrored onto the game
 // row as `live_state` by wpbl-ingest; these components render it. No hand-scoring — the
@@ -240,7 +241,14 @@ export function SituationStrip({ s }: { s: Situation }) {
 }
 
 // Situation banner shown atop the Game Center (GameDetail) while a game is live.
-export function LiveBanner({ state, away, home, lines }: { state: WpblLiveState; away: WpblTeam; home: WpblTeam; lines?: LineScores }) {
+export function LiveBanner({ state, away, home, lines, players }: {
+  state: WpblLiveState; away: WpblTeam; home: WpblTeam; lines?: LineScores
+  /** The roster, to spell the two names the way the rest of the page does. REQUIRED, and empty
+   *  is a legitimate value: the caller passing nothing at all is the failure this shape exists
+   *  to stop, because it looks exactly like a player whose name the feed happens to spell our
+   *  way. See feedNames.ts. */
+  players: WpblPlayer[]
+}) {
   const isDark = useWpblDark()
   const s = deriveSituation(state, away, home, lines)
   return (
@@ -253,8 +261,8 @@ export function LiveBanner({ state, away, home, lines }: { state: WpblLiveState;
           certainly wrong. */}
       {!s.between && (
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          {s.batterName && <Typography sx={{ fontSize: '0.76rem', lineHeight: 1.3 }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>AB </Box><Box component="span" sx={{ fontWeight: 700, color: wpblAccent(s.battingTeam.id, isDark) }}>{shortName(s.batterName)}</Box></Typography>}
-          {s.pitcherName && <Typography sx={{ fontSize: '0.76rem', lineHeight: 1.3 }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>P </Box><Box component="span" sx={{ fontWeight: 700 }}>{shortName(s.pitcherName)}</Box></Typography>}
+          {s.batterName && <Typography sx={{ fontSize: '0.76rem', lineHeight: 1.3 }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>AB </Box><Box component="span" sx={{ fontWeight: 700, color: wpblAccent(s.battingTeam.id, isDark) }}>{shortName(canonicalFeedName(s.batterName, players))}</Box></Typography>}
+          {s.pitcherName && <Typography sx={{ fontSize: '0.76rem', lineHeight: 1.3 }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>P </Box><Box component="span" sx={{ fontWeight: 700 }}>{shortName(canonicalFeedName(s.pitcherName, players))}</Box></Typography>}
         </Box>
       )}
     </Box>
@@ -262,7 +270,12 @@ export function LiveBanner({ state, away, home, lines }: { state: WpblLiveState;
 }
 
 // ─── Home-page LIVE hero ─────────────────────────────────────────────────────────
-export function LiveHero({ game: seed, teams, onOpen }: { game: WpblGame; teams: WpblTeam[]; onOpen: () => void }) {
+export function LiveHero({ game: seed, teams, players, onOpen }: {
+  game: WpblGame; teams: WpblTeam[]
+  /** The roster, for the same reason and on the same terms as LiveBanner's. */
+  players: WpblPlayer[]
+  onOpen: () => void
+}) {
   const isDark = useWpblDark()
   const game = useLiveGame(seed)
   const byId = useMemo(() => new Map(teams.map(t => [t.id, t])), [teams])
@@ -311,8 +324,8 @@ export function LiveHero({ game: seed, teams, onOpen }: { game: WpblGame; teams:
             {/* Dropped for the length of the break, for the reason given in LiveBanner. */}
             {!s.between && (
               <Box sx={{ textAlign: { sm: 'right' } }}>
-                {s.batterName && <Typography sx={{ fontSize: '0.74rem' }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>AB </Box><Box component="span" sx={{ fontWeight: 700, color: wpblAccent(s.battingTeam.id, isDark) }}>{shortName(s.batterName)}</Box></Typography>}
-                {s.pitcherName && <Typography sx={{ fontSize: '0.74rem' }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>P </Box><Box component="span" sx={{ fontWeight: 700 }}>{shortName(s.pitcherName)}</Box></Typography>}
+                {s.batterName && <Typography sx={{ fontSize: '0.74rem' }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>AB </Box><Box component="span" sx={{ fontWeight: 700, color: wpblAccent(s.battingTeam.id, isDark) }}>{shortName(canonicalFeedName(s.batterName, players))}</Box></Typography>}
+                {s.pitcherName && <Typography sx={{ fontSize: '0.74rem' }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>P </Box><Box component="span" sx={{ fontWeight: 700 }}>{shortName(canonicalFeedName(s.pitcherName, players))}</Box></Typography>}
               </Box>
             )}
           </Box>

@@ -5,6 +5,7 @@ import { track, EVENTS } from '../lib/analytics'
 import { fetchWpblAllPlayers, fetchWpblRoster, fetchWpblGameLines, fetchWpblGamePlays, fetchWpblGameTracking, fetchWpblGameDetails, fetchWpblGameRevisions, fetchWpblVideos, getCachedWpblVideos, fetchWpblArticles, getCachedWpblArticles, fetchWpblAllRunValuePlays, LIVE_POLL_MS } from './api'
 import { WPBL_ACCENT, wpblAccent, wpblSurface, wpblFullName, outsToIp, playedInnings, formatGameTime, relativeDayLabel } from './constants'
 import { seriesContext } from './derive/series'
+import { canonicalFeedName } from './feedNames'
 import { LiveBanner, useLiveGame, LIVE_RED } from './Live'
 import { boxScoreRevision, formatRevisionDay, leagueDay } from './derive/feedHealth'
 import { describeRevision, revisionOverflow } from './derive/gameRevisions'
@@ -654,16 +655,23 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
   // off the plays: a half-inning has one batting club and the score has two.
   const awayTeam = teams.get(game.away_team_id)
   const homeTeam = teams.get(game.home_team_id)
-  // Every name the feed uses in this game, longest first so "Elodie Ciamarro" is replaced
-  // before a bare "Ciamarro" could match part of it. Built from the plays themselves rather
-  // than the roster, so a name only shortens when it is genuinely a player in this game.
+  // Every name the feed uses in this game, mapped to the roster's own spelling of it. The two
+  // disagree on seven players (see feedNames.ts), and the play log is where a reader meets the
+  // feed's version: the same at-bat reads "Emi Saki" in the sentence and Emi Saiki in the box
+  // score one tab across. Built from the plays rather than the roster, so a name only shortens
+  // when it is genuinely a player in this game.
+  const canon = useMemo(() => {
+    const feed = [...new Set(plays.flatMap(p => [p.batter_name, p.pitcher_name]).filter(Boolean) as string[])]
+    return new Map(feed.map(n => [n, canonicalFeedName(n, names.values())]))
+  }, [plays, names])
+  // Longest first so "Elodie Ciamarro" is replaced before a bare "Ciamarro" could match part
+  // of it.
   const shortenNames = useMemo(() => {
-    const names = [...new Set(plays.flatMap(p => [p.batter_name, p.pitcher_name]).filter(Boolean) as string[])]
-      .sort((a, b) => b.length - a.length)
-    if (!names.length) return (t: string) => t
-    const re = new RegExp(names.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g')
-    return (t: string) => t.replace(re, m => shortName(m))
-  }, [plays, shortName])
+    const feed = [...canon.keys()].sort((a, b) => b.length - a.length)
+    if (!feed.length) return (t: string) => t
+    const re = new RegExp(feed.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g')
+    return (t: string) => t.replace(re, m => shortName(canon.get(m) ?? m))
+  }, [canon, shortName])
   // Group consecutive plays into half-innings, in order.
   //
   // The half-inning's run count comes from the line score rather than from summing the plays.
@@ -889,7 +897,7 @@ function PlayByPlay({ plays, teams, game, names, onOpenPlayer }: {
                                   ...FOCUS_RING, cursor: 'pointer', borderRadius: 0.5,
                                   '@media (hover: hover)': { '&:hover': { textDecoration: 'underline' } },
                                 } : {}),
-                              }}>{shortName(parsed.who)}</Box>
+                              }}>{shortName(batter?.name ?? canon.get(parsed.who) ?? parsed.who)}</Box>
                             )
                           })()}
                           {parsed.who && ' '}
@@ -1369,6 +1377,10 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
   const [details, setDetails] = useState<WpblGameDetails | null>(() => cached?.details ?? null)
   const [revisions, setRevisions] = useState<WpblGameRevision[]>(() => cached?.revisions ?? [])
   const [names, setNames] = useState<Map<string, WpblPlayer>>(() => cached?.names ?? new Map())
+  // The same roster as a list, for the handful of places that match a feed NAME rather than
+  // look an id up. Empty until the fetch lands, which is correct rather than merely tolerable:
+  // an unmatched name prints as the feed spelled it, which is what it did before any of this.
+  const roster = useMemo(() => [...names.values()], [names])
   // The recap video for this game, if the league has published one. Read from the shared
   // wpbl_videos cache (a tiny table, fetched once app-wide), matched on game_id.
   const [video, setVideo] = useState<WpblVideo | null>(() =>
@@ -1723,7 +1735,7 @@ export default function GameDetailModal({ game: seed, teams, games = [], onClose
             and this is the tab that can least afford to pay for it twice. It stays for Box
             Score, Play-by-Play and Pitch Data, where it is the only situation on screen. */}
         {live && tab !== 'live' && game.live_state && away && home && (
-          <Box sx={{ flexShrink: 0 }}><LiveBanner state={game.live_state} away={away} home={home} lines={{ away: game.away_line, home: game.home_line }} /></Box>
+          <Box sx={{ flexShrink: 0 }}><LiveBanner state={game.live_state} away={away} home={home} lines={{ away: game.away_line, home: game.home_line }} players={roster} /></Box>
         )}
 
         {/* The tab bar is structural, not data, so it does not wait for a fetch. Which tabs a

@@ -200,12 +200,70 @@ describe('lineFor', () => {
     expect(got.statline).toBeNull()
   })
 
+  // THE FEED DOES NOT SPELL HER THE WAY THE ROSTER DOES, on seven players as of Sep 10, 2026,
+  // and this is the surface where that showed: the headshot is looked up BY NAME, so an
+  // unmatched spelling cost her picture, her line and her link at once. Reported by a reader
+  // watching the postseason opener, where the pitcher of record was "Emi Saki" on this card and
+  // Emi Saiki in the box score one tab across. See feedNames.ts.
+  it('finds a player the feed has misspelled', () => {
+    const names = new Map([['s', player('s', 'Emi Saiki', HOME.id)]])
+    const got = lineFor('Emi Saki', HOME, names, [bat('s')], statline)
+    expect(got.player?.id).toBe('s')
+    expect(got.statline).toBe('1-2')
+  })
+
+  it('still refuses to guess between two people a misspelling fits', () => {
+    // The forgiving pass is only safe because it never picks. Two Perezes one edit apart and
+    // the honest answer is nobody, which prints the feed's own spelling and no line.
+    const names = new Map([
+      ['a', player('a', 'Valerie Perez', HOME.id)],
+      ['b', player('b', 'Valeria Perez', HOME.id)],
+    ])
+    expect(lineFor('Val Perez', HOME, names, [bat('a')], statline).player).toBeNull()
+  })
+
   it('gives no statline for somebody the box score has not entered yet', () => {
     // The feed stages the leadoff batter before the half-inning starts. A dash here would
     // claim a line of 0-0, which is a statement about a player rather than the absence of one.
     const got = lineFor('Denver Bryant', HOME, NAMES, [], statline)
     expect(got.player?.id).toBe('p1')
     expect(got.statline).toBeNull()
+  })
+})
+
+describe("the roster spelling, not the feed's", () => {
+  const SAIKI = new Map<string, WpblPlayer>([
+    ['p1', player('p1', 'Denver Bryant', HOME.id)],
+    ['p2', player('p2', 'Emi Saiki', AWAY.id)],
+  ])
+
+  it('names the pitcher the way her own page does, and draws her face', () => {
+    render(
+      <LiveGameView
+        game={game({ ...LIVE, pitcher_name: 'Emi Saki' })} teams={TEAMS} away={AWAY} home={HOME}
+        plays={[play()]} batting={[bat('p1')]} pitching={[]} names={SAIKI} games={[]}
+      />,
+    )
+    expect(screen.getByText('Emi Saiki')).toBeTruthy()
+    expect(screen.queryByText('Emi Saki')).toBeNull()
+    // The portrait is looked up by name, so the alt text is the proof the lookup got a name it
+    // can find rather than falling back to initials on a coloured circle.
+    expect(screen.getByAltText('Emi Saiki')).toBeTruthy()
+  })
+
+  it('corrects the sentence the feed wrote, so one card does not print both', () => {
+    render(
+      <LiveGameView
+        game={game(LIVE)} teams={TEAMS} away={AWAY} home={HOME}
+        plays={[play({
+          sequence: 3, batter_name: 'Emi Saki', batter_id: 'nobody',
+          narrative: 'Emi Saki singled to left field.',
+        })]}
+        batting={[]} pitching={[]} names={SAIKI} games={[]}
+      />,
+    )
+    expect(screen.getByText('Emi Saiki')).toBeTruthy()
+    expect(screen.queryByText(/Emi Saki/)).toBeNull()
   })
 })
 

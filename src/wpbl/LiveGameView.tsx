@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
 import { deriveSituation, shortName, type Situation } from './Live'
 import { LazyWinProbCard } from './RecapCard'
-import { normalizeName } from './playerSearch'
+import { canonicalFeedName, matchFeedName } from './feedNames'
 import { parsePlay, runsOnPlay } from './derive/playByPlay'
 import { battingStatline, pitchingStatline } from './derive/recap'
 import { wpblAccent } from './constants'
@@ -417,6 +417,10 @@ function PersonCard({ label, name, team, accent, line, onOpenPlayer, mirror }: {
   // The feed drops one of the pair sometimes, and half a matchup is still worth drawing. An
   // empty cell keeps the grid, so the other half does not jump across the card.
   if (!name) return <Box />
+  // HER NAME, not the feed's spelling of it, once the match has found her. The headshot is
+  // looked up BY NAME (`wpblPortraitSet`), so this is not cosmetic: printing "Emi Saki" here
+  // draws initials on a coloured circle beside a statline that is provably hers.
+  const shown = line.player?.name ?? name
   const props = line.player ? playerLink(line.player, onOpenPlayer) : {}
   return (
     <Box sx={{
@@ -431,7 +435,7 @@ function PersonCard({ label, name, team, accent, line, onOpenPlayer, mirror }: {
       // cut did and why the two halves did not look symmetrical.
       justifyContent: 'flex-start',
     }}>
-      <PlayerPortrait name={name} teamId={team.id} size={72} />
+      <PlayerPortrait name={shown} teamId={team.id} size={72} />
       <Box sx={{ minWidth: 0, textAlign: mirror ? { xs: 'left', sm: 'right' } : 'left' }}>
         <Typography sx={{
           fontSize: '0.6rem', fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase',
@@ -449,7 +453,7 @@ function PersonCard({ label, name, team, accent, line, onOpenPlayer, mirror }: {
             color: accent ?? 'text.primary',
             cursor: line.player ? 'pointer' : 'default',
           }}
-        >{name}</Typography>
+        >{shown}</Typography>
         {/* Absent rather than blank when the name matched nobody, or when the feed has staged
             somebody the box score has not entered yet. A dash here would claim a line of 0-0,
             which is a statement about a player rather than the absence of one. */}
@@ -497,14 +501,18 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
   // Only the two names this play carries, longest first so "Elodie Ciamarro" is replaced before
   // a bare "Ciamarro" could match part of it. The play-by-play builds the same shortener from
   // every play in the game; one play is all this line has and all it needs.
+  // Replaced with the ROSTER's spelling and then shortened, so the sentence names her the same
+  // way the card above it does. The feed writes "Isabella Villareal" in the prose and the box
+  // score calls her Villarreal; one card printing both is the version a reader notices.
   const shorten = useMemo(() => {
     const pool = [play.batter_name, play.pitcher_name].filter(Boolean) as string[]
     if (pool.length === 0) return (t: string) => t
+    const canon = new Map(pool.map(n => [n, canonicalFeedName(n, names.values())]))
     const re = new RegExp(pool
       .sort((a, b) => b.length - a.length)
       .map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g')
-    return (t: string) => t.replace(re, m => short(m))
-  }, [play.batter_name, play.pitcher_name, short])
+    return (t: string) => t.replace(re, m => short(canon.get(m) ?? m))
+  }, [play.batter_name, play.pitcher_name, short, names])
 
   const parsed = useMemo(
     () => parsePlay(text ?? '', play.batter_name, shorten),
@@ -549,7 +557,7 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
                     ...FOCUS_RING, cursor: 'pointer', borderRadius: 0.5,
                     '@media (hover: hover)': { '&:hover': { textDecoration: 'underline' } },
                   } : {}),
-                }}>{short(parsed.who)}</Box>
+                }}>{short(batter?.name ?? canonicalFeedName(parsed.who, names.values()))}</Box>
               )}
               {parsed.who && ' '}
               {parsed.what}
@@ -600,8 +608,9 @@ function LastPlay({ play, teams, names, onOpenPlayer }: {
  * after that and it resolves to NOBODY, and the panel prints the name the feed sent with no
  * line and no link, which is what it was always going to print anyway.
  *
- * Folded through `normalizeName` because that is what handles "Mo'ne" and "Maïka". The feed and
- * the roster agree on those today; there is no reason to be brittle about the day they do not.
+ * Folded through `matchFeedName` because the feed and the roster DO NOT agree on the spelling:
+ * seven names differ today, and this panel is where that showed, as a batter with no face, no
+ * line and no link. See feedNames.ts for the rule and for why it is a rule rather than a list.
  */
 export function lineFor<T extends { player_id: string }>(
   name: string | null,
@@ -611,9 +620,7 @@ export function lineFor<T extends { player_id: string }>(
   statline: (line: T) => string,
 ): { player: WpblPlayer | null; statline: string | null } {
   if (!name) return { player: null, statline: null }
-  const key = normalizeName(name)
-  const matches: WpblPlayer[] = []
-  for (const p of names.values()) if (normalizeName(p.name) === key) matches.push(p)
+  const matches = matchFeedName(name, names.values())
 
   let found: WpblPlayer | null = null
   if (matches.length === 1) found = matches[0]

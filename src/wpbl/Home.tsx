@@ -2478,7 +2478,7 @@ export default function WpblHome({ teams, games, siteGames = [], liveGame, onOpe
       )}
 
       {/* Live game hero — the one in-progress game, front and center */}
-      {liveGame && <LiveHero game={liveGame} teams={teams} onOpen={() => onOpenGame(liveGame)} />}
+      {liveGame && <LiveHero game={liveGame} teams={teams} players={players} onOpen={() => onOpenGame(liveGame)} />}
 
       {/* Scoreboard. The postseason rows come from the calendar the league published, and each
           one retires itself the day the feed carries a real game on its date. */}

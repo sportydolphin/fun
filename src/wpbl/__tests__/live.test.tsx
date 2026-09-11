@@ -131,7 +131,7 @@ describe('the break label looks one half-inning back', () => {
 
 describe('LiveBanner during the break', () => {
   it('replaces the count, the bases and the at-bat with the break', () => {
-    render(<LiveBanner state={BREAK} away={AWAY} home={HOME} lines={LINES} />)
+    render(<LiveBanner state={BREAK} away={AWAY} home={HOME} lines={LINES} players={[]} />)
     expect(screen.getByText('Middle of the 4th')).toBeTruthy()
     // None of the stale half-inning may survive: not the out total, not the count, and not
     // the batter the feed is already showing for a half-inning nobody has played.
@@ -141,7 +141,7 @@ describe('LiveBanner during the break', () => {
   })
 
   it('still shows the full situation while a side is batting', () => {
-    render(<LiveBanner state={LIVE} away={AWAY} home={HOME} lines={LINES} />)
+    render(<LiveBanner state={LIVE} away={AWAY} home={HOME} lines={LINES} players={[]} />)
     expect(screen.getByText('2 outs')).toBeTruthy()
     expect(screen.getByText('3–1')).toBeTruthy()
     expect(screen.getByText('N. Yonetani')).toBeTruthy()

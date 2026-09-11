@@ -4,6 +4,17 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.79.2',
+    date:    '2026-09-10',
+    title:   'Seven players the feed spells its own way',
+    changes: [
+      {
+        short: 'Emi Saiki, Valerie Perez and five others get their face and their page back in a live game',
+        full:  'The league writes the play log and the live situation as prose, with names and no ids, and it does not spell seven of them the way its own roster does: Emi Saki for Emi Saiki, Val Perez for Valerie Perez, and the same for Isabella Villarreal, Maggie Foxx, Alexia Jorge, Gabrielle Haas and Suzu Narasaki. Everything hanging off a live name is keyed on it, so all seven lost their headshot, their line in the game and the link to their page at once, and showed as initials on a coloured circle, which reads as somebody the site has never heard of. Reported by a reader watching the postseason opener, where the pitcher of record was “Emi Saki” on the card and Emi Saiki in the box score one tab across. Names now match on a rule rather than letter for letter, and the play-by-play prints the roster’s spelling too. It still refuses to choose when two players fit, because a wrong match would put somebody else’s season under this batter’s face.',
+      },
+    ],
+  },
+  {
     version: '1.79.1',
     date:    '2026-09-08',
     title:   'One character off the next game',
