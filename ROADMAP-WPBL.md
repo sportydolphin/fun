@@ -13,7 +13,8 @@
 > again later the same day when 1b turned out not to be blocked (see its entry). The bracket and
 > the seeding race are both out from behind the experiments flag now and live for everyone (the
 > race came off on Sep 1, v1.59.0), which leaves the flag holding two things: the steal card on
-> Findings, and the mobile bottom nav.
+> Run value, and the mobile bottom nav (the Findings board was folded into Run value on Sep 10,
+> v1.80.0, and the steal card went with it).
 > Before that Aug 17, 2026. Teams tab, Settings and an accessibility pass shipped
 > as v1.45.0 (see the shipped log); favourite-team + theming remains built and parked (see
 > "Parked, with reasons"); before that, split out of `ROADMAP.md` and reprioritized around
@@ -765,6 +766,9 @@ glossary and the map have nowhere to be. Two containers, decided rather than dri
 - **Findings**, a chip on the Stats tab, for anything computed from the play log that ends in an
   answer: the steal economy, what a play is worth, what a count is worth, spray tendencies. One
   chip, however many cards. Shipped Aug 27. Rules for its cards are in the log entry above.
+  **Folded into Run value on Sep 10, 2026 (v1.80.0)**: the container was right about its cards
+  and wrong about being a destination, and the traffic said so. The rules survive in
+  `src/wpbl/PlayValue.tsx`, which is also where the evidence is written down.
 - **`/wpbl/league`**, for the durable half that is not a number: where the 118 players come
   from, the primer and glossary (#4), the inaugural-season archive (#2), the media shelf
   **moved off Home**, this-day, the awards ballot, the puzzle. All of it still works in

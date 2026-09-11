@@ -139,3 +139,41 @@ export function scopedGames<T extends WpblSeasonGame>(games: T[], scope: SeasonS
 export function regularSeasonGames<T extends WpblSeasonGame>(games: T[]): T[] {
   return games.filter(countsInStandings)
 }
+
+// ─── The games the standings are made of ──────────────────────────────────────
+//
+// ONE DEFINITION, because the alternative is already on the record. `headToHead` in
+// derive/matchups.ts claimed "the same rule as computeStandings" in its own comment while
+// applying only the decisive-final half of it, and drew San Francisco 6-0 over Boston one row
+// above a standings table reading 10-5. Anything that walks the season's results walks this.
+//
+// Four conditions and every one of them earns its place: FINAL because a game in progress has
+// no result; BOTH SCORES because the feed publishes a final row before it publishes the line
+// score; NOT A TIE because this league does not have them and a 0-0 row is a game we have the
+// status for and not the score; and `countsInStandings` for the postseason, which the feed
+// tags `counts_in_standings: true` and which therefore has to be caught on `game_type`.
+
+/** The fields deciding whether a game is a counted result, and where it sits in the order. */
+export type WpblResultGame = WpblSeasonGame & Pick<WpblGame,
+  'status' | 'home_score' | 'away_score' | 'home_team_id' | 'away_team_id' | 'game_date' | 'start_time'>
+
+/** "6:30 PM" wall clock to minutes since midnight; blank or unparseable sorts first. Two games
+ *  on one date have to order by first pitch or a streak reads in the wrong order. */
+export function standingsStartMin(t: string | null | undefined): number {
+  const m = /^(\d{1,2}):(\d{2})\s*(am|pm)$/i.exec((t ?? '').trim())
+  if (!m) return 0
+  let h = Number(m[1]) % 12
+  if (/pm/i.test(m[3])) h += 12
+  return h * 60 + Number(m[2])
+}
+
+/** Every decisive regular-season final, in the order they were played. */
+export function standingsFinals<T extends WpblResultGame>(games: T[]): T[] {
+  return games
+    .filter(g => g.status === 'final' && g.home_score != null && g.away_score != null
+      && g.home_score !== g.away_score)
+    .filter(countsInStandings)
+    .sort((a, b) => a.game_date !== b.game_date
+      ? (a.game_date < b.game_date ? -1 : 1)
+      : standingsStartMin(a.start_time) - standingsStartMin(b.start_time))
+}

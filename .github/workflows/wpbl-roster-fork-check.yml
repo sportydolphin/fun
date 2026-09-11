@@ -1,0 +1,66 @@
+name: WPBL roster fork check
+
+# Fails when one club carries two players with the same surname, which is almost always one
+# player the ingest has split in two.
+#
+# THE DAY THIS WOULD HAVE EARNED ITS KEEP was Sep 10, 2026. The league published New York's
+# postseason box score with Claire O'Sullivan's first name as CATHERINE, under a feed player id
+# nobody had seen before; postseason ids are minted fresh, so the (club, name) fallback matched
+# nobody and the ingest inserted a second player. Her game went under the new row, the site grew
+# a player page under a name no fan recognises, and nothing anywhere went red. A reader told us.
+#
+# THIS JOB IS MEANT TO FAIL LOUDLY, like the postseason marking check beside it and unlike the
+# play-by-play validator, which reports dozens of known findings nightly and always exits 0. The
+# expected output here is nothing at all: across the 118 players on the roster there are six
+# shared surnames and every pair is split across two clubs, so no club has two of a surname
+# today. A red X IS the signal, which is why there is no baseline file.
+#
+# DO NOT quiet a red run by widening the rule. The fix for a real split is
+# `wpbl_merge_players(keep, dupe)`, which absorbs the duplicate's feed ids so the next pass
+# resolves to the surviving row. The fix for a genuine pair of teammates who share a surname is
+# an entry in KNOWN_PAIRS in the script, with the date and the reason. A looser name matcher is
+# not an option and the script's header explains why: welding two real players into one is
+# silent and unrecoverable, where a red X costs a minute.
+#
+# Cadence: twice a day. A fork is born within minutes of a box score landing and costs nothing
+# while it sits there except a wrong player page, so being told inside twelve hours is soon
+# enough. It runs year-round rather than in season only: the roster import that opens a season
+# is the other moment a name can arrive spelled a new way.
+
+on:
+  schedule:
+    - cron: '15 8,20 * * *'   # :15 so it does not land on the hour with everything else
+  workflow_dispatch:
+
+concurrency:
+  group: wpbl-roster-fork-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # A WARNING and not a failure, matching the postseason check: a tripwire nobody wired up
+      # is worse than no tripwire, because it reads as covered. A red X here would be a config
+      # problem crying the wolf this job exists to cry.
+      - name: Warn when not configured
+        if: env.SUPABASE_DB_URL == ''
+        run: echo "::warning::SUPABASE_DB_URL is not set, so the roster fork check did NOT run."
+
+      - name: Install the driver
+        if: env.SUPABASE_DB_URL != ''
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['pg'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Check for split players
+        if: env.SUPABASE_DB_URL != ''
+        run: node scripts/check-wpbl-roster-forks.mjs

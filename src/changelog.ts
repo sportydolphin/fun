@@ -4,6 +4,33 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.80.0',
+    date:    '2026-09-10',
+    title:   'One board for what a play is worth',
+    changes: [
+      {
+        short: 'Findings has folded into Run value, so the prices and the players are on one board',
+        full:  'Findings held one card for most readers, “What every kind of play is worth”, and that card is the table the Run value board next to it is entirely priced off. Split across two tabs it was reaching the wrong people: 41% of the readers who opened Run value never saw the prices behind it, and almost nobody was choosing Findings by name, they were walking the row of boards left to right and stopping when they ran out. Everything that was on it is now on Run value, in the order the idea is built: who created the most runs, what each kind of play is worth, what each count is worth, taking against swinging, and the full explanation in a card you can open. “How this is worked out” now opens that explanation and scrolls you to it instead of sending you to another tab.',
+      },
+      {
+        short: 'The play-by-play says when a play did not come from the league',
+        full:  'A reader counted two Katherine Murphy singles in the Aug 20 play-by-play against a box score crediting her one, and the page gave them no way to tell why. The league published the whole of New York’s sixth and seventh that night as rows carrying a pitcher and a pitch sequence and nothing else, so those at-bats were filled in from RetroWPBL, an independent transcription of the same game. Those plays now carry a small mark, and a line at the foot of the play-by-play says how many there are and where they came from. Both readings disagree about that one at-bat and neither can settle it; what was wrong was showing them as one account that did not add up. Two games in the season have any of these.',
+      },
+      {
+        short: 'Claire O’Sullivan’s postseason opener is back under her name',
+        full:  'The league published New York’s Sep 10 box score with her first name as Catherine, under a player id it had never used for her before, so the game was filed under a second player nobody recognises and her own page was missing it. Both are one person again, and the three at-bats, the walk and the RBI are hers. Reported by a reader. A check now runs twice a day for the same shape of mistake anywhere on the roster, since the only thing that caught this one was somebody noticing.',
+      },
+      {
+        short: 'The run expectancy table draws each situation instead of spelling it',
+        full:  'Every row of it now carries the same base diamond the live scoreboard draws at the top of a game page, so “runners on 1st and 3rd” is a shape you recognise rather than a label you read. On a phone the written labels step aside and the diamond stands alone, which is what finally lets all 24 numbers fit on the screen at once: the words were the widest thing in that column and the table used to scroll sideways away from them. The diamond carries the full phrase for a screen reader either way.',
+      },
+      {
+        short: 'The Stats boards fit a phone screen without scrolling sideways',
+        full:  'Five instead of six: Players, Teams, Pitch by pitch, Run value, Draft. The row measured 351px on a 375px screen, which is the whole of it, so the last board is no longer the one hanging off the edge.',
+      },
+    ],
+  },
+  {
     version: '1.79.2',
     date:    '2026-09-10',
     title:   'Seven players the feed spells its own way',

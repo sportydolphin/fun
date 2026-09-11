@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Typography, CircularProgress, useMediaQuery } from '@mui/material'
 import {
   fetchWpblAllRunValuePlays, fetchWpblAllPlayers,
@@ -6,18 +6,21 @@ import {
 } from './api'
 import {
   BASE_ROW_ORDER, BASE_SHORT, buildRunExpectancy, describeState, eventValues, reOf, workedExample,
-  fmtRe, fmtRunValue, playRunValues, runValueLeaders, type ReTable, type WorkedExample,
+  fmtRe, fmtRunValue, playRunValues, runValueLeaders, stealEconomy, topRunners,
+  type ReTable, type WorkedExample,
 } from './derive/runExpectancy'
+import { PlayValueCard, StealCard } from './PlayValue'
 import { wpblAccentFg } from './constants'
 import { SectionCard, LeaderRow, PlayerPortrait, ExpandRow, useWpblDark, useWpblName, chromePx,
-  BOARD_COLUMN, BOARD_COLUMN_WIDE } from './ui'
+  BaseDiamond, BOARD_COLUMN, BOARD_COLUMN_WIDE } from './ui'
+import { useExperiments } from '../ExperimentsContext'
 import CountBoard from './CountBoard'
 import TakeSwingBoard from './TakeSwingBoard'
 import { countValues } from './derive/countValue'
 import { fullCountSwing, takeSwingSplit } from './derive/pitchValue'
 import { pitchQualifiers } from './derive/pitches'
 import { wpblQualifiers } from './stats'
-import type { WpblGame, WpblPlayer, WpblTeam } from './types'
+import type { WpblBattingLine, WpblGame, WpblPlayer, WpblTeam } from './types'
 
 // The run-value board: what each situation in a game is worth, and which plays moved furthest
 // between them.
@@ -34,15 +37,18 @@ import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 // good", which is the question people bring, and it carries the section on its own.
 //
 // AND ONE EXPLANATION, WHICH IS WHY THIS FILE OWNS IT. It used to be in two places and neither
-// was whole. This board carried the 24-situation table and a paragraph of fine print; the
-// Findings board carried the leadoff anchor, one play worked through in a ledger, and the
-// formula in words. So a reader who wanted to know where a number came from met the table
+// was whole. This board carried the 24-situation table and a paragraph of fine print; a second
+// board called Findings carried the leadoff anchor, one play worked through in a ledger, and
+// the formula in words. So a reader who wanted to know where a number came from met the table
 // without the arithmetic on one tab and the arithmetic without the table on another, and
 // nothing on either said the other half existed. They are one idea and they are now one card,
 // in the order the idea is built: a situation is worth something, a play is worth what it
-// changed, here is one. The Findings card keeps its measurements and points here for the
-// method, because a finding and the method behind it are different jobs and only one of them
-// should be duplicated. If a third surface ever needs to explain run value, it links here.
+// changed, here is one.
+//
+// The rest of that board is here too as of Sep 10, 2026: its measurements were the prices this
+// one is built on, and a reader was choosing between the answer and the method by tapping a
+// label that named neither. See PlayValue.tsx for what the traffic said. If a third surface
+// ever needs to explain run value, it links here.
 //
 // WHAT A PHONE SEES FIRST IS THE PLAYERS, AND EVERYTHING ELSE MOVED TO MAKE THAT TRUE.
 // Measured at 375px, the first version put the heading at y=193, a four-sentence paragraph
@@ -85,6 +91,18 @@ import type { WpblGame, WpblPlayer, WpblTeam } from './types'
 // ("bases loaded, two out"), and the way that fits eight labels down a phone rather than
 // across one.
 //
+// EACH ROW IS DRAWN, NOT ONLY SPELLED, and that is what this grid was missing. "1st & 3rd" has
+// to be read; a diamond with two corners filled is recognised, because it is the same shape the
+// scoreboard has been showing all game and the same one the live strip draws at the top of a
+// game page. Eight rows of that is the difference between a spreadsheet and a table you can
+// find your way around, on the most expert-looking thing in the section.
+//
+// AND IT IS WHAT LETS THE WORDS GO ON A PHONE. The written label was the widest thing in the
+// left column, so the grid overflowed its card and scrolled sideways at 375px: a 24-cell table
+// whose first column you had to scroll back to. Below `sm` the diamond stands alone and the
+// grid fits. Nothing is lost to a screen reader, which was never reading the fill anyway and
+// now gets the phrase off the glyph's own accessible name.
+//
 // Every cell carries its own sample. With one season of a four-team league the common states
 // are known twenty times better than the rare ones, and a grid of tidy two-decimal numbers
 // implies a uniformity that does not exist. The count is the honest part of the cell.
@@ -107,10 +125,25 @@ function ReGrid({ table, accent }: { table: ReTable; accent: string }) {
         {BASE_ROW_ORDER.map((bases, row) => (
           <Box key={bases} sx={{ display: 'contents' }}>
             <Box sx={{
-              display: 'flex', alignItems: 'center', pr: 1.25, whiteSpace: 'nowrap',
+              display: 'flex', alignItems: 'center', gap: 0.9, pr: { xs: 0.75, sm: 1.25 },
+              whiteSpace: 'nowrap',
               fontSize: '0.75rem', fontWeight: 700, color: 'text.secondary',
               borderTop: row === 0 ? 'none' : '1px solid', borderColor: 'divider',
-            }}>{BASE_SHORT[bases]}</Box>
+            }}>
+              {/* `chrome`, not `none`: this one is art sitting in the page beside the badges and
+                  portraits that already scale that way, and unlike the live strip it is the
+                  only thing in its column below `sm`. 22px is the size at which three corners
+                  are still countable at arm's length. */}
+              <BaseDiamond
+                first={!!(bases & 1)} second={!!(bases & 2)} third={!!(bases & 4)}
+                size={22} scale="chrome" color={accent}
+              />
+              {/* Hidden rather than dropped, so the diamond keeps the row's full accessible
+                  name on every screen and this is only the visible half. */}
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                {BASE_SHORT[bases]}
+              </Box>
+            </Box>
             {[0, 1, 2].map(outs => {
               const cell = table.cells[outs][bases]
               return (
@@ -268,7 +301,7 @@ function Ledger({ label, detail, amount }: { label: string; detail: string; amou
  *  ingested, so a hand-picked play with its numbers pasted into the copy would quietly stop
  *  matching the table the rest of the card is drawn from and nothing anywhere would report it.
  *  It picks the play nearest its own event's average, so the sum lands on a number the reader
- *  can go and check on the Findings board. */
+ *  can go and check against the play-value card at the head of this column. */
 function WorkedPlay({ worked, date, accent }: {
   worked: WorkedExample; date: string | null; accent: string
 }) {
@@ -352,27 +385,20 @@ function ordinal(n: number): string {
   return `${n}${n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th'}`
 }
 
-export default function WpblRunValueView({ side, teams, games, onOpenPlayer, openExplainer }: {
+export default function WpblRunValueView({ side, teams, games, battingLines, onOpenPlayer }: {
   side: 'hitting' | 'pitching'
   teams: WpblTeam[]
   /** Required, not convenience: nothing here can tell a postseason play from a regular-season
    *  one without the schedule, and it also needs to know which games have finished.
    *  See derive/runExpectancy.ts. */
   games: WpblGame[]
+  /** SB and CS live on the box score, not in the play log, so the steal card cannot be built
+   *  from the plays this board already holds. Handed down from the Stats tab, which has
+   *  fetched them anyway, so it costs no request. */
+  battingLines?: Pick<WpblBattingLine, 'game_id' | 'player_id' | 'sb' | 'cs'>[]
   onOpenPlayer: (p: WpblPlayer) => void
-  /** Open the explanation on arrival, overriding the remembered preference.
-   *
-   *  For the Findings board's "how this is worked out" row, which promises an explanation and
-   *  would otherwise deliver a leaderboard: the card is shut by default, so a reader who had
-   *  never opened it followed a link about method and landed on a list of names with the thing
-   *  they asked for folded away somewhere below. Only that link passes this. Tapping the Run
-   *  value chip directly still gets whatever the reader last chose. */
-  openExplainer?: boolean
 }) {
-  // Read once, at mount. Only one Stats board is mounted at a time, so arriving from Findings
-  // is always a fresh mount and the flag is always seen; it is not a prop this component has
-  // to keep watching.
-  const [tableOpen, setTableOpen] = useState(() => openExplainer || readTableOpen())
+  const [tableOpen, setTableOpen] = useState(() => readTableOpen())
   const toggleTable = useCallback(() => {
     setTableOpen(prev => {
       const next = !prev
@@ -381,6 +407,21 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer, ope
     })
   }, [])
   const isNarrow = useMediaQuery('(max-width:600px)')
+  // WHAT THE PLAY-VALUE CARD'S "how this is worked out" ROW DOES, now that the thing it asks
+  // for is on the same board rather than a tab away. It used to be a board change carrying a
+  // flag that forced the explainer open on arrival, because a reader who followed a link about
+  // method and landed on a leaderboard with the answer folded away below has been sent
+  // somewhere, not answered. The flag is gone and the promise is the same: open the card, then
+  // put it on screen. Opening without scrolling is the version that fails silently on a phone,
+  // where the card is two screens down and nothing visibly happens.
+  const explainerRef = useRef<HTMLDivElement | null>(null)
+  const seeMethod = useCallback(() => {
+    setTableOpen(true)
+    try { localStorage.setItem(TABLE_KEY, '1') } catch { /* choice just isn't remembered */ }
+    // After the card has expanded, so the scroll lands on the open card rather than on the
+    // shut one's header and leaves the reader above 600px of content that arrived afterwards.
+    requestAnimationFrame(() => explainerRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }))
+  }, [])
   const [allLeaders, setAllLeaders] = useState(false)
   const [allTakeSwing, setAllTakeSwing] = useState(false)
 
@@ -403,6 +444,7 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer, ope
   }, [])
 
   const accent = wpblAccentFg(useWpblDark())
+  const experiments = useExperiments()
 
   const table = useMemo(
     () => (plays ? buildRunExpectancy(plays, games) : null), [plays, games])
@@ -411,8 +453,8 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer, ope
   const leaders = useMemo(
     () => runValueLeaders(values, players, side).slice(0, 10), [values, players, side])
 
-  // The worked example, and the per-event averages it has to land on. Both were computed on
-  // the Findings board and nowhere else until the explanation moved here; they are pure and
+  // The per-event averages, which the play-value card draws and the worked example has to land
+  // on. One memo for both, which is the point of them being on one board: they are pure and
   // memoised on the same arrays the boards above already walk, so this costs a pass over the
   // season and no request.
   const rows = useMemo(() => eventValues(values), [values])
@@ -437,6 +479,11 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer, ope
   // the grid. See `fullCountSwing`.
   const fullCount = useMemo(
     () => fullCountSwing(values, counts, { balls: 3, strikes: 2 }), [values, counts])
+  // The steal card's two halves. `econ` is free, off the same `values` pass everything above
+  // walks; `runners` needs the box score, which is why this board takes battingLines.
+  const econ = useMemo(() => stealEconomy(values), [values])
+  const runners = useMemo(
+    () => topRunners(battingLines ?? [], games, players), [battingLines, games, players])
   const worked = useMemo(() => workedExample(values, rows), [values, rows])
   const workedDate = useMemo(() => {
     const g = worked && games.find(x => x.id === worked.value.play.game_id)
@@ -534,9 +581,24 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer, ope
         )}
       </SectionCard>
 
-      {/* The second column: the count grid over the explanation, since a reader who wants the
-          numbers wants them before the derivation, and both are the same width. */}
+      {/* The second column: the measurements over the explanation, since a reader who wants the
+          numbers wants them before the derivation, and all of them are the same width.
+
+          WHAT A PLAY IS WORTH OPENS IT, because it is the simplest true thing on the board and
+          everything under it is priced off the same table: a play is worth something, a count is
+          worth something because of the plays it leads to, a pitch is worth what it did to the
+          count. It also has the only row here anybody can check against a game they watched.
+          It and the steal card came off a board of their own called Findings; see PlayValue.tsx
+          for what the traffic said about that. */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 }, minWidth: 0 }}>
+      <PlayValueCard rows={rows} accent={accent} onSeeMethod={seeMethod} />
+
+      {/* A verdict rather than a measurement, and the one thing here still behind the switch.
+          Kept next to the prices it argues from. */}
+      {experiments && (
+        <StealCard econ={econ} runners={runners} accent={accent} onOpenPlayer={onOpenPlayer} />
+      )}
+
       {counts.length > 0 && <CountBoard counts={counts} fullCount={fullCount} accent={accent} />}
 
       <TakeSwingBoard rows={takeSwing} side={side} accent={accent} isNarrow={isNarrow}
@@ -553,7 +615,7 @@ export default function WpblRunValueView({ side, teams, games, onOpenPlayer, ope
           on a wide screen while the count grid above it did not. Below `lg` the column is the
           board's single 720px measure, which is close enough to the 620 this used to set that
           nothing about the reading experience moved. */}
-      <Box sx={{ minWidth: 0 }}>
+      <Box ref={explainerRef} sx={{ minWidth: 0, scrollMarginTop: chromePx(88) }}>
         <SectionCard title="How run value works" collapsed={!tableOpen} onToggleCollapse={toggleTable}>
           <Step n={1} title="Every situation is already worth something">
             {/* "ON AVERAGE" IS LOAD-BEARING AND GOES IN THE DEFINING SENTENCE. Without it the

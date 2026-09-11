@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { applyPlayCorrections } from '../api'
+import type { WpblCorrectionSource } from '../types'
 
 // Corrections are matched on (game_id, sequence), the feed's own identifier for a play, and
 // never on the play's uuid: wpbl-ingest deletes and reinserts every play for a game on each
@@ -11,8 +12,10 @@ const play = (sequence: number, extra: Record<string, unknown> = {}, gameId = 'g
   game_id: gameId, sequence, batter_name: 'Feed Batter', runs_scored: 0, is_hit: false, ...extra,
 } as { game_id: string; sequence: number } & Record<string, unknown>)
 
-const fix = (sequence: number, field: string, new_value: string | null, gameId = 'g1') =>
-  ({ game_id: gameId, sequence, field, new_value })
+const fix = (
+  sequence: number, field: string, new_value: string | null, gameId = 'g1',
+  source: WpblCorrectionSource = 'external',
+) => ({ game_id: gameId, sequence, field, new_value, source })
 
 describe('applyPlayCorrections', () => {
   it('leaves plays untouched when there is nothing to correct', () => {
@@ -79,5 +82,43 @@ describe('applyPlayCorrections', () => {
     const plays = [play(1)]
     applyPlayCorrections(plays, [fix(1, 'batter_name', 'Real Batter')])
     expect(plays[0].batter_name).toBe('Feed Batter')
+  })
+
+  // ── Where the account came from ─────────────────────────────────────────────
+  //
+  // A filled play used to render exactly like a league play, so the Aug 20 game showed two
+  // Katherine Murphy singles in the play-by-play against a box score crediting her one, with
+  // nothing on the page to say the second came from a transcription of an inning the league
+  // published empty. A reader had to ask.
+
+  it('stamps where a corrected play came from, and leaves an untouched play unstamped', () => {
+    const out = applyPlayCorrections(
+      [play(1), play(2)],
+      [fix(2, 'narrative', 'Katherine Murphy singled to shortstop (2-0).')],
+    )
+    expect(out[0].corrected_source).toBeUndefined()
+    expect(out[1].corrected_source).toBe('external')
+  })
+
+  it('shows the strongest evidence when one play carries more than one source', () => {
+    // A reader shown one provenance should see the best evidence behind the row, not whichever
+    // correction happened to be written last.
+    const out = applyPlayCorrections(
+      [play(1)],
+      [
+        fix(1, 'narrative', 'from the tape', 'g1', 'video'),
+        fix(1, 'batter_name', 'Katherine Murphy', 'g1', 'external'),
+      ],
+    )
+    expect(out[0].corrected_source).toBe('video')
+  })
+
+  it('does not stamp a play whose corrections carry no source', () => {
+    const out = applyPlayCorrections(
+      [play(1)],
+      [{ game_id: 'g1', sequence: 1, field: 'batter_name', new_value: 'X', source: null }],
+    )
+    expect(out[0].batter_name).toBe('X')
+    expect(out[0].corrected_source).toBeUndefined()
   })
 })

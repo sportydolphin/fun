@@ -1,35 +1,31 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Box, Typography, CircularProgress } from '@mui/material'
-import {
-  fetchWpblAllRunValuePlays, fetchWpblAllPlayers,
-  getCachedWpblAllRunValuePlays, getCachedWpblAllPlayers,
-} from './api'
-import {
-  buildRunExpectancy, eventValues, fmtRunValue, playRunValues,
-  stealEconomy, topRunners,
-  type EventValue, type StealEconomy,
-} from './derive/runExpectancy'
-import { wpblAccentFg } from './constants'
-import { SectionCard, pressable, FOCUS_RING, useWpblDark, TAPPABLE, hoverOnly } from './ui'
-import { useExperiments, ExperimentalChip } from '../ExperimentsContext'
-import type { WpblBattingLine, WpblGame, WpblPlayer } from './types'
+import { Box, Typography } from '@mui/material'
+import { fmtRunValue, type EventValue, type StealEconomy, type topRunners } from './derive/runExpectancy'
+import { SectionCard, pressable, FOCUS_RING, TAPPABLE, hoverOnly } from './ui'
+import { ExperimentalChip } from '../ExperimentsContext'
+import type { WpblPlayer } from './types'
 
-// The Findings board: things that are TRUE about this league, rather than another way to sort
-// it.
+// The two cards that say what a play is WORTH, as opposed to how often it happened.
 //
-// WHY IT IS ITS OWN BOARD. The row above it was carrying two different kinds of thing. Players,
-// Teams, Pitch by pitch, Run value and Tracked are one axis, "how do you want the numbers cut":
-// they sort, they filter, and they stop meaning anything the day the feed stops. What is on
-// this board is the other kind: one question, one answer, read once, and still true in
-// February. Adding those as more chips is what would actually break that row, so there is one
-// chip for all of them and it never grows again.
+// THEY USED TO BE A BOARD OF THEIR OWN, CALLED FINDINGS, and that was the mistake. The argument
+// for it was real and is kept below, because it is still the reason these two are cards rather
+// than chips: the rest of the Stats tab is ways to cut the numbers, and these are answers. What
+// it got wrong was the container. A board is a destination, and a destination has to be worth
+// choosing by name.
 //
-// A CARD CAN SHIP BEHIND THE EXPERIMENTS SWITCH AND THE BOARD STILL WORKS, which is most of the
-// value of having a container rather than a chip per finding: the steal card is a verdict and
-// went out to the switch first, the play-value card is a table of measurements and went to
-// everyone, and neither decision moved anything in the tab above.
+// The traffic said it was not being chosen. Of 157 sessions that reached Findings, 84 reached
+// every other analysis board too and 10 reached Findings alone: readers were walking the row
+// left to right, not picking a label. Reach fell monotonically with position in that row, which
+// is what sweeping looks like and what choosing does not. And the cost of the split was on the
+// other side: 99 of the 241 sessions that read Run value never saw these cards at all, so 41%
+// of the readers of a board priced entirely in run value missed the table those prices come
+// from, on a board whose own explainer argues from it.
 //
-// THREE RULES, ALL THREE FROM THE TRAFFIC RATHER THAN FROM TASTE.
+// So they live on Run value now, which is the board they were always about. Same engine
+// (derive/runExpectancy.ts), same season pass, same unit. `PlayValueCard` opens the second
+// column there, one level simpler than the count grid under it; `StealCard` stays behind the
+// experiments switch and follows it.
+//
+// THREE RULES SURVIVE THE MOVE, ALL THREE FROM THE TRAFFIC RATHER THAN FROM TASTE.
 //
 // 1. NAME PLAYERS, AND MAKE THEM TAPPABLE. Return rate by what a browser did on its first day
 //    runs 7.8% for neither a player page nor Game Center, 35.7% for Game Center alone and 76.5%
@@ -42,14 +38,8 @@ import type { WpblBattingLine, WpblGame, WpblPlayer } from './types'
 //    things-to-read on the surface where people already leave would land the same way, and Home
 //    needs to get shorter rather than longer.
 
-/** Cards read; they do not span. The rest of this tab is full-bleed tables, and prose set to
- *  1,200px is prose nobody finishes. */
-// 47.5rem is the 760px it has always been. A reading column is measured in characters, so
-// it has to move with the type or the measure changes under the desktop scale.
-const READ_WIDTH = { maxWidth: '47.5rem' }
-
 /**
- * THE CARD THAT ARGUES FOR THE BOARD, AND THE ONE STILL BEHIND THE SWITCH.
+ * THE VERDICT CARD, AND THE ONE STILL BEHIND THE SWITCH.
  *
  * A fan watching this league has the question by the third inning: they run constantly, is it
  * working? A stolen-base percentage cannot answer it, because how often it worked is not the
@@ -68,7 +58,7 @@ const READ_WIDTH = { maxWidth: '47.5rem' }
  * on weeks ago has no way to tell which of the things in front of them is the one that may be
  * wrong tomorrow.
  */
-function StealCard({ econ, runners, accent, onOpenPlayer }: {
+export function StealCard({ econ, runners, accent, onOpenPlayer }: {
   econ: StealEconomy
   runners: ReturnType<typeof topRunners>
   accent: string
@@ -184,10 +174,12 @@ function StealCard({ econ, runners, accent, onOpenPlayer }: {
  * there, in the order the idea is built, and this card carries a link to it. What is left here
  * is what only this card has, which is the sixteen measurements.
  */
-function PlayValueCard({ rows, accent, onOpenRunValue }: {
+export function PlayValueCard({ rows, accent, onSeeMethod }: {
   rows: EventValue[]
   accent: string
-  onOpenRunValue?: () => void
+  /** Opens the explainer card further down the same board. Optional: without it the card simply
+   *  shows no "how this works" row, rather than one that goes nowhere. */
+  onSeeMethod?: () => void
 }) {
   if (rows.length < 4) return null
   const find = (e: string) => rows.find(r => r.event === e)
@@ -254,24 +246,24 @@ function PlayValueCard({ rows, accent, onOpenRunValue }: {
         how many there have been.
       </Typography>
 
-      {/* THE METHOD LIVES ON RUN VALUE NOW, AND THIS IS A POINTER TO IT.
-          What used to sit behind this row was a second, partial copy of an explanation the Run
-          value board was also giving: the leadoff anchor, one play in a ledger, and the formula
-          in words, while the 24-situation table those numbers are read off was on the other
-          board with the rest of the fine print. Two halves, two tabs, neither one whole, and
-          nothing on either saying the other existed. They are one idea, so they are one card,
-          and it is over there.
+      {/* THE METHOD IS FURTHER DOWN THIS BOARD, AND THIS IS THE WAY TO IT.
 
-          A LINK RATHER THAN A DUPLICATE, and that is the point of the change: the explanation
-          is the thing most likely to be edited, and a copy of it here is a copy that goes stale
-          the first time somebody improves the original. This card keeps what only it has, which
-          is the measurements.
+          It was a link to another tab until the two were one board: this card carried half the
+          run-value explanation behind a disclosure (the leadoff anchor, one play in a ledger,
+          the formula in words) while the 24 situations those prices are read off sat on Run
+          value with the rest of the fine print. Two halves, two tabs, neither one whole, and
+          nothing on either saying the other existed.
+
+          A POINTER RATHER THAN A DUPLICATE, which is the part that still matters now that the
+          journey is a scroll. The explanation is the thing most likely to be edited, and a copy
+          of it here is a copy that goes stale the first time somebody improves the original.
+          This card keeps what only it has, which is the measurements.
 
           NO JARGON, still (rule 2 at the top of this file): "run expectancy" and "linear
-          weights" are the names for what the link leads to and neither is on the page. */}
-      {onOpenRunValue && (
+          weights" are the names for what this leads to and neither is on the page. */}
+      {onSeeMethod && (
         <Box
-          {...pressable(onOpenRunValue)}
+          {...pressable(onSeeMethod)}
           sx={{
             ...FOCUS_RING,
             mx: -2, mb: -1.5, mt: 1.5, px: 2, minHeight: 44,
@@ -284,77 +276,9 @@ function PlayValueCard({ rows, accent, onOpenRunValue }: {
         >
           <Box component="span" aria-hidden sx={{ fontSize: '0.85rem' }}>&#9432;</Box>
           How this is worked out
-          <Box component="span" aria-hidden sx={{ ml: 'auto', fontSize: '0.8rem' }}>&rarr;</Box>
+          <Box component="span" aria-hidden sx={{ ml: 'auto', fontSize: '0.8rem' }}>&darr;</Box>
         </Box>
       )}
     </SectionCard>
-  )
-}
-
-export default function WpblFindingsView({ games, battingLines, onOpenPlayer, onOpenRunValue }: {
-  /** Required for the same reason every aggregate here takes it: a play carries a `game_id`
-   *  and cannot say by itself whether its game counts. See derive/runExpectancy.ts. */
-  games: WpblGame[]
-  /** SB and CS live on the box score, not in the play log. Handed down from the Stats tab,
-   *  which has already fetched them, so this board adds no request of its own. */
-  battingLines?: Pick<WpblBattingLine, 'game_id' | 'player_id' | 'sb' | 'cs'>[]
-  onOpenPlayer: (p: WpblPlayer) => void
-  /** Opens the Run value board, which owns the explanation of where these prices come from.
-   *  Optional: without it the play-value card simply shows no "how this works" row, rather
-   *  than showing one that goes nowhere. */
-  onOpenRunValue?: () => void
-}) {
-  const [plays, setPlays] = useState(() => getCachedWpblAllRunValuePlays())
-  const [players, setPlayers] = useState<WpblPlayer[]>(() => getCachedWpblAllPlayers() ?? [])
-  const [loading, setLoading] = useState(() => getCachedWpblAllRunValuePlays() == null)
-
-  // Same shape as the two boards beside it: paint from the session cache, then revalidate. The
-  // bulk fetchers collapse anything inside their freshness window, so arriving here from Run
-  // value does not re-run the season-wide play scan.
-  useEffect(() => {
-    let cancelled = false
-    Promise.all([fetchWpblAllRunValuePlays(), fetchWpblAllPlayers()])
-      .then(([p, pl]) => { if (!cancelled) { setPlays(p); setPlayers(pl); setLoading(false) } })
-      .catch(() => { if (!cancelled) setLoading(false) })
-    return () => { cancelled = true }
-  }, [])
-
-  const accent = wpblAccentFg(useWpblDark())
-  const experiments = useExperiments()
-  const table = useMemo(() => (plays ? buildRunExpectancy(plays, games) : null), [plays, games])
-  const values = useMemo(
-    () => (plays && table ? playRunValues(plays, games, table) : []), [plays, games, table])
-  const econ = useMemo(() => stealEconomy(values), [values])
-  const rows = useMemo(() => eventValues(values), [values])
-  const runners = useMemo(
-    () => topRunners(battingLines ?? [], games, players), [battingLines, games, players])
-
-  if (loading) {
-    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
-  }
-  if (!table || table.pa === 0) {
-    return (
-      <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
-        <Typography sx={{ fontSize: '0.95rem', fontWeight: 700, mb: 0.5 }}>Nothing to say yet</Typography>
-        <Typography sx={{ fontSize: '0.82rem', color: 'text.disabled' }}>
-          These fill in from the play-by-play as games are played.
-        </Typography>
-      </Box>
-    )
-  }
-
-  return (
-    <Box sx={{ ...READ_WIDTH, display: 'flex', flexDirection: 'column', gap: { xs: 1.5, sm: 2 } }}>
-      {/* ORDER IS THE EDITORIAL DECISION, not a layout one. What a play is worth is a table of
-          measurements: every reader can check a row against a game they watched, and nothing on
-          it tells anyone they are wrong. The steal card is a verdict built on the same numbers,
-          so it reads better second, after the prices it argues from have been seen. It is also
-          the one behind the switch, so for most readers this board is the card above and the
-          list is not left with a hole in the middle of it. */}
-      <PlayValueCard rows={rows} accent={accent} onOpenRunValue={onOpenRunValue} />
-      {experiments && (
-        <StealCard econ={econ} runners={runners} accent={accent} onOpenPlayer={onOpenPlayer} />
-      )}
-    </Box>
   )
 }

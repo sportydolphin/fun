@@ -6,7 +6,7 @@ import { settleGame } from './gameOver'
 import { useForegroundInterval } from './refresh'
 import { wpblAccent, wpblFullName } from './constants'
 import { canonicalFeedName } from './feedNames'
-import { TeamBadge, useWpblDark, hoverOnly } from './ui'
+import { BaseDiamond, TeamBadge, useWpblDark, hoverOnly } from './ui'
 import type { WpblTeam, WpblGame, WpblLineScoreEntry, WpblLiveState, WpblPlayer } from './types'
 
 // Feed-driven live views. The official feed's boxscore `status` is mirrored onto the game
@@ -197,18 +197,12 @@ export function deriveSituation(state: WpblLiveState, away: WpblTeam, home: Wpbl
 }
 
 // ─── Situation UI ──────────────────────────────────────────────────────────────
-function MiniDiamond({ first, second, third, size = 34 }: { first: boolean; second: boolean; third: boolean; size?: number }) {
-  const sq = (occ: boolean, pos: object) => (
-    <Box sx={{ position: 'absolute', ...pos, width: size * 0.3, height: size * 0.3, transform: 'translate(-50%,-50%) rotate(45deg)', bgcolor: occ ? '#60a5fa' : 'transparent', border: '1.5px solid', borderColor: occ ? '#60a5fa' : 'text.disabled', borderRadius: '1px' }} />
-  )
-  return (
-    <Box sx={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-      {sq(second, { left: '50%', top: '22%' })}
-      {sq(third, { left: '22%', top: '50%' })}
-      {sq(first, { left: '78%', top: '50%' })}
-    </Box>
-  )
-}
+// `scale: 'none'` and not the ordinary chrome scaling, which is the one decision this call site
+// makes. The strip around it is type and two raw-px lengths, with no chrome-scaled art in it at
+// all, so growing the diamond alone on a desktop pulls the row apart rather than bringing it
+// into line with anything. See BaseDiamond.
+const MiniDiamond = (p: { first: boolean; second: boolean; third: boolean; size?: number }) =>
+  <BaseDiamond {...p} scale="none" />
 
 export function SituationStrip({ s }: { s: Situation }) {
   // Between innings the diamond, the outs and the count are all leftovers from a half-inning

@@ -206,6 +206,15 @@ the overlay casts on the way out.
 `source` records how we know: `video` (strongest and slowest), `derived` (a rule in the validator
 concluded it), `external` (a second transcription agreed), or `league`.
 
+**`source` reaches the reader.** `applyPlayCorrections` stamps it onto the play as
+`corrected_source` (strongest first, when one play carries corrections from several), and the
+Game Center's play-by-play draws a dagger on that row plus a counted line at the foot saying
+where the account came from. It exists because the page was contradicting itself in silence: the
+Aug 20, 2026 game showed two Katherine Murphy singles against a box score crediting her one, and
+the second came from RetroWPBL's transcription of an inning the league published empty. The
+disagreement between the two readings is real and unresolved, and is in the retro-stats
+baseline; presenting it as one account that did not add up was the bug.
+
 ### Which reads apply corrections
 
 | Read | Surface | Corrected |

@@ -1,11 +1,12 @@
 import { supabase } from '../lib/supabase'
 import { FIRSTS_EVENT_TYPES } from './firsts'
-import { countsInStandings } from './season'
+import { countsInStandings, standingsFinals } from './season'
 import { settleGames } from './gameOver'
 import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
   WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchPlay, WpblRunValuePlay, WpblSprayPlay,
+  WpblCorrectionSource,
   WpblPitchTracking, WpblTrackRow,
   WpblVideo, WpblArticle, WpblPhoto, WpblSiteGame, WpblLineupHistoryRow, WpblPitchingUsageRow,
   WpblGameDetails, WpblGameRevision,
@@ -932,7 +933,19 @@ function castCorrection(field: string, value: string | null): unknown {
   return value
 }
 
-interface WpblPlayCorrection { game_id: string; sequence: number; field: string; new_value: string | null }
+interface WpblPlayCorrection {
+  game_id: string; sequence: number; field: string; new_value: string | null
+  /** How we know. Carried onto the play so a surface can say where an account came from; see
+   *  `corrected_source` on WpblGamePlay for the reader-facing reason it has to. */
+  source: WpblCorrectionSource | null
+}
+
+/** Best evidence first, matching the order docs/PLAY_VALIDATION.md sets out: somebody watched
+ *  it, then a rule concluded it, then a second transcription agreed, then the league's own box
+ *  score contradicted its own play log. */
+const SOURCE_RANK: readonly WpblCorrectionSource[] = ['video', 'derived', 'external', 'league']
+const strongestSource = (all: WpblCorrectionSource[]): WpblCorrectionSource =>
+  all.reduce((best, s) => (SOURCE_RANK.indexOf(s) < SOURCE_RANK.indexOf(best) ? s : best), all[0])
 
 /** Overlay corrections onto plays, matched on (game_id, sequence), which is the feed's own
  *  identifier for a play. Never the play's uuid, which wpbl-ingest regenerates on every
@@ -957,11 +970,17 @@ export function applyPlayCorrections<T extends { game_id: string; sequence: numb
     if (!fixes) return play
     const next = { ...play } as Record<string, unknown>
     for (const f of fixes) next[f.field] = castCorrection(f.field, f.new_value)
+    // STAMPED ON THE PLAY, NOT STORED ANYWHERE. The mirror row is always the feed's own; this
+    // says only that what the caller is now holding is not. Where a play carries corrections
+    // from more than one source, the strongest wins: a reader shown one provenance should be
+    // shown the best evidence behind the row rather than whichever correction was written last.
+    const source = fixes.map(f => f.source).filter(Boolean) as WpblCorrectionSource[]
+    if (source.length) next.corrected_source = strongestSource(source)
     return next as T
   })
 }
 
-const CORRECTION_SELECT = 'game_id,sequence,field,new_value'
+const CORRECTION_SELECT = 'game_id,sequence,field,new_value,source'
 
 function fetchPlayCorrections(gameId: string): Promise<WpblPlayCorrection[]> {
   return safe('fetchPlayCorrections', () =>
@@ -1106,17 +1125,9 @@ async function readWpblPitcherLocations(idsKey: string): Promise<WpblPitchLoc[]>
   return out
 }
 
-// Standings derived from final games (not stored). A game counts only once both a
-// status of 'final' and both scores are present.
-// "6:30 PM" wall clock → minutes since midnight (blank/unparseable sorts first), so
-// same-day games order by start time when deriving streaks / last-10.
-function standingsStartMin(t: string | null | undefined): number {
-  const m = /^(\d{1,2}):(\d{2})\s*(am|pm)$/i.exec((t ?? '').trim())
-  if (!m) return 0
-  let h = Number(m[1]) % 12
-  if (/pm/i.test(m[3])) h += 12
-  return h * 60 + Number(m[2])
-}
+// Standings derived from final games (not stored). Which games those are, and the order they
+// were played in, is `standingsFinals` in season.ts: one definition, for the reason written
+// beside it there.
 
 // `countsInStandings` lives in season.ts now, which imports nothing but types. The predicate
 // is needed by stats.ts, which is bundled into the Cloudflare Pages Functions behind the OG
@@ -1124,6 +1135,7 @@ function standingsStartMin(t: string | null | undefined): number {
 // client into those. Re-exported so every existing importer keeps working and there is still
 // exactly one definition of "counts toward the season".
 export { regularSeasonLines, excludedGameIds } from './season'
+export { standingsFinals, standingsStartMin } from './season'
 export { countsInStandings }
 export { gameIsOver, settleGame, settleGames } from './gameOver'
 
@@ -1131,14 +1143,7 @@ export function computeStandings(teams: WpblTeam[], games: WpblGame[]): WpblStan
   const acc = new Map<string, { team: WpblTeam; wins: number; losses: number; runsFor: number; runsAgainst: number }>()
   for (const team of teams) acc.set(team.id, { team, wins: 0, losses: 0, runsFor: 0, runsAgainst: 0 })
 
-  // Decisive REGULAR-SEASON final games, chronological (date then start time) so streak /
-  // last-10 read in true order and head-to-head is accumulated as played.
-  const finals = games
-    .filter(g => g.status === 'final' && g.home_score != null && g.away_score != null && g.home_score !== g.away_score)
-    .filter(countsInStandings)
-    .sort((a, b) => a.game_date !== b.game_date
-      ? (a.game_date < b.game_date ? -1 : 1)
-      : standingsStartMin(a.start_time) - standingsStartMin(b.start_time))
+  const finals = standingsFinals(games)
 
   const history = new Map<string, ('W' | 'L')[]>(teams.map(t => [t.id, []]))
   const h2h = new Map<string, number>() // `${winnerId}|${loserId}` → head-to-head win count

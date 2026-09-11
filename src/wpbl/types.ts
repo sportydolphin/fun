@@ -320,6 +320,11 @@ export interface WpblFieldingLine {
 export interface WpblPitchEvent { sequence: number; code: string; type: string; description: string }
 
 // One play in the official-feed play-by-play (mirrors wpbl_game_plays).
+/** How we know a correction. `video` is the strongest and slowest, `derived` is a rule in the
+ *  validator concluding it, `external` is a second transcription agreeing, `league` is the
+ *  league's own box score contradicting its own play log. See docs/PLAY_VALIDATION.md. */
+export type WpblCorrectionSource = 'video' | 'derived' | 'external' | 'league'
+
 export interface WpblGamePlay {
   id: string
   game_id: string
@@ -347,6 +352,16 @@ export interface WpblGamePlay {
   fouls: number
   pitch_events: WpblPitchEvent[] | null
   created_at: string
+  /** Where this play's account came from, when it is not the league's own feed. Set by
+   *  `applyPlayCorrections` and never stored: the mirror row itself is always the feed's.
+   *
+   *  It exists because the page was contradicting itself in silence. The league published the
+   *  whole of New York's 6th and 7th on Aug 20, 2026 as rows with a pitcher, a pitch sequence
+   *  and nothing else, so `fill-wpbl-play-gaps` filled them from RetroWPBL's transcription; a
+   *  reader then counted two Katherine Murphy singles in the play-by-play against a box score
+   *  crediting her one, and had no way to know the second one came from somewhere else. A
+   *  filled play now says so on its own row. */
+  corrected_source?: WpblCorrectionSource | null
 }
 
 // The slim projection of a play the Hall of Firsts (computeFirsts) actually reads. The

@@ -31,7 +31,6 @@ import { useEraBasis } from './EraBasisContext'
 const WpblTrackingView = lazy(() => import('./TrackingView'))
 const WpblPitchView = lazy(() => import('./PitchView'))
 const WpblRunValueView = lazy(() => import('./RunValueView'))
-const WpblFindingsView = lazy(() => import('./FindingsView'))
 const WpblDraftValue = lazy(() => import('./DraftValue'))
 
 // Complete season stat table for the WPBL — a sortable board of every hitting and
@@ -64,7 +63,7 @@ const WpblDraftValue = lazy(() => import('./DraftValue'))
 // 'draft' sits on neither axis on purpose: it's a one-off analysis of the draft class that
 // spans both sides at once, so it's reached from a card under the table instead.
 type Side = 'hitting' | 'pitching'
-type Source = 'season' | 'tracked' | 'pitches' | 'runs' | 'findings' | 'draft'
+type Source = 'season' | 'tracked' | 'pitches' | 'runs' | 'draft'
 
 /** Boards that lay themselves out in two columns on a large desktop, and so take the wider
  *  page column. Everything else is one column and stays at the list measure. */
@@ -86,7 +85,10 @@ function axesOf(g: Group): { side?: Side; source: Source } {
   if (g === 'tracking') return { source: 'tracked' }
   if (g === 'pitches') return { source: 'pitches' }
   if (g === 'runs') return { source: 'runs' }
-  if (g === 'findings') return { source: 'findings' }
+  // Findings was folded into Run value on Sep 10, 2026 (see PlayValue.tsx). The group stays in
+  // the union rather than being deleted: nothing in the app constructs it any more, but a
+  // bookmark or a stale link still can, and the honest answer is the board its cards moved to.
+  if (g === 'findings') return { source: 'runs' }
   if (g === 'draft') return { source: 'draft' }
   return { side: g, source: 'season' }
 }
@@ -115,7 +117,7 @@ const HIT_COLS: Col<WpblBattingTotals>[] = [
   { key: 'h',   label: 'H',   value: t => t.h },
   { key: 'sb',  label: 'SB',  value: t => t.sb },
   // CS beside SB, because a steal total on its own cannot say whether the running was any
-  // good, and this league runs constantly. Same reason the Findings board prices it.
+  // good, and this league runs constantly. Same reason the steal card on Run value prices it.
   { key: 'cs',  label: 'CS',  value: t => t.cs },
   { key: '2b',  label: '2B',  value: t => t.doubles },
   { key: '3b',  label: '3B',  value: t => t.triples },
@@ -470,10 +472,6 @@ export default function WpblStatsView({
   // velocity boards — so seed those rather than dropping it somewhere it has never been.
   const [side, setSide] = useState<Side>(seedAxes.side ?? (seedAxes.source === 'tracked' ? 'pitching' : 'hitting'))
   const [source, setSource] = useState<Source>(seedAxes.source)
-  // One-shot: "open Run value with its explanation already unfolded". Set only by the Findings
-  // play-value card's "how this is worked out" row, which is a promise of an explanation and
-  // would otherwise hand the reader a leaderboard with the answer folded shut below it.
-  const [openRunValueHow, setOpenRunValueHow] = useState(false)
   const [mode, setMode] = useState<Mode>('players')
   const [teamId, setTeamId] = useState<string | null>(null)
   // One row and one integer (see fetchWpblTrackedGameCount), read so the chip row can decide
@@ -734,10 +732,6 @@ export default function WpblStatsView({
   const switchSource = (s: Source) => {
     if (s !== source) logBoard('source', { source: s })
     setSource(s)
-    // Any ordinary board change clears the request to open Run value's explainer, so tapping
-    // the Run value chip yourself gets whatever you last chose. Only the Findings link below
-    // sets it, immediately after calling this.
-    setOpenRunValueHow(false)
   }
   const switchMode = (m: Mode) => {
     if (m !== mode) logBoard('mode', { mode: m })
@@ -880,11 +874,6 @@ export default function WpblStatsView({
     // likely to misread it; what it needed was the sentence above the table saying what a
     // "run" means here, not a flag almost nobody flips.
     { key: 'runs', label: 'Run value', badge: newBoardBadge },
-    // ONE CHIP FOR EVERY FINDING, however many get written. The row was starting to carry two
-    // different kinds of thing: the boards beside this are ways to cut the numbers, and what
-    // is behind this chip is answers. Giving each answer its own chip is what would break the
-    // row, on a phone first. See FindingsView.tsx.
-    { key: 'findings', label: 'Findings' },
     // Hidden while the league has published radar for barely any games, and kept for the
     // session once a link has opened it anyway. See trackedOffered.
     ...(trackedOffered ? [{ key: 'tracked', label: 'Tracked' }] : []),
@@ -1150,7 +1139,7 @@ export default function WpblStatsView({
           shape on every board (the right-hand controls just empty out), so the bar no longer
           grows and shrinks under a sticky header as you move between boards. Emptying them out
           is not enough on its own to hold that height on a phone: see the switch below. */}
-      {source !== 'draft' && source !== 'findings' && (
+      {source !== 'draft' && (
       <Box sx={{
         display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, rowGap: 1, pb: 1.5,
         // THE SWITCH SITS OVER THE BOARD IT SWITCHES, which is not the same place on every
@@ -1317,14 +1306,6 @@ export default function WpblStatsView({
         <Suspense fallback={<SubViewFallback />}>
           <WpblPitchView side={side} teams={teams} games={games} trackedVisible={trackedOffered} onOpenPlayer={onOpenPlayer} />
         </Suspense>
-      ) : source === 'findings' ? (
-        <Suspense fallback={<SubViewFallback />}>
-          {/* The play-value card's "how this is worked out" row lands on Run value, which owns
-              the explanation now. Same tab, one board across, so it is a source switch rather
-              than a navigation. */}
-          <WpblFindingsView games={games} battingLines={lines.batting} onOpenPlayer={onOpenPlayer}
-            onOpenRunValue={() => { switchSource('runs'); setOpenRunValueHow(true) }} />
-        </Suspense>
       ) : source === 'runs' ? (
         // STILL FULL-BLEED, and the content inside it is capped and centred. The comment here
         // used to justify the bleed by saying the board's two columns were a table and a
@@ -1343,8 +1324,8 @@ export default function WpblStatsView({
         // it: nothing on a phone, where the cap never binds, and a centred column on a desktop.
         <Box sx={fullBleedSx}>
           <Suspense fallback={<SubViewFallback />}>
-            <WpblRunValueView side={side} teams={teams} games={games} onOpenPlayer={onOpenPlayer}
-              openExplainer={openRunValueHow} />
+            <WpblRunValueView side={side} teams={teams} games={games} battingLines={lines.batting}
+              onOpenPlayer={onOpenPlayer} />
           </Suspense>
         </Box>
       ) : rows.length === 0 ? (
