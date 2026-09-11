@@ -1898,7 +1898,7 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
             and this is the tab that can least afford to pay for it twice. It stays for Box
             Score, Play-by-Play and Pitch Data, where it is the only situation on screen. */}
         {live && tab !== 'live' && game.live_state && away && home && (
-          <Box sx={{ flexShrink: 0 }}><LiveBanner state={game.live_state} away={away} home={home} lines={{ away: game.away_line, home: game.home_line }} players={roster} /></Box>
+          <Box sx={{ flexShrink: 0 }}><LiveBanner state={game.live_state} away={away} home={home} lines={{ away: game.away_line, home: game.home_line }} players={roster} sourceUpdatedAt={game.source_updated_at} /></Box>
         )}
 
         {/* The tab bar is structural, not data, so it does not wait for a fetch. Which tabs a

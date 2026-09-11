@@ -234,9 +234,52 @@ export function SituationStrip({ s }: { s: Situation }) {
   )
 }
 
+/**
+ * How old the league's own data is, said quietly under the situation.
+ *
+ * WHY IT EXISTS. Reported from the Sep 11, 2026 semifinal: San Francisco changed pitchers and
+ * the strip went on naming Jill Albayati. It was right, in the only sense this page can be
+ * right. The league's boxscore still listed her as their one pitcher at 4.0 innings and had not
+ * published Niki Eckert at all, so there was nothing to show; the reader was watching the
+ * broadcast, which runs ahead of the stats feed. Nothing on screen let them tell "this site is
+ * wrong" from "the league is a minute behind", and the first is the one people assume.
+ *
+ * SO IT NAMES THE FEED, NOT THE FETCH. `source_updated_at` is the league's own stamp, which is
+ * the question a reader actually has. Our own `updated_at` would answer "when did we last write
+ * a row", which is never what anyone wants to know and would read as fresh while the league sat
+ * still.
+ *
+ * THE AGE HAS TO TICK ON ITS OWN. Nothing re-renders this while the feed is quiet, and a feed
+ * going quiet is exactly the case it exists for, so it carries its own clock rather than
+ * waiting for data that is not coming.
+ */
+const FEED_STALE_MS = 3 * 60_000
+
+export function FeedAge({ at }: { at?: string | null }) {
+  const [now, setNow] = useState(() => Date.now())
+  useForegroundInterval(() => setNow(Date.now()), 30_000)
+  if (!at) return null
+  const t = Date.parse(at)
+  if (!Number.isFinite(t)) return null
+  const stale = now - t > FEED_STALE_MS
+  const clock = new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  return (
+    <Typography sx={{
+      fontSize: '0.62rem', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0,
+      color: stale ? 'var(--wpbl-medal-1)' : 'text.disabled',
+    }}>
+      {/* The wording carries the whole point: it is the LEAGUE that is behind, and this line is
+          the only thing on the page in a position to say so. */}
+      {stale ? `League feed quiet since ${clock}` : `League feed ${clock}`}
+    </Typography>
+  )
+}
+
 // Situation banner shown atop the Game Center (GameDetail) while a game is live.
-export function LiveBanner({ state, away, home, lines, players }: {
+export function LiveBanner({ state, away, home, lines, players, sourceUpdatedAt }: {
   state: WpblLiveState; away: WpblTeam; home: WpblTeam; lines?: LineScores
+  /** The league's own stamp on this game (`source_updated_at`), for the age line. */
+  sourceUpdatedAt?: string | null
   /** The roster, to spell the two names the way the rest of the page does. REQUIRED, and empty
    *  is a legitimate value: the caller passing nothing at all is the failure this shape exists
    *  to stop, because it looks exactly like a player whose name the feed happens to spell our
@@ -259,6 +302,9 @@ export function LiveBanner({ state, away, home, lines, players }: {
           {s.pitcherName && <Typography sx={{ fontSize: '0.76rem', lineHeight: 1.3 }}><Box component="span" sx={{ color: 'text.disabled', fontWeight: 700 }}>P </Box><Box component="span" sx={{ fontWeight: 700 }}>{shortName(canonicalFeedName(s.pitcherName, players))}</Box></Typography>}
         </Box>
       )}
+      {/* Last, and pushed to the end of the row: it is a caveat on everything to its left, and
+          a reader who is not questioning what they see should never be stopped by it. */}
+      <Box sx={{ ml: 'auto' }}><FeedAge at={sourceUpdatedAt} /></Box>
     </Box>
   )
 }

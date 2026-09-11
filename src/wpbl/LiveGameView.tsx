@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Box, Typography } from '@mui/material'
-import { deriveSituation, shortName, type Situation } from './Live'
+import { deriveSituation, shortName, FeedAge, type Situation } from './Live'
 import { LazyWinProbCard } from './RecapCard'
 import { canonicalFeedName, matchFeedName } from './feedNames'
 import { parsePlay, runsOnPlay } from './derive/playByPlay'
@@ -85,6 +85,15 @@ export default function LiveGameView({
             batting={batting} pitching={pitching} names={names} onOpenPlayer={onOpenPlayer}
           />
         )}
+      </Box>
+      {/* HOW OLD ALL OF THAT IS, under it rather than in it. Everything above is the league's
+          last word and none of it says when that word was spoken, which is the gap a reader
+          watching the broadcast falls into: San Francisco changed pitchers on Sep 11, 2026 and
+          this pane went on naming Jill Albayati, correctly, because the feed had not published
+          Niki Eckert and had nothing else to give. "The site is wrong" and "the league is a
+          minute behind" looked identical, and only one of them was true. */}
+      <Box sx={{ width: '100%', maxWidth: chromePx(800), mx: 'auto', mt: -1.25, textAlign: 'right' }}>
+        <FeedAge at={game.source_updated_at} />
       </Box>
       <LazyWinProbCard game={game} teams={teams} plays={plays} games={games} />
     </Box>
