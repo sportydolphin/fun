@@ -282,10 +282,6 @@ const FULL_BLEED_W = 'min(1540px, calc(100vw - 24px))'
 // section had not. Both are out now, so a published rect and a sticky `top` are the same
 // pixel and the sum is spent as it arrives.
 const PINNED_CHROME = 'calc(var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px))'
-/** The same sum without the `calc()` wrapper, for use INSIDE another math function: `max()`
- *  already takes arithmetic, and a nested `calc()` as one of its arguments is not the same
- *  thing to every engine. */
-const PINNED_CHROME_SUM = 'var(--app-header-h, 0px) + var(--wpbl-nav-h, 0px)'
 const fullBleedSx = {
   width: FULL_BLEED_W,
   position: 'relative',
@@ -312,6 +308,37 @@ const fullBleedSx = {
 // there is no mismatch to correct.
 const FULL_BLEED_GUTTER = 12
 const BAR_W = `min(${1540 + 2 * FULL_BLEED_GUTTER}px, calc(100vw))`
+/** Where the board pins: the bottom of the control bar, which is itself pinned under the
+ *  shell's chrome. `--wpbl-stats-bar-h` is published by the bar (see the effect that sets it).
+ *
+ *  IT IS ONLY EVER A STICKY OFFSET, never a height, and that is what makes measuring it safe.
+ *  A cap derived from a measurement can render a board that is not there; an offset derived
+ *  from one can at worst pin a few pixels high or low. */
+const BOARD_TOP = `calc(${PINNED_CHROME} + var(--wpbl-stats-bar-h, 0px))`
+
+/** Everything between the last visible row and the top of the site footer: the line that names
+ *  the population ("31 players · qualified only"), the card's own two borders, and the page's
+ *  bottom gutter under it.
+ *
+ *  A CONSTANT, BECAUSE IT IS FURNITURE. None of it moves with the data, the board or the
+ *  viewport, which is what separates it from the footer above: that one wraps to more rows as
+ *  the window narrows and has to be measured. Deriving this one instead meant reading the
+ *  document's height, which on a phone includes the swipe pager's floor and any blank the board
+ *  is itself leaving, so the board's height fed back into its own cap and iterated away to
+ *  nothing. */
+const BOARD_TAIL_PX = 104
+
+/** A header and about five rows: the least that is still a table. */
+const MIN_BOARD_PX = 320
+
+/** Full-bleed for a box that ALSO has to stick. Centred with a margin rather than
+ *  `left: 50%` + a transform, because sticky spends `left` on its own threshold: given the
+ *  centring rule, the board would try to stick sideways. Same reason the bar has its own. */
+const fullBleedStickyCardSx = {
+  width: FULL_BLEED_W,
+  marginLeft: `calc(50% - (${FULL_BLEED_W}) / 2)`,
+} as const
+
 const fullBleedStickySx = {
   width: { xs: BAR_W, sm: FULL_BLEED_W },
   marginLeft: { xs: `calc(50% - (${BAR_W}) / 2)`, sm: `calc(50% - (${FULL_BLEED_W}) / 2)` },
@@ -465,24 +492,6 @@ export default function WpblStatsView({
   const [eraNoteOpen, setEraNoteOpen] = useState(() => shouldShowBadge('era-per-9'))
   const dismissEraNote = () => { markBadgeSeen('era-per-9'); setEraNoteOpen(false) }
   const scrollRef = useRef<HTMLDivElement>(null)
-  // EVERYTHING BELOW THE TABLE, which is exactly how far the page can still scroll once the
-  // table's bottom has reached the bottom of the screen.
-  //
-  // The column headers pin to the top of the scroll box, and the scroll box is an ordinary
-  // element in page flow, so the page carrying it upwards carries the headers with it. Reported
-  // from the page: scroll until the toolbar goes and the headers go too. They were not scrolling
-  // away, they were sliding up BEHIND the toolbar, which is worse, because the table looks like
-  // a table that has simply lost its labels.
-  //
-  // The cap below keeps the box's own top at or under the pinned chrome, and this is the term
-  // that makes it true. Measured rather than guessed: the footer wraps to more rows as the
-  // window narrows, which is why the constant it replaces was right at one width and 19px short
-  // at another, and why nothing about the failure looked width-dependent from inside the CSS.
-  //
-  // NO FEEDBACK LOOP. This tail does not change when the table's height does, because shrinking
-  // the box moves the document's bottom and the box's bottom by the same amount, so re-measuring
-  // after the cap has been applied returns the same number.
-  const [tailPx, setTailPx] = useState(0)
   // Horizontal-scroll edges — drive the frozen-column shadow (not at start) and the
   // right-edge fade (not at end), so it's obvious the table scrolls sideways.
   const [scrollX, setScrollX] = useState({ atStart: true, atEnd: true })
@@ -913,7 +922,10 @@ export default function WpblStatsView({
 
   // Anything the reader has changed away from how the board opens. Drives the dot on the
   // Filters pill: `qualified` defaults to `qual.active`, so "on" is not the same as "set".
-  const filtersSet = teamId !== null || qualified !== qual.active
+  // Scope counts as a filter on a phone, where it lives in the sheet: the dot is the only
+  // thing saying a board is not showing the whole regular season, and a reader who set
+  // Playoffs on one board and came back to it later has no other way to find out.
+  const filtersSet = teamId !== null || qualified !== qual.active || scope !== 'regular'
 
   // THE PHONE READS A LIST, NOT A GRID. Sixteen columns behind a 150px frozen name column show
   // four stats at a time on a 375px screen, so the one thing anyone comes here to do (rank the
@@ -1036,19 +1048,57 @@ export default function WpblStatsView({
     return () => { c.removeEventListener('scroll', update); ro.disconnect() }
   }, [loading, side, mode, rows.length, pinActive])
 
+  // THE BAR PUBLISHES ITS OWN HEIGHT, because the board below pins to the BOTTOM of it and
+  // nothing else on the page can know where that is: the shell reports its own chrome
+  // (`--app-header-h`, `--wpbl-nav-h`) and this bar pins under that, wrapping to two rows on a
+  // narrow screen and back to one when the filters fold away. Same shape as the shell's own
+  // variables, and read the same way.
   useEffect(() => {
-    const measure = () => {
-      const el = scrollRef.current
-      if (!el) return
-      const bottom = el.getBoundingClientRect().bottom + window.scrollY
-      setTailPx(Math.max(0, Math.round(document.documentElement.scrollHeight - bottom)))
+    const el = barRef.current
+    if (!el) return
+    const root = document.documentElement
+    // THE FOOTER, BECAUSE IT IS THE ONLY THING LEFT BELOW THE BOARD, and how tall it is decides
+    // how tall the board is allowed to be. A pinned board stays pinned only while its
+    // containing block has somewhere left to travel, and the arithmetic comes out at exactly
+    // one condition: the board must fit in the screen under the bar with room for whatever
+    // follows it. Make it taller than that and it stops being pinned before the reader stops
+    // scrolling, which is the version of this that was reported.
+    //
+    // MEASURED OFF THE `<footer>` ELEMENT, not off the document's height, and the difference is
+    // the whole reason this is safe. The document's height includes the swipe pager's floor
+    // (`minHeight` in SwipeableViews, which keeps a short tab a full-screen swipe target) and
+    // any blank the board itself is leaving; feeding that back into the board's height is a
+    // loop, and it ran the table down to nothing before rendering it as though the data had
+    // failed to load. The footer's height cannot depend on the board's.
+    const publish = () => {
+      // THE ONE THAT IS LAID OUT, and looked up every time rather than held from the first
+      // pass. Both halves of that were bugs. `/wpbl` keeps all five tabs of its swipe pager
+      // mounted, so the page has FIVE `<footer>` elements and `querySelector` returns a hidden
+      // tab's, which measures zero; and the shell's footer is not guaranteed to be in the
+      // document at all when this board first mounts. Either way a zero gets published, the
+      // board sizes itself as though there were nothing beneath it, and the reader gets back
+      // the headers sliding behind the bar that this whole arrangement exists to stop.
+      const foot = Array.from(document.querySelectorAll('footer'))
+        .find(f => f.getBoundingClientRect().height > 0)
+      root.style.setProperty('--wpbl-stats-bar-h', `${el.getBoundingClientRect().height}px`)
+      root.style.setProperty('--wpbl-foot-h', `${foot?.getBoundingClientRect().height ?? 0}px`)
     }
-    measure()
-    window.addEventListener('resize', measure)
-    return () => window.removeEventListener('resize', measure)
-    // Re-measured whenever the page below could have changed shape under it: a different board
-    // is a different table, and `loading` is the commit the table first exists on.
-  }, [loading, mode, side, rows.length])
+    publish()
+    // jsdom has no ResizeObserver in every environment this runs in; the values published above
+    // are still correct for a layout that never changes.
+    //
+    // Watching the document as well as the bar is what catches the footer arriving, or growing
+    // a row as the window narrows. It cannot feed back on itself: what gets published is the
+    // FOOTER's height, and the footer does not care how tall the board is, so a republish on a
+    // board resize writes the same value and stops there.
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(publish) : null
+    if (ro) { ro.observe(el); ro.observe(document.body) }
+    return () => {
+      ro?.disconnect()
+      root.style.removeProperty('--wpbl-stats-bar-h')
+      root.style.removeProperty('--wpbl-foot-h')
+    }
+  }, [loading])
 
   if (loading) {
     return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
@@ -1063,8 +1113,69 @@ export default function WpblStatsView({
     color: 'text.disabled', py: 0.75, px: 0.5, whiteSpace: 'nowrap' as const, userSelect: 'none' as const,
   }
 
+  /* ROW ONE: WHICH BOARD. Five pages, one row, underline tabs, because that is what they
+       are: tapping one replaces the screen. They used to be chips on the second row, in the
+       same pill shape as the team filter and the qualified toggle, so "Run value" (a
+       different page) and "LA" (a filter on this one) were drawn identically, and the side
+       of the ball, which applies to all five, sat ABOVE them and looked more important.
+       The hierarchy is the right way up now: board, then side, then filters.
+
+       Players and Teams are boards here rather than a Season/Players+Teams pair, which is
+       what lets the row exist at all. "Season" was never a useful label anyway (every
+       number on this section is this season); its real meaning was "the normal table", and
+       splitting it into the two things it actually ranks says that outright and takes the
+       conditional Players/Teams row away with it.
+
+       Scrolls sideways rather than wrapping when Tracked is showing. SwipeableViews hands
+       the gesture back at the edges, so an extra flick still pages to the next tab. */
+   //
+   // NOT PINNED ON A PHONE, which is where it is rendered from rather than what it looks
+   // like. See where this is placed below.
+  const boardTabs = (
+        <Box sx={{
+          display: 'flex', alignItems: 'flex-end', gap: { xs: 1.5, sm: 2 }, mb: 1.25,
+          borderBottom: '1px solid', borderColor: 'divider',
+          overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' },
+          msOverflowStyle: 'none', scrollbarWidth: 'none',
+        }}>
+          {boards.map(b => {
+            const on = b.key === activeBoard
+            return (
+              <Box key={b.key} {...pressable(() => selectBoard(b.key))} aria-current={on ? 'page' : undefined} sx={{
+                ...FOCUS_RING,
+                pb: 1, mb: '-1px', flexShrink: 0, cursor: 'pointer', userSelect: 'none',
+                whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center',
+                borderBottom: '2px solid', borderColor: on ? WPBL_ACCENT : 'transparent',
+                color: on ? 'text.primary' : 'text.secondary',
+                // Tightened on a phone so the five fit 375px without the last one, which is the
+                // one that just moved up here, being the one that hangs off the edge. It still
+                // scrolls when Tracked makes it six.
+                fontSize: { xs: '0.86rem', sm: '0.9rem' },
+                fontWeight: on ? 800 : 600, transition: 'color 0.15s',
+                '&:hover': { color: 'text.primary' },
+              }}>
+                {b.label}
+                {b.badge && <NewDot sx={{ ml: 0.6 }} />}
+              </Box>
+            )
+          })}
+        </Box>
+  )
+
   return (
-    <Box>
+    // STRETCHED TO FILL THE TAB, which is what gives the pinned board somewhere to stay pinned.
+    //
+    // A sticky element stops sticking when its containing block runs out, and the board is the
+    // last thing in this box, so its containing block ended exactly where it did: zero travel,
+    // and the board slid up behind the bar the moment the page moved. The room it needs is
+    // already on the page and in the wrong place. `/wpbl` floors every tab of its swipe pager
+    // at a screenful so a short tab is still a full-screen swipe target (`minHeight` in
+    // SwipeableViews), and that floor is a flex container, so growing into it moves the slack
+    // from AFTER this box to INSIDE it. The page gets no longer, and the board gets exactly as
+    // much room to hold its position as the tab had going spare.
+    //
+    // Inert wherever the parent is not a flex container, which is every other caller.
+    <Box sx={{ flexGrow: 1 }}>
       {/* The page's one <h1>: /wpbl/stats, the section's most-searched term. It sits above the
           sticky control bar and scrolls away with the content, leaving the bar to pin as
           before; the bar's top offset is unaffected because this is not sticky itself.
@@ -1091,6 +1202,16 @@ export default function WpblStatsView({
           own sticky header, which pins inside the scroll box below it. */}
       {/* Where the bar sits when nothing is pinning it. Zero height, no paint; see the
           barStuck effect for what reads it. */}
+      {/* ON A PHONE THE BOARD PICKER SCROLLS AWAY, and that is what pays for the table
+          below it.
+          WHICH BOARD is a decision you make once and then read; SORT and FILTERS are what you
+          reach for while reading, so those are what the bar keeps. Everything the bar pins is
+          height the board underneath has to clear, because the board is pinned to the bar's
+          bottom edge and has to fit between there and the footer: these five tabs were 48px of
+          a 94px bar, and holding them cost a row of stats on every phone, at every scroll
+          position, to keep a control nobody uses twice.
+          Desktop keeps them in the bar, where the whole thing is one row and costs nothing. */}
+      {isNarrow && <Box sx={{ ...fullBleedStickySx, pt: 1 }}>{boardTabs}</Box>}
       <Box ref={stuckMarkRef} aria-hidden sx={{ height: 0 }} />
       <Box ref={barRef} sx={{
         position: 'sticky',
@@ -1125,49 +1246,7 @@ export default function WpblStatsView({
         },
         ...fullBleedStickySx,
       }}>
-      {/* ROW ONE: WHICH BOARD. Five pages, one row, underline tabs, because that is what they
-          are: tapping one replaces the screen. They used to be chips on the second row, in the
-          same pill shape as the team filter and the qualified toggle, so "Run value" (a
-          different page) and "LA" (a filter on this one) were drawn identically, and the side
-          of the ball, which applies to all five, sat ABOVE them and looked more important.
-          The hierarchy is the right way up now: board, then side, then filters.
-
-          Players and Teams are boards here rather than a Season/Players+Teams pair, which is
-          what lets the row exist at all. "Season" was never a useful label anyway (every
-          number on this section is this season); its real meaning was "the normal table", and
-          splitting it into the two things it actually ranks says that outright and takes the
-          conditional Players/Teams row away with it.
-
-          Scrolls sideways rather than wrapping when Tracked is showing. SwipeableViews hands
-          the gesture back at the edges, so an extra flick still pages to the next tab. */}
-      <Box sx={{
-        display: 'flex', alignItems: 'flex-end', gap: { xs: 1.5, sm: 2 }, mb: 1.25,
-        borderBottom: '1px solid', borderColor: 'divider',
-        overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' },
-        msOverflowStyle: 'none', scrollbarWidth: 'none',
-      }}>
-        {boards.map(b => {
-          const on = b.key === activeBoard
-          return (
-            <Box key={b.key} {...pressable(() => selectBoard(b.key))} aria-current={on ? 'page' : undefined} sx={{
-              ...FOCUS_RING,
-              pb: 1, mb: '-1px', flexShrink: 0, cursor: 'pointer', userSelect: 'none',
-              whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center',
-              borderBottom: '2px solid', borderColor: on ? WPBL_ACCENT : 'transparent',
-              color: on ? 'text.primary' : 'text.secondary',
-              // Tightened on a phone so the five fit 375px without the last one, which is the
-              // one that just moved up here, being the one that hangs off the edge. It still
-              // scrolls when Tracked makes it six.
-              fontSize: { xs: '0.86rem', sm: '0.9rem' },
-              fontWeight: on ? 800 : 600, transition: 'color 0.15s',
-              '&:hover': { color: 'text.primary' },
-            }}>
-              {b.label}
-              {b.badge && <NewDot sx={{ ml: 0.6 }} />}
-            </Box>
-          )
-        })}
-      </Box>
+      {!isNarrow && boardTabs}
 
       {/* ROW TWO: HOW TO CUT IT. Side of the ball on the left in a segmented pill, which is a
           third visual language on purpose: underline tabs are pages, this is a two-way switch
@@ -1257,7 +1336,7 @@ export default function WpblStatsView({
                 only"), which is the same fact plus its consequence, and it costs no room in a
                 bar this narrow. The dot is only there to say "something is not the default",
                 so a filter can never be silently on. */}
-            {mode === 'players' && (
+            {(mode === 'players' || hasPostseason) && (
               <Box {...pressable(() => setFiltersOpen(true))} aria-haspopup="dialog" aria-expanded={filtersOpen} sx={{
                 ...FOCUS_RING,
                 display: 'inline-flex', alignItems: 'center', gap: 0.4, flexShrink: 0,
@@ -1284,7 +1363,12 @@ export default function WpblStatsView({
             The other boards (Pitch by pitch, Run value, Tracked, Draft) read their own data
             through paths this does not touch, so offering the switch there would be a control
             that silently does nothing. */}
-        {source === 'season' && hasPostseason && (
+        {/* DESKTOP ONLY. On a phone these three wrapped onto a row of their own, and that row
+            cost the table 44px of the little height it has: the board is capped so its column
+            headers cannot be carried up behind the bar, so every pixel the bar takes is a pixel
+            of table. They are in the Filters sheet there, which is what they are, and which
+            also spares the one board that had no Filters pill at all. */}
+        {source === 'season' && hasPostseason && !isNarrow && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
             {/* "Both" rather than "All", which is what this option is: the team filter sitting
                 immediately to its right already has an "All" chip, and two chips reading All
@@ -1419,7 +1503,21 @@ export default function WpblStatsView({
           {boardFooter}
         </Box>
       ) : (
-        <Box sx={{ border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden', ...fullBleedSx }}>
+        <Box sx={{
+          // PINNED UNDER THE BAR, so the page cannot carry the board's column headers up
+          // behind it. The headers stick to the top of the scroll box inside, and that box is
+          // an ordinary element in page flow: without this, scrolling the PAGE took the whole
+          // board up and the labels went with it, which reads as a table that has lost its
+          // headings. The board has no reason to travel anyway. Everything a reader came here
+          // to move is inside it, and the little the page has left to scroll is the footer.
+          //
+          // UNDER the bar, never over it: the bar is `zIndex: 6` and this is 1. Without saying
+          // so the board would paint on top of the bar it is sliding beneath, since both are
+          // positioned and this one comes later in the DOM.
+          position: 'sticky', top: BOARD_TOP, zIndex: 1,
+          border: '1px solid', borderColor: CARD_BORDER, borderRadius: 2, overflow: 'hidden',
+          ...fullBleedStickyCardSx,
+        }}>
           <Box sx={{ position: 'relative' }}>
           {/* Capped inner scroll so the column headers stay sticky (top:0) as you scroll the
               rows. `overscroll-behavior: contain` stops the scroll from chaining out to the
@@ -1461,17 +1559,35 @@ export default function WpblStatsView({
               here. */}
           <Box ref={scrollRef} sx={{
             overflowX: 'auto', overflowY: 'auto', overscrollBehavior: 'contain',
-            // `max` and not a second constant: 260px is the measure that makes the table fill
-            // the screen at rest, and the chrome plus the tail is the one that keeps its
-            // headers out from behind the toolbar once the page has moved. Whichever is
-            // larger is the one that has to be subtracted; taking only the first is the bug
-            // this replaced.
-            maxHeight: `calc(100dvh - max(260px, ${PINNED_CHROME_SUM} + ${tailPx}px))`,
-            // THE SHORT-SCREEN BRANCH DOES NOT TAKE THE TAIL, on purpose. A landscape phone
-            // cannot have both a table that stays in view and a table with rows in it: capped
-            // by the tail here the box came out at 96px, a header and ONE row, which is the
-            // "reads as broken rather than as tight" this branch exists to avoid. It keeps the
-            // original bargain, which is that the page scrolls and the headers can go with it.
+            // A CONSTANT, AND DELIBERATELY NOT MEASURED, which is the opposite of what it
+            // looks like it wants to be.
+            //
+            // The column headers pin to the top of this box, and the box is an ordinary
+            // element in page flow, so scrolling the PAGE carries them up behind the bars
+            // above it. The cap was briefly derived to prevent exactly that: give back however
+            // far the page could still carry the board. It cannot work here. On a phone
+            // `/wpbl` floors every tab of its swipe pager at a screenful so a short tab is
+            // still a full-screen swipe target (`minHeight` in SwipeableViews), and while that
+            // floor is binding the page is as long as the floor plus the footer NO MATTER HOW
+            // SHORT THIS TABLE IS. The board lands in the same place however much it gives
+            // back, the correction never closes, and it iterates the table down to nothing: a
+            // phone-sized board under 320px of blank space, headers still behind the bar it
+            // shrank to clear. Measured from a tab the pager had not yet brought on screen it
+            // was worse, reading a zero rect against another tab's document height and
+            // rendering a board that was not there at all until the reader reloaded the page.
+            //
+            // Fixing the headers properly means lifting that row OUT of this box, because a
+            // horizontally scrolling box is necessarily the scrollport its own sticky children
+            // resolve against. Until then they pin within the box, which is the right answer
+            // whenever the box is the thing being scrolled.
+            //
+            // 260px is everything standing above the table at the top of the page, so at rest
+            // the board fills the screen.
+            // The gap the pinned board sits in: the screen, less the bars above it, less the
+            // footer below it, less the board's own furniture. Floored, because every term but
+            // the first is a measurement and a board that has been measured into nothing reads
+            // as data that failed to load rather than as a layout that went wrong.
+            maxHeight: `max(${MIN_BOARD_PX}px, calc(100dvh - ${BOARD_TOP} - var(--wpbl-foot-h, 0px) - ${BOARD_TAIL_PX}px))`,
             '@media (max-height: 560px)': {
               maxHeight: `calc(100dvh - ${PINNED_CHROME} - 100px)`,
             },
@@ -1627,6 +1743,8 @@ export default function WpblStatsView({
         <FilterSheet teams={teamChips} teamId={teamId} onTeam={filterTeam}
           qualified={qualified} onQualified={toggleQualified}
           side={side} minPa={qual.minPa} minIp={outsToIp(qual.minOuts)}
+          scope={hasPostseason ? scope : null} onScope={setScope}
+          showWho={mode === 'players'}
           onClose={() => setFiltersOpen(false)} />
       )}
 
@@ -1945,7 +2063,7 @@ function SortSheet({ cols, sortKey, side, eraBasis, bestFirst, onPick, onDirecti
 // It says what qualified MEANS, which the chip never did: a word a reader either knows or is
 // excluded by, set against a bar that moves with the season (see wpblQualifiers), so nobody
 // could have known it from memory either.
-function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, side, minPa, minIp, onClose }: {
+function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, side, minPa, minIp, scope, onScope, showWho, onClose }: {
   teams: WpblTeam[]
   teamId: string | null
   onTeam: (id: string | null) => void
@@ -1954,6 +2072,13 @@ function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, side, minP
   side: Side
   minPa: number
   minIp: string
+  /** Null when no postseason game has finished, which is when the choice does not exist yet
+   *  rather than when it is set to the regular season. */
+  scope: SeasonScope | null
+  onScope: (s: SeasonScope) => void
+  /** The teams board has no per-player population to filter, so it gets the season group and
+   *  nothing else. It is also the reason the sheet can open there at all now. */
+  showWho: boolean
   onClose: () => void
 }) {
   const rows = { display: 'flex', flexDirection: 'column', gap: 0.75 } as const
@@ -1961,6 +2086,22 @@ function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, side, minP
     <ModalShell sheet eyebrow="Filter" onClose={onClose} maxWidth={480}
       footer={<SheetDone onClose={onClose} />}>
       <Box sx={{ px: 2, py: 1.75, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {/* FIRST, because it is the widest of the three: it changes which GAMES everything
+            below is counted from, where the other two only choose who to list out of them. */}
+        {scope && (
+          <SheetGroup title="Games">
+            <Box sx={rows}>
+              <OptionRow label="Regular season" on={scope === 'regular'} onClick={() => onScope('regular')} />
+              <OptionRow label="Playoffs" on={scope === 'postseason'} onClick={() => onScope('postseason')} />
+              {/* "Both" rather than "All": the team group below opens on "All teams", and two
+                  rows reading All in one sheet is a coin toss about which one a tap changes. */}
+              <OptionRow label="Both" on={scope === 'all'} onClick={() => onScope('all')} />
+            </Box>
+          </SheetGroup>
+        )}
+
+        {showWho && (
+        <>
         <SheetGroup title="Team">
           <Box sx={rows}>
             <OptionRow label="All teams" on={teamId === null} onClick={() => onTeam(null)} />
@@ -1984,6 +2125,8 @@ function FilterSheet({ teams, teamId, onTeam, qualified, onQualified, side, minP
               onClick={() => { if (qualified) onQualified() }} />
           </Box>
         </SheetGroup>
+        </>
+        )}
       </Box>
     </ModalShell>
   )
