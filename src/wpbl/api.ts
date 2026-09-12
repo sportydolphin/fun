@@ -5,7 +5,8 @@ import { settleGames } from './gameOver'
 import type {
   WpblTeam, WpblPlayer, WpblGame, WpblStandingRow,
   WpblBattingLine, WpblPitchingLine,
-  WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchPlay, WpblRunValuePlay, WpblSprayPlay,
+  WpblFieldingLine, WpblGamePlay, WpblFirstsPlay, WpblRecapPlay, WpblPitchPlay, WpblRunValuePlay,
+  WpblGameRecap, WpblSprayPlay,
   WpblCorrectionSource,
   WpblPitchTracking, WpblTrackRow,
   WpblVideo, WpblArticle, WpblPhoto, WpblSiteGame, WpblLineupHistoryRow, WpblPitchingUsageRow,
@@ -222,6 +223,7 @@ let allPlaysCache:    { data: WpblFirstsPlay[]; at: number } | null = null
 let allPitchPlaysCache: { data: WpblPitchPlay[]; at: number } | null = null
 let allRunValuePlaysCache: { data: WpblRunValuePlay[]; at: number } | null = null
 let allVideosCache:   { data: WpblVideo[]; at: number } | null = null
+let allRecapsCache:   { data: WpblGameRecap[]; at: number } | null = null
 let allArticlesCache: { data: WpblArticle[]; at: number } | null = null
 let allPhotosCache:   { data: WpblPhoto[]; at: number } | null = null
 let siteGamesCache:   { data: WpblSiteGame[]; at: number } | null = null
@@ -250,6 +252,7 @@ export function getCachedWpblAllPlays(): WpblFirstsPlay[] | null { return allPla
 export function getCachedWpblAllPitchPlays(): WpblPitchPlay[] | null { return allPitchPlaysCache?.data ?? null }
 export function getCachedWpblAllRunValuePlays(): WpblRunValuePlay[] | null { return allRunValuePlaysCache?.data ?? null }
 export function getCachedWpblVideos(): WpblVideo[] | null { return allVideosCache?.data ?? null }
+export function getCachedWpblRecaps(): WpblGameRecap[] | null { return allRecapsCache?.data ?? null }
 export function getCachedWpblArticles(): WpblArticle[] | null { return allArticlesCache?.data ?? null }
 export function getCachedWpblPhotos(): WpblPhoto[] | null { return allPhotosCache?.data ?? null }
 export function getCachedWpblSiteGames(): WpblSiteGame[] | null { return siteGamesCache?.data ?? null }
@@ -766,6 +769,31 @@ export function fetchWpblAllTracking(): Promise<WpblTrackRow[]> {
   // doesn't clobber a previously good result.
   if (out.length > 0 || allTrackingCache == null) allTrackingCache = { data: out, at: Date.now() }
   return out
+  })
+}
+
+/**
+ * This is Women's Baseball's game recaps, as links.
+ *
+ * ONE READ FOR THE WHOLE TABLE, cached app-wide, exactly like the videos below it and for the
+ * same reason: it is one row per game, so the season is under forty of them, and a per-game
+ * request would be a round trip to learn that a card should say nothing. A game opened from the
+ * schedule reads this out of the cache.
+ *
+ * Empty pre-migration, and empty is the ordinary state for a game nobody has written up yet:
+ * the card renders nothing rather than an empty shell. See docs/RECAPS.md.
+ */
+export function fetchWpblRecaps(): Promise<WpblGameRecap[]> {
+  if (isFresh(allRecapsCache)) return Promise.resolve(allRecapsCache!.data)
+  return once('allRecaps', async () => {
+    const data = await safe<WpblGameRecap[]>('fetchWpblRecaps', () =>
+      supabase.from('wpbl_recaps')
+        .select('game_id,url,title,cover_url,published_at,matched_by')
+        .order('published_at', { ascending: false }) as unknown as
+        PromiseLike<{ data: WpblGameRecap[] | null; error: unknown }>,
+      [])
+    if (data.length > 0 || allRecapsCache == null) allRecapsCache = { data, at: Date.now() }
+    return data
   })
 }
 

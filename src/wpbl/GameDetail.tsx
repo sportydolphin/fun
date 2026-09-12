@@ -2313,6 +2313,16 @@ export default function GameDetailModal({ game: seed, initialTab, teams, games =
           {final && story && (
             <Box sx={{ px: 2, mt: 1.5 }}><GameStoryCard article={story} /></Box>
           )}
+          {/* HELD BACK ON PURPOSE, Sep 12, 2026. This is where This is Women's Baseball's recap
+              of the same game goes, and everything behind it is shipped and running: the table
+              is populated nightly, `GameRecapLinkCard` is written and styled, and the source is
+              credited on /wpbl/sources. Only the card on this page is waiting.
+
+              To turn it on: read the recap next to `story` below, and render
+              `<GameRecapLinkCard recap={recap} />` here, stacked under the story card rather
+              than merged with it. They are two independent people who each wrote about this
+              game, and one combined "coverage" block would have to pick a house style for both
+              and put our heading above somebody else's work. */}
         </Box>
 
         {/* Why the game is not moving, when it is not. Directly under the matchup and above the

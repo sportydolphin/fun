@@ -22,7 +22,7 @@ import { supabase } from './lib/supabase'
 import { useSeo } from './seo'
 // Import-free by design, so naming it here does not drag the lazy WPBL chunk into the
 // entry bundle. See the note at the top of that file.
-import { wpblViewFromPath, wpblPlayerSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, wpblAppOwnsPath, WPBL_PATH_EVENT } from './wpbl/routes'
+import { wpblViewFromPath, wpblPlayerSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, wpblAppOwnsPath, WPBL_PATH_EVENT } from './wpbl/routes'
 import { jerseyQuery } from './wpbl/playerSearch'
 import { track, EVENTS } from './lib/analytics'
 import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from './lib/usernames'
@@ -67,6 +67,7 @@ function preloadSection(path: string) {
 const WpblPlayersIndex = lazy(() => import('./wpbl/PlayersIndex'))
 const WpblLeaguePage = lazy(() => import('./wpbl/LeaguePage'))
 const WpblGlossaryPage = lazy(() => import('./wpbl/GlossaryPage'))
+const WpblSourcesPage = lazy(() => import('./wpbl/SourcesPage'))
 const WpblApiDocs = lazy(() => import('./wpbl/ApiDocs'))
 // The owner's dashboard. Its own route rather than a dialog: charts and tables need the
 // room, and it pulls in the analytics RPC layer that nobody else should ever download.
@@ -118,7 +119,8 @@ const isWpblPlayerPage = (p: string) => wpblPlayerSlugFromPath(p) !== null || is
 const rendersWpblApp = wpblAppOwnsPath
 /** Anything that should read as "the reader is in the WPBL section". */
 const isWpblSection = (p: string) =>
-  rendersWpblApp(p) || p === '/wpbl/api' || isWpblLeaguePage(p) || isWpblGlossaryPage(p) || isWpblPlayersIndex(p)
+  rendersWpblApp(p) || p === '/wpbl/api' || isWpblLeaguePage(p) || isWpblGlossaryPage(p)
+  || isWpblSourcesPage(p) || isWpblPlayersIndex(p)
 
 // Brand lockup in the toolbar. The logo is sized to the wordmark's line box so the
 // two read as one unit, and the wordmark is held back until the viewport can show it
@@ -1346,6 +1348,11 @@ function AppInner() {
           {isWpblGlossaryPage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               <WpblGlossaryPage />
+            </Suspense>
+          )}
+          {isWpblSourcesPage(path) && (
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <WpblSourcesPage />
             </Suspense>
           )}
           {rendersWpblApp(path) && (

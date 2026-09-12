@@ -1,0 +1,64 @@
+name: WPBL Recap Links Sync
+
+on:
+  schedule:
+    # Hourly through the window recaps actually land in, plus one catch-up in the afternoon.
+    #
+    # They file the NIGHT OF THE GAME, usually within an hour of the final: measured across the
+    # season their posts land between 02:30 and 05:00 UTC, which is mid-evening to late evening
+    # in Springfield. A once-a-day job would leave every game page without its recap link for the
+    # hours a reader is most likely to be on it, which is the evening the game was played.
+    #
+    # The 13:00 run is for the one that arrives late. One recap of the 33 went up the following
+    # night rather than the same one, and the matcher has a rule for exactly that; this is what
+    # gives that rule a run to fire on.
+    #
+    # NOT season-gated, like the site-calendar job beside it. They write through the offseason,
+    # and a job that reads one RSS feed costs nothing on a day with no games: it matches nothing
+    # new and upserts what it already had.
+    - cron: '0 1-7,13 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Read the feed and print what would be written, without writing it.'
+        required: true
+        default: 'true'
+        type: choice
+        options: ['true', 'false']
+
+# One writer at a time; skip a tick rather than racing two upserts.
+concurrency:
+  group: wpbl-recaps-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Same install trick as the sibling WPBL workflows: pull only what this script imports,
+      # at the version pinned in package.json, rather than the whole frontend. esbuild is here
+      # because the matcher lives in src/wpbl/derive/recaps.ts and is shared with the tests.
+      - name: Install dependencies
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error \
+            $(node -p "const p=require('./package.json');const d={...p.dependencies,...p.devDependencies};['@supabase/supabase-js','pg','esbuild'].map(k=>k+'@'+d[k]).join(' ')")
+
+      - name: Mirror This is Women's Baseball recap links
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DRY_RUN:                   ${{ inputs.dry_run }}
+        # A scheduled run has no `inputs`, so DRY_RUN is empty there and the real sync runs.
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            npm run recaps-sync -- --dry-run
+          else
+            npm run recaps-sync
+          fi

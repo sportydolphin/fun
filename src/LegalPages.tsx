@@ -260,9 +260,12 @@ export function TermsOfService() {
       <H>Accuracy of the data</H>
       <P>
         Statistics and scores come from third-party sources, including the public MLB Stats API
-        and the official WPBL stats feed. The site does its best to present this data faithfully,
-        but it cannot guarantee that everything is correct or up to date. Do not rely on the site
-        for any decision that matters, and never for betting or wagering.
+        and the official WPBL stats feed. Every source behind the WPBL section, what was used from
+        each and on what basis, is listed on the{' '}
+        <Box component="a" href="/wpbl/sources" sx={{ color: 'primary.main', textDecoration: 'none' }}>data sources</Box>{' '}
+        page. The site does its best to present this data faithfully, but it cannot guarantee that
+        everything is correct or up to date. Do not rely on the site for any decision that matters,
+        and never for betting or wagering.
       </P>
 
       <H>Your account</H>

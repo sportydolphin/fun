@@ -153,6 +153,26 @@ export interface WpblVideo {
 }
 
 /**
+ * One independent outlet's recap of one game, held as a LINK.
+ *
+ * This is Women's Baseball write one per WPBL game and gave us permission to link to them
+ * (docs/RECAPS.md). Four fields, and the absence of a fifth is the point: there is nowhere here
+ * to put their prose, because the table it mirrors has no column for it. A headline, their own
+ * title image, the date and the link is what a link looks like.
+ */
+export interface WpblGameRecap {
+  game_id: string
+  url: string
+  title: string
+  /** Their title image, absolute, on their CDN. Rendered straight into an <img src> so the
+   *  bytes stay theirs; pass it through `recapThumb` for the size actually drawn. */
+  cover_url: string | null
+  published_at: string       // ISO timestamp
+  /** Which rule in `matchRecaps` placed this on this game. Diagnostic, never rendered. */
+  matched_by: string
+}
+
+/**
  * One row of the league's own WEBSITE calendar (`wpbl_site_games`), which is a different
  * publication from the stats feed the rest of this file describes.
  *

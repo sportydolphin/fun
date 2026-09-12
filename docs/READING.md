@@ -7,9 +7,10 @@ looked at a box score can go read what someone thought about that game.
 by **mary mustard** ([@dijondarling](https://substack.com/@dijondarling)), a writer and
 amateur ballplayer from Albany. She is not affiliated with us or with the league.
 
-> **Not shipped yet, and it must not ship before she is asked.** The code is built and the
-> table is populated, but the feature is one person's writing on someone else's site. See
-> [Before this goes live](#before-this-goes-live).
+> **She was asked, and she said yes: permission granted Aug 17, 2026.** That was the one gate
+> on this feature (see [Before this goes live](#before-this-goes-live), kept below for the
+> reasoning rather than as an open question). It is live on three surfaces, and it is credited
+> on all of them plus [`/wpbl/sources`](../src/wpbl/SourcesPage.tsx).
 
 ---
 
@@ -206,6 +207,10 @@ A dry run needs no service-role key and writes nothing. A real run refuses to st
 then reject the upsert at the very last step.
 
 ## 7. Before this goes live
+
+> **Answered: she gave permission on Aug 17, 2026.** Kept as written because the reasoning is
+> what should be reused for the next writer, and it was: This is Women's Baseball were asked the
+> same way and said yes on Sep 12, 2026 (see [RECAPS.md](RECAPS.md)).
 
 **Ask her.** A short note saying what we want to do, that every card links straight to her
 post, and that she is credited by name on every surface. A writer with 135 subscribers on a

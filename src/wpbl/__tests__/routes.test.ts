@@ -15,6 +15,9 @@ import { describe, it, expect } from 'vitest'
 import indexHtml from '../../../index.html?raw'
 import redirects from '../../../public/_redirects?raw'
 import footerSource from '../../SiteFooter.tsx?raw'
+// The Terms page's pointer at /wpbl/sources, read as source: the provenance page is only
+// reachable from the pages that promise it exists.
+import legalSource from '../../LegalPages.tsx?raw'
 import sitemap from '../../../public/sitemap.xml?raw'
 import seoSource from '../../seo.ts?raw'
 import fanVoteSource from '../FanVote.tsx?raw'
@@ -25,6 +28,7 @@ import {
   wpblPlayerSlug, wpblPlayerPath, wpblPlayerSlugFromPath, findWpblPlayerBySlug,
   wpblGameSlug, wpblGamePath, wpblGameSlugFromPath, findWpblGameBySlug, isWpblLeaguePage,
   isWpblGlossaryPage,
+  isWpblSourcesPage,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug, teamSlug,
   WPBL_AWARDS_PATH, isWpblAwardsPage,
 } from '../routes'
@@ -535,6 +539,45 @@ describe('/wpbl/glossary, the rules page', () => {
   it('declares FAQPage structured data built from the rules themselves', () => {
     expect(seoSource).toContain("'@type': 'FAQPage'")
     expect(seoSource).toContain('WPBL_RULES.map')
+  })
+})
+
+describe('/wpbl/sources, the provenance page', () => {
+  it('has a 200 rewrite and a trailing-slash 301 in public/_redirects', () => {
+    expect(redirects).toMatch(/^\/wpbl\/sources\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/sources\/\s+\/wpbl\/sources\s+301\s*$/m)
+  })
+
+  it('has its own title and description in seo.ts', () => {
+    expect(seoSource).toContain("'/wpbl/sources': {")
+    expect(seoSource).toMatch(/'\/wpbl\/sources':\s*\{[^}]*title:/)
+  })
+
+  it('is in the sitemap', () => {
+    expect(sitemap).toContain('<loc>https://sportydolphin.fun/wpbl/sources</loc>')
+  })
+
+  it('is recognised as itself and not as a tab', () => {
+    expect(isWpblSourcesPage('/wpbl/sources')).toBe(true)
+    expect(isWpblSourcesPage('/wpbl/sources/')).toBe(true)
+    expect(isWpblSourcesPage('/wpbl/source')).toBe(false)
+    expect(isWpblSourcesPage('/wpbl/sources/extra')).toBe(false)
+    expect(wpblViewFromPath('/wpbl/sources')).toBeNull()
+    expect(wpblAppOwnsPath('/wpbl/sources')).toBe(false)
+  })
+
+  // No nav pill by design, so the footer is the only way in and the only link a crawler can
+  // follow. It matters more here than on the other two: this page's whole job is to be a URL
+  // somebody else can cite, and an orphaned one is worth nothing.
+  it('is linked from the site footer', () => {
+    expect(footerSource).toContain('WPBL_SOURCES_PAGE')
+  })
+
+  // The Terms page used to be the only place naming any of this, in one sentence, as a legal
+  // disclaimer. It still carries the accuracy statement it has to, and now points here for the
+  // detail; if that pointer goes, the provenance is orphaned from the page that promises it.
+  it('is what the Terms page points at for provenance', () => {
+    expect(legalSource).toContain('/wpbl/sources')
   })
 })
 

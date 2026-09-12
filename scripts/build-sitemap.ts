@@ -48,6 +48,9 @@ const STATIC: Entry[] = [
   // Yearly, and that is the point of it: the rules do not move with the season, so this is
   // one of the two pages here still worth serving in February.
   { loc: '/wpbl/glossary', changefreq: 'yearly', priority: '0.7' },
+  // Yearly for the same reason as the glossary, and low priority on purpose: this page is not
+  // trying to rank, it is trying to be citable. It changes when a source is added.
+  { loc: '/wpbl/sources', changefreq: 'yearly', priority: '0.4' },
   { loc: '/wpbl/api', changefreq: 'weekly', priority: '0.5' },
   // DAILY WHILE THE BALLOT IS OPEN. It was deliberately absent for its first day, when the page
   // rendered for one signed-in account and telling Google about it would have indexed an empty

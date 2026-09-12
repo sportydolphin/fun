@@ -2,7 +2,8 @@ import { useCallback, useMemo, useState } from 'react'
 import { Box, Typography } from '@mui/material'
 import { ModalShell, TeamBadge, CARD_BORDER, useRailPaging, RailArrow, RailScroller, chromePx, hoverOnly } from './ui'
 import { readMinutes, authorPhoto, AUTHOR_BIO, AUTHOR_NAME, PUBLICATION_NAME, PUBLICATION_URL } from './derive/articles'
-import type { WpblArticle, WpblTeam } from './types'
+import { recapThumb, PUBLICATION_NAME as RECAP_PUBLICATION } from './derive/recaps'
+import type { WpblArticle, WpblGameRecap, WpblTeam } from './types'
 import { track, EVENTS } from '../lib/analytics'
 
 // The WPBL reading surface: a mirror of an independent writer's coverage of the league,
@@ -400,7 +401,7 @@ export function GameStoryCard({ article }: { article: WpblArticle }) {
       </Box>
       <Box sx={{ minWidth: 0 }}>
         <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.secondary' }}>
-          Read the story
+          Story
         </Typography>
         <Typography sx={{
           fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.3, mt: 0.25,
@@ -410,6 +411,78 @@ export function GameStoryCard({ article }: { article: WpblArticle }) {
         </Typography>
         <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.25 }}>
           {AUTHOR_NAME} · {readLabel(article)} ↗
+        </Typography>
+      </Box>
+    </Box>
+  )
+}
+
+/**
+ * The recap link on a game, from This is Women's Baseball.
+ *
+ * A SECOND SOURCE, AND DELIBERATELY THE SAME SHAPE as `GameStoryCard` directly above it. They
+ * are two independent people writing about the same game and there is no reason a reader should
+ * have to learn two layouts to tell that; what has to differ is whose name is on it, which is
+ * why the credit is the loudest thing on the card after the headline.
+ *
+ * THE PICTURE IS THEIRS AND STAYS THEIRS. `cover_url` points at their own CDN and is rendered
+ * straight into an `<img src>`, so the bytes are served by them every time: this embeds their
+ * title card, it does not keep a copy of it. `recapThumb` asks that CDN for the width actually
+ * drawn, which is 248 KB down to 18 KB and is the only reason a thumbnail on a game page is
+ * affordable at all.
+ *
+ * NO DEK, on purpose. Their feed offers the lede and these recaps are short enough that the lede
+ * is close to half the article, so the card carries a headline and a link and nothing that could
+ * stand in for reading it. See docs/RECAPS.md.
+ */
+export function GameRecapLinkCard({ recap }: { recap: WpblGameRecap }) {
+  const thumb = recapThumb(recap.cover_url, 320)
+  return (
+    <Box
+      component="a"
+      href={recap.url}
+      {...linkProps}
+      onClick={() => track(EVENTS.WPBL_RECAP_OPENED, { gameId: recap.game_id, url: recap.url })}
+      aria-label={`Read the recap by ${RECAP_PUBLICATION}: ${recap.title}, opens in a new tab`}
+      sx={{
+        display: 'flex', alignItems: 'center', gap: 1.25, textDecoration: 'none', color: 'inherit',
+        p: 1, borderRadius: 2, border: '1px solid', borderColor: CARD_BORDER, bgcolor: 'background.paper',
+        transition: 'border-color 0.15s, background 0.15s',
+        ...hoverOnly({ borderColor: 'text.disabled', bgcolor: 'action.hover' }),
+        '&:active': { transform: 'scale(0.99)' },
+        '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
+      }}
+    >
+      <Box sx={{
+        position: 'relative', width: chromePx(108), flexShrink: 0, aspectRatio: '16 / 9',
+        borderRadius: 1.5, overflow: 'hidden', bgcolor: 'action.hover',
+      }}>
+        {thumb && (
+          <Box component="img" src={thumb} alt="" loading="lazy"
+            sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        )}
+      </Box>
+      <Box sx={{ minWidth: 0 }}>
+        {/* A LABEL, NOT AN INSTRUCTION. It names the block so a reader can scan past it; the
+            verb lives in the link's accessible name above, where it describes a destination.
+            Its sibling `GameStoryCard` says "Story" for the same reason: the two sit one above
+            the other and a reader should be able to tell them apart at a glance rather than by
+            reading two near-identical sentences. */}
+        <Typography sx={{ fontSize: '0.7rem', fontWeight: 800, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.secondary' }}>
+          Recap
+        </Typography>
+        <Typography sx={{
+          fontSize: '0.82rem', fontWeight: 600, lineHeight: 1.3, mt: 0.25,
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+        }}>
+          {recap.title}
+        </Typography>
+        {/* THEIR NAME, NOT OURS, and it is the whole reason this line exists. A headline and a
+            thumbnail inside our chrome reads as our reporting unless something says otherwise;
+            the Reading rail learned that on Aug 26, 2026 when readers came away thinking the
+            Substack writer ran this site. So the publication is named in full on every card. */}
+        <Typography sx={{ fontSize: '0.68rem', color: 'text.disabled', mt: 0.25 }}>
+          {RECAP_PUBLICATION} · {dateLabel(recap.published_at)} ↗
         </Typography>
       </Box>
     </Box>

@@ -105,6 +105,15 @@ const ROUTES: Record<string, Seo> = {
   // not answer anywhere public: how a pitcher earns a win. Searched for, and currently
   // unanswerable — the title leads with "rules" rather than "glossary" because that is the
   // half people type. Durable, too: it is as true in February as in September.
+  // Provenance, and the one page here whose job is to be LINKED rather than found: it is what
+  // an independent writer or transcriber is handed when asked to link back. Indexable all the
+  // same, because "where does sportydolphin.fun get its data" is a fair question to type and
+  // this is the answer. Durable like the glossary: true in February.
+  '/wpbl/sources': {
+    title: "Where the WPBL data comes from | sportydolphin.fun",
+    description:
+      "Every source behind this site's Women's Pro Baseball League coverage: the league's own feed and calendar, the independent writers and transcribers it links to, and what was used from each.",
+  },
   '/wpbl/glossary': {
     title: "WPBL Rules & Stats Glossary | sportydolphin.fun",
     description:

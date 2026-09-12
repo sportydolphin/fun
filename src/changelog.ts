@@ -4,6 +4,21 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.82.0',
+    date:    '2026-09-12',
+    title:   'Somebody else’s account of the same game',
+    changes: [
+      {
+        short: 'A page saying where every part of this site came from',
+        full:  'Almost nothing here is original reporting: the numbers are the league’s, and the writing about the games belongs to the people who wrote it. Until now the only place that said so in one go was the Terms page, which nobody reads and which framed it as a legal disclaimer rather than as thanks. There is a page for it now, linked from the footer: every source, what was used from it, where it shows up, and on what basis, including the three whose work is used by their permission alone. It is a credits page, not a directory: everything on it is something the site genuinely uses.',
+      },
+      {
+        short: 'Every finished game links to This is Women’s Baseball’s recap of it',
+        full:  'This is Women’s Baseball is an independently run site that writes one recap of every WPBL game, and they have given permission for us to link to them. A finished game now carries their headline, their own title picture and their name, going straight to their page in a new tab. It is a link and only a link: none of their writing is stored or shown here, and the picture is served from their site rather than copied to ours. All 33 games of the season so far have one.',
+      },
+    ],
+  },
+  {
     version: '1.81.0',
     date:    '2026-09-11',
     title:   'The situation after every play, and who was throwing',

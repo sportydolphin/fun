@@ -30,6 +30,7 @@ export const EVENTS = {
   // feature: it exists to send readers to her. Worth measuring twice over, because it tells
   // us whether the surfaces earn their space AND it is the number worth telling her.
   WPBL_ARTICLE_OPENED:    'wpbl_article_opened',    // clicked through to a post, props {postId, slug, from, minutes}
+  WPBL_RECAP_OPENED:      'wpbl_recap_opened',      // clicked through to a This is Women's Baseball recap, props {gameId, url}
   WPBL_READING_SHOWN:     'wpbl_reading_shown',     // Reading became the shelf's visible segment, props {count, collapsed}
   WPBL_READING_ARCHIVE:   'wpbl_reading_archive',   // opened the full archive from the strip's "All N" link
   // RETIRED when the three rails folded into one shelf. Kept so the rows already in

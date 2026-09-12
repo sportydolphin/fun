@@ -363,6 +363,23 @@ export const WPBL_GLOSSARY_PAGE = `${WPBL_BASE}/glossary`
 export const isWpblGlossaryPage = (pathname: string) =>
   pathname.replace(/\/+$/, '') === WPBL_GLOSSARY_PAGE
 
+// ─── The sources page ─────────────────────────────────────────────────────────
+//
+// A third sibling, on the same reasoning as the glossary one above. Credit already sits beside
+// the content that uses it, which is what stops a reader mistaking somebody else's work for
+// ours; what did not exist was a URL answering "where does this come from" for all of it at
+// once, and the only place naming any of it together was the Terms page.
+//
+// ITS OWN PATH BECAUSE ITS JOB IS TO BE CITED. This is the page to hand an independent writer
+// or transcriber when asking them to link back (docs/BACKLINKS.md: inbound links are the site's
+// remaining constraint), and an anchor inside somebody else's page is not a thing you send.
+//
+// No nav pill, same as the other two: the footer is the crawl path that has actually worked.
+export const WPBL_SOURCES_PAGE = `${WPBL_BASE}/sources`
+
+export const isWpblSourcesPage = (pathname: string) =>
+  pathname.replace(/\/+$/, '') === WPBL_SOURCES_PAGE
+
 /**
  * Fired by WpblApp after it pushes a history entry, so the shell can re-read the path.
  *

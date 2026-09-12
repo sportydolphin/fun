@@ -1084,6 +1084,85 @@ is retired.
 
 ## Shipped log
 
+### Sep 12, 2026: one page saying where all of it came from
+
+**`/wpbl/sources`.** Seven sources, each with what was taken, where it renders, and the basis for
+using it. Prompted by the count: the section now leans on the league's feed, the league's
+calendar, the league's YouTube, two independent writers, an independent transcriber and Wikimedia
+Commons, and nothing named them together.
+
+**CREDIT WAS ALREADY BESIDE THE CONTENT, AND THAT IS NOT THE SAME JOB.** RetroWPBL is credited
+twice inside Game Center, the two writers on their own cards, Commons in the gallery. That is
+what stops a reader mistaking somebody else's work for ours, and the Aug 26 lesson says it has to
+stay exactly where it is. What did not exist was a URL answering "where does this site's data come
+from" for all of it at once. The only place naming any of it together was **the Terms page**,
+which is the worst home there is: nobody reads it, and it frames credit as a disclaimer.
+
+**ITS REAL JOB IS TO BE CITED.** docs/BACKLINKS.md has said for a month that the constraint is not
+code, it is inbound links. Four independent parties are linked from here, two of them by
+permission alone. "We link to you from every game page and from our sources page" is a different
+email from "please link to us", and this is the URL that sentence needs. That is also why it is a
+sibling path rather than a section of `/wpbl/league`: an anchor inside someone else's page is not
+a thing you send.
+
+**A CREDITS PAGE AND NOT A LINKS PAGE**, which is the one way this could go wrong. Every entry is
+something the site actually uses. The day it grows an "other sites you might like" section it
+becomes a link farm and stops being worth linking to.
+
+**`basis` IS A REQUIRED FIELD.** Three of the seven are somebody's own work used by permission
+with a date (mary mustard Aug 17, RetroWPBL Aug 21, This is Women's Baseball Sep 12), and none of
+them had to say yes. That is the sort of fact that decays into folklore unless it is written where
+it renders. A test asserts every entry says something there, and checks those three for the word
+and the year.
+
+**Terms keeps the accuracy statement it has to have and points here for the detail**, pinned by an
+assertion, so the provenance cannot be orphaned from the page that promises it exists.
+
+### Sep 12, 2026: a second outlet's recap on every game page
+
+**THIS IS WOMEN'S BASEBALL FILE ONE RECAP PER GAME, AND THEY SAID YES.** A finished game now
+carries their headline, their title card and their name, linking out. Permission is recorded in
+ARCHITECTURE §8 with the date; their site is All Rights Reserved, so that permission is the whole
+basis for it, and the reasoning lives in [docs/RECAPS.md](docs/RECAPS.md).
+
+**LINKS ONLY, AND THE SCHEMA IS WHAT ENFORCES IT.** `wpbl_recaps` has no body column and no dek
+column. The same rule READING.md sets for the Substack mirror, with one real difference: that
+feed's `description` is a dek on a 1,200-word essay, and this one's is the lede of a 180-word
+recap, which is close to half of it. So these cards carry no dek at all. `parseRecapFeed` does not
+carry their prose out of the parser, and a test pins that.
+
+**THE PICTURE IS EMBEDDED, NEVER COPIED.** `cover_url` points at their CDN and goes into an
+`<img src>`, so the bytes are theirs on every view. `recapThumb` asks that CDN for the width drawn,
+which is the only reason a thumbnail per game is affordable: 248 KB at source, 18 KB at `rs=w:320`.
+It refuses to touch a URL that is not on their image host, since appending transform parameters to
+an arbitrary string out of a database is how you "resize" somebody's tracking pixel.
+
+**WHICH GAME A HEADLINE IS ABOUT WAS THE WHOLE JOB.** Their posts carry no game id and no date but
+a publication time, and the headline is written for a reader. 33 of 33 games placed, nothing
+ambiguous, every recap-era post claimed exactly once.
+
+**TWO PHASES, AND THE ORDER IS THE DESIGN.** Every tight same-night match is made first, across all
+games, before anything reaches into the following night. A draft that instead widened the window to
+a day either side for every game at once scored WORSE than the tight rule alone, 31 of 33 down to
+23, because a recap posted the next night competes with the game that night actually had. Phase two
+only ever sees a game nothing claimed and a post nothing claimed, and demands both clubs AND the
+exact score.
+
+**Two rules exist because a weaker one failed.** "The club named played exactly one game that day"
+replaced "only one game was played that day": they agree on a quiet night, and the weaker one gives
+up on a two-game night where each club still played once, which cost the Aug 8 Boston game. And a
+headline naming a player and no club at all is placed only on a single-game night, which is how
+Aug 5's grand-slam headline lands.
+
+**The bias is towards saying nothing**, as `derive/articles.ts` puts it for the other source. An
+unmatched game shows no card; a recap of somebody else's game under this one is the mistake a
+reader does not forgive. The sync reports what it could not place and never guesses.
+
+**Their feed is a 50-item window** that ignores `?page=`, `?limit=` and `?offset=` alike, so the
+sync upserts and never deletes: a job reconciling by removing what it can no longer see would take
+the back catalogue with it the day that window closes over August. `sitemap.blog.xml` lists all 58
+posts and is the written-down answer for that day; nothing reads it yet.
+
 ### Sep 11, 2026: the situation after every play, and a pitcher who had already left
 
 **THE PLAY-BY-PLAY DRAWS THE BASE-OUT STATE EACH PLAY LEFT BEHIND**, as the same `BaseDiamond` the
