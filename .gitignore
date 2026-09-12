@@ -26,3 +26,6 @@ giveaway-data/
 # substitute that reads SUPABASE_DB_URL out of .env; it holds no secret itself, but nothing
 # named .tmp-* is meant to be part of the repo, and `git add -A` will take it otherwise.
 .tmp-*
+
+# Wrangler pulls secrets from here for `wrangler pages dev`. Same rule as .env.
+.dev.vars

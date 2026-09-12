@@ -590,8 +590,12 @@ function StandingsView({ teams, games, onOpenTeam }: {
         It also has to be honest by construction rather than by care: `asOf` is null whenever
         the table is showing the last column, so the two cannot disagree about whether this is
         today's table. */}
+    {/* Pulled DOWN to the table, not up to the heading: this line is the table's caption, so
+        the column `gap` belongs above it (under the h1) and not below it. `mb` eats half the
+        gap to the table; on a phone the h1 is hidden, so this is the first thing drawn and the
+        column gap above it is simply gone. */}
     <Typography aria-live="polite" sx={{
-      mt: -1, fontSize: '0.72rem', fontWeight: asOf ? 800 : 600, textAlign: 'right',
+      mb: -1.25, fontSize: '0.72rem', fontWeight: asOf ? 800 : 600, textAlign: 'left',
       color: asOf ? 'var(--wpbl-accent-fg)' : 'text.disabled',
       fontVariantNumeric: 'tabular-nums',
     }}>

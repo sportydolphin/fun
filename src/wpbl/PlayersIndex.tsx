@@ -16,7 +16,7 @@ import { Box, Typography, CircularProgress } from '@mui/material'
 import { fetchWpblTeams, fetchWpblAllPlayers } from './api'
 import { wpblFullName } from './constants'
 import { TeamBadge, CARD_BORDER, TAPPABLE, hoverOnly } from './ui'
-import { wpblPlayerPath } from './routes'
+import { wpblPlayerPath, WPBL_COMPARE_BASE } from './routes'
 import type { WpblTeam, WpblPlayer } from './types'
 
 export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: string) => void }) {
@@ -79,9 +79,24 @@ export default function WpblPlayersIndex({ onNavigate }: { onNavigate: (to: stri
       <Typography component="h1" sx={{ fontSize: '1.5rem', fontWeight: 800, mb: 0.5 }}>
         WPBL Players
       </Typography>
-      <Typography sx={{ color: 'text.secondary', fontSize: '0.9rem', mb: 3 }}>
+      <Typography sx={{ color: 'text.secondary', fontSize: '0.9rem', mb: 1 }}>
         Every player in the Women&rsquo;s Pro Baseball League, by club. {players.length} in all.
       </Typography>
+      {/* THE ONE LINK ON THE SECTION TO THE COMPARISON PAGES, alongside the chip on a player's
+          own card. They are deliberately out of the sitemap (see WPBL_COMPARE_BASE), so being
+          linked is the whole of how they are found, and this is the page a crawler already
+          reaches: it is the roster hub and it is linked from the footer. Deliberately NOT a
+          fifth footer link — four is what fits a phone on one line. */}
+      <Box
+        component="a"
+        href={WPBL_COMPARE_BASE}
+        onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate(WPBL_COMPARE_BASE) } }}
+        sx={{
+          display: 'inline-block', mb: 3, fontSize: '0.85rem', fontWeight: 700,
+          color: 'primary.main', textDecoration: 'none',
+          ...hoverOnly({ textDecoration: 'underline' }),
+        }}
+      >Compare two players →</Box>
 
       {groups.length === 0 && (
         <Typography sx={{ color: 'text.secondary' }}>

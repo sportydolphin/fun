@@ -1,5 +1,5 @@
 import { countsInStandings } from '../season.ts'
-import type { WpblFirstsPlay, WpblGame } from '../types'
+import type { WpblGamePlay, WpblGame } from '../types'
 
 // Matchup derivations — batter-vs-pitcher lines and team-vs-team head-to-head. Pure:
 // arrays in, plain shapes out (no supabase / React), mirroring stats.ts and firsts.ts.
@@ -7,7 +7,7 @@ import type { WpblFirstsPlay, WpblGame } from '../types'
 // The one judgement call — "what counts as a plate appearance" — lives in classifyPa() so
 // every consumer (and any future producer: RISP, two-strike, player-of-the-game) agrees on
 // it instead of re-deriving it. It reads only a play's event_type + narrative, exactly the
-// fields the slim WpblFirstsPlay projection already ships.
+// fields `WpblMatchupPlay` below names.
 
 // A plate-appearance outcome distilled from one play. null = the play is NOT a plate
 // appearance (a steal, wild pitch, pickoff, substitution — mid-PA or between-PA noise).
@@ -20,7 +20,7 @@ const NON_AB_EVENTS = new Set(['walk', 'hit_by_pitch', 'sacrifice']) // a PA, bu
 // PAs ("reached first on an error"); match that phrasing so they count as an at-bat out.
 const REACHED_ON_ERROR = /reached\b.*\b(error|fielder'?s choice)\b/i
 
-export function classifyPa(play: Pick<WpblFirstsPlay, 'event_type' | 'narrative'>): PaOutcome | null {
+export function classifyPa(play: Pick<WpblMatchupPlay, 'event_type' | 'narrative'>): PaOutcome | null {
   const et = play.event_type ?? ''
   if (HIT_EVENTS.has(et))    return { ab: 1, h: 1, hr: et === 'home_run' ? 1 : 0, xbh: et === 'single' ? 0 : 1, bb: 0, so: 0 }
   if (OUT_EVENTS.has(et))    return { ab: 1, h: 0, hr: 0, xbh: 0, bb: 0, so: et === 'strikeout' ? 1 : 0 }
@@ -28,6 +28,24 @@ export function classifyPa(play: Pick<WpblFirstsPlay, 'event_type' | 'narrative'
   if (et === 'unknown' && REACHED_ON_ERROR.test(play.narrative ?? '')) return { ab: 1, h: 0, hr: 0, xbh: 0, bb: 0, so: 0 }
   return null
 }
+
+/**
+ * The columns a batter-versus-pitcher line reads, and no more.
+ *
+ * DELIBERATELY NOT `WpblFirstsPlay`, which is what this took until the compare page became its
+ * first consumer. That type names the projection behind `fetchWpblAllPlays`, and that read
+ * drops routine outs AT THE DATABASE because none of them can set a milestone. Feed it here
+ * and every hitter in the league bats about .650: the outs are most of the denominator and
+ * none of them arrive, with no error and nothing short about the array to notice. The only
+ * league-wide read that belongs here is the unfiltered one, `fetchWpblAllRunValuePlays`.
+ *
+ * A structural type cannot enforce that, since the filtered read satisfies it too. Naming it
+ * something other than the wrong read's own type is what the type CAN do.
+ */
+export type WpblMatchupPlay = Pick<WpblGamePlay,
+  | 'game_id' | 'batter_id' | 'batter_name' | 'pitcher_id' | 'pitcher_name'
+  | 'event_type' | 'narrative'
+>
 
 export interface WpblMatchupLine {
   batterId: string | null; batterName: string
@@ -46,7 +64,7 @@ export interface WpblMatchupLine {
 //
 // minPa is 3, not 4, on purpose: at 4+ the pool collapses to the one or two pitchers with the
 // most innings, so the board reads as "everyone vs Pitcher X." Three widens it to ~10 pitchers.
-export function batterPitcherMatchups(plays: WpblFirstsPlay[], minPa = 3): WpblMatchupLine[] {
+export function batterPitcherMatchups(plays: WpblMatchupPlay[], minPa = 3): WpblMatchupLine[] {
   const acc = new Map<string, WpblMatchupLine>()
   for (const p of plays) {
     if (!p.batter_name || !p.pitcher_name) continue

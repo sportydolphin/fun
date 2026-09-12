@@ -4,6 +4,29 @@ import type { ChangelogEntry } from './version'
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.83.0',
+    date:    '2026-09-12',
+    title:   'Put any two players side by side',
+    changes: [
+      {
+        short: 'Compare any two WPBL players on one page',
+        full:  'Pick two players and see their seasons next to each other: batting, pitching, how much each of them has actually played, and whoever is ahead on each line. Every player’s card has a Compare button, and there is a list to pick from at the top of the players page. Each comparison has its own address, so you can send somebody the argument rather than describing it.',
+      },
+      {
+        short: 'It says what happened the times the two of them faced each other',
+        full:  'Four clubs means a hitter sees the same pitcher ten or fifteen times in a season, which is a real record rather than the four at-bats the same thing gives you in the majors. A hitter and a pitcher compared here get their own line: how many times she has come up against her, and what she did. Kelsie Whitmore is 2-for-5 against Ayami Sato with two home runs.',
+      },
+      {
+        short: 'A possible game 3 shows on the scoreboard',
+        full:  'The strip at the top of the home page skipped any postseason game that might not be played, so on the day a semifinal was level it ran tonight’s game and then jumped a week to the championship, with the game that tonight would decide the existence of nowhere on the page. It is there now, with an asterisk, and it disappears the moment a series is won and it is not going to happen. The strip also opens on the next game properly now: on a phone it starts level with the left edge of the cards under it, instead of a little way in behind a soft fade. The fades at both ends are gone with it, so a game running off the edge is cut at the same line every card on the page ends at.',
+      },
+      {
+        short: 'It will not tell you who won',
+        full:  'There is no overall score and no verdict. Each line says who is ahead on that one number, how much each of them has played is the first thing on every card rather than buried under the rates, and where somebody has not played enough for a rate to mean much the page says so instead of quietly leaving her out.',
+      },
+    ],
+  },
+  {
     version: '1.82.0',
     date:    '2026-09-12',
     title:   'Somebody else’s account of the same game',

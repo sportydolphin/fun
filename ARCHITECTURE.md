@@ -104,6 +104,7 @@ flowchart LR
         wleague["/wpbl/league<br/>LeaguePage.tsx + MediaShelf"]
         wgloss["/wpbl/glossary<br/>GlossaryPage.tsx + glossary.ts"]
         wsrc["/wpbl/sources<br/>SourcesPage.tsx + sources.ts"]
+        wcmp["/wpbl/compare<br/>+ /wpbl/compare/&lt;a&gt;-vs-&lt;b&gt;"]
         wgames["/wpbl/games/&lt;date&gt;-&lt;away&gt;-at-&lt;home&gt;"]
         api["/wpbl/api<br/>wpbl/ApiDocs.tsx"]
     end
@@ -149,13 +150,26 @@ flowchart LR
   [`src/seo.ts`](src/seo.ts), `public/_redirects` (both blocks) and the `Route` union in
   `App.tsx`; [`src/wpbl/__tests__/routes.test.ts`](src/wpbl/__tests__/routes.test.ts) pins
   them together because three of the four failures are invisible under `npm run dev`.
+- **Comparison pages** (`/wpbl/compare`, [`src/wpbl/Compare.tsx`](src/wpbl/Compare.tsx) +
+  [`src/wpbl/derive/compare.ts`](src/wpbl/derive/compare.ts)): any two players side by side,
+  with the pair in the PATH (`/wpbl/compare/denae-benites-vs-molly-paddison`) and the two
+  slugs forced into alphabetical order, the reverse spelling 301'd at the edge, so a
+  comparison is one URL rather than two near-duplicates. The head-to-head card is the part
+  no one else covering this league can show: four clubs means a hitter sees the same pitcher
+  ten to fifteen times a season. **Deliberately out of the sitemap** — 118 players is 6,903
+  pairs, and submitting those would bury the ~125 URLs somebody actually wrote under
+  machine-made pages, which is what a doorway page is. Found by being linked instead: the
+  players index and the chip on each player's own card, both real anchors. Three route
+  shapes, one component: the picker, the picker with one slot filled (`noindex`, a state
+  rather than a page), and the pair. Reuses every read the section already caches, so it
+  costs a reader arriving from anywhere in the section nothing
 - **The WPBL derive layer** ([`src/wpbl/derive/`](src/wpbl/derive)) is pure: arrays in, plain
   shapes out, no supabase and no React, so the same code serves the site, the Discord posters
   and the Deno ingest. `playByPlay` (parse a play, `runsOnPlay`), `runExpectancy` (the league's
   own run-expectancy table and what each play was worth) and `winProbability` built on it,
   `recap` / `discordRecap` / `blueskyRecap` / `discordBirthdays`, `predictions`, `trivia`,
   `bracket`, `seeding`, `series` / `seriesOdds`, `pitches`, `pitchingUsage`, `lineupGrid`,
-  `matchups`, `mvpRace`, `teamSpec`, `hometowns`, `articles`, `feedHealth`. **`firsts` is not in
+  `matchups`, `compare`, `mvpRace`, `teamSpec`, `hometowns`, `articles`, `feedHealth`. **`firsts` is not in
   this folder**: the Hall of Firsts lives at [`src/wpbl/firsts.ts`](src/wpbl/firsts.ts).
 - **Settings** ([`src/SettingsDialog.tsx`](src/SettingsDialog.tsx)) is split by league, with
   a WPBL / MLB switch seeded from the section the reader came from, so a WPBL-only visitor

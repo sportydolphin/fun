@@ -12,6 +12,7 @@ import { isInsideDeviceFrame } from './mlb/dev/devDevice'
 import { AuthProvider, useAuth } from './AuthContext'
 import { UnitsProvider } from './UnitsContext'
 import { EraBasisProvider } from './wpbl/EraBasisContext'
+import { navigate, linkTo, UNSTYLED_LINK } from './nav'
 import { ExperimentsProvider } from './ExperimentsContext'
 import { AccessibilityProvider } from './AccessibilityContext'
 import { PENDING_USERNAME_PREFIX } from './AuthContext'
@@ -22,7 +23,7 @@ import { supabase } from './lib/supabase'
 import { useSeo } from './seo'
 // Import-free by design, so naming it here does not drag the lazy WPBL chunk into the
 // entry bundle. See the note at the top of that file.
-import { wpblViewFromPath, wpblPlayerSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, wpblAppOwnsPath, WPBL_PATH_EVENT } from './wpbl/routes'
+import { wpblViewFromPath, wpblPlayerSlugFromPath, isWpblPlayersIndex, isWpblLeaguePage, isWpblGlossaryPage, isWpblSourcesPage, isWpblComparePage, wpblAppOwnsPath, WPBL_PATH_EVENT } from './wpbl/routes'
 import { jerseyQuery } from './wpbl/playerSearch'
 import { track, EVENTS } from './lib/analytics'
 import { usernameValidationMsg, isUsernameTaken, generateUniqueUsername } from './lib/usernames'
@@ -68,6 +69,7 @@ const WpblPlayersIndex = lazy(() => import('./wpbl/PlayersIndex'))
 const WpblLeaguePage = lazy(() => import('./wpbl/LeaguePage'))
 const WpblGlossaryPage = lazy(() => import('./wpbl/GlossaryPage'))
 const WpblSourcesPage = lazy(() => import('./wpbl/SourcesPage'))
+const WpblComparePage = lazy(() => import('./wpbl/Compare'))
 const WpblApiDocs = lazy(() => import('./wpbl/ApiDocs'))
 // The owner's dashboard. Its own route rather than a dialog: charts and tables need the
 // room, and it pulls in the analytics RPC layer that nobody else should ever download.
@@ -120,7 +122,7 @@ const rendersWpblApp = wpblAppOwnsPath
 /** Anything that should read as "the reader is in the WPBL section". */
 const isWpblSection = (p: string) =>
   rendersWpblApp(p) || p === '/wpbl/api' || isWpblLeaguePage(p) || isWpblGlossaryPage(p)
-  || isWpblSourcesPage(p) || isWpblPlayersIndex(p)
+  || isWpblSourcesPage(p) || isWpblPlayersIndex(p) || isWpblComparePage(p)
 
 // Brand lockup in the toolbar. The logo is sized to the wordmark's line box so the
 // two read as one unit, and the wordmark is held back until the viewport can show it
@@ -145,36 +147,6 @@ const BRAND_WORDMARK_MIN = 960
 export const WPBL_DESKTOP_SCALE = 1.25
 const BRAND_WORDMARK_MIN_SCALED = Math.ceil(BRAND_WORDMARK_MIN * WPBL_DESKTOP_SCALE)
 
-function navigate(to: string) {
-  window.history.pushState({}, '', to)
-  window.dispatchEvent(new PopStateEvent('popstate'))
-}
-
-// Props that turn any Box/Typography into a real in-app link.
-//
-// Every internal navigation MUST render an <a href>. Googlebot does not fire onClick
-// handlers, so a Box with only an onClick is invisible to a crawler: that is why /mlb
-// went undiscovered for months while /privacy and /terms, which the footer links with
-// real anchors, were found. The href is what a crawler follows; preventDefault is what
-// keeps the SPA from doing a full page load.
-//
-// Modified clicks (cmd/ctrl/shift/alt, middle button) fall through to the browser
-// untouched, so open-in-new-tab works the way it does on every other site.
-function linkTo(to: string) {
-  return {
-    component: 'a' as const,
-    href: to,
-    onClick: (e: React.MouseEvent) => {
-      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
-      e.preventDefault()
-      navigate(to)
-    },
-  }
-}
-
-// Anchors carry a browser default underline and link colour; the site's controls set
-// their own. Spread alongside linkTo() on anything that should not look like body text.
-const UNSTYLED_LINK = { textDecoration: 'none', color: 'inherit' } as const
 
 // A one-shot confetti pop, fired when you flip the league switch to WPBL — a small nod to
 // the section's playful side. Purely cosmetic: self-contained CSS, no library, `pointer-
@@ -706,6 +678,11 @@ function AppInner() {
     <Box {...linkTo('/mlb')} sx={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 2, cursor: 'pointer', color: 'text.secondary', fontSize: '0.85rem', fontWeight: 600, userSelect: 'none', transition: 'color 0.15s', '&:hover': { color: 'text.primary' } }}>← Back</Box>
   )
 
+  // The section the brand lockup returns to. A reader in WPBL who clicks the logo means "home",
+  // and home is /wpbl for them; everywhere else it stays /mlb, which is where the brand link has
+  // always pointed and the one place non-section pages have a real link back into an app.
+  const brandHome = isWpblSection(path) ? '/wpbl' : '/mlb'
+
   return (
     // Plain root. The desktop scale moved down to the content box below the toolbar; the
     // note there says why.
@@ -791,10 +768,14 @@ function AppInner() {
                 it off the text baseline, so the flex row centers the mark against the
                 wordmark's line box rather than hanging it from the baseline. Always
                 shown: it is the brand at every width the wordmark drops out of. */}
-            {/* Wrapped in an anchor rather than given an onClick: an <img> cannot carry an
-                href, and this is one of only two doors to /mlb. */}
+            {/* THE BRAND GOES TO THE CURRENT SECTION'S HOME, not always to /mlb. Clicking the
+                lockup from a WPBL page dropped the reader into MLB, which is a section switch
+                dressed as a home button. /mlb stays crawlable without this link: the league
+                switch segments below and the footer both carry a real <a href="/mlb">.
+                Wrapped in an anchor rather than given an onClick because an <img> cannot carry
+                an href. */}
             <Box
-              {...linkTo('/mlb')}
+              {...linkTo(brandHome)}
               sx={{ ...UNSTYLED_LINK, display: 'flex', alignItems: 'center', flexShrink: 0 }}
             >
               <Box
@@ -822,7 +803,7 @@ function AppInner() {
                 webfont is still loading and a wider fallback is being measured. */}
             <Typography
               variant="h6"
-              {...linkTo('/mlb')}
+              {...linkTo(brandHome)}
               sx={{
                 ...UNSTYLED_LINK,
                 minWidth: 0, fontWeight: 700, cursor: 'pointer', userSelect: 'none',
@@ -1353,6 +1334,11 @@ function AppInner() {
           {isWpblSourcesPage(path) && (
             <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
               <WpblSourcesPage onNavigate={navigate} />
+            </Suspense>
+          )}
+          {isWpblComparePage(path) && (
+            <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>}>
+              <WpblComparePage path={path} onNavigate={navigate} />
             </Suspense>
           )}
           {rendersWpblApp(path) && (

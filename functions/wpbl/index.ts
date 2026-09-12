@@ -28,6 +28,7 @@ import { settleGames } from '../../src/wpbl/gameOver'
 import {
   wpblPlayerSlug, wpblPlayerSlugFromPath, findWpblPlayerBySlug, type WpblSluggable,
   wpblGameSlug, wpblGameSlugFromPath, findWpblGameBySlug,
+  wpblCompareSlugFromPath, findWpblComparePair, wpblComparePath, WPBL_COMPARE_BASE,
 } from '../../src/wpbl/routes'
 import { wpblGameCard, type WpblCardGame, type WpblCardTeam } from '../../src/wpbl/ogCard'
 
@@ -130,6 +131,50 @@ export async function onRequestGet(context: Ctx): Promise<Response> {
     const game = findWpblGameBySlug(gameSlug, schedule.games, schedule.teams)
     if (!game) return notFound(context)
     return withGameCard(context, game, schedule)
+  }
+
+  // ── Comparison pages ────────────────────────────────────────────────────────
+  //
+  // /wpbl/compare/<a>-vs-<b>. Two jobs here, and the subtree is routed with a wildcard in
+  // public/_redirects for the same reason the two above are: the valid slugs are the roster
+  // squared and cannot be enumerated in that file.
+  //
+  // FIRST, the same soft-404 guard. Cloudflare's `*` matches across slashes, so without this
+  // every /wpbl/compare/a/b answers 200 with the app shell, and a pair naming nobody is an
+  // indexable page about two players who do not exist. There are 13,000 ways to misspell one
+  // of these URLs and only 6,903 real ones.
+  //
+  // SECOND, the canonical order. A pair has no natural first, so the app sorts the two slugs
+  // and this 301s the other spelling onto that. Left alone every comparison would exist at two
+  // URLs, each looking to a search engine like a near-duplicate of the other and each holding
+  // half the links.
+  const compareSlug = wpblCompareSlugFromPath(url.pathname)
+  if (compareSlug === null && url.pathname.replace(/\/+$/, '').startsWith(`${WPBL_COMPARE_BASE}/`)) {
+    return notFound(context)
+  }
+  if (compareSlug !== null) {
+    let roster: WpblSluggable[]
+    try {
+      roster = await readRoster(env)
+    } catch {
+      // Database unreachable. Same standing rule as everywhere else in this file: a page that
+      // renders beats a 404 on a comparison that is perfectly valid.
+      return next()
+    }
+    const pair = findWpblComparePair(compareSlug, roster)
+    // Not a pair. That is either one player (the picker with a slot filled, which is a real
+    // state and renders) or nobody, which is a 404 like any other slug naming nobody.
+    if (!pair) {
+      if (!findWpblPlayerBySlug(compareSlug, roster)) return notFound(context)
+      return next()
+    }
+    const canonical = wpblComparePath(pair[0], pair[1], roster)
+    if (canonical !== url.pathname.replace(/\/+$/, '')) {
+      const to = new URL(url)
+      to.pathname = canonical
+      return Response.redirect(to.toString(), 301)
+    }
+    return next()
   }
 
   // ── Player pages ────────────────────────────────────────────────────────────

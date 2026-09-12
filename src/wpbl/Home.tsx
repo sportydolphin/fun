@@ -12,7 +12,7 @@ import {
 import { WPBL_ACCENT, wpblColor, wpblAccent, wpblAccentFg, wpblSurface, wpblFullName, formatGameTime, gameStartMs, countdownLabel, outsToIp, relativeDayLabel, relativeDayShort } from './constants'
 import { useWpblPlayerLink, useWpblGameLink } from './LinkContext'
 import { WPBL_LEAGUE_PAGE, WPBL_PATH_EVENT } from './routes'
-import { useWpblHeadingTag, HIDE_ON_PHONE } from './PageHeading'
+import { useWpblHeadingTag, HIDE_ON_PHONE, VISUALLY_HIDDEN } from './PageHeading'
 import { SectionCard, PillGroup, TeamBadge, PlayerPortrait, ModalShell, useWpblDark, useWpblName, FittedName, chromePx, CARD_BORDER, TAPPABLE, hoverOnly, TYPE_SCALE, ICON_SIZE, CLUB_BAND, cardFooterBand } from './ui'
 import { LiveHero } from './Live'
 import { useForegroundInterval } from './refresh'
@@ -198,7 +198,13 @@ function PostseasonChip({ row }: { row: PostseasonScheduleRow }) {
   // the "Final · Yesterday" the box was sized for. NOT "Final" for the championship, which is
   // the word this exact slot carries on every completed game.
   const round = row.round === 'championship' ? 'Champ' : 'Semi'
-  const eyebrow = `${round} G${row.gameNumber} · ${relativeDayShort(row.date)}`
+  // THE ASTERISK IS THE ONE MARK THAT FITS, and it is already this module's convention:
+  // `seriesDateLine` prints "Sep 9, 11, 13*" from the same flag. The eyebrow may not wrap and
+  // the chip is 8.5rem, so "if needed" spelled out costs either the round or the date, and both
+  // are load-bearing: a reader needs to know which game and which day. Every surface with room
+  // does spell it out (the schedule rows, SeriesPreview), and the words are here too, for a
+  // screen reader and as a tooltip, since an asterisk with no key beside it explains nothing.
+  const eyebrow = `${round} G${row.gameNumber}${row.ifNecessary ? '*' : ''} · ${relativeDayShort(row.date)}`
   // Away over home once the league has designated one, exactly as the neighbouring GameChip
   // draws a fixture. The "@" costs one character against a three-letter abbr, which is what
   // the 8.5rem box was already sized for.
@@ -228,47 +234,48 @@ function PostseasonChip({ row }: { row: PostseasonScheduleRow }) {
   )
 
   return (
-    <Box sx={{
-      flexShrink: 0, width: '8.5rem',
-      borderRadius: 2, border: '1px dashed', borderColor: CARD_BORDER, bgcolor: 'background.paper',
-      p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
-    }}>
+    <Box
+      title={row.ifNecessary ? 'Played only if the series is still alive' : undefined}
+      sx={{
+        flexShrink: 0, width: '8.5rem',
+        borderRadius: 2, border: '1px dashed', borderColor: CARD_BORDER, bgcolor: 'background.paper',
+        p: 1, display: 'flex', flexDirection: 'column', gap: 0.6,
+      }}
+    >
       <Typography sx={{
         fontSize: TYPE_SCALE.micro, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5,
         // The accent rather than text.secondary: it is the one mark separating a fixture that
         // exists from a date the league has only published, on a strip where the dashed border
         // is a hairline.
+        //
+        // NOT DIMMED FOR AN IF-NECESSARY GAME, though SeriesPreview does dim its row. There the
+        // conditional games sit among certain ones in a list and the contrast IS the signal;
+        // here every chip on the strip is already the same dashed, unclickable kind of thing,
+        // so dimming one would read as disabled rather than as conditional, and would spend
+        // contrast on the smallest type on the page to say what the asterisk says.
         color: wpblAccentFg(isDark),
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-      }}>{eyebrow}</Typography>
+      }}>
+        {eyebrow}
+        {/* What the asterisk means, for anyone who cannot see it. Inside the eyebrow rather
+            than as an `aria-label` on it: a label on a element with no role is ignored by some
+            screen readers, and hidden text is read by all of them. */}
+        {row.ifNecessary && <Box component="span" sx={VISUALLY_HIDDEN}>, if necessary</Box>}
+      </Typography>
       {slots.map(slot)}
     </Box>
   )
 }
-
-/**
- * The edge vignette, and the inset the anchor is placed at. ONE number, spent in both places.
- *
- * The gradient has to cover the peeking chip EXACTLY. Wider than the peek and it washes the
- * leading card; narrower and a hard stub of card sits against the page margin looking like a
- * rendering fault. It was 16 against a 24px fade and did both at once.
- *
- * SIXTEEN RATHER THAN TWENTY-FOUR, and the 8px gap between chips is why. The peek is the inset
- * minus that gap, so 24 shows 16px of the older chip and 16 shows 8px. A chip carries its score
- * column hard against its right edge, which is the edge that peeks, so 16px of it is a legible
- * digit hanging in the gradient with no badge or club beside it: the strip once opened on a bare
- * "6" over "10" and read as broken. 8px is the card's own border and padding, which is the hint
- * without the fragment. It also costs the least indent: the first legible chip starts 16px from
- * the page margin instead of 24.
- */
-const EDGE_FADE_W = 16
 
 /** One tile on the strip: a game the feed has, or a postseason date it does not have yet. */
 type StripItem =
   | { kind: 'game'; id: string; game: WpblGame }
   | { kind: 'post'; id: string; row: PostseasonScheduleRow }
 
-function Scoreboard({ games, teams, postseason, onOpenGame }: {
+/** Exported for `scoreboardStrip.test.tsx`, which pins which fixtures reach the strip. Same
+ *  reason `NextPostseasonCard` is: what these two choose to show is a judgement about what is
+ *  true, and neither failure is visible from a render that happens to look fine. */
+export function Scoreboard({ games, teams, postseason, onOpenGame }: {
   games: WpblGame[]; teams: Map<string, WpblTeam>
   /** The published postseason, for the days past the end of the feed's schedule. Date-sorted,
    *  and already retiring itself a row at a time as the feed publishes the real games. */
@@ -327,14 +334,22 @@ function Scoreboard({ games, teams, postseason, onOpenGame }: {
     // The postseason fills whatever is left of the four upcoming slots, which all through the
     // regular season is nothing and from Sep 7 is all of them.
     //
-    // IF-NECESSARY GAMES STAY OFF WHILE THEY ARE STILL CONDITIONAL. Four slots is not many, and
-    // spending one on a game that may never be played pushes a game that certainly will be off
-    // the end of the strip. They are not filtered by game number: postseasonScheduleRows clears
-    // the flag the moment a series reaches the point where the game has to happen, so a
-    // deciding game 3 arrives here as soon as game 2 makes it one.
+    // IF-NECESSARY GAMES ARE ON THE STRIP, AND THIS USED TO SKIP THEM. The reasoning was slot
+    // scarcity: four is not many, and one spent on a game that may never be played pushes off a
+    // game that certainly will. What that missed is that `postseason` is DATE-SORTED, so the
+    // slots already go to the nearest fixtures, and the conditional games it was dropping were
+    // the near ones. On Sep 12, 2026 the strip ran tonight's semifinal game 2 and then jumped
+    // to the championship on Sep 16, with the possible game 3 on Sep 14 — the game the whole
+    // evening was about to decide the existence of — nowhere on the page. "Is there baseball on
+    // Monday" is the question a reader opens Home with, and "maybe, depending on tonight" is a
+    // better answer than silence. The chip says so; see `PostseasonChip`.
+    //
+    // Nothing is needed to keep a certain game ahead of a conditional one on the same day,
+    // because no two postseason games share a date. And `postseasonScheduleRows` drops a
+    // conditional game outright once its series is decided, so this can never show a game that
+    // will not be played.
     for (const r of postseason) {
       if (rest.length >= UPCOMING) break
-      if (r.ifNecessary) continue
       rest.push({ kind: 'post', id: r.id, row: r })
     }
     return {
@@ -343,8 +358,9 @@ function Scoreboard({ games, teams, postseason, onOpenGame }: {
     }
   }, [games, postseason])
 
-  // Edge-fade cues: show a soft mask on whichever side has more chips off-screen, so the
-  // cut-off card reads as "swipe for more" rather than a clipped card.
+  // Where the strip is. Nothing is DRAWN from this any more, now that both edge gradients are
+  // gone; it gates the two desktop hover-scroll zones, neither of which should be offered at
+  // the end it would scroll towards.
   const [atStart, setAtStart] = useState(true)
   const [atEnd, setAtEnd] = useState(true)
   // BOTH FADES ARE THE SAME PLAIN VIGNETTE, and the left one is not allowed to grow to
@@ -427,29 +443,13 @@ function Scoreboard({ games, teams, postseason, onOpenGame }: {
       const el = scrollRef.current
       const anchor = el?.children[anchorIndex] as HTMLElement | undefined
       if (!el || !anchor || takenOverRef.current) return
-      // Inset the anchor from the left edge rather than flush against it, so the edge fade lands
-      // on the chip peeking behind it and the anchor itself stays fully in view. No inset when
-      // it is already the first chip, since there is nothing to its left to peek.
-      //
-      // THE INSET IS THE FADE'S WIDTH, and that equality is the whole rule. A chip is wide with
-      // its score column hard against its right edge, so ANY generous peek shows that column and
-      // nothing else: the strip once opened on two bare numerals, "6" over "10", with no badge
-      // and no club beside them, which reads as a rendering fault rather than as "there is more
-      // this way". So the peek stays small and lives entirely UNDER the gradient, where it is a
-      // soft edge rather than a stub.
-      //
-      // It was 16 against a 24px fade, and those two numbers not matching is what made the strip
-      // look indented on a phone. Measured at 390px: the container starts at x=16 with every
-      // other block on Home, the peeking chip ended at x=24, and the first WHOLE chip began at
-      // x=32, so the leading card sat 16px right of the page's own left edge with an 8px stub
-      // beside it. Worse, the fade ran x=16 to x=40, which is the stub, the gap, AND the first
-      // 16px of the leading card: it washed the date label of the very chip the inset exists to
-      // keep clear, so the comment here claimed something the arithmetic did not do.
-      //
-      // Tie them together and both problems go: the gradient covers exactly the peek and the gap,
-      // and the leading chip starts clean at the fade's inner edge. If the fade width ever
-      // changes, this follows it rather than drifting out of step again.
-      const inset = anchorIndex > 0 ? EDGE_FADE_W : 0
+      // FLUSH WITH THE CONTAINER'S LEFT EDGE, which is the page's own text column: the anchor
+      // chip starts exactly where Next game, Last game and every card below it start. It used
+      // to be inset by the width of a leading gradient, so that the older game peeking behind
+      // it had somewhere to sit; the cost was that on a phone the scoreboard was the one block
+      // on Home indented from the column everything else shares. Both gradients are gone (see
+      // the note where they used to render), so there is nothing left for an inset to buy.
+      const inset = 0
       // A rect and `scrollLeft` are the same pixel again, so this is plain subtraction. It was
       // not: the section used to sit in a `zoom: 1.4` wrapper, which getBoundingClientRect
       // reports AFTER and scrollLeft counts BEFORE, so the raw difference undershot the scroll
@@ -471,10 +471,10 @@ function Scoreboard({ games, teams, postseason, onOpenGame }: {
       // continuing past the edge, which is what it is. So give back the part-chip: one whole
       // game more on the left, the last scheduled game part-shown under the trailing fade.
       //
-      // Only at max scroll. Everywhere else the placement above is deliberately leaving an 8px
-      // sliver of the older game peeking under the fade, and "uncut the leading chip" would
-      // undo it. Re-running is still idempotent: the next pass pushes back to max and lands
-      // here again, in the same frame, so nothing is ever painted mid-way.
+      // Only at max scroll, where the anchor cannot reach the left edge however hard this
+      // pushes. Everywhere else the placement above has already put a whole chip there, and
+      // re-running is idempotent: the next pass pushes back to max and lands here again, in the
+      // same frame, so nothing is ever painted mid-way.
       const maxScroll = el.scrollWidth - el.clientWidth
       if (maxScroll > 0 && el.scrollLeft >= maxScroll - 0.5) {
         const edge = el.getBoundingClientRect().left
@@ -554,16 +554,14 @@ function Scoreboard({ games, teams, postseason, onOpenGame }: {
             ? <GameChip key={item.id} game={item.game} teams={teams} onOpen={() => onOpenGame(item.game)} />
             : <PostseasonChip key={item.id} row={item.row} />)}
         </Box>
-        {/* FULL HEIGHT, both of them. They used to stop 6px short of the bottom; the scroller's
-            own `pb` is 4px of padding with nothing drawn in it and the scrollbar is hidden, so
-            there is nothing down there for a mask to spare, and the gap left the bottom corner
-            of a chip lit under the fade. */}
-        {!atStart && (
-          <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: EDGE_FADE_W, pointerEvents: 'none', background: t => `linear-gradient(to right, ${t.palette.background.default}, transparent)` }} />
-        )}
-        {!atEnd && (
-          <Box sx={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: EDGE_FADE_W, pointerEvents: 'none', background: t => `linear-gradient(to left, ${t.palette.background.default}, transparent)` }} />
-        )}
+        {/* NO EDGE FADES, EITHER SIDE. The leading one went because the anchor chip is flush with
+            the page's column now, so a gradient there paints over its own date. Keeping the
+            trailing one alone then left the strip fading on one side and cutting hard on the
+            other, which reads as a bug rather than as a style: a reader does not know the two
+            edges mean different things, they just see one that is finished and one that is not.
+            Symmetry is worth more here than either fade was, and the chip running off the right
+            keeps its eyebrow, both badges and both clubs and loses only the score column, which
+            is a card continuing past the edge, which is what it is. */}
         {/* Hover-to-scroll zones over each edge (desktop only; touch keeps swipe). */}
         {!atStart && (
           <Box onMouseEnter={() => startAutoScroll(-1)} onMouseLeave={stopAutoScroll}

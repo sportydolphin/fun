@@ -875,8 +875,10 @@ Tags as above: 🎯 casual · 🔬 serious fan · 🎮 fun/game · ⚙️ infra.
   spring and is the only thing on the section that still takes an answer in January.
 - **Who owns whom: the batter-vs-pitcher board** 🔬. Four teams and six pairings means a
   hitter faces the same pitcher 10 to 15 times in one season, a sample a 30-team league never
-  produces. [`derive/matchups.ts`](src/wpbl/derive/matchups.ts) already computes the lines and
-  nothing surfaces a league-wide "biggest edges" board.
+  produces. **Half shipped Sep 12, 2026**: a comparison page draws the line for ONE pair
+  (`/wpbl/compare`, see the log). What is still missing is the league-wide "biggest edges"
+  board, which is what `featuredMatchups` was written for and what would surface a duel
+  nobody thought to go looking for.
 - **Season series pages** 🎯. Six rivalry pages: running series record, the H2H grid, the
   matchup edges, every game log. Six durable indexable pages from data already held.
 - **Where they come from** 🎯. `hometown` on 118 players and `birth_date` on 65: a league map,
@@ -1117,6 +1119,69 @@ and the year.
 
 **Terms keeps the accuracy statement it has to have and points here for the detail**, pinned by an
 assertion, so the provenance cannot be orphaned from the page that promises it exists.
+
+### Sep 12, 2026: any two players, side by side
+
+**"WHO IS BETTER, X OR Y" IS A THING PEOPLE TYPE, AND THE SECTION HAD NO URL FOR IT.**
+`/wpbl/compare/denae-benites-vs-molly-paddison` is a real page: batting, pitching, playing time,
+and what happened the times the two of them met. Reached from a chip on every player's card and
+from the players index, both real anchors.
+
+**THE PAIR IS IN THE PATH, AND ITS ORDER IS FORCED.** A pair has no natural first, so the two
+slugs sort alphabetically and the edge 301s the other spelling onto that. Left alone every
+comparison would exist at two URLs, each looking to a search engine like a near-duplicate of the
+other and each holding half the links. `/wpbl/compare/a/b` and a pair naming nobody both 404 at
+the edge, the same guard `/wpbl/players/*` and `/wpbl/games/*` already carry.
+
+**NONE OF IT GOES IN THE SITEMAP, ON PURPOSE.** 118 players is 6,903 pairs. Submitting those
+would bury the ~125 URLs on this site somebody actually wrote under machine-made pages nobody
+asked for, which is the definition of a doorway page. The picker is listed and nothing under it
+is; the pairs are indexable and are found by being linked, which is how a page should be found.
+A test fails if a pair ever reaches the file.
+
+**THE HEAD-TO-HEAD IS THE PART NOBODY ELSE COVERING THIS LEAGUE CAN SHOW.** Four clubs and six
+pairings means a hitter sees the same pitcher ten to fifteen times in a season, a sample a
+thirty-club league never produces; in the majors the same line is four at-bats and means nothing.
+Kelsie Whitmore is 2-for-5 against Ayami Sato with two home runs. `batterPitcherMatchups` has
+computed this since August and nothing had ever drawn it.
+
+**AND IT HAD TO BE FED THE RIGHT PLAYS.** Its parameter type said `WpblFirstsPlay`, which names
+the projection behind `fetchWpblAllPlays` — the read that drops routine outs AT THE DATABASE
+because none of them can set a milestone. Pass that here and every hitter in the league bats
+about .650: the outs are most of the denominator and none of them arrive, with no error and
+nothing short about the array to notice. The parameter is now `WpblMatchupPlay`, which is the
+seven columns it actually reads and, more to the point, is not the wrong read's own type.
+
+**FOUR WAYS A COMPARISON LIES ABOUT TWO PEOPLE, and each one renders perfectly.** A tick handed
+to whoever HAS a number when the other has none, which is `(a ?? 0) > (b ?? 0)` and gives a
+centre fielder the better ERA against an actual pitcher. A postseason line folded into a season
+total. A batting card for two pitchers who have never batted, all zeroes, implying a contest
+nobody entered. And a counting stat where fewer is better: three innings and one walk beats sixty
+innings and fifteen, so there is no walks-allowed row, by the rule `percentiles.ts` already
+states. All four are pinned in `__tests__/compare.test.ts`.
+
+**NOTHING ADDS THE TICKS UP.** There is no overall winner and deliberately no field a surface
+could render one from: "7-3" is an aggregate of stats nobody agreed weighed the same, presented
+as a ranking of two people. Playing time is the first thing in every group for the same reason,
+drawn as a header band rather than as a row, so it cannot read as one more thing to be ahead on.
+
+**THE QUALIFYING BAR IS REPORTED, NOT ENFORCED.** Below it a player's own page refuses to draw a
+league percentile, and it is right to: a percentile is a claim about a population. "Who has the
+higher average" is not that claim, so the rows stay rather than being hidden, which would leave a
+short-sample player with a page declining to say anything about her. It is the SAMPLE BAND that
+says so, not a sentence: a first draft wrote the caveat out in prose between the rates and the
+totals, three lines of small type on most pairs, saying in words what "7 G · 0 PA" next to
+"15 G · 64 PA" says in the reader's own arithmetic.
+
+**THE PICKER IS NOT ALPHABETICAL, and that was not obvious until it was used.** The list opened
+on Abigail Moore, Adelaide Frank and Adelaide Ziebart, three players with 24 plate appearances
+between them, with the comparison somebody had come to build eleven screens down. A name is what
+the search box is for. It now offers her own half of the game first (`leadsWithPitching`, the same
+call the player card opens on) and then by playing time, most first, with that figure printed on
+every row. **The sort key is always the number the row shows**: ranked on batters faced while the
+column printed innings, the pitchers came out 21.0, 21.2, 18.2, 15.2, 18.2 — a correct sort no
+reader could check. Because role is the first key each role is a contiguous block, so each block
+sorts in its own unit and descends on screen.
 
 ### Sep 12, 2026: a second outlet's recap on every game page
 

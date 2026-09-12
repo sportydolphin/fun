@@ -333,6 +333,109 @@ export function findWpblTeamBySlug<T extends WpblSluggableTeam>(
   return teams.find(t => teamSlug(t.id, teams) === want) ?? null
 }
 
+// ─── Comparison pages ─────────────────────────────────────────────────────────
+//
+// Two players side by side, at /wpbl/compare/denae-benites-vs-molly-paddison. The pair is in
+// the path rather than in a query string for the same reason the tabs stopped being `?view=`:
+// a query string is one URL to a search engine, so every pair would have been one page.
+//
+// NOTHING HERE GOES IN THE SITEMAP, and that is a decision rather than an omission. 118
+// players is 6,903 pairs, which would bury the section's ~125 real URLs under machine-made
+// pages a reader never asked for; that is what a doorway page is, and Google treats it as one.
+// These pages are indexable and are discovered the way a page should be, by somebody linking
+// to one. See scripts/build-sitemap.ts, which lists the picker and nothing under it.
+
+export const WPBL_COMPARE_BASE = `${WPBL_BASE}/compare`
+
+/** The join between the two slugs. A word rather than a character because it has to survive
+ *  being read: "benites-vs-paddison" says what the page is, "benites--paddison" does not. */
+export const WPBL_COMPARE_JOIN = '-vs-'
+
+export const isWpblComparePicker = (pathname: string) =>
+  pathname.replace(/\/+$/, '') === WPBL_COMPARE_BASE
+
+/** Every path the compare page renders: the picker, a half-made choice, and a pair. The slug
+ *  is NOT resolved here, deliberately: this decides which component mounts, and the roster it
+ *  would need to resolve against arrives several hundred milliseconds later. A slug naming
+ *  nobody has already been answered 404 at the edge; reaching here means a client-side push,
+ *  and the picker is the right thing to show for one. */
+export const isWpblComparePage = (pathname: string) =>
+  isWpblComparePicker(pathname) || wpblCompareSlugFromPath(pathname) !== null
+
+/**
+ * The canonical URL for a pair, which is the two player slugs in ALPHABETICAL order.
+ *
+ * The order is forced because a pair has no natural first: whoever opened the page picked one
+ * of them first, and left alone that would mint two URLs for one comparison, each half as
+ * linked as the other and each looking to Google like a near-duplicate of the other. Sorting
+ * is the cheapest rule that cannot drift, and the edge function 301s the other spelling onto
+ * it rather than serving both.
+ */
+export function wpblComparePath(
+  a: WpblSluggable,
+  b: WpblSluggable,
+  roster: readonly WpblSluggable[],
+): string {
+  const slugs = [wpblPlayerSlug(a, roster), wpblPlayerSlug(b, roster)].sort()
+  return `${WPBL_COMPARE_BASE}/${slugs[0]}${WPBL_COMPARE_JOIN}${slugs[1]}`
+}
+
+/** Where "compare her with somebody" goes: one slug, no pair yet. A real path rather than a
+ *  query string, so the half-finished state is still a URL the Back button understands, and
+ *  it renders the picker with one slot already filled. `noindex`, since it is a state rather
+ *  than a page. */
+export function wpblCompareStartPath(player: WpblSluggable, roster: readonly WpblSluggable[]): string {
+  return `${WPBL_COMPARE_BASE}/${wpblPlayerSlug(player, roster)}`
+}
+
+/** The slug a compare URL names, or null when the path is not one. One segment only, for the
+ *  same reason as a player and a game: Cloudflare's `*` matches across slashes, so without
+ *  this every /wpbl/compare/a/b typo is an indexable page again. */
+export function wpblCompareSlugFromPath(pathname: string): string | null {
+  const p = pathname.replace(/\/+$/, '')
+  if (!p.startsWith(`${WPBL_COMPARE_BASE}/`)) return null
+  const rest = p.slice(WPBL_COMPARE_BASE.length + 1)
+  return rest && !rest.includes('/') ? decodeURIComponent(rest) : null
+}
+
+/**
+ * Resolve a compare slug to the two players it names, in the slug's own order.
+ *
+ * EVERY SPLIT IS TRIED, not just the first, because the join is a word and a word can in
+ * principle occur inside a name ("de-vs-something" is not a name on this roster, and that is a
+ * fact about today's roster rather than a rule). Exactly one split resolving is the only
+ * accepted outcome: zero means the URL names nobody, and two would mean it names two different
+ * pairs, and serving one of those is the guess this file refuses to make everywhere else.
+ *
+ * A player compared with herself resolves to null. It is not a comparison, and left alone it
+ * would be a second URL for every player rendering a page of identical columns.
+ */
+export function findWpblComparePair<T extends WpblSluggable>(
+  slug: string,
+  roster: readonly T[],
+): [T, T] | null {
+  const want = slug.toLowerCase()
+  const hits: [T, T][] = []
+  for (let i = want.indexOf(WPBL_COMPARE_JOIN); i !== -1; i = want.indexOf(WPBL_COMPARE_JOIN, i + 1)) {
+    const a = findWpblPlayerBySlug(want.slice(0, i), roster)
+    const b = findWpblPlayerBySlug(want.slice(i + WPBL_COMPARE_JOIN.length), roster)
+    if (a && b && a.id !== b.id) hits.push([a, b])
+  }
+  return hits.length === 1 ? hits[0] : null
+}
+
+/** Is this compare URL the canonical spelling of the pair it names? False for the reversed
+ *  order, which the edge function 301s rather than serving. */
+export function isCanonicalComparePath<T extends WpblSluggable>(
+  pathname: string,
+  roster: readonly T[],
+): boolean {
+  const slug = wpblCompareSlugFromPath(pathname)
+  if (!slug) return false
+  const pair = findWpblComparePair(slug, roster)
+  return pair != null && wpblComparePath(pair[0], pair[1], roster) === `${WPBL_COMPARE_BASE}/${slug}`
+}
+
 // ─── The league page ──────────────────────────────────────────────────────────
 //
 // A real path and NOT a tab, which is a deliberate middle state rather than an oversight: it

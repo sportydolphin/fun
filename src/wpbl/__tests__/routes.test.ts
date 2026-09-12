@@ -19,6 +19,7 @@ import footerSource from '../../SiteFooter.tsx?raw'
 // reachable from the pages that promise it exists.
 import legalSource from '../../LegalPages.tsx?raw'
 import sitemap from '../../../public/sitemap.xml?raw'
+import playersIndexSource from '../PlayersIndex.tsx?raw'
 import seoSource from '../../seo.ts?raw'
 import fanVoteSource from '../FanVote.tsx?raw'
 import homeSource from '../Home.tsx?raw'
@@ -31,6 +32,8 @@ import {
   isWpblSourcesPage,
   wpblTeamPath, wpblTeamSlugFromPath, findWpblTeamBySlug, teamSlug,
   WPBL_AWARDS_PATH, isWpblAwardsPage,
+  WPBL_COMPARE_BASE, wpblComparePath, wpblCompareStartPath, wpblCompareSlugFromPath,
+  findWpblComparePair, isWpblComparePage, isWpblComparePicker,
 } from '../routes'
 // The real club list, so the four files below are pinned against what the app actually ships
 // rather than against four strings copied into this test. A fifth club fails every assertion
@@ -279,6 +282,109 @@ describe('game slugs', () => {
     expect(wpblAppOwnsPath('/wpbl/games/2026-08-23-queens-at-hunters')).toBe(true)
     expect(wpblAppOwnsPath('/wpbl/games')).toBe(false)
     expect(wpblAppOwnsPath('/wpbl/games/a/b')).toBe(false)
+  })
+})
+
+// ─── Comparison pages ─────────────────────────────────────────────────────────
+
+describe('comparison pages', () => {
+  const roster = [
+    { id: 'p1', name: 'Denae Benites' },
+    { id: 'p2', name: 'Molly Paddison' },
+    { id: 'p3', name: 'Ayami Sato' },
+    // Two players sharing a name, so the id-suffixed slug has to survive being half of a pair.
+    { id: 'aaaaaaaa-1', name: 'Sam Rivers' },
+    { id: 'bbbbbbbb-2', name: 'Sam Rivers' },
+  ]
+
+  it('puts the pair in the path, alphabetically, whichever way round it is asked for', () => {
+    const forwards = wpblComparePath(roster[0], roster[1], roster)
+    const backwards = wpblComparePath(roster[1], roster[0], roster)
+    expect(forwards).toBe('/wpbl/compare/denae-benites-vs-molly-paddison')
+    // THE WHOLE REASON THE ORDER IS FORCED. Without this a comparison lives at two URLs, each
+    // looking to a search engine like a near-duplicate of the other.
+    expect(backwards).toBe(forwards)
+  })
+
+  it('round-trips through the path', () => {
+    const path = wpblComparePath(roster[0], roster[2], roster)
+    const slug = wpblCompareSlugFromPath(path)
+    expect(slug).not.toBeNull()
+    const pair = findWpblComparePair(slug!, roster)
+    expect(pair?.map(p => p.id).sort()).toEqual(['p1', 'p3'])
+  })
+
+  it('carries the id suffix through when a name is shared', () => {
+    const path = wpblComparePath(roster[3], roster[0], roster)
+    expect(path).toContain('sam-rivers-aaaaaaaa')
+    const pair = findWpblComparePair(wpblCompareSlugFromPath(path)!, roster)
+    expect(pair?.map(p => p.id).sort()).toEqual(['aaaaaaaa-1', 'p1'])
+  })
+
+  it('resolves nobody for a pair naming nobody', () => {
+    expect(findWpblComparePair('nobody-vs-nobody-else', roster)).toBeNull()
+    expect(findWpblComparePair('denae-benites-vs-nobody', roster)).toBeNull()
+  })
+
+  // A page of two identical columns, at a second URL for every player on the roster.
+  it('refuses a player compared with herself', () => {
+    expect(findWpblComparePair('denae-benites-vs-denae-benites', roster)).toBeNull()
+  })
+
+  // The bare name is ambiguous by the slug rules, so neither half resolves and the pair
+  // cannot either. Serving one of the two Sam Rivers here is the guess routes.ts refuses.
+  it('refuses an ambiguous half', () => {
+    expect(findWpblComparePair('sam-rivers-vs-denae-benites', roster)).toBeNull()
+  })
+
+  it('is not fooled by neighbouring routes', () => {
+    expect(wpblCompareSlugFromPath('/wpbl/compare')).toBeNull()
+    expect(wpblCompareSlugFromPath('/wpbl/players/denae-benites')).toBeNull()
+    // One segment only. Cloudflare's `*` matches across slashes, so this is what stops
+    // /wpbl/compare/a/b becoming an indexable page.
+    expect(wpblCompareSlugFromPath('/wpbl/compare/a/b')).toBeNull()
+  })
+
+  it('renders the picker for one slug, so "compare her with somebody" is a real URL', () => {
+    const path = wpblCompareStartPath(roster[0], roster)
+    expect(path).toBe('/wpbl/compare/denae-benites')
+    expect(isWpblComparePage(path)).toBe(true)
+    expect(findWpblComparePair(wpblCompareSlugFromPath(path)!, roster)).toBeNull()
+  })
+
+  it('claims its own paths and nothing else', () => {
+    expect(isWpblComparePicker(WPBL_COMPARE_BASE)).toBe(true)
+    expect(isWpblComparePicker('/wpbl/compare/')).toBe(true)
+    expect(isWpblComparePage('/wpbl/compare/a-vs-b')).toBe(true)
+    expect(isWpblComparePage('/wpbl/compare/a/b')).toBe(false)
+    expect(isWpblComparePage('/wpbl/stats')).toBe(false)
+    // Not the section's, so WpblApp must not try to render it over a tab.
+    expect(wpblAppOwnsPath('/wpbl/compare/a-vs-b')).toBe(false)
+  })
+
+  it('is routed in production: the picker by name, the pairs by wildcard', () => {
+    expect(redirects).toMatch(/^\/wpbl\/compare\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/compare\/\*\s+\/\s+200\s*$/m)
+    expect(redirects).toMatch(/^\/wpbl\/compare\/\s+\/wpbl\/compare\s+301\s*$/m)
+  })
+
+  it('has its own title and description in seo.ts', () => {
+    expect(seoSource).toContain(`'${WPBL_COMPARE_BASE}': {`)
+  })
+
+  // THE PICKER, AND NOTHING UNDER IT. 118 players is 6,903 pairs; submitting those would bury
+  // every URL on this site that somebody actually wrote. If this ever fails because a pair
+  // reached the sitemap, the fix is to take it out, not to update the test.
+  it('puts the picker in the sitemap and no pair anywhere near it', () => {
+    expect(sitemap).toContain(`<loc>https://sportydolphin.fun${WPBL_COMPARE_BASE}</loc>`)
+    expect(sitemap).not.toMatch(new RegExp(`${WPBL_COMPARE_BASE}/`))
+  })
+
+  // Out of the sitemap means linked or invisible. Two internal links point here, and both are
+  // real anchors for the reason CLAUDE.md gives: a crawler does not fire click handlers.
+  it('is linked from a page a crawler already reaches', () => {
+    expect(playersIndexSource).toContain('WPBL_COMPARE_BASE')
+    expect(playersIndexSource).toMatch(/component="a"[\s\S]{0,200}WPBL_COMPARE_BASE/)
   })
 })
 

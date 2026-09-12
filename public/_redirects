@@ -34,6 +34,7 @@
 /wpbl/league/    /wpbl/league     301
 /wpbl/glossary/  /wpbl/glossary   301
 /wpbl/sources/   /wpbl/sources    301
+/wpbl/compare/   /wpbl/compare    301
 /mlb/          /mlb       301
 /privacy/      /privacy   301
 /terms/        /terms     301
@@ -69,6 +70,8 @@
 # Same, and for the same reason: see WPBL_GLOSSARY_PAGE in src/wpbl/routes.ts.
 /wpbl/glossary   /  200
 /wpbl/sources    /  200
+# Not a tab either: see the note on WPBL_COMPARE_BASE in src/wpbl/routes.ts.
+/wpbl/compare    /  200
 # The one wildcard in this file, and the exception that proves the rule. A player URL is
 # /wpbl/players/<slug>, and the set of valid slugs lives in the database, so it cannot be
 # enumerated here. The soft-404 hole it would otherwise open is closed one layer up instead:
@@ -82,6 +85,12 @@
 # anything naming no game, BEFORE this rule is reached. Note there is deliberately no
 # /wpbl/games line above: there is no games index, so the bare path falls through to 404.
 /wpbl/games/*    /  200
+# The third wildcard, and the same exception again: a comparison is
+# /wpbl/compare/<a-slug>-vs-<b-slug>, and the set of valid pairs is the roster squared.
+# functions/wpbl/[[tab]].ts resolves both halves and answers a real 404 for anything naming
+# fewer than two distinct players, BEFORE this rule is reached. It also 301s the reversed
+# order onto the alphabetical one, so a pair is one URL rather than two.
+/wpbl/compare/*  /  200
 /mlb           /  200
 /privacy       /  200
 /terms         /  200

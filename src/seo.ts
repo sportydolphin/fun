@@ -131,6 +131,15 @@ const ROUTES: Record<string, Seo> = {
       })),
     },
   },
+  // The comparison picker. The PAIR pages are titled from the two names and registered
+  // through setDynamicSeo, since a static map keyed on the path cannot describe 6,903 of
+  // them; this is the one URL here that is knowable in advance, and the only one in the
+  // sitemap. See WPBL_COMPARE_BASE in wpbl/routes.ts for why the rest stay out of it.
+  '/wpbl/compare': {
+    title: "Compare WPBL players 2026 | sportydolphin.fun",
+    description:
+      "Put any two Women's Pro Baseball League players side by side: batting, pitching, playing time, and what happened the times they faced each other.",
+  },
   '/wpbl/api': {
     title: "WPBL API — Women's Pro Baseball League data feed | sportydolphin.fun",
     description:

@@ -137,6 +137,11 @@ export const EVENTS = {
   WPBL_AWARD_OPEN:     'wpbl_award_open',     // opened the voting sheet, props {answered, from}
   WPBL_AWARD_VOTE:     'wpbl_award_vote',     // cast a vote, props {category, choice}
   WPBL_PLAYER_ROLE:    'wpbl_player_role',    // switched role on a player page, props {role, from, playerId}
+  // The comparison pages (/wpbl/compare). Worth measuring because the pair is the whole
+  // question: these pages are deliberately absent from the sitemap, so which comparisons
+  // readers actually build is the only evidence there is about what to link to.
+  WPBL_COMPARE_VIEWED: 'wpbl_compare_viewed', // a pair page rendered, props {a, b}
+  WPBL_COMPARE_OPENED: 'wpbl_compare_opened', // opened the picker from a player page, props {playerId}
 } as const
 
 // A known event name, or any string (keeps call sites flexible without losing the

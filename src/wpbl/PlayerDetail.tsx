@@ -7,7 +7,7 @@ import { computeWpblPlayerRanks, ordinal, COUNT_RANK_BAR, COUNT_RANK_MIN_FIELD, 
 import { useEraBasis } from './EraBasisContext'
 import type { EraBasis } from './stats'
 import { wpblAccent, wpblColor, wpblSecondary, wpblFullName, outsToIp } from './constants'
-import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, SegNav, AccentPanel, useWpblDark, chromePx, TAPPABLE, TYPE_SCALE } from './ui'
+import { ModalShell, PlayerPortrait, CopyLinkButton, TapTip, SegNav, AccentPanel, useWpblDark, chromePx, hoverOnly, TAPPABLE, TYPE_SCALE } from './ui'
 import { statFull, statPlain } from './glossary'
 import SwipeableViews from './SwipeableViews'
 import { WrittenAbout } from './Reading'
@@ -16,7 +16,8 @@ import SprayChart from './SprayChart'
 import { fetchWpblBattedBalls, getCachedWpblBattedBalls } from './api'
 import type { WpblSprayPlay } from './types'
 import { displayPosition, positionsPlayed, leadsWithPitching } from './positions'
-import { wpblPlayerPath } from './routes'
+import { wpblPlayerPath, wpblCompareStartPath } from './routes'
+import { linkTo } from '../nav'
 import { track, EVENTS } from '../lib/analytics'
 import type { WpblTeam, WpblPlayer, WpblGame, WpblBattingLine, WpblPitchingLine, WpblFieldingLine, WpblArticle } from './types'
 
@@ -957,6 +958,52 @@ const totalTdSx = {
 
 // ─── the modal ───────────────────────────────────────────────────────────────
 
+/**
+ * "Compare" in the modal's header bar, beside Copy link.
+ *
+ * A REAL ANCHOR THROUGH `linkTo`, not an onClick, for the reason CLAUDE.md gives and this
+ * section has paid for once already: a crawler does not fire click handlers, and this is the
+ * only internal link that will ever point at /wpbl/compare from inside the section. Those
+ * pages are deliberately absent from the sitemap (see WPBL_COMPARE_BASE), so being linked is
+ * the whole of how they are found.
+ *
+ * It lands on the PICKER with this player filled in rather than on a comparison, because
+ * there is no second player to guess at and guessing one would be a page about two people
+ * chosen by a heuristic.
+ *
+ * Styled to match `CopyLinkButton` beside it down to the 26px height: they are two chips in
+ * one bar and there is no reason for a reader to have to tell them apart by shape.
+ */
+function CompareChip({ player, roster }: { player: WpblPlayer; roster: WpblPlayer[] }) {
+  // No honest slug before the roster lands, and a bare-name slug minted from one row can name
+  // the wrong player outright (routes.ts). The chip simply waits; it is chrome, not content.
+  if (roster.length === 0) return null
+  const to = wpblCompareStartPath(player, roster)
+  return (
+    <Box
+      {...linkTo(to)}
+      onClickCapture={() => track(EVENTS.WPBL_COMPARE_OPENED, { playerId: player.id })}
+      title={`Compare ${player.name} with somebody`}
+      aria-label={`Compare ${player.name} with another player`}
+      sx={{
+        flexShrink: 0, display: 'flex', alignItems: 'center', gap: 0.5,
+        height: 26, px: 0.9, borderRadius: 999, cursor: 'pointer', userSelect: 'none',
+        textDecoration: 'none', color: 'text.disabled',
+        ...hoverOnly({ bgcolor: 'action.hover', color: 'text.primary' }),
+        transition: 'color 0.15s',
+      }}
+    >
+      <Typography sx={{ fontSize: '0.72rem', lineHeight: 1 }} aria-hidden>⚖</Typography>
+      <Typography sx={{
+        fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.6,
+        lineHeight: 1, whiteSpace: 'nowrap',
+      }}>
+        Compare
+      </Typography>
+    </Box>
+  )
+}
+
 export default function PlayerDetailModal({ player, teams, games, players, onClose, onOpenGame }: {
   player: WpblPlayer
   teams: WpblTeam[]
@@ -1719,7 +1766,10 @@ export default function PlayerDetailModal({ player, teams, games, players, onClo
       // against 40% larger type, which is what wrapped this player's name onto two lines.
       maxWidth={{ xs: chromePx(640), md: chromePx(880) }}
       zIndex={1600}
-      actions={<CopyLinkButton url={shareUrl} title={`Copy a link to ${player.name}`} />}
+      actions={<>
+        <CompareChip player={player} roster={players} />
+        <CopyLinkButton url={shareUrl} title={`Copy a link to ${player.name}`} />
+      </>}
       // A sheet on a phone, like Game Center: this opens from a roster row, a leaderboard, a
       // Home chip and a shared link, and its only way out was the close button in the far top
       // corner. Now it comes up from the bottom edge with a handle and swipes back down.
