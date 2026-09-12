@@ -40,16 +40,18 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
           rows of undifferentiated dot-separated words, with "Privacy" sitting between "MLB stats"
           and "Terms". The instinct is to delete some.
 
-          NOTHING HERE CAN BE DELETED. Checked link by link: `/wpbl/glossary`, `/wpbl/api` and the
-          players index have NO other internal link anywhere on the site, so cutting any of them
+          ALMOST NOTHING HERE CAN BE DELETED. Checked link by link: `/wpbl/glossary` and the
+          players index have NO other internal link anywhere on the site, so cutting either
           orphans a real page, and the players index is the only page carrying an `<a href>` to
           each of the 118 player pages. The section switch exists because Google had indexed
           /wpbl and never heard of /mlb. Privacy and Terms in a footer are how those two got found
           at all. Every one of these is a fix for an indexing failure that actually happened.
 
-          So the count is not the problem and the flatness is: twelve links of four different
-          kinds presented as one run of words. They are grouped now, by what a reader is looking
-          for. Pages first, because that is the row with something to read behind it. */}
+          So the count was mostly not the problem and the flatness was: twelve links of four
+          different kinds presented as one run of words. They are grouped now, by what a reader is
+          looking for, pages first. The ONE link that could move did: the API docs are reached
+          from the sources page, since where the data came from and how to take it are the same
+          conversation, and that is what gets the first row onto one line on a phone. */}
       <Box sx={{
         maxWidth: 1100, mx: 'auto',
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.75,
@@ -69,11 +71,12 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
             <Dot />
             <Box component="a" href={WPBL_GLOSSARY_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_GLOSSARY_PAGE) }} sx={linkSx}>Rules &amp; glossary</Box>
             <Dot />
-            {/* Next to the API docs on purpose: one says where this came from and the other says
-                how to take it, which is the same conversation. */}
+            {/* THE API DOCS USED TO SIT HERE AND NOW LIVE ON THE SOURCES PAGE, which is the one
+                consolidation this footer had available: the two say where the data came from and
+                how to take it, which is the same conversation, and four links fit a phone on one
+                line where five did not. It means `/wpbl/api` is now reached through this page
+                rather than directly, so this link is load-bearing for both of them. */}
             <Box component="a" href={WPBL_SOURCES_PAGE} onClick={e => { e.preventDefault(); onNavigate(WPBL_SOURCES_PAGE) }} sx={linkSx}>Data sources</Box>
-            <Dot />
-            <Box component="a" href="/wpbl/api" onClick={e => { e.preventDefault(); onNavigate('/wpbl/api') }} sx={linkSx}>API for developers</Box>
           </FooterRow>
         )}
 
@@ -104,8 +107,13 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
             </>
           )}
           <Dot />
-          <Box component="span" onClick={onOpenFeedback} sx={linkSx}>Send feedback</Box>
+          <Box component="span" onClick={onOpenFeedback} sx={linkSx}>Feedback</Box>
           <Dot />
+          {/* "SUPPORT" STAYS, and trimming it to "Ko-fi ♥" to save a line was the wrong trade. A
+              heading is a label and an action link is not: here the verb IS the information, and
+              Ko-fi is a name creators know and a general sports reader does not, so the short
+              version asks somebody to guess before following an external link. The line came back
+              off "Send feedback" instead, where the noun alone says the whole thing. */}
           <Box component="a" href={KOFI_URL} target="_blank" rel="noopener noreferrer" sx={linkSx}>Support on Ko-fi &hearts;</Box>
         </FooterRow>
 
@@ -120,10 +128,13 @@ export function SiteFooter({ onOpenChangelog, onOpenFeedback, onNavigate, isWpbl
           <Dot />
           <Box component="a" href="/terms" onClick={e => { e.preventDefault(); onNavigate('/terms') }} sx={linkSx}>Terms</Box>
           <Dot />
+          {/* THE DATA CREDIT CAME OFF THIS LINE, and only because it now has somewhere better
+              to be: "Data from the official WPBL stats feed" was the whole of the site's
+              provenance until /wpbl/sources existed, and a sentence in the smallest type on the
+              page was never the right home for it. What has to stay is the disclaimer, which is
+              a different claim and is the one a reader needs. Two lines back on a phone. */}
           <Box component="span">
-            {isWpbl
-              ? 'Not affiliated with the WPBL. Data from the official WPBL stats feed.'
-              : 'Not affiliated with MLB. Data from the MLB Stats API.'}
+            {isWpbl ? 'Not affiliated with the WPBL.' : 'Not affiliated with MLB.'}
           </Box>
         </FooterRow>
       </Box>

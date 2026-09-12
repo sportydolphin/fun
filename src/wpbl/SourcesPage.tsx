@@ -24,7 +24,12 @@ import { WPBL_SOURCES, SOURCE_GROUPS } from './sources'
 import { CARD_BORDER, SectionCard, TYPE_SCALE, hoverOnly } from './ui'
 import { useWpblHeadingTag } from './PageHeading'
 
-export default function SourcesPage() {
+/** Modified clicks are left to the browser, so open-in-new-tab works on an internal link the
+ *  way it does on any other. Same rule as LeaguePage. */
+const isModified = (e: React.MouseEvent) =>
+  e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0
+
+export default function SourcesPage({ onNavigate }: { onNavigate: (to: string) => void }) {
   const headingTag = useWpblHeadingTag()
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -88,6 +93,28 @@ export default function SourcesPage() {
           </SectionCard>
         )
       })}
+
+      {/* THE API DOCS, WHICH USED TO BE A FOOTER LINK OF THEIR OWN. Moved here because the two
+          are one conversation: this page says where the numbers came from, and that one says how
+          to take them. It also bought the footer a line back on a phone. Consequence worth
+          knowing: `/wpbl/api` now has exactly one internal door and this is it, so this link is
+          the only thing keeping that page out of the orphan shape Google discounts. */}
+      <SectionCard title="Using this data">
+        <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.6 }}>
+          The WPBL numbers on this site are readable as JSON, free and without a key.{' '}
+          <Box
+            component="a"
+            href="/wpbl/api"
+            onClick={e => { if (!isModified(e)) { e.preventDefault(); onNavigate('/wpbl/api') } }}
+            sx={{
+              color: 'inherit', fontWeight: 700, textDecoration: 'underline',
+              '&:focus-visible': { outline: '2px solid', outlineColor: 'text.primary', outlineOffset: 2 },
+            }}
+          >API for developers</Box>{' '}
+          has the endpoints, and the same credit asked of this page applies to anything built on
+          them: the data is the league&rsquo;s and the people above&rsquo;s, not ours to license.
+        </Typography>
+      </SectionCard>
 
       <SectionCard title="Corrections">
         <Typography sx={{ fontSize: TYPE_SCALE.meta, color: 'text.secondary', lineHeight: 1.6 }}>
